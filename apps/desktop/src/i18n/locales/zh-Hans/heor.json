@@ -48,6 +48,7 @@
     "referenceRequired": "需先完成参考案例审计",
     "uncertaintyRequired": "需先完成不确定性分析审计",
     "budgetImpactRequired": "需先完成预算影响分析审计",
+    "validationRequired": "需先获得可批准的独立验证结果",
     "notDecisionReady": "尚不可用于决策"
   },
   "reviewSection": "人工审阅",
@@ -144,6 +145,26 @@
     "noProject": "没有可用于预算影响分析审计的当前项目。",
     "missingPlan": "必须先有分析计划，才能审计预算影响分析。"
   },
+  "validation": {
+    "title": "独立模型验证",
+    "loading": "正在审计验证包……",
+    "approvable": "验证包可进入批准",
+    "notApprovable": "验证包不可批准",
+    "incomplete": "验证包不完整",
+    "reviewer": "声明的审查人",
+    "coverage": "必需覆盖",
+    "evidence": "本地证据",
+    "openIssues": "未关闭问题",
+    "pending": "建议待定",
+    "approve_for_intended_use": "建议按预定用途批准",
+    "approve_with_limitations": "建议附限制批准",
+    "do_not_approve": "建议不批准",
+    "askPrepare": "让 Agent 准备验证证据",
+    "repairPrompt": "使用 $heor-model-validation，针对当前 analysis-plan、conceptual-model、uncertainty-plan 和 budget-impact-plan 的精确字节，准备或审计 heor/model-validation.json 及 heor/validation-evidence/ 下的本地证据。无评分地报告表面、内部、外部、交叉模型、预测和 TECH-VER 检查，保留所有失败与局限。不要声称审查人独立，不要填写人工声明或建议，也不要创建批准事件。",
+    "note": "应用只验证结构、哈希、本地证据、覆盖范围与声明的审查人边界；它无法证明证据真实，也无法证明审查人确实独立。",
+    "noProject": "没有可用于模型验证审计的当前项目。",
+    "missingPlan": "必须先有分析计划，才能审计模型验证。"
+  },
   "action": {
     "approve": "审阅{{gate}}",
     "revokeStale": "撤销过期批准",
@@ -158,9 +179,11 @@
     "body": "该应用自有事件记录人工对文件 {{hash}} 的本地声明，Agent 无法创建它。",
     "actor": "人工审阅者",
     "actorPlaceholder": "姓名或本地审阅者标识",
+    "expectedReviewer": "审查人标识已由验证声明绑定；若身份不正确，请先修正验证报告。",
     "rationale": "审阅依据",
     "rationalePlaceholder": "你核查了什么，以及为什么可以进入下一关",
     "confirm": "本次审阅由我本人完成",
+    "confirmIndependent": "我是声明的独立审查人，并已亲自核验该验证包适用于其所述预定用途",
     "approve": "记录批准",
     "revoke": "记录撤销",
     "cancel": "取消"

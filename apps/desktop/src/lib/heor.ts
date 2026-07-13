@@ -5,6 +5,7 @@ export const HEOR_CONCEPTUAL_MODEL_PATH = "heor/conceptual-model.json";
 export const HEOR_REFERENCE_CASE_ASSESSMENT_PATH = "heor/reference-case-assessment.json";
 export const HEOR_UNCERTAINTY_PLAN_PATH = "heor/uncertainty-plan.json";
 export const HEOR_BUDGET_IMPACT_PLAN_PATH = "heor/budget-impact-plan.json";
+export const HEOR_MODEL_VALIDATION_PATH = "heor/model-validation.json";
 
 export type HeorGate =
   | "decision_problem"
@@ -207,6 +208,35 @@ export interface HeorBudgetImpactAudit {
   errors: string[];
 }
 
+export interface HeorModelValidationAudit {
+  complete: boolean;
+  approvable: boolean;
+  status: "complete" | "incomplete";
+  validationId: string;
+  analysisId: string;
+  validationSha256: string;
+  analysisPlanSha256: string;
+  conceptualModelSha256: string;
+  uncertaintyPlanSha256: string;
+  budgetImpactPlanSha256: string;
+  reviewerLabel: string;
+  recommendation:
+    | "pending"
+    | "approve_for_intended_use"
+    | "approve_with_limitations"
+    | "do_not_approve";
+  evidenceCount: number;
+  checkCount: number;
+  requiredCoverageCount: number;
+  coveredRequirementCount: number;
+  issueCount: number;
+  openBlockingIssueCount: number;
+  openMinorIssueCount: number;
+  invalidEvidence: string[];
+  missingCoverage: string[];
+  errors: string[];
+}
+
 export interface HeorAnalysisPlan {
   schema_version: "0.1.0";
   analysis_id: string;
@@ -289,6 +319,8 @@ export interface HeorWorkflowStatus {
     uncertaintyAudit: HeorUncertaintyAudit;
     budgetImpactPlanMatchesApproval: boolean;
     budgetImpactAudit: HeorBudgetImpactAudit;
+    independentValidationMatchesApproval: boolean;
+    validationAudit: HeorModelValidationAudit;
     approvalChainHead: string | null;
     approvalIntegrity: string;
     identityAssurance: string;
@@ -724,6 +756,12 @@ export async function auditHeorBudgetImpact(): Promise<HeorBudgetImpactAudit> {
   return invoke<HeorBudgetImpactAudit>("audit_heor_budget_impact");
 }
 
+export async function auditHeorModelValidation(): Promise<HeorModelValidationAudit> {
+  if (!isTauri) return HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorModelValidationAudit>("audit_heor_model_validation");
+}
+
 export async function runHeorUncertainty(
   projectId: string,
 ): Promise<HeorUncertaintyRunResult> {
@@ -901,6 +939,31 @@ export const HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT: HeorBudgetImpactAudit = {
   errors: ["heor/budget-impact-plan.json is required"],
 };
 
+export const HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT: HeorModelValidationAudit = {
+  complete: false,
+  approvable: false,
+  status: "incomplete",
+  validationId: "",
+  analysisId: HEOR_BROWSER_DEMO_PLAN.analysis_id,
+  validationSha256: "",
+  analysisPlanSha256: "",
+  conceptualModelSha256: "",
+  uncertaintyPlanSha256: "",
+  budgetImpactPlanSha256: "",
+  reviewerLabel: "",
+  recommendation: "pending",
+  evidenceCount: 0,
+  checkCount: 0,
+  requiredCoverageCount: 18,
+  coveredRequirementCount: 0,
+  issueCount: 0,
+  openBlockingIssueCount: 0,
+  openMinorIssueCount: 0,
+  invalidEvidence: [],
+  missingCoverage: ["heor/model-validation.json is required"],
+  errors: ["heor/model-validation.json is required"],
+};
+
 export function browserDemoRun(
   inputSha256: string,
   approvedGates: HeorGate[],
@@ -909,6 +972,7 @@ export function browserDemoRun(
   const referenceCaseAudit = HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT;
   const uncertaintyAudit = HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT;
   const budgetImpactAudit = HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT;
+  const validationAudit = HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT;
   const authorized = approvedGates.includes("analysis_plan")
     && evidenceAudit.complete && referenceCaseAudit.complete && uncertaintyAudit.complete
     && budgetImpactAudit.complete;
@@ -965,6 +1029,8 @@ export function browserDemoRun(
       uncertaintyAudit,
       budgetImpactPlanMatchesApproval: false,
       budgetImpactAudit,
+      independentValidationMatchesApproval: false,
+      validationAudit,
       approvalChainHead: null,
       approvalIntegrity: "verified_unanchored_sha256_chain",
       identityAssurance: "local_human_assertion",

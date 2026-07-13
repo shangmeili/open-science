@@ -22,11 +22,13 @@ import {
   auditHeorEvidence,
   auditHeorReferenceCase,
   auditHeorUncertainty,
+  auditHeorModelValidation,
   browserDemoRun,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_PLAN,
   HEOR_CONCEPTUAL_MODEL_PATH,
   HEOR_BUDGET_IMPACT_PLAN_PATH,
+  HEOR_MODEL_VALIDATION_PATH,
   HEOR_PLAN_PATH,
   HEOR_REFERENCE_CASE_ASSESSMENT_PATH,
   HEOR_UNCERTAINTY_PLAN_PATH,
@@ -38,6 +40,7 @@ import {
   type HeorConceptualModelAudit,
   type HeorBudgetImpactAudit,
   type HeorBudgetImpactRunResult,
+  type HeorModelValidationAudit,
   type HeorGate,
   type HeorReferenceCaseAudit,
   type HeorRunResult,
@@ -55,8 +58,13 @@ import { isTauri } from "@/lib/tauri";
 import { toast } from "@/lib/toast";
 import { MaximizePaneButton, PaneTitlebarInset } from "@/components/inspector/RightPane";
 
-const REVIEW_GATES: HeorGate[] = ["decision_problem", "conceptual_model", "analysis_plan"];
-const ALL_GATES: HeorGate[] = [...REVIEW_GATES, "independent_validation", "release"];
+const REVIEW_GATES: HeorGate[] = [
+  "decision_problem",
+  "conceptual_model",
+  "analysis_plan",
+  "independent_validation",
+];
+const ALL_GATES: HeorGate[] = [...REVIEW_GATES, "release"];
 
 const EMPTY_LOG: HeorApprovalLog = {
   events: [],
@@ -104,22 +112,48 @@ type BudgetImpactState =
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorBudgetImpactAudit };
 
+type ModelValidationState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorModelValidationAudit };
+
 type ReviewIntent = {
   action: HeorApprovalAction;
   gate: HeorGate;
   artifactSha256: string;
+  expectedActor?: string;
 };
 
 function gateArtifactHash(
   gate: HeorGate,
   planArtifact: ArtifactState,
   conceptualArtifact: ConceptualArtifactState,
+  validation: ModelValidationState,
 ): string | null {
   if (planArtifact.kind !== "ready") return null;
   if (gate === "conceptual_model") {
     return conceptualArtifact.kind === "ready" ? conceptualArtifact.sha256 : null;
   }
+  if (gate === "independent_validation") {
+    return validation.kind === "ready" ? validation.audit.validationSha256 : null;
+  }
   return planArtifact.sha256;
+}
+
+function eventBinds(event: HeorApprovalEvent | undefined, path: string, sha256: string): boolean {
+  return event?.relatedArtifacts?.some(
+    (binding) => binding.path === path && binding.sha256 === sha256,
+  ) === true;
+}
+
+function validationBindingsCurrent(
+  event: HeorApprovalEvent | undefined,
+  audit: HeorModelValidationAudit,
+): boolean {
+  return eventBinds(event, HEOR_PLAN_PATH, audit.analysisPlanSha256)
+    && eventBinds(event, HEOR_CONCEPTUAL_MODEL_PATH, audit.conceptualModelSha256)
+    && eventBinds(event, HEOR_UNCERTAINTY_PLAN_PATH, audit.uncertaintyPlanSha256)
+    && eventBinds(event, HEOR_BUDGET_IMPACT_PLAN_PATH, audit.budgetImpactPlanSha256);
 }
 
 export function HeorReviewPane({
@@ -139,6 +173,7 @@ export function HeorReviewPane({
   const [referenceCase, setReferenceCase] = useState<ReferenceCaseState>({ kind: "loading" });
   const [uncertainty, setUncertainty] = useState<UncertaintyState>({ kind: "loading" });
   const [budgetImpact, setBudgetImpact] = useState<BudgetImpactState>({ kind: "loading" });
+  const [modelValidation, setModelValidation] = useState<ModelValidationState>({ kind: "loading" });
   const [approvals, setApprovals] = useState<HeorApprovalLog>(EMPTY_LOG);
   const [result, setResult] = useState<HeorRunResult | null>(null);
   const [uncertaintyResult, setUncertaintyResult] = useState<HeorUncertaintyRunResult | null>(null);
@@ -156,6 +191,7 @@ export function HeorReviewPane({
       setReferenceCase({ kind: "invalid", message: t("reference.noProject") });
       setUncertainty({ kind: "invalid", message: t("uncertainty.noProject") });
       setBudgetImpact({ kind: "invalid", message: t("budgetImpact.noProject") });
+      setModelValidation({ kind: "invalid", message: t("validation.noProject") });
       setApprovals(EMPTY_LOG);
       return;
     }
@@ -164,6 +200,7 @@ export function HeorReviewPane({
     setReferenceCase({ kind: "loading" });
     setUncertainty({ kind: "loading" });
     setBudgetImpact({ kind: "loading" });
+    setModelValidation({ kind: "loading" });
     try {
       const raw = isTauri
         ? (await readArtifact(HEOR_PLAN_PATH))?.data ?? null
@@ -173,6 +210,7 @@ export function HeorReviewPane({
         setReferenceCase({ kind: "invalid", message: t("reference.missingPlan") });
         setUncertainty({ kind: "invalid", message: t("uncertainty.missingPlan") });
         setBudgetImpact({ kind: "invalid", message: t("budgetImpact.missingPlan") });
+        setModelValidation({ kind: "invalid", message: t("validation.missingPlan") });
         setApprovals(await listHeorApprovals(project.id));
         return;
       }
@@ -199,6 +237,14 @@ export function HeorReviewPane({
         setBudgetImpact({ kind: "ready", audit: await auditHeorBudgetImpact() });
       } catch (error) {
         setBudgetImpact({
+          kind: "invalid",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      try {
+        setModelValidation({ kind: "ready", audit: await auditHeorModelValidation() });
+      } catch (error) {
+        setModelValidation({
           kind: "invalid",
           message: error instanceof Error ? error.message : String(error),
         });
@@ -243,6 +289,10 @@ export function HeorReviewPane({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
+      setModelValidation({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
       toast.error(t("toast.loadFailed"));
     }
   }, [project, t]);
@@ -257,7 +307,12 @@ export function HeorReviewPane({
     const effective: HeorGate[] = [];
     let previousSequence = 0;
     for (const gate of REVIEW_GATES) {
-      const artifactSha256 = gateArtifactHash(gate, artifact, conceptualArtifact);
+      const artifactSha256 = gateArtifactHash(
+        gate,
+        artifact,
+        conceptualArtifact,
+        modelValidation,
+      );
       if (!artifactSha256) break;
       if (gate === "conceptual_model"
         && conceptualArtifact.kind === "ready"
@@ -270,6 +325,10 @@ export function HeorReviewPane({
           || !uncertainty.audit.complete
           || budgetImpact.kind !== "ready"
           || !budgetImpact.audit.complete)) break;
+      if (gate === "independent_validation"
+        && (modelValidation.kind !== "ready"
+          || !modelValidation.audit.complete
+          || !modelValidation.audit.approvable)) break;
       const event = latest.get(gate);
       if (
         !event ||
@@ -285,6 +344,9 @@ export function HeorReviewPane({
           && !event.relatedArtifacts?.some((binding) =>
             binding.path === HEOR_BUDGET_IMPACT_PLAN_PATH
             && binding.sha256 === budgetImpact.audit.budgetImpactSha256)) ||
+        (gate === "independent_validation"
+          && modelValidation.kind === "ready"
+          && !validationBindingsCurrent(event, modelValidation.audit)) ||
         event.sequence <= previousSequence
       ) {
         break;
@@ -293,7 +355,15 @@ export function HeorReviewPane({
       previousSequence = event.sequence;
     }
     return effective;
-  }, [approvals.events, artifact, conceptualArtifact, referenceCase, uncertainty, budgetImpact]);
+  }, [
+    approvals.events,
+    artifact,
+    conceptualArtifact,
+    referenceCase,
+    uncertainty,
+    budgetImpact,
+    modelValidation,
+  ]);
 
   const evidenceAudit = useMemo(
     () => artifact.kind === "ready" ? auditHeorEvidence(artifact.plan) : null,
@@ -317,7 +387,23 @@ export function HeorReviewPane({
           { path: HEOR_UNCERTAINTY_PLAN_PATH, sha256: uncertainty.audit.uncertaintySha256 },
           { path: HEOR_BUDGET_IMPACT_PLAN_PATH, sha256: budgetImpact.audit.budgetImpactSha256 },
         ]
-      : undefined;
+      : gate === "independent_validation" && modelValidation.kind === "ready"
+        ? [
+            { path: HEOR_PLAN_PATH, sha256: modelValidation.audit.analysisPlanSha256 },
+            {
+              path: HEOR_CONCEPTUAL_MODEL_PATH,
+              sha256: modelValidation.audit.conceptualModelSha256,
+            },
+            {
+              path: HEOR_UNCERTAINTY_PLAN_PATH,
+              sha256: modelValidation.audit.uncertaintyPlanSha256,
+            },
+            {
+              path: HEOR_BUDGET_IMPACT_PLAN_PATH,
+              sha256: modelValidation.audit.budgetImpactPlanSha256,
+            },
+          ]
+        : undefined;
     const eventHash = await sha256Text(
       JSON.stringify({
         sequence,
@@ -517,6 +603,10 @@ export function HeorReviewPane({
               state={budgetImpact}
               onRequestRepair={() => onRequestRevision(t("budgetImpact.repairPrompt"))}
             />
+            <ModelValidationAssessment
+              state={modelValidation}
+              onRequestPreparation={() => onRequestRevision(t("validation.repairPrompt"))}
+            />
 
             <section className="border-b border-border px-5 py-4">
               <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
@@ -525,18 +615,29 @@ export function HeorReviewPane({
               <div className="space-y-2">
                 {REVIEW_GATES.map((gate, index) => {
                   const approved = currentApprovals.includes(gate);
-                  const artifactSha256 = gateArtifactHash(gate, artifact, conceptualArtifact);
-                  const gateEvent = latest.get(gate);
-                  const relatedStale = gate === "analysis_plan" && (
-                    (uncertainty.kind === "ready"
-                      && !gateEvent?.relatedArtifacts?.some((binding) =>
-                        binding.path === HEOR_UNCERTAINTY_PLAN_PATH
-                        && binding.sha256 === uncertainty.audit.uncertaintySha256))
-                    || (budgetImpact.kind === "ready"
-                      && !gateEvent?.relatedArtifacts?.some((binding) =>
-                        binding.path === HEOR_BUDGET_IMPACT_PLAN_PATH
-                        && binding.sha256 === budgetImpact.audit.budgetImpactSha256))
+                  const artifactSha256 = gateArtifactHash(
+                    gate,
+                    artifact,
+                    conceptualArtifact,
+                    modelValidation,
                   );
+                  const gateEvent = latest.get(gate);
+                  const relatedStale = (gate === "analysis_plan" && (
+                    (uncertainty.kind === "ready"
+                      && !eventBinds(
+                        gateEvent,
+                        HEOR_UNCERTAINTY_PLAN_PATH,
+                        uncertainty.audit.uncertaintySha256,
+                      ))
+                    || (budgetImpact.kind === "ready"
+                      && !eventBinds(
+                        gateEvent,
+                        HEOR_BUDGET_IMPACT_PLAN_PATH,
+                        budgetImpact.audit.budgetImpactSha256,
+                      ))
+                  )) || (gate === "independent_validation"
+                    && modelValidation.kind === "ready"
+                    && !validationBindingsCurrent(gateEvent, modelValidation.audit));
                   const stale = approvals.effectiveApprovedGates.includes(gate)
                     && gateEvent?.action === "approve"
                     && (gateEvent.artifactSha256 !== artifactSha256 || relatedStale);
@@ -555,16 +656,21 @@ export function HeorReviewPane({
                   const budgetImpactBlocked = gate === "analysis_plan"
                     && gate === nextGate
                     && (budgetImpact.kind !== "ready" || !budgetImpact.audit.complete);
+                  const validationBlocked = gate === "independent_validation"
+                    && gate === nextGate
+                    && (modelValidation.kind !== "ready"
+                      || !modelValidation.audit.complete
+                      || !modelValidation.audit.approvable);
                   const waiting = gate === nextGate && !stale && !conceptualBlocked
                     && !evidenceBlocked && !referenceBlocked && !uncertaintyBlocked
-                    && !budgetImpactBlocked;
+                    && !budgetImpactBlocked && !validationBlocked;
                   return (
                     <div key={gate} className="rounded-input border border-border bg-bg/50 px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {approved ? (
                           <Check size={14} className="text-ok" />
                         ) : waiting || stale || conceptualBlocked || evidenceBlocked || referenceBlocked
-                          || uncertaintyBlocked || budgetImpactBlocked ? (
+                          || uncertaintyBlocked || budgetImpactBlocked || validationBlocked ? (
                           <Circle size={12} className={stale ? "text-error" : "text-accent"} />
                         ) : (
                           <LockKeyhole size={13} className="text-muted" />
@@ -585,6 +691,8 @@ export function HeorReviewPane({
                                 ? t("status.uncertaintyRequired")
                               : budgetImpactBlocked
                                 ? t("status.budgetImpactRequired")
+                              : validationBlocked
+                                ? t("status.validationRequired")
                               : waiting
                                 ? t("status.awaiting")
                                 : t("status.locked")}
@@ -606,7 +714,15 @@ export function HeorReviewPane({
                       ) : waiting ? (
                         <button
                           onClick={() =>
-                            setIntent({ action: "approve", gate, artifactSha256: artifactSha256! })
+                            setIntent({
+                              action: "approve",
+                              gate,
+                              artifactSha256: artifactSha256!,
+                              expectedActor: gate === "independent_validation"
+                                && modelValidation.kind === "ready"
+                                ? modelValidation.audit.reviewerLabel
+                                : undefined,
+                            })
                           }
                           className="mt-2 text-xs font-medium text-accent hover:underline"
                         >
@@ -698,7 +814,7 @@ function StageRail({ currentApprovals, hasResult }: { currentApprovals: HeorGate
     { key: "model", done: currentApprovals.includes("conceptual_model") },
     { key: "plan", done: currentApprovals.includes("analysis_plan") },
     { key: "compute", done: hasResult },
-    { key: "validate", done: false },
+    { key: "validate", done: currentApprovals.includes("independent_validation") },
     { key: "release", done: false },
   ] as const;
   return (
@@ -1098,6 +1214,84 @@ function BudgetImpactAssessment({
   );
 }
 
+function ModelValidationAssessment({
+  state,
+  onRequestPreparation,
+}: {
+  state: ModelValidationState;
+  onRequestPreparation: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const approvable = audit?.complete === true && audit.approvable;
+  const issues = audit
+    ? [...new Set([...audit.missingCoverage, ...audit.invalidEvidence, ...audit.errors])]
+    : state.kind === "invalid" ? [state.message] : [];
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {approvable ? (
+          <ShieldCheck size={16} className="mt-0.5 text-ok" />
+        ) : (
+          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("validation.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", approvable ? "text-ok" : "text-warning")}>
+            {state.kind === "loading"
+              ? t("validation.loading")
+              : approvable
+                ? t("validation.approvable")
+                : audit?.complete
+                  ? t("validation.notApprovable")
+                  : t("validation.incomplete")}
+          </div>
+          {audit?.reviewerLabel && (
+            <div className="mt-1 text-[10px] text-muted">
+              {t("validation.reviewer")}: {audit.reviewerLabel} · {t(`validation.${audit.recommendation}`)}
+            </div>
+          )}
+        </div>
+        {audit && (
+          <span className="rounded-full border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-text">
+            {audit.coveredRequirementCount}/{audit.requiredCoverageCount}
+          </span>
+        )}
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted">{HEOR_MODEL_VALIDATION_PATH}</div>
+      {audit && (
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <Metric
+            label={t("validation.coverage")}
+            value={`${audit.coveredRequirementCount}/${audit.requiredCoverageCount}`}
+          />
+          <Metric label={t("validation.evidence")} value={String(audit.evidenceCount)} />
+          <Metric
+            label={t("validation.openIssues")}
+            value={String(audit.openBlockingIssueCount + audit.openMinorIssueCount)}
+          />
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      {!approvable && state.kind !== "loading" && (
+        <button
+          onClick={onRequestPreparation}
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+        >
+          <MessageSquareText size={13} /> {t("validation.askPrepare")}
+        </button>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("validation.note")}</p>
+    </section>
+  );
+}
+
 function ApprovalDialog({
   intent,
   artifactHash,
@@ -1110,7 +1304,7 @@ function ApprovalDialog({
   onSubmit: (actor: string, rationale: string) => void;
 }) {
   const { t } = useTranslation("heor");
-  const [actor, setActor] = useState("");
+  const [actor, setActor] = useState(intent.expectedActor ?? "");
   const [rationale, setRationale] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const valid = actor.trim().length > 0 && rationale.trim().length > 1 && confirmed;
@@ -1131,15 +1325,24 @@ function ApprovalDialog({
         <p className="mt-2 text-xs leading-5 text-muted">{t("dialog.body", { hash: `${artifactHash.slice(0, 12)}…` })}</p>
         <label className="mt-4 block text-xs font-medium text-text">
           {t("dialog.actor")}
-          <input value={actor} onChange={(event) => setActor(event.target.value)} autoFocus placeholder={t("dialog.actorPlaceholder")} className="mt-1.5 w-full rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent" />
+          <input value={actor} onChange={(event) => setActor(event.target.value)} readOnly={Boolean(intent.expectedActor)} autoFocus placeholder={t("dialog.actorPlaceholder")} className="mt-1.5 w-full rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent read-only:text-muted" />
         </label>
+        {intent.expectedActor && (
+          <p className="mt-1.5 text-[10px] leading-4 text-muted">
+            {t("dialog.expectedReviewer")}
+          </p>
+        )}
         <label className="mt-3 block text-xs font-medium text-text">
           {t("dialog.rationale")}
           <textarea value={rationale} onChange={(event) => setRationale(event.target.value)} placeholder={t("dialog.rationalePlaceholder")} rows={3} className="mt-1.5 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent" />
         </label>
         <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-text">
           <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 accent-[var(--color-accent)]" />
-          <span>{t("dialog.confirm")}</span>
+          <span>
+            {intent.gate === "independent_validation" && intent.action === "approve"
+              ? t("dialog.confirmIndependent")
+              : t("dialog.confirm")}
+          </span>
         </label>
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onCancel} className="rounded-input border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-surface-2">{t("dialog.cancel")}</button>

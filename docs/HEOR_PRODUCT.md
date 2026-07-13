@@ -26,8 +26,8 @@ a form-led modeling application.
 
 The first complete workflow compares two strategies using a cohort state
 transition model and a three-year budget impact analysis. Both deterministic
-calculation paths are implemented; independent validation and release remain
-outside the alpha calculation boundary.
+calculation paths and the independent-validation admission gate are
+implemented. Release remains outside the alpha boundary.
 
 ## Non-negotiable boundaries
 
@@ -36,7 +36,9 @@ outside the alpha calculation boundary.
 2. A run is not decision-ready until the decision problem, independent
    `heor/conceptual-model.json` artifact, hash-bound reference-case assessment,
    executable uncertainty plan, executable budget impact plan, and analysis
-   plan are approved by a human and recorded with their current artifact hashes.
+   plan are approved by a human, an independent reviewer has submitted an
+   approvable validation package bound to all four current model artifacts, and
+   the separate release gate is implemented and approved.
 3. Every decision-relevant value must carry a source, unit, jurisdiction, price
    year, selection rationale, and uncertainty status before public beta.
 4. Results must trace to input, engine version, reference-case version, and run
@@ -135,6 +137,39 @@ When those materially affect the decision question, the workbench must stop at
 an explicit limitation and use a future cohort or patient-level BIA adapter; it
 must not force the question into this calculator.
 
+## Implemented independent-validation boundary
+
+The first-party `$heor-model-validation` skill prepares or audits
+`heor/model-validation.json` and local evidence under
+`heor/validation-evidence/`. It adapts, rather than copies, the Chinese 2020
+guideline, ISPOR-SMDM validation taxonomy, AdViSHE reporting structure, and
+TECH-VER technical-verification domains. It deliberately produces no quality
+score: fitness for intended use remains a reviewer judgment.
+
+The native desktop audit requires face, input, external, cross-model,
+predictive, and technical-verification coverage across the cost-effectiveness
+and budget-impact models. Cross-model and predictive checks may be documented
+as not feasible only when the report supplies evidence and rationale. Every
+evidence file must remain under the project, pass a size and path boundary, and
+match its recorded SHA-256. The report binds the exact current bytes of the
+analysis plan, conceptual model, uncertainty plan, and budget-impact plan.
+
+Codex may run tests, prepare evidence, and preserve findings, but it may not
+fill the reviewer independence declaration or recommendation, identify its own
+work as independent review, or create approval events. The app permits the
+independent-validation approval only when the declared reviewer differs from
+the developer, the approval actor exactly matches that reviewer label, all
+required coverage is present, and no blocker or major issue remains open.
+Changing any report, model, or bound analysis artifact makes the approval
+stale. `release` currently fails explicitly because its governance and package
+contract are not implemented.
+
+This gate establishes local structural integrity and a human assertion, not
+objective truth. The app cannot prove that evidence is accurate, that the
+reviewer is genuinely independent, or that the model is fit for decisions; a
+future identity/signature boundary and methods acceptance process remain
+necessary before public release.
+
 ## Alpha acceptance
 
 - A hand-checkable golden model matches an independent calculation.
@@ -154,8 +189,12 @@ must not force the question into this calculator.
 - The BIA golden fixture matches an independent annual hand calculation,
   reports all category subtotals, applies zero discounting, and fails closed on
   changed plan bytes or missing population, uptake, and cost provenance.
-- Exploratory and analysis-authorized runs are visibly distinct. Validation and
-  release remain separate human-controlled states.
+- Independent validation requires exact four-artifact and evidence hashes,
+  declared reviewer/developer separation, complete required coverage, and zero
+  open blocker or major issues. Invalid evidence, stale bytes, or actor mismatch
+  fails closed.
+- Exploratory, analysis-authorized, and independently validated states remain
+  distinct. Release is a separate, currently unavailable human-controlled gate.
 - The core analysis runs without a model provider or network connection.
 
 ## Upstream and licensing

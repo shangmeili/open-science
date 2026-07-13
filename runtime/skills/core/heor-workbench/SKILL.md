@@ -27,9 +27,10 @@ Use conversation as the primary interface. Translate the researcher's intent int
 6. Use `$heor-reference-case` to assess every requirement in the selected versioned profile and bind `heor/reference-case-assessment.json` to the plan by exact content hash.
 7. Use `$heor-uncertainty-analysis` to create and validate `heor/uncertainty-plan.json`. Bind it to the exact current analysis-plan bytes; derive ranges and distributions only from linked evidence, and preserve omissions, dependence assumptions, convergence thresholds, and structural scenarios.
 8. Use `$heor-budget-impact` when affordability or payer expenditure is in scope. Create `heor/budget-impact-plan.json` as a separate three-year, undiscounted, two-scenario cost calculator bound to the exact analysis-plan bytes; do not derive it from discounted cost-effectiveness totals.
-9. Tell the researcher exactly what changed, which model and BIA inputs, reference-case requirements, and uncertainty components remain unsupported, and which review gate is ready for human inspection.
-10. Run deterministic base-case, uncertainty, or budget impact calculations only through the workbench review panel or its documented local command. Never recreate approval state in the workspace.
-11. Interpret results in the conversation with the result classification, exact input hashes, Monte Carlo or budget diagnostics, limitations, and any validation still required.
+9. Use `$heor-model-validation` after the analysis artifacts are stable to prepare or audit `heor/model-validation.json` and local evidence. Never fill the independent reviewer's declaration or recommendation, identify Agent work as independent review, or create validation approval.
+10. Tell the researcher exactly what changed, which model and BIA inputs, reference-case requirements, uncertainty components, and validation checks remain unsupported, and which review gate is ready for human inspection.
+11. Run deterministic base-case, uncertainty, or budget impact calculations only through the workbench review panel or its documented local command. Never recreate approval state in the workspace.
+12. Interpret results in the conversation with the result classification, exact input hashes, Monte Carlo or budget diagnostics, limitations, and any validation still required.
 
 ## Evidence discipline
 
@@ -42,13 +43,13 @@ Use conversation as the primary interface. Translate the researcher's intent int
 
 ## Analysis-plan handoff
 
-The app watches `heor/analysis-plan.json`, `heor/conceptual-model.json`, `heor/reference-case-assessment.json`, `heor/uncertainty-plan.json`, and `heor/budget-impact-plan.json`. Keep them valid JSON and do not write temporary commentary into them. Use lower-case snake-case keys exactly as documented. Preserve unknown metadata fields created by the researcher or another tool. Independent artifacts are content-hashed; changing them requires renewed review.
+The app watches `heor/analysis-plan.json`, `heor/conceptual-model.json`, `heor/reference-case-assessment.json`, `heor/uncertainty-plan.json`, `heor/budget-impact-plan.json`, and `heor/model-validation.json`. Keep them valid JSON and do not write temporary commentary into them. Keep validation evidence under `heor/validation-evidence/`. Use lower-case snake-case keys exactly as documented. Preserve unknown metadata fields created by the researcher or another tool. Independent artifacts are content-hashed; changing them requires renewed review.
 
 After writing the plan, report:
 
 - artifact path;
 - unresolved inputs and assumptions;
 - evidence gaps;
-- recommended next human gate: decision problem, conceptual model, or analysis plan.
+- recommended next human gate: decision problem, conceptual model, analysis plan, or independent validation.
 
 Do not ask the researcher to edit JSON unless they explicitly prefer that. Offer natural-language revisions such as “change the perspective to the Chinese healthcare system” and update the artifact yourself.

@@ -48,6 +48,7 @@
     "referenceRequired": "Reference-case audit required",
     "uncertaintyRequired": "Uncertainty audit required",
     "budgetImpactRequired": "Budget impact audit required",
+    "validationRequired": "Approvable independent validation required",
     "notDecisionReady": "Not decision-ready"
   },
   "reviewSection": "Human review",
@@ -144,6 +145,26 @@
     "noProject": "There is no current project for budget impact audit.",
     "missingPlan": "An analysis plan is required before budget impact can be audited."
   },
+  "validation": {
+    "title": "Independent model validation",
+    "loading": "Auditing the validation package…",
+    "approvable": "Validation package is approvable",
+    "notApprovable": "Validation package is not approvable",
+    "incomplete": "Validation package is incomplete",
+    "reviewer": "Declared reviewer",
+    "coverage": "Required coverage",
+    "evidence": "Local evidence",
+    "openIssues": "Open issues",
+    "pending": "recommendation pending",
+    "approve_for_intended_use": "approve for intended use",
+    "approve_with_limitations": "approve with limitations",
+    "do_not_approve": "do not approve",
+    "askPrepare": "Ask Agent to prepare validation evidence",
+    "repairPrompt": "Use $heor-model-validation to prepare or audit heor/model-validation.json and local files under heor/validation-evidence/ against the exact current analysis-plan, conceptual-model, uncertainty-plan, and budget-impact-plan bytes. Report face, internal, external, cross-model, predictive, and TECH-VER checks without a score. Preserve all failures and limitations. Do not claim reviewer independence, fill the human declaration or recommendation, or create an approval event.",
+    "note": "The app verifies structure, hashes, local evidence, coverage, and the declared reviewer boundary. It cannot establish that evidence is true or that the reviewer is genuinely independent.",
+    "noProject": "There is no current project for model validation audit.",
+    "missingPlan": "An analysis plan is required before model validation can be audited."
+  },
   "action": {
     "approve": "Review {{gate}}",
     "revokeStale": "Revoke stale approval",
@@ -158,9 +179,11 @@
     "body": "This app-owned event records a local human assertion for artifact {{hash}}. The agent cannot create it.",
     "actor": "Human reviewer",
     "actorPlaceholder": "Name or local reviewer label",
+    "expectedReviewer": "The reviewer label is bound by the signed validation declaration. Correct the validation report if this identity is wrong.",
     "rationale": "Review rationale",
     "rationalePlaceholder": "What you checked and why this gate can proceed",
     "confirm": "I performed this review myself",
+    "confirmIndependent": "I am the declared independent reviewer and personally verified this package for its stated intended use",
     "approve": "Record approval",
     "revoke": "Record revocation",
     "cancel": "Cancel"

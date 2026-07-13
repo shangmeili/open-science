@@ -947,6 +947,8 @@ pub fn run_heor_budget_impact(
         crate::heor_reference_case::audit_reference_case_for_plan(&app, &workspace, &plan_raw)?;
     let uncertainty_audit =
         crate::heor_uncertainty::audit_uncertainty_plan_for_plan(&workspace, &plan_raw)?;
+    let validation_audit =
+        crate::heor_validation::audit_model_validation_for_plan(&workspace, &plan_raw)?;
     let approval_log = {
         let _guard = approval_state
             .0
@@ -966,6 +968,7 @@ pub fn run_heor_budget_impact(
             reference_case: reference_case_audit,
             uncertainty: uncertainty_audit,
             budget_impact: budget_audit,
+            validation: validation_audit,
         },
     );
     Ok(BudgetImpactRunResult {

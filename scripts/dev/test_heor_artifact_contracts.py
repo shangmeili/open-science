@@ -45,6 +45,10 @@ budget_impact = load(
     "validate_budget_impact_plan",
     "runtime/skills/core/heor-budget-impact/scripts/validate_budget_impact_plan.py",
 )
+model_validation = load(
+    "validate_model_validation",
+    "runtime/skills/core/heor-model-validation/scripts/validate_model_validation.py",
+)
 
 
 def evidence_fixture():
@@ -388,6 +392,153 @@ class BudgetImpactContractTests(unittest.TestCase):
             errors = budget_impact.validate(budget_path, plan_path)
             self.assertIn("discount_rate must be 0", errors)
             self.assertTrue(any("target is invalid" in error for error in errors))
+
+
+class ModelValidationContractTests(unittest.TestCase):
+    @staticmethod
+    def method(domain: str) -> str:
+        return {
+            "face_validity": "expert_review",
+            "input_data": "source_reconciliation",
+            "technical_verification": "black_box",
+            "cross_validity": "cross_model_comparison",
+            "external_validity": "external_data_comparison",
+            "predictive_validity": "prospective_comparison",
+        }[domain]
+
+    def fixture(self, root: Path):
+        heor = root / "heor"
+        evidence_dir = heor / "validation-evidence"
+        evidence_dir.mkdir(parents=True)
+        analysis_id = "nsclc-analysis"
+        bindings = {}
+        for key, relative in model_validation.BINDINGS.items():
+            raw = json.dumps(
+                {"analysis_id": analysis_id, "artifact": key},
+                separators=(",", ":"),
+            ).encode()
+            path = root / relative
+            path.write_bytes(raw)
+            bindings[key] = {
+                "path": relative,
+                "content_sha256": hashlib.sha256(raw).hexdigest(),
+            }
+
+        evidence_raw = b"independent review evidence\n"
+        evidence_path = evidence_dir / "review.txt"
+        evidence_path.write_bytes(evidence_raw)
+        checks = []
+        for index, (label, scope, domain, component, _statuses) in enumerate(
+            model_validation.required_coverage()
+        ):
+            checks.append({
+                "id": f"check-{index}",
+                "scope": scope,
+                "domain": domain,
+                "component": component or (
+                    "conceptual_model" if domain == "face_validity" else "model_outcomes"
+                ),
+                "method": self.method(domain),
+                "status": "passed",
+                "performed_by": "independent_reviewer",
+                "description": label,
+                "expected": "Criterion is met",
+                "observed": "Evidence supports the criterion",
+                "rationale": "Reviewed against the intended use",
+                "evidence_ids": ["review-evidence"],
+                "issue_ids": [],
+            })
+        report = {
+            "schema_version": "0.1.0",
+            "validation_id": "validation-1",
+            "analysis_id": analysis_id,
+            "status": "ready_for_independent_review",
+            "intended_use": "Local reimbursement research",
+            "model_bindings": bindings,
+            "developer_label": "Model developer",
+            "reviewer": {
+                "label": "Independent reviewer",
+                "organization": "Independent methods unit",
+                "role": "independent_reviewer",
+                "reviewed_on": "2026-07-14",
+                "declared_independent": True,
+                "independence_statement": "No role in model development",
+                "conflict_statement": "No conflicts declared",
+            },
+            "evidence_artifacts": [{
+                "id": "review-evidence",
+                "path": "heor/validation-evidence/review.txt",
+                "content_sha256": hashlib.sha256(evidence_raw).hexdigest(),
+                "evidence_type": "test_log",
+                "description": "Independent review evidence",
+            }],
+            "checks": checks,
+            "issues": [],
+            "limitations": ["Predictive observations remain time-limited"],
+            "conclusion": {
+                "recommendation": "approve_for_intended_use",
+                "rationale": "All required checks passed",
+                "residual_uncertainty": ["Future evidence may change conclusions"],
+            },
+        }
+        report_path = heor / "model-validation.json"
+        report_path.write_text(json.dumps(report, indent=2))
+        return report_path, report, evidence_path
+
+    def test_complete_hash_bound_validation_package_is_approvable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report_path, _, _ = self.fixture(root)
+            result = model_validation.audit(report_path, root)
+            self.assertTrue(result["complete"])
+            self.assertTrue(result["approvable"])
+            self.assertEqual(result["covered_requirement_count"], 18)
+
+    def test_stale_evidence_hash_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report_path, _, evidence_path = self.fixture(root)
+            evidence_path.write_text("changed evidence\n")
+            result = model_validation.audit(report_path, root)
+            self.assertFalse(result["complete"])
+            self.assertTrue(any("content_sha256" in error for error in result["errors"]))
+
+    def test_missing_external_coverage_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report_path, report, _ = self.fixture(root)
+            report["checks"] = [
+                check for check in report["checks"]
+                if not (
+                    check["scope"] == "budget_impact"
+                    and check["domain"] == "external_validity"
+                )
+            ]
+            report_path.write_text(json.dumps(report, indent=2))
+            result = model_validation.audit(report_path, root)
+            self.assertFalse(result["complete"])
+            self.assertIn("budget-impact external validity", result["missing_coverage"])
+
+    def test_self_review_and_open_major_issue_block_approval(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report_path, report, _ = self.fixture(root)
+            report["reviewer"]["label"] = report["developer_label"]
+            report["issues"] = [{
+                "id": "major-1",
+                "severity": "major",
+                "status": "open",
+                "description": "External result mismatch",
+                "evidence_ids": ["review-evidence"],
+            }]
+            report["checks"][0]["issue_ids"] = ["major-1"]
+            report["conclusion"]["recommendation"] = "approve_with_limitations"
+            report_path.write_text(json.dumps(report, indent=2))
+            result = model_validation.audit(report_path, root)
+            self.assertFalse(result["complete"])
+            self.assertFalse(result["approvable"])
+            self.assertEqual(result["open_blocking_issue_count"], 1)
+            self.assertIn("independent reviewer must differ from the developer", result["errors"])
 
 
 if __name__ == "__main__":

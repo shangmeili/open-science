@@ -1,0 +1,32 @@
+{
+  "schema_version": "0.1.0",
+  "validation_id": "",
+  "analysis_id": "",
+  "status": "draft",
+  "intended_use": "",
+  "model_bindings": {
+    "analysis_plan": {"path": "heor/analysis-plan.json", "content_sha256": ""},
+    "conceptual_model": {"path": "heor/conceptual-model.json", "content_sha256": ""},
+    "uncertainty_plan": {"path": "heor/uncertainty-plan.json", "content_sha256": ""},
+    "budget_impact_plan": {"path": "heor/budget-impact-plan.json", "content_sha256": ""}
+  },
+  "developer_label": "",
+  "reviewer": {
+    "label": "",
+    "organization": "",
+    "role": "independent_reviewer",
+    "reviewed_on": "",
+    "declared_independent": false,
+    "independence_statement": "",
+    "conflict_statement": ""
+  },
+  "evidence_artifacts": [],
+  "checks": [],
+  "issues": [],
+  "limitations": [],
+  "conclusion": {
+    "recommendation": "pending",
+    "rationale": "",
+    "residual_uncertainty": []
+  }
+}

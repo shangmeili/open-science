@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Model Validation"
+  short_description: "Prepare auditable independent HEOR model validation evidence"
+  default_prompt: "Use $heor-model-validation to prepare or audit the current model-validation report without claiming independent approval."

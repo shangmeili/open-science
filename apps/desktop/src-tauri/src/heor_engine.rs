@@ -12,6 +12,7 @@ use crate::heor_budget_impact::{audit_budget_impact_for_plan, BudgetImpactAudit}
 use crate::heor_evidence::{audit_plan_bytes, EvidenceAudit};
 use crate::heor_reference_case::{audit_reference_case_for_plan, ReferenceCaseAudit};
 use crate::heor_uncertainty::{audit_uncertainty_plan_for_plan, UncertaintyAudit};
+use crate::heor_validation::{audit_model_validation_for_plan, ModelValidationAudit};
 use crate::runtime::workspace_dir;
 
 const INPUT_CAP_BYTES: u64 = 5 * 1024 * 1024;
@@ -31,6 +32,8 @@ pub struct HeorWorkflowStatus {
     uncertainty_audit: UncertaintyAudit,
     budget_impact_plan_matches_approval: bool,
     budget_impact_audit: BudgetImpactAudit,
+    independent_validation_matches_approval: bool,
+    validation_audit: ModelValidationAudit,
     approval_chain_head: Option<String>,
     approval_integrity: &'static str,
     identity_assurance: &'static str,
@@ -49,6 +52,7 @@ pub(crate) struct HeorWorkflowAudits {
     pub reference_case: ReferenceCaseAudit,
     pub uncertainty: UncertaintyAudit,
     pub budget_impact: BudgetImpactAudit,
+    pub validation: ModelValidationAudit,
 }
 
 fn resolve_workspace_input(root: &Path, value: &str) -> Result<PathBuf, String> {
@@ -165,6 +169,7 @@ pub(crate) fn workflow_status(
         reference_case: reference_case_audit,
         uncertainty: uncertainty_audit,
         budget_impact: budget_impact_audit,
+        validation: validation_audit,
     } = audits;
     let plan_matches =
         analysis_plan_event(&log).is_some_and(|event| event.artifact_sha256 == input_sha256);
@@ -182,6 +187,31 @@ pub(crate) fn workflow_status(
             &budget_impact_audit.budget_impact_sha256,
         )
     });
+    let independent_validation_matches_approval = log
+        .events
+        .iter()
+        .rev()
+        .find(|event| event.gate == ApprovalGate::IndependentValidation)
+        .is_some_and(|event| {
+            event.action == ApprovalAction::Approve
+                && event.artifact_sha256 == validation_audit.validation_sha256
+                && event.actor_label == validation_audit.reviewer_label
+                && validation_audit.complete
+                && validation_audit.approvable
+                && crate::heor_validation::analysis_plan_approval_is_current(
+                    &log,
+                    &validation_audit,
+                )
+                && crate::heor_validation::approval_bindings(&validation_audit)
+                    .iter()
+                    .all(|binding| {
+                        crate::heor_approval::event_binds_artifact(
+                            event,
+                            &binding.path,
+                            &binding.sha256,
+                        )
+                    })
+        });
     let locally_authorized = plan_matches
         && conceptual_model_matches_artifact
         && evidence_audit.complete
@@ -209,6 +239,14 @@ pub(crate) fn workflow_status(
             .take_while(|gate| *gate != ApprovalGate::AnalysisPlan)
             .collect();
     }
+    if !independent_validation_matches_approval {
+        effective_approved_gates.retain(|gate| {
+            !matches!(
+                gate,
+                ApprovalGate::IndependentValidation | ApprovalGate::Release
+            )
+        });
+    }
     HeorWorkflowStatus {
         classification: if locally_authorized {
             "analysis_authorized_local_assertion"
@@ -228,6 +266,8 @@ pub(crate) fn workflow_status(
         uncertainty_audit,
         budget_impact_plan_matches_approval,
         budget_impact_audit,
+        independent_validation_matches_approval,
+        validation_audit,
         approval_chain_head: log.chain_head,
         approval_integrity: log.integrity,
         identity_assurance: log.identity_assurance,
@@ -323,6 +363,7 @@ pub fn run_heor_markov(
     let reference_case_audit = audit_reference_case_for_plan(&app, &root, &raw)?;
     let uncertainty_audit = audit_uncertainty_plan_for_plan(&root, &raw)?;
     let budget_impact_audit = audit_budget_impact_for_plan(&root, &raw)?;
+    let validation_audit = audit_model_validation_for_plan(&root, &raw)?;
     // Evaluate authorization after calculation so a revocation made while the
     // engine is running cannot leave the returned status stale.
     let approval_log = {
@@ -345,6 +386,7 @@ pub fn run_heor_markov(
                 reference_case: reference_case_audit,
                 uncertainty: uncertainty_audit,
                 budget_impact: budget_impact_audit,
+                validation: validation_audit,
             },
         ),
         calculation,
@@ -402,6 +444,23 @@ mod tests {
             integrity: "verified_unanchored_sha256_chain",
             identity_assurance: "local_human_assertion",
         }
+    }
+
+    fn validated_log(input_hash: &str) -> ApprovalLog {
+        let mut log = approved_log(input_hash);
+        let audit = complete_validation_audit();
+        let mut validation = approval_event(
+            4,
+            ApprovalGate::IndependentValidation,
+            &audit.validation_sha256,
+        );
+        validation.schema_version = 2;
+        validation.actor_label = audit.reviewer_label.clone();
+        validation.related_artifacts = crate::heor_validation::approval_bindings(&audit);
+        log.events.push(validation);
+        log.effective_approved_gates
+            .push(ApprovalGate::IndependentValidation);
+        log
     }
 
     fn complete_audit() -> EvidenceAudit {
@@ -479,12 +538,40 @@ mod tests {
         }
     }
 
+    fn complete_validation_audit() -> ModelValidationAudit {
+        ModelValidationAudit {
+            complete: true,
+            approvable: true,
+            status: "complete",
+            validation_id: "validation-1".into(),
+            analysis_id: "analysis-1".into(),
+            validation_sha256: "8".repeat(64),
+            analysis_plan_sha256: "c".repeat(64),
+            conceptual_model_sha256: "b".repeat(64),
+            uncertainty_plan_sha256: "f".repeat(64),
+            budget_impact_plan_sha256: "9".repeat(64),
+            reviewer_label: "Independent reviewer".into(),
+            recommendation: "approve_for_intended_use".into(),
+            evidence_count: 1,
+            check_count: 18,
+            required_coverage_count: 18,
+            covered_requirement_count: 18,
+            issue_count: 0,
+            open_blocking_issue_count: 0,
+            open_minor_issue_count: 0,
+            invalid_evidence: Vec::new(),
+            missing_coverage: Vec::new(),
+            errors: Vec::new(),
+        }
+    }
+
     fn complete_workflow_audits() -> HeorWorkflowAudits {
         HeorWorkflowAudits {
             evidence: complete_audit(),
             reference_case: complete_reference_case_audit(),
             uncertainty: complete_uncertainty_audit(),
             budget_impact: complete_budget_impact_audit(),
+            validation: complete_validation_audit(),
         }
     }
 
@@ -618,6 +705,49 @@ mod tests {
             status.effective_approved_gates,
             vec![ApprovalGate::DecisionProblem]
         );
+    }
+
+    #[test]
+    fn independent_validation_requires_current_bindings_and_reviewer_identity() {
+        let input_hash = "c".repeat(64);
+        let valid = workflow_status(
+            validated_log(&input_hash),
+            input_hash.clone(),
+            true,
+            "current",
+            complete_workflow_audits(),
+        );
+        assert!(valid.independent_validation_matches_approval);
+        assert!(valid
+            .effective_approved_gates
+            .contains(&ApprovalGate::IndependentValidation));
+        assert!(!valid.decision_ready);
+
+        let mut stale_audits = complete_workflow_audits();
+        stale_audits.validation.validation_sha256 = "0".repeat(64);
+        let stale = workflow_status(
+            validated_log(&input_hash),
+            input_hash.clone(),
+            true,
+            "current",
+            stale_audits,
+        );
+        assert!(!stale.independent_validation_matches_approval);
+        assert_eq!(stale.classification, "analysis_authorized_local_assertion");
+        assert!(!stale
+            .effective_approved_gates
+            .contains(&ApprovalGate::IndependentValidation));
+
+        let mut wrong_reviewer_log = validated_log(&input_hash);
+        wrong_reviewer_log.events.last_mut().unwrap().actor_label = "Another reviewer".into();
+        let wrong_reviewer = workflow_status(
+            wrong_reviewer_log,
+            input_hash,
+            true,
+            "current",
+            complete_workflow_audits(),
+        );
+        assert!(!wrong_reviewer.independent_validation_matches_approval);
     }
 
     #[test]

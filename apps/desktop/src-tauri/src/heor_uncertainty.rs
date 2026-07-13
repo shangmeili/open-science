@@ -752,6 +752,8 @@ pub fn run_heor_uncertainty(
         crate::heor_reference_case::audit_reference_case_for_plan(&app, &workspace, &plan_raw)?;
     let budget_impact_audit =
         crate::heor_budget_impact::audit_budget_impact_for_plan(&workspace, &plan_raw)?;
+    let validation_audit =
+        crate::heor_validation::audit_model_validation_for_plan(&workspace, &plan_raw)?;
 
     // Read the approval state last: a revocation or artifact change made while
     // the deterministic child runs must affect the returned classification.
@@ -774,6 +776,7 @@ pub fn run_heor_uncertainty(
             reference_case: reference_case_audit,
             uncertainty: uncertainty_audit,
             budget_impact: budget_impact_audit,
+            validation: validation_audit,
         },
     );
     Ok(UncertaintyRunResult {

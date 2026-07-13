@@ -485,7 +485,27 @@ pub fn append_heor_approval(
                     sha256: budget_impact.budget_impact_sha256,
                 });
             }
-            ApprovalGate::IndependentValidation | ApprovalGate::Release => {}
+            ApprovalGate::IndependentValidation => {
+                let validation = crate::heor_validation::require_model_validation_approvable(
+                    &workspace,
+                    &request.artifact_sha256,
+                    &request.actor_label,
+                )?;
+                let log = verified_log(&app, &request.project_id)?;
+                if !crate::heor_validation::analysis_plan_approval_is_current(&log, &validation) {
+                    return Err(
+                        "independent validation requires current conceptual-model and analysis-plan approvals"
+                            .into(),
+                    );
+                }
+                related_artifacts = crate::heor_validation::approval_bindings(&validation);
+            }
+            ApprovalGate::Release => {
+                return Err(
+                    "the release gate is not implemented; independent validation cannot self-promote to release"
+                        .into(),
+                );
+            }
         }
     }
     let timestamp = SystemTime::now()

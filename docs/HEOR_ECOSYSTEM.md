@@ -69,7 +69,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
-| P1 | `heor-model-validation` | Face, internal, external, cross-model, and code validation | validation report with reviewer boundary |
+| Shipped | `heor-model-validation` | Intended-use validation package covering face, input, external, cross-model, predictive, and TECH-VER checks without a score | `heor/model-validation.json`, local evidence, and app-owned independent-review gate |
 | P1 | `heor-reporting` | CHEERS-aligned reporting without treating a checklist as quality scoring | traceable report package |
 
 `heor-workbench` routes to these skills; it should not absorb their detailed
@@ -108,6 +108,15 @@ induced demand, dynamic cohorts, or multi-treatment markets. Optional BCEA,
 adapters pass the same pipeline; their maturity does not bypass platform
 admission.
 
+The validation skill follows the same industrialization rule. AdViSHE and
+TECH-VER are valuable methods assets but are not executable authority: AI4HEOR
+adapts their reporting and technical domains into a bounded JSON contract,
+local hash-matched evidence, portable and native validators, adversarial tests,
+and an app-owned human gate. It retains their warning that a checklist neither
+guarantees an error-free model nor supports a summary score. The active ISPOR
+Model Validation II task force is monitored as work in progress and is not
+treated as a published standard.
+
 ## Method sources governing the adaptation
 
 The evidence contract is grounded in requirements for transparent assumptions,
@@ -119,6 +128,9 @@ wording:
 - [NICE PMG36 economic evaluation](https://www.nice.org.uk/process/pmg36/chapter/economic-evaluation-2/)
 - [ISPOR Budget Impact Analysis Good Practice II](https://www.ispor.org/heor-resources/good-practices/article/principles-of-good-practice-for-budget-impact-analysis-ii)
 - [ISPOR-SMDM model transparency and validation](https://www.ispor.org/publications/journals/value-in-health/abstract/Volume-15--Issue-6/Model-Transparency-and-Validation--A-Report-of-the-ISPOR-SMDM-Modeling-Good-Research-Practices-Task-Force-7)
+- [AdViSHE validation-assessment reporting tool](https://pmc.ncbi.nlm.nih.gov/articles/PMC4796331/), adapted as structured reporting rather than a score
+- [TECH-VER technical verification checklist](https://pmc.ncbi.nlm.nih.gov/articles/PMC6860463/), adapted into independent technical domains without claiming error-free software
+- [ISPOR Model Validation II active task force](https://www.ispor.org/member-groups/task-forces/model-validation-ii-task-force), monitored but not used as current guidance until publication
 - [Cochrane Handbook current search and selection chapter](https://training.cochrane.org/handbook/current/chapter-04)
 - [PRISMA 2020](https://www.prisma-statement.org/prisma-2020), used as reporting guidance rather than evidence-quality certification
 - [CHEERS 2022](https://www.ispor.org/heor-resources/good-practices/cheers), used as reporting guidance rather than a methodological quality score

@@ -5,9 +5,11 @@ import {
   buildHeorPrompt,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT,
+  HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT,
   HEOR_BROWSER_DEMO_PLAN,
   HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT,
   HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT,
+  HEOR_MODEL_VALIDATION_PATH,
   parseHeorConceptualModel,
   parseHeorPlan,
 } from "./heor";
@@ -87,5 +89,12 @@ describe("AI4HEOR artifact contract", () => {
     expect(HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT.errors[0]).toContain(
       "budget-impact-plan.json",
     );
+  });
+
+  it("keeps independent validation separate, local, and fail-closed", () => {
+    expect(HEOR_MODEL_VALIDATION_PATH).toBe("heor/model-validation.json");
+    expect(HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT.complete).toBe(false);
+    expect(HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT.approvable).toBe(false);
+    expect(HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT.requiredCoverageCount).toBe(18);
   });
 });
