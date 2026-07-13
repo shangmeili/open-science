@@ -11,7 +11,7 @@ Make every decision-relevant numeric or structural input reviewable without turn
 
 1. Read the current `heor/analysis-plan.json`; do not replace valid evidence or researcher-authored metadata.
 2. Enumerate the required input paths for the current deterministic model. Include willingness-to-pay only when it is not null.
-3. Inspect each evidence source. Record stable identifiers, source type, locator, access date, and a content hash for a local snapshot.
+3. Inspect each evidence source. Prefer source IDs and extraction records from `heor/evidence-synthesis.json` when that artifact exists. Record stable identifiers, source type, locator, access date, and a content hash for a local snapshot.
 4. Map every required path to one or more valid source IDs or to an explicit analyst assumption with status `proposed`.
 5. Record unit, jurisdiction, selection rationale, uncertainty status, and price year for monetary inputs.
 6. Keep missing facts as `unresolved`. Never convert uncertainty into a sourced value, mark an assumption accepted, or create an approval.

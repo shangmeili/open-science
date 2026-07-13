@@ -64,8 +64,8 @@ Skills stay small and are separated by the artifact they produce or audit.
 | --- | --- | --- | --- |
 | Shipped | `heor-workbench` | Natural-language orchestration and handoff | `heor/analysis-plan.json` plus conversation |
 | Shipped | `heor-input-provenance` | Map every model input to evidence or an explicit reviewable assumption | `evidence_sources`, `assumptions`, `input_provenance` |
-| P0 | `heor-evidence-synthesis` | PICO/PICOS search, screening, extraction, conflict log, applicability | evidence table and extraction audit |
-| P0 | `heor-model-design` | Decision problem, conceptual model, structural alternatives | conceptual-model artifact |
+| Shipped | `heor-evidence-synthesis` | PICOS search, screening, extraction, conflict log, applicability | `heor/evidence-synthesis.json` plus deterministic audit |
+| Shipped | `heor-model-design` | Decision problem, conceptual model, structural alternatives | `heor/conceptual-model.json` plus app-owned gate audit |
 | P0 | `heor-reference-case` | Versioned jurisdiction requirements and gap assessment | reference-case compliance matrix |
 | P1 | `heor-uncertainty-analysis` | DSA, PSA, scenario and structural uncertainty plans | uncertainty plan and run artifacts |
 | P1 | `heor-budget-impact` | Population, uptake, displacement, cost categories, scenarios | BIA plan and deterministic results |
@@ -106,4 +106,6 @@ wording:
 - [Chinese 2026 second-edition consultation draft](https://www.cpa.org.cn/cpadmn/attached/file/20260626/1782459582340302.pdf), retained as draft rather than current policy
 - [NICE PMG36 economic evaluation](https://www.nice.org.uk/process/pmg36/chapter/economic-evaluation-2/)
 - [ISPOR-SMDM model transparency and validation](https://www.ispor.org/publications/journals/value-in-health/abstract/Volume-15--Issue-6/Model-Transparency-and-Validation--A-Report-of-the-ISPOR-SMDM-Modeling-Good-Research-Practices-Task-Force-7)
+- [Cochrane Handbook current search and selection chapter](https://training.cochrane.org/handbook/current/chapter-04)
+- [PRISMA 2020](https://www.prisma-statement.org/prisma-2020), used as reporting guidance rather than evidence-quality certification
 - [CHEERS 2022](https://www.ispor.org/heor-resources/good-practices/cheers), used as reporting guidance rather than a methodological quality score

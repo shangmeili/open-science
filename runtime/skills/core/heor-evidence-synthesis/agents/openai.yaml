@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Evidence Synthesis"
+  short_description: "Build auditable HEOR searches, screening, and extraction"
+  default_prompt: "Use $heor-evidence-synthesis to create or update an auditable HEOR evidence synthesis."

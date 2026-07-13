@@ -43,6 +43,7 @@
     "awaiting": "等待人工审阅",
     "locked": "需先完成前一关",
     "stale": "原批准对应旧版本文件",
+    "conceptualRequired": "需先完成概念模型审计",
     "evidenceRequired": "需先完成证据审计",
     "notDecisionReady": "尚不可用于决策"
   },
@@ -65,6 +66,20 @@
     "evidence": "证据来源",
     "assumptions": "待解决假设"
   },
+  "conceptual": {
+    "title": "概念模型",
+    "loading": "正在读取文件……",
+    "complete": "结构审计已完成",
+    "incomplete": "结构审计未完成",
+    "missing": "当前分析尚无概念模型文件。",
+    "states": "状态数",
+    "transitions": "转移数",
+    "alternatives": "备选结构",
+    "modelType": "建议模型类型",
+    "askRepair": "让 Agent 设计或修复模型",
+    "repairPrompt": "使用 $heor-model-design，为当前决策问题创建或修复 heor/conceptual-model.json。保留结构备选和结构不确定性，运行确定性校验器，不要创建或声称获得人工批准。",
+    "note": "应用会独立审计该文件。结构完整仅允许进入人工审阅，不代表模型已经有效。"
+  },
   "evidence": {
     "title": "输入可追溯性",
     "complete": "证据审计已完成",
@@ -86,7 +101,7 @@
   },
   "dialog": {
     "approveTitle": "批准{{gate}}？",
-    "revokeTitle": "撤销过期的决策问题批准？",
+    "revokeTitle": "撤销过期的文件批准？",
     "body": "该应用自有事件记录人工对文件 {{hash}} 的本地声明，Agent 无法创建它。",
     "actor": "人工审阅者",
     "actorPlaceholder": "姓名或本地审阅者标识",

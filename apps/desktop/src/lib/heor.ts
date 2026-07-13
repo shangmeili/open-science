@@ -1,6 +1,7 @@
 import { isTauri } from "./tauri";
 
 export const HEOR_PLAN_PATH = "heor/analysis-plan.json";
+export const HEOR_CONCEPTUAL_MODEL_PATH = "heor/conceptual-model.json";
 
 export type HeorGate =
   | "decision_problem"
@@ -99,6 +100,53 @@ export interface HeorEvidenceAudit {
   mappingCount: number;
 }
 
+export interface HeorConceptualModel {
+  schema_version: "0.1.0";
+  model_id: string;
+  analysis_id: string;
+  status: "draft" | "ready_for_human_review";
+  objective: string;
+  scope: {
+    population: string;
+    intervention: string;
+    comparator: string;
+    perspective: string;
+    time_horizon: string;
+    outcomes: string[];
+    jurisdiction: string;
+    decision_context: string;
+  };
+  care_pathway: string[];
+  model_type: { proposed: string; rationale: string };
+  states: Array<{ id: string; label: string; definition: string; absorbing: boolean }>;
+  transitions: Array<{ id: string; from: string; to: string; trigger: string }>;
+  structural_assumptions: Array<{
+    id: string;
+    statement: string;
+    rationale: string;
+    status: "unresolved" | "proposed" | "rejected";
+  }>;
+  structural_alternatives: Array<{
+    id: string;
+    description: string;
+    rationale: string;
+    expected_impact: string;
+  }>;
+  evidence_links: Array<{ claim: string; source_ids: string[] }>;
+  validation_questions: string[];
+}
+
+export interface HeorConceptualModelAudit {
+  complete: boolean;
+  status: "complete" | "incomplete";
+  errors: string[];
+  stateCount: number;
+  transitionCount: number;
+  assumptionCount: number;
+  alternativeCount: number;
+  unresolvedAssumptions: string[];
+}
+
 export interface HeorAnalysisPlan {
   schema_version: "0.1.0";
   analysis_id: string;
@@ -161,6 +209,7 @@ export interface HeorRunResult {
     effectiveApprovedGates: HeorGate[];
     inputSha256: string;
     analysisPlanMatchesInput: boolean;
+    conceptualModelMatchesArtifact: boolean;
     referenceCaseRegistryStatus: string;
     approvalChainHead: string | null;
     approvalIntegrity: string;
@@ -199,6 +248,18 @@ export function parseHeorPlan(raw: string): HeorAnalysisPlan {
   return value as unknown as HeorAnalysisPlan;
 }
 
+export function parseHeorConceptualModel(raw: string): HeorConceptualModel {
+  const value: unknown = JSON.parse(raw);
+  if (!isRecord(value)) throw new Error("conceptual model must be a JSON object");
+  if (value.schema_version !== "0.1.0") {
+    throw new Error("conceptual model schema_version must be 0.1.0");
+  }
+  if (typeof value.model_id !== "string" || !value.model_id.trim()) {
+    throw new Error("conceptual model must include model_id");
+  }
+  return value as unknown as HeorConceptualModel;
+}
+
 const BASE_INPUT_PATHS = [
   "cycles",
   "cycle_length_years",
@@ -221,6 +282,138 @@ function nonempty(value: unknown): value is string {
 
 function validSha256(value: unknown): boolean {
   return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+}
+
+function nonemptyStrings(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every(nonempty);
+}
+
+/** Browser-side preview of the Rust conceptual-model approval audit. */
+export function auditHeorConceptualModel(
+  model: HeorConceptualModel,
+  expectedAnalysisId?: string,
+): HeorConceptualModelAudit {
+  const errors: string[] = [];
+  if (model.schema_version !== "0.1.0") errors.push("schema_version must be 0.1.0");
+  for (const field of ["model_id", "analysis_id", "objective"] as const) {
+    if (!nonempty(model[field])) errors.push(`${field} is required`);
+  }
+  if (expectedAnalysisId !== undefined && model.analysis_id !== expectedAnalysisId) {
+    errors.push("conceptual model analysis_id does not match the current analysis plan");
+  }
+  if (!(model.status === "draft" || model.status === "ready_for_human_review")) {
+    errors.push("status is invalid");
+  }
+  const scope = model.scope;
+  for (const field of [
+    "population", "intervention", "comparator", "perspective",
+    "time_horizon", "jurisdiction", "decision_context",
+  ] as const) {
+    if (!nonempty(scope?.[field])) errors.push(`scope.${field} is required`);
+  }
+  if (!nonemptyStrings(scope?.outcomes)) {
+    errors.push("scope.outcomes must be a non-empty string array");
+  }
+  if (!nonemptyStrings(model.care_pathway)) {
+    errors.push("care_pathway must be a non-empty string array");
+  }
+  if (!nonempty(model.model_type?.proposed) || !nonempty(model.model_type?.rationale)) {
+    errors.push("model_type requires proposed and rationale");
+  }
+
+  const states = Array.isArray(model.states) ? model.states : [];
+  if (states.length < 2) errors.push("at least two states are required");
+  const stateIds = new Set<string>();
+  const absorbing = new Set<string>();
+  states.forEach((state, index) => {
+    if (!nonempty(state.id) || stateIds.has(state.id)) {
+      errors.push(`states[${index}].id must be non-empty and unique`);
+    } else stateIds.add(state.id);
+    if (!nonempty(state.label) || !nonempty(state.definition)) {
+      errors.push(`states[${index}] requires label and definition`);
+    }
+    if (typeof state.absorbing !== "boolean") {
+      errors.push(`states[${index}].absorbing must be boolean`);
+    } else if (state.absorbing) absorbing.add(state.id);
+  });
+
+  const transitions = Array.isArray(model.transitions) ? model.transitions : [];
+  if (transitions.length === 0) errors.push("at least one transition is required");
+  const transitionIds = new Set<string>();
+  const outgoing = new Set<string>();
+  transitions.forEach((transition, index) => {
+    if (!nonempty(transition.id) || transitionIds.has(transition.id)) {
+      errors.push(`transitions[${index}].id must be non-empty and unique`);
+    } else transitionIds.add(transition.id);
+    if (!stateIds.has(transition.from) || !stateIds.has(transition.to)) {
+      errors.push(`transitions[${index}] references an unknown state`);
+    } else {
+      outgoing.add(transition.from);
+      if (absorbing.has(transition.from) && transition.from !== transition.to) {
+        errors.push(`transitions[${index}] leaves absorbing state ${transition.from}`);
+      }
+    }
+    if (!nonempty(transition.trigger)) errors.push(`transitions[${index}].trigger is required`);
+  });
+  const missingOutgoing = [...stateIds].filter((id) => !outgoing.has(id)).sort();
+  if (missingOutgoing.length) {
+    errors.push(`states without outgoing transitions: ${missingOutgoing.join(", ")}`);
+  }
+
+  const assumptions = Array.isArray(model.structural_assumptions)
+    ? model.structural_assumptions : [];
+  if (assumptions.length === 0) errors.push("at least one structural assumption is required");
+  const assumptionIds = new Set<string>();
+  const unresolvedAssumptions: string[] = [];
+  assumptions.forEach((assumption, index) => {
+    if (!nonempty(assumption.id) || assumptionIds.has(assumption.id)) {
+      errors.push(`structural_assumptions[${index}].id must be non-empty and unique`);
+    } else assumptionIds.add(assumption.id);
+    if (!nonempty(assumption.statement) || !nonempty(assumption.rationale)) {
+      errors.push(`structural_assumptions[${index}] requires statement and rationale`);
+    }
+    if (!(["unresolved", "proposed", "rejected"] as string[]).includes(assumption.status)) {
+      errors.push(`structural_assumptions[${index}].status is invalid`);
+    } else if (assumption.status === "unresolved") unresolvedAssumptions.push(assumption.id);
+  });
+
+  const alternatives = Array.isArray(model.structural_alternatives)
+    ? model.structural_alternatives : [];
+  if (alternatives.length === 0) errors.push("at least one structural alternative is required");
+  const alternativeIds = new Set<string>();
+  alternatives.forEach((alternative, index) => {
+    if (!nonempty(alternative.id) || alternativeIds.has(alternative.id)) {
+      errors.push(`structural_alternatives[${index}].id must be non-empty and unique`);
+    } else alternativeIds.add(alternative.id);
+    for (const field of ["description", "rationale", "expected_impact"] as const) {
+      if (!nonempty(alternative[field])) {
+        errors.push(`structural_alternatives[${index}].${field} is required`);
+      }
+    }
+  });
+  if (!Array.isArray(model.evidence_links)) errors.push("evidence_links must be an array");
+  else model.evidence_links.forEach((link, index) => {
+    if (!nonempty(link.claim) || !nonemptyStrings(link.source_ids)) {
+      errors.push(`evidence_links[${index}] requires claim and source_ids`);
+    }
+  });
+  if (!nonemptyStrings(model.validation_questions)) {
+    errors.push("validation_questions must be a non-empty string array");
+  }
+  if (unresolvedAssumptions.length) {
+    errors.push(`unresolved structural assumptions: ${unresolvedAssumptions.join(", ")}`);
+  }
+
+  return {
+    complete: errors.length === 0,
+    status: errors.length === 0 ? "complete" : "incomplete",
+    errors,
+    stateCount: states.length,
+    transitionCount: transitions.length,
+    assumptionCount: assumptions.length,
+    alternativeCount: alternatives.length,
+    unresolvedAssumptions,
+  };
 }
 
 /** Browser-side review preview. The Rust command repeats this audit and is the
@@ -392,6 +585,55 @@ export const HEOR_BROWSER_DEMO_PLAN: HeorAnalysisPlan = {
   ],
 };
 
+export const HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL: HeorConceptualModel = {
+  schema_version: "0.1.0",
+  model_id: "first-line-nsclc-conceptual-demo",
+  analysis_id: HEOR_BROWSER_DEMO_PLAN.analysis_id,
+  status: "ready_for_human_review",
+  objective: "Compare the incremental costs and QALYs of new treatment and standard care",
+  scope: {
+    population: HEOR_BROWSER_DEMO_PLAN.decision_problem.population,
+    intervention: HEOR_BROWSER_DEMO_PLAN.decision_problem.intervention,
+    comparator: HEOR_BROWSER_DEMO_PLAN.decision_problem.comparator,
+    perspective: HEOR_BROWSER_DEMO_PLAN.decision_problem.perspective,
+    time_horizon: "Three years for the workflow demonstration",
+    outcomes: ["cost", "QALY"],
+    jurisdiction: "China",
+    decision_context: "Demonstration reimbursement assessment",
+  },
+  care_pathway: ["Start first-line treatment", "Remain stable or progress", "Death"],
+  model_type: {
+    proposed: "cohort_state_transition",
+    rationale: "Three mutually exclusive states represent the demonstration decision problem",
+  },
+  states: [
+    { id: "stable", label: "Stable", definition: "No recorded progression", absorbing: false },
+    { id: "progressed", label: "Progressed", definition: "Recorded progression", absorbing: false },
+    { id: "dead", label: "Dead", definition: "All-cause death", absorbing: true },
+  ],
+  transitions: [
+    { id: "stable-stable", from: "stable", to: "stable", trigger: "No progression" },
+    { id: "stable-progressed", from: "stable", to: "progressed", trigger: "Progression" },
+    { id: "progressed-progressed", from: "progressed", to: "progressed", trigger: "Remain progressed" },
+    { id: "progressed-dead", from: "progressed", to: "dead", trigger: "Death" },
+    { id: "dead-dead", from: "dead", to: "dead", trigger: "Absorbing state" },
+  ],
+  structural_assumptions: [{
+    id: "memoryless-demo",
+    statement: "Transition risk depends only on current state",
+    rationale: "Required by the demonstration cohort model",
+    status: "proposed",
+  }],
+  structural_alternatives: [{
+    id: "partitioned-survival-demo",
+    description: "Partitioned survival structure",
+    rationale: "A plausible oncology modeling alternative",
+    expected_impact: "Could change extrapolated state occupancy",
+  }],
+  evidence_links: [{ claim: "Demonstration pathway only", source_ids: ["demo-only"] }],
+  validation_questions: ["Are the three demonstration states exhaustive and mutually exclusive?"],
+};
+
 export function browserDemoRun(
   inputSha256: string,
   approvedGates: HeorGate[],
@@ -444,6 +686,7 @@ export function browserDemoRun(
       effectiveApprovedGates: approvedGates,
       inputSha256,
       analysisPlanMatchesInput: authorized,
+      conceptualModelMatchesArtifact: approvedGates.includes("conceptual_model"),
       referenceCaseRegistryStatus: "current",
       approvalChainHead: null,
       approvalIntegrity: "verified_unanchored_sha256_chain",

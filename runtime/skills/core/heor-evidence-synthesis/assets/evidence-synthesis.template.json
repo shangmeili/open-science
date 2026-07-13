@@ -1,0 +1,25 @@
+{
+  "schema_version": "0.1.0",
+  "synthesis_id": "replace-with-synthesis-id",
+  "status": "draft",
+  "research_question": {
+    "population": "Replace with population",
+    "intervention": "Replace with intervention",
+    "comparator": "Replace with comparator",
+    "outcomes": ["Replace with outcome"],
+    "study_designs": ["Replace with eligible study design"]
+  },
+  "eligibility": {
+    "inclusion": ["Replace with inclusion criterion"],
+    "exclusion": ["Replace with exclusion criterion"]
+  },
+  "searches": [],
+  "deduplication": {
+    "method": "Replace with deterministic or documented manual method",
+    "duplicate_records_removed": 0
+  },
+  "records": [],
+  "extractions": [],
+  "conflicts": [],
+  "limitations": ["Search and screening have not been completed"]
+}

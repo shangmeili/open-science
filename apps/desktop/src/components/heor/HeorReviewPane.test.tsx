@@ -20,6 +20,7 @@ describe("AI4HEOR human review pane", () => {
       await screen.findByText("Cost-effectiveness of a new first-line treatment for advanced NSCLC"),
     ).toBeInTheDocument();
     expect(screen.getByText("Evidence audit incomplete")).toBeInTheDocument();
+    expect(screen.getByText("Structural audit complete")).toBeInTheDocument();
     expect(screen.getAllByText("0/14")).toHaveLength(2);
     await userEvent.click(screen.getByRole("button", { name: "Review Decision problem" }));
 
@@ -36,6 +37,7 @@ describe("AI4HEOR human review pane", () => {
     await userEvent.click(submit);
 
     expect(await screen.findByText("Approved for this artifact")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review Conceptual model" })).toBeInTheDocument();
   });
 
   it("keeps analysis-plan approval locked until evidence traceability is complete", async () => {

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  auditHeorConceptualModel,
   auditHeorEvidence,
   buildHeorPrompt,
+  HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_PLAN,
+  parseHeorConceptualModel,
   parseHeorPlan,
 } from "./heor";
 
@@ -32,5 +35,20 @@ describe("AI4HEOR artifact contract", () => {
     expect(audit.coveredInputs).toBe(0);
     expect(audit.requiredInputs).toBe(14);
     expect(audit.unresolvedAssumptions).toEqual(["demo-only"]);
+  });
+
+  it("audits the conceptual model independently from numerical inputs", () => {
+    const parsed = parseHeorConceptualModel(JSON.stringify(HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL));
+    const audit = auditHeorConceptualModel(parsed);
+    expect(audit.complete).toBe(true);
+    expect(audit.stateCount).toBe(3);
+    expect(audit.transitionCount).toBe(5);
+
+    const unresolved = structuredClone(parsed);
+    unresolved.structural_assumptions[0].status = "unresolved";
+    expect(auditHeorConceptualModel(unresolved).complete).toBe(false);
+    expect(auditHeorConceptualModel(parsed, "different-analysis").errors).toContain(
+      "conceptual model analysis_id does not match the current analysis plan",
+    );
   });
 });

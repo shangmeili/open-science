@@ -21,6 +21,7 @@ pub struct HeorWorkflowStatus {
     effective_approved_gates: Vec<ApprovalGate>,
     input_sha256: String,
     analysis_plan_matches_input: bool,
+    conceptual_model_matches_artifact: bool,
     reference_case_registry_status: String,
     approval_chain_head: Option<String>,
     approval_integrity: &'static str,
@@ -140,21 +141,28 @@ fn analysis_plan_event(log: &ApprovalLog) -> Option<&ApprovalEvent> {
 fn workflow_status(
     log: ApprovalLog,
     input_sha256: String,
+    conceptual_model_matches_artifact: bool,
     reference_case_status: &str,
     evidence_audit: EvidenceAudit,
 ) -> HeorWorkflowStatus {
     let plan_matches =
         analysis_plan_event(&log).is_some_and(|event| event.artifact_sha256 == input_sha256);
-    let locally_authorized =
-        plan_matches && evidence_audit.complete && reference_case_status != "draft";
-    let effective_approved_gates = if evidence_audit.complete {
-        log.effective_approved_gates
-    } else {
-        log.effective_approved_gates
+    let locally_authorized = plan_matches
+        && conceptual_model_matches_artifact
+        && evidence_audit.complete
+        && reference_case_status != "draft";
+    let mut effective_approved_gates = log.effective_approved_gates;
+    if !conceptual_model_matches_artifact {
+        effective_approved_gates = effective_approved_gates
+            .into_iter()
+            .take_while(|gate| *gate != ApprovalGate::ConceptualModel)
+            .collect();
+    } else if !evidence_audit.complete {
+        effective_approved_gates = effective_approved_gates
             .into_iter()
             .take_while(|gate| *gate != ApprovalGate::AnalysisPlan)
-            .collect()
-    };
+            .collect();
+    }
     HeorWorkflowStatus {
         classification: if locally_authorized {
             "analysis_authorized_local_assertion"
@@ -167,6 +175,7 @@ fn workflow_status(
         effective_approved_gates,
         input_sha256,
         analysis_plan_matches_input: plan_matches,
+        conceptual_model_matches_artifact,
         reference_case_registry_status: reference_case_status.to_string(),
         approval_chain_head: log.chain_head,
         approval_integrity: log.integrity,
@@ -250,11 +259,26 @@ pub fn run_heor_markov(
             .map_err(|_| "HEOR approval lock poisoned")?;
         crate::heor_approval::verified_log(&app, &project_id)?
     };
+    let conceptual_model_matches_artifact =
+        crate::heor_artifacts::current_conceptual_model_hash_and_audit(&root)
+            .ok()
+            .filter(|(_, audit)| audit.complete)
+            .is_some_and(|(hash, _)| {
+                approval_log
+                    .effective_approved_gates
+                    .contains(&ApprovalGate::ConceptualModel)
+                    && approval_log.events.iter().rev().any(|event| {
+                        event.gate == ApprovalGate::ConceptualModel
+                            && event.action == ApprovalAction::Approve
+                            && event.artifact_sha256 == hash
+                    })
+            });
 
     Ok(HeorRunResult {
         workflow: workflow_status(
             approval_log,
             input_sha256,
+            conceptual_model_matches_artifact,
             &reference_case_status,
             evidence_audit,
         ),
@@ -322,6 +346,7 @@ mod tests {
         let authorized = workflow_status(
             approved_log(&input_hash),
             input_hash.clone(),
+            true,
             "current",
             complete_audit(),
         );
@@ -335,6 +360,7 @@ mod tests {
         let changed = workflow_status(
             approved_log(&input_hash),
             "d".repeat(64),
+            true,
             "current",
             complete_audit(),
         );
@@ -348,6 +374,7 @@ mod tests {
         let status = workflow_status(
             approved_log(&input_hash),
             input_hash,
+            true,
             "draft",
             complete_audit(),
         );
@@ -363,12 +390,36 @@ mod tests {
         audit.status = "incomplete";
         audit.covered_inputs = 11;
         audit.unsupported_inputs = vec!["cycles".into()];
-        let status = workflow_status(approved_log(&input_hash), input_hash, "current", audit);
+        let status = workflow_status(
+            approved_log(&input_hash),
+            input_hash,
+            true,
+            "current",
+            audit,
+        );
         assert_eq!(status.classification, "exploratory");
         assert!(!status.evidence_audit.complete);
         assert_eq!(
             status.effective_approved_gates,
             vec![ApprovalGate::DecisionProblem, ApprovalGate::ConceptualModel]
+        );
+    }
+
+    #[test]
+    fn changed_or_missing_conceptual_model_cannot_be_locally_authorized() {
+        let input_hash = "c".repeat(64);
+        let status = workflow_status(
+            approved_log(&input_hash),
+            input_hash,
+            false,
+            "current",
+            complete_audit(),
+        );
+        assert_eq!(status.classification, "exploratory");
+        assert!(!status.conceptual_model_matches_artifact);
+        assert_eq!(
+            status.effective_approved_gates,
+            vec![ApprovalGate::DecisionProblem]
         );
     }
 

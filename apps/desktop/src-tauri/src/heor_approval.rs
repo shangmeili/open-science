@@ -367,11 +367,28 @@ pub fn append_heor_approval(
     if crate::project::require_project_id(&workspace)? != request.project_id {
         return Err("approval projectId does not match the current project".into());
     }
-    if request.action == ApprovalAction::Approve && request.gate == ApprovalGate::AnalysisPlan {
-        crate::heor_evidence::require_analysis_plan_approvable(
-            &workspace,
-            &request.artifact_sha256,
-        )?;
+    if request.action == ApprovalAction::Approve {
+        match request.gate {
+            ApprovalGate::DecisionProblem => {
+                crate::heor_artifacts::require_decision_problem_approvable(
+                    &workspace,
+                    &request.artifact_sha256,
+                )?;
+            }
+            ApprovalGate::ConceptualModel => {
+                crate::heor_artifacts::require_conceptual_model_approvable(
+                    &workspace,
+                    &request.artifact_sha256,
+                )?;
+            }
+            ApprovalGate::AnalysisPlan => {
+                crate::heor_evidence::require_analysis_plan_approvable(
+                    &workspace,
+                    &request.artifact_sha256,
+                )?;
+            }
+            ApprovalGate::IndependentValidation | ApprovalGate::Release => {}
+        }
     }
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)

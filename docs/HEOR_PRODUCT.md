@@ -32,8 +32,9 @@ slice implements only the deterministic cohort model.
 
 1. Language models may draft inputs, explanations, and code, but they do not
    produce the authoritative cost, QALY, ICER, net benefit, or budget result.
-2. A run is not decision-ready until the decision problem, conceptual model,
-   and analysis plan are approved by a human and recorded with artifact hashes.
+2. A run is not decision-ready until the decision problem, independent
+   `heor/conceptual-model.json` artifact, and analysis plan are approved by a
+   human and recorded with their current artifact hashes.
 3. Every decision-relevant value must carry a source, unit, jurisdiction, price
    year, selection rationale, and uncertainty status before public beta.
 4. Results must trace to input, engine version, reference-case version, and run

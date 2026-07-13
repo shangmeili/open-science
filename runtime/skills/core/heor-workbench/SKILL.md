@@ -21,9 +21,9 @@ Use conversation as the primary interface. Translate the researcher's intent int
 
 1. Restate the decision question in one concise paragraph. Identify population, intervention, comparator, perspective, horizon, outcome, jurisdiction, and decision context.
 2. List material unknowns before searching or modeling. Ask only questions that would change the model or interpretation.
-3. For current guidance, prices, policies, methods, or recent research, search primary or authoritative sources and record the URL, publication date, access date, and what input or claim it supports.
-4. Propose the smallest model structure that can answer the decision question. Explain structural assumptions and plausible alternatives.
-5. Create or update `heor/analysis-plan.json` from `assets/analysis-plan.template.json`. Read `references/analysis-plan.md` before editing it. Use `$heor-input-provenance` whenever inputs are researched, mapped, audited, or prepared for analysis-plan review.
+3. Use `$heor-evidence-synthesis` when the question requires a reproducible search, screening, extraction, applicability, or conflict trail. Keep `heor/evidence-synthesis.json` separate from selected model inputs.
+4. Use `$heor-model-design` to create or review `heor/conceptual-model.json`. Propose the smallest adequate structure, explicit structural assumptions, and plausible alternatives before the conceptual-model gate.
+5. Create or update `heor/analysis-plan.json` from `assets/analysis-plan.template.json`. Read `references/analysis-plan.md` before editing it. Use `$heor-input-provenance` whenever evidence is selected for model inputs, mapped, audited, or prepared for analysis-plan review.
 6. Tell the researcher exactly what changed, which inputs remain unsupported, and which review gate is ready for human inspection.
 7. Run the deterministic engine only through the workbench review panel or its documented local command. Never recreate approval state in the workspace.
 8. Interpret results in the conversation with the result classification, input hash, uncertainty limitations, and any validation still required.
@@ -39,7 +39,7 @@ Use conversation as the primary interface. Translate the researcher's intent int
 
 ## Analysis-plan handoff
 
-The app watches `heor/analysis-plan.json`. Keep it valid JSON and do not write temporary commentary into the file. Use lower-case snake-case engine keys exactly as documented. Preserve unknown metadata fields created by the researcher or another tool.
+The app watches `heor/analysis-plan.json` and `heor/conceptual-model.json`. Keep both valid JSON and do not write temporary commentary into either file. Use lower-case snake-case keys exactly as documented. Preserve unknown metadata fields created by the researcher or another tool. The conceptual-model approval hashes its independent artifact; changing it requires renewed review.
 
 After writing the plan, report:
 

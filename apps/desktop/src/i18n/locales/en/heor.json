@@ -43,6 +43,7 @@
     "awaiting": "Awaiting human review",
     "locked": "Previous gate required",
     "stale": "Prior approval targets an older artifact",
+    "conceptualRequired": "Conceptual-model audit required",
     "evidenceRequired": "Evidence audit required",
     "notDecisionReady": "Not decision-ready"
   },
@@ -65,6 +66,20 @@
     "evidence": "Evidence sources",
     "assumptions": "Open assumptions"
   },
+  "conceptual": {
+    "title": "Conceptual model",
+    "loading": "Reading artifact…",
+    "complete": "Structural audit complete",
+    "incomplete": "Structural audit incomplete",
+    "missing": "No conceptual-model artifact exists for this analysis.",
+    "states": "States",
+    "transitions": "Transitions",
+    "alternatives": "Alternatives",
+    "modelType": "Proposed model type",
+    "askRepair": "Ask agent to design or repair the model",
+    "repairPrompt": "Use $heor-model-design to create or repair heor/conceptual-model.json for the current decision problem. Preserve structural alternatives and uncertainty, run the deterministic validator, and do not create or claim human approval.",
+    "note": "The app audits this independent artifact. Structural completeness permits human review; it does not establish model validity."
+  },
   "evidence": {
     "title": "Input traceability",
     "complete": "Evidence audit complete",
@@ -86,7 +101,7 @@
   },
   "dialog": {
     "approveTitle": "Approve {{gate}}?",
-    "revokeTitle": "Revoke the stale decision-problem approval?",
+    "revokeTitle": "Revoke the stale artifact approval?",
     "body": "This app-owned event records a local human assertion for artifact {{hash}}. The agent cannot create it.",
     "actor": "Human reviewer",
     "actorPlaceholder": "Name or local reviewer label",

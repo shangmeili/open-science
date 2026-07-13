@@ -17,17 +17,23 @@ import { readArtifact } from "@/lib/artifactFile";
 import { cn } from "@/lib/cn";
 import {
   appendHeorApproval,
+  auditHeorConceptualModel,
   auditHeorEvidence,
   browserDemoRun,
+  HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_PLAN,
+  HEOR_CONCEPTUAL_MODEL_PATH,
   HEOR_PLAN_PATH,
   type HeorAnalysisPlan,
   type HeorApprovalAction,
   type HeorApprovalEvent,
   type HeorApprovalLog,
+  type HeorConceptualModel,
+  type HeorConceptualModelAudit,
   type HeorGate,
   type HeorRunResult,
   listHeorApprovals,
+  parseHeorConceptualModel,
   parseHeorPlan,
   runHeorMarkov,
   sha256Text,
@@ -58,11 +64,35 @@ type ArtifactState =
   | { kind: "invalid"; message: string }
   | { kind: "ready"; plan: HeorAnalysisPlan; raw: string; sha256: string };
 
+type ConceptualArtifactState =
+  | { kind: "loading" }
+  | { kind: "missing" }
+  | { kind: "invalid"; message: string }
+  | {
+      kind: "ready";
+      model: HeorConceptualModel;
+      raw: string;
+      sha256: string;
+      audit: HeorConceptualModelAudit;
+    };
+
 type ReviewIntent = {
   action: HeorApprovalAction;
   gate: HeorGate;
   artifactSha256: string;
 };
+
+function gateArtifactHash(
+  gate: HeorGate,
+  planArtifact: ArtifactState,
+  conceptualArtifact: ConceptualArtifactState,
+): string | null {
+  if (planArtifact.kind !== "ready") return null;
+  if (gate === "conceptual_model") {
+    return conceptualArtifact.kind === "ready" ? conceptualArtifact.sha256 : null;
+  }
+  return planArtifact.sha256;
+}
 
 export function HeorReviewPane({
   project,
@@ -75,6 +105,9 @@ export function HeorReviewPane({
 }) {
   const { t, i18n } = useTranslation("heor");
   const [artifact, setArtifact] = useState<ArtifactState>({ kind: "loading" });
+  const [conceptualArtifact, setConceptualArtifact] = useState<ConceptualArtifactState>({
+    kind: "loading",
+  });
   const [approvals, setApprovals] = useState<HeorApprovalLog>(EMPTY_LOG);
   const [result, setResult] = useState<HeorRunResult | null>(null);
   const [running, setRunning] = useState(false);
@@ -84,10 +117,12 @@ export function HeorReviewPane({
     setResult(null);
     if (!project) {
       setArtifact({ kind: "missing" });
+      setConceptualArtifact({ kind: "missing" });
       setApprovals(EMPTY_LOG);
       return;
     }
     setArtifact({ kind: "loading" });
+    setConceptualArtifact({ kind: "loading" });
     try {
       const raw = isTauri
         ? (await readArtifact(HEOR_PLAN_PATH))?.data ?? null
@@ -100,6 +135,28 @@ export function HeorReviewPane({
       const plan = parseHeorPlan(raw);
       const sha256 = await sha256Text(raw);
       setArtifact({ kind: "ready", plan, raw, sha256 });
+      try {
+        const conceptualRaw = isTauri
+          ? (await readArtifact(HEOR_CONCEPTUAL_MODEL_PATH))?.data ?? null
+          : JSON.stringify(HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL, null, 2);
+        if (conceptualRaw === null) {
+          setConceptualArtifact({ kind: "missing" });
+        } else {
+          const model = parseHeorConceptualModel(conceptualRaw);
+          setConceptualArtifact({
+            kind: "ready",
+            model,
+            raw: conceptualRaw,
+            sha256: await sha256Text(conceptualRaw),
+            audit: auditHeorConceptualModel(model, plan.analysis_id),
+          });
+        }
+      } catch (error) {
+        setConceptualArtifact({
+          kind: "invalid",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
       if (isTauri) setApprovals(await listHeorApprovals(project.id));
     } catch (error) {
       setArtifact({
@@ -120,12 +177,17 @@ export function HeorReviewPane({
     const effective: HeorGate[] = [];
     let previousSequence = 0;
     for (const gate of REVIEW_GATES) {
+      const artifactSha256 = gateArtifactHash(gate, artifact, conceptualArtifact);
+      if (!artifactSha256) break;
+      if (gate === "conceptual_model"
+        && conceptualArtifact.kind === "ready"
+        && !conceptualArtifact.audit.complete) break;
       if (gate === "analysis_plan" && !auditHeorEvidence(artifact.plan).complete) break;
       const event = latest.get(gate);
       if (
         !event ||
         event.action !== "approve" ||
-        event.artifactSha256 !== artifact.sha256 ||
+        event.artifactSha256 !== artifactSha256 ||
         event.sequence <= previousSequence
       ) {
         break;
@@ -134,7 +196,7 @@ export function HeorReviewPane({
       previousSequence = event.sequence;
     }
     return effective;
-  }, [approvals.events, artifact]);
+  }, [approvals.events, artifact, conceptualArtifact]);
 
   const evidenceAudit = useMemo(
     () => artifact.kind === "ready" ? auditHeorEvidence(artifact.plan) : null,
@@ -142,14 +204,6 @@ export function HeorReviewPane({
   );
 
   const latest = useMemo(() => latestByGate(approvals.events), [approvals.events]);
-  const decisionApproval = latest.get("decision_problem");
-  const staleDecisionApproval =
-    artifact.kind === "ready" &&
-    approvals.effectiveApprovedGates.includes("decision_problem") &&
-    decisionApproval?.action === "approve" &&
-    decisionApproval.artifactSha256 !== artifact.sha256
-      ? decisionApproval
-      : null;
   const nextGate = REVIEW_GATES.find((gate) => !currentApprovals.includes(gate)) ?? null;
 
   const applyBrowserEvent = async (
@@ -294,6 +348,11 @@ export function HeorReviewPane({
 
             <DecisionSnapshot plan={artifact.plan} />
 
+            <ConceptualModelTraceability
+              artifact={conceptualArtifact}
+              onRequestModel={() => onRequestRevision(t("conceptual.repairPrompt"))}
+            />
+
             <EvidenceTraceability
               audit={evidenceAudit!}
               onRequestRepair={() => onRequestRevision(t("evidence.repairPrompt"))}
@@ -306,17 +365,24 @@ export function HeorReviewPane({
               <div className="space-y-2">
                 {REVIEW_GATES.map((gate, index) => {
                   const approved = currentApprovals.includes(gate);
+                  const artifactSha256 = gateArtifactHash(gate, artifact, conceptualArtifact);
+                  const gateEvent = latest.get(gate);
+                  const stale = approvals.effectiveApprovedGates.includes(gate)
+                    && gateEvent?.action === "approve"
+                    && gateEvent.artifactSha256 !== artifactSha256;
+                  const conceptualBlocked = gate === "conceptual_model"
+                    && gate === nextGate
+                    && (conceptualArtifact.kind !== "ready" || !conceptualArtifact.audit.complete);
                   const evidenceBlocked = gate === "analysis_plan"
                     && gate === nextGate
                     && !evidenceAudit?.complete;
-                  const waiting = gate === nextGate && !staleDecisionApproval && !evidenceBlocked;
-                  const stale = gate === "decision_problem" && !!staleDecisionApproval;
+                  const waiting = gate === nextGate && !stale && !conceptualBlocked && !evidenceBlocked;
                   return (
                     <div key={gate} className="rounded-input border border-border bg-bg/50 px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {approved ? (
                           <Check size={14} className="text-ok" />
-                        ) : waiting || stale || evidenceBlocked ? (
+                        ) : waiting || stale || conceptualBlocked || evidenceBlocked ? (
                           <Circle size={12} className={stale ? "text-error" : "text-accent"} />
                         ) : (
                           <LockKeyhole size={13} className="text-muted" />
@@ -327,6 +393,8 @@ export function HeorReviewPane({
                             ? t("status.approved")
                             : stale
                               ? t("status.stale")
+                              : conceptualBlocked
+                                ? t("status.conceptualRequired")
                               : evidenceBlocked
                                 ? t("status.evidenceRequired")
                               : waiting
@@ -334,13 +402,13 @@ export function HeorReviewPane({
                                 : t("status.locked")}
                         </span>
                       </div>
-                      {stale && staleDecisionApproval ? (
+                      {stale && gateEvent ? (
                         <button
                           onClick={() =>
                             setIntent({
                               action: "revoke",
-                              gate: "decision_problem",
-                              artifactSha256: staleDecisionApproval.artifactSha256,
+                              gate,
+                              artifactSha256: gateEvent.artifactSha256,
                             })
                           }
                           className="mt-2 text-xs font-medium text-error hover:underline"
@@ -350,16 +418,16 @@ export function HeorReviewPane({
                       ) : waiting ? (
                         <button
                           onClick={() =>
-                            setIntent({ action: "approve", gate, artifactSha256: artifact.sha256 })
+                            setIntent({ action: "approve", gate, artifactSha256: artifactSha256! })
                           }
                           className="mt-2 text-xs font-medium text-accent hover:underline"
                         >
                           {t("action.approve", { gate: t(`gate.${gate}`) })}
                         </button>
                       ) : null}
-                      {index === REVIEW_GATES.length - 1 && approved && (
+                      {index === REVIEW_GATES.length - 1 && approved && artifactSha256 && (
                         <div className="mt-2 font-mono text-[10px] text-muted">
-                          {artifact.sha256.slice(0, 12)}…
+                          {artifactSha256.slice(0, 12)}…
                         </div>
                       )}
                     </div>
@@ -480,6 +548,74 @@ function DecisionSnapshot({ plan }: { plan: HeorAnalysisPlan }) {
           </div>
         ))}
       </dl>
+    </section>
+  );
+}
+
+function ConceptualModelTraceability({
+  artifact,
+  onRequestModel,
+}: {
+  artifact: ConceptualArtifactState;
+  onRequestModel: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const ready = artifact.kind === "ready";
+  const complete = ready && artifact.audit.complete;
+  const issues = ready
+    ? artifact.audit.errors.slice(0, 3)
+    : artifact.kind === "invalid"
+      ? [artifact.message]
+      : [];
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-center gap-2">
+        <ShieldCheck size={15} className={complete ? "text-ok" : "text-warning"} />
+        <div className="flex-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+          {t("conceptual.title")}
+        </div>
+        <span className={cn("text-[10px] font-medium", complete ? "text-ok" : "text-warning")}>
+          {artifact.kind === "loading"
+            ? t("conceptual.loading")
+            : complete
+              ? t("conceptual.complete")
+              : t("conceptual.incomplete")}
+        </span>
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted">{HEOR_CONCEPTUAL_MODEL_PATH}</div>
+      {ready && (
+        <>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <Metric label={t("conceptual.states")} value={String(artifact.audit.stateCount)} />
+            <Metric label={t("conceptual.transitions")} value={String(artifact.audit.transitionCount)} />
+            <Metric label={t("conceptual.alternatives")} value={String(artifact.audit.alternativeCount)} />
+          </div>
+          <div className="mt-2 text-[10px] text-muted">
+            {t("conceptual.modelType")}: {artifact.model.model_type.proposed}
+          </div>
+        </>
+      )}
+      {artifact.kind === "missing" && (
+        <p className="mt-3 text-xs leading-5 text-muted">{t("conceptual.missing")}</p>
+      )}
+      {issues.length > 0 && (
+        <div className="mt-3 space-y-1">
+          {issues.map((issue) => (
+            <div key={issue} className="break-words font-mono text-[10px] leading-4 text-warning">
+              {issue}
+            </div>
+          ))}
+        </div>
+      )}
+      {!complete && artifact.kind !== "loading" && (
+        <button
+          onClick={onRequestModel}
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+        >
+          <MessageSquareText size={13} /> {t("conceptual.askRepair")}
+        </button>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("conceptual.note")}</p>
     </section>
   );
 }
