@@ -8,6 +8,7 @@
     "dev": "pnpm --filter @ai4s/desktop dev",
     "build": "pnpm --filter @ai4s/desktop build",
     "test": "pnpm --filter @ai4s/desktop test",
+    "test:heor": "uv run --project python/heor_core python -m unittest discover -s python/heor_core/tests -v",
     "typecheck": "pnpm --filter @ai4s/desktop typecheck",
     "lint": "pnpm --filter @ai4s/desktop lint"
   },

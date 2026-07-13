@@ -1,0 +1,42 @@
+{
+  "schema_version": "0.1.0",
+  "analysis_id": "golden-two-strategy-markov",
+  "reference_case": {
+    "id": "CN-2020-current",
+    "status": "current"
+  },
+  "states": ["stable", "progressed", "dead"],
+  "cycles": 3,
+  "cycle_length_years": 1.0,
+  "discount_rates": {
+    "costs": 0.05,
+    "outcomes": 0.05
+  },
+  "half_cycle_correction": true,
+  "willingness_to_pay": 100000.0,
+  "strategies": {
+    "comparator": {
+      "name": "standard_care",
+      "initial_distribution": [1.0, 0.0, 0.0],
+      "transition_matrix": [
+        [0.7, 0.2, 0.1],
+        [0.0, 0.7, 0.3],
+        [0.0, 0.0, 1.0]
+      ],
+      "state_costs": [1000.0, 3000.0, 0.0],
+      "state_utilities": [0.8, 0.5, 0.0]
+    },
+    "intervention": {
+      "name": "new_treatment",
+      "initial_distribution": [1.0, 0.0, 0.0],
+      "transition_matrix": [
+        [0.8, 0.15, 0.05],
+        [0.0, 0.75, 0.25],
+        [0.0, 0.0, 1.0]
+      ],
+      "state_costs": [4000.0, 3000.0, 0.0],
+      "state_utilities": [0.8, 0.5, 0.0]
+    }
+  },
+  "approvals": []
+}
