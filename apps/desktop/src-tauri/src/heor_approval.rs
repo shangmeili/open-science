@@ -476,6 +476,14 @@ pub fn append_heor_approval(
                     path: crate::heor_uncertainty::UNCERTAINTY_PLAN_PATH.into(),
                     sha256: uncertainty.uncertainty_sha256,
                 });
+                let budget_impact =
+                    crate::heor_budget_impact::require_budget_impact_plan_approvable(
+                        &workspace, &raw,
+                    )?;
+                related_artifacts.push(ArtifactBinding {
+                    path: crate::heor_budget_impact::BUDGET_IMPACT_PLAN_PATH.into(),
+                    sha256: budget_impact.budget_impact_sha256,
+                });
             }
             ApprovalGate::IndependentValidation | ApprovalGate::Release => {}
         }

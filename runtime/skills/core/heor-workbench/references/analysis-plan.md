@@ -14,6 +14,8 @@ Use `assets/analysis-plan.template.json` as the starting shape. The desktop dete
 
 `schema_version` must be `0.1.0`. `analysis_id` must be non-empty. `reference_case` contains a registered `id` and its exact `status`. `states`, `cycles`, `cycle_length_years`, `discount_rates`, `half_cycle_correction`, and `strategies` are required.
 
+The complete MVP plan also fixes `uncertainty_analysis.path` to `heor/uncertainty-plan.json` and `budget_impact_analysis.path` to `heor/budget-impact-plan.json`. The analysis-plan approval binds the exact hashes of both sibling artifacts. Their detailed numeric contracts stay outside this file.
+
 For each strategy:
 
 - `initial_distribution` length equals the number of states and sums to 1;

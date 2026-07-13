@@ -4,6 +4,7 @@ export const HEOR_PLAN_PATH = "heor/analysis-plan.json";
 export const HEOR_CONCEPTUAL_MODEL_PATH = "heor/conceptual-model.json";
 export const HEOR_REFERENCE_CASE_ASSESSMENT_PATH = "heor/reference-case-assessment.json";
 export const HEOR_UNCERTAINTY_PLAN_PATH = "heor/uncertainty-plan.json";
+export const HEOR_BUDGET_IMPACT_PLAN_PATH = "heor/budget-impact-plan.json";
 
 export type HeorGate =
   | "decision_problem"
@@ -187,6 +188,25 @@ export interface HeorUncertaintyAudit {
   errors: string[];
 }
 
+export interface HeorBudgetImpactAudit {
+  complete: boolean;
+  status: "complete" | "incomplete";
+  biaId: string;
+  analysisId: string;
+  analysisPlanSha256: string;
+  budgetImpactSha256: string;
+  horizonYears: number | null;
+  populationYearCount: number;
+  costCategoryCount: number;
+  nonPatientCostCount: number;
+  sensitivityParameterCount: number;
+  scenarioCount: number;
+  requiredInputCount: number;
+  coveredInputCount: number;
+  invalidInputs: string[];
+  errors: string[];
+}
+
 export interface HeorAnalysisPlan {
   schema_version: "0.1.0";
   analysis_id: string;
@@ -195,6 +215,7 @@ export interface HeorAnalysisPlan {
   reference_case: { id: string; status: "current" | "draft" | "custom" };
   reference_case_assessment?: { path: string; content_sha256: string };
   uncertainty_analysis?: { path: string };
+  budget_impact_analysis?: { path: string };
   states: string[];
   cycles: number;
   cycle_length_years: number;
@@ -266,6 +287,8 @@ export interface HeorWorkflowStatus {
     referenceCaseAudit: HeorReferenceCaseAudit;
     uncertaintyPlanMatchesApproval: boolean;
     uncertaintyAudit: HeorUncertaintyAudit;
+    budgetImpactPlanMatchesApproval: boolean;
+    budgetImpactAudit: HeorBudgetImpactAudit;
     approvalChainHead: string | null;
     approvalIntegrity: string;
     identityAssurance: string;
@@ -313,6 +336,51 @@ export interface HeorUncertaintyCalculation {
 
 export interface HeorUncertaintyRunResult {
   calculation: HeorUncertaintyCalculation;
+  workflow: HeorWorkflowStatus;
+}
+
+export interface HeorBudgetImpactCalculation {
+  analysis_id: string;
+  bia_id: string;
+  engine_version: string;
+  schema_version: string;
+  analysis_plan_sha256: string;
+  budget_impact_plan_sha256: string;
+  calculation_classification: "calculation_only";
+  horizon_years: 3;
+  discount_rate: 0;
+  currency: string;
+  price_year: number;
+  base_case: {
+    annual_results: Array<{
+      year: number;
+      eligible_population: number;
+      without_new_intervention_share: number;
+      with_new_intervention_share: number;
+      without_new_intervention_cost: number;
+      with_new_intervention_cost: number;
+      net_budget_impact: number;
+    }>;
+    annual_net_budget_impact: number[];
+    cumulative_net_budget_impact: number;
+  };
+  one_way_sensitivity: Array<{
+    parameter_id: string;
+    label: string;
+    target: string;
+    cumulative_span: number;
+  }>;
+  alternative_scenarios: Array<{
+    scenario_id: string;
+    label: string;
+    cumulative_net_budget_impact: number;
+  }>;
+  limitations: string[];
+  warnings: string[];
+}
+
+export interface HeorBudgetImpactRunResult {
+  calculation: HeorBudgetImpactCalculation;
   workflow: HeorWorkflowStatus;
 }
 
@@ -650,12 +718,26 @@ export async function auditHeorUncertainty(): Promise<HeorUncertaintyAudit> {
   return invoke<HeorUncertaintyAudit>("audit_heor_uncertainty");
 }
 
+export async function auditHeorBudgetImpact(): Promise<HeorBudgetImpactAudit> {
+  if (!isTauri) return HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorBudgetImpactAudit>("audit_heor_budget_impact");
+}
+
 export async function runHeorUncertainty(
   projectId: string,
 ): Promise<HeorUncertaintyRunResult> {
   if (!isTauri) throw new Error("not running in the desktop app");
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<HeorUncertaintyRunResult>("run_heor_uncertainty", { projectId });
+}
+
+export async function runHeorBudgetImpact(
+  projectId: string,
+): Promise<HeorBudgetImpactRunResult> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorBudgetImpactRunResult>("run_heor_budget_impact", { projectId });
 }
 
 /** Browser-only fixture for interaction and visual regression. Values are a
@@ -676,6 +758,7 @@ export const HEOR_BROWSER_DEMO_PLAN: HeorAnalysisPlan = {
   },
   reference_case: { id: "CN-2020-current", status: "current" },
   uncertainty_analysis: { path: HEOR_UNCERTAINTY_PLAN_PATH },
+  budget_impact_analysis: { path: HEOR_BUDGET_IMPACT_PLAN_PATH },
   states: ["stable", "progressed", "dead"],
   cycles: 3,
   cycle_length_years: 1,
@@ -799,6 +882,25 @@ export const HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT: HeorUncertaintyAudit = {
   errors: ["heor/uncertainty-plan.json is required"],
 };
 
+export const HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT: HeorBudgetImpactAudit = {
+  complete: false,
+  status: "incomplete",
+  biaId: "",
+  analysisId: HEOR_BROWSER_DEMO_PLAN.analysis_id,
+  analysisPlanSha256: "",
+  budgetImpactSha256: "",
+  horizonYears: null,
+  populationYearCount: 0,
+  costCategoryCount: 0,
+  nonPatientCostCount: 0,
+  sensitivityParameterCount: 0,
+  scenarioCount: 0,
+  requiredInputCount: 0,
+  coveredInputCount: 0,
+  invalidInputs: [],
+  errors: ["heor/budget-impact-plan.json is required"],
+};
+
 export function browserDemoRun(
   inputSha256: string,
   approvedGates: HeorGate[],
@@ -806,8 +908,10 @@ export function browserDemoRun(
   const evidenceAudit = auditHeorEvidence(HEOR_BROWSER_DEMO_PLAN);
   const referenceCaseAudit = HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT;
   const uncertaintyAudit = HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT;
+  const budgetImpactAudit = HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT;
   const authorized = approvedGates.includes("analysis_plan")
-    && evidenceAudit.complete && referenceCaseAudit.complete && uncertaintyAudit.complete;
+    && evidenceAudit.complete && referenceCaseAudit.complete && uncertaintyAudit.complete
+    && budgetImpactAudit.complete;
   return {
     calculation: {
       analysis_id: HEOR_BROWSER_DEMO_PLAN.analysis_id,
@@ -859,6 +963,8 @@ export function browserDemoRun(
       referenceCaseAudit,
       uncertaintyPlanMatchesApproval: false,
       uncertaintyAudit,
+      budgetImpactPlanMatchesApproval: false,
+      budgetImpactAudit,
       approvalChainHead: null,
       approvalIntegrity: "verified_unanchored_sha256_chain",
       identityAssurance: "local_human_assertion",

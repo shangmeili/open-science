@@ -47,6 +47,7 @@
     "evidenceRequired": "需先完成证据审计",
     "referenceRequired": "需先完成参考案例审计",
     "uncertaintyRequired": "需先完成不确定性分析审计",
+    "budgetImpactRequired": "需先完成预算影响分析审计",
     "notDecisionReady": "尚不可用于决策"
   },
   "reviewSection": "人工审阅",
@@ -127,12 +128,29 @@
     "noProject": "没有可用于不确定性分析审计的当前项目。",
     "missingPlan": "必须先有分析计划，才能审计不确定性分析。"
   },
+  "budgetImpact": {
+    "title": "三年预算影响分析",
+    "loading": "正在审计预算影响文件……",
+    "complete": "预算影响审计已完成",
+    "incomplete": "预算影响审计未完成",
+    "horizon": "{{count}} 年预算周期",
+    "noDiscount": "不贴现",
+    "costs": "成本类别",
+    "sensitivity": "单因素参数",
+    "scenarios": "替代情景",
+    "askRepair": "让 Agent 创建或修复预算影响分析",
+    "repairPrompt": "使用 $heor-budget-impact，针对当前 heor/analysis-plan.json 的精确字节创建或修复 heor/budget-impact-plan.json。采用三年、预算持有者视角、不贴现的准入前/准入后透明成本计算器；逐年记录目标人群、市场份额、治疗与疾病相关成本、实施成本、证据溯源、单因素范围和替代情景。运行确定性校验器，不要创建或声称获得人工批准。",
+    "note": "应用会独立审计并把该文件哈希绑定到分析计划批准。预算影响反映支付方财务变化，不等于成本效果或医保准入结论。",
+    "noProject": "没有可用于预算影响分析审计的当前项目。",
+    "missingPlan": "必须先有分析计划，才能审计预算影响分析。"
+  },
   "action": {
     "approve": "审阅{{gate}}",
     "revokeStale": "撤销过期批准",
     "run": "运行确定性分析",
     "running": "计算中……",
-    "runUncertainty": "运行 DSA、PSA 与结构情景"
+    "runUncertainty": "运行 DSA、PSA 与结构情景",
+    "runBudgetImpact": "运行三年预算影响分析"
   },
   "dialog": {
     "approveTitle": "批准{{gate}}？",
@@ -174,11 +192,23 @@
     "scenarios": "结构情景",
     "limitations": "范围与局限"
   },
+  "budgetImpactResult": {
+    "title": "预算影响分析结果",
+    "year": "年度",
+    "population": "目标人群",
+    "uptake": "新干预份额",
+    "netImpact": "净预算影响",
+    "cumulative": "三年累计影响",
+    "leadingDriver": "首要敏感性驱动",
+    "scenarios": "替代情景",
+    "limitations": "范围与局限"
+  },
   "toast": {
     "approvalRecorded": "已记录人工批准",
     "approvalRevoked": "已撤销过期批准",
     "runComplete": "确定性分析已完成",
     "uncertaintyRunComplete": "不确定性分析已完成",
+    "budgetImpactRunComplete": "预算影响分析已完成",
     "loadFailed": "无法读取 AI4HEOR 工作流",
     "actionFailed": "AI4HEOR 操作失败"
   }

@@ -4,6 +4,7 @@ import {
   auditHeorEvidence,
   buildHeorPrompt,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
+  HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT,
   HEOR_BROWSER_DEMO_PLAN,
   HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT,
   HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT,
@@ -75,6 +76,16 @@ describe("AI4HEOR artifact contract", () => {
     expect(HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT.complete).toBe(false);
     expect(HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT.errors[0]).toContain(
       "uncertainty-plan.json",
+    );
+  });
+
+  it("keeps the budget impact artifact separate and fail-closed", () => {
+    expect(HEOR_BROWSER_DEMO_PLAN.budget_impact_analysis?.path).toBe(
+      "heor/budget-impact-plan.json",
+    );
+    expect(HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT.complete).toBe(false);
+    expect(HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT.errors[0]).toContain(
+      "budget-impact-plan.json",
     );
   });
 });

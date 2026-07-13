@@ -41,6 +41,10 @@ uncertainty = load(
     "validate_uncertainty_plan",
     "runtime/skills/core/heor-uncertainty-analysis/scripts/validate_uncertainty_plan.py",
 )
+budget_impact = load(
+    "validate_budget_impact_plan",
+    "runtime/skills/core/heor-budget-impact/scripts/validate_budget_impact_plan.py",
+)
 
 
 def evidence_fixture():
@@ -340,6 +344,50 @@ class UncertaintyContractTests(unittest.TestCase):
                 "known_omitted_correlations must be resolved before review",
                 uncertainty.validate(uncertainty_path, plan_path),
             )
+
+
+class BudgetImpactContractTests(unittest.TestCase):
+    def fixture(self, root: Path):
+        plan_path = root / "heor" / "analysis-plan.json"
+        budget_path = root / "heor" / "budget-impact-plan.json"
+        plan_path.parent.mkdir(parents=True)
+        plan_path.write_bytes(
+            (ROOT / "python/heor_core/golden_cases/two_strategy_budget_base.json").read_bytes()
+        )
+        budget_path.write_bytes(
+            (ROOT / "python/heor_core/golden_cases/two_strategy_budget_impact.json").read_bytes()
+        )
+        return budget_path, plan_path
+
+    def test_complete_hash_bound_budget_impact_plan_passes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = self.fixture(Path(directory))
+            self.assertEqual(budget_impact.validate(*paths), [])
+
+    def test_changed_hash_and_missing_cost_provenance_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            budget_path, plan_path = self.fixture(Path(directory))
+            value = json.loads(budget_path.read_text())
+            value["base_analysis"]["content_sha256"] = "0" * 64
+            value["input_provenance"] = value["input_provenance"][:-1]
+            budget_path.write_text(json.dumps(value, indent=2))
+            errors = budget_impact.validate(budget_path, plan_path)
+            self.assertIn(
+                "base_analysis.content_sha256 does not match the plan bytes",
+                errors,
+            )
+            self.assertTrue(any("lack provenance" in error for error in errors))
+
+    def test_budget_impact_rejects_discounting_and_authority_targets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            budget_path, plan_path = self.fixture(Path(directory))
+            value = json.loads(budget_path.read_text())
+            value["discount_rate"] = 0.05
+            value["sensitivity_parameters"][0]["target"] = "/perspective/price_year"
+            budget_path.write_text(json.dumps(value, indent=2))
+            errors = budget_impact.validate(budget_path, plan_path)
+            self.assertIn("discount_rate must be 0", errors)
+            self.assertTrue(any("target is invalid" in error for error in errors))
 
 
 if __name__ == "__main__":

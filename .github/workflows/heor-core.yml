@@ -31,7 +31,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Test deterministic HEOR engine and seeded uncertainty analysis
+      - name: Test deterministic HEOR, uncertainty, and budget impact engines
         env:
           PYTHONPATH: ${{ github.workspace }}/python/heor_core/src
         run: python -m unittest discover -s python/heor_core/tests -v

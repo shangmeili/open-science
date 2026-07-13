@@ -1,6 +1,6 @@
 ---
 name: heor-workbench
-description: Turn natural-language pharmacoeconomics and HEOR questions into auditable local research artifacts. Use for cost-effectiveness analysis, budget impact, evidence and model-input research, decision-problem scoping, conceptual models, analysis plans, deterministic model execution, result interpretation, sensitivity analysis planning, and review of files under heor/. Preserve human approval boundaries and never treat model output as an approval or policy recommendation.
+description: Turn natural-language pharmacoeconomics and HEOR questions into auditable local research artifacts. Use for cost-effectiveness analysis, budget impact, evidence and model-input research, decision-problem scoping, conceptual models, analysis plans, deterministic model execution, result interpretation, sensitivity analysis planning, affordability analysis, and review of files under heor/. Preserve human approval boundaries and never treat model output as an approval or policy recommendation.
 ---
 
 # HEOR Workbench
@@ -26,9 +26,10 @@ Use conversation as the primary interface. Translate the researcher's intent int
 5. Create or update `heor/analysis-plan.json` from `assets/analysis-plan.template.json`. Read `references/analysis-plan.md` before editing it. Use `$heor-input-provenance` whenever evidence is selected for model inputs, mapped, audited, or prepared for analysis-plan review.
 6. Use `$heor-reference-case` to assess every requirement in the selected versioned profile and bind `heor/reference-case-assessment.json` to the plan by exact content hash.
 7. Use `$heor-uncertainty-analysis` to create and validate `heor/uncertainty-plan.json`. Bind it to the exact current analysis-plan bytes; derive ranges and distributions only from linked evidence, and preserve omissions, dependence assumptions, convergence thresholds, and structural scenarios.
-8. Tell the researcher exactly what changed, which inputs, reference-case requirements, and uncertainty components remain unsupported, and which review gate is ready for human inspection.
-9. Run deterministic base-case or uncertainty calculations only through the workbench review panel or its documented local command. Never recreate approval state in the workspace.
-10. Interpret results in the conversation with the result classification, exact input hashes, Monte Carlo diagnostics, uncertainty limitations, and any validation still required.
+8. Use `$heor-budget-impact` when affordability or payer expenditure is in scope. Create `heor/budget-impact-plan.json` as a separate three-year, undiscounted, two-scenario cost calculator bound to the exact analysis-plan bytes; do not derive it from discounted cost-effectiveness totals.
+9. Tell the researcher exactly what changed, which model and BIA inputs, reference-case requirements, and uncertainty components remain unsupported, and which review gate is ready for human inspection.
+10. Run deterministic base-case, uncertainty, or budget impact calculations only through the workbench review panel or its documented local command. Never recreate approval state in the workspace.
+11. Interpret results in the conversation with the result classification, exact input hashes, Monte Carlo or budget diagnostics, limitations, and any validation still required.
 
 ## Evidence discipline
 
@@ -41,7 +42,7 @@ Use conversation as the primary interface. Translate the researcher's intent int
 
 ## Analysis-plan handoff
 
-The app watches `heor/analysis-plan.json`, `heor/conceptual-model.json`, `heor/reference-case-assessment.json`, and `heor/uncertainty-plan.json`. Keep them valid JSON and do not write temporary commentary into them. Use lower-case snake-case keys exactly as documented. Preserve unknown metadata fields created by the researcher or another tool. Independent artifacts are content-hashed; changing them requires renewed review.
+The app watches `heor/analysis-plan.json`, `heor/conceptual-model.json`, `heor/reference-case-assessment.json`, `heor/uncertainty-plan.json`, and `heor/budget-impact-plan.json`. Keep them valid JSON and do not write temporary commentary into them. Use lower-case snake-case keys exactly as documented. Preserve unknown metadata fields created by the researcher or another tool. Independent artifacts are content-hashed; changing them requires renewed review.
 
 After writing the plan, report:
 

@@ -23,6 +23,9 @@
   "uncertainty_analysis": {
     "path": "heor/uncertainty-plan.json"
   },
+  "budget_impact_analysis": {
+    "path": "heor/budget-impact-plan.json"
+  },
   "states": ["stable", "progressed", "dead"],
   "cycles": 10,
   "cycle_length_years": 1.0,

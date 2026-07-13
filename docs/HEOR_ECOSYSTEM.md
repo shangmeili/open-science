@@ -68,7 +68,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-model-design` | Decision problem, conceptual model, structural alternatives | `heor/conceptual-model.json` plus app-owned gate audit |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
-| P1 | `heor-budget-impact` | Population, uptake, displacement, cost categories, scenarios | BIA plan and deterministic results |
+| Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
 | P1 | `heor-model-validation` | Face, internal, external, cross-model, and code validation | validation report with reviewer boundary |
 | P1 | `heor-reporting` | CHEERS-aligned reporting without treating a checklist as quality scoring | traceable report package |
 
@@ -96,14 +96,17 @@ An upstream update never replaces the pinned release automatically. Codex may
 prepare and test an update, while the product owner or designated human accepts
 the changed capability boundary.
 
-The shipped uncertainty skill illustrates this rule. Existing public skills and
-HEOR tools supplied useful terminology and negative cases, but none was admitted
-as executable authority. AI4HEOR rewrote the capability around a first-party
-schema, evidence-linked distributions, a versioned cross-platform PRNG, bounded
-execution, three independent validator layers, exact artifact hashes, app-owned
-approval bindings, and natural-language repair. Optional BCEA, `hesim`, `heemod`,
-and `survHE` integrations remain candidates until their adapters pass the same
-pipeline; their maturity does not bypass platform admission.
+The shipped uncertainty and budget-impact skills illustrate this rule. Existing
+public skills and HEOR tools supplied useful terminology and negative cases, but
+none was admitted as executable authority. AI4HEOR rewrote the capabilities
+around first-party schemas, evidence-linked inputs, bounded deterministic
+execution, three validator layers, exact artifact hashes, app-owned approval
+bindings, and natural-language repair. The BIA slice also rejects method creep:
+it stops rather than pretending a two-strategy cost calculator can represent
+induced demand, dynamic cohorts, or multi-treatment markets. Optional BCEA,
+`hesim`, `heemod`, and `survHE` integrations remain candidates until their
+adapters pass the same pipeline; their maturity does not bypass platform
+admission.
 
 ## Method sources governing the adaptation
 
@@ -114,6 +117,7 @@ wording:
 - [Chinese Pharmaceutical Association 2020 guideline](https://www.cpa.org.cn/index.php?cid=75553&do=info)
 - [Chinese 2026 second-edition consultation notice](https://www.cpa.org.cn/?cid=78857&do=info) and [draft PDF](https://www.cpa.org.cn/cpadmn/attached/file/20260626/1782459582340302.pdf), retained as draft rather than current policy
 - [NICE PMG36 economic evaluation](https://www.nice.org.uk/process/pmg36/chapter/economic-evaluation-2/)
+- [ISPOR Budget Impact Analysis Good Practice II](https://www.ispor.org/heor-resources/good-practices/article/principles-of-good-practice-for-budget-impact-analysis-ii)
 - [ISPOR-SMDM model transparency and validation](https://www.ispor.org/publications/journals/value-in-health/abstract/Volume-15--Issue-6/Model-Transparency-and-Validation--A-Report-of-the-ISPOR-SMDM-Modeling-Good-Research-Practices-Task-Force-7)
 - [Cochrane Handbook current search and selection chapter](https://training.cochrane.org/handbook/current/chapter-04)
 - [PRISMA 2020](https://www.prisma-statement.org/prisma-2020), used as reporting guidance rather than evidence-quality certification

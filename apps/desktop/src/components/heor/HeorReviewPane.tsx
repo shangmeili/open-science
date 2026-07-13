@@ -17,6 +17,7 @@ import { readArtifact } from "@/lib/artifactFile";
 import { cn } from "@/lib/cn";
 import {
   appendHeorApproval,
+  auditHeorBudgetImpact,
   auditHeorConceptualModel,
   auditHeorEvidence,
   auditHeorReferenceCase,
@@ -25,6 +26,7 @@ import {
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_PLAN,
   HEOR_CONCEPTUAL_MODEL_PATH,
+  HEOR_BUDGET_IMPACT_PLAN_PATH,
   HEOR_PLAN_PATH,
   HEOR_REFERENCE_CASE_ASSESSMENT_PATH,
   HEOR_UNCERTAINTY_PLAN_PATH,
@@ -34,6 +36,8 @@ import {
   type HeorApprovalLog,
   type HeorConceptualModel,
   type HeorConceptualModelAudit,
+  type HeorBudgetImpactAudit,
+  type HeorBudgetImpactRunResult,
   type HeorGate,
   type HeorReferenceCaseAudit,
   type HeorRunResult,
@@ -43,6 +47,7 @@ import {
   parseHeorConceptualModel,
   parseHeorPlan,
   runHeorMarkov,
+  runHeorBudgetImpact,
   runHeorUncertainty,
   sha256Text,
 } from "@/lib/heor";
@@ -94,6 +99,11 @@ type UncertaintyState =
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorUncertaintyAudit };
 
+type BudgetImpactState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorBudgetImpactAudit };
+
 type ReviewIntent = {
   action: HeorApprovalAction;
   gate: HeorGate;
@@ -128,20 +138,24 @@ export function HeorReviewPane({
   });
   const [referenceCase, setReferenceCase] = useState<ReferenceCaseState>({ kind: "loading" });
   const [uncertainty, setUncertainty] = useState<UncertaintyState>({ kind: "loading" });
+  const [budgetImpact, setBudgetImpact] = useState<BudgetImpactState>({ kind: "loading" });
   const [approvals, setApprovals] = useState<HeorApprovalLog>(EMPTY_LOG);
   const [result, setResult] = useState<HeorRunResult | null>(null);
   const [uncertaintyResult, setUncertaintyResult] = useState<HeorUncertaintyRunResult | null>(null);
+  const [budgetImpactResult, setBudgetImpactResult] = useState<HeorBudgetImpactRunResult | null>(null);
   const [running, setRunning] = useState(false);
   const [intent, setIntent] = useState<ReviewIntent | null>(null);
 
   const refresh = useCallback(async () => {
     setResult(null);
     setUncertaintyResult(null);
+    setBudgetImpactResult(null);
     if (!project) {
       setArtifact({ kind: "missing" });
       setConceptualArtifact({ kind: "missing" });
       setReferenceCase({ kind: "invalid", message: t("reference.noProject") });
       setUncertainty({ kind: "invalid", message: t("uncertainty.noProject") });
+      setBudgetImpact({ kind: "invalid", message: t("budgetImpact.noProject") });
       setApprovals(EMPTY_LOG);
       return;
     }
@@ -149,6 +163,7 @@ export function HeorReviewPane({
     setConceptualArtifact({ kind: "loading" });
     setReferenceCase({ kind: "loading" });
     setUncertainty({ kind: "loading" });
+    setBudgetImpact({ kind: "loading" });
     try {
       const raw = isTauri
         ? (await readArtifact(HEOR_PLAN_PATH))?.data ?? null
@@ -157,6 +172,7 @@ export function HeorReviewPane({
         setArtifact({ kind: "missing" });
         setReferenceCase({ kind: "invalid", message: t("reference.missingPlan") });
         setUncertainty({ kind: "invalid", message: t("uncertainty.missingPlan") });
+        setBudgetImpact({ kind: "invalid", message: t("budgetImpact.missingPlan") });
         setApprovals(await listHeorApprovals(project.id));
         return;
       }
@@ -175,6 +191,14 @@ export function HeorReviewPane({
         setUncertainty({ kind: "ready", audit: await auditHeorUncertainty() });
       } catch (error) {
         setUncertainty({
+          kind: "invalid",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      try {
+        setBudgetImpact({ kind: "ready", audit: await auditHeorBudgetImpact() });
+      } catch (error) {
+        setBudgetImpact({
           kind: "invalid",
           message: error instanceof Error ? error.message : String(error),
         });
@@ -215,6 +239,10 @@ export function HeorReviewPane({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
+      setBudgetImpact({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
       toast.error(t("toast.loadFailed"));
     }
   }, [project, t]);
@@ -239,7 +267,9 @@ export function HeorReviewPane({
           || referenceCase.kind !== "ready"
           || !referenceCase.audit.complete
           || uncertainty.kind !== "ready"
-          || !uncertainty.audit.complete)) break;
+          || !uncertainty.audit.complete
+          || budgetImpact.kind !== "ready"
+          || !budgetImpact.audit.complete)) break;
       const event = latest.get(gate);
       if (
         !event ||
@@ -250,6 +280,11 @@ export function HeorReviewPane({
           && !event.relatedArtifacts?.some((binding) =>
             binding.path === HEOR_UNCERTAINTY_PLAN_PATH
             && binding.sha256 === uncertainty.audit.uncertaintySha256)) ||
+        (gate === "analysis_plan"
+          && budgetImpact.kind === "ready"
+          && !event.relatedArtifacts?.some((binding) =>
+            binding.path === HEOR_BUDGET_IMPACT_PLAN_PATH
+            && binding.sha256 === budgetImpact.audit.budgetImpactSha256)) ||
         event.sequence <= previousSequence
       ) {
         break;
@@ -258,7 +293,7 @@ export function HeorReviewPane({
       previousSequence = event.sequence;
     }
     return effective;
-  }, [approvals.events, artifact, conceptualArtifact, referenceCase, uncertainty]);
+  }, [approvals.events, artifact, conceptualArtifact, referenceCase, uncertainty, budgetImpact]);
 
   const evidenceAudit = useMemo(
     () => artifact.kind === "ready" ? auditHeorEvidence(artifact.plan) : null,
@@ -276,8 +311,12 @@ export function HeorReviewPane({
     rationale: string,
   ) => {
     const sequence = approvals.events.length + 1;
-    const relatedArtifacts = gate === "analysis_plan" && uncertainty.kind === "ready"
-      ? [{ path: HEOR_UNCERTAINTY_PLAN_PATH, sha256: uncertainty.audit.uncertaintySha256 }]
+    const relatedArtifacts = gate === "analysis_plan"
+      && uncertainty.kind === "ready" && budgetImpact.kind === "ready"
+      ? [
+          { path: HEOR_UNCERTAINTY_PLAN_PATH, sha256: uncertainty.audit.uncertaintySha256 },
+          { path: HEOR_BUDGET_IMPACT_PLAN_PATH, sha256: budgetImpact.audit.budgetImpactSha256 },
+        ]
       : undefined;
     const eventHash = await sha256Text(
       JSON.stringify({
@@ -338,6 +377,7 @@ export function HeorReviewPane({
       setIntent(null);
       setResult(null);
       setUncertaintyResult(null);
+      setBudgetImpactResult(null);
     } catch (error) {
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -373,6 +413,20 @@ export function HeorReviewPane({
     }
   };
 
+  const runBudgetImpact = async () => {
+    if (!project || !isTauri || budgetImpact.kind !== "ready"
+      || !budgetImpact.audit.complete || running) return;
+    setRunning(true);
+    try {
+      setBudgetImpactResult(await runHeorBudgetImpact(project.id));
+      toast.success(t("toast.budgetImpactRunComplete"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col border-l border-border bg-surface">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
@@ -390,7 +444,10 @@ export function HeorReviewPane({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <StageRail currentApprovals={currentApprovals} hasResult={!!result || !!uncertaintyResult} />
+        <StageRail
+          currentApprovals={currentApprovals}
+          hasResult={!!result || !!uncertaintyResult || !!budgetImpactResult}
+        />
 
         {!project ? (
           <EmptyState title={t("panel.noProjectTitle")} body={t("panel.noProjectBody")} />
@@ -456,6 +513,10 @@ export function HeorReviewPane({
               state={uncertainty}
               onRequestRepair={() => onRequestRevision(t("uncertainty.repairPrompt"))}
             />
+            <BudgetImpactAssessment
+              state={budgetImpact}
+              onRequestRepair={() => onRequestRevision(t("budgetImpact.repairPrompt"))}
+            />
 
             <section className="border-b border-border px-5 py-4">
               <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
@@ -466,11 +527,16 @@ export function HeorReviewPane({
                   const approved = currentApprovals.includes(gate);
                   const artifactSha256 = gateArtifactHash(gate, artifact, conceptualArtifact);
                   const gateEvent = latest.get(gate);
-                  const relatedStale = gate === "analysis_plan"
-                    && uncertainty.kind === "ready"
-                    && !gateEvent?.relatedArtifacts?.some((binding) =>
-                      binding.path === HEOR_UNCERTAINTY_PLAN_PATH
-                      && binding.sha256 === uncertainty.audit.uncertaintySha256);
+                  const relatedStale = gate === "analysis_plan" && (
+                    (uncertainty.kind === "ready"
+                      && !gateEvent?.relatedArtifacts?.some((binding) =>
+                        binding.path === HEOR_UNCERTAINTY_PLAN_PATH
+                        && binding.sha256 === uncertainty.audit.uncertaintySha256))
+                    || (budgetImpact.kind === "ready"
+                      && !gateEvent?.relatedArtifacts?.some((binding) =>
+                        binding.path === HEOR_BUDGET_IMPACT_PLAN_PATH
+                        && binding.sha256 === budgetImpact.audit.budgetImpactSha256))
+                  );
                   const stale = approvals.effectiveApprovedGates.includes(gate)
                     && gateEvent?.action === "approve"
                     && (gateEvent.artifactSha256 !== artifactSha256 || relatedStale);
@@ -486,14 +552,19 @@ export function HeorReviewPane({
                   const uncertaintyBlocked = gate === "analysis_plan"
                     && gate === nextGate
                     && (uncertainty.kind !== "ready" || !uncertainty.audit.complete);
+                  const budgetImpactBlocked = gate === "analysis_plan"
+                    && gate === nextGate
+                    && (budgetImpact.kind !== "ready" || !budgetImpact.audit.complete);
                   const waiting = gate === nextGate && !stale && !conceptualBlocked
-                    && !evidenceBlocked && !referenceBlocked && !uncertaintyBlocked;
+                    && !evidenceBlocked && !referenceBlocked && !uncertaintyBlocked
+                    && !budgetImpactBlocked;
                   return (
                     <div key={gate} className="rounded-input border border-border bg-bg/50 px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {approved ? (
                           <Check size={14} className="text-ok" />
-                        ) : waiting || stale || conceptualBlocked || evidenceBlocked || referenceBlocked || uncertaintyBlocked ? (
+                        ) : waiting || stale || conceptualBlocked || evidenceBlocked || referenceBlocked
+                          || uncertaintyBlocked || budgetImpactBlocked ? (
                           <Circle size={12} className={stale ? "text-error" : "text-accent"} />
                         ) : (
                           <LockKeyhole size={13} className="text-muted" />
@@ -512,6 +583,8 @@ export function HeorReviewPane({
                                 ? t("status.referenceRequired")
                               : uncertaintyBlocked
                                 ? t("status.uncertaintyRequired")
+                              : budgetImpactBlocked
+                                ? t("status.budgetImpactRequired")
                               : waiting
                                 ? t("status.awaiting")
                                 : t("status.locked")}
@@ -568,11 +641,24 @@ export function HeorReviewPane({
                   {running ? t("action.running") : t("action.runUncertainty")}
                 </button>
               )}
+              {isTauri && budgetImpact.kind === "ready" && budgetImpact.audit.complete && (
+                <button
+                  onClick={() => void runBudgetImpact()}
+                  disabled={running}
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-input border border-accent px-3 py-2 text-xs font-semibold text-accent hover:bg-accent/5 disabled:opacity-60"
+                >
+                  {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={13} />}
+                  {running ? t("action.running") : t("action.runBudgetImpact")}
+                </button>
+              )}
             </section>
 
             {result && <ResultCard result={result} locale={i18n.language} />}
             {uncertaintyResult && (
               <UncertaintyResultCard result={uncertaintyResult} locale={i18n.language} />
+            )}
+            {budgetImpactResult && (
+              <BudgetImpactResultCard result={budgetImpactResult} locale={i18n.language} />
             )}
 
             <section className="px-5 py-4 text-[10px] leading-5 text-muted">
@@ -944,6 +1030,74 @@ function UncertaintyAssessment({
   );
 }
 
+function BudgetImpactAssessment({
+  state,
+  onRequestRepair,
+}: {
+  state: BudgetImpactState;
+  onRequestRepair: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const complete = audit?.complete === true;
+  const issues = audit
+    ? [...audit.invalidInputs, ...audit.errors]
+    : state.kind === "invalid" ? [state.message] : [];
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {complete ? (
+          <ShieldCheck size={16} className="mt-0.5 text-ok" />
+        ) : (
+          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("budgetImpact.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+            {state.kind === "loading"
+              ? t("budgetImpact.loading")
+              : complete ? t("budgetImpact.complete") : t("budgetImpact.incomplete")}
+          </div>
+          {audit?.horizonYears && (
+            <div className="mt-1 text-[10px] text-muted">
+              {t("budgetImpact.horizon", { count: audit.horizonYears })} · {t("budgetImpact.noDiscount")}
+            </div>
+          )}
+        </div>
+        {audit && (
+          <span className="rounded-full border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-text">
+            {audit.coveredInputCount}/{audit.requiredInputCount}
+          </span>
+        )}
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted">{HEOR_BUDGET_IMPACT_PLAN_PATH}</div>
+      {audit && (
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <Metric label={t("budgetImpact.costs")} value={String(audit.costCategoryCount)} />
+          <Metric label={t("budgetImpact.sensitivity")} value={String(audit.sensitivityParameterCount)} />
+          <Metric label={t("budgetImpact.scenarios")} value={String(audit.scenarioCount)} />
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      {!complete && state.kind !== "loading" && (
+        <button
+          onClick={onRequestRepair}
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+        >
+          <MessageSquareText size={13} /> {t("budgetImpact.askRepair")}
+        </button>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("budgetImpact.note")}</p>
+    </section>
+  );
+}
+
 function ApprovalDialog({
   intent,
   artifactHash,
@@ -1112,6 +1266,100 @@ function UncertaintyResultCard({
       <details className="mt-3 text-[10px] text-muted">
         <summary className="cursor-pointer font-medium text-text">
           {t("uncertaintyResult.limitations")} ({calculation.limitations.length})
+        </summary>
+        <ul className="mt-2 list-disc space-y-1 pl-4 leading-4">
+          {calculation.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}
+        </ul>
+      </details>
+    </section>
+  );
+}
+
+function BudgetImpactResultCard({
+  result,
+  locale,
+}: {
+  result: HeorBudgetImpactRunResult;
+  locale: string;
+}) {
+  const { t } = useTranslation("heor");
+  const calculation = result.calculation;
+  const currency = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: calculation.currency,
+    maximumFractionDigits: 0,
+  });
+  const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
+  const percent = new Intl.NumberFormat(locale, {
+    style: "percent",
+    maximumFractionDigits: 1,
+  });
+  const authorized = result.workflow.classification === "analysis_authorized_local_assertion";
+  const leadingDriver = [...calculation.one_way_sensitivity]
+    .sort((left, right) => right.cumulative_span - left.cumulative_span)[0];
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        <ShieldCheck size={16} className={authorized ? "text-ok" : "text-accent"} />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-text">{t("budgetImpactResult.title")}</div>
+          <div className={cn(
+            "mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]",
+            authorized ? "text-ok" : "text-accent",
+          )}>
+            {authorized ? t("result.authorized") : t("result.exploratory")}
+          </div>
+        </div>
+        <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[9px] font-semibold uppercase text-muted">
+          {calculation.price_year} {calculation.currency} · {t("budgetImpact.noDiscount")}
+        </span>
+      </div>
+      <div className="mt-4 overflow-hidden rounded-input border border-border">
+        <table className="w-full text-[10px]">
+          <thead className="bg-bg text-muted">
+            <tr>
+              <th className="px-2 py-2 text-left font-medium">{t("budgetImpactResult.year")}</th>
+              <th className="px-2 py-2 text-right font-medium">{t("budgetImpactResult.population")}</th>
+              <th className="px-2 py-2 text-right font-medium">{t("budgetImpactResult.uptake")}</th>
+              <th className="px-2 py-2 text-right font-medium">{t("budgetImpactResult.netImpact")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {calculation.base_case.annual_results.map((row) => (
+              <tr key={row.year} className="border-t border-border">
+                <td className="px-2 py-2 text-text">{row.year}</td>
+                <td className="px-2 py-2 text-right tabular-nums text-text">
+                  {number.format(row.eligible_population)}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums text-text">
+                  {percent.format(row.with_new_intervention_share)}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums text-text">
+                  {currency.format(row.net_budget_impact)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <Metric
+          label={t("budgetImpactResult.cumulative")}
+          value={currency.format(calculation.base_case.cumulative_net_budget_impact)}
+          accent
+        />
+        <Metric
+          label={t("budgetImpactResult.leadingDriver")}
+          value={leadingDriver?.label ?? "—"}
+        />
+        <Metric
+          label={t("budgetImpactResult.scenarios")}
+          value={String(calculation.alternative_scenarios.length)}
+        />
+      </div>
+      <details className="mt-3 text-[10px] text-muted">
+        <summary className="cursor-pointer font-medium text-text">
+          {t("budgetImpactResult.limitations")} ({calculation.limitations.length})
         </summary>
         <ul className="mt-2 list-disc space-y-1 pl-4 leading-4">
           {calculation.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}

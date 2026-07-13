@@ -47,6 +47,7 @@
     "evidenceRequired": "Evidence audit required",
     "referenceRequired": "Reference-case audit required",
     "uncertaintyRequired": "Uncertainty audit required",
+    "budgetImpactRequired": "Budget impact audit required",
     "notDecisionReady": "Not decision-ready"
   },
   "reviewSection": "Human review",
@@ -127,12 +128,29 @@
     "noProject": "No active project is available for an uncertainty audit.",
     "missingPlan": "An analysis plan is required before the uncertainty audit."
   },
+  "budgetImpact": {
+    "title": "Three-year budget impact",
+    "loading": "Auditing the budget impact artifact…",
+    "complete": "Budget impact audit complete",
+    "incomplete": "Budget impact audit incomplete",
+    "horizon": "{{count}} budget years",
+    "noDiscount": "undiscounted",
+    "costs": "Cost categories",
+    "sensitivity": "One-way inputs",
+    "scenarios": "Scenarios",
+    "askRepair": "Ask the Agent to build or repair budget impact",
+    "repairPrompt": "Use $heor-budget-impact to create or repair heor/budget-impact-plan.json against the exact current bytes of heor/analysis-plan.json. Use a three-year, budget-holder, undiscounted without-access/with-access transparent cost calculator. Record annual eligible population, market shares, treatment and condition-related costs, implementation costs, provenance, one-way ranges, and alternative scenarios. Run the deterministic validator and do not create or claim human approval.",
+    "note": "The app independently audits and binds this artifact hash to analysis-plan approval. Budget impact describes payer financial change, not cost-effectiveness or a coverage conclusion.",
+    "noProject": "There is no current project for budget impact audit.",
+    "missingPlan": "An analysis plan is required before budget impact can be audited."
+  },
   "action": {
     "approve": "Review {{gate}}",
     "revokeStale": "Revoke stale approval",
     "run": "Run deterministic analysis",
     "running": "Calculating…",
-    "runUncertainty": "Run DSA, PSA and scenarios"
+    "runUncertainty": "Run DSA, PSA and scenarios",
+    "runBudgetImpact": "Run three-year budget impact"
   },
   "dialog": {
     "approveTitle": "Approve {{gate}}?",
@@ -174,11 +192,23 @@
     "scenarios": "Structural scenarios",
     "limitations": "Scope and limitations"
   },
+  "budgetImpactResult": {
+    "title": "Budget impact results",
+    "year": "Year",
+    "population": "Eligible population",
+    "uptake": "New intervention share",
+    "netImpact": "Net budget impact",
+    "cumulative": "Three-year cumulative",
+    "leadingDriver": "Leading sensitivity driver",
+    "scenarios": "Alternative scenarios",
+    "limitations": "Scope and limitations"
+  },
   "toast": {
     "approvalRecorded": "Human approval recorded",
     "approvalRevoked": "Stale approval revoked",
     "runComplete": "Deterministic analysis complete",
     "uncertaintyRunComplete": "Uncertainty analysis complete",
+    "budgetImpactRunComplete": "Budget impact analysis complete",
     "loadFailed": "Could not read the AI4HEOR workflow",
     "actionFailed": "AI4HEOR action failed"
   }

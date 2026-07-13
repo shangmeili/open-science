@@ -25,8 +25,9 @@ a form-led modeling application.
 ## MVP decision problem
 
 The first complete workflow compares two strategies using a cohort state
-transition model and a three-year budget impact analysis. The first vertical
-slice implements only the deterministic cohort model.
+transition model and a three-year budget impact analysis. Both deterministic
+calculation paths are implemented; independent validation and release remain
+outside the alpha calculation boundary.
 
 ## Non-negotiable boundaries
 
@@ -34,8 +35,8 @@ slice implements only the deterministic cohort model.
    produce the authoritative cost, QALY, ICER, net benefit, or budget result.
 2. A run is not decision-ready until the decision problem, independent
    `heor/conceptual-model.json` artifact, hash-bound reference-case assessment,
-   executable uncertainty plan, and analysis plan are approved by a human and
-   recorded with their current artifact hashes.
+   executable uncertainty plan, executable budget impact plan, and analysis
+   plan are approved by a human and recorded with their current artifact hashes.
 3. Every decision-relevant value must carry a source, unit, jurisdiction, price
    year, selection rationale, and uncertainty status before public beta.
 4. Results must trace to input, engine version, reference-case version, and run
@@ -107,6 +108,33 @@ policy recommendation. Rust, Python, and the portable skill validator each
 fail closed on unsafe targets, changed hashes, unsupported distributions,
 unlinked distribution bases, known omitted correlations, or invalid scenarios.
 
+## Implemented budget impact boundary
+
+The first-party `$heor-budget-impact` skill creates
+`heor/budget-impact-plan.json`. It binds to the exact analysis-plan bytes and
+records the budget holder, jurisdiction, currency, price year, three annual
+eligible populations, without/with-access intervention shares, itemized
+treatment and condition-related per-patient costs, scenario-level
+implementation costs, exclusions, provenance, one-way ranges, alternative
+scenarios, validation plans, and limitations. Analysis-plan approval binds the
+exact BIA hash alongside the uncertainty artifact; changing any bound artifact
+invalidates local authorization.
+
+The dependency-free engine implements the transparent cost-calculator form
+recommended for a simple BIA. It derives comparator share as one minus new-
+intervention share, reports each of three budget years and the undiscounted
+cumulative with-minus-without impact, preserves category-level calculations,
+and executes evidence-bound one-way and alternative scenarios. Python, Rust,
+and the portable skill validator reject discounting, unsafe targets, missing
+provenance, non-finite values, invalid shares, stale hashes, incomplete cost
+scope, or unresolved assumptions.
+
+This first slice deliberately excludes induced demand, population entry and
+exit, combination therapy, severity-mix changes, and more than two treatments.
+When those materially affect the decision question, the workbench must stop at
+an explicit limitation and use a future cohort or patient-level BIA adapter; it
+must not force the question into this calculator.
+
 ## Alpha acceptance
 
 - A hand-checkable golden model matches an independent calculation.
@@ -123,6 +151,9 @@ unlinked distribution bases, known omitted correlations, or invalid scenarios.
 - The current golden suite compares scalar model and PSA summaries to seven
   decimal places, requires exact probability counts for the seeded fixture, and
   requires an exact PCG32 integer sequence on macOS, Windows, and Linux CI.
+- The BIA golden fixture matches an independent annual hand calculation,
+  reports all category subtotals, applies zero discounting, and fails closed on
+  changed plan bytes or missing population, uptake, and cost provenance.
 - Exploratory and analysis-authorized runs are visibly distinct. Validation and
   release remain separate human-controlled states.
 - The core analysis runs without a model provider or network connection.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Budget Impact"
+  short_description: "Build auditable payer budget impact analyses"
+  default_prompt: "Use $heor-budget-impact to create and validate a three-year budget impact plan."

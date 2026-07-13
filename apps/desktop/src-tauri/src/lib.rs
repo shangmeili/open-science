@@ -1,15 +1,16 @@
 // AI4S Workbench — Tauri 2 entry. Hosts the React frontend and supervises the
 // bundled OpenCode sidecar (isolated config/data + dedicated port; killed on exit).
 mod artifact_file;
+mod compute;
 mod debug_log;
 mod examples;
 mod git_snapshot;
 mod harness;
-mod compute;
 mod heor_approval;
 mod heor_artifacts;
-mod heor_evidence;
+mod heor_budget_impact;
 mod heor_engine;
+mod heor_evidence;
 mod heor_reference_case;
 mod heor_uncertainty;
 mod jupyter;
@@ -105,6 +106,8 @@ pub fn run() {
             provenance::read_env_lockfile,
             heor_approval::append_heor_approval,
             heor_approval::list_heor_approvals,
+            heor_budget_impact::audit_heor_budget_impact,
+            heor_budget_impact::run_heor_budget_impact,
             heor_reference_case::audit_heor_reference_case,
             heor_uncertainty::audit_heor_uncertainty,
             heor_uncertainty::run_heor_uncertainty,
@@ -138,7 +141,10 @@ pub fn run() {
             // (ExitRequested is not always delivered), so handle BOTH — otherwise
             // the OpenCode sidecar / kernel / Jupyter orphan on every quit. The
             // cleanup is idempotent, so running on both is safe.
-            if matches!(event, tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit) {
+            if matches!(
+                event,
+                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+            ) {
                 runtime::kill_child(&app.state::<RuntimeState>());
                 kernel::kill_kernel(&app.state::<KernelState>());
                 jupyter::kill_jupyter(&app.state::<JupyterState>());

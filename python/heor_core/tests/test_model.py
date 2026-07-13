@@ -5,6 +5,7 @@ import json
 import unittest
 from pathlib import Path
 
+from heor_core.budget_impact import run_budget_impact
 from heor_core.model import (
     MarkovSpecification,
     ModelValidationError,
@@ -17,6 +18,12 @@ GOLDEN_PATH = Path(__file__).parents[1] / "golden_cases" / "two_strategy_markov.
 UNCERTAINTY_PATH = (
     Path(__file__).parents[1] / "golden_cases" / "two_strategy_uncertainty.json"
 )
+BUDGET_BASE_PATH = (
+    Path(__file__).parents[1] / "golden_cases" / "two_strategy_budget_base.json"
+)
+BUDGET_IMPACT_PATH = (
+    Path(__file__).parents[1] / "golden_cases" / "two_strategy_budget_impact.json"
+)
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -26,6 +33,14 @@ def golden_payload() -> dict:
 
 def uncertainty_payload() -> dict:
     return json.loads(UNCERTAINTY_PATH.read_text())
+
+
+def budget_base_payload() -> dict:
+    return json.loads(BUDGET_BASE_PATH.read_text())
+
+
+def budget_impact_payload() -> dict:
+    return json.loads(BUDGET_IMPACT_PATH.read_text())
 
 
 class MarkovModelTests(unittest.TestCase):
@@ -207,6 +222,102 @@ class UncertaintyAnalysisTests(unittest.TestCase):
                 GOLDEN_PATH.read_bytes(),
                 uncertainty,
                 json.dumps(uncertainty).encode(),
+            )
+
+
+class BudgetImpactAnalysisTests(unittest.TestCase):
+    def run_golden(self) -> dict:
+        return run_budget_impact(
+            budget_base_payload(),
+            BUDGET_BASE_PATH.read_bytes(),
+            budget_impact_payload(),
+            BUDGET_IMPACT_PATH.read_bytes(),
+        )
+
+    def test_golden_budget_impact_matches_hand_calculation(self) -> None:
+        result = self.run_golden()
+
+        self.assertEqual(
+            result["base_case"]["annual_net_budget_impact"],
+            [550000.0, 1120000.0, 1810000.0],
+        )
+        self.assertEqual(
+            result["base_case"]["cumulative_net_budget_impact"], 3480000.0
+        )
+        self.assertEqual(result["one_way_sensitivity"][0]["cumulative_span"], 100000.0)
+        self.assertEqual(
+            result["alternative_scenarios"][0]["cumulative_net_budget_impact"],
+            4305000.0,
+        )
+        self.assertEqual(result["discount_rate"], 0)
+        self.assertEqual(result["calculation_classification"], "calculation_only")
+
+    def test_changed_analysis_plan_hash_fails_closed(self) -> None:
+        plan = budget_base_payload()
+        plan["cycles"] = 4
+        changed_raw = json.dumps(plan).encode()
+
+        with self.assertRaisesRegex(ModelValidationError, "does not match"):
+            run_budget_impact(
+                plan,
+                changed_raw,
+                budget_impact_payload(),
+                BUDGET_IMPACT_PATH.read_bytes(),
+            )
+
+    def test_discounting_is_rejected(self) -> None:
+        budget = budget_impact_payload()
+        budget["discount_rate"] = 0.05
+
+        with self.assertRaisesRegex(ModelValidationError, "must be 0"):
+            run_budget_impact(
+                budget_base_payload(),
+                BUDGET_BASE_PATH.read_bytes(),
+                budget,
+                json.dumps(budget).encode(),
+            )
+
+    def test_missing_cost_provenance_fails_closed(self) -> None:
+        budget = budget_impact_payload()
+        budget["input_provenance"] = budget["input_provenance"][:-1]
+
+        with self.assertRaisesRegex(ModelValidationError, "lack provenance"):
+            run_budget_impact(
+                budget_base_payload(),
+                BUDGET_BASE_PATH.read_bytes(),
+                budget,
+                json.dumps(budget).encode(),
+            )
+
+    def test_sensitivity_cannot_target_authority_or_metadata(self) -> None:
+        budget = budget_impact_payload()
+        budget["sensitivity_parameters"][0]["target"] = "/perspective/price_year"
+
+        with self.assertRaisesRegex(ModelValidationError, "unsupported budget impact target"):
+            run_budget_impact(
+                budget_base_payload(),
+                BUDGET_BASE_PATH.read_bytes(),
+                budget,
+                json.dumps(budget).encode(),
+            )
+
+    def test_non_finite_calculation_fails_explicitly(self) -> None:
+        budget = budget_impact_payload()
+        budget["population"]["annual_eligible"][0] = 1e308
+        provenance = next(
+            mapping
+            for mapping in budget["input_provenance"]
+            if mapping["path"] == "/population/annual_eligible/0"
+        )
+        provenance["uncertainty_status"] = "fixed"
+        budget["sensitivity_parameters"] = budget["sensitivity_parameters"][1:]
+
+        with self.assertRaisesRegex(ModelValidationError, "not finite"):
+            run_budget_impact(
+                budget_base_payload(),
+                BUDGET_BASE_PATH.read_bytes(),
+                budget,
+                json.dumps(budget).encode(),
             )
 
 

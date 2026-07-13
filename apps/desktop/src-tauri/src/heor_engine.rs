@@ -8,6 +8,7 @@ use tauri::{path::BaseDirectory, AppHandle, Manager};
 use crate::heor_approval::{
     ApprovalAction, ApprovalEvent, ApprovalGate, ApprovalLog, HeorApprovalState,
 };
+use crate::heor_budget_impact::{audit_budget_impact_for_plan, BudgetImpactAudit};
 use crate::heor_evidence::{audit_plan_bytes, EvidenceAudit};
 use crate::heor_reference_case::{audit_reference_case_for_plan, ReferenceCaseAudit};
 use crate::heor_uncertainty::{audit_uncertainty_plan_for_plan, UncertaintyAudit};
@@ -28,6 +29,8 @@ pub struct HeorWorkflowStatus {
     reference_case_audit: ReferenceCaseAudit,
     uncertainty_plan_matches_approval: bool,
     uncertainty_audit: UncertaintyAudit,
+    budget_impact_plan_matches_approval: bool,
+    budget_impact_audit: BudgetImpactAudit,
     approval_chain_head: Option<String>,
     approval_integrity: &'static str,
     identity_assurance: &'static str,
@@ -39,6 +42,13 @@ pub struct HeorWorkflowStatus {
 pub struct HeorRunResult {
     calculation: serde_json::Value,
     workflow: HeorWorkflowStatus,
+}
+
+pub(crate) struct HeorWorkflowAudits {
+    pub evidence: EvidenceAudit,
+    pub reference_case: ReferenceCaseAudit,
+    pub uncertainty: UncertaintyAudit,
+    pub budget_impact: BudgetImpactAudit,
 }
 
 fn resolve_workspace_input(root: &Path, value: &str) -> Result<PathBuf, String> {
@@ -148,10 +158,14 @@ pub(crate) fn workflow_status(
     input_sha256: String,
     conceptual_model_matches_artifact: bool,
     reference_case_status: &str,
-    evidence_audit: EvidenceAudit,
-    reference_case_audit: ReferenceCaseAudit,
-    uncertainty_audit: UncertaintyAudit,
+    audits: HeorWorkflowAudits,
 ) -> HeorWorkflowStatus {
+    let HeorWorkflowAudits {
+        evidence: evidence_audit,
+        reference_case: reference_case_audit,
+        uncertainty: uncertainty_audit,
+        budget_impact: budget_impact_audit,
+    } = audits;
     let plan_matches =
         analysis_plan_event(&log).is_some_and(|event| event.artifact_sha256 == input_sha256);
     let uncertainty_plan_matches_approval = analysis_plan_event(&log).is_some_and(|event| {
@@ -161,12 +175,21 @@ pub(crate) fn workflow_status(
             &uncertainty_audit.uncertainty_sha256,
         )
     });
+    let budget_impact_plan_matches_approval = analysis_plan_event(&log).is_some_and(|event| {
+        crate::heor_approval::event_binds_artifact(
+            event,
+            crate::heor_budget_impact::BUDGET_IMPACT_PLAN_PATH,
+            &budget_impact_audit.budget_impact_sha256,
+        )
+    });
     let locally_authorized = plan_matches
         && conceptual_model_matches_artifact
         && evidence_audit.complete
         && reference_case_audit.complete
         && uncertainty_audit.complete
         && uncertainty_plan_matches_approval
+        && budget_impact_audit.complete
+        && budget_impact_plan_matches_approval
         && reference_case_status != "draft";
     let mut effective_approved_gates = log.effective_approved_gates;
     if !conceptual_model_matches_artifact {
@@ -178,6 +201,8 @@ pub(crate) fn workflow_status(
         || !reference_case_audit.complete
         || !uncertainty_audit.complete
         || !uncertainty_plan_matches_approval
+        || !budget_impact_audit.complete
+        || !budget_impact_plan_matches_approval
     {
         effective_approved_gates = effective_approved_gates
             .into_iter()
@@ -201,6 +226,8 @@ pub(crate) fn workflow_status(
         reference_case_audit,
         uncertainty_plan_matches_approval,
         uncertainty_audit,
+        budget_impact_plan_matches_approval,
+        budget_impact_audit,
         approval_chain_head: log.chain_head,
         approval_integrity: log.integrity,
         identity_assurance: log.identity_assurance,
@@ -295,6 +322,7 @@ pub fn run_heor_markov(
         registered_reference_case_status(&app, reference_case_id, reference_case_status)?;
     let reference_case_audit = audit_reference_case_for_plan(&app, &root, &raw)?;
     let uncertainty_audit = audit_uncertainty_plan_for_plan(&root, &raw)?;
+    let budget_impact_audit = audit_budget_impact_for_plan(&root, &raw)?;
     // Evaluate authorization after calculation so a revocation made while the
     // engine is running cannot leave the returned status stale.
     let approval_log = {
@@ -312,9 +340,12 @@ pub fn run_heor_markov(
             input_sha256,
             conceptual_model_matches_artifact,
             &reference_case_status,
-            evidence_audit,
-            reference_case_audit,
-            uncertainty_audit,
+            HeorWorkflowAudits {
+                evidence: evidence_audit,
+                reference_case: reference_case_audit,
+                uncertainty: uncertainty_audit,
+                budget_impact: budget_impact_audit,
+            },
         ),
         calculation,
     })
@@ -346,10 +377,16 @@ mod tests {
     fn approved_log(input_hash: &str) -> ApprovalLog {
         let mut analysis_plan = approval_event(3, ApprovalGate::AnalysisPlan, input_hash);
         analysis_plan.schema_version = 2;
-        analysis_plan.related_artifacts = vec![crate::heor_approval::ArtifactBinding {
-            path: crate::heor_uncertainty::UNCERTAINTY_PLAN_PATH.into(),
-            sha256: "f".repeat(64),
-        }];
+        analysis_plan.related_artifacts = vec![
+            crate::heor_approval::ArtifactBinding {
+                path: crate::heor_uncertainty::UNCERTAINTY_PLAN_PATH.into(),
+                sha256: "f".repeat(64),
+            },
+            crate::heor_approval::ArtifactBinding {
+                path: crate::heor_budget_impact::BUDGET_IMPACT_PLAN_PATH.into(),
+                sha256: "9".repeat(64),
+            },
+        ];
         ApprovalLog {
             events: vec![
                 approval_event(1, ApprovalGate::DecisionProblem, &"a".repeat(64)),
@@ -421,6 +458,36 @@ mod tests {
         }
     }
 
+    fn complete_budget_impact_audit() -> BudgetImpactAudit {
+        BudgetImpactAudit {
+            complete: true,
+            status: "complete",
+            bia_id: "bia-1".into(),
+            analysis_id: "analysis-1".into(),
+            analysis_plan_sha256: "c".repeat(64),
+            budget_impact_sha256: "9".repeat(64),
+            horizon_years: Some(3),
+            population_year_count: 3,
+            cost_category_count: 2,
+            non_patient_cost_count: 1,
+            sensitivity_parameter_count: 2,
+            scenario_count: 1,
+            required_input_count: 24,
+            covered_input_count: 24,
+            invalid_inputs: Vec::new(),
+            errors: Vec::new(),
+        }
+    }
+
+    fn complete_workflow_audits() -> HeorWorkflowAudits {
+        HeorWorkflowAudits {
+            evidence: complete_audit(),
+            reference_case: complete_reference_case_audit(),
+            uncertainty: complete_uncertainty_audit(),
+            budget_impact: complete_budget_impact_audit(),
+        }
+    }
+
     #[test]
     fn authorization_requires_the_approved_analysis_plan_to_match_the_input() {
         let input_hash = "c".repeat(64);
@@ -429,9 +496,7 @@ mod tests {
             input_hash.clone(),
             true,
             "current",
-            complete_audit(),
-            complete_reference_case_audit(),
-            complete_uncertainty_audit(),
+            complete_workflow_audits(),
         );
         assert_eq!(
             authorized.classification,
@@ -445,9 +510,7 @@ mod tests {
             "d".repeat(64),
             true,
             "current",
-            complete_audit(),
-            complete_reference_case_audit(),
-            complete_uncertainty_audit(),
+            complete_workflow_audits(),
         );
         assert_eq!(changed.classification, "exploratory");
         assert!(!changed.analysis_plan_matches_input);
@@ -461,9 +524,7 @@ mod tests {
             input_hash,
             true,
             "draft",
-            complete_audit(),
-            complete_reference_case_audit(),
-            complete_uncertainty_audit(),
+            complete_workflow_audits(),
         );
         assert_eq!(status.classification, "exploratory");
         assert!(status.analysis_plan_matches_input);
@@ -482,9 +543,10 @@ mod tests {
             input_hash,
             true,
             "current",
-            audit,
-            complete_reference_case_audit(),
-            complete_uncertainty_audit(),
+            HeorWorkflowAudits {
+                evidence: audit,
+                ..complete_workflow_audits()
+            },
         );
         assert_eq!(status.classification, "exploratory");
         assert!(!status.evidence_audit.complete);
@@ -504,12 +566,36 @@ mod tests {
             input_hash,
             true,
             "current",
-            complete_audit(),
-            complete_reference_case_audit(),
-            uncertainty,
+            HeorWorkflowAudits {
+                uncertainty,
+                ..complete_workflow_audits()
+            },
         );
         assert_eq!(status.classification, "exploratory");
         assert!(!status.uncertainty_plan_matches_approval);
+        assert_eq!(
+            status.effective_approved_gates,
+            vec![ApprovalGate::DecisionProblem, ApprovalGate::ConceptualModel]
+        );
+    }
+
+    #[test]
+    fn changed_budget_impact_plan_invalidates_analysis_plan_authorization() {
+        let input_hash = "c".repeat(64);
+        let mut budget_impact = complete_budget_impact_audit();
+        budget_impact.budget_impact_sha256 = "0".repeat(64);
+        let status = workflow_status(
+            approved_log(&input_hash),
+            input_hash,
+            true,
+            "current",
+            HeorWorkflowAudits {
+                budget_impact,
+                ..complete_workflow_audits()
+            },
+        );
+        assert_eq!(status.classification, "exploratory");
+        assert!(!status.budget_impact_plan_matches_approval);
         assert_eq!(
             status.effective_approved_gates,
             vec![ApprovalGate::DecisionProblem, ApprovalGate::ConceptualModel]
@@ -524,9 +610,7 @@ mod tests {
             input_hash,
             false,
             "current",
-            complete_audit(),
-            complete_reference_case_audit(),
-            complete_uncertainty_audit(),
+            complete_workflow_audits(),
         );
         assert_eq!(status.classification, "exploratory");
         assert!(!status.conceptual_model_matches_artifact);
