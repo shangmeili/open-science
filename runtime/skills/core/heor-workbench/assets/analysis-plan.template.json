@@ -1,0 +1,54 @@
+{
+  "schema_version": "0.1.0",
+  "analysis_id": "replace-with-analysis-id",
+  "input_status": "draft",
+  "decision_problem": {
+    "title": "Replace with the decision question",
+    "population": "Replace with the target population",
+    "intervention": "Replace with the intervention",
+    "comparator": "Replace with the comparator",
+    "perspective": "Replace with the analysis perspective",
+    "time_horizon_years": 10,
+    "outcome": "QALY",
+    "jurisdiction": "China"
+  },
+  "reference_case": {
+    "id": "CN-2020-current",
+    "status": "current"
+  },
+  "states": ["stable", "progressed", "dead"],
+  "cycles": 10,
+  "cycle_length_years": 1.0,
+  "discount_rates": {
+    "costs": 0.05,
+    "outcomes": 0.05
+  },
+  "half_cycle_correction": true,
+  "willingness_to_pay": null,
+  "strategies": {
+    "comparator": {
+      "name": "replace_with_comparator",
+      "initial_distribution": [1.0, 0.0, 0.0],
+      "transition_matrix": [
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0]
+      ],
+      "state_costs": [0.0, 0.0, 0.0],
+      "state_utilities": [0.0, 0.0, 0.0]
+    },
+    "intervention": {
+      "name": "replace_with_intervention",
+      "initial_distribution": [1.0, 0.0, 0.0],
+      "transition_matrix": [
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0]
+      ],
+      "state_costs": [0.0, 0.0, 0.0],
+      "state_utilities": [0.0, 0.0, 0.0]
+    }
+  },
+  "evidence_sources": [],
+  "assumptions": []
+}

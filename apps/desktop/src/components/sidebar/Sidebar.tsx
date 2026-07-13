@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronRight,
+  Activity,
   Files,
   FlaskConical,
   Folder,
@@ -270,9 +271,9 @@ export function Sidebar({ project }: { project: Project }) {
         <div className={cn("px-4 pb-3", overlayTitlebar ? "pt-1" : "pt-4")}>
           <div className="flex items-baseline gap-1.5">
             <img src={logo} alt="" className="h-[18px] w-auto self-center" />
-            {/* eslint-disable-next-line i18next/no-literal-string -- product brand name, not translated across locales (see AGENTS.md) */}
+            {/* eslint-disable-next-line i18next/no-literal-string -- product brand name, not translated across locales */}
             <div className="font-serif text-[17px] font-semibold leading-none tracking-tight text-text">
-              Open Science
+              AI4HEOR
             </div>
             <span className="text-[10px] uppercase tracking-widest text-muted">
               {t("sidebar.betaBadge")}
@@ -297,6 +298,12 @@ export function Sidebar({ project }: { project: Project }) {
             icon={<Plus size={16} />}
             label={t("items.new")}
             onClick={startNew}
+          />
+          <NavRow
+            icon={<Activity size={16} />}
+            label={t("items.heor")}
+            onClick={() => navigate("/heor")}
+            active={location.pathname.startsWith("/heor")}
           />
           <NavRow
             icon={<NotebookPen size={16} />}
@@ -534,17 +541,22 @@ function NavRow({
   icon,
   label,
   onClick,
+  active = false,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
+  active?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 rounded-input px-2 py-1 text-[13px] text-text hover:bg-surface-2"
+      className={cn(
+        "flex items-center gap-2 rounded-input px-2 py-1 text-[13px] text-text hover:bg-surface-2",
+        active && "bg-surface-2",
+      )}
     >
-      <span className="text-muted">{icon}</span>
+      <span className={active ? "text-accent" : "text-muted"}>{icon}</span>
       <span>{label}</span>
     </button>
   );

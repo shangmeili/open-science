@@ -1,0 +1,52 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { useUiStore } from "@/lib/store";
+import { HeorReviewPane } from "./HeorReviewPane";
+
+afterEach(() => useUiStore.getState().setLocale("en"));
+
+describe("AI4HEOR human review pane", () => {
+  it("reads an agent-authored artifact and keeps approval human-only", async () => {
+    render(
+      <HeorReviewPane
+        project={{ id: "ai4heor-demo", name: "Demo" }}
+        onClose={vi.fn()}
+        onRequestRevision={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByText("Cost-effectiveness of a new first-line treatment for advanced NSCLC"),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Review Decision problem" }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    const submit = screen.getByRole("button", { name: "Record approval" });
+    expect(submit).toBeDisabled();
+
+    await userEvent.type(screen.getByPlaceholderText("Name or local reviewer label"), "Local reviewer");
+    await userEvent.type(
+      screen.getByPlaceholderText("What you checked and why this gate can proceed"),
+      "Decision context checked against the project question.",
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: "I performed this review myself" }));
+    await userEvent.click(submit);
+
+    expect(await screen.findByText("Approved for this artifact")).toBeInTheDocument();
+  });
+
+  it("runs the browser fixture as an explicitly exploratory calculation", async () => {
+    render(
+      <HeorReviewPane
+        project={{ id: "ai4heor-demo", name: "Demo" }}
+        onClose={vi.fn()}
+        onRequestRevision={vi.fn()}
+      />,
+    );
+    await screen.findByText("Decision and model snapshot");
+    await userEvent.click(screen.getByRole("button", { name: "Run deterministic analysis" }));
+    expect(await screen.findByText("Exploratory")).toBeInTheDocument();
+    expect(screen.getByText("Not decision-ready")).toBeInTheDocument();
+  });
+});

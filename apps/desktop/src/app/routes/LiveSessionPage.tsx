@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { FlaskConical, FolderOpen, Loader2, NotebookPen, PanelLeft, PlugZap } from "lucide-react";
+import { Activity, FlaskConical, FolderOpen, Loader2, NotebookPen, PanelLeft, PlugZap } from "lucide-react";
 import type { RuntimeStatus } from "@ai4s/shared";
 import { DRAFT_KEY, rootSessionOf, subagentActivity, useRuntimeStore } from "@/lib/runtime";
 import { queryRuns } from "@/lib/runs";
@@ -13,17 +13,21 @@ import { Elapsed } from "@/components/thread/ToolGroup";
 import { Composer } from "@/components/thread/Composer";
 import { baseName } from "@/components/thread/WorkspaceChip";
 import { WorkflowStarters } from "@/components/thread/WorkflowStarters";
+import { HeorStarters } from "@/components/heor/HeorStarters";
+import { HeorReviewPane } from "@/components/heor/HeorReviewPane";
 import { InteractionPrompt } from "@/components/thread/InteractionPrompt";
 import { InspectorShell } from "@/components/inspector/InspectorShell";
 import { MaximizePaneButton, RightPane } from "@/components/inspector/RightPane";
 import { SessionFilesPane } from "./FilesPage";
 import { RunsPane } from "./RunsPage";
 import { cn } from "@/lib/cn";
+import { buildHeorPrompt } from "@/lib/heor";
+import { isTauri } from "@/lib/tauri";
 
 /** Live agent session backed by the OpenCode runtime. `/live` (no id) is a blank draft;
  *  the session is created lazily on the first message, then the URL updates to /live/:id. */
-export function LiveSessionPage() {
-  const { t } = useTranslation(["session", "common"]);
+export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
+  const { t } = useTranslation(["session", "common", "heor"]);
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const {
@@ -33,6 +37,7 @@ export function LiveSessionPage() {
     runningSessions,
     serverUrl,
     sessions,
+    projects,
     currentId,
     threads,
     error,
@@ -61,6 +66,7 @@ export function LiveSessionPage() {
     setApprovalMode,
   } = useRuntimeStore();
   const clearingLocalCommand = useRef(false);
+  const [showHeorReview, setShowHeorReview] = useState(false);
 
   // A deliberate workspace move restarts the sidecar — expected and brief, so
   // the UI stays "connected" (no badge flip, no Connect button, no help card).
@@ -84,9 +90,10 @@ export function LiveSessionPage() {
 
   // All three composer paths reflect a freshly-created session in the URL.
   const afterTurn = (id: string | null) => {
-    if (id && !sessionId) navigate(`/live/${id}`);
+    if (id && !sessionId) navigate(`${heorMode ? "/heor" : "/live"}/${id}`);
   };
-  const onSend = async (text: string) => afterTurn(await sendPrompt(text));
+  const onSend = async (text: string) =>
+    afterTurn(await sendPrompt(heorMode ? buildHeorPrompt(text) : text));
   const onRunShell = async (command: string) => afterTurn(await runShell(command));
   const onRunCommand = async (name: string, args: string) => {
     const localClear = name === "new" || name === "clear";
@@ -96,7 +103,7 @@ export function LiveSessionPage() {
     // which never re-runs) and silently block the next openSession.
     if (localClear && sessionId) clearingLocalCommand.current = true;
     const id = await runCommand(name, args);
-    if (localClear) navigate("/live", { replace: true });
+    if (localClear) navigate(heorMode ? "/heor" : "/live", { replace: true });
     else afterTurn(id);
   };
   const composerCommands = useMemo(() => {
@@ -192,6 +199,9 @@ export function LiveSessionPage() {
   const activeArtifact = pane?.artifact ?? null;
   const showFiles = !activeArtifact && !!pane?.showFiles;
   const showRuns = !activeArtifact && !showFiles && !!pane?.showRuns;
+  const activeProject =
+    projects.find((candidate) => candidate.path === workspace) ??
+    (!isTauri ? { id: "ai4heor-demo", name: "First-line NSCLC" } : null);
 
   // Show the Runs toggle only when this session has runs (like the Files/folder
   // affordance — present when there's content). Cheap count query on open.
@@ -257,8 +267,17 @@ export function LiveSessionPage() {
               title — the workspace picker lives in the composer until the
               session exists. min-w-0 lets it truncate instead of shoving the
               right-side controls off the bar. */}
-          {sessionId && (
+          {sessionId && !heorMode && (
             <h1 className="min-w-0 truncate text-[13px] font-medium text-text">{title ?? ""}</h1>
+          )}
+          {heorMode && (
+            <div className="flex min-w-0 items-center gap-2">
+              <Activity size={14} className="shrink-0 text-accent" />
+              <h1 className="truncate font-serif text-[15px] font-semibold text-text">
+                {t("heor:brand")}
+              </h1>
+              {sessionId && title && <span className="truncate text-xs text-muted">/ {title}</span>}
+            </div>
           )}
           <div data-tauri-drag-region={overlayTitlebar || undefined} className="flex-1" />
           {/* Right: quiet ghost controls — no border or fill until hovered or
@@ -295,6 +314,20 @@ export function LiveSessionPage() {
               <span>{t("live.runsToggle.label")}</span>
             </button>
           )}
+          {heorMode && (
+            <button
+              onClick={() => setShowHeorReview((open) => !open)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors hover:bg-surface-2",
+                showHeorReview ? "bg-surface-2 text-text" : "text-muted",
+              )}
+              aria-pressed={showHeorReview}
+              title={t("heor:review")}
+            >
+              <Activity size={13} />
+              <span>{t("heor:review")}</span>
+            </button>
+          )}
           <ConnBadge status={displayStatus} />
           {uniqueNotebooks.map((nb) => (
             <button
@@ -324,6 +357,15 @@ export function LiveSessionPage() {
 
         <div ref={chatRef} onScroll={onChatScroll} className="flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-8 py-6">
+            {isEmpty && !sessionId && heorMode && (
+              <HeorStarters
+                onPick={(prompt) =>
+                  connected
+                    ? void onSend(prompt)
+                    : useUiStore.getState().setComposerDraft(prompt)
+                }
+              />
+            )}
             {/* Deliberate workspace switches don't render anything at all (they're
                 masked as connected); a genuine boot/reconnect shows only the
                 header badge's pulsing dot — anything appearing and disappearing
@@ -348,7 +390,7 @@ export function LiveSessionPage() {
                 {error}
               </div>
             )}
-            {connected && isEmpty && !sessionId && (
+            {connected && isEmpty && !sessionId && !heorMode && (
               <WorkflowStarters onPick={(p) => void onSend(p)} />
             )}
             {historyLoading && <ThreadSkeleton />}
@@ -407,7 +449,9 @@ export function LiveSessionPage() {
                 working
                   ? t("live.placeholder.waiting")
                   : connected
-                    ? t("composer.placeholder.default")
+                    ? heorMode
+                      ? t("heor:placeholder")
+                      : t("composer.placeholder.default")
                     : t("live.placeholder.disconnected")
               }
               approvalMode={approvalMode}
@@ -417,11 +461,20 @@ export function LiveSessionPage() {
         </div>
       </div>
 
-      {(activeArtifact || showFiles || showRuns) && (
+      {(showHeorReview || activeArtifact || showFiles || showRuns) && (
         <RightPane
-          onClose={activeArtifact ? closeArtifact : showRuns ? () => setShowRuns(false) : () => setShowFiles(false)}
+          onClose={showHeorReview ? () => setShowHeorReview(false) : activeArtifact ? closeArtifact : showRuns ? () => setShowRuns(false) : () => setShowFiles(false)}
         >
-          {activeArtifact ? (
+          {showHeorReview ? (
+            <HeorReviewPane
+              project={activeProject}
+              onClose={() => setShowHeorReview(false)}
+              onRequestRevision={(prompt) => {
+                useUiStore.getState().setComposerDraft(prompt);
+                setShowHeorReview(false);
+              }}
+            />
+          ) : activeArtifact ? (
             <InspectorShell
               inspector={fileInspectorFromBlock(activeArtifact)}
               onClose={closeArtifact}

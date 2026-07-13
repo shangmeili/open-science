@@ -17,6 +17,8 @@ export const routes: RouteObject[] = [
       { index: true, element: <Navigate to="/live" replace /> },
       { path: "live", element: <LiveSessionPage /> },
       { path: "live/:sessionId", element: <LiveSessionPage /> },
+      { path: "heor", element: <LiveSessionPage heorMode /> },
+      { path: "heor/:sessionId", element: <LiveSessionPage heorMode /> },
       { path: "example/:sessionId", element: <SessionPage /> },
       { path: "skills", element: <SkillsPage /> },
       { path: "notebooks", element: <NotebooksPage /> },

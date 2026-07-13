@@ -1,0 +1,109 @@
+{
+  "brand": "AI4HEOR",
+  "badge": "药物经济学",
+  "review": "审阅分析",
+  "closeReview": "关闭分析审阅",
+  "placeholder": "描述你想研究的决策问题、证据缺口、模型修改或结果解释……",
+  "starter": {
+    "eyebrow": "自然语言优先的药物经济学科研工作区",
+    "title": "先说清楚研究问题",
+    "body": "Agent 负责结构化分析、检索证据并维护可审计文件；你审阅假设和批准关口，表单只作为辅助。",
+    "scope": { "title": "界定成本效果研究", "body": "明确人群、干预、对照、视角、时间范围和结局。", "prompt": "帮我界定一项成本效果研究。先识别决策问题，只询问会实质改变分析的问题。" },
+    "inputs": { "title": "研究模型参数", "body": "寻找最新证据、提取数值，并将来源与假设严格分开。", "prompt": "帮我研究药物经济学模型参数。先识别决策问题和证据缺口，将有来源数值与分析假设严格分开。" },
+    "audit": { "title": "审查现有分析计划", "body": "检查模型结构、证据溯源、无来源参数和参考案例缺口。", "prompt": "审查当前药物经济学分析计划的结构、可溯源性、无来源参数和参考案例缺口，不要创建任何批准记录。" }
+  },
+  "panel": {
+    "title": "分析审阅",
+    "subtitle": "由人治理的确定性工作流",
+    "loading": "正在读取项目分析文件……",
+    "noProjectTitle": "请先打开一个项目",
+    "noProjectBody": "AI4HEOR 文件和批准记录必须绑定到当前项目。",
+    "emptyTitle": "尚无分析计划",
+    "emptyBody": "请在对话中让 Agent 界定决策问题；输入充分后，它会创建 heor/analysis-plan.json。",
+    "invalidTitle": "分析计划需要修复",
+    "path": "监测文件",
+    "refresh": "刷新",
+    "askRevision": "让 Agent 修改",
+    "revisionPrompt": "请根据以下要求修改 heor/analysis-plan.json。保留已有的有效证据，不要声称获得任何人工批准：\n\n",
+    "hash": "文件 SHA-256",
+    "chain": "批准链",
+    "unanchored": "已验证、未锚定",
+    "identity": "本地人工声明"
+  },
+  "stage": { "scope": "范围", "model": "模型", "plan": "计划", "compute": "计算", "validate": "验证", "release": "发布" },
+  "gate": {
+    "decision_problem": "决策问题",
+    "conceptual_model": "概念模型",
+    "analysis_plan": "分析计划",
+    "independent_validation": "独立验证",
+    "release": "发布"
+  },
+  "status": {
+    "approved": "已批准当前文件",
+    "awaiting": "等待人工审阅",
+    "locked": "需先完成前一关",
+    "stale": "原批准对应旧版本文件",
+    "notDecisionReady": "尚不可用于决策"
+  },
+  "reviewSection": "人工审阅",
+  "snapshot": {
+    "title": "决策与模型快照",
+    "population": "目标人群",
+    "intervention": "干预",
+    "comparator": "对照",
+    "perspective": "研究视角",
+    "horizon": "时间范围",
+    "horizonValue": "{{count}} 年",
+    "referenceCase": "参考案例",
+    "states": "健康状态",
+    "cycles": "周期数",
+    "discount": "贴现率",
+    "halfCycle": "半周期校正",
+    "enabled": "启用",
+    "disabled": "未启用",
+    "evidence": "证据来源",
+    "assumptions": "待解决假设"
+  },
+  "action": {
+    "approve": "审阅{{gate}}",
+    "revokeStale": "撤销过期批准",
+    "run": "运行确定性分析",
+    "running": "计算中……"
+  },
+  "dialog": {
+    "approveTitle": "批准{{gate}}？",
+    "revokeTitle": "撤销过期的决策问题批准？",
+    "body": "该应用自有事件记录人工对文件 {{hash}} 的本地声明，Agent 无法创建它。",
+    "actor": "人工审阅者",
+    "actorPlaceholder": "姓名或本地审阅者标识",
+    "rationale": "审阅依据",
+    "rationalePlaceholder": "你核查了什么，以及为什么可以进入下一关",
+    "confirm": "本次审阅由我本人完成",
+    "approve": "记录批准",
+    "revoke": "记录撤销",
+    "cancel": "取消"
+  },
+  "result": {
+    "title": "确定性结果",
+    "exploratory": "探索性结果",
+    "authorized": "本地已授权分析",
+    "authorizedNote": "仅为本地人工声明；独立验证和发布仍是单独关口。",
+    "strategy": "策略",
+    "cost": "总成本",
+    "qaly": "总 QALY",
+    "nmb": "净货币收益",
+    "incremental": "增量结果",
+    "deltaCost": "成本差",
+    "deltaQaly": "QALY 差",
+    "icer": "ICER",
+    "interpretation": "引擎判定",
+    "warnings": "计算局限"
+  },
+  "toast": {
+    "approvalRecorded": "已记录人工批准",
+    "approvalRevoked": "已撤销过期批准",
+    "runComplete": "确定性分析已完成",
+    "loadFailed": "无法读取 AI4HEOR 工作流",
+    "actionFailed": "AI4HEOR 操作失败"
+  }
+}

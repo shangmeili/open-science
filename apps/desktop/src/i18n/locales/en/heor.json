@@ -1,0 +1,109 @@
+{
+  "brand": "AI4HEOR",
+  "badge": "HEOR",
+  "review": "Review analysis",
+  "closeReview": "Close analysis review",
+  "placeholder": "Describe the decision problem, evidence gap, model change, or result you want to investigate…",
+  "starter": {
+    "eyebrow": "Natural-language pharmacoeconomics workspace",
+    "title": "Start with the research question",
+    "body": "The agent structures the analysis, researches evidence, and maintains auditable files. You review assumptions and approve gates; forms stay secondary.",
+    "scope": { "title": "Frame a cost-effectiveness study", "body": "Define population, intervention, comparator, perspective, horizon, and outcome.", "prompt": "Help me frame a cost-effectiveness study. Start by identifying the decision problem and only ask questions that would materially change the analysis." },
+    "inputs": { "title": "Research model inputs", "body": "Find current evidence, extract values, and keep sources separate from assumptions.", "prompt": "Help me research inputs for a pharmacoeconomic model. First identify the decision question and evidence gaps; keep sourced values separate from assumptions." },
+    "audit": { "title": "Audit an existing plan", "body": "Check structure, evidence traceability, unsupported inputs, and reference-case gaps.", "prompt": "Audit the current HEOR analysis plan for structure, traceability, unsupported inputs, and reference-case gaps. Do not create approvals." }
+  },
+  "panel": {
+    "title": "Analysis review",
+    "subtitle": "Human-governed deterministic workflow",
+    "loading": "Reading the project artifact…",
+    "noProjectTitle": "Open a project first",
+    "noProjectBody": "AI4HEOR artifacts and approvals are bound to the active project.",
+    "emptyTitle": "No analysis plan yet",
+    "emptyBody": "Ask the agent to frame the decision problem. It will create heor/analysis-plan.json when the inputs are ready.",
+    "invalidTitle": "The analysis plan needs repair",
+    "path": "Watched artifact",
+    "refresh": "Refresh",
+    "askRevision": "Ask agent to revise",
+    "revisionPrompt": "Please revise heor/analysis-plan.json based on this request. Preserve valid existing evidence and make no human approval claims:\n\n",
+    "hash": "Artifact SHA-256",
+    "chain": "Approval chain",
+    "unanchored": "verified, unanchored",
+    "identity": "local human assertion"
+  },
+  "stage": { "scope": "Scope", "model": "Model", "plan": "Plan", "compute": "Compute", "validate": "Validate", "release": "Release" },
+  "gate": {
+    "decision_problem": "Decision problem",
+    "conceptual_model": "Conceptual model",
+    "analysis_plan": "Analysis plan",
+    "independent_validation": "Independent validation",
+    "release": "Release"
+  },
+  "status": {
+    "approved": "Approved for this artifact",
+    "awaiting": "Awaiting human review",
+    "locked": "Previous gate required",
+    "stale": "Prior approval targets an older artifact",
+    "notDecisionReady": "Not decision-ready"
+  },
+  "reviewSection": "Human review",
+  "snapshot": {
+    "title": "Decision and model snapshot",
+    "population": "Population",
+    "intervention": "Intervention",
+    "comparator": "Comparator",
+    "perspective": "Perspective",
+    "horizon": "Time horizon",
+    "horizonValue": "{{count}} years",
+    "referenceCase": "Reference case",
+    "states": "Health states",
+    "cycles": "Cycles",
+    "discount": "Discount rates",
+    "halfCycle": "Half-cycle correction",
+    "enabled": "enabled",
+    "disabled": "disabled",
+    "evidence": "Evidence sources",
+    "assumptions": "Open assumptions"
+  },
+  "action": {
+    "approve": "Review {{gate}}",
+    "revokeStale": "Revoke stale approval",
+    "run": "Run deterministic analysis",
+    "running": "Calculating…"
+  },
+  "dialog": {
+    "approveTitle": "Approve {{gate}}?",
+    "revokeTitle": "Revoke the stale decision-problem approval?",
+    "body": "This app-owned event records a local human assertion for artifact {{hash}}. The agent cannot create it.",
+    "actor": "Human reviewer",
+    "actorPlaceholder": "Name or local reviewer label",
+    "rationale": "Review rationale",
+    "rationalePlaceholder": "What you checked and why this gate can proceed",
+    "confirm": "I performed this review myself",
+    "approve": "Record approval",
+    "revoke": "Record revocation",
+    "cancel": "Cancel"
+  },
+  "result": {
+    "title": "Deterministic result",
+    "exploratory": "Exploratory",
+    "authorized": "Locally authorized analysis",
+    "authorizedNote": "Local human assertion; independent validation and release are still separate gates.",
+    "strategy": "Strategy",
+    "cost": "Total cost",
+    "qaly": "Total QALY",
+    "nmb": "Net monetary benefit",
+    "incremental": "Incremental",
+    "deltaCost": "Δ cost",
+    "deltaQaly": "Δ QALY",
+    "icer": "ICER",
+    "interpretation": "Engine interpretation",
+    "warnings": "Calculation limitations"
+  },
+  "toast": {
+    "approvalRecorded": "Human approval recorded",
+    "approvalRevoked": "Stale approval revoked",
+    "runComplete": "Deterministic analysis complete",
+    "loadFailed": "Could not read the AI4HEOR workflow",
+    "actionFailed": "AI4HEOR action failed"
+  }
+}

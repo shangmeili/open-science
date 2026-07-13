@@ -13,6 +13,7 @@ import enSession from "./locales/en/session.json";
 import enInspector from "./locales/en/inspector.json";
 import enErrors from "./locales/en/errors.json";
 import enPages from "./locales/en/pages.json";
+import enHeor from "./locales/en/heor.json";
 
 import zhCommon from "./locales/zh-Hans/common.json";
 import zhNav from "./locales/zh-Hans/nav.json";
@@ -22,6 +23,7 @@ import zhSession from "./locales/zh-Hans/session.json";
 import zhInspector from "./locales/zh-Hans/inspector.json";
 import zhErrors from "./locales/zh-Hans/errors.json";
 import zhPages from "./locales/zh-Hans/pages.json";
+import zhHeor from "./locales/zh-Hans/heor.json";
 
 import jaCommon from "./locales/ja/common.json";
 import jaNav from "./locales/ja/nav.json";
@@ -69,17 +71,17 @@ import koErrors from "./locales/ko/errors.json";
 import koPages from "./locales/ko/pages.json";
 
 export const NAMESPACES = [
-  "common", "nav", "settings", "runs", "session", "inspector", "errors", "pages",
+  "common", "nav", "settings", "runs", "session", "inspector", "errors", "pages", "heor",
 ] as const;
 
 const resources = {
-  en: { common: enCommon, nav: enNav, settings: enSettings, runs: enRuns, session: enSession, inspector: enInspector, errors: enErrors, pages: enPages },
-  "zh-Hans": { common: zhCommon, nav: zhNav, settings: zhSettings, runs: zhRuns, session: zhSession, inspector: zhInspector, errors: zhErrors, pages: zhPages },
-  ja: { common: jaCommon, nav: jaNav, settings: jaSettings, runs: jaRuns, session: jaSession, inspector: jaInspector, errors: jaErrors, pages: jaPages },
-  es: { common: esCommon, nav: esNav, settings: esSettings, runs: esRuns, session: esSession, inspector: esInspector, errors: esErrors, pages: esPages },
-  de: { common: deCommon, nav: deNav, settings: deSettings, runs: deRuns, session: deSession, inspector: deInspector, errors: deErrors, pages: dePages },
-  fr: { common: frCommon, nav: frNav, settings: frSettings, runs: frRuns, session: frSession, inspector: frInspector, errors: frErrors, pages: frPages },
-  ko: { common: koCommon, nav: koNav, settings: koSettings, runs: koRuns, session: koSession, inspector: koInspector, errors: koErrors, pages: koPages },
+  en: { common: enCommon, nav: enNav, settings: enSettings, runs: enRuns, session: enSession, inspector: enInspector, errors: enErrors, pages: enPages, heor: enHeor },
+  "zh-Hans": { common: zhCommon, nav: zhNav, settings: zhSettings, runs: zhRuns, session: zhSession, inspector: zhInspector, errors: zhErrors, pages: zhPages, heor: zhHeor },
+  ja: { common: jaCommon, nav: jaNav, settings: jaSettings, runs: jaRuns, session: jaSession, inspector: jaInspector, errors: jaErrors, pages: jaPages, heor: enHeor },
+  es: { common: esCommon, nav: esNav, settings: esSettings, runs: esRuns, session: esSession, inspector: esInspector, errors: esErrors, pages: esPages, heor: enHeor },
+  de: { common: deCommon, nav: deNav, settings: deSettings, runs: deRuns, session: deSession, inspector: deInspector, errors: deErrors, pages: dePages, heor: enHeor },
+  fr: { common: frCommon, nav: frNav, settings: frSettings, runs: frRuns, session: frSession, inspector: frInspector, errors: frErrors, pages: frPages, heor: enHeor },
+  ko: { common: koCommon, nav: koNav, settings: koSettings, runs: koRuns, session: koSession, inspector: koInspector, errors: koErrors, pages: koPages, heor: enHeor },
 } as const;
 
 void i18n.use(initReactI18next).init({

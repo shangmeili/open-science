@@ -2,7 +2,7 @@
   "name": "ai4s-workbench",
   "version": "0.1.9",
   "private": true,
-  "description": "Open Science Desktop — local-first, model-agnostic AI research workbench for macOS, Windows and Linux.",
+  "description": "AI4HEOR — local-first, model-agnostic AI research workbench for pharmacoeconomics and HEOR.",
   "license": "MIT",
   "scripts": {
     "dev": "pnpm --filter @ai4s/desktop dev",

@@ -1,16 +1,23 @@
-# HEOR Workbench Product Contract
+# AI4HEOR Product Contract
 
 ## Purpose
 
-HEOR Workbench is a local-first, model-provider-agnostic desktop workbench for
+AI4HEOR is a local-first, model-provider-agnostic desktop workbench for
 pharmacoeconomic research. It uses Open Science Desktop as its platform base,
 but keeps decision calculations in a deterministic, testable engine rather than
 in a language model.
 
+Natural-language conversation is the primary research interface. The agent
+turns research intent into reviewable files, evidence records, code, and runs.
+Structured controls are secondary surfaces for inspecting parameters, resolving
+ambiguity, and recording human decisions; they must not turn the workbench into
+a form-led modeling application.
+
 ## Accountabilities
 
 - The product owner sets scope and accepts product behavior.
-- Codex implements, tests, documents, and packages the software.
+- Codex performs most research synthesis, architecture, implementation, tests,
+  documentation, and cross-platform build work.
 - A qualified human reviewer approves decision-relevant research choices.
 - An independent reviewer validates decision models. Codex self-review is not
   independent validation.
@@ -51,9 +58,9 @@ outside the agent workspace. It fails closed on malformed history and links
 events with an unanchored SHA-256 chain. This detects partial or inconsistent
 edits but cannot prove non-tampering against a same-user process that can rewrite
 the entire log. The actor label is also a local human assertion until an
-OS-keychain-backed signature and identity flow is independently reviewed. No
-approval is authoritative until the dedicated desktop UI uses this service;
-analysis input metadata can never self-authorize a run.
+OS-keychain-backed signature and identity flow is independently reviewed. The
+dedicated desktop review surface is the only initial approval entry point;
+analysis input metadata and agent-authored files can never self-authorize a run.
 
 ## Implemented reference-case registry
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI4HEOR"
+  short_description: "Turn research questions into reviewable HEOR analyses"
+  default_prompt: "Use $heor-workbench in AI4HEOR to turn my decision problem into an auditable pharmacoeconomic analysis plan."

@@ -77,7 +77,8 @@ export function AppShell() {
   // and the sidebar can be re-expanded.
   const isMac = navigator.userAgent.includes("Mac");
   const overlayTitlebar = useOverlayTitlebar();
-  const pageOwnsTitlebar = useLocation().pathname.startsWith("/live");
+  const pathname = useLocation().pathname;
+  const pageOwnsTitlebar = pathname.startsWith("/live") || pathname.startsWith("/heor");
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg text-text">
