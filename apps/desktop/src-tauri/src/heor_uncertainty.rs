@@ -732,6 +732,11 @@ pub fn run_heor_uncertainty(
     {
         return Err("HEOR uncertainty engine hashes do not match desktop-audited inputs".into());
     }
+    crate::heor_reporting::write_result(
+        &workspace,
+        crate::heor_reporting::UNCERTAINTY_RESULT_PATH,
+        &output.stdout,
+    )?;
 
     let plan: serde_json::Value = serde_json::from_slice(&plan_raw)
         .map_err(|error| format!("analysis plan is invalid: {error}"))?;
@@ -754,6 +759,7 @@ pub fn run_heor_uncertainty(
         crate::heor_budget_impact::audit_budget_impact_for_plan(&workspace, &plan_raw)?;
     let validation_audit =
         crate::heor_validation::audit_model_validation_for_plan(&workspace, &plan_raw)?;
+    let reporting_audit = crate::heor_reporting::audit_report_package(&workspace)?;
 
     // Read the approval state last: a revocation or artifact change made while
     // the deterministic child runs must affect the returned classification.
@@ -777,6 +783,7 @@ pub fn run_heor_uncertainty(
             uncertainty: uncertainty_audit,
             budget_impact: budget_impact_audit,
             validation: validation_audit,
+            reporting: reporting_audit,
         },
     );
     Ok(UncertaintyRunResult {

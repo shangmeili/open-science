@@ -501,10 +501,15 @@ pub fn append_heor_approval(
                 related_artifacts = crate::heor_validation::approval_bindings(&validation);
             }
             ApprovalGate::Release => {
-                return Err(
-                    "the release gate is not implemented; independent validation cannot self-promote to release"
-                        .into(),
-                );
+                let log = verified_log(&app, &request.project_id)?;
+                let report = crate::heor_reporting::require_report_releasable(
+                    &app,
+                    &workspace,
+                    &request.artifact_sha256,
+                    &request.actor_label,
+                    &log,
+                )?;
+                related_artifacts = crate::heor_reporting::approval_bindings(&report);
             }
         }
     }

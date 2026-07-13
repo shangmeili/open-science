@@ -11,6 +11,7 @@ use crate::heor_approval::{
 use crate::heor_budget_impact::{audit_budget_impact_for_plan, BudgetImpactAudit};
 use crate::heor_evidence::{audit_plan_bytes, EvidenceAudit};
 use crate::heor_reference_case::{audit_reference_case_for_plan, ReferenceCaseAudit};
+use crate::heor_reporting::{audit_report_package, ReportingAudit};
 use crate::heor_uncertainty::{audit_uncertainty_plan_for_plan, UncertaintyAudit};
 use crate::heor_validation::{audit_model_validation_for_plan, ModelValidationAudit};
 use crate::runtime::workspace_dir;
@@ -34,6 +35,8 @@ pub struct HeorWorkflowStatus {
     budget_impact_audit: BudgetImpactAudit,
     independent_validation_matches_approval: bool,
     validation_audit: ModelValidationAudit,
+    release_matches_approval: bool,
+    reporting_audit: ReportingAudit,
     approval_chain_head: Option<String>,
     approval_integrity: &'static str,
     identity_assurance: &'static str,
@@ -53,6 +56,7 @@ pub(crate) struct HeorWorkflowAudits {
     pub uncertainty: UncertaintyAudit,
     pub budget_impact: BudgetImpactAudit,
     pub validation: ModelValidationAudit,
+    pub reporting: ReportingAudit,
 }
 
 fn resolve_workspace_input(root: &Path, value: &str) -> Result<PathBuf, String> {
@@ -170,6 +174,7 @@ pub(crate) fn workflow_status(
         uncertainty: uncertainty_audit,
         budget_impact: budget_impact_audit,
         validation: validation_audit,
+        reporting: reporting_audit,
     } = audits;
     let plan_matches =
         analysis_plan_event(&log).is_some_and(|event| event.artifact_sha256 == input_sha256);
@@ -188,30 +193,35 @@ pub(crate) fn workflow_status(
         )
     });
     let independent_validation_matches_approval = log
-        .events
-        .iter()
-        .rev()
-        .find(|event| event.gate == ApprovalGate::IndependentValidation)
-        .is_some_and(|event| {
-            event.action == ApprovalAction::Approve
-                && event.artifact_sha256 == validation_audit.validation_sha256
-                && event.actor_label == validation_audit.reviewer_label
-                && validation_audit.complete
-                && validation_audit.approvable
-                && crate::heor_validation::analysis_plan_approval_is_current(
-                    &log,
-                    &validation_audit,
-                )
-                && crate::heor_validation::approval_bindings(&validation_audit)
-                    .iter()
-                    .all(|binding| {
-                        crate::heor_approval::event_binds_artifact(
-                            event,
-                            &binding.path,
-                            &binding.sha256,
-                        )
-                    })
-        });
+        .effective_approved_gates
+        .contains(&ApprovalGate::IndependentValidation)
+        && log
+            .events
+            .iter()
+            .rev()
+            .find(|event| event.gate == ApprovalGate::IndependentValidation)
+            .is_some_and(|event| {
+                event.action == ApprovalAction::Approve
+                    && event.artifact_sha256 == validation_audit.validation_sha256
+                    && event.actor_label == validation_audit.reviewer_label
+                    && validation_audit.complete
+                    && validation_audit.approvable
+                    && crate::heor_validation::analysis_plan_approval_is_current(
+                        &log,
+                        &validation_audit,
+                    )
+                    && crate::heor_validation::approval_bindings(&validation_audit)
+                        .iter()
+                        .all(|binding| {
+                            crate::heor_approval::event_binds_artifact(
+                                event,
+                                &binding.path,
+                                &binding.sha256,
+                            )
+                        })
+            });
+    let release_matches_approval = independent_validation_matches_approval
+        && crate::heor_reporting::release_matches_approval(&log, &reporting_audit);
     let locally_authorized = plan_matches
         && conceptual_model_matches_artifact
         && evidence_audit.complete
@@ -247,15 +257,22 @@ pub(crate) fn workflow_status(
             )
         });
     }
+    if !release_matches_approval {
+        effective_approved_gates.retain(|gate| *gate != ApprovalGate::Release);
+    }
+    let decision_ready = locally_authorized
+        && independent_validation_matches_approval
+        && release_matches_approval
+        && reporting_audit.releasable;
     HeorWorkflowStatus {
-        classification: if locally_authorized {
+        classification: if decision_ready {
+            "decision_ready_local_release_assertion"
+        } else if locally_authorized {
             "analysis_authorized_local_assertion"
         } else {
             "exploratory"
         },
-        // Independent validation and release are separate later gates. This
-        // bridge never promotes a calculation directly to decision-ready.
-        decision_ready: false,
+        decision_ready,
         effective_approved_gates,
         input_sha256,
         analysis_plan_matches_input: plan_matches,
@@ -268,6 +285,8 @@ pub(crate) fn workflow_status(
         budget_impact_audit,
         independent_validation_matches_approval,
         validation_audit,
+        release_matches_approval,
+        reporting_audit,
         approval_chain_head: log.chain_head,
         approval_integrity: log.integrity,
         identity_assurance: log.identity_assurance,
@@ -341,6 +360,9 @@ pub fn run_heor_markov(
             message
         });
     }
+    if output.stdout.len() > 25 * 1024 * 1024 {
+        return Err("HEOR engine output exceeds the 25 MB limit".into());
+    }
     let calculation: serde_json::Value = serde_json::from_slice(&output.stdout)
         .map_err(|e| format!("HEOR engine returned invalid JSON: {e}"))?;
     let child_hash = calculation
@@ -350,6 +372,11 @@ pub fn run_heor_markov(
     if child_hash != input_sha256 {
         return Err("HEOR engine input hash does not match the desktop input".into());
     }
+    crate::heor_reporting::write_result(
+        &root,
+        crate::heor_reporting::BASE_CASE_RESULT_PATH,
+        &output.stdout,
+    )?;
     let reference_case_status = calculation
         .pointer("/reference_case/status")
         .and_then(serde_json::Value::as_str)
@@ -364,6 +391,7 @@ pub fn run_heor_markov(
     let uncertainty_audit = audit_uncertainty_plan_for_plan(&root, &raw)?;
     let budget_impact_audit = audit_budget_impact_for_plan(&root, &raw)?;
     let validation_audit = audit_model_validation_for_plan(&root, &raw)?;
+    let reporting_audit = audit_report_package(&root)?;
     // Evaluate authorization after calculation so a revocation made while the
     // engine is running cannot leave the returned status stale.
     let approval_log = {
@@ -387,6 +415,7 @@ pub fn run_heor_markov(
                 uncertainty: uncertainty_audit,
                 budget_impact: budget_impact_audit,
                 validation: validation_audit,
+                reporting: reporting_audit,
             },
         ),
         calculation,
@@ -565,6 +594,39 @@ mod tests {
         }
     }
 
+    fn complete_reporting_audit() -> ReportingAudit {
+        let binding_hashes = [
+            ("report_document", "1"),
+            ("analysis_plan", "c"),
+            ("conceptual_model", "b"),
+            ("uncertainty_plan", "f"),
+            ("budget_impact_plan", "9"),
+            ("model_validation", "8"),
+            ("base_case_result", "2"),
+            ("uncertainty_result", "3"),
+            ("budget_impact_result", "4"),
+        ]
+        .into_iter()
+        .map(|(key, marker)| (key.into(), marker.repeat(64)))
+        .collect();
+        ReportingAudit {
+            complete: true,
+            releasable: true,
+            status: "complete",
+            package_id: "report-1".into(),
+            analysis_id: "analysis-1".into(),
+            report_package_sha256: "7".repeat(64),
+            release_owner_label: "Release owner".into(),
+            binding_hashes,
+            reporting_item_count: 40,
+            required_item_count: 40,
+            covered_item_count: 40,
+            missing_items: Vec::new(),
+            invalid_items: Vec::new(),
+            errors: Vec::new(),
+        }
+    }
+
     fn complete_workflow_audits() -> HeorWorkflowAudits {
         HeorWorkflowAudits {
             evidence: complete_audit(),
@@ -572,6 +634,7 @@ mod tests {
             uncertainty: complete_uncertainty_audit(),
             budget_impact: complete_budget_impact_audit(),
             validation: complete_validation_audit(),
+            reporting: complete_reporting_audit(),
         }
     }
 

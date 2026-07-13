@@ -49,6 +49,10 @@ model_validation = load(
     "validate_model_validation",
     "runtime/skills/core/heor-model-validation/scripts/validate_model_validation.py",
 )
+reporting = load(
+    "validate_report_package",
+    "runtime/skills/core/heor-reporting/scripts/validate_report_package.py",
+)
 
 
 def evidence_fixture():
@@ -539,6 +543,171 @@ class ModelValidationContractTests(unittest.TestCase):
             self.assertFalse(result["approvable"])
             self.assertEqual(result["open_blocking_issue_count"], 1)
             self.assertIn("independent reviewer must differ from the developer", result["errors"])
+
+
+class ReportingContractTests(unittest.TestCase):
+    def fixture(self, root: Path):
+        analysis_id = "nsclc-analysis"
+        heor = root / "heor"
+        results = heor / "results"
+        results.mkdir(parents=True)
+        values = {
+            "analysis_plan": {"analysis_id": analysis_id},
+            "conceptual_model": {"analysis_id": analysis_id},
+            "uncertainty_plan": {"analysis_id": analysis_id},
+            "budget_impact_plan": {"analysis_id": analysis_id},
+            "model_validation": {"analysis_id": analysis_id},
+        }
+        paths = {
+            key: heor / reporting.BINDINGS[key].split("/")[-1]
+            for key in values
+        }
+        for key, value in values.items():
+            paths[key].write_text(json.dumps(value, indent=2))
+        analysis_hash = hashlib.sha256(paths["analysis_plan"].read_bytes()).hexdigest()
+        uncertainty_hash = hashlib.sha256(paths["uncertainty_plan"].read_bytes()).hexdigest()
+        bia_hash = hashlib.sha256(paths["budget_impact_plan"].read_bytes()).hexdigest()
+        result_values = {
+            "base_case_result": {
+                "analysis_id": analysis_id,
+                "input_sha256": analysis_hash,
+                "incremental": {
+                    "delta_cost": 12000.0,
+                    "delta_qaly": 0.5,
+                    "icer": 24000.0,
+                    "incremental_net_monetary_benefit": 63000.0,
+                },
+            },
+            "uncertainty_result": {
+                "analysis_id": analysis_id,
+                "base_analysis_sha256": analysis_hash,
+                "uncertainty_plan_sha256": uncertainty_hash,
+                "probabilistic_analysis": {
+                    "iterations": 1000,
+                    "cost_effective_probability": 0.82,
+                    "mean_incremental_net_monetary_benefit": 61000.0,
+                },
+            },
+            "budget_impact_result": {
+                "analysis_id": analysis_id,
+                "analysis_plan_sha256": analysis_hash,
+                "budget_impact_plan_sha256": bia_hash,
+                "base_case": {
+                    "annual_net_budget_impact": [100.0, 200.0, 300.0],
+                    "cumulative_net_budget_impact": 600.0,
+                },
+            },
+        }
+        for key, value in result_values.items():
+            relative = reporting.BINDINGS[key]
+            path = root / relative
+            path.write_text(json.dumps(value, indent=2))
+            paths[key] = path
+
+        report_text = "# Report\n\n" + "\n".join(
+            f"<!-- report-section:section-{index} -->\nSubstantive reporting text."
+            for index in range(len(reporting.REQUIRED_ITEMS))
+        )
+        report_path = heor / "report.md"
+        report_path.write_text(report_text)
+        paths["report_document"] = report_path
+
+        bindings = {
+            key: {
+                "path": relative,
+                "content_sha256": hashlib.sha256((root / relative).read_bytes()).hexdigest(),
+            }
+            for key, relative in reporting.BINDINGS.items()
+        }
+        items = [
+            {
+                "profile_id": profile_id,
+                "item_id": item_id,
+                "status": "reported",
+                "section_id": f"section-{index}",
+                "rationale": "The bound report section and artifacts address this item.",
+                "artifact_paths": ["heor/report.md", "heor/analysis-plan.json"],
+            }
+            for index, (profile_id, item_id) in enumerate(reporting.REQUIRED_ITEMS)
+        ]
+        package = {
+            "schema_version": "0.1.0",
+            "package_id": "report-1",
+            "analysis_id": analysis_id,
+            "status": "ready_for_release_review",
+            "version": "1.0.0",
+            "prepared_on": "2026-07-14",
+            "intended_audience": "Reimbursement decision analysts",
+            "release_owner_label": "Human release owner",
+            "bindings": bindings,
+            "reporting_profiles": deepcopy(reporting.PROFILES),
+            "items": items,
+            "result_summary": {
+                "cost_effectiveness": deepcopy(result_values["base_case_result"]["incremental"]),
+                "uncertainty": deepcopy(result_values["uncertainty_result"]["probabilistic_analysis"]),
+                "budget_impact": deepcopy(result_values["budget_impact_result"]["base_case"]),
+            },
+            "disclosures": {key: "Explicitly disclosed in the report." for key in reporting.DISCLOSURES},
+            "limitations": ["This fixture is illustrative."],
+            "release_notes": ["Prepared for explicit human release review."],
+        }
+        package_path = heor / "report-package.json"
+        package_path.write_text(json.dumps(package, indent=2))
+        return package_path, package, paths
+
+    def test_complete_bound_report_package_is_releasable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, _, _ = self.fixture(root)
+            result = reporting.audit(package_path, root)
+            self.assertTrue(result["complete"])
+            self.assertTrue(result["releasable"])
+            self.assertEqual(result["covered_item_count"], 40)
+
+    def test_stale_result_hash_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, _, paths = self.fixture(root)
+            paths["base_case_result"].write_text("{\"analysis_id\": \"changed\"}")
+            result = reporting.audit(package_path, root)
+            self.assertFalse(result["complete"])
+            self.assertTrue(any("content_sha256" in error for error in result["errors"]))
+
+    def test_missing_report_marker_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, package, paths = self.fixture(root)
+            paths["report_document"].write_text("# Incomplete report\n")
+            package["bindings"]["report_document"]["content_sha256"] = hashlib.sha256(
+                paths["report_document"].read_bytes()
+            ).hexdigest()
+            package_path.write_text(json.dumps(package, indent=2))
+            result = reporting.audit(package_path, root)
+            self.assertFalse(result["complete"])
+            self.assertTrue(any("report marker" in error for error in result["errors"]))
+
+    def test_copied_result_summary_mismatch_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, package, _ = self.fixture(root)
+            package["result_summary"]["cost_effectiveness"]["icer"] = 1.0
+            package_path.write_text(json.dumps(package, indent=2))
+            result = reporting.audit(package_path, root)
+            self.assertFalse(result["complete"])
+            self.assertIn(
+                "result_summary must exactly match the bound deterministic result artifacts",
+                result["errors"],
+            )
+
+    def test_profile_scope_substitution_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, package, _ = self.fixture(root)
+            package["reporting_profiles"][0]["scope"] = "budget_impact"
+            package_path.write_text(json.dumps(package, indent=2))
+            result = reporting.audit(package_path, root)
+            self.assertFalse(result["complete"])
+            self.assertTrue(any("reporting_profiles" in error for error in result["errors"]))
 
 
 if __name__ == "__main__":

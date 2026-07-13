@@ -23,12 +23,18 @@ import {
   auditHeorReferenceCase,
   auditHeorUncertainty,
   auditHeorModelValidation,
+  auditHeorReporting,
   browserDemoRun,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_PLAN,
   HEOR_CONCEPTUAL_MODEL_PATH,
   HEOR_BUDGET_IMPACT_PLAN_PATH,
   HEOR_MODEL_VALIDATION_PATH,
+  HEOR_REPORT_PACKAGE_PATH,
+  HEOR_REPORT_DOCUMENT_PATH,
+  HEOR_BASE_CASE_RESULT_PATH,
+  HEOR_UNCERTAINTY_RESULT_PATH,
+  HEOR_BUDGET_IMPACT_RESULT_PATH,
   HEOR_PLAN_PATH,
   HEOR_REFERENCE_CASE_ASSESSMENT_PATH,
   HEOR_UNCERTAINTY_PLAN_PATH,
@@ -41,6 +47,7 @@ import {
   type HeorBudgetImpactAudit,
   type HeorBudgetImpactRunResult,
   type HeorModelValidationAudit,
+  type HeorReportingAudit,
   type HeorGate,
   type HeorReferenceCaseAudit,
   type HeorRunResult,
@@ -63,8 +70,9 @@ const REVIEW_GATES: HeorGate[] = [
   "conceptual_model",
   "analysis_plan",
   "independent_validation",
+  "release",
 ];
-const ALL_GATES: HeorGate[] = [...REVIEW_GATES, "release"];
+const ALL_GATES: HeorGate[] = REVIEW_GATES;
 
 const EMPTY_LOG: HeorApprovalLog = {
   events: [],
@@ -117,6 +125,11 @@ type ModelValidationState =
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorModelValidationAudit };
 
+type ReportingState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorReportingAudit };
+
 type ReviewIntent = {
   action: HeorApprovalAction;
   gate: HeorGate;
@@ -129,6 +142,7 @@ function gateArtifactHash(
   planArtifact: ArtifactState,
   conceptualArtifact: ConceptualArtifactState,
   validation: ModelValidationState,
+  reporting: ReportingState,
 ): string | null {
   if (planArtifact.kind !== "ready") return null;
   if (gate === "conceptual_model") {
@@ -137,7 +151,31 @@ function gateArtifactHash(
   if (gate === "independent_validation") {
     return validation.kind === "ready" ? validation.audit.validationSha256 : null;
   }
+  if (gate === "release") {
+    return reporting.kind === "ready" ? reporting.audit.reportPackageSha256 : null;
+  }
   return planArtifact.sha256;
+}
+
+const REPORT_BINDING_PATHS: Record<string, string> = {
+  report_document: HEOR_REPORT_DOCUMENT_PATH,
+  analysis_plan: HEOR_PLAN_PATH,
+  conceptual_model: HEOR_CONCEPTUAL_MODEL_PATH,
+  uncertainty_plan: HEOR_UNCERTAINTY_PLAN_PATH,
+  budget_impact_plan: HEOR_BUDGET_IMPACT_PLAN_PATH,
+  model_validation: HEOR_MODEL_VALIDATION_PATH,
+  base_case_result: HEOR_BASE_CASE_RESULT_PATH,
+  uncertainty_result: HEOR_UNCERTAINTY_RESULT_PATH,
+  budget_impact_result: HEOR_BUDGET_IMPACT_RESULT_PATH,
+};
+
+function reportBindingsCurrent(
+  event: HeorApprovalEvent | undefined,
+  audit: HeorReportingAudit,
+): boolean {
+  return event?.actorLabel === audit.releaseOwnerLabel
+    && Object.entries(REPORT_BINDING_PATHS).every(([key, path]) =>
+      eventBinds(event, path, audit.bindingHashes[key] ?? ""));
 }
 
 function eventBinds(event: HeorApprovalEvent | undefined, path: string, sha256: string): boolean {
@@ -174,6 +212,7 @@ export function HeorReviewPane({
   const [uncertainty, setUncertainty] = useState<UncertaintyState>({ kind: "loading" });
   const [budgetImpact, setBudgetImpact] = useState<BudgetImpactState>({ kind: "loading" });
   const [modelValidation, setModelValidation] = useState<ModelValidationState>({ kind: "loading" });
+  const [reporting, setReporting] = useState<ReportingState>({ kind: "loading" });
   const [approvals, setApprovals] = useState<HeorApprovalLog>(EMPTY_LOG);
   const [result, setResult] = useState<HeorRunResult | null>(null);
   const [uncertaintyResult, setUncertaintyResult] = useState<HeorUncertaintyRunResult | null>(null);
@@ -192,6 +231,7 @@ export function HeorReviewPane({
       setUncertainty({ kind: "invalid", message: t("uncertainty.noProject") });
       setBudgetImpact({ kind: "invalid", message: t("budgetImpact.noProject") });
       setModelValidation({ kind: "invalid", message: t("validation.noProject") });
+      setReporting({ kind: "invalid", message: t("reporting.noProject") });
       setApprovals(EMPTY_LOG);
       return;
     }
@@ -201,6 +241,7 @@ export function HeorReviewPane({
     setUncertainty({ kind: "loading" });
     setBudgetImpact({ kind: "loading" });
     setModelValidation({ kind: "loading" });
+    setReporting({ kind: "loading" });
     try {
       const raw = isTauri
         ? (await readArtifact(HEOR_PLAN_PATH))?.data ?? null
@@ -211,6 +252,7 @@ export function HeorReviewPane({
         setUncertainty({ kind: "invalid", message: t("uncertainty.missingPlan") });
         setBudgetImpact({ kind: "invalid", message: t("budgetImpact.missingPlan") });
         setModelValidation({ kind: "invalid", message: t("validation.missingPlan") });
+        setReporting({ kind: "invalid", message: t("reporting.missingPlan") });
         setApprovals(await listHeorApprovals(project.id));
         return;
       }
@@ -245,6 +287,14 @@ export function HeorReviewPane({
         setModelValidation({ kind: "ready", audit: await auditHeorModelValidation() });
       } catch (error) {
         setModelValidation({
+          kind: "invalid",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      try {
+        setReporting({ kind: "ready", audit: await auditHeorReporting() });
+      } catch (error) {
+        setReporting({
           kind: "invalid",
           message: error instanceof Error ? error.message : String(error),
         });
@@ -293,6 +343,10 @@ export function HeorReviewPane({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
+      setReporting({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
       toast.error(t("toast.loadFailed"));
     }
   }, [project, t]);
@@ -312,6 +366,7 @@ export function HeorReviewPane({
         artifact,
         conceptualArtifact,
         modelValidation,
+        reporting,
       );
       if (!artifactSha256) break;
       if (gate === "conceptual_model"
@@ -329,6 +384,8 @@ export function HeorReviewPane({
         && (modelValidation.kind !== "ready"
           || !modelValidation.audit.complete
           || !modelValidation.audit.approvable)) break;
+      if (gate === "release"
+        && (reporting.kind !== "ready" || !reporting.audit.releasable)) break;
       const event = latest.get(gate);
       if (
         !event ||
@@ -347,6 +404,9 @@ export function HeorReviewPane({
         (gate === "independent_validation"
           && modelValidation.kind === "ready"
           && !validationBindingsCurrent(event, modelValidation.audit)) ||
+        (gate === "release"
+          && reporting.kind === "ready"
+          && !reportBindingsCurrent(event, reporting.audit)) ||
         event.sequence <= previousSequence
       ) {
         break;
@@ -363,6 +423,7 @@ export function HeorReviewPane({
     uncertainty,
     budgetImpact,
     modelValidation,
+    reporting,
   ]);
 
   const evidenceAudit = useMemo(
@@ -403,6 +464,11 @@ export function HeorReviewPane({
               sha256: modelValidation.audit.budgetImpactPlanSha256,
             },
           ]
+        : gate === "release" && reporting.kind === "ready"
+          ? Object.entries(REPORT_BINDING_PATHS).map(([key, path]) => ({
+              path,
+              sha256: reporting.audit.bindingHashes[key],
+            }))
         : undefined;
     const eventHash = await sha256Text(
       JSON.stringify({
@@ -477,6 +543,7 @@ export function HeorReviewPane({
         ? await runHeorMarkov(project.id)
         : browserDemoRun(artifact.sha256, currentApprovals);
       setResult(next);
+      setReporting({ kind: "ready", audit: next.workflow.reportingAudit });
       toast.success(t("toast.runComplete"));
     } catch (error) {
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
@@ -490,7 +557,9 @@ export function HeorReviewPane({
       || !uncertainty.audit.complete || running) return;
     setRunning(true);
     try {
-      setUncertaintyResult(await runHeorUncertainty(project.id));
+      const next = await runHeorUncertainty(project.id);
+      setUncertaintyResult(next);
+      setReporting({ kind: "ready", audit: next.workflow.reportingAudit });
       toast.success(t("toast.uncertaintyRunComplete"));
     } catch (error) {
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
@@ -504,7 +573,9 @@ export function HeorReviewPane({
       || !budgetImpact.audit.complete || running) return;
     setRunning(true);
     try {
-      setBudgetImpactResult(await runHeorBudgetImpact(project.id));
+      const next = await runHeorBudgetImpact(project.id);
+      setBudgetImpactResult(next);
+      setReporting({ kind: "ready", audit: next.workflow.reportingAudit });
       toast.success(t("toast.budgetImpactRunComplete"));
     } catch (error) {
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
@@ -607,6 +678,10 @@ export function HeorReviewPane({
               state={modelValidation}
               onRequestPreparation={() => onRequestRevision(t("validation.repairPrompt"))}
             />
+            <ReportingAssessment
+              state={reporting}
+              onRequestPreparation={() => onRequestRevision(t("reporting.repairPrompt"))}
+            />
 
             <section className="border-b border-border px-5 py-4">
               <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
@@ -620,6 +695,7 @@ export function HeorReviewPane({
                     artifact,
                     conceptualArtifact,
                     modelValidation,
+                    reporting,
                   );
                   const gateEvent = latest.get(gate);
                   const relatedStale = (gate === "analysis_plan" && (
@@ -637,7 +713,10 @@ export function HeorReviewPane({
                       ))
                   )) || (gate === "independent_validation"
                     && modelValidation.kind === "ready"
-                    && !validationBindingsCurrent(gateEvent, modelValidation.audit));
+                    && !validationBindingsCurrent(gateEvent, modelValidation.audit))
+                    || (gate === "release"
+                      && reporting.kind === "ready"
+                      && !reportBindingsCurrent(gateEvent, reporting.audit));
                   const stale = approvals.effectiveApprovedGates.includes(gate)
                     && gateEvent?.action === "approve"
                     && (gateEvent.artifactSha256 !== artifactSha256 || relatedStale);
@@ -661,16 +740,20 @@ export function HeorReviewPane({
                     && (modelValidation.kind !== "ready"
                       || !modelValidation.audit.complete
                       || !modelValidation.audit.approvable);
+                  const reportingBlocked = gate === "release"
+                    && gate === nextGate
+                    && (reporting.kind !== "ready" || !reporting.audit.releasable);
                   const waiting = gate === nextGate && !stale && !conceptualBlocked
                     && !evidenceBlocked && !referenceBlocked && !uncertaintyBlocked
-                    && !budgetImpactBlocked && !validationBlocked;
+                    && !budgetImpactBlocked && !validationBlocked && !reportingBlocked;
                   return (
                     <div key={gate} className="rounded-input border border-border bg-bg/50 px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {approved ? (
                           <Check size={14} className="text-ok" />
                         ) : waiting || stale || conceptualBlocked || evidenceBlocked || referenceBlocked
-                          || uncertaintyBlocked || budgetImpactBlocked || validationBlocked ? (
+                          || uncertaintyBlocked || budgetImpactBlocked || validationBlocked
+                          || reportingBlocked ? (
                           <Circle size={12} className={stale ? "text-error" : "text-accent"} />
                         ) : (
                           <LockKeyhole size={13} className="text-muted" />
@@ -693,6 +776,8 @@ export function HeorReviewPane({
                                 ? t("status.budgetImpactRequired")
                               : validationBlocked
                                 ? t("status.validationRequired")
+                              : reportingBlocked
+                                ? t("status.reportingRequired")
                               : waiting
                                 ? t("status.awaiting")
                                 : t("status.locked")}
@@ -721,6 +806,8 @@ export function HeorReviewPane({
                               expectedActor: gate === "independent_validation"
                                 && modelValidation.kind === "ready"
                                 ? modelValidation.audit.reviewerLabel
+                                : gate === "release" && reporting.kind === "ready"
+                                  ? reporting.audit.releaseOwnerLabel
                                 : undefined,
                             })
                           }
@@ -815,7 +902,7 @@ function StageRail({ currentApprovals, hasResult }: { currentApprovals: HeorGate
     { key: "plan", done: currentApprovals.includes("analysis_plan") },
     { key: "compute", done: hasResult },
     { key: "validate", done: currentApprovals.includes("independent_validation") },
-    { key: "release", done: false },
+    { key: "release", done: currentApprovals.includes("release") },
   ] as const;
   return (
     <div className="border-b border-border px-5 py-3">
@@ -1292,6 +1379,82 @@ function ModelValidationAssessment({
   );
 }
 
+function ReportingAssessment({
+  state,
+  onRequestPreparation,
+}: {
+  state: ReportingState;
+  onRequestPreparation: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const releasable = audit?.releasable === true;
+  const issues = audit
+    ? [...new Set([...audit.missingItems, ...audit.invalidItems, ...audit.errors])]
+    : state.kind === "invalid" ? [state.message] : [];
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {releasable ? (
+          <ShieldCheck size={16} className="mt-0.5 text-ok" />
+        ) : (
+          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("reporting.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", releasable ? "text-ok" : "text-warning")}>
+            {state.kind === "loading"
+              ? t("reporting.loading")
+              : releasable
+                ? t("reporting.releasable")
+                : t("reporting.incomplete")}
+          </div>
+          {audit?.releaseOwnerLabel && (
+            <div className="mt-1 text-[10px] text-muted">
+              {t("reporting.owner")}: {audit.releaseOwnerLabel}
+            </div>
+          )}
+        </div>
+        {audit && (
+          <span className="rounded-full border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-text">
+            {audit.coveredItemCount}/{audit.requiredItemCount}
+          </span>
+        )}
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted">{HEOR_REPORT_PACKAGE_PATH}</div>
+      {audit && (
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <Metric
+            label={t("reporting.coverage")}
+            value={`${audit.coveredItemCount}/${audit.requiredItemCount}`}
+          />
+          <Metric
+            label={t("reporting.bindings")}
+            value={String(Object.keys(audit.bindingHashes).length)}
+          />
+          <Metric label={t("reporting.errors")} value={String(audit.errors.length)} />
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      {!releasable && state.kind !== "loading" && (
+        <button
+          onClick={onRequestPreparation}
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+        >
+          <MessageSquareText size={13} /> {t("reporting.askPrepare")}
+        </button>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("reporting.note")}</p>
+    </section>
+  );
+}
+
 function ApprovalDialog({
   intent,
   artifactHash,
@@ -1339,7 +1502,9 @@ function ApprovalDialog({
         <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-text">
           <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 accent-[var(--color-accent)]" />
           <span>
-            {intent.gate === "independent_validation" && intent.action === "approve"
+            {intent.gate === "release" && intent.action === "approve"
+              ? t("dialog.confirmRelease")
+              : intent.gate === "independent_validation" && intent.action === "approve"
               ? t("dialog.confirmIndependent")
               : t("dialog.confirm")}
           </span>
@@ -1357,7 +1522,8 @@ function ResultCard({ result, locale }: { result: HeorRunResult; locale: string 
   const { t } = useTranslation("heor");
   const currency = new Intl.NumberFormat(locale, { style: "currency", currency: "CNY", maximumFractionDigits: 0 });
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 3 });
-  const authorized = result.workflow.classification === "analysis_authorized_local_assertion";
+  const authorized = result.workflow.classification !== "exploratory";
+  const decisionReady = result.workflow.decisionReady;
   const rows = [result.calculation.strategies.comparator, result.calculation.strategies.intervention];
   return (
     <section className="border-b border-border px-5 py-4">
@@ -1366,14 +1532,20 @@ function ResultCard({ result, locale }: { result: HeorRunResult; locale: string 
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-text">{t("result.title")}</div>
           <div className={cn("mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]", authorized ? "text-ok" : "text-accent")}>
-            {authorized ? t("result.authorized") : t("result.exploratory")}
+            {decisionReady
+              ? t("result.released")
+              : authorized ? t("result.authorized") : t("result.exploratory")}
           </div>
         </div>
         <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[9px] font-semibold uppercase text-muted">
-          {t("status.notDecisionReady")}
+          {decisionReady ? t("status.decisionReady") : t("status.notDecisionReady")}
         </span>
       </div>
-      {authorized && <p className="mt-2 text-[10px] leading-4 text-muted">{t("result.authorizedNote")}</p>}
+      {authorized && (
+        <p className="mt-2 text-[10px] leading-4 text-muted">
+          {decisionReady ? t("result.releasedNote") : t("result.authorizedNote")}
+        </p>
+      )}
       <div className="mt-4 overflow-hidden rounded-input border border-border">
         <table className="w-full text-[10px]">
           <thead className="bg-bg text-muted">
@@ -1416,7 +1588,7 @@ function UncertaintyResultCard({
   });
   const calculation = result.calculation;
   const psa = calculation.probabilistic_analysis;
-  const authorized = result.workflow.classification === "analysis_authorized_local_assertion";
+  const authorized = result.workflow.classification !== "exploratory";
   return (
     <section className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
@@ -1497,7 +1669,7 @@ function BudgetImpactResultCard({
     style: "percent",
     maximumFractionDigits: 1,
   });
-  const authorized = result.workflow.classification === "analysis_authorized_local_assertion";
+  const authorized = result.workflow.classification !== "exploratory";
   const leadingDriver = [...calculation.one_way_sensitivity]
     .sort((left, right) => right.cumulative_span - left.cumulative_span)[0];
   return (

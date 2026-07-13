@@ -49,6 +49,8 @@
     "uncertaintyRequired": "Uncertainty audit required",
     "budgetImpactRequired": "Budget impact audit required",
     "validationRequired": "Approvable independent validation required",
+    "reportingRequired": "A complete hash-bound report package is required",
+    "decisionReady": "Released · decision-ready",
     "notDecisionReady": "Not decision-ready"
   },
   "reviewSection": "Human review",
@@ -165,6 +167,21 @@
     "noProject": "There is no current project for model validation audit.",
     "missingPlan": "An analysis plan is required before model validation can be audited."
   },
+  "reporting": {
+    "title": "Release report package",
+    "loading": "Auditing the report package…",
+    "releasable": "Report package is ready for release review",
+    "incomplete": "Report package is incomplete",
+    "owner": "Release owner",
+    "coverage": "Reporting items",
+    "bindings": "Bound artifacts",
+    "errors": "Blocking errors",
+    "askPrepare": "Ask Agent to prepare or repair the report package",
+    "repairPrompt": "Use $heor-reporting to prepare or repair heor/report-package.json and heor/report.md. Bind the exact current method artifacts and all three app-written deterministic result files; apply CHEERS 2022 only to cost-effectiveness reporting and the separate ISPOR BIA matrix to budget impact; copy result summaries exactly; disclose funding, conflicts, Agent and model-provider involvement, data/model availability, and patient/public involvement. Do not score CHEERS, edit result files, invent the release owner, or create or claim a release approval.",
+    "note": "The app verifies reporting structure, hashes, deterministic result reproduction, and local approval state. This is not scientific truth, journal acceptance, or policy endorsement.",
+    "noProject": "There is no current project for report-package audit.",
+    "missingPlan": "An analysis plan is required before the report package can be audited."
+  },
   "action": {
     "approve": "Review {{gate}}",
     "revokeStale": "Revoke stale approval",
@@ -184,6 +201,7 @@
     "rationalePlaceholder": "What you checked and why this gate can proceed",
     "confirm": "I performed this review myself",
     "confirmIndependent": "I am the declared independent reviewer and personally verified this package for its stated intended use",
+    "confirmRelease": "I am the named release owner, reviewed the complete bound report and reproduced results, and accept this local release decision",
     "approve": "Record approval",
     "revoke": "Record revocation",
     "cancel": "Cancel"
@@ -192,7 +210,9 @@
     "title": "Deterministic result",
     "exploratory": "Exploratory",
     "authorized": "Locally authorized analysis",
+    "released": "Released · decision-ready",
     "authorizedNote": "Local human assertion; independent validation and release are still separate gates.",
+    "releasedNote": "Local human release assertion over the exact report, model, validation, and reproduced result bytes; it is not regulatory or reimbursement approval.",
     "strategy": "Strategy",
     "cost": "Total cost",
     "qaly": "Total QALY",

@@ -36,6 +36,13 @@ Assets that fail a remediable criterion are forked or wrapped and improved.
 Assets with incompatible licensing, unverifiable behavior, or an authority
 model that cannot be isolated contribute only ideas and test cases.
 
+Discovery is not admission. An upstream asset must not be copied directly into
+the bundled skill or connector inventory merely because it is useful. The
+release inventory may contain only (a) a first-party derivative under
+`runtime/skills/core/` with its adaptation delta and tests, or (b) a pinned,
+isolated adapter that has passed every criterion above. The untouched upstream
+snapshot remains evidence for review, not an AI4HEOR production capability.
+
 ## Candidate decisions
 
 | Asset | Value | Current decision | Required adaptation |
@@ -70,7 +77,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
 | Shipped | `heor-model-validation` | Intended-use validation package covering face, input, external, cross-model, predictive, and TECH-VER checks without a score | `heor/model-validation.json`, local evidence, and app-owned independent-review gate |
-| P1 | `heor-reporting` | CHEERS-aligned reporting without treating a checklist as quality scoring | traceable report package |
+| Shipped | `heor-reporting` | Separate CHEERS 2022 and ISPOR BIA reporting, exact result summaries, disclosures, and release preparation without checklist scoring | `heor/report-package.json`, `heor/report.md`, app-written results, and app-owned release gate |
 
 `heor-workbench` routes to these skills; it should not absorb their detailed
 methodology. This avoids a single prompt becoming an untestable source of truth.
@@ -116,6 +123,15 @@ and an app-owned human gate. It retains their warning that a checklist neither
 guarantees an error-free model nor supports a summary score. The active ISPOR
 Model Validation II task force is monitored as work in progress and is not
 treated as a published standard.
+
+The reporting capability also adapts rather than directly reuses standards or
+public prompts. CHEERS 2022 remains a 28-item reporting checklist for economic
+evaluation, never a quality score and never a BIA checklist. ISPOR BIA Good
+Practice II is represented by a separate 12-item reporting matrix. AI4HEOR
+binds both matrices to exact method, validation, report, and app-written result
+bytes; portable and native validators reject copied or stale summaries; the
+desktop re-executes all three deterministic engines before a named human can
+record release. This is the production derivative admitted to the platform.
 
 ## Method sources governing the adaptation
 

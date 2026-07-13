@@ -927,6 +927,11 @@ pub fn run_heor_budget_impact(
     {
         return Err("HEOR budget impact engine hashes do not match desktop-audited inputs".into());
     }
+    crate::heor_reporting::write_result(
+        &workspace,
+        crate::heor_reporting::BUDGET_IMPACT_RESULT_PATH,
+        &output.stdout,
+    )?;
 
     let plan: serde_json::Value = serde_json::from_slice(&plan_raw)
         .map_err(|error| format!("analysis plan is invalid: {error}"))?;
@@ -949,6 +954,7 @@ pub fn run_heor_budget_impact(
         crate::heor_uncertainty::audit_uncertainty_plan_for_plan(&workspace, &plan_raw)?;
     let validation_audit =
         crate::heor_validation::audit_model_validation_for_plan(&workspace, &plan_raw)?;
+    let reporting_audit = crate::heor_reporting::audit_report_package(&workspace)?;
     let approval_log = {
         let _guard = approval_state
             .0
@@ -969,6 +975,7 @@ pub fn run_heor_budget_impact(
             uncertainty: uncertainty_audit,
             budget_impact: budget_audit,
             validation: validation_audit,
+            reporting: reporting_audit,
         },
     );
     Ok(BudgetImpactRunResult {

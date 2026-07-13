@@ -49,6 +49,8 @@
     "uncertaintyRequired": "需先完成不确定性分析审计",
     "budgetImpactRequired": "需先完成预算影响分析审计",
     "validationRequired": "需先获得可批准的独立验证结果",
+    "reportingRequired": "需先完成哈希绑定的报告包",
+    "decisionReady": "已发布 · 可进入决策使用",
     "notDecisionReady": "尚不可用于决策"
   },
   "reviewSection": "人工审阅",
@@ -165,6 +167,21 @@
     "noProject": "没有可用于模型验证审计的当前项目。",
     "missingPlan": "必须先有分析计划，才能审计模型验证。"
   },
+  "reporting": {
+    "title": "发布报告包",
+    "loading": "正在审计报告包……",
+    "releasable": "报告包可进入发布审阅",
+    "incomplete": "报告包不完整",
+    "owner": "发布责任人",
+    "coverage": "报告项目",
+    "bindings": "绑定文件",
+    "errors": "阻断错误",
+    "askPrepare": "让 Agent 准备或修复报告包",
+    "repairPrompt": "使用 $heor-reporting 准备或修复 heor/report-package.json 与 heor/report.md。绑定当前方法学文件和三份由应用写入的确定性结果文件；CHEERS 2022 仅用于成本效果报告，预算影响单独使用 ISPOR BIA 矩阵；结果摘要必须精确复制；明确披露资助、利益冲突、Agent 与模型提供方参与、数据和模型可得性以及患者/公众参与。不要给 CHEERS 打分，不要编辑结果文件，不要编造发布责任人，也不要创建或声称获得发布批准。",
+    "note": "应用验证报告结构、哈希、确定性结果复现和本地批准状态；这不等于科学真实性、期刊接收或政策背书。",
+    "noProject": "没有可用于报告包审计的当前项目。",
+    "missingPlan": "必须先有分析计划，才能审计报告包。"
+  },
   "action": {
     "approve": "审阅{{gate}}",
     "revokeStale": "撤销过期批准",
@@ -184,6 +201,7 @@
     "rationalePlaceholder": "你核查了什么，以及为什么可以进入下一关",
     "confirm": "本次审阅由我本人完成",
     "confirmIndependent": "我是声明的独立审查人，并已亲自核验该验证包适用于其所述预定用途",
+    "confirmRelease": "我是指定的发布责任人，已审阅完整绑定报告和复现结果，并接受本次本地发布决定",
     "approve": "记录批准",
     "revoke": "记录撤销",
     "cancel": "取消"
@@ -192,7 +210,9 @@
     "title": "确定性结果",
     "exploratory": "探索性结果",
     "authorized": "本地已授权分析",
+    "released": "已发布 · 可进入决策使用",
     "authorizedNote": "仅为本地人工声明；独立验证和发布仍是单独关口。",
+    "releasedNote": "这是对报告、模型、验证及复现结果精确字节的本地人工发布声明，不等于监管或医保准入批准。",
     "strategy": "策略",
     "cost": "总成本",
     "qaly": "总 QALY",

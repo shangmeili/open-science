@@ -26,8 +26,8 @@ a form-led modeling application.
 
 The first complete workflow compares two strategies using a cohort state
 transition model and a three-year budget impact analysis. Both deterministic
-calculation paths and the independent-validation admission gate are
-implemented. Release remains outside the alpha boundary.
+calculation paths, independent validation, hash-bound reporting, and the
+human-controlled local release gate are implemented.
 
 ## Non-negotiable boundaries
 
@@ -38,7 +38,8 @@ implemented. Release remains outside the alpha boundary.
    executable uncertainty plan, executable budget impact plan, and analysis
    plan are approved by a human, an independent reviewer has submitted an
    approvable validation package bound to all four current model artifacts, and
-   the separate release gate is implemented and approved.
+   a named human release owner has approved the current report package after
+   deterministic result reproduction.
 3. Every decision-relevant value must carry a source, unit, jurisdiction, price
    year, selection rationale, and uncertainty status before public beta.
 4. Results must trace to input, engine version, reference-case version, and run
@@ -161,14 +162,37 @@ independent-validation approval only when the declared reviewer differs from
 the developer, the approval actor exactly matches that reviewer label, all
 required coverage is present, and no blocker or major issue remains open.
 Changing any report, model, or bound analysis artifact makes the approval
-stale. `release` currently fails explicitly because its governance and package
-contract are not implemented.
+stale.
 
 This gate establishes local structural integrity and a human assertion, not
 objective truth. The app cannot prove that evidence is accurate, that the
 reviewer is genuinely independent, or that the model is fit for decisions; a
 future identity/signature boundary and methods acceptance process remain
 necessary before public release.
+
+## Implemented reporting and release boundary
+
+The first-party `$heor-reporting` skill prepares `heor/report-package.json` and
+`heor/report.md`. The package binds the exact current bytes of the report,
+analysis plan, conceptual model, uncertainty plan, budget-impact plan,
+independent-validation report, and three app-written deterministic result
+artifacts. CHEERS 2022 supplies 28 cost-effectiveness reporting items and is
+never scored or applied to BIA. A separate 12-item ISPOR BIA matrix covers the
+budget-impact report. All 40 entries require a rationale, bound evidence paths,
+and exactly one report section marker.
+
+The portable and native validators require exact copied numerical summaries,
+explicit disclosures, limitations, a named release owner, and current hashes.
+At release, the desktop requires the current independent-validation approval,
+re-executes base-case, uncertainty, and budget-impact calculations, compares
+their exact output hashes with the bound result files, and records the report
+package plus all nine related bindings in the app-owned approval chain. The
+Agent can prepare the package but cannot invent its owner or create approval.
+
+`decision_ready_local_release_assertion` means these local structural,
+reproduction, validation, reporting, and human gates are current. It does not
+assert scientific truth, reviewer identity, journal acceptance, regulatory
+approval, reimbursement suitability, or external tamper-proofing.
 
 ## Alpha acceptance
 
@@ -193,8 +217,9 @@ necessary before public release.
   declared reviewer/developer separation, complete required coverage, and zero
   open blocker or major issues. Invalid evidence, stale bytes, or actor mismatch
   fails closed.
-- Exploratory, analysis-authorized, and independently validated states remain
-  distinct. Release is a separate, currently unavailable human-controlled gate.
+- Exploratory, analysis-authorized, independently validated, and locally
+  released decision-ready states remain distinct. Any stale package, binding,
+  validation, result reproduction, actor, or approval sequence fails closed.
 - The core analysis runs without a model provider or network connection.
 
 ## Upstream and licensing

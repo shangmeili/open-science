@@ -12,6 +12,7 @@ mod heor_budget_impact;
 mod heor_engine;
 mod heor_evidence;
 mod heor_reference_case;
+mod heor_reporting;
 mod heor_uncertainty;
 mod heor_validation;
 mod jupyter;
@@ -110,6 +111,7 @@ pub fn run() {
             heor_budget_impact::audit_heor_budget_impact,
             heor_budget_impact::run_heor_budget_impact,
             heor_reference_case::audit_heor_reference_case,
+            heor_reporting::audit_heor_reporting,
             heor_uncertainty::audit_heor_uncertainty,
             heor_uncertainty::run_heor_uncertainty,
             heor_validation::audit_heor_model_validation,

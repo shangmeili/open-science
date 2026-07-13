@@ -54,6 +54,7 @@ describe("AI4HEOR human review pane", () => {
     expect(screen.getByText("Uncertainty audit incomplete")).toBeInTheDocument();
     expect(screen.getByText("Budget impact audit incomplete")).toBeInTheDocument();
     expect(screen.getByText("Validation package is incomplete")).toBeInTheDocument();
+    expect(screen.getByText("Report package is incomplete")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Review Analysis plan" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ask agent to resolve evidence gaps" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", {
@@ -77,6 +78,12 @@ describe("AI4HEOR human review pane", () => {
     }));
     expect(onRequestRevision).toHaveBeenCalledWith(
       expect.stringContaining("$heor-model-validation"),
+    );
+    await userEvent.click(screen.getByRole("button", {
+      name: "Ask Agent to prepare or repair the report package",
+    }));
+    expect(onRequestRevision).toHaveBeenCalledWith(
+      expect.stringContaining("$heor-reporting"),
     );
   });
 
