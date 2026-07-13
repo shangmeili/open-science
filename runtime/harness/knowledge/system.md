@@ -9,5 +9,5 @@
 - Data classes: `unknown`, `public`, `non_sensitive`, `restricted`.
 - Workspace: code, data, drafts, and results may all live in this repo.
 - Memory: `AGENTS.md` stores rules, `knowledge/` stores current facts, and `notes/` stores daily logs.
-- Approval records: `.openscience/approvals.jsonl` is append-only and may be
-  written only by the desktop approval UI, never by the agent.
+- Approval records: the canonical log is app-owned and may be appended only by
+  the desktop approval service, never by the agent or workspace tools.

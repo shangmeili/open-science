@@ -8,64 +8,17 @@ correction. It has no network or language-model dependency.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from math import isclose, isfinite
-import re
 from typing import Any
 
 
 SCHEMA_VERSION = "0.1.0"
 ENGINE_VERSION = "0.1.0"
-REQUIRED_APPROVAL_GATES = frozenset(
-    {"decision_problem", "conceptual_model", "analysis_plan"}
-)
 TOLERANCE = 1e-9
 
 
 class ModelValidationError(ValueError):
     """Raised when an analysis specification violates an explicit contract."""
-
-
-@dataclass(frozen=True)
-class Approval:
-    gate: str
-    approved_by: str
-    approved_at: str
-    artifact_sha256: str
-
-    @classmethod
-    def from_dict(cls, value: dict[str, Any]) -> "Approval":
-        value = _mapping(value, "approval")
-        approval = cls(
-            gate=str(value.get("gate", "")),
-            approved_by=str(value.get("approved_by", "")),
-            approved_at=str(value.get("approved_at", "")),
-            artifact_sha256=str(value.get("artifact_sha256", "")),
-        )
-        if approval.gate not in REQUIRED_APPROVAL_GATES:
-            raise ModelValidationError(f"unknown approval gate: {approval.gate!r}")
-        for field_name in ("approved_by", "approved_at", "artifact_sha256"):
-            if not getattr(approval, field_name).strip():
-                raise ModelValidationError(
-                    f"approval {approval.gate!r} has empty {field_name}"
-                )
-        try:
-            approved_at = datetime.fromisoformat(
-                approval.approved_at.replace("Z", "+00:00")
-            )
-        except ValueError as error:
-            raise ModelValidationError(
-                f"approval {approval.gate!r} has an invalid approved_at"
-            ) from error
-        if approved_at.tzinfo is None:
-            raise ModelValidationError(
-                f"approval {approval.gate!r} approved_at must include a timezone"
-            )
-        if re.fullmatch(r"[0-9a-f]{64}", approval.artifact_sha256) is None:
-            raise ModelValidationError(
-                f"approval {approval.gate!r} artifact_sha256 must be 64 lowercase hex characters"
-            )
-        return approval
 
 
 @dataclass(frozen=True)
@@ -105,17 +58,17 @@ class MarkovSpecification:
     willingness_to_pay: float | None
     comparator: Strategy
     intervention: Strategy
-    approvals: tuple[Approval, ...]
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "MarkovSpecification":
         value = _mapping(value, "analysis")
+        if "approvals" in value:
+            raise ModelValidationError(
+                "approvals are not analysis inputs; desktop workflow authorization is app-owned"
+            )
         reference_case = _mapping(value.get("reference_case", {}), "reference_case")
         discount_rates = _mapping(value.get("discount_rates", {}), "discount_rates")
         strategies = _mapping(value.get("strategies", {}), "strategies")
-        approvals = value.get("approvals", [])
-        if not isinstance(approvals, list):
-            raise ModelValidationError("approvals must be an array")
         specification = cls(
             schema_version=str(value.get("schema_version", "")),
             analysis_id=str(value.get("analysis_id", "")),
@@ -146,18 +99,9 @@ class MarkovSpecification:
             ),
             comparator=Strategy.from_dict(strategies.get("comparator", {})),
             intervention=Strategy.from_dict(strategies.get("intervention", {})),
-            approvals=tuple(Approval.from_dict(approval) for approval in approvals),
         )
         specification.validate()
         return specification
-
-    @property
-    def approved_gates(self) -> frozenset[str]:
-        return frozenset(approval.gate for approval in self.approvals)
-
-    @property
-    def approval_gates_complete(self) -> bool:
-        return self.approved_gates == REQUIRED_APPROVAL_GATES
 
     def validate(self) -> None:
         if self.schema_version != SCHEMA_VERSION:
@@ -186,8 +130,6 @@ class MarkovSpecification:
                 raise ModelValidationError(f"{name} must not be negative")
         if self.willingness_to_pay is not None and self.willingness_to_pay < 0:
             raise ModelValidationError("willingness_to_pay must not be negative")
-        if len(self.approved_gates) != len(self.approvals):
-            raise ModelValidationError("approval gates must be unique")
         for role, strategy in (
             ("comparator", self.comparator),
             ("intervention", self.intervention),
@@ -240,8 +182,7 @@ class AnalysisResult:
     schema_version: str
     reference_case_id: str
     reference_case_status: str
-    approval_gates_complete: bool
-    run_classification: str
+    calculation_classification: str
     warnings: tuple[str, ...]
     comparator: StrategyResult
     intervention: StrategyResult
@@ -257,8 +198,7 @@ class AnalysisResult:
                 "status": self.reference_case_status,
                 "compliance_assessed": False,
             },
-            "approval_gates_complete": self.approval_gates_complete,
-            "run_classification": self.run_classification,
+            "calculation_classification": self.calculation_classification,
             "warnings": list(self.warnings),
             "strategies": {
                 "comparator": self.comparator.to_dict(),
@@ -268,9 +208,7 @@ class AnalysisResult:
         }
 
 
-def run_markov(
-    specification: MarkovSpecification, *, require_approved: bool = False
-) -> AnalysisResult:
+def run_markov(specification: MarkovSpecification) -> AnalysisResult:
     """Run a validated deterministic model.
 
     Rewards use start-of-cycle occupancy without half-cycle correction. With
@@ -279,30 +217,14 @@ def run_markov(
     """
 
     specification.validate()
-    if require_approved and not specification.approval_gates_complete:
-        missing = sorted(REQUIRED_APPROVAL_GATES - specification.approved_gates)
-        raise ModelValidationError(
-            "decision-ready execution requires human approvals: " + ", ".join(missing)
-        )
-    if require_approved and specification.reference_case_status == "draft":
-        raise ModelValidationError(
-            "a draft reference case cannot authorize a decision-support run"
-        )
-
     comparator = _run_strategy(specification, specification.comparator)
     intervention = _run_strategy(specification, specification.intervention)
     incremental = _incremental(
         comparator, intervention, specification.willingness_to_pay
     )
-    warnings: list[str] = []
-    analysis_authorized = (
-        specification.approval_gates_complete
-        and specification.reference_case_status != "draft"
-    )
-    if not specification.approval_gates_complete:
-        warnings.append(
-            "Exploratory result only: required human approval gates are incomplete."
-        )
+    warnings = [
+        "Workflow authorization is not a calculation-engine responsibility; the desktop must apply verified approval state."
+    ]
     if specification.reference_case_status == "draft":
         warnings.append(
             "Draft reference case: this result must not be presented as compliance with current guidance."
@@ -316,10 +238,7 @@ def run_markov(
         schema_version=specification.schema_version,
         reference_case_id=specification.reference_case_id,
         reference_case_status=specification.reference_case_status,
-        approval_gates_complete=specification.approval_gates_complete,
-        run_classification=(
-            "analysis_authorized" if analysis_authorized else "exploratory"
-        ),
+        calculation_classification="calculation_only",
         warnings=tuple(warnings),
         comparator=comparator,
         intervention=intervention,

@@ -37,6 +37,5 @@
       "state_costs": [4000.0, 3000.0, 0.0],
       "state_utilities": [0.8, 0.5, 0.0]
     }
-  },
-  "approvals": []
+  }
 }

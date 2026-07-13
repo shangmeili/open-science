@@ -51,6 +51,14 @@ fn read_meta(dir: &Path) -> Option<ProjectMeta> {
     serde_json::from_str(&text).ok()
 }
 
+/// The stable identity of the project owning `dir`. Decision-relevant HEOR
+/// state must bind to this marker instead of accepting a caller-selected id.
+pub(crate) fn require_project_id(dir: &Path) -> Result<String, String> {
+    read_meta(dir)
+        .map(|meta| meta.id)
+        .ok_or_else(|| "HEOR work requires the current workspace to be a project".into())
+}
+
 fn write_meta(dir: &Path, meta: &ProjectMeta) -> Result<(), String> {
     let file = meta_file(dir);
     if let Some(parent) = file.parent() {
@@ -176,7 +184,7 @@ pub fn rename_project(path: String, name: String) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{create_in, folder_slug, read_meta};
+    use super::{create_in, folder_slug, read_meta, require_project_id};
     use std::fs;
 
     #[test]
@@ -201,6 +209,7 @@ mod tests {
         let read = read_meta(&dir1).unwrap();
         assert_eq!(read.id, meta1.id);
         assert_eq!(read.version, 1);
+        assert_eq!(require_project_id(&dir1).unwrap(), meta1.id);
 
         // Same name again → a distinct folder, its own identity.
         let (dir2, meta2) = create_in(&base, "My Study").unwrap();
@@ -219,6 +228,7 @@ mod tests {
         fs::create_dir_all(dir.join(".openscience")).unwrap();
         fs::write(dir.join(".openscience").join("project.json"), "{not json").unwrap();
         assert!(read_meta(&dir).is_none());
+        assert!(require_project_id(&dir).is_err());
         let _ = fs::remove_dir_all(&base);
     }
 }

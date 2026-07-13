@@ -46,21 +46,26 @@ draft -> scoped -> plan-approved -> computed -> validated -> released
 Only a human can move a project through `scoped`, `plan-approved`, `validated`,
 or `released`. Automated checks may block a transition but cannot approve it.
 
-Phase 0 validates approval-record structure only. Signer identity and append-only
-integrity are not yet cryptographically attested; the desktop approval service
-must provide that enforcement before public beta.
+The alpha desktop service keeps its canonical approval log in app-owned data,
+outside the agent workspace. It fails closed on malformed history and links
+events with an unanchored SHA-256 chain. This detects partial or inconsistent
+edits but cannot prove non-tampering against a same-user process that can rewrite
+the entire log. The actor label is also a local human assertion until an
+OS-keychain-backed signature and identity flow is independently reviewed. No
+approval is authoritative until the dedicated desktop UI uses this service;
+analysis input metadata can never self-authorize a run.
 
-## Initial reference-case registry
+## Implemented reference-case registry
 
 | ID | Status | Use |
 | --- | --- | --- |
 | `CN-2020-current` | current | Current Chinese pharmacoeconomic guidance |
 | `CN-2026-draft` | draft | Gap analysis only until formally issued |
-| `NICE-PMG36-2026` | current | NICE technology appraisal analyses |
-| `CDA-AMC-4th` | current | Canadian economic evaluations |
 
 Reference-case files are versioned policy metadata. Their presence does not
 claim compliance; compliance requires an explicit, reviewable assessment.
+NICE PMG36 and CDA-AMC profiles remain planned registry expansions rather than
+implemented options.
 
 ## Alpha acceptance
 

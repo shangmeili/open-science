@@ -6,6 +6,8 @@ mod examples;
 mod git_snapshot;
 mod harness;
 mod compute;
+mod heor_approval;
+mod heor_engine;
 mod jupyter;
 mod kernel;
 mod large_file;
@@ -49,6 +51,7 @@ pub fn run() {
         .manage(JupyterState::default())
         .manage(PreviewState::default())
         .manage(ProvenanceState::default())
+        .manage(heor_approval::HeorApprovalState::default())
         .manage(runs::RunState::default())
         .invoke_handler(tauri::generate_handler![
             runtime::start_runtime,
@@ -96,6 +99,9 @@ pub fn run() {
             provenance::record_provenance,
             provenance::list_provenance,
             provenance::read_env_lockfile,
+            heor_approval::append_heor_approval,
+            heor_approval::list_heor_approvals,
+            heor_engine::run_heor_markov,
             runs::record_run,
             runs::list_runs,
             runs::read_run_log,

@@ -46,7 +46,7 @@
 10. Capture one reusable lesson in each review.
 11. Keep language-model assistance separate from deterministic calculation.
 12. Never invent evidence, citations, parameter values, or approval records.
-13. Never modify `.openscience/approvals.jsonl`; only the desktop approval UI may append it.
+13. Never create or modify approval records; only the desktop approval service may append its app-owned canonical log.
 14. Never claim reference-case compliance without an explicit compliance review.
 15. Stop external model and network use when data classification is restricted or unknown.
 

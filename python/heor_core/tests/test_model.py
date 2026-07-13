@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import hashlib
 import json
 import unittest
 from pathlib import Path
@@ -33,8 +32,7 @@ class MarkovModelTests(unittest.TestCase):
         self.assertAlmostEqual(result.incremental.delta_qaly, 0.194333570648884)
         self.assertAlmostEqual(result.incremental.icer, 31773.564494548336)
         self.assertEqual(result.incremental.interpretation, "tradeoff")
-        self.assertFalse(result.approval_gates_complete)
-        self.assertEqual(result.run_classification, "exploratory")
+        self.assertEqual(result.calculation_classification, "calculation_only")
 
     def test_cohort_mass_is_conserved_in_every_cycle(self) -> None:
         result = run_markov(MarkovSpecification.from_dict(golden_payload()))
@@ -54,50 +52,27 @@ class MarkovModelTests(unittest.TestCase):
         with self.assertRaisesRegex(ModelValidationError, "must sum to 1"):
             MarkovSpecification.from_dict(payload)
 
-    def test_analysis_authorization_requires_all_human_approvals(self) -> None:
-        specification = MarkovSpecification.from_dict(golden_payload())
-
-        with self.assertRaisesRegex(ModelValidationError, "human approvals"):
-            run_markov(specification, require_approved=True)
-
-    def test_complete_human_approvals_authorize_the_analysis(self) -> None:
+    def test_analysis_input_cannot_self_authorize(self) -> None:
         payload = golden_payload()
         payload["approvals"] = [
             {
-                "gate": gate,
+                "gate": "analysis_plan",
                 "approved_by": "human-reviewer",
                 "approved_at": "2026-07-14T12:00:00+08:00",
-                "artifact_sha256": hashlib.sha256(gate.encode()).hexdigest(),
+                "artifact_sha256": "a" * 64,
             }
-            for gate in ("decision_problem", "conceptual_model", "analysis_plan")
         ]
-        specification = MarkovSpecification.from_dict(payload)
 
-        result = run_markov(specification, require_approved=True)
+        with self.assertRaisesRegex(ModelValidationError, "app-owned"):
+            MarkovSpecification.from_dict(payload)
 
-        self.assertTrue(result.approval_gates_complete)
-        self.assertEqual(result.run_classification, "analysis_authorized")
-        self.assertNotIn("Exploratory result", " ".join(result.warnings))
-
-    def test_draft_reference_case_cannot_authorize_decision_support(self) -> None:
+    def test_draft_reference_case_is_explicitly_warned(self) -> None:
         payload = golden_payload()
         payload["reference_case"] = {"id": "CN-2026-draft", "status": "draft"}
-        payload["approvals"] = [
-            {
-                "gate": gate,
-                "approved_by": "human-reviewer",
-                "approved_at": "2026-07-14T12:00:00+08:00",
-                "artifact_sha256": hashlib.sha256(gate.encode()).hexdigest(),
-            }
-            for gate in ("decision_problem", "conceptual_model", "analysis_plan")
-        ]
         specification = MarkovSpecification.from_dict(payload)
 
-        with self.assertRaisesRegex(ModelValidationError, "draft reference case"):
-            run_markov(specification, require_approved=True)
-
         exploratory = run_markov(specification)
-        self.assertEqual(exploratory.run_classification, "exploratory")
+        self.assertEqual(exploratory.calculation_classification, "calculation_only")
         self.assertIn("Draft reference case", " ".join(exploratory.warnings))
 
     def test_half_cycle_correction_must_be_a_real_boolean(self) -> None:
@@ -141,7 +116,8 @@ class HarnessContractTests(unittest.TestCase):
         self.assertIn("Humans retain decision authority", rules)
         self.assertIn("self-review is\n  never independent model validation", rules)
         self.assertIn("may not approve a gate", rules)
-        self.assertIn("Never modify `.openscience/approvals.jsonl`", rules)
+        self.assertIn("Never create or modify approval records", rules)
+        self.assertIn("app-owned canonical log", rules)
         self.assertNotIn("serve your own goals independently", rules)
 
     def test_seeded_state_exposes_required_gates_and_data_classification(self) -> None:

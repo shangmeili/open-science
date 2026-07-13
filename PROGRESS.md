@@ -1,5 +1,7 @@
 # Progress
 
+2026-07-14 02:43 · feat(heor-governance): added a project-bound app-owned HEOR approval service with fail-closed validation and an explicitly unanchored SHA-256 chain, removed analysis-JSON self-approval, and bundled a desktop bridge that matches the current input hash to the effective approved plan and verifies current/draft status against the packaged China reference-case registry while keeping validation/release separate; 10/10 HEOR, 96/96 Rust, and 504/504 frontend tests, typecheck, lint, clippy (excluding three pre-existing lint classes), and a debug Tauri build pass.
+
 2026-07-14 02:34 · feat(harness): replaced the bundled autonomous self-goal template with a human-governed HEOR research harness — five explicit approval gates, restricted/unknown-data egress stop, deterministic-calculation boundary, no self-approval, and no self-claimed independent validation are now seeded and locked by contract tests; HEOR suite passes 11/11.
 
 2026-07-14 02:20 · feat(heor): started the pharmacoeconomics specialization on upstream 42c8101 with a product contract, versioned China current/draft reference-case metadata, and a dependency-free deterministic two-strategy cohort Markov core; its golden case, probability/mass validation, dominance handling, draft-guidance guard, and structural Human-in-the-loop approval gate pass 9/9 Python tests, while the unchanged desktop baseline passes 504/504 tests, typecheck, and lint (Rust unverified locally because cargo is not installed).

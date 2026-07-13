@@ -18,4 +18,5 @@
 - release: pending
 
 The agent may update factual project fields and task status. It must not change
-gate status; gate evidence comes from `.openscience/approvals.jsonl`.
+gate status; canonical gate evidence is app-owned and available only through the
+desktop approval service.
