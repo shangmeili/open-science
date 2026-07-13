@@ -19,6 +19,8 @@ describe("AI4HEOR human review pane", () => {
     expect(
       await screen.findByText("Cost-effectiveness of a new first-line treatment for advanced NSCLC"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Evidence audit incomplete")).toBeInTheDocument();
+    expect(screen.getAllByText("0/14")).toHaveLength(2);
     await userEvent.click(screen.getByRole("button", { name: "Review Decision problem" }));
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -34,6 +36,19 @@ describe("AI4HEOR human review pane", () => {
     await userEvent.click(submit);
 
     expect(await screen.findByText("Approved for this artifact")).toBeInTheDocument();
+  });
+
+  it("keeps analysis-plan approval locked until evidence traceability is complete", async () => {
+    render(
+      <HeorReviewPane
+        project={{ id: "ai4heor-demo", name: "Demo" }}
+        onClose={vi.fn()}
+        onRequestRevision={vi.fn()}
+      />,
+    );
+    await screen.findByText("Evidence audit incomplete");
+    expect(screen.queryByRole("button", { name: "Review Analysis plan" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ask agent to resolve evidence gaps" })).toBeInTheDocument();
   });
 
   it("runs the browser fixture as an explicitly exploratory calculation", async () => {

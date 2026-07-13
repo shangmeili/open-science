@@ -50,5 +50,6 @@
     }
   },
   "evidence_sources": [],
-  "assumptions": []
+  "assumptions": [],
+  "input_provenance": []
 }

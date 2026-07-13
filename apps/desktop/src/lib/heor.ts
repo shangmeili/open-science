@@ -58,18 +58,45 @@ export interface HeorStrategy {
 }
 
 export interface HeorEvidenceSource {
+  id: string;
   title: string;
-  url: string;
+  source_type: string;
+  url?: string;
+  local_path?: string;
+  content_sha256?: string;
   published_on?: string;
-  accessed_on?: string;
+  accessed_on: string;
   supports?: string;
 }
 
 export interface HeorAssumption {
-  id?: string;
+  id: string;
   statement: string;
   reason?: string;
-  status?: string;
+  status: "unresolved" | "proposed" | "rejected";
+}
+
+export interface HeorInputProvenance {
+  path: string;
+  source_ids?: string[];
+  assumption_ids?: string[];
+  unit: string;
+  jurisdiction: string;
+  price_year?: number;
+  selection_rationale: string;
+  uncertainty_status: "fixed" | "range_available" | "distribution_available";
+}
+
+export interface HeorEvidenceAudit {
+  complete: boolean;
+  status: "complete" | "incomplete";
+  requiredInputs: number;
+  coveredInputs: number;
+  unsupportedInputs: string[];
+  invalidMappings: string[];
+  unresolvedAssumptions: string[];
+  sourceCount: number;
+  mappingCount: number;
 }
 
 export interface HeorAnalysisPlan {
@@ -90,6 +117,7 @@ export interface HeorAnalysisPlan {
   };
   evidence_sources?: HeorEvidenceSource[];
   assumptions?: HeorAssumption[];
+  input_provenance?: HeorInputProvenance[];
 }
 
 export interface HeorStrategyResult {
@@ -137,6 +165,7 @@ export interface HeorRunResult {
     approvalChainHead: string | null;
     approvalIntegrity: string;
     identityAssurance: string;
+    evidenceAudit: HeorEvidenceAudit;
   };
 }
 
@@ -168,6 +197,109 @@ export function parseHeorPlan(raw: string): HeorAnalysisPlan {
     throw new Error("analysis plan must include health states");
   }
   return value as unknown as HeorAnalysisPlan;
+}
+
+const BASE_INPUT_PATHS = [
+  "cycles",
+  "cycle_length_years",
+  "discount_rates.costs",
+  "discount_rates.outcomes",
+  "half_cycle_correction",
+  "strategies.comparator.initial_distribution",
+  "strategies.comparator.transition_matrix",
+  "strategies.comparator.state_costs",
+  "strategies.comparator.state_utilities",
+  "strategies.intervention.initial_distribution",
+  "strategies.intervention.transition_matrix",
+  "strategies.intervention.state_costs",
+  "strategies.intervention.state_utilities",
+] as const;
+
+function nonempty(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function validSha256(value: unknown): boolean {
+  return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+}
+
+/** Browser-side review preview. The Rust command repeats this audit and is the
+ * authoritative approval boundary. */
+export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
+  const requiredPaths: string[] = [...BASE_INPUT_PATHS];
+  if (plan.willingness_to_pay !== null) requiredPaths.push("willingness_to_pay");
+  const required = new Set<string>(requiredPaths);
+  const sourceIdCounts = new Map<string, number>();
+  for (const source of plan.evidence_sources ?? []) {
+    sourceIdCounts.set(source.id, (sourceIdCounts.get(source.id) ?? 0) + 1);
+  }
+  const validSources = new Set(
+    (plan.evidence_sources ?? [])
+      .filter((source) => {
+        const locator = nonempty(source.url) || nonempty(source.local_path);
+        const snapshot = !source.local_path || validSha256(source.content_sha256);
+        return nonempty(source.id) && sourceIdCounts.get(source.id) === 1
+          && nonempty(source.title) && nonempty(source.source_type)
+          && nonempty(source.accessed_on) && locator && snapshot;
+      })
+      .map((source) => source.id),
+  );
+  const statuses = new Map(
+    (plan.assumptions ?? [])
+      .filter((item) => nonempty(item.id) && nonempty(item.statement) && nonempty(item.reason))
+      .map((item) => [item.id, item.status]),
+  );
+  const unresolvedAssumptions = (plan.assumptions ?? [])
+    .filter((item) => item.status === "unresolved")
+    .map((item) => item.id);
+  const seen = new Set<string>();
+  const covered = new Set<string>();
+  const invalidMappings: string[] = [];
+
+  for (const mapping of plan.input_provenance ?? []) {
+    const reasons: string[] = [];
+    if (!required.has(mapping.path)) reasons.push("path is not a required model input");
+    if (seen.has(mapping.path)) reasons.push("path is duplicated");
+    seen.add(mapping.path);
+    if (!nonempty(mapping.unit)) reasons.push("unit is missing");
+    if (!nonempty(mapping.jurisdiction)) reasons.push("jurisdiction is missing");
+    if (!nonempty(mapping.selection_rationale)) reasons.push("selection rationale is missing");
+    if (!(["fixed", "range_available", "distribution_available"] as string[])
+      .includes(mapping.uncertainty_status)) reasons.push("uncertainty status is invalid");
+    if ((mapping.path.endsWith("state_costs") || mapping.path === "willingness_to_pay")
+      && (!Number.isInteger(mapping.price_year) || (mapping.price_year ?? 0) < 1900)) {
+      reasons.push("price year is missing");
+    }
+    const sourceIds = (mapping.source_ids ?? []).filter(nonempty);
+    const assumptionIds = (mapping.assumption_ids ?? []).filter(nonempty);
+    if (sourceIds.length === 0 && assumptionIds.length === 0) {
+      reasons.push("no evidence source or reviewable assumption is linked");
+    }
+    if (sourceIds.some((id) => !validSources.has(id))) {
+      reasons.push("source link is missing or source metadata is incomplete");
+    }
+    if (assumptionIds.some((id) => statuses.get(id) !== "proposed")) {
+      reasons.push("assumption link is missing or is not proposed for human review");
+    }
+    if (reasons.length === 0) covered.add(mapping.path);
+    else invalidMappings.push(`${mapping.path || "mapping"}: ${reasons.join("; ")}`);
+  }
+
+  const unsupportedInputs = requiredPaths.filter((path) => !covered.has(path));
+  const complete = unsupportedInputs.length === 0
+    && invalidMappings.length === 0
+    && unresolvedAssumptions.length === 0;
+  return {
+    complete,
+    status: complete ? "complete" : "incomplete",
+    requiredInputs: requiredPaths.length,
+    coveredInputs: covered.size,
+    unsupportedInputs,
+    invalidMappings,
+    unresolvedAssumptions,
+    sourceCount: validSources.size,
+    mappingCount: plan.input_provenance?.length ?? 0,
+  };
 }
 
 export async function sha256Text(value: string): Promise<string> {
@@ -264,7 +396,8 @@ export function browserDemoRun(
   inputSha256: string,
   approvedGates: HeorGate[],
 ): HeorRunResult {
-  const authorized = approvedGates.includes("analysis_plan");
+  const evidenceAudit = auditHeorEvidence(HEOR_BROWSER_DEMO_PLAN);
+  const authorized = approvedGates.includes("analysis_plan") && evidenceAudit.complete;
   return {
     calculation: {
       analysis_id: HEOR_BROWSER_DEMO_PLAN.analysis_id,
@@ -315,6 +448,7 @@ export function browserDemoRun(
       approvalChainHead: null,
       approvalIntegrity: "verified_unanchored_sha256_chain",
       identityAssurance: "local_human_assertion",
+      evidenceAudit,
     },
   };
 }

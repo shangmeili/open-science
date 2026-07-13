@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildHeorPrompt, HEOR_BROWSER_DEMO_PLAN, parseHeorPlan } from "./heor";
+import {
+  auditHeorEvidence,
+  buildHeorPrompt,
+  HEOR_BROWSER_DEMO_PLAN,
+  parseHeorPlan,
+} from "./heor";
 
 describe("AI4HEOR artifact contract", () => {
   it("parses the browser fixture and preserves review metadata", () => {
@@ -19,5 +24,13 @@ describe("AI4HEOR artifact contract", () => {
     expect(prompt).toContain("Use $heor-workbench");
     expect(prompt).toContain("Compare treatment A with standard care.");
     expect(prompt).toContain("never create or claim human approvals");
+  });
+
+  it("fails closed when model inputs lack provenance", () => {
+    const audit = auditHeorEvidence(HEOR_BROWSER_DEMO_PLAN);
+    expect(audit.complete).toBe(false);
+    expect(audit.coveredInputs).toBe(0);
+    expect(audit.requiredInputs).toBe(14);
+    expect(audit.unresolvedAssumptions).toEqual(["demo-only"]);
   });
 });

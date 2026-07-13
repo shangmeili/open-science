@@ -17,6 +17,7 @@ import { readArtifact } from "@/lib/artifactFile";
 import { cn } from "@/lib/cn";
 import {
   appendHeorApproval,
+  auditHeorEvidence,
   browserDemoRun,
   HEOR_BROWSER_DEMO_PLAN,
   HEOR_PLAN_PATH,
@@ -119,6 +120,7 @@ export function HeorReviewPane({
     const effective: HeorGate[] = [];
     let previousSequence = 0;
     for (const gate of REVIEW_GATES) {
+      if (gate === "analysis_plan" && !auditHeorEvidence(artifact.plan).complete) break;
       const event = latest.get(gate);
       if (
         !event ||
@@ -133,6 +135,11 @@ export function HeorReviewPane({
     }
     return effective;
   }, [approvals.events, artifact]);
+
+  const evidenceAudit = useMemo(
+    () => artifact.kind === "ready" ? auditHeorEvidence(artifact.plan) : null,
+    [artifact],
+  );
 
   const latest = useMemo(() => latestByGate(approvals.events), [approvals.events]);
   const decisionApproval = latest.get("decision_problem");
@@ -287,6 +294,11 @@ export function HeorReviewPane({
 
             <DecisionSnapshot plan={artifact.plan} />
 
+            <EvidenceTraceability
+              audit={evidenceAudit!}
+              onRequestRepair={() => onRequestRevision(t("evidence.repairPrompt"))}
+            />
+
             <section className="border-b border-border px-5 py-4">
               <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                 {t("reviewSection")}
@@ -294,14 +306,17 @@ export function HeorReviewPane({
               <div className="space-y-2">
                 {REVIEW_GATES.map((gate, index) => {
                   const approved = currentApprovals.includes(gate);
-                  const waiting = gate === nextGate && !staleDecisionApproval;
+                  const evidenceBlocked = gate === "analysis_plan"
+                    && gate === nextGate
+                    && !evidenceAudit?.complete;
+                  const waiting = gate === nextGate && !staleDecisionApproval && !evidenceBlocked;
                   const stale = gate === "decision_problem" && !!staleDecisionApproval;
                   return (
                     <div key={gate} className="rounded-input border border-border bg-bg/50 px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {approved ? (
                           <Check size={14} className="text-ok" />
-                        ) : waiting || stale ? (
+                        ) : waiting || stale || evidenceBlocked ? (
                           <Circle size={12} className={stale ? "text-error" : "text-accent"} />
                         ) : (
                           <LockKeyhole size={13} className="text-muted" />
@@ -312,6 +327,8 @@ export function HeorReviewPane({
                             ? t("status.approved")
                             : stale
                               ? t("status.stale")
+                              : evidenceBlocked
+                                ? t("status.evidenceRequired")
                               : waiting
                                 ? t("status.awaiting")
                                 : t("status.locked")}
@@ -448,7 +465,7 @@ function DecisionSnapshot({ plan }: { plan: HeorAnalysisPlan }) {
     [t("snapshot.discount"), `${(plan.discount_rates.costs * 100).toFixed(1)}% / ${(plan.discount_rates.outcomes * 100).toFixed(1)}%`],
     [t("snapshot.halfCycle"), plan.half_cycle_correction ? t("snapshot.enabled") : t("snapshot.disabled")],
     [t("snapshot.evidence"), String(plan.evidence_sources?.length ?? 0)],
-    [t("snapshot.assumptions"), String(plan.assumptions?.filter((item) => item.status !== "accepted").length ?? 0)],
+    [t("snapshot.assumptions"), String(plan.assumptions?.filter((item) => item.status === "unresolved").length ?? 0)],
   ];
   return (
     <section className="border-b border-border px-5 py-4">
@@ -463,6 +480,62 @@ function DecisionSnapshot({ plan }: { plan: HeorAnalysisPlan }) {
           </div>
         ))}
       </dl>
+    </section>
+  );
+}
+
+function EvidenceTraceability({
+  audit,
+  onRequestRepair,
+}: {
+  audit: ReturnType<typeof auditHeorEvidence>;
+  onRequestRepair: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const gaps = [
+    ...audit.unsupportedInputs.map((path) => t("evidence.unsupported", { path })),
+    ...audit.unresolvedAssumptions.map((id) => t("evidence.unresolved", { id })),
+    ...audit.invalidMappings.slice(0, 3),
+  ];
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {audit.complete ? (
+          <ShieldCheck size={16} className="mt-0.5 text-ok" />
+        ) : (
+          <AlertTriangle size={16} className="mt-0.5 text-accent" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("evidence.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", audit.complete ? "text-ok" : "text-accent")}>
+            {audit.complete ? t("evidence.complete") : t("evidence.incomplete")}
+          </div>
+        </div>
+        <span className="rounded-full border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-text">
+          {audit.coveredInputs}/{audit.requiredInputs}
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+        <Metric label={t("evidence.inputs")} value={`${audit.coveredInputs}/${audit.requiredInputs}`} />
+        <Metric label={t("evidence.sources")} value={String(audit.sourceCount)} />
+        <Metric label={t("evidence.mappings")} value={String(audit.mappingCount)} />
+      </div>
+      {!audit.complete && (
+        <>
+          <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
+            {gaps.slice(0, 5).map((gap) => <li key={gap}>• {gap}</li>)}
+          </ul>
+          <button
+            onClick={onRequestRepair}
+            className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+          >
+            <MessageSquareText size={13} /> {t("evidence.askRepair")}
+          </button>
+        </>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("evidence.note")}</p>
     </section>
   );
 }

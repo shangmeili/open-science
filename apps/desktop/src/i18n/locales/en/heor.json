@@ -43,6 +43,7 @@
     "awaiting": "Awaiting human review",
     "locked": "Previous gate required",
     "stale": "Prior approval targets an older artifact",
+    "evidenceRequired": "Evidence audit required",
     "notDecisionReady": "Not decision-ready"
   },
   "reviewSection": "Human review",
@@ -63,6 +64,19 @@
     "disabled": "disabled",
     "evidence": "Evidence sources",
     "assumptions": "Open assumptions"
+  },
+  "evidence": {
+    "title": "Input traceability",
+    "complete": "Evidence audit complete",
+    "incomplete": "Evidence audit incomplete",
+    "inputs": "Inputs covered",
+    "sources": "Valid sources",
+    "mappings": "Mappings",
+    "unsupported": "Unsupported input: {{path}}",
+    "unresolved": "Unresolved assumption: {{id}}",
+    "askRepair": "Ask agent to resolve evidence gaps",
+    "repairPrompt": "Audit and repair the input traceability in heor/analysis-plan.json. Use $heor-input-provenance. Map every decision-relevant input to valid evidence or an explicit proposed analyst assumption. Preserve uncertainty and do not create or claim human approval.",
+    "note": "Exploratory calculation remains available. Analysis-plan approval stays locked until this audit is complete."
   },
   "action": {
     "approve": "Review {{gate}}",

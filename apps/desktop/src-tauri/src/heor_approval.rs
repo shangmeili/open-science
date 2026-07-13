@@ -367,6 +367,12 @@ pub fn append_heor_approval(
     if crate::project::require_project_id(&workspace)? != request.project_id {
         return Err("approval projectId does not match the current project".into());
     }
+    if request.action == ApprovalAction::Approve && request.gate == ApprovalGate::AnalysisPlan {
+        crate::heor_evidence::require_analysis_plan_approvable(
+            &workspace,
+            &request.artifact_sha256,
+        )?;
+    }
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| e.to_string())?

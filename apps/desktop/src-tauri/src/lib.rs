@@ -7,6 +7,7 @@ mod git_snapshot;
 mod harness;
 mod compute;
 mod heor_approval;
+mod heor_evidence;
 mod heor_engine;
 mod jupyter;
 mod kernel;

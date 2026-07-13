@@ -26,9 +26,9 @@ The engine rejects an `approvals` field. Human approval state lives outside the 
 
 ## Review metadata
 
-Keep the `decision_problem`, `evidence_sources`, `assumptions`, and `input_status` metadata. The engine ignores these fields, while the human review panel uses them to explain the artifact.
+Keep the `decision_problem`, `evidence_sources`, `assumptions`, `input_provenance`, and `input_status` metadata. The numerical engine ignores these fields, while the app independently audits them before analysis-plan approval.
 
-Each `evidence_sources` entry should contain `title`, `url`, `published_on`, `accessed_on`, and `supports`. Each assumption should contain `id`, `statement`, `reason`, and `status` (`unresolved`, `accepted`, or `rejected`). Never turn an assumption into a sourced input without evidence.
+Use `$heor-input-provenance` and its reference contract for exact fields. Each required model input must map to valid evidence or an explicit `proposed` analyst assumption. `unresolved` assumptions block analysis-plan approval. Never write `accepted`; canonical acceptance exists only in the app-owned human approval chain.
 
 ## Reference-case profiles
 

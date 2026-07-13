@@ -43,6 +43,7 @@
     "awaiting": "等待人工审阅",
     "locked": "需先完成前一关",
     "stale": "原批准对应旧版本文件",
+    "evidenceRequired": "需先完成证据审计",
     "notDecisionReady": "尚不可用于决策"
   },
   "reviewSection": "人工审阅",
@@ -63,6 +64,19 @@
     "disabled": "未启用",
     "evidence": "证据来源",
     "assumptions": "待解决假设"
+  },
+  "evidence": {
+    "title": "输入可追溯性",
+    "complete": "证据审计已完成",
+    "incomplete": "证据审计未完成",
+    "inputs": "已覆盖参数",
+    "sources": "有效来源",
+    "mappings": "映射数",
+    "unsupported": "无支持的参数：{{path}}",
+    "unresolved": "未解决假设：{{id}}",
+    "askRepair": "让 Agent 解决证据缺口",
+    "repairPrompt": "审计并修复 heor/analysis-plan.json 的输入可追溯性。使用 $heor-input-provenance，将每个决策相关参数映射到有效证据或明确标记为 proposed 的分析者假设。保留不确定性，不要创建或声称获得人工批准。",
+    "note": "仍可运行探索性计算；只有证据审计完整后才能批准分析计划。"
   },
   "action": {
     "approve": "审阅{{gate}}",

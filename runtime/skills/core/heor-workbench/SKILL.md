@@ -23,7 +23,7 @@ Use conversation as the primary interface. Translate the researcher's intent int
 2. List material unknowns before searching or modeling. Ask only questions that would change the model or interpretation.
 3. For current guidance, prices, policies, methods, or recent research, search primary or authoritative sources and record the URL, publication date, access date, and what input or claim it supports.
 4. Propose the smallest model structure that can answer the decision question. Explain structural assumptions and plausible alternatives.
-5. Create or update `heor/analysis-plan.json` from `assets/analysis-plan.template.json`. Read `references/analysis-plan.md` before editing it.
+5. Create or update `heor/analysis-plan.json` from `assets/analysis-plan.template.json`. Read `references/analysis-plan.md` before editing it. Use `$heor-input-provenance` whenever inputs are researched, mapped, audited, or prepared for analysis-plan review.
 6. Tell the researcher exactly what changed, which inputs remain unsupported, and which review gate is ready for human inspection.
 7. Run the deterministic engine only through the workbench review panel or its documented local command. Never recreate approval state in the workspace.
 8. Interpret results in the conversation with the result classification, input hash, uncertainty limitations, and any validation still required.
@@ -32,6 +32,7 @@ Use conversation as the primary interface. Translate the researcher's intent int
 
 - Prefer guidelines, regulator or HTA sources, peer-reviewed methods papers, trial reports, registries, and official price or reimbursement sources.
 - Quote sparingly. Attach each numeric input to a source or mark it explicitly as an assumption.
+- Map every required engine input through `input_provenance`; external tools cannot bypass this contract.
 - Record conflicting sources instead of silently selecting one.
 - State the reference-case registry status exactly. `draft` guidance cannot authorize a locally approved analysis.
 - Do not claim compliance merely because a named reference-case profile was selected; the deterministic engine does not assess compliance.

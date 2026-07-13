@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Input Provenance"
+  short_description: "Map every model input to evidence or a reviewable assumption"
+  default_prompt: "Use $heor-input-provenance to audit and repair the input traceability in heor/analysis-plan.json."

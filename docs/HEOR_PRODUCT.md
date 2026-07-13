@@ -43,6 +43,9 @@ slice implements only the deterministic cohort model.
    independently reviewed.
 6. Current guidance and draft guidance are separate reference-case profiles.
    Draft guidance must never be presented as a binding current requirement.
+7. Valuable third-party HEOR assets are adapted through the admission and
+   industrialization gates in `docs/HEOR_ECOSYSTEM.md`; upstream popularity or
+   a passing upstream test suite is insufficient for bundling.
 
 ## Product states
 
