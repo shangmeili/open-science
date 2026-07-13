@@ -10,14 +10,22 @@ from heor_core.model import (
     ModelValidationError,
     run_markov,
 )
+from heor_core.uncertainty import Pcg32, run_uncertainty
 
 
 GOLDEN_PATH = Path(__file__).parents[1] / "golden_cases" / "two_strategy_markov.json"
+UNCERTAINTY_PATH = (
+    Path(__file__).parents[1] / "golden_cases" / "two_strategy_uncertainty.json"
+)
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 
 def golden_payload() -> dict:
     return json.loads(GOLDEN_PATH.read_text())
+
+
+def uncertainty_payload() -> dict:
+    return json.loads(UNCERTAINTY_PATH.read_text())
 
 
 class MarkovModelTests(unittest.TestCase):
@@ -105,6 +113,101 @@ class MarkovModelTests(unittest.TestCase):
         run_markov(MarkovSpecification.from_dict(payload))
 
         self.assertEqual(payload, original)
+
+
+class UncertaintyAnalysisTests(unittest.TestCase):
+    def run_golden(self) -> dict:
+        return run_uncertainty(
+            golden_payload(),
+            GOLDEN_PATH.read_bytes(),
+            uncertainty_payload(),
+            UNCERTAINTY_PATH.read_bytes(),
+        )
+
+    def test_versioned_prng_has_a_stable_known_sequence(self) -> None:
+        rng = Pcg32(42)
+
+        self.assertEqual(
+            [rng.next_u32() for _ in range(5)],
+            [2707161783, 2068313097, 3122475824, 2211639955, 3215226955],
+        )
+
+    def test_golden_uncertainty_run_is_reproducible(self) -> None:
+        first = self.run_golden()
+        second = self.run_golden()
+
+        self.assertEqual(first, second)
+        self.assertEqual(first["prng"], {"algorithm": "pcg32-xsh-rr", "version": "1"})
+        self.assertEqual(first["seed"], "20260714")
+        self.assertEqual(first["probabilistic_analysis"]["iterations"], 1000)
+        self.assertEqual(len(first["probabilistic_analysis"]["samples"]), 1000)
+        self.assertEqual(
+            first["probabilistic_analysis"]["cost_effective_probability"],
+            0.974,
+        )
+        self.assertAlmostEqual(
+            first["probabilistic_analysis"]["mean_incremental_net_monetary_benefit"],
+            13346.646129556426,
+        )
+        self.assertEqual(len(first["deterministic_analysis"]), 2)
+        self.assertEqual(len(first["structural_scenarios"]), 1)
+
+    def test_changed_base_plan_hash_fails_closed(self) -> None:
+        payload = golden_payload()
+        payload["cycles"] = 4
+        changed_raw = json.dumps(payload).encode()
+
+        with self.assertRaisesRegex(ModelValidationError, "base_analysis hash"):
+            run_uncertainty(
+                payload,
+                changed_raw,
+                uncertainty_payload(),
+                UNCERTAINTY_PATH.read_bytes(),
+            )
+
+    def test_known_omitted_correlation_blocks_review(self) -> None:
+        uncertainty = uncertainty_payload()
+        uncertainty["probabilistic_analysis"]["correlation_handling"][
+            "known_omitted_correlations"
+        ] = ["Treatment cost and adverse-event probability share a data source"]
+
+        with self.assertRaisesRegex(ModelValidationError, "must be resolved"):
+            run_uncertainty(
+                golden_payload(),
+                GOLDEN_PATH.read_bytes(),
+                uncertainty,
+                json.dumps(uncertainty).encode(),
+            )
+
+    def test_parameter_cannot_change_an_authority_field(self) -> None:
+        uncertainty = uncertainty_payload()
+        uncertainty["parameters"][0]["target"] = "/reference_case/status"
+
+        with self.assertRaisesRegex(ModelValidationError, "outside the allowlist"):
+            run_uncertainty(
+                golden_payload(),
+                GOLDEN_PATH.read_bytes(),
+                uncertainty,
+                json.dumps(uncertainty).encode(),
+            )
+
+    def test_overflowing_distribution_fails_explicitly(self) -> None:
+        uncertainty = uncertainty_payload()
+        uncertainty["parameters"][0]["probabilistic"] = {
+            "type": "lognormal",
+            "mu_log": 1_000.0,
+            "sigma_log": 1.0,
+            "basis_ids": ["golden-cost-source"],
+            "rationale": "Deliberate overflow regression fixture",
+        }
+
+        with self.assertRaisesRegex(ModelValidationError, "numerical overflow"):
+            run_uncertainty(
+                golden_payload(),
+                GOLDEN_PATH.read_bytes(),
+                uncertainty,
+                json.dumps(uncertainty).encode(),
+            )
 
 
 class HarnessContractTests(unittest.TestCase):

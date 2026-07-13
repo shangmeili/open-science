@@ -67,7 +67,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-evidence-synthesis` | PICOS search, screening, extraction, conflict log, applicability | `heor/evidence-synthesis.json` plus deterministic audit |
 | Shipped | `heor-model-design` | Decision problem, conceptual model, structural alternatives | `heor/conceptual-model.json` plus app-owned gate audit |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
-| P1 | `heor-uncertainty-analysis` | DSA, PSA, scenario and structural uncertainty plans | uncertainty plan and run artifacts |
+| Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
 | P1 | `heor-budget-impact` | Population, uptake, displacement, cost categories, scenarios | BIA plan and deterministic results |
 | P1 | `heor-model-validation` | Face, internal, external, cross-model, and code validation | validation report with reviewer boundary |
 | P1 | `heor-reporting` | CHEERS-aligned reporting without treating a checklist as quality scoring | traceable report package |
@@ -95,6 +95,15 @@ Every adopted asset gets:
 An upstream update never replaces the pinned release automatically. Codex may
 prepare and test an update, while the product owner or designated human accepts
 the changed capability boundary.
+
+The shipped uncertainty skill illustrates this rule. Existing public skills and
+HEOR tools supplied useful terminology and negative cases, but none was admitted
+as executable authority. AI4HEOR rewrote the capability around a first-party
+schema, evidence-linked distributions, a versioned cross-platform PRNG, bounded
+execution, three independent validator layers, exact artifact hashes, app-owned
+approval bindings, and natural-language repair. Optional BCEA, `hesim`, `heemod`,
+and `survHE` integrations remain candidates until their adapters pass the same
+pipeline; their maturity does not bypass platform admission.
 
 ## Method sources governing the adaptation
 

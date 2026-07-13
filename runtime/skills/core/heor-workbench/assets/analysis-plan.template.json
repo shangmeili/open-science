@@ -20,6 +20,9 @@
     "path": "heor/reference-case-assessment.json",
     "content_sha256": "replace-with-sha256-of-final-assessment"
   },
+  "uncertainty_analysis": {
+    "path": "heor/uncertainty-plan.json"
+  },
   "states": ["stable", "progressed", "dead"],
   "cycles": 10,
   "cycle_length_years": 1.0,

@@ -46,6 +46,7 @@
     "conceptualRequired": "需先完成概念模型审计",
     "evidenceRequired": "需先完成证据审计",
     "referenceRequired": "需先完成参考案例审计",
+    "uncertaintyRequired": "需先完成不确定性分析审计",
     "notDecisionReady": "尚不可用于决策"
   },
   "reviewSection": "人工审阅",
@@ -110,11 +111,28 @@
     "noProject": "没有可用于参考案例审计的当前项目。",
     "missingPlan": "必须先有分析计划，才能审计参考案例。"
   },
+  "uncertainty": {
+    "title": "可执行不确定性分析",
+    "loading": "正在审计不确定性分析文件……",
+    "complete": "不确定性分析审计已完成",
+    "incomplete": "不确定性分析审计未完成",
+    "prng": "PCG32",
+    "seed": "随机种子",
+    "parameters": "DSA / PSA 参数",
+    "iterations": "PSA 抽样",
+    "scenarios": "情景数",
+    "askRepair": "让 Agent 创建或修复不确定性分析",
+    "repairPrompt": "使用 $heor-uncertainty-analysis，针对当前 heor/analysis-plan.json 的精确字节创建或修复 heor/uncertainty-plan.json。只能从已链接证据推导范围和分布，明确记录遗漏参数及相关性假设，配置固定种子的 DSA、PSA 和结构情景，运行确定性校验器，不要创建或声称获得人工批准。",
+    "note": "应用会审计并以哈希绑定该可执行规范。模拟可复现不等于独立验证，也不构成医保决策建议。",
+    "noProject": "没有可用于不确定性分析审计的当前项目。",
+    "missingPlan": "必须先有分析计划，才能审计不确定性分析。"
+  },
   "action": {
     "approve": "审阅{{gate}}",
     "revokeStale": "撤销过期批准",
     "run": "运行确定性分析",
-    "running": "计算中……"
+    "running": "计算中……",
+    "runUncertainty": "运行 DSA、PSA 与结构情景"
   },
   "dialog": {
     "approveTitle": "批准{{gate}}？",
@@ -145,10 +163,22 @@
     "interpretation": "引擎判定",
     "warnings": "计算局限"
   },
+  "uncertaintyResult": {
+    "title": "不确定性分析结果",
+    "converged": "检查点通过",
+    "notConverged": "检查点未通过",
+    "probability": "具有成本效果的概率",
+    "meanInmb": "平均增量净货币收益",
+    "iterations": "PSA 抽样",
+    "parameters": "DSA 参数",
+    "scenarios": "结构情景",
+    "limitations": "范围与局限"
+  },
   "toast": {
     "approvalRecorded": "已记录人工批准",
     "approvalRevoked": "已撤销过期批准",
     "runComplete": "确定性分析已完成",
+    "uncertaintyRunComplete": "不确定性分析已完成",
     "loadFailed": "无法读取 AI4HEOR 工作流",
     "actionFailed": "AI4HEOR 操作失败"
   }

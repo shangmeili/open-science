@@ -37,6 +37,10 @@ reference_case = load(
     "validate_reference_case_assessment",
     "runtime/skills/core/heor-reference-case/scripts/validate_reference_case_assessment.py",
 )
+uncertainty = load(
+    "validate_uncertainty_plan",
+    "runtime/skills/core/heor-uncertainty-analysis/scripts/validate_uncertainty_plan.py",
+)
 
 
 def evidence_fixture():
@@ -261,6 +265,81 @@ class ReferenceCaseContractTests(unittest.TestCase):
             plan_path.write_text(json.dumps(plan, indent=2))
             errors = reference_case.validate(assessment_path, plan_path, profile_path)
             self.assertIn("plan assessment hash does not match the assessment bytes", errors)
+
+
+class UncertaintyContractTests(unittest.TestCase):
+    def fixture(self, root: Path):
+        plan = json.loads(
+            (ROOT / "python/heor_core/golden_cases/two_strategy_markov.json").read_text()
+        )
+        plan["uncertainty_analysis"] = {"path": "heor/uncertainty-plan.json"}
+        plan["input_provenance"] = [
+            {
+                "path": "strategies.intervention.state_costs",
+                "source_ids": ["golden-cost-source"],
+                "assumption_ids": [],
+                "uncertainty_status": "distribution_available",
+            },
+            {
+                "path": "strategies.intervention.transition_matrix",
+                "source_ids": ["golden-transition-source"],
+                "assumption_ids": [],
+                "uncertainty_status": "distribution_available",
+            },
+        ]
+        paths = [item["path"] for item in plan["input_provenance"]]
+        plan["methodology"] = {
+            "uncertainty_analysis": {
+                "deterministic": {"planned": True, "input_paths": paths},
+                "probabilistic": {
+                    "planned": True,
+                    "input_paths": paths,
+                    "iterations": 1000,
+                },
+                "structural_scenarios": ["five-year-horizon"],
+            }
+        }
+        plan_path = root / "heor" / "analysis-plan.json"
+        plan_path.parent.mkdir(parents=True)
+        plan_raw = json.dumps(plan, ensure_ascii=False, indent=2).encode()
+        plan_path.write_bytes(plan_raw)
+
+        value = json.loads(
+            (ROOT / "python/heor_core/golden_cases/two_strategy_uncertainty.json").read_text()
+        )
+        value["base_analysis"]["content_sha256"] = hashlib.sha256(plan_raw).hexdigest()
+        uncertainty_path = root / "heor" / "uncertainty-plan.json"
+        uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+        return uncertainty_path, plan_path
+
+    def test_complete_hash_bound_uncertainty_plan_passes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = self.fixture(Path(directory))
+            self.assertEqual(uncertainty.validate(*paths), [])
+
+    def test_changed_base_hash_and_unlinked_distribution_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            uncertainty_path, plan_path = self.fixture(Path(directory))
+            value = json.loads(uncertainty_path.read_text())
+            value["base_analysis"]["content_sha256"] = "0" * 64
+            value["parameters"][0]["probabilistic"]["basis_ids"] = ["unlinked"]
+            uncertainty_path.write_text(json.dumps(value, indent=2))
+            errors = uncertainty.validate(uncertainty_path, plan_path)
+            self.assertIn("base_analysis.content_sha256 does not match the plan bytes", errors)
+            self.assertTrue(any("basis_ids" in error for error in errors))
+
+    def test_known_omitted_correlation_blocks_review(self):
+        with tempfile.TemporaryDirectory() as directory:
+            uncertainty_path, plan_path = self.fixture(Path(directory))
+            value = json.loads(uncertainty_path.read_text())
+            value["probabilistic_analysis"]["correlation_handling"][
+                "known_omitted_correlations"
+            ] = ["Shared evidence source"]
+            uncertainty_path.write_text(json.dumps(value, indent=2))
+            self.assertIn(
+                "known_omitted_correlations must be resolved before review",
+                uncertainty.validate(uncertainty_path, plan_path),
+            )
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ import {
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_PLAN,
   HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT,
+  HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT,
   parseHeorConceptualModel,
   parseHeorPlan,
 } from "./heor";
@@ -65,5 +66,15 @@ describe("AI4HEOR artifact contract", () => {
     expect(HEOR_BROWSER_DEMO_PLAN.reference_case.status).toBe("current");
     expect(HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT.complete).toBe(false);
     expect(HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT.blockingGaps).toContain("cost-scope");
+  });
+
+  it("keeps a documented uncertainty path separate from an executable audit", () => {
+    expect(HEOR_BROWSER_DEMO_PLAN.uncertainty_analysis?.path).toBe(
+      "heor/uncertainty-plan.json",
+    );
+    expect(HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT.complete).toBe(false);
+    expect(HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT.errors[0]).toContain(
+      "uncertainty-plan.json",
+    );
   });
 });

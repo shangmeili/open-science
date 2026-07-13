@@ -20,12 +20,14 @@ import {
   auditHeorConceptualModel,
   auditHeorEvidence,
   auditHeorReferenceCase,
+  auditHeorUncertainty,
   browserDemoRun,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_PLAN,
   HEOR_CONCEPTUAL_MODEL_PATH,
   HEOR_PLAN_PATH,
   HEOR_REFERENCE_CASE_ASSESSMENT_PATH,
+  HEOR_UNCERTAINTY_PLAN_PATH,
   type HeorAnalysisPlan,
   type HeorApprovalAction,
   type HeorApprovalEvent,
@@ -35,10 +37,13 @@ import {
   type HeorGate,
   type HeorReferenceCaseAudit,
   type HeorRunResult,
+  type HeorUncertaintyAudit,
+  type HeorUncertaintyRunResult,
   listHeorApprovals,
   parseHeorConceptualModel,
   parseHeorPlan,
   runHeorMarkov,
+  runHeorUncertainty,
   sha256Text,
 } from "@/lib/heor";
 import { isTauri } from "@/lib/tauri";
@@ -84,6 +89,11 @@ type ReferenceCaseState =
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorReferenceCaseAudit };
 
+type UncertaintyState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorUncertaintyAudit };
+
 type ReviewIntent = {
   action: HeorApprovalAction;
   gate: HeorGate;
@@ -117,23 +127,28 @@ export function HeorReviewPane({
     kind: "loading",
   });
   const [referenceCase, setReferenceCase] = useState<ReferenceCaseState>({ kind: "loading" });
+  const [uncertainty, setUncertainty] = useState<UncertaintyState>({ kind: "loading" });
   const [approvals, setApprovals] = useState<HeorApprovalLog>(EMPTY_LOG);
   const [result, setResult] = useState<HeorRunResult | null>(null);
+  const [uncertaintyResult, setUncertaintyResult] = useState<HeorUncertaintyRunResult | null>(null);
   const [running, setRunning] = useState(false);
   const [intent, setIntent] = useState<ReviewIntent | null>(null);
 
   const refresh = useCallback(async () => {
     setResult(null);
+    setUncertaintyResult(null);
     if (!project) {
       setArtifact({ kind: "missing" });
       setConceptualArtifact({ kind: "missing" });
       setReferenceCase({ kind: "invalid", message: t("reference.noProject") });
+      setUncertainty({ kind: "invalid", message: t("uncertainty.noProject") });
       setApprovals(EMPTY_LOG);
       return;
     }
     setArtifact({ kind: "loading" });
     setConceptualArtifact({ kind: "loading" });
     setReferenceCase({ kind: "loading" });
+    setUncertainty({ kind: "loading" });
     try {
       const raw = isTauri
         ? (await readArtifact(HEOR_PLAN_PATH))?.data ?? null
@@ -141,6 +156,7 @@ export function HeorReviewPane({
       if (raw === null) {
         setArtifact({ kind: "missing" });
         setReferenceCase({ kind: "invalid", message: t("reference.missingPlan") });
+        setUncertainty({ kind: "invalid", message: t("uncertainty.missingPlan") });
         setApprovals(await listHeorApprovals(project.id));
         return;
       }
@@ -151,6 +167,14 @@ export function HeorReviewPane({
         setReferenceCase({ kind: "ready", audit: await auditHeorReferenceCase() });
       } catch (error) {
         setReferenceCase({
+          kind: "invalid",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      try {
+        setUncertainty({ kind: "ready", audit: await auditHeorUncertainty() });
+      } catch (error) {
+        setUncertainty({
           kind: "invalid",
           message: error instanceof Error ? error.message : String(error),
         });
@@ -187,6 +211,10 @@ export function HeorReviewPane({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
+      setUncertainty({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
       toast.error(t("toast.loadFailed"));
     }
   }, [project, t]);
@@ -209,12 +237,19 @@ export function HeorReviewPane({
       if (gate === "analysis_plan"
         && (!auditHeorEvidence(artifact.plan).complete
           || referenceCase.kind !== "ready"
-          || !referenceCase.audit.complete)) break;
+          || !referenceCase.audit.complete
+          || uncertainty.kind !== "ready"
+          || !uncertainty.audit.complete)) break;
       const event = latest.get(gate);
       if (
         !event ||
         event.action !== "approve" ||
         event.artifactSha256 !== artifactSha256 ||
+        (gate === "analysis_plan"
+          && uncertainty.kind === "ready"
+          && !event.relatedArtifacts?.some((binding) =>
+            binding.path === HEOR_UNCERTAINTY_PLAN_PATH
+            && binding.sha256 === uncertainty.audit.uncertaintySha256)) ||
         event.sequence <= previousSequence
       ) {
         break;
@@ -223,7 +258,7 @@ export function HeorReviewPane({
       previousSequence = event.sequence;
     }
     return effective;
-  }, [approvals.events, artifact, conceptualArtifact, referenceCase]);
+  }, [approvals.events, artifact, conceptualArtifact, referenceCase, uncertainty]);
 
   const evidenceAudit = useMemo(
     () => artifact.kind === "ready" ? auditHeorEvidence(artifact.plan) : null,
@@ -241,11 +276,22 @@ export function HeorReviewPane({
     rationale: string,
   ) => {
     const sequence = approvals.events.length + 1;
+    const relatedArtifacts = gate === "analysis_plan" && uncertainty.kind === "ready"
+      ? [{ path: HEOR_UNCERTAINTY_PLAN_PATH, sha256: uncertainty.audit.uncertaintySha256 }]
+      : undefined;
     const eventHash = await sha256Text(
-      JSON.stringify({ sequence, action, gate, artifactSha256, actorLabel, rationale }),
+      JSON.stringify({
+        sequence,
+        action,
+        gate,
+        artifactSha256,
+        relatedArtifacts,
+        actorLabel,
+        rationale,
+      }),
     );
     const event: HeorApprovalEvent = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       sequence,
       eventId: sequence.toString(16).padStart(32, "0"),
       projectId: project!.id,
@@ -258,6 +304,7 @@ export function HeorReviewPane({
       assurance: "local_human_assertion",
       previousHash: approvals.chainHead,
       eventHash,
+      relatedArtifacts,
     };
     const events = [...approvals.events, event];
     setApprovals(summarizeBrowserLog(events));
@@ -290,6 +337,7 @@ export function HeorReviewPane({
       );
       setIntent(null);
       setResult(null);
+      setUncertaintyResult(null);
     } catch (error) {
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -304,6 +352,20 @@ export function HeorReviewPane({
         : browserDemoRun(artifact.sha256, currentApprovals);
       setResult(next);
       toast.success(t("toast.runComplete"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const runUncertainty = async () => {
+    if (!project || !isTauri || uncertainty.kind !== "ready"
+      || !uncertainty.audit.complete || running) return;
+    setRunning(true);
+    try {
+      setUncertaintyResult(await runHeorUncertainty(project.id));
+      toast.success(t("toast.uncertaintyRunComplete"));
     } catch (error) {
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -328,7 +390,7 @@ export function HeorReviewPane({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <StageRail currentApprovals={currentApprovals} hasResult={!!result} />
+        <StageRail currentApprovals={currentApprovals} hasResult={!!result || !!uncertaintyResult} />
 
         {!project ? (
           <EmptyState title={t("panel.noProjectTitle")} body={t("panel.noProjectBody")} />
@@ -390,6 +452,11 @@ export function HeorReviewPane({
               onRequestRepair={() => onRequestRevision(t("reference.repairPrompt"))}
             />
 
+            <UncertaintyAssessment
+              state={uncertainty}
+              onRequestRepair={() => onRequestRevision(t("uncertainty.repairPrompt"))}
+            />
+
             <section className="border-b border-border px-5 py-4">
               <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                 {t("reviewSection")}
@@ -399,9 +466,14 @@ export function HeorReviewPane({
                   const approved = currentApprovals.includes(gate);
                   const artifactSha256 = gateArtifactHash(gate, artifact, conceptualArtifact);
                   const gateEvent = latest.get(gate);
+                  const relatedStale = gate === "analysis_plan"
+                    && uncertainty.kind === "ready"
+                    && !gateEvent?.relatedArtifacts?.some((binding) =>
+                      binding.path === HEOR_UNCERTAINTY_PLAN_PATH
+                      && binding.sha256 === uncertainty.audit.uncertaintySha256);
                   const stale = approvals.effectiveApprovedGates.includes(gate)
                     && gateEvent?.action === "approve"
-                    && gateEvent.artifactSha256 !== artifactSha256;
+                    && (gateEvent.artifactSha256 !== artifactSha256 || relatedStale);
                   const conceptualBlocked = gate === "conceptual_model"
                     && gate === nextGate
                     && (conceptualArtifact.kind !== "ready" || !conceptualArtifact.audit.complete);
@@ -411,14 +483,17 @@ export function HeorReviewPane({
                   const referenceBlocked = gate === "analysis_plan"
                     && gate === nextGate
                     && (referenceCase.kind !== "ready" || !referenceCase.audit.complete);
+                  const uncertaintyBlocked = gate === "analysis_plan"
+                    && gate === nextGate
+                    && (uncertainty.kind !== "ready" || !uncertainty.audit.complete);
                   const waiting = gate === nextGate && !stale && !conceptualBlocked
-                    && !evidenceBlocked && !referenceBlocked;
+                    && !evidenceBlocked && !referenceBlocked && !uncertaintyBlocked;
                   return (
                     <div key={gate} className="rounded-input border border-border bg-bg/50 px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {approved ? (
                           <Check size={14} className="text-ok" />
-                        ) : waiting || stale || conceptualBlocked || evidenceBlocked || referenceBlocked ? (
+                        ) : waiting || stale || conceptualBlocked || evidenceBlocked || referenceBlocked || uncertaintyBlocked ? (
                           <Circle size={12} className={stale ? "text-error" : "text-accent"} />
                         ) : (
                           <LockKeyhole size={13} className="text-muted" />
@@ -435,6 +510,8 @@ export function HeorReviewPane({
                                 ? t("status.evidenceRequired")
                               : referenceBlocked
                                 ? t("status.referenceRequired")
+                              : uncertaintyBlocked
+                                ? t("status.uncertaintyRequired")
                               : waiting
                                 ? t("status.awaiting")
                                 : t("status.locked")}
@@ -481,9 +558,22 @@ export function HeorReviewPane({
                 {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={13} fill="currentColor" />}
                 {running ? t("action.running") : t("action.run")}
               </button>
+              {isTauri && uncertainty.kind === "ready" && uncertainty.audit.complete && (
+                <button
+                  onClick={() => void runUncertainty()}
+                  disabled={running}
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-input border border-accent px-3 py-2 text-xs font-semibold text-accent hover:bg-accent/5 disabled:opacity-60"
+                >
+                  {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={13} />}
+                  {running ? t("action.running") : t("action.runUncertainty")}
+                </button>
+              )}
             </section>
 
             {result && <ResultCard result={result} locale={i18n.language} />}
+            {uncertaintyResult && (
+              <UncertaintyResultCard result={uncertaintyResult} locale={i18n.language} />
+            )}
 
             <section className="px-5 py-4 text-[10px] leading-5 text-muted">
               <div className="flex justify-between gap-3">
@@ -791,6 +881,69 @@ function ReferenceCaseAssessment({
   );
 }
 
+function UncertaintyAssessment({
+  state,
+  onRequestRepair,
+}: {
+  state: UncertaintyState;
+  onRequestRepair: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const complete = audit?.complete === true;
+  const issues = audit
+    ? [...audit.invalidParameters, ...audit.errors]
+    : state.kind === "invalid" ? [state.message] : [];
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {complete ? (
+          <ShieldCheck size={16} className="mt-0.5 text-ok" />
+        ) : (
+          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("uncertainty.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+            {state.kind === "loading"
+              ? t("uncertainty.loading")
+              : complete ? t("uncertainty.complete") : t("uncertainty.incomplete")}
+          </div>
+          {audit?.seed && (
+            <div className="mt-1 text-[10px] text-muted">
+              {t("uncertainty.prng")} · {t("uncertainty.seed")} {audit.seed}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted">{HEOR_UNCERTAINTY_PLAN_PATH}</div>
+      {audit && (
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <Metric label={t("uncertainty.parameters")} value={String(audit.parameterCount)} />
+          <Metric label={t("uncertainty.iterations")} value={audit.iterations?.toLocaleString() ?? "—"} />
+          <Metric label={t("uncertainty.scenarios")} value={String(audit.scenarioCount)} />
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      {!complete && state.kind !== "loading" && (
+        <button
+          onClick={onRequestRepair}
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+        >
+          <MessageSquareText size={13} /> {t("uncertainty.askRepair")}
+        </button>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("uncertainty.note")}</p>
+    </section>
+  );
+}
+
 function ApprovalDialog({
   intent,
   artifactHash,
@@ -882,6 +1035,87 @@ function ResultCard({ result, locale }: { result: HeorRunResult; locale: string 
       <details className="mt-3 text-[10px] text-muted">
         <summary className="cursor-pointer font-medium text-text">{t("result.warnings")} ({result.calculation.warnings.length})</summary>
         <ul className="mt-2 list-disc space-y-1 pl-4 leading-4">{result.calculation.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+      </details>
+    </section>
+  );
+}
+
+function UncertaintyResultCard({
+  result,
+  locale,
+}: {
+  result: HeorUncertaintyRunResult;
+  locale: string;
+}) {
+  const { t } = useTranslation("heor");
+  const currency = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "CNY",
+    maximumFractionDigits: 0,
+  });
+  const probability = new Intl.NumberFormat(locale, {
+    style: "percent",
+    maximumFractionDigits: 1,
+  });
+  const calculation = result.calculation;
+  const psa = calculation.probabilistic_analysis;
+  const authorized = result.workflow.classification === "analysis_authorized_local_assertion";
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        <ShieldCheck size={16} className={authorized ? "text-ok" : "text-accent"} />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-text">{t("uncertaintyResult.title")}</div>
+          <div className={cn(
+            "mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]",
+            authorized ? "text-ok" : "text-accent",
+          )}>
+            {authorized ? t("result.authorized") : t("result.exploratory")}
+          </div>
+        </div>
+        <span className={cn(
+          "rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase",
+          psa.convergence.passed
+            ? "border-ok/30 bg-ok/5 text-ok"
+            : "border-warning/30 bg-warning/5 text-warning",
+        )}>
+          {psa.convergence.passed
+            ? t("uncertaintyResult.converged")
+            : t("uncertaintyResult.notConverged")}
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <Metric
+          label={t("uncertaintyResult.probability")}
+          value={probability.format(psa.cost_effective_probability)}
+          accent
+        />
+        <Metric
+          label={t("uncertaintyResult.meanInmb")}
+          value={currency.format(psa.mean_incremental_net_monetary_benefit)}
+        />
+        <Metric
+          label={t("uncertaintyResult.iterations")}
+          value={psa.iterations.toLocaleString(locale)}
+        />
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Metric
+          label={t("uncertaintyResult.parameters")}
+          value={String(calculation.deterministic_analysis.length)}
+        />
+        <Metric
+          label={t("uncertaintyResult.scenarios")}
+          value={String(calculation.structural_scenarios.length)}
+        />
+      </div>
+      <details className="mt-3 text-[10px] text-muted">
+        <summary className="cursor-pointer font-medium text-text">
+          {t("uncertaintyResult.limitations")} ({calculation.limitations.length})
+        </summary>
+        <ul className="mt-2 list-disc space-y-1 pl-4 leading-4">
+          {calculation.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}
+        </ul>
       </details>
     </section>
   );

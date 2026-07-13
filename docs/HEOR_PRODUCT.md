@@ -34,8 +34,8 @@ slice implements only the deterministic cohort model.
    produce the authoritative cost, QALY, ICER, net benefit, or budget result.
 2. A run is not decision-ready until the decision problem, independent
    `heor/conceptual-model.json` artifact, hash-bound reference-case assessment,
-   and analysis plan are approved by a human and recorded with their current
-   artifact hashes.
+   executable uncertainty plan, and analysis plan are approved by a human and
+   recorded with their current artifact hashes.
 3. Every decision-relevant value must carry a source, unit, jurisdiction, price
    year, selection rationale, and uncertainty status before public beta.
 4. Results must trace to input, engine version, reference-case version, and run
@@ -86,13 +86,43 @@ prerequisite for human review, not a general compliance certification.
 NICE PMG36 and CDA-AMC profiles remain planned registry expansions rather than
 implemented options.
 
+## Implemented uncertainty boundary
+
+The first-party `$heor-uncertainty-analysis` skill creates
+`heor/uncertainty-plan.json`. It binds to the exact current analysis-plan bytes
+and records evidence-linked DSA bounds, parameter distributions, omissions,
+dependence handling, a uint64 seed, convergence thresholds, and bounded
+structural scenarios. The analysis-plan approval event binds the uncertainty
+artifact's exact SHA-256 without creating a circular pair of file hashes.
+Changing either artifact invalidates local authorization.
+
+The dependency-free engine executes one-way sensitivity analyses, joint PSA,
+and structural scenarios with versioned `pcg32-xsh-rr` sampling and fixed beta,
+gamma, lognormal, uniform, and Dirichlet transforms. The current desktop bridge
+limits PSA to 10,000 draws because it returns every draw for audit; larger runs
+require a future streamed, content-addressed result artifact. The app reports
+cost-effectiveness probability and checkpoint Monte Carlo diagnostics, while
+keeping the result explicitly separate from independent model validation and
+policy recommendation. Rust, Python, and the portable skill validator each
+fail closed on unsafe targets, changed hashes, unsupported distributions,
+unlinked distribution bases, known omitted correlations, or invalid scenarios.
+
 ## Alpha acceptance
 
 - A hand-checkable golden model matches an independent calculation.
 - Invalid transition probabilities, dimensions, utilities, and costs fail
   explicitly.
 - Cohort mass remains one within numerical tolerance for every cycle.
-- A fixed input yields the same result across supported operating systems.
+- A fixed input yields the same result within declared numerical tolerances
+  across supported operating systems.
+- A fixed plan, uncertainty artifact, PRNG version, and seed yield a
+  bit-identical integer random stream and PSA results within declared
+  cross-platform numerical tolerances; changed artifact bytes invalidate
+  approval. Byte-identical floating-point output is not claimed without a
+  controlled math runtime.
+- The current golden suite compares scalar model and PSA summaries to seven
+  decimal places, requires exact probability counts for the seeded fixture, and
+  requires an exact PCG32 integer sequence on macOS, Windows, and Linux CI.
 - Exploratory and analysis-authorized runs are visibly distinct. Validation and
   release remain separate human-controlled states.
 - The core analysis runs without a model provider or network connection.

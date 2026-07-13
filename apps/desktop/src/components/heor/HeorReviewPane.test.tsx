@@ -51,12 +51,19 @@ describe("AI4HEOR human review pane", () => {
     );
     await screen.findByText("Evidence audit incomplete");
     expect(screen.getByText("Reference-case audit incomplete")).toBeInTheDocument();
+    expect(screen.getByText("Uncertainty audit incomplete")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Review Analysis plan" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ask agent to resolve evidence gaps" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", {
       name: "Ask agent to assess or repair reference-case gaps",
     }));
     expect(onRequestRevision).toHaveBeenCalledWith(expect.stringContaining("$heor-reference-case"));
+    await userEvent.click(screen.getByRole("button", {
+      name: "Ask agent to create or repair uncertainty analysis",
+    }));
+    expect(onRequestRevision).toHaveBeenCalledWith(
+      expect.stringContaining("$heor-uncertainty-analysis"),
+    );
   });
 
   it("runs the browser fixture as an explicitly exploratory calculation", async () => {

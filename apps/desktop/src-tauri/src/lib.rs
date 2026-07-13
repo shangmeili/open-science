@@ -11,6 +11,7 @@ mod heor_artifacts;
 mod heor_evidence;
 mod heor_engine;
 mod heor_reference_case;
+mod heor_uncertainty;
 mod jupyter;
 mod kernel;
 mod large_file;
@@ -105,6 +106,8 @@ pub fn run() {
             heor_approval::append_heor_approval,
             heor_approval::list_heor_approvals,
             heor_reference_case::audit_heor_reference_case,
+            heor_uncertainty::audit_heor_uncertainty,
+            heor_uncertainty::run_heor_uncertainty,
             heor_engine::run_heor_markov,
             runs::record_run,
             runs::list_runs,

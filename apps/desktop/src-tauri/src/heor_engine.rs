@@ -10,6 +10,7 @@ use crate::heor_approval::{
 };
 use crate::heor_evidence::{audit_plan_bytes, EvidenceAudit};
 use crate::heor_reference_case::{audit_reference_case_for_plan, ReferenceCaseAudit};
+use crate::heor_uncertainty::{audit_uncertainty_plan_for_plan, UncertaintyAudit};
 use crate::runtime::workspace_dir;
 
 const INPUT_CAP_BYTES: u64 = 5 * 1024 * 1024;
@@ -25,6 +26,8 @@ pub struct HeorWorkflowStatus {
     conceptual_model_matches_artifact: bool,
     reference_case_registry_status: String,
     reference_case_audit: ReferenceCaseAudit,
+    uncertainty_plan_matches_approval: bool,
+    uncertainty_audit: UncertaintyAudit,
     approval_chain_head: Option<String>,
     approval_integrity: &'static str,
     identity_assurance: &'static str,
@@ -101,7 +104,7 @@ fn validate_reference_case_profile(
     Ok(status.to_string())
 }
 
-fn registered_reference_case_status(
+pub(crate) fn registered_reference_case_status(
     app: &AppHandle,
     id: &str,
     claimed_status: &str,
@@ -140,20 +143,30 @@ fn analysis_plan_event(log: &ApprovalLog) -> Option<&ApprovalEvent> {
     })
 }
 
-fn workflow_status(
+pub(crate) fn workflow_status(
     log: ApprovalLog,
     input_sha256: String,
     conceptual_model_matches_artifact: bool,
     reference_case_status: &str,
     evidence_audit: EvidenceAudit,
     reference_case_audit: ReferenceCaseAudit,
+    uncertainty_audit: UncertaintyAudit,
 ) -> HeorWorkflowStatus {
     let plan_matches =
         analysis_plan_event(&log).is_some_and(|event| event.artifact_sha256 == input_sha256);
+    let uncertainty_plan_matches_approval = analysis_plan_event(&log).is_some_and(|event| {
+        crate::heor_approval::event_binds_artifact(
+            event,
+            crate::heor_uncertainty::UNCERTAINTY_PLAN_PATH,
+            &uncertainty_audit.uncertainty_sha256,
+        )
+    });
     let locally_authorized = plan_matches
         && conceptual_model_matches_artifact
         && evidence_audit.complete
         && reference_case_audit.complete
+        && uncertainty_audit.complete
+        && uncertainty_plan_matches_approval
         && reference_case_status != "draft";
     let mut effective_approved_gates = log.effective_approved_gates;
     if !conceptual_model_matches_artifact {
@@ -161,7 +174,11 @@ fn workflow_status(
             .into_iter()
             .take_while(|gate| *gate != ApprovalGate::ConceptualModel)
             .collect();
-    } else if !evidence_audit.complete || !reference_case_audit.complete {
+    } else if !evidence_audit.complete
+        || !reference_case_audit.complete
+        || !uncertainty_audit.complete
+        || !uncertainty_plan_matches_approval
+    {
         effective_approved_gates = effective_approved_gates
             .into_iter()
             .take_while(|gate| *gate != ApprovalGate::AnalysisPlan)
@@ -182,11 +199,32 @@ fn workflow_status(
         conceptual_model_matches_artifact,
         reference_case_registry_status: reference_case_status.to_string(),
         reference_case_audit,
+        uncertainty_plan_matches_approval,
+        uncertainty_audit,
         approval_chain_head: log.chain_head,
         approval_integrity: log.integrity,
         identity_assurance: log.identity_assurance,
         evidence_audit,
     }
+}
+
+pub(crate) fn conceptual_model_matches_approval(
+    workspace: &Path,
+    approval_log: &ApprovalLog,
+) -> bool {
+    crate::heor_artifacts::current_conceptual_model_hash_and_audit(workspace)
+        .ok()
+        .filter(|(_, audit)| audit.complete)
+        .is_some_and(|(hash, _)| {
+            approval_log
+                .effective_approved_gates
+                .contains(&ApprovalGate::ConceptualModel)
+                && approval_log.events.iter().rev().any(|event| {
+                    event.gate == ApprovalGate::ConceptualModel
+                        && event.action == ApprovalAction::Approve
+                        && event.artifact_sha256 == hash
+                })
+        })
 }
 
 fn capped_stderr(bytes: &[u8]) -> String {
@@ -256,6 +294,7 @@ pub fn run_heor_markov(
     let reference_case_status =
         registered_reference_case_status(&app, reference_case_id, reference_case_status)?;
     let reference_case_audit = audit_reference_case_for_plan(&app, &root, &raw)?;
+    let uncertainty_audit = audit_uncertainty_plan_for_plan(&root, &raw)?;
     // Evaluate authorization after calculation so a revocation made while the
     // engine is running cannot leave the returned status stale.
     let approval_log = {
@@ -265,20 +304,7 @@ pub fn run_heor_markov(
             .map_err(|_| "HEOR approval lock poisoned")?;
         crate::heor_approval::verified_log(&app, &project_id)?
     };
-    let conceptual_model_matches_artifact =
-        crate::heor_artifacts::current_conceptual_model_hash_and_audit(&root)
-            .ok()
-            .filter(|(_, audit)| audit.complete)
-            .is_some_and(|(hash, _)| {
-                approval_log
-                    .effective_approved_gates
-                    .contains(&ApprovalGate::ConceptualModel)
-                    && approval_log.events.iter().rev().any(|event| {
-                        event.gate == ApprovalGate::ConceptualModel
-                            && event.action == ApprovalAction::Approve
-                            && event.artifact_sha256 == hash
-                    })
-            });
+    let conceptual_model_matches_artifact = conceptual_model_matches_approval(&root, &approval_log);
 
     Ok(HeorRunResult {
         workflow: workflow_status(
@@ -288,6 +314,7 @@ pub fn run_heor_markov(
             &reference_case_status,
             evidence_audit,
             reference_case_audit,
+            uncertainty_audit,
         ),
         calculation,
     })
@@ -306,6 +333,7 @@ mod tests {
             gate,
             action: ApprovalAction::Approve,
             artifact_sha256: hash.into(),
+            related_artifacts: Vec::new(),
             actor_label: "Reviewer".into(),
             rationale: "Reviewed".into(),
             timestamp: 1_700_000_000 + sequence,
@@ -316,11 +344,17 @@ mod tests {
     }
 
     fn approved_log(input_hash: &str) -> ApprovalLog {
+        let mut analysis_plan = approval_event(3, ApprovalGate::AnalysisPlan, input_hash);
+        analysis_plan.schema_version = 2;
+        analysis_plan.related_artifacts = vec![crate::heor_approval::ArtifactBinding {
+            path: crate::heor_uncertainty::UNCERTAINTY_PLAN_PATH.into(),
+            sha256: "f".repeat(64),
+        }];
         ApprovalLog {
             events: vec![
                 approval_event(1, ApprovalGate::DecisionProblem, &"a".repeat(64)),
                 approval_event(2, ApprovalGate::ConceptualModel, &"b".repeat(64)),
-                approval_event(3, ApprovalGate::AnalysisPlan, input_hash),
+                analysis_plan,
             ],
             effective_approved_gates: vec![
                 ApprovalGate::DecisionProblem,
@@ -369,6 +403,24 @@ mod tests {
         }
     }
 
+    fn complete_uncertainty_audit() -> UncertaintyAudit {
+        UncertaintyAudit {
+            complete: true,
+            status: "complete",
+            uncertainty_id: "uncertainty-1".into(),
+            analysis_id: "analysis-1".into(),
+            analysis_plan_sha256: "c".repeat(64),
+            uncertainty_sha256: "f".repeat(64),
+            seed: Some("42".into()),
+            parameter_count: 2,
+            scenario_count: 1,
+            iterations: Some(1000),
+            omitted_parameter_count: 0,
+            invalid_parameters: Vec::new(),
+            errors: Vec::new(),
+        }
+    }
+
     #[test]
     fn authorization_requires_the_approved_analysis_plan_to_match_the_input() {
         let input_hash = "c".repeat(64);
@@ -379,6 +431,7 @@ mod tests {
             "current",
             complete_audit(),
             complete_reference_case_audit(),
+            complete_uncertainty_audit(),
         );
         assert_eq!(
             authorized.classification,
@@ -394,6 +447,7 @@ mod tests {
             "current",
             complete_audit(),
             complete_reference_case_audit(),
+            complete_uncertainty_audit(),
         );
         assert_eq!(changed.classification, "exploratory");
         assert!(!changed.analysis_plan_matches_input);
@@ -409,6 +463,7 @@ mod tests {
             "draft",
             complete_audit(),
             complete_reference_case_audit(),
+            complete_uncertainty_audit(),
         );
         assert_eq!(status.classification, "exploratory");
         assert!(status.analysis_plan_matches_input);
@@ -429,9 +484,32 @@ mod tests {
             "current",
             audit,
             complete_reference_case_audit(),
+            complete_uncertainty_audit(),
         );
         assert_eq!(status.classification, "exploratory");
         assert!(!status.evidence_audit.complete);
+        assert_eq!(
+            status.effective_approved_gates,
+            vec![ApprovalGate::DecisionProblem, ApprovalGate::ConceptualModel]
+        );
+    }
+
+    #[test]
+    fn changed_uncertainty_plan_invalidates_analysis_plan_authorization() {
+        let input_hash = "c".repeat(64);
+        let mut uncertainty = complete_uncertainty_audit();
+        uncertainty.uncertainty_sha256 = "0".repeat(64);
+        let status = workflow_status(
+            approved_log(&input_hash),
+            input_hash,
+            true,
+            "current",
+            complete_audit(),
+            complete_reference_case_audit(),
+            uncertainty,
+        );
+        assert_eq!(status.classification, "exploratory");
+        assert!(!status.uncertainty_plan_matches_approval);
         assert_eq!(
             status.effective_approved_gates,
             vec![ApprovalGate::DecisionProblem, ApprovalGate::ConceptualModel]
@@ -448,6 +526,7 @@ mod tests {
             "current",
             complete_audit(),
             complete_reference_case_audit(),
+            complete_uncertainty_audit(),
         );
         assert_eq!(status.classification, "exploratory");
         assert!(!status.conceptual_model_matches_artifact);

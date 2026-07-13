@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Uncertainty Analysis"
+  short_description: "Plan and audit DSA, PSA, and structural scenarios"
+  default_prompt: "Use $heor-uncertainty-analysis to create a hash-bound, reproducible uncertainty plan for the current HEOR analysis."

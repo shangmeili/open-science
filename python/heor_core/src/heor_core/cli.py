@@ -9,11 +9,17 @@ from pathlib import Path
 from typing import Sequence
 
 from .model import MarkovSpecification, ModelValidationError, run_markov
+from .uncertainty import run_uncertainty
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="Path to a Markov analysis JSON file")
+    parser.add_argument(
+        "--uncertainty-plan",
+        type=Path,
+        help="Optional path to a hash-bound uncertainty analysis plan",
+    )
     return parser
 
 
@@ -22,10 +28,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         raw = args.input.read_bytes()
         payload = json.loads(raw)
-        specification = MarkovSpecification.from_dict(payload)
-        result = run_markov(specification).to_dict()
-        result["input_sha256"] = hashlib.sha256(raw).hexdigest()
+        if args.uncertainty_plan is None:
+            specification = MarkovSpecification.from_dict(payload)
+            result = run_markov(specification).to_dict()
+            result["input_sha256"] = hashlib.sha256(raw).hexdigest()
+        else:
+            uncertainty_raw = args.uncertainty_plan.read_bytes()
+            uncertainty_payload = json.loads(uncertainty_raw)
+            result = run_uncertainty(
+                payload, raw, uncertainty_payload, uncertainty_raw
+            )
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
-    except (OSError, json.JSONDecodeError, ModelValidationError) as error:
+    except (OSError, ArithmeticError, json.JSONDecodeError, ModelValidationError) as error:
         raise SystemExit(f"heor-core: {error}") from error
     return 0

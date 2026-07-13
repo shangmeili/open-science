@@ -46,6 +46,7 @@
     "conceptualRequired": "Conceptual-model audit required",
     "evidenceRequired": "Evidence audit required",
     "referenceRequired": "Reference-case audit required",
+    "uncertaintyRequired": "Uncertainty audit required",
     "notDecisionReady": "Not decision-ready"
   },
   "reviewSection": "Human review",
@@ -110,11 +111,28 @@
     "noProject": "No active project is available for a reference-case audit.",
     "missingPlan": "An analysis plan is required before the reference-case audit."
   },
+  "uncertainty": {
+    "title": "Executable uncertainty analysis",
+    "loading": "Auditing the uncertainty artifact…",
+    "complete": "Uncertainty audit complete",
+    "incomplete": "Uncertainty audit incomplete",
+    "prng": "PCG32",
+    "seed": "seed",
+    "parameters": "DSA / PSA inputs",
+    "iterations": "PSA draws",
+    "scenarios": "Scenarios",
+    "askRepair": "Ask agent to create or repair uncertainty analysis",
+    "repairPrompt": "Use $heor-uncertainty-analysis to create or repair heor/uncertainty-plan.json for the exact current analysis-plan bytes. Derive ranges and distributions only from linked evidence, make omissions and dependence assumptions explicit, configure seeded DSA, PSA and structural scenarios, run the deterministic validator, and do not create or claim human approval.",
+    "note": "The app audits and hash-binds this executable specification. Reproducible simulation is not independent validation or a reimbursement recommendation.",
+    "noProject": "No active project is available for an uncertainty audit.",
+    "missingPlan": "An analysis plan is required before the uncertainty audit."
+  },
   "action": {
     "approve": "Review {{gate}}",
     "revokeStale": "Revoke stale approval",
     "run": "Run deterministic analysis",
-    "running": "Calculating…"
+    "running": "Calculating…",
+    "runUncertainty": "Run DSA, PSA and scenarios"
   },
   "dialog": {
     "approveTitle": "Approve {{gate}}?",
@@ -145,10 +163,22 @@
     "interpretation": "Engine interpretation",
     "warnings": "Calculation limitations"
   },
+  "uncertaintyResult": {
+    "title": "Uncertainty results",
+    "converged": "Checkpoint passed",
+    "notConverged": "Checkpoint failed",
+    "probability": "Probability cost-effective",
+    "meanInmb": "Mean incremental NMB",
+    "iterations": "PSA draws",
+    "parameters": "DSA parameters",
+    "scenarios": "Structural scenarios",
+    "limitations": "Scope and limitations"
+  },
   "toast": {
     "approvalRecorded": "Human approval recorded",
     "approvalRevoked": "Stale approval revoked",
     "runComplete": "Deterministic analysis complete",
+    "uncertaintyRunComplete": "Uncertainty analysis complete",
     "loadFailed": "Could not read the AI4HEOR workflow",
     "actionFailed": "AI4HEOR action failed"
   }

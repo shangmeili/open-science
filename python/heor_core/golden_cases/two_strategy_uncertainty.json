@@ -1,0 +1,76 @@
+{
+  "schema_version": "0.1.0",
+  "uncertainty_id": "golden-two-strategy-uncertainty",
+  "analysis_id": "golden-two-strategy-markov",
+  "status": "ready_for_human_review",
+  "base_analysis": {
+    "path": "heor/analysis-plan.json",
+    "content_sha256": "da93dd0f0a4f13fb04b2651ce1b12b8c515a22fe54828f8a0caa3505e919e77d"
+  },
+  "seed": 20260714,
+  "parameters": [
+    {
+      "id": "intervention-stable-cost",
+      "label": "Intervention stable-state cost",
+      "target": "/strategies/intervention/state_costs/0",
+      "provenance_path": "strategies.intervention.state_costs",
+      "deterministic": {
+        "low": 3000.0,
+        "high": 5000.0,
+        "rationale": "Illustrative evidence interval for the golden test"
+      },
+      "probabilistic": {
+        "type": "gamma",
+        "shape": 100.0,
+        "scale": 40.0,
+        "basis_ids": ["golden-cost-source"],
+        "rationale": "Positive right-skewed cost distribution with mean 4000"
+      }
+    },
+    {
+      "id": "intervention-stable-transitions",
+      "label": "Intervention stable-state transition row",
+      "target": "/strategies/intervention/transition_matrix/0",
+      "provenance_path": "strategies.intervention.transition_matrix",
+      "deterministic": {
+        "low": [0.75, 0.17, 0.08],
+        "high": [0.85, 0.12, 0.03],
+        "rationale": "Alternative coherent transition rows for the golden test"
+      },
+      "probabilistic": {
+        "type": "dirichlet",
+        "alpha": [80.0, 15.0, 5.0],
+        "basis_ids": ["golden-transition-source"],
+        "rationale": "Jointly samples the mutually constrained transition probabilities"
+      }
+    }
+  ],
+  "probabilistic_analysis": {
+    "iterations": 1000,
+    "convergence": {
+      "checkpoints": [500, 1000],
+      "max_probability_mcse": 0.02,
+      "max_probability_drift": 0.05
+    },
+    "correlation_handling": {
+      "independence_rationale": "The cost and transition estimates are treated as independent in this bounded golden example; the transition row is sampled jointly.",
+      "known_omitted_correlations": []
+    },
+    "omitted_parameters": [
+      {
+        "provenance_path": "strategies.comparator.state_costs",
+        "rationale": "Held fixed to keep the golden fixture compact"
+      }
+    ]
+  },
+  "structural_scenarios": [
+    {
+      "id": "five-year-horizon",
+      "label": "Five-cycle horizon",
+      "rationale": "Tests sensitivity to the modeled horizon",
+      "replacements": [
+        {"target": "/cycles", "value": 5}
+      ]
+    }
+  ]
+}

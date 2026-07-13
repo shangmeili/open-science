@@ -11,7 +11,7 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 
-const SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: u32 = 2;
 const ASSURANCE: &str = "local_human_assertion";
 
 #[derive(Default)]
@@ -55,6 +55,13 @@ pub struct ApprovalRequest {
 
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ArtifactBinding {
+    pub path: String,
+    pub sha256: String,
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ApprovalEvent {
     pub schema_version: u32,
     pub sequence: u64,
@@ -63,6 +70,8 @@ pub struct ApprovalEvent {
     pub gate: ApprovalGate,
     pub action: ApprovalAction,
     pub artifact_sha256: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub related_artifacts: Vec<ArtifactBinding>,
     pub actor_label: String,
     pub rationale: String,
     pub timestamp: u64,
@@ -73,7 +82,7 @@ pub struct ApprovalEvent {
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-struct HashPayload<'a> {
+struct HashPayloadV1<'a> {
     schema_version: u32,
     sequence: u64,
     event_id: &'a str,
@@ -81,6 +90,24 @@ struct HashPayload<'a> {
     gate: ApprovalGate,
     action: ApprovalAction,
     artifact_sha256: &'a str,
+    actor_label: &'a str,
+    rationale: &'a str,
+    timestamp: u64,
+    assurance: &'a str,
+    previous_hash: &'a Option<String>,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HashPayloadV2<'a> {
+    schema_version: u32,
+    sequence: u64,
+    event_id: &'a str,
+    project_id: &'a str,
+    gate: ApprovalGate,
+    action: ApprovalAction,
+    artifact_sha256: &'a str,
+    related_artifacts: &'a [ArtifactBinding],
     actor_label: &'a str,
     rationale: &'a str,
     timestamp: u64,
@@ -154,26 +181,44 @@ fn validate_request(request: &ApprovalRequest) -> Result<(), String> {
 }
 
 fn hash_event(event: &ApprovalEvent) -> Result<String, String> {
-    let payload = HashPayload {
-        schema_version: event.schema_version,
-        sequence: event.sequence,
-        event_id: &event.event_id,
-        project_id: &event.project_id,
-        gate: event.gate,
-        action: event.action,
-        artifact_sha256: &event.artifact_sha256,
-        actor_label: &event.actor_label,
-        rationale: &event.rationale,
-        timestamp: event.timestamp,
-        assurance: &event.assurance,
-        previous_hash: &event.previous_hash,
+    let encoded = match event.schema_version {
+        1 => serde_json::to_vec(&HashPayloadV1 {
+            schema_version: event.schema_version,
+            sequence: event.sequence,
+            event_id: &event.event_id,
+            project_id: &event.project_id,
+            gate: event.gate,
+            action: event.action,
+            artifact_sha256: &event.artifact_sha256,
+            actor_label: &event.actor_label,
+            rationale: &event.rationale,
+            timestamp: event.timestamp,
+            assurance: &event.assurance,
+            previous_hash: &event.previous_hash,
+        }),
+        2 => serde_json::to_vec(&HashPayloadV2 {
+            schema_version: event.schema_version,
+            sequence: event.sequence,
+            event_id: &event.event_id,
+            project_id: &event.project_id,
+            gate: event.gate,
+            action: event.action,
+            artifact_sha256: &event.artifact_sha256,
+            related_artifacts: &event.related_artifacts,
+            actor_label: &event.actor_label,
+            rationale: &event.rationale,
+            timestamp: event.timestamp,
+            assurance: &event.assurance,
+            previous_hash: &event.previous_hash,
+        }),
+        _ => return Err("unsupported approval schema version".into()),
     };
-    let encoded = serde_json::to_vec(&payload).map_err(|e| e.to_string())?;
+    let encoded = encoded.map_err(|e| e.to_string())?;
     Ok(format!("{:x}", Sha256::digest(encoded)))
 }
 
 fn validate_event(event: &ApprovalEvent, project_id: &str) -> Result<(), String> {
-    if event.schema_version != SCHEMA_VERSION {
+    if !matches!(event.schema_version, 1 | SCHEMA_VERSION) {
         return Err(format!(
             "unsupported approval schema version {}",
             event.schema_version
@@ -192,6 +237,22 @@ fn validate_event(event: &ApprovalEvent, project_id: &str) -> Result<(), String>
     validate_text(&event.rationale, "rationale", 2_000)?;
     if !is_sha256(&event.artifact_sha256) || !is_sha256(&event.event_hash) {
         return Err("invalid approval event hash".into());
+    }
+    if event.schema_version == 1 && !event.related_artifacts.is_empty() {
+        return Err("approval schema version 1 cannot bind related artifacts".into());
+    }
+    let mut paths = std::collections::HashSet::new();
+    for binding in &event.related_artifacts {
+        let path = Path::new(&binding.path);
+        if path.is_absolute()
+            || path
+                .components()
+                .any(|component| !matches!(component, std::path::Component::Normal(_)))
+            || !paths.insert(binding.path.as_str())
+            || !is_sha256(&binding.sha256)
+        {
+            return Err("invalid related artifact binding".into());
+        }
     }
     Ok(())
 }
@@ -298,6 +359,7 @@ fn append_at(
     request: ApprovalRequest,
     timestamp: u64,
     event_id: String,
+    related_artifacts: Vec<ArtifactBinding>,
 ) -> Result<ApprovalEvent, String> {
     validate_request(&request)?;
     let events = read_verified(root, &request.project_id)?;
@@ -310,6 +372,7 @@ fn append_at(
         gate: request.gate,
         action: request.action,
         artifact_sha256: request.artifact_sha256,
+        related_artifacts,
         actor_label: request.actor_label,
         rationale: request.rationale,
         timestamp,
@@ -356,6 +419,13 @@ pub(crate) fn verified_log(app: &AppHandle, project_id: &str) -> Result<Approval
     )?))
 }
 
+pub(crate) fn event_binds_artifact(event: &ApprovalEvent, path: &str, sha256: &str) -> bool {
+    event
+        .related_artifacts
+        .iter()
+        .any(|binding| binding.path == path && binding.sha256 == sha256)
+}
+
 #[tauri::command(async)]
 pub fn append_heor_approval(
     app: AppHandle,
@@ -367,6 +437,7 @@ pub fn append_heor_approval(
     if crate::project::require_project_id(&workspace)? != request.project_id {
         return Err("approval projectId does not match the current project".into());
     }
+    let mut related_artifacts = Vec::new();
     if request.action == ApprovalAction::Approve {
         match request.gate {
             ApprovalGate::DecisionProblem => {
@@ -382,14 +453,14 @@ pub fn append_heor_approval(
                 )?;
             }
             ApprovalGate::AnalysisPlan => {
-                crate::heor_evidence::require_analysis_plan_approvable(
+                let raw = crate::heor_uncertainty::read_workspace_capped(
                     &workspace,
+                    "heor/analysis-plan.json",
+                )?;
+                crate::heor_evidence::require_analysis_plan_approvable(
+                    &raw,
                     &request.artifact_sha256,
                 )?;
-                let raw =
-                    std::fs::read(workspace.join("heor/analysis-plan.json")).map_err(|error| {
-                        format!("analysis plan unavailable for reference-case review: {error}")
-                    })?;
                 if format!("{:x}", Sha256::digest(&raw)) != request.artifact_sha256 {
                     return Err(
                         "analysis-plan approval must target the current heor/analysis-plan.json"
@@ -399,6 +470,12 @@ pub fn append_heor_approval(
                 crate::heor_reference_case::require_analysis_plan_approvable(
                     &app, &workspace, &raw,
                 )?;
+                let uncertainty =
+                    crate::heor_uncertainty::require_uncertainty_plan_approvable(&workspace, &raw)?;
+                related_artifacts.push(ArtifactBinding {
+                    path: crate::heor_uncertainty::UNCERTAINTY_PLAN_PATH.into(),
+                    sha256: uncertainty.uncertainty_sha256,
+                });
             }
             ApprovalGate::IndependentValidation | ApprovalGate::Release => {}
         }
@@ -412,6 +489,7 @@ pub fn append_heor_approval(
         request,
         timestamp,
         crate::runtime::random_hex(16),
+        related_artifacts,
     )
 }
 
@@ -476,6 +554,7 @@ mod tests {
             approval_request,
             1_700_000_000 + sequence,
             format!("{sequence:032x}"),
+            Vec::new(),
         )
     }
 
@@ -527,6 +606,7 @@ mod tests {
             request(ApprovalGate::DecisionProblem, ApprovalAction::Revoke, 'f'),
             1_700_000_004,
             "4".repeat(32),
+            Vec::new(),
         );
         assert!(mismatched_revoke
             .unwrap_err()
@@ -616,16 +696,74 @@ mod tests {
     }
 
     #[test]
+    fn schema_one_logs_remain_verifiable_after_related_artifact_upgrade() {
+        let root = temp_root("schema-one");
+        let mut event = ApprovalEvent {
+            schema_version: 1,
+            sequence: 1,
+            event_id: "1".repeat(32),
+            project_id: "project-1".into(),
+            gate: ApprovalGate::DecisionProblem,
+            action: ApprovalAction::Approve,
+            artifact_sha256: "a".repeat(64),
+            related_artifacts: Vec::new(),
+            actor_label: "Reviewer".into(),
+            rationale: "Reviewed legacy event".into(),
+            timestamp: 1_700_000_000,
+            assurance: ASSURANCE.into(),
+            previous_hash: None,
+            event_hash: String::new(),
+        };
+        event.event_hash = hash_event(&event).unwrap();
+        let file = project_file(&root, "project-1").unwrap();
+        std::fs::write(
+            file,
+            format!("{}\n", serde_json::to_string(&event).unwrap()),
+        )
+        .unwrap();
+
+        let events = read_verified(&root, "project-1").unwrap();
+        assert_eq!(events, vec![event]);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn related_artifact_binding_is_covered_by_the_event_hash() {
+        let root = temp_root("related-tamper");
+        append_at(
+            &root,
+            request(ApprovalGate::DecisionProblem, ApprovalAction::Approve, 'a'),
+            1_700_000_000,
+            "1".repeat(32),
+            vec![ArtifactBinding {
+                path: "heor/uncertainty-plan.json".into(),
+                sha256: "b".repeat(64),
+            }],
+        )
+        .unwrap();
+        let file = project_file(&root, "project-1").unwrap();
+        let changed = std::fs::read_to_string(&file)
+            .unwrap()
+            .replace(&"b".repeat(64), &"c".repeat(64));
+        std::fs::write(&file, changed).unwrap();
+
+        assert!(read_verified(&root, "project-1")
+            .unwrap_err()
+            .contains("hash mismatch"));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn project_and_artifact_identifiers_cannot_escape_the_store() {
         let root = temp_root("validation");
         let mut invalid_project =
             request(ApprovalGate::DecisionProblem, ApprovalAction::Approve, 'a');
         invalid_project.project_id = "../outside".into();
-        assert!(append_at(&root, invalid_project, 1, "0".repeat(32)).is_err());
+        assert!(append_at(&root, invalid_project, 1, "0".repeat(32), Vec::new()).is_err());
 
         let mut invalid_hash = request(ApprovalGate::DecisionProblem, ApprovalAction::Approve, 'a');
         invalid_hash.artifact_sha256 = "ABC".into();
-        assert!(append_at(&root, invalid_hash, 1, "0".repeat(32)).is_err());
+        assert!(append_at(&root, invalid_hash, 1, "0".repeat(32), Vec::new()).is_err());
 
         let _ = std::fs::remove_dir_all(root);
     }

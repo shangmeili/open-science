@@ -3,6 +3,7 @@ import { isTauri } from "./tauri";
 export const HEOR_PLAN_PATH = "heor/analysis-plan.json";
 export const HEOR_CONCEPTUAL_MODEL_PATH = "heor/conceptual-model.json";
 export const HEOR_REFERENCE_CASE_ASSESSMENT_PATH = "heor/reference-case-assessment.json";
+export const HEOR_UNCERTAINTY_PLAN_PATH = "heor/uncertainty-plan.json";
 
 export type HeorGate =
   | "decision_problem"
@@ -30,6 +31,7 @@ export interface HeorApprovalEvent extends HeorApprovalRequest {
   assurance: string;
   previousHash: string | null;
   eventHash: string;
+  relatedArtifacts?: Array<{ path: string; sha256: string }>;
 }
 
 export interface HeorApprovalLog {
@@ -169,6 +171,22 @@ export interface HeorReferenceCaseAudit {
   errors: string[];
 }
 
+export interface HeorUncertaintyAudit {
+  complete: boolean;
+  status: "complete" | "incomplete";
+  uncertaintyId: string;
+  analysisId: string;
+  analysisPlanSha256: string;
+  uncertaintySha256: string;
+  seed: string | null;
+  parameterCount: number;
+  scenarioCount: number;
+  iterations: number | null;
+  omittedParameterCount: number;
+  invalidParameters: string[];
+  errors: string[];
+}
+
 export interface HeorAnalysisPlan {
   schema_version: "0.1.0";
   analysis_id: string;
@@ -176,6 +194,7 @@ export interface HeorAnalysisPlan {
   decision_problem: HeorDecisionProblem;
   reference_case: { id: string; status: "current" | "draft" | "custom" };
   reference_case_assessment?: { path: string; content_sha256: string };
+  uncertainty_analysis?: { path: string };
   states: string[];
   cycles: number;
   cycle_length_years: number;
@@ -236,9 +255,7 @@ export interface HeorCalculation {
   input_sha256: string;
 }
 
-export interface HeorRunResult {
-  calculation: HeorCalculation;
-  workflow: {
+export interface HeorWorkflowStatus {
     classification: "exploratory" | "analysis_authorized_local_assertion";
     decisionReady: false;
     effectiveApprovedGates: HeorGate[];
@@ -247,11 +264,56 @@ export interface HeorRunResult {
     conceptualModelMatchesArtifact: boolean;
     referenceCaseRegistryStatus: string;
     referenceCaseAudit: HeorReferenceCaseAudit;
+    uncertaintyPlanMatchesApproval: boolean;
+    uncertaintyAudit: HeorUncertaintyAudit;
     approvalChainHead: string | null;
     approvalIntegrity: string;
     identityAssurance: string;
     evidenceAudit: HeorEvidenceAudit;
+}
+
+export interface HeorRunResult {
+  calculation: HeorCalculation;
+  workflow: HeorWorkflowStatus;
+}
+
+export interface HeorUncertaintyCalculation {
+  analysis_id: string;
+  uncertainty_id: string;
+  engine_version: string;
+  schema_version: string;
+  base_analysis_sha256: string;
+  uncertainty_plan_sha256: string;
+  prng: { algorithm: string; version: string };
+  seed: string;
+  calculation_classification: "calculation_only";
+  base_case: HeorCalculation["incremental"];
+  deterministic_analysis: Array<{
+    parameter_id: string;
+    label: string;
+    target: string;
+    incremental_nmb_span: number;
+  }>;
+  probabilistic_analysis: {
+    iterations: number;
+    cost_effective_probability: number;
+    mean_incremental_net_monetary_benefit: number;
+    incremental_net_monetary_benefit_mcse: number;
+    convergence: {
+      passed: boolean;
+      probability_drift: number;
+      max_probability_mcse: number;
+      max_probability_drift: number;
+    };
+    omitted_parameters: Array<{ provenance_path: string; rationale: string }>;
   };
+  structural_scenarios: Array<{ scenario_id: string; label: string }>;
+  limitations: string[];
+}
+
+export interface HeorUncertaintyRunResult {
+  calculation: HeorUncertaintyCalculation;
+  workflow: HeorWorkflowStatus;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -582,6 +644,20 @@ export async function auditHeorReferenceCase(): Promise<HeorReferenceCaseAudit> 
   return invoke<HeorReferenceCaseAudit>("audit_heor_reference_case");
 }
 
+export async function auditHeorUncertainty(): Promise<HeorUncertaintyAudit> {
+  if (!isTauri) return HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorUncertaintyAudit>("audit_heor_uncertainty");
+}
+
+export async function runHeorUncertainty(
+  projectId: string,
+): Promise<HeorUncertaintyRunResult> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorUncertaintyRunResult>("run_heor_uncertainty", { projectId });
+}
+
 /** Browser-only fixture for interaction and visual regression. Values are a
  *  workflow example, not clinical evidence and never ship into a user project. */
 export const HEOR_BROWSER_DEMO_PLAN: HeorAnalysisPlan = {
@@ -599,6 +675,7 @@ export const HEOR_BROWSER_DEMO_PLAN: HeorAnalysisPlan = {
     jurisdiction: "China",
   },
   reference_case: { id: "CN-2020-current", status: "current" },
+  uncertainty_analysis: { path: HEOR_UNCERTAINTY_PLAN_PATH },
   states: ["stable", "progressed", "dead"],
   cycles: 3,
   cycle_length_years: 1,
@@ -706,14 +783,31 @@ export const HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT: HeorReferenceCaseAudit = {
   errors: ["heor/reference-case-assessment.json is required"],
 };
 
+export const HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT: HeorUncertaintyAudit = {
+  complete: false,
+  status: "incomplete",
+  uncertaintyId: "",
+  analysisId: HEOR_BROWSER_DEMO_PLAN.analysis_id,
+  analysisPlanSha256: "",
+  uncertaintySha256: "",
+  seed: null,
+  parameterCount: 0,
+  scenarioCount: 0,
+  iterations: null,
+  omittedParameterCount: 0,
+  invalidParameters: [],
+  errors: ["heor/uncertainty-plan.json is required"],
+};
+
 export function browserDemoRun(
   inputSha256: string,
   approvedGates: HeorGate[],
 ): HeorRunResult {
   const evidenceAudit = auditHeorEvidence(HEOR_BROWSER_DEMO_PLAN);
   const referenceCaseAudit = HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT;
+  const uncertaintyAudit = HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT;
   const authorized = approvedGates.includes("analysis_plan")
-    && evidenceAudit.complete && referenceCaseAudit.complete;
+    && evidenceAudit.complete && referenceCaseAudit.complete && uncertaintyAudit.complete;
   return {
     calculation: {
       analysis_id: HEOR_BROWSER_DEMO_PLAN.analysis_id,
@@ -763,6 +857,8 @@ export function browserDemoRun(
       conceptualModelMatchesArtifact: approvedGates.includes("conceptual_model"),
       referenceCaseRegistryStatus: "current",
       referenceCaseAudit,
+      uncertaintyPlanMatchesApproval: false,
+      uncertaintyAudit,
       approvalChainHead: null,
       approvalIntegrity: "verified_unanchored_sha256_chain",
       identityAssurance: "local_human_assertion",

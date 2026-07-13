@@ -1,6 +1,5 @@
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
 
 const BASE_INPUT_PATHS: [&str; 12] = [
     "cycles",
@@ -238,20 +237,14 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
     }
 }
 
-pub fn require_analysis_plan_approvable(
-    workspace: &Path,
-    expected_sha256: &str,
-) -> Result<(), String> {
-    let path = workspace.join("heor").join("analysis-plan.json");
-    let raw = std::fs::read(&path)
-        .map_err(|error| format!("analysis plan unavailable for evidence review: {error}"))?;
-    let actual_sha256 = format!("{:x}", Sha256::digest(&raw));
+pub fn require_analysis_plan_approvable(raw: &[u8], expected_sha256: &str) -> Result<(), String> {
+    let actual_sha256 = format!("{:x}", Sha256::digest(raw));
     if actual_sha256 != expected_sha256 {
         return Err(
             "analysis-plan approval must target the current heor/analysis-plan.json".into(),
         );
     }
-    let audit = audit_plan_bytes(&raw)?;
+    let audit = audit_plan_bytes(raw)?;
     if !audit.complete {
         return Err(format!(
             "analysis plan evidence audit is incomplete: {}/{} inputs covered, {} unresolved assumptions, {} invalid mappings",
