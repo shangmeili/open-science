@@ -5,6 +5,7 @@ import {
   buildHeorPrompt,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_PLAN,
+  HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT,
   parseHeorConceptualModel,
   parseHeorPlan,
 } from "./heor";
@@ -47,8 +48,22 @@ describe("AI4HEOR artifact contract", () => {
     const unresolved = structuredClone(parsed);
     unresolved.structural_assumptions[0].status = "unresolved";
     expect(auditHeorConceptualModel(unresolved).complete).toBe(false);
+
+    const missingExternalValidation = structuredClone(parsed);
+    missingExternalValidation.validation_plan.external = [];
+    const validationAudit = auditHeorConceptualModel(missingExternalValidation);
+    expect(validationAudit.complete).toBe(false);
+    expect(validationAudit.errors).toContain(
+      "validation_plan.external must be a non-empty string array",
+    );
     expect(auditHeorConceptualModel(parsed, "different-analysis").errors).toContain(
       "conceptual model analysis_id does not match the current analysis plan",
     );
+  });
+
+  it("keeps profile selection separate from reference-case compliance", () => {
+    expect(HEOR_BROWSER_DEMO_PLAN.reference_case.status).toBe("current");
+    expect(HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT.complete).toBe(false);
+    expect(HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT.blockingGaps).toContain("cost-scope");
   });
 });

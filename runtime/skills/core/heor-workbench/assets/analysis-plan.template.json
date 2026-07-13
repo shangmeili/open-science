@@ -16,6 +16,10 @@
     "id": "CN-2020-current",
     "status": "current"
   },
+  "reference_case_assessment": {
+    "path": "heor/reference-case-assessment.json",
+    "content_sha256": "replace-with-sha256-of-final-assessment"
+  },
   "states": ["stable", "progressed", "dead"],
   "cycles": 10,
   "cycle_length_years": 1.0,
@@ -25,6 +29,25 @@
   },
   "half_cycle_correction": true,
   "willingness_to_pay": null,
+  "methodology": {
+    "cost_scope": {
+      "included_categories": [],
+      "perspective_alignment": "Explain why the included cost categories match the selected perspective.",
+      "exclusions": []
+    },
+    "uncertainty_analysis": {
+      "deterministic": {
+        "planned": true,
+        "input_paths": []
+      },
+      "probabilistic": {
+        "planned": true,
+        "input_paths": [],
+        "iterations": 1000
+      },
+      "structural_scenarios": []
+    }
+  },
   "strategies": {
     "comparator": {
       "name": "replace_with_comparator",

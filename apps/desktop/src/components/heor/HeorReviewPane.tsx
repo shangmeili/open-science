@@ -19,11 +19,13 @@ import {
   appendHeorApproval,
   auditHeorConceptualModel,
   auditHeorEvidence,
+  auditHeorReferenceCase,
   browserDemoRun,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_PLAN,
   HEOR_CONCEPTUAL_MODEL_PATH,
   HEOR_PLAN_PATH,
+  HEOR_REFERENCE_CASE_ASSESSMENT_PATH,
   type HeorAnalysisPlan,
   type HeorApprovalAction,
   type HeorApprovalEvent,
@@ -31,6 +33,7 @@ import {
   type HeorConceptualModel,
   type HeorConceptualModelAudit,
   type HeorGate,
+  type HeorReferenceCaseAudit,
   type HeorRunResult,
   listHeorApprovals,
   parseHeorConceptualModel,
@@ -76,6 +79,11 @@ type ConceptualArtifactState =
       audit: HeorConceptualModelAudit;
     };
 
+type ReferenceCaseState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorReferenceCaseAudit };
+
 type ReviewIntent = {
   action: HeorApprovalAction;
   gate: HeorGate;
@@ -108,6 +116,7 @@ export function HeorReviewPane({
   const [conceptualArtifact, setConceptualArtifact] = useState<ConceptualArtifactState>({
     kind: "loading",
   });
+  const [referenceCase, setReferenceCase] = useState<ReferenceCaseState>({ kind: "loading" });
   const [approvals, setApprovals] = useState<HeorApprovalLog>(EMPTY_LOG);
   const [result, setResult] = useState<HeorRunResult | null>(null);
   const [running, setRunning] = useState(false);
@@ -118,23 +127,34 @@ export function HeorReviewPane({
     if (!project) {
       setArtifact({ kind: "missing" });
       setConceptualArtifact({ kind: "missing" });
+      setReferenceCase({ kind: "invalid", message: t("reference.noProject") });
       setApprovals(EMPTY_LOG);
       return;
     }
     setArtifact({ kind: "loading" });
     setConceptualArtifact({ kind: "loading" });
+    setReferenceCase({ kind: "loading" });
     try {
       const raw = isTauri
         ? (await readArtifact(HEOR_PLAN_PATH))?.data ?? null
         : JSON.stringify(HEOR_BROWSER_DEMO_PLAN, null, 2);
       if (raw === null) {
         setArtifact({ kind: "missing" });
+        setReferenceCase({ kind: "invalid", message: t("reference.missingPlan") });
         setApprovals(await listHeorApprovals(project.id));
         return;
       }
       const plan = parseHeorPlan(raw);
       const sha256 = await sha256Text(raw);
       setArtifact({ kind: "ready", plan, raw, sha256 });
+      try {
+        setReferenceCase({ kind: "ready", audit: await auditHeorReferenceCase() });
+      } catch (error) {
+        setReferenceCase({
+          kind: "invalid",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
       try {
         const conceptualRaw = isTauri
           ? (await readArtifact(HEOR_CONCEPTUAL_MODEL_PATH))?.data ?? null
@@ -163,6 +183,10 @@ export function HeorReviewPane({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
+      setReferenceCase({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
       toast.error(t("toast.loadFailed"));
     }
   }, [project, t]);
@@ -182,7 +206,10 @@ export function HeorReviewPane({
       if (gate === "conceptual_model"
         && conceptualArtifact.kind === "ready"
         && !conceptualArtifact.audit.complete) break;
-      if (gate === "analysis_plan" && !auditHeorEvidence(artifact.plan).complete) break;
+      if (gate === "analysis_plan"
+        && (!auditHeorEvidence(artifact.plan).complete
+          || referenceCase.kind !== "ready"
+          || !referenceCase.audit.complete)) break;
       const event = latest.get(gate);
       if (
         !event ||
@@ -196,7 +223,7 @@ export function HeorReviewPane({
       previousSequence = event.sequence;
     }
     return effective;
-  }, [approvals.events, artifact, conceptualArtifact]);
+  }, [approvals.events, artifact, conceptualArtifact, referenceCase]);
 
   const evidenceAudit = useMemo(
     () => artifact.kind === "ready" ? auditHeorEvidence(artifact.plan) : null,
@@ -358,6 +385,11 @@ export function HeorReviewPane({
               onRequestRepair={() => onRequestRevision(t("evidence.repairPrompt"))}
             />
 
+            <ReferenceCaseAssessment
+              state={referenceCase}
+              onRequestRepair={() => onRequestRevision(t("reference.repairPrompt"))}
+            />
+
             <section className="border-b border-border px-5 py-4">
               <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                 {t("reviewSection")}
@@ -376,13 +408,17 @@ export function HeorReviewPane({
                   const evidenceBlocked = gate === "analysis_plan"
                     && gate === nextGate
                     && !evidenceAudit?.complete;
-                  const waiting = gate === nextGate && !stale && !conceptualBlocked && !evidenceBlocked;
+                  const referenceBlocked = gate === "analysis_plan"
+                    && gate === nextGate
+                    && (referenceCase.kind !== "ready" || !referenceCase.audit.complete);
+                  const waiting = gate === nextGate && !stale && !conceptualBlocked
+                    && !evidenceBlocked && !referenceBlocked;
                   return (
                     <div key={gate} className="rounded-input border border-border bg-bg/50 px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {approved ? (
                           <Check size={14} className="text-ok" />
-                        ) : waiting || stale || conceptualBlocked || evidenceBlocked ? (
+                        ) : waiting || stale || conceptualBlocked || evidenceBlocked || referenceBlocked ? (
                           <Circle size={12} className={stale ? "text-error" : "text-accent"} />
                         ) : (
                           <LockKeyhole size={13} className="text-muted" />
@@ -397,6 +433,8 @@ export function HeorReviewPane({
                                 ? t("status.conceptualRequired")
                               : evidenceBlocked
                                 ? t("status.evidenceRequired")
+                              : referenceBlocked
+                                ? t("status.referenceRequired")
                               : waiting
                                 ? t("status.awaiting")
                                 : t("status.locked")}
@@ -672,6 +710,83 @@ function EvidenceTraceability({
         </>
       )}
       <p className="mt-3 text-[10px] leading-4 text-muted">{t("evidence.note")}</p>
+    </section>
+  );
+}
+
+function ReferenceCaseAssessment({
+  state,
+  onRequestRepair,
+}: {
+  state: ReferenceCaseState;
+  onRequestRepair: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const complete = audit?.complete === true;
+  const resolvedRequired = audit
+    ? audit.metRequiredCount + audit.notApplicableRequiredCount
+    : 0;
+  const issues = audit
+    ? [
+        ...audit.blockingGaps.map((id) => t("reference.requiredGap", { id })),
+        ...audit.unresolvedRequirements.map((id) => t("reference.unresolved", { id })),
+        ...audit.errors,
+      ]
+    : state.kind === "invalid" ? [state.message] : [];
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {complete ? (
+          <ShieldCheck size={16} className="mt-0.5 text-ok" />
+        ) : (
+          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("reference.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+            {state.kind === "loading"
+              ? t("reference.loading")
+              : complete ? t("reference.complete") : t("reference.incomplete")}
+          </div>
+          {audit && (
+            <div className="mt-1 text-[10px] text-muted">
+              {audit.profileId} · {audit.profileRevision} · {audit.profileStatus}
+            </div>
+          )}
+        </div>
+        {audit && (
+          <span className="rounded-full border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-text">
+            {resolvedRequired}/{audit.requiredCount}
+          </span>
+        )}
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted">
+        {HEOR_REFERENCE_CASE_ASSESSMENT_PATH}
+      </div>
+      {audit && (
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <Metric label={t("reference.required")} value={`${resolvedRequired}/${audit.requiredCount}`} />
+          <Metric label={t("reference.blocking")} value={String(audit.blockingGaps.length)} />
+          <Metric label={t("reference.recommended")} value={String(audit.recommendedGaps.length)} />
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      {!complete && state.kind !== "loading" && (
+        <button
+          onClick={onRequestRepair}
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+        >
+          <MessageSquareText size={13} /> {t("reference.askRepair")}
+        </button>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("reference.note")}</p>
     </section>
   );
 }

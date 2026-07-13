@@ -386,6 +386,19 @@ pub fn append_heor_approval(
                     &workspace,
                     &request.artifact_sha256,
                 )?;
+                let raw =
+                    std::fs::read(workspace.join("heor/analysis-plan.json")).map_err(|error| {
+                        format!("analysis plan unavailable for reference-case review: {error}")
+                    })?;
+                if format!("{:x}", Sha256::digest(&raw)) != request.artifact_sha256 {
+                    return Err(
+                        "analysis-plan approval must target the current heor/analysis-plan.json"
+                            .into(),
+                    );
+                }
+                crate::heor_reference_case::require_analysis_plan_approvable(
+                    &app, &workspace, &raw,
+                )?;
             }
             ApprovalGate::IndependentValidation | ApprovalGate::Release => {}
         }

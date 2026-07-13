@@ -43,8 +43,8 @@
       "../../../python/heor_core/src/heor_core/__main__.py": "heor-core/src/heor_core/__main__.py",
       "../../../python/heor_core/src/heor_core/cli.py": "heor-core/src/heor_core/cli.py",
       "../../../python/heor_core/src/heor_core/model.py": "heor-core/src/heor_core/model.py",
-      "../../../reference_cases/CN-2020-current.json": "reference-cases/CN-2020-current.json",
-      "../../../reference_cases/CN-2026-draft.json": "reference-cases/CN-2026-draft.json",
+      "../../../runtime/skills/core/heor-reference-case/assets/profiles/CN-2020-current.json": "reference-cases/CN-2020-current.json",
+      "../../../runtime/skills/core/heor-reference-case/assets/profiles/CN-2026-draft.json": "reference-cases/CN-2026-draft.json",
       "../../../examples/climate-trends": "examples/climate-trends/"
     },
     "icon": [

@@ -24,5 +24,10 @@
   "structural_assumptions": [],
   "structural_alternatives": [],
   "evidence_links": [],
+  "validation_plan": {
+    "face": ["Describe the expert and clinical-pathway checks to perform."],
+    "internal": ["Describe formula, code, and boundary-condition checks to perform."],
+    "external": ["Describe the independent outcomes or datasets for comparison."]
+  },
   "validation_questions": []
 }

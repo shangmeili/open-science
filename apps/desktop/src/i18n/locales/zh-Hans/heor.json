@@ -45,6 +45,7 @@
     "stale": "原批准对应旧版本文件",
     "conceptualRequired": "需先完成概念模型审计",
     "evidenceRequired": "需先完成证据审计",
+    "referenceRequired": "需先完成参考案例审计",
     "notDecisionReady": "尚不可用于决策"
   },
   "reviewSection": "人工审阅",
@@ -92,6 +93,22 @@
     "askRepair": "让 Agent 解决证据缺口",
     "repairPrompt": "审计并修复 heor/analysis-plan.json 的输入可追溯性。使用 $heor-input-provenance，将每个决策相关参数映射到有效证据或明确标记为 proposed 的分析者假设。保留不确定性，不要创建或声称获得人工批准。",
     "note": "仍可运行探索性计算；只有证据审计完整后才能批准分析计划。"
+  },
+  "reference": {
+    "title": "参考案例合规矩阵",
+    "loading": "正在审计所选规范……",
+    "complete": "参考案例审计已完成",
+    "incomplete": "参考案例审计未完成",
+    "required": "必需项已处理",
+    "blocking": "阻断缺口",
+    "recommended": "建议项缺口",
+    "requiredGap": "必需项缺口：{{id}}",
+    "unresolved": "未判定要求：{{id}}",
+    "askRepair": "让 Agent 评估或修复参考案例缺口",
+    "repairPrompt": "使用 $heor-reference-case，针对当前所选规范的精确版本创建或修复 heor/reference-case-assessment.json。逐条评估全部要求，保留缺口和不确定性，运行确定性校验器，把最终评估文件哈希绑定到 heor/analysis-plan.json，不要创建或声称获得人工批准。",
+    "note": "矩阵绑定规范与评估文件的精确字节。仅选择规范不等于合规或获批。",
+    "noProject": "没有可用于参考案例审计的当前项目。",
+    "missingPlan": "必须先有分析计划，才能审计参考案例。"
   },
   "action": {
     "approve": "审阅{{gate}}",

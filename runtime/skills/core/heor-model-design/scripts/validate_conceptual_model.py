@@ -163,6 +163,10 @@ def audit(value: Any, expected_analysis_id: str | None = None) -> dict[str, Any]
 
     if not _text_list(value.get("validation_questions")):
         errors.append("validation_questions must be a non-empty string array")
+    validation_plan = value.get("validation_plan")
+    for field in ("face", "internal", "external"):
+        if not isinstance(validation_plan, dict) or not _text_list(validation_plan.get(field)):
+            errors.append(f"validation_plan.{field} must be a non-empty string array")
     if unresolved:
         errors.append("unresolved structural assumptions: " + ", ".join(unresolved))
 

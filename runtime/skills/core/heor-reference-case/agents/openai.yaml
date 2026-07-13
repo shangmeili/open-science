@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Reference Case"
+  short_description: "Audit HEOR plans against versioned reference cases"
+  default_prompt: "Use $heor-reference-case to create or audit the reference-case compliance matrix for the current HEOR analysis plan."

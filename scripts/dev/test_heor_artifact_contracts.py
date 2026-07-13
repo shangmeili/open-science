@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
+import json
 import sys
+import tempfile
 import unittest
 from copy import deepcopy
 from pathlib import Path
@@ -29,6 +32,10 @@ evidence = load(
 conceptual = load(
     "validate_conceptual_model",
     "runtime/skills/core/heor-model-design/scripts/validate_conceptual_model.py",
+)
+reference_case = load(
+    "validate_reference_case_assessment",
+    "runtime/skills/core/heor-reference-case/scripts/validate_reference_case_assessment.py",
 )
 
 
@@ -135,6 +142,11 @@ def conceptual_fixture():
             "expected_impact": "May change extrapolation and state occupancy",
         }],
         "evidence_links": [{"claim": "Disease pathway", "source_ids": ["trial-1"]}],
+        "validation_plan": {
+            "face": ["Clinical expert pathway review"],
+            "internal": ["Formula and boundary-condition checks"],
+            "external": ["Independent outcome comparison"],
+        },
         "validation_questions": ["Are the states clinically exhaustive and mutually exclusive?"],
     }
 
@@ -191,6 +203,64 @@ class ConceptualModelContractTests(unittest.TestCase):
         result = conceptual.audit(conceptual_fixture(), "another-analysis")
         self.assertFalse(result["complete"])
         self.assertTrue(any("does not match" in error for error in result["errors"]))
+
+
+class ReferenceCaseContractTests(unittest.TestCase):
+    def fixture(self, root: Path):
+        profile_path = ROOT / (
+            "runtime/skills/core/heor-reference-case/assets/profiles/CN-2020-current.json"
+        )
+        profile_raw = profile_path.read_bytes()
+        profile = json.loads(profile_raw)
+        assessment = {
+            "schema_version": "0.1.0",
+            "assessment_id": "nsclc-cn-2020",
+            "analysis_id": "nsclc-analysis",
+            "status": "ready_for_human_review",
+            "assessed_on": "2026-07-14",
+            "profile": {
+                "id": profile["id"],
+                "revision": profile["revision"],
+                "status": profile["status"],
+                "content_sha256": hashlib.sha256(profile_raw).hexdigest(),
+            },
+            "requirements": [{
+                "requirement_id": item["id"],
+                "status": "met",
+                "rationale": "Covered by the analysis plan fixture",
+                "evidence_paths": ["heor/analysis-plan.json"],
+            } for item in profile["requirements"]],
+            "limitations": [],
+        }
+        assessment_path = root / "heor" / "reference-case-assessment.json"
+        assessment_path.parent.mkdir(parents=True)
+        assessment_raw = json.dumps(assessment, ensure_ascii=False, indent=2).encode()
+        assessment_path.write_bytes(assessment_raw)
+        plan = {
+            "analysis_id": "nsclc-analysis",
+            "reference_case": {"id": profile["id"], "status": profile["status"]},
+            "reference_case_assessment": {
+                "path": "heor/reference-case-assessment.json",
+                "content_sha256": hashlib.sha256(assessment_raw).hexdigest(),
+            },
+        }
+        plan_path = root / "heor" / "analysis-plan.json"
+        plan_path.write_text(json.dumps(plan, indent=2))
+        return assessment_path, plan_path, profile_path
+
+    def test_complete_hash_bound_matrix_passes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = self.fixture(Path(directory))
+            self.assertEqual(reference_case.validate(*paths), [])
+
+    def test_changed_assessment_hash_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            assessment_path, plan_path, profile_path = self.fixture(Path(directory))
+            plan = json.loads(plan_path.read_text())
+            plan["reference_case_assessment"]["content_sha256"] = "0" * 64
+            plan_path.write_text(json.dumps(plan, indent=2))
+            errors = reference_case.validate(assessment_path, plan_path, profile_path)
+            self.assertIn("plan assessment hash does not match the assessment bytes", errors)
 
 
 if __name__ == "__main__":

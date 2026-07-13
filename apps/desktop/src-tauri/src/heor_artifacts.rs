@@ -325,6 +325,16 @@ pub fn audit_conceptual_model(value: &serde_json::Value) -> ConceptualModelAudit
     if !nonempty_string_array(value.get("validation_questions")) {
         errors.push("validation_questions must be a non-empty string array".into());
     }
+    let validation_plan = value
+        .get("validation_plan")
+        .and_then(serde_json::Value::as_object);
+    for field in ["face", "internal", "external"] {
+        if !nonempty_string_array(validation_plan.and_then(|plan| plan.get(field))) {
+            errors.push(format!(
+                "validation_plan.{field} must be a non-empty string array"
+            ));
+        }
+    }
     if !unresolved_assumptions.is_empty() {
         errors.push(format!(
             "unresolved structural assumptions: {}",
@@ -416,6 +426,11 @@ mod tests {
                 "id": "alt", "description": "Alternative", "rationale": "Plausible", "expected_impact": "Occupancy"
             }],
             "evidence_links": [{"claim": "Pathway", "source_ids": ["source-1"]}],
+            "validation_plan": {
+                "face": ["Expert pathway review"],
+                "internal": ["Formula and boundary checks"],
+                "external": ["Independent outcome comparison"]
+            },
             "validation_questions": ["Are states exhaustive?"]
         })
     }
@@ -444,6 +459,18 @@ mod tests {
             .errors
             .iter()
             .any(|error| error.contains("absorbing state")));
+    }
+
+    #[test]
+    fn incomplete_validation_plan_fails_closed() {
+        let mut value = complete_model();
+        value["validation_plan"]["external"] = serde_json::json!([]);
+        let audit = audit_conceptual_model(&value);
+        assert!(!audit.complete);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error == "validation_plan.external must be a non-empty string array"));
     }
 
     #[test]

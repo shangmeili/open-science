@@ -2,6 +2,7 @@ import { isTauri } from "./tauri";
 
 export const HEOR_PLAN_PATH = "heor/analysis-plan.json";
 export const HEOR_CONCEPTUAL_MODEL_PATH = "heor/conceptual-model.json";
+export const HEOR_REFERENCE_CASE_ASSESSMENT_PATH = "heor/reference-case-assessment.json";
 
 export type HeorGate =
   | "decision_problem"
@@ -133,6 +134,7 @@ export interface HeorConceptualModel {
     expected_impact: string;
   }>;
   evidence_links: Array<{ claim: string; source_ids: string[] }>;
+  validation_plan: { face: string[]; internal: string[]; external: string[] };
   validation_questions: string[];
 }
 
@@ -147,18 +149,51 @@ export interface HeorConceptualModelAudit {
   unresolvedAssumptions: string[];
 }
 
+export interface HeorReferenceCaseAudit {
+  complete: boolean;
+  status: "complete" | "incomplete";
+  profileId: string;
+  profileStatus: "current" | "draft";
+  profileRevision: string;
+  profileSha256: string;
+  assessmentSha256: string | null;
+  requiredCount: number;
+  metRequiredCount: number;
+  recommendedCount: number;
+  metRecommendedCount: number;
+  blockingGaps: string[];
+  recommendedGaps: string[];
+  unresolvedRequirements: string[];
+  notApplicableRequirements: string[];
+  notApplicableRequiredCount: number;
+  errors: string[];
+}
+
 export interface HeorAnalysisPlan {
   schema_version: "0.1.0";
   analysis_id: string;
   input_status?: string;
   decision_problem: HeorDecisionProblem;
   reference_case: { id: string; status: "current" | "draft" | "custom" };
+  reference_case_assessment?: { path: string; content_sha256: string };
   states: string[];
   cycles: number;
   cycle_length_years: number;
   discount_rates: { costs: number; outcomes: number };
   half_cycle_correction: boolean;
   willingness_to_pay: number | null;
+  methodology?: {
+    cost_scope?: {
+      included_categories: string[];
+      perspective_alignment: string;
+      exclusions?: Array<{ category: string; rationale: string }>;
+    };
+    uncertainty_analysis?: {
+      deterministic: { planned: boolean; input_paths: string[] };
+      probabilistic: { planned: boolean; input_paths: string[]; iterations: number };
+      structural_scenarios: string[];
+    };
+  };
   strategies: {
     comparator: HeorStrategy;
     intervention: HeorStrategy;
@@ -211,6 +246,7 @@ export interface HeorRunResult {
     analysisPlanMatchesInput: boolean;
     conceptualModelMatchesArtifact: boolean;
     referenceCaseRegistryStatus: string;
+    referenceCaseAudit: HeorReferenceCaseAudit;
     approvalChainHead: string | null;
     approvalIntegrity: string;
     identityAssurance: string;
@@ -400,6 +436,11 @@ export function auditHeorConceptualModel(
   if (!nonemptyStrings(model.validation_questions)) {
     errors.push("validation_questions must be a non-empty string array");
   }
+  for (const field of ["face", "internal", "external"] as const) {
+    if (!nonemptyStrings(model.validation_plan?.[field])) {
+      errors.push(`validation_plan.${field} must be a non-empty string array`);
+    }
+  }
   if (unresolvedAssumptions.length) {
     errors.push(`unresolved structural assumptions: ${unresolvedAssumptions.join(", ")}`);
   }
@@ -535,6 +576,12 @@ export async function runHeorMarkov(
   return invoke<HeorRunResult>("run_heor_markov", { projectId, inputPath });
 }
 
+export async function auditHeorReferenceCase(): Promise<HeorReferenceCaseAudit> {
+  if (!isTauri) return HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorReferenceCaseAudit>("audit_heor_reference_case");
+}
+
 /** Browser-only fixture for interaction and visual regression. Values are a
  *  workflow example, not clinical evidence and never ship into a user project. */
 export const HEOR_BROWSER_DEMO_PLAN: HeorAnalysisPlan = {
@@ -631,7 +678,32 @@ export const HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL: HeorConceptualModel = {
     expected_impact: "Could change extrapolated state occupancy",
   }],
   evidence_links: [{ claim: "Demonstration pathway only", source_ids: ["demo-only"] }],
+  validation_plan: {
+    face: ["Clinical expert review of the pathway and state definitions"],
+    internal: ["Boundary, formula, and mass-conservation checks"],
+    external: ["Compare simulated outcomes with an independent applicable dataset"],
+  },
   validation_questions: ["Are the three demonstration states exhaustive and mutually exclusive?"],
+};
+
+export const HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT: HeorReferenceCaseAudit = {
+  complete: false,
+  status: "incomplete",
+  profileId: "CN-2020-current",
+  profileStatus: "current",
+  profileRevision: "T/CPHARMA 003-2020",
+  profileSha256: "0".repeat(64),
+  assessmentSha256: null,
+  requiredCount: 13,
+  metRequiredCount: 0,
+  recommendedCount: 1,
+  metRecommendedCount: 0,
+  blockingGaps: ["cost-scope", "uncertainty-analysis"],
+  recommendedGaps: [],
+  unresolvedRequirements: [],
+  notApplicableRequirements: [],
+  notApplicableRequiredCount: 0,
+  errors: ["heor/reference-case-assessment.json is required"],
 };
 
 export function browserDemoRun(
@@ -639,7 +711,9 @@ export function browserDemoRun(
   approvedGates: HeorGate[],
 ): HeorRunResult {
   const evidenceAudit = auditHeorEvidence(HEOR_BROWSER_DEMO_PLAN);
-  const authorized = approvedGates.includes("analysis_plan") && evidenceAudit.complete;
+  const referenceCaseAudit = HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT;
+  const authorized = approvedGates.includes("analysis_plan")
+    && evidenceAudit.complete && referenceCaseAudit.complete;
   return {
     calculation: {
       analysis_id: HEOR_BROWSER_DEMO_PLAN.analysis_id,
@@ -688,6 +762,7 @@ export function browserDemoRun(
       analysisPlanMatchesInput: authorized,
       conceptualModelMatchesArtifact: approvedGates.includes("conceptual_model"),
       referenceCaseRegistryStatus: "current",
+      referenceCaseAudit,
       approvalChainHead: null,
       approvalIntegrity: "verified_unanchored_sha256_chain",
       identityAssurance: "local_human_assertion",

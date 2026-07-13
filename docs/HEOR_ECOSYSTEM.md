@@ -66,7 +66,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-input-provenance` | Map every model input to evidence or an explicit reviewable assumption | `evidence_sources`, `assumptions`, `input_provenance` |
 | Shipped | `heor-evidence-synthesis` | PICOS search, screening, extraction, conflict log, applicability | `heor/evidence-synthesis.json` plus deterministic audit |
 | Shipped | `heor-model-design` | Decision problem, conceptual model, structural alternatives | `heor/conceptual-model.json` plus app-owned gate audit |
-| P0 | `heor-reference-case` | Versioned jurisdiction requirements and gap assessment | reference-case compliance matrix |
+| Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | P1 | `heor-uncertainty-analysis` | DSA, PSA, scenario and structural uncertainty plans | uncertainty plan and run artifacts |
 | P1 | `heor-budget-impact` | Population, uptake, displacement, cost categories, scenarios | BIA plan and deterministic results |
 | P1 | `heor-model-validation` | Face, internal, external, cross-model, and code validation | validation report with reviewer boundary |
@@ -103,7 +103,7 @@ inputs, sources, uncertainty, and reproducibility rather than in existing skill
 wording:
 
 - [Chinese Pharmaceutical Association 2020 guideline](https://www.cpa.org.cn/index.php?cid=75553&do=info)
-- [Chinese 2026 second-edition consultation draft](https://www.cpa.org.cn/cpadmn/attached/file/20260626/1782459582340302.pdf), retained as draft rather than current policy
+- [Chinese 2026 second-edition consultation notice](https://www.cpa.org.cn/?cid=78857&do=info) and [draft PDF](https://www.cpa.org.cn/cpadmn/attached/file/20260626/1782459582340302.pdf), retained as draft rather than current policy
 - [NICE PMG36 economic evaluation](https://www.nice.org.uk/process/pmg36/chapter/economic-evaluation-2/)
 - [ISPOR-SMDM model transparency and validation](https://www.ispor.org/publications/journals/value-in-health/abstract/Volume-15--Issue-6/Model-Transparency-and-Validation--A-Report-of-the-ISPOR-SMDM-Modeling-Good-Research-Practices-Task-Force-7)
 - [Cochrane Handbook current search and selection chapter](https://training.cochrane.org/handbook/current/chapter-04)

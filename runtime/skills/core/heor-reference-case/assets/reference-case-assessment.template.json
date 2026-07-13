@@ -1,0 +1,22 @@
+{
+  "schema_version": "0.1.0",
+  "assessment_id": "replace-with-assessment-id",
+  "analysis_id": "replace-with-analysis-id",
+  "status": "draft",
+  "assessed_on": "YYYY-MM-DD",
+  "profile": {
+    "id": "CN-2020-current",
+    "revision": "T/CPHARMA 003-2020",
+    "status": "current",
+    "content_sha256": "replace-with-sha256-of-bundled-profile"
+  },
+  "requirements": [
+    {
+      "requirement_id": "decision-perspective",
+      "status": "unresolved",
+      "rationale": "Explain what the current artifacts demonstrate or what remains unknown.",
+      "evidence_paths": []
+    }
+  ],
+  "limitations": []
+}

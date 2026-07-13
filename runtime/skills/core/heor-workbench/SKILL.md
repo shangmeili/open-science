@@ -24,9 +24,10 @@ Use conversation as the primary interface. Translate the researcher's intent int
 3. Use `$heor-evidence-synthesis` when the question requires a reproducible search, screening, extraction, applicability, or conflict trail. Keep `heor/evidence-synthesis.json` separate from selected model inputs.
 4. Use `$heor-model-design` to create or review `heor/conceptual-model.json`. Propose the smallest adequate structure, explicit structural assumptions, and plausible alternatives before the conceptual-model gate.
 5. Create or update `heor/analysis-plan.json` from `assets/analysis-plan.template.json`. Read `references/analysis-plan.md` before editing it. Use `$heor-input-provenance` whenever evidence is selected for model inputs, mapped, audited, or prepared for analysis-plan review.
-6. Tell the researcher exactly what changed, which inputs remain unsupported, and which review gate is ready for human inspection.
-7. Run the deterministic engine only through the workbench review panel or its documented local command. Never recreate approval state in the workspace.
-8. Interpret results in the conversation with the result classification, input hash, uncertainty limitations, and any validation still required.
+6. Use `$heor-reference-case` to assess every requirement in the selected versioned profile and bind `heor/reference-case-assessment.json` to the plan by exact content hash.
+7. Tell the researcher exactly what changed, which inputs and reference-case requirements remain unsupported, and which review gate is ready for human inspection.
+8. Run the deterministic engine only through the workbench review panel or its documented local command. Never recreate approval state in the workspace.
+9. Interpret results in the conversation with the result classification, input hash, uncertainty limitations, and any validation still required.
 
 ## Evidence discipline
 
@@ -35,11 +36,11 @@ Use conversation as the primary interface. Translate the researcher's intent int
 - Map every required engine input through `input_provenance`; external tools cannot bypass this contract.
 - Record conflicting sources instead of silently selecting one.
 - State the reference-case registry status exactly. `draft` guidance cannot authorize a locally approved analysis.
-- Do not claim compliance merely because a named reference-case profile was selected; the deterministic engine does not assess compliance.
+- Do not claim compliance merely because a named reference-case profile was selected. Require the independently audited, hash-bound compliance matrix.
 
 ## Analysis-plan handoff
 
-The app watches `heor/analysis-plan.json` and `heor/conceptual-model.json`. Keep both valid JSON and do not write temporary commentary into either file. Use lower-case snake-case keys exactly as documented. Preserve unknown metadata fields created by the researcher or another tool. The conceptual-model approval hashes its independent artifact; changing it requires renewed review.
+The app watches `heor/analysis-plan.json`, `heor/conceptual-model.json`, and `heor/reference-case-assessment.json`. Keep them valid JSON and do not write temporary commentary into them. Use lower-case snake-case keys exactly as documented. Preserve unknown metadata fields created by the researcher or another tool. Independent artifacts are content-hashed; changing them requires renewed review.
 
 After writing the plan, report:
 

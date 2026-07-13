@@ -16,7 +16,7 @@ Separate conceptualizing the decision problem from selecting a computational tec
 5. Propose the simplest adequate model type and explain why its memory, timing, heterogeneity, and interaction assumptions fit the problem.
 6. Record every material structural assumption as `unresolved`, `proposed`, or `rejected`; never use `accepted`.
 7. Compare at least one plausible structural alternative and state what result or interpretation it could change.
-8. Link structural claims to evidence-source IDs when available and list validation questions that a later independent reviewer must test.
+8. Link structural claims to evidence-source IDs when available. Prespecify non-empty face, internal, and external validation plans plus questions that a later independent reviewer must test.
 9. Write `heor/conceptual-model.json` from `assets/conceptual-model.template.json`, then run `scripts/validate_conceptual_model.py heor/conceptual-model.json heor/analysis-plan.json` so the analysis link is checked.
 10. Ask the human to inspect the conceptual-model gate in the app only when the deterministic audit is complete.
 

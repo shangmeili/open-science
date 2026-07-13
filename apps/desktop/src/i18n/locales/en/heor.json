@@ -45,6 +45,7 @@
     "stale": "Prior approval targets an older artifact",
     "conceptualRequired": "Conceptual-model audit required",
     "evidenceRequired": "Evidence audit required",
+    "referenceRequired": "Reference-case audit required",
     "notDecisionReady": "Not decision-ready"
   },
   "reviewSection": "Human review",
@@ -92,6 +93,22 @@
     "askRepair": "Ask agent to resolve evidence gaps",
     "repairPrompt": "Audit and repair the input traceability in heor/analysis-plan.json. Use $heor-input-provenance. Map every decision-relevant input to valid evidence or an explicit proposed analyst assumption. Preserve uncertainty and do not create or claim human approval.",
     "note": "Exploratory calculation remains available. Analysis-plan approval stays locked until this audit is complete."
+  },
+  "reference": {
+    "title": "Reference-case compliance matrix",
+    "loading": "Auditing the selected profile…",
+    "complete": "Reference-case audit complete",
+    "incomplete": "Reference-case audit incomplete",
+    "required": "Required resolved",
+    "blocking": "Blocking gaps",
+    "recommended": "Recommended gaps",
+    "requiredGap": "Required gap: {{id}}",
+    "unresolved": "Unresolved requirement: {{id}}",
+    "askRepair": "Ask agent to assess or repair reference-case gaps",
+    "repairPrompt": "Use $heor-reference-case to create or repair heor/reference-case-assessment.json for the exact selected profile. Assess every requirement, preserve gaps and uncertainty, run the deterministic validator, bind the final assessment hash into heor/analysis-plan.json, and do not create or claim human approval.",
+    "note": "The matrix is bound to the exact profile and assessment bytes. Profile selection alone is not compliance or approval.",
+    "noProject": "No active project is available for a reference-case audit.",
+    "missingPlan": "An analysis plan is required before the reference-case audit."
   },
   "action": {
     "approve": "Review {{gate}}",

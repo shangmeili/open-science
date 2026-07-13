@@ -1,0 +1,139 @@
+{
+  "schema_version": "0.2.0",
+  "id": "CN-2020-current",
+  "title": "China Guidelines for Pharmacoeconomic Evaluations 2020",
+  "revision": "T/CPHARMA 003-2020",
+  "status": "current",
+  "effective_on": "2020-11-29",
+  "checked_on": "2026-07-14",
+  "source_url": "https://www.cpa.org.cn/cpadmn/attached/file/20200929/1601363750111497.pdf",
+  "source_sha256": "714f8a2eef4848fa385b5c270317cf53b0de94af9d534d7baabafc477973d869",
+  "requirements": [
+    {
+      "id": "decision-perspective",
+      "category": "decision_problem",
+      "level": "required",
+      "title": "Declare and consistently apply the study perspective",
+      "applicability": "always",
+      "source_locator": "Section 1.3, PDF pages 6-7",
+      "app_check": "perspective_declared"
+    },
+    {
+      "id": "decision-comparator",
+      "category": "decision_problem",
+      "level": "required",
+      "title": "Justify a relevant standard or usual-care comparator",
+      "applicability": "always",
+      "source_locator": "Section 1.5, PDF page 7",
+      "app_check": "comparator_declared"
+    },
+    {
+      "id": "time-horizon",
+      "category": "study_design",
+      "level": "required",
+      "title": "Use a horizon long enough to capture all material costs and outcomes",
+      "applicability": "always",
+      "source_locator": "Section 2.4, PDF page 8",
+      "app_check": "full_horizon_declared"
+    },
+    {
+      "id": "cost-scope",
+      "category": "costs",
+      "level": "required",
+      "title": "Align included costs with the perspective and time horizon",
+      "applicability": "always",
+      "source_locator": "Sections 3.1.2-3.1.3, PDF pages 8-9",
+      "app_check": "cost_scope_documented"
+    },
+    {
+      "id": "discounting",
+      "category": "discounting",
+      "level": "required",
+      "title": "Discount costs and outcomes at 5% when the horizon exceeds one year",
+      "applicability": "horizon_over_one_year",
+      "source_locator": "Guideline 4, PDF pages 10-11",
+      "app_check": "discount_0_05"
+    },
+    {
+      "id": "health-outcome",
+      "category": "outcomes",
+      "level": "required",
+      "title": "Use QALYs for cost-utility analysis and report their utility basis",
+      "applicability": "cost_utility_analysis",
+      "source_locator": "Section 5.2.1, PDF page 11",
+      "app_check": "qaly_outcome"
+    },
+    {
+      "id": "incremental-analysis",
+      "category": "analysis",
+      "level": "required",
+      "title": "Compare incremental costs and outcomes",
+      "applicability": "always",
+      "source_locator": "Section 6.2, PDF page 14",
+      "app_check": "incremental_design"
+    },
+    {
+      "id": "model-structure",
+      "category": "model",
+      "level": "required",
+      "title": "Justify and document model type, structure, and cycle length",
+      "applicability": "model_based",
+      "source_locator": "Sections 7.1-7.3, PDF pages 14-15",
+      "app_check": "conceptual_model_complete"
+    },
+    {
+      "id": "half-cycle-correction",
+      "category": "model",
+      "level": "recommended",
+      "title": "Apply half-cycle correction to a Markov model",
+      "applicability": "markov_model",
+      "source_locator": "Section 7.3.5, PDF page 15",
+      "app_check": "half_cycle_enabled"
+    },
+    {
+      "id": "model-inputs",
+      "category": "evidence",
+      "level": "required",
+      "title": "Identify, appraise, and justify every model parameter source",
+      "applicability": "model_based",
+      "source_locator": "Section 7.4, PDF pages 15-16",
+      "app_check": "input_provenance_complete"
+    },
+    {
+      "id": "model-assumptions",
+      "category": "model",
+      "level": "required",
+      "title": "Explain material model assumptions and test important uncertainty",
+      "applicability": "model_based",
+      "source_locator": "Section 7.5, PDF page 16",
+      "app_check": "assumptions_resolved"
+    },
+    {
+      "id": "model-validation",
+      "category": "validation",
+      "level": "required",
+      "title": "Plan face, internal, and external model validation",
+      "applicability": "model_based",
+      "source_locator": "Section 7.6, PDF page 16",
+      "app_check": "validation_plan_documented"
+    },
+    {
+      "id": "model-transparency",
+      "category": "reporting",
+      "level": "required",
+      "title": "Keep the model understandable and maintain an independent model description",
+      "applicability": "model_based",
+      "source_locator": "Section 7.7, PDF pages 16-17",
+      "app_check": "model_artifacts_independent"
+    },
+    {
+      "id": "uncertainty-analysis",
+      "category": "uncertainty",
+      "level": "required",
+      "title": "Prespecify deterministic and probabilistic sensitivity analyses",
+      "applicability": "model_based",
+      "source_locator": "Sections 8.2-8.4, PDF pages 17-19",
+      "app_check": "uncertainty_plan_documented"
+    }
+  ]
+}

@@ -33,8 +33,9 @@ slice implements only the deterministic cohort model.
 1. Language models may draft inputs, explanations, and code, but they do not
    produce the authoritative cost, QALY, ICER, net benefit, or budget result.
 2. A run is not decision-ready until the decision problem, independent
-   `heor/conceptual-model.json` artifact, and analysis plan are approved by a
-   human and recorded with their current artifact hashes.
+   `heor/conceptual-model.json` artifact, hash-bound reference-case assessment,
+   and analysis plan are approved by a human and recorded with their current
+   artifact hashes.
 3. Every decision-relevant value must carry a source, unit, jurisdiction, price
    year, selection rationale, and uncertainty status before public beta.
 4. Results must trace to input, engine version, reference-case version, and run
@@ -73,8 +74,15 @@ analysis input metadata and agent-authored files can never self-authorize a run.
 | `CN-2020-current` | current | Current Chinese pharmacoeconomic guidance |
 | `CN-2026-draft` | draft | Gap analysis only until formally issued |
 
-Reference-case files are versioned policy metadata. Their presence does not
-claim compliance; compliance requires an explicit, reviewable assessment.
+The registry profiles now contain source-snapshot hashes, source locators,
+required/recommended levels, applicability, and app-check identifiers. The
+first-party `$heor-reference-case` skill creates
+`heor/reference-case-assessment.json`; the plan binds its exact SHA-256. The
+desktop independently verifies every requirement, local evidence paths,
+automatic plan checks, profile revision/hash/status, and analysis link at both
+analysis-plan approval and execution. Required gaps, unresolved items, changed
+bytes, and draft profiles fail closed. A complete audit is still only a
+prerequisite for human review, not a general compliance certification.
 NICE PMG36 and CDA-AMC profiles remain planned registry expansions rather than
 implemented options.
 

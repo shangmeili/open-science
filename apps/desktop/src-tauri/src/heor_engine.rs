@@ -9,6 +9,7 @@ use crate::heor_approval::{
     ApprovalAction, ApprovalEvent, ApprovalGate, ApprovalLog, HeorApprovalState,
 };
 use crate::heor_evidence::{audit_plan_bytes, EvidenceAudit};
+use crate::heor_reference_case::{audit_reference_case_for_plan, ReferenceCaseAudit};
 use crate::runtime::workspace_dir;
 
 const INPUT_CAP_BYTES: u64 = 5 * 1024 * 1024;
@@ -23,6 +24,7 @@ pub struct HeorWorkflowStatus {
     analysis_plan_matches_input: bool,
     conceptual_model_matches_artifact: bool,
     reference_case_registry_status: String,
+    reference_case_audit: ReferenceCaseAudit,
     approval_chain_head: Option<String>,
     approval_integrity: &'static str,
     identity_assurance: &'static str,
@@ -144,12 +146,14 @@ fn workflow_status(
     conceptual_model_matches_artifact: bool,
     reference_case_status: &str,
     evidence_audit: EvidenceAudit,
+    reference_case_audit: ReferenceCaseAudit,
 ) -> HeorWorkflowStatus {
     let plan_matches =
         analysis_plan_event(&log).is_some_and(|event| event.artifact_sha256 == input_sha256);
     let locally_authorized = plan_matches
         && conceptual_model_matches_artifact
         && evidence_audit.complete
+        && reference_case_audit.complete
         && reference_case_status != "draft";
     let mut effective_approved_gates = log.effective_approved_gates;
     if !conceptual_model_matches_artifact {
@@ -157,7 +161,7 @@ fn workflow_status(
             .into_iter()
             .take_while(|gate| *gate != ApprovalGate::ConceptualModel)
             .collect();
-    } else if !evidence_audit.complete {
+    } else if !evidence_audit.complete || !reference_case_audit.complete {
         effective_approved_gates = effective_approved_gates
             .into_iter()
             .take_while(|gate| *gate != ApprovalGate::AnalysisPlan)
@@ -177,6 +181,7 @@ fn workflow_status(
         analysis_plan_matches_input: plan_matches,
         conceptual_model_matches_artifact,
         reference_case_registry_status: reference_case_status.to_string(),
+        reference_case_audit,
         approval_chain_head: log.chain_head,
         approval_integrity: log.integrity,
         identity_assurance: log.identity_assurance,
@@ -250,6 +255,7 @@ pub fn run_heor_markov(
         .ok_or("HEOR engine omitted reference-case id")?;
     let reference_case_status =
         registered_reference_case_status(&app, reference_case_id, reference_case_status)?;
+    let reference_case_audit = audit_reference_case_for_plan(&app, &root, &raw)?;
     // Evaluate authorization after calculation so a revocation made while the
     // engine is running cannot leave the returned status stale.
     let approval_log = {
@@ -281,6 +287,7 @@ pub fn run_heor_markov(
             conceptual_model_matches_artifact,
             &reference_case_status,
             evidence_audit,
+            reference_case_audit,
         ),
         calculation,
     })
@@ -340,6 +347,28 @@ mod tests {
         }
     }
 
+    fn complete_reference_case_audit() -> ReferenceCaseAudit {
+        ReferenceCaseAudit {
+            complete: true,
+            status: "complete",
+            profile_id: "CN-2020-current".into(),
+            profile_status: "current".into(),
+            profile_revision: "T/CPHARMA 003-2020".into(),
+            profile_sha256: "e".repeat(64),
+            assessment_sha256: Some("f".repeat(64)),
+            required_count: 13,
+            met_required_count: 13,
+            recommended_count: 1,
+            met_recommended_count: 1,
+            blocking_gaps: Vec::new(),
+            recommended_gaps: Vec::new(),
+            unresolved_requirements: Vec::new(),
+            not_applicable_requirements: Vec::new(),
+            not_applicable_required_count: 0,
+            errors: Vec::new(),
+        }
+    }
+
     #[test]
     fn authorization_requires_the_approved_analysis_plan_to_match_the_input() {
         let input_hash = "c".repeat(64);
@@ -349,6 +378,7 @@ mod tests {
             true,
             "current",
             complete_audit(),
+            complete_reference_case_audit(),
         );
         assert_eq!(
             authorized.classification,
@@ -363,6 +393,7 @@ mod tests {
             true,
             "current",
             complete_audit(),
+            complete_reference_case_audit(),
         );
         assert_eq!(changed.classification, "exploratory");
         assert!(!changed.analysis_plan_matches_input);
@@ -377,6 +408,7 @@ mod tests {
             true,
             "draft",
             complete_audit(),
+            complete_reference_case_audit(),
         );
         assert_eq!(status.classification, "exploratory");
         assert!(status.analysis_plan_matches_input);
@@ -396,6 +428,7 @@ mod tests {
             true,
             "current",
             audit,
+            complete_reference_case_audit(),
         );
         assert_eq!(status.classification, "exploratory");
         assert!(!status.evidence_audit.complete);
@@ -414,6 +447,7 @@ mod tests {
             false,
             "current",
             complete_audit(),
+            complete_reference_case_audit(),
         );
         assert_eq!(status.classification, "exploratory");
         assert!(!status.conceptual_model_matches_artifact);
