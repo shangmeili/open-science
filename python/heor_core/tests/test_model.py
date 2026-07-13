@@ -14,6 +14,7 @@ from heor_core.model import (
 
 
 GOLDEN_PATH = Path(__file__).parents[1] / "golden_cases" / "two_strategy_markov.json"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 
 def golden_payload() -> dict:
@@ -129,6 +130,34 @@ class MarkovModelTests(unittest.TestCase):
         run_markov(MarkovSpecification.from_dict(payload))
 
         self.assertEqual(payload, original)
+
+
+class HarnessContractTests(unittest.TestCase):
+    def test_seeded_agent_cannot_self_approve_or_claim_independent_validation(
+        self,
+    ) -> None:
+        rules = (REPOSITORY_ROOT / "runtime" / "harness" / "AGENTS.md").read_text()
+
+        self.assertIn("Humans retain decision authority", rules)
+        self.assertIn("self-review is\n  never independent model validation", rules)
+        self.assertIn("may not approve a gate", rules)
+        self.assertIn("Never modify `.openscience/approvals.jsonl`", rules)
+        self.assertNotIn("serve your own goals independently", rules)
+
+    def test_seeded_state_exposes_required_gates_and_data_classification(self) -> None:
+        state = (
+            REPOSITORY_ROOT / "runtime" / "harness" / "knowledge" / "current-state.md"
+        ).read_text()
+
+        for gate in (
+            "decision_problem",
+            "conceptual_model",
+            "analysis_plan",
+            "independent_validation",
+            "release",
+        ):
+            self.assertIn(f"- {gate}: pending", state)
+        self.assertIn("- Data classification: unknown.", state)
 
 
 if __name__ == "__main__":

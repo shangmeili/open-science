@@ -1,6 +1,13 @@
 # System
 
-- Model: self-evolving single agent, with no coach or peers.
-- Duty: complete its own goals and keep improving.
+- Model: single AI research agent supervised by human approval gates.
+- Duty: complete the user's approved goal, expose uncertainty, and keep improving.
+- Calculation authority: deterministic, versioned analysis code; never an LLM response.
+- Human authority: decision problem, conceptual model, analysis plan,
+  independent validation, and release.
+- Project states: `draft`, `scoped`, `plan-approved`, `computed`, `validated`, `released`.
+- Data classes: `unknown`, `public`, `non_sensitive`, `restricted`.
 - Workspace: code, data, drafts, and results may all live in this repo.
 - Memory: `AGENTS.md` stores rules, `knowledge/` stores current facts, and `notes/` stores daily logs.
+- Approval records: `.openscience/approvals.jsonl` is append-only and may be
+  written only by the desktop approval UI, never by the agent.

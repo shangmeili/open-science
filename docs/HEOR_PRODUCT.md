@@ -46,6 +46,10 @@ draft -> scoped -> plan-approved -> computed -> validated -> released
 Only a human can move a project through `scoped`, `plan-approved`, `validated`,
 or `released`. Automated checks may block a transition but cannot approve it.
 
+Phase 0 validates approval-record structure only. Signer identity and append-only
+integrity are not yet cryptographically attested; the desktop approval service
+must provide that enforcement before public beta.
+
 ## Initial reference-case registry
 
 | ID | Status | Use |

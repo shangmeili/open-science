@@ -1,5 +1,7 @@
 # Progress
 
+2026-07-14 02:34 · feat(harness): replaced the bundled autonomous self-goal template with a human-governed HEOR research harness — five explicit approval gates, restricted/unknown-data egress stop, deterministic-calculation boundary, no self-approval, and no self-claimed independent validation are now seeded and locked by contract tests; HEOR suite passes 11/11.
+
 2026-07-14 02:20 · feat(heor): started the pharmacoeconomics specialization on upstream 42c8101 with a product contract, versioned China current/draft reference-case metadata, and a dependency-free deterministic two-strategy cohort Markov core; its golden case, probability/mass validation, dominance handling, draft-guidance guard, and structural Human-in-the-loop approval gate pass 9/9 Python tests, while the unchanged desktop baseline passes 504/504 tests, typecheck, and lint (Rust unverified locally because cargo is not installed).
 
 2026-07-13 05:23 · fix(mcp): harden first-run Python provisioning against the Windows "uv venv failed: Using CPython …" report — `uv venv` reused a broken/locked system Python; it now tries reuse first and falls back to a downloaded managed Python (new `uv::create_venv`, science-MCP + jupyter), and the bundled uv finally inherits the configured proxy plus new optional PyPI / Python-download mirror settings (`uv_network_env`; Settings › Agent runtime) since a GUI-launched uv otherwise ignored the proxy and hung on restricted networks; 87/87 Rust + SettingsPage FE tests, typecheck, lint pass (Windows-only repro — DMG verify-only on macOS).

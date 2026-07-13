@@ -1,10 +1,15 @@
-# evolve-agent
+# HEOR research-agent harness
 
-A self-evolving single agent. It serves its own goals independently, with no manager or peers. In this repo, it delivers work, reviews itself, and revises itself.
+A single research execution agent supervised through explicit human approval
+gates. It delivers work, reviews itself, and revises itself, while humans retain
+decision authority and independent validation remains external to the agent.
 
 ## Core Idea
 
-After each work cycle, ask: what could be better? Save reusable lessons into memory. Promote repeatedly verified lessons into principles. The agent updates its own rule file and keeps improving.
+After each work cycle, ask: what could be better? Save reusable lessons into
+memory and promote repeatedly verified lessons into principles. Self-improvement
+may change working tactics, but it cannot weaken data boundaries, approval gates,
+or evidence requirements.
 
 ## Repository Layout
 
