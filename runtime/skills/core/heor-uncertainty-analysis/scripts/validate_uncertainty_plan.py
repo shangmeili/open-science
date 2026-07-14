@@ -30,6 +30,9 @@ PROBABILITY_TARGET = re.compile(
 BACKGROUND_EXCESS_TARGET = re.compile(
     r"^/input_provenance/([0-9]+)/derivation/transformation/excess_mortality_rate_per_year/value$"
 )
+RELATIVE_EFFECT_TARGET = re.compile(
+    r"^/input_provenance/([0-9]+)/derivation/transformation/relative_effect/value$"
+)
 SCHEDULE_START_TARGET = re.compile(
     r"^/strategies/[a-z][a-z0-9_-]{0,63}/transition_schedule/[0-9]+/start_cycle$"
 )
@@ -41,6 +44,7 @@ SCENARIO_TARGETS = {
     "/half_cycle_correction",
 }
 SUPPORTED_DISTRIBUTIONS = {"beta", "gamma", "lognormal", "uniform", "dirichlet"}
+RELATIVE_EFFECT_SCHEMA_VERSION = "0.9.0"
 BACKGROUND_SCHEMA_VERSION = "0.8.0"
 CURRENT_SCHEMA_VERSION = "0.7.0"
 PROBABILITY_SCHEMA_VERSION = "0.6.0"
@@ -88,7 +92,7 @@ def positive_number(value: object) -> bool:
 
 
 def allowed_strategy_ids(plan: dict) -> set[str]:
-    if plan.get("schema_version") not in {"0.8.0", "0.9.0"}:
+    if plan.get("schema_version") not in {"0.8.0", "0.9.0", "0.10.0"}:
         return {"comparator", "intervention"}
     order = plan.get("strategy_order")
     strategies = plan.get("strategies")
@@ -233,8 +237,9 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         PROBABILITY_SCHEMA_VERSION,
         CURRENT_SCHEMA_VERSION,
         BACKGROUND_SCHEMA_VERSION,
+        RELATIVE_EFFECT_SCHEMA_VERSION,
     }:
-        errors.append("schema_version must be 0.1.0 through 0.8.0")
+        errors.append("schema_version must be 0.1.0 through 0.9.0")
     analysis_schema = plan.get("schema_version")
     if (analysis_schema == "0.8.0") != (schema_version == CURRENT_SCHEMA_VERSION):
         errors.append(
@@ -244,11 +249,15 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         errors.append(
             "analysis schema_version 0.9.0 and uncertainty schema_version 0.8.0 must be used together"
         )
-    multi_strategy_base = analysis_schema in {"0.8.0", "0.9.0"}
+    if (analysis_schema == "0.10.0") != (schema_version == RELATIVE_EFFECT_SCHEMA_VERSION):
+        errors.append(
+            "analysis schema_version 0.10.0 and uncertainty schema_version 0.9.0 must be used together"
+        )
+    multi_strategy_base = analysis_schema in {"0.8.0", "0.9.0", "0.10.0"}
     strategy_ids = allowed_strategy_ids(plan)
     if multi_strategy_base and not strategy_ids:
         errors.append(
-            "analysis schema 0.8.0 or 0.9.0 strategy_order, strategies, and baseline_strategy_id are invalid"
+            "analysis schema 0.8.0 through 0.10.0 strategy_order, strategies, and baseline_strategy_id are invalid"
         )
     for field in ("uncertainty_id", "analysis_id"):
         if not text(value.get(field)):
@@ -304,6 +313,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         survival_match = SURVIVAL_TARGET.fullmatch(target) if text(target) else None
         probability_match = PROBABILITY_TARGET.fullmatch(target) if text(target) else None
         background_match = BACKGROUND_EXCESS_TARGET.fullmatch(target) if text(target) else None
+        relative_match = RELATIVE_EFFECT_TARGET.fullmatch(target) if text(target) else None
         direct_target = bool(PARAMETER_TARGET.fullmatch(target)) if text(target) else False
         direct_strategy_id = target_strategy_id(target) if direct_target else None
         target_allowed = direct_target and direct_strategy_id in strategy_ids
@@ -316,6 +326,10 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         if background_match and schema_version == BACKGROUND_SCHEMA_VERSION:
             target_allowed = True
         if schema_version == BACKGROUND_SCHEMA_VERSION and not background_match:
+            target_allowed = False
+        if relative_match and schema_version == RELATIVE_EFFECT_SCHEMA_VERSION:
+            target_allowed = True
+        if schema_version == RELATIVE_EFFECT_SCHEMA_VERSION and not relative_match:
             target_allowed = False
         if not text(identifier) or identifier in ids:
             errors.append(f"{label}.id must be non-empty and unique")
@@ -343,6 +357,9 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         survival_basis: str | None = None
         probability_basis: str | None = None
         background_basis: str | None = None
+        relative_basis: str | None = None
+        relative_measure: str | None = None
+        relative_rr_ceiling: float | None = None
         if rate_match:
             if schema_version not in {RATE_SCHEMA_VERSION, CORRELATION_SCHEMA_VERSION, SURVIVAL_SCHEMA_VERSION, PROBABILITY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION, BACKGROUND_SCHEMA_VERSION}:
                 errors.append(f"{label}.target requires schema_version 0.3.0 through 0.8.0")
@@ -468,6 +485,54 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
                 source_id = rate.get("source_extraction_id")
                 assumption_id = rate.get("assumption_id")
                 background_basis = source_id if text(source_id) else assumption_id
+        elif relative_match:
+            if schema_version != RELATIVE_EFFECT_SCHEMA_VERSION:
+                errors.append(f"{label}.target requires schema_version 0.9.0")
+            try:
+                mapping_index = int(relative_match.group(1))
+                indexed_mapping = plan["input_provenance"][mapping_index]
+                transformation = indexed_mapping["derivation"]["transformation"]
+                effect = transformation["relative_effect"]
+                baseline_entries = transformation["baseline_cycle_probabilities"]
+            except (KeyError, IndexError, TypeError, ValueError):
+                indexed_mapping = None
+                transformation = None
+                effect = None
+                baseline_entries = None
+                errors.append(f"{label}.target does not identify an existing relative effect")
+            if not isinstance(indexed_mapping, dict) or indexed_mapping.get("path") != provenance_path:
+                errors.append(f"{label}.provenance_path must equal the relative-effect transformation mapping path")
+            else:
+                mapping = indexed_mapping
+                derivation = mapping.get("derivation") or {}
+                if (
+                    plan.get("schema_version") != "0.10.0"
+                    or derivation.get("method") != "deterministic_transformation"
+                    or not isinstance(transformation, dict)
+                    or transformation.get("operation") != "relative_effect_to_transition_schedule"
+                    or transformation.get("measure") not in {"risk_ratio", "odds_ratio"}
+                ):
+                    errors.append(f"{label}.target requires an admitted RR/OR relative-effect transformation")
+                else:
+                    relative_measure = transformation["measure"]
+            if isinstance(effect, dict):
+                source_id = effect.get("source_extraction_id")
+                assumption_id = effect.get("assumption_id")
+                relative_basis = source_id if text(source_id) else assumption_id
+                if not positive_number(effect.get("value")):
+                    errors.append(f"{label}.relative_effect base value must be strictly positive")
+            if isinstance(baseline_entries, list):
+                positive_baselines = [
+                    item.get("probability", {}).get("value")
+                    for item in baseline_entries
+                    if isinstance(item, dict)
+                    and isinstance(item.get("probability"), dict)
+                    and positive_number(item["probability"].get("value"))
+                ]
+                if not positive_baselines:
+                    errors.append(f"{label}.relative-effect transformation needs at least one positive baseline probability")
+                else:
+                    relative_rr_ceiling = 1.0 / max(positive_baselines)
         if not isinstance(mapping, dict) or mapping.get("uncertainty_status") != "distribution_available":
             errors.append(f"{label}.provenance_path needs a distribution_available mapping")
         if (
@@ -475,6 +540,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
             and not survival_match
             and not probability_match
             and not background_match
+            and not relative_match
             and isinstance(mapping, dict)
             and (mapping.get("derivation") or {}).get("method") == "deterministic_transformation"
         ):
@@ -493,13 +559,23 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
             and finite_number(deterministic["high"])
             and deterministic["low"] < deterministic["high"]
             and deterministic["low"] <= base_value <= deterministic["high"]
-            and (not (rate_match or survival_match or background_match) or deterministic["low"] > 0)
+            and (not (rate_match or survival_match or background_match or relative_match) or deterministic["low"] > 0)
             and (
                 not probability_match
                 or 0 < deterministic["low"] < deterministic["high"] < 1
             )
         ):
             errors.append(f"{label}.deterministic bounds must bracket the base value")
+        if (
+            relative_match
+            and relative_measure == "risk_ratio"
+            and relative_rr_ceiling is not None
+            and finite_number(deterministic.get("high"))
+            and not deterministic["high"] < relative_rr_ceiling
+        ):
+            errors.append(
+                f"{label}.risk-ratio deterministic high must be strictly below 1 / max positive baseline probability"
+            )
         probabilistic = parameter.get("probabilistic") or {}
         if probabilistic.get("type") not in SUPPORTED_DISTRIBUTIONS:
             errors.append(f"{label}.probabilistic.type is unsupported")
@@ -519,6 +595,9 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         elif background_match:
             if probabilistic["basis_ids"] != [background_basis]:
                 errors.append(f"{label}.probabilistic basis_ids must contain exactly the disease excess rate source extraction or assumption id")
+        elif relative_match:
+            if probabilistic["basis_ids"] != [relative_basis]:
+                errors.append(f"{label}.probabilistic basis_ids must contain exactly the relative-effect extraction or assumption id")
         elif isinstance(mapping, dict):
             allowed = set(mapping.get("source_ids") or []) | set(mapping.get("extraction_ids") or []) | set(mapping.get("assumption_ids") or [])
             if not set(probabilistic["basis_ids"]).issubset(allowed):
@@ -526,10 +605,25 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         if base_value is not None and not distribution_valid(
             probabilistic,
             base_value,
-            positive_parameter=bool(rate_match or survival_match or background_match),
+            positive_parameter=bool(rate_match or survival_match or background_match or relative_match),
             bounded_probability=bool(probability_match),
         ):
             errors.append(f"{label}.probabilistic distribution parameters are invalid")
+        if relative_match and relative_measure == "risk_ratio":
+            if probabilistic.get("type") != "uniform":
+                errors.append(
+                    f"{label}.risk-ratio PSA must use bounded Uniform; unbounded positive distributions can produce invalid absolute risks"
+                )
+            elif (
+                relative_rr_ceiling is None
+                or not finite_number(probabilistic.get("high"))
+                or not probabilistic["high"] < relative_rr_ceiling
+            ):
+                errors.append(
+                    f"{label}.risk-ratio Uniform high must be strictly below 1 / max positive baseline probability"
+                )
+        elif relative_match and relative_measure == "odds_ratio" and probabilistic.get("type") not in {"lognormal", "uniform"}:
+            errors.append(f"{label}.odds-ratio PSA must use Lognormal or strictly positive Uniform")
 
     psa = value.get("probabilistic_analysis") or {}
     iterations = psa.get("iterations")
@@ -547,6 +641,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         PROBABILITY_SCHEMA_VERSION,
         CURRENT_SCHEMA_VERSION,
         BACKGROUND_SCHEMA_VERSION,
+        RELATIVE_EFFECT_SCHEMA_VERSION,
     }:
         threshold_config = threshold_config if isinstance(threshold_config, dict) else {}
         thresholds = threshold_config.get("values")
@@ -565,7 +660,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         if not text(threshold_config.get("rationale")):
             errors.append("decision thresholds rationale is required")
     elif threshold_config is not None:
-        errors.append("decision thresholds require schema_version 0.2.0 through 0.8.0")
+        errors.append("decision thresholds require schema_version 0.2.0 through 0.9.0")
     convergence = psa.get("convergence") or {}
     checkpoints = convergence.get("checkpoints")
     if not (
@@ -584,7 +679,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
     correlation = psa.get("correlation_handling") or {}
     if not text(correlation.get("independence_rationale")):
         errors.append("correlation_handling.independence_rationale is required")
-    if schema_version in {CORRELATION_SCHEMA_VERSION, SURVIVAL_SCHEMA_VERSION, PROBABILITY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION, BACKGROUND_SCHEMA_VERSION}:
+    if schema_version in {CORRELATION_SCHEMA_VERSION, SURVIVAL_SCHEMA_VERSION, PROBABILITY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION, BACKGROUND_SCHEMA_VERSION, RELATIVE_EFFECT_SCHEMA_VERSION}:
         groups = correlation.get("groups")
         if not isinstance(groups, list) or len(groups) > MAX_CORRELATION_GROUPS:
             errors.append(
@@ -657,7 +752,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
             if not text(group.get("rationale")):
                 errors.append(f"{label}.rationale is required")
     elif "groups" in correlation:
-        errors.append("correlation groups require schema_version 0.4.0 through 0.8.0")
+        errors.append("correlation groups require schema_version 0.4.0 through 0.9.0")
     if correlation.get("known_omitted_correlations") != []:
         errors.append("known_omitted_correlations must be resolved before review")
     omitted = psa.get("omitted_parameters")
@@ -715,7 +810,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
             ) if text(target) else False
             target_allowed = (
                 background_allowed
-                if schema_version == BACKGROUND_SCHEMA_VERSION
+                if schema_version in {BACKGROUND_SCHEMA_VERSION, RELATIVE_EFFECT_SCHEMA_VERSION}
                 else ordinary_allowed
             )
             if not text(target) or not target_allowed or target in replacement_targets:

@@ -17,9 +17,11 @@ TRANSFORMATION_METHOD = "deterministic_transformation"
 TRANSFORMATION_OPERATION = "constant_competing_rates"
 TOLERANCE = 1e-12
 MULTI_STRATEGY_SCHEMA_VERSION = "0.8.0"
-CURRENT_MULTI_STRATEGY_SCHEMA_VERSION = "0.9.0"
+PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION = "0.9.0"
+CURRENT_MULTI_STRATEGY_SCHEMA_VERSION = "0.10.0"
 MULTI_STRATEGY_SCHEMA_VERSIONS = {
     MULTI_STRATEGY_SCHEMA_VERSION,
+    PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION,
     CURRENT_MULTI_STRATEGY_SCHEMA_VERSION,
 }
 STRATEGY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
@@ -59,7 +61,7 @@ def validate_transition_rate_mappings(
         label = f"input_provenance[{position}]"
         if schema_version not in {"0.5.0", *MULTI_STRATEGY_SCHEMA_VERSIONS}:
             raise TransitionRateError(
-                f"{label}: deterministic transition-rate transformations require schema_version 0.5.0, {MULTI_STRATEGY_SCHEMA_VERSION}, or {CURRENT_MULTI_STRATEGY_SCHEMA_VERSION}"
+                f"{label}: deterministic transition-rate transformations require schema_version 0.5.0, {MULTI_STRATEGY_SCHEMA_VERSION}, {PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION}, or {CURRENT_MULTI_STRATEGY_SCHEMA_VERSION}"
             )
         path = mapping.get("path")
         if not isinstance(path, str) or not _transition_path(

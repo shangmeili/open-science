@@ -25,7 +25,7 @@ before changing an analysis or uncertainty plan.
 - Do not convert by simple division or multiplication.
 - Do not combine two or more event probabilities in one row.
 - Do not admit source probability `0` or `1`; represent a structural zero with `event: null` and review certain events separately.
-- Do not infer constancy, independence, a relative effect, source interval, or clinical applicability.
+- Do not infer constancy, independence, a relative effect, source interval, or clinical applicability. Route aligned cycle-specific risks plus RR/OR to `$heor-relative-effect-adapter`; route HR to a future `$heor-hazard-ratio-adapter`. Stop when effect application and time conversion would need composition.
 - Do not mutate a derived probability row in DSA or PSA.
 - Do not claim evidence verification, model validation, approval, reimbursement, or policy advice.
 

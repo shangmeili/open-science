@@ -67,5 +67,8 @@ for a specific decision problem.
 Stop for competing or recurrent events, time-varying hazards, probabilities 0
 or 1, multiple transitions within a cycle, conditional or cumulative incidence
 with material competing risks, composite endpoints, relative-effect
-application, pooling, calibration, survival fitting, background mortality,
+application inside this adapter, pooling, calibration, survival fitting, background mortality,
 time-in-state behavior, or any claim of clinical validity.
+Route aligned cycle-specific baseline risks plus RR/OR to
+`$heor-relative-effect-adapter`; route HR to the future
+`$heor-hazard-ratio-adapter`.

@@ -75,6 +75,10 @@ background_mortality_adapter = load(
     "validate_background_mortality",
     "runtime/skills/core/heor-background-mortality/scripts/validate_background_mortality.py",
 )
+relative_effect_adapter = load(
+    "validate_relative_effect",
+    "runtime/skills/core/heor-relative-effect-adapter/scripts/validate_relative_effect.py",
+)
 
 
 class MultiStrategyTemplateContractTests(unittest.TestCase):
@@ -314,6 +318,41 @@ class BackgroundMortalityAdapterContractTests(unittest.TestCase):
         transformation["review_bases"]["no_double_counting"]["approved"] = True
         with self.assertRaisesRegex(ValueError, "review basis"):
             background_mortality_adapter.derive(transformation, 3, 0.5)
+
+
+class RelativeEffectAdapterContractTests(unittest.TestCase):
+    TEMPLATE = ROOT / (
+        "runtime/skills/core/heor-relative-effect-adapter/assets/"
+        "relative-effect-transformation.template.json"
+    )
+
+    def test_template_recomputes_complete_risk_ratio_schedule(self):
+        transformation = json.loads(self.TEMPLATE.read_text())
+        schedule = relative_effect_adapter.derive(transformation, 3, 1.0)
+        self.assertEqual([item["start_cycle"] for item in schedule], [1, 2, 3])
+        self.assertAlmostEqual(schedule[0]["matrix"][0][1], 0.075)
+        self.assertAlmostEqual(schedule[1]["matrix"][0][1], 0.15)
+        self.assertEqual(schedule[2]["matrix"], [[1.0, 0.0], [0.0, 1.0]])
+
+    def test_odds_ratio_uses_odds_not_probability_multiplication(self):
+        transformation = json.loads(self.TEMPLATE.read_text())
+        transformation["measure"] = "odds_ratio"
+        transformation["relative_effect"]["value"] = 2.0
+        schedule = relative_effect_adapter.derive(transformation, 3, 1.0)
+        self.assertAlmostEqual(schedule[0]["matrix"][0][1], 0.2 / 1.1)
+        self.assertAlmostEqual(schedule[1]["matrix"][0][1], 0.4 / 1.2)
+
+    def test_all_zero_baseline_and_unsafe_risk_ratio_fail_closed(self):
+        transformation = json.loads(self.TEMPLATE.read_text())
+        for item in transformation["baseline_cycle_probabilities"]:
+            item["probability"]["value"] = 0.0
+        with self.assertRaisesRegex(ValueError, "at least one baseline"):
+            relative_effect_adapter.derive(transformation, 3, 1.0)
+
+        transformation = json.loads(self.TEMPLATE.read_text())
+        transformation["relative_effect"]["value"] = 5.0
+        with self.assertRaisesRegex(ValueError, "invalid probability|strictly below"):
+            relative_effect_adapter.derive(transformation, 3, 1.0)
 
 
 def conceptual_fixture():
@@ -957,6 +996,69 @@ class InputProvenanceContractTests(unittest.TestCase):
             plan, mapping["path"], mapping, mapping["derivation"], extraction_index
         )
         self.assertTrue(any("cycle-aligned" in error for error in errors), errors)
+
+    def test_schema_010_relative_effect_is_recomputed_and_basis_bound(self):
+        transformation = json.loads(
+            RelativeEffectAdapterContractTests.TEMPLATE.read_text()
+        )
+        schedule = relative_effect_adapter.derive(transformation, 3, 1.0)
+        plan = {
+            "schema_version": "0.10.0",
+            "states": ["event-free", "event"],
+            "cycles": 3,
+            "cycle_length_years": 1.0,
+            "strategies": {"intervention": {"transition_schedule": schedule}},
+        }
+        mapping = {
+            "path": "strategies.intervention.transition_schedule",
+            "extraction_ids": [
+                "replace-with-cycle-1-baseline-risk-extraction-id",
+                "replace-with-cycle-2-baseline-risk-extraction-id",
+                "replace-with-risk-ratio-extraction-id",
+            ],
+            "assumption_ids": [
+                "replace-with-proposed-cycle-3-structural-zero-assumption-id",
+                "replace-with-proposed-endpoint-alignment-assumption-id",
+                "replace-with-proposed-population-transportability-assumption-id",
+                "replace-with-proposed-effect-constancy-assumption-id",
+            ],
+            "derivation": {
+                "method": "deterministic_transformation",
+                "model_value": schedule,
+                "transformation": transformation,
+            },
+        }
+        extraction_index = {
+            "replace-with-cycle-1-baseline-risk-extraction-id": {
+                "extracted_value": json.dumps({"probability": 0.1})
+            },
+            "replace-with-cycle-2-baseline-risk-extraction-id": {
+                "extracted_value": json.dumps({"probability": 0.2})
+            },
+            "replace-with-risk-ratio-extraction-id": {
+                "extracted_value": json.dumps({"risk_ratio": 0.75})
+            },
+        }
+        self.assertEqual(
+            input_provenance.relative_effect_reasons(
+                plan, mapping["path"], mapping, mapping["derivation"], extraction_index
+            ),
+            [],
+        )
+
+        transformation["relative_effect"]["value"] = 5.0
+        errors = input_provenance.relative_effect_reasons(
+            plan, mapping["path"], mapping, mapping["derivation"], extraction_index
+        )
+        self.assertTrue(any("invalid treated probability" in error for error in errors), errors)
+        self.assertTrue(any("strictly below" in error for error in errors), errors)
+
+        transformation["relative_effect"]["value"] = 0.75
+        transformation["measure"] = "hazard_ratio"
+        errors = input_provenance.relative_effect_reasons(
+            plan, mapping["path"], mapping, mapping["derivation"], extraction_index
+        )
+        self.assertTrue(any("risk_ratio or odds_ratio" in error for error in errors), errors)
 
     def test_schedule_requires_schema_04_and_exactly_one_transition_mechanism(self):
         plan, synthesis, digest = self.fixture()
@@ -1797,6 +1899,140 @@ class UncertaintyContractTests(unittest.TestCase):
             uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
             errors = uncertainty.validate(uncertainty_path, plan_path)
             self.assertTrue(any("0.9.0" in error and "0.8.0" in error for error in errors), errors)
+
+    def test_schema_09_relative_effect_uncertainty_is_measure_specific(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_markov.json").read_text()
+            )
+            plan.update({
+                "schema_version": "0.10.0",
+                "analysis_id": "portable-relative-effect-uncertainty",
+                "states": ["event-free", "event"],
+                "cycles": 3,
+                "cycle_length_years": 1.0,
+                "strategy_order": ["comparator", "intervention"],
+                "baseline_strategy_id": "comparator",
+                "uncertainty_analysis": {"path": "heor/uncertainty-plan.json"},
+            })
+            for role in plan["strategy_order"]:
+                strategy = plan["strategies"][role]
+                strategy["initial_distribution"] = [1.0, 0.0]
+                strategy["state_costs"] = [strategy["state_costs"][0], 0.0]
+                strategy["state_utilities"] = [strategy["state_utilities"][0], 0.0]
+                strategy["transition_matrix"] = [[0.9, 0.1], [0.0, 1.0]]
+            transformation = json.loads(
+                RelativeEffectAdapterContractTests.TEMPLATE.read_text()
+            )
+            schedule = relative_effect_adapter.derive(transformation, 3, 1.0)
+            plan["strategies"]["intervention"].pop("transition_matrix")
+            plan["strategies"]["intervention"]["transition_schedule"] = schedule
+            path = "strategies.intervention.transition_schedule"
+            mapping = {
+                "path": path,
+                "source_ids": ["baseline-risk-source", "relative-effect-source"],
+                "extraction_ids": [
+                    "replace-with-cycle-1-baseline-risk-extraction-id",
+                    "replace-with-cycle-2-baseline-risk-extraction-id",
+                    "replace-with-risk-ratio-extraction-id",
+                ],
+                "assumption_ids": [
+                    "replace-with-proposed-cycle-3-structural-zero-assumption-id",
+                    "replace-with-proposed-endpoint-alignment-assumption-id",
+                    "replace-with-proposed-population-transportability-assumption-id",
+                    "replace-with-proposed-effect-constancy-assumption-id",
+                ],
+                "uncertainty_status": "distribution_available",
+                "derivation": {
+                    "method": "deterministic_transformation",
+                    "model_value": schedule,
+                    "transformation": transformation,
+                },
+            }
+            plan["input_provenance"] = [mapping]
+            plan["methodology"] = {"uncertainty_analysis": {
+                "deterministic": {"planned": True, "input_paths": [path]},
+                "probabilistic": {
+                    "planned": True, "input_paths": [path], "iterations": 1000
+                },
+                "structural_scenarios": ["cost-discount"],
+            }}
+            plan_path = root / "heor" / "analysis-plan.json"
+            plan_path.parent.mkdir(parents=True)
+
+            value = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_uncertainty.json").read_text()
+            )
+            value.update({
+                "schema_version": "0.9.0",
+                "analysis_id": plan["analysis_id"],
+                "parameters": [{
+                    "id": "relative-effect",
+                    "label": "Risk ratio",
+                    "target": "/input_provenance/0/derivation/transformation/relative_effect/value",
+                    "provenance_path": path,
+                    "deterministic": {
+                        "low": 0.5, "high": 1.5,
+                        "rationale": "Bounded RR that cannot produce probability one",
+                    },
+                    "probabilistic": {
+                        "type": "uniform", "low": 0.5, "high": 1.5,
+                        "basis_ids": ["replace-with-risk-ratio-extraction-id"],
+                        "rationale": "Bounded RR support",
+                    },
+                }],
+                "structural_scenarios": [{
+                    "id": "cost-discount",
+                    "label": "Alternative cost discount rate",
+                    "rationale": "External non-transition scenario",
+                    "replacements": [{"target": "/discount_rates/costs", "value": 0.03}],
+                }],
+            })
+            value["probabilistic_analysis"]["correlation_handling"]["groups"] = []
+            value["probabilistic_analysis"]["omitted_parameters"] = [{
+                "provenance_path": path,
+                "rationale": "Baseline cycle risks remain fixed in uncertainty schema 0.9.0",
+            }]
+
+            plan_raw = json.dumps(plan, ensure_ascii=False, indent=2).encode()
+            plan_path.write_bytes(plan_raw)
+            value["base_analysis"]["content_sha256"] = hashlib.sha256(plan_raw).hexdigest()
+            uncertainty_path = root / "heor" / "uncertainty-plan.json"
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            self.assertEqual(uncertainty.validate(uncertainty_path, plan_path), [])
+
+            value["parameters"][0]["deterministic"]["high"] = 5.0
+            value["parameters"][0]["probabilistic"] = {
+                "type": "lognormal", "mu_log": math.log(0.75), "sigma_log": 0.1,
+                "basis_ids": ["replace-with-risk-ratio-extraction-id"],
+                "rationale": "Invalid unbounded RR",
+            }
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            errors = uncertainty.validate(uncertainty_path, plan_path)
+            self.assertTrue(any("deterministic high" in error for error in errors), errors)
+            self.assertTrue(any("bounded Uniform" in error for error in errors), errors)
+
+            transformation["measure"] = "odds_ratio"
+            transformation["relative_effect"]["value"] = 2.0
+            transformation["relative_effect"]["source_pointer"] = "/odds_ratio"
+            schedule = relative_effect_adapter.derive(transformation, 3, 1.0)
+            plan["strategies"]["intervention"]["transition_schedule"] = schedule
+            mapping["derivation"]["model_value"] = schedule
+            plan_raw = json.dumps(plan, ensure_ascii=False, indent=2).encode()
+            plan_path.write_bytes(plan_raw)
+            value["base_analysis"]["content_sha256"] = hashlib.sha256(plan_raw).hexdigest()
+            value["parameters"][0]["label"] = "Odds ratio"
+            value["parameters"][0]["deterministic"] = {
+                "low": 1.0, "high": 3.0, "rationale": "Positive OR range"
+            }
+            value["parameters"][0]["probabilistic"] = {
+                "type": "lognormal", "mu_log": math.log(2.0), "sigma_log": 0.1,
+                "basis_ids": ["replace-with-risk-ratio-extraction-id"],
+                "rationale": "Positive OR distribution",
+            }
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            self.assertEqual(uncertainty.validate(uncertainty_path, plan_path), [])
 
     def test_changed_base_hash_and_unlinked_distribution_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -218,7 +218,7 @@ synthesis extraction as strict JSON. The native selection audit repeats that
 check against current workspace bytes and, for monetary inputs, verifies each
 `source_value` against its named extraction scalar or array index before the
 existing normalization arithmetic. Only `direct_evidence`, `explicit_assumption`,
-`monetary_adjustment`, and the schema `0.5.0` through `0.9.0` bounded
+`monetary_adjustment`, and the schema `0.5.0` through `0.10.0` bounded
 `deterministic_transformation` operations described below are supported. Free-form
 expressions remain blocked.
 
@@ -277,13 +277,13 @@ primitives and compare the complete output with the current transition input
 and derivation snapshot. Uncertainty schema `0.6.0` or `0.7.0` may target only the exact
 source probability, accepts Beta or Uniform strictly inside `(0,1)`, and
 recomputes the complete affected transformation before normal validation.
-Competing events, time-varying hazards, certain events, relative effects,
+Competing events, time-varying hazards, certain events, relative effects outside the dedicated bounded RR/OR adapter,
 composite endpoints, and probability-parameter dependence remain blocked.
 Group order, member order, matrix, bases, and rationale are artifact data; Python,
 Rust, and the portable validator reject reused members, unsupported marginals,
 unlinked bases, singular/perfect matrices, and fields outside the contract. The
 implementation deliberately excludes
-general CTMC exponentiation, relative-effect application, within-cycle
+general CTMC exponentiation, relative-effect application outside that adapter, within-cycle
 multi-step paths, arbitrary copulas, rank correlation,
 empirical posterior draws, and transformation-space structural scenarios.
 
@@ -320,6 +320,25 @@ cause-specific/subdistribution mixing, calendar improvement, age/sex mixtures,
 time-varying excess hazards, competing non-death events, and partitioned survival
 remain blocked.
 
+Analysis-plan schema `0.10.0` admits only
+`relative_effect_to_transition_schedule` for a complete two-state schedule with
+one absorbing event. The exact transformation declares cycle and effect
+intervals, state indices, `risk_ratio` or `odds_ratio`, one value-plus-basis
+baseline risk per cycle, one value-plus-basis relative effect, and exactly the
+`endpoint_alignment`, `population_transportability`, and
+`effect_constancy_over_cycles` review bases. Intervals must be equal. Python,
+Rust, TypeScript, the standalone Skill, and portable provenance audit independently
+recompute `p=q*RR` or `p=q*OR/(1-q+q*OR)` for every cycle and compare the complete
+schedule and derivation snapshot.
+
+Uncertainty schema `0.9.0` pairs only with analysis `0.10.0` and targets only
+`relative_effect.value`. For RR, DSA and bounded Uniform PSA highs must remain
+strictly below `1/max(q>0)`; unbounded RR distributions fail closed. OR permits
+Lognormal or strictly positive bounded Uniform PSA. Baselines, measure, intervals,
+operation, and review bases remain fixed. HR, rate ratio, risk difference,
+competing events, and treatment-effect extrapolation remain blocked; HR routes
+to the future `$heor-hazard-ratio-adapter`.
+
 `heor/analysis-plan.json` carries the input-selection contract directly: a root
 `evidence_synthesis` binding plus `extraction_ids` on each source-based
 `input_provenance` mapping. The approval path independently checks synthesis
@@ -331,7 +350,7 @@ the exact evidence-to-input choices. The engine, uncertainty runner, and budget
 impact runner repeat the audit and invalidate stale approval bindings.
 
 Analysis-plan schema `0.2.0` introduced a root `economic_basis`; schemas
-`0.3.0` through `0.9.0` retain it and executable extraction-to-model derivations. Schema
+`0.3.0` through `0.10.0` retain it and executable extraction-to-model derivations. Schema
 `0.8.0` adds 2–16 explicitly ordered strategy IDs, a declared pairwise baseline,
 fully incremental dominance/frontier output, and dynamic evidence paths. Each monetary
 mapping contains element-level source values and adjustment factors so the

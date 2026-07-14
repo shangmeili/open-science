@@ -71,7 +71,7 @@ fn strategy_ids(plan: &serde_json::Value) -> Vec<&str> {
     if matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.8.0" | "0.9.0")
+        Some("0.8.0" | "0.9.0" | "0.10.0")
     ) {
         return plan
             .get("strategy_order")
@@ -465,6 +465,230 @@ fn derive_background_mortality_schedule(
         matrix[from_index][death_index] = death_probability;
         matrix[death_index][death_index] = 1.0;
         schedule.push(serde_json::json!({"start_cycle": cycle, "matrix": matrix}));
+    }
+    Ok((
+        serde_json::Value::Array(schedule),
+        used_extractions,
+        used_assumptions,
+    ))
+}
+
+fn derive_relative_effect_schedule(
+    plan: &serde_json::Value,
+    path: &str,
+    transformation: &serde_json::Value,
+) -> Result<(serde_json::Value, HashSet<String>, HashSet<String>), String> {
+    if !path.ends_with(".transition_schedule") {
+        return Err(
+            "relative-effect transformation is allowed only for a transition schedule".into(),
+        );
+    }
+    let transformation = transformation
+        .as_object()
+        .ok_or("derivation.transformation must be an object")?;
+    if !exact_fields(
+        transformation,
+        &[
+            "operation",
+            "cycle_length_years",
+            "effect_interval_years",
+            "from_state_index",
+            "event_state_index",
+            "measure",
+            "baseline_cycle_probabilities",
+            "relative_effect",
+            "review_bases",
+        ],
+    ) {
+        return Err(
+            "relative-effect transformation fields are not the exact supported contract".into(),
+        );
+    }
+    if transformation
+        .get("operation")
+        .and_then(serde_json::Value::as_str)
+        != Some("relative_effect_to_transition_schedule")
+    {
+        return Err(
+            "transformation.operation must be relative_effect_to_transition_schedule".into(),
+        );
+    }
+    let state_count = plan
+        .get("states")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::len)
+        .unwrap_or_default();
+    if state_count != 2 {
+        return Err("relative-effect transformation requires exactly two states".into());
+    }
+    let cycles = plan
+        .get("cycles")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .filter(|value| (1..=10_000).contains(value))
+        .ok_or("relative-effect transformation supports 1-10000 cycles")?;
+    let plan_cycle = plan
+        .get("cycle_length_years")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("analysis cycle_length_years is invalid")?;
+    let declared_cycle = transformation
+        .get("cycle_length_years")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("transformation.cycle_length_years must be finite and positive")?;
+    let effect_interval = transformation
+        .get("effect_interval_years")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("transformation.effect_interval_years must be finite and positive")?;
+    if (declared_cycle - plan_cycle).abs() > 1e-12
+        || (effect_interval - declared_cycle).abs() > 1e-12
+    {
+        return Err("transformation cycle_length_years and effect_interval_years must equal the analysis cycle length".into());
+    }
+    let from_index = transformation
+        .get("from_state_index")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok());
+    let event_index = transformation
+        .get("event_state_index")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok());
+    if !matches!(
+        (from_index, event_index),
+        (Some(0), Some(1)) | (Some(1), Some(0))
+    ) {
+        return Err(
+            "from_state_index and event_state_index must be the two distinct state indices".into(),
+        );
+    }
+    let from_index = from_index.unwrap();
+    let event_index = event_index.unwrap();
+    let measure = transformation
+        .get("measure")
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| matches!(*value, "risk_ratio" | "odds_ratio"))
+        .ok_or("transformation.measure must be risk_ratio or odds_ratio")?;
+    let mut used_extractions = HashSet::new();
+    let mut used_assumptions = HashSet::new();
+    let effect = transformation
+        .get("relative_effect")
+        .and_then(serde_json::Value::as_object)
+        .ok_or("transformation.relative_effect must be an object")?;
+    let effect_value = effect
+        .get("value")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("transformation.relative_effect.value must be finite and positive")?;
+    collect_exact_basis(
+        effect,
+        "transformation.relative_effect",
+        Some("value"),
+        &mut used_extractions,
+        &mut used_assumptions,
+    )?;
+    let review_bases = transformation
+        .get("review_bases")
+        .and_then(serde_json::Value::as_object)
+        .ok_or("transformation.review_bases must be an object")?;
+    if !exact_fields(
+        review_bases,
+        &[
+            "endpoint_alignment",
+            "population_transportability",
+            "effect_constancy_over_cycles",
+        ],
+    ) {
+        return Err(
+            "transformation.review_bases fields are not the exact supported contract".into(),
+        );
+    }
+    for name in [
+        "endpoint_alignment",
+        "population_transportability",
+        "effect_constancy_over_cycles",
+    ] {
+        let basis = review_bases
+            .get(name)
+            .and_then(serde_json::Value::as_object)
+            .ok_or_else(|| format!("transformation.review_bases.{name} must be an object"))?;
+        collect_exact_basis(
+            basis,
+            &format!("transformation.review_bases.{name}"),
+            None,
+            &mut used_extractions,
+            &mut used_assumptions,
+        )?;
+    }
+    let baseline = transformation
+        .get("baseline_cycle_probabilities")
+        .and_then(serde_json::Value::as_array)
+        .filter(|items| items.len() == cycles)
+        .ok_or("transformation.baseline_cycle_probabilities must cover every model cycle")?;
+    let mut any_positive = false;
+    let mut schedule = Vec::with_capacity(cycles);
+    for (index, entry) in baseline.iter().enumerate() {
+        let label = format!("transformation.baseline_cycle_probabilities[{index}]");
+        let entry = entry
+            .as_object()
+            .ok_or_else(|| format!("{label} must be an object"))?;
+        if !exact_fields(entry, &["cycle", "probability"]) {
+            return Err(format!(
+                "{label} fields are not the exact supported contract"
+            ));
+        }
+        let cycle = index + 1;
+        if entry
+            .get("cycle")
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| usize::try_from(value).ok())
+            != Some(cycle)
+        {
+            return Err(format!("{label}.cycle must equal {cycle}"));
+        }
+        let probability = entry
+            .get("probability")
+            .and_then(serde_json::Value::as_object)
+            .ok_or_else(|| format!("{label}.probability must be an object"))?;
+        let q = probability
+            .get("value")
+            .and_then(serde_json::Value::as_f64)
+            .filter(|value| value.is_finite() && *value >= 0.0 && *value < 1.0)
+            .ok_or_else(|| format!("{label}.probability.value must be in [0,1)"))?;
+        any_positive |= q > 0.0;
+        collect_exact_basis(
+            probability,
+            &format!("{label}.probability"),
+            Some("value"),
+            &mut used_extractions,
+            &mut used_assumptions,
+        )?;
+        let event_probability = match measure {
+            "risk_ratio" => q * effect_value,
+            "odds_ratio" => {
+                if q == 0.0 {
+                    0.0
+                } else {
+                    let numerator = effect_value * q;
+                    numerator / ((1.0 - q) + numerator)
+                }
+            }
+            _ => unreachable!(),
+        };
+        if !event_probability.is_finite() || !(0.0..1.0).contains(&event_probability) {
+            return Err(format!("{label} produced an invalid event probability"));
+        }
+        let mut matrix = vec![vec![0.0; 2]; 2];
+        matrix[from_index][from_index] = 1.0 - event_probability;
+        matrix[from_index][event_index] = event_probability;
+        matrix[event_index][event_index] = 1.0;
+        schedule.push(serde_json::json!({"start_cycle": cycle, "matrix": matrix}));
+    }
+    if !any_positive {
+        return Err(
+            "baseline_cycle_probabilities must contain at least one positive probability".into(),
+        );
     }
     Ok((
         serde_json::Value::Array(schedule),
@@ -1086,10 +1310,10 @@ fn transition_rate_declaration_reasons(
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.5.0" | "0.8.0" | "0.9.0")
+        Some("0.5.0" | "0.8.0" | "0.9.0" | "0.10.0")
     ) {
         return vec![
-            "deterministic transition-rate transformations require schema_version 0.5.0, 0.8.0, or 0.9.0"
+            "deterministic transition-rate transformations require schema_version 0.5.0, 0.8.0, 0.9.0, or 0.10.0"
                 .into(),
         ];
     }
@@ -1137,10 +1361,10 @@ fn survival_curve_declaration_reasons(
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.6.0" | "0.8.0" | "0.9.0")
+        Some("0.6.0" | "0.8.0" | "0.9.0" | "0.10.0")
     ) {
         return vec![
-            "parametric survival transformations require schema_version 0.6.0, 0.8.0, or 0.9.0"
+            "parametric survival transformations require schema_version 0.6.0, 0.8.0, 0.9.0, or 0.10.0"
                 .into(),
         ];
     }
@@ -1186,10 +1410,10 @@ fn probability_time_declaration_reasons(
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.7.0" | "0.8.0" | "0.9.0")
+        Some("0.7.0" | "0.8.0" | "0.9.0" | "0.10.0")
     ) {
         return vec![
-            "probability-time transformations require schema_version 0.7.0, 0.8.0, or 0.9.0".into(),
+            "probability-time transformations require schema_version 0.7.0, 0.8.0, 0.9.0, or 0.10.0".into(),
         ];
     }
     if !transition_path(path) {
@@ -1237,9 +1461,11 @@ fn background_mortality_declaration_reasons(
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        != Some("0.9.0")
+        .is_none_or(|version| !matches!(version, "0.9.0" | "0.10.0"))
     {
-        return vec!["background mortality transformations require schema_version 0.9.0".into()];
+        return vec![
+            "background mortality transformations require schema_version 0.9.0 or 0.10.0".into(),
+        ];
     }
     let Some(transformation) = derivation.get("transformation") else {
         return vec!["derivation.transformation must be an object".into()];
@@ -1258,6 +1484,50 @@ fn background_mortality_declaration_reasons(
             "background plus excess mortality does not reproduce the current transition schedule"
                 .into(),
         );
+    }
+    let selected_extractions = string_list(mapping.get("extraction_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    let selected_assumptions = string_list(mapping.get("assumption_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    if used_extractions != selected_extractions {
+        reasons.push("transformation must use every selected extraction".into());
+    }
+    if used_assumptions != selected_assumptions {
+        reasons.push("transformation must use every proposed assumption".into());
+    }
+    reasons
+}
+
+fn relative_effect_declaration_reasons(
+    plan: &serde_json::Value,
+    path: &str,
+    mapping: &serde_json::Value,
+    derivation: &serde_json::Map<String, serde_json::Value>,
+) -> Vec<String> {
+    if plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        != Some("0.10.0")
+    {
+        return vec!["relative-effect transformations require schema_version 0.10.0".into()];
+    }
+    let Some(transformation) = derivation.get("transformation") else {
+        return vec!["derivation.transformation must be an object".into()];
+    };
+    let (output, used_extractions, used_assumptions) =
+        match derive_relative_effect_schedule(plan, path, transformation) {
+            Ok(value) => value,
+            Err(error) => return vec![error],
+        };
+    let mut reasons = Vec::new();
+    if !model_value(plan, path).is_some_and(|target| json_equivalent(&output, target)) {
+        reasons.push("relative effect does not reproduce the current transition schedule".into());
     }
     let selected_extractions = string_list(mapping.get("extraction_ids"))
         .unwrap_or_default()
@@ -1324,6 +1594,9 @@ fn derivation_declaration_reasons(
             ),
             Some("background_plus_excess_mortality_to_transition_schedule") => reasons.extend(
                 background_mortality_declaration_reasons(plan, path, mapping, derivation),
+            ),
+            Some("relative_effect_to_transition_schedule") => reasons.extend(
+                relative_effect_declaration_reasons(plan, path, mapping, derivation),
             ),
             _ => reasons.push("deterministic transformation operation is unsupported".into()),
         }
@@ -1617,10 +1890,10 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0")
+        Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0" | "0.10.0")
     ) {
         invalid_mappings
-            .push("schema_version must be 0.3.0 through 0.9.0 for approval review".into());
+            .push("schema_version must be 0.3.0 through 0.10.0 for approval review".into());
     }
     let declared_strategy_ids = strategy_ids(plan);
     if plan
@@ -1675,11 +1948,11 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
             && !matches!(
                 plan.get("schema_version")
                     .and_then(serde_json::Value::as_str),
-                Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0")
+                Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0" | "0.10.0")
             )
         {
             invalid_mappings.push(format!(
-                "strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.9.0"
+                "strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.10.0"
             ));
         }
     }
@@ -2190,6 +2463,72 @@ fn background_mortality_extraction_reasons(
     reasons
 }
 
+fn relative_effect_extraction_reasons(
+    mapping: &serde_json::Value,
+    extraction_index: &HashMap<String, crate::heor_synthesis::ExtractionLink>,
+) -> Vec<String> {
+    let selected = string_list(mapping.get("extraction_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    let transformation = mapping
+        .pointer("/derivation/transformation")
+        .unwrap_or(&serde_json::Value::Null);
+    let mut used = HashSet::new();
+    let mut reasons = Vec::new();
+    if let Some(effect) = transformation.get("relative_effect") {
+        validate_background_extraction_basis(
+            effect,
+            effect.get("value"),
+            "transformation.relative_effect",
+            &selected,
+            &mut used,
+            extraction_index,
+            &mut reasons,
+        );
+    }
+    if let Some(cycles) = transformation
+        .get("baseline_cycle_probabilities")
+        .and_then(serde_json::Value::as_array)
+    {
+        for (index, cycle) in cycles.iter().enumerate() {
+            if let Some(probability) = cycle.get("probability") {
+                validate_background_extraction_basis(
+                    probability,
+                    probability.get("value"),
+                    &format!("transformation.baseline_cycle_probabilities[{index}].probability"),
+                    &selected,
+                    &mut used,
+                    extraction_index,
+                    &mut reasons,
+                );
+            }
+        }
+    }
+    for name in [
+        "endpoint_alignment",
+        "population_transportability",
+        "effect_constancy_over_cycles",
+    ] {
+        if let Some(basis) = transformation.pointer(&format!("/review_bases/{name}")) {
+            validate_background_extraction_basis(
+                basis,
+                None,
+                &format!("transformation.review_bases.{name}"),
+                &selected,
+                &mut used,
+                extraction_index,
+                &mut reasons,
+            );
+        }
+    }
+    if used != selected {
+        reasons.push("transformation must use every selected extraction".into());
+    }
+    reasons
+}
+
 fn extraction_derivation_reasons(
     plan: &serde_json::Value,
     mapping: &serde_json::Value,
@@ -2224,6 +2563,9 @@ fn extraction_derivation_reasons(
             }
             Some("background_plus_excess_mortality_to_transition_schedule") => {
                 background_mortality_extraction_reasons(mapping, extraction_index)
+            }
+            Some("relative_effect_to_transition_schedule") => {
+                relative_effect_extraction_reasons(mapping, extraction_index)
             }
             _ => vec!["deterministic transformation operation is unsupported".into()],
         };
@@ -3059,7 +3401,7 @@ mod tests {
 
         assert!(!audit.complete);
         let errors = audit.invalid_mappings.join("; ");
-        assert!(errors.contains("schema_version must be 0.3.0 through 0.9.0"));
+        assert!(errors.contains("schema_version must be 0.3.0 through 0.10.0"));
         assert!(errors.contains("does not match the current model input"));
     }
 
@@ -3326,5 +3668,125 @@ mod tests {
                 .join("; ")
                 .contains("source_value does not match the bound extraction")
         );
+    }
+
+    #[test]
+    fn native_relative_effect_derivation_distinguishes_rr_and_or_and_fails_closed() {
+        let plan = serde_json::json!({
+            "schema_version": "0.10.0",
+            "states": ["event-free", "event"],
+            "cycles": 2,
+            "cycle_length_years": 1.0
+        });
+        let mut transformation = serde_json::json!({
+            "operation": "relative_effect_to_transition_schedule",
+            "cycle_length_years": 1.0,
+            "effect_interval_years": 1.0,
+            "from_state_index": 0,
+            "event_state_index": 1,
+            "measure": "risk_ratio",
+            "baseline_cycle_probabilities": [
+                {"cycle": 1, "probability": {"value": 0.2, "assumption_id": "q1"}},
+                {"cycle": 2, "probability": {"value": 0.0, "assumption_id": "q2"}}
+            ],
+            "relative_effect": {"value": 2.0, "assumption_id": "effect"},
+            "review_bases": {
+                "endpoint_alignment": {"assumption_id": "endpoint"},
+                "population_transportability": {"assumption_id": "population"},
+                "effect_constancy_over_cycles": {"assumption_id": "constancy"}
+            }
+        });
+        let (rr, _, _) = derive_relative_effect_schedule(
+            &plan,
+            "strategies.intervention.transition_schedule",
+            &transformation,
+        )
+        .unwrap();
+        assert!((rr.pointer("/0/matrix/0/1").unwrap().as_f64().unwrap() - 0.4).abs() < 1e-12);
+        assert_eq!(rr.pointer("/1/matrix/0/1").unwrap(), 0.0);
+
+        transformation["measure"] = serde_json::json!("odds_ratio");
+        let (or, _, _) = derive_relative_effect_schedule(
+            &plan,
+            "strategies.intervention.transition_schedule",
+            &transformation,
+        )
+        .unwrap();
+        assert!((or.pointer("/0/matrix/0/1").unwrap().as_f64().unwrap() - 1.0 / 3.0).abs() < 1e-12);
+
+        transformation["measure"] = serde_json::json!("risk_ratio");
+        transformation["relative_effect"]["value"] = serde_json::json!(5.0);
+        assert!(derive_relative_effect_schedule(
+            &plan,
+            "strategies.intervention.transition_schedule",
+            &transformation,
+        )
+        .unwrap_err()
+        .contains("invalid event probability"));
+        transformation["relative_effect"]["value"] = serde_json::json!(2.0);
+        transformation["measure"] = serde_json::json!("hazard_ratio");
+        assert!(derive_relative_effect_schedule(
+            &plan,
+            "strategies.intervention.transition_schedule",
+            &transformation,
+        )
+        .unwrap_err()
+        .contains("risk_ratio or odds_ratio"));
+        transformation["measure"] = serde_json::json!("risk_ratio");
+        transformation["relative_effect"]["value"] = serde_json::json!(2.0);
+        transformation["baseline_cycle_probabilities"][0]["probability"]["value"] =
+            serde_json::json!(0.0);
+        assert!(derive_relative_effect_schedule(
+            &plan,
+            "strategies.intervention.transition_schedule",
+            &transformation,
+        )
+        .unwrap_err()
+        .contains("at least one positive"));
+        transformation["unexpected"] = serde_json::json!(true);
+        assert!(derive_relative_effect_schedule(
+            &plan,
+            "strategies.intervention.transition_schedule",
+            &transformation,
+        )
+        .unwrap_err()
+        .contains("exact supported contract"));
+    }
+
+    #[test]
+    fn relative_effect_extraction_binding_rejects_changed_effect_value() {
+        let mapping = serde_json::json!({
+            "extraction_ids": ["effect-extraction"],
+            "derivation": {"transformation": {
+                "relative_effect": {
+                    "value": 1.5,
+                    "source_extraction_id": "effect-extraction",
+                    "source_pointer": "/estimate"
+                },
+                "baseline_cycle_probabilities": [{
+                    "cycle": 1,
+                    "probability": {"value": 0.2, "assumption_id": "q"}
+                }],
+                "review_bases": {
+                    "endpoint_alignment": {"assumption_id": "endpoint"},
+                    "population_transportability": {"assumption_id": "population"},
+                    "effect_constancy_over_cycles": {"assumption_id": "constancy"}
+                }
+            }}
+        });
+        let mut index = HashMap::new();
+        index.insert(
+            "effect-extraction".into(),
+            crate::heor_synthesis::ExtractionLink {
+                record_id: "source-1".into(),
+                target: "relative_effect".into(),
+                extracted_value: r#"{"estimate":1.5}"#.into(),
+            },
+        );
+        assert!(relative_effect_extraction_reasons(&mapping, &index).is_empty());
+        index.get_mut("effect-extraction").unwrap().extracted_value = r#"{"estimate":1.6}"#.into();
+        assert!(relative_effect_extraction_reasons(&mapping, &index)
+            .join("; ")
+            .contains("does not match the bound extraction"));
     }
 }

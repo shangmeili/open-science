@@ -14,7 +14,7 @@ The canonical artifact is `heor/uncertainty-plan.json`. It is an executable spec
 
 Each parameter contains a stable `id`, label, JSON Pointer `target`, dot-path `provenance_path`, deterministic bounds and rationale, and a probabilistic distribution with basis IDs and rationale.
 
-Allowed parameter targets use `/strategies/<strategy_id>/...`; analysis schemas `0.8.0` and `0.9.0` IDs come from `strategy_order`, while legacy plans use comparator/intervention roles:
+Allowed parameter targets use `/strategies/<strategy_id>/...`; analysis schemas `0.8.0` through `0.10.0` IDs come from `strategy_order`, while legacy plans use comparator/intervention roles:
 
 - scalar state costs and utilities;
 - a complete static transition-matrix row;
@@ -23,6 +23,7 @@ Allowed parameter targets use `/strategies/<strategy_id>/...`; analysis schemas 
 - a positive exponential `rate_per_year` or Weibull `shape` or `scale_years` for one admitted survival transformation, including under analysis `0.8.0` with uncertainty `0.7.0`;
 - a `source_probability` strictly inside `(0,1)` for one admitted probability-time event, including under analysis `0.8.0` with uncertainty `0.7.0`.
 - only under analysis `0.9.0` with uncertainty `0.8.0`, the exact positive `excess_mortality_rate_per_year.value` of one admitted background-mortality transformation.
+- only under analysis `0.10.0` with uncertainty `0.9.0`, the exact positive `relative_effect.value` of one admitted RR/OR transformation.
 
 Probability-row and schedule-change targets do not apply to a schema `0.5.0` transition derived from constant competing rates. Changing only the derived output makes its deterministic transformation snapshot stale, so the engine rejects it. A rate target must use the exact JSON Pointer `/input_provenance/<mapping>/derivation/transformation/phases/<phase>/rows/<row>/events/<event>/rate_per_year`; its `provenance_path` must equal that indexed mapping's transition path, and its sole `basis_id` must equal the event's `source_extraction_id` or `assumption_id`.
 
@@ -31,6 +32,8 @@ For a survival parameter, the exact JSON Pointer is `/input_provenance/<mapping>
 For a source probability, the exact JSON Pointer is `/input_provenance/<mapping>/derivation/transformation/phases/<phase>/rows/<row>/event/source_probability`. The indexed mapping must be an admitted single-event probability-time transformation in analysis schema `0.7.0` or `0.8.0`, `provenance_path` equals its complete matrix or schedule path, and the sole `basis_id` equals that event's `source_extraction_id` or `assumption_id`.
 
 For background mortality, the exact JSON Pointer is `/input_provenance/<mapping>/derivation/transformation/excess_mortality_rate_per_year/value`. The indexed mapping must use analysis schema `0.9.0`, the exact background-plus-excess operation, and a complete two-state schedule path. Uncertainty schema `0.8.0` permits no other parameter target. Its sole `basis_id` equals the excess rate's extraction or assumption basis. The engine recomputes every cycle from `1-exp(-(-ln(1-q_annual)+h_excess)*cycle_length_years)`. Life-table metadata and annual probabilities, review bases, the operation, and all other transformation internals remain fixed. Required structural scenarios may replace only state cost or utility scalars, discount rates, or half-cycle correction; cycle count/length and transition matrices/schedules are excluded because they would invalidate the fixed transformation.
+
+For relative effects, the exact JSON Pointer is `/input_provenance/<mapping>/derivation/transformation/relative_effect/value`. The indexed mapping must use analysis schema `0.10.0`, `relative_effect_to_transition_schedule`, and a complete two-state schedule path; uncertainty schema `0.9.0` permits no other target. The sole `basis_id` equals the relative effect's extraction or assumption basis. RR DSA high and bounded Uniform PSA high are strictly below `1/max(baseline q>0)`; unbounded RR distributions fail closed. OR permits Lognormal or strictly positive bounded Uniform PSA. Baselines, measure, intervals, review bases, operation, and all other transformation internals remain fixed.
 
 For each DSA run or PSA draw, engine version `0.8.0` applies every sampled parameter to an ephemeral plan copy and recomputes admitted transformations once after all replacements. Compatible legacy plans retain engine `0.7.0` output. This preserves row sums, competing-event allocation, survival or probability-time consistency, derivation integrity, and fail-closed validation. It does not admit coordinated transformation-space structural scenarios.
 
@@ -71,7 +74,7 @@ For legacy two-strategy output, the convergence check records intervention cost-
 
 ## Decision-threshold and value-of-information contract
 
-Schemas `0.2.0` through `0.8.0` require `probabilistic_analysis.decision_thresholds` with a rationale and 2–101 unique, non-negative, strictly increasing values including the positive primary `willingness_to_pay`. Schema `0.1.0` remains readable and produces one primary-threshold row only. Correlation groups require schema `0.4.0` or later; uncertainty `0.7.0` is reserved for analysis `0.8.0`, and uncertainty `0.8.0` is reserved for analysis `0.9.0`.
+Schemas `0.2.0` through `0.9.0` require `probabilistic_analysis.decision_thresholds` with a rationale and 2–101 unique, non-negative, strictly increasing values including the positive primary `willingness_to_pay`. Schema `0.1.0` remains readable and produces one primary-threshold row only. Correlation groups require schema `0.4.0` or later; uncertainty `0.7.0` is reserved for analysis `0.8.0`, uncertainty `0.8.0` for analysis `0.9.0`, and uncertainty `0.9.0` for analysis `0.10.0`.
 
 For each schema `0.7.0` PSA draw and threshold λ, the engine derives every strategy's net monetary benefit `λ × QALY − cost`. It reports:
 

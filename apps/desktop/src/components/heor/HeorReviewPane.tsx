@@ -932,6 +932,7 @@ export function HeorReviewPane({
               onRequestSurvivalDerivation={() => onRequestRevision(t("transition.survivalPrompt"))}
               onRequestProbabilityTime={() => onRequestRevision(t("transition.probabilityTimePrompt"))}
               onRequestBackgroundMortality={() => onRequestRevision(t("transition.backgroundMortalityPrompt"))}
+              onRequestRelativeEffect={() => onRequestRevision(t("transition.relativeEffectPrompt"))}
             />
 
             <EvidenceTraceability
@@ -1859,6 +1860,7 @@ function CohortTransitionSummary({
   onRequestSurvivalDerivation,
   onRequestProbabilityTime,
   onRequestBackgroundMortality,
+  onRequestRelativeEffect,
 }: {
   plan: HeorAnalysisPlan;
   onRequestAudit: () => void;
@@ -1866,9 +1868,11 @@ function CohortTransitionSummary({
   onRequestSurvivalDerivation: () => void;
   onRequestProbabilityTime: () => void;
   onRequestBackgroundMortality: () => void;
+  onRequestRelativeEffect: () => void;
 }) {
   const { t } = useTranslation("heor");
   const strategyIds = plan.schema_version === "0.8.0" || plan.schema_version === "0.9.0"
+    || plan.schema_version === "0.10.0"
     ? (plan.strategy_order ?? []) : ["comparator", "intervention"];
   const summary = (strategyId: string) => {
     const schedule = plan.strategies[strategyId]?.transition_schedule;
@@ -1928,6 +1932,12 @@ function CohortTransitionSummary({
         className="mt-2 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
       >
         <MessageSquareText size={13} /> {t("transition.askBackgroundMortality")}
+      </button>
+      <button
+        onClick={onRequestRelativeEffect}
+        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+      >
+        <MessageSquareText size={13} /> {t("transition.askRelativeEffect")}
       </button>
       <p className="mt-3 text-[10px] leading-4 text-muted">
         {hasSchedule ? t("transition.scheduleNote") : t("transition.staticNote")}

@@ -166,9 +166,10 @@ The contract deliberately does not execute free-form formulas. A narrative in
 admits constant cause-specific competing event rates, schema `0.6.0` admits a
 bounded two-state survival schedule, and schema `0.7.0` admits the single-event
 probability time conversion described below. Schema `0.9.0` admits the bounded
-background-plus-excess mortality operation described below. Relative-effect application,
-pooling, calibration, interpolation, and general continuous-time matrix
-conversion remain incomplete. Schemas `0.1.0` and
+background-plus-excess mortality operation described below. Schema `0.10.0`
+admits only the bounded RR/OR relative-effect operation described below. Other
+effect measures, pooling, calibration, interpolation, and general continuous-time
+matrix conversion remain incomplete. Schemas `0.1.0` and
 `0.2.0` remain calculable for reproducibility but cannot pass analysis-plan
 approval; static `0.3.0` and schedule-capable `0.4.0` plans remain approvable.
 
@@ -233,7 +234,7 @@ rates with gamma, lognormal, or strictly positive uniform distributions. For eac
 DSA run or PSA draw, the compatible uncertainty engine recomputes each affected complete matrix or
 schedule and its derivation snapshot before ordinary validation. Changing only a
 derived probability row still fails closed. The adapter does not implement
-probability-time conversion inside the rate adapter, HR/RR/OR application, pooling, calibration, survival
+probability-time conversion inside the rate adapter, HR application or RR/OR application outside the dedicated adapter, pooling, calibration, survival
 extrapolation, within-cycle multi-step paths, arbitrary correlated rate models, or
 transformation-space structural scenarios, except that schemas `0.4.0` through `0.7.0` may correlate
 only evidence-bound lognormal rate members through the bounded latent log-scale
@@ -292,7 +293,7 @@ Uncertainty schema `0.6.0` or `0.7.0` may vary the exact `source_probability` wi
 evidence-bound Beta or Uniform distribution strictly inside `(0,1)`. Every DSA
 run and PSA draw recomputes the complete transition input and derivation
 snapshot before model validation. Competing events, probabilities 0 or 1,
-time-varying hazards, HR/RR/OR application, composite endpoints, recurrent
+time-varying hazards, HR application or RR/OR application outside the dedicated adapter, composite endpoints, recurrent
 events, dependence between probability parameters, and clinical
 appropriateness remain unsupported. ISPOR-SMDM and PHARMAC support the
 arithmetic and disclosure requirement; they do not validate the assumption for
@@ -335,10 +336,34 @@ ISPOR-SMDM state-transition guidance, and CDA-AMC 4th edition provide the method
 basis; they do not establish exchangeability, absence of double counting, or
 scientific validity for a particular model.
 
+## Executable bounded RR/OR relative effects
+
+Analysis-plan schema `0.10.0` admits one deliberately narrow operation:
+`relative_effect_to_transition_schedule`. It applies one interval-aligned risk
+ratio or odds ratio to cycle-specific baseline risks for a single absorbing
+event in an exactly two-state schedule. Every baseline risk and the relative
+effect binds one extraction or proposed assumption. The declaration also
+requires exactly `endpoint_alignment`, `population_transportability`, and
+`effect_constancy_over_cycles` review bases; those bases support review and do
+not create approval.
+
+For risk ratio, each cycle uses `p=q*RR`; for odds ratio it uses
+`p=q*OR/(1-q+q*OR)`. The adapter independently recomputes every complete matrix
+and rejects all-zero baselines, unequal effect/cycle intervals, stale schedules,
+unsupported fields, and incompatible effect measures. Paired uncertainty schema
+`0.9.0` targets only `relative_effect.value`: RR admits bounded Uniform PSA with
+its high strictly below `1/max(q>0)`, while OR admits Lognormal or strictly
+positive bounded Uniform PSA. Baselines and transformation internals stay fixed.
+
+Hazard ratio, rate ratio, risk difference, competing events, and treatment-effect
+extrapolation remain unsupported. HR routes to the future
+`$heor-hazard-ratio-adapter`; the form interface remains subordinate to the
+natural-language workflow and Human-in-the-loop review.
+
 ## Executable monetary basis
 
 Analysis-plan schema `0.2.0` introduced one calculation currency and price
-year, and current schemas through `0.9.0` retain that contract while binding each source
+year, and current schemas through `0.10.0` retain that contract while binding each source
 value to evidence or an explicit assumption.
 Every state-cost element and non-null willingness-to-pay value records its
 source value, source currency, source price year, positive composite adjustment
@@ -566,11 +591,11 @@ approval, reimbursement suitability, or external tamper-proofing.
   missing second confirmation, rejection, changed synthesis, or tampered review
   chain fails closed; this remains distinct from authenticated independent
   duplicate extraction.
-- Evidence-to-input approval also requires schema `0.3.0` through `0.9.0`, an exact model-value
+- Evidence-to-input approval also requires schema `0.3.0` through `0.10.0`, an exact model-value
   snapshot per mapping, strict JSON equality for direct evidence, and extraction-
   bound source values for monetary normalization. Changed, narrative, unused,
   or silently transformed extraction values fail closed.
-- A scheduled-transition plan additionally requires schema `0.4.0` through `0.9.0`, exactly one
+- A scheduled-transition plan additionally requires schema `0.4.0` through `0.10.0`, exactly one
   transition mechanism per strategy, ordered in-horizon change points, valid
   matrices, mass conservation, and schedule-aware provenance and uncertainty
   targets. Static `0.3.0` plans remain backward compatible.
@@ -595,7 +620,8 @@ approval, reimbursement suitability, or external tamper-proofing.
   output reproduction. Source-probability DSA/PSA additionally requires
   uncertainty schema `0.6.0` or `0.7.0`, strict `(0,1)` bounds, Beta or bounded Uniform,
   its sole basis ID, and full transition-input recomputation. Competing events,
-  time-varying hazards, relative effects, and clinical applicability remain gaps.
+  time-varying hazards, relative effects outside the dedicated bounded RR/OR adapter,
+  and clinical applicability remain gaps.
 - A schema `0.8.0` analysis additionally requires 2–16 unique safe strategy
   IDs, exact agreement between `strategy_order` and `strategies`, and the
   declared baseline first. Results retain baseline-pairwise comparisons and
@@ -610,6 +636,14 @@ approval, reimbursement suitability, or external tamper-proofing.
   review bases; positive cycle length; and exact hazard-scaled schedule
   reproduction. Paired uncertainty schema `0.8.0` permits only the exact positive
   excess-rate target and fixes the life table and transformation structure.
+- A schema `0.10.0` relative-effect mapping additionally requires exactly two
+  states with one absorbing event; equal cycle and effect intervals; complete
+  cycle-specific baseline risks with at least one positive value; one aligned RR
+  or OR; the exact three review bases; and exact schedule reproduction. Paired
+  uncertainty schema `0.9.0` permits only the relative-effect value. RR DSA and
+  bounded Uniform PSA remain strictly below the positive-baseline ceiling; OR
+  admits Lognormal or strictly positive bounded Uniform PSA. HR and all other
+  effect measures remain blocked.
 - Exploratory, analysis-authorized, independently validated, and locally
   released decision-ready states remain distinct. Any stale package, binding,
   validation, result reproduction, actor, or approval sequence fails closed.

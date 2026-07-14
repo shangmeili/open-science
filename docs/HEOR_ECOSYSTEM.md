@@ -1,6 +1,6 @@
 # AI4HEOR HEOR Asset and Integration Strategy
 
-Evidence reviewed on 2026-07-14. This is a product decision record, not an
+Evidence reviewed on 2026-07-15. This is a product decision record, not an
 endorsement of any clinical, reimbursement, or policy conclusion.
 
 ## Decision
@@ -80,6 +80,13 @@ unmanaged project content; they never become bundled AI4HEOR assets implicitly.
 | [BCEA](https://n8thangreen.github.io/BCEA/) | PSA post-processing, CEAC, EVPI, and VOI | P1 optional uncertainty adapter | Same R isolation and provenance; standardized input/output artifact contract; parity fixtures |
 | [survHE](https://cran.r-project.org/package=survHE) | Survival extrapolation for economic evaluation | P1 optional survival adapter | Pre-specified model set; diagnostics and extrapolation audit; version capture; no automatic model selection without review |
 | [heemod](https://pierucci.org/heemod/) | Mature Markov modeling and sensitivity analysis | Reference and optional independent cross-check | GPL isolation; golden cases against the AI4HEOR core; document semantic differences rather than forcing parity |
+| External relative-effect Skills/plugins | No reviewed candidate supplies a bounded, provenance-complete RR/OR-to-absolute-risk contract | Do not integrate an external executable asset; implement first-party | Preserve only method/test ideas; require exact measure, baseline risks, aligned interval/estimand, full recomputation, and app-owned review |
+
+The admission registry contains 12 reviewed external Skill/MCP entries: seven
+`ai4s-skills` candidates and HEORAgent are quarantined, while four Anthropic
+document Skills are rejected. None is release eligible or a relative-effect
+execution asset. CaseMark, awesome-rosetta, medical-research-skills, and the R
+packages above are discovery or cross-check references, not registered adapters.
 
 The HEORAgent audit used revision
 `19f5f0eea5764d7a2695c372f3ec8f3aa0f53dd8` (`1.27.0`). A 2026-07-14
@@ -91,6 +98,11 @@ mixed-authority tools are broader than the product boundary. AI4HEOR therefore
 does not wrap the package and call it production-ready. It preserves the MIT
 notice and independently rewrites the useful bounded-search concept as
 `heor-evidence-search`; the upstream asset remains quarantined.
+
+A 2026-07-15 refresh still found HEORAgent at its audited revision. The
+`ai4s-skills` upstream had advanced by 27 mostly non-HEOR files and supplied no
+new HEOR-specific Skill or contract; the registry therefore remains intentionally
+pinned and quarantined rather than treating upstream drift as admission.
 
 The earlier desktop baseline also fetched four Anthropic document Skills under
 an incorrect Apache-2.0 assumption. The copied `LICENSE.txt` is authoritative:
@@ -116,6 +128,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-survival-curve-adapter` | Already-selected two-state exponential or Weibull curve evaluation | Schema `0.6.0` transition schedule derivation |
 | Shipped | `heor-probability-time-adapter` | Single-event probability time conversion under an explicit constant-hazard assumption | Schema `0.7.0` transition derivation |
 | Shipped | `heor-background-mortality` | Age-aligned annual life-table mortality plus one constant additive excess rate, with explicit exchangeability and double-counting bases | Schema `0.9.0` transition schedule derivation |
+| Shipped | `heor-relative-effect-adapter` | Apply one aligned RR or OR to cycle-specific baseline risks with exact review bases and full schedule recomputation | Schema `0.10.0` transition schedule derivation |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, per-person EVPI, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
@@ -228,7 +241,7 @@ lognormal members, a linked latent log-scale correlation matrix, strict positive
 definite validation, deterministic Cholesky sampling, exact result disclosure,
 and cross-layer adversarial tests. This is a first-party bounded implementation,
 not a copied BCEA/heemod/hesim routine or a matrix inferred by the Agent. General CTMC
-conversion, probability-time conversion outside the separately admitted single-event adapter, relative effects, extrapolation,
+conversion, probability-time conversion outside the separately admitted single-event adapter, relative effects outside the dedicated bounded RR/OR adapter, extrapolation,
 within-cycle multi-step paths, arbitrary copulas, gamma/uniform correlation,
 empirical posterior draws, singular/perfect matrices, and transformation-space
 structural scenarios remain isolated future adapters rather than inferred capability.
@@ -271,9 +284,25 @@ the browser. Uncertainty schema `0.6.0` adds only evidence-bound Beta or bounded
 Uniform sampling followed by full recomputation. Adversarial tests reject
 simple division, stale matrices, probability 0 or 1, extra events, invalid
 intervals, unlinked bases, unbounded distributions, and derived-row mutation.
-Competing events, time-varying hazards, relative effects, composite endpoints,
+Competing events, time-varying hazards, relative effects outside the dedicated bounded RR/OR adapter, composite endpoints,
 dependence, and clinical-validity judgments remain future methods rather than
 inferred capability.
+
+Schema `0.10.0` adds the first-party `$heor-relative-effect-adapter` for one
+bounded case: cycle-specific baseline risks for a single absorbing event and one
+aligned risk ratio or odds ratio. It requires the exact endpoint-alignment,
+population-transportability, and effect-constancy review bases; equal declared
+effect and model-cycle intervals; and independent recomputation of every cycle's
+complete transition matrix. Paired uncertainty schema `0.9.0` is measure-specific:
+RR admits only bounded Uniform PSA below the baseline-risk ceiling, while OR
+admits Lognormal or strictly positive bounded Uniform PSA.
+
+This is an independent first-party implementation; no reviewed external Skill or
+plugin is an executable dependency. Hazard ratios route to the future
+`$heor-hazard-ratio-adapter`. The next method assets after that are partitioned
+survival plus survival fitting/extrapolation review; later candidates are cost
+normalization, utility mapping, dynamic-cohort BIA, and NMA/MAIC evidence
+synthesis. These backlog items are not shipped capabilities or approval authority.
 
 The evidence-search slice applies the same standard to a network capability.
 The Agent can only draft and validate the request file. Native code rejects

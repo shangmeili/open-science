@@ -21,7 +21,7 @@ Convert a narrow, reviewable class of event-rate evidence into deterministic coh
 
 ## Boundaries
 
-- Do not convert probabilities between time units, apply HR/RR/OR values, pool studies, calibrate, or extrapolate effects with this adapter.
+- Do not convert probabilities between time units, apply HR/RR/OR values, pool studies, calibrate, or extrapolate effects with this adapter. Route aligned cycle-specific risks plus RR/OR to `$heor-relative-effect-adapter`; route HR to a future `$heor-hazard-ratio-adapter`; leave rate ratios incomplete for a future rate-relative-effect contract.
 - Do not call this a general CTMC or matrix-exponential solution. It assumes at most one state change within a model cycle.
 - Do not vary a derived probability row while leaving its rate transformation unchanged. Use only the admitted event-rate target so the engine recomputes the full transformation. Only the evidence-bound lognormal Cholesky group is implemented for dependence; arbitrary correlated-rate models and transformation-space structural scenarios remain unsupported.
 - Do not create or claim evidence verification, human approval, model validation, reimbursement, or policy advice.

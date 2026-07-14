@@ -269,7 +269,7 @@ describe("AI4HEOR human review pane", () => {
     expect(onRequestRevision).toHaveBeenCalledWith(
       expect.stringContaining("$heor-cohort-state-transition"),
     );
-    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("schema 0.9.0");
+    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("schema 0.10.0");
     await userEvent.click(screen.getByRole("button", {
       name: "Ask Agent to derive transitions from rates",
     }));
@@ -293,6 +293,16 @@ describe("AI4HEOR human review pane", () => {
     expect(backgroundPrompt).toContain("Human");
     expect(backgroundPrompt).toContain("forms only as an aid");
     await userEvent.click(screen.getByRole("button", {
+      name: "Ask Agent to apply a risk ratio or odds ratio",
+    }));
+    const relativeEffectPrompt = onRequestRevision.mock.calls[
+      onRequestRevision.mock.calls.length - 1
+    ]?.[0];
+    expect(relativeEffectPrompt).toContain("$heor-relative-effect-adapter");
+    expect(relativeEffectPrompt).toContain("natural-language interaction first");
+    expect(relativeEffectPrompt).toContain("Stop if the evidence reports an HR");
+    expect(relativeEffectPrompt).toContain("strictly below 1/max(positive baseline q)");
+    await userEvent.click(screen.getByRole("button", {
       name: "Ask Agent to continue screening and synthesis",
     }));
     expect(onRequestRevision).toHaveBeenCalledWith(
@@ -314,7 +324,7 @@ describe("AI4HEOR human review pane", () => {
     expect(onRequestRevision).toHaveBeenCalledWith(
       expect.stringContaining("$heor-uncertainty-analysis"),
     );
-    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("uncertainty schema 0.8.0");
+    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("uncertainty 0.9.0");
     await userEvent.click(screen.getByRole("button", {
       name: "Ask the Agent to build or repair budget impact",
     }));

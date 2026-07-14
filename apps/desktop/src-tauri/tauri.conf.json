@@ -44,6 +44,7 @@
       "../../../python/heor_core/src/heor_core/cli.py": "heor-core/src/heor_core/cli.py",
       "../../../python/heor_core/src/heor_core/model.py": "heor-core/src/heor_core/model.py",
       "../../../python/heor_core/src/heor_core/probability_time.py": "heor-core/src/heor_core/probability_time.py",
+      "../../../python/heor_core/src/heor_core/relative_effect.py": "heor-core/src/heor_core/relative_effect.py",
       "../../../python/heor_core/src/heor_core/survival_curves.py": "heor-core/src/heor_core/survival_curves.py",
       "../../../python/heor_core/src/heor_core/transition_rates.py": "heor-core/src/heor_core/transition_rates.py",
       "../../../python/heor_core/src/heor_core/uncertainty.py": "heor-core/src/heor_core/uncertainty.py",

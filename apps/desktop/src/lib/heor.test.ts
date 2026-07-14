@@ -187,7 +187,7 @@ describe("AI4HEOR artifact contract", () => {
     const audit = auditHeorEvidence(plan);
 
     expect(audit.invalidMappings.join("; ")).toContain(
-      "schema_version must be 0.3.0 through 0.9.0",
+      "schema_version must be 0.3.0 through 0.10.0",
     );
     expect(audit.invalidMappings.join("; ")).toContain(
       "derivation.model_value does not match the current model input",
@@ -518,6 +518,85 @@ describe("AI4HEOR artifact contract", () => {
     transformation.excess_mortality_rate_per_year.value = Number.MAX_VALUE;
     errors = auditHeorEvidence(plan).invalidMappings.join("; ");
     expect(errors).toContain("non-finite integrated hazard");
+  });
+
+  it("independently distinguishes RR from OR and fails closed on relative-effect drift", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    plan.schema_version = "0.10.0";
+    plan.baseline_strategy_id = "comparator";
+    plan.strategy_order = ["comparator", "intervention"];
+    plan.states = ["event-free", "event"];
+    plan.cycles = 2;
+    const rrSchedule = [0.2, 0].map((q, index) => ({
+      start_cycle: index + 1,
+      matrix: [[1 - q * 2, q * 2], [0, 1]],
+    }));
+    plan.strategies.comparator = {
+      name: "Comparator", initial_distribution: [1, 0], transition_schedule: rrSchedule,
+      state_costs: [100, 0], state_utilities: [1, 0],
+    };
+    plan.strategies.intervention = {
+      name: "Intervention", initial_distribution: [1, 0], transition_matrix: [[0.9, 0.1], [0, 1]],
+      state_costs: [120, 0], state_utilities: [1, 0],
+    };
+    const assumptionIds = ["q1", "q2", "effect", "endpoint", "population", "constancy"];
+    plan.assumptions = assumptionIds.map((id) => ({
+      id, statement: id, reason: "Browser relative-effect fixture", status: "proposed" as const,
+    }));
+    plan.input_provenance = [{
+      path: "strategies.comparator.transition_schedule",
+      source_ids: [], extraction_ids: [], assumption_ids: assumptionIds,
+      unit: "probability per annual model cycle", jurisdiction: "China",
+      derivation: {
+        method: "deterministic_transformation", model_value: rrSchedule,
+        transformation: {
+          operation: "relative_effect_to_transition_schedule",
+          cycle_length_years: 1, effect_interval_years: 1,
+          from_state_index: 0, event_state_index: 1, measure: "risk_ratio",
+          baseline_cycle_probabilities: [
+            { cycle: 1, probability: { value: 0.2, assumption_id: "q1" } },
+            { cycle: 2, probability: { value: 0, assumption_id: "q2" } },
+          ],
+          relative_effect: { value: 2, assumption_id: "effect" },
+          review_bases: {
+            endpoint_alignment: { assumption_id: "endpoint" },
+            population_transportability: { assumption_id: "population" },
+            effect_constancy_over_cycles: { assumption_id: "constancy" },
+          },
+        },
+      },
+      selection_rationale: "Exercise relative-effect audit",
+      uncertainty_status: "distribution_available",
+    }];
+    expect(parseHeorPlan(JSON.stringify(plan)).schema_version).toBe("0.10.0");
+    let errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).not.toContain("relative effect does not reproduce");
+
+    const mapping = plan.input_provenance[0];
+    const transformation = mapping.derivation.transformation;
+    if (transformation?.operation !== "relative_effect_to_transition_schedule") {
+      throw new Error("test fixture must use relative effect");
+    }
+    transformation.measure = "odds_ratio";
+    errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).toContain("relative effect does not reproduce");
+    const orProbability = (2 * 0.2) / ((1 - 0.2) + 2 * 0.2);
+    const orSchedule = [orProbability, 0].map((probability, index) => ({
+      start_cycle: index + 1, matrix: [[1 - probability, probability], [0, 1]],
+    }));
+    plan.strategies.comparator.transition_schedule = orSchedule;
+    mapping.derivation.model_value = orSchedule;
+    errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).not.toContain("relative effect does not reproduce");
+
+    transformation.measure = "risk_ratio";
+    transformation.relative_effect.value = 5;
+    errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).toContain("produced an invalid event probability");
+    transformation.relative_effect.value = 2;
+    transformation.baseline_cycle_probabilities.forEach((entry) => { entry.probability.value = 0; });
+    errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).toContain("at least one positive probability");
   });
 
   it("requires provenance for a schema 0.4 transition schedule instead of an absent matrix", () => {
