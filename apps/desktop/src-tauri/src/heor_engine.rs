@@ -12,6 +12,9 @@ use crate::heor_budget_impact::{audit_budget_impact_for_plan, BudgetImpactAudit}
 use crate::heor_evidence::{
     audit_evidence_selection_for_plan, audit_plan_bytes, EvidenceAudit, EvidenceSelectionAudit,
 };
+use crate::heor_partitioned_survival::{
+    audit_partitioned_survival_for_plan, PartitionedSurvivalAudit,
+};
 use crate::heor_reference_case::{audit_reference_case_for_plan, ReferenceCaseAudit};
 use crate::heor_reporting::{audit_report_package, ReportingAudit};
 use crate::heor_survival_review::{audit_survival_review_for_plan, SurvivalReviewAudit};
@@ -36,6 +39,8 @@ pub struct HeorWorkflowStatus {
     uncertainty_audit: UncertaintyAudit,
     budget_impact_plan_matches_approval: bool,
     budget_impact_audit: BudgetImpactAudit,
+    partitioned_survival_matches_approval: bool,
+    partitioned_survival_audit: PartitionedSurvivalAudit,
     survival_review_matches_approval: bool,
     survival_review_audit: SurvivalReviewAudit,
     independent_validation_matches_approval: bool,
@@ -63,6 +68,7 @@ pub(crate) struct HeorWorkflowAudits {
     pub reference_case: ReferenceCaseAudit,
     pub uncertainty: UncertaintyAudit,
     pub budget_impact: BudgetImpactAudit,
+    pub partitioned_survival: PartitionedSurvivalAudit,
     pub survival_review: SurvivalReviewAudit,
     pub validation: ModelValidationAudit,
     pub reporting: ReportingAudit,
@@ -183,6 +189,7 @@ pub(crate) fn workflow_status(
         reference_case: reference_case_audit,
         uncertainty: uncertainty_audit,
         budget_impact: budget_impact_audit,
+        partitioned_survival: partitioned_survival_audit,
         survival_review: survival_review_audit,
         validation: validation_audit,
         reporting: reporting_audit,
@@ -203,6 +210,21 @@ pub(crate) fn workflow_status(
             &budget_impact_audit.budget_impact_sha256,
         )
     });
+    let partitioned_survival_matches_approval = !partitioned_survival_audit.required
+        || (partitioned_survival_audit.complete
+            && !partitioned_survival_audit.artifact_bindings.is_empty()
+            && analysis_plan_event(&log).is_some_and(|event| {
+                partitioned_survival_audit
+                    .artifact_bindings
+                    .iter()
+                    .all(|binding| {
+                        crate::heor_approval::event_binds_artifact(
+                            event,
+                            &binding.path,
+                            &binding.sha256,
+                        )
+                    })
+            }));
     let survival_review_matches_approval = !survival_review_audit.required
         || (survival_review_audit.complete
             && !survival_review_audit.artifact_bindings.is_empty()
@@ -255,6 +277,7 @@ pub(crate) fn workflow_status(
                         })
             });
     let release_matches_approval = independent_validation_matches_approval
+        && !partitioned_survival_audit.required
         && crate::heor_reporting::release_matches_approval(&log, &reporting_audit);
     let locally_authorized = plan_matches
         && conceptual_model_matches_artifact
@@ -266,6 +289,8 @@ pub(crate) fn workflow_status(
         && uncertainty_plan_matches_approval
         && budget_impact_audit.complete
         && budget_impact_plan_matches_approval
+        && partitioned_survival_audit.complete
+        && partitioned_survival_matches_approval
         && survival_review_audit.complete
         && survival_review_matches_approval
         && reference_case_status != "draft";
@@ -283,6 +308,8 @@ pub(crate) fn workflow_status(
         || !uncertainty_plan_matches_approval
         || !budget_impact_audit.complete
         || !budget_impact_plan_matches_approval
+        || !partitioned_survival_audit.complete
+        || !partitioned_survival_matches_approval
         || !survival_review_audit.complete
         || !survival_review_matches_approval
     {
@@ -325,6 +352,8 @@ pub(crate) fn workflow_status(
         uncertainty_audit,
         budget_impact_plan_matches_approval,
         budget_impact_audit,
+        partitioned_survival_matches_approval,
+        partitioned_survival_audit,
         survival_review_matches_approval,
         survival_review_audit,
         independent_validation_matches_approval,
@@ -438,6 +467,7 @@ pub fn run_heor_markov(
     let reference_case_audit = audit_reference_case_for_plan(&app, &root, &raw)?;
     let uncertainty_audit = audit_uncertainty_plan_for_plan(&root, &raw)?;
     let budget_impact_audit = audit_budget_impact_for_plan(&root, &raw)?;
+    let partitioned_survival_audit = audit_partitioned_survival_for_plan(&root, &raw)?;
     let survival_review_audit = audit_survival_review_for_plan(&root, &raw);
     let validation_audit = audit_model_validation_for_plan(&root, &raw)?;
     let reporting_audit = audit_report_package(&root)?;
@@ -464,6 +494,7 @@ pub fn run_heor_markov(
                 reference_case: reference_case_audit,
                 uncertainty: uncertainty_audit,
                 budget_impact: budget_impact_audit,
+                partitioned_survival: partitioned_survival_audit,
                 survival_review: survival_review_audit,
                 validation: validation_audit,
                 reporting: reporting_audit,
@@ -710,6 +741,20 @@ mod tests {
             reference_case: complete_reference_case_audit(),
             uncertainty: complete_uncertainty_audit(),
             budget_impact: complete_budget_impact_audit(),
+            partitioned_survival: PartitionedSurvivalAudit {
+                required: false,
+                complete: true,
+                status: "not_required",
+                psm_id: String::new(),
+                analysis_id: "analysis-1".into(),
+                analysis_plan_sha256: "c".repeat(64),
+                partitioned_survival_sha256: String::new(),
+                strategy_count: 0,
+                curve_count: 0,
+                time_point_count: 0,
+                artifact_bindings: Vec::new(),
+                errors: Vec::new(),
+            },
             survival_review: SurvivalReviewAudit {
                 complete: true,
                 required: false,

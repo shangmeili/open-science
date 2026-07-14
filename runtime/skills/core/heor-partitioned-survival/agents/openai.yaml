@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Partitioned Survival"
+  short_description: "Build and validate three-state PFS and OS survival plans"
+  default_prompt: "Create or repair heor/partitioned-survival-plan.json for the current AI4HEOR analysis. Keep it separate from Markov transitions, bind exact PFS and OS reviews, fail on crossing or incoherent occupancy, and never claim human approval."

@@ -14,6 +14,7 @@ mod heor_engine;
 mod heor_evidence;
 mod heor_evidence_review;
 mod heor_library;
+mod heor_partitioned_survival;
 mod heor_reference_case;
 mod heor_reporting;
 mod heor_search;
@@ -121,6 +122,8 @@ pub fn run() {
             heor_approval::list_heor_approvals,
             heor_budget_impact::audit_heor_budget_impact,
             heor_budget_impact::run_heor_budget_impact,
+            heor_partitioned_survival::audit_heor_partitioned_survival,
+            heor_partitioned_survival::run_heor_partitioned_survival,
             heor_reference_case::audit_heor_reference_case,
             heor_reporting::audit_heor_reporting,
             heor_search::audit_heor_evidence_search,

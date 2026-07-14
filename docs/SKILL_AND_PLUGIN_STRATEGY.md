@@ -1,6 +1,6 @@
 # AI4HEOR Skill and Plugin Strategy
 
-Status: evidence refresh completed 2026-07-15.
+Status: evidence and registry refresh completed 2026-07-15.
 
 ## Decision
 
@@ -57,8 +57,21 @@ input provenance, evidence search, local evidence, evidence synthesis, reference
 case assessment, conceptual model design, cohort state transition, constant event
 rates, selected absolute survival curves, probability time conversion,
 background-plus-excess mortality, RR/OR relative effects, constant HR application,
-survival extrapolation review, uncertainty analysis, budget impact, model validation,
-and reporting.
+survival extrapolation review, partitioned survival, uncertainty analysis, budget
+impact, model validation, and reporting.
+
+The 2026-07-15 live refresh reconfirmed the reviewed external revisions:
+HEORAgent `19f5f0eea5764d7a2695c372f3ec8f3aa0f53dd8` with npm `1.35.0`,
+AIPOCH `7cc568024021a3de07cbeb935691dc72c69bfe28`, awesome-rosetta
+`6cffda43d7cd6c07c563e2f2e24a88a615bcf003`, ai4s-skills
+`32fda1d5201d8cafb443fa9ed63361cf47d4db97`, and mcp-stata
+`a2f9c4abc2c7662e73684f8cf954895c6806ea27` / PyPI `3.3.0`. No newly
+reviewed external asset displaced the first-party plan. HEORAgent still combines
+broad method authority, fixed jurisdiction defaults, network/search, file writes,
+and calculation behind one MCP trust boundary, while its repository and npm
+version channels remain divergent. mcp-stata is more mature operationally but
+remains an AGPL, licensed-Stata, broad-code-execution connector, not a
+redistributable HEOR method core.
 
 `heor-survival-extrapolation-review` now bundles the alpha schema `0.2.0`
 artifact, validator, template, natural-language action, and Human-selection stop
@@ -71,7 +84,9 @@ approval and package-specific validation on a machine where it is installed.
 The current alpha imports only an already-generated local fit bundle and never
 reads or fits patient-level input. Plans with 2–32 targets use the ordered schema
 `0.1.0` collection and remain fail-closed unless every independent review is
-current. Cross-curve PFS/OS and partitioned-survival consistency are not inferred.
+current. The review collection alone does not infer cross-curve PFS/OS consistency;
+the separate partitioned-survival contract performs that check only after each
+endpoint is bound to its exact target and Human-selected converged family.
 
 The next assets should be developed in this order. Each row names the Skill, but
 shipping also requires its schema, deterministic or isolated execution layer,
@@ -81,7 +96,7 @@ gate, and packaged cross-platform evidence.
 | Priority | First-party Skill asset | Narrow responsibility and stop boundary |
 | --- | --- | --- |
 | Shipped alpha / P1 backend | `heor-survival-extrapolation-review` | Validate and natively audit one or an ordered collection of pre-specified survival-model comparisons, selected plan distributions, observed/extrapolated landmarks, diagnostics, clinical/external plausibility, hashes, alternatives, and awaiting-Human gates; bind every current review hash at plan approval. Automatic selection and cross-curve validity inference are forbidden. The isolated `survHE` backend remains unshipped. |
-| P0 | `heor-partitioned-survival` | Build bounded PFS/OS state occupancy only after endpoint, time-origin, curve, crossing, monotonicity, and internal-coherence review. Stop for hidden treatment-effect composition, competing estimands, or incoherent occupancy. |
+| Shipped alpha / release integration pending | `heor-partitioned-survival` | Deterministically calculate three-state PFS/OS occupancy, cost, QALY and incremental results only after endpoint, time-origin, curve-review hash, crossing, monotonicity, provenance, and internal-coherence review. The portable Skill, Python engine, native audit/run boundary, analysis-plan approval binding, and natural-language UI are shipped. Hidden treatment-effect composition, competing estimands, incoherent occupancy, uncertainty propagation, and release are blocked; release remains unavailable until model-validation and report-package contracts bind the PSM plan/result, a typed curve-materialization artifact reproduces rows from selected fit parameters, and a dedicated economic-input contract removes the current unused transition-input requirement. |
 | P0 | `heor-treatment-effect-duration` | Represent full-duration, stopping, waning, and alternative treatment-effect scenarios explicitly. It owns the cases rejected by the constant-HR and RR/OR adapters and never infers duration from a point estimate. |
 | P0 | `heor-cost-input-normalization` | Bind quantity, unit price, currency, price year, inflation index, exchange rate, taxes/discounts, and source jurisdiction before calculating a model-basis cost. Stop for missing units, incompatible price concepts, or unsupported indices. |
 | P0 | `heor-utility-inputs` | Bind instrument, value set, population, health state/event, timing, age adjustment, mapping algorithm, and uncertainty. Stop for unlicensed value sets, double-counted disutility, incompatible anchors, or unvalidated mapping. |

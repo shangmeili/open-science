@@ -281,6 +281,22 @@
     "noProject": "There is no current project for budget impact audit.",
     "missingPlan": "An analysis plan is required before budget impact can be audited."
   },
+  "partitionedSurvival": {
+    "title": "Three-state partitioned survival",
+    "loading": "Auditing the PFS and OS plan…",
+    "notRequired": "Not linked to this analysis",
+    "complete": "Partitioned survival audit complete",
+    "incomplete": "Partitioned survival audit incomplete",
+    "strategies": "Strategies",
+    "curves": "PFS / OS curves",
+    "points": "Curve points",
+    "askAgent": "Ask Agent to build or repair partitioned survival",
+    "repairPrompt": "Use $heor-partitioned-survival to create or repair heor/partitioned-survival-plan.json against the exact current analysis-plan bytes and selected PFS/OS curve-review bytes. Keep the model structurally separate from Markov transitions. Confirm the forward-only three-state conceptual basis, aligned population, endpoint definitions, time origin and cycle grid. Calculate progression free = PFS, progressed = OS - PFS, and dead = 1 - OS. Fail rather than silently repair increasing curves, PFS above OS, negative occupancy or missing provenance. Run the deterministic validator and never create or claim human approval.",
+    "note": "Natural-language rationale remains primary; exact curve rows are an auxiliary structured input. Ready for review is not human approval.",
+    "releaseBoundary": "Local calculation and analysis-plan approval are supported. Release remains blocked until the report and independent-validation contracts bind this plan and result.",
+    "noProject": "There is no current project for partitioned survival audit.",
+    "missingPlan": "An analysis plan is required before partitioned survival can be audited."
+  },
   "validation": {
     "title": "Independent model validation",
     "loading": "Auditing the validation package…",
@@ -322,7 +338,8 @@
     "run": "Run deterministic analysis",
     "running": "Calculating…",
     "runUncertainty": "Run DSA, PSA and scenarios",
-    "runBudgetImpact": "Run three-year budget impact"
+    "runBudgetImpact": "Run three-year budget impact",
+    "runPartitionedSurvival": "Run partitioned survival"
   },
   "dialog": {
     "approveTitle": "Approve {{gate}}?",
@@ -350,6 +367,7 @@
     "economicBasis": "Calculation basis: {{year}} {{currency}}",
     "economicBasisMissing": "Legacy exploratory result: currency and price-year basis are not declared.",
     "strategy": "Strategy",
+    "endpointBadge": "PFS / OS · {{origin}}",
     "cost": "Total cost",
     "qaly": "Total QALY",
     "nmb": "Net monetary benefit",
@@ -400,6 +418,11 @@
     "scenarios": "Alternative scenarios",
     "limitations": "Scope and limitations"
   },
+  "partitionedSurvivalResult": {
+    "title": "Partitioned survival result",
+    "strategy": "Strategy",
+    "note": "State occupancy was derived directly from the bound PFS and OS values. Independent endpoint extrapolation remains an explicit structural limitation."
+  },
   "toast": {
     "evidenceVerified": "Evidence review decision was recorded in the app-owned chain",
     "approvalRecorded": "Human approval recorded",
@@ -407,6 +430,7 @@
     "runComplete": "Deterministic analysis complete",
     "uncertaintyRunComplete": "Uncertainty analysis complete",
     "budgetImpactRunComplete": "Budget impact analysis complete",
+    "partitionedSurvivalRunComplete": "Partitioned survival analysis complete",
     "searchComplete": "Human-authorized evidence search complete",
     "candidatesImported": "Authorized candidates imported without changing research judgments",
     "librarySynced": "Local evidence library synchronized and hash-bound",

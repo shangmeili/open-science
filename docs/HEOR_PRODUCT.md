@@ -720,3 +720,25 @@ The platform baseline is `ai4s-research/open-science` commit
 `42c8101ab969011c2205fa1eacb96572ef309c18` and remains subject to its MIT
 license. Bundled third-party skills and connectors retain their own licenses and
 require a separate release inventory.
+
+## Partitioned-survival alpha boundary (2026-07-15)
+
+The optional `heor/partitioned-survival-plan.json` alpha is a separate
+three-state calculation class. Natural-language interaction creates or repairs
+the rationale and bindings; curve rows are an auxiliary exact-input surface.
+Each curve review must match the current analysis, strategy/endpoint target,
+PFS or OS context, exact bytes, and Human-selected converged family.
+It derives progression-free occupancy from PFS, progressed occupancy from
+OS-PFS, and death from 1-OS; computes state rewards and incremental results;
+and blocks curve crossing, increasing survival, time-grid mismatch, stale
+hashes, and hidden approval claims. Analysis-plan approval is supported, but
+release is intentionally blocked until validation and reporting bind the PSM
+plan and result. The alpha also reuses the current cohort-model analysis schema,
+so transition matrices or schedules remain structurally required but are ignored
+by the PSM calculator; a dedicated shared economic-input contract is required
+before release integration.
+
+Review integrity also does not yet prove numerical derivation of every cycle-
+boundary value from the selected fit. A typed curve-materialization artifact,
+with fit parameters, evaluator version, grid, and reproduced values, is another
+release prerequisite.

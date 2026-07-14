@@ -415,3 +415,17 @@ wording:
 - [Cochrane Handbook current search and selection chapter](https://training.cochrane.org/handbook/current/chapter-04)
 - [PRISMA 2020](https://www.prisma-statement.org/prisma-2020), used as reporting guidance rather than evidence-quality certification
 - [CHEERS 2022](https://www.ispor.org/heor-resources/good-practices/cheers), used as reporting guidance rather than a methodological quality score
+- [NICE DSU TSD 19 partitioned survival analysis](https://sheffield.ac.uk/sites/default/files/2022-02/TSD19-Partitioned-Survival-Analysis-final-report.pdf), used for the three-state occupancy identity, structural distinction, and limitations of independently modelled endpoints
+
+## Partitioned-survival alpha boundary (2026-07-15)
+
+The bounded partitioned-survival alpha is shipped as a structurally separate
+calculation, not a transition-matrix adapter. It accepts only aligned three-state
+PFS/OS cycle-boundary curves, binds the exact analysis and curve-review bytes plus
+each logical endpoint target and Human-selected converged family,
+derives `PFS`, `OS-PFS`, and `1-OS`, and returns cost, QALY, pairwise, and fully
+incremental results. Python, the standalone Skill validator, and native Rust
+independently fail on increasing curves, time-grid drift, PFS above OS, stale
+hashes, missing basis IDs, or invalid state structure. The analysis-plan Human
+gate binds the PSM plan and reviews. PSM uncertainty and release reporting are
+not yet admitted; the app explicitly blocks release while the PSM link exists.

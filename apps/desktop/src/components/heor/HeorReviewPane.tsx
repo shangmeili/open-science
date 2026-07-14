@@ -21,6 +21,7 @@ import { cn } from "@/lib/cn";
 import {
   appendHeorApproval,
   auditHeorBudgetImpact,
+  auditHeorPartitionedSurvival,
   auditHeorConceptualModel,
   auditHeorEvidence,
   auditHeorEvidenceLibrary,
@@ -38,6 +39,7 @@ import {
   HEOR_BROWSER_DEMO_PLAN,
   HEOR_CONCEPTUAL_MODEL_PATH,
   HEOR_BUDGET_IMPACT_PLAN_PATH,
+  HEOR_PARTITIONED_SURVIVAL_PLAN_PATH,
   HEOR_MODEL_VALIDATION_PATH,
   HEOR_REPORT_PACKAGE_PATH,
   HEOR_REPORT_DOCUMENT_PATH,
@@ -60,6 +62,8 @@ import {
   type HeorConceptualModelAudit,
   type HeorBudgetImpactAudit,
   type HeorBudgetImpactRunResult,
+  type HeorPartitionedSurvivalAudit,
+  type HeorPartitionedSurvivalRunResult,
   type HeorModelValidationAudit,
   type HeorReportingAudit,
   type HeorGate,
@@ -82,6 +86,7 @@ import {
   parseHeorPlan,
   runHeorMarkov,
   runHeorBudgetImpact,
+  runHeorPartitionedSurvival,
   syncHeorEvidenceLibrary,
   executeHeorEvidenceSearch,
   importHeorSearchCandidates,
@@ -149,6 +154,11 @@ type BudgetImpactState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorBudgetImpactAudit };
+
+type PartitionedSurvivalState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorPartitionedSurvivalAudit };
 
 type SurvivalReviewState =
   | { kind: "loading" }
@@ -279,6 +289,7 @@ export function HeorReviewPane({
   const [referenceCase, setReferenceCase] = useState<ReferenceCaseState>({ kind: "loading" });
   const [uncertainty, setUncertainty] = useState<UncertaintyState>({ kind: "loading" });
   const [budgetImpact, setBudgetImpact] = useState<BudgetImpactState>({ kind: "loading" });
+  const [partitionedSurvival, setPartitionedSurvival] = useState<PartitionedSurvivalState>({ kind: "loading" });
   const [survivalReview, setSurvivalReview] = useState<SurvivalReviewState>({ kind: "loading" });
   const [modelValidation, setModelValidation] = useState<ModelValidationState>({ kind: "loading" });
   const [reporting, setReporting] = useState<ReportingState>({ kind: "loading" });
@@ -299,6 +310,7 @@ export function HeorReviewPane({
   const [result, setResult] = useState<HeorRunResult | null>(null);
   const [uncertaintyResult, setUncertaintyResult] = useState<HeorUncertaintyRunResult | null>(null);
   const [budgetImpactResult, setBudgetImpactResult] = useState<HeorBudgetImpactRunResult | null>(null);
+  const [partitionedSurvivalResult, setPartitionedSurvivalResult] = useState<HeorPartitionedSurvivalRunResult | null>(null);
   const [running, setRunning] = useState(false);
   const [intent, setIntent] = useState<ReviewIntent | null>(null);
 
@@ -306,6 +318,7 @@ export function HeorReviewPane({
     setResult(null);
     setUncertaintyResult(null);
     setBudgetImpactResult(null);
+    setPartitionedSurvivalResult(null);
     setSearchResult(null);
     setImportResult(null);
     if (!project) {
@@ -314,6 +327,7 @@ export function HeorReviewPane({
       setReferenceCase({ kind: "invalid", message: t("reference.noProject") });
       setUncertainty({ kind: "invalid", message: t("uncertainty.noProject") });
       setBudgetImpact({ kind: "invalid", message: t("budgetImpact.noProject") });
+      setPartitionedSurvival({ kind: "invalid", message: t("partitionedSurvival.noProject") });
       setSurvivalReview({ kind: "invalid", message: t("survivalReview.noProject") });
       setModelValidation({ kind: "invalid", message: t("validation.noProject") });
       setReporting({ kind: "invalid", message: t("reporting.noProject") });
@@ -330,6 +344,7 @@ export function HeorReviewPane({
     setReferenceCase({ kind: "loading" });
     setUncertainty({ kind: "loading" });
     setBudgetImpact({ kind: "loading" });
+    setPartitionedSurvival({ kind: "loading" });
     setSurvivalReview({ kind: "loading" });
     setModelValidation({ kind: "loading" });
     setReporting({ kind: "loading" });
@@ -375,6 +390,7 @@ export function HeorReviewPane({
         setReferenceCase({ kind: "invalid", message: t("reference.missingPlan") });
         setUncertainty({ kind: "invalid", message: t("uncertainty.missingPlan") });
         setBudgetImpact({ kind: "invalid", message: t("budgetImpact.missingPlan") });
+        setPartitionedSurvival({ kind: "invalid", message: t("partitionedSurvival.missingPlan") });
         setSurvivalReview({ kind: "invalid", message: t("survivalReview.missingPlan") });
         setModelValidation({ kind: "invalid", message: t("validation.missingPlan") });
         setReporting({ kind: "invalid", message: t("reporting.missingPlan") });
@@ -413,6 +429,14 @@ export function HeorReviewPane({
         setBudgetImpact({ kind: "ready", audit: await auditHeorBudgetImpact() });
       } catch (error) {
         setBudgetImpact({
+          kind: "invalid",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      try {
+        setPartitionedSurvival({ kind: "ready", audit: await auditHeorPartitionedSurvival() });
+      } catch (error) {
+        setPartitionedSurvival({
           kind: "invalid",
           message: error instanceof Error ? error.message : String(error),
         });
@@ -481,6 +505,10 @@ export function HeorReviewPane({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
+      setPartitionedSurvival({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
       setSurvivalReview({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
@@ -532,6 +560,8 @@ export function HeorReviewPane({
           || !uncertainty.audit.complete
           || budgetImpact.kind !== "ready"
           || !budgetImpact.audit.complete
+          || partitionedSurvival.kind !== "ready"
+          || !partitionedSurvival.audit.complete
           || survivalReview.kind !== "ready"
           || !survivalReview.audit.complete)) break;
       if (gate === "independent_validation"
@@ -539,7 +569,8 @@ export function HeorReviewPane({
           || !modelValidation.audit.complete
           || !modelValidation.audit.approvable)) break;
       if (gate === "release"
-        && (reporting.kind !== "ready" || !reporting.audit.releasable)) break;
+        && (reporting.kind !== "ready" || !reporting.audit.releasable
+          || (partitionedSurvival.kind === "ready" && partitionedSurvival.audit.required))) break;
       const event = latest.get(gate);
       if (
         !event ||
@@ -561,6 +592,12 @@ export function HeorReviewPane({
           && !event.relatedArtifacts?.some((binding) =>
             binding.path === HEOR_BUDGET_IMPACT_PLAN_PATH
             && binding.sha256 === budgetImpact.audit.budgetImpactSha256)) ||
+        (gate === "analysis_plan"
+          && partitionedSurvival.kind === "ready"
+          && partitionedSurvival.audit.required
+          && !partitionedSurvival.audit.artifactBindings.every((expected) =>
+            event.relatedArtifacts?.some((binding) =>
+              binding.path === expected.path && binding.sha256 === expected.sha256))) ||
         (gate === "analysis_plan"
           && survivalReview.kind === "ready"
           && survivalReview.audit.required
@@ -587,6 +624,7 @@ export function HeorReviewPane({
     referenceCase,
     uncertainty,
     budgetImpact,
+    partitionedSurvival,
     survivalReview,
     modelValidation,
     reporting,
@@ -610,6 +648,7 @@ export function HeorReviewPane({
     const sequence = approvals.events.length + 1;
     const relatedArtifacts = gate === "analysis_plan"
       && uncertainty.kind === "ready" && budgetImpact.kind === "ready"
+      && partitionedSurvival.kind === "ready"
       && evidenceSelection.kind === "ready" && survivalReview.kind === "ready"
       ? [
           ...(evidenceSelection.audit.synthesisSha256
@@ -617,6 +656,9 @@ export function HeorReviewPane({
             : []),
           { path: HEOR_UNCERTAINTY_PLAN_PATH, sha256: uncertainty.audit.uncertaintySha256 },
           { path: HEOR_BUDGET_IMPACT_PLAN_PATH, sha256: budgetImpact.audit.budgetImpactSha256 },
+          ...(partitionedSurvival.audit.required
+            ? partitionedSurvival.audit.artifactBindings
+            : []),
           ...(survivalReview.audit.required ? survivalReview.audit.artifactBindings : []),
         ]
       : gate === "independent_validation" && modelValidation.kind === "ready"
@@ -701,6 +743,7 @@ export function HeorReviewPane({
       setResult(null);
       setUncertaintyResult(null);
       setBudgetImpactResult(null);
+      setPartitionedSurvivalResult(null);
     } catch (error) {
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -748,6 +791,22 @@ export function HeorReviewPane({
       setBudgetImpactResult(next);
       setReporting({ kind: "ready", audit: next.workflow.reportingAudit });
       toast.success(t("toast.budgetImpactRunComplete"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const runPartitionedSurvival = async () => {
+    if (!project || !isTauri || partitionedSurvival.kind !== "ready"
+      || !partitionedSurvival.audit.required || !partitionedSurvival.audit.complete || running) return;
+    setRunning(true);
+    try {
+      const next = await runHeorPartitionedSurvival(project.id);
+      setPartitionedSurvivalResult(next);
+      setReporting({ kind: "ready", audit: next.workflow.reportingAudit });
+      toast.success(t("toast.partitionedSurvivalRunComplete"));
     } catch (error) {
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -872,7 +931,7 @@ export function HeorReviewPane({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <StageRail
           currentApprovals={currentApprovals}
-          hasResult={!!result || !!uncertaintyResult || !!budgetImpactResult}
+          hasResult={!!result || !!uncertaintyResult || !!budgetImpactResult || !!partitionedSurvivalResult}
         />
 
         {project && (
@@ -995,6 +1054,10 @@ export function HeorReviewPane({
               state={budgetImpact}
               onRequestRepair={() => onRequestRevision(t("budgetImpact.repairPrompt"))}
             />
+            <PartitionedSurvivalAssessment
+              state={partitionedSurvival}
+              onRequestRepair={() => onRequestRevision(t("partitionedSurvival.repairPrompt"))}
+            />
             <ModelValidationAssessment
               state={modelValidation}
               onRequestPreparation={() => onRequestRevision(t("validation.repairPrompt"))}
@@ -1042,6 +1105,10 @@ export function HeorReviewPane({
                     || (survivalReview.kind === "ready"
                       && survivalReview.audit.required
                       && !heorSurvivalReviewBindingsCurrent(gateEvent, survivalReview.audit))
+                    || (partitionedSurvival.kind === "ready"
+                      && partitionedSurvival.audit.required
+                      && !partitionedSurvival.audit.artifactBindings.every((expected) =>
+                        eventBinds(gateEvent, expected.path, expected.sha256)))
                   )) || (gate === "independent_validation"
                     && modelValidation.kind === "ready"
                     && !validationBindingsCurrent(gateEvent, modelValidation.audit))
@@ -1068,6 +1135,9 @@ export function HeorReviewPane({
                   const budgetImpactBlocked = gate === "analysis_plan"
                     && gate === nextGate
                     && (budgetImpact.kind !== "ready" || !budgetImpact.audit.complete);
+                  const partitionedSurvivalBlocked = gate === "analysis_plan"
+                    && gate === nextGate
+                    && (partitionedSurvival.kind !== "ready" || !partitionedSurvival.audit.complete);
                   const survivalReviewBlocked = gate === "analysis_plan"
                     && gate === nextGate
                     && (survivalReview.kind !== "ready" || !survivalReview.audit.complete);
@@ -1078,10 +1148,12 @@ export function HeorReviewPane({
                       || !modelValidation.audit.approvable);
                   const reportingBlocked = gate === "release"
                     && gate === nextGate
-                    && (reporting.kind !== "ready" || !reporting.audit.releasable);
+                    && (reporting.kind !== "ready" || !reporting.audit.releasable
+                      || (partitionedSurvival.kind === "ready" && partitionedSurvival.audit.required));
                   const waiting = gate === nextGate && !stale && !conceptualBlocked
                     && !evidenceBlocked && !referenceBlocked && !uncertaintyBlocked
                     && !budgetImpactBlocked && !survivalReviewBlocked
+                    && !partitionedSurvivalBlocked
                     && !validationBlocked && !reportingBlocked;
                   return (
                     <div key={gate} className="rounded-input border border-border bg-bg/50 px-3 py-2.5">
@@ -1090,7 +1162,7 @@ export function HeorReviewPane({
                           <Check size={14} className="text-ok" />
                         ) : waiting || stale || conceptualBlocked || evidenceBlocked || referenceBlocked
                           || uncertaintyBlocked || budgetImpactBlocked || validationBlocked
-                          || survivalReviewBlocked || reportingBlocked ? (
+                          || survivalReviewBlocked || partitionedSurvivalBlocked || reportingBlocked ? (
                           <Circle size={12} className={stale ? "text-error" : "text-accent"} />
                         ) : (
                           <LockKeyhole size={13} className="text-muted" />
@@ -1193,6 +1265,17 @@ export function HeorReviewPane({
                   {running ? t("action.running") : t("action.runBudgetImpact")}
                 </button>
               )}
+              {isTauri && partitionedSurvival.kind === "ready"
+                && partitionedSurvival.audit.required && partitionedSurvival.audit.complete && (
+                <button
+                  onClick={() => void runPartitionedSurvival()}
+                  disabled={running}
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-input border border-accent px-3 py-2 text-xs font-semibold text-accent hover:bg-accent/5 disabled:opacity-60"
+                >
+                  {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={13} />}
+                  {running ? t("action.running") : t("action.runPartitionedSurvival")}
+                </button>
+              )}
             </section>
 
             {result && <ResultCard result={result} locale={i18n.language} />}
@@ -1201,6 +1284,9 @@ export function HeorReviewPane({
             )}
             {budgetImpactResult && (
               <BudgetImpactResultCard result={budgetImpactResult} locale={i18n.language} />
+            )}
+            {partitionedSurvivalResult && (
+              <PartitionedSurvivalResultCard result={partitionedSurvivalResult} locale={i18n.language} />
             )}
 
             <section className="px-5 py-4 text-[10px] leading-5 text-muted">
@@ -2404,6 +2490,70 @@ function BudgetImpactAssessment({
   );
 }
 
+function PartitionedSurvivalAssessment({
+  state,
+  onRequestRepair,
+}: {
+  state: PartitionedSurvivalState;
+  onRequestRepair: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const complete = audit?.complete === true;
+  const issues = audit?.errors ?? (state.kind === "invalid" ? [state.message] : []);
+  const status = state.kind === "loading"
+    ? t("partitionedSurvival.loading")
+    : audit?.required === false
+      ? t("partitionedSurvival.notRequired")
+      : complete
+        ? t("partitionedSurvival.complete")
+        : t("partitionedSurvival.incomplete");
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {complete ? (
+          <ShieldCheck size={16} className="mt-0.5 text-ok" />
+        ) : (
+          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("partitionedSurvival.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+            {status}
+          </div>
+        </div>
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted">{HEOR_PARTITIONED_SURVIVAL_PLAN_PATH}</div>
+      {audit && audit.required && (
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <Metric label={t("partitionedSurvival.strategies")} value={String(audit.strategyCount)} />
+          <Metric label={t("partitionedSurvival.curves")} value={String(audit.curveCount)} />
+          <Metric label={t("partitionedSurvival.points")} value={String(audit.timePointCount)} />
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      {(!complete || audit?.required === false) && state.kind !== "loading" && (
+        <button
+          onClick={onRequestRepair}
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+        >
+          <MessageSquareText size={13} /> {t("partitionedSurvival.askAgent")}
+        </button>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("partitionedSurvival.note")}</p>
+      {audit?.required && (
+        <p className="mt-1 text-[10px] leading-4 text-warning">{t("partitionedSurvival.releaseBoundary")}</p>
+      )}
+    </section>
+  );
+}
+
 function ModelValidationAssessment({
   state,
   onRequestPreparation,
@@ -3074,6 +3224,67 @@ function BudgetImpactResultCard({
           {calculation.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}
         </ul>
       </details>
+    </section>
+  );
+}
+
+function PartitionedSurvivalResultCard({
+  result,
+  locale,
+}: {
+  result: HeorPartitionedSurvivalRunResult;
+  locale: string;
+}) {
+  const { t } = useTranslation("heor");
+  const calculation = result.calculation;
+  const currency = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: calculation.economic_basis.currency,
+    maximumFractionDigits: 0,
+  });
+  const qaly = new Intl.NumberFormat(locale, { maximumFractionDigits: 3 });
+  const authorized = result.workflow.classification !== "exploratory";
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        <ShieldCheck size={16} className={authorized ? "text-ok" : "text-accent"} />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-text">{t("partitionedSurvivalResult.title")}</div>
+          <div className={cn(
+            "mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]",
+            authorized ? "text-ok" : "text-accent",
+          )}>
+            {authorized ? t("result.authorized") : t("result.exploratory")}
+          </div>
+        </div>
+        <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[9px] font-semibold uppercase text-muted">
+          {t("result.endpointBadge", { origin: calculation.time_origin })}
+        </span>
+      </div>
+      <div className="mt-4 overflow-hidden rounded-input border border-border">
+        <table className="w-full text-[10px]">
+          <thead className="bg-bg text-muted">
+            <tr>
+              <th className="px-2 py-2 text-left font-medium">{t("partitionedSurvivalResult.strategy")}</th>
+              <th className="px-2 py-2 text-right font-medium">{t("result.cost")}</th>
+              <th className="px-2 py-2 text-right font-medium">{t("result.qaly")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {calculation.strategy_order.map((strategyId) => {
+              const strategy = calculation.strategies[strategyId];
+              return (
+                <tr key={strategyId} className="border-t border-border">
+                  <td className="px-2 py-2 text-text">{strategy.name}</td>
+                  <td className="px-2 py-2 text-right tabular-nums text-text">{currency.format(strategy.total_cost)}</td>
+                  <td className="px-2 py-2 text-right tabular-nums text-text">{qaly.format(strategy.total_qaly)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("partitionedSurvivalResult.note")}</p>
     </section>
   );
 }

@@ -5,6 +5,7 @@ export const HEOR_CONCEPTUAL_MODEL_PATH = "heor/conceptual-model.json";
 export const HEOR_REFERENCE_CASE_ASSESSMENT_PATH = "heor/reference-case-assessment.json";
 export const HEOR_UNCERTAINTY_PLAN_PATH = "heor/uncertainty-plan.json";
 export const HEOR_BUDGET_IMPACT_PLAN_PATH = "heor/budget-impact-plan.json";
+export const HEOR_PARTITIONED_SURVIVAL_PLAN_PATH = "heor/partitioned-survival-plan.json";
 export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH = "heor/survival-extrapolation-review.json";
 export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH = "heor/survival-extrapolation-reviews.json";
 export const HEOR_MODEL_VALIDATION_PATH = "heor/model-validation.json";
@@ -16,6 +17,7 @@ export const HEOR_EVIDENCE_LIBRARY_PATH = "heor/evidence-library.json";
 export const HEOR_BASE_CASE_RESULT_PATH = "heor/results/base-case.json";
 export const HEOR_UNCERTAINTY_RESULT_PATH = "heor/results/uncertainty.json";
 export const HEOR_BUDGET_IMPACT_RESULT_PATH = "heor/results/budget-impact.json";
+export const HEOR_PARTITIONED_SURVIVAL_RESULT_PATH = "heor/results/partitioned-survival.json";
 
 function transitionPath(path: string): boolean {
   return /^strategies\.[a-z][a-z0-9_-]{0,63}\.(transition_matrix|transition_schedule)$/.test(path);
@@ -382,6 +384,21 @@ export interface HeorBudgetImpactAudit {
   errors: string[];
 }
 
+export interface HeorPartitionedSurvivalAudit {
+  required: boolean;
+  complete: boolean;
+  status: "not_required" | "complete" | "incomplete";
+  psmId: string;
+  analysisId: string;
+  analysisPlanSha256: string;
+  partitionedSurvivalSha256: string;
+  strategyCount: number;
+  curveCount: number;
+  timePointCount: number;
+  artifactBindings: Array<{ path: string; sha256: string }>;
+  errors: string[];
+}
+
 export interface HeorSurvivalReviewAudit {
   complete: boolean;
   required: boolean;
@@ -663,6 +680,7 @@ export interface HeorAnalysisPlan {
   reference_case_assessment?: { path: string; content_sha256: string };
   uncertainty_analysis?: { path: string };
   budget_impact_analysis?: { path: string };
+  partitioned_survival_analysis?: { path: string };
   evidence_synthesis?: { path: string; content_sha256: string };
   states: string[];
   cycles: number;
@@ -696,7 +714,7 @@ export interface HeorStrategyResult {
   total_qaly: number;
   net_monetary_benefit: number | null;
   occupancy: number[][];
-  transition_mode: "static" | "piecewise_by_model_cycle";
+  transition_mode: "static" | "piecewise_by_model_cycle" | "partitioned_survival";
   transition_schedule_start_cycles: number[];
 }
 
@@ -765,6 +783,8 @@ export interface HeorWorkflowStatus {
     uncertaintyAudit: HeorUncertaintyAudit;
     budgetImpactPlanMatchesApproval: boolean;
     budgetImpactAudit: HeorBudgetImpactAudit;
+    partitionedSurvivalMatchesApproval: boolean;
+    partitionedSurvivalAudit: HeorPartitionedSurvivalAudit;
     survivalReviewMatchesApproval: boolean;
     survivalReviewAudit: HeorSurvivalReviewAudit;
     independentValidationMatchesApproval: boolean;
@@ -914,6 +934,33 @@ export interface HeorBudgetImpactCalculation {
 
 export interface HeorBudgetImpactRunResult {
   calculation: HeorBudgetImpactCalculation;
+  workflow: HeorWorkflowStatus;
+}
+
+export interface HeorPartitionedSurvivalCalculation {
+  schema_version: "0.1.0";
+  engine_version: string;
+  analysis_id: string;
+  psm_id: string;
+  analysis_plan_sha256: string;
+  partitioned_survival_plan_sha256: string;
+  calculation_classification: "calculation_only";
+  model_type: "partitioned_survival";
+  state_order: ["progression_free", "progressed", "dead"];
+  time_origin: string;
+  economic_basis: { currency: string; price_year: number };
+  strategy_order: string[];
+  baseline_strategy_id: string;
+  strategies: Record<string, HeorStrategyResult>;
+  pairwise_vs_baseline: Record<string, HeorIncrementalResult>;
+  fully_incremental_analysis: NonNullable<HeorCalculation["fully_incremental_analysis"]>;
+  optimal_at_primary_threshold: HeorCalculation["optimal_at_primary_threshold"];
+  limitations: string[];
+  warnings: string[];
+}
+
+export interface HeorPartitionedSurvivalRunResult {
+  calculation: HeorPartitionedSurvivalCalculation;
   workflow: HeorWorkflowStatus;
 }
 
@@ -2419,6 +2466,12 @@ export async function auditHeorBudgetImpact(): Promise<HeorBudgetImpactAudit> {
   return invoke<HeorBudgetImpactAudit>("audit_heor_budget_impact");
 }
 
+export async function auditHeorPartitionedSurvival(): Promise<HeorPartitionedSurvivalAudit> {
+  if (!isTauri) return HEOR_BROWSER_DEMO_PARTITIONED_SURVIVAL_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorPartitionedSurvivalAudit>("audit_heor_partitioned_survival");
+}
+
 export async function auditHeorSurvivalExtrapolation(): Promise<HeorSurvivalReviewAudit> {
   if (!isTauri) return HEOR_BROWSER_DEMO_SURVIVAL_REVIEW_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
@@ -2540,6 +2593,14 @@ export async function runHeorBudgetImpact(
   if (!isTauri) throw new Error("not running in the desktop app");
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<HeorBudgetImpactRunResult>("run_heor_budget_impact", { projectId });
+}
+
+export async function runHeorPartitionedSurvival(
+  projectId: string,
+): Promise<HeorPartitionedSurvivalRunResult> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorPartitionedSurvivalRunResult>("run_heor_partitioned_survival", { projectId });
 }
 
 /** Browser-only fixture for interaction and visual regression. Values are a
@@ -2791,6 +2852,21 @@ export const HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT: HeorBudgetImpactAudit = {
   errors: ["heor/budget-impact-plan.json is required"],
 };
 
+export const HEOR_BROWSER_DEMO_PARTITIONED_SURVIVAL_AUDIT: HeorPartitionedSurvivalAudit = {
+  required: false,
+  complete: true,
+  status: "not_required",
+  psmId: "",
+  analysisId: HEOR_BROWSER_DEMO_PLAN.analysis_id,
+  analysisPlanSha256: "",
+  partitionedSurvivalSha256: "",
+  strategyCount: 0,
+  curveCount: 0,
+  timePointCount: 0,
+  artifactBindings: [],
+  errors: [],
+};
+
 export const HEOR_BROWSER_DEMO_SURVIVAL_REVIEW_AUDIT: HeorSurvivalReviewAudit = {
   complete: true,
   required: false,
@@ -2862,6 +2938,7 @@ export function browserDemoRun(
   const referenceCaseAudit = HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT;
   const uncertaintyAudit = HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT;
   const budgetImpactAudit = HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT;
+  const partitionedSurvivalAudit = HEOR_BROWSER_DEMO_PARTITIONED_SURVIVAL_AUDIT;
   const survivalReviewAudit = HEOR_BROWSER_DEMO_SURVIVAL_REVIEW_AUDIT;
   const validationAudit = HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT;
   const reportingAudit = HEOR_BROWSER_DEMO_REPORTING_AUDIT;
@@ -2926,6 +3003,8 @@ export function browserDemoRun(
       uncertaintyAudit,
       budgetImpactPlanMatchesApproval: false,
       budgetImpactAudit,
+      partitionedSurvivalMatchesApproval: !partitionedSurvivalAudit.required,
+      partitionedSurvivalAudit,
       survivalReviewMatchesApproval: !survivalReviewAudit.required,
       survivalReviewAudit,
       independentValidationMatchesApproval: false,

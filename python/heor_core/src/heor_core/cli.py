@@ -10,6 +10,7 @@ from typing import Sequence
 
 from .budget_impact import run_budget_impact
 from .model import MarkovSpecification, ModelValidationError, run_markov
+from .partitioned_survival import run_partitioned_survival
 from .uncertainty import run_uncertainty
 
 
@@ -27,6 +28,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Optional path to a hash-bound budget impact plan",
     )
+    mode.add_argument(
+        "--partitioned-survival-plan",
+        type=Path,
+        help="Optional path to a hash-bound partitioned survival plan",
+    )
     return parser
 
 
@@ -35,7 +41,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         raw = args.input.read_bytes()
         payload = json.loads(raw)
-        if args.uncertainty_plan is None and args.budget_impact_plan is None:
+        if (
+            args.uncertainty_plan is None
+            and args.budget_impact_plan is None
+            and args.partitioned_survival_plan is None
+        ):
             specification = MarkovSpecification.from_dict(payload)
             result = run_markov(specification).to_dict()
             result["input_sha256"] = hashlib.sha256(raw).hexdigest()
@@ -45,10 +55,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = run_uncertainty(
                 payload, raw, uncertainty_payload, uncertainty_raw
             )
-        else:
+        elif args.budget_impact_plan is not None:
             budget_raw = args.budget_impact_plan.read_bytes()
             budget_payload = json.loads(budget_raw)
             result = run_budget_impact(payload, raw, budget_payload, budget_raw)
+        else:
+            partitioned_raw = args.partitioned_survival_plan.read_bytes()
+            partitioned_payload = json.loads(partitioned_raw)
+            result = run_partitioned_survival(
+                payload, raw, partitioned_payload, partitioned_raw
+            )
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     except (OSError, ArithmeticError, json.JSONDecodeError, ModelValidationError) as error:
         raise SystemExit(f"heor-core: {error}") from error

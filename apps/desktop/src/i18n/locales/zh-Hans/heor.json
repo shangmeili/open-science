@@ -281,6 +281,22 @@
     "noProject": "没有可用于预算影响分析审计的当前项目。",
     "missingPlan": "必须先有分析计划，才能审计预算影响分析。"
   },
+  "partitionedSurvival": {
+    "title": "三状态分区生存分析",
+    "loading": "正在审计 PFS 与 OS 计划…",
+    "notRequired": "当前分析尚未关联",
+    "complete": "分区生存审计完整",
+    "incomplete": "分区生存审计不完整",
+    "strategies": "策略",
+    "curves": "PFS / OS 曲线",
+    "points": "曲线点",
+    "askAgent": "让 Agent 创建或修复分区生存分析",
+    "repairPrompt": "使用 $heor-partitioned-survival，基于当前 heor/analysis-plan.json 和已选 PFS/OS 曲线审查文件的精确字节创建或修复 heor/partitioned-survival-plan.json。不要把分区生存伪装为马尔可夫转移。确认正向三状态概念依据、目标人群、终点定义、时间起点和周期网格一致。按无进展=PFS、进展=OS-PFS、死亡=1-OS 计算。曲线回升、PFS 高于 OS、负占用或溯源缺失时必须失败，不得静默修补。运行确定性验证器，且不得创建或声称人工审批。",
+    "note": "自然语言依据是主交互，精确曲线行只是辅助结构化输入；可供审查不等于已获人工批准。",
+    "releaseBoundary": "当前支持本地计算和分析计划审批；在报告与独立验证契约绑定本计划及结果前，发布仍会被阻断。",
+    "noProject": "当前没有可供分区生存审计的项目。",
+    "missingPlan": "必须先有分析计划，才能审计分区生存。"
+  },
   "validation": {
     "title": "独立模型验证",
     "loading": "正在审计验证包……",
@@ -322,7 +338,8 @@
     "run": "运行确定性分析",
     "running": "计算中……",
     "runUncertainty": "运行 DSA、PSA 与结构情景",
-    "runBudgetImpact": "运行三年预算影响分析"
+    "runBudgetImpact": "运行三年预算影响分析",
+    "runPartitionedSurvival": "运行分区生存分析"
   },
   "dialog": {
     "approveTitle": "批准{{gate}}？",
@@ -350,6 +367,7 @@
     "economicBasis": "计算口径：{{year}} 年 {{currency}}",
     "economicBasisMissing": "旧版探索性结果：未声明币种和价格年份。",
     "strategy": "策略",
+    "endpointBadge": "PFS / OS · {{origin}}",
     "cost": "总成本",
     "qaly": "总 QALY",
     "nmb": "净货币收益",
@@ -400,6 +418,11 @@
     "scenarios": "替代情景",
     "limitations": "范围与局限"
   },
+  "partitionedSurvivalResult": {
+    "title": "分区生存结果",
+    "strategy": "策略",
+    "note": "状态占用直接来自已绑定的 PFS 与 OS 数值；终点独立外推仍是必须显式披露的结构性局限。"
+  },
   "toast": {
     "evidenceVerified": "证据审阅决定已写入应用持有的核验链",
     "approvalRecorded": "已记录人工批准",
@@ -407,6 +430,7 @@
     "runComplete": "确定性分析已完成",
     "uncertaintyRunComplete": "不确定性分析已完成",
     "budgetImpactRunComplete": "预算影响分析已完成",
+    "partitionedSurvivalRunComplete": "分区生存分析已完成",
     "searchComplete": "人工授权的证据检索已完成",
     "candidatesImported": "已导入授权候选记录，未改变研究判断",
     "librarySynced": "本地证据库已同步并绑定精确文件哈希",

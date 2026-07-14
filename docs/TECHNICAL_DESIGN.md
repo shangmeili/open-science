@@ -796,3 +796,27 @@ One line:
 **Use Tauri for a high-performance modern desktop shell, a bundled+isolated OpenCode as
 the Claude Code alternative layer, scientific skills and MCP as the research capability
 layer, and provenance/reviewer as the real moat of an open-source Claude Science alternative.**
+
+## Partitioned-survival alpha contract (2026-07-15)
+
+`heor/partitioned-survival-plan.json` schema `0.1.0` is an optional, hash-bound
+analysis linked from the base plan. It requires the exact state order
+`progression_free`, `progressed`, `dead`; a forward-only conceptual basis;
+aligned time-zero and cycle-endpoint PFS/OS values with value-level basis IDs;
+and exact PFS/OS review-file hashes, logical strategy/endpoint targets, and
+Human-selected converged families. The native boundary reuses the full
+survival-review audit and requires the bound review context to name the matching
+PFS or OS endpoint. The dependency-free engine computes
+occupancy directly as `(PFS, OS-PFS, 1-OS)` and applies the base plan's state
+costs, utilities, half-cycle rule, discount rates, strategy ordering, and
+threshold. It never constructs a transition matrix. Native Rust independently
+reads every bound review byte and binds the PSM assets into analysis-plan
+approval. The current release gate rejects linked PSM analyses until the model-
+validation and report-package schemas are extended to bind the PSM plan and
+result; this prevents an unsupported decision-ready claim. The alpha still
+validates the shared cohort-analysis schema, whose transition inputs are ignored
+by the PSM calculation but remain structurally required. Replacing that coupling
+with a dedicated decision-problem and economic-input contract is a release task.
+The alpha's review and basis bindings do not independently reproduce every
+cycle-boundary value from fitted parameters; a typed curve-materialization
+artifact and evaluator are also required before validation/report integration.

@@ -220,7 +220,7 @@ fn empty_audit(required: bool, status: &'static str, analysis_id: String) -> Sur
     }
 }
 
-fn audit_value(
+pub(crate) fn audit_survival_review_value(
     workspace: &Path,
     plan: &serde_json::Value,
     review: &serde_json::Value,
@@ -984,7 +984,7 @@ fn audit_collection(
                 continue;
             }
         };
-        let target_audit = audit_value(
+        let target_audit = audit_survival_review_value(
             workspace,
             plan,
             &review,
@@ -1078,7 +1078,7 @@ pub fn audit_survival_review_for_plan(workspace: &Path, plan_raw: &[u8]) -> Surv
             return audit;
         }
     };
-    let mut audit = audit_value(
+    let mut audit = audit_survival_review_value(
         workspace,
         &plan,
         &review,
