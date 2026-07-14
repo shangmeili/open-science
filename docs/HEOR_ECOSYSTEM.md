@@ -115,6 +115,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-transition-rate-adapter` | Constant competing event rates with exact evidence binding and recomputation | Schema `0.5.0` transition derivation |
 | Shipped | `heor-survival-curve-adapter` | Already-selected two-state exponential or Weibull curve evaluation | Schema `0.6.0` transition schedule derivation |
 | Shipped | `heor-probability-time-adapter` | Single-event probability time conversion under an explicit constant-hazard assumption | Schema `0.7.0` transition derivation |
+| Shipped | `heor-background-mortality` | Age-aligned annual life-table mortality plus one constant additive excess rate, with explicit exchangeability and double-counting bases | Schema `0.9.0` transition schedule derivation |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, per-person EVPI, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
@@ -168,6 +169,22 @@ preserving legacy result shapes. The BIA asset remains deliberately pairwise: a
 multi-strategy analysis must select two declared IDs for the displaced-comparator
 and new-intervention shares rather than pretending the two-share calculator is a
 multi-treatment market model.
+
+Schema `0.9.0` industrializes a narrow background-mortality fragment without
+copying an upstream prompt or package. The exact first-party contract binds life-
+table jurisdiction, year, population, sex, start age, every cycle's attained age
+and annual probability, one constant additive excess rate, and the separate
+`population_exchangeability` and `no_double_counting` review bases. Python,
+Rust, TypeScript, portable provenance, and a standalone Skill validator recompute
+`1-exp(-(-ln(1-q_annual)+h_excess)*cycle_length_years)` for any finite positive
+cycle length. Paired uncertainty `0.8.0` varies only the exact positive excess
+rate and fixes the life table and transformation structure. ISPOR-SMDM warns that
+additive and multiplicative disease/background mortality can materially differ;
+the unimplemented multiplicative/SMR alternative remains a Human-in-the-loop
+structural limitation. Already all-cause endpoints, mixed cause-specific and
+subdistribution quantities, calendar improvement, age/sex mixtures, time-varying
+excess hazards, competing non-death events, and partitioned survival remain
+outside admission.
 
 The BIA slice also rejects method creep:
 it stops rather than pretending a two-strategy cost calculator can represent
@@ -237,7 +254,7 @@ seeded and adversarial regression tests. This admits uncertainty propagation
 through an already-selected curve, not curve fitting or validation.
 
 Fitting, automatic model selection, flexible/cure/mixture models, KM/IPD
-reconstruction, partitioned survival, treatment effects, background mortality,
+reconstruction, partitioned survival, treatment effects, broader background mortality,
 competing risks, validation of long-term plausibility, and covariance recovery
 from incomplete fit output
 remain future admission candidates. Mature upstream survival packages can serve

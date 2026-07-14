@@ -40,6 +40,7 @@
       "../../../runtime/harness": "harness/",
       "../../../python/heor_core/src/heor_core/__init__.py": "heor-core/src/heor_core/__init__.py",
       "../../../python/heor_core/src/heor_core/__main__.py": "heor-core/src/heor_core/__main__.py",
+      "../../../python/heor_core/src/heor_core/background_mortality.py": "heor-core/src/heor_core/background_mortality.py",
       "../../../python/heor_core/src/heor_core/cli.py": "heor-core/src/heor_core/cli.py",
       "../../../python/heor_core/src/heor_core/model.py": "heor-core/src/heor_core/model.py",
       "../../../python/heor_core/src/heor_core/probability_time.py": "heor-core/src/heor_core/probability_time.py",

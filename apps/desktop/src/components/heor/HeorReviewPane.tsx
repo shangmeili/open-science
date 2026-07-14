@@ -931,6 +931,7 @@ export function HeorReviewPane({
               onRequestRateDerivation={() => onRequestRevision(t("transition.ratePrompt"))}
               onRequestSurvivalDerivation={() => onRequestRevision(t("transition.survivalPrompt"))}
               onRequestProbabilityTime={() => onRequestRevision(t("transition.probabilityTimePrompt"))}
+              onRequestBackgroundMortality={() => onRequestRevision(t("transition.backgroundMortalityPrompt"))}
             />
 
             <EvidenceTraceability
@@ -1857,26 +1858,29 @@ function CohortTransitionSummary({
   onRequestRateDerivation,
   onRequestSurvivalDerivation,
   onRequestProbabilityTime,
+  onRequestBackgroundMortality,
 }: {
   plan: HeorAnalysisPlan;
   onRequestAudit: () => void;
   onRequestRateDerivation: () => void;
   onRequestSurvivalDerivation: () => void;
   onRequestProbabilityTime: () => void;
+  onRequestBackgroundMortality: () => void;
 }) {
   const { t } = useTranslation("heor");
-  const summary = (role: "comparator" | "intervention") => {
-    const schedule = plan.strategies[role].transition_schedule;
+  const strategyIds = plan.schema_version === "0.8.0" || plan.schema_version === "0.9.0"
+    ? (plan.strategy_order ?? []) : ["comparator", "intervention"];
+  const summary = (strategyId: string) => {
+    const schedule = plan.strategies[strategyId]?.transition_schedule;
     return schedule
       ? t("transition.scheduled", {
           cycles: schedule.map((phase) => phase.start_cycle).join(", "),
         })
       : t("transition.static");
   };
-  const hasSchedule = Boolean(
-    plan.strategies.comparator.transition_schedule
-      || plan.strategies.intervention.transition_schedule,
-  );
+  const hasSchedule = strategyIds.some((strategyId) => (
+    Boolean(plan.strategies[strategyId]?.transition_schedule)
+  ));
   return (
     <section className="border-b border-border px-5 py-4">
       <div className="flex items-center gap-2">
@@ -1887,8 +1891,13 @@ function CohortTransitionSummary({
         <span className="font-mono text-[10px] text-muted">{plan.schema_version}</span>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-center">
-        <Metric label={t("transition.comparator")} value={summary("comparator")} />
-        <Metric label={t("transition.intervention")} value={summary("intervention")} />
+        {strategyIds.map((strategyId) => (
+          <Metric
+            key={strategyId}
+            label={plan.strategies[strategyId]?.name ?? strategyId}
+            value={summary(strategyId)}
+          />
+        ))}
       </div>
       <button
         onClick={onRequestAudit}
@@ -1913,6 +1922,12 @@ function CohortTransitionSummary({
         className="mt-2 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
       >
         <MessageSquareText size={13} /> {t("transition.askProbabilityTime")}
+      </button>
+      <button
+        onClick={onRequestBackgroundMortality}
+        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+      >
+        <MessageSquareText size={13} /> {t("transition.askBackgroundMortality")}
       </button>
       <p className="mt-3 text-[10px] leading-4 text-muted">
         {hasSchedule ? t("transition.scheduleNote") : t("transition.staticNote")}

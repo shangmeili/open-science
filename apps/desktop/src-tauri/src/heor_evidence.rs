@@ -68,11 +68,11 @@ fn safe_strategy_id(value: &str) -> bool {
 }
 
 fn strategy_ids(plan: &serde_json::Value) -> Vec<&str> {
-    if plan
-        .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        == Some("0.8.0")
-    {
+    if matches!(
+        plan.get("schema_version")
+            .and_then(serde_json::Value::as_str),
+        Some("0.8.0" | "0.9.0")
+    ) {
         return plan
             .get("strategy_order")
             .and_then(serde_json::Value::as_array)
@@ -171,6 +171,306 @@ fn transition_path(path: &str) -> bool {
 
 fn exact_fields(object: &serde_json::Map<String, serde_json::Value>, fields: &[&str]) -> bool {
     object.len() == fields.len() && fields.iter().all(|field| object.contains_key(*field))
+}
+
+fn collect_exact_basis(
+    object: &serde_json::Map<String, serde_json::Value>,
+    label: &str,
+    value_field: Option<&str>,
+    used_extractions: &mut HashSet<String>,
+    used_assumptions: &mut HashSet<String>,
+) -> Result<(), String> {
+    let source_id = object
+        .get("source_extraction_id")
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.trim().is_empty());
+    let assumption_id = object
+        .get("assumption_id")
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.trim().is_empty());
+    if source_id.is_some() == assumption_id.is_some() {
+        return Err(format!(
+            "{label} must declare exactly one source_extraction_id or assumption_id"
+        ));
+    }
+    let expected_len = usize::from(value_field.is_some())
+        + 1
+        + usize::from(source_id.is_some() && object.contains_key("source_pointer"));
+    let allowed = [
+        value_field.unwrap_or(""),
+        "source_extraction_id",
+        "source_pointer",
+        "assumption_id",
+    ];
+    if object.len() != expected_len
+        || object
+            .keys()
+            .any(|field| !allowed.contains(&field.as_str()))
+    {
+        return Err(format!(
+            "{label} fields are not the exact supported contract"
+        ));
+    }
+    if let Some(source_id) = source_id {
+        let pointer = match object.get("source_pointer") {
+            Some(value) => value
+                .as_str()
+                .ok_or_else(|| format!("{label}.source_pointer must be a string"))?,
+            None => "",
+        };
+        if !pointer.is_empty() && !pointer.starts_with('/') {
+            return Err(format!(
+                "{label}.source_pointer must be empty or a JSON pointer"
+            ));
+        }
+        used_extractions.insert(source_id.to_string());
+    } else if let Some(assumption_id) = assumption_id {
+        if object.contains_key("source_pointer") {
+            return Err(format!(
+                "{label}.source_pointer requires source_extraction_id"
+            ));
+        }
+        used_assumptions.insert(assumption_id.to_string());
+    }
+    Ok(())
+}
+
+fn derive_background_mortality_schedule(
+    plan: &serde_json::Value,
+    path: &str,
+    transformation: &serde_json::Value,
+) -> Result<(serde_json::Value, HashSet<String>, HashSet<String>), String> {
+    if !path.ends_with(".transition_schedule") {
+        return Err(
+            "background mortality transformation is allowed only for a transition schedule".into(),
+        );
+    }
+    let transformation = transformation
+        .as_object()
+        .ok_or("derivation.transformation must be an object")?;
+    if !exact_fields(
+        transformation,
+        &[
+            "operation",
+            "cycle_length_years",
+            "from_state_index",
+            "death_state_index",
+            "life_table",
+            "excess_mortality_rate_per_year",
+            "review_bases",
+        ],
+    ) {
+        return Err(
+            "background mortality transformation fields are not the exact supported contract"
+                .into(),
+        );
+    }
+    if transformation
+        .get("operation")
+        .and_then(serde_json::Value::as_str)
+        != Some("background_plus_excess_mortality_to_transition_schedule")
+    {
+        return Err("transformation.operation must be background_plus_excess_mortality_to_transition_schedule".into());
+    }
+    let state_count = plan
+        .get("states")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::len)
+        .unwrap_or_default();
+    if state_count != 2 {
+        return Err("background mortality transformation requires exactly two states".into());
+    }
+    let cycles = plan
+        .get("cycles")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .filter(|value| (1..=10_000).contains(value))
+        .ok_or("background mortality transformation supports 1-10000 cycles")?;
+    let declared_cycle = transformation
+        .get("cycle_length_years")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("transformation.cycle_length_years must be finite and positive")?;
+    let plan_cycle = plan
+        .get("cycle_length_years")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("analysis cycle_length_years is invalid")?;
+    if (declared_cycle - plan_cycle).abs() > 1e-12 {
+        return Err(
+            "transformation.cycle_length_years must equal the analysis cycle length".into(),
+        );
+    }
+    let from_index = transformation
+        .get("from_state_index")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok());
+    let death_index = transformation
+        .get("death_state_index")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok());
+    if !matches!(
+        (from_index, death_index),
+        (Some(0), Some(1)) | (Some(1), Some(0))
+    ) {
+        return Err(
+            "from_state_index and death_state_index must be the two distinct state indices".into(),
+        );
+    }
+    let from_index = from_index.unwrap();
+    let death_index = death_index.unwrap();
+    let life_table = transformation
+        .get("life_table")
+        .and_then(serde_json::Value::as_object)
+        .ok_or("transformation.life_table must be an object")?;
+    if !exact_fields(
+        life_table,
+        &[
+            "jurisdiction",
+            "table_year",
+            "population",
+            "sex",
+            "start_age_years",
+            "cycle_probabilities",
+        ],
+    ) {
+        return Err("transformation.life_table fields are not the exact supported contract".into());
+    }
+    for field in ["jurisdiction", "population", "sex"] {
+        if !nonempty(life_table.get(field)) {
+            return Err(format!("transformation.life_table.{field} is required"));
+        }
+    }
+    if !life_table
+        .get("table_year")
+        .and_then(serde_json::Value::as_u64)
+        .is_some_and(|value| (1900..=2100).contains(&value))
+    {
+        return Err("transformation.life_table.table_year must be 1900-2100".into());
+    }
+    let start_age = life_table
+        .get("start_age_years")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value >= 0.0)
+        .ok_or("transformation.life_table.start_age_years must be finite and non-negative")?;
+    let cycle_probabilities = life_table
+        .get("cycle_probabilities")
+        .and_then(serde_json::Value::as_array)
+        .filter(|values| values.len() == cycles)
+        .ok_or("transformation.life_table.cycle_probabilities must cover every model cycle")?;
+    let excess = transformation
+        .get("excess_mortality_rate_per_year")
+        .and_then(serde_json::Value::as_object)
+        .ok_or("transformation.excess_mortality_rate_per_year must be an object")?;
+    let excess_value = excess
+        .get("value")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value >= 0.0)
+        .ok_or("transformation.excess_mortality_rate_per_year.value must be non-negative")?;
+    let mut used_extractions = HashSet::new();
+    let mut used_assumptions = HashSet::new();
+    collect_exact_basis(
+        excess,
+        "transformation.excess_mortality_rate_per_year",
+        Some("value"),
+        &mut used_extractions,
+        &mut used_assumptions,
+    )?;
+    let review_bases = transformation
+        .get("review_bases")
+        .and_then(serde_json::Value::as_object)
+        .ok_or("transformation.review_bases must be an object")?;
+    if !exact_fields(
+        review_bases,
+        &["population_exchangeability", "no_double_counting"],
+    ) {
+        return Err(
+            "transformation.review_bases fields are not the exact supported contract".into(),
+        );
+    }
+    for name in ["population_exchangeability", "no_double_counting"] {
+        let basis = review_bases
+            .get(name)
+            .and_then(serde_json::Value::as_object)
+            .ok_or_else(|| format!("transformation.review_bases.{name} must be an object"))?;
+        collect_exact_basis(
+            basis,
+            &format!("transformation.review_bases.{name}"),
+            None,
+            &mut used_extractions,
+            &mut used_assumptions,
+        )?;
+    }
+    let mut schedule = Vec::with_capacity(cycles);
+    for (index, raw_cycle) in cycle_probabilities.iter().enumerate() {
+        let label = format!("transformation.life_table.cycle_probabilities[{index}]");
+        let raw_cycle = raw_cycle
+            .as_object()
+            .ok_or_else(|| format!("{label} must be an object"))?;
+        if !exact_fields(
+            raw_cycle,
+            &["cycle", "attained_age_years", "annual_probability"],
+        ) {
+            return Err(format!(
+                "{label} fields are not the exact supported contract"
+            ));
+        }
+        let cycle = index + 1;
+        if raw_cycle
+            .get("cycle")
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| usize::try_from(value).ok())
+            != Some(cycle)
+        {
+            return Err(format!("{label}.cycle must equal {cycle}"));
+        }
+        let expected_age = (start_age + index as f64 * declared_cycle).floor();
+        let attained_age = raw_cycle
+            .get("attained_age_years")
+            .and_then(serde_json::Value::as_f64)
+            .filter(|value| value.is_finite())
+            .ok_or_else(|| format!("{label}.attained_age_years must be finite"))?;
+        if (attained_age - expected_age).abs() > 1e-9 {
+            return Err(format!(
+                "{label}.attained_age_years must equal floor(start_age_years + (cycle - 1) * cycle_length_years)"
+            ));
+        }
+        let annual = raw_cycle
+            .get("annual_probability")
+            .and_then(serde_json::Value::as_object)
+            .ok_or_else(|| format!("{label}.annual_probability must be an object"))?;
+        let q = annual
+            .get("value")
+            .and_then(serde_json::Value::as_f64)
+            .filter(|value| value.is_finite() && *value >= 0.0 && *value < 1.0)
+            .ok_or_else(|| format!("{label}.annual_probability.value must be in [0,1)"))?;
+        collect_exact_basis(
+            annual,
+            &format!("{label}.annual_probability"),
+            Some("value"),
+            &mut used_extractions,
+            &mut used_assumptions,
+        )?;
+        let background_hazard = -(-q).ln_1p();
+        let integrated_hazard = (background_hazard + excess_value) * declared_cycle;
+        if !integrated_hazard.is_finite() || integrated_hazard < 0.0 {
+            return Err(format!("{label} produced a non-finite integrated hazard"));
+        }
+        let death_probability = -(-integrated_hazard).exp_m1();
+        if !death_probability.is_finite() || !(0.0..1.0).contains(&death_probability) {
+            return Err(format!("{label} produced an invalid death probability"));
+        }
+        let mut matrix = vec![vec![0.0; 2]; 2];
+        matrix[from_index][from_index] = 1.0 - death_probability;
+        matrix[from_index][death_index] = death_probability;
+        matrix[death_index][death_index] = 1.0;
+        schedule.push(serde_json::json!({"start_cycle": cycle, "matrix": matrix}));
+    }
+    Ok((
+        serde_json::Value::Array(schedule),
+        used_extractions,
+        used_assumptions,
+    ))
 }
 
 fn derive_competing_rates(
@@ -786,10 +1086,10 @@ fn transition_rate_declaration_reasons(
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.5.0" | "0.8.0")
+        Some("0.5.0" | "0.8.0" | "0.9.0")
     ) {
         return vec![
-            "deterministic transition-rate transformations require schema_version 0.5.0 or 0.8.0"
+            "deterministic transition-rate transformations require schema_version 0.5.0, 0.8.0, or 0.9.0"
                 .into(),
         ];
     }
@@ -837,10 +1137,11 @@ fn survival_curve_declaration_reasons(
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.6.0" | "0.8.0")
+        Some("0.6.0" | "0.8.0" | "0.9.0")
     ) {
         return vec![
-            "parametric survival transformations require schema_version 0.6.0 or 0.8.0".into(),
+            "parametric survival transformations require schema_version 0.6.0, 0.8.0, or 0.9.0"
+                .into(),
         ];
     }
     let Some(transformation) = derivation.get("transformation") else {
@@ -885,10 +1186,10 @@ fn probability_time_declaration_reasons(
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.7.0" | "0.8.0")
+        Some("0.7.0" | "0.8.0" | "0.9.0")
     ) {
         return vec![
-            "probability-time transformations require schema_version 0.7.0 or 0.8.0".into(),
+            "probability-time transformations require schema_version 0.7.0, 0.8.0, or 0.9.0".into(),
         ];
     }
     if !transition_path(path) {
@@ -907,6 +1208,56 @@ fn probability_time_declaration_reasons(
     let mut reasons = Vec::new();
     if !model_value(plan, path).is_some_and(|target| json_equivalent(&output, target)) {
         reasons.push("source probabilities do not reproduce the current transition input".into());
+    }
+    let selected_extractions = string_list(mapping.get("extraction_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    let selected_assumptions = string_list(mapping.get("assumption_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    if used_extractions != selected_extractions {
+        reasons.push("transformation must use every selected extraction".into());
+    }
+    if used_assumptions != selected_assumptions {
+        reasons.push("transformation must use every proposed assumption".into());
+    }
+    reasons
+}
+
+fn background_mortality_declaration_reasons(
+    plan: &serde_json::Value,
+    path: &str,
+    mapping: &serde_json::Value,
+    derivation: &serde_json::Map<String, serde_json::Value>,
+) -> Vec<String> {
+    if plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        != Some("0.9.0")
+    {
+        return vec!["background mortality transformations require schema_version 0.9.0".into()];
+    }
+    let Some(transformation) = derivation.get("transformation") else {
+        return vec!["derivation.transformation must be an object".into()];
+    };
+    let (output, used_extractions, used_assumptions) =
+        match derive_background_mortality_schedule(plan, path, transformation) {
+            Ok(value) => value,
+            Err(error) => return vec![error],
+        };
+    let mut reasons = Vec::new();
+    if mapping.get("jurisdiction") != transformation.pointer("/life_table/jurisdiction") {
+        reasons.push("life-table jurisdiction must match the input-provenance jurisdiction".into());
+    }
+    if !model_value(plan, path).is_some_and(|target| json_equivalent(&output, target)) {
+        reasons.push(
+            "background plus excess mortality does not reproduce the current transition schedule"
+                .into(),
+        );
     }
     let selected_extractions = string_list(mapping.get("extraction_ids"))
         .unwrap_or_default()
@@ -970,6 +1321,9 @@ fn derivation_declaration_reasons(
             ),
             Some("single_event_probability_time_conversion") => reasons.extend(
                 probability_time_declaration_reasons(plan, path, mapping, derivation),
+            ),
+            Some("background_plus_excess_mortality_to_transition_schedule") => reasons.extend(
+                background_mortality_declaration_reasons(plan, path, mapping, derivation),
             ),
             _ => reasons.push("deterministic transformation operation is unsupported".into()),
         }
@@ -1263,16 +1617,16 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0")
+        Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0")
     ) {
         invalid_mappings
-            .push("schema_version must be 0.3.0 through 0.8.0 for approval review".into());
+            .push("schema_version must be 0.3.0 through 0.9.0 for approval review".into());
     }
     let declared_strategy_ids = strategy_ids(plan);
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        == Some("0.8.0")
+        .is_some_and(|version| matches!(version, "0.8.0" | "0.9.0"))
     {
         let raw_strategy_count = plan
             .get("strategy_order")
@@ -1300,7 +1654,7 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
             || actual != unique
         {
             invalid_mappings.push(
-                "schema 0.8.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first".into(),
+                "schema 0.8.0 or 0.9.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first".into(),
             );
         }
     }
@@ -1321,11 +1675,11 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
             && !matches!(
                 plan.get("schema_version")
                     .and_then(serde_json::Value::as_str),
-                Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0")
+                Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0")
             )
         {
             invalid_mappings.push(format!(
-                "strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.8.0"
+                "strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.9.0"
             ));
         }
     }
@@ -1722,6 +2076,120 @@ fn probability_time_extraction_reasons(
     reasons
 }
 
+fn validate_background_extraction_basis(
+    basis: &serde_json::Value,
+    expected_value: Option<&serde_json::Value>,
+    label: &str,
+    selected: &HashSet<String>,
+    used: &mut HashSet<String>,
+    extraction_index: &HashMap<String, crate::heor_synthesis::ExtractionLink>,
+    reasons: &mut Vec<String>,
+) {
+    let Some(extraction_id) = basis
+        .get("source_extraction_id")
+        .and_then(serde_json::Value::as_str)
+    else {
+        return;
+    };
+    if !selected.contains(extraction_id) {
+        reasons.push(format!(
+            "{label}.source_extraction_id must reference a selected extraction"
+        ));
+        return;
+    }
+    used.insert(extraction_id.to_string());
+    let Some(extraction) = extraction_index.get(extraction_id) else {
+        return;
+    };
+    let Ok(extracted) = serde_json::from_str::<serde_json::Value>(&extraction.extracted_value)
+    else {
+        reasons.push(format!(
+            "{label} source extraction must contain strict JSON"
+        ));
+        return;
+    };
+    let pointer = basis
+        .get("source_pointer")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    let extracted_source = if pointer.is_empty() {
+        Some(&extracted)
+    } else {
+        extracted.pointer(pointer)
+    };
+    let Some(extracted_source) = extracted_source else {
+        reasons.push(format!("{label}.source_pointer does not resolve"));
+        return;
+    };
+    if expected_value.is_some_and(|value| !json_equivalent(value, extracted_source)) {
+        reasons.push(format!("{label}.value does not match the bound extraction"));
+    }
+}
+
+fn background_mortality_extraction_reasons(
+    mapping: &serde_json::Value,
+    extraction_index: &HashMap<String, crate::heor_synthesis::ExtractionLink>,
+) -> Vec<String> {
+    let selected = string_list(mapping.get("extraction_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    let transformation = mapping
+        .pointer("/derivation/transformation")
+        .unwrap_or(&serde_json::Value::Null);
+    let mut used = HashSet::new();
+    let mut reasons = Vec::new();
+    if let Some(excess) = transformation.get("excess_mortality_rate_per_year") {
+        validate_background_extraction_basis(
+            excess,
+            excess.get("value"),
+            "transformation.excess_mortality_rate_per_year",
+            &selected,
+            &mut used,
+            extraction_index,
+            &mut reasons,
+        );
+    }
+    if let Some(cycles) = transformation
+        .pointer("/life_table/cycle_probabilities")
+        .and_then(serde_json::Value::as_array)
+    {
+        for (index, cycle) in cycles.iter().enumerate() {
+            if let Some(annual) = cycle.get("annual_probability") {
+                validate_background_extraction_basis(
+                    annual,
+                    annual.get("value"),
+                    &format!(
+                        "transformation.life_table.cycle_probabilities[{index}].annual_probability"
+                    ),
+                    &selected,
+                    &mut used,
+                    extraction_index,
+                    &mut reasons,
+                );
+            }
+        }
+    }
+    for name in ["population_exchangeability", "no_double_counting"] {
+        if let Some(basis) = transformation.pointer(&format!("/review_bases/{name}")) {
+            validate_background_extraction_basis(
+                basis,
+                None,
+                &format!("transformation.review_bases.{name}"),
+                &selected,
+                &mut used,
+                extraction_index,
+                &mut reasons,
+            );
+        }
+    }
+    if used != selected {
+        reasons.push("transformation must use every selected extraction".into());
+    }
+    reasons
+}
+
 fn extraction_derivation_reasons(
     plan: &serde_json::Value,
     mapping: &serde_json::Value,
@@ -1753,6 +2221,9 @@ fn extraction_derivation_reasons(
             }
             Some("single_event_probability_time_conversion") => {
                 probability_time_extraction_reasons(mapping, extraction_index)
+            }
+            Some("background_plus_excess_mortality_to_transition_schedule") => {
+                background_mortality_extraction_reasons(mapping, extraction_index)
             }
             _ => vec!["deterministic transformation operation is unsupported".into()],
         };
@@ -2319,6 +2790,187 @@ mod tests {
     }
 
     #[test]
+    fn background_mortality_is_recomputed_and_rejects_stale_or_unsafe_inputs() {
+        let transformation = serde_json::json!({
+            "operation": "background_plus_excess_mortality_to_transition_schedule",
+            "cycle_length_years": 1.0,
+            "from_state_index": 0,
+            "death_state_index": 1,
+            "life_table": {
+                "jurisdiction": "China",
+                "table_year": 2024,
+                "population": "general population",
+                "sex": "all",
+                "start_age_years": 60.0,
+                "cycle_probabilities": [
+                    {"cycle": 1, "attained_age_years": 60.0, "annual_probability": {"value": 0.1, "assumption_id": "q-60"}},
+                    {"cycle": 2, "attained_age_years": 61.0, "annual_probability": {"value": 0.2, "assumption_id": "q-61"}}
+                ]
+            },
+            "excess_mortality_rate_per_year": {"value": 0.05, "assumption_id": "excess"},
+            "review_bases": {
+                "population_exchangeability": {"assumption_id": "exchangeability"},
+                "no_double_counting": {"assumption_id": "no-double-counting"}
+            }
+        });
+        let mut plan = serde_json::json!({
+            "schema_version": "0.9.0",
+            "states": ["alive", "dead"],
+            "cycles": 2,
+            "cycle_length_years": 1.0,
+            "strategies": {
+                "comparator": {"transition_schedule": []},
+                "intervention": {"transition_matrix": [[0.9, 0.1], [0.0, 1.0]]}
+            }
+        });
+        let (schedule, _, _) = derive_background_mortality_schedule(
+            &plan,
+            "strategies.comparator.transition_schedule",
+            &transformation,
+        )
+        .unwrap();
+        plan["strategies"]["comparator"]["transition_schedule"] = schedule.clone();
+        let mapping = serde_json::json!({
+            "path": "strategies.comparator.transition_schedule",
+            "jurisdiction": "China",
+            "extraction_ids": [],
+            "assumption_ids": ["q-60", "q-61", "excess", "exchangeability", "no-double-counting"],
+            "derivation": {
+                "method": "deterministic_transformation",
+                "model_value": schedule,
+                "transformation": transformation
+            }
+        });
+        let derivation = mapping["derivation"].as_object().unwrap();
+        assert!(background_mortality_declaration_reasons(
+            &plan,
+            "strategies.comparator.transition_schedule",
+            &mapping,
+            derivation,
+        )
+        .is_empty());
+
+        let mut half_year_plan = plan.clone();
+        half_year_plan["cycle_length_years"] = serde_json::json!(0.5);
+        let mut zero_excess = mapping["derivation"]["transformation"].clone();
+        zero_excess["cycle_length_years"] = serde_json::json!(0.5);
+        zero_excess["excess_mortality_rate_per_year"]["value"] = serde_json::json!(0.0);
+        zero_excess["life_table"]["cycle_probabilities"][0]["annual_probability"]["value"] =
+            serde_json::json!(0.0);
+        zero_excess["life_table"]["cycle_probabilities"][1]["annual_probability"]["value"] =
+            serde_json::json!(0.0);
+        zero_excess["life_table"]["cycle_probabilities"][1]["attained_age_years"] =
+            serde_json::json!(60);
+        let (zero_schedule, _, _) = derive_background_mortality_schedule(
+            &half_year_plan,
+            "strategies.comparator.transition_schedule",
+            &zero_excess,
+        )
+        .unwrap();
+        assert_eq!(
+            zero_schedule,
+            serde_json::json!([
+                {"start_cycle": 1, "matrix": [[1.0, 0.0], [0.0, 1.0]]},
+                {"start_cycle": 2, "matrix": [[1.0, 0.0], [0.0, 1.0]]}
+            ])
+        );
+
+        let mut stale = mapping.clone();
+        stale["derivation"]["transformation"]["life_table"]["cycle_probabilities"][0]
+            ["annual_probability"]["value"] = serde_json::json!(0.11);
+        assert!(background_mortality_declaration_reasons(
+            &plan,
+            "strategies.comparator.transition_schedule",
+            &stale,
+            stale["derivation"].as_object().unwrap(),
+        )
+        .iter()
+        .any(|error| error.contains("does not reproduce")));
+
+        let mut wrong_age = mapping.clone();
+        wrong_age["derivation"]["transformation"]["life_table"]["cycle_probabilities"][1]
+            ["attained_age_years"] = serde_json::json!(62.0);
+        assert!(background_mortality_declaration_reasons(
+            &plan,
+            "strategies.comparator.transition_schedule",
+            &wrong_age,
+            wrong_age["derivation"].as_object().unwrap(),
+        )
+        .iter()
+        .any(|error| error.contains("must equal floor")));
+
+        let mut old_plan = plan.clone();
+        old_plan["schema_version"] = serde_json::json!("0.8.0");
+        assert!(background_mortality_declaration_reasons(
+            &old_plan,
+            "strategies.comparator.transition_schedule",
+            &mapping,
+            derivation,
+        )
+        .iter()
+        .any(|error| error.contains("require schema_version 0.9.0")));
+
+        let mut overflow_plan = plan.clone();
+        overflow_plan["cycle_length_years"] = serde_json::json!(2.0);
+        let mut overflow = mapping["derivation"]["transformation"].clone();
+        overflow["cycle_length_years"] = serde_json::json!(2.0);
+        overflow["life_table"]["cycle_probabilities"][1]["attained_age_years"] =
+            serde_json::json!(62.0);
+        overflow["excess_mortality_rate_per_year"]["value"] = serde_json::json!(f64::MAX);
+        assert!(derive_background_mortality_schedule(
+            &overflow_plan,
+            "strategies.comparator.transition_schedule",
+            &overflow,
+        )
+        .unwrap_err()
+        .contains("non-finite integrated hazard"));
+    }
+
+    #[test]
+    fn background_mortality_extractions_bind_numbers_but_do_not_self_authorize_review() {
+        let mapping = serde_json::json!({
+            "extraction_ids": ["mortality-inputs"],
+            "derivation": {"transformation": {
+                "life_table": {"cycle_probabilities": [
+                    {"annual_probability": {"value": 0.1, "source_extraction_id": "mortality-inputs", "source_pointer": "/q"}}
+                ]},
+                "excess_mortality_rate_per_year": {"value": 0.05, "source_extraction_id": "mortality-inputs", "source_pointer": "/excess"},
+                "review_bases": {
+                    "population_exchangeability": {"source_extraction_id": "mortality-inputs", "source_pointer": "/exchangeability_note"},
+                    "no_double_counting": {"source_extraction_id": "mortality-inputs", "source_pointer": "/double_counting_note"}
+                }
+            }}
+        });
+        let mut index = HashMap::new();
+        index.insert(
+            "mortality-inputs".to_string(),
+            crate::heor_synthesis::ExtractionLink {
+                record_id: "life-table-record".into(),
+                target: "strategies.comparator.transition_schedule".into(),
+                extracted_value: serde_json::json!({
+                    "q": 0.1,
+                    "excess": 0.05,
+                    "exchangeability_note": "requires human review",
+                    "double_counting_note": false
+                })
+                .to_string(),
+            },
+        );
+        assert!(background_mortality_extraction_reasons(&mapping, &index).is_empty());
+
+        index.get_mut("mortality-inputs").unwrap().extracted_value = serde_json::json!({
+            "q": 0.2,
+            "excess": 0.05,
+            "exchangeability_note": "requires human review",
+            "double_counting_note": false
+        })
+        .to_string();
+        assert!(background_mortality_extraction_reasons(&mapping, &index)
+            .join("; ")
+            .contains("does not match the bound extraction"));
+    }
+
+    #[test]
     fn missing_mapping_and_unresolved_assumption_fail_closed() {
         let mut plan = complete_plan();
         plan["input_provenance"].as_array_mut().unwrap().pop();
@@ -2407,7 +3059,7 @@ mod tests {
 
         assert!(!audit.complete);
         let errors = audit.invalid_mappings.join("; ");
-        assert!(errors.contains("schema_version must be 0.3.0 through 0.8.0"));
+        assert!(errors.contains("schema_version must be 0.3.0 through 0.9.0"));
         assert!(errors.contains("does not match the current model input"));
     }
 

@@ -13,6 +13,10 @@ from math import isclose, isfinite
 import re
 from typing import Any
 
+from .background_mortality import (
+    BackgroundMortalityError,
+    validate_background_mortality_mappings,
+)
 from .probability_time import (
     ProbabilityTimeError,
     validate_probability_time_mappings,
@@ -21,7 +25,12 @@ from .survival_curves import SurvivalCurveError, validate_survival_curve_mapping
 from .transition_rates import TransitionRateError, validate_transition_rate_mappings
 
 
-SCHEMA_VERSION = "0.8.0"
+SCHEMA_VERSION = "0.9.0"
+PRIOR_MULTI_STRATEGY_SCHEMA_VERSION = "0.8.0"
+MULTI_STRATEGY_SCHEMA_VERSIONS = {
+    PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
+    SCHEMA_VERSION,
+}
 PROBABILITY_TIME_SCHEMA_VERSION = "0.7.0"
 SURVIVAL_SCHEMA_VERSION = "0.6.0"
 TRANSITION_RATE_SCHEMA_VERSION = "0.5.0"
@@ -37,9 +46,11 @@ SUPPORTED_SCHEMA_VERSIONS = (
     TRANSITION_RATE_SCHEMA_VERSION,
     SURVIVAL_SCHEMA_VERSION,
     PROBABILITY_TIME_SCHEMA_VERSION,
+    PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
     SCHEMA_VERSION,
 )
-ENGINE_VERSION = "0.8.0"
+ENGINE_VERSION = "0.9.0"
+PRIOR_MULTI_STRATEGY_ENGINE_VERSION = "0.8.0"
 TOLERANCE = 1e-9
 MAX_STRATEGIES = 16
 STRATEGY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
@@ -162,6 +173,7 @@ class MarkovSpecification:
             TRANSITION_RATE_SCHEMA_VERSION,
             SURVIVAL_SCHEMA_VERSION,
             PROBABILITY_TIME_SCHEMA_VERSION,
+            PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
             SCHEMA_VERSION,
         }:
             economic_basis = _mapping(economic_basis, "economic_basis")
@@ -174,7 +186,7 @@ class MarkovSpecification:
             price_year = None
         discount_rates = _mapping(value.get("discount_rates", {}), "discount_rates")
         strategies = _mapping(value.get("strategies", {}), "strategies")
-        if schema_version == SCHEMA_VERSION:
+        if schema_version in MULTI_STRATEGY_SCHEMA_VERSIONS:
             raw_order = value.get("strategy_order")
             if not isinstance(raw_order, (list, tuple)):
                 raise ModelValidationError("strategy_order must be an array")
@@ -256,7 +268,19 @@ class MarkovSpecification:
                 cycles=specification.cycles,
                 cycle_length_years=specification.cycle_length_years,
             )
-        except (TransitionRateError, SurvivalCurveError, ProbabilityTimeError) as error:
+            validate_background_mortality_mappings(
+                value,
+                schema_version=schema_version,
+                state_count=len(specification.states),
+                cycles=specification.cycles,
+                cycle_length_years=specification.cycle_length_years,
+            )
+        except (
+            TransitionRateError,
+            SurvivalCurveError,
+            ProbabilityTimeError,
+            BackgroundMortalityError,
+        ) as error:
             raise ModelValidationError(str(error)) from error
         return specification
 
@@ -302,7 +326,7 @@ class MarkovSpecification:
         if self.willingness_to_pay is not None and self.willingness_to_pay < 0:
             raise ModelValidationError("willingness_to_pay must not be negative")
         strategy_ids = tuple(strategy_id for strategy_id, _ in self.strategies)
-        if self.schema_version == SCHEMA_VERSION:
+        if self.schema_version in MULTI_STRATEGY_SCHEMA_VERSIONS:
             if not 2 <= len(self.strategy_order) <= MAX_STRATEGIES:
                 raise ModelValidationError(
                     f"strategy_order must contain from 2 to {MAX_STRATEGIES} strategy ids"
@@ -431,7 +455,7 @@ class AnalysisResult:
                 for strategy_id, result in self.strategy_results
             },
         }
-        if self.schema_version != SCHEMA_VERSION:
+        if self.schema_version not in MULTI_STRATEGY_SCHEMA_VERSIONS:
             common["incremental"] = self.incremental.to_dict()
             return common
         common.update(
@@ -509,7 +533,11 @@ def run_markov(specification: MarkovSpecification) -> AnalysisResult:
     return AnalysisResult(
         analysis_id=specification.analysis_id,
         engine_version=(
-            ENGINE_VERSION if specification.schema_version == SCHEMA_VERSION else "0.7.0"
+            ENGINE_VERSION
+            if specification.schema_version == SCHEMA_VERSION
+            else PRIOR_MULTI_STRATEGY_ENGINE_VERSION
+            if specification.schema_version == PRIOR_MULTI_STRATEGY_SCHEMA_VERSION
+            else "0.7.0"
         ),
         schema_version=specification.schema_version,
         reference_case_id=specification.reference_case_id,
@@ -909,11 +937,12 @@ def _validate_strategy(
         TRANSITION_RATE_SCHEMA_VERSION,
         SURVIVAL_SCHEMA_VERSION,
         PROBABILITY_TIME_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
         SCHEMA_VERSION,
     } and strategy.transition_schedule is not None:
         raise ModelValidationError(
             f"{role}.transition_schedule requires schema_version "
-            f"{TRANSITION_SCHEDULE_SCHEMA_VERSION}, {TRANSITION_RATE_SCHEMA_VERSION}, {SURVIVAL_SCHEMA_VERSION}, or {PROBABILITY_TIME_SCHEMA_VERSION}; schema_version {SCHEMA_VERSION} is also supported"
+            f"{TRANSITION_SCHEDULE_SCHEMA_VERSION}, {TRANSITION_RATE_SCHEMA_VERSION}, {SURVIVAL_SCHEMA_VERSION}, or {PROBABILITY_TIME_SCHEMA_VERSION}; schema_versions {PRIOR_MULTI_STRATEGY_SCHEMA_VERSION} and {SCHEMA_VERSION} are also supported"
         )
     if strategy.transition_matrix is None and strategy.transition_schedule is None:
         raise ModelValidationError(

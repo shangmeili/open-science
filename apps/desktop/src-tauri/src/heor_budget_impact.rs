@@ -339,11 +339,11 @@ fn audit_values(
             .push("BIA annual eligible population must contain three non-negative values".into());
     }
 
-    let multi_strategy_ids = if plan
-        .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        == Some("0.8.0")
-    {
+    let multi_strategy_ids = if matches!(
+        plan.get("schema_version")
+            .and_then(serde_json::Value::as_str),
+        Some("0.8.0" | "0.9.0")
+    ) {
         string_set(plan.get("strategy_order")).filter(|ids| {
             ids.len() >= 2 && ids.iter().all(|strategy_id| safe_strategy_id(strategy_id))
         })
@@ -373,11 +373,11 @@ fn audit_values(
                     && plan_strategies
                         .is_some_and(|strategies| strategies.contains_key(strategy_id))
             })
-        } else if plan
-            .get("schema_version")
-            .and_then(serde_json::Value::as_str)
-            == Some("0.8.0")
-        {
+        } else if matches!(
+            plan.get("schema_version")
+                .and_then(serde_json::Value::as_str),
+            Some("0.8.0" | "0.9.0")
+        ) {
             false
         } else {
             budget.pointer(&format!("/strategies/{role}/id"))
@@ -1081,7 +1081,7 @@ mod tests {
     fn multi_strategy_plan_can_bind_an_explicit_budget_pair() {
         let root = temp_workspace("multi-pair");
         let (mut plan, _, mut budget, _) = fixture();
-        plan["schema_version"] = serde_json::json!("0.8.0");
+        plan["schema_version"] = serde_json::json!("0.9.0");
         plan["baseline_strategy_id"] = serde_json::json!("standard_care");
         plan["strategy_order"] =
             serde_json::json!(["standard_care", "new_treatment", "alternative"]);

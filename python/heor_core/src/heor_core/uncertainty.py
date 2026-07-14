@@ -15,8 +15,16 @@ from dataclasses import dataclass
 from math import cos, exp, fsum, isclose, isfinite, log, pi, sqrt
 from typing import Any
 
+from .background_mortality import (
+    ANALYSIS_SCHEMA_VERSION as BACKGROUND_MORTALITY_ANALYSIS_SCHEMA_VERSION,
+    TRANSFORMATION_METHOD as BACKGROUND_MORTALITY_TRANSFORMATION_METHOD,
+    TRANSFORMATION_OPERATION as BACKGROUND_MORTALITY_TRANSFORMATION_OPERATION,
+    BackgroundMortalityError,
+    apply_background_mortality_mappings,
+)
 from .model import (
     SCHEMA_VERSION as MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
+    PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
     MarkovSpecification,
     ModelValidationError,
     run_markov,
@@ -43,14 +51,16 @@ from .transition_rates import (
 )
 
 
-UNCERTAINTY_SCHEMA_VERSION = "0.7.0"
+UNCERTAINTY_SCHEMA_VERSION = "0.8.0"
+PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION = "0.7.0"
 PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION = "0.6.0"
 SURVIVAL_UNCERTAINTY_SCHEMA_VERSION = "0.5.0"
 CORRELATION_UNCERTAINTY_SCHEMA_VERSION = "0.4.0"
 RATE_UNCERTAINTY_SCHEMA_VERSION = "0.3.0"
 PRIOR_UNCERTAINTY_SCHEMA_VERSION = "0.2.0"
 LEGACY_UNCERTAINTY_SCHEMA_VERSION = "0.1.0"
-UNCERTAINTY_ENGINE_VERSION = "0.8.0"
+UNCERTAINTY_ENGINE_VERSION = "0.9.0"
+PRIOR_MULTI_STRATEGY_UNCERTAINTY_ENGINE_VERSION = "0.8.0"
 PRNG_ALGORITHM = "pcg32-xsh-rr"
 PRNG_VERSION = "1"
 MAX_ITERATIONS = 10_000
@@ -148,6 +158,7 @@ class Parameter:
     rate_mapping_index: int | None
     survival_mapping_index: int | None
     probability_mapping_index: int | None
+    background_mortality_mapping_index: int | None
 
 
 @dataclass(frozen=True)
@@ -168,6 +179,37 @@ class Scenario:
     label: str
     rationale: str
     replacements: tuple[tuple[str, Any], ...]
+
+
+def _validate_schema_pairing(analysis_schema: Any, uncertainty_schema: str) -> None:
+    if (
+        analysis_schema == MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION
+        and uncertainty_schema != UNCERTAINTY_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
+            "analysis schema_version 0.9.0 requires uncertainty schema_version 0.8.0"
+        )
+    if (
+        analysis_schema == PRIOR_MULTI_STRATEGY_SCHEMA_VERSION
+        and uncertainty_schema != PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
+            "analysis schema_version 0.8.0 requires uncertainty schema_version 0.7.0"
+        )
+    if (
+        uncertainty_schema == UNCERTAINTY_SCHEMA_VERSION
+        and analysis_schema != MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
+            "uncertainty schema_version 0.8.0 requires analysis schema_version 0.9.0"
+        )
+    if (
+        uncertainty_schema == PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION
+        and analysis_schema != PRIOR_MULTI_STRATEGY_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
+            "uncertainty schema_version 0.7.0 requires analysis schema_version 0.8.0"
+        )
 
 
 @dataclass(frozen=True)
@@ -210,11 +252,13 @@ class UncertaintySpecification:
             CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
             SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
             PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
+            PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
             UNCERTAINTY_SCHEMA_VERSION,
         }:
             raise ModelValidationError(
-                "uncertainty schema_version must be 0.1.0 through 0.7.0"
+                "uncertainty schema_version must be 0.1.0 through 0.8.0"
             )
+        _validate_schema_pairing(base_payload.get("schema_version"), schema_version)
         base = _mapping(value.get("base_analysis", {}), "base_analysis")
         psa = _mapping(value.get("probabilistic_analysis", {}), "probabilistic_analysis")
         convergence = _mapping(psa.get("convergence", {}), "probabilistic_analysis.convergence")
@@ -228,6 +272,7 @@ class UncertaintySpecification:
             CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
             SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
             PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
+            PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
             UNCERTAINTY_SCHEMA_VERSION,
         }:
             threshold_config = _mapping(
@@ -249,7 +294,7 @@ class UncertaintySpecification:
         else:
             if "decision_thresholds" in psa:
                 raise ModelValidationError(
-                    "decision thresholds require uncertainty schema_version 0.2.0 through 0.7.0"
+                    "decision thresholds require uncertainty schema_version 0.2.0 through 0.8.0"
                 )
             decision_thresholds = (primary_threshold,)
             threshold_rationale = (
@@ -266,7 +311,7 @@ class UncertaintySpecification:
             schema_version,
         )
         scenarios = tuple(
-            _scenario(item, index, base_payload)
+            _scenario(item, index, base_payload, schema_version)
             for index, item in enumerate(
                 _array(value.get("structural_scenarios"), "structural_scenarios")
             )
@@ -326,13 +371,9 @@ class UncertaintySpecification:
         return specification
 
     def validate(self, base_payload: dict[str, Any], base_sha256: str) -> None:
-        multi_strategy_base = (
-            base_payload.get("schema_version") == MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION
+        _validate_schema_pairing(
+            base_payload.get("schema_version"), self.schema_version
         )
-        if multi_strategy_base != (self.schema_version == UNCERTAINTY_SCHEMA_VERSION):
-            raise ModelValidationError(
-                "multi-strategy analysis schema_version 0.8.0 requires uncertainty schema_version 0.7.0, and uncertainty schema_version 0.7.0 requires analysis schema_version 0.8.0"
-            )
         if self.status != "ready_for_human_review":
             raise ModelValidationError("uncertainty plan must be ready_for_human_review")
         if self.analysis_id != base_payload.get("analysis_id"):
@@ -394,6 +435,7 @@ class UncertaintySpecification:
                 CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
                 SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
                 PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
+                PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
                 UNCERTAINTY_SCHEMA_VERSION,
             }
             else (1, 1)
@@ -428,7 +470,10 @@ def run_uncertainty(
         uncertainty_payload, base_payload, base_sha256
     )
     base_result = run_markov(MarkovSpecification.from_dict(base_payload))
-    multi_strategy = specification.schema_version == UNCERTAINTY_SCHEMA_VERSION
+    multi_strategy = specification.schema_version in {
+        PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
+        UNCERTAINTY_SCHEMA_VERSION,
+    }
     if multi_strategy:
         deterministic = [
             _run_multi_strategy_dsa(base_payload, item)
@@ -449,7 +494,12 @@ def run_uncertainty(
         "analysis_id": specification.analysis_id,
         "uncertainty_id": specification.uncertainty_id,
         "engine_version": (
-            UNCERTAINTY_ENGINE_VERSION if multi_strategy else "0.7.0"
+            UNCERTAINTY_ENGINE_VERSION
+            if specification.schema_version == UNCERTAINTY_SCHEMA_VERSION
+            else PRIOR_MULTI_STRATEGY_UNCERTAINTY_ENGINE_VERSION
+            if specification.schema_version
+            == PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION
+            else "0.7.0"
         ),
         "schema_version": specification.schema_version,
         "base_analysis_sha256": base_sha256,
@@ -468,6 +518,7 @@ def run_uncertainty(
             "Only parameter uncertainty represented by the declared distributions is sampled.",
             "Declared event-rate parameters are sampled in rate space and deterministically transformed into complete transition inputs for each run.",
             "Declared exponential or Weibull parameters are sampled on their positive parameter scale and the complete survival-derived transition schedule is recomputed for each run.",
+            "Schema 0.8.0 varies only a strictly positive excess mortality rate while holding declared life-table probabilities fixed and recomputing the complete background-plus-excess mortality schedule for each run.",
             "Cross-parameter dependence is limited to declared Dirichlet simplex rows and evidence-bound lognormal correlation groups; the remaining independence rationale is a human-review item.",
             "A convergence diagnostic describes Monte Carlo error for this run and is not independent model validation.",
             "Per-person EVPI covers only the uncertainty represented in this PSA; "
@@ -1065,11 +1116,12 @@ def _correlation_groups(
         CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
         SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
         PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
         UNCERTAINTY_SCHEMA_VERSION,
     }:
         if "groups" in correlation:
             raise ModelValidationError(
-                "correlation groups require uncertainty schema_version 0.4.0, 0.5.0, or 0.6.0"
+                "correlation groups require uncertainty schema_version 0.4.0 through 0.8.0"
             )
         return ()
     raw_groups = _array(
@@ -1240,12 +1292,20 @@ def _parameter(
     survival_target = _survival_mapping_parameter(target)
     survival_mapping_index = survival_target[0] if survival_target is not None else None
     probability_mapping_index = _probability_mapping_index(target)
+    background_mortality_mapping_index = _background_mortality_mapping_index(target)
+    if (
+        schema_version == UNCERTAINTY_SCHEMA_VERSION
+        and background_mortality_mapping_index is None
+    ):
+        raise ModelValidationError(
+            "uncertainty schema_version 0.8.0 permits only the exact excess_mortality_rate_per_year.value target"
+        )
     if rate_mapping_index is not None and schema_version not in {
         RATE_UNCERTAINTY_SCHEMA_VERSION,
         CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
         SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
         PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
-        UNCERTAINTY_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
     }:
         raise ModelValidationError(
             "event-rate uncertainty requires uncertainty schema_version 0.3.0 through 0.7.0"
@@ -1253,19 +1313,23 @@ def _parameter(
     if survival_mapping_index is not None and schema_version not in {
         SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
         PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
-        UNCERTAINTY_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
     }:
         raise ModelValidationError(
             "survival-parameter uncertainty requires uncertainty schema_version 0.5.0 through 0.7.0"
         )
     if probability_mapping_index is not None and schema_version not in {
         PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
-        UNCERTAINTY_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
     }:
         raise ModelValidationError(
             "probability-time uncertainty requires uncertainty schema_version 0.6.0 or 0.7.0"
         )
-    positive_parameter = rate_mapping_index is not None or survival_mapping_index is not None
+    positive_parameter = (
+        rate_mapping_index is not None
+        or survival_mapping_index is not None
+        or background_mortality_mapping_index is not None
+    )
     bounded_probability = probability_mapping_index is not None
     strategy_ids = _analysis_strategy_ids(base_payload)
     _validate_replacement(
@@ -1329,6 +1393,14 @@ def _parameter(
             provenance_path,
             basis_ids,
         )
+    elif background_mortality_mapping_index is not None:
+        _validate_background_mortality_parameter(
+            base_payload,
+            background_mortality_mapping_index,
+            target,
+            provenance_path,
+            basis_ids,
+        )
     elif _deterministic_mapping(base_payload, provenance_path):
         raise ModelValidationError(
             f"parameters[{index}] targets a derived transition input; vary an admitted event rate instead"
@@ -1358,6 +1430,7 @@ def _parameter(
         rate_mapping_index=rate_mapping_index,
         survival_mapping_index=survival_mapping_index,
         probability_mapping_index=probability_mapping_index,
+        background_mortality_mapping_index=background_mortality_mapping_index,
     )
 
 
@@ -1437,6 +1510,7 @@ def _apply_parameter_values(
     affected_rate_mappings: set[int] = set()
     affected_survival_mappings: set[int] = set()
     affected_probability_mappings: set[int] = set()
+    affected_background_mortality_mappings: set[int] = set()
     for parameter, value in values:
         _replace(payload, parameter.target, value)
         if parameter.rate_mapping_index is not None:
@@ -1445,6 +1519,10 @@ def _apply_parameter_values(
             affected_survival_mappings.add(parameter.survival_mapping_index)
         if parameter.probability_mapping_index is not None:
             affected_probability_mappings.add(parameter.probability_mapping_index)
+        if parameter.background_mortality_mapping_index is not None:
+            affected_background_mortality_mappings.add(
+                parameter.background_mortality_mapping_index
+            )
     for mapping_index in sorted(affected_rate_mappings):
         mapping = payload["input_provenance"][mapping_index]
         derivation = mapping["derivation"]
@@ -1475,6 +1553,15 @@ def _apply_parameter_values(
         except (KeyError, TypeError, ProbabilityTimeError) as error:
             raise ModelValidationError(
                 "probability-time uncertainty could not recompute the affected transition input"
+            ) from error
+    if affected_background_mortality_mappings:
+        try:
+            apply_background_mortality_mappings(
+                payload, affected_background_mortality_mappings
+            )
+        except (KeyError, TypeError, BackgroundMortalityError) as error:
+            raise ModelValidationError(
+                "excess-mortality uncertainty could not recompute the affected transition schedule"
             ) from error
     return payload
 
@@ -1528,6 +1615,81 @@ def _probability_mapping_index(target: str) -> int | None:
     return None
 
 
+def _background_mortality_mapping_index(target: str) -> int | None:
+    tokens = _pointer_tokens(target)
+    if (
+        len(tokens) == 6
+        and tokens[0] == "input_provenance"
+        and tokens[1].isdigit()
+        and tokens[2:5]
+        == ["derivation", "transformation", "excess_mortality_rate_per_year"]
+        and tokens[5] == "value"
+    ):
+        return int(tokens[1])
+    return None
+
+
+def _validate_background_mortality_parameter(
+    base_payload: dict[str, Any],
+    mapping_index: int,
+    target: str,
+    provenance_path: str,
+    basis_ids: tuple[str, ...],
+) -> None:
+    if base_payload.get("schema_version") != BACKGROUND_MORTALITY_ANALYSIS_SCHEMA_VERSION:
+        raise ModelValidationError(
+            "excess-mortality uncertainty requires analysis schema_version 0.9.0"
+        )
+    mappings = base_payload.get("input_provenance")
+    if not isinstance(mappings, list) or not 0 <= mapping_index < len(mappings):
+        raise ModelValidationError(f"uncertainty target {target!r} does not exist")
+    mapping = mappings[mapping_index]
+    if not isinstance(mapping, dict) or mapping.get("path") != provenance_path:
+        raise ModelValidationError(
+            "excess-mortality uncertainty provenance_path must equal its transformation mapping path"
+        )
+    derivation = mapping.get("derivation")
+    transformation = (
+        derivation.get("transformation") if isinstance(derivation, dict) else None
+    )
+    if (
+        not isinstance(derivation, dict)
+        or derivation.get("method") != BACKGROUND_MORTALITY_TRANSFORMATION_METHOD
+        or not isinstance(transformation, dict)
+        or transformation.get("operation")
+        != BACKGROUND_MORTALITY_TRANSFORMATION_OPERATION
+    ):
+        raise ModelValidationError(
+            "excess-mortality uncertainty requires an admitted background-plus-excess mortality transformation"
+        )
+    parameter = transformation.get("excess_mortality_rate_per_year")
+    if not isinstance(parameter, dict):
+        raise ModelValidationError(
+            "excess-mortality uncertainty target must identify the excess rate parameter"
+        )
+    value = parameter.get("value")
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not isfinite(float(value))
+        or float(value) <= 0.0
+    ):
+        raise ModelValidationError(
+            "uncertain excess_mortality_rate_per_year base value must be strictly positive"
+        )
+    source_id = parameter.get("source_extraction_id")
+    assumption_id = parameter.get("assumption_id")
+    expected_basis = (
+        source_id
+        if isinstance(source_id, str) and source_id.strip()
+        else assumption_id
+    )
+    if not isinstance(expected_basis, str) or tuple(basis_ids) != (expected_basis,):
+        raise ModelValidationError(
+            "excess-mortality uncertainty basis_ids must contain exactly the excess rate source extraction or assumption id"
+        )
+
+
 def _validate_probability_parameter(
     base_payload: dict[str, Any],
     mapping_index: int,
@@ -1537,6 +1699,7 @@ def _validate_probability_parameter(
 ) -> None:
     if base_payload.get("schema_version") not in {
         PROBABILITY_TIME_ANALYSIS_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
         MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
     }:
         raise ModelValidationError(
@@ -1591,6 +1754,7 @@ def _validate_survival_parameter(
 ) -> None:
     if base_payload.get("schema_version") not in {
         SURVIVAL_ANALYSIS_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
         MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
     }:
         raise ModelValidationError(
@@ -1644,6 +1808,7 @@ def _validate_rate_parameter(
 ) -> None:
     if base_payload.get("schema_version") not in {
         "0.5.0",
+        PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
         MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
     }:
         raise ModelValidationError(
@@ -1698,7 +1863,12 @@ def _deterministic_mapping(base_payload: dict[str, Any], provenance_path: str) -
     )
 
 
-def _scenario(value: Any, index: int, base_payload: dict[str, Any]) -> Scenario:
+def _scenario(
+    value: Any,
+    index: int,
+    base_payload: dict[str, Any],
+    schema_version: str,
+) -> Scenario:
     value = _mapping(value, f"structural_scenarios[{index}]")
     replacements: list[tuple[str, Any]] = []
     seen: set[str] = set()
@@ -1720,6 +1890,7 @@ def _scenario(value: Any, index: int, base_payload: dict[str, Any]) -> Scenario:
             base,
             structural=True,
             strategy_ids=_analysis_strategy_ids(base_payload),
+            background_mortality_schema=(schema_version == UNCERTAINTY_SCHEMA_VERSION),
         )
         replacements.append((target, new_value))
     if not replacements:
@@ -1742,6 +1913,7 @@ def _validate_replacement(
     structural: bool = False,
     rate_parameter: bool = False,
     probability_parameter: bool = False,
+    background_mortality_schema: bool = False,
 ) -> None:
     tokens = _pointer_tokens(target)
     scalar_target = (
@@ -1774,7 +1946,13 @@ def _validate_replacement(
         or rate_parameter
         or probability_parameter
     )
-    if structural:
+    if structural and background_mortality_schema:
+        allowed = scalar_target or target in {
+            "/discount_rates/costs",
+            "/discount_rates/outcomes",
+            "/half_cycle_correction",
+        }
+    elif structural:
         allowed = allowed or target in structural_targets or scheduled_start
     if not allowed:
         raise ModelValidationError(f"uncertainty target {target!r} is outside the allowlist")
@@ -1832,7 +2010,10 @@ def _scheduled_transition_start_target(
 
 
 def _analysis_strategy_ids(base_payload: dict[str, Any]) -> tuple[str, ...]:
-    if base_payload.get("schema_version") != MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION:
+    if base_payload.get("schema_version") not in {
+        PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
+        MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
+    }:
         return ("comparator", "intervention")
     raw_order = base_payload.get("strategy_order")
     strategies = base_payload.get("strategies")

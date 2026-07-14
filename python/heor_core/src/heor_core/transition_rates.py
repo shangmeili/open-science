@@ -17,6 +17,11 @@ TRANSFORMATION_METHOD = "deterministic_transformation"
 TRANSFORMATION_OPERATION = "constant_competing_rates"
 TOLERANCE = 1e-12
 MULTI_STRATEGY_SCHEMA_VERSION = "0.8.0"
+CURRENT_MULTI_STRATEGY_SCHEMA_VERSION = "0.9.0"
+MULTI_STRATEGY_SCHEMA_VERSIONS = {
+    MULTI_STRATEGY_SCHEMA_VERSION,
+    CURRENT_MULTI_STRATEGY_SCHEMA_VERSION,
+}
 STRATEGY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 
 
@@ -52,9 +57,9 @@ def validate_transition_rate_mappings(
         ):
             continue
         label = f"input_provenance[{position}]"
-        if schema_version not in {"0.5.0", MULTI_STRATEGY_SCHEMA_VERSION}:
+        if schema_version not in {"0.5.0", *MULTI_STRATEGY_SCHEMA_VERSIONS}:
             raise TransitionRateError(
-                f"{label}: deterministic transition-rate transformations require schema_version 0.5.0 or {MULTI_STRATEGY_SCHEMA_VERSION}"
+                f"{label}: deterministic transition-rate transformations require schema_version 0.5.0, {MULTI_STRATEGY_SCHEMA_VERSION}, or {CURRENT_MULTI_STRATEGY_SCHEMA_VERSION}"
             )
         path = mapping.get("path")
         if not isinstance(path, str) or not _transition_path(
@@ -260,7 +265,7 @@ def _transition_path(
 def _strategy_id_allowed(
     strategy_id: str, plan: dict[str, Any], schema_version: str
 ) -> bool:
-    if schema_version != MULTI_STRATEGY_SCHEMA_VERSION:
+    if schema_version not in MULTI_STRATEGY_SCHEMA_VERSIONS:
         return strategy_id in {"comparator", "intervention"}
     order = plan.get("strategy_order")
     strategies = plan.get("strategies")

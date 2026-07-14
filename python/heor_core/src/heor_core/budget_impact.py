@@ -205,7 +205,7 @@ def _validate(
 
     strategies = _mapping(value.get("strategies"), "strategies")
     plan_strategies = validated_analysis.strategy_map
-    multi_strategy_plan = validated_analysis.schema_version == "0.8.0"
+    multi_strategy_plan = validated_analysis.schema_version in {"0.8.0", "0.9.0"}
     strategy_ids: list[str] = []
     for role in ("comparator", "intervention"):
         strategy = _mapping(strategies.get(role), f"strategies.{role}")

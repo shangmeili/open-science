@@ -15,10 +15,11 @@ description: Prepare, audit, and revise a release-reviewable HEOR report package
 6. Complete the separate 12-item ISPOR BIA reporting matrix. CHEERS 2022 explicitly excludes budget-impact analysis; do not claim CHEERS coverage for BIA.
 7. Put a unique `<!-- report-section:SECTION_ID -->` marker in `heor/report.md` for every matrix entry and link each entry to the exact artifact paths supporting it.
 8. Copy numerical summaries only from the app-owned result JSON files. Copy the base-case `economic_basis` exactly before presenting monetary values. For analysis schema `0.8.0`, copy the ordered strategy totals without occupancy traces, the pairwise-vs-baseline results, complete fully incremental frontier, and primary-threshold optimum; do not collapse them into one pairwise ICER. When `decision_uncertainty` exists, copy the complete object exactly, including the threshold grid, all-strategy CEAC/CEAF probabilities, tie probabilities, per-person EVPI and Monte Carlo error, and explicit null population EVPI/EVPPI. For a legacy result without the multi-strategy objects, retain the legacy summary shape rather than inventing it. Keep cost-effectiveness, uncertainty, and budget-impact conclusions separate.
-9. Disclose funding, conflicts, Agent contributions, model providers, data/model availability, and patient/public involvement. Never infer a missing disclosure.
-10. Copy `release_owner_label` only from an explicit human instruction. Do not invent an owner, create an approval event, or call a package released.
-11. Run `python3 scripts/validate_report_package.py WORKSPACE/heor/report-package.json WORKSPACE`. Treat `valid` as structural reporting readiness, not methodological quality, policy endorsement, or release.
-12. Ask the named human release owner to inspect the report and use the desktop release control.
+9. For analysis `0.9.0`, report the life-table jurisdiction, year, population, sex, start age, attained-age rule, annual-probability-to-cycle formula, constant excess-rate basis, and exact `population_exchangeability` and `no_double_counting` bases. State that those bases are not approvals. Disclose that uncertainty `0.8.0` holds the life table fixed and varies only the excess rate, and that an untested multiplicative/SMR structure remains a Human-in-the-loop limitation.
+10. Disclose funding, conflicts, Agent contributions, model providers, data/model availability, and patient/public involvement. Never infer a missing disclosure.
+11. Copy `release_owner_label` only from an explicit human instruction. Do not invent an owner, create an approval event, or call a package released.
+12. Run `python3 scripts/validate_report_package.py WORKSPACE/heor/report-package.json WORKSPACE`. Treat `valid` as structural reporting readiness, not methodological quality, policy endorsement, or release.
+13. Ask the named human release owner to inspect the report and use the desktop release control.
 
 ## Boundaries
 

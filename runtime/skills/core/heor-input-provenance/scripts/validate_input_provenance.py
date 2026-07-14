@@ -7,7 +7,7 @@ import json
 import re
 import sys
 from hashlib import sha256
-from math import expm1, isclose, isfinite, log1p
+from math import expm1, floor, isclose, isfinite, log1p
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +17,9 @@ BASE_PATHS = [
     "half_cycle_correction",
 ]
 UNCERTAINTY = {"fixed", "range_available", "distribution_available"}
-APPROVABLE_ANALYSIS_SCHEMAS = {"0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0"}
+APPROVABLE_ANALYSIS_SCHEMAS = {
+    "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0"
+}
 STRATEGY_ID = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 
 
@@ -74,7 +76,7 @@ def required_paths(plan: dict[str, Any]) -> list[str]:
 
 
 def strategy_ids(plan: dict[str, Any]) -> list[str]:
-    if plan.get("schema_version") == "0.8.0":
+    if plan.get("schema_version") in {"0.8.0", "0.9.0"}:
         order = plan.get("strategy_order")
         return order if isinstance(order, list) and all(isinstance(item, str) for item in order) else []
     return ["comparator", "intervention"]
@@ -150,8 +152,8 @@ def transition_rate_reasons(
     extraction_index: dict[str, dict[str, Any]],
 ) -> list[str]:
     reasons: list[str] = []
-    if plan.get("schema_version") not in {"0.5.0", "0.8.0"}:
-        return ["deterministic transition-rate transformations require schema_version 0.5.0 or 0.8.0"]
+    if plan.get("schema_version") not in {"0.5.0", "0.8.0", "0.9.0"}:
+        return ["deterministic transition-rate transformations require schema_version 0.5.0, 0.8.0, or 0.9.0"]
     if not transition_path(path):
         return ["deterministic transformation is allowed only for transition inputs"]
     transformation = derivation.get("transformation")
@@ -318,8 +320,8 @@ def survival_curve_reasons(
     extraction_index: dict[str, dict[str, Any]],
 ) -> list[str]:
     reasons: list[str] = []
-    if plan.get("schema_version") not in {"0.6.0", "0.8.0"}:
-        return ["parametric survival transformations require schema_version 0.6.0 or 0.8.0"]
+    if plan.get("schema_version") not in {"0.6.0", "0.8.0", "0.9.0"}:
+        return ["parametric survival transformations require schema_version 0.6.0, 0.8.0, or 0.9.0"]
     if not transition_path(path) or not path.endswith(".transition_schedule"):
         return ["parametric survival transformation is allowed only for a transition schedule"]
     transformation = derivation.get("transformation")
@@ -455,8 +457,8 @@ def probability_time_reasons(
     extraction_index: dict[str, dict[str, Any]],
 ) -> list[str]:
     reasons: list[str] = []
-    if plan.get("schema_version") not in {"0.7.0", "0.8.0"}:
-        return ["probability-time transformations require schema_version 0.7.0 or 0.8.0"]
+    if plan.get("schema_version") not in {"0.7.0", "0.8.0", "0.9.0"}:
+        return ["probability-time transformations require schema_version 0.7.0, 0.8.0, or 0.9.0"]
     if not transition_path(path):
         return ["probability-time transformation is allowed only for transition inputs"]
     transformation = derivation.get("transformation")
@@ -595,6 +597,233 @@ def probability_time_reasons(
     return reasons
 
 
+def background_mortality_reasons(
+    plan: dict[str, Any],
+    path: str,
+    mapping: dict[str, Any],
+    derivation: dict[str, Any],
+    extraction_index: dict[str, dict[str, Any]],
+) -> list[str]:
+    reasons: list[str] = []
+    if plan.get("schema_version") != "0.9.0":
+        return ["background-plus-excess mortality requires schema_version 0.9.0"]
+    if not transition_path(path) or not path.endswith(".transition_schedule"):
+        return ["background mortality transformation is allowed only for a transition schedule"]
+    transformation = derivation.get("transformation")
+    if not isinstance(transformation, dict):
+        return ["derivation.transformation must be an object"]
+    expected_fields = {
+        "operation", "cycle_length_years", "from_state_index", "death_state_index",
+        "life_table", "excess_mortality_rate_per_year", "review_bases",
+    }
+    if set(transformation) != expected_fields:
+        reasons.append("background mortality fields are not the exact supported contract")
+    if transformation.get("operation") != "background_plus_excess_mortality_to_transition_schedule":
+        reasons.append("transformation.operation must be background_plus_excess_mortality_to_transition_schedule")
+    states = plan.get("states")
+    if not isinstance(states, list) or len(states) != 2:
+        reasons.append("background mortality transformation requires exactly two states")
+    cycles = plan.get("cycles")
+    if isinstance(cycles, bool) or not isinstance(cycles, int) or not 1 <= cycles <= 10_000:
+        reasons.append("background mortality transformation supports 1-10000 cycles")
+        cycles = 0
+    cycle_length = transformation.get("cycle_length_years")
+    valid_cycle_length = finite_number(cycle_length) and cycle_length > 0
+    if (
+        not finite_number(cycle_length)
+        or cycle_length <= 0
+        or not finite_number(plan.get("cycle_length_years"))
+        or not isclose(
+            float(cycle_length), float(plan["cycle_length_years"]),
+            rel_tol=0.0, abs_tol=1e-12,
+        )
+    ):
+        reasons.append("background mortality requires a positive cycle length equal to the analysis")
+    from_index = transformation.get("from_state_index")
+    death_index = transformation.get("death_state_index")
+    if (
+        isinstance(from_index, bool) or not isinstance(from_index, int)
+        or isinstance(death_index, bool) or not isinstance(death_index, int)
+        or {from_index, death_index} != {0, 1}
+    ):
+        reasons.append("from_state_index and death_state_index must be the two distinct state indices")
+
+    used_extractions: set[str] = set()
+    used_assumptions: set[str] = set()
+
+    def parameter_value(value: Any, label: str, *, integer: bool = False) -> float | int | None:
+        allowed = {"value", "source_extraction_id", "source_pointer", "assumption_id"}
+        if not isinstance(value, dict) or set(value) - allowed:
+            reasons.append(f"{label} contains unsupported fields")
+            return None
+        number = value.get("value")
+        if integer:
+            valid_number = isinstance(number, int) and not isinstance(number, bool) and number >= 0
+        else:
+            valid_number = finite_number(number)
+        if not valid_number:
+            reasons.append(f"{label}.value is invalid")
+            return None
+        source_id = value.get("source_extraction_id")
+        assumption_id = value.get("assumption_id")
+        has_source = text(source_id)
+        has_assumption = text(assumption_id)
+        if has_source == has_assumption:
+            reasons.append(f"{label} must declare exactly one extraction or assumption basis")
+        elif has_source:
+            used_extractions.add(source_id)
+            extraction = extraction_index.get(source_id)
+            if extraction is not None:
+                try:
+                    extracted = strict_json(extraction.get("extracted_value"))
+                    extracted = json_pointer(extracted, value.get("source_pointer", ""))
+                except (TypeError, ValueError, json.JSONDecodeError) as error:
+                    reasons.append(f"{label}: {error}")
+                else:
+                    if not json_equivalent(extracted, number):
+                        reasons.append(f"{label}.value does not match the bound extraction")
+        else:
+            used_assumptions.add(assumption_id)
+            if "source_pointer" in value:
+                reasons.append(f"{label}.source_pointer requires an extraction")
+        return number
+
+    life_table = transformation.get("life_table")
+    life_fields = {
+        "jurisdiction", "table_year", "population", "sex", "start_age_years",
+        "cycle_probabilities",
+    }
+    if not isinstance(life_table, dict) or set(life_table) != life_fields:
+        reasons.append("life_table fields are not the exact supported contract")
+        life_table = {}
+    for field in ("jurisdiction", "population", "sex"):
+        if not text(life_table.get(field)):
+            reasons.append(f"life_table.{field} is required")
+    if text(life_table.get("jurisdiction")) and mapping.get("jurisdiction") != life_table.get("jurisdiction"):
+        reasons.append("mapping jurisdiction must equal life_table.jurisdiction")
+    table_year = life_table.get("table_year")
+    if isinstance(table_year, bool) or not isinstance(table_year, int) or not 1900 <= table_year <= 2100:
+        reasons.append("life_table.table_year must be from 1900 to 2100")
+    start_age = life_table.get("start_age_years")
+    if not finite_number(start_age) or start_age < 0:
+        reasons.append("life_table.start_age_years must be finite and non-negative")
+        start_age = None
+    entries = life_table.get("cycle_probabilities")
+    if not isinstance(entries, list) or len(entries) != cycles:
+        reasons.append("life_table.cycle_probabilities must cover every model cycle")
+        entries = []
+
+    probabilities: list[float] = []
+    for index, entry in enumerate(entries):
+        label = f"life_table.cycle_probabilities[{index}]"
+        if not isinstance(entry, dict) or set(entry) != {
+            "cycle", "attained_age_years", "annual_probability"
+        }:
+            reasons.append(f"{label} fields are invalid")
+            continue
+        cycle_number = entry.get("cycle")
+        if (
+            isinstance(cycle_number, bool)
+            or not isinstance(cycle_number, int)
+            or cycle_number != index + 1
+        ):
+            reasons.append(f"{label}.cycle must equal its one-based position")
+        attained_age = entry.get("attained_age_years")
+        expected_age = (
+            floor(float(start_age) + index * float(cycle_length))
+            if finite_number(start_age) and valid_cycle_length
+            else None
+        )
+        if (
+            isinstance(attained_age, bool)
+            or not finite_number(attained_age)
+            or not float(attained_age).is_integer()
+            or (expected_age is not None and int(attained_age) != expected_age)
+        ):
+            reasons.append(f"{label}.attained_age_years is not cycle-aligned")
+        probability = parameter_value(entry.get("annual_probability"), f"{label}.annual_probability")
+        if probability is None or not 0 <= probability < 1:
+            reasons.append(f"{label}.annual_probability.value must be from 0 inclusive to 1 exclusive")
+        else:
+            probabilities.append(float(probability))
+
+    excess_rate = parameter_value(
+        transformation.get("excess_mortality_rate_per_year"),
+        "excess_mortality_rate_per_year",
+    )
+    if excess_rate is None or excess_rate < 0:
+        reasons.append("excess_mortality_rate_per_year.value must be non-negative")
+
+    review_bases = transformation.get("review_bases")
+    required_reviews = {"population_exchangeability", "no_double_counting"}
+    if not isinstance(review_bases, dict) or set(review_bases) != required_reviews:
+        reasons.append("review_bases must contain exactly the two required review questions")
+    else:
+        for name in sorted(required_reviews):
+            label = f"review_bases.{name}"
+            basis = review_bases[name]
+            allowed = {"source_extraction_id", "source_pointer", "assumption_id"}
+            if not isinstance(basis, dict) or set(basis) - allowed:
+                reasons.append(f"{label} fields are invalid")
+                continue
+            source_id = basis.get("source_extraction_id")
+            assumption_id = basis.get("assumption_id")
+            has_source = text(source_id)
+            has_assumption = text(assumption_id)
+            if has_source == has_assumption:
+                reasons.append(f"{label} must declare exactly one extraction or assumption basis")
+            elif has_source:
+                used_extractions.add(source_id)
+                pointer = basis.get("source_pointer")
+                if pointer is not None and (
+                    not isinstance(pointer, str) or (pointer and not pointer.startswith("/"))
+                ):
+                    reasons.append(f"{label}.source_pointer is invalid")
+            else:
+                used_assumptions.add(assumption_id)
+                if "source_pointer" in basis:
+                    reasons.append(f"{label}.source_pointer requires an extraction")
+
+    output: list[dict[str, Any]] = []
+    if (
+        cycles > 0
+        and len(probabilities) == cycles
+        and valid_cycle_length
+        and finite_number(excess_rate)
+        and excess_rate >= 0
+        and from_index in {0, 1}
+        and death_index in {0, 1}
+        and from_index != death_index
+    ):
+        for index, probability in enumerate(probabilities):
+            integrated_hazard = (
+                -log1p(-probability) + float(excess_rate)
+            ) * float(cycle_length)
+            if not isfinite(integrated_hazard):
+                reasons.append(
+                    f"life_table.cycle_probabilities[{index}] produced a non-finite integrated hazard"
+                )
+                continue
+            death_probability = -expm1(-integrated_hazard)
+            if not isfinite(death_probability) or not 0 <= death_probability < 1:
+                reasons.append(
+                    f"life_table.cycle_probabilities[{index}] produced an invalid death probability"
+                )
+                continue
+            matrix = [[0.0, 0.0], [0.0, 0.0]]
+            matrix[from_index][from_index] = 1.0 - death_probability
+            matrix[from_index][death_index] = death_probability
+            matrix[death_index][death_index] = 1.0
+            output.append({"start_cycle": index + 1, "matrix": matrix})
+    if not output or not json_equivalent(output, model_value(plan, path)):
+        reasons.append("background plus excess mortality does not reproduce the current transition schedule")
+    if used_extractions != set(texts(mapping.get("extraction_ids")) or []):
+        reasons.append("transformation must use every selected extraction")
+    if used_assumptions != set(texts(mapping.get("assumption_ids")) or []):
+        reasons.append("transformation must use every proposed assumption")
+    return reasons
+
+
 def derivation_reasons(
     plan: dict[str, Any],
     path: str,
@@ -630,6 +859,12 @@ def derivation_reasons(
         elif operation == "single_event_probability_time_conversion":
             reasons.extend(
                 probability_time_reasons(plan, path, mapping, derivation, extraction_index)
+            )
+        elif operation == "background_plus_excess_mortality_to_transition_schedule":
+            reasons.extend(
+                background_mortality_reasons(
+                    plan, path, mapping, derivation, extraction_index
+                )
             )
         else:
             reasons.append("deterministic transformation operation is unsupported")
@@ -801,9 +1036,9 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
     if not isinstance(plan, dict) or not isinstance(synthesis, dict):
         return {"complete": False, "errors": ["plan and synthesis must be JSON objects"]}
     if plan.get("schema_version") not in APPROVABLE_ANALYSIS_SCHEMAS:
-        errors.append("schema_version must be 0.3.0 through 0.8.0 for approval review")
+        errors.append("schema_version must be 0.3.0 through 0.9.0 for approval review")
     roles = strategy_ids(plan)
-    if plan.get("schema_version") == "0.8.0":
+    if plan.get("schema_version") in {"0.8.0", "0.9.0"}:
         strategies = plan.get("strategies")
         if (
             not 2 <= len(roles) <= 16 or len(set(roles)) != len(roles)
@@ -812,7 +1047,7 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
             or not isinstance(strategies, dict) or set(strategies) != set(roles)
         ):
             errors.append(
-                "schema 0.8.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first"
+                "schema 0.8.0 or 0.9.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first"
             )
     for role in roles:
         strategy = (plan.get("strategies") or {}).get(role) or {}
@@ -822,9 +1057,9 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
             errors.append(
                 f"strategies.{role} must define exactly one of transition_matrix or transition_schedule"
             )
-        if has_schedule and plan.get("schema_version") not in {"0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0"}:
+        if has_schedule and plan.get("schema_version") not in {"0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0"}:
             errors.append(
-                f"strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.8.0"
+                f"strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.9.0"
             )
     basis_value = plan.get("economic_basis")
     economic_basis = basis_value if isinstance(basis_value, dict) else None

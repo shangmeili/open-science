@@ -86,11 +86,11 @@ fn safe_strategy_id(value: &str) -> bool {
 }
 
 fn strategy_ids(plan: &serde_json::Value) -> HashSet<&str> {
-    if plan
-        .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        == Some("0.8.0")
-    {
+    if matches!(
+        plan.get("schema_version")
+            .and_then(serde_json::Value::as_str),
+        Some("0.8.0" | "0.9.0")
+    ) {
         return plan
             .get("strategy_order")
             .and_then(serde_json::Value::as_array)
@@ -168,6 +168,16 @@ fn probability_target_indices(target: &str) -> Option<(usize, usize, usize)> {
     }
 }
 
+fn background_excess_target_index(target: &str) -> Option<usize> {
+    let parts = target.split('/').collect::<Vec<_>>();
+    match parts.as_slice() {
+        ["", "input_provenance", mapping, "derivation", "transformation", "excess_mortality_rate_per_year", "value"] => {
+            mapping.parse().ok()
+        }
+        _ => None,
+    }
+}
+
 fn scenario_target_allowed(target: &str, strategy_ids: &HashSet<&str>) -> bool {
     let parts = target.split('/').collect::<Vec<_>>();
     parameter_target_allowed(target, strategy_ids)
@@ -211,8 +221,20 @@ fn replacement_compatible(
     base: &serde_json::Value,
     replacement: &serde_json::Value,
     strategy_ids: &HashSet<&str>,
+    background_mortality_schema: bool,
 ) -> bool {
-    if !scenario_target_allowed(target, strategy_ids) {
+    let background_safe = parameter_target_allowed(target, strategy_ids)
+        && matches!(
+            target.split('/').collect::<Vec<_>>().as_slice(),
+            ["", "strategies", _, "state_costs" | "state_utilities", _]
+        )
+        || matches!(
+            target,
+            "/discount_rates/costs" | "/discount_rates/outcomes" | "/half_cycle_correction"
+        );
+    if (background_mortality_schema && !background_safe)
+        || (!background_mortality_schema && !scenario_target_allowed(target, strategy_ids))
+    {
         return false;
     }
     match base {
@@ -418,10 +440,13 @@ fn validate_correlation_groups(
     parameters: &[serde_json::Value],
     errors: &mut Vec<String>,
 ) -> usize {
-    if !matches!(schema_version, Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")) {
+    if !matches!(
+        schema_version,
+        Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0")
+    ) {
         if correlation.is_some_and(|value| value.contains_key("groups")) {
             errors.push(
-                "correlation groups require uncertainty schema_version 0.4.0 through 0.7.0".into(),
+                "correlation groups require uncertainty schema_version 0.4.0 through 0.8.0".into(),
             );
         }
         return 0;
@@ -431,7 +456,7 @@ fn validate_correlation_groups(
         .and_then(serde_json::Value::as_array);
     let Some(groups) = groups else {
         errors.push(
-            "correlation groups must be an array for schema_version 0.4.0 through 0.7.0".into(),
+            "correlation groups must be an array for schema_version 0.4.0 through 0.8.0".into(),
         );
         return 0;
     };
@@ -589,19 +614,20 @@ fn audit_values(
         .and_then(serde_json::Value::as_str);
     if !matches!(
         schema_version,
-        Some("0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")
+        Some("0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0")
     ) {
         audit
             .errors
-            .push("uncertainty schema_version must be 0.1.0 through 0.7.0".into());
+            .push("uncertainty schema_version must be 0.1.0 through 0.8.0".into());
     }
-    let multi_strategy_base = plan
+    let analysis_schema = plan
         .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        == Some("0.8.0");
-    if multi_strategy_base != (schema_version == Some("0.7.0")) {
+        .and_then(serde_json::Value::as_str);
+    if (analysis_schema == Some("0.8.0")) != (schema_version == Some("0.7.0"))
+        || (analysis_schema == Some("0.9.0")) != (schema_version == Some("0.8.0"))
+    {
         audit.errors.push(
-            "analysis schema_version 0.8.0 and uncertainty schema_version 0.7.0 must be used together".into(),
+            "analysis schema_version 0.8.0/0.9.0 must pair with uncertainty schema_version 0.7.0/0.8.0 respectively".into(),
         );
     }
     for field in ["uncertainty_id", "analysis_id"] {
@@ -709,6 +735,7 @@ fn audit_values(
         let rate_indices = rate_target_indices(target);
         let survival_indices = survival_target_indices(target);
         let probability_indices = probability_target_indices(target);
+        let background_index = background_excess_target_index(target);
         let Some(base) = plan.pointer(target) else {
             audit.invalid_parameters.push(id.into());
             audit
@@ -716,14 +743,19 @@ fn audit_values(
                 .push(format!("parameter {id} target does not exist"));
             continue;
         };
-        let target_allowed = parameter_target_allowed(target, &allowed_strategy_ids)
-            || (matches!(
-                schema_version,
-                Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")
-            ) && rate_indices.is_some())
-            || (matches!(schema_version, Some("0.5.0" | "0.6.0" | "0.7.0"))
-                && survival_indices.is_some())
-            || (matches!(schema_version, Some("0.6.0" | "0.7.0")) && probability_indices.is_some());
+        let target_allowed = if schema_version == Some("0.8.0") {
+            background_index.is_some()
+        } else {
+            parameter_target_allowed(target, &allowed_strategy_ids)
+                || (matches!(
+                    schema_version,
+                    Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")
+                ) && rate_indices.is_some())
+                || (matches!(schema_version, Some("0.5.0" | "0.6.0" | "0.7.0"))
+                    && survival_indices.is_some())
+                || (matches!(schema_version, Some("0.6.0" | "0.7.0"))
+                    && probability_indices.is_some())
+        };
         if !target_allowed || !targets.insert(target) {
             audit.invalid_parameters.push(id.into());
             audit.errors.push(format!(
@@ -746,11 +778,11 @@ fn audit_values(
             let indexed_mapping = plan.pointer(&format!("/input_provenance/{mapping_index}"));
             if !matches!(
                 schema_version,
-                Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")
+                Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0")
             ) || !matches!(
                 plan.get("schema_version")
                     .and_then(serde_json::Value::as_str),
-                Some("0.5.0" | "0.8.0")
+                Some("0.5.0" | "0.8.0" | "0.9.0")
             ) || indexed_mapping
                 .and_then(|value| value.get("path"))
                 .and_then(serde_json::Value::as_str)
@@ -802,11 +834,11 @@ fn audit_values(
                 Some("weibull") => matches!(parameter_name, "shape" | "scale_years"),
                 _ => false,
             };
-            if !matches!(schema_version, Some("0.5.0" | "0.6.0" | "0.7.0"))
+            if !matches!(schema_version, Some("0.5.0" | "0.6.0" | "0.7.0" | "0.8.0"))
                 || !matches!(
                     plan.get("schema_version")
                         .and_then(serde_json::Value::as_str),
-                    Some("0.6.0" | "0.8.0")
+                    Some("0.6.0" | "0.8.0" | "0.9.0")
                 )
                 || indexed_mapping
                     .and_then(|value| value.get("path"))
@@ -850,11 +882,11 @@ fn audit_values(
             }
         } else if let Some((mapping_index, phase, row)) = probability_indices {
             let indexed_mapping = plan.pointer(&format!("/input_provenance/{mapping_index}"));
-            if !matches!(schema_version, Some("0.6.0" | "0.7.0"))
+            if !matches!(schema_version, Some("0.6.0" | "0.7.0" | "0.8.0"))
                 || !matches!(
                     plan.get("schema_version")
                         .and_then(serde_json::Value::as_str),
-                    Some("0.7.0" | "0.8.0")
+                    Some("0.7.0" | "0.8.0" | "0.9.0")
                 )
                 || indexed_mapping
                     .and_then(|value| value.get("path"))
@@ -893,6 +925,48 @@ fn audit_values(
                 audit.invalid_parameters.push(id.into());
                 audit.errors.push(format!(
                     "parameter {id} source probability has no exact extraction or assumption basis"
+                ));
+            }
+        } else if let Some(mapping_index) = background_index {
+            let indexed_mapping = plan.pointer(&format!("/input_provenance/{mapping_index}"));
+            if schema_version != Some("0.8.0")
+                || analysis_schema != Some("0.9.0")
+                || indexed_mapping
+                    .and_then(|value| value.get("path"))
+                    .and_then(serde_json::Value::as_str)
+                    != Some(provenance_path)
+                || indexed_mapping
+                    .and_then(|value| value.pointer("/derivation/method"))
+                    .and_then(serde_json::Value::as_str)
+                    != Some("deterministic_transformation")
+                || indexed_mapping
+                    .and_then(|value| value.pointer("/derivation/transformation/operation"))
+                    .and_then(serde_json::Value::as_str)
+                    != Some("background_plus_excess_mortality_to_transition_schedule")
+            {
+                audit.invalid_parameters.push(id.into());
+                audit.errors.push(format!(
+                    "parameter {id} must bind an admitted background-plus-excess mortality transformation"
+                ));
+            } else if let Some(indexed_mapping) = indexed_mapping {
+                mapping = indexed_mapping;
+            }
+            let excess =
+                mapping.pointer("/derivation/transformation/excess_mortality_rate_per_year");
+            rate_basis = excess.and_then(|value| {
+                value
+                    .get("source_extraction_id")
+                    .and_then(serde_json::Value::as_str)
+                    .or_else(|| {
+                        value
+                            .get("assumption_id")
+                            .and_then(serde_json::Value::as_str)
+                    })
+            });
+            if rate_basis.is_none() {
+                audit.invalid_parameters.push(id.into());
+                audit.errors.push(format!(
+                    "parameter {id} excess mortality has no exact extraction or assumption basis"
                 ));
             }
         } else if mapping
@@ -942,7 +1016,10 @@ fn audit_values(
                     low < high
                         && low <= base
                         && base <= high
-                        && (rate_indices.is_none() && survival_indices.is_none() || low > 0.0)
+                        && (rate_indices.is_none()
+                            && survival_indices.is_none()
+                            && background_index.is_none()
+                            || low > 0.0)
                         && (probability_indices.is_none() || (low > 0.0 && high < 1.0))
                 }),
             _ => false,
@@ -996,7 +1073,7 @@ fn audit_values(
         .and_then(serde_json::Value::as_object);
     if matches!(
         schema_version,
-        Some("0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")
+        Some("0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0")
     ) {
         let thresholds = threshold_config
             .and_then(|value| value.get("values"))
@@ -1029,7 +1106,7 @@ fn audit_values(
         }
     } else if has_threshold_config {
         audit.errors.push(
-            "decision thresholds require uncertainty schema_version 0.2.0 through 0.7.0".into(),
+            "decision thresholds require uncertainty schema_version 0.2.0 through 0.8.0".into(),
         );
     } else if schema_version == Some("0.1.0") {
         audit.threshold_count = usize::from(audit.primary_threshold.is_some());
@@ -1149,7 +1226,13 @@ fn audit_values(
                 .unwrap_or_default();
             let compatible = plan.pointer(target).is_some_and(|base| {
                 replacement.get("value").is_some_and(|value| {
-                    replacement_compatible(target, base, value, &allowed_strategy_ids)
+                    replacement_compatible(
+                        target,
+                        base,
+                        value,
+                        &allowed_strategy_ids,
+                        schema_version == Some("0.8.0"),
+                    )
                 })
             });
             if !compatible || !replacement_targets.insert(target) {
@@ -1481,6 +1564,98 @@ mod tests {
 
         assert!(audit.complete, "{:?}", audit.errors);
         assert_eq!(audit.parameter_count, 1);
+    }
+
+    #[test]
+    fn schema_08_varies_only_the_exact_positive_excess_mortality_value() {
+        let mut plan = plan();
+        plan["schema_version"] = serde_json::json!("0.9.0");
+        plan["baseline_strategy_id"] = serde_json::json!("comparator");
+        plan["strategy_order"] = serde_json::json!(["comparator", "intervention"]);
+        plan["input_provenance"][0] = serde_json::json!({
+            "path": "strategies.comparator.transition_schedule",
+            "source_ids": [],
+            "extraction_ids": [],
+            "assumption_ids": ["excess"],
+            "uncertainty_status": "distribution_available",
+            "derivation": {
+                "method": "deterministic_transformation",
+                "transformation": {
+                    "operation": "background_plus_excess_mortality_to_transition_schedule",
+                    "excess_mortality_rate_per_year": {"value": 0.05, "assumption_id": "excess"},
+                    "life_table": {"cycle_probabilities": [
+                        {"annual_probability": {"value": 0.1, "assumption_id": "q"}}
+                    ]},
+                    "review_bases": {
+                        "population_exchangeability": {"assumption_id": "exchangeability"},
+                        "no_double_counting": {"assumption_id": "no-double-counting"}
+                    }
+                }
+            }
+        });
+        plan["methodology"]["uncertainty_analysis"]["deterministic"]["input_paths"] =
+            serde_json::json!(["strategies.comparator.transition_schedule"]);
+        plan["methodology"]["uncertainty_analysis"]["probabilistic"]["input_paths"] =
+            serde_json::json!(["strategies.comparator.transition_schedule"]);
+        let plan_raw = serde_json::to_vec(&plan).unwrap();
+        let mut uncertainty = uncertainty(&plan_raw);
+        uncertainty["schema_version"] = serde_json::json!("0.8.0");
+        uncertainty["parameters"][0] = serde_json::json!({
+            "id": "excess-mortality",
+            "label": "Excess mortality rate",
+            "target": "/input_provenance/0/derivation/transformation/excess_mortality_rate_per_year/value",
+            "provenance_path": "strategies.comparator.transition_schedule",
+            "deterministic": {"low": 0.02, "high": 0.08, "rationale": "Evidence interval"},
+            "probabilistic": {
+                "type": "gamma", "shape": 5, "scale": 0.01,
+                "basis_ids": ["excess"], "rationale": "Positive excess hazard"
+            }
+        });
+        uncertainty["probabilistic_analysis"]["correlation_handling"]["groups"] =
+            serde_json::json!([]);
+        uncertainty["structural_scenarios"][0]["replacements"] = serde_json::json!([{
+            "target": "/discount_rates/costs",
+            "value": 0.02
+        }]);
+        let uncertainty_raw = serde_json::to_vec(&uncertainty).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &uncertainty_raw);
+        assert!(audit.complete, "{:?}", audit.errors);
+
+        uncertainty["parameters"][0]["target"] = serde_json::json!(
+            "/input_provenance/0/derivation/transformation/life_table/cycle_probabilities/0/annual_probability/value"
+        );
+        let uncertainty_raw = serde_json::to_vec(&uncertainty).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &uncertainty_raw);
+        assert!(!audit.complete);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("target is not unique and allowlisted")));
+
+        uncertainty["parameters"][0]["target"] = serde_json::json!(
+            "/input_provenance/0/derivation/transformation/excess_mortality_rate_per_year/value"
+        );
+        uncertainty["structural_scenarios"][0]["replacements"] = serde_json::json!([{
+            "target": "/cycle_length_years",
+            "value": 0.5
+        }]);
+        let uncertainty_raw = serde_json::to_vec(&uncertainty).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &uncertainty_raw);
+        assert!(!audit.complete);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("invalid or duplicate replacement")));
+
+        uncertainty["parameters"][0]["target"] =
+            serde_json::json!("/strategies/comparator/state_costs");
+        let uncertainty_raw = serde_json::to_vec(&uncertainty).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &uncertainty_raw);
+        assert!(!audit.complete);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("target is not unique and allowlisted")));
     }
 
     #[test]

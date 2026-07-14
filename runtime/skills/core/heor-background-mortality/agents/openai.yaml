@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Background Mortality"
+  short_description: "Audit background and excess mortality schedules"
+  default_prompt: "Use $heor-background-mortality to combine an age-aligned general-population mortality table with a separately defined excess mortality hazard, generate a deterministic two-state schedule, and preserve double-counting and exchangeability as Human-in-the-loop review gates."

@@ -165,7 +165,8 @@ The contract deliberately does not execute free-form formulas. A narrative in
 `selection_rationale` cannot authorize a hidden transformation. Schema `0.5.0`
 admits constant cause-specific competing event rates, schema `0.6.0` admits a
 bounded two-state survival schedule, and schema `0.7.0` admits the single-event
-probability time conversion described below. Relative-effect application,
+probability time conversion described below. Schema `0.9.0` admits the bounded
+background-plus-excess mortality operation described below. Relative-effect application,
 pooling, calibration, interpolation, and general continuous-time matrix
 conversion remain incomplete. Schemas `0.1.0` and
 `0.2.0` remain calculable for reproducibility but cannot pass analysis-plan
@@ -297,10 +298,47 @@ appropriateness remain unsupported. ISPOR-SMDM and PHARMAC support the
 arithmetic and disclosure requirement; they do not validate the assumption for
 a specific decision problem.
 
+## Executable background plus excess mortality
+
+Analysis-plan schema `0.9.0` admits one exactly two-state operation:
+`background_plus_excess_mortality_to_transition_schedule`. The exact declaration
+contains the model cycle length and state indices; one life table with jurisdiction,
+table year, population, sex, start age, and one cycle record per horizon cycle;
+one constant `excess_mortality_rate_per_year`; and the exact review bases
+`population_exchangeability` and `no_double_counting`. Every cycle record binds
+an annual all-cause probability to one extraction or proposed assumption and
+declares `attained_age_years = floor(start_age_years + (cycle-1)*cycle_length_years)`.
+
+The adapter first converts annual `q` to background hazard and then scales to any
+finite positive model-cycle length:
+`p_death = 1-exp(-(-ln(1-q_annual)+h_excess)*cycle_length_years)`.
+Python calculation, the standalone Skill validator, portable provenance audit,
+native audit, and browser preview independently recompute the complete schedule.
+The review bases expose evidence or assumptions; they never create approval.
+
+Paired uncertainty schema `0.8.0` permits only the exact positive
+`excess_mortality_rate_per_year.value` parameter target with Gamma, Lognormal, or
+strictly positive Uniform PSA. It fixes all life-table values and metadata,
+review bases, operation, and other transformation internals. At least one ordinary
+allowlisted external structural scenario remains required, limited under `0.8.0`
+to cost or utility scalars, discount rates, or half-cycle correction. Changes to
+cycle count/length or transition matrices/schedules fail closed because they
+would invalidate the fixed mortality transformation. Additive and
+multiplicative/SMR mortality structures can materially differ; only additive
+excess hazard is implemented, so the multiplicative alternative remains a
+Human-in-the-loop structural limitation.
+
+The route stops for already all-cause disease inputs, cause-specific/subdistribution
+mixing, calendar mortality improvement, age/sex mixtures, time-varying excess
+hazards, competing non-death events, and partitioned survival. NICE PMG36/TSD 21,
+ISPOR-SMDM state-transition guidance, and CDA-AMC 4th edition provide the methods
+basis; they do not establish exchangeability, absence of double counting, or
+scientific validity for a particular model.
+
 ## Executable monetary basis
 
 Analysis-plan schema `0.2.0` introduced one calculation currency and price
-year, and current schemas through `0.8.0` retain that contract while binding each source
+year, and current schemas through `0.9.0` retain that contract while binding each source
 value to evidence or an explicit assumption.
 Every state-cost element and non-null willingness-to-pay value records its
 source value, source currency, source price year, positive composite adjustment
@@ -528,11 +566,11 @@ approval, reimbursement suitability, or external tamper-proofing.
   missing second confirmation, rejection, changed synthesis, or tampered review
   chain fails closed; this remains distinct from authenticated independent
   duplicate extraction.
-- Evidence-to-input approval also requires schema `0.3.0` through `0.8.0`, an exact model-value
+- Evidence-to-input approval also requires schema `0.3.0` through `0.9.0`, an exact model-value
   snapshot per mapping, strict JSON equality for direct evidence, and extraction-
   bound source values for monetary normalization. Changed, narrative, unused,
   or silently transformed extraction values fail closed.
-- A scheduled-transition plan additionally requires schema `0.4.0` through `0.8.0`, exactly one
+- A scheduled-transition plan additionally requires schema `0.4.0` through `0.9.0`, exactly one
   transition mechanism per strategy, ordered in-horizon change points, valid
   matrices, mass conservation, and schedule-aware provenance and uncertainty
   targets. Static `0.3.0` plans remain backward compatible.
@@ -566,6 +604,12 @@ approval, reimbursement suitability, or external tamper-proofing.
   schema `0.7.0` reports every strategy's unique-optimal CEAC probability,
   separate tie probability, CEAF, and exact per-person EVPI. BIA remains a
   bounded two-strategy calculator and must select two distinct declared IDs.
+- A schema `0.9.0` background-mortality mapping additionally requires exactly two
+  states; an exact life-table declaration and cycle coverage; attained-age floor
+  alignment; one basis for each annual probability, the excess rate, and both
+  review bases; positive cycle length; and exact hazard-scaled schedule
+  reproduction. Paired uncertainty schema `0.8.0` permits only the exact positive
+  excess-rate target and fixes the life table and transformation structure.
 - Exploratory, analysis-authorized, independently validated, and locally
   released decision-ready states remain distinct. Any stale package, binding,
   validation, result reproduction, actor, or approval sequence fails closed.

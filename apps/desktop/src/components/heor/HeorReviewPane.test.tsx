@@ -269,7 +269,7 @@ describe("AI4HEOR human review pane", () => {
     expect(onRequestRevision).toHaveBeenCalledWith(
       expect.stringContaining("$heor-cohort-state-transition"),
     );
-    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("schema 0.8.0");
+    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("schema 0.9.0");
     await userEvent.click(screen.getByRole("button", {
       name: "Ask Agent to derive transitions from rates",
     }));
@@ -282,6 +282,16 @@ describe("AI4HEOR human review pane", () => {
     expect(onRequestRevision).toHaveBeenCalledWith(
       expect.stringContaining("$heor-probability-time-adapter"),
     );
+    await userEvent.click(screen.getByRole("button", {
+      name: "Ask Agent to add background mortality",
+    }));
+    const backgroundPrompt = onRequestRevision.mock.calls[
+      onRequestRevision.mock.calls.length - 1
+    ]?.[0];
+    expect(backgroundPrompt).toContain("$heor-background-mortality");
+    expect(backgroundPrompt).toContain("life-table");
+    expect(backgroundPrompt).toContain("Human");
+    expect(backgroundPrompt).toContain("forms only as an aid");
     await userEvent.click(screen.getByRole("button", {
       name: "Ask Agent to continue screening and synthesis",
     }));
@@ -304,7 +314,7 @@ describe("AI4HEOR human review pane", () => {
     expect(onRequestRevision).toHaveBeenCalledWith(
       expect.stringContaining("$heor-uncertainty-analysis"),
     );
-    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("uncertainty schema 0.7.0");
+    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("uncertainty schema 0.8.0");
     await userEvent.click(screen.getByRole("button", {
       name: "Ask the Agent to build or repair budget impact",
     }));

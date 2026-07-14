@@ -821,13 +821,13 @@ mod tests {
 
         let analysis_plan = serde_json::json!({
             "analysis_id": "analysis-1",
-            "schema_version": "0.8.0"
+            "schema_version": "0.9.0"
         });
         let analysis_raw = serde_json::to_vec(&analysis_plan).unwrap();
         let analysis_hash = digest(&analysis_raw);
         let uncertainty_plan = serde_json::json!({
             "analysis_id": "analysis-1",
-            "schema_version": "0.7.0"
+            "schema_version": "0.8.0"
         });
         let uncertainty_plan_raw = serde_json::to_vec(&uncertainty_plan).unwrap();
         let uncertainty_plan_hash = digest(&uncertainty_plan_raw);

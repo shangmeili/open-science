@@ -75,6 +75,8 @@ A favorable value in one analysis cannot be presented as proof of another or as
 a reimbursement recommendation. Per-person EVPI is conditional on uncertainty
 represented in the bound PSA and is not a population research-funding value.
 
+For analysis schema `0.9.0`, the methods and limitations sections report the selected life table's jurisdiction, year, population, sex, start age, and attained-age alignment; the exact conversion `1-exp(-(-ln(1-q_annual)+h_excess)*cycle_length_years)`; the constant excess-rate basis; and the separate `population_exchangeability` and `no_double_counting` bases. These bases are review inputs, not approval claims. The uncertainty section states that schema `0.8.0` varies only the exact excess rate while holding the life table and transformation internals fixed. The limitations section discloses the unsupported multiplicative/SMR alternative and every applicable stopping-rule gap: already all-cause endpoints, mixed cause-specific/subdistribution quantities, calendar improvement, age/sex mixtures, time-varying excess hazards, competing non-death events, and partitioned survival.
+
 ## Disclosure and authority
 
 Funding, conflicts of interest, Agent contributions, model providers,

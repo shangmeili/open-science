@@ -187,7 +187,7 @@ describe("AI4HEOR artifact contract", () => {
     const audit = auditHeorEvidence(plan);
 
     expect(audit.invalidMappings.join("; ")).toContain(
-      "schema_version must be 0.3.0 through 0.8.0",
+      "schema_version must be 0.3.0 through 0.9.0",
     );
     expect(audit.invalidMappings.join("; ")).toContain(
       "derivation.model_value does not match the current model input",
@@ -394,6 +394,130 @@ describe("AI4HEOR artifact contract", () => {
     expect(audit.invalidMappings.join("; ")).toContain(
       "source probabilities do not reproduce the current transition input",
     );
+  });
+
+  it("independently audits age-aligned background plus excess mortality", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    plan.schema_version = "0.9.0";
+    plan.baseline_strategy_id = "comparator";
+    plan.strategy_order = ["comparator", "intervention"];
+    plan.states = ["alive", "dead"];
+    plan.cycles = 2;
+    const q = [0.1, 0.2];
+    const excess = 0.05;
+    const schedule = q.map((annualProbability, index) => {
+      const integratedHazard = (-Math.log1p(-annualProbability) + excess);
+      const deathProbability = -Math.expm1(-integratedHazard);
+      return {
+        start_cycle: index + 1,
+        matrix: [[1 - deathProbability, deathProbability], [0, 1]],
+      };
+    });
+    plan.strategies.comparator = {
+      name: "Comparator",
+      initial_distribution: [1, 0],
+      transition_schedule: schedule,
+      state_costs: [100, 0],
+      state_utilities: [1, 0],
+    };
+    plan.strategies.intervention = {
+      name: "Intervention",
+      initial_distribution: [1, 0],
+      transition_matrix: [[0.9, 0.1], [0, 1]],
+      state_costs: [120, 0],
+      state_utilities: [1, 0],
+    };
+    const assumptionIds = ["q-60", "q-61", "excess", "exchangeability", "no-double-counting"];
+    plan.assumptions = assumptionIds.map((id) => ({
+      id, statement: id, reason: "Browser audit fixture", status: "proposed" as const,
+    }));
+    plan.input_provenance = [{
+      path: "strategies.comparator.transition_schedule",
+      source_ids: [],
+      extraction_ids: [],
+      assumption_ids: assumptionIds,
+      unit: "probability per annual model cycle",
+      jurisdiction: "China",
+      derivation: {
+        method: "deterministic_transformation",
+        model_value: schedule,
+        transformation: {
+          operation: "background_plus_excess_mortality_to_transition_schedule",
+          cycle_length_years: 1,
+          from_state_index: 0,
+          death_state_index: 1,
+          life_table: {
+            jurisdiction: "China",
+            table_year: 2024,
+            population: "general population",
+            sex: "all",
+            start_age_years: 60,
+            cycle_probabilities: q.map((value, index) => ({
+              cycle: index + 1,
+              attained_age_years: 60 + index,
+              annual_probability: { value, assumption_id: `q-${60 + index}` },
+            })),
+          },
+          excess_mortality_rate_per_year: { value: excess, assumption_id: "excess" },
+          review_bases: {
+            population_exchangeability: { assumption_id: "exchangeability" },
+            no_double_counting: { assumption_id: "no-double-counting" },
+          },
+        },
+      },
+      selection_rationale: "Exercise background mortality audit",
+      uncertainty_status: "distribution_available",
+    }];
+
+    expect(parseHeorPlan(JSON.stringify(plan)).schema_version).toBe("0.9.0");
+    let errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).not.toContain("background plus excess mortality");
+
+    const zeroPlan = structuredClone(plan);
+    zeroPlan.cycle_length_years = 0.5;
+    const zeroMapping = zeroPlan.input_provenance?.[0];
+    if (!zeroMapping) throw new Error("test fixture must include input provenance");
+    const zeroTransformation = zeroMapping.derivation.transformation!;
+    if (zeroTransformation.operation !== "background_plus_excess_mortality_to_transition_schedule") {
+      throw new Error("test fixture must use background mortality");
+    }
+    zeroTransformation.cycle_length_years = 0.5;
+    zeroTransformation.excess_mortality_rate_per_year.value = 0;
+    zeroTransformation.life_table.cycle_probabilities.forEach((entry) => {
+      entry.annual_probability.value = 0;
+      entry.attained_age_years = 60;
+    });
+    const zeroSchedule = [1, 2].map((startCycle) => ({
+      start_cycle: startCycle,
+      matrix: [[1, 0], [0, 1]],
+    }));
+    zeroPlan.strategies.comparator.transition_schedule = zeroSchedule;
+    zeroMapping.derivation.model_value = zeroSchedule;
+    errors = auditHeorEvidence(zeroPlan).invalidMappings.join("; ");
+    expect(errors).not.toContain("background plus excess mortality");
+
+    const transformation = plan.input_provenance[0].derivation.transformation!;
+    if (transformation.operation !== "background_plus_excess_mortality_to_transition_schedule") {
+      throw new Error("test fixture must use background mortality");
+    }
+    transformation.life_table.cycle_probabilities[0].annual_probability.value = 0.11;
+    errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).toContain("does not reproduce the current transition schedule");
+    transformation.life_table.cycle_probabilities[0].annual_probability.value = 0.1;
+    transformation.life_table.cycle_probabilities[1].attained_age_years = 62;
+    errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).toContain("must equal floor");
+    transformation.life_table.cycle_probabilities[1].attained_age_years = 61;
+    plan.schema_version = "0.8.0";
+    errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).toContain("require schema_version 0.9.0");
+    plan.schema_version = "0.9.0";
+    plan.cycle_length_years = 2;
+    transformation.cycle_length_years = 2;
+    transformation.life_table.cycle_probabilities[1].attained_age_years = 62;
+    transformation.excess_mortality_rate_per_year.value = Number.MAX_VALUE;
+    errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).toContain("non-finite integrated hazard");
   });
 
   it("requires provenance for a schema 0.4 transition schedule instead of an absent matrix", () => {

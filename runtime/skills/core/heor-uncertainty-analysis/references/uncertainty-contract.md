@@ -14,7 +14,7 @@ The canonical artifact is `heor/uncertainty-plan.json`. It is an executable spec
 
 Each parameter contains a stable `id`, label, JSON Pointer `target`, dot-path `provenance_path`, deterministic bounds and rationale, and a probabilistic distribution with basis IDs and rationale.
 
-Allowed parameter targets use `/strategies/<strategy_id>/...`; schema `0.8.0` IDs come from `strategy_order`, while legacy plans use comparator/intervention roles:
+Allowed parameter targets use `/strategies/<strategy_id>/...`; analysis schemas `0.8.0` and `0.9.0` IDs come from `strategy_order`, while legacy plans use comparator/intervention roles:
 
 - scalar state costs and utilities;
 - a complete static transition-matrix row;
@@ -22,12 +22,15 @@ Allowed parameter targets use `/strategies/<strategy_id>/...`; schema `0.8.0` ID
 - a positive `rate_per_year` for one admitted `constant_competing_rates` event, including under analysis `0.8.0` with uncertainty `0.7.0`;
 - a positive exponential `rate_per_year` or Weibull `shape` or `scale_years` for one admitted survival transformation, including under analysis `0.8.0` with uncertainty `0.7.0`;
 - a `source_probability` strictly inside `(0,1)` for one admitted probability-time event, including under analysis `0.8.0` with uncertainty `0.7.0`.
+- only under analysis `0.9.0` with uncertainty `0.8.0`, the exact positive `excess_mortality_rate_per_year.value` of one admitted background-mortality transformation.
 
 Probability-row and schedule-change targets do not apply to a schema `0.5.0` transition derived from constant competing rates. Changing only the derived output makes its deterministic transformation snapshot stale, so the engine rejects it. A rate target must use the exact JSON Pointer `/input_provenance/<mapping>/derivation/transformation/phases/<phase>/rows/<row>/events/<event>/rate_per_year`; its `provenance_path` must equal that indexed mapping's transition path, and its sole `basis_id` must equal the event's `source_extraction_id` or `assumption_id`.
 
 For a survival parameter, the exact JSON Pointer is `/input_provenance/<mapping>/derivation/transformation/parameters/<parameter>/value`. The indexed mapping must be an admitted survival transformation in analysis schema `0.6.0` or `0.8.0`, the parameter name must match its exponential or Weibull distribution, `provenance_path` equals the complete schedule path, and the sole `basis_id` equals that parameter's `source_extraction_id` or `assumption_id`.
 
 For a source probability, the exact JSON Pointer is `/input_provenance/<mapping>/derivation/transformation/phases/<phase>/rows/<row>/event/source_probability`. The indexed mapping must be an admitted single-event probability-time transformation in analysis schema `0.7.0` or `0.8.0`, `provenance_path` equals its complete matrix or schedule path, and the sole `basis_id` equals that event's `source_extraction_id` or `assumption_id`.
+
+For background mortality, the exact JSON Pointer is `/input_provenance/<mapping>/derivation/transformation/excess_mortality_rate_per_year/value`. The indexed mapping must use analysis schema `0.9.0`, the exact background-plus-excess operation, and a complete two-state schedule path. Uncertainty schema `0.8.0` permits no other parameter target. Its sole `basis_id` equals the excess rate's extraction or assumption basis. The engine recomputes every cycle from `1-exp(-(-ln(1-q_annual)+h_excess)*cycle_length_years)`. Life-table metadata and annual probabilities, review bases, the operation, and all other transformation internals remain fixed. Required structural scenarios may replace only state cost or utility scalars, discount rates, or half-cycle correction; cycle count/length and transition matrices/schedules are excluded because they would invalidate the fixed transformation.
 
 For each DSA run or PSA draw, engine version `0.8.0` applies every sampled parameter to an ephemeral plan copy and recomputes admitted transformations once after all replacements. Compatible legacy plans retain engine `0.7.0` output. This preserves row sums, competing-event allocation, survival or probability-time consistency, derivation integrity, and fail-closed validation. It does not admit coordinated transformation-space structural scenarios.
 
@@ -38,7 +41,7 @@ Supported probabilistic distributions:
 - `uniform(low, high)` only when the evidence supports a bounded uniform assumption;
 - `dirichlet(alpha[])` for a complete probability simplex such as a transition row.
 
-An event rate or survival-curve parameter is positive but not intrinsically bounded by 1, so these targets accept only gamma, lognormal, or uniform with `low > 0`. DSA low/high values must also be positive and bracket the base. Beta and Dirichlet are rejected.
+An event rate, survival-curve parameter, or uncertain background excess rate is positive but not intrinsically bounded by 1, so these targets accept only gamma, lognormal, or uniform with `low > 0`. DSA low/high values must also be positive and bracket the base. Beta and Dirichlet are rejected. A background analysis may declare a zero fixed excess rate, but uncertainty schema `0.8.0` cannot target a zero base because its supported distributions and bounds are strictly positive.
 
 A source-probability target is bounded strictly inside `(0,1)`, so it accepts only Beta or Uniform with `0 < low < high < 1`; its DSA low and high must satisfy the same strict bounds and bracket the base. The engine rejects Gamma, Lognormal, Dirichlet, and endpoint values.
 
@@ -46,7 +49,7 @@ The app checks that `provenance_path` exists, is `distribution_available`, appea
 
 ## Correlation and omission
 
-Dirichlet sampling preserves dependence within one probability row. Schemas `0.4.0` through `0.7.0` additionally admit bounded cross-parameter dependence only when all of the following hold:
+Dirichlet sampling preserves dependence within one probability row. Schemas `0.4.0` through `0.8.0` additionally admit bounded cross-parameter dependence only when all of the following hold. Because uncertainty `0.8.0` permits only one excess-rate parameter, it cannot form a multi-member background-mortality group by itself:
 
 - one group contains 2–32 unique scalar parameters and no parameter appears in another group;
 - every member already uses `lognormal(mu_log, sigma_log)` with positive `sigma_log`;
@@ -68,7 +71,7 @@ For legacy two-strategy output, the convergence check records intervention cost-
 
 ## Decision-threshold and value-of-information contract
 
-Schemas `0.2.0` through `0.7.0` require `probabilistic_analysis.decision_thresholds` with a rationale and 2–101 unique, non-negative, strictly increasing values including the positive primary `willingness_to_pay`. Schema `0.1.0` remains readable and produces one primary-threshold row only. Correlation groups require schema `0.4.0` or later; schema `0.7.0` is reserved for analysis schema `0.8.0`.
+Schemas `0.2.0` through `0.8.0` require `probabilistic_analysis.decision_thresholds` with a rationale and 2–101 unique, non-negative, strictly increasing values including the positive primary `willingness_to_pay`. Schema `0.1.0` remains readable and produces one primary-threshold row only. Correlation groups require schema `0.4.0` or later; uncertainty `0.7.0` is reserved for analysis `0.8.0`, and uncertainty `0.8.0` is reserved for analysis `0.9.0`.
 
 For each schema `0.7.0` PSA draw and threshold λ, the engine derives every strategy's net monetary benefit `λ × QALY − cost`. It reports:
 
@@ -90,4 +93,6 @@ These are conditional on the current model, declared distributions, dependence h
 - [NICE DSU TSD 6 on software for probabilistic cost-effectiveness analysis](https://www.sheffield.ac.uk/sites/default/files/2022-02/TSD6-Software.final_.08.05.12.pdf) requires the joint uncertainty structure produced by evidence synthesis to be propagated through the decision model. AI4HEOR implements only the bounded lognormal correlation fragment above, not the document's broader MCMC, multivariate-normal coefficient, bootstrap, or posterior-sample workflows.
 - [NICE DSU TSD 14 on survival analysis](https://www.sheffield.ac.uk/sites/default/files/2022-02/TSD14-Survival-analysis.updated-March-2013.v2.pdf) and [TSD 21 on flexible survival models](https://www.sheffield.ac.uk/sites/default/files/2022-02/TSD21-Flex-Surv-TSD-21_Final_alt_text.pdf) support explicit survival parameterization, validity assessment, alternatives, and uncertainty. AI4HEOR implements only propagation through an already-selected exponential or Weibull curve, not fitting, selection, covariance reconstruction, or clinical extrapolation validation.
 - [Jones, Epstein, and García-Mochón on transition-rate uncertainty](https://doi.org/10.1177/0272989X17696997) supports connecting rate estimates and their uncertainty directly to probability derivation for auditable DSA and PSA; AI4HEOR retains its narrower competing-first-event transformation instead of converting each competing rate independently.
+- [ISPOR-SMDM state-transition good practices](https://www.ispor.org/docs/default-source/resources/outcomes-research-guidelines-index/state-transition_modeling-3.pdf) requires disease/background mortality relationships and double-counting risks to be assessed; additive and multiplicative structures can materially differ. AI4HEOR varies only the additive excess rate and reports the unimplemented multiplicative alternative as structural uncertainty.
+- [CDA-AMC economic-evaluation guidelines, 4th edition](https://www.cda-amc.ca/guidelines-economic-evaluation-health-technologies-canada-4th-edition) supports treating general-population mortality as effectively known in many analyses, which is the basis for fixing the declared life table in uncertainty schema `0.8.0`.
 - [ISPOR value-of-information methods overview](https://www.ispor.org/publications/journals/value-outcomes-spotlight/vos-archives/issue/view/value-assessments/value-of-information-analysis) distinguishes per-person EVPI available from PSA from population extrapolation, EVPPI, and research-design decisions.

@@ -218,7 +218,7 @@ synthesis extraction as strict JSON. The native selection audit repeats that
 check against current workspace bytes and, for monetary inputs, verifies each
 `source_value` against its named extraction scalar or array index before the
 existing normalization arithmetic. Only `direct_evidence`, `explicit_assumption`,
-`monetary_adjustment`, and the schema `0.5.0` through `0.8.0` bounded
+`monetary_adjustment`, and the schema `0.5.0` through `0.9.0` bounded
 `deterministic_transformation` operations described below are supported. Free-form
 expressions remain blocked.
 
@@ -287,6 +287,39 @@ general CTMC exponentiation, relative-effect application, within-cycle
 multi-step paths, arbitrary copulas, rank correlation,
 empirical posterior draws, and transformation-space structural scenarios.
 
+Analysis-plan schema `0.9.0` admits
+`background_plus_excess_mortality_to_transition_schedule` only for a complete
+two-state strategy schedule. The exact transformation contains cycle length,
+state indices, `life_table`, `excess_mortality_rate_per_year`, and the exact
+`population_exchangeability` and `no_double_counting` review bases. The life
+table records jurisdiction, year, population, sex, start age, and one
+`{cycle, attained_age_years, annual_probability}` record per horizon cycle.
+Every annual probability and the excess rate has a value plus exactly one
+extraction or proposed-assumption basis; each review basis has exactly one basis
+and no approval/status authority.
+
+Python, Rust, TypeScript, the standalone Skill validator, and portable provenance
+audit independently require `attained_age_years = floor(start_age_years +
+(cycle-1)*cycle_length_years)` and compute
+`1-exp(-(-ln(1-q_annual)+h_excess)*cycle_length_years)` with stable primitives.
+Any finite positive cycle length is supported; annual probability is converted
+to hazard before time scaling. Stale schedules, mismatched jurisdiction,
+unsupported fields, invalid bases, endpoint probabilities, non-finite arithmetic,
+and state-count drift fail closed.
+
+Uncertainty schema `0.8.0`, paired only with analysis `0.9.0`, permits only the
+exact positive `excess_mortality_rate_per_year.value` parameter target. It fixes
+life-table metadata and probabilities, review bases, operation, and other
+transformation internals; ordinary external allowlisted structural scenarios
+remain required. Under `0.8.0`, those scenarios are limited to cost or utility
+scalars, discount rates, or half-cycle correction; cycle count/length and
+transition matrices/schedules are rejected because they would invalidate the
+fixed mortality transformation. Additive-versus-multiplicative/SMR mortality stays explicit
+Human-in-the-loop structural uncertainty. Already all-cause inputs,
+cause-specific/subdistribution mixing, calendar improvement, age/sex mixtures,
+time-varying excess hazards, competing non-death events, and partitioned survival
+remain blocked.
+
 `heor/analysis-plan.json` carries the input-selection contract directly: a root
 `evidence_synthesis` binding plus `extraction_ids` on each source-based
 `input_provenance` mapping. The approval path independently checks synthesis
@@ -298,7 +331,7 @@ the exact evidence-to-input choices. The engine, uncertainty runner, and budget
 impact runner repeat the audit and invalidate stale approval bindings.
 
 Analysis-plan schema `0.2.0` introduced a root `economic_basis`; schemas
-`0.3.0` through `0.8.0` retain it and executable extraction-to-model derivations. Schema
+`0.3.0` through `0.9.0` retain it and executable extraction-to-model derivations. Schema
 `0.8.0` adds 2–16 explicitly ordered strategy IDs, a declared pairwise baseline,
 fully incremental dominance/frontier output, and dynamic evidence paths. Each monetary
 mapping contains element-level source values and adjustment factors so the
@@ -320,7 +353,7 @@ EQ-5D/UK-3L metadata. It is an executable subset, not a copy of PMG36 or an
 agency-compliance claim.
 
 The uncertainty engine owns decision-uncertainty calculations rather than the
-language model or UI. Schemas `0.2.0` through `0.7.0` bind a declared threshold grid to the
+language model or UI. Schemas `0.2.0` through `0.8.0` bind a declared threshold grid to the
 analysis plan; the Python core uses one seeded PSA draw set for expected
 incremental NMB, intervention/comparator/tie probabilities, CEAF, and
 per-person EVPI with Monte Carlo error. Rust independently audits the grid and
@@ -335,7 +368,7 @@ of these app-written values; it has no authority to calculate, choose, or alter
 thresholds.
 
 Uncertainty engine `0.8.0` preserves prior schema draw behavior when no current
-correlation groups exist. For a schema `0.4.0` through `0.7.0` group it draws standard normals in
+correlation groups exist. For a schema `0.4.0` through `0.8.0` group it draws standard normals in
 declared group/member order, applies the validated lower Cholesky factor, then
 uses each member's declared lognormal parameters. Groups are sampled before
 ungrouped parameters. The result echoes every admitted group and matrix so

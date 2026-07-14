@@ -71,6 +71,10 @@ probability_time_adapter = load(
     "validate_probability_time",
     "runtime/skills/core/heor-probability-time-adapter/scripts/validate_probability_time.py",
 )
+background_mortality_adapter = load(
+    "validate_background_mortality",
+    "runtime/skills/core/heor-background-mortality/scripts/validate_background_mortality.py",
+)
 
 
 class MultiStrategyTemplateContractTests(unittest.TestCase):
@@ -261,6 +265,55 @@ class ProbabilityTimeAdapterContractTests(unittest.TestCase):
         transformation["phases"][0]["rows"][0]["event"]["source_probability"] = 1.0
         with self.assertRaisesRegex(ValueError, "strictly between 0 and 1"):
             probability_time_adapter.derive(transformation, 2, 10, 1.0, False)
+
+
+class BackgroundMortalityAdapterContractTests(unittest.TestCase):
+    TEMPLATE = ROOT / (
+        "runtime/skills/core/heor-background-mortality/assets/"
+        "background-mortality-transformation.template.json"
+    )
+
+    def test_template_recomputes_age_aligned_additive_excess_schedule(self):
+        transformation = json.loads(self.TEMPLATE.read_text())
+        schedule = background_mortality_adapter.derive(transformation, 3, 0.5)
+        self.assertEqual([item["start_cycle"] for item in schedule], [1, 2, 3])
+        self.assertAlmostEqual(schedule[0]["matrix"][0][0], 0.9 ** 0.5 * math.exp(-0.025))
+        self.assertAlmostEqual(schedule[2]["matrix"][0][0], 0.8 ** 0.5 * math.exp(-0.025))
+        self.assertEqual(schedule[0]["matrix"][1], [0.0, 1.0])
+
+    def test_zero_mortality_is_valid_but_floating_point_saturation_is_not(self):
+        transformation = json.loads(self.TEMPLATE.read_text())
+        transformation["excess_mortality_rate_per_year"]["value"] = 0.0
+        for probability in transformation["life_table"]["cycle_probabilities"]:
+            probability["annual_probability"]["value"] = 0.0
+        schedule = background_mortality_adapter.derive(transformation, 3, 0.5)
+        self.assertEqual(
+            schedule,
+            [
+                {"start_cycle": cycle, "matrix": [[1.0, 0.0], [0.0, 1.0]]}
+                for cycle in (1, 2, 3)
+            ],
+        )
+
+        transformation["excess_mortality_rate_per_year"]["value"] = 1e308
+        with self.assertRaisesRegex(ValueError, "invalid probability"):
+            background_mortality_adapter.derive(transformation, 3, 0.5)
+
+    def test_adapter_rejects_age_drift_nonadditive_input_and_review_authority(self):
+        transformation = json.loads(self.TEMPLATE.read_text())
+        transformation["life_table"]["cycle_probabilities"][1]["attained_age_years"] = 61
+        with self.assertRaisesRegex(ValueError, "ages must align"):
+            background_mortality_adapter.derive(transformation, 3, 0.5)
+
+        transformation = json.loads(self.TEMPLATE.read_text())
+        transformation["excess_mortality_rate_per_year"]["measure"] = "all_cause_hazard_per_year"
+        with self.assertRaisesRegex(ValueError, "exactly one evidence or assumption basis"):
+            background_mortality_adapter.derive(transformation, 3, 0.5)
+
+        transformation = json.loads(self.TEMPLATE.read_text())
+        transformation["review_bases"]["no_double_counting"]["approved"] = True
+        with self.assertRaisesRegex(ValueError, "review basis"):
+            background_mortality_adapter.derive(transformation, 3, 0.5)
 
 
 def conceptual_fixture():
@@ -813,6 +866,97 @@ class InputProvenanceContractTests(unittest.TestCase):
         )
         self.assertTrue(any("bound extraction" in error for error in errors))
         self.assertTrue(any("do not reproduce" in error for error in errors))
+
+    def test_schema_09_background_mortality_is_age_aligned_and_basis_bound(self):
+        transformation = json.loads(
+            BackgroundMortalityAdapterContractTests.TEMPLATE.read_text()
+        )
+        schedule = background_mortality_adapter.derive(transformation, 3, 0.5)
+        plan = {
+            "schema_version": "0.9.0",
+            "states": ["alive", "dead"],
+            "cycles": 3,
+            "cycle_length_years": 0.5,
+            "strategies": {"intervention": {"transition_schedule": schedule}},
+        }
+        mapping = {
+            "path": "strategies.intervention.transition_schedule",
+            "jurisdiction": "replace-with-life-table-jurisdiction",
+            "extraction_ids": [
+                "replace-with-cycle-1-life-table-extraction-id",
+                "replace-with-cycle-2-life-table-extraction-id",
+                "replace-with-cycle-3-life-table-extraction-id",
+            ],
+            "assumption_ids": [
+                "replace-with-proposed-excess-mortality-assumption-id",
+                "replace-with-proposed-population-exchangeability-assumption-id",
+                "replace-with-proposed-no-double-counting-assumption-id",
+            ],
+            "derivation": {
+                "method": "deterministic_transformation",
+                "model_value": schedule,
+                "transformation": transformation,
+            },
+        }
+        extraction_index = {
+            "replace-with-cycle-1-life-table-extraction-id": {
+                "extracted_value": json.dumps({"q": 0.1})
+            },
+            "replace-with-cycle-2-life-table-extraction-id": {
+                "extracted_value": json.dumps({"q": 0.1})
+            },
+            "replace-with-cycle-3-life-table-extraction-id": {
+                "extracted_value": json.dumps({"q": 0.2})
+            },
+        }
+
+        self.assertEqual(
+            input_provenance.background_mortality_reasons(
+                plan, mapping["path"], mapping, mapping["derivation"], extraction_index
+            ),
+            [],
+        )
+
+        transformation["life_table"]["cycle_probabilities"][1]["attained_age_years"] = 60.0
+        self.assertEqual(
+            input_provenance.background_mortality_reasons(
+                plan, mapping["path"], mapping, mapping["derivation"], extraction_index
+            ),
+            [],
+        )
+
+        saturated_transformation = deepcopy(transformation)
+        saturated_transformation["excess_mortality_rate_per_year"]["value"] = 1e308
+        saturated_schedule = [
+            {"start_cycle": cycle, "matrix": [[0.0, 1.0], [0.0, 1.0]]}
+            for cycle in (1, 2, 3)
+        ]
+        saturated_plan = deepcopy(plan)
+        saturated_plan["strategies"]["intervention"]["transition_schedule"] = saturated_schedule
+        saturated_mapping = deepcopy(mapping)
+        saturated_mapping["derivation"]["model_value"] = saturated_schedule
+        saturated_mapping["derivation"]["transformation"] = saturated_transformation
+        errors = input_provenance.background_mortality_reasons(
+            saturated_plan,
+            saturated_mapping["path"],
+            saturated_mapping,
+            saturated_mapping["derivation"],
+            extraction_index,
+        )
+        self.assertTrue(any("invalid death probability" in error for error in errors), errors)
+
+        transformation["review_bases"]["no_double_counting"]["approved"] = True
+        errors = input_provenance.background_mortality_reasons(
+            plan, mapping["path"], mapping, mapping["derivation"], extraction_index
+        )
+        self.assertTrue(any("fields are invalid" in error for error in errors), errors)
+
+        transformation["review_bases"]["no_double_counting"].pop("approved")
+        transformation["life_table"]["cycle_probabilities"][1]["attained_age_years"] = 61
+        errors = input_provenance.background_mortality_reasons(
+            plan, mapping["path"], mapping, mapping["derivation"], extraction_index
+        )
+        self.assertTrue(any("cycle-aligned" in error for error in errors), errors)
 
     def test_schedule_requires_schema_04_and_exactly_one_transition_mechanism(self):
         plan, synthesis, digest = self.fixture()
@@ -1521,6 +1665,138 @@ class UncertaintyContractTests(unittest.TestCase):
             errors = uncertainty.validate(uncertainty_path, plan_path)
             self.assertTrue(any("exactly the probability source" in error for error in errors))
             self.assertTrue(any("distribution parameters are invalid" in error for error in errors))
+
+    def test_schema_08_varies_only_excess_rate_and_keeps_life_table_fixed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_markov.json").read_text()
+            )
+            plan.update({
+                "schema_version": "0.9.0",
+                "analysis_id": "portable-background-mortality-uncertainty",
+                "states": ["alive", "dead"],
+                "cycles": 3,
+                "cycle_length_years": 0.5,
+                "strategy_order": ["comparator", "intervention"],
+                "baseline_strategy_id": "comparator",
+                "uncertainty_analysis": {"path": "heor/uncertainty-plan.json"},
+            })
+            for role in plan["strategy_order"]:
+                strategy = plan["strategies"][role]
+                strategy["initial_distribution"] = [1.0, 0.0]
+                strategy["state_costs"] = [strategy["state_costs"][0], 0.0]
+                strategy["state_utilities"] = [strategy["state_utilities"][0], 0.0]
+                strategy["transition_matrix"] = [[0.9, 0.1], [0.0, 1.0]]
+            transformation = json.loads(
+                BackgroundMortalityAdapterContractTests.TEMPLATE.read_text()
+            )
+            schedule = background_mortality_adapter.derive(transformation, 3, 0.5)
+            plan["strategies"]["intervention"].pop("transition_matrix")
+            plan["strategies"]["intervention"]["transition_schedule"] = schedule
+            path = "strategies.intervention.transition_schedule"
+            plan["input_provenance"] = [{
+                "path": path,
+                "source_ids": ["life-table-source"],
+                "extraction_ids": [
+                    "replace-with-cycle-1-life-table-extraction-id",
+                    "replace-with-cycle-2-life-table-extraction-id",
+                    "replace-with-cycle-3-life-table-extraction-id",
+                ],
+                "assumption_ids": [
+                    "replace-with-proposed-excess-mortality-assumption-id",
+                    "replace-with-proposed-population-exchangeability-assumption-id",
+                    "replace-with-proposed-no-double-counting-assumption-id",
+                ],
+                "uncertainty_status": "distribution_available",
+                "derivation": {
+                    "method": "deterministic_transformation",
+                    "model_value": schedule,
+                    "transformation": transformation,
+                },
+            }]
+            plan["methodology"] = {"uncertainty_analysis": {
+                "deterministic": {"planned": True, "input_paths": [path]},
+                "probabilistic": {
+                    "planned": True, "input_paths": [path], "iterations": 1000
+                },
+                "structural_scenarios": ["cost-discount"],
+            }}
+            plan_path = root / "heor" / "analysis-plan.json"
+            plan_path.parent.mkdir(parents=True)
+            plan_raw = json.dumps(plan, ensure_ascii=False, indent=2).encode()
+            plan_path.write_bytes(plan_raw)
+
+            value = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_uncertainty.json").read_text()
+            )
+            value.update({
+                "schema_version": "0.8.0",
+                "analysis_id": plan["analysis_id"],
+                "parameters": [{
+                    "id": "disease-excess-mortality",
+                    "label": "Disease excess mortality rate",
+                    "target": (
+                        "/input_provenance/0/derivation/transformation/"
+                        "excess_mortality_rate_per_year/value"
+                    ),
+                    "provenance_path": path,
+                    "deterministic": {
+                        "low": 0.02,
+                        "high": 0.08,
+                        "rationale": "Evidence-bounded positive excess-hazard range",
+                    },
+                    "probabilistic": {
+                        "type": "gamma",
+                        "shape": 4.0,
+                        "scale": 0.0125,
+                        "basis_ids": [
+                            "replace-with-proposed-excess-mortality-assumption-id"
+                        ],
+                        "rationale": "Positive excess-hazard distribution",
+                    },
+                }],
+                "structural_scenarios": [{
+                    "id": "cost-discount",
+                    "label": "Alternative cost discount rate",
+                    "rationale": "Checks a non-mortality structural input",
+                    "replacements": [{"target": "/discount_rates/costs", "value": 0.03}],
+                }],
+            })
+            value["base_analysis"]["content_sha256"] = hashlib.sha256(plan_raw).hexdigest()
+            value["probabilistic_analysis"]["correlation_handling"]["groups"] = []
+            value["probabilistic_analysis"]["omitted_parameters"] = [{
+                "provenance_path": path,
+                "rationale": "General-population life-table q values are fixed in version 0.8.0",
+            }]
+            uncertainty_path = root / "heor" / "uncertainty-plan.json"
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+
+            self.assertEqual(uncertainty.validate(uncertainty_path, plan_path), [])
+
+            value["parameters"][0]["target"] = (
+                "/input_provenance/0/derivation/transformation/"
+                "life_table/cycle_probabilities/0/annual_probability/value"
+            )
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            errors = uncertainty.validate(uncertainty_path, plan_path)
+            self.assertTrue(any("allowlisted" in error for error in errors), errors)
+
+            value["parameters"][0]["target"] = (
+                "/input_provenance/0/derivation/transformation/"
+                "excess_mortality_rate_per_year/value"
+            )
+            value["structural_scenarios"][0]["replacements"] = [
+                {"target": "/cycle_length_years", "value": 1.0}
+            ]
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            errors = uncertainty.validate(uncertainty_path, plan_path)
+            self.assertTrue(any("allowlist" in error for error in errors), errors)
+
+            value["schema_version"] = "0.7.0"
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            errors = uncertainty.validate(uncertainty_path, plan_path)
+            self.assertTrue(any("0.9.0" in error and "0.8.0" in error for error in errors), errors)
 
     def test_changed_base_hash_and_unlinked_distribution_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:

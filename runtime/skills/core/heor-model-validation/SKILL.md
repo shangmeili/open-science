@@ -14,9 +14,10 @@ description: Prepare, audit, and explain a hash-bound independent-validation rep
 5. Help design reproducible face, input, technical, cross, external, and predictive checks. Technical verification must cover the applicable TECH-VER calculation domains for both cost effectiveness and budget impact.
 6. Run automated tests, replications, and comparisons when authorized. Record their raw evidence honestly as `automated_test` or `developer`; never relabel Codex work as `independent_reviewer`.
 7. Preserve failed checks and defects. Link failures to issues, record root cause and retest evidence, and mark an issue resolved only when the evidence supports it.
-8. Leave reviewer identity, independence declaration, conflict statement, independent observations, and final recommendation for the qualified independent human reviewer. Codex may structure incomplete placeholders but must not invent them.
-9. Run `python3 scripts/validate_model_validation.py WORKSPACE/heor/model-validation.json WORKSPACE`. Treat `valid` as structural readiness only.
-10. Ask the independent reviewer to inspect the report and use the desktop approval surface. Never write approval events.
+8. For analysis `0.9.0`, require independent checks of annual-probability-to-cycle hazard scaling, subannual attained-age alignment, exact life-table and excess-rate bases, two-state absorption, and full schedule recomputation. Require scientific review of population exchangeability, no double counting, and the unimplemented multiplicative/SMR alternative. Confirm uncertainty `0.8.0` varies only the exact positive excess rate while the life table and transformation internals remain fixed.
+9. Leave reviewer identity, independence declaration, conflict statement, independent observations, and final recommendation for the qualified independent human reviewer. Codex may structure incomplete placeholders but must not invent them.
+10. Run `python3 scripts/validate_model_validation.py WORKSPACE/heor/model-validation.json WORKSPACE`. Treat `valid` as structural readiness only.
+11. Ask the independent reviewer to inspect the report and use the desktop approval surface. Never write approval events.
 
 ## Boundaries
 
