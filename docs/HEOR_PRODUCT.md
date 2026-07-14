@@ -40,8 +40,10 @@ human-controlled local release gate are implemented.
    approvable validation package bound to all four current model artifacts, and
    a named human release owner has approved the current report package after
    deterministic result reproduction.
-3. Every decision-relevant value must carry a source, unit, jurisdiction, price
-   year, selection rationale, and uncertainty status before public beta.
+3. Every decision-relevant value must carry a source, unit, jurisdiction,
+   selection rationale, and uncertainty status before public beta. Monetary
+   values also require a common currency and price year plus a reproducible
+   normalization trail.
 4. Results must trace to input, engine version, reference-case version, and run
    environment.
 5. The MVP accepts public or non-sensitive data only. Patient-level, claims,
@@ -138,6 +140,28 @@ at least two people to extract critical outcome data independently and a
 prespecified disagreement process; AI4HEOR does not claim that stronger method
 until identity, independent entry, and resolution workflow are implemented and
 used. OS-backed identity and external anchoring remain future hardening.
+
+## Executable monetary basis
+
+Analysis-plan schema `0.2.0` declares one calculation currency and price year.
+Every state-cost element and non-null willingness-to-pay value records its
+source value, source currency, source price year, positive composite adjustment
+factor, method, and evidence or proposed-assumption basis IDs. Python, Rust, and
+the portable Skill validator independently verify that the model-basis metadata
+matches the plan and that `source value × factor` reproduces the exact model
+input. A same-basis value must use factor 1 and method `none`; any currency,
+price-year, unit, or numerical adjustment requires a reviewable method and
+basis link.
+
+AI4HEOR does not silently select inflation indices or exchange rates. NICE's
+current methods manual requires older costs to be adjusted with an index
+appropriate to the cost perspective and foreign costs to use an appropriate
+current exchange-rate source. The Agent may prepare that transformation from
+an explicitly selected source, but the app audits arithmetic and provenance,
+not the substantive appropriateness of the chosen index. Legacy schema `0.1.0`
+remains calculable for reproducibility, returns no claimed economic basis, and
+cannot pass analysis-plan approval. The review pane formats current monetary
+results from the engine-returned currency instead of a hard-coded jurisdiction.
 
 ## Local evidence library
 
@@ -288,7 +312,7 @@ never scored or applied to BIA. A separate 12-item ISPOR BIA matrix covers the
 budget-impact report. All 40 entries require a rationale, bound evidence paths,
 and exactly one report section marker.
 
-The portable and native validators require exact copied numerical summaries,
+The portable and native validators require the exact copied economic basis and numerical summaries,
 including the complete decision-uncertainty object when present, explicit
 disclosures, limitations, a named release owner, and current hashes. Legacy
 uncertainty results retain their legacy summary shape rather than receiving

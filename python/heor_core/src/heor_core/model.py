@@ -12,8 +12,9 @@ from math import isclose, isfinite
 from typing import Any
 
 
-SCHEMA_VERSION = "0.1.0"
-ENGINE_VERSION = "0.1.0"
+SCHEMA_VERSION = "0.2.0"
+LEGACY_SCHEMA_VERSION = "0.1.0"
+ENGINE_VERSION = "0.2.0"
 TOLERANCE = 1e-9
 
 
@@ -49,6 +50,8 @@ class MarkovSpecification:
     analysis_id: str
     reference_case_id: str
     reference_case_status: str
+    currency: str | None
+    price_year: int | None
     states: tuple[str, ...]
     cycles: int
     cycle_length_years: float
@@ -67,13 +70,26 @@ class MarkovSpecification:
                 "approvals are not analysis inputs; desktop workflow authorization is app-owned"
             )
         reference_case = _mapping(value.get("reference_case", {}), "reference_case")
+        schema_version = str(value.get("schema_version", ""))
+        economic_basis = value.get("economic_basis")
+        if schema_version == SCHEMA_VERSION:
+            economic_basis = _mapping(economic_basis, "economic_basis")
+            currency = str(economic_basis.get("currency", ""))
+            price_year = _strict_int(
+                economic_basis.get("price_year"), "economic_basis.price_year"
+            )
+        else:
+            currency = None
+            price_year = None
         discount_rates = _mapping(value.get("discount_rates", {}), "discount_rates")
         strategies = _mapping(value.get("strategies", {}), "strategies")
         specification = cls(
-            schema_version=str(value.get("schema_version", "")),
+            schema_version=schema_version,
             analysis_id=str(value.get("analysis_id", "")),
             reference_case_id=str(reference_case.get("id", "")),
             reference_case_status=str(reference_case.get("status", "")),
+            currency=currency,
+            price_year=price_year,
             states=tuple(str(state) for state in value.get("states", [])),
             cycles=_strict_int(value.get("cycles"), "cycles"),
             cycle_length_years=_strict_float(
@@ -104,10 +120,23 @@ class MarkovSpecification:
         return specification
 
     def validate(self) -> None:
-        if self.schema_version != SCHEMA_VERSION:
+        if self.schema_version not in {LEGACY_SCHEMA_VERSION, SCHEMA_VERSION}:
             raise ModelValidationError(
-                f"unsupported schema_version {self.schema_version!r}; expected {SCHEMA_VERSION!r}"
+                "unsupported schema_version "
+                f"{self.schema_version!r}; expected {LEGACY_SCHEMA_VERSION!r} or {SCHEMA_VERSION!r}"
             )
+        if self.schema_version == SCHEMA_VERSION:
+            if self.currency is None or not (
+                len(self.currency) == 3 and self.currency.isascii() and self.currency.isalpha()
+                and self.currency.isupper()
+            ):
+                raise ModelValidationError(
+                    "economic_basis.currency must be a three-letter uppercase ISO 4217 code"
+                )
+            if self.price_year is None or not 1900 <= self.price_year <= 2100:
+                raise ModelValidationError(
+                    "economic_basis.price_year must be from 1900 to 2100"
+                )
         if not self.analysis_id.strip():
             raise ModelValidationError("analysis_id must not be empty")
         if not self.reference_case_id.strip():
@@ -182,6 +211,7 @@ class AnalysisResult:
     schema_version: str
     reference_case_id: str
     reference_case_status: str
+    economic_basis: dict[str, Any] | None
     calculation_classification: str
     warnings: tuple[str, ...]
     comparator: StrategyResult
@@ -198,6 +228,7 @@ class AnalysisResult:
                 "status": self.reference_case_status,
                 "compliance_assessed": False,
             },
+            "economic_basis": self.economic_basis,
             "calculation_classification": self.calculation_classification,
             "warnings": list(self.warnings),
             "strategies": {
@@ -232,12 +263,24 @@ def run_markov(specification: MarkovSpecification) -> AnalysisResult:
     warnings.append(
         "Reference-case compliance has not been assessed by the deterministic engine."
     )
+    if specification.schema_version == LEGACY_SCHEMA_VERSION:
+        warnings.append(
+            "Legacy analysis schema: currency and price-year basis are absent, so monetary results are exploratory and must not be presented with a claimed currency."
+        )
     return AnalysisResult(
         analysis_id=specification.analysis_id,
         engine_version=ENGINE_VERSION,
         schema_version=specification.schema_version,
         reference_case_id=specification.reference_case_id,
         reference_case_status=specification.reference_case_status,
+        economic_basis=(
+            None
+            if specification.currency is None or specification.price_year is None
+            else {
+                "currency": specification.currency,
+                "price_year": specification.price_year,
+            }
+        ),
         calculation_classification="calculation_only",
         warnings=tuple(warnings),
         comparator=comparator,

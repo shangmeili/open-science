@@ -65,7 +65,7 @@
     {"profile_id": "ISPOR-BIA-GP-II-2014", "item_id": "bia-12-limitations-reproducibility", "status": "reported", "section_id": "bia.limitations-reproducibility", "rationale": "", "artifact_paths": []}
   ],
   "result_summary": {
-    "cost_effectiveness": {"delta_cost": null, "delta_qaly": null, "icer": null, "incremental_net_monetary_benefit": null},
+    "cost_effectiveness": {"economic_basis": null, "delta_cost": null, "delta_qaly": null, "icer": null, "incremental_net_monetary_benefit": null},
     "uncertainty": {"iterations": null, "cost_effective_probability": null, "mean_incremental_net_monetary_benefit": null, "decision_uncertainty": null},
     "budget_impact": {"annual_net_budget_impact": [], "cumulative_net_budget_impact": null}
   },

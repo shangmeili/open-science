@@ -212,5 +212,6 @@ describe("AI4HEOR human review pane", () => {
     await userEvent.click(screen.getByRole("button", { name: "Run deterministic analysis" }));
     expect(await screen.findByText("Exploratory")).toBeInTheDocument();
     expect(screen.getByText("Not decision-ready")).toBeInTheDocument();
+    expect(screen.getByText("Calculation basis: 2026 CNY")).toBeInTheDocument();
   });
 });

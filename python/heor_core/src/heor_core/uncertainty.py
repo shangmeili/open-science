@@ -362,6 +362,7 @@ def run_uncertainty(
         # uint64 exactly as a JavaScript number. Preserve the audit value as text.
         "seed": str(specification.seed),
         "calculation_classification": "calculation_only",
+        "economic_basis": base_result.economic_basis,
         "base_case": base_result.incremental.to_dict(),
         "deterministic_analysis": deterministic,
         "probabilistic_analysis": probabilistic,

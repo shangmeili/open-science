@@ -97,7 +97,17 @@ export interface HeorInputProvenance {
   assumption_ids?: string[];
   unit: string;
   jurisdiction: string;
+  currency?: string;
   price_year?: number;
+  monetary_adjustments?: Array<{
+    target_index?: number;
+    source_value: number;
+    source_currency: string;
+    source_price_year: number;
+    factor: number;
+    method: string;
+    basis_ids: string[];
+  }>;
   selection_rationale: string;
   uncertainty_status: "fixed" | "range_available" | "distribution_available";
 }
@@ -459,8 +469,9 @@ export interface HeorEvidenceVerificationRequest {
 }
 
 export interface HeorAnalysisPlan {
-  schema_version: "0.1.0";
+  schema_version: "0.1.0" | "0.2.0";
   analysis_id: string;
+  economic_basis?: { currency: string; price_year: number };
   input_status?: string;
   decision_problem: HeorDecisionProblem;
   reference_case: { id: string; status: "current" | "draft" | "custom" };
@@ -512,6 +523,7 @@ export interface HeorCalculation {
     status: string;
     compliance_assessed: boolean;
   };
+  economic_basis: { currency: string; price_year: number } | null;
   calculation_classification: "calculation_only";
   warnings: string[];
   strategies: {
@@ -571,6 +583,7 @@ export interface HeorUncertaintyCalculation {
   prng: { algorithm: string; version: string };
   seed: string;
   calculation_classification: "calculation_only";
+  economic_basis: HeorCalculation["economic_basis"];
   base_case: HeorCalculation["incremental"];
   deterministic_analysis: Array<{
     parameter_id: string;
@@ -674,8 +687,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseHeorPlan(raw: string): HeorAnalysisPlan {
   const value: unknown = JSON.parse(raw);
   if (!isRecord(value)) throw new Error("analysis plan must be a JSON object");
-  if (value.schema_version !== "0.1.0") {
-    throw new Error("analysis plan schema_version must be 0.1.0");
+  if (value.schema_version !== "0.1.0" && value.schema_version !== "0.2.0") {
+    throw new Error("analysis plan schema_version must be 0.1.0 or 0.2.0");
   }
   if (typeof value.analysis_id !== "string" || !value.analysis_id.trim()) {
     throw new Error("analysis plan must include analysis_id");
@@ -733,6 +746,111 @@ function validSha256(value: unknown): boolean {
 
 function nonemptyStrings(value: unknown): value is string[] {
   return Array.isArray(value) && value.length > 0 && value.every(nonempty);
+}
+
+function currencyCode(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Z]{3}$/.test(value);
+}
+
+function finiteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function modelValue(plan: HeorAnalysisPlan, path: string): unknown {
+  let current: unknown = plan;
+  for (const token of path.split(".")) {
+    if (!isRecord(current) || !(token in current)) return undefined;
+    current = current[token];
+  }
+  return current;
+}
+
+function monetaryAdjustmentReasons(
+  plan: HeorAnalysisPlan,
+  mapping: HeorInputProvenance,
+  validBasisIds: Set<string>,
+): string[] {
+  const reasons: string[] = [];
+  const basis = plan.economic_basis;
+  if (!basis || !currencyCode(basis.currency)
+    || !Number.isInteger(basis.price_year) || basis.price_year < 1900 || basis.price_year > 2100) {
+    return ["current economic_basis is missing or invalid"];
+  }
+  if (mapping.currency !== basis.currency) {
+    reasons.push("currency does not match economic_basis.currency");
+  }
+  if (mapping.price_year !== basis.price_year) {
+    reasons.push("price_year does not match economic_basis.price_year");
+  }
+  const target = modelValue(plan, mapping.path);
+  const targetValues = Array.isArray(target) ? target : [target];
+  if (targetValues.length === 0
+    || targetValues.some((value) => !finiteNumber(value) || value < 0)) {
+    return [...reasons, "model monetary value is missing, non-finite, or negative"];
+  }
+  const adjustments = mapping.monetary_adjustments;
+  if (!Array.isArray(adjustments) || adjustments.length !== targetValues.length) {
+    return [...reasons, "monetary_adjustments must cover every model value exactly once"];
+  }
+  const seen = new Set<number>();
+  adjustments.forEach((adjustment, position) => {
+    const label = `monetary_adjustments[${position}]`;
+    const targetIndex = Array.isArray(target) ? adjustment.target_index : 0;
+    if (Array.isArray(target)) {
+      if (!Number.isInteger(targetIndex) || (targetIndex ?? -1) < 0
+        || (targetIndex ?? targetValues.length) >= targetValues.length) {
+        reasons.push(`${label}.target_index is invalid`);
+        return;
+      }
+    } else if (adjustment.target_index !== undefined) {
+      reasons.push(`${label}.target_index must be omitted for a scalar`);
+    }
+    const index = targetIndex ?? 0;
+    if (seen.has(index)) {
+      reasons.push(`${label}.target_index is duplicated`);
+      return;
+    }
+    seen.add(index);
+    if (!finiteNumber(adjustment.source_value) || adjustment.source_value < 0) {
+      reasons.push(`${label}.source_value must be finite and non-negative`);
+      return;
+    }
+    if (!finiteNumber(adjustment.factor) || adjustment.factor <= 0) {
+      reasons.push(`${label}.factor must be finite and positive`);
+      return;
+    }
+    if (!currencyCode(adjustment.source_currency)) {
+      reasons.push(`${label}.source_currency must be an ISO 4217-format code`);
+    }
+    if (!Number.isInteger(adjustment.source_price_year)
+      || adjustment.source_price_year < 1900 || adjustment.source_price_year > 2100) {
+      reasons.push(`${label}.source_price_year must be from 1900 to 2100`);
+    }
+    const expected = targetValues[index] as number;
+    const tolerance = Math.max(1e-6, Math.abs(expected) * 1e-9);
+    if (Math.abs(adjustment.source_value * adjustment.factor - expected) > tolerance) {
+      reasons.push(`${label} does not reproduce model value`);
+    }
+    const sameBasis = adjustment.source_currency === basis.currency
+      && adjustment.source_price_year === basis.price_year;
+    const ids = Array.isArray(adjustment.basis_ids) ? adjustment.basis_ids : [];
+    if (sameBasis && Math.abs(adjustment.factor - 1) <= 1e-12) {
+      if (adjustment.method !== "none" || ids.length > 0) {
+        reasons.push(`${label} must use method none and no basis_ids when no adjustment is needed`);
+      }
+    } else {
+      if (!nonempty(adjustment.method) || adjustment.method.toLowerCase() === "none") {
+        reasons.push(`${label}.method must explain the applied adjustment`);
+      }
+      if (ids.length === 0 || ids.some((id) => !validBasisIds.has(id))) {
+        reasons.push(`${label}.basis_ids must link valid evidence or proposed assumptions`);
+      }
+    }
+  });
+  if (seen.size !== targetValues.length) {
+    reasons.push("monetary_adjustments do not cover every target index");
+  }
+  return reasons;
 }
 
 /** Browser-side preview of the Rust conceptual-model approval audit. */
@@ -900,6 +1018,20 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
   const seen = new Set<string>();
   const covered = new Set<string>();
   const invalidMappings: string[] = [];
+  if (plan.schema_version !== "0.2.0") {
+    invalidMappings.push("schema_version must be 0.2.0 for approval review");
+  }
+  if (!plan.economic_basis || !currencyCode(plan.economic_basis.currency)
+    || !Number.isInteger(plan.economic_basis.price_year)
+    || plan.economic_basis.price_year < 1900 || plan.economic_basis.price_year > 2100) {
+    invalidMappings.push("economic_basis must declare a valid currency and price_year");
+  }
+  const validBasisIds = new Set([
+    ...validSources,
+    ...Array.from(statuses.entries())
+      .filter(([, status]) => status === "proposed")
+      .map(([id]) => id),
+  ]);
   let sourceBasedInputs = 0;
   const selectedExtractions = new Set<string>();
   const synthesisBindingValid = plan.evidence_synthesis?.path === HEOR_EVIDENCE_SYNTHESIS_PATH
@@ -915,9 +1047,8 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
     if (!nonempty(mapping.selection_rationale)) reasons.push("selection rationale is missing");
     if (!(["fixed", "range_available", "distribution_available"] as string[])
       .includes(mapping.uncertainty_status)) reasons.push("uncertainty status is invalid");
-    if ((mapping.path.endsWith("state_costs") || mapping.path === "willingness_to_pay")
-      && (!Number.isInteger(mapping.price_year) || (mapping.price_year ?? 0) < 1900)) {
-      reasons.push("price year is missing");
+    if (mapping.path.endsWith("state_costs") || mapping.path === "willingness_to_pay") {
+      reasons.push(...monetaryAdjustmentReasons(plan, mapping, validBasisIds));
     }
     const sourceIds = (mapping.source_ids ?? []).filter(nonempty);
     const extractionIds = (mapping.extraction_ids ?? []).filter(nonempty);
@@ -1227,8 +1358,9 @@ export const HEOR_BROWSER_DEMO_EVIDENCE_LIBRARY_AUDIT: HeorEvidenceLibraryAudit 
 };
 
 export const HEOR_BROWSER_DEMO_PLAN: HeorAnalysisPlan = {
-  schema_version: "0.1.0",
+  schema_version: "0.2.0",
   analysis_id: "first-line-nsclc-demo",
+  economic_basis: { currency: "CNY", price_year: 2026 },
   input_status: "workflow_demo",
   decision_problem: {
     title: "Cost-effectiveness of a new first-line treatment for advanced NSCLC",
@@ -1445,13 +1577,14 @@ export function browserDemoRun(
   return {
     calculation: {
       analysis_id: HEOR_BROWSER_DEMO_PLAN.analysis_id,
-      engine_version: "0.1.0",
-      schema_version: "0.1.0",
+      engine_version: "0.2.0",
+      schema_version: "0.2.0",
       reference_case: {
         id: "CN-2020-current",
         status: "current",
         compliance_assessed: false,
       },
+      economic_basis: { currency: "CNY", price_year: 2026 },
       calculation_classification: "calculation_only",
       input_sha256: inputSha256,
       strategies: {

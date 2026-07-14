@@ -2348,8 +2348,16 @@ function ApprovalDialog({
 
 function ResultCard({ result, locale }: { result: HeorRunResult; locale: string }) {
   const { t } = useTranslation("heor");
-  const currency = new Intl.NumberFormat(locale, { style: "currency", currency: "CNY", maximumFractionDigits: 0 });
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 3 });
+  const basis = result.calculation.economic_basis;
+  const currency = basis
+    ? new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: basis.currency,
+        maximumFractionDigits: 0,
+      })
+    : null;
+  const formatMoney = (value: number) => currency?.format(value) ?? number.format(value);
   const authorized = result.workflow.classification !== "exploratory";
   const decisionReady = result.workflow.decisionReady;
   const rows = [result.calculation.strategies.comparator, result.calculation.strategies.intervention];
@@ -2374,20 +2382,25 @@ function ResultCard({ result, locale }: { result: HeorRunResult; locale: string 
           {decisionReady ? t("result.releasedNote") : t("result.authorizedNote")}
         </p>
       )}
+      <p className={cn("mt-2 text-[10px] leading-4", basis ? "text-muted" : "text-warning")}>
+        {basis
+          ? t("result.economicBasis", { currency: basis.currency, year: basis.price_year })
+          : t("result.economicBasisMissing")}
+      </p>
       <div className="mt-4 overflow-hidden rounded-input border border-border">
         <table className="w-full text-[10px]">
           <thead className="bg-bg text-muted">
             <tr><th className="px-2 py-2 text-left font-medium">{t("result.strategy")}</th><th className="px-2 py-2 text-right font-medium">{t("result.cost")}</th><th className="px-2 py-2 text-right font-medium">{t("result.qaly")}</th></tr>
           </thead>
           <tbody>
-            {rows.map((row) => <tr key={row.name} className="border-t border-border"><td className="px-2 py-2 font-mono text-text">{row.name}</td><td className="px-2 py-2 text-right tabular-nums text-text">{currency.format(row.total_cost)}</td><td className="px-2 py-2 text-right tabular-nums text-text">{number.format(row.total_qaly)}</td></tr>)}
+            {rows.map((row) => <tr key={row.name} className="border-t border-border"><td className="px-2 py-2 font-mono text-text">{row.name}</td><td className="px-2 py-2 text-right tabular-nums text-text">{formatMoney(row.total_cost)}</td><td className="px-2 py-2 text-right tabular-nums text-text">{number.format(row.total_qaly)}</td></tr>)}
           </tbody>
         </table>
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <Metric label={t("result.deltaCost")} value={currency.format(result.calculation.incremental.delta_cost)} />
+        <Metric label={t("result.deltaCost")} value={formatMoney(result.calculation.incremental.delta_cost)} />
         <Metric label={t("result.deltaQaly")} value={number.format(result.calculation.incremental.delta_qaly)} />
-        <Metric label={t("result.icer")} value={result.calculation.incremental.icer === null ? "—" : currency.format(result.calculation.incremental.icer)} accent />
+        <Metric label={t("result.icer")} value={result.calculation.incremental.icer === null ? "—" : formatMoney(result.calculation.incremental.icer)} accent />
       </div>
       <details className="mt-3 text-[10px] text-muted">
         <summary className="cursor-pointer font-medium text-text">{t("result.warnings")} ({result.calculation.warnings.length})</summary>
@@ -2532,14 +2545,18 @@ function UncertaintyResultCard({
   locale: string;
 }) {
   const { t } = useTranslation("heor");
-  const amount = new Intl.NumberFormat(locale, {
-    maximumFractionDigits: 0,
-  });
+  const calculation = result.calculation;
+  const amount = new Intl.NumberFormat(locale, calculation.economic_basis
+    ? {
+        style: "currency",
+        currency: calculation.economic_basis.currency,
+        maximumFractionDigits: 0,
+      }
+    : { maximumFractionDigits: 0 });
   const probability = new Intl.NumberFormat(locale, {
     style: "percent",
     maximumFractionDigits: 1,
   });
-  const calculation = result.calculation;
   const psa = calculation.probabilistic_analysis;
   const decision = psa.decision_uncertainty;
   const primary = decision.threshold_results.find(

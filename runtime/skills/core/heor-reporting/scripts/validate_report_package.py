@@ -225,6 +225,7 @@ def audit(package_path: Path, workspace: Path) -> dict:
 
     expected_summary = {
         "cost_effectiveness": {
+            "economic_basis": loaded.get("base_case_result", {}).get("economic_basis"),
             "delta_cost": nested(loaded.get("base_case_result", {}), "incremental", "delta_cost"),
             "delta_qaly": nested(loaded.get("base_case_result", {}), "incremental", "delta_qaly"),
             "icer": nested(loaded.get("base_case_result", {}), "incremental", "icer"),

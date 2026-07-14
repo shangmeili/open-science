@@ -321,8 +321,19 @@ class InputProvenanceContractTests(unittest.TestCase):
             for index, path in enumerate(paths)
         ]
         synthesis_raw = json.dumps(synthesis, ensure_ascii=False, indent=2).encode() + b"\n"
+        monetary_values = {
+            "strategies.comparator.state_costs": [1000.0, 3000.0, 0.0],
+            "strategies.intervention.state_costs": [4000.0, 3000.0, 0.0],
+            "willingness_to_pay": [100000.0],
+        }
         plan = {
+            "schema_version": "0.2.0",
+            "economic_basis": {"currency": "CNY", "price_year": 2026},
             "willingness_to_pay": 100000,
+            "strategies": {
+                "comparator": {"state_costs": monetary_values["strategies.comparator.state_costs"]},
+                "intervention": {"state_costs": monetary_values["strategies.intervention.state_costs"]},
+            },
             "evidence_synthesis": {
                 "path": "heor/evidence-synthesis.json",
                 "content_sha256": hashlib.sha256(synthesis_raw).hexdigest(),
@@ -343,8 +354,23 @@ class InputProvenanceContractTests(unittest.TestCase):
                     "assumption_ids": [],
                     "unit": "model-specific",
                     "jurisdiction": "China",
-                    **({"price_year": 2026} if path.endswith("state_costs")
-                       or path == "willingness_to_pay" else {}),
+                    **({
+                        "currency": "CNY",
+                        "price_year": 2026,
+                        "monetary_adjustments": [
+                            {
+                                **({"target_index": target_index}
+                                   if path.endswith("state_costs") else {}),
+                                "source_value": source_value,
+                                "source_currency": "CNY",
+                                "source_price_year": 2026,
+                                "factor": 1.0,
+                                "method": "none",
+                                "basis_ids": [],
+                            }
+                            for target_index, source_value in enumerate(monetary_values[path])
+                        ],
+                    } if path in monetary_values else {}),
                     "selection_rationale": "Direct contract-test extraction",
                     "uncertainty_status": "fixed",
                 }
@@ -372,6 +398,38 @@ class InputProvenanceContractTests(unittest.TestCase):
         self.assertIn("does not match", combined)
         self.assertIn("targets another.path", combined)
         self.assertIn("absent, conflicting, or ineligible", combined)
+
+    def test_monetary_adjustments_must_recompute_every_model_value(self):
+        plan, synthesis, digest = self.fixture()
+        mapping = next(
+            item for item in plan["input_provenance"]
+            if item["path"] == "strategies.intervention.state_costs"
+        )
+        mapping["monetary_adjustments"][0]["source_value"] = 3999.0
+
+        result = input_provenance.audit(plan, synthesis, digest)
+
+        self.assertFalse(result["complete"])
+        self.assertIn("does not reproduce model value", "; ".join(result["invalid_mappings"]))
+
+    def test_documented_cross_basis_adjustment_can_be_recomputed(self):
+        plan, synthesis, digest = self.fixture()
+        mapping = next(
+            item for item in plan["input_provenance"]
+            if item["path"] == "willingness_to_pay"
+        )
+        mapping["monetary_adjustments"] = [{
+            "source_value": 12500.0,
+            "source_currency": "USD",
+            "source_price_year": 2024,
+            "factor": 8.0,
+            "method": "Documented inflation and exchange-rate composite factor",
+            "basis_ids": ["trial-1"],
+        }]
+
+        result = input_provenance.audit(plan, synthesis, digest)
+
+        self.assertTrue(result["complete"], result)
 
 
 class ConceptualModelContractTests(unittest.TestCase):
@@ -832,6 +890,7 @@ class ReportingContractTests(unittest.TestCase):
             "base_case_result": {
                 "analysis_id": analysis_id,
                 "input_sha256": analysis_hash,
+                "economic_basis": {"currency": "CNY", "price_year": 2026},
                 "incremental": {
                     "delta_cost": 12000.0,
                     "delta_qaly": 0.5,
@@ -926,7 +985,10 @@ class ReportingContractTests(unittest.TestCase):
             "reporting_profiles": deepcopy(reporting.PROFILES),
             "items": items,
             "result_summary": {
-                "cost_effectiveness": deepcopy(result_values["base_case_result"]["incremental"]),
+                "cost_effectiveness": {
+                    "economic_basis": deepcopy(result_values["base_case_result"]["economic_basis"]),
+                    **deepcopy(result_values["base_case_result"]["incremental"]),
+                },
                 "uncertainty": deepcopy(result_values["uncertainty_result"]["probabilistic_analysis"]),
                 "budget_impact": deepcopy(result_values["budget_impact_result"]["base_case"]),
             },

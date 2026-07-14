@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import sys
 from hashlib import sha256
+from math import isclose, isfinite
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,7 @@ BASE_PATHS = [
     "strategies.intervention.state_utilities",
 ]
 UNCERTAINTY = {"fixed", "range_available", "distribution_available"}
+CURRENT_ANALYSIS_SCHEMA = "0.2.0"
 
 
 def text(value: Any) -> bool:
@@ -35,10 +37,122 @@ def digest(path: Path) -> str:
     return sha256(path.read_bytes()).hexdigest()
 
 
+def currency_code(value: Any) -> bool:
+    return (
+        isinstance(value, str) and len(value) == 3 and value.isascii()
+        and value.isalpha() and value.isupper()
+    )
+
+
+def finite_number(value: Any) -> bool:
+    return not isinstance(value, bool) and isinstance(value, (int, float)) and isfinite(value)
+
+
+def model_value(plan: dict[str, Any], path: str) -> Any:
+    current: Any = plan
+    for token in path.split("."):
+        if not isinstance(current, dict) or token not in current:
+            return None
+        current = current[token]
+    return current
+
+
+def monetary_reasons(
+    plan: dict[str, Any],
+    path: str,
+    mapping: dict[str, Any],
+    economic_basis: dict[str, Any] | None,
+    valid_basis_ids: set[str],
+) -> list[str]:
+    reasons: list[str] = []
+    if economic_basis is None:
+        return ["current economic_basis is missing or invalid"]
+    currency = economic_basis["currency"]
+    price_year = economic_basis["price_year"]
+    if mapping.get("currency") != currency:
+        reasons.append("currency does not match economic_basis.currency")
+    if mapping.get("price_year") != price_year:
+        reasons.append("price_year does not match economic_basis.price_year")
+
+    target = model_value(plan, path)
+    target_values = target if isinstance(target, list) else [target]
+    if not target_values or any(not finite_number(value) or value < 0 for value in target_values):
+        return reasons + ["model monetary value is missing, non-finite, or negative"]
+    adjustments = mapping.get("monetary_adjustments")
+    if not isinstance(adjustments, list) or len(adjustments) != len(target_values):
+        return reasons + ["monetary_adjustments must cover every model value exactly once"]
+
+    seen: set[int] = set()
+    for position, adjustment in enumerate(adjustments):
+        label = f"monetary_adjustments[{position}]"
+        if not isinstance(adjustment, dict):
+            reasons.append(f"{label} must be an object")
+            continue
+        if isinstance(target, list):
+            target_index = adjustment.get("target_index")
+            if (isinstance(target_index, bool) or not isinstance(target_index, int)
+                    or not 0 <= target_index < len(target_values)):
+                reasons.append(f"{label}.target_index is invalid")
+                continue
+        else:
+            if "target_index" in adjustment:
+                reasons.append(f"{label}.target_index must be omitted for a scalar")
+            target_index = 0
+        if target_index in seen:
+            reasons.append(f"{label}.target_index is duplicated")
+            continue
+        seen.add(target_index)
+        source_value = adjustment.get("source_value")
+        factor = adjustment.get("factor")
+        if not finite_number(source_value) or source_value < 0:
+            reasons.append(f"{label}.source_value must be finite and non-negative")
+            continue
+        if not finite_number(factor) or factor <= 0:
+            reasons.append(f"{label}.factor must be finite and positive")
+            continue
+        if not currency_code(adjustment.get("source_currency")):
+            reasons.append(f"{label}.source_currency must be an ISO 4217-format code")
+        source_year = adjustment.get("source_price_year")
+        if (isinstance(source_year, bool) or not isinstance(source_year, int)
+                or not 1900 <= source_year <= 2100):
+            reasons.append(f"{label}.source_price_year must be from 1900 to 2100")
+        if not isclose(source_value * factor, target_values[target_index], rel_tol=1e-9, abs_tol=1e-6):
+            reasons.append(f"{label} does not reproduce model value")
+        same_basis = adjustment.get("source_currency") == currency and source_year == price_year
+        method = adjustment.get("method")
+        basis_ids = texts(adjustment.get("basis_ids"))
+        if basis_ids is None:
+            reasons.append(f"{label}.basis_ids must be an array")
+            basis_ids = []
+        if same_basis and isclose(float(factor), 1.0, rel_tol=0.0, abs_tol=1e-12):
+            if method != "none" or basis_ids:
+                reasons.append(f"{label} must use method none and no basis_ids when no adjustment is needed")
+        else:
+            if not text(method) or str(method).strip().lower() == "none":
+                reasons.append(f"{label}.method must explain the applied adjustment")
+            if not basis_ids or any(item not in valid_basis_ids for item in basis_ids):
+                reasons.append(f"{label}.basis_ids must link valid evidence or proposed assumptions")
+    if seen != set(range(len(target_values))):
+        reasons.append("monetary_adjustments do not cover every target index")
+    return reasons
+
+
 def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
     errors: list[str] = []
     if not isinstance(plan, dict) or not isinstance(synthesis, dict):
         return {"complete": False, "errors": ["plan and synthesis must be JSON objects"]}
+    if plan.get("schema_version") != CURRENT_ANALYSIS_SCHEMA:
+        errors.append(f"schema_version must be {CURRENT_ANALYSIS_SCHEMA} for approval review")
+    basis_value = plan.get("economic_basis")
+    economic_basis = basis_value if isinstance(basis_value, dict) else None
+    if economic_basis is None or not currency_code(economic_basis.get("currency")):
+        errors.append("economic_basis.currency must be an ISO 4217-format code")
+        economic_basis = None
+    elif (isinstance(economic_basis.get("price_year"), bool)
+            or not isinstance(economic_basis.get("price_year"), int)
+            or not 1900 <= economic_basis["price_year"] <= 2100):
+        errors.append("economic_basis.price_year must be from 1900 to 2100")
+        economic_basis = None
     required = list(BASE_PATHS)
     if plan.get("willingness_to_pay") is not None:
         required.append("willingness_to_pay")
@@ -89,6 +203,9 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
         item.get("id", "unknown") for item in assumptions
         if isinstance(item, dict) and item.get("status") == "unresolved"
     )
+    valid_basis_ids = valid_sources | {
+        identifier for identifier, status in assumption_status.items() if status == "proposed"
+    }
 
     records = synthesis.get("records") if isinstance(synthesis.get("records"), list) else []
     included = {
@@ -127,10 +244,10 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
                 reasons.append(f"{field} is missing")
         if mapping.get("uncertainty_status") not in UNCERTAINTY:
             reasons.append("uncertainty_status is invalid")
-        if (path.endswith("state_costs") or path == "willingness_to_pay") and not (
-            isinstance(mapping.get("price_year"), int) and 1900 <= mapping["price_year"] <= 3000
-        ):
-            reasons.append("price_year is missing")
+        if path.endswith("state_costs") or path == "willingness_to_pay":
+            reasons.extend(
+                monetary_reasons(plan, path, mapping, economic_basis, valid_basis_ids)
+            )
         source_ids = texts(mapping.get("source_ids")) or []
         assumption_ids = texts(mapping.get("assumption_ids")) or []
         extraction_ids = texts(mapping.get("extraction_ids")) or []

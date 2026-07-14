@@ -1,7 +1,11 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "analysis_id": "replace-with-analysis-id",
   "input_status": "draft",
+  "economic_basis": {
+    "currency": "CNY",
+    "price_year": 2026
+  },
   "decision_problem": {
     "title": "Replace with the decision question",
     "population": "Replace with the target population",

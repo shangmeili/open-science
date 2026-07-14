@@ -62,13 +62,61 @@ Add one unique `input_provenance` entry per required path:
   "assumption_ids": [],
   "unit": "CNY per cycle by health state",
   "jurisdiction": "China",
-  "price_year": 2025,
+  "currency": "CNY",
+  "price_year": 2026,
+  "monetary_adjustments": [
+    {
+      "target_index": 0,
+      "source_value": 1000.0,
+      "source_currency": "CNY",
+      "source_price_year": 2026,
+      "factor": 1.0,
+      "method": "none",
+      "basis_ids": []
+    },
+    {
+      "target_index": 1,
+      "source_value": 3000.0,
+      "source_currency": "CNY",
+      "source_price_year": 2026,
+      "factor": 1.0,
+      "method": "none",
+      "basis_ids": []
+    },
+    {
+      "target_index": 2,
+      "source_value": 0.0,
+      "source_currency": "CNY",
+      "source_price_year": 2026,
+      "factor": 1.0,
+      "method": "none",
+      "basis_ids": []
+    }
+  ],
   "selection_rationale": "Most recent directly applicable Chinese payer-cost study",
   "uncertainty_status": "distribution_available"
 }
 ```
 
-At least one valid source or `proposed` assumption is required. `unit`, `jurisdiction`, and `selection_rationale` are always required. Monetary inputs also require integer `price_year`. `uncertainty_status` must be `fixed`, `range_available`, or `distribution_available`.
+At least one valid source or `proposed` assumption is required. `unit`, `jurisdiction`, and `selection_rationale` are always required. Monetary inputs also require `currency` and integer `price_year` matching the plan's root `economic_basis`. `uncertainty_status` must be `fixed`, `range_available`, or `distribution_available`.
+
+For an array-valued cost input, add exactly one adjustment per array index. For scalar willingness-to-pay, omit `target_index`:
+
+```json
+"monetary_adjustments": [
+  {
+    "target_index": 0,
+    "source_value": 920.0,
+    "source_currency": "CNY",
+    "source_price_year": 2024,
+    "factor": 1.0869565217391304,
+    "method": "2024-to-2026 health-cost inflation index ratio",
+    "basis_ids": ["official-health-cost-index-2026"]
+  }
+]
+```
+
+The validator checks that `source_value * factor` reproduces the exact model value within a small numerical tolerance. `source_currency` uses a three-letter uppercase ISO 4217 format and `source_price_year` ranges from 1900 through 2100. An unchanged value must use factor `1`, method `none`, the same source and model basis, and an empty `basis_ids` array. Any price-year, currency, unit, or numerical adjustment requires a non-`none` method and valid evidence-source or `proposed`-assumption basis IDs. A composite factor is allowed, but the method must describe its inflation, exchange-rate, and unit-conversion components. Keep the underlying rates and dates reviewable in the linked evidence; AI4HEOR does not silently retrieve or choose them.
 
 For every source-based mapping, `extraction_ids` must be a non-empty unique list. Each ID must identify a non-conflicting extraction in the bound synthesis, its `target` must exactly equal the mapping `path`, and its `record_id` must appear in `source_ids`. An assumption-only mapping must not claim extraction IDs.
 

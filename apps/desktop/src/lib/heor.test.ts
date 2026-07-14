@@ -74,6 +74,40 @@ describe("AI4HEOR artifact contract", () => {
     expect(audit.selectedExtractionCount).toBe(1);
   });
 
+  it("fails closed when a monetary adjustment cannot reproduce the model input", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    plan.assumptions = [{
+      id: "cost-assumption",
+      statement: "Synthetic cost input for audit testing",
+      reason: "Browser contract test",
+      status: "proposed",
+    }];
+    plan.input_provenance = [{
+      path: "strategies.intervention.state_costs",
+      source_ids: [],
+      assumption_ids: ["cost-assumption"],
+      unit: "CNY per person per cycle by health state",
+      jurisdiction: "China",
+      currency: "CNY",
+      price_year: 2026,
+      monetary_adjustments: [4000, 3000, 0].map((value, target_index) => ({
+        target_index,
+        source_value: target_index === 0 ? value - 1 : value,
+        source_currency: "CNY",
+        source_price_year: 2026,
+        factor: 1,
+        method: "none",
+        basis_ids: [],
+      })),
+      selection_rationale: "Synthetic browser audit fixture",
+      uncertainty_status: "fixed",
+    }];
+
+    const audit = auditHeorEvidence(plan);
+
+    expect(audit.invalidMappings.join("; ")).toContain("does not reproduce model value");
+  });
+
   it("audits the conceptual model independently from numerical inputs", () => {
     const parsed = parseHeorConceptualModel(JSON.stringify(HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL));
     const audit = auditHeorConceptualModel(parsed);

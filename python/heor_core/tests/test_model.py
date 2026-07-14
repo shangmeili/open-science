@@ -56,6 +56,27 @@ class MarkovModelTests(unittest.TestCase):
         self.assertAlmostEqual(result.incremental.icer, 31773.564494548336)
         self.assertEqual(result.incremental.interpretation, "tradeoff")
         self.assertEqual(result.calculation_classification, "calculation_only")
+        self.assertEqual(
+            result.economic_basis,
+            {"currency": "CNY", "price_year": 2026},
+        )
+
+    def test_invalid_iso_currency_is_rejected(self) -> None:
+        payload = golden_payload()
+        payload["economic_basis"]["currency"] = "cny"
+
+        with self.assertRaisesRegex(ModelValidationError, "ISO 4217"):
+            MarkovSpecification.from_dict(payload)
+
+    def test_legacy_plan_remains_calculable_but_has_no_claimed_basis(self) -> None:
+        payload = golden_payload()
+        payload["schema_version"] = "0.1.0"
+        del payload["economic_basis"]
+
+        result = run_markov(MarkovSpecification.from_dict(payload))
+
+        self.assertIsNone(result.economic_basis)
+        self.assertIn("Legacy analysis schema", " ".join(result.warnings))
 
     def test_cohort_mass_is_conserved_in_every_cycle(self) -> None:
         result = run_markov(MarkovSpecification.from_dict(golden_payload()))
@@ -154,6 +175,7 @@ class UncertaintyAnalysisTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(first["prng"], {"algorithm": "pcg32-xsh-rr", "version": "1"})
         self.assertEqual(first["seed"], "20260714")
+        self.assertEqual(first["economic_basis"], {"currency": "CNY", "price_year": 2026})
         self.assertEqual(first["probabilistic_analysis"]["iterations"], 1000)
         self.assertEqual(len(first["probabilistic_analysis"]["samples"]), 1000)
         self.assertEqual(

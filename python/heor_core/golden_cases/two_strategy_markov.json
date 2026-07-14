@@ -1,6 +1,10 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "analysis_id": "golden-two-strategy-markov",
+  "economic_basis": {
+    "currency": "CNY",
+    "price_year": 2026
+  },
   "reference_case": {
     "id": "CN-2020-current",
     "status": "current"

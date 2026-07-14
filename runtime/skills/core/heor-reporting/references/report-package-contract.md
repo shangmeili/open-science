@@ -56,7 +56,9 @@ passed. The validator reports coverage, not a score.
 ## Numerical summaries
 
 `result_summary` copies the defined values from the three deterministic result
-files. Values must match exactly, including `null` when the ICER is undefined.
+files. The cost-effectiveness summary copies `economic_basis` exactly before
+the incremental monetary fields. Values must match exactly, including `null`
+when the ICER or legacy economic basis is undefined.
 When the uncertainty result contains `decision_uncertainty`, the package copies
 that complete object exactly: threshold rows, CEAC/CEAF probabilities,
 per-person EVPI and Monte Carlo error, and the explicit null population EVPI

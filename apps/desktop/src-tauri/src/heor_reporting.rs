@@ -167,6 +167,7 @@ fn expected_result_summary(loaded: &HashMap<&str, serde_json::Value>) -> serde_j
     }
     serde_json::json!({
         "cost_effectiveness": {
+            "economic_basis": loaded.get("base_case_result").and_then(|v| v.get("economic_basis")).cloned().unwrap_or(serde_json::Value::Null),
             "delta_cost": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/delta_cost")).cloned().unwrap_or(serde_json::Value::Null),
             "delta_qaly": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/delta_qaly")).cloned().unwrap_or(serde_json::Value::Null),
             "icer": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/icer")).cloned().unwrap_or(serde_json::Value::Null),
@@ -682,6 +683,9 @@ mod tests {
         );
         assert!(summary
             .pointer("/uncertainty/decision_uncertainty/population_evpi")
+            .is_some_and(serde_json::Value::is_null));
+        assert!(summary
+            .pointer("/cost_effectiveness/economic_basis")
             .is_some_and(serde_json::Value::is_null));
     }
 

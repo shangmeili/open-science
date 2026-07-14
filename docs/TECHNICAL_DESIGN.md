@@ -219,6 +219,14 @@ workspace artifact and circular hashes while ensuring a plan approval covers
 the exact evidence-to-input choices. The engine, uncertainty runner, and budget
 impact runner repeat the audit and invalidate stale approval bindings.
 
+Analysis-plan schema `0.2.0` also carries a root `economic_basis`. Each monetary
+mapping contains element-level source values and adjustment factors so the
+portable Python validator, native Rust approval boundary, and TypeScript review
+preview can all reject mixed or unreproducible currency/price-year inputs. The
+deterministic engine returns the declared basis with base-case and uncertainty
+results; legacy `0.1.0` inputs remain readable but return a null basis and stay
+exploratory. No layer owns an implicit exchange-rate or inflation-data service.
+
 Reference-case profiles are immutable packaged resources loaded by ID, never
 workspace-supplied policy. The audit validates profile schema, HTTPS source,
 source SHA-256, checked/effective dates, unique requirements, supported

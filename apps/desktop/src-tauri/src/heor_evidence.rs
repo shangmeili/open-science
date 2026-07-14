@@ -91,6 +91,195 @@ fn monetary_path(path: &str) -> bool {
     path.ends_with("state_costs") || path == "willingness_to_pay"
 }
 
+fn currency_code(value: Option<&serde_json::Value>) -> Option<&str> {
+    value.and_then(serde_json::Value::as_str).filter(|value| {
+        value.len() == 3
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_alphabetic() && byte.is_ascii_uppercase())
+    })
+}
+
+fn model_value<'a>(plan: &'a serde_json::Value, path: &str) -> Option<&'a serde_json::Value> {
+    path.split('.')
+        .try_fold(plan, |current, token| current.get(token))
+}
+
+fn monetary_adjustment_reasons(
+    plan: &serde_json::Value,
+    path: &str,
+    mapping: &serde_json::Value,
+    economic_basis: Option<(&str, u64)>,
+    valid_sources: &HashSet<&str>,
+    assumption_statuses: &HashMap<&str, &str>,
+) -> Vec<String> {
+    let Some((currency, price_year)) = economic_basis else {
+        return vec!["current economic_basis is missing or invalid".into()];
+    };
+    let mut reasons = Vec::new();
+    if currency_code(mapping.get("currency")) != Some(currency) {
+        reasons.push("currency does not match economic_basis.currency".into());
+    }
+    if mapping
+        .get("price_year")
+        .and_then(serde_json::Value::as_u64)
+        != Some(price_year)
+    {
+        reasons.push("price_year does not match economic_basis.price_year".into());
+    }
+    let Some(target) = model_value(plan, path) else {
+        reasons.push("model monetary value is missing".into());
+        return reasons;
+    };
+    let target_values = match target.as_array() {
+        Some(values) if !values.is_empty() => values
+            .iter()
+            .filter_map(serde_json::Value::as_f64)
+            .collect::<Vec<_>>(),
+        Some(_) => Vec::new(),
+        None => target.as_f64().into_iter().collect::<Vec<_>>(),
+    };
+    if target_values.is_empty()
+        || target_values.len() != target.as_array().map_or(1, Vec::len)
+        || target_values
+            .iter()
+            .any(|value| !value.is_finite() || *value < 0.0)
+    {
+        reasons.push("model monetary value is missing, non-finite, or negative".into());
+        return reasons;
+    }
+    let Some(adjustments) = mapping
+        .get("monetary_adjustments")
+        .and_then(serde_json::Value::as_array)
+    else {
+        reasons.push("monetary_adjustments must cover every model value exactly once".into());
+        return reasons;
+    };
+    if adjustments.len() != target_values.len() {
+        reasons.push("monetary_adjustments must cover every model value exactly once".into());
+        return reasons;
+    }
+    let target_is_array = target.is_array();
+    let mut seen = HashSet::new();
+    for (position, adjustment) in adjustments.iter().enumerate() {
+        let label = format!("monetary_adjustments[{position}]");
+        let Some(adjustment) = adjustment.as_object() else {
+            reasons.push(format!("{label} must be an object"));
+            continue;
+        };
+        let target_index = if target_is_array {
+            let Some(index) = adjustment
+                .get("target_index")
+                .and_then(serde_json::Value::as_u64)
+                .and_then(|value| usize::try_from(value).ok())
+                .filter(|value| *value < target_values.len())
+            else {
+                reasons.push(format!("{label}.target_index is invalid"));
+                continue;
+            };
+            index
+        } else {
+            if adjustment.contains_key("target_index") {
+                reasons.push(format!("{label}.target_index must be omitted for a scalar"));
+            }
+            0
+        };
+        if !seen.insert(target_index) {
+            reasons.push(format!("{label}.target_index is duplicated"));
+            continue;
+        }
+        let Some(source_value) = adjustment
+            .get("source_value")
+            .and_then(serde_json::Value::as_f64)
+            .filter(|value| value.is_finite() && *value >= 0.0)
+        else {
+            reasons.push(format!(
+                "{label}.source_value must be finite and non-negative"
+            ));
+            continue;
+        };
+        let Some(factor) = adjustment
+            .get("factor")
+            .and_then(serde_json::Value::as_f64)
+            .filter(|value| value.is_finite() && *value > 0.0)
+        else {
+            reasons.push(format!("{label}.factor must be finite and positive"));
+            continue;
+        };
+        let source_currency = currency_code(adjustment.get("source_currency"));
+        if source_currency.is_none() {
+            reasons.push(format!(
+                "{label}.source_currency must be an ISO 4217-format code"
+            ));
+        }
+        let source_year = adjustment
+            .get("source_price_year")
+            .and_then(serde_json::Value::as_u64)
+            .filter(|year| (1900..=2100).contains(year));
+        if source_year.is_none() {
+            reasons.push(format!(
+                "{label}.source_price_year must be from 1900 to 2100"
+            ));
+        }
+        let target_value = target_values[target_index];
+        let difference = (source_value * factor - target_value).abs();
+        let tolerance = (target_value.abs() * 1e-9).max(1e-6);
+        if difference > tolerance {
+            reasons.push(format!("{label} does not reproduce model value"));
+        }
+        let basis_ids = adjustment
+            .get("basis_ids")
+            .and_then(serde_json::Value::as_array)
+            .filter(|values| {
+                values.iter().all(|value| {
+                    value
+                        .as_str()
+                        .is_some_and(|identifier| !identifier.trim().is_empty())
+                })
+            });
+        if basis_ids.is_none() {
+            reasons.push(format!("{label}.basis_ids must be an array"));
+        }
+        let basis_ids = basis_ids
+            .into_iter()
+            .flatten()
+            .filter_map(serde_json::Value::as_str);
+        let basis_ids = basis_ids.collect::<Vec<_>>();
+        let same_basis = source_currency == Some(currency) && source_year == Some(price_year);
+        let method = adjustment
+            .get("method")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        if same_basis && (factor - 1.0).abs() <= 1e-12 {
+            if method != "none" || !basis_ids.is_empty() {
+                reasons.push(format!(
+                    "{label} must use method none and no basis_ids when no adjustment is needed"
+                ));
+            }
+        } else {
+            if method.trim().is_empty() || method.eq_ignore_ascii_case("none") {
+                reasons.push(format!(
+                    "{label}.method must explain the applied adjustment"
+                ));
+            }
+            if basis_ids.is_empty()
+                || basis_ids.iter().any(|identifier| {
+                    !valid_sources.contains(identifier)
+                        && assumption_statuses.get(identifier).copied() != Some("proposed")
+                })
+            {
+                reasons.push(format!(
+                    "{label}.basis_ids must link valid evidence or proposed assumptions"
+                ));
+            }
+        }
+    }
+    if seen.len() != target_values.len() {
+        reasons.push("monetary_adjustments do not cover every target index".into());
+    }
+    reasons
+}
+
 pub fn audit_plan_bytes(raw: &[u8]) -> Result<EvidenceAudit, String> {
     let plan: serde_json::Value = serde_json::from_slice(raw)
         .map_err(|error| format!("analysis plan evidence audit failed: {error}"))?;
@@ -172,6 +361,27 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
     let mut seen = HashSet::new();
     let mut covered = HashSet::new();
     let mut invalid_mappings = Vec::new();
+    if plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        != Some("0.2.0")
+    {
+        invalid_mappings.push("schema_version must be 0.2.0 for approval review".into());
+    }
+    let economic_basis = plan
+        .get("economic_basis")
+        .and_then(serde_json::Value::as_object)
+        .and_then(|basis| {
+            let currency = currency_code(basis.get("currency"))?;
+            let price_year = basis
+                .get("price_year")
+                .and_then(serde_json::Value::as_u64)
+                .filter(|year| (1900..=2100).contains(year))?;
+            Some((currency, price_year))
+        });
+    if economic_basis.is_none() {
+        invalid_mappings.push("economic_basis must declare a valid currency and price_year".into());
+    }
     let mut source_based_inputs = 0usize;
     let mut selected_extractions = HashSet::new();
     let synthesis_binding = plan
@@ -190,21 +400,21 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
             invalid_mappings.push("mapping omitted path".into());
             continue;
         };
-        let mut reasons = Vec::new();
+        let mut reasons: Vec<String> = Vec::new();
         if !required_set.contains(path) {
-            reasons.push("path is not a required model input");
+            reasons.push("path is not a required model input".into());
         }
         if !seen.insert(path) {
-            reasons.push("path is duplicated");
+            reasons.push("path is duplicated".into());
         }
         if !nonempty(mapping.get("unit")) {
-            reasons.push("unit is missing");
+            reasons.push("unit is missing".into());
         }
         if !nonempty(mapping.get("jurisdiction")) {
-            reasons.push("jurisdiction is missing");
+            reasons.push("jurisdiction is missing".into());
         }
         if !nonempty(mapping.get("selection_rationale")) {
-            reasons.push("selection rationale is missing");
+            reasons.push("selection rationale is missing".into());
         }
         let uncertainty_valid = mapping
             .get("uncertainty_status")
@@ -216,47 +426,49 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
                 )
             });
         if !uncertainty_valid {
-            reasons.push("uncertainty status is invalid");
+            reasons.push("uncertainty status is invalid".into());
         }
-        if monetary_path(path)
-            && !mapping
-                .get("price_year")
-                .and_then(serde_json::Value::as_u64)
-                .is_some_and(|year| (1900..=3000).contains(&year))
-        {
-            reasons.push("price year is missing");
+        if monetary_path(path) {
+            reasons.extend(monetary_adjustment_reasons(
+                plan,
+                path,
+                mapping,
+                economic_basis,
+                &valid_sources,
+                &assumption_statuses,
+            ));
         }
 
         let source_ids = string_list(mapping.get("source_ids")).unwrap_or_default();
         let assumption_ids = string_list(mapping.get("assumption_ids")).unwrap_or_default();
         let extraction_ids = string_list(mapping.get("extraction_ids")).unwrap_or_default();
         if source_ids.is_empty() && assumption_ids.is_empty() {
-            reasons.push("no evidence source or reviewable assumption is linked");
+            reasons.push("no evidence source or reviewable assumption is linked".into());
         }
         if source_ids.iter().any(|id| !valid_sources.contains(id)) {
-            reasons.push("source link is missing or source metadata is incomplete");
+            reasons.push("source link is missing or source metadata is incomplete".into());
         }
         if !source_ids.is_empty() {
             source_based_inputs += 1;
             if !synthesis_binding_valid {
-                reasons.push("current evidence synthesis binding is missing or invalid");
+                reasons.push("current evidence synthesis binding is missing or invalid".into());
             }
             if extraction_ids.is_empty() {
-                reasons.push("source-based input has no selected extraction");
+                reasons.push("source-based input has no selected extraction".into());
             }
             let unique = extraction_ids.iter().copied().collect::<HashSet<_>>();
             if unique.len() != extraction_ids.len() {
-                reasons.push("selected extraction IDs are duplicated");
+                reasons.push("selected extraction IDs are duplicated".into());
             }
             selected_extractions.extend(extraction_ids.iter().map(|id| (*id).to_string()));
         } else if !extraction_ids.is_empty() {
-            reasons.push("extraction IDs require at least one evidence source");
+            reasons.push("extraction IDs require at least one evidence source".into());
         }
         if assumption_ids
             .iter()
             .any(|id| assumption_statuses.get(id).copied() != Some("proposed"))
         {
-            reasons.push("assumption link is missing or is not proposed for human review");
+            reasons.push("assumption link is missing or is not proposed for human review".into());
         }
 
         if reasons.is_empty() {
@@ -507,10 +719,45 @@ pub fn require_analysis_plan_approvable(raw: &[u8], expected_sha256: &str) -> Re
 mod tests {
     use super::*;
 
+    fn monetary_adjustments(path: &str) -> serde_json::Value {
+        let values: Vec<f64> = match path {
+            "strategies.comparator.state_costs" => vec![1000.0, 3000.0, 0.0],
+            "strategies.intervention.state_costs" => vec![4000.0, 3000.0, 0.0],
+            "willingness_to_pay" => vec![100000.0],
+            _ => return serde_json::Value::Null,
+        };
+        serde_json::Value::Array(
+            values
+                .into_iter()
+                .enumerate()
+                .map(|(index, value)| {
+                    let mut item = serde_json::json!({
+                        "source_value": value,
+                        "source_currency": "CNY",
+                        "source_price_year": 2026,
+                        "factor": 1.0,
+                        "method": "none",
+                        "basis_ids": []
+                    });
+                    if path.ends_with("state_costs") {
+                        item["target_index"] = serde_json::json!(index);
+                    }
+                    item
+                })
+                .collect(),
+        )
+    }
+
     fn complete_plan() -> serde_json::Value {
         let paths = required_input_paths(&serde_json::json!({ "willingness_to_pay": 100000 }));
         serde_json::json!({
+            "schema_version": "0.2.0",
+            "economic_basis": {"currency": "CNY", "price_year": 2026},
             "willingness_to_pay": 100000,
+            "strategies": {
+                "comparator": {"state_costs": [1000.0, 3000.0, 0.0]},
+                "intervention": {"state_costs": [4000.0, 3000.0, 0.0]}
+            },
             "evidence_synthesis": {
                 "path": "heor/evidence-synthesis.json",
                 "content_sha256": "a".repeat(64)
@@ -530,7 +777,9 @@ mod tests {
                 "assumption_ids": [],
                 "unit": "model-specific",
                 "jurisdiction": "China",
+                "currency": if monetary_path(path) { Some("CNY") } else { None },
                 "price_year": if monetary_path(path) { Some(2026) } else { None },
+                "monetary_adjustments": monetary_adjustments(path),
                 "selection_rationale": "Pre-specified source",
                 "uncertainty_status": "fixed"
             })).collect::<Vec<_>>()
@@ -578,6 +827,47 @@ mod tests {
         first["source_ids"] = serde_json::json!([]);
         first["extraction_ids"] = serde_json::json!([]);
         first["assumption_ids"] = serde_json::json!(["assumption-1"]);
+        assert!(audit_plan(&plan).complete);
+    }
+
+    #[test]
+    fn monetary_adjustment_must_reproduce_the_model_value() {
+        let mut plan = complete_plan();
+        let mapping = plan["input_provenance"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|item| item["path"] == "strategies.intervention.state_costs")
+            .unwrap();
+        mapping["monetary_adjustments"][0]["source_value"] = serde_json::json!(3999.0);
+
+        let audit = audit_plan(&plan);
+
+        assert!(!audit.complete);
+        assert!(audit
+            .invalid_mappings
+            .join("; ")
+            .contains("does not reproduce model value"));
+    }
+
+    #[test]
+    fn documented_cross_basis_adjustment_is_eligible() {
+        let mut plan = complete_plan();
+        let mapping = plan["input_provenance"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|item| item["path"] == "willingness_to_pay")
+            .unwrap();
+        mapping["monetary_adjustments"] = serde_json::json!([{
+            "source_value": 12500.0,
+            "source_currency": "USD",
+            "source_price_year": 2024,
+            "factor": 8.0,
+            "method": "Documented inflation and exchange-rate composite factor",
+            "basis_ids": ["source-1"]
+        }]);
+
         assert!(audit_plan(&plan).complete);
     }
 }
