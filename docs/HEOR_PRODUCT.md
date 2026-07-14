@@ -169,6 +169,17 @@ conversion remain incomplete. Schemas `0.1.0` and
 `0.2.0` remain calculable for reproducibility but cannot pass analysis-plan
 approval; static `0.3.0` and schedule-capable `0.4.0` plans remain approvable.
 
+Analysis-plan schema `0.8.0` removes the two-role ceiling without weakening
+auditability. It requires 2–16 safe strategy IDs, an explicit deterministic
+`strategy_order`, an exact strategies map, and a baseline ID in first position.
+The engine reports pairwise results versus that baseline but separately performs
+the methodologically required fully incremental analysis: ordering by expected
+QALY, identifying strict and extended dominance, constructing the efficiency
+frontier, and calculating sequential ICERs only between adjacent frontier
+strategies. Identical cost/QALY points remain explicit and declaration order
+selects the retained representative. At the primary threshold, all strategies
+compete on net monetary benefit.
+
 ## Executable model-cycle-dependent transitions
 
 Analysis-plan schema `0.4.0` adds a bounded `transition_schedule` alternative
@@ -369,7 +380,7 @@ Changing either artifact invalidates local authorization.
 The dependency-free engine executes one-way sensitivity analyses, joint PSA,
 and structural scenarios with versioned `pcg32-xsh-rr` sampling and fixed beta,
 gamma, lognormal, uniform, Dirichlet, and bounded lognormal-Cholesky transforms. Schemas
-`0.4.0` through `0.6.0` admit evidence-bound groups of 2–32 scalar lognormal parameters only;
+`0.4.0` through `0.7.0` admit evidence-bound groups of 2–32 scalar lognormal parameters only;
 their declared matrix is the correlation of latent standard-normal values on the
 log scale and must be symmetric, unit-diagonal, and strictly positive definite.
 Each member can belong to one group, and every group basis must already be linked
@@ -377,14 +388,18 @@ by every member distribution. The current desktop bridge
 limits PSA to 10,000 draws because it returns every draw for audit; larger runs
 require a future streamed, content-addressed result artifact. The app reports
 cost-effectiveness probability and checkpoint Monte Carlo diagnostics.
-Schemas `0.2.0` through `0.6.0` require a declared 2–101 point threshold grid containing
+Schemas `0.2.0` through `0.7.0` require a declared 2–101 point threshold grid containing
 the analysis plan's primary willingness-to-pay value. The grid must come from
 the stated decision context or a human instruction; neither the Agent nor a
 form may invent a jurisdictional threshold.
 
-The engine reuses the same draws to calculate intervention CEAC, two-strategy
-CEAF, and per-person EVPI at every declared threshold. The review pane renders
-CEAC and CEAF as distinct accessible line series and retains exact values in
+For analysis schema `0.8.0`, uncertainty schema `0.7.0` reuses the same draws
+to calculate every strategy's unique-optimal CEAC probability, a separate tie
+probability, the multi-strategy CEAF, and `E[max_j NMB_j] - max_j E[NMB_j]`
+per-person EVPI at every threshold. It stores strategy order once and aligned
+cost/QALY arrays per draw to keep the bounded artifact compact. Legacy schemas
+retain their original incremental output. The review pane renders each CEAC and
+the CEAF as distinct accessible line series and retains exact values in
 the result artifact. This is a secondary evidence surface in the
 natural-language workflow, not a new form-led modeling path. The result reports
 Monte Carlo error and keeps population EVPI and EVPPI explicitly null; it does

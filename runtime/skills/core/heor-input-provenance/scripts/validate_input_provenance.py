@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from hashlib import sha256
 from math import expm1, isclose, isfinite, log1p
@@ -13,20 +14,11 @@ from typing import Any
 
 BASE_PATHS = [
     "cycles", "cycle_length_years", "discount_rates.costs", "discount_rates.outcomes",
-    "half_cycle_correction", "strategies.comparator.initial_distribution",
-    "strategies.comparator.transition_matrix", "strategies.comparator.state_costs",
-    "strategies.comparator.state_utilities", "strategies.intervention.initial_distribution",
-    "strategies.intervention.transition_matrix", "strategies.intervention.state_costs",
-    "strategies.intervention.state_utilities",
+    "half_cycle_correction",
 ]
 UNCERTAINTY = {"fixed", "range_available", "distribution_available"}
-APPROVABLE_ANALYSIS_SCHEMAS = {"0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0"}
-TRANSITION_PATHS = {
-    "strategies.comparator.transition_matrix",
-    "strategies.intervention.transition_matrix",
-    "strategies.comparator.transition_schedule",
-    "strategies.intervention.transition_schedule",
-}
+APPROVABLE_ANALYSIS_SCHEMAS = {"0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0"}
+STRATEGY_ID = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 
 
 def text(value: Any) -> bool:
@@ -64,17 +56,37 @@ def model_value(plan: dict[str, Any], path: str) -> Any:
 
 
 def required_paths(plan: dict[str, Any]) -> list[str]:
-    paths = [path for path in BASE_PATHS if not path.endswith(".transition_matrix")]
-    for role in ("comparator", "intervention"):
+    paths = list(BASE_PATHS)
+    for role in strategy_ids(plan):
         strategy = (plan.get("strategies") or {}).get(role) or {}
         transition_field = (
             "transition_schedule"
             if isinstance(strategy, dict) and "transition_schedule" in strategy
             else "transition_matrix"
         )
-        insert_after = paths.index(f"strategies.{role}.initial_distribution") + 1
-        paths.insert(insert_after, f"strategies.{role}.{transition_field}")
+        paths.extend([
+            f"strategies.{role}.initial_distribution",
+            f"strategies.{role}.{transition_field}",
+            f"strategies.{role}.state_costs",
+            f"strategies.{role}.state_utilities",
+        ])
     return paths
+
+
+def strategy_ids(plan: dict[str, Any]) -> list[str]:
+    if plan.get("schema_version") == "0.8.0":
+        order = plan.get("strategy_order")
+        return order if isinstance(order, list) and all(isinstance(item, str) for item in order) else []
+    return ["comparator", "intervention"]
+
+
+def transition_path(path: str) -> bool:
+    parts = path.split(".")
+    return (
+        len(parts) == 3 and parts[0] == "strategies"
+        and STRATEGY_ID.fullmatch(parts[1]) is not None
+        and parts[2] in {"transition_matrix", "transition_schedule"}
+    )
 
 
 def strict_json(value: Any) -> Any:
@@ -138,9 +150,9 @@ def transition_rate_reasons(
     extraction_index: dict[str, dict[str, Any]],
 ) -> list[str]:
     reasons: list[str] = []
-    if plan.get("schema_version") != "0.5.0":
-        return ["deterministic transition-rate transformations require schema_version 0.5.0"]
-    if path not in TRANSITION_PATHS:
+    if plan.get("schema_version") not in {"0.5.0", "0.8.0"}:
+        return ["deterministic transition-rate transformations require schema_version 0.5.0 or 0.8.0"]
+    if not transition_path(path):
         return ["deterministic transformation is allowed only for transition inputs"]
     transformation = derivation.get("transformation")
     if not isinstance(transformation, dict):
@@ -306,12 +318,9 @@ def survival_curve_reasons(
     extraction_index: dict[str, dict[str, Any]],
 ) -> list[str]:
     reasons: list[str] = []
-    if plan.get("schema_version") != "0.6.0":
-        return ["parametric survival transformations require schema_version 0.6.0"]
-    if path not in {
-        "strategies.comparator.transition_schedule",
-        "strategies.intervention.transition_schedule",
-    }:
+    if plan.get("schema_version") not in {"0.6.0", "0.8.0"}:
+        return ["parametric survival transformations require schema_version 0.6.0 or 0.8.0"]
+    if not transition_path(path) or not path.endswith(".transition_schedule"):
         return ["parametric survival transformation is allowed only for a transition schedule"]
     transformation = derivation.get("transformation")
     if not isinstance(transformation, dict):
@@ -446,9 +455,9 @@ def probability_time_reasons(
     extraction_index: dict[str, dict[str, Any]],
 ) -> list[str]:
     reasons: list[str] = []
-    if plan.get("schema_version") != "0.7.0":
-        return ["probability-time transformations require schema_version 0.7.0"]
-    if path not in TRANSITION_PATHS:
+    if plan.get("schema_version") not in {"0.7.0", "0.8.0"}:
+        return ["probability-time transformations require schema_version 0.7.0 or 0.8.0"]
+    if not transition_path(path):
         return ["probability-time transformation is allowed only for transition inputs"]
     transformation = derivation.get("transformation")
     if not isinstance(transformation, dict):
@@ -792,8 +801,20 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
     if not isinstance(plan, dict) or not isinstance(synthesis, dict):
         return {"complete": False, "errors": ["plan and synthesis must be JSON objects"]}
     if plan.get("schema_version") not in APPROVABLE_ANALYSIS_SCHEMAS:
-        errors.append("schema_version must be 0.3.0 through 0.7.0 for approval review")
-    for role in ("comparator", "intervention"):
+        errors.append("schema_version must be 0.3.0 through 0.8.0 for approval review")
+    roles = strategy_ids(plan)
+    if plan.get("schema_version") == "0.8.0":
+        strategies = plan.get("strategies")
+        if (
+            not 2 <= len(roles) <= 16 or len(set(roles)) != len(roles)
+            or any(STRATEGY_ID.fullmatch(role) is None for role in roles)
+            or plan.get("baseline_strategy_id") != (roles[0] if roles else None)
+            or not isinstance(strategies, dict) or set(strategies) != set(roles)
+        ):
+            errors.append(
+                "schema 0.8.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first"
+            )
+    for role in roles:
         strategy = (plan.get("strategies") or {}).get(role) or {}
         has_matrix = isinstance(strategy, dict) and strategy.get("transition_matrix") is not None
         has_schedule = isinstance(strategy, dict) and strategy.get("transition_schedule") is not None
@@ -801,9 +822,9 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
             errors.append(
                 f"strategies.{role} must define exactly one of transition_matrix or transition_schedule"
             )
-        if has_schedule and plan.get("schema_version") not in {"0.4.0", "0.5.0", "0.6.0", "0.7.0"}:
+        if has_schedule and plan.get("schema_version") not in {"0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0"}:
             errors.append(
-                f"strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.7.0"
+                f"strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.8.0"
             )
     basis_value = plan.get("economic_basis")
     economic_basis = basis_value if isinstance(basis_value, dict) else None

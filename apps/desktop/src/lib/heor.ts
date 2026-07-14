@@ -15,12 +15,9 @@ export const HEOR_BASE_CASE_RESULT_PATH = "heor/results/base-case.json";
 export const HEOR_UNCERTAINTY_RESULT_PATH = "heor/results/uncertainty.json";
 export const HEOR_BUDGET_IMPACT_RESULT_PATH = "heor/results/budget-impact.json";
 
-const TRANSITION_PATHS = new Set([
-  "strategies.comparator.transition_matrix",
-  "strategies.intervention.transition_matrix",
-  "strategies.comparator.transition_schedule",
-  "strategies.intervention.transition_schedule",
-]);
+function transitionPath(path: string): boolean {
+  return /^strategies\.[a-z][a-z0-9_-]{0,63}\.(transition_matrix|transition_schedule)$/.test(path);
+}
 
 export type HeorGate =
   | "decision_problem"
@@ -540,7 +537,7 @@ export interface HeorEvidenceVerificationRequest {
 }
 
 export interface HeorAnalysisPlan {
-  schema_version: "0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0";
+  schema_version: "0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0";
   analysis_id: string;
   economic_basis?: { currency: string; price_year: number };
   input_status?: string;
@@ -568,10 +565,9 @@ export interface HeorAnalysisPlan {
       structural_scenarios: string[];
     };
   };
-  strategies: {
-    comparator: HeorStrategy;
-    intervention: HeorStrategy;
-  };
+  baseline_strategy_id?: string;
+  strategy_order?: string[];
+  strategies: Record<string, HeorStrategy>;
   evidence_sources?: HeorEvidenceSource[];
   assumptions?: HeorAssumption[];
   input_provenance?: HeorInputProvenance[];
@@ -599,18 +595,41 @@ export interface HeorCalculation {
   economic_basis: { currency: string; price_year: number } | null;
   calculation_classification: "calculation_only";
   warnings: string[];
-  strategies: {
-    comparator: HeorStrategyResult;
-    intervention: HeorStrategyResult;
-  };
-  incremental: {
+  strategy_order?: string[];
+  baseline_strategy_id?: string;
+  strategies: Record<string, HeorStrategyResult>;
+  incremental?: HeorIncrementalResult;
+  pairwise_vs_baseline?: Record<string, HeorIncrementalResult>;
+  fully_incremental_analysis?: Array<{
+    rank_by_effect: number;
+    strategy_id: string;
+    strategy_name: string;
+    total_cost: number;
+    total_qaly: number;
+    net_monetary_benefit: number | null;
+    status: "frontier" | "strictly_dominated" | "extendedly_dominated" | "equivalent";
+    dominated_by_strategy_ids: string[];
+    compared_with_strategy_id: string | null;
+    delta_cost: number | null;
+    delta_qaly: number | null;
+    icer: number | null;
+    incremental_net_monetary_benefit: number | null;
+  }>;
+  optimal_at_primary_threshold?: {
+    threshold: number;
+    strategy_id: string | null;
+    tied_strategy_ids: string[];
+    net_monetary_benefit: number;
+  } | null;
+  input_sha256: string;
+}
+
+export interface HeorIncrementalResult {
     delta_cost: number;
     delta_qaly: number;
     icer: number | null;
     incremental_net_monetary_benefit: number | null;
     interpretation: string;
-  };
-  input_sha256: string;
 }
 
 export interface HeorWorkflowStatus {
@@ -657,7 +676,14 @@ export interface HeorUncertaintyCalculation {
   seed: string;
   calculation_classification: "calculation_only";
   economic_basis: HeorCalculation["economic_basis"];
-  base_case: HeorCalculation["incremental"];
+  base_case: HeorIncrementalResult | {
+    strategy_order: string[];
+    baseline_strategy_id: string;
+    strategies: Record<string, Pick<HeorStrategyResult, "name" | "total_cost" | "total_qaly" | "net_monetary_benefit">>;
+    pairwise_vs_baseline: Record<string, HeorIncrementalResult>;
+    fully_incremental_analysis: NonNullable<HeorCalculation["fully_incremental_analysis"]>;
+    optimal_at_primary_threshold: HeorCalculation["optimal_at_primary_threshold"];
+  };
   deterministic_analysis: Array<{
     parameter_id: string;
     label: string;
@@ -666,9 +692,14 @@ export interface HeorUncertaintyCalculation {
   }>;
   probabilistic_analysis: {
     iterations: number;
-    cost_effective_probability: number;
-    mean_incremental_net_monetary_benefit: number;
-    incremental_net_monetary_benefit_mcse: number;
+    strategy_order?: string[];
+    cost_effective_probability?: number;
+    mean_incremental_net_monetary_benefit?: number;
+    incremental_net_monetary_benefit_mcse?: number;
+    primary_threshold_strategy_optimal_probabilities?: Record<string, number>;
+    primary_threshold_tie_probability?: number;
+    mean_net_monetary_benefit_by_strategy?: Record<string, number>;
+    net_monetary_benefit_mcse_by_strategy?: Record<string, number>;
     convergence: {
       passed: boolean;
       probability_drift: number;
@@ -687,17 +718,24 @@ export interface HeorUncertaintyCalculation {
     omitted_parameters: Array<{ provenance_path: string; rationale: string }>;
     decision_uncertainty: {
       method: "net_monetary_benefit";
+      strategy_order?: string[];
+      tie_handling?: "ties_reported_separately_without_fractional_allocation";
       primary_threshold: number;
       threshold_source: "declared_grid" | "legacy_primary_only";
       threshold_rationale: string;
       threshold_results: Array<{
         threshold: number;
-        expected_incremental_net_monetary_benefit: number;
-        intervention_optimal_probability: number;
-        comparator_optimal_probability: number;
+        expected_incremental_net_monetary_benefit?: number;
+        intervention_optimal_probability?: number;
+        comparator_optimal_probability?: number;
+        expected_net_monetary_benefit_by_strategy?: Record<string, number>;
+        strategy_optimal_probabilities?: Record<string, number>;
         tie_probability: number;
-        probability_mcse: number;
-        strategy_with_highest_expected_net_benefit: "comparator" | "intervention" | "tie";
+        probability_mcse?: number;
+        probability_mcse_by_strategy?: Record<string, number>;
+        tie_probability_mcse?: number;
+        strategy_with_highest_expected_net_benefit: string | null;
+        expected_net_benefit_tied_strategy_ids?: string[];
         ceaf_probability: number | null;
         per_person_evpi: number;
         per_person_evpi_mcse: number;
@@ -769,8 +807,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseHeorPlan(raw: string): HeorAnalysisPlan {
   const value: unknown = JSON.parse(raw);
   if (!isRecord(value)) throw new Error("analysis plan must be a JSON object");
-  if (!["0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0"].includes(String(value.schema_version))) {
-    throw new Error("analysis plan schema_version must be 0.1.0 through 0.7.0");
+  if (!["0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0"].includes(String(value.schema_version))) {
+    throw new Error("analysis plan schema_version must be 0.1.0 through 0.8.0");
   }
   if (typeof value.analysis_id !== "string" || !value.analysis_id.trim()) {
     throw new Error("analysis plan must include analysis_id");
@@ -781,7 +819,25 @@ export function parseHeorPlan(raw: string): HeorAnalysisPlan {
   if (!isRecord(value.reference_case) || !isRecord(value.strategies)) {
     throw new Error("analysis plan must include reference_case and strategies");
   }
-  if (!isRecord(value.strategies.comparator) || !isRecord(value.strategies.intervention)) {
+  const parsedStrategies = value.strategies;
+  if (value.schema_version === "0.8.0") {
+    if (!Array.isArray(value.strategy_order)
+      || value.strategy_order.length < 2 || value.strategy_order.length > 16
+      || !value.strategy_order.every((item) => typeof item === "string"
+        && /^[a-z][a-z0-9_-]{0,63}$/.test(item))
+      || new Set(value.strategy_order).size !== value.strategy_order.length) {
+      throw new Error("strategy_order must contain 2-16 unique safe strategy ids");
+    }
+    if (value.baseline_strategy_id !== value.strategy_order[0]) {
+      throw new Error("baseline_strategy_id must be the first strategy_order entry");
+    }
+    const declared = [...value.strategy_order].sort();
+    const actual = Object.keys(parsedStrategies).sort();
+    if (!jsonEquivalent(declared, actual)
+      || !value.strategy_order.every((strategyId) => isRecord(parsedStrategies[strategyId]))) {
+      throw new Error("strategies must contain exactly the ids declared by strategy_order");
+    }
+  } else if (!isRecord(parsedStrategies.comparator) || !isRecord(parsedStrategies.intervention)) {
     throw new Error("analysis plan must include comparator and intervention strategies");
   }
   if (!Array.isArray(value.states) || value.states.length === 0) {
@@ -808,15 +864,13 @@ const BASE_INPUT_PATHS = [
   "discount_rates.costs",
   "discount_rates.outcomes",
   "half_cycle_correction",
-  "strategies.comparator.initial_distribution",
-  "strategies.comparator.transition_matrix",
-  "strategies.comparator.state_costs",
-  "strategies.comparator.state_utilities",
-  "strategies.intervention.initial_distribution",
-  "strategies.intervention.transition_matrix",
-  "strategies.intervention.state_costs",
-  "strategies.intervention.state_utilities",
 ] as const;
+
+function strategyIds(plan: HeorAnalysisPlan): string[] {
+  return plan.schema_version === "0.8.0"
+    ? [...(plan.strategy_order ?? [])]
+    : ["comparator", "intervention"];
+}
 
 function nonempty(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -879,8 +933,8 @@ function transitionRateReasons(
   assumptionIds: string[],
 ): string[] {
   const reasons: string[] = [];
-  if (plan.schema_version !== "0.5.0") {
-    reasons.push("deterministic transition-rate transformations require schema_version 0.5.0");
+  if (!(plan.schema_version === "0.5.0" || plan.schema_version === "0.8.0")) {
+    reasons.push("deterministic transition-rate transformations require schema_version 0.5.0 or 0.8.0");
   }
   if (!(
     mapping.path.endsWith(".transition_matrix")
@@ -1018,11 +1072,10 @@ function survivalCurveReasons(
   assumptionIds: string[],
 ): string[] {
   const reasons: string[] = [];
-  if (plan.schema_version !== "0.6.0") {
-    reasons.push("parametric survival transformations require schema_version 0.6.0");
+  if (!(plan.schema_version === "0.6.0" || plan.schema_version === "0.8.0")) {
+    reasons.push("parametric survival transformations require schema_version 0.6.0 or 0.8.0");
   }
-  if (!(mapping.path === "strategies.comparator.transition_schedule"
-    || mapping.path === "strategies.intervention.transition_schedule")) {
+  if (!/^strategies\.[a-z][a-z0-9_-]{0,63}\.transition_schedule$/.test(mapping.path)) {
     return [...reasons, "parametric survival transformation is allowed only for a transition schedule"];
   }
   const transformation = mapping.derivation.transformation;
@@ -1150,10 +1203,10 @@ function probabilityTimeReasons(
   assumptionIds: string[],
 ): string[] {
   const reasons: string[] = [];
-  if (plan.schema_version !== "0.7.0") {
-    reasons.push("probability-time transformations require schema_version 0.7.0");
+  if (!(plan.schema_version === "0.7.0" || plan.schema_version === "0.8.0")) {
+    reasons.push("probability-time transformations require schema_version 0.7.0 or 0.8.0");
   }
-  if (!TRANSITION_PATHS.has(mapping.path)) {
+  if (!transitionPath(mapping.path)) {
     return [...reasons, "probability-time transformation is allowed only for transition inputs"];
   }
   const transformation = mapping.derivation.transformation;
@@ -1583,17 +1636,17 @@ export function auditHeorConceptualModel(
 /** Browser-side review preview. The Rust command repeats this audit and is the
  * authoritative approval boundary. */
 export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
-  const requiredPaths: string[] = BASE_INPUT_PATHS
-    .filter((path) => !path.endsWith(".transition_matrix"));
-  for (const role of ["comparator", "intervention"] as const) {
-    const transitionField = plan.strategies[role].transition_schedule
+  const requiredPaths: string[] = [...BASE_INPUT_PATHS];
+  for (const role of strategyIds(plan)) {
+    const strategy = plan.strategies[role];
+    const transitionField = strategy?.transition_schedule
       ? "transition_schedule"
       : "transition_matrix";
-    const initialPath = `strategies.${role}.initial_distribution`;
-    requiredPaths.splice(
-      requiredPaths.indexOf(initialPath) + 1,
-      0,
+    requiredPaths.push(
+      `strategies.${role}.initial_distribution`,
       `strategies.${role}.${transitionField}`,
+      `strategies.${role}.state_costs`,
+      `strategies.${role}.state_utilities`,
     );
   }
   if (plan.willingness_to_pay !== null) requiredPaths.push("willingness_to_pay");
@@ -1626,21 +1679,27 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
   const invalidMappings: string[] = [];
   if (!(plan.schema_version === "0.3.0" || plan.schema_version === "0.4.0"
     || plan.schema_version === "0.5.0" || plan.schema_version === "0.6.0"
-    || plan.schema_version === "0.7.0")) {
-    invalidMappings.push("schema_version must be 0.3.0 through 0.7.0 for approval review");
+    || plan.schema_version === "0.7.0" || plan.schema_version === "0.8.0")) {
+    invalidMappings.push("schema_version must be 0.3.0 through 0.8.0 for approval review");
   }
-  for (const role of ["comparator", "intervention"] as const) {
-    const hasMatrix = plan.strategies[role].transition_matrix != null;
-    const hasSchedule = plan.strategies[role].transition_schedule != null;
+  for (const role of strategyIds(plan)) {
+    const strategy = plan.strategies[role];
+    if (!strategy) {
+      invalidMappings.push(`strategies.${role} is missing`);
+      continue;
+    }
+    const hasMatrix = strategy.transition_matrix != null;
+    const hasSchedule = strategy.transition_schedule != null;
     if (hasMatrix === hasSchedule) {
       invalidMappings.push(
         `strategies.${role} must define exactly one of transition_matrix or transition_schedule`,
       );
     }
     if (hasSchedule && !(plan.schema_version === "0.4.0" || plan.schema_version === "0.5.0"
-      || plan.schema_version === "0.6.0" || plan.schema_version === "0.7.0")) {
+      || plan.schema_version === "0.6.0" || plan.schema_version === "0.7.0"
+      || plan.schema_version === "0.8.0")) {
       invalidMappings.push(
-        `strategies.${role}.transition_schedule requires schema_version 0.4.0 through 0.7.0`,
+        `strategies.${role}.transition_schedule requires schema_version 0.4.0 through 0.8.0`,
       );
     }
   }

@@ -13,7 +13,7 @@ These sources support the review questions; they do not certify an AI4HEOR model
 
 ## Executable transition contract
 
-Analysis schemas `0.4.0` through `0.7.0` accept exactly one transition mechanism for each strategy:
+Analysis schemas `0.4.0` through `0.8.0` accept exactly one transition mechanism for each strategy:
 
 ```json
 "transition_matrix": [
@@ -41,7 +41,7 @@ Rules:
 - Every value is finite and from 0 through 1; every row sums to 1 within engine tolerance.
 - Initial distributions sum to 1. The engine verifies cohort-mass conservation after every cycle.
 - Rewards retain the existing start-of-cycle or half-cycle-corrected semantics. Transition schedules do not change state costs or utilities.
-- Schema `0.3.0` remains valid for static matrices. Schedules require schema `0.4.0` or later; reserve `0.5.0` for an admitted deterministic transition-rate transformation, `0.6.0` for an admitted two-state parametric survival transformation, and `0.7.0` for an admitted single-event probability-time transformation.
+- Schema `0.3.0` remains valid for static matrices. Schedules require schema `0.4.0` or later. Schema `0.8.0` admits the existing bounded transition transformations at dynamic strategy paths and requires 2–16 explicitly ordered strategies.
 
 The result records `transition_mode` as `static` or `piecewise_by_model_cycle` and reports the effective schedule start cycles. The exact input bytes remain the authoritative record of matrices.
 

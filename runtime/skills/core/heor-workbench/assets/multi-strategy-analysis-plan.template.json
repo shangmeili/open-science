@@ -1,0 +1,102 @@
+{
+  "schema_version": "0.8.0",
+  "analysis_id": "replace-with-analysis-id",
+  "input_status": "draft",
+  "economic_basis": {
+    "currency": "CNY",
+    "price_year": 2026
+  },
+  "decision_problem": {
+    "title": "Replace with the multi-strategy decision question",
+    "population": "Replace with the target population",
+    "intervention": "Replace with all candidate technologies",
+    "comparator": "Replace with the relevant established alternatives",
+    "perspective": "Replace with the analysis perspective",
+    "time_horizon_years": 10,
+    "outcome": "QALY",
+    "jurisdiction": "China"
+  },
+  "reference_case": {
+    "id": "CN-2020-current",
+    "status": "current"
+  },
+  "reference_case_assessment": {
+    "path": "heor/reference-case-assessment.json",
+    "content_sha256": "replace-with-sha256-of-final-assessment"
+  },
+  "uncertainty_analysis": {
+    "path": "heor/uncertainty-plan.json"
+  },
+  "budget_impact_analysis": {
+    "path": "heor/budget-impact-plan.json"
+  },
+  "evidence_synthesis": {
+    "path": "heor/evidence-synthesis.json",
+    "content_sha256": ""
+  },
+  "states": ["stable", "progressed", "dead"],
+  "cycles": 10,
+  "cycle_length_years": 1.0,
+  "discount_rates": {
+    "costs": 0.05,
+    "outcomes": 0.05
+  },
+  "half_cycle_correction": true,
+  "willingness_to_pay": null,
+  "methodology": {
+    "health_outcomes": {
+      "measure": "",
+      "data_descriptive_system": "",
+      "value_set": "",
+      "valuation_population": "",
+      "respondent": "",
+      "mapping_method": "",
+      "reference_case_departure": null
+    },
+    "cost_scope": {
+      "included_categories": [],
+      "perspective_alignment": "Explain why the included cost categories match the selected perspective.",
+      "exclusions": []
+    },
+    "uncertainty_analysis": {
+      "deterministic": {
+        "planned": true,
+        "input_paths": []
+      },
+      "probabilistic": {
+        "planned": true,
+        "input_paths": [],
+        "iterations": 1000
+      },
+      "structural_scenarios": []
+    }
+  },
+  "baseline_strategy_id": "standard_care",
+  "strategy_order": ["standard_care", "new_treatment", "alternative_treatment"],
+  "strategies": {
+    "standard_care": {
+      "name": "replace_with_standard_care",
+      "initial_distribution": [1.0, 0.0, 0.0],
+      "transition_matrix": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+      "state_costs": [0.0, 0.0, 0.0],
+      "state_utilities": [0.0, 0.0, 0.0]
+    },
+    "new_treatment": {
+      "name": "replace_with_new_treatment",
+      "initial_distribution": [1.0, 0.0, 0.0],
+      "transition_matrix": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+      "state_costs": [0.0, 0.0, 0.0],
+      "state_utilities": [0.0, 0.0, 0.0]
+    },
+    "alternative_treatment": {
+      "name": "replace_with_alternative_treatment",
+      "initial_distribution": [1.0, 0.0, 0.0],
+      "transition_matrix": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+      "state_costs": [0.0, 0.0, 0.0],
+      "state_utilities": [0.0, 0.0, 0.0]
+    }
+  },
+  "evidence_sources": [],
+  "assumptions": [],
+  "input_provenance": []
+}

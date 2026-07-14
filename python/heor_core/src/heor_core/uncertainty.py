@@ -12,10 +12,15 @@ from __future__ import annotations
 import copy
 import hashlib
 from dataclasses import dataclass
-from math import cos, exp, isclose, isfinite, log, pi, sqrt
+from math import cos, exp, fsum, isclose, isfinite, log, pi, sqrt
 from typing import Any
 
-from .model import MarkovSpecification, ModelValidationError, run_markov
+from .model import (
+    SCHEMA_VERSION as MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
+    MarkovSpecification,
+    ModelValidationError,
+    run_markov,
+)
 from .probability_time import (
     ANALYSIS_SCHEMA_VERSION as PROBABILITY_TIME_ANALYSIS_SCHEMA_VERSION,
     TRANSFORMATION_METHOD as PROBABILITY_TIME_TRANSFORMATION_METHOD,
@@ -38,13 +43,14 @@ from .transition_rates import (
 )
 
 
-UNCERTAINTY_SCHEMA_VERSION = "0.6.0"
+UNCERTAINTY_SCHEMA_VERSION = "0.7.0"
+PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION = "0.6.0"
 SURVIVAL_UNCERTAINTY_SCHEMA_VERSION = "0.5.0"
 CORRELATION_UNCERTAINTY_SCHEMA_VERSION = "0.4.0"
 RATE_UNCERTAINTY_SCHEMA_VERSION = "0.3.0"
 PRIOR_UNCERTAINTY_SCHEMA_VERSION = "0.2.0"
 LEGACY_UNCERTAINTY_SCHEMA_VERSION = "0.1.0"
-UNCERTAINTY_ENGINE_VERSION = "0.7.0"
+UNCERTAINTY_ENGINE_VERSION = "0.8.0"
 PRNG_ALGORITHM = "pcg32-xsh-rr"
 PRNG_VERSION = "1"
 MAX_ITERATIONS = 10_000
@@ -203,10 +209,11 @@ class UncertaintySpecification:
             RATE_UNCERTAINTY_SCHEMA_VERSION,
             CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
             SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+            PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
             UNCERTAINTY_SCHEMA_VERSION,
         }:
             raise ModelValidationError(
-                "uncertainty schema_version must be 0.1.0, 0.2.0, 0.3.0, 0.4.0, 0.5.0, or 0.6.0"
+                "uncertainty schema_version must be 0.1.0 through 0.7.0"
             )
         base = _mapping(value.get("base_analysis", {}), "base_analysis")
         psa = _mapping(value.get("probabilistic_analysis", {}), "probabilistic_analysis")
@@ -220,6 +227,7 @@ class UncertaintySpecification:
             RATE_UNCERTAINTY_SCHEMA_VERSION,
             CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
             SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+            PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
             UNCERTAINTY_SCHEMA_VERSION,
         }:
             threshold_config = _mapping(
@@ -241,7 +249,7 @@ class UncertaintySpecification:
         else:
             if "decision_thresholds" in psa:
                 raise ModelValidationError(
-                    "decision thresholds require uncertainty schema_version 0.2.0 through 0.6.0"
+                    "decision thresholds require uncertainty schema_version 0.2.0 through 0.7.0"
                 )
             decision_thresholds = (primary_threshold,)
             threshold_rationale = (
@@ -318,6 +326,13 @@ class UncertaintySpecification:
         return specification
 
     def validate(self, base_payload: dict[str, Any], base_sha256: str) -> None:
+        multi_strategy_base = (
+            base_payload.get("schema_version") == MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION
+        )
+        if multi_strategy_base != (self.schema_version == UNCERTAINTY_SCHEMA_VERSION):
+            raise ModelValidationError(
+                "multi-strategy analysis schema_version 0.8.0 requires uncertainty schema_version 0.7.0, and uncertainty schema_version 0.7.0 requires analysis schema_version 0.8.0"
+            )
         if self.status != "ready_for_human_review":
             raise ModelValidationError("uncertainty plan must be ready_for_human_review")
         if self.analysis_id != base_payload.get("analysis_id"):
@@ -378,6 +393,7 @@ class UncertaintySpecification:
                 RATE_UNCERTAINTY_SCHEMA_VERSION,
                 CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
                 SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+                PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
                 UNCERTAINTY_SCHEMA_VERSION,
             }
             else (1, 1)
@@ -412,13 +428,29 @@ def run_uncertainty(
         uncertainty_payload, base_payload, base_sha256
     )
     base_result = run_markov(MarkovSpecification.from_dict(base_payload))
-    deterministic = [_run_dsa(base_payload, item) for item in specification.parameters]
-    scenarios = [_run_scenario(base_payload, item) for item in specification.scenarios]
-    probabilistic = _run_psa(base_payload, specification)
+    multi_strategy = specification.schema_version == UNCERTAINTY_SCHEMA_VERSION
+    if multi_strategy:
+        deterministic = [
+            _run_multi_strategy_dsa(base_payload, item)
+            for item in specification.parameters
+        ]
+        scenarios = [
+            _run_multi_strategy_scenario(base_payload, item)
+            for item in specification.scenarios
+        ]
+        probabilistic = _run_multi_strategy_psa(base_payload, specification)
+        base_case = _multi_strategy_decision_summary(base_result.to_dict())
+    else:
+        deterministic = [_run_dsa(base_payload, item) for item in specification.parameters]
+        scenarios = [_run_scenario(base_payload, item) for item in specification.scenarios]
+        probabilistic = _run_psa(base_payload, specification)
+        base_case = base_result.incremental.to_dict()
     return {
         "analysis_id": specification.analysis_id,
         "uncertainty_id": specification.uncertainty_id,
-        "engine_version": UNCERTAINTY_ENGINE_VERSION,
+        "engine_version": (
+            UNCERTAINTY_ENGINE_VERSION if multi_strategy else "0.7.0"
+        ),
         "schema_version": specification.schema_version,
         "base_analysis_sha256": base_sha256,
         "uncertainty_plan_sha256": uncertainty_sha256,
@@ -428,7 +460,7 @@ def run_uncertainty(
         "seed": str(specification.seed),
         "calculation_classification": "calculation_only",
         "economic_basis": base_result.economic_basis,
-        "base_case": base_result.incremental.to_dict(),
+        "base_case": base_case,
         "deterministic_analysis": deterministic,
         "probabilistic_analysis": probabilistic,
         "structural_scenarios": scenarios,
@@ -442,6 +474,72 @@ def run_uncertainty(
             "it is not population EVPI, EVPPI, a research-funding recommendation, "
             "or a reimbursement recommendation.",
         ],
+    }
+
+
+def _multi_strategy_decision_summary(result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "strategy_order": result["strategy_order"],
+        "baseline_strategy_id": result["baseline_strategy_id"],
+        "strategies": {
+            strategy_id: {
+                "name": strategy["name"],
+                "total_cost": strategy["total_cost"],
+                "total_qaly": strategy["total_qaly"],
+                "net_monetary_benefit": strategy["net_monetary_benefit"],
+            }
+            for strategy_id, strategy in result["strategies"].items()
+        },
+        "pairwise_vs_baseline": result["pairwise_vs_baseline"],
+        "fully_incremental_analysis": result["fully_incremental_analysis"],
+        "optimal_at_primary_threshold": result["optimal_at_primary_threshold"],
+    }
+
+
+def _run_multi_strategy_dsa(
+    base_payload: dict[str, Any], parameter: Parameter
+) -> dict[str, Any]:
+    outcomes: dict[str, dict[str, Any]] = {}
+    for label, value in (("low", parameter.dsa_low), ("high", parameter.dsa_high)):
+        payload = _apply_parameter_values(base_payload, ((parameter, value),))
+        result = run_markov(MarkovSpecification.from_dict(payload)).to_dict()
+        outcomes[label] = _multi_strategy_decision_summary(result)
+    strategy_order = outcomes["low"]["strategy_order"]
+    spans = {
+        strategy_id: abs(
+            outcomes["high"]["strategies"][strategy_id]["net_monetary_benefit"]
+            - outcomes["low"]["strategies"][strategy_id]["net_monetary_benefit"]
+        )
+        for strategy_id in strategy_order
+    }
+    return {
+        "parameter_id": parameter.identifier,
+        "label": parameter.label,
+        "target": parameter.target,
+        "low_value": parameter.dsa_low,
+        "high_value": parameter.dsa_high,
+        "low_result": outcomes["low"],
+        "high_result": outcomes["high"],
+        "net_monetary_benefit_span_by_strategy": spans,
+    }
+
+
+def _run_multi_strategy_scenario(
+    base_payload: dict[str, Any], scenario: Scenario
+) -> dict[str, Any]:
+    payload = copy.deepcopy(base_payload)
+    for target, value in scenario.replacements:
+        _replace(payload, target, value)
+    result = run_markov(MarkovSpecification.from_dict(payload)).to_dict()
+    return {
+        "scenario_id": scenario.identifier,
+        "label": scenario.label,
+        "rationale": scenario.rationale,
+        "replacements": [
+            {"target": target, "value": value}
+            for target, value in scenario.replacements
+        ],
+        "result": _multi_strategy_decision_summary(result),
     }
 
 
@@ -561,6 +659,261 @@ def _run_psa(
         "omitted_parameters": list(specification.omitted_parameters),
         "decision_uncertainty": decision_uncertainty,
         "samples": samples,
+    }
+
+
+def _multi_strategy_optimal(
+    costs: list[float],
+    qalys: list[float],
+    threshold: float,
+) -> tuple[list[float], tuple[int, ...]]:
+    net_benefits = [
+        threshold * qaly - cost for cost, qaly in zip(costs, qalys)
+    ]
+    if any(not isfinite(value) for value in net_benefits):
+        raise ModelValidationError(
+            f"decision threshold {threshold} produced a non-finite net monetary benefit"
+        )
+    best = max(net_benefits)
+    tolerance = max(
+        1e-9,
+        max((abs(value) for value in net_benefits), default=0.0) * 1e-12,
+    )
+    optimal = tuple(
+        index
+        for index, value in enumerate(net_benefits)
+        if abs(value - best) <= tolerance
+    )
+    return net_benefits, optimal
+
+
+def _run_multi_strategy_psa(
+    base_payload: dict[str, Any], specification: UncertaintySpecification
+) -> dict[str, Any]:
+    strategy_order = tuple(base_payload["strategy_order"])
+    rng = Pcg32(specification.seed)
+    samples: list[dict[str, Any]] = []
+    primary_nmb_values = {strategy_id: [] for strategy_id in strategy_order}
+    unique_counts = {strategy_id: 0 for strategy_id in strategy_order}
+    tie_count = 0
+    checkpoints: list[dict[str, Any]] = []
+    checkpoint_set = set(specification.checkpoints)
+    for iteration in range(1, specification.iterations + 1):
+        payload = _apply_parameter_values(
+            base_payload,
+            _sample_parameter_values(rng, specification),
+        )
+        result = run_markov(MarkovSpecification.from_dict(payload))
+        result_map = result.strategy_result_map
+        costs = [result_map[strategy_id].total_cost for strategy_id in strategy_order]
+        qalys = [result_map[strategy_id].total_qaly for strategy_id in strategy_order]
+        net_benefits, optimal = _multi_strategy_optimal(
+            costs, qalys, specification.primary_threshold
+        )
+        for index, strategy_id in enumerate(strategy_order):
+            primary_nmb_values[strategy_id].append(net_benefits[index])
+        if len(optimal) == 1:
+            unique_counts[strategy_order[optimal[0]]] += 1
+        else:
+            tie_count += 1
+        samples.append(
+            {
+                "iteration": iteration,
+                "strategy_costs": costs,
+                "strategy_qalys": qalys,
+            }
+        )
+        if iteration in checkpoint_set:
+            probabilities = {
+                strategy_id: unique_counts[strategy_id] / iteration
+                for strategy_id in strategy_order
+            }
+            tie_probability = tie_count / iteration
+            checkpoint_mcse = max(
+                sqrt(probability * (1.0 - probability) / iteration)
+                for probability in [*probabilities.values(), tie_probability]
+            )
+            checkpoints.append(
+                {
+                    "iterations": iteration,
+                    "strategy_optimal_probabilities": probabilities,
+                    "tie_probability": tie_probability,
+                    "max_probability_mcse": checkpoint_mcse,
+                }
+            )
+    final = checkpoints[-1]
+    previous = checkpoints[-2]
+    probability_drift = max(
+        [
+            abs(
+                final["strategy_optimal_probabilities"][strategy_id]
+                - previous["strategy_optimal_probabilities"][strategy_id]
+            )
+            for strategy_id in strategy_order
+        ]
+        + [abs(final["tie_probability"] - previous["tie_probability"])]
+    )
+    convergence_passed = (
+        final["max_probability_mcse"] <= specification.max_probability_mcse
+        and probability_drift <= specification.max_probability_drift
+    )
+    means: dict[str, float] = {}
+    mean_mcse: dict[str, float] = {}
+    for strategy_id, values in primary_nmb_values.items():
+        mean = fsum(values) / len(values)
+        variance = fsum((value - mean) ** 2 for value in values) / (
+            len(values) - 1
+        )
+        means[strategy_id] = mean
+        mean_mcse[strategy_id] = sqrt(variance / len(values))
+    decision_uncertainty = _multi_strategy_decision_uncertainty(
+        samples,
+        strategy_order,
+        specification,
+    )
+    return {
+        "iterations": specification.iterations,
+        "strategy_order": list(strategy_order),
+        "primary_threshold_strategy_optimal_probabilities": final[
+            "strategy_optimal_probabilities"
+        ],
+        "primary_threshold_tie_probability": final["tie_probability"],
+        "mean_net_monetary_benefit_by_strategy": means,
+        "net_monetary_benefit_mcse_by_strategy": mean_mcse,
+        "convergence": {
+            "passed": convergence_passed,
+            "probability_drift": probability_drift,
+            "max_probability_mcse": specification.max_probability_mcse,
+            "max_probability_drift": specification.max_probability_drift,
+            "checkpoints": checkpoints,
+        },
+        "independence_rationale": specification.independence_rationale,
+        "correlation_groups": [
+            {
+                "id": group.identifier,
+                "parameter_ids": list(group.parameter_ids),
+                "scale": group.scale,
+                "method": group.method,
+                "correlation_matrix": [list(row) for row in group.correlation_matrix],
+                "basis_ids": list(group.basis_ids),
+                "rationale": group.rationale,
+            }
+            for group in specification.correlation_groups
+        ],
+        "omitted_parameters": list(specification.omitted_parameters),
+        "decision_uncertainty": decision_uncertainty,
+        "sample_encoding": {
+            "strategy_order": list(strategy_order),
+            "cost_field": "strategy_costs",
+            "qaly_field": "strategy_qalys",
+        },
+        "samples": samples,
+    }
+
+
+def _multi_strategy_decision_uncertainty(
+    samples: list[dict[str, Any]],
+    strategy_order: tuple[str, ...],
+    specification: UncertaintySpecification,
+) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    sample_count = len(samples)
+    for threshold in specification.decision_thresholds:
+        unique_counts = [0] * len(strategy_order)
+        tie_count = 0
+        nmb_by_strategy: list[list[float]] = [
+            [] for _ in strategy_order
+        ]
+        maximum_nmb: list[float] = []
+        for sample in samples:
+            values, optimal = _multi_strategy_optimal(
+                sample["strategy_costs"],
+                sample["strategy_qalys"],
+                threshold,
+            )
+            for index, value in enumerate(values):
+                nmb_by_strategy[index].append(value)
+            maximum_nmb.append(max(values))
+            if len(optimal) == 1:
+                unique_counts[optimal[0]] += 1
+            else:
+                tie_count += 1
+        expected = [fsum(values) / sample_count for values in nmb_by_strategy]
+        best_expected = max(expected)
+        expected_tolerance = max(
+            1e-9,
+            max((abs(value) for value in expected), default=0.0) * 1e-12,
+        )
+        selected = tuple(
+            index
+            for index, value in enumerate(expected)
+            if abs(value - best_expected) <= expected_tolerance
+        )
+        selected_strategy = (
+            strategy_order[selected[0]] if len(selected) == 1 else None
+        )
+        ceaf_probability = (
+            unique_counts[selected[0]] / sample_count
+            if len(selected) == 1
+            else None
+        )
+        # Tolerance-based ties are a display policy. EVPI must still use the
+        # exact sample-mean maximizer in E[max NMB] - max E[NMB]. Declaration
+        # order resolves an exact floating-point tie deterministically.
+        representative = max(range(len(expected)), key=expected.__getitem__)
+        losses = [
+            maximum - nmb_by_strategy[representative][index]
+            for index, maximum in enumerate(maximum_nmb)
+        ]
+        evpi = fsum(losses) / sample_count
+        loss_variance = fsum((value - evpi) ** 2 for value in losses) / (
+            sample_count - 1
+        )
+        probabilities = {
+            strategy_id: unique_counts[index] / sample_count
+            for index, strategy_id in enumerate(strategy_order)
+        }
+        probability_mcse = {
+            strategy_id: sqrt(
+                probability * (1.0 - probability) / sample_count
+            )
+            for strategy_id, probability in probabilities.items()
+        }
+        tie_probability = tie_count / sample_count
+        rows.append(
+            {
+                "threshold": threshold,
+                "expected_net_monetary_benefit_by_strategy": {
+                    strategy_id: expected[index]
+                    for index, strategy_id in enumerate(strategy_order)
+                },
+                "strategy_optimal_probabilities": probabilities,
+                "tie_probability": tie_probability,
+                "probability_mcse_by_strategy": probability_mcse,
+                "tie_probability_mcse": sqrt(
+                    tie_probability * (1.0 - tie_probability) / sample_count
+                ),
+                "strategy_with_highest_expected_net_benefit": selected_strategy,
+                "expected_net_benefit_tied_strategy_ids": (
+                    [strategy_order[index] for index in selected]
+                    if len(selected) > 1
+                    else []
+                ),
+                "ceaf_probability": ceaf_probability,
+                "per_person_evpi": evpi,
+                "per_person_evpi_mcse": sqrt(loss_variance / sample_count),
+            }
+        )
+    return {
+        "method": "net_monetary_benefit",
+        "strategy_order": list(strategy_order),
+        "tie_handling": "ties_reported_separately_without_fractional_allocation",
+        "primary_threshold": specification.primary_threshold,
+        "threshold_source": specification.threshold_source,
+        "threshold_rationale": specification.threshold_rationale,
+        "threshold_results": rows,
+        "population_evpi": None,
+        "evppi": None,
     }
 
 
@@ -711,6 +1064,7 @@ def _correlation_groups(
     if schema_version not in {
         CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
         SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+        PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
         UNCERTAINTY_SCHEMA_VERSION,
     }:
         if "groups" in correlation:
@@ -890,30 +1244,37 @@ def _parameter(
         RATE_UNCERTAINTY_SCHEMA_VERSION,
         CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
         SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+        PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
         UNCERTAINTY_SCHEMA_VERSION,
     }:
         raise ModelValidationError(
-            "event-rate uncertainty requires uncertainty schema_version 0.3.0, 0.4.0, 0.5.0, or 0.6.0"
+            "event-rate uncertainty requires uncertainty schema_version 0.3.0 through 0.7.0"
         )
     if survival_mapping_index is not None and schema_version not in {
         SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+        PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
         UNCERTAINTY_SCHEMA_VERSION,
     }:
         raise ModelValidationError(
-            "survival-parameter uncertainty requires uncertainty schema_version 0.5.0 or 0.6.0"
+            "survival-parameter uncertainty requires uncertainty schema_version 0.5.0 through 0.7.0"
         )
-    if probability_mapping_index is not None and schema_version != UNCERTAINTY_SCHEMA_VERSION:
+    if probability_mapping_index is not None and schema_version not in {
+        PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
+        UNCERTAINTY_SCHEMA_VERSION,
+    }:
         raise ModelValidationError(
-            "probability-time uncertainty requires uncertainty schema_version 0.6.0"
+            "probability-time uncertainty requires uncertainty schema_version 0.6.0 or 0.7.0"
         )
     positive_parameter = rate_mapping_index is not None or survival_mapping_index is not None
     bounded_probability = probability_mapping_index is not None
+    strategy_ids = _analysis_strategy_ids(base_payload)
     _validate_replacement(
         target,
         low,
         base,
         rate_parameter=positive_parameter,
         probability_parameter=bounded_probability,
+        strategy_ids=strategy_ids,
     )
     _validate_replacement(
         target,
@@ -921,6 +1282,7 @@ def _parameter(
         base,
         rate_parameter=positive_parameter,
         probability_parameter=bounded_probability,
+        strategy_ids=strategy_ids,
     )
     distribution = _distribution(
         psa,
@@ -1173,7 +1535,10 @@ def _validate_probability_parameter(
     provenance_path: str,
     basis_ids: tuple[str, ...],
 ) -> None:
-    if base_payload.get("schema_version") != PROBABILITY_TIME_ANALYSIS_SCHEMA_VERSION:
+    if base_payload.get("schema_version") not in {
+        PROBABILITY_TIME_ANALYSIS_SCHEMA_VERSION,
+        MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
+    }:
         raise ModelValidationError(
             f"probability-time uncertainty requires analysis schema_version {PROBABILITY_TIME_ANALYSIS_SCHEMA_VERSION}"
         )
@@ -1224,7 +1589,10 @@ def _validate_survival_parameter(
     provenance_path: str,
     basis_ids: tuple[str, ...],
 ) -> None:
-    if base_payload.get("schema_version") != SURVIVAL_ANALYSIS_SCHEMA_VERSION:
+    if base_payload.get("schema_version") not in {
+        SURVIVAL_ANALYSIS_SCHEMA_VERSION,
+        MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
+    }:
         raise ModelValidationError(
             f"survival-parameter uncertainty requires analysis schema_version {SURVIVAL_ANALYSIS_SCHEMA_VERSION}"
         )
@@ -1274,7 +1642,10 @@ def _validate_rate_parameter(
     provenance_path: str,
     basis_ids: tuple[str, ...],
 ) -> None:
-    if base_payload.get("schema_version") != "0.5.0":
+    if base_payload.get("schema_version") not in {
+        "0.5.0",
+        MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
+    }:
         raise ModelValidationError(
             "event-rate uncertainty requires analysis schema_version 0.5.0"
         )
@@ -1343,7 +1714,13 @@ def _scenario(value: Any, index: int, base_payload: dict[str, Any]) -> Scenario:
         seen.add(target)
         base = _resolve(base_payload, target)
         new_value = copy.deepcopy(replacement.get("value"))
-        _validate_replacement(target, new_value, base, structural=True)
+        _validate_replacement(
+            target,
+            new_value,
+            base,
+            structural=True,
+            strategy_ids=_analysis_strategy_ids(base_payload),
+        )
         replacements.append((target, new_value))
     if not replacements:
         raise ModelValidationError("each structural scenario needs at least one replacement")
@@ -1361,19 +1738,25 @@ def _validate_replacement(
     target: str,
     value: Any,
     base: Any,
+    strategy_ids: tuple[str, ...],
     structural: bool = False,
     rate_parameter: bool = False,
     probability_parameter: bool = False,
 ) -> None:
-    scalar_prefixes = (
-        "/strategies/comparator/state_costs/",
-        "/strategies/intervention/state_costs/",
-        "/strategies/comparator/state_utilities/",
-        "/strategies/intervention/state_utilities/",
+    tokens = _pointer_tokens(target)
+    scalar_target = (
+        len(tokens) == 4
+        and tokens[0] == "strategies"
+        and tokens[1] in strategy_ids
+        and tokens[2] in {"state_costs", "state_utilities"}
+        and tokens[3].isdigit()
     )
-    simplex_prefixes = (
-        "/strategies/comparator/transition_matrix/",
-        "/strategies/intervention/transition_matrix/",
+    simplex_target = (
+        len(tokens) == 4
+        and tokens[0] == "strategies"
+        and tokens[1] in strategy_ids
+        and tokens[2] == "transition_matrix"
+        and tokens[3].isdigit()
     )
     structural_targets = {
         "/cycles",
@@ -1382,10 +1765,11 @@ def _validate_replacement(
         "/discount_rates/outcomes",
         "/half_cycle_correction",
     }
-    scheduled_row = _scheduled_transition_row_target(target)
-    scheduled_start = _scheduled_transition_start_target(target)
+    scheduled_row = _scheduled_transition_row_target(target, strategy_ids)
+    scheduled_start = _scheduled_transition_start_target(target, strategy_ids)
     allowed = (
-        target.startswith(scalar_prefixes + simplex_prefixes)
+        scalar_target
+        or simplex_target
         or scheduled_row
         or rate_parameter
         or probability_parameter
@@ -1418,12 +1802,14 @@ def _validate_replacement(
         raise ModelValidationError(f"replacement for {target} has an unsupported type")
 
 
-def _scheduled_transition_row_target(target: str) -> bool:
+def _scheduled_transition_row_target(
+    target: str, strategy_ids: tuple[str, ...]
+) -> bool:
     tokens = _pointer_tokens(target)
     return (
         len(tokens) == 6
         and tokens[0] == "strategies"
-        and tokens[1] in {"comparator", "intervention"}
+        and tokens[1] in strategy_ids
         and tokens[2] == "transition_schedule"
         and tokens[3].isdigit()
         and tokens[4] == "matrix"
@@ -1431,16 +1817,35 @@ def _scheduled_transition_row_target(target: str) -> bool:
     )
 
 
-def _scheduled_transition_start_target(target: str) -> bool:
+def _scheduled_transition_start_target(
+    target: str, strategy_ids: tuple[str, ...]
+) -> bool:
     tokens = _pointer_tokens(target)
     return (
         len(tokens) == 5
         and tokens[0] == "strategies"
-        and tokens[1] in {"comparator", "intervention"}
+        and tokens[1] in strategy_ids
         and tokens[2] == "transition_schedule"
         and tokens[3].isdigit()
         and tokens[4] == "start_cycle"
     )
+
+
+def _analysis_strategy_ids(base_payload: dict[str, Any]) -> tuple[str, ...]:
+    if base_payload.get("schema_version") != MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION:
+        return ("comparator", "intervention")
+    raw_order = base_payload.get("strategy_order")
+    strategies = base_payload.get("strategies")
+    if (
+        not isinstance(raw_order, (list, tuple))
+        or any(not isinstance(item, str) for item in raw_order)
+        or not isinstance(strategies, dict)
+        or set(strategies) != set(raw_order)
+    ):
+        raise ModelValidationError(
+            "multi-strategy uncertainty requires exact strategy_order and strategies key agreement"
+        )
+    return tuple(raw_order)
 
 
 def _replace(value: dict[str, Any], pointer: str, replacement: Any) -> None:

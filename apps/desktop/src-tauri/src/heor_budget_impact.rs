@@ -51,6 +51,15 @@ fn nonempty(value: Option<&serde_json::Value>) -> bool {
         .is_some_and(|value| !value.trim().is_empty())
 }
 
+fn safe_strategy_id(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    bytes.next().is_some_and(|byte| byte.is_ascii_lowercase())
+        && value.len() <= 64
+        && bytes.all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
+        })
+}
+
 fn finite(value: Option<&serde_json::Value>) -> Option<f64> {
     value
         .and_then(serde_json::Value::as_f64)
@@ -330,6 +339,20 @@ fn audit_values(
             .push("BIA annual eligible population must contain three non-negative values".into());
     }
 
+    let multi_strategy_ids = if plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        == Some("0.8.0")
+    {
+        string_set(plan.get("strategy_order")).filter(|ids| {
+            ids.len() >= 2 && ids.iter().all(|strategy_id| safe_strategy_id(strategy_id))
+        })
+    } else {
+        None
+    };
+    let plan_strategies = plan
+        .get("strategies")
+        .and_then(serde_json::Value::as_object);
     for role in ["comparator", "intervention"] {
         if !nonempty(budget.pointer(&format!("/strategies/{role}/id")))
             || !nonempty(budget.pointer(&format!("/strategies/{role}/label")))
@@ -338,9 +361,29 @@ fn audit_values(
                 .errors
                 .push(format!("BIA strategies.{role} is incomplete"));
         }
-        if budget.pointer(&format!("/strategies/{role}/id"))
-            != plan.pointer(&format!("/strategies/{role}/name"))
+        let budget_id = budget
+            .pointer(&format!("/strategies/{role}/id"))
+            .and_then(serde_json::Value::as_str);
+        let matches_plan = if multi_strategy_ids.is_some() {
+            budget_id.is_some_and(|strategy_id| {
+                safe_strategy_id(strategy_id)
+                    && multi_strategy_ids
+                        .as_ref()
+                        .is_some_and(|ids| ids.contains(strategy_id))
+                    && plan_strategies
+                        .is_some_and(|strategies| strategies.contains_key(strategy_id))
+            })
+        } else if plan
+            .get("schema_version")
+            .and_then(serde_json::Value::as_str)
+            == Some("0.8.0")
         {
+            false
+        } else {
+            budget.pointer(&format!("/strategies/{role}/id"))
+                == plan.pointer(&format!("/strategies/{role}/name"))
+        };
+        if !matches_plan {
             audit.errors.push(format!(
                 "BIA strategies.{role}.id does not match the analysis plan"
             ));
@@ -1031,6 +1074,73 @@ mod tests {
         assert_eq!(audit.covered_input_count, 24);
         assert_eq!(audit.cost_category_count, 2);
         assert_eq!(audit.sensitivity_parameter_count, 2);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn multi_strategy_plan_can_bind_an_explicit_budget_pair() {
+        let root = temp_workspace("multi-pair");
+        let (mut plan, _, mut budget, _) = fixture();
+        plan["schema_version"] = serde_json::json!("0.8.0");
+        plan["baseline_strategy_id"] = serde_json::json!("standard_care");
+        plan["strategy_order"] =
+            serde_json::json!(["standard_care", "new_treatment", "alternative"]);
+        let comparator = plan["strategies"]
+            .as_object_mut()
+            .unwrap()
+            .remove("comparator")
+            .unwrap();
+        let intervention = plan["strategies"]
+            .as_object_mut()
+            .unwrap()
+            .remove("intervention")
+            .unwrap();
+        plan["strategies"]["standard_care"] = comparator;
+        plan["strategies"]["new_treatment"] = intervention.clone();
+        plan["strategies"]["alternative"] = intervention;
+        let plan_raw = serde_json::to_vec(&plan).unwrap();
+        budget["base_analysis"]["content_sha256"] = serde_json::json!(sha256(&plan_raw));
+        let budget_raw = serde_json::to_vec(&budget).unwrap();
+
+        let audit = audit_values(&root, &plan, &plan_raw, &budget, &budget_raw);
+
+        assert!(audit.complete, "{:?}", audit.errors);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn multi_strategy_budget_pair_requires_exact_safe_declared_keys() {
+        let root = temp_workspace("multi-pair-invalid-id");
+        let (mut plan, _, mut budget, _) = fixture();
+        plan["schema_version"] = serde_json::json!("0.8.0");
+        plan["baseline_strategy_id"] = serde_json::json!("standard_care");
+        plan["strategy_order"] =
+            serde_json::json!(["standard_care", "new_treatment", "alternative"]);
+        let comparator = plan["strategies"]
+            .as_object_mut()
+            .unwrap()
+            .remove("comparator")
+            .unwrap();
+        let intervention = plan["strategies"]
+            .as_object_mut()
+            .unwrap()
+            .remove("intervention")
+            .unwrap();
+        plan["strategies"]["standard_care"] = comparator;
+        plan["strategies"]["new_treatment"] = intervention.clone();
+        plan["strategies"]["alternative"] = intervention;
+        let plan_raw = serde_json::to_vec(&plan).unwrap();
+        budget["base_analysis"]["content_sha256"] = serde_json::json!(sha256(&plan_raw));
+        budget["strategies"]["comparator"]["id"] = serde_json::json!("standard_care/name");
+        let budget_raw = serde_json::to_vec(&budget).unwrap();
+
+        let audit = audit_values(&root, &plan, &plan_raw, &budget, &budget_raw);
+
+        assert!(!audit.complete);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("strategies.comparator.id does not match")));
         let _ = std::fs::remove_dir_all(root);
     }
 

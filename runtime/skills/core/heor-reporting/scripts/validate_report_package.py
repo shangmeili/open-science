@@ -105,6 +105,90 @@ def nested(value: dict, *parts: str) -> object:
     return current
 
 
+def expected_result_summary(loaded: dict[str, dict]) -> dict:
+    """Return the exact bounded summary for legacy or multi-strategy results."""
+    base_case = loaded.get("base_case_result", {})
+    uncertainty_result = loaded.get("uncertainty_result", {})
+    probabilistic = uncertainty_result.get("probabilistic_analysis", {})
+    if not isinstance(probabilistic, dict):
+        probabilistic = {}
+
+    expected_uncertainty = {
+        "iterations": probabilistic.get("iterations"),
+        "cost_effective_probability": probabilistic.get("cost_effective_probability"),
+        "mean_incremental_net_monetary_benefit": probabilistic.get(
+            "mean_incremental_net_monetary_benefit"
+        ),
+    }
+    if "decision_uncertainty" in probabilistic:
+        expected_uncertainty["decision_uncertainty"] = probabilistic[
+            "decision_uncertainty"
+        ]
+    for field in (
+        "strategy_order",
+        "primary_threshold_strategy_optimal_probabilities",
+        "primary_threshold_tie_probability",
+        "mean_net_monetary_benefit_by_strategy",
+        "net_monetary_benefit_mcse_by_strategy",
+    ):
+        if field in probabilistic:
+            expected_uncertainty[field] = probabilistic[field]
+
+    if "fully_incremental_analysis" in base_case:
+        raw_strategies = base_case.get("strategies", {})
+        if not isinstance(raw_strategies, dict) or any(
+            not text(strategy_id) or not isinstance(strategy, dict)
+            for strategy_id, strategy in raw_strategies.items()
+        ):
+            raise ValueError(
+                "multi-strategy base-case strategies must be an object of strategy result objects"
+            )
+        strategies = {
+            strategy_id: {
+                "name": strategy.get("name"),
+                "total_cost": strategy.get("total_cost"),
+                "total_qaly": strategy.get("total_qaly"),
+                "net_monetary_benefit": strategy.get("net_monetary_benefit"),
+            }
+            for strategy_id, strategy in raw_strategies.items()
+        }
+        cost_effectiveness = {
+            "economic_basis": base_case.get("economic_basis"),
+            "strategy_order": base_case.get("strategy_order"),
+            "baseline_strategy_id": base_case.get("baseline_strategy_id"),
+            "strategies": strategies,
+            "pairwise_vs_baseline": base_case.get("pairwise_vs_baseline"),
+            "fully_incremental_analysis": base_case.get("fully_incremental_analysis"),
+            "optimal_at_primary_threshold": base_case.get(
+                "optimal_at_primary_threshold"
+            ),
+        }
+    else:
+        cost_effectiveness = {
+            "economic_basis": base_case.get("economic_basis"),
+            "delta_cost": nested(base_case, "incremental", "delta_cost"),
+            "delta_qaly": nested(base_case, "incremental", "delta_qaly"),
+            "icer": nested(base_case, "incremental", "icer"),
+            "incremental_net_monetary_benefit": nested(
+                base_case, "incremental", "incremental_net_monetary_benefit"
+            ),
+        }
+
+    bia_result = loaded.get("budget_impact_result", {})
+    return {
+        "cost_effectiveness": cost_effectiveness,
+        "uncertainty": expected_uncertainty,
+        "budget_impact": {
+            "annual_net_budget_impact": nested(
+                bia_result, "base_case", "annual_net_budget_impact"
+            ),
+            "cumulative_net_budget_impact": nested(
+                bia_result, "base_case", "cumulative_net_budget_impact"
+            ),
+        },
+    }
+
+
 def audit(package_path: Path, workspace: Path) -> dict:
     package, package_raw = load_object(package_path)
     errors: list[str] = []
@@ -206,39 +290,13 @@ def audit(package_path: Path, workspace: Path) -> dict:
         errors.append("missing reporting items: " + ", ".join(missing_items))
 
     summary = package.get("result_summary") if isinstance(package.get("result_summary"), dict) else {}
-    expected_uncertainty = {
-        "iterations": nested(uncertainty_result, "probabilistic_analysis", "iterations"),
-        "cost_effective_probability": nested(
-            uncertainty_result, "probabilistic_analysis", "cost_effective_probability"
-        ),
-        "mean_incremental_net_monetary_benefit": nested(
-            uncertainty_result,
-            "probabilistic_analysis",
-            "mean_incremental_net_monetary_benefit",
-        ),
-    }
-    decision_uncertainty = nested(
-        uncertainty_result, "probabilistic_analysis", "decision_uncertainty"
-    )
-    if decision_uncertainty is not None:
-        expected_uncertainty["decision_uncertainty"] = decision_uncertainty
-
-    expected_summary = {
-        "cost_effectiveness": {
-            "economic_basis": loaded.get("base_case_result", {}).get("economic_basis"),
-            "delta_cost": nested(loaded.get("base_case_result", {}), "incremental", "delta_cost"),
-            "delta_qaly": nested(loaded.get("base_case_result", {}), "incremental", "delta_qaly"),
-            "icer": nested(loaded.get("base_case_result", {}), "incremental", "icer"),
-            "incremental_net_monetary_benefit": nested(loaded.get("base_case_result", {}), "incremental", "incremental_net_monetary_benefit"),
-        },
-        "uncertainty": expected_uncertainty,
-        "budget_impact": {
-            "annual_net_budget_impact": nested(bia_result, "base_case", "annual_net_budget_impact"),
-            "cumulative_net_budget_impact": nested(bia_result, "base_case", "cumulative_net_budget_impact"),
-        },
-    }
-    if summary != expected_summary:
-        errors.append("result_summary must exactly match the bound deterministic result artifacts")
+    try:
+        expected_summary = expected_result_summary(loaded)
+    except ValueError as error:
+        errors.append(f"bound result artifacts are invalid: {error}")
+    else:
+        if summary != expected_summary:
+            errors.append("result_summary must exactly match the bound deterministic result artifacts")
 
     disclosures = package.get("disclosures") if isinstance(package.get("disclosures"), dict) else {}
     if set(disclosures) != DISCLOSURES or not all(text(disclosures.get(key)) for key in DISCLOSURES):

@@ -1,8 +1,8 @@
 # Analysis plan contract
 
-Use `assets/analysis-plan.template.json` as the starting shape. The desktop deterministic engine currently supports one bounded, inspectable cohort state-transition model:
+Use `assets/multi-strategy-analysis-plan.template.json` for new work that compares all relevant alternatives in one analysis. Keep `assets/analysis-plan.template.json` for legacy two-role projects. The desktop deterministic engine supports one bounded, inspectable cohort state-transition model:
 
-- exactly two strategies: `comparator` and `intervention`;
+- 2–16 explicitly ordered strategies under schema `0.8.0`, or legacy `comparator` and `intervention` roles under schemas `0.1.0`–`0.7.0`;
 - one shared set of unique health states;
 - static or piecewise model-cycle-dependent transition matrices;
 - state costs and state utilities;
@@ -13,11 +13,13 @@ Use `assets/analysis-plan.template.json` as the starting shape. The desktop dete
 
 ## Required engine fields
 
-`schema_version` is normally `0.4.0` for a new direct-probability plan. Use `0.5.0` only when `$heor-transition-rate-adapter` supplies an admitted rate transformation, `0.6.0` only when `$heor-survival-curve-adapter` supplies the admitted two-state survival transformation, and `0.7.0` only when `$heor-probability-time-adapter` supplies the admitted single-event probability-time transformation. Static `0.3.0` plans remain approvable because they already contain executable evidence-value derivations. `transition_schedule` requires schema `0.4.0` or later. `analysis_id` must be non-empty. `economic_basis` must contain a three-letter uppercase ISO 4217-format `currency` and an integer `price_year` from 1900 through 2100. Replace the template's China example when another jurisdiction or valuation basis applies. `reference_case` contains a registered `id` and its exact `status`. `states`, `cycles`, `cycle_length_years`, `discount_rates`, `half_cycle_correction`, and `strategies` are required.
+Use schema `0.8.0` for new multi-strategy work. Declare `strategy_order` with 2–16 unique IDs matching `^[a-z][a-z0-9_-]{0,63}$`; `strategies` must contain exactly those keys, and `baseline_strategy_id` must equal the first entry. The baseline is the reference for pairwise results, not an instruction to replace complete incremental analysis. Schemas `0.4.0`–`0.7.0` remain supported for existing two-role projects and their introduced transition transformations. Schema `0.8.0` admits those same bounded transformations at dynamic strategy paths. `analysis_id`, economic basis, reference case, states, cycles, cycle length, discount rates, half-cycle correction, and strategies are required.
+
+Schema `0.8.0` results include all strategy totals, pairwise results versus the declared baseline, a fully incremental table sorted by expected QALY, strict and extended dominance status, the efficiency frontier, sequential ICERs between adjacent frontier strategies, and the strategy with maximum net monetary benefit at the primary threshold. Equivalent cost/QALY points remain explicit; declaration order resolves which identical point is retained on the frontier. Pairwise-versus-baseline output never substitutes for the fully incremental table.
 
 The engine can still calculate a legacy `0.1.0` plan for reproducibility, but its result has no claimed currency or price-year basis. A `0.2.0` plan retains its economic basis but lacks the executable evidence-value derivation contract. Both prior versions remain calculation-only and cannot pass analysis-plan approval.
 
-The complete MVP plan also fixes `uncertainty_analysis.path` to `heor/uncertainty-plan.json` and `budget_impact_analysis.path` to `heor/budget-impact-plan.json`. The analysis-plan approval binds the exact hashes of both sibling artifacts. Their detailed numeric contracts stay outside this file.
+The complete plan fixes `uncertainty_analysis.path` and `budget_impact_analysis.path` to their canonical files. A multi-strategy uncertainty plan evaluates all declared strategies. The bounded BIA remains a two-market-share calculator, so its comparator/intervention IDs must explicitly select two distinct strategy keys from a schema `0.8.0` plan; it does not model three-way market shares.
 
 For each strategy:
 

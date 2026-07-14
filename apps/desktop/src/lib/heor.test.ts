@@ -27,6 +27,56 @@ describe("AI4HEOR artifact contract", () => {
     expect(() => parseHeorPlan(JSON.stringify(invalid))).toThrow(/decision_problem/);
   });
 
+  it("parses explicit multi-strategy order and audits every strategy input", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    const comparator = structuredClone(plan.strategies.comparator);
+    const intervention = structuredClone(plan.strategies.intervention);
+    plan.schema_version = "0.8.0";
+    plan.baseline_strategy_id = "standard_care";
+    plan.strategy_order = ["standard_care", "new_treatment", "alternative"];
+    plan.strategies = {
+      standard_care: { ...comparator, name: "Standard care" },
+      new_treatment: { ...intervention, name: "New treatment" },
+      alternative: { ...intervention, name: "Alternative treatment" },
+    };
+
+    expect(parseHeorPlan(JSON.stringify(plan)).strategy_order).toEqual(plan.strategy_order);
+    const audit = auditHeorEvidence(plan);
+    expect(audit.requiredInputs).toBe(18);
+    expect(audit.unsupportedInputs).toContain("strategies.alternative.state_costs");
+
+    plan.baseline_strategy_id = "new_treatment";
+    expect(() => parseHeorPlan(JSON.stringify(plan))).toThrow(/first strategy_order/);
+  });
+
+  it("rejects malformed multi-strategy order and exact-key declarations", () => {
+    const makePlan = (): Record<string, unknown> => ({
+      ...structuredClone(HEOR_BROWSER_DEMO_PLAN),
+      schema_version: "0.8.0",
+      baseline_strategy_id: "standard_care",
+      strategy_order: ["standard_care", "new_treatment"],
+      strategies: {
+        standard_care: structuredClone(HEOR_BROWSER_DEMO_PLAN.strategies.comparator),
+        new_treatment: structuredClone(HEOR_BROWSER_DEMO_PLAN.strategies.intervention),
+      },
+    });
+
+    const mixedOrder = makePlan();
+    mixedOrder.strategy_order = ["standard_care", 42, "new_treatment"];
+    expect(() => parseHeorPlan(JSON.stringify(mixedOrder))).toThrow(/unique safe strategy ids/);
+
+    const extraKey = makePlan();
+    extraKey.strategies = {
+      ...(extraKey.strategies as Record<string, unknown>),
+      alternative: structuredClone(HEOR_BROWSER_DEMO_PLAN.strategies.intervention),
+    };
+    expect(() => parseHeorPlan(JSON.stringify(extraKey))).toThrow(/exactly the ids/);
+
+    const nonObjectStrategy = makePlan();
+    (nonObjectStrategy.strategies as Record<string, unknown>).new_treatment = null;
+    expect(() => parseHeorPlan(JSON.stringify(nonObjectStrategy))).toThrow(/exactly the ids/);
+  });
+
   it("keeps natural-language intent primary while invoking the domain skill", () => {
     const prompt = buildHeorPrompt("Compare treatment A with standard care.");
     expect(prompt).toContain("Use $heor-workbench");
@@ -137,7 +187,7 @@ describe("AI4HEOR artifact contract", () => {
     const audit = auditHeorEvidence(plan);
 
     expect(audit.invalidMappings.join("; ")).toContain(
-      "schema_version must be 0.3.0 through 0.7.0",
+      "schema_version must be 0.3.0 through 0.8.0",
     );
     expect(audit.invalidMappings.join("; ")).toContain(
       "derivation.model_value does not match the current model input",

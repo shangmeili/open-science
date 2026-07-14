@@ -56,11 +56,17 @@ passed. The validator reports coverage, not a score.
 ## Numerical summaries
 
 `result_summary` copies the defined values from the three deterministic result
-files. The cost-effectiveness summary copies `economic_basis` exactly before
-the incremental monetary fields. Values must match exactly, including `null`
-when the ICER or legacy economic basis is undefined.
+files. A legacy cost-effectiveness summary copies `economic_basis` exactly
+before the pairwise incremental monetary fields. A schema `0.8.0` summary
+instead copies the declared strategy order and baseline, condensed totals for
+every strategy, all pairwise-vs-baseline results, the complete fully incremental
+frontier, and the primary-threshold optimum. Occupancy traces are deliberately
+excluded from this report summary but remain bound in the result artifact.
+Values must match exactly, including `null` when an ICER or economic basis is
+undefined.
 When the uncertainty result contains `decision_uncertainty`, the package copies
-that complete object exactly: threshold rows, CEAC/CEAF probabilities,
+that complete object exactly: threshold rows, every strategy's unique-optimal
+CEAC probability, separate tie probability, CEAF probabilities,
 per-person EVPI and Monte Carlo error, and the explicit null population EVPI
 and EVPPI fields. A legacy result without that object keeps the legacy summary
 shape; the reporting layer does not manufacture a value-of-information result.

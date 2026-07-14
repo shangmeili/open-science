@@ -8,12 +8,15 @@ relative effects, infer time-varying hazards, or normalize transition rows.
 from __future__ import annotations
 
 from math import expm1, isclose, isfinite, log1p
+import re
 from typing import Any
 
 
 TRANSFORMATION_METHOD = "deterministic_transformation"
 TRANSFORMATION_OPERATION = "single_event_probability_time_conversion"
 ANALYSIS_SCHEMA_VERSION = "0.7.0"
+MULTI_STRATEGY_SCHEMA_VERSION = "0.8.0"
+STRATEGY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 TOLERANCE = 1e-12
 
 
@@ -49,12 +52,14 @@ def validate_probability_time_mappings(
         ):
             continue
         label = f"input_provenance[{position}]"
-        if schema_version != ANALYSIS_SCHEMA_VERSION:
+        if schema_version not in {ANALYSIS_SCHEMA_VERSION, MULTI_STRATEGY_SCHEMA_VERSION}:
             raise ProbabilityTimeError(
-                f"{label}: probability-time transformations require schema_version {ANALYSIS_SCHEMA_VERSION}"
+                f"{label}: probability-time transformations require schema_version {ANALYSIS_SCHEMA_VERSION} or {MULTI_STRATEGY_SCHEMA_VERSION}"
             )
         path = mapping.get("path")
-        if not isinstance(path, str) or not _transition_path(path):
+        if not isinstance(path, str) or not _transition_path(
+            path, plan, schema_version
+        ):
             raise ProbabilityTimeError(
                 f"{label}: probability-time transformation is allowed only for a transition matrix or schedule"
             )
@@ -295,13 +300,33 @@ def derive_probability_time(
     return output, used_extractions, used_assumptions
 
 
-def _transition_path(path: str) -> bool:
-    return path in {
-        "strategies.comparator.transition_matrix",
-        "strategies.intervention.transition_matrix",
-        "strategies.comparator.transition_schedule",
-        "strategies.intervention.transition_schedule",
-    }
+def _transition_path(
+    path: str, plan: dict[str, Any], schema_version: str
+) -> bool:
+    parts = path.split(".")
+    return (
+        len(parts) == 3
+        and parts[0] == "strategies"
+        and _strategy_id_allowed(parts[1], plan, schema_version)
+        and parts[2] in {"transition_matrix", "transition_schedule"}
+    )
+
+
+def _strategy_id_allowed(
+    strategy_id: str, plan: dict[str, Any], schema_version: str
+) -> bool:
+    if schema_version != MULTI_STRATEGY_SCHEMA_VERSION:
+        return strategy_id in {"comparator", "intervention"}
+    order = plan.get("strategy_order")
+    strategies = plan.get("strategies")
+    return (
+        STRATEGY_ID_PATTERN.fullmatch(strategy_id) is not None
+        and isinstance(order, (list, tuple))
+        and all(isinstance(item, str) for item in order)
+        and isinstance(strategies, dict)
+        and set(strategies) == set(order)
+        and strategy_id in order
+    )
 
 
 def _model_value(plan: dict[str, Any], path: str) -> Any:

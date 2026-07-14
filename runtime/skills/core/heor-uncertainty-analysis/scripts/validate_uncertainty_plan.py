@@ -12,10 +12,11 @@ from pathlib import Path
 
 
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
+STRATEGY_ID = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 PARAMETER_TARGET = re.compile(
-    r"^/strategies/(comparator|intervention)/(state_costs|state_utilities)/[0-9]+$"
-    r"|^/strategies/(comparator|intervention)/transition_matrix/[0-9]+$"
-    r"|^/strategies/(comparator|intervention)/transition_schedule/[0-9]+/matrix/[0-9]+$"
+    r"^/strategies/[a-z][a-z0-9_-]{0,63}/(state_costs|state_utilities)/[0-9]+$"
+    r"|^/strategies/[a-z][a-z0-9_-]{0,63}/transition_matrix/[0-9]+$"
+    r"|^/strategies/[a-z][a-z0-9_-]{0,63}/transition_schedule/[0-9]+/matrix/[0-9]+$"
 )
 RATE_TARGET = re.compile(
     r"^/input_provenance/([0-9]+)/derivation/transformation/phases/([0-9]+)/rows/([0-9]+)/events/([0-9]+)/rate_per_year$"
@@ -27,7 +28,7 @@ PROBABILITY_TARGET = re.compile(
     r"^/input_provenance/([0-9]+)/derivation/transformation/phases/([0-9]+)/rows/([0-9]+)/event/source_probability$"
 )
 SCHEDULE_START_TARGET = re.compile(
-    r"^/strategies/(comparator|intervention)/transition_schedule/[0-9]+/start_cycle$"
+    r"^/strategies/[a-z][a-z0-9_-]{0,63}/transition_schedule/[0-9]+/start_cycle$"
 )
 SCENARIO_TARGETS = {
     "/cycles",
@@ -37,7 +38,8 @@ SCENARIO_TARGETS = {
     "/half_cycle_correction",
 }
 SUPPORTED_DISTRIBUTIONS = {"beta", "gamma", "lognormal", "uniform", "dirichlet"}
-CURRENT_SCHEMA_VERSION = "0.6.0"
+CURRENT_SCHEMA_VERSION = "0.7.0"
+PROBABILITY_SCHEMA_VERSION = "0.6.0"
 SURVIVAL_SCHEMA_VERSION = "0.5.0"
 CORRELATION_SCHEMA_VERSION = "0.4.0"
 RATE_SCHEMA_VERSION = "0.3.0"
@@ -79,6 +81,38 @@ def finite_number(value: object) -> bool:
 
 def positive_number(value: object) -> bool:
     return finite_number(value) and value > 0
+
+
+def allowed_strategy_ids(plan: dict) -> set[str]:
+    if plan.get("schema_version") != "0.8.0":
+        return {"comparator", "intervention"}
+    order = plan.get("strategy_order")
+    strategies = plan.get("strategies")
+    if not (
+        isinstance(order, list)
+        and 2 <= len(order) <= 16
+        and all(isinstance(item, str) and STRATEGY_ID.fullmatch(item) for item in order)
+        and len(set(order)) == len(order)
+        and isinstance(strategies, dict)
+        and set(strategies) == set(order)
+        and plan.get("baseline_strategy_id") == order[0]
+    ):
+        return set()
+    return set(order)
+
+
+def target_strategy_id(target: object) -> str | None:
+    if not text(target):
+        return None
+    parts = str(target).split("/")
+    return parts[2] if len(parts) > 2 and parts[1] == "strategies" else None
+
+
+def provenance_strategy_id(path: object) -> str | None:
+    if not text(path):
+        return None
+    parts = str(path).split(".")
+    return parts[1] if len(parts) > 1 and parts[0] == "strategies" else None
 
 
 def resolve_pointer(value: object, pointer: str) -> object:
@@ -192,9 +226,20 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         RATE_SCHEMA_VERSION,
         CORRELATION_SCHEMA_VERSION,
         SURVIVAL_SCHEMA_VERSION,
+        PROBABILITY_SCHEMA_VERSION,
         CURRENT_SCHEMA_VERSION,
     }:
-        errors.append("schema_version must be 0.1.0 through 0.6.0")
+        errors.append("schema_version must be 0.1.0 through 0.7.0")
+    multi_strategy_base = plan.get("schema_version") == "0.8.0"
+    if multi_strategy_base != (schema_version == CURRENT_SCHEMA_VERSION):
+        errors.append(
+            "analysis schema_version 0.8.0 and uncertainty schema_version 0.7.0 must be used together"
+        )
+    strategy_ids = allowed_strategy_ids(plan)
+    if multi_strategy_base and not strategy_ids:
+        errors.append(
+            "analysis schema 0.8.0 strategy_order, strategies, and baseline_strategy_id are invalid"
+        )
     for field in ("uncertainty_id", "analysis_id"):
         if not text(value.get(field)):
             errors.append(f"{field} is required")
@@ -248,12 +293,14 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         rate_match = RATE_TARGET.fullmatch(target) if text(target) else None
         survival_match = SURVIVAL_TARGET.fullmatch(target) if text(target) else None
         probability_match = PROBABILITY_TARGET.fullmatch(target) if text(target) else None
-        target_allowed = bool(PARAMETER_TARGET.fullmatch(target)) if text(target) else False
-        if rate_match and schema_version in {RATE_SCHEMA_VERSION, CORRELATION_SCHEMA_VERSION, SURVIVAL_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
+        direct_target = bool(PARAMETER_TARGET.fullmatch(target)) if text(target) else False
+        direct_strategy_id = target_strategy_id(target) if direct_target else None
+        target_allowed = direct_target and direct_strategy_id in strategy_ids
+        if rate_match and schema_version in {RATE_SCHEMA_VERSION, CORRELATION_SCHEMA_VERSION, SURVIVAL_SCHEMA_VERSION, PROBABILITY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
             target_allowed = True
-        if survival_match and schema_version in {SURVIVAL_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
+        if survival_match and schema_version in {SURVIVAL_SCHEMA_VERSION, PROBABILITY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
             target_allowed = True
-        if probability_match and schema_version == CURRENT_SCHEMA_VERSION:
+        if probability_match and schema_version in {PROBABILITY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
             target_allowed = True
         if not text(identifier) or identifier in ids:
             errors.append(f"{label}.id must be non-empty and unique")
@@ -272,12 +319,17 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
                 errors.append(f"{label}.target does not exist in the plan")
         provenance_path = parameter.get("provenance_path")
         mapping = mappings.get(provenance_path)
+        mapping_strategy_id = provenance_strategy_id(provenance_path)
+        if mapping_strategy_id is not None and mapping_strategy_id not in strategy_ids:
+            errors.append(
+                f"{label}.provenance_path strategy is not declared by the analysis plan"
+            )
         event_basis: str | None = None
         survival_basis: str | None = None
         probability_basis: str | None = None
         if rate_match:
-            if schema_version not in {RATE_SCHEMA_VERSION, CORRELATION_SCHEMA_VERSION, SURVIVAL_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
-                errors.append(f"{label}.target requires schema_version 0.3.0 through 0.6.0")
+            if schema_version not in {RATE_SCHEMA_VERSION, CORRELATION_SCHEMA_VERSION, SURVIVAL_SCHEMA_VERSION, PROBABILITY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
+                errors.append(f"{label}.target requires schema_version 0.3.0 through 0.7.0")
             try:
                 mapping_index, phase_index, row_index, event_index = (
                     int(item) for item in rate_match.groups()
@@ -295,7 +347,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
                 derivation = mapping.get("derivation") or {}
                 transformation = derivation.get("transformation") or {}
                 if (
-                    plan.get("schema_version") != "0.5.0"
+                    plan.get("schema_version") not in {"0.5.0", "0.8.0"}
                     or derivation.get("method") != "deterministic_transformation"
                     or transformation.get("operation") != "constant_competing_rates"
                 ):
@@ -305,8 +357,8 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
                 assumption_id = event.get("assumption_id")
                 event_basis = source_id if text(source_id) else assumption_id
         elif survival_match:
-            if schema_version not in {SURVIVAL_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
-                errors.append(f"{label}.target requires schema_version 0.5.0 or 0.6.0")
+            if schema_version not in {SURVIVAL_SCHEMA_VERSION, PROBABILITY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
+                errors.append(f"{label}.target requires schema_version 0.5.0 through 0.7.0")
             try:
                 mapping_index = int(survival_match.group(1))
                 parameter_name = survival_match.group(2)
@@ -328,7 +380,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
                     "weibull": {"shape", "scale_years"},
                 }.get(transformation.get("distribution") if isinstance(transformation, dict) else None)
                 if (
-                    plan.get("schema_version") != "0.6.0"
+                    plan.get("schema_version") not in {"0.6.0", "0.8.0"}
                     or derivation.get("method") != "deterministic_transformation"
                     or not isinstance(transformation, dict)
                     or transformation.get("operation") != "parametric_survival_to_transition_schedule"
@@ -341,8 +393,8 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
                 assumption_id = parameter_value.get("assumption_id")
                 survival_basis = source_id if text(source_id) else assumption_id
         elif probability_match:
-            if schema_version != CURRENT_SCHEMA_VERSION:
-                errors.append(f"{label}.target requires schema_version 0.6.0")
+            if schema_version not in {PROBABILITY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
+                errors.append(f"{label}.target requires schema_version 0.6.0 or 0.7.0")
             try:
                 mapping_index, phase_index, row_index = (
                     int(item) for item in probability_match.groups()
@@ -361,7 +413,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
                 mapping = indexed_mapping
                 derivation = mapping.get("derivation") or {}
                 if (
-                    plan.get("schema_version") != "0.7.0"
+                    plan.get("schema_version") not in {"0.7.0", "0.8.0"}
                     or derivation.get("method") != "deterministic_transformation"
                     or not isinstance(transformation, dict)
                     or transformation.get("operation") != "single_event_probability_time_conversion"
@@ -443,6 +495,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         RATE_SCHEMA_VERSION,
         CORRELATION_SCHEMA_VERSION,
         SURVIVAL_SCHEMA_VERSION,
+        PROBABILITY_SCHEMA_VERSION,
         CURRENT_SCHEMA_VERSION,
     }:
         threshold_config = threshold_config if isinstance(threshold_config, dict) else {}
@@ -462,7 +515,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         if not text(threshold_config.get("rationale")):
             errors.append("decision thresholds rationale is required")
     elif threshold_config is not None:
-        errors.append("decision thresholds require schema_version 0.2.0 through 0.6.0")
+        errors.append("decision thresholds require schema_version 0.2.0 through 0.7.0")
     convergence = psa.get("convergence") or {}
     checkpoints = convergence.get("checkpoints")
     if not (
@@ -481,7 +534,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
     correlation = psa.get("correlation_handling") or {}
     if not text(correlation.get("independence_rationale")):
         errors.append("correlation_handling.independence_rationale is required")
-    if schema_version in {CORRELATION_SCHEMA_VERSION, SURVIVAL_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
+    if schema_version in {CORRELATION_SCHEMA_VERSION, SURVIVAL_SCHEMA_VERSION, PROBABILITY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
         groups = correlation.get("groups")
         if not isinstance(groups, list) or len(groups) > MAX_CORRELATION_GROUPS:
             errors.append(
@@ -554,7 +607,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
             if not text(group.get("rationale")):
                 errors.append(f"{label}.rationale is required")
     elif "groups" in correlation:
-        errors.append("correlation groups require schema_version 0.4.0 through 0.6.0")
+        errors.append("correlation groups require schema_version 0.4.0 through 0.7.0")
     if correlation.get("known_omitted_correlations") != []:
         errors.append("known_omitted_correlations must be resolved before review")
     omitted = psa.get("omitted_parameters")
@@ -590,10 +643,16 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         replacement_targets: set[str] = set()
         for replacement in replacements:
             target = replacement.get("target") if isinstance(replacement, dict) else None
+            replacement_strategy_id = target_strategy_id(target)
             if not text(target) or not (
                 target in SCENARIO_TARGETS
-                or PARAMETER_TARGET.fullmatch(target)
-                or SCHEDULE_START_TARGET.fullmatch(target)
+                or (
+                    (
+                        PARAMETER_TARGET.fullmatch(target)
+                        or SCHEDULE_START_TARGET.fullmatch(target)
+                    )
+                    and replacement_strategy_id in strategy_ids
+                )
             ) or target in replacement_targets:
                 errors.append(f"{label} has a replacement outside the allowlist")
                 continue

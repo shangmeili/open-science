@@ -7,6 +7,7 @@ import importlib.util
 import hashlib
 import json
 import math
+import re
 import sys
 import tempfile
 import unittest
@@ -70,6 +71,53 @@ probability_time_adapter = load(
     "validate_probability_time",
     "runtime/skills/core/heor-probability-time-adapter/scripts/validate_probability_time.py",
 )
+
+
+class MultiStrategyTemplateContractTests(unittest.TestCase):
+    ANALYSIS_TEMPLATE = ROOT / (
+        "runtime/skills/core/heor-workbench/assets/"
+        "multi-strategy-analysis-plan.template.json"
+    )
+    UNCERTAINTY_TEMPLATE = ROOT / (
+        "runtime/skills/core/heor-uncertainty-analysis/assets/"
+        "multi-strategy-uncertainty-plan.template.json"
+    )
+
+    def test_analysis_template_declares_an_exact_safe_strategy_inventory(self):
+        plan = json.loads(self.ANALYSIS_TEMPLATE.read_text())
+        order = plan["strategy_order"]
+        self.assertEqual(plan["schema_version"], "0.8.0")
+        self.assertTrue(2 <= len(order) <= 16)
+        self.assertEqual(len(order), len(set(order)))
+        self.assertTrue(all(re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", item) for item in order))
+        self.assertEqual(set(plan["strategies"]), set(order))
+        self.assertEqual(plan["baseline_strategy_id"], order[0])
+        self.assertEqual(
+            plan["uncertainty_analysis"]["path"], "heor/uncertainty-plan.json"
+        )
+        self.assertEqual(
+            plan["budget_impact_analysis"]["path"], "heor/budget-impact-plan.json"
+        )
+        audit = input_provenance.audit(plan, {}, hashlib.sha256(b"{}").hexdigest())
+        self.assertFalse(audit["complete"])
+        self.assertEqual(audit["required_inputs"], 17)
+
+    def test_uncertainty_template_is_exactly_paired_and_targets_a_declared_strategy(self):
+        plan = json.loads(self.ANALYSIS_TEMPLATE.read_text())
+        uncertainty_plan = json.loads(self.UNCERTAINTY_TEMPLATE.read_text())
+        self.assertEqual(uncertainty_plan["schema_version"], "0.7.0")
+        self.assertEqual(
+            uncertainty_plan["base_analysis"]["path"], "heor/analysis-plan.json"
+        )
+        target = uncertainty_plan["parameters"][0]["target"]
+        provenance_path = uncertainty_plan["parameters"][0]["provenance_path"]
+        target_strategy = target.split("/")[2]
+        self.assertIn(target_strategy, plan["strategy_order"])
+        self.assertEqual(provenance_path.split(".")[1], target_strategy)
+        self.assertIsInstance(
+            uncertainty_plan["probabilistic_analysis"]["correlation_handling"]["groups"],
+            list,
+        )
 
 
 def evidence_search_fixture():
@@ -356,7 +404,16 @@ class EvidenceSynthesisContractTests(unittest.TestCase):
 class InputProvenanceContractTests(unittest.TestCase):
     def fixture(self):
         synthesis = evidence_fixture()
-        paths = list(input_provenance.BASE_PATHS) + ["willingness_to_pay"]
+        paths = list(input_provenance.BASE_PATHS) + [
+            f"strategies.{role}.{field}"
+            for role in ("comparator", "intervention")
+            for field in (
+                "initial_distribution",
+                "transition_matrix",
+                "state_costs",
+                "state_utilities",
+            )
+        ] + ["willingness_to_pay"]
         model_values = {
             "cycles": 3,
             "cycle_length_years": 1.0,
@@ -509,6 +566,65 @@ class InputProvenanceContractTests(unittest.TestCase):
         self.assertTrue(result["complete"], result)
         self.assertEqual(result["required_inputs"], 14)
         self.assertIn(extraction_id, result["selected_extraction_ids"])
+
+    def test_schema_08_requires_provenance_for_every_declared_strategy(self):
+        plan, synthesis, _ = self.fixture()
+        plan["schema_version"] = "0.8.0"
+        plan["baseline_strategy_id"] = "comparator"
+        plan["strategy_order"] = ["comparator", "intervention", "alternative"]
+        plan["strategies"]["alternative"] = deepcopy(
+            plan["strategies"]["intervention"]
+        )
+        for strategy_id, label in (
+            ("comparator", "Standard care"),
+            ("intervention", "Treatment A"),
+            ("alternative", "Treatment B"),
+        ):
+            plan["strategies"][strategy_id]["name"] = label
+
+        intervention_mappings = [
+            item for item in plan["input_provenance"]
+            if item["path"].startswith("strategies.intervention.")
+        ]
+        for offset, source_mapping in enumerate(intervention_mappings):
+            mapping = deepcopy(source_mapping)
+            old_extraction_id = mapping["extraction_ids"][0]
+            new_extraction_id = f"extract-alternative-{offset}"
+            mapping["path"] = mapping["path"].replace(
+                "strategies.intervention.", "strategies.alternative."
+            )
+            mapping["extraction_ids"] = [new_extraction_id]
+            if "monetary_adjustments" in mapping:
+                for adjustment in mapping["monetary_adjustments"]:
+                    adjustment["source_extraction_id"] = new_extraction_id
+            plan["input_provenance"].append(mapping)
+            extraction = deepcopy(next(
+                item for item in synthesis["extractions"]
+                if item["extraction_id"] == old_extraction_id
+            ))
+            extraction["extraction_id"] = new_extraction_id
+            extraction["target"] = mapping["path"]
+            synthesis["extractions"].append(extraction)
+
+        synthesis_raw = json.dumps(
+            synthesis, ensure_ascii=False, indent=2
+        ).encode() + b"\n"
+        digest = hashlib.sha256(synthesis_raw).hexdigest()
+        plan["evidence_synthesis"]["content_sha256"] = digest
+        result = input_provenance.audit(plan, synthesis, digest)
+        self.assertTrue(result["complete"], result)
+        self.assertEqual(result["required_inputs"], 18)
+
+        plan["input_provenance"] = [
+            mapping for mapping in plan["input_provenance"]
+            if mapping["path"] != "strategies.alternative.state_utilities"
+        ]
+        incomplete = input_provenance.audit(plan, synthesis, digest)
+        self.assertFalse(incomplete["complete"])
+        self.assertIn(
+            "strategies.alternative.state_utilities",
+            incomplete["unsupported_inputs"],
+        )
 
     def test_schema_05_competing_rates_reproduce_a_complete_matrix(self):
         plan, synthesis, _ = self.fixture()
@@ -1027,6 +1143,103 @@ class UncertaintyContractTests(unittest.TestCase):
             paths = self.fixture(Path(directory))
             self.assertEqual(uncertainty.validate(*paths), [])
 
+    def test_schema_07_accepts_dynamic_multi_strategy_targets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            uncertainty_path, plan_path = self.fixture(root)
+            plan = json.loads(plan_path.read_text())
+            plan["schema_version"] = "0.8.0"
+            plan["baseline_strategy_id"] = "comparator"
+            plan["strategy_order"] = ["comparator", "intervention", "alternative"]
+            plan["strategies"]["alternative"] = deepcopy(
+                plan["strategies"]["intervention"]
+            )
+            plan["strategies"]["alternative"]["name"] = "Alternative treatment"
+            plan_raw = json.dumps(plan, ensure_ascii=False, indent=2).encode()
+            plan_path.write_bytes(plan_raw)
+
+            value = json.loads(uncertainty_path.read_text())
+            value["schema_version"] = "0.7.0"
+            value["probabilistic_analysis"]["correlation_handling"]["groups"] = []
+            value["base_analysis"]["content_sha256"] = hashlib.sha256(
+                plan_raw
+            ).hexdigest()
+            value["parameters"][0]["target"] = "/strategies/alternative/state_costs/0"
+            value["parameters"][0]["provenance_path"] = (
+                "strategies.alternative.state_costs"
+            )
+            plan["input_provenance"].append({
+                "path": "strategies.alternative.state_costs",
+                "source_ids": ["golden-cost-source"],
+                "assumption_ids": [],
+                "uncertainty_status": "distribution_available",
+            })
+            input_paths = plan["methodology"]["uncertainty_analysis"]
+            input_paths["deterministic"]["input_paths"].append(
+                "strategies.alternative.state_costs"
+            )
+            input_paths["probabilistic"]["input_paths"].append(
+                "strategies.alternative.state_costs"
+            )
+            plan_raw = json.dumps(plan, ensure_ascii=False, indent=2).encode()
+            plan_path.write_bytes(plan_raw)
+            value["base_analysis"]["content_sha256"] = hashlib.sha256(
+                plan_raw
+            ).hexdigest()
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+
+            self.assertEqual(uncertainty.validate(uncertainty_path, plan_path), [])
+
+            value["parameters"][0]["target"] = "/strategies/missing/state_costs/0"
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            errors = uncertainty.validate(uncertainty_path, plan_path)
+            self.assertTrue(any("allowlisted" in error for error in errors), errors)
+
+    def test_legacy_plan_rejects_parameters_and_scenarios_for_an_extra_strategy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            uncertainty_path, plan_path = self.fixture(root)
+            plan = json.loads(plan_path.read_text())
+            plan["strategies"]["alternative"] = deepcopy(
+                plan["strategies"]["intervention"]
+            )
+            plan["input_provenance"].append({
+                "path": "strategies.alternative.state_costs",
+                "source_ids": ["golden-cost-source"],
+                "assumption_ids": [],
+                "uncertainty_status": "distribution_available",
+            })
+            methodology = plan["methodology"]["uncertainty_analysis"]
+            methodology["deterministic"]["input_paths"].append(
+                "strategies.alternative.state_costs"
+            )
+            methodology["probabilistic"]["input_paths"].append(
+                "strategies.alternative.state_costs"
+            )
+            plan_raw = json.dumps(plan, ensure_ascii=False, indent=2).encode()
+            plan_path.write_bytes(plan_raw)
+
+            value = json.loads(uncertainty_path.read_text())
+            value["base_analysis"]["content_sha256"] = hashlib.sha256(
+                plan_raw
+            ).hexdigest()
+            value["parameters"][0]["target"] = (
+                "/strategies/alternative/state_costs/0"
+            )
+            value["parameters"][0]["provenance_path"] = (
+                "strategies.alternative.state_costs"
+            )
+            value["structural_scenarios"][0]["replacements"] = [{
+                "target": "/strategies/alternative/state_costs/1",
+                "value": 2500.0,
+            }]
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+
+            errors = uncertainty.validate(uncertainty_path, plan_path)
+            self.assertTrue(any("target must be unique and allowlisted" in error for error in errors), errors)
+            self.assertTrue(any("provenance_path strategy is not declared" in error for error in errors), errors)
+            self.assertTrue(any("replacement outside the allowlist" in error for error in errors), errors)
+
     def test_time_varying_rows_and_change_point_scenarios_are_allowlisted(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -1439,6 +1652,39 @@ class BudgetImpactContractTests(unittest.TestCase):
             paths = self.fixture(Path(directory))
             self.assertEqual(budget_impact.validate(*paths), [])
 
+    def test_schema_08_selects_two_distinct_safe_strategy_order_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            budget_path, plan_path = self.fixture(Path(directory))
+            plan = json.loads(plan_path.read_text())
+            comparator = plan["strategies"].pop("comparator")
+            intervention = plan["strategies"].pop("intervention")
+            plan["schema_version"] = "0.8.0"
+            plan["strategy_order"] = [
+                "standard_care", "new_treatment", "alternative"
+            ]
+            plan["baseline_strategy_id"] = "standard_care"
+            plan["strategies"] = {
+                "standard_care": comparator,
+                "new_treatment": intervention,
+                "alternative": deepcopy(intervention),
+            }
+            plan_raw = json.dumps(plan, ensure_ascii=False, indent=2).encode()
+            plan_path.write_bytes(plan_raw)
+
+            value = json.loads(budget_path.read_text())
+            value["strategies"]["comparator"]["id"] = "standard_care"
+            value["strategies"]["intervention"]["id"] = "new_treatment"
+            value["base_analysis"]["content_sha256"] = hashlib.sha256(
+                plan_raw
+            ).hexdigest()
+            budget_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            self.assertEqual(budget_impact.validate(budget_path, plan_path), [])
+
+            value["strategies"]["intervention"]["id"] = "Unknown Strategy"
+            budget_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            errors = budget_impact.validate(budget_path, plan_path)
+            self.assertTrue(any("safe id from analysis strategy_order" in error for error in errors), errors)
+
     def test_changed_hash_and_missing_cost_provenance_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             budget_path, plan_path = self.fixture(Path(directory))
@@ -1756,6 +2002,100 @@ class ReportingContractTests(unittest.TestCase):
             self.assertTrue(result["complete"])
             self.assertTrue(result["releasable"])
             self.assertEqual(result["covered_item_count"], 40)
+
+    def test_multi_strategy_summary_preserves_frontier_without_occupancy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, package, paths = self.fixture(root)
+            base_case = json.loads(paths["base_case_result"].read_text())
+            base_case.pop("incremental")
+            base_case.update({
+                "strategy_order": ["standard", "treatment"],
+                "baseline_strategy_id": "standard",
+                "strategies": {
+                    "standard": {
+                        "name": "Standard care", "total_cost": 0.0,
+                        "total_qaly": 1.0, "net_monetary_benefit": 100000.0,
+                        "occupancy": [[1.0]],
+                    },
+                    "treatment": {
+                        "name": "Treatment", "total_cost": 50000.0,
+                        "total_qaly": 2.0, "net_monetary_benefit": 150000.0,
+                        "occupancy": [[1.0]],
+                    },
+                },
+                "pairwise_vs_baseline": {"treatment": {"delta_cost": 50000.0}},
+                "fully_incremental_analysis": [
+                    {"strategy_id": "standard", "status": "frontier", "icer": None},
+                    {"strategy_id": "treatment", "status": "frontier", "icer": 50000.0},
+                ],
+                "optimal_at_primary_threshold": {"strategy_id": "treatment"},
+            })
+            paths["base_case_result"].write_text(json.dumps(base_case, indent=2))
+
+            uncertainty_result = json.loads(paths["uncertainty_result"].read_text())
+            probabilistic = uncertainty_result["probabilistic_analysis"]
+            probabilistic.update({
+                "strategy_order": ["standard", "treatment"],
+                "primary_threshold_strategy_optimal_probabilities": {
+                    "standard": 0.25, "treatment": 0.75,
+                },
+                "primary_threshold_tie_probability": 0.0,
+                "mean_net_monetary_benefit_by_strategy": {
+                    "standard": 100000.0, "treatment": 150000.0,
+                },
+                "net_monetary_benefit_mcse_by_strategy": {
+                    "standard": 10.0, "treatment": 12.0,
+                },
+            })
+            paths["uncertainty_result"].write_text(
+                json.dumps(uncertainty_result, indent=2)
+            )
+
+            package["bindings"]["base_case_result"]["content_sha256"] = hashlib.sha256(
+                paths["base_case_result"].read_bytes()
+            ).hexdigest()
+            package["bindings"]["uncertainty_result"]["content_sha256"] = hashlib.sha256(
+                paths["uncertainty_result"].read_bytes()
+            ).hexdigest()
+            loaded = {
+                "base_case_result": base_case,
+                "uncertainty_result": uncertainty_result,
+                "budget_impact_result": json.loads(
+                    paths["budget_impact_result"].read_text()
+                ),
+            }
+            package["result_summary"] = reporting.expected_result_summary(loaded)
+            package_path.write_text(json.dumps(package, indent=2))
+
+            result = reporting.audit(package_path, root)
+            self.assertTrue(result["complete"], result)
+            strategies = package["result_summary"]["cost_effectiveness"]["strategies"]
+            self.assertNotIn("occupancy", strategies["standard"])
+            self.assertNotIn("delta_cost", package["result_summary"]["cost_effectiveness"])
+
+    def test_malformed_multi_strategy_result_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, package, paths = self.fixture(root)
+            base_case = json.loads(paths["base_case_result"].read_text())
+            base_case.pop("incremental")
+            base_case.update({
+                "fully_incremental_analysis": [],
+                "strategies": {"malformed": "not-an-object"},
+            })
+            paths["base_case_result"].write_text(json.dumps(base_case, indent=2))
+            package["bindings"]["base_case_result"]["content_sha256"] = hashlib.sha256(
+                paths["base_case_result"].read_bytes()
+            ).hexdigest()
+            package_path.write_text(json.dumps(package, indent=2))
+
+            result = reporting.audit(package_path, root)
+            self.assertFalse(result["complete"])
+            self.assertTrue(any(
+                "multi-strategy base-case strategies" in error
+                for error in result["errors"]
+            ), result)
 
     def test_stale_result_hash_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:

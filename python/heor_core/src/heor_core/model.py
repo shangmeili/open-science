@@ -1,15 +1,16 @@
 """Validated deterministic cohort state-transition analysis.
 
-The engine supports two strategies, static or model-cycle-dependent transition
-matrices, state rewards, and optional half-cycle correction. It has no network
-or language-model dependency. Time in state and patient history remain outside
-this cohort-model boundary.
+The engine supports two or more strategies, static or model-cycle-dependent
+transition matrices, state rewards, and optional half-cycle correction. It has
+no network or language-model dependency. Time in state and patient history
+remain outside this cohort-model boundary.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from math import isclose, isfinite
+import re
 from typing import Any
 
 from .probability_time import (
@@ -20,7 +21,8 @@ from .survival_curves import SurvivalCurveError, validate_survival_curve_mapping
 from .transition_rates import TransitionRateError, validate_transition_rate_mappings
 
 
-SCHEMA_VERSION = "0.7.0"
+SCHEMA_VERSION = "0.8.0"
+PROBABILITY_TIME_SCHEMA_VERSION = "0.7.0"
 SURVIVAL_SCHEMA_VERSION = "0.6.0"
 TRANSITION_RATE_SCHEMA_VERSION = "0.5.0"
 TRANSITION_SCHEDULE_SCHEMA_VERSION = "0.4.0"
@@ -34,10 +36,13 @@ SUPPORTED_SCHEMA_VERSIONS = (
     TRANSITION_SCHEDULE_SCHEMA_VERSION,
     TRANSITION_RATE_SCHEMA_VERSION,
     SURVIVAL_SCHEMA_VERSION,
+    PROBABILITY_TIME_SCHEMA_VERSION,
     SCHEMA_VERSION,
 )
-ENGINE_VERSION = "0.7.0"
+ENGINE_VERSION = "0.8.0"
 TOLERANCE = 1e-9
+MAX_STRATEGIES = 16
+STRATEGY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 
 
 class ModelValidationError(ValueError):
@@ -120,8 +125,25 @@ class MarkovSpecification:
     outcome_discount_rate: float
     half_cycle_correction: bool
     willingness_to_pay: float | None
-    comparator: Strategy
-    intervention: Strategy
+    strategy_order: tuple[str, ...]
+    baseline_strategy_id: str
+    strategies: tuple[tuple[str, Strategy], ...]
+
+    @property
+    def strategy_map(self) -> dict[str, Strategy]:
+        return dict(self.strategies)
+
+    @property
+    def comparator(self) -> Strategy:
+        """Legacy two-strategy accessor retained for schema 0.1-0.7 callers."""
+
+        return self.strategy_map["comparator"]
+
+    @property
+    def intervention(self) -> Strategy:
+        """Legacy two-strategy accessor retained for schema 0.1-0.7 callers."""
+
+        return self.strategy_map["intervention"]
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "MarkovSpecification":
@@ -139,6 +161,7 @@ class MarkovSpecification:
             TRANSITION_SCHEDULE_SCHEMA_VERSION,
             TRANSITION_RATE_SCHEMA_VERSION,
             SURVIVAL_SCHEMA_VERSION,
+            PROBABILITY_TIME_SCHEMA_VERSION,
             SCHEMA_VERSION,
         }:
             economic_basis = _mapping(economic_basis, "economic_basis")
@@ -151,6 +174,31 @@ class MarkovSpecification:
             price_year = None
         discount_rates = _mapping(value.get("discount_rates", {}), "discount_rates")
         strategies = _mapping(value.get("strategies", {}), "strategies")
+        if schema_version == SCHEMA_VERSION:
+            raw_order = value.get("strategy_order")
+            if not isinstance(raw_order, (list, tuple)):
+                raise ModelValidationError("strategy_order must be an array")
+            strategy_order = tuple(str(item) for item in raw_order)
+            baseline_strategy_id = str(value.get("baseline_strategy_id", ""))
+            if set(strategies) != set(strategy_order):
+                raise ModelValidationError(
+                    "strategies must contain exactly the ids declared by strategy_order"
+                )
+            parsed_strategies = tuple(
+                (strategy_id, Strategy.from_dict(strategies.get(strategy_id, {})))
+                for strategy_id in strategy_order
+            )
+        else:
+            if set(strategies) != {"comparator", "intervention"}:
+                raise ModelValidationError(
+                    "legacy strategies must contain exactly comparator and intervention"
+                )
+            strategy_order = ("comparator", "intervention")
+            baseline_strategy_id = "comparator"
+            parsed_strategies = (
+                ("comparator", Strategy.from_dict(strategies.get("comparator", {}))),
+                ("intervention", Strategy.from_dict(strategies.get("intervention", {}))),
+            )
         specification = cls(
             schema_version=schema_version,
             analysis_id=str(value.get("analysis_id", "")),
@@ -181,8 +229,9 @@ class MarkovSpecification:
                     value.get("willingness_to_pay"), "willingness_to_pay"
                 )
             ),
-            comparator=Strategy.from_dict(strategies.get("comparator", {})),
-            intervention=Strategy.from_dict(strategies.get("intervention", {})),
+            strategy_order=strategy_order,
+            baseline_strategy_id=baseline_strategy_id,
+            strategies=parsed_strategies,
         )
         specification.validate()
         try:
@@ -252,10 +301,31 @@ class MarkovSpecification:
                 raise ModelValidationError(f"{name} must not be negative")
         if self.willingness_to_pay is not None and self.willingness_to_pay < 0:
             raise ModelValidationError("willingness_to_pay must not be negative")
-        for role, strategy in (
-            ("comparator", self.comparator),
-            ("intervention", self.intervention),
-        ):
+        strategy_ids = tuple(strategy_id for strategy_id, _ in self.strategies)
+        if self.schema_version == SCHEMA_VERSION:
+            if not 2 <= len(self.strategy_order) <= MAX_STRATEGIES:
+                raise ModelValidationError(
+                    f"strategy_order must contain from 2 to {MAX_STRATEGIES} strategy ids"
+                )
+            if len(set(self.strategy_order)) != len(self.strategy_order):
+                raise ModelValidationError("strategy_order ids must be unique")
+            if any(not STRATEGY_ID_PATTERN.fullmatch(item) for item in self.strategy_order):
+                raise ModelValidationError(
+                    "strategy ids must start with a lowercase letter and contain only lowercase letters, digits, underscores, or hyphens"
+                )
+            if self.baseline_strategy_id not in self.strategy_order:
+                raise ModelValidationError(
+                    "baseline_strategy_id must identify a declared strategy"
+                )
+            if self.strategy_order[0] != self.baseline_strategy_id:
+                raise ModelValidationError(
+                    "baseline_strategy_id must be the first strategy_order entry"
+                )
+            if strategy_ids != self.strategy_order:
+                raise ModelValidationError(
+                    "strategies must contain exactly the ids declared by strategy_order"
+                )
+        for role, strategy in self.strategies:
             _validate_strategy(
                 role,
                 strategy,
@@ -263,8 +333,9 @@ class MarkovSpecification:
                 self.schema_version,
                 self.cycles,
             )
-        if self.comparator.name == self.intervention.name:
-            raise ModelValidationError("strategy names must be different")
+        names = tuple(strategy.name for _, strategy in self.strategies)
+        if len(set(names)) != len(names):
+            raise ModelValidationError("strategy names must be unique")
 
 
 @dataclass(frozen=True)
@@ -319,12 +390,31 @@ class AnalysisResult:
     economic_basis: dict[str, Any] | None
     calculation_classification: str
     warnings: tuple[str, ...]
-    comparator: StrategyResult
-    intervention: StrategyResult
-    incremental: IncrementalResult
+    strategy_order: tuple[str, ...]
+    baseline_strategy_id: str
+    strategy_results: tuple[tuple[str, StrategyResult], ...]
+    pairwise_vs_baseline: tuple[tuple[str, IncrementalResult], ...]
+    fully_incremental_analysis: tuple[dict[str, Any], ...]
+    optimal_at_primary_threshold: dict[str, Any] | None
+
+    @property
+    def strategy_result_map(self) -> dict[str, StrategyResult]:
+        return dict(self.strategy_results)
+
+    @property
+    def comparator(self) -> StrategyResult:
+        return self.strategy_result_map["comparator"]
+
+    @property
+    def intervention(self) -> StrategyResult:
+        return self.strategy_result_map["intervention"]
+
+    @property
+    def incremental(self) -> IncrementalResult:
+        return dict(self.pairwise_vs_baseline)["intervention"]
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        common = {
             "analysis_id": self.analysis_id,
             "engine_version": self.engine_version,
             "schema_version": self.schema_version,
@@ -337,11 +427,28 @@ class AnalysisResult:
             "calculation_classification": self.calculation_classification,
             "warnings": list(self.warnings),
             "strategies": {
-                "comparator": self.comparator.to_dict(),
-                "intervention": self.intervention.to_dict(),
+                strategy_id: result.to_dict()
+                for strategy_id, result in self.strategy_results
             },
-            "incremental": self.incremental.to_dict(),
         }
+        if self.schema_version != SCHEMA_VERSION:
+            common["incremental"] = self.incremental.to_dict()
+            return common
+        common.update(
+            {
+                "strategy_order": list(self.strategy_order),
+                "baseline_strategy_id": self.baseline_strategy_id,
+                "pairwise_vs_baseline": {
+                    strategy_id: result.to_dict()
+                    for strategy_id, result in self.pairwise_vs_baseline
+                },
+                "fully_incremental_analysis": [
+                    dict(row) for row in self.fully_incremental_analysis
+                ],
+                "optimal_at_primary_threshold": self.optimal_at_primary_threshold,
+            }
+        )
+        return common
 
 
 def run_markov(specification: MarkovSpecification) -> AnalysisResult:
@@ -353,10 +460,33 @@ def run_markov(specification: MarkovSpecification) -> AnalysisResult:
     """
 
     specification.validate()
-    comparator = _run_strategy(specification, specification.comparator)
-    intervention = _run_strategy(specification, specification.intervention)
-    incremental = _incremental(
-        comparator, intervention, specification.willingness_to_pay
+    strategy_results = tuple(
+        (strategy_id, _run_strategy(specification, strategy))
+        for strategy_id, strategy in specification.strategies
+    )
+    result_map = dict(strategy_results)
+    baseline = result_map[specification.baseline_strategy_id]
+    pairwise_vs_baseline = tuple(
+        (
+            strategy_id,
+            _incremental(
+                baseline,
+                result_map[strategy_id],
+                specification.willingness_to_pay,
+            ),
+        )
+        for strategy_id in specification.strategy_order
+        if strategy_id != specification.baseline_strategy_id
+    )
+    fully_incremental = _fully_incremental_analysis(
+        specification.strategy_order,
+        result_map,
+        specification.willingness_to_pay,
+    )
+    optimal = _optimal_at_threshold(
+        specification.strategy_order,
+        result_map,
+        specification.willingness_to_pay,
     )
     warnings = [
         "Workflow authorization is not a calculation-engine responsibility; the desktop must apply verified approval state."
@@ -378,7 +508,9 @@ def run_markov(specification: MarkovSpecification) -> AnalysisResult:
         )
     return AnalysisResult(
         analysis_id=specification.analysis_id,
-        engine_version=ENGINE_VERSION,
+        engine_version=(
+            ENGINE_VERSION if specification.schema_version == SCHEMA_VERSION else "0.7.0"
+        ),
         schema_version=specification.schema_version,
         reference_case_id=specification.reference_case_id,
         reference_case_status=specification.reference_case_status,
@@ -392,9 +524,12 @@ def run_markov(specification: MarkovSpecification) -> AnalysisResult:
         ),
         calculation_classification="calculation_only",
         warnings=tuple(warnings),
-        comparator=comparator,
-        intervention=intervention,
-        incremental=incremental,
+        strategy_order=specification.strategy_order,
+        baseline_strategy_id=specification.baseline_strategy_id,
+        strategy_results=strategy_results,
+        pairwise_vs_baseline=pairwise_vs_baseline,
+        fully_incremental_analysis=fully_incremental,
+        optimal_at_primary_threshold=optimal,
     )
 
 
@@ -420,28 +555,56 @@ def _run_strategy(
         else:
             reward_occupancy = current
             discount_time = cycle * specification.cycle_length_years
-        cycle_cost = (
-            sum(
-                probability * reward
-                for probability, reward in zip(reward_occupancy, strategy.state_costs)
-            )
-            * specification.cycle_length_years
-        )
-        cycle_qaly = (
-            sum(
-                probability * reward
-                for probability, reward in zip(
-                    reward_occupancy, strategy.state_utilities
+        try:
+            cycle_cost = (
+                sum(
+                    probability * reward
+                    for probability, reward in zip(
+                        reward_occupancy, strategy.state_costs
+                    )
                 )
+                * specification.cycle_length_years
             )
-            * specification.cycle_length_years
-        )
-        total_cost += cycle_cost / (
-            (1.0 + specification.cost_discount_rate) ** discount_time
-        )
-        total_qaly += cycle_qaly / (
-            (1.0 + specification.outcome_discount_rate) ** discount_time
-        )
+            cycle_qaly = (
+                sum(
+                    probability * reward
+                    for probability, reward in zip(
+                        reward_occupancy, strategy.state_utilities
+                    )
+                )
+                * specification.cycle_length_years
+            )
+            cost_discount = (
+                1.0 + specification.cost_discount_rate
+            ) ** discount_time
+            outcome_discount = (
+                1.0 + specification.outcome_discount_rate
+            ) ** discount_time
+            discounted_cost = cycle_cost / cost_discount
+            discounted_qaly = cycle_qaly / outcome_discount
+            total_cost += discounted_cost
+            total_qaly += discounted_qaly
+        except ArithmeticError as error:
+            raise ModelValidationError(
+                f"{strategy.name}: cycle {cycle + 1} arithmetic overflowed"
+            ) from error
+        if any(
+            not isfinite(value)
+            for value in (
+                cycle_cost,
+                cycle_qaly,
+                discount_time,
+                cost_discount,
+                outcome_discount,
+                discounted_cost,
+                discounted_qaly,
+                total_cost,
+                total_qaly,
+            )
+        ):
+            raise ModelValidationError(
+                f"{strategy.name}: cycle {cycle + 1} produced a non-finite result"
+            )
         current = following
         occupancy.append(current)
 
@@ -450,6 +613,10 @@ def _run_strategy(
         if specification.willingness_to_pay is None
         else specification.willingness_to_pay * total_qaly - total_cost
     )
+    if net_monetary_benefit is not None and not isfinite(net_monetary_benefit):
+        raise ModelValidationError(
+            f"{strategy.name}: net monetary benefit is not finite"
+        )
     return StrategyResult(
         name=strategy.name,
         total_cost=total_cost,
@@ -476,6 +643,8 @@ def _incremental(
 ) -> IncrementalResult:
     delta_cost = intervention.total_cost - comparator.total_cost
     delta_qaly = intervention.total_qaly - comparator.total_qaly
+    if not isfinite(delta_cost) or not isfinite(delta_qaly):
+        raise ModelValidationError("incremental cost and QALY results must be finite")
     if delta_cost < -TOLERANCE and delta_qaly > TOLERANCE:
         interpretation = "dominant"
         icer = None
@@ -493,6 +662,10 @@ def _incremental(
         if willingness_to_pay is None
         else willingness_to_pay * delta_qaly - delta_cost
     )
+    if icer is not None and not isfinite(icer):
+        raise ModelValidationError("the incremental cost-effectiveness ratio is not finite")
+    if incremental_nmb is not None and not isfinite(incremental_nmb):
+        raise ModelValidationError("incremental net monetary benefit is not finite")
     return IncrementalResult(
         delta_cost=delta_cost,
         delta_qaly=delta_qaly,
@@ -500,6 +673,193 @@ def _incremental(
         incremental_net_monetary_benefit=incremental_nmb,
         interpretation=interpretation,
     )
+
+
+def _comparison_tolerance(*values: float) -> float:
+    return max(TOLERANCE, max((abs(value) for value in values), default=0.0) * 1e-12)
+
+
+def _fully_incremental_analysis(
+    strategy_order: tuple[str, ...],
+    results: dict[str, StrategyResult],
+    willingness_to_pay: float | None,
+) -> tuple[dict[str, Any], ...]:
+    """Build a complete incremental cost-effectiveness frontier.
+
+    Strict dominance is evaluated against every strategy. Remaining strategies
+    are sorted by effect and iteratively screened for decreasing sequential
+    ICERs (extended dominance). Identical points are reported as equivalent and
+    the earliest declared strategy is retained, so output does not depend on
+    JSON object iteration order.
+    """
+
+    declaration_rank = {strategy_id: index for index, strategy_id in enumerate(strategy_order)}
+    ordered = sorted(
+        strategy_order,
+        key=lambda strategy_id: (
+            results[strategy_id].total_qaly,
+            results[strategy_id].total_cost,
+            declaration_rank[strategy_id],
+        ),
+    )
+    status: dict[str, str] = {}
+    dominated_by: dict[str, tuple[str, ...]] = {}
+    representatives: list[str] = []
+    for strategy_id in ordered:
+        current = results[strategy_id]
+        equivalent = next(
+            (
+                prior
+                for prior in representatives
+                if abs(results[prior].total_cost - current.total_cost)
+                <= _comparison_tolerance(results[prior].total_cost, current.total_cost)
+                and abs(results[prior].total_qaly - current.total_qaly)
+                <= _comparison_tolerance(results[prior].total_qaly, current.total_qaly)
+            ),
+            None,
+        )
+        if equivalent is not None:
+            status[strategy_id] = "equivalent"
+            dominated_by[strategy_id] = (equivalent,)
+            continue
+        representatives.append(strategy_id)
+
+    candidates: list[str] = []
+    for strategy_id in representatives:
+        current = results[strategy_id]
+        dominators: list[str] = []
+        for other_id in representatives:
+            if other_id == strategy_id:
+                continue
+            other = results[other_id]
+            cost_tolerance = _comparison_tolerance(current.total_cost, other.total_cost)
+            qaly_tolerance = _comparison_tolerance(current.total_qaly, other.total_qaly)
+            no_more_costly = other.total_cost <= current.total_cost + cost_tolerance
+            no_less_effective = other.total_qaly >= current.total_qaly - qaly_tolerance
+            strictly_better = (
+                other.total_cost < current.total_cost - cost_tolerance
+                or other.total_qaly > current.total_qaly + qaly_tolerance
+            )
+            if no_more_costly and no_less_effective and strictly_better:
+                dominators.append(other_id)
+        if dominators:
+            status[strategy_id] = "strictly_dominated"
+            dominated_by[strategy_id] = tuple(
+                sorted(dominators, key=declaration_rank.__getitem__)
+            )
+        else:
+            candidates.append(strategy_id)
+
+    frontier: list[str] = []
+    for strategy_id in candidates:
+        frontier.append(strategy_id)
+        while len(frontier) >= 3:
+            left_id, middle_id, right_id = frontier[-3:]
+            left = results[left_id]
+            middle = results[middle_id]
+            right = results[right_id]
+            left_delta_qaly = middle.total_qaly - left.total_qaly
+            right_delta_qaly = right.total_qaly - middle.total_qaly
+            if left_delta_qaly <= TOLERANCE or right_delta_qaly <= TOLERANCE:
+                raise ModelValidationError(
+                    "fully incremental analysis could not establish a strictly increasing effectiveness order"
+                )
+            left_icer = (middle.total_cost - left.total_cost) / left_delta_qaly
+            right_icer = (right.total_cost - middle.total_cost) / right_delta_qaly
+            if not isfinite(left_icer) or not isfinite(right_icer):
+                raise ModelValidationError(
+                    "fully incremental analysis produced a non-finite ICER"
+                )
+            tolerance = _comparison_tolerance(left_icer, right_icer)
+            if left_icer <= right_icer + tolerance:
+                break
+            status[middle_id] = "extendedly_dominated"
+            frontier.pop(-2)
+
+    frontier_set = set(frontier)
+    for strategy_id in candidates:
+        if strategy_id in frontier_set:
+            status[strategy_id] = "frontier"
+            continue
+        if status.get(strategy_id) != "extendedly_dominated":
+            continue
+        current_qaly = results[strategy_id].total_qaly
+        lower = [
+            item for item in frontier if results[item].total_qaly < current_qaly
+        ]
+        upper = [
+            item for item in frontier if results[item].total_qaly > current_qaly
+        ]
+        if lower and upper:
+            dominated_by[strategy_id] = (lower[-1], upper[0])
+
+    frontier_previous = {
+        strategy_id: (None if index == 0 else frontier[index - 1])
+        for index, strategy_id in enumerate(frontier)
+    }
+    rows: list[dict[str, Any]] = []
+    for rank, strategy_id in enumerate(ordered, start=1):
+        result = results[strategy_id]
+        compared_with = frontier_previous.get(strategy_id)
+        incremental = (
+            None
+            if compared_with is None
+            else _incremental(
+                results[compared_with], result, willingness_to_pay
+            )
+        )
+        rows.append(
+            {
+                "rank_by_effect": rank,
+                "strategy_id": strategy_id,
+                "strategy_name": result.name,
+                "total_cost": result.total_cost,
+                "total_qaly": result.total_qaly,
+                "net_monetary_benefit": result.net_monetary_benefit,
+                "status": status[strategy_id],
+                "dominated_by_strategy_ids": list(dominated_by.get(strategy_id, ())),
+                "compared_with_strategy_id": compared_with,
+                "delta_cost": None if incremental is None else incremental.delta_cost,
+                "delta_qaly": None if incremental is None else incremental.delta_qaly,
+                "icer": None if incremental is None else incremental.icer,
+                "incremental_net_monetary_benefit": (
+                    None
+                    if incremental is None
+                    else incremental.incremental_net_monetary_benefit
+                ),
+            }
+        )
+    return tuple(rows)
+
+
+def _optimal_at_threshold(
+    strategy_order: tuple[str, ...],
+    results: dict[str, StrategyResult],
+    willingness_to_pay: float | None,
+) -> dict[str, Any] | None:
+    if willingness_to_pay is None:
+        return None
+    values = {
+        strategy_id: willingness_to_pay * result.total_qaly - result.total_cost
+        for strategy_id, result in results.items()
+    }
+    if any(not isfinite(value) for value in values.values()):
+        raise ModelValidationError(
+            "the primary threshold produced a non-finite net monetary benefit"
+        )
+    best = max(values.values())
+    tolerance = _comparison_tolerance(*values.values())
+    optimal = tuple(
+        strategy_id
+        for strategy_id in strategy_order
+        if abs(values[strategy_id] - best) <= tolerance
+    )
+    return {
+        "threshold": willingness_to_pay,
+        "strategy_id": optimal[0] if len(optimal) == 1 else None,
+        "tied_strategy_ids": list(optimal) if len(optimal) > 1 else [],
+        "net_monetary_benefit": best,
+    }
 
 
 def _advance(
@@ -548,11 +908,12 @@ def _validate_strategy(
         TRANSITION_SCHEDULE_SCHEMA_VERSION,
         TRANSITION_RATE_SCHEMA_VERSION,
         SURVIVAL_SCHEMA_VERSION,
+        PROBABILITY_TIME_SCHEMA_VERSION,
         SCHEMA_VERSION,
     } and strategy.transition_schedule is not None:
         raise ModelValidationError(
             f"{role}.transition_schedule requires schema_version "
-            f"{TRANSITION_SCHEDULE_SCHEMA_VERSION}, {TRANSITION_RATE_SCHEMA_VERSION}, {SURVIVAL_SCHEMA_VERSION}, or {SCHEMA_VERSION}"
+            f"{TRANSITION_SCHEDULE_SCHEMA_VERSION}, {TRANSITION_RATE_SCHEMA_VERSION}, {SURVIVAL_SCHEMA_VERSION}, or {PROBABILITY_TIME_SCHEMA_VERSION}; schema_version {SCHEMA_VERSION} is also supported"
         )
     if strategy.transition_matrix is None and strategy.transition_schedule is None:
         raise ModelValidationError(

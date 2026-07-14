@@ -6,6 +6,7 @@ import json
 import unittest
 from math import exp, log, sqrt
 from pathlib import Path
+from types import SimpleNamespace
 
 from heor_core.budget_impact import run_budget_impact
 from heor_core.model import (
@@ -15,15 +16,22 @@ from heor_core.model import (
 )
 from heor_core.probability_time import (
     ProbabilityTimeError,
+    _transition_path as probability_transition_path,
     derive_probability_time,
 )
-from heor_core.survival_curves import SurvivalCurveError, derive_survival_schedule
+from heor_core.survival_curves import (
+    SurvivalCurveError,
+    _transition_schedule_path as survival_transition_schedule_path,
+    derive_survival_schedule,
+)
+from heor_core.transition_rates import _transition_path as rate_transition_path
 from heor_core.uncertainty import (
     Pcg32,
     UncertaintySpecification,
     _apply_parameter_values,
     _cholesky,
     _correlation_matrix,
+    _multi_strategy_decision_uncertainty,
     _sample_parameter_values,
     run_uncertainty,
 )
@@ -371,7 +379,282 @@ def budget_impact_payload() -> dict:
     return json.loads(BUDGET_IMPACT_PATH.read_text())
 
 
+def multi_strategy_payload() -> dict:
+    value = golden_payload()
+    value.update({
+        "schema_version": "0.8.0",
+        "analysis_id": "golden-multi-strategy",
+        "states": ["alive"],
+        "cycles": 2,
+        "cycle_length_years": 1.0,
+        "discount_rates": {"costs": 0.0, "outcomes": 0.0},
+        "half_cycle_correction": False,
+        "willingness_to_pay": 80.0,
+        "baseline_strategy_id": "standard_care",
+        "strategy_order": [
+            "standard_care",
+            "middle",
+            "best",
+            "dominated",
+            "same_as_standard",
+        ],
+    })
+    value["strategies"] = {
+        "standard_care": {
+            "name": "Standard care",
+            "initial_distribution": [1.0],
+            "transition_matrix": [[1.0]],
+            "state_costs": [0.0],
+            "state_utilities": [0.0],
+        },
+        "middle": {
+            "name": "Middle option",
+            "initial_distribution": [1.0],
+            "transition_matrix": [[1.0]],
+            "state_costs": [50.0],
+            "state_utilities": [0.5],
+        },
+        "best": {
+            "name": "Most effective option",
+            "initial_distribution": [1.0],
+            "transition_matrix": [[1.0]],
+            "state_costs": [75.0],
+            "state_utilities": [1.0],
+        },
+        "dominated": {
+            "name": "Strictly dominated option",
+            "initial_distribution": [1.0],
+            "transition_matrix": [[1.0]],
+            "state_costs": [100.0],
+            "state_utilities": [0.75],
+        },
+        "same_as_standard": {
+            "name": "Equivalent option",
+            "initial_distribution": [1.0],
+            "transition_matrix": [[1.0]],
+            "state_costs": [0.0],
+            "state_utilities": [0.0],
+        },
+    }
+    value["input_provenance"] = []
+    return value
+
+
+def multi_strategy_uncertainty_payload(base: dict, base_raw: bytes) -> dict:
+    value = uncertainty_payload()
+    value.update({
+        "schema_version": "0.7.0",
+        "uncertainty_id": "golden-multi-strategy-uncertainty",
+        "analysis_id": base["analysis_id"],
+    })
+    value["base_analysis"]["content_sha256"] = hashlib.sha256(base_raw).hexdigest()
+    value["parameters"] = [{
+        "id": "best-state-cost",
+        "label": "Most effective option state cost",
+        "target": "/strategies/best/state_costs/0",
+        "provenance_path": "strategies.best.state_costs",
+        "deterministic": {
+            "low": 50.0,
+            "high": 100.0,
+            "rationale": "Hand-checkable deterministic range.",
+        },
+        "probabilistic": {
+            "type": "gamma",
+            "shape": 100.0,
+            "scale": 0.75,
+            "basis_ids": ["best-cost-source"],
+            "rationale": "Positive distribution centered on the base cost.",
+        },
+    }]
+    value["probabilistic_analysis"]["decision_thresholds"] = {
+        "values": [0.0, 50.0, 80.0, 100.0, 200.0],
+        "rationale": "Hand-checkable multi-strategy decision threshold grid.",
+    }
+    value["probabilistic_analysis"]["correlation_handling"] = {
+        "independence_rationale": "Only one parameter is varied in this bounded fixture.",
+        "known_omitted_correlations": [],
+        "groups": [],
+    }
+    value["probabilistic_analysis"]["omitted_parameters"] = [{
+        "provenance_path": "strategies.middle.state_costs",
+        "rationale": "Held fixed for this bounded multi-strategy fixture.",
+    }]
+    value["structural_scenarios"] = [{
+        "id": "cost-discounting",
+        "label": "Cost discounting",
+        "rationale": "Tests a structural replacement across all strategies.",
+        "replacements": [{"target": "/discount_rates/costs", "value": 0.05}],
+    }]
+    return value
+
+
+def multi_strategy_budget_base_payload() -> dict:
+    value = multi_strategy_payload()
+    value["budget_impact_analysis"] = {
+        "path": "heor/budget-impact-plan.json",
+    }
+    value["decision_problem"] = {"jurisdiction": "China"}
+    return value
+
+
 class MarkovModelTests(unittest.TestCase):
+    def test_multi_strategy_analysis_builds_complete_incremental_frontier(self) -> None:
+        result = run_markov(MarkovSpecification.from_dict(multi_strategy_payload()))
+        payload = result.to_dict()
+
+        self.assertEqual(result.engine_version, "0.8.0")
+        self.assertEqual(payload["baseline_strategy_id"], "standard_care")
+        self.assertEqual(
+            list(payload["pairwise_vs_baseline"]),
+            ["middle", "best", "dominated", "same_as_standard"],
+        )
+        rows = {
+            row["strategy_id"]: row
+            for row in payload["fully_incremental_analysis"]
+        }
+        self.assertEqual(rows["standard_care"]["status"], "frontier")
+        self.assertEqual(rows["same_as_standard"]["status"], "equivalent")
+        self.assertEqual(
+            rows["same_as_standard"]["dominated_by_strategy_ids"],
+            ["standard_care"],
+        )
+        self.assertEqual(rows["middle"]["status"], "extendedly_dominated")
+        self.assertEqual(
+            rows["middle"]["dominated_by_strategy_ids"],
+            ["standard_care", "best"],
+        )
+        self.assertEqual(rows["dominated"]["status"], "strictly_dominated")
+        self.assertIn("best", rows["dominated"]["dominated_by_strategy_ids"])
+        self.assertEqual(rows["best"]["compared_with_strategy_id"], "standard_care")
+        self.assertAlmostEqual(rows["best"]["icer"], 75.0)
+        self.assertEqual(
+            payload["optimal_at_primary_threshold"],
+            {
+                "threshold": 80.0,
+                "strategy_id": "best",
+                "tied_strategy_ids": [],
+                "net_monetary_benefit": 10.0,
+            },
+        )
+
+    def test_multi_strategy_contract_rejects_ambiguous_or_extra_ids(self) -> None:
+        payload = multi_strategy_payload()
+        payload["baseline_strategy_id"] = "best"
+        with self.assertRaisesRegex(ModelValidationError, "must be the first"):
+            MarkovSpecification.from_dict(payload)
+
+        payload = multi_strategy_payload()
+        payload["strategies"]["undeclared"] = payload["strategies"]["best"]
+        with self.assertRaisesRegex(ModelValidationError, "exactly the ids"):
+            MarkovSpecification.from_dict(payload)
+
+        payload = multi_strategy_payload()
+        payload["strategy_order"][1] = "Middle Option"
+        payload["strategies"]["Middle Option"] = payload["strategies"].pop("middle")
+        with self.assertRaisesRegex(ModelValidationError, "lowercase letter"):
+            MarkovSpecification.from_dict(payload)
+
+    def test_legacy_contract_rejects_extra_ignored_strategy_keys(self) -> None:
+        payload = golden_payload()
+        payload["strategies"]["ignored"] = copy.deepcopy(
+            payload["strategies"]["intervention"]
+        )
+        payload["strategies"]["ignored"]["name"] = "ignored"
+
+        with self.assertRaisesRegex(
+            ModelValidationError, "exactly comparator and intervention"
+        ):
+            MarkovSpecification.from_dict(payload)
+
+    def test_dynamic_mapping_paths_use_schema_specific_strategy_membership(self) -> None:
+        multi = multi_strategy_payload()
+        self.assertTrue(
+            rate_transition_path(
+                "strategies.best.transition_matrix", multi, "0.8.0"
+            )
+        )
+        self.assertTrue(
+            survival_transition_schedule_path(
+                "strategies.best.transition_schedule", multi, "0.8.0"
+            )
+        )
+        self.assertTrue(
+            probability_transition_path(
+                "strategies.best.transition_matrix", multi, "0.8.0"
+            )
+        )
+        for validator, path in (
+            (rate_transition_path, "strategies.ignored.transition_matrix"),
+            (
+                survival_transition_schedule_path,
+                "strategies.ignored.transition_schedule",
+            ),
+            (probability_transition_path, "strategies.ignored.transition_matrix"),
+        ):
+            self.assertFalse(validator(path, multi, "0.8.0"))
+            self.assertFalse(validator(path, golden_payload(), "0.7.0"))
+
+    def test_equivalent_points_are_grouped_before_strict_dominance(self) -> None:
+        payload = multi_strategy_payload()
+        payload["strategy_order"] = ["duplicate_a", "duplicate_b", "dominant"]
+        payload["baseline_strategy_id"] = "duplicate_a"
+        payload["strategies"] = {
+            "duplicate_a": {
+                "name": "Duplicate A",
+                "initial_distribution": [1.0],
+                "transition_matrix": [[1.0]],
+                "state_costs": [10.0],
+                "state_utilities": [0.5],
+            },
+            "duplicate_b": {
+                "name": "Duplicate B",
+                "initial_distribution": [1.0],
+                "transition_matrix": [[1.0]],
+                "state_costs": [10.0],
+                "state_utilities": [0.5],
+            },
+            "dominant": {
+                "name": "Dominant",
+                "initial_distribution": [1.0],
+                "transition_matrix": [[1.0]],
+                "state_costs": [0.0],
+                "state_utilities": [1.0],
+            },
+        }
+
+        result = run_markov(MarkovSpecification.from_dict(payload)).to_dict()
+        rows = {
+            row["strategy_id"]: row
+            for row in result["fully_incremental_analysis"]
+        }
+
+        self.assertEqual(rows["duplicate_a"]["status"], "strictly_dominated")
+        self.assertEqual(rows["duplicate_b"]["status"], "equivalent")
+        self.assertEqual(
+            rows["duplicate_b"]["dominated_by_strategy_ids"], ["duplicate_a"]
+        )
+        self.assertEqual(rows["dominant"]["status"], "frontier")
+
+    def test_finite_inputs_cannot_produce_non_finite_outputs(self) -> None:
+        payload = multi_strategy_payload()
+        payload["cycles"] = 1
+        payload["cycle_length_years"] = 1e308
+        payload["strategy_order"] = ["first", "second"]
+        payload["baseline_strategy_id"] = "first"
+        payload["strategies"] = {
+            strategy_id: {
+                "name": strategy_id.title(),
+                "initial_distribution": [1.0],
+                "transition_matrix": [[1.0]],
+                "state_costs": [1e308],
+                "state_utilities": [1.0],
+            }
+            for strategy_id in payload["strategy_order"]
+        }
+
+        with self.assertRaisesRegex(ModelValidationError, "non-finite"):
+            run_markov(MarkovSpecification.from_dict(payload))
+
     def test_golden_case_matches_independent_hand_calculation(self) -> None:
         result = run_markov(MarkovSpecification.from_dict(golden_payload()))
 
@@ -790,6 +1073,141 @@ class UncertaintyAnalysisTests(unittest.TestCase):
             [rng.next_u32() for _ in range(5)],
             [2707161783, 2068313097, 3122475824, 2211639955, 3215226955],
         )
+
+    def test_multi_strategy_psa_competes_all_strategies_and_reports_evpi(self) -> None:
+        base = multi_strategy_payload()
+        base_raw = json.dumps(base, separators=(",", ":"), sort_keys=True).encode()
+        uncertainty = multi_strategy_uncertainty_payload(base, base_raw)
+        uncertainty_raw = json.dumps(
+            uncertainty, separators=(",", ":"), sort_keys=True
+        ).encode()
+
+        result = run_uncertainty(base, base_raw, uncertainty, uncertainty_raw)
+
+        self.assertEqual(result["engine_version"], "0.8.0")
+        self.assertEqual(result["schema_version"], "0.7.0")
+        self.assertEqual(
+            result["base_case"]["strategy_order"], base["strategy_order"]
+        )
+        psa = result["probabilistic_analysis"]
+        self.assertEqual(psa["strategy_order"], base["strategy_order"])
+        self.assertEqual(len(psa["samples"]), 1000)
+        self.assertNotIn("cost_effective_probability", psa)
+        primary_probabilities = psa[
+            "primary_threshold_strategy_optimal_probabilities"
+        ]
+        self.assertAlmostEqual(
+            sum(primary_probabilities.values())
+            + psa["primary_threshold_tie_probability"],
+            1.0,
+        )
+        decision = psa["decision_uncertainty"]
+        self.assertEqual(
+            decision["tie_handling"],
+            "ties_reported_separately_without_fractional_allocation",
+        )
+        samples = psa["samples"]
+        for row in decision["threshold_results"]:
+            self.assertAlmostEqual(
+                sum(row["strategy_optimal_probabilities"].values())
+                + row["tie_probability"],
+                1.0,
+            )
+            expected_by_strategy = []
+            maxima = []
+            for sample in samples:
+                values = [
+                    row["threshold"] * qaly - cost
+                    for cost, qaly in zip(
+                        sample["strategy_costs"], sample["strategy_qalys"]
+                    )
+                ]
+                maxima.append(max(values))
+                if not expected_by_strategy:
+                    expected_by_strategy = [[] for _ in values]
+                for index, value in enumerate(values):
+                    expected_by_strategy[index].append(value)
+            means = [sum(values) / len(values) for values in expected_by_strategy]
+            expected_evpi = sum(maxima) / len(maxima) - max(means)
+            self.assertAlmostEqual(row["per_person_evpi"], expected_evpi)
+            self.assertGreaterEqual(row["per_person_evpi"], -1e-12)
+        self.assertIn(
+            "net_monetary_benefit_span_by_strategy",
+            result["deterministic_analysis"][0],
+        )
+        self.assertIn(
+            "fully_incremental_analysis",
+            result["structural_scenarios"][0]["result"],
+        )
+
+    def test_multi_strategy_uncertainty_versions_fail_closed(self) -> None:
+        base = multi_strategy_payload()
+        base_raw = json.dumps(base, sort_keys=True).encode()
+        uncertainty = multi_strategy_uncertainty_payload(base, base_raw)
+        uncertainty["schema_version"] = "0.6.0"
+        with self.assertRaisesRegex(ModelValidationError, "requires uncertainty"):
+            run_uncertainty(
+                base,
+                base_raw,
+                uncertainty,
+                json.dumps(uncertainty, sort_keys=True).encode(),
+            )
+
+    def test_legacy_uncertainty_rejects_an_ignored_strategy_target(self) -> None:
+        base = golden_payload()
+        base["strategies"]["ignored"] = copy.deepcopy(
+            base["strategies"]["intervention"]
+        )
+        base["strategies"]["ignored"]["name"] = "ignored"
+        base_raw = json.dumps(base, separators=(",", ":"), sort_keys=True).encode()
+        uncertainty = uncertainty_payload()
+        uncertainty["base_analysis"]["content_sha256"] = hashlib.sha256(
+            base_raw
+        ).hexdigest()
+        uncertainty["parameters"][0]["target"] = (
+            "/strategies/ignored/state_costs/0"
+        )
+        uncertainty["parameters"][0]["provenance_path"] = (
+            "strategies.ignored.state_costs"
+        )
+
+        with self.assertRaisesRegex(ModelValidationError, "outside the allowlist"):
+            run_uncertainty(
+                base,
+                base_raw,
+                uncertainty,
+                json.dumps(
+                    uncertainty, separators=(",", ":"), sort_keys=True
+                ).encode(),
+            )
+
+    def test_multi_strategy_evpi_uses_exact_expected_nmb_maximum(self) -> None:
+        samples = [
+            {
+                "strategy_costs": [0.0, 0.0],
+                "strategy_qalys": [1e12, 1e12 + 0.5],
+            }
+            for _ in range(1_000)
+        ]
+        specification = SimpleNamespace(
+            decision_thresholds=(1.0,),
+            primary_threshold=1.0,
+            threshold_source="adversarial_test",
+            threshold_rationale="Separates display ties from the EVPI maximizer.",
+        )
+
+        decision = _multi_strategy_decision_uncertainty(
+            samples, ("first", "second"), specification
+        )
+        row = decision["threshold_results"][0]
+
+        self.assertEqual(
+            row["expected_net_benefit_tied_strategy_ids"], ["first", "second"]
+        )
+        self.assertIsNone(row["strategy_with_highest_expected_net_benefit"])
+        self.assertIsNone(row["ceaf_probability"])
+        self.assertEqual(row["per_person_evpi"], 0.0)
+        self.assertEqual(row["per_person_evpi_mcse"], 0.0)
 
     def test_golden_uncertainty_run_is_reproducible(self) -> None:
         first = self.run_golden()
@@ -1521,7 +1939,60 @@ class BudgetImpactAnalysisTests(unittest.TestCase):
             4305000.0,
         )
         self.assertEqual(result["discount_rate"], 0)
+
+    def test_multi_strategy_plan_can_bind_an_explicit_budget_pair(self) -> None:
+        base = multi_strategy_budget_base_payload()
+        base_raw = json.dumps(base, separators=(",", ":"), sort_keys=True).encode()
+        budget = budget_impact_payload()
+        budget["analysis_id"] = base["analysis_id"]
+        budget["base_analysis"]["content_sha256"] = hashlib.sha256(base_raw).hexdigest()
+        budget["strategies"]["comparator"] = {
+            "id": "standard_care", "label": "Standard care"
+        }
+        budget["strategies"]["intervention"] = {
+            "id": "best", "label": "Most effective option"
+        }
+        budget_raw = json.dumps(budget, separators=(",", ":"), sort_keys=True).encode()
+
+        result = run_budget_impact(base, base_raw, budget, budget_raw)
+
+        self.assertEqual(result["analysis_id"], base["analysis_id"])
+        self.assertEqual(
+            result["base_case"]["annual_net_budget_impact"],
+            [550000.0, 1120000.0, 1810000.0],
+        )
         self.assertEqual(result["calculation_classification"], "calculation_only")
+
+    def test_multi_strategy_budget_pair_must_be_declared_in_strategy_order(self) -> None:
+        base = multi_strategy_budget_base_payload()
+        base["strategies"]["undeclared"] = copy.deepcopy(
+            base["strategies"]["best"]
+        )
+        base["strategies"]["undeclared"]["name"] = "Undeclared option"
+        base_raw = json.dumps(base, separators=(",", ":"), sort_keys=True).encode()
+        budget = budget_impact_payload()
+        budget["analysis_id"] = base["analysis_id"]
+        budget["base_analysis"]["content_sha256"] = hashlib.sha256(
+            base_raw
+        ).hexdigest()
+        budget["strategies"]["comparator"] = {
+            "id": "standard_care",
+            "label": "Standard care",
+        }
+        budget["strategies"]["intervention"] = {
+            "id": "undeclared",
+            "label": "Undeclared option",
+        }
+
+        with self.assertRaisesRegex(ModelValidationError, "exactly the ids"):
+            run_budget_impact(
+                base,
+                base_raw,
+                budget,
+                json.dumps(
+                    budget, separators=(",", ":"), sort_keys=True
+                ).encode(),
+            )
 
     def test_changed_analysis_plan_hash_fails_closed(self) -> None:
         plan = budget_base_payload()

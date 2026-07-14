@@ -1,9 +1,17 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT } from "@/lib/heor";
+import {
+  HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT,
+  type HeorUncertaintyRunResult,
+} from "@/lib/heor";
 import { useUiStore } from "@/lib/store";
-import { CeacChart, EvidenceVerificationDialog, HeorReviewPane } from "./HeorReviewPane";
+import {
+  CeacChart,
+  EvidenceVerificationDialog,
+  HeorReviewPane,
+  UncertaintyResultCard,
+} from "./HeorReviewPane";
 
 afterEach(() => useUiStore.getState().setLocale("en"));
 
@@ -61,6 +69,100 @@ describe("AI4HEOR human review pane", () => {
     const paths = [...container.querySelectorAll("path")];
     expect(paths).toHaveLength(2);
     expect(paths.some((path) => path.getAttribute("stroke-dasharray"))).toBe(true);
+  });
+
+  it("renders one CEAC series per declared strategy", () => {
+    const { container } = render(
+      <CeacChart
+        locale="en"
+        primaryThreshold={100}
+        strategyOrder={["treatment_b", "standard", "treatment_a"]}
+        rows={[
+          {
+            threshold: 0,
+            expected_net_monetary_benefit_by_strategy: { standard: 0, treatment_a: -10, treatment_b: -20 },
+            strategy_optimal_probabilities: { standard: 0.8, treatment_a: 0.15, treatment_b: 0.05 },
+            tie_probability: 0,
+            probability_mcse_by_strategy: { standard: 0.01, treatment_a: 0.01, treatment_b: 0.01 },
+            tie_probability_mcse: 0,
+            strategy_with_highest_expected_net_benefit: "standard",
+            expected_net_benefit_tied_strategy_ids: [],
+            ceaf_probability: 0.8,
+            per_person_evpi: 2,
+            per_person_evpi_mcse: 0.2,
+          },
+          {
+            threshold: 100,
+            expected_net_monetary_benefit_by_strategy: { standard: 0, treatment_a: 10, treatment_b: 20 },
+            strategy_optimal_probabilities: { standard: 0.1, treatment_a: 0.3, treatment_b: 0.6 },
+            tie_probability: 0,
+            probability_mcse_by_strategy: { standard: 0.01, treatment_a: 0.01, treatment_b: 0.02 },
+            tie_probability_mcse: 0,
+            strategy_with_highest_expected_net_benefit: "treatment_b",
+            expected_net_benefit_tied_strategy_ids: [],
+            ceaf_probability: 0.6,
+            per_person_evpi: 3,
+            per_person_evpi_mcse: 0.3,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByText(/^(treatment_b|standard|treatment_a)$/).map((item) => item.textContent))
+      .toEqual(["treatment_b", "standard", "treatment_a"]);
+    expect(container.querySelectorAll("path")).toHaveLength(4);
+  });
+
+  it("does not present draw-level tie probability as CEAF when expected NMB is tied", () => {
+    const result = {
+      calculation: {
+        economic_basis: { currency: "USD", price_year: 2026 },
+        deterministic_analysis: [],
+        probabilistic_analysis: {
+          iterations: 1000,
+          strategy_order: ["standard", "treatment"],
+          convergence: {
+            passed: true,
+            probability_drift: 0.01,
+            max_probability_mcse: 0.02,
+            max_probability_drift: 0.02,
+          },
+          correlation_groups: [],
+          decision_uncertainty: {
+            method: "net_monetary_benefit",
+            strategy_order: ["standard", "treatment"],
+            primary_threshold: 100,
+            threshold_source: "declared_grid",
+            threshold_rationale: "Test grid",
+            threshold_results: [{
+              threshold: 100,
+              expected_net_monetary_benefit_by_strategy: { standard: 100, treatment: 100 },
+              strategy_optimal_probabilities: { standard: 0.3, treatment: 0.28 },
+              tie_probability: 0.42,
+              probability_mcse_by_strategy: { standard: 0.01, treatment: 0.01 },
+              tie_probability_mcse: 0.02,
+              strategy_with_highest_expected_net_benefit: null,
+              expected_net_benefit_tied_strategy_ids: ["standard", "treatment"],
+              ceaf_probability: null,
+              per_person_evpi: 2,
+              per_person_evpi_mcse: 0.2,
+            }],
+            population_evpi: null,
+            evppi: null,
+          },
+          omitted_parameters: [],
+        },
+        structural_scenarios: [],
+        limitations: [],
+      },
+      workflow: { classification: "exploratory" },
+    } as unknown as HeorUncertaintyRunResult;
+
+    render(<UncertaintyResultCard result={result} locale="en" />);
+
+    expect(screen.getByText("Expected NMB · standard = treatment")).toBeInTheDocument();
+    expect(screen.queryByText("42.0%")).not.toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
   });
 
   it("shows exact extraction details and records a selected rejection", async () => {
@@ -167,6 +269,7 @@ describe("AI4HEOR human review pane", () => {
     expect(onRequestRevision).toHaveBeenCalledWith(
       expect.stringContaining("$heor-cohort-state-transition"),
     );
+    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("schema 0.8.0");
     await userEvent.click(screen.getByRole("button", {
       name: "Ask Agent to derive transitions from rates",
     }));
@@ -201,12 +304,14 @@ describe("AI4HEOR human review pane", () => {
     expect(onRequestRevision).toHaveBeenCalledWith(
       expect.stringContaining("$heor-uncertainty-analysis"),
     );
+    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("uncertainty schema 0.7.0");
     await userEvent.click(screen.getByRole("button", {
       name: "Ask the Agent to build or repair budget impact",
     }));
     expect(onRequestRevision).toHaveBeenCalledWith(
       expect.stringContaining("$heor-budget-impact"),
     );
+    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("strategy_order");
     await userEvent.click(screen.getByRole("button", {
       name: "Ask Agent to prepare validation evidence",
     }));

@@ -76,20 +76,56 @@ fn finite_number(value: Option<&serde_json::Value>) -> Option<f64> {
         .filter(|value| value.is_finite())
 }
 
-fn parameter_target_allowed(target: &str) -> bool {
+fn safe_strategy_id(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    bytes.next().is_some_and(|byte| byte.is_ascii_lowercase())
+        && value.len() <= 64
+        && bytes.all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
+        })
+}
+
+fn strategy_ids(plan: &serde_json::Value) -> HashSet<&str> {
+    if plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        == Some("0.8.0")
+    {
+        return plan
+            .get("strategy_order")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|items| {
+                items
+                    .iter()
+                    .map(serde_json::Value::as_str)
+                    .collect::<Option<HashSet<_>>>()
+            })
+            .unwrap_or_default();
+    }
+    HashSet::from(["comparator", "intervention"])
+}
+
+fn parameter_target_allowed(target: &str, strategy_ids: &HashSet<&str>) -> bool {
     let parts = target.split('/').collect::<Vec<_>>();
     matches!(
         parts.as_slice(),
-        ["", "strategies", "comparator" | "intervention", "state_costs" | "state_utilities", index]
-            if index.parse::<usize>().is_ok()
+        ["", "strategies", strategy_id, "state_costs" | "state_utilities", index]
+            if safe_strategy_id(strategy_id)
+                && strategy_ids.contains(strategy_id)
+                && index.parse::<usize>().is_ok()
     ) || matches!(
         parts.as_slice(),
-        ["", "strategies", "comparator" | "intervention", "transition_matrix", row]
-            if row.parse::<usize>().is_ok()
+        ["", "strategies", strategy_id, "transition_matrix", row]
+            if safe_strategy_id(strategy_id)
+                && strategy_ids.contains(strategy_id)
+                && row.parse::<usize>().is_ok()
     ) || matches!(
         parts.as_slice(),
-        ["", "strategies", "comparator" | "intervention", "transition_schedule", phase, "matrix", row]
-            if phase.parse::<usize>().is_ok() && row.parse::<usize>().is_ok()
+        ["", "strategies", strategy_id, "transition_schedule", phase, "matrix", row]
+            if safe_strategy_id(strategy_id)
+                && strategy_ids.contains(strategy_id)
+                && phase.parse::<usize>().is_ok()
+                && row.parse::<usize>().is_ok()
     )
 }
 
@@ -132,13 +168,15 @@ fn probability_target_indices(target: &str) -> Option<(usize, usize, usize)> {
     }
 }
 
-fn scenario_target_allowed(target: &str) -> bool {
+fn scenario_target_allowed(target: &str, strategy_ids: &HashSet<&str>) -> bool {
     let parts = target.split('/').collect::<Vec<_>>();
-    parameter_target_allowed(target)
+    parameter_target_allowed(target, strategy_ids)
         || matches!(
             parts.as_slice(),
-            ["", "strategies", "comparator" | "intervention", "transition_schedule", phase, "start_cycle"]
-                if phase.parse::<usize>().is_ok()
+            ["", "strategies", strategy_id, "transition_schedule", phase, "start_cycle"]
+                if safe_strategy_id(strategy_id)
+                    && strategy_ids.contains(strategy_id)
+                    && phase.parse::<usize>().is_ok()
         )
         || matches!(
             target,
@@ -172,8 +210,9 @@ fn replacement_compatible(
     target: &str,
     base: &serde_json::Value,
     replacement: &serde_json::Value,
+    strategy_ids: &HashSet<&str>,
 ) -> bool {
-    if !scenario_target_allowed(target) {
+    if !scenario_target_allowed(target, strategy_ids) {
         return false;
     }
     match base {
@@ -379,11 +418,10 @@ fn validate_correlation_groups(
     parameters: &[serde_json::Value],
     errors: &mut Vec<String>,
 ) -> usize {
-    if !matches!(schema_version, Some("0.4.0" | "0.5.0" | "0.6.0")) {
+    if !matches!(schema_version, Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")) {
         if correlation.is_some_and(|value| value.contains_key("groups")) {
             errors.push(
-                "correlation groups require uncertainty schema_version 0.4.0, 0.5.0, or 0.6.0"
-                    .into(),
+                "correlation groups require uncertainty schema_version 0.4.0 through 0.7.0".into(),
             );
         }
         return 0;
@@ -393,7 +431,7 @@ fn validate_correlation_groups(
         .and_then(serde_json::Value::as_array);
     let Some(groups) = groups else {
         errors.push(
-            "correlation groups must be an array for schema_version 0.4.0, 0.5.0, or 0.6.0".into(),
+            "correlation groups must be an array for schema_version 0.4.0 through 0.7.0".into(),
         );
         return 0;
     };
@@ -551,11 +589,20 @@ fn audit_values(
         .and_then(serde_json::Value::as_str);
     if !matches!(
         schema_version,
-        Some("0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0")
+        Some("0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")
     ) {
         audit
             .errors
-            .push("uncertainty schema_version must be 0.1.0 through 0.6.0".into());
+            .push("uncertainty schema_version must be 0.1.0 through 0.7.0".into());
+    }
+    let multi_strategy_base = plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        == Some("0.8.0");
+    if multi_strategy_base != (schema_version == Some("0.7.0")) {
+        audit.errors.push(
+            "analysis schema_version 0.8.0 and uncertainty schema_version 0.7.0 must be used together".into(),
+        );
     }
     for field in ["uncertainty_id", "analysis_id"] {
         if !nonempty(uncertainty.get(field)) {
@@ -622,6 +669,7 @@ fn audit_values(
         .flatten()
         .filter_map(|mapping| Some((mapping.get("path")?.as_str()?, mapping)))
         .collect::<HashMap<_, _>>();
+    let allowed_strategy_ids = strategy_ids(plan);
     let dsa_paths =
         string_set(plan.pointer("/methodology/uncertainty_analysis/deterministic/input_paths"));
     let psa_paths =
@@ -668,11 +716,14 @@ fn audit_values(
                 .push(format!("parameter {id} target does not exist"));
             continue;
         };
-        let target_allowed = parameter_target_allowed(target)
-            || (matches!(schema_version, Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0"))
-                && rate_indices.is_some())
-            || (matches!(schema_version, Some("0.5.0" | "0.6.0")) && survival_indices.is_some())
-            || (schema_version == Some("0.6.0") && probability_indices.is_some());
+        let target_allowed = parameter_target_allowed(target, &allowed_strategy_ids)
+            || (matches!(
+                schema_version,
+                Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")
+            ) && rate_indices.is_some())
+            || (matches!(schema_version, Some("0.5.0" | "0.6.0" | "0.7.0"))
+                && survival_indices.is_some())
+            || (matches!(schema_version, Some("0.6.0" | "0.7.0")) && probability_indices.is_some());
         if !target_allowed || !targets.insert(target) {
             audit.invalid_parameters.push(id.into());
             audit.errors.push(format!(
@@ -693,15 +744,17 @@ fn audit_values(
         let mut rate_basis = None;
         if let Some((mapping_index, phase, row, event)) = rate_indices {
             let indexed_mapping = plan.pointer(&format!("/input_provenance/{mapping_index}"));
-            if !matches!(schema_version, Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0"))
-                || plan
-                    .get("schema_version")
-                    .and_then(serde_json::Value::as_str)
-                    != Some("0.5.0")
-                || indexed_mapping
-                    .and_then(|value| value.get("path"))
-                    .and_then(serde_json::Value::as_str)
-                    != Some(provenance_path)
+            if !matches!(
+                schema_version,
+                Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")
+            ) || !matches!(
+                plan.get("schema_version")
+                    .and_then(serde_json::Value::as_str),
+                Some("0.5.0" | "0.8.0")
+            ) || indexed_mapping
+                .and_then(|value| value.get("path"))
+                .and_then(serde_json::Value::as_str)
+                != Some(provenance_path)
                 || indexed_mapping
                     .and_then(|value| value.pointer("/derivation/method"))
                     .and_then(serde_json::Value::as_str)
@@ -749,11 +802,12 @@ fn audit_values(
                 Some("weibull") => matches!(parameter_name, "shape" | "scale_years"),
                 _ => false,
             };
-            if !matches!(schema_version, Some("0.5.0" | "0.6.0"))
-                || plan
-                    .get("schema_version")
-                    .and_then(serde_json::Value::as_str)
-                    != Some("0.6.0")
+            if !matches!(schema_version, Some("0.5.0" | "0.6.0" | "0.7.0"))
+                || !matches!(
+                    plan.get("schema_version")
+                        .and_then(serde_json::Value::as_str),
+                    Some("0.6.0" | "0.8.0")
+                )
                 || indexed_mapping
                     .and_then(|value| value.get("path"))
                     .and_then(serde_json::Value::as_str)
@@ -796,11 +850,12 @@ fn audit_values(
             }
         } else if let Some((mapping_index, phase, row)) = probability_indices {
             let indexed_mapping = plan.pointer(&format!("/input_provenance/{mapping_index}"));
-            if schema_version != Some("0.6.0")
-                || plan
-                    .get("schema_version")
-                    .and_then(serde_json::Value::as_str)
-                    != Some("0.7.0")
+            if !matches!(schema_version, Some("0.6.0" | "0.7.0"))
+                || !matches!(
+                    plan.get("schema_version")
+                        .and_then(serde_json::Value::as_str),
+                    Some("0.7.0" | "0.8.0")
+                )
                 || indexed_mapping
                     .and_then(|value| value.get("path"))
                     .and_then(serde_json::Value::as_str)
@@ -941,7 +996,7 @@ fn audit_values(
         .and_then(serde_json::Value::as_object);
     if matches!(
         schema_version,
-        Some("0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0")
+        Some("0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")
     ) {
         let thresholds = threshold_config
             .and_then(|value| value.get("values"))
@@ -974,7 +1029,7 @@ fn audit_values(
         }
     } else if has_threshold_config {
         audit.errors.push(
-            "decision thresholds require uncertainty schema_version 0.2.0 through 0.6.0".into(),
+            "decision thresholds require uncertainty schema_version 0.2.0 through 0.7.0".into(),
         );
     } else if schema_version == Some("0.1.0") {
         audit.threshold_count = usize::from(audit.primary_threshold.is_some());
@@ -1093,9 +1148,9 @@ fn audit_values(
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or_default();
             let compatible = plan.pointer(target).is_some_and(|base| {
-                replacement
-                    .get("value")
-                    .is_some_and(|value| replacement_compatible(target, base, value))
+                replacement.get("value").is_some_and(|value| {
+                    replacement_compatible(target, base, value, &allowed_strategy_ids)
+                })
             });
             if !compatible || !replacement_targets.insert(target) {
                 audit.errors.push(format!(
@@ -1384,6 +1439,76 @@ mod tests {
         assert_eq!(audit.scenario_count, 1);
         assert_eq!(audit.threshold_count, 5);
         assert_eq!(audit.primary_threshold, Some(100000.0));
+    }
+
+    #[test]
+    fn multi_strategy_uncertainty_uses_dynamic_strategy_paths() {
+        let mut plan = plan();
+        plan["schema_version"] = serde_json::json!("0.8.0");
+        plan["baseline_strategy_id"] = serde_json::json!("standard_care");
+        plan["strategy_order"] = serde_json::json!(["standard_care", "treatment_a", "treatment_b"]);
+        let comparator = plan["strategies"]
+            .as_object_mut()
+            .unwrap()
+            .remove("comparator")
+            .unwrap();
+        let intervention = plan["strategies"]
+            .as_object_mut()
+            .unwrap()
+            .remove("intervention")
+            .unwrap();
+        plan["strategies"]["standard_care"] = comparator;
+        plan["strategies"]["treatment_a"] = intervention.clone();
+        plan["strategies"]["treatment_b"] = intervention;
+        plan["input_provenance"][0]["path"] =
+            serde_json::json!("strategies.treatment_a.state_costs");
+        plan["methodology"]["uncertainty_analysis"]["deterministic"]["input_paths"] =
+            serde_json::json!(["strategies.treatment_a.state_costs"]);
+        plan["methodology"]["uncertainty_analysis"]["probabilistic"]["input_paths"] =
+            serde_json::json!(["strategies.treatment_a.state_costs"]);
+        let plan_raw = serde_json::to_vec(&plan).unwrap();
+        let mut uncertainty = uncertainty(&plan_raw);
+        uncertainty["schema_version"] = serde_json::json!("0.7.0");
+        uncertainty["parameters"][0]["target"] =
+            serde_json::json!("/strategies/treatment_a/state_costs/0");
+        uncertainty["parameters"][0]["provenance_path"] =
+            serde_json::json!("strategies.treatment_a.state_costs");
+        uncertainty["probabilistic_analysis"]["correlation_handling"]["groups"] =
+            serde_json::json!([]);
+        let uncertainty_raw = serde_json::to_vec(&uncertainty).unwrap();
+
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &uncertainty_raw);
+
+        assert!(audit.complete, "{:?}", audit.errors);
+        assert_eq!(audit.parameter_count, 1);
+    }
+
+    #[test]
+    fn legacy_uncertainty_rejects_targets_for_ignored_extra_strategies() {
+        let mut plan = plan();
+        let shadow = plan["strategies"]["intervention"].clone();
+        plan["strategies"]["shadow"] = shadow;
+        let plan_raw = serde_json::to_vec(&plan).unwrap();
+        let mut uncertainty = uncertainty(&plan_raw);
+        uncertainty["parameters"][0]["target"] =
+            serde_json::json!("/strategies/shadow/state_costs/0");
+        uncertainty["structural_scenarios"][0]["replacements"] = serde_json::json!([{
+            "target": "/strategies/shadow/state_utilities/0",
+            "value": 0.7
+        }]);
+        let uncertainty_raw = serde_json::to_vec(&uncertainty).unwrap();
+
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &uncertainty_raw);
+
+        assert!(!audit.complete);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("target is not unique and allowlisted")));
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("invalid or duplicate replacement")));
     }
 
     #[test]
@@ -1728,19 +1853,42 @@ mod tests {
 
     #[test]
     fn authority_and_unknown_targets_are_outside_the_allowlist() {
-        assert!(!parameter_target_allowed("/reference_case/status"));
-        assert!(!scenario_target_allowed("/analysis_id"));
+        let legacy = HashSet::from(["comparator", "intervention"]);
+        assert!(!parameter_target_allowed("/reference_case/status", &legacy));
+        assert!(!scenario_target_allowed("/analysis_id", &legacy));
         assert!(parameter_target_allowed(
-            "/strategies/intervention/transition_matrix/0"
+            "/strategies/intervention/transition_matrix/0",
+            &legacy,
         ));
         assert!(parameter_target_allowed(
-            "/strategies/intervention/transition_schedule/1/matrix/0"
+            "/strategies/intervention/transition_schedule/1/matrix/0",
+            &legacy,
         ));
         assert!(scenario_target_allowed(
-            "/strategies/intervention/transition_schedule/1/start_cycle"
+            "/strategies/intervention/transition_schedule/1/start_cycle",
+            &legacy,
         ));
         assert!(!parameter_target_allowed(
-            "/strategies/intervention/transition_schedule/1/start_cycle"
+            "/strategies/intervention/transition_schedule/1/start_cycle",
+            &legacy,
+        ));
+        assert!(!parameter_target_allowed(
+            "/strategies/treatment_a/state_costs/0",
+            &legacy,
+        ));
+
+        let multi = HashSet::from(["standard_care", "treatment_a"]);
+        assert!(parameter_target_allowed(
+            "/strategies/treatment_a/state_costs/0",
+            &multi,
+        ));
+        assert!(!parameter_target_allowed(
+            "/strategies/alternative/state_costs/0",
+            &multi,
+        ));
+        assert!(!scenario_target_allowed(
+            "/strategies/alternative/transition_schedule/0/start_cycle",
+            &multi,
         ));
     }
 

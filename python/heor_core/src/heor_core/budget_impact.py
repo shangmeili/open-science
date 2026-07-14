@@ -15,7 +15,7 @@ import hashlib
 from math import isfinite
 from typing import Any
 
-from .model import ModelValidationError
+from .model import MarkovSpecification, ModelValidationError
 
 
 SCHEMA_VERSION = "0.1.0"
@@ -140,6 +140,7 @@ def run_budget_impact(
 def _validate(
     value: dict[str, Any], analysis_plan: dict[str, Any], analysis_raw: bytes
 ) -> None:
+    validated_analysis = MarkovSpecification.from_dict(analysis_plan)
     if value.get("schema_version") != SCHEMA_VERSION:
         raise ModelValidationError(
             f"budget impact schema_version must be {SCHEMA_VERSION}"
@@ -203,19 +204,24 @@ def _validate(
         raise ModelValidationError("annual eligible population must be non-negative")
 
     strategies = _mapping(value.get("strategies"), "strategies")
-    plan_strategies = _mapping(analysis_plan.get("strategies"), "analysis strategies")
+    plan_strategies = validated_analysis.strategy_map
+    multi_strategy_plan = validated_analysis.schema_version == "0.8.0"
     strategy_ids: list[str] = []
     for role in ("comparator", "intervention"):
         strategy = _mapping(strategies.get(role), f"strategies.{role}")
         _nonempty(strategy.get("id"), f"strategies.{role}.id")
         _nonempty(strategy.get("label"), f"strategies.{role}.label")
-        plan_name = _mapping(plan_strategies.get(role), f"analysis strategies.{role}").get(
-            "name"
-        )
-        if strategy["id"] != plan_name:
-            raise ModelValidationError(
-                f"strategies.{role}.id must match the analysis plan strategy name"
-            )
+        if multi_strategy_plan:
+            if strategy["id"] not in validated_analysis.strategy_order:
+                raise ModelValidationError(
+                    f"strategies.{role}.id must identify an analysis plan strategy"
+                )
+        else:
+            plan_name = plan_strategies[role].name
+            if strategy["id"] != plan_name:
+                raise ModelValidationError(
+                    f"strategies.{role}.id must match the analysis plan strategy name"
+                )
         strategy_ids.append(strategy["id"])
     if strategy_ids[0] == strategy_ids[1]:
         raise ModelValidationError("budget impact strategy ids must be different")

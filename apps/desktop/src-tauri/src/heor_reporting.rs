@@ -165,14 +165,71 @@ fn expected_result_summary(loaded: &HashMap<&str, serde_json::Value>) -> serde_j
             .expect("uncertainty summary is an object")
             .insert("decision_uncertainty".into(), decision_uncertainty.clone());
     }
+    if let Some(probabilistic) = loaded
+        .get("uncertainty_result")
+        .and_then(|value| value.get("probabilistic_analysis"))
+    {
+        for field in [
+            "strategy_order",
+            "primary_threshold_strategy_optimal_probabilities",
+            "primary_threshold_tie_probability",
+            "mean_net_monetary_benefit_by_strategy",
+            "net_monetary_benefit_mcse_by_strategy",
+        ] {
+            if let Some(value) = probabilistic.get(field) {
+                expected_uncertainty
+                    .as_object_mut()
+                    .expect("uncertainty summary is an object")
+                    .insert(field.into(), value.clone());
+            }
+        }
+    }
+    let base_case = loaded.get("base_case_result");
+    let cost_effectiveness = if base_case
+        .and_then(|value| value.get("fully_incremental_analysis"))
+        .is_some()
+    {
+        let strategies = base_case
+            .and_then(|value| value.get("strategies"))
+            .and_then(serde_json::Value::as_object)
+            .map(|items| {
+                items
+                    .iter()
+                    .map(|(strategy_id, strategy)| {
+                        (
+                            strategy_id.clone(),
+                            serde_json::json!({
+                                "name": strategy.get("name").cloned().unwrap_or(serde_json::Value::Null),
+                                "total_cost": strategy.get("total_cost").cloned().unwrap_or(serde_json::Value::Null),
+                                "total_qaly": strategy.get("total_qaly").cloned().unwrap_or(serde_json::Value::Null),
+                                "net_monetary_benefit": strategy.get("net_monetary_benefit").cloned().unwrap_or(serde_json::Value::Null)
+                            }),
+                        )
+                    })
+                    .collect::<serde_json::Map<_, _>>()
+            })
+            .map(serde_json::Value::Object)
+            .unwrap_or(serde_json::Value::Null);
+        serde_json::json!({
+            "economic_basis": base_case.and_then(|v| v.get("economic_basis")).cloned().unwrap_or(serde_json::Value::Null),
+            "strategy_order": base_case.and_then(|v| v.get("strategy_order")).cloned().unwrap_or(serde_json::Value::Null),
+            "baseline_strategy_id": base_case.and_then(|v| v.get("baseline_strategy_id")).cloned().unwrap_or(serde_json::Value::Null),
+            "strategies": strategies,
+            "pairwise_vs_baseline": base_case.and_then(|v| v.get("pairwise_vs_baseline")).cloned().unwrap_or(serde_json::Value::Null),
+            "fully_incremental_analysis": base_case.and_then(|v| v.get("fully_incremental_analysis")).cloned().unwrap_or(serde_json::Value::Null),
+            "optimal_at_primary_threshold": base_case.and_then(|v| v.get("optimal_at_primary_threshold")).cloned().unwrap_or(serde_json::Value::Null)
+        })
+    } else {
+        serde_json::json!({
+            "economic_basis": base_case.and_then(|v| v.get("economic_basis")).cloned().unwrap_or(serde_json::Value::Null),
+            "delta_cost": base_case.and_then(|v| v.pointer("/incremental/delta_cost")).cloned().unwrap_or(serde_json::Value::Null),
+            "delta_qaly": base_case.and_then(|v| v.pointer("/incremental/delta_qaly")).cloned().unwrap_or(serde_json::Value::Null),
+            "icer": base_case.and_then(|v| v.pointer("/incremental/icer")).cloned().unwrap_or(serde_json::Value::Null),
+            "incremental_net_monetary_benefit": base_case.and_then(|v| v.pointer("/incremental/incremental_net_monetary_benefit")).cloned().unwrap_or(serde_json::Value::Null)
+        })
+    };
     serde_json::json!({
-        "cost_effectiveness": {
-            "economic_basis": loaded.get("base_case_result").and_then(|v| v.get("economic_basis")).cloned().unwrap_or(serde_json::Value::Null),
-            "delta_cost": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/delta_cost")).cloned().unwrap_or(serde_json::Value::Null),
-            "delta_qaly": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/delta_qaly")).cloned().unwrap_or(serde_json::Value::Null),
-            "icer": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/icer")).cloned().unwrap_or(serde_json::Value::Null),
-            "incremental_net_monetary_benefit": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/incremental_net_monetary_benefit")).cloned().unwrap_or(serde_json::Value::Null)
-        },
+        "cost_effectiveness": cost_effectiveness,
         "uncertainty": expected_uncertainty,
         "budget_impact": {
             "annual_net_budget_impact": loaded.get("budget_impact_result").and_then(|v| v.pointer("/base_case/annual_net_budget_impact")).cloned().unwrap_or(serde_json::Value::Null),
@@ -703,6 +760,235 @@ mod tests {
         assert!(summary
             .pointer("/uncertainty/decision_uncertainty")
             .is_none());
+    }
+
+    #[test]
+    fn multi_strategy_result_summary_preserves_frontier_and_strategy_probabilities() {
+        let frontier = serde_json::json!([
+            {"strategy_id": "standard", "status": "frontier", "icer": null},
+            {"strategy_id": "treatment", "status": "frontier", "icer": 50000}
+        ]);
+        let probabilities = serde_json::json!({"standard": 0.25, "treatment": 0.75});
+        let loaded = HashMap::from([
+            (
+                "base_case_result",
+                serde_json::json!({
+                    "economic_basis": {"currency": "CNY", "price_year": 2026},
+                    "strategy_order": ["standard", "treatment"],
+                    "baseline_strategy_id": "standard",
+                    "strategies": {
+                        "standard": {"name": "Standard", "total_cost": 0, "total_qaly": 1, "net_monetary_benefit": 100000, "occupancy": [[1]]},
+                        "treatment": {"name": "Treatment", "total_cost": 50000, "total_qaly": 2, "net_monetary_benefit": 150000, "occupancy": [[1]]}
+                    },
+                    "pairwise_vs_baseline": {"treatment": {"delta_cost": 50000}},
+                    "fully_incremental_analysis": frontier,
+                    "optimal_at_primary_threshold": {"strategy_id": "treatment"}
+                }),
+            ),
+            (
+                "uncertainty_result",
+                serde_json::json!({"probabilistic_analysis": {
+                    "iterations": 1000,
+                    "strategy_order": ["standard", "treatment"],
+                    "primary_threshold_strategy_optimal_probabilities": probabilities
+                }}),
+            ),
+            ("budget_impact_result", serde_json::json!({"base_case": {}})),
+        ]);
+
+        let summary = expected_result_summary(&loaded);
+
+        assert_eq!(
+            summary.pointer("/cost_effectiveness/fully_incremental_analysis"),
+            Some(&frontier)
+        );
+        assert_eq!(
+            summary.pointer("/uncertainty/primary_threshold_strategy_optimal_probabilities"),
+            Some(&probabilities)
+        );
+        assert!(summary
+            .pointer("/cost_effectiveness/strategies/standard/occupancy")
+            .is_none());
+        assert!(summary.pointer("/cost_effectiveness/delta_cost").is_none());
+    }
+
+    #[test]
+    fn complete_multi_strategy_report_package_is_natively_auditable() {
+        let root =
+            std::env::temp_dir().join(format!("heor-report-multi-package-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("heor/results")).unwrap();
+
+        let analysis_plan = serde_json::json!({
+            "analysis_id": "analysis-1",
+            "schema_version": "0.8.0"
+        });
+        let analysis_raw = serde_json::to_vec(&analysis_plan).unwrap();
+        let analysis_hash = digest(&analysis_raw);
+        let uncertainty_plan = serde_json::json!({
+            "analysis_id": "analysis-1",
+            "schema_version": "0.7.0"
+        });
+        let uncertainty_plan_raw = serde_json::to_vec(&uncertainty_plan).unwrap();
+        let uncertainty_plan_hash = digest(&uncertainty_plan_raw);
+        let budget_plan = serde_json::json!({
+            "analysis_id": "analysis-1",
+            "schema_version": "0.1.0"
+        });
+        let budget_plan_raw = serde_json::to_vec(&budget_plan).unwrap();
+        let budget_plan_hash = digest(&budget_plan_raw);
+        let base_case = serde_json::json!({
+            "analysis_id": "analysis-1",
+            "input_sha256": analysis_hash,
+            "economic_basis": {"currency": "CNY", "price_year": 2026},
+            "strategy_order": ["standard", "treatment"],
+            "baseline_strategy_id": "standard",
+            "strategies": {
+                "standard": {"name": "Standard", "total_cost": 10000, "total_qaly": 1, "net_monetary_benefit": 90000},
+                "treatment": {"name": "Treatment", "total_cost": 20000, "total_qaly": 1.5, "net_monetary_benefit": 130000}
+            },
+            "pairwise_vs_baseline": {"treatment": {"delta_cost": 10000, "delta_qaly": 0.5, "icer": 20000}},
+            "fully_incremental_analysis": [
+                {"strategy_id": "standard", "status": "frontier", "icer": null},
+                {"strategy_id": "treatment", "status": "frontier", "icer": 20000}
+            ],
+            "optimal_at_primary_threshold": {"strategy_id": "treatment"}
+        });
+        let uncertainty_result = serde_json::json!({
+            "analysis_id": "analysis-1",
+            "base_analysis_sha256": analysis_hash,
+            "uncertainty_plan_sha256": uncertainty_plan_hash,
+            "probabilistic_analysis": {
+                "iterations": 1000,
+                "strategy_order": ["standard", "treatment"],
+                "primary_threshold_strategy_optimal_probabilities": {"standard": 0.2, "treatment": 0.8},
+                "primary_threshold_tie_probability": 0,
+                "mean_net_monetary_benefit_by_strategy": {"standard": 90000, "treatment": 130000},
+                "net_monetary_benefit_mcse_by_strategy": {"standard": 100, "treatment": 120},
+                "decision_uncertainty": {
+                    "strategy_order": ["standard", "treatment"],
+                    "threshold_results": []
+                }
+            }
+        });
+        let budget_result = serde_json::json!({
+            "analysis_id": "analysis-1",
+            "analysis_plan_sha256": analysis_hash,
+            "budget_impact_plan_sha256": budget_plan_hash,
+            "base_case": {
+                "annual_net_budget_impact": [1, 2, 3],
+                "cumulative_net_budget_impact": 6
+            }
+        });
+        let conceptual_model = serde_json::json!({"analysis_id": "analysis-1"});
+        let model_validation = serde_json::json!({"analysis_id": "analysis-1"});
+        let report = ITEMS
+            .iter()
+            .enumerate()
+            .map(|(index, _)| format!("<!-- report-section:section-{index} -->\nSection {index}\n"))
+            .collect::<String>();
+
+        let artifacts = HashMap::from([
+            (REPORT_DOCUMENT_PATH, report.into_bytes()),
+            ("heor/analysis-plan.json", analysis_raw),
+            (
+                "heor/conceptual-model.json",
+                serde_json::to_vec(&conceptual_model).unwrap(),
+            ),
+            ("heor/uncertainty-plan.json", uncertainty_plan_raw),
+            ("heor/budget-impact-plan.json", budget_plan_raw),
+            (
+                "heor/model-validation.json",
+                serde_json::to_vec(&model_validation).unwrap(),
+            ),
+            (
+                BASE_CASE_RESULT_PATH,
+                serde_json::to_vec(&base_case).unwrap(),
+            ),
+            (
+                UNCERTAINTY_RESULT_PATH,
+                serde_json::to_vec(&uncertainty_result).unwrap(),
+            ),
+            (
+                BUDGET_IMPACT_RESULT_PATH,
+                serde_json::to_vec(&budget_result).unwrap(),
+            ),
+        ]);
+        for (relative, raw) in &artifacts {
+            let target = root.join(relative);
+            std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+            std::fs::write(target, raw).unwrap();
+        }
+
+        let bindings = BINDINGS
+            .iter()
+            .map(|(key, relative)| {
+                (
+                    (*key).to_string(),
+                    serde_json::json!({
+                        "path": relative,
+                        "content_sha256": digest(artifacts.get(relative).unwrap())
+                    }),
+                )
+            })
+            .collect::<serde_json::Map<_, _>>();
+        let items = ITEMS
+            .iter()
+            .enumerate()
+            .map(|(index, (profile_id, item_id))| {
+                serde_json::json!({
+                    "profile_id": profile_id,
+                    "item_id": item_id,
+                    "status": "reported",
+                    "rationale": "Reported in the bound document.",
+                    "section_id": format!("section-{index}"),
+                    "artifact_paths": [REPORT_DOCUMENT_PATH]
+                })
+            })
+            .collect::<Vec<_>>();
+        let loaded = HashMap::from([
+            ("base_case_result", base_case),
+            ("uncertainty_result", uncertainty_result),
+            ("budget_impact_result", budget_result),
+        ]);
+        let package = serde_json::json!({
+            "schema_version": "0.1.0",
+            "package_id": "report-1",
+            "analysis_id": "analysis-1",
+            "version": "1.0",
+            "status": "ready_for_release_review",
+            "prepared_on": "2026-03-18",
+            "intended_audience": "Health technology assessment reviewers",
+            "release_owner_label": "Release owner",
+            "reporting_profiles": [
+                {"id":"CHEERS-2022","status":"current","scope":"cost_effectiveness"},
+                {"id":"ISPOR-BIA-GP-II-2014","status":"current","scope":"budget_impact"}
+            ],
+            "bindings": bindings,
+            "items": items,
+            "result_summary": expected_result_summary(&loaded),
+            "disclosures": {
+                "funding": "None",
+                "conflicts_of_interest": "None",
+                "agent_contributions": "Documented",
+                "model_providers": "Documented",
+                "data_and_model_availability": "Documented",
+                "patient_and_public_involvement": "Not involved"
+            },
+            "limitations": ["Illustrative package"],
+            "release_notes": ["Initial release"]
+        });
+        std::fs::write(
+            root.join(REPORT_PACKAGE_PATH),
+            serde_json::to_vec(&package).unwrap(),
+        )
+        .unwrap();
+
+        let audit = audit_report_package(&root).unwrap();
+
+        assert!(audit.complete, "{:?}", audit.errors);
+        assert!(audit.releasable);
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]

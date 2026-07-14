@@ -58,6 +58,35 @@ fn is_sha256(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
+fn safe_strategy_id(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    bytes.next().is_some_and(|byte| byte.is_ascii_lowercase())
+        && value.len() <= 64
+        && bytes.all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
+        })
+}
+
+fn strategy_ids(plan: &serde_json::Value) -> Vec<&str> {
+    if plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        == Some("0.8.0")
+    {
+        return plan
+            .get("strategy_order")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|items| {
+                items
+                    .iter()
+                    .map(serde_json::Value::as_str)
+                    .collect::<Option<Vec<_>>>()
+            })
+            .unwrap_or_default();
+    }
+    vec!["comparator", "intervention"]
+}
+
 fn required_input_paths(plan: &serde_json::Value) -> Vec<String> {
     let mut paths = vec![
         "cycles".into(),
@@ -66,7 +95,7 @@ fn required_input_paths(plan: &serde_json::Value) -> Vec<String> {
         "discount_rates.outcomes".into(),
         "half_cycle_correction".into(),
     ];
-    for role in ["comparator", "intervention"] {
+    for role in strategy_ids(plan) {
         paths.push(format!("strategies.{role}.initial_distribution"));
         let transition_field = if plan
             .pointer(&format!("/strategies/{role}/transition_schedule"))
@@ -136,13 +165,8 @@ fn json_equivalent(left: &serde_json::Value, right: &serde_json::Value) -> bool 
 }
 
 fn transition_path(path: &str) -> bool {
-    matches!(
-        path,
-        "strategies.comparator.transition_matrix"
-            | "strategies.intervention.transition_matrix"
-            | "strategies.comparator.transition_schedule"
-            | "strategies.intervention.transition_schedule"
-    )
+    let parts = path.split('.').collect::<Vec<_>>();
+    matches!(parts.as_slice(), ["strategies", strategy_id, "transition_matrix" | "transition_schedule"] if safe_strategy_id(strategy_id))
 }
 
 fn exact_fields(object: &serde_json::Map<String, serde_json::Value>, fields: &[&str]) -> bool {
@@ -759,13 +783,14 @@ fn transition_rate_declaration_reasons(
     mapping: &serde_json::Value,
     derivation: &serde_json::Map<String, serde_json::Value>,
 ) -> Vec<String> {
-    if plan
-        .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        != Some("0.5.0")
-    {
+    if !matches!(
+        plan.get("schema_version")
+            .and_then(serde_json::Value::as_str),
+        Some("0.5.0" | "0.8.0")
+    ) {
         return vec![
-            "deterministic transition-rate transformations require schema_version 0.5.0".into(),
+            "deterministic transition-rate transformations require schema_version 0.5.0 or 0.8.0"
+                .into(),
         ];
     }
     if !transition_path(path) {
@@ -809,12 +834,14 @@ fn survival_curve_declaration_reasons(
     mapping: &serde_json::Value,
     derivation: &serde_json::Map<String, serde_json::Value>,
 ) -> Vec<String> {
-    if plan
-        .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        != Some("0.6.0")
-    {
-        return vec!["parametric survival transformations require schema_version 0.6.0".into()];
+    if !matches!(
+        plan.get("schema_version")
+            .and_then(serde_json::Value::as_str),
+        Some("0.6.0" | "0.8.0")
+    ) {
+        return vec![
+            "parametric survival transformations require schema_version 0.6.0 or 0.8.0".into(),
+        ];
     }
     let Some(transformation) = derivation.get("transformation") else {
         return vec!["derivation.transformation must be an object".into()];
@@ -855,12 +882,14 @@ fn probability_time_declaration_reasons(
     mapping: &serde_json::Value,
     derivation: &serde_json::Map<String, serde_json::Value>,
 ) -> Vec<String> {
-    if plan
-        .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        != Some("0.7.0")
-    {
-        return vec!["probability-time transformations require schema_version 0.7.0".into()];
+    if !matches!(
+        plan.get("schema_version")
+            .and_then(serde_json::Value::as_str),
+        Some("0.7.0" | "0.8.0")
+    ) {
+        return vec![
+            "probability-time transformations require schema_version 0.7.0 or 0.8.0".into(),
+        ];
     }
     if !transition_path(path) {
         return vec![
@@ -1234,12 +1263,48 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")
+        Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0")
     ) {
         invalid_mappings
-            .push("schema_version must be 0.3.0 through 0.7.0 for approval review".into());
+            .push("schema_version must be 0.3.0 through 0.8.0 for approval review".into());
     }
-    for role in ["comparator", "intervention"] {
+    let declared_strategy_ids = strategy_ids(plan);
+    if plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        == Some("0.8.0")
+    {
+        let raw_strategy_count = plan
+            .get("strategy_order")
+            .and_then(serde_json::Value::as_array)
+            .map(Vec::len);
+        let unique = declared_strategy_ids
+            .iter()
+            .copied()
+            .collect::<HashSet<_>>();
+        let baseline = plan
+            .get("baseline_strategy_id")
+            .and_then(serde_json::Value::as_str);
+        let actual = plan
+            .get("strategies")
+            .and_then(serde_json::Value::as_object)
+            .map(|items| items.keys().map(String::as_str).collect::<HashSet<_>>())
+            .unwrap_or_default();
+        if raw_strategy_count != Some(declared_strategy_ids.len())
+            || !(2..=16).contains(&declared_strategy_ids.len())
+            || unique.len() != declared_strategy_ids.len()
+            || declared_strategy_ids
+                .iter()
+                .any(|item| !safe_strategy_id(item))
+            || baseline != declared_strategy_ids.first().copied()
+            || actual != unique
+        {
+            invalid_mappings.push(
+                "schema 0.8.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first".into(),
+            );
+        }
+    }
+    for role in declared_strategy_ids {
         let strategy = plan.pointer(&format!("/strategies/{role}"));
         let has_matrix = strategy
             .and_then(|value| value.get("transition_matrix"))
@@ -1256,11 +1321,11 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
             && !matches!(
                 plan.get("schema_version")
                     .and_then(serde_json::Value::as_str),
-                Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")
+                Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0")
             )
         {
             invalid_mappings.push(format!(
-                "strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.7.0"
+                "strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.8.0"
             ));
         }
     }
@@ -2106,6 +2171,58 @@ mod tests {
     }
 
     #[test]
+    fn multi_strategy_required_paths_follow_the_declared_order() {
+        let plan = serde_json::json!({
+            "schema_version": "0.8.0",
+            "strategy_order": ["standard_care", "treatment_a", "treatment_b"],
+            "baseline_strategy_id": "standard_care",
+            "willingness_to_pay": 100000,
+            "strategies": {
+                "standard_care": {"transition_matrix": [[1.0]]},
+                "treatment_a": {"transition_matrix": [[1.0]]},
+                "treatment_b": {"transition_schedule": [{"start_cycle": 1, "matrix": [[1.0]]}]}
+            }
+        });
+
+        let paths = required_input_paths(&plan);
+
+        assert_eq!(paths.len(), 18);
+        assert!(paths.contains(&"strategies.treatment_b.transition_schedule".into()));
+        assert!(!paths.contains(&"strategies.treatment_b.transition_matrix".into()));
+    }
+
+    #[test]
+    fn multi_strategy_contract_rejects_non_string_order_key_mismatch_and_baseline_drift() {
+        let mut plan = complete_plan();
+        plan["schema_version"] = serde_json::json!("0.8.0");
+        plan["strategy_order"] = serde_json::json!(["comparator", 42, "intervention"]);
+        plan["baseline_strategy_id"] = serde_json::json!("comparator");
+        let audit = audit_plan(&plan);
+        assert!(!audit.complete);
+        assert!(audit
+            .invalid_mappings
+            .iter()
+            .any(|error| error.contains("2-16 unique safe strategy ids")));
+
+        plan["strategy_order"] = serde_json::json!(["comparator", "alternative"]);
+        let audit = audit_plan(&plan);
+        assert!(!audit.complete);
+        assert!(audit
+            .invalid_mappings
+            .iter()
+            .any(|error| error.contains("exact strategies object")));
+
+        plan["strategy_order"] = serde_json::json!(["comparator", "intervention"]);
+        plan["baseline_strategy_id"] = serde_json::json!("intervention");
+        let audit = audit_plan(&plan);
+        assert!(!audit.complete);
+        assert!(audit
+            .invalid_mappings
+            .iter()
+            .any(|error| error.contains("baseline_strategy_id first")));
+    }
+
+    #[test]
     fn complete_scheduled_plan_can_pass_approval_audit() {
         let mut plan = complete_plan();
         plan["schema_version"] = serde_json::json!("0.4.0");
@@ -2290,7 +2407,7 @@ mod tests {
 
         assert!(!audit.complete);
         let errors = audit.invalid_mappings.join("; ");
-        assert!(errors.contains("schema_version must be 0.3.0 through 0.7.0"));
+        assert!(errors.contains("schema_version must be 0.3.0 through 0.8.0"));
         assert!(errors.contains("does not match the current model input"));
     }
 

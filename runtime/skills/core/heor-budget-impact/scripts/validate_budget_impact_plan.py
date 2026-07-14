@@ -13,6 +13,7 @@ from pathlib import Path
 
 HORIZON = 3
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
+STRATEGY_ID = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 TARGET = re.compile(
     r"^/population/annual_eligible/[0-2]$"
     r"|^/market_scenarios/with_new_intervention/intervention_share_by_year/[0-2]$"
@@ -146,17 +147,58 @@ def validate(budget_path: Path, analysis_path: Path) -> list[str]:
     if not finite_array(population.get("annual_eligible")):
         errors.append("population.annual_eligible must contain three non-negative numbers")
 
-    strategies = value.get("strategies") or {}
-    analysis_strategies = analysis.get("strategies") or {}
+    strategies = value.get("strategies")
+    if not isinstance(strategies, dict):
+        errors.append("strategies must be an object")
+        strategies = {}
+    analysis_strategies = analysis.get("strategies")
+    if not isinstance(analysis_strategies, dict):
+        errors.append("analysis plan strategies must be an object")
+        analysis_strategies = {}
+    multi_strategy = analysis.get("schema_version") == "0.8.0"
+    strategy_order = analysis.get("strategy_order")
+    if multi_strategy and not (
+        isinstance(strategy_order, list)
+        and 2 <= len(strategy_order) <= 16
+        and all(isinstance(item, str) and STRATEGY_ID.fullmatch(item) for item in strategy_order)
+        and len(set(strategy_order)) == len(strategy_order)
+        and set(analysis_strategies) == set(strategy_order)
+        and analysis.get("baseline_strategy_id") == strategy_order[0]
+    ):
+        errors.append(
+            "schema 0.8.0 analysis must declare 2-16 unique safe strategy_order ids, "
+            "an exact strategies object, and baseline_strategy_id first"
+        )
+        strategy_order = []
+    allowed_strategy_ids = set(strategy_order or [])
     strategy_ids: list[object] = []
     for role in ("comparator", "intervention"):
         strategy = strategies.get(role) or {}
-        strategy_ids.append(strategy.get("id"))
+        if not isinstance(strategy, dict):
+            strategy = {}
+        strategy_id = strategy.get("id") if isinstance(strategy, dict) else None
+        strategy_ids.append(strategy_id)
         if not text(strategy.get("id")) or not text(strategy.get("label")):
             errors.append(f"strategies.{role} requires id and label")
-        if strategy.get("id") != (analysis_strategies.get(role) or {}).get("name"):
+        if multi_strategy and (
+            not isinstance(strategy_id, str)
+            or STRATEGY_ID.fullmatch(strategy_id) is None
+            or strategy_id not in allowed_strategy_ids
+        ):
+            errors.append(
+                f"strategies.{role}.id must select a safe id from analysis strategy_order"
+            )
+        elif not multi_strategy and strategy_id != (
+            analysis_strategies.get(role).get("name")
+            if isinstance(analysis_strategies.get(role), dict)
+            else None
+        ):
             errors.append(f"strategies.{role}.id must match the analysis plan")
-    if len(set(strategy_ids)) != 2:
+    if (
+        len(strategy_ids) != 2
+        or any(not isinstance(item, str) for item in strategy_ids)
+        or len(set(strategy_ids)) != 2
+    ):
         errors.append("strategy ids must be different")
 
     markets = value.get("market_scenarios") or {}

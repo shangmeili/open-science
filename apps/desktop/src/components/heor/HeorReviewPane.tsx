@@ -2439,7 +2439,12 @@ function ResultCard({ result, locale }: { result: HeorRunResult; locale: string 
   const formatMoney = (value: number) => currency?.format(value) ?? number.format(value);
   const authorized = result.workflow.classification !== "exploratory";
   const decisionReady = result.workflow.decisionReady;
-  const rows = [result.calculation.strategies.comparator, result.calculation.strategies.intervention];
+  const strategyOrder = result.calculation.strategy_order ?? ["comparator", "intervention"];
+  const rows = strategyOrder
+    .map((strategyId) => [strategyId, result.calculation.strategies[strategyId]] as const)
+    .filter((row): row is readonly [string, NonNullable<typeof row[1]>] => Boolean(row[1]));
+  const frontierRows = result.calculation.fully_incremental_analysis;
+  const incremental = result.calculation.incremental;
   return (
     <section className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
@@ -2472,15 +2477,28 @@ function ResultCard({ result, locale }: { result: HeorRunResult; locale: string 
             <tr><th className="px-2 py-2 text-left font-medium">{t("result.strategy")}</th><th className="px-2 py-2 text-right font-medium">{t("result.cost")}</th><th className="px-2 py-2 text-right font-medium">{t("result.qaly")}</th></tr>
           </thead>
           <tbody>
-            {rows.map((row) => <tr key={row.name} className="border-t border-border"><td className="px-2 py-2 font-mono text-text">{row.name}</td><td className="px-2 py-2 text-right tabular-nums text-text">{formatMoney(row.total_cost)}</td><td className="px-2 py-2 text-right tabular-nums text-text">{number.format(row.total_qaly)}</td></tr>)}
+            {rows.map(([strategyId, row]) => <tr key={strategyId} className="border-t border-border"><td className="px-2 py-2 font-mono text-text">{row.name}</td><td className="px-2 py-2 text-right tabular-nums text-text">{formatMoney(row.total_cost)}</td><td className="px-2 py-2 text-right tabular-nums text-text">{number.format(row.total_qaly)}</td></tr>)}
           </tbody>
         </table>
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        <Metric label={t("result.deltaCost")} value={formatMoney(result.calculation.incremental.delta_cost)} />
-        <Metric label={t("result.deltaQaly")} value={number.format(result.calculation.incremental.delta_qaly)} />
-        <Metric label={t("result.icer")} value={result.calculation.incremental.icer === null ? "—" : formatMoney(result.calculation.incremental.icer)} accent />
-      </div>
+      {incremental && (
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <Metric label={t("result.deltaCost")} value={formatMoney(incremental.delta_cost)} />
+          <Metric label={t("result.deltaQaly")} value={number.format(incremental.delta_qaly)} />
+          <Metric label={t("result.icer")} value={incremental.icer === null ? "—" : formatMoney(incremental.icer)} accent />
+        </div>
+      )}
+      {frontierRows && (
+        <div className="mt-3 overflow-hidden rounded-input border border-border">
+          <div className="bg-bg px-2 py-1.5 text-[10px] font-semibold text-text">{t("result.fullyIncremental")}</div>
+          <table className="w-full text-[10px]">
+            <thead className="border-t border-border bg-bg text-muted"><tr><th className="px-2 py-2 text-left font-medium">{t("result.strategy")}</th><th className="px-2 py-2 text-left font-medium">{t("result.frontierStatus")}</th><th className="px-2 py-2 text-right font-medium">{t("result.icer")}</th></tr></thead>
+            <tbody>{frontierRows.map((row) => (
+              <tr key={row.strategy_id} className="border-t border-border"><td className="px-2 py-2 font-mono text-text">{row.strategy_name}</td><td className="px-2 py-2 text-muted">{t(`result.status.${row.status}`)}</td><td className="px-2 py-2 text-right tabular-nums text-text">{row.icer === null ? "—" : formatMoney(row.icer)}</td></tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
       <details className="mt-3 text-[10px] text-muted">
         <summary className="cursor-pointer font-medium text-text">{t("result.warnings")} ({result.calculation.warnings.length})</summary>
         <ul className="mt-2 list-disc space-y-1 pl-4 leading-4">{result.calculation.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
@@ -2511,10 +2529,11 @@ function lineSegments(
   return segments;
 }
 
-export function CeacChart({ rows, primaryThreshold, locale }: {
+export function CeacChart({ rows, primaryThreshold, locale, strategyOrder }: {
   rows: DecisionThresholdRow[];
   primaryThreshold: number;
   locale: string;
+  strategyOrder?: string[];
 }) {
   const { t } = useTranslation("heor");
   if (rows.length < 2) return null;
@@ -2529,7 +2548,25 @@ export function CeacChart({ rows, primaryThreshold, locale }: {
     plot.left + ((row.threshold - minimum) / (maximum - minimum)) * innerWidth
   );
   const y = (value: number) => plot.top + (1 - value) * innerHeight;
-  const intervention = lineSegments(rows, x, (row) => y(row.intervention_optimal_probability));
+  const observedStrategyIds = Object.keys(rows[0]?.strategy_optimal_probabilities ?? {});
+  const strategyIds = strategyOrder?.length ? strategyOrder : observedStrategyIds;
+  const series = strategyIds.length > 0
+    ? strategyIds.map((strategyId, index) => ({
+        id: strategyId,
+        color: `hsl(${(index * 137.508) % 360} 68% 48%)`,
+        paths: lineSegments(rows, x, (row) => {
+          const value = row.strategy_optimal_probabilities?.[strategyId];
+          return value === undefined ? null : y(value);
+        }),
+      }))
+    : [{
+        id: "intervention",
+        color: "var(--color-link)",
+        paths: lineSegments(rows, x, (row) => (
+          row.intervention_optimal_probability === undefined
+            ? null : y(row.intervention_optimal_probability)
+        )),
+      }];
   const frontier = lineSegments(rows, x, (row) => (
     row.ceaf_probability === null ? null : y(row.ceaf_probability)
   ));
@@ -2587,27 +2624,30 @@ export function CeacChart({ rows, primaryThreshold, locale }: {
               </text>
             </g>
           ))}
-          {intervention.map((path) => (
-            <path key={path} d={path} fill="none" stroke="currentColor" strokeWidth="2" className="text-link" />
-          ))}
+          {series.flatMap((item) => item.paths.map((path) => (
+            <path key={`${item.id}-${path}`} d={path} fill="none" stroke={item.color} strokeWidth="2" />
+          )))}
           {frontier.map((path) => (
             <path key={path} d={path} fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="5 4" className="text-text" />
           ))}
           {rows.map((row) => (
             <g key={row.threshold}>
-              <circle cx={x(row)} cy={y(row.intervention_optimal_probability)} r="2.5" fill="currentColor" className="text-link" />
+              {series.map((item) => {
+                const value = item.id === "intervention" && strategyIds.length === 0
+                  ? row.intervention_optimal_probability
+                  : row.strategy_optimal_probabilities?.[item.id];
+                return value === undefined ? null : <circle key={item.id} cx={x(row)} cy={y(value)} r="2.5" fill={item.color} />;
+              })}
               {row.ceaf_probability !== null && (
                 <circle cx={x(row)} cy={y(row.ceaf_probability)} r="2.5" fill="var(--color-bg)" stroke="currentColor" className="text-text" />
               )}
             </g>
           ))}
-          <g transform={`translate(${plot.left + 4} 8)`} fontSize="8.5">
-            <line x1="0" x2="16" y1="0" y2="0" stroke="currentColor" strokeWidth="2" className="text-link" />
-            <text x="20" y="3" fill="currentColor" className="text-muted">{t("uncertaintyResult.interventionCeac")}</text>
-            <line x1="126" x2="142" y1="0" y2="0" stroke="currentColor" strokeWidth="1.5" strokeDasharray="5 4" className="text-text" />
-            <text x="146" y="3" fill="currentColor" className="text-muted">{t("uncertaintyResult.ceaf")}</text>
-          </g>
         </svg>
+        <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 px-2 text-[9px] text-muted">
+          {series.map((item) => <span key={item.id} className="inline-flex items-center gap-1"><span className="h-0.5 w-3" style={{ backgroundColor: item.color }} />{item.id === "intervention" && observedStrategyIds.length === 0 ? t("uncertaintyResult.interventionCeac") : item.id}</span>)}
+          <span className="inline-flex items-center gap-1"><span className="w-3 border-t border-dashed border-text" />{t("uncertaintyResult.ceaf")}</span>
+        </div>
         <div className="px-2 text-center text-[9px] text-muted">
           {t("uncertaintyResult.thresholdAxis")}
         </div>
@@ -2616,7 +2656,7 @@ export function CeacChart({ rows, primaryThreshold, locale }: {
   );
 }
 
-function UncertaintyResultCard({
+export function UncertaintyResultCard({
   result,
   locale,
 }: {
@@ -2642,6 +2682,22 @@ function UncertaintyResultCard({
     (row) => Math.abs(row.threshold - decision.primary_threshold) <= 1e-9,
   );
   const authorized = result.workflow.classification !== "exploratory";
+  const multiStrategy = Boolean((decision.strategy_order ?? psa.strategy_order)?.length);
+  const primaryStrategy = primary?.strategy_with_highest_expected_net_benefit;
+  const tiedStrategies = primary?.expected_net_benefit_tied_strategy_ids ?? [];
+  const primaryProbability = multiStrategy && primaryStrategy
+    ? primary?.strategy_optimal_probabilities?.[primaryStrategy]
+    : undefined;
+  const displayedNmbStrategy = multiStrategy ? (primaryStrategy ?? tiedStrategies[0]) : undefined;
+  const primaryMeanNmb = displayedNmbStrategy
+    ? primary?.expected_net_monetary_benefit_by_strategy?.[displayedNmbStrategy]
+    : psa.mean_incremental_net_monetary_benefit;
+  const probabilityLabel = multiStrategy && primaryStrategy
+    ? `${t("uncertaintyResult.probability")} · ${primaryStrategy}`
+    : t("uncertaintyResult.probability");
+  const nmbStrategyLabel = primaryStrategy ?? (tiedStrategies.length > 1
+    ? tiedStrategies.join(" = ")
+    : null);
   return (
     <section className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
@@ -2668,13 +2724,19 @@ function UncertaintyResultCard({
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Metric
-          label={t("uncertaintyResult.probability")}
-          value={probability.format(psa.cost_effective_probability)}
+          label={probabilityLabel}
+          value={multiStrategy
+            ? (primaryProbability === undefined ? "—" : probability.format(primaryProbability))
+            : (psa.cost_effective_probability === undefined
+              ? "—"
+              : probability.format(psa.cost_effective_probability))}
           accent
         />
         <Metric
-          label={t("uncertaintyResult.meanInmb")}
-          value={amount.format(psa.mean_incremental_net_monetary_benefit)}
+          label={multiStrategy && nmbStrategyLabel
+            ? t("uncertaintyResult.bestExpectedNmb", { strategy: nmbStrategyLabel })
+            : t("uncertaintyResult.meanInmb")}
+          value={primaryMeanNmb === undefined ? "—" : amount.format(primaryMeanNmb)}
         />
         <Metric
           label={t("uncertaintyResult.iterations")}
@@ -2712,6 +2774,7 @@ function UncertaintyResultCard({
         rows={decision.threshold_results}
         primaryThreshold={decision.primary_threshold}
         locale={locale}
+        strategyOrder={decision.strategy_order ?? psa.strategy_order}
       />
       <details className="mt-3 text-[10px] text-muted">
         <summary className="cursor-pointer font-medium text-text">

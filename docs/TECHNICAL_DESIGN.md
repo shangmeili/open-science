@@ -296,7 +296,9 @@ the exact evidence-to-input choices. The engine, uncertainty runner, and budget
 impact runner repeat the audit and invalidate stale approval bindings.
 
 Analysis-plan schema `0.2.0` introduced a root `economic_basis`; schemas
-`0.3.0` through `0.7.0` retain it and executable extraction-to-model derivations. Each monetary
+`0.3.0` through `0.8.0` retain it and executable extraction-to-model derivations. Schema
+`0.8.0` adds 2–16 explicitly ordered strategy IDs, a declared pairwise baseline,
+fully incremental dominance/frontier output, and dynamic evidence paths. Each monetary
 mapping contains element-level source values and adjustment factors so the
 portable Python validator, native Rust approval boundary, and TypeScript review
 preview can all reject mixed or unreproducible currency/price-year inputs. The
@@ -316,13 +318,16 @@ EQ-5D/UK-3L metadata. It is an executable subset, not a copy of PMG36 or an
 agency-compliance claim.
 
 The uncertainty engine owns decision-uncertainty calculations rather than the
-language model or UI. Schemas `0.2.0` through `0.5.0` bind a declared threshold grid to the
+language model or UI. Schemas `0.2.0` through `0.7.0` bind a declared threshold grid to the
 analysis plan; the Python core uses one seeded PSA draw set for expected
 incremental NMB, intervention/comparator/tie probabilities, CEAF, and
 per-person EVPI with Monte Carlo error. Rust independently audits the grid and
 records its primary threshold and count. The portable validator implements the
 same fail-closed contract. The report package must copy the complete
-`decision_uncertainty` object exactly when present, while legacy results remain
+`decision_uncertainty` object exactly when present. Schema `0.7.0`, paired only
+with analysis schema `0.8.0`, records aligned per-strategy costs/QALYs, each
+strategy's unique-optimal probability, ties, CEAF, and multi-strategy EVPI;
+legacy results remain
 legacy-shaped. The React review pane is a read-only accessible visualization
 of these app-written values; it has no authority to calculate, choose, or alter
 thresholds.

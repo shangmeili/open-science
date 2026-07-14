@@ -9,7 +9,7 @@ Create a transparent local cost calculator; do not reuse the discounted cost-eff
 
 ## Workflow
 
-1. Read the exact current bytes of `heor/analysis-plan.json`. Confirm that it links `heor/budget-impact-plan.json`, uses two distinct strategies, and has a jurisdiction.
+1. Read the exact current bytes of `heor/analysis-plan.json`. Confirm that it links `heor/budget-impact-plan.json` and has a jurisdiction. For schema `0.8.0`, explicitly select two distinct declared strategy IDs as the displaced comparator and new intervention for this bounded BIA.
 2. Define the budget holder, jurisdiction, currency, price year, and perspective-aligned cost boundary. Record excluded cost categories with a rationale.
 3. Estimate the eligible treated population independently for each of three annual budget cycles. Preserve the derivation and distinguish synthetic assumptions from evidence.
 4. Define without-access and with-access scenarios. In this two-strategy MVP, the new-intervention share is zero without access; the comparator share is derived as one minus the intervention share.
@@ -27,7 +27,7 @@ Create a transparent local cost calculator; do not reuse the discounted cost-eff
 - Never invent population, uptake, price, utilization, or cost-offset inputs.
 - Never create approval events, accept analyst assumptions, or claim independent validation.
 - Keep confidential prices local and out of logs, exports, screenshots, and public reports unless the researcher explicitly authorizes their handling.
-- Stop at the two-strategy cost-calculator boundary when induced demand, population churn, severity mix, combination therapy, or more than two treatments materially affect the question; record the need for a future cohort or patient-level BIA model.
+- Stop at the two-share cost-calculator boundary when induced demand, population churn, severity mix, combination therapy, or more than two active market shares materially affect the question; a multi-strategy CEA does not make this pairwise BIA a multi-treatment market model.
 
 ## Handoff
 

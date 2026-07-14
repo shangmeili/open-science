@@ -152,13 +152,22 @@ around first-party schemas, evidence-linked inputs, bounded deterministic
 execution, three validator layers, exact artifact hashes, app-owned approval
 bindings, and natural-language repair. The uncertainty slice now internalizes
 the useful CEAC/EVPI concepts identified in BCEA and methods guidance without
-embedding BCEA, R, or an upstream prompt: the first-party two-strategy engine
-derives CEAC, CEAF, and per-person EVPI from its own seeded PSA, exposes Monte
+embedding BCEA, R, or an upstream prompt: the first-party engine derives CEAC,
+CEAF, and per-person EVPI from its own seeded PSA, exposes Monte
 Carlo error, and leaves population EVPI and EVPPI uncalculated. This derivative
 passes the same schema, portable/native audit, regression, adversarial,
 report-binding, UI, and packaging gates as other first-party assets. BCEA
 remains an optional future adapter for broader validated analyses, not a hidden
 runtime dependency.
+
+Schema `0.8.0` extends that admitted first-party asset to 2–16 strategies with
+explicit ordering, strict/extended dominance, a complete incremental efficiency
+frontier, and multi-strategy net-benefit competition. Uncertainty schema `0.7.0`
+adds per-strategy CEAC series, explicit ties, CEAF, and multi-strategy EVPI while
+preserving legacy result shapes. The BIA asset remains deliberately pairwise: a
+multi-strategy analysis must select two declared IDs for the displaced-comparator
+and new-intervention shares rather than pretending the two-share calculator is a
+multi-treatment market model.
 
 The BIA slice also rejects method creep:
 it stops rather than pretending a two-strategy cost calculator can represent

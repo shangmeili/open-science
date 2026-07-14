@@ -8,12 +8,15 @@ select distributions, combine endpoints, or infer treatment effects.
 from __future__ import annotations
 
 from math import expm1, isclose, isfinite
+import re
 from typing import Any
 
 
 TRANSFORMATION_METHOD = "deterministic_transformation"
 TRANSFORMATION_OPERATION = "parametric_survival_to_transition_schedule"
 ANALYSIS_SCHEMA_VERSION = "0.6.0"
+MULTI_STRATEGY_SCHEMA_VERSION = "0.8.0"
+STRATEGY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 MAX_SURVIVAL_CYCLES = 10_000
 TOLERANCE = 1e-12
 
@@ -50,15 +53,14 @@ def validate_survival_curve_mappings(
         ):
             continue
         label = f"input_provenance[{position}]"
-        if schema_version != ANALYSIS_SCHEMA_VERSION:
+        if schema_version not in {ANALYSIS_SCHEMA_VERSION, MULTI_STRATEGY_SCHEMA_VERSION}:
             raise SurvivalCurveError(
-                f"{label}: parametric survival transformations require schema_version {ANALYSIS_SCHEMA_VERSION}"
+                f"{label}: parametric survival transformations require schema_version {ANALYSIS_SCHEMA_VERSION} or {MULTI_STRATEGY_SCHEMA_VERSION}"
             )
         path = mapping.get("path")
-        if path not in {
-            "strategies.comparator.transition_schedule",
-            "strategies.intervention.transition_schedule",
-        }:
+        if not isinstance(path, str) or not _transition_schedule_path(
+            path, plan, schema_version
+        ):
             raise SurvivalCurveError(
                 f"{label}: parametric survival transformation is allowed only for a transition schedule"
             )
@@ -93,6 +95,35 @@ def validate_survival_curve_mappings(
             raise SurvivalCurveError(
                 f"{label}: transformation must use every proposed assumption exactly as declared"
             )
+
+
+def _transition_schedule_path(
+    path: str, plan: dict[str, Any], schema_version: str
+) -> bool:
+    parts = path.split(".")
+    return (
+        len(parts) == 3
+        and parts[0] == "strategies"
+        and _strategy_id_allowed(parts[1], plan, schema_version)
+        and parts[2] == "transition_schedule"
+    )
+
+
+def _strategy_id_allowed(
+    strategy_id: str, plan: dict[str, Any], schema_version: str
+) -> bool:
+    if schema_version != MULTI_STRATEGY_SCHEMA_VERSION:
+        return strategy_id in {"comparator", "intervention"}
+    order = plan.get("strategy_order")
+    strategies = plan.get("strategies")
+    return (
+        STRATEGY_ID_PATTERN.fullmatch(strategy_id) is not None
+        and isinstance(order, (list, tuple))
+        and all(isinstance(item, str) for item in order)
+        and isinstance(strategies, dict)
+        and set(strategies) == set(order)
+        and strategy_id in order
+    )
 
 
 def apply_survival_curve_mappings(

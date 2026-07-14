@@ -15,7 +15,7 @@ Use a future cohort or patient-level adapter when target-population entry and ex
 - a budget-holder perspective, jurisdiction, currency, price year, and alignment rationale;
 - `horizon_years: 3` and `discount_rate: 0`;
 - three annual eligible-population values and their derivation;
-- comparator/intervention identifiers matching the analysis plan;
+- comparator/intervention identifiers matching legacy strategy names or selecting two distinct schema `0.8.0` strategy keys;
 - three annual new-intervention shares for both market scenarios;
 - included intervention and condition-related annual per-patient costs;
 - optional scenario-level implementation costs and explicit excluded categories;
