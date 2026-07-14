@@ -4,21 +4,37 @@ on:
   pull_request:
     paths:
       - "python/heor_core/**"
-      - "runtime/skills/core/heor-*/**"
+      - "runtime/skills/core/**"
+      - "apps/desktop/src-tauri/**"
+      - "apps/desktop/src/**"
       - "runtime/assets/asset-admission-registry.json"
       - "scripts/dev/validate_asset_admission.py"
       - "scripts/dev/test_asset_admission.py"
+      - "scripts/dev/test_core_skills.py"
       - "scripts/dev/test_heor_artifact_contracts.py"
+      - "scripts/dev/test_heor_local_evidence.py"
+      - "scripts/dev/test_tauri_heor_resources.py"
+      - "docs/HEOR_*.md"
+      - "package.json"
+      - "pnpm-lock.yaml"
       - ".github/workflows/heor-core.yml"
   push:
     branches: [master]
     paths:
       - "python/heor_core/**"
-      - "runtime/skills/core/heor-*/**"
+      - "runtime/skills/core/**"
+      - "apps/desktop/src-tauri/**"
+      - "apps/desktop/src/**"
       - "runtime/assets/asset-admission-registry.json"
       - "scripts/dev/validate_asset_admission.py"
       - "scripts/dev/test_asset_admission.py"
+      - "scripts/dev/test_core_skills.py"
       - "scripts/dev/test_heor_artifact_contracts.py"
+      - "scripts/dev/test_heor_local_evidence.py"
+      - "scripts/dev/test_tauri_heor_resources.py"
+      - "docs/HEOR_*.md"
+      - "package.json"
+      - "pnpm-lock.yaml"
       - ".github/workflows/heor-core.yml"
   workflow_dispatch:
 
@@ -47,3 +63,51 @@ jobs:
         run: python scripts/dev/test_heor_local_evidence.py -v
       - name: Test third-party asset admission contract
         run: python scripts/dev/test_asset_admission.py -v
+      - name: Validate first-party core Skills
+        run: python scripts/dev/test_core_skills.py -v
+      - name: Validate packaged HEOR Python resources
+        run: python scripts/dev/test_tauri_heor_resources.py -v
+
+  native:
+    name: Native contracts (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl \
+            wget file libxdo-dev libssl-dev libayatana-appindicator3-dev \
+            librsvg2-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: Test native HEOR audit and execution contracts
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+
+  frontend:
+    name: Frontend contracts
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Test
+        run: pnpm test
+      - name: Lint
+        run: pnpm lint
+      - name: Build
+        run: pnpm build

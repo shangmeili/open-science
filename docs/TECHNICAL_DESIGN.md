@@ -1,16 +1,18 @@
-# AI4S Workbench Desktop — Technical Design
+# AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1, 2026-07-02).** Built and verified: Tauri 2 shell + React
-> UI; **OpenCode** bundled as an isolated sidecar (auto-started, app-private config/data,
-> dedicated port); `OpenCodeClient` over HTTP + SSE; real multi-session chat with history;
-> Skills page backed by OpenCode's real skills/agents; macOS `.dmg`; cross-platform CI.
-> Planned (not yet built): self-authored scientific skills, MCP connectors, provenance/
-> reviewer engine, literature search, Jupyter runtime, remote compute. This document is the
-> target design; sections mixing built vs planned are noted inline.
+> **Implementation status (v0.1.9, 2026-07-14).** Built and locally verified: Tauri 2 +
+> React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
+> natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
+> hash-bound evidence, reference-case, analysis, validation, reporting, and release gates;
+> deterministic cohort, uncertainty, and budget-impact engines; and macOS packaging.
+> Windows and Linux packaging workflows exist, but the current `0.8.0`/`0.7.0`
+> multi-strategy slice still requires remote runner and clean-machine release evidence.
+> Jupyter, broader MCP integrations, signing/notarization, and advanced HEOR methods remain
+> planned. Sections below distinguish implemented contracts from target design.
 
 ## 1. Technical goals
 
-A high-performance, open-source research workbench with macOS / Windows installers.
+A high-performance, open-source research workbench with macOS, Windows, and Linux installers.
 Design priorities: fast startup; smooth UI; simple install; replaceable agent runtime;
 local and sandboxed execution; MCP / skills / workflow support; artifact provenance;
 extensibility to Jupyter, HPC, Modal, Docker, and remote servers.
@@ -18,7 +20,7 @@ extensibility to Jupyter, HPC, Modal, Docker, and remote servers.
 ## 2. Overall architecture
 
 ```text
-AI4S Workbench Desktop
+AI4HEOR Desktop
 ├── Desktop Shell: Tauri 2
 ├── Frontend: React + TypeScript + Vite
 ├── UI System: Tailwind CSS + Radix UI / shadcn-style components
@@ -29,7 +31,7 @@ AI4S Workbench Desktop
 ├── MCP Layer: filesystem / paper-search / BioMCP / Zotero / GitHub / custom
 ├── Execution Layer: OpenCode agents/tools + optional Jupyter Kernel Gateway
 ├── Storage: Local workspace + SQLite + JSONL provenance
-└── Packaging: Tauri DMG / APP / NSIS / MSI
+└── Packaging: Tauri DMG / APP / NSIS / MSI / DEB / RPM
 ```
 
 ## 3. Tauri over Electron
@@ -216,7 +218,7 @@ synthesis extraction as strict JSON. The native selection audit repeats that
 check against current workspace bytes and, for monetary inputs, verifies each
 `source_value` against its named extraction scalar or array index before the
 existing normalization arithmetic. Only `direct_evidence`, `explicit_assumption`,
-`monetary_adjustment`, and the schema `0.5.0` through `0.7.0` bounded
+`monetary_adjustment`, and the schema `0.5.0` through `0.8.0` bounded
 `deterministic_transformation` operations described below are supported. Free-form
 expressions remain blocked.
 
@@ -240,12 +242,12 @@ portable provenance validator, and TypeScript preview independently compute
 `1 - exp(-sum(rate)*cycle_length)`, allocate event mass by rate share, and compare
 the complete result with both the derivation snapshot and model input. Static
 outputs require one phase; schedules start at cycle 1 and remain strictly ordered.
-Uncertainty schemas `0.3.0` through `0.5.0` admit only exact positive event-rate targets inside
+Uncertainty schemas `0.3.0` through `0.7.0` admit only exact positive event-rate targets inside
 these transformations. Python applies all sampled rates to an ephemeral plan,
 recomputes each affected complete output once, updates the derivation snapshot,
 and then invokes the ordinary model validator. The portable validator and native
 Rust boundary independently enforce exact event-basis binding and positive gamma,
-lognormal, or uniform distributions. Schemas `0.4.0` and `0.5.0` may correlate 2–32 scalar
+lognormal, or uniform distributions. Schemas `0.4.0` through `0.7.0` may correlate 2–32 scalar
 lognormal members through an evidence-bound, symmetric, strictly positive-definite
 latent log-scale matrix and deterministic lower-triangular Cholesky multiplication.
 
@@ -257,7 +259,7 @@ portable validator, and TypeScript independently evaluate cumulative hazard at
 each cycle boundary, convert its increment with stable `expm1` arithmetic, and
 compare every emitted matrix with the current schedule and derivation snapshot.
 Each parameter binds exactly one extraction or proposed assumption. Uncertainty
-schema `0.5.0` or `0.6.0` may target the exact positive exponential rate or Weibull shape or
+schemas `0.5.0` through `0.7.0` may target the exact positive exponential rate or Weibull shape or
 scale value. Python applies all replacements, recomputes the complete schedule
 and derivation snapshot, then invokes ordinary validation; portable and native
 audits independently enforce the same target, basis, and distribution contract.
@@ -272,7 +274,7 @@ extraction or proposed-assumption basis. Python, Rust, the portable validator,
 and TypeScript independently compute
 `1 - exp(log(1-p) * cycle_length / source_interval)` with stable log/exponential
 primitives and compare the complete output with the current transition input
-and derivation snapshot. Uncertainty schema `0.6.0` may target only the exact
+and derivation snapshot. Uncertainty schema `0.6.0` or `0.7.0` may target only the exact
 source probability, accepts Beta or Uniform strictly inside `(0,1)`, and
 recomputes the complete affected transformation before normal validation.
 Competing events, time-varying hazards, certain events, relative effects,
@@ -332,8 +334,8 @@ legacy-shaped. The React review pane is a read-only accessible visualization
 of these app-written values; it has no authority to calculate, choose, or alter
 thresholds.
 
-Uncertainty engine `0.7.0` preserves prior schema draw behavior when no current
-correlation groups exist. For a schema `0.4.0` or `0.5.0` group it draws standard normals in
+Uncertainty engine `0.8.0` preserves prior schema draw behavior when no current
+correlation groups exist. For a schema `0.4.0` through `0.7.0` group it draws standard normals in
 declared group/member order, applies the validated lower Cholesky factor, then
 uses each member's declared lognormal parameters. Groups are sampled before
 ungrouped parameters. The result echoes every admitted group and matrix so
@@ -504,26 +506,33 @@ secrets). Never enter provenance, logs, crash reports, git, or exported projects
 
 ### 12.1 macOS
 
-Outputs: `AI4S-Workbench-aarch64.dmg`, `AI4S-Workbench-x64.dmg`,
-`AI4S-Workbench-universal.dmg` (later). Code signing / notarization needs an Apple
+Outputs: `AI4HEOR_*_aarch64.dmg`, `AI4HEOR_*_x64.dmg`, and a universal build later.
+Code signing / notarization needs an Apple
 Developer account; a free account cannot notarize, so users may still see an
 "unverified" prompt.
 
 ### 12.2 Windows
 
-Outputs: `AI4S-Workbench-Setup.exe`, `AI4S-Workbench.msi` (later). Prefer the NSIS
+Outputs: `AI4HEOR_*_x64-setup.exe` and `AI4HEOR_*_x64_en-US.msi`. Prefer the NSIS
 `Setup.exe` in v1 for a familiar install experience. Unsigned apps run but may trigger
 SmartScreen; formal release needs a code-signing certificate (EV certs earn SmartScreen
 reputation faster). Early GitHub Release preview builds may be unsigned, but the README
 must say so.
 
-### 12.3 Auto update
+### 12.3 Linux
+
+Outputs: `.deb` and `.rpm` for x86_64 Linux. AppImage remains disabled because
+`linuxdeploy` invokes `ldd` on the bundled Bun-built OpenCode sidecar and aborts on
+that valid standalone binary. This is a documented distribution constraint, not a
+claim that Linux installation or first launch has been verified on the current commit.
+
+### 12.4 Auto update
 
 Tauri updater with GitHub Releases + `latest.json` + a Tauri updater signature (update
 packages must be signed; signature verification cannot be disabled). v0.1 no forced
 auto-update; v0.2 adds a GitHub Releases updater; v0.3 adds in-app update prompts.
 
-### 12.4 CI/CD
+### 12.5 CI/CD
 
 GitHub Actions build matrix:
 
@@ -533,6 +542,8 @@ macos-latest:
   - x86_64-apple-darwin
 windows-latest:
   - x86_64-pc-windows-msvc
+ubuntu-22.04:
+  - x86_64-unknown-linux-gnu
 ```
 
 The official Tauri GitHub Action builds native binaries for macOS / Linux / Windows and
@@ -636,7 +647,8 @@ ai4s-workbench/
 
 ### 17.2 v0.1 must deliver
 
-macOS app runs; Windows app runs; README has screenshots; a complete demo; API key
+macOS app runs; Windows and Linux packages build on native runners; README has
+screenshots; a complete demo; API key
 config; open a workspace; a bundled OpenCode the app auto-starts and drives (sessions,
 streaming, history, skills); show plan / tool / artifact / review; export `report.md`.
 

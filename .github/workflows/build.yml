@@ -49,6 +49,11 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -69,6 +74,12 @@ jobs:
       - name: Validate third-party asset admission registry
         run: python scripts/dev/test_asset_admission.py -v
 
+      - name: Validate first-party core Skills
+        run: python scripts/dev/test_core_skills.py -v
+
+      - name: Validate packaged HEOR Python resources
+        run: python scripts/dev/test_tauri_heor_resources.py -v
+
       - name: Fetch bundled uv sidecar
         shell: bash
         run: bash scripts/dev/fetch-uv.sh ${{ matrix.target }}
@@ -86,7 +97,7 @@ jobs:
           # On a v* tag push, attach installers to a draft GitHub Release.
           # Empty tagName (workflow_dispatch) skips release creation.
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          releaseName: ${{ github.ref_type == 'tag' && format('Open Science {0}', github.ref_name) || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('AI4HEOR {0}', github.ref_name) || '' }}
           releaseDraft: true
           # Standing install/first-launch notes — every draft is born with these
           # (the builds are unsigned/un-notarized, so users must clear Gatekeeper /
@@ -97,10 +108,10 @@ jobs:
             These installers are **not code-signed or notarized**, so your OS warns on first launch. This is expected; clear it once:
 
             **macOS** — Apple Silicon: `…_aarch64.dmg` · Intel: `…_x64.dmg` (requires macOS 13+)
-            1. Open the DMG and drag **Open Science** into Applications.
+            1. Open the DMG and drag **AI4HEOR** into Applications.
             2. If you see *"… is damaged and can't be opened"* or *"unidentified developer"*, clear the quarantine attribute in Terminal, then open normally:
                ```
-               xattr -cr "/Applications/Open Science.app"
+               xattr -cr "/Applications/AI4HEOR.app"
                ```
 
             **Windows** — `…_x64-setup.exe` or `…_x64_en-US.msi`
@@ -126,4 +137,4 @@ jobs:
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
-          if-no-files-found: warn
+          if-no-files-found: error

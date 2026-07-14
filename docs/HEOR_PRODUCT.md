@@ -24,8 +24,10 @@ a form-led modeling application.
 
 ## MVP decision problem
 
-The first complete workflow compares two strategies using a static or piecewise
-model-cycle-dependent cohort state-transition model and a three-year budget impact analysis. Both deterministic
+The current complete cost-effectiveness workflow compares 2–16 explicitly
+ordered strategies against a declared baseline using a static or piecewise
+model-cycle-dependent cohort state-transition model. The bounded three-year
+budget impact analysis explicitly selects two of those strategies. Both deterministic
 calculation paths, independent validation, hash-bound reporting, and the
 human-controlled local release gate are implemented.
 
@@ -225,14 +227,14 @@ rate, matrix, cycle length, phase, or basis set therefore fails closed.
 
 This is a competing-first-event calculation under constant within-phase rates
 and an at-most-one-state-change-per-cycle assumption. It is not general CTMC
-matrix exponentiation. Uncertainty schemas `0.3.0` through `0.6.0` can vary exact positive event
+matrix exponentiation. Uncertainty schemas `0.3.0` through `0.7.0` can vary exact positive event
 rates with gamma, lognormal, or strictly positive uniform distributions. For each
-DSA run or PSA draw, engine `0.7.0` recomputes each affected complete matrix or
+DSA run or PSA draw, the compatible uncertainty engine recomputes each affected complete matrix or
 schedule and its derivation snapshot before ordinary validation. Changing only a
 derived probability row still fails closed. The adapter does not implement
 probability-time conversion inside the rate adapter, HR/RR/OR application, pooling, calibration, survival
 extrapolation, within-cycle multi-step paths, arbitrary correlated rate models, or
-transformation-space structural scenarios, except that schemas `0.4.0` through `0.6.0` may correlate
+transformation-space structural scenarios, except that schemas `0.4.0` through `0.7.0` may correlate
 only evidence-bound lognormal rate members through the bounded latent log-scale
 Cholesky contract. Eligible single-event source probabilities route to the separate
 `$heor-probability-time-adapter`; `$heor-transition-rate-adapter`
@@ -256,9 +258,9 @@ schedule drift fails closed. The natural-language workbench exposes this through
 `$heor-survival-curve-adapter`; the form action is only a shortcut into that
 conversation.
 
-Uncertainty schema `0.5.0` or `0.6.0` may vary exact positive exponential or Weibull
+Uncertainty schemas `0.5.0` through `0.7.0` may vary exact positive exponential or Weibull
 parameter values with evidence-bound gamma, lognormal, or strictly positive
-uniform distributions. Engine `0.7.0` applies all replacements and recomputes
+uniform distributions. The compatible uncertainty engine applies all replacements and recomputes
 the complete affected schedule and derivation snapshot before ordinary model
 validation. This is parameter propagation for an already-selected curve, not a
 complete survival-analysis workflow.
@@ -285,7 +287,7 @@ provenance audit, native Rust audit, and browser preview independently
 recompute the complete matrix or schedule. `$heor-probability-time-adapter` is
 the natural-language entry point; the form action only drafts that conversation.
 
-Uncertainty schema `0.6.0` may vary the exact `source_probability` with an
+Uncertainty schema `0.6.0` or `0.7.0` may vary the exact `source_probability` with an
 evidence-bound Beta or Uniform distribution strictly inside `(0,1)`. Every DSA
 run and PSA draw recomputes the complete transition input and derivation
 snapshot before model validation. Competing events, probabilities 0 or 1,
@@ -298,7 +300,7 @@ a specific decision problem.
 ## Executable monetary basis
 
 Analysis-plan schema `0.2.0` introduced one calculation currency and price
-year, and current schemas through `0.7.0` retain that contract while binding each source
+year, and current schemas through `0.8.0` retain that contract while binding each source
 value to evidence or an explicit assumption.
 Every state-cost element and non-null willingness-to-pay value records its
 source value, source currency, source price year, positive composite adjustment
@@ -526,36 +528,44 @@ approval, reimbursement suitability, or external tamper-proofing.
   missing second confirmation, rejection, changed synthesis, or tampered review
   chain fails closed; this remains distinct from authenticated independent
   duplicate extraction.
-- Evidence-to-input approval also requires schema `0.3.0` through `0.7.0`, an exact model-value
+- Evidence-to-input approval also requires schema `0.3.0` through `0.8.0`, an exact model-value
   snapshot per mapping, strict JSON equality for direct evidence, and extraction-
   bound source values for monetary normalization. Changed, narrative, unused,
   or silently transformed extraction values fail closed.
-- A scheduled-transition plan additionally requires schema `0.4.0`, exactly one
+- A scheduled-transition plan additionally requires schema `0.4.0` through `0.8.0`, exactly one
   transition mechanism per strategy, ordered in-horizon change points, valid
   matrices, mass conservation, and schedule-aware provenance and uncertainty
   targets. Static `0.3.0` plans remain backward compatible.
-- A schema `0.5.0` transition-rate mapping additionally requires the bounded
+- A schema `0.5.0` or `0.8.0` transition-rate mapping additionally requires the bounded
   constant competing-rate operation, exact cycle length, complete ordered rows
   and phases, one declared basis per event, and exact output reproduction. Rate-
-  space uncertainty additionally requires uncertainty schema `0.3.0` through `0.6.0`, an exact positive
+  space uncertainty additionally requires uncertainty schema `0.3.0` through `0.7.0`, an exact positive
   event-rate target, one matching event basis ID, and full transformation
   recomputation for every DSA/PSA run. Correlated rate sampling additionally
-  requires uncertainty schema `0.4.0` through `0.6.0` and the evidence-bound lognormal-Cholesky contract.
-- A schema `0.6.0` survival mapping additionally requires exactly two states,
+  requires uncertainty schema `0.4.0` through `0.7.0` and the evidence-bound lognormal-Cholesky contract.
+- A schema `0.6.0` or `0.8.0` survival mapping additionally requires exactly two states,
   one absorbing event state, an exponential or Weibull scale/shape declaration,
   positive singly bound parameters, exact cycle length, a complete per-cycle
   schedule, and independent reproduction across all four audit layers. Survival-
-  parameter DSA/PSA additionally requires uncertainty schema `0.5.0` or `0.6.0`, an exact
+  parameter DSA/PSA additionally requires uncertainty schema `0.5.0` through `0.7.0`, an exact
   positive parameter-value target, its sole basis ID, and full schedule
   recomputation. Fit, curve selection, covariance reconstruction, and
   extrapolation validity remain explicit gaps.
-- A schema `0.7.0` probability-time mapping additionally requires at most one
+- A schema `0.7.0` or `0.8.0` probability-time mapping additionally requires at most one
   event per row, a source probability strictly inside `(0,1)`, explicit positive
   source and model intervals, one declared basis per event, and exact complete
   output reproduction. Source-probability DSA/PSA additionally requires
-  uncertainty schema `0.6.0`, strict `(0,1)` bounds, Beta or bounded Uniform,
+  uncertainty schema `0.6.0` or `0.7.0`, strict `(0,1)` bounds, Beta or bounded Uniform,
   its sole basis ID, and full transition-input recomputation. Competing events,
   time-varying hazards, relative effects, and clinical applicability remain gaps.
+- A schema `0.8.0` analysis additionally requires 2–16 unique safe strategy
+  IDs, exact agreement between `strategy_order` and `strategies`, and the
+  declared baseline first. Results retain baseline-pairwise comparisons and
+  independently identify equivalent points, strict and extended dominance,
+  the efficiency frontier, and adjacent-frontier ICERs. Paired uncertainty
+  schema `0.7.0` reports every strategy's unique-optimal CEAC probability,
+  separate tie probability, CEAF, and exact per-person EVPI. BIA remains a
+  bounded two-strategy calculator and must select two distinct declared IDs.
 - Exploratory, analysis-authorized, independently validated, and locally
   released decision-ready states remain distinct. Any stale package, binding,
   validation, result reproduction, actor, or approval sequence fails closed.
