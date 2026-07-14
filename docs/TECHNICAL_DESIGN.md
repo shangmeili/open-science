@@ -330,20 +330,24 @@ least two structural scenarios. The validator checks file hashes when given the
 workspace root and rejects model-order drift, invalid or incomparable landmarks,
 fewer than two converged candidates, and embedded approval or selection fields.
 The artifact also names the exact analysis ID and parametric-survival provenance
-path. The portable validator and native Rust auditor require that target to be
-the sole survival target in the current plan and require the plan-selected
-distribution to be a converged pre-specified candidate. The artifact state
+path. The portable validator and native Rust auditor require the plan-selected
+distribution to be a converged pre-specified candidate. One target uses the
+fixed review path. Plans with 2–32 targets use the schema `0.1.0` fixed collection
+manifest, whose entries must exactly match plan target count and order and bind
+one safely named schema `0.2.0` review per target. The artifact state
 remains `awaiting_human_selection`; only the app-owned analysis-plan gate can
-authorize downstream use, and that event binds the exact current review hash.
-The review pane exposes required/not-required, target, selected family,
-convergence, scenarios, recommendation, and blocking errors without turning the
-recommendation into authority. A user-installed isolated
+authorize downstream use, and that event binds either the exact single review or
+the manifest plus every referenced review hash. The review pane exposes required/
+not-required, collection coverage, target, selected family, convergence,
+scenarios, recommendation, and blocking errors without turning the recommendation
+into authority. A user-installed isolated
 `survHE` environment is a future optional execution backend and requires a
 separate patient-level data and command-approval contract. The alpha imports
 only an already-generated local fit bundle; it does not access or fit patient-
 level input. The backend is not bundled, linked into the deterministic Python
-core, or claimed as tested on a machine where the package is absent. Multi-curve
-plans remain fail-closed until an indexed collection contract is admitted.
+core, or claimed as tested on a machine where the package is absent. The collection
+audits independently fitted curves; it does not establish PFS/OS consistency,
+arm alignment, joint covariance, or partitioned-survival validity.
 
 Analysis-plan schema `0.10.0` admits only
 `relative_effect_to_transition_schedule` for a complete two-state schedule with

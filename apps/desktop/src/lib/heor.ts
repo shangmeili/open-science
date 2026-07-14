@@ -6,6 +6,7 @@ export const HEOR_REFERENCE_CASE_ASSESSMENT_PATH = "heor/reference-case-assessme
 export const HEOR_UNCERTAINTY_PLAN_PATH = "heor/uncertainty-plan.json";
 export const HEOR_BUDGET_IMPACT_PLAN_PATH = "heor/budget-impact-plan.json";
 export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH = "heor/survival-extrapolation-review.json";
+export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH = "heor/survival-extrapolation-reviews.json";
 export const HEOR_MODEL_VALIDATION_PATH = "heor/model-validation.json";
 export const HEOR_REPORT_PACKAGE_PATH = "heor/report-package.json";
 export const HEOR_REPORT_DOCUMENT_PATH = "heor/report.md";
@@ -386,6 +387,8 @@ export interface HeorSurvivalReviewAudit {
   required: boolean;
   status: "not_required" | "complete" | "incomplete";
   reviewSha256: string | null;
+  targetCount: number;
+  reviewCount: number;
   analysisId: string;
   targetPath: string | null;
   selectedFamily: string | null;
@@ -394,8 +397,37 @@ export interface HeorSurvivalReviewAudit {
   failedModels: string[];
   scenarioCount: number;
   recommendedFamily: string | null;
+  artifactBindings: Array<{ path: string; sha256: string }>;
+  targets: HeorSurvivalTargetSummary[];
   blockingGaps: string[];
   errors: string[];
+}
+
+export interface HeorSurvivalTargetSummary {
+  targetPath: string;
+  selectedFamily: string;
+  reviewPath: string;
+  reviewSha256: string;
+  complete: boolean;
+  candidateModels: number;
+  convergedModels: number;
+  failedModels: string[];
+  scenarioCount: number;
+  recommendedFamily: string | null;
+  errors: string[];
+}
+
+export function heorSurvivalReviewBindingsCurrent(
+  event: Pick<HeorApprovalEvent, "relatedArtifacts"> | undefined,
+  audit: HeorSurvivalReviewAudit,
+): boolean {
+  if (!audit.required) return true;
+  return audit.complete
+    && audit.artifactBindings.length > 0
+    && audit.artifactBindings.every((expected) =>
+      event?.relatedArtifacts?.some((binding) =>
+        binding.path === expected.path && binding.sha256 === expected.sha256,
+      ) === true);
 }
 
 export interface HeorModelValidationAudit {
@@ -2764,6 +2796,8 @@ export const HEOR_BROWSER_DEMO_SURVIVAL_REVIEW_AUDIT: HeorSurvivalReviewAudit = 
   required: false,
   status: "not_required",
   reviewSha256: null,
+  targetCount: 0,
+  reviewCount: 0,
   analysisId: HEOR_BROWSER_DEMO_PLAN.analysis_id,
   targetPath: null,
   selectedFamily: null,
@@ -2772,6 +2806,8 @@ export const HEOR_BROWSER_DEMO_SURVIVAL_REVIEW_AUDIT: HeorSurvivalReviewAudit = 
   failedModels: [],
   scenarioCount: 0,
   recommendedFamily: null,
+  artifactBindings: [],
+  targets: [],
   blockingGaps: [],
   errors: [],
 };

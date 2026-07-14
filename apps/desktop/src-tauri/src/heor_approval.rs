@@ -497,13 +497,11 @@ pub fn append_heor_approval(
                     path: crate::heor_budget_impact::BUDGET_IMPACT_PLAN_PATH.into(),
                     sha256: budget_impact.budget_impact_sha256,
                 });
-                if let Some(binding) =
+                related_artifacts.extend(
                     crate::heor_survival_review::require_survival_review_approvable(
                         &workspace, &raw,
-                    )?
-                {
-                    related_artifacts.push(binding);
-                }
+                    )?,
+                );
             }
             ApprovalGate::IndependentValidation => {
                 let validation = crate::heor_validation::require_model_validation_approvable(

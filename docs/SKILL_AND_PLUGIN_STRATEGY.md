@@ -62,15 +62,16 @@ and reporting.
 
 `heor-survival-extrapolation-review` now bundles the alpha schema `0.2.0`
 artifact, validator, template, natural-language action, and Human-selection stop
-rule. Its native Rust audit matches the sole plan target and selected
-distribution, verifies local evidence hashes, drives the review-pane status,
-and binds the exact review hash into analysis-plan approval and run
+rule. Its native Rust audit matches every plan target and selected
+distribution, verifies local evidence hashes, drives single or collection review-pane status,
+and binds the exact single review or collection-plus-review hashes into analysis-plan approval and run
 authorization. It does not yet ship an R package environment: `survHE` remains a user-
 installed isolated optional backend whose real fitting path requires execution
 approval and package-specific validation on a machine where it is installed.
 The current alpha imports only an already-generated local fit bundle and never
-reads or fits patient-level input. It fails closed for multi-curve plans until a
-collection schema and corresponding Human review surface are admitted.
+reads or fits patient-level input. Plans with 2–32 targets use the ordered schema
+`0.1.0` collection and remain fail-closed unless every independent review is
+current. Cross-curve PFS/OS and partitioned-survival consistency are not inferred.
 
 The next assets should be developed in this order. Each row names the Skill, but
 shipping also requires its schema, deterministic or isolated execution layer,
@@ -79,7 +80,7 @@ gate, and packaged cross-platform evidence.
 
 | Priority | First-party Skill asset | Narrow responsibility and stop boundary |
 | --- | --- | --- |
-| Shipped alpha / P1 backend | `heor-survival-extrapolation-review` | Validate and natively audit a sole-target pre-specified survival-model comparison, selected plan distribution, observed/extrapolated landmarks, diagnostics, clinical/external plausibility, hashes, alternatives, and an awaiting-Human gate; bind the current review hash at plan approval. Automatic selection and multi-curve plans are forbidden. The isolated `survHE` backend remains unshipped. |
+| Shipped alpha / P1 backend | `heor-survival-extrapolation-review` | Validate and natively audit one or an ordered collection of pre-specified survival-model comparisons, selected plan distributions, observed/extrapolated landmarks, diagnostics, clinical/external plausibility, hashes, alternatives, and awaiting-Human gates; bind every current review hash at plan approval. Automatic selection and cross-curve validity inference are forbidden. The isolated `survHE` backend remains unshipped. |
 | P0 | `heor-partitioned-survival` | Build bounded PFS/OS state occupancy only after endpoint, time-origin, curve, crossing, monotonicity, and internal-coherence review. Stop for hidden treatment-effect composition, competing estimands, or incoherent occupancy. |
 | P0 | `heor-treatment-effect-duration` | Represent full-duration, stopping, waning, and alternative treatment-effect scenarios explicitly. It owns the cases rejected by the constant-HR and RR/OR adapters and never infers duration from a point estimate. |
 | P0 | `heor-cost-input-normalization` | Bind quantity, unit price, currency, price year, inflation index, exchange rate, taxes/discounts, and source jurisdiction before calculating a model-basis cost. Stop for missing units, incompatible price concepts, or unsupported indices. |

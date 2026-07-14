@@ -9,6 +9,7 @@ use std::io::Read;
 use std::path::{Component, Path};
 
 pub const SURVIVAL_REVIEW_PATH: &str = "heor/survival-extrapolation-review.json";
+pub const SURVIVAL_REVIEW_INDEX_PATH: &str = "heor/survival-extrapolation-reviews.json";
 const REVIEW_CAP_BYTES: u64 = 10 * 1024 * 1024;
 const EVIDENCE_CAP_BYTES: u64 = 256 * 1024 * 1024;
 const FAMILIES: &[&str] = &[
@@ -29,6 +30,8 @@ pub struct SurvivalReviewAudit {
     pub required: bool,
     pub status: &'static str,
     pub review_sha256: Option<String>,
+    pub target_count: usize,
+    pub review_count: usize,
     pub analysis_id: String,
     pub target_path: Option<String>,
     pub selected_family: Option<String>,
@@ -37,7 +40,25 @@ pub struct SurvivalReviewAudit {
     pub failed_models: Vec<String>,
     pub scenario_count: usize,
     pub recommended_family: Option<String>,
+    pub artifact_bindings: Vec<crate::heor_approval::ArtifactBinding>,
+    pub targets: Vec<SurvivalTargetSummary>,
     pub blocking_gaps: Vec<String>,
+    pub errors: Vec<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SurvivalTargetSummary {
+    pub target_path: String,
+    pub selected_family: String,
+    pub review_path: String,
+    pub review_sha256: String,
+    pub complete: bool,
+    pub candidate_models: usize,
+    pub converged_models: usize,
+    pub failed_models: Vec<String>,
+    pub scenario_count: usize,
+    pub recommended_family: Option<String>,
     pub errors: Vec<String>,
 }
 
@@ -182,6 +203,8 @@ fn empty_audit(required: bool, status: &'static str, analysis_id: String) -> Sur
         required,
         status,
         review_sha256: None,
+        target_count: 0,
+        review_count: 0,
         analysis_id,
         target_path: None,
         selected_family: None,
@@ -190,6 +213,8 @@ fn empty_audit(required: bool, status: &'static str, analysis_id: String) -> Sur
         failed_models: Vec::new(),
         scenario_count: 0,
         recommended_family: None,
+        artifact_bindings: Vec::new(),
+        targets: Vec::new(),
         blocking_gaps: Vec::new(),
         errors: Vec::new(),
     }
@@ -765,6 +790,244 @@ fn audit_value(
     audit
 }
 
+fn target_summary(audit: &SurvivalReviewAudit, review_path: &str) -> SurvivalTargetSummary {
+    SurvivalTargetSummary {
+        target_path: audit.target_path.clone().unwrap_or_default(),
+        selected_family: audit.selected_family.clone().unwrap_or_default(),
+        review_path: review_path.into(),
+        review_sha256: audit.review_sha256.clone().unwrap_or_default(),
+        complete: audit.complete,
+        candidate_models: audit.candidate_models,
+        converged_models: audit.converged_models,
+        failed_models: audit.failed_models.clone(),
+        scenario_count: audit.scenario_count,
+        recommended_family: audit.recommended_family.clone(),
+        errors: audit.errors.clone(),
+    }
+}
+
+fn fixed_collection_review_path(value: &str) -> bool {
+    let components = Path::new(value).components().collect::<Vec<_>>();
+    if !matches!(
+        components.as_slice(),
+        [Component::Normal(heor), Component::Normal(directory), Component::Normal(file)]
+            if *heor == "heor" && *directory == "survival-extrapolation-reviews"
+                && Path::new(file).extension().and_then(|extension| extension.to_str()) == Some("json")
+    ) {
+        return false;
+    }
+    Path::new(value)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .is_some_and(safe_id)
+}
+
+fn audit_collection(
+    workspace: &Path,
+    plan: &serde_json::Value,
+    targets: &[(String, String)],
+) -> SurvivalReviewAudit {
+    let analysis_id = text(plan.get("analysis_id")).unwrap_or_default().to_owned();
+    let mut aggregate = empty_audit(true, "incomplete", analysis_id.clone());
+    aggregate.target_count = targets.len();
+    if targets.len() > 32 {
+        aggregate
+            .errors
+            .push("survival review collection supports at most 32 targets".into());
+        aggregate.blocking_gaps = aggregate.errors.clone();
+        return aggregate;
+    }
+    let index_raw =
+        match crate::heor_uncertainty::read_workspace_capped(workspace, SURVIVAL_REVIEW_INDEX_PATH)
+        {
+            Ok(raw) if raw.len() as u64 <= REVIEW_CAP_BYTES => raw,
+            Ok(_) => {
+                aggregate
+                    .errors
+                    .push(format!("{SURVIVAL_REVIEW_INDEX_PATH} is too large"));
+                aggregate.blocking_gaps = aggregate.errors.clone();
+                return aggregate;
+            }
+            Err(error) => {
+                aggregate.errors.push(error);
+                aggregate.blocking_gaps = aggregate.errors.clone();
+                return aggregate;
+            }
+        };
+    let index_sha256 = sha256(&index_raw);
+    aggregate.review_sha256 = Some(index_sha256.clone());
+    aggregate
+        .artifact_bindings
+        .push(crate::heor_approval::ArtifactBinding {
+            path: SURVIVAL_REVIEW_INDEX_PATH.into(),
+            sha256: index_sha256,
+        });
+    let index: serde_json::Value = match serde_json::from_slice(&index_raw) {
+        Ok(value) => value,
+        Err(error) => {
+            aggregate.errors.push(format!(
+                "survival review collection is invalid JSON: {error}"
+            ));
+            aggregate.blocking_gaps = aggregate.errors.clone();
+            return aggregate;
+        }
+    };
+    if !exact_fields(&index, &["schema_version", "analysis_id", "reviews"])
+        || index
+            .get("schema_version")
+            .and_then(serde_json::Value::as_str)
+            != Some("0.1.0")
+    {
+        aggregate.errors.push(
+            "survival review collection fields or schema_version are not the exact 0.1.0 contract"
+                .into(),
+        );
+    }
+    if index.get("analysis_id").and_then(serde_json::Value::as_str) != Some(&analysis_id) {
+        aggregate
+            .errors
+            .push("survival review collection analysis_id must match the current plan".into());
+    }
+    let Some(entries) = index.get("reviews").and_then(serde_json::Value::as_array) else {
+        aggregate
+            .errors
+            .push("survival review collection reviews must be an array".into());
+        aggregate.blocking_gaps = aggregate.errors.clone();
+        return aggregate;
+    };
+    aggregate.review_count = entries.len();
+    if entries.len() != targets.len() {
+        aggregate.errors.push(format!(
+            "survival review collection must contain exactly {} reviews in plan-target order",
+            targets.len()
+        ));
+    }
+    let mut seen_targets = HashSet::new();
+    let mut seen_paths = HashSet::new();
+    for (index, (target_path, selected_family)) in targets.iter().enumerate() {
+        let Some(entry) = entries.get(index) else {
+            aggregate.errors.push(format!(
+                "missing collection review for target {target_path}"
+            ));
+            continue;
+        };
+        if !exact_fields(entry, &["target_path", "review_path", "review_sha256"]) {
+            aggregate.errors.push(format!(
+                "reviews[{index}] fields are not the exact contract"
+            ));
+            continue;
+        }
+        let declared_target = text(entry.get("target_path")).unwrap_or_default();
+        let review_path = text(entry.get("review_path")).unwrap_or_default();
+        let declared_sha256 = entry
+            .get("review_sha256")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        if declared_target != target_path {
+            aggregate.errors.push(format!(
+                "reviews[{index}].target_path must equal {target_path} in plan-target order"
+            ));
+        }
+        if !seen_targets.insert(declared_target.to_owned()) {
+            aggregate
+                .errors
+                .push(format!("duplicate collection target {declared_target}"));
+        }
+        if !fixed_collection_review_path(review_path) {
+            aggregate.errors.push(format!(
+                "reviews[{index}].review_path must be one safe JSON file in heor/survival-extrapolation-reviews"
+            ));
+            continue;
+        }
+        if !seen_paths.insert(review_path.to_owned()) {
+            aggregate
+                .errors
+                .push(format!("duplicate collection review path {review_path}"));
+            continue;
+        }
+        if !is_sha256(declared_sha256) {
+            aggregate.errors.push(format!(
+                "reviews[{index}].review_sha256 must be lowercase SHA-256"
+            ));
+            continue;
+        }
+        let review_raw =
+            match crate::heor_uncertainty::read_workspace_capped(workspace, review_path) {
+                Ok(raw) if raw.len() as u64 <= REVIEW_CAP_BYTES => raw,
+                Ok(_) => {
+                    aggregate.errors.push(format!("{review_path} is too large"));
+                    continue;
+                }
+                Err(error) => {
+                    aggregate.errors.push(error);
+                    continue;
+                }
+            };
+        let actual_sha256 = sha256(&review_raw);
+        if actual_sha256 != declared_sha256 {
+            aggregate.errors.push(format!(
+                "reviews[{index}].review_sha256 does not match {review_path}"
+            ));
+        }
+        aggregate
+            .artifact_bindings
+            .push(crate::heor_approval::ArtifactBinding {
+                path: review_path.into(),
+                sha256: actual_sha256.clone(),
+            });
+        let review: serde_json::Value = match serde_json::from_slice(&review_raw) {
+            Ok(value) => value,
+            Err(error) => {
+                aggregate
+                    .errors
+                    .push(format!("{review_path} is invalid JSON: {error}"));
+                continue;
+            }
+        };
+        let target_audit = audit_value(
+            workspace,
+            plan,
+            &review,
+            actual_sha256,
+            target_path,
+            selected_family,
+        );
+        aggregate.candidate_models += target_audit.candidate_models;
+        aggregate.converged_models += target_audit.converged_models;
+        aggregate.scenario_count += target_audit.scenario_count;
+        aggregate.failed_models.extend(
+            target_audit
+                .failed_models
+                .iter()
+                .map(|family| format!("{target_path}:{family}")),
+        );
+        aggregate.errors.extend(
+            target_audit
+                .errors
+                .iter()
+                .map(|error| format!("{target_path}: {error}")),
+        );
+        aggregate
+            .targets
+            .push(target_summary(&target_audit, review_path));
+    }
+    if entries.len() > targets.len() {
+        aggregate
+            .errors
+            .push("survival review collection contains reviews for undeclared targets".into());
+    }
+    aggregate.complete = aggregate.errors.is_empty()
+        && aggregate.targets.len() == targets.len()
+        && aggregate.targets.iter().all(|target| target.complete);
+    aggregate.status = if aggregate.complete {
+        "complete"
+    } else {
+        "incomplete"
+    };
+    aggregate.blocking_gaps = aggregate.errors.clone();
+    aggregate
+}
+
 pub fn audit_survival_review_for_plan(workspace: &Path, plan_raw: &[u8]) -> SurvivalReviewAudit {
     let plan: serde_json::Value = match serde_json::from_slice(plan_raw) {
         Ok(value) => value,
@@ -782,11 +1045,8 @@ pub fn audit_survival_review_for_plan(workspace: &Path, plan_raw: &[u8]) -> Surv
     if targets.is_empty() {
         return empty_audit(false, "not_required", analysis_id);
     }
-    if targets.len() != 1 {
-        let mut audit = empty_audit(true, "incomplete", analysis_id);
-        audit.errors.push("this alpha requires exactly one parametric survival target; split multi-curve reviews are not yet supported".into());
-        audit.blocking_gaps = audit.errors.clone();
-        return audit;
+    if targets.len() > 1 {
+        return audit_collection(workspace, &plan, &targets);
     }
     let review_raw =
         match crate::heor_uncertainty::read_workspace_capped(workspace, SURVIVAL_REVIEW_PATH) {
@@ -818,23 +1078,35 @@ pub fn audit_survival_review_for_plan(workspace: &Path, plan_raw: &[u8]) -> Surv
             return audit;
         }
     };
-    audit_value(
+    let mut audit = audit_value(
         workspace,
         &plan,
         &review,
         sha256(&review_raw),
         &targets[0].0,
         &targets[0].1,
-    )
+    );
+    audit.target_count = 1;
+    audit.review_count = 1;
+    audit
+        .artifact_bindings
+        .push(crate::heor_approval::ArtifactBinding {
+            path: SURVIVAL_REVIEW_PATH.into(),
+            sha256: sha256(&review_raw),
+        });
+    audit
+        .targets
+        .push(target_summary(&audit, SURVIVAL_REVIEW_PATH));
+    audit
 }
 
 pub fn require_survival_review_approvable(
     workspace: &Path,
     plan_raw: &[u8],
-) -> Result<Option<crate::heor_approval::ArtifactBinding>, String> {
+) -> Result<Vec<crate::heor_approval::ArtifactBinding>, String> {
     let audit = audit_survival_review_for_plan(workspace, plan_raw);
     if !audit.required {
-        return Ok(None);
+        return Ok(Vec::new());
     }
     if !audit.complete {
         return Err(format!(
@@ -842,10 +1114,7 @@ pub fn require_survival_review_approvable(
             audit.errors.join("; ")
         ));
     }
-    Ok(Some(crate::heor_approval::ArtifactBinding {
-        path: SURVIVAL_REVIEW_PATH.into(),
-        sha256: audit.review_sha256.expect("complete review has a digest"),
-    }))
+    Ok(audit.artifact_bindings)
 }
 
 #[tauri::command]
@@ -900,15 +1169,16 @@ mod tests {
         (relative, sha256(contents))
     }
 
-    fn valid_review(root: &Path) -> serde_json::Value {
-        let (bundle_path, bundle_hash) = write_file(root, "bundle.json", b"bundle");
-        let (command_path, command_hash) = write_file(root, "fit.R", b"fit");
-        let (session_path, session_hash) = write_file(root, "session.txt", b"session");
-        let (exp_path, exp_hash) = write_file(root, "exp.json", b"exp");
-        let (wei_path, wei_hash) = write_file(root, "wei.json", b"wei");
-        let (km_path, km_hash) = write_file(root, "km.svg", b"km");
-        let (lch_path, lch_hash) = write_file(root, "lch.svg", b"lch");
-        let (hazard_path, hazard_hash) = write_file(root, "hazard.svg", b"hazard");
+    fn named_review(root: &Path, prefix: &str) -> serde_json::Value {
+        let name = |suffix: &str| format!("{prefix}-{suffix}");
+        let (bundle_path, bundle_hash) = write_file(root, &name("bundle.json"), b"bundle");
+        let (command_path, command_hash) = write_file(root, &name("fit.R"), b"fit");
+        let (session_path, session_hash) = write_file(root, &name("session.txt"), b"session");
+        let (exp_path, exp_hash) = write_file(root, &name("exp.json"), b"exp");
+        let (wei_path, wei_hash) = write_file(root, &name("wei.json"), b"wei");
+        let (km_path, km_hash) = write_file(root, &name("km.svg"), b"km");
+        let (lch_path, lch_hash) = write_file(root, &name("lch.svg"), b"lch");
+        let (hazard_path, hazard_hash) = write_file(root, &name("hazard.svg"), b"hazard");
         let landmarks = serde_json::json!([
             {"time": 0.0, "survival": 1.0, "hazard": 0.1},
             {"time": 1.0, "survival": 0.8, "hazard": 0.2},
@@ -938,6 +1208,10 @@ mod tests {
         })
     }
 
+    fn valid_review(root: &Path) -> serde_json::Value {
+        named_review(root, "single")
+    }
+
     #[test]
     fn review_is_not_required_without_a_survival_target() {
         let root = workspace();
@@ -961,9 +1235,12 @@ mod tests {
         assert!(audit.complete, "{:?}", audit.errors);
         assert_eq!(audit.selected_family.as_deref(), Some("weibull"));
         assert_eq!(audit.converged_models, 2);
-        assert!(require_survival_review_approvable(&root, &plan(1))
-            .unwrap()
-            .is_some());
+        assert_eq!(
+            require_survival_review_approvable(&root, &plan(1))
+                .unwrap()
+                .len(),
+            1
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -1001,12 +1278,56 @@ mod tests {
     }
 
     #[test]
-    fn multiple_targets_fail_closed_in_the_alpha_contract() {
+    fn multiple_targets_require_a_complete_collection() {
         let root = workspace();
         let audit = audit_survival_review_for_plan(&root, &plan(2));
         assert!(audit.required);
         assert!(!audit.complete);
-        assert!(audit.errors[0].contains("exactly one"));
+        assert!(audit.errors[0].contains(SURVIVAL_REVIEW_INDEX_PATH));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn complete_collection_covers_every_plan_target_and_binds_every_file() {
+        let root = workspace();
+        fs::create_dir_all(root.join("heor/survival-extrapolation-reviews")).unwrap();
+        let mut entries = Vec::new();
+        for index in 0..2 {
+            let mut review = named_review(&root, &format!("review-{index}"));
+            let target_path = format!("strategies.treatment_{index}.transition_schedule");
+            review["review_id"] = serde_json::json!(format!("review-{index}"));
+            review["analysis_target"]["path"] = serde_json::json!(target_path.clone());
+            let review_path = format!("heor/survival-extrapolation-reviews/review-{index}.json");
+            let raw = serde_json::to_vec_pretty(&review).unwrap();
+            fs::write(root.join(&review_path), &raw).unwrap();
+            entries.push(serde_json::json!({
+                "target_path": target_path,
+                "review_path": review_path,
+                "review_sha256": sha256(&raw)
+            }));
+        }
+        let collection = serde_json::json!({
+            "schema_version": "0.1.0",
+            "analysis_id": "analysis-one",
+            "reviews": entries
+        });
+        fs::write(
+            root.join(SURVIVAL_REVIEW_INDEX_PATH),
+            serde_json::to_vec_pretty(&collection).unwrap(),
+        )
+        .unwrap();
+        let audit = audit_survival_review_for_plan(&root, &plan(2));
+        assert!(audit.complete, "{:?}", audit.errors);
+        assert_eq!(audit.target_count, 2);
+        assert_eq!(audit.review_count, 2);
+        assert_eq!(audit.targets.len(), 2);
+        assert_eq!(audit.artifact_bindings.len(), 3);
+        assert_eq!(
+            require_survival_review_approvable(&root, &plan(2))
+                .unwrap()
+                .len(),
+            3
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

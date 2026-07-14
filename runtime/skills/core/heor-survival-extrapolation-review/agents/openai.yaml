@@ -1,4 +1,4 @@
 interface:
   display_name: "HEOR Survival Extrapolation Review"
-  short_description: "Audit survival fit and extrapolation choices."
-  default_prompt: "Use $heor-survival-extrapolation-review to prepare an auditable pre-specified survival-model comparison and leave curve selection to the human analysis-plan gate."
+  short_description: "Audit one or more survival extrapolation choices."
+  default_prompt: "Use $heor-survival-extrapolation-review to prepare an auditable pre-specified comparison for every survival target, preserve plan order, and leave curve selection to the human analysis-plan gate."

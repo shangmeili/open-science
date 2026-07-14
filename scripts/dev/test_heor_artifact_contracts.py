@@ -87,6 +87,10 @@ survival_extrapolation_review = load(
     "validate_survival_extrapolation_review",
     "runtime/skills/core/heor-survival-extrapolation-review/scripts/validate_survival_extrapolation_review.py",
 )
+survival_extrapolation_collection = load(
+    "validate_survival_extrapolation_collection",
+    "runtime/skills/core/heor-survival-extrapolation-review/scripts/validate_survival_extrapolation_collection.py",
+)
 
 
 class MultiStrategyTemplateContractTests(unittest.TestCase):
@@ -465,6 +469,72 @@ class SurvivalExtrapolationReviewContractTests(unittest.TestCase):
             review["models"][1]["landmarks"] = []
             result = survival_extrapolation_review.audit(review, workspace, plan)
             self.assertTrue(any("selected distribution" in error for error in result["errors"]))
+
+    def test_complete_collection_binds_every_curve_in_plan_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            plan = self._plan()
+            second = deepcopy(plan["input_provenance"][0])
+            second["path"] = "strategies.intervention.transition_schedule"
+            plan["input_provenance"].append(second)
+            entries = []
+            for index, mapping in enumerate(plan["input_provenance"]):
+                review = self._fixture(workspace)
+                review["review_id"] = f"overall-survival-{index}"
+                review["analysis_target"]["path"] = mapping["path"]
+                relative = f"heor/survival-extrapolation-reviews/review-{index}.json"
+                raw = json.dumps(review, indent=2).encode()
+                path = workspace / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(raw)
+                entries.append({
+                    "target_path": mapping["path"],
+                    "review_path": relative,
+                    "review_sha256": hashlib.sha256(raw).hexdigest(),
+                })
+            collection = {
+                "schema_version": "0.1.0",
+                "analysis_id": "survival-analysis",
+                "reviews": entries,
+            }
+            result = survival_extrapolation_collection.audit(collection, workspace, plan)
+            self.assertTrue(result["complete"], result["errors"])
+            self.assertEqual(result["target_count"], 2)
+            self.assertEqual(len(result["artifact_bindings"]), 2)
+
+    def test_collection_order_hash_and_path_drift_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            plan = self._plan()
+            second = deepcopy(plan["input_provenance"][0])
+            second["path"] = "strategies.intervention.transition_schedule"
+            plan["input_provenance"].append(second)
+            review = self._fixture(workspace)
+            raw = json.dumps(review).encode()
+            path = workspace / "heor/survival-extrapolation-reviews/review-0.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw)
+            collection = {
+                "schema_version": "0.1.0",
+                "analysis_id": "survival-analysis",
+                "reviews": [
+                    {
+                        "target_path": second["path"],
+                        "review_path": "heor/survival-extrapolation-reviews/review-0.json",
+                        "review_sha256": "0" * 64,
+                    },
+                    {
+                        "target_path": plan["input_provenance"][0]["path"],
+                        "review_path": "../review-1.json",
+                        "review_sha256": hashlib.sha256(raw).hexdigest(),
+                    },
+                ],
+            }
+            result = survival_extrapolation_collection.audit(collection, workspace, plan)
+            self.assertFalse(result["complete"])
+            self.assertTrue(any("plan-target order" in error for error in result["errors"]))
+            self.assertTrue(any("does not match" in error for error in result["errors"]))
+            self.assertTrue(any("one safe JSON file" in error for error in result["errors"]))
 
 
 class ProbabilityTimeAdapterContractTests(unittest.TestCase):

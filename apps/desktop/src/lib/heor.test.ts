@@ -10,6 +10,8 @@ import {
   HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT,
   HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT,
   HEOR_MODEL_VALIDATION_PATH,
+  heorSurvivalReviewBindingsCurrent,
+  type HeorSurvivalReviewAudit,
   parseHeorConceptualModel,
   parseHeorPlan,
 } from "./heor";
@@ -753,5 +755,38 @@ describe("AI4HEOR artifact contract", () => {
     expect(HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT.complete).toBe(false);
     expect(HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT.approvable).toBe(false);
     expect(HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT.requiredCoverageCount).toBe(18);
+  });
+
+  it("requires every multi-curve survival artifact binding to stay current", () => {
+    const audit: HeorSurvivalReviewAudit = {
+      complete: true,
+      required: true,
+      status: "complete",
+      reviewSha256: "a".repeat(64),
+      targetCount: 2,
+      reviewCount: 2,
+      analysisId: "multi-survival",
+      targetPath: null,
+      selectedFamily: null,
+      candidateModels: 4,
+      convergedModels: 4,
+      failedModels: [],
+      scenarioCount: 4,
+      recommendedFamily: null,
+      artifactBindings: [
+        { path: "heor/survival-extrapolation-reviews.json", sha256: "a".repeat(64) },
+        { path: "heor/survival-extrapolation-reviews/control.json", sha256: "b".repeat(64) },
+        { path: "heor/survival-extrapolation-reviews/treatment.json", sha256: "c".repeat(64) },
+      ],
+      targets: [],
+      blockingGaps: [],
+      errors: [],
+    };
+    const relatedArtifacts = audit.artifactBindings.map((binding) => ({ ...binding }));
+    expect(heorSurvivalReviewBindingsCurrent({ relatedArtifacts }, audit)).toBe(true);
+    expect(heorSurvivalReviewBindingsCurrent({ relatedArtifacts: relatedArtifacts.slice(0, 2) }, audit))
+      .toBe(false);
+    relatedArtifacts[2].sha256 = "d".repeat(64);
+    expect(heorSurvivalReviewBindingsCurrent({ relatedArtifacts }, audit)).toBe(false);
   });
 });

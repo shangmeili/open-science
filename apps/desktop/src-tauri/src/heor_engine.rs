@@ -14,9 +14,7 @@ use crate::heor_evidence::{
 };
 use crate::heor_reference_case::{audit_reference_case_for_plan, ReferenceCaseAudit};
 use crate::heor_reporting::{audit_report_package, ReportingAudit};
-use crate::heor_survival_review::{
-    audit_survival_review_for_plan, SurvivalReviewAudit, SURVIVAL_REVIEW_PATH,
-};
+use crate::heor_survival_review::{audit_survival_review_for_plan, SurvivalReviewAudit};
 use crate::heor_uncertainty::{audit_uncertainty_plan_for_plan, UncertaintyAudit};
 use crate::heor_validation::{audit_model_validation_for_plan, ModelValidationAudit};
 use crate::runtime::workspace_dir;
@@ -207,14 +205,18 @@ pub(crate) fn workflow_status(
     });
     let survival_review_matches_approval = !survival_review_audit.required
         || (survival_review_audit.complete
-            && survival_review_audit.review_sha256.as_ref().is_some_and(|digest| {
-                analysis_plan_event(&log).is_some_and(|event| {
-                    crate::heor_approval::event_binds_artifact(
-                        event,
-                        SURVIVAL_REVIEW_PATH,
-                        digest,
-                    )
-                })
+            && !survival_review_audit.artifact_bindings.is_empty()
+            && analysis_plan_event(&log).is_some_and(|event| {
+                survival_review_audit
+                    .artifact_bindings
+                    .iter()
+                    .all(|binding| {
+                        crate::heor_approval::event_binds_artifact(
+                            event,
+                            &binding.path,
+                            &binding.sha256,
+                        )
+                    })
             }));
     let evidence_synthesis_matches_approval = evidence_selection_audit.synthesis_sha256.is_empty()
         || analysis_plan_event(&log).is_some_and(|event| {
@@ -713,6 +715,8 @@ mod tests {
                 required: false,
                 status: "not_required",
                 review_sha256: None,
+                target_count: 0,
+                review_count: 0,
                 analysis_id: "analysis-1".into(),
                 target_path: None,
                 selected_family: None,
@@ -721,6 +725,8 @@ mod tests {
                 failed_models: Vec::new(),
                 scenario_count: 0,
                 recommended_family: None,
+                artifact_bindings: Vec::new(),
+                targets: Vec::new(),
                 blocking_gaps: Vec::new(),
                 errors: Vec::new(),
             },
@@ -884,12 +890,22 @@ mod tests {
     fn required_survival_review_must_match_the_analysis_plan_approval() {
         let input_hash = "c".repeat(64);
         let digest = "8".repeat(64);
+        let review_digest = "6".repeat(64);
         let mut audits = complete_workflow_audits();
         audits.survival_review.required = true;
         audits.survival_review.review_sha256 = Some(digest.clone());
-        audits.survival_review.target_path =
-            Some("strategies.intervention.transition_schedule".into());
-        audits.survival_review.selected_family = Some("weibull".into());
+        audits.survival_review.target_count = 2;
+        audits.survival_review.review_count = 2;
+        audits.survival_review.artifact_bindings = vec![
+            crate::heor_approval::ArtifactBinding {
+                path: crate::heor_survival_review::SURVIVAL_REVIEW_INDEX_PATH.into(),
+                sha256: digest.clone(),
+            },
+            crate::heor_approval::ArtifactBinding {
+                path: "heor/survival-extrapolation-reviews/review-0.json".into(),
+                sha256: review_digest.clone(),
+            },
+        ];
         let status = workflow_status(
             approved_log(&input_hash),
             input_hash.clone(),
@@ -907,15 +923,33 @@ mod tests {
             .unwrap()
             .related_artifacts
             .push(crate::heor_approval::ArtifactBinding {
-                path: SURVIVAL_REVIEW_PATH.into(),
+                path: crate::heor_survival_review::SURVIVAL_REVIEW_INDEX_PATH.into(),
                 sha256: digest.clone(),
+            });
+        log.events
+            .iter_mut()
+            .find(|event| event.gate == ApprovalGate::AnalysisPlan)
+            .unwrap()
+            .related_artifacts
+            .push(crate::heor_approval::ArtifactBinding {
+                path: "heor/survival-extrapolation-reviews/review-0.json".into(),
+                sha256: review_digest.clone(),
             });
         let mut audits = complete_workflow_audits();
         audits.survival_review.required = true;
         audits.survival_review.review_sha256 = Some(digest);
-        audits.survival_review.target_path =
-            Some("strategies.intervention.transition_schedule".into());
-        audits.survival_review.selected_family = Some("weibull".into());
+        audits.survival_review.target_count = 2;
+        audits.survival_review.review_count = 2;
+        audits.survival_review.artifact_bindings = vec![
+            crate::heor_approval::ArtifactBinding {
+                path: crate::heor_survival_review::SURVIVAL_REVIEW_INDEX_PATH.into(),
+                sha256: "8".repeat(64),
+            },
+            crate::heor_approval::ArtifactBinding {
+                path: "heor/survival-extrapolation-reviews/review-0.json".into(),
+                sha256: review_digest,
+            },
+        ];
         let status = workflow_status(log, input_hash, true, "current", audits);
         assert_eq!(status.classification, "analysis_authorized_local_assertion");
         assert!(status.survival_review_matches_approval);

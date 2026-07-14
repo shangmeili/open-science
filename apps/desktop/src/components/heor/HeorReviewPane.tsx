@@ -50,6 +50,7 @@ import {
   HEOR_PLAN_PATH,
   HEOR_REFERENCE_CASE_ASSESSMENT_PATH,
   HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH,
+  HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH,
   HEOR_UNCERTAINTY_PLAN_PATH,
   type HeorAnalysisPlan,
   type HeorApprovalAction,
@@ -87,6 +88,7 @@ import {
   verifyHeorEvidenceExtractions,
   runHeorUncertainty,
   sha256Text,
+  heorSurvivalReviewBindingsCurrent,
 } from "@/lib/heor";
 import { isTauri } from "@/lib/tauri";
 import { toast } from "@/lib/toast";
@@ -562,9 +564,7 @@ export function HeorReviewPane({
         (gate === "analysis_plan"
           && survivalReview.kind === "ready"
           && survivalReview.audit.required
-          && !event.relatedArtifacts?.some((binding) =>
-            binding.path === HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH
-            && binding.sha256 === survivalReview.audit.reviewSha256)) ||
+          && !heorSurvivalReviewBindingsCurrent(event, survivalReview.audit)) ||
         (gate === "independent_validation"
           && modelValidation.kind === "ready"
           && !validationBindingsCurrent(event, modelValidation.audit)) ||
@@ -617,12 +617,7 @@ export function HeorReviewPane({
             : []),
           { path: HEOR_UNCERTAINTY_PLAN_PATH, sha256: uncertainty.audit.uncertaintySha256 },
           { path: HEOR_BUDGET_IMPACT_PLAN_PATH, sha256: budgetImpact.audit.budgetImpactSha256 },
-          ...(survivalReview.audit.required && survivalReview.audit.reviewSha256
-            ? [{
-                path: HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH,
-                sha256: survivalReview.audit.reviewSha256,
-              }]
-            : []),
+          ...(survivalReview.audit.required ? survivalReview.audit.artifactBindings : []),
         ]
       : gate === "independent_validation" && modelValidation.kind === "ready"
         ? [
@@ -1046,12 +1041,7 @@ export function HeorReviewPane({
                       ))
                     || (survivalReview.kind === "ready"
                       && survivalReview.audit.required
-                      && (!survivalReview.audit.reviewSha256
-                        || !eventBinds(
-                          gateEvent,
-                          HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH,
-                          survivalReview.audit.reviewSha256,
-                        )))
+                      && !heorSurvivalReviewBindingsCurrent(gateEvent, survivalReview.audit))
                   )) || (gate === "independent_validation"
                     && modelValidation.kind === "ready"
                     && !validationBindingsCurrent(gateEvent, modelValidation.audit))
@@ -2137,6 +2127,14 @@ function SurvivalReviewAssessment({
               {audit.targetPath} · {audit.selectedFamily ?? "—"}
             </div>
           )}
+          {audit?.required && audit.targetCount > 1 && (
+            <div className="mt-1 text-[10px] leading-4 text-muted">
+              {t("survivalReview.collection", {
+                reviews: audit.reviewCount,
+                targets: audit.targetCount,
+              })}
+            </div>
+          )}
         </div>
         {audit?.required && (
           <span className="rounded-full border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-text">
@@ -2145,7 +2143,9 @@ function SurvivalReviewAssessment({
         )}
       </div>
       <div className="mt-1 font-mono text-[10px] text-muted">
-        {HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH}
+        {audit && audit.targetCount > 1
+          ? HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH
+          : HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH}
       </div>
       {audit?.required && (
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
@@ -2158,6 +2158,23 @@ function SurvivalReviewAssessment({
         <p className="mt-3 text-[10px] leading-4 text-muted">
           {t("survivalReview.recommendation", { family: audit.recommendedFamily })}
         </p>
+      )}
+      {audit && audit.targets.length > 1 && (
+        <ul className="mt-3 space-y-2">
+          {audit.targets.slice(0, 6).map((target) => (
+            <li key={target.targetPath} className="rounded border border-border bg-bg px-2 py-1.5">
+              <div className="truncate font-mono text-[10px] text-text">{target.targetPath}</div>
+              <div className="mt-0.5 text-[10px] leading-4 text-muted">
+                {t("survivalReview.curveSummary", {
+                  selected: target.selectedFamily,
+                  converged: target.convergedModels,
+                  candidates: target.candidateModels,
+                  recommended: target.recommendedFamily ?? "—",
+                })}
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">

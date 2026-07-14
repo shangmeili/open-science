@@ -281,15 +281,16 @@ incomparable or invalid landmarks, hidden approval fields, and fewer than two
 converged alternatives. The only admitted state is
 `awaiting_human_selection`; the selected curve enters the app-owned analysis-
 plan review rather than being chosen by a score or Agent output. The native app
-now matches the exact analysis ID and sole parametric-survival target, requires
-the selected plan distribution to be a converged candidate, independently
-verifies the contract and local hashes, shows the result in the review pane,
-and binds the current review hash into analysis-plan approval and every analysis
-authorization check. Multi-curve plans fail closed until an indexed review
-collection is admitted.
+now matches every exact analysis ID and parametric-survival target, requires each
+selected plan distribution to be a converged candidate, independently verifies
+the contract and local hashes, shows the result in the review pane, and binds all
+current review hashes into analysis-plan approval and every analysis authorization
+check. Plans with 2–32 targets use an ordered schema `0.1.0` manifest and one
+schema `0.2.0` review per exact target. This supports separate control/intervention
+or PFS/OS reviews without implying joint cross-curve validity.
 
 Automatic curve selection, KM/IPD reconstruction, flexible or cure models,
-PFS/OS partitioned survival, treatment effects, background mortality, competing
+PFS/OS consistency and partitioned survival, treatment effects, background mortality, competing
 risks, covariance reconstruction from incomplete fit results, and clinical
 extrapolation validity remain explicitly unsupported. NICE PMG36 and NICE DSU TSD 14/21 require validity,
 plausibility, alternatives, and uncertainty beyond this executable fragment;
@@ -659,11 +660,11 @@ approval, reimbursement suitability, or external tamper-proofing.
   one absorbing event state, an exponential or Weibull scale/shape declaration,
   positive singly bound parameters, exact cycle length, a complete per-cycle
   schedule, and independent reproduction across all four audit layers. Analysis-
-  plan approval also requires one schema `0.2.0` extrapolation review bound to
-  the exact current analysis ID and sole survival-mapping path; the selected
-  distribution must be a converged pre-specified candidate, every local evidence
-  hash must verify, and the approval event binds the current review hash. Multiple
-  survival targets fail closed in this alpha. Survival-
+  plan approval also requires one schema `0.2.0` extrapolation review per exact
+  current analysis ID and survival-mapping path; the selected distributions must
+  be converged pre-specified candidates and every local evidence hash must verify.
+  A single target binds the fixed review, while 2–32 targets bind the ordered
+  schema `0.1.0` manifest plus every referenced review. Survival-
   parameter DSA/PSA additionally requires uncertainty schema `0.5.0` through `0.7.0`, an exact
   positive parameter-value target, its sole basis ID, and full schedule
   recomputation. Fitting remains external and local, curve selection remains a

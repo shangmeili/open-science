@@ -4,9 +4,13 @@
 
 Create one review per absolute time-to-first-event curve. The first slice accepts an already-generated local fit bundle and execution manifest; it does not read or fit individual time-to-event data. It compares standard parametric maximum-likelihood model outputs without selecting one automatically.
 
-The artifact path is `heor/survival-extrapolation-review.json`; schema version is `0.2.0`. Every ready artifact binds the exact local input, execution record, session information, model outputs, and diagnostic files by lowercase SHA-256.
+Each review uses schema version `0.2.0`. Every ready artifact binds the exact local input, execution record, session information, model outputs, and diagnostic files by lowercase SHA-256.
 
-`analysis_target` must contain the current analysis plan's exact `analysis_id` and the exact `input_provenance[].path` whose transformation operation is `parametric_survival_to_transition_schedule`. The Human-selected plan distribution must be a converged, pre-specified candidate in this review. The app-owned approval boundary requires exactly one such mapping in this alpha and fails closed for multi-curve plans; a future indexed collection contract is required before multiple curve reviews can be approved together.
+`analysis_target` must contain the current analysis plan's exact `analysis_id` and one exact `input_provenance[].path` whose transformation operation is `parametric_survival_to_transition_schedule`. The Human-selected plan distribution must be a converged, pre-specified candidate in that review.
+
+For one target, the fixed path is `heor/survival-extrapolation-review.json`. For 2–32 targets, use the schema `0.1.0` manifest at `heor/survival-extrapolation-reviews.json`; each referenced review must be one safely named JSON file directly under `heor/survival-extrapolation-reviews/`. Manifest entries contain only `target_path`, `review_path`, and `review_sha256`, and must exactly match the plan's survival-target count and order. Target paths and review paths are unique. The app-owned approval boundary re-hashes and re-audits every review, then binds the manifest and all referenced review files to the analysis-plan approval. Missing, extra, duplicated, reordered, stale, malformed, or out-of-workspace entries fail closed.
+
+The collection is an integrity and completeness envelope for independently reviewed curves. It does not yet check PFS ≤ OS, arm or time-origin alignment, curve crossings, correlated parameters, joint structural scenarios, or partitioned-survival validity.
 
 ## Candidate set
 
@@ -66,7 +70,7 @@ The only admitted gate object is:
 }
 ```
 
-The review may contain an analyst recommendation, but no `approved`, `selected`, `accepted`, reviewer identity, signature, or approval timestamp field. The Human selects the downstream curve by reviewing the complete analysis plan; the app-owned analysis-plan approval chain independently re-audits schema `0.2.0`, matches the exact analysis target and selected distribution, verifies local hashes, and binds the current review SHA-256.
+The review may contain an analyst recommendation, but no `approved`, `selected`, `accepted`, reviewer identity, signature, or approval timestamp field. The Human selects each downstream curve by reviewing the complete analysis plan; the app-owned analysis-plan approval chain independently re-audits every schema `0.2.0` review, matches each exact analysis target and selected distribution, verifies local hashes, and binds either the single review or the complete collection.
 
 ## Method basis
 
@@ -80,4 +84,4 @@ Primary sources:
 
 ## Downstream boundary
 
-After Human selection, `$heor-survival-curve-adapter` can evaluate only its exact already-selected exponential or Weibull parameterization in a two-state absorbing schedule. This review does not make other fitted families executable in the deterministic economic model and does not establish PFS/OS consistency or partitioned-survival validity.
+After Human selection, `$heor-survival-curve-adapter` can evaluate only an exact already-selected exponential or Weibull parameterization in a two-state absorbing schedule. A review collection does not make other fitted families executable in the deterministic economic model and does not establish PFS/OS consistency or partitioned-survival validity.
