@@ -13,9 +13,9 @@ Use `assets/analysis-plan.template.json` as the starting shape. The desktop dete
 
 ## Required engine fields
 
-`schema_version` must be `0.2.0` for a new or approvable plan. `analysis_id` must be non-empty. `economic_basis` must contain a three-letter uppercase ISO 4217-format `currency` and an integer `price_year` from 1900 through 2100. Replace the template's China example when another jurisdiction or valuation basis applies. `reference_case` contains a registered `id` and its exact `status`. `states`, `cycles`, `cycle_length_years`, `discount_rates`, `half_cycle_correction`, and `strategies` are required.
+`schema_version` must be `0.3.0` for a new or approvable plan. `analysis_id` must be non-empty. `economic_basis` must contain a three-letter uppercase ISO 4217-format `currency` and an integer `price_year` from 1900 through 2100. Replace the template's China example when another jurisdiction or valuation basis applies. `reference_case` contains a registered `id` and its exact `status`. `states`, `cycles`, `cycle_length_years`, `discount_rates`, `half_cycle_correction`, and `strategies` are required.
 
-The engine can still calculate a legacy `0.1.0` plan for reproducibility, but its result has no claimed currency or price-year basis and remains exploratory. The app refuses analysis-plan approval until the plan uses `0.2.0` and every monetary input passes the normalization audit.
+The engine can still calculate a legacy `0.1.0` plan for reproducibility, but its result has no claimed currency or price-year basis. A `0.2.0` plan retains its economic basis but lacks the executable evidence-value derivation contract. Both prior versions remain calculation-only and cannot pass analysis-plan approval.
 
 The complete MVP plan also fixes `uncertainty_analysis.path` to `heor/uncertainty-plan.json` and `budget_impact_analysis.path` to `heor/budget-impact-plan.json`. The analysis-plan approval binds the exact hashes of both sibling artifacts. Their detailed numeric contracts stay outside this file.
 
@@ -33,7 +33,7 @@ The engine rejects an `approvals` field. Human approval state lives outside the 
 
 Keep the `decision_problem`, `evidence_sources`, `assumptions`, `input_provenance`, and `input_status` metadata. The numerical engine ignores these fields, while the app independently audits them before analysis-plan approval.
 
-Use `$heor-input-provenance` and its reference contract for exact fields. Each required model input must map to valid evidence or an explicit `proposed` analyst assumption. Every state cost and non-null willingness-to-pay value must declare the plan currency and price year, then reproduce each model value from a recorded source value and adjustment factor. `unresolved` assumptions block analysis-plan approval. Never write `accepted`; canonical acceptance exists only in the app-owned human approval chain.
+Use `$heor-input-provenance` and its reference contract for exact fields. Each required model input must map to valid evidence or an explicit `proposed` analyst assumption and preserve an exact `derivation.model_value` snapshot. Direct evidence must parse as strict JSON and equal the current model value. Every state cost and non-null willingness-to-pay value must also declare the plan currency and price year, reproduce each model value from a recorded source value and adjustment factor, and bind source values to selected extraction elements. `unresolved` assumptions or unexecutable transformations block analysis-plan approval. Never write `accepted`; canonical acceptance exists only in the app-owned human approval chain.
 
 ## Reference-case profiles
 

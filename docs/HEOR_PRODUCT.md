@@ -141,9 +141,36 @@ prespecified disagreement process; AI4HEOR does not claim that stronger method
 until identity, independent entry, and resolution workflow are implemented and
 used. OS-backed identity and external anchoring remain future hardening.
 
+## Executable evidence-to-model derivation
+
+Analysis-plan schema `0.3.0` closes the gap between a confirmed extraction and
+the number actually calculated. Every required input mapping copies its exact
+current model value into `derivation.model_value`; the plan audit rejects a
+stale or different snapshot. A source-based non-monetary input uses
+`direct_evidence`, exactly one extraction, and an `extracted_value` that parses
+as strict JSON and equals the complete scalar, vector, matrix, or boolean model
+value. An assumption-only input uses `explicit_assumption`, no extraction, and
+at least one `proposed` assumption.
+
+Source-based monetary values use `monetary_adjustment`. Every recorded source
+value binds to a selected extraction's JSON scalar or array index before the
+normalization arithmetic is checked. Every selected extraction must be used.
+The portable validator checks the current synthesis bytes; the native desktop
+repeats the same value audit in the app-owned selection boundary before it
+considers the dual-review status.
+
+The contract deliberately does not execute free-form formulas. Probability or
+rate conversion, pooling, matrix assembly, calibration, interpolation, or
+other transformations remain incomplete until a bounded deterministic adapter
+implements and tests their semantics. A narrative in `selection_rationale`
+cannot authorize a hidden transformation. Schema `0.1.0` and `0.2.0` remain
+calculable for reproducibility but cannot pass analysis-plan approval.
+
 ## Executable monetary basis
 
-Analysis-plan schema `0.2.0` declares one calculation currency and price year.
+Analysis-plan schema `0.2.0` introduced one calculation currency and price
+year, and current schema `0.3.0` retains that contract while binding each source
+value to evidence or an explicit assumption.
 Every state-cost element and non-null willingness-to-pay value records its
 source value, source currency, source price year, positive composite adjustment
 factor, method, and evidence or proposed-assumption basis IDs. Python, Rust, and
@@ -159,9 +186,10 @@ appropriate to the cost perspective and foreign costs to use an appropriate
 current exchange-rate source. The Agent may prepare that transformation from
 an explicitly selected source, but the app audits arithmetic and provenance,
 not the substantive appropriateness of the chosen index. Legacy schema `0.1.0`
-remains calculable for reproducibility, returns no claimed economic basis, and
-cannot pass analysis-plan approval. The review pane formats current monetary
-results from the engine-returned currency instead of a hard-coded jurisdiction.
+returns no claimed economic basis; prior schema `0.2.0` retains its basis but
+lacks executable evidence-value derivations. Neither can pass analysis-plan
+approval. The review pane formats current monetary results from the
+engine-returned currency instead of a hard-coded jurisdiction.
 
 ## Local evidence library
 
@@ -356,6 +384,10 @@ approval, reimbursement suitability, or external tamper-proofing.
   missing second confirmation, rejection, changed synthesis, or tampered review
   chain fails closed; this remains distinct from authenticated independent
   duplicate extraction.
+- Evidence-to-input approval also requires schema `0.3.0`, an exact model-value
+  snapshot per mapping, strict JSON equality for direct evidence, and extraction-
+  bound source values for monetary normalization. Changed, narrative, unused,
+  or silently transformed extraction values fail closed.
 - Exploratory, analysis-authorized, independently validated, and locally
   released decision-ready states remain distinct. Any stale package, binding,
   validation, result reproduction, actor, or approval sequence fails closed.

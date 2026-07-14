@@ -57,6 +57,7 @@ describe("AI4HEOR artifact contract", () => {
       assumption_ids: [],
       unit: "cycles",
       jurisdiction: "China",
+      derivation: { method: "direct_evidence", model_value: 3 },
       selection_rationale: "Directly reported follow-up",
       uncertainty_status: "fixed",
     }];
@@ -99,6 +100,10 @@ describe("AI4HEOR artifact contract", () => {
         method: "none",
         basis_ids: [],
       })),
+      derivation: {
+        method: "explicit_assumption",
+        model_value: [4000, 3000, 0],
+      },
       selection_rationale: "Synthetic browser audit fixture",
       uncertainty_status: "fixed",
     }];
@@ -106,6 +111,35 @@ describe("AI4HEOR artifact contract", () => {
     const audit = auditHeorEvidence(plan);
 
     expect(audit.invalidMappings.join("; ")).toContain("does not reproduce model value");
+  });
+
+  it("requires schema 0.3 and an exact derivation snapshot for approval review", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    plan.schema_version = "0.2.0";
+    plan.assumptions = [{
+      id: "cycles-assumption",
+      statement: "Use three annual cycles",
+      reason: "Browser contract test",
+      status: "proposed",
+    }];
+    plan.input_provenance = [{
+      path: "cycles",
+      source_ids: [],
+      extraction_ids: [],
+      assumption_ids: ["cycles-assumption"],
+      unit: "cycles",
+      jurisdiction: "China",
+      derivation: { method: "explicit_assumption", model_value: 4 },
+      selection_rationale: "Explicit modeling assumption",
+      uncertainty_status: "fixed",
+    }];
+
+    const audit = auditHeorEvidence(plan);
+
+    expect(audit.invalidMappings.join("; ")).toContain("schema_version must be 0.3.0");
+    expect(audit.invalidMappings.join("; ")).toContain(
+      "derivation.model_value does not match the current model input",
+    );
   });
 
   it("audits the conceptual model independently from numerical inputs", () => {

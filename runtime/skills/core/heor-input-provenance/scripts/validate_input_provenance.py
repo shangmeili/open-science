@@ -20,7 +20,7 @@ BASE_PATHS = [
     "strategies.intervention.state_utilities",
 ]
 UNCERTAINTY = {"fixed", "range_available", "distribution_available"}
-CURRENT_ANALYSIS_SCHEMA = "0.2.0"
+CURRENT_ANALYSIS_SCHEMA = "0.3.0"
 
 
 def text(value: Any) -> bool:
@@ -57,12 +57,102 @@ def model_value(plan: dict[str, Any], path: str) -> Any:
     return current
 
 
+def strict_json(value: Any) -> Any:
+    if not isinstance(value, str):
+        raise ValueError("extracted_value is not text")
+
+    def reject_constant(constant: str) -> None:
+        raise ValueError(f"non-standard JSON constant {constant}")
+
+    return json.loads(value, parse_constant=reject_constant)
+
+
+def json_equivalent(left: Any, right: Any) -> bool:
+    if isinstance(left, bool) or isinstance(right, bool):
+        return isinstance(left, bool) and isinstance(right, bool) and left == right
+    if finite_number(left) or finite_number(right):
+        return finite_number(left) and finite_number(right) and isclose(
+            float(left), float(right), rel_tol=1e-12, abs_tol=1e-12
+        )
+    if isinstance(left, list) or isinstance(right, list):
+        return (
+            isinstance(left, list)
+            and isinstance(right, list)
+            and len(left) == len(right)
+            and all(json_equivalent(a, b) for a, b in zip(left, right))
+        )
+    if isinstance(left, dict) or isinstance(right, dict):
+        return (
+            isinstance(left, dict)
+            and isinstance(right, dict)
+            and left.keys() == right.keys()
+            and all(json_equivalent(left[key], right[key]) for key in left)
+        )
+    return left == right
+
+
+def derivation_reasons(
+    plan: dict[str, Any],
+    path: str,
+    mapping: dict[str, Any],
+    extraction_index: dict[str, dict[str, Any]],
+) -> list[str]:
+    reasons: list[str] = []
+    derivation = mapping.get("derivation")
+    if not isinstance(derivation, dict):
+        return ["derivation must be an object"]
+    target = model_value(plan, path)
+    if target is None:
+        reasons.append("current model input is missing or null")
+    if target is None or "model_value" not in derivation or not json_equivalent(
+        derivation.get("model_value"), target
+    ):
+        reasons.append("derivation.model_value does not match the current model input")
+    source_ids = texts(mapping.get("source_ids")) or []
+    extraction_ids = texts(mapping.get("extraction_ids")) or []
+    assumption_ids = texts(mapping.get("assumption_ids")) or []
+    method = derivation.get("method")
+    if not source_ids:
+        if method != "explicit_assumption":
+            reasons.append("assumption-only input must use derivation method explicit_assumption")
+        if extraction_ids:
+            reasons.append("explicit_assumption derivation must not claim extraction IDs")
+        if not assumption_ids:
+            reasons.append("explicit_assumption derivation requires a proposed assumption")
+        return reasons
+    expected_method = "monetary_adjustment" if (
+        path.endswith("state_costs") or path == "willingness_to_pay"
+    ) else "direct_evidence"
+    if method != expected_method:
+        reasons.append(f"source-based input must use derivation method {expected_method}")
+        return reasons
+    if method == "direct_evidence":
+        if len(extraction_ids) != 1:
+            reasons.append("direct_evidence requires exactly one extraction")
+        else:
+            extraction = extraction_index.get(extraction_ids[0])
+            if extraction is not None:
+                try:
+                    extracted = strict_json(extraction.get("extracted_value"))
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    reasons.append(
+                        f"{extraction_ids[0]}.extracted_value must be strict JSON"
+                    )
+                else:
+                    if not json_equivalent(extracted, target):
+                        reasons.append(
+                            f"{extraction_ids[0]}.extracted_value does not equal the model input"
+                        )
+    return reasons
+
+
 def monetary_reasons(
     plan: dict[str, Any],
     path: str,
     mapping: dict[str, Any],
     economic_basis: dict[str, Any] | None,
     valid_basis_ids: set[str],
+    extraction_index: dict[str, dict[str, Any]],
 ) -> list[str]:
     reasons: list[str] = []
     if economic_basis is None:
@@ -83,6 +173,9 @@ def monetary_reasons(
         return reasons + ["monetary_adjustments must cover every model value exactly once"]
 
     seen: set[int] = set()
+    source_based = bool(texts(mapping.get("source_ids")) or [])
+    extraction_ids = set(texts(mapping.get("extraction_ids")) or [])
+    used_extractions: set[str] = set()
     for position, adjustment in enumerate(adjustments):
         label = f"monetary_adjustments[{position}]"
         if not isinstance(adjustment, dict):
@@ -110,6 +203,48 @@ def monetary_reasons(
         if not finite_number(factor) or factor <= 0:
             reasons.append(f"{label}.factor must be finite and positive")
             continue
+        source_extraction_id = adjustment.get("source_extraction_id")
+        source_index = adjustment.get("source_index")
+        if source_based:
+            if not text(source_extraction_id) or source_extraction_id not in extraction_ids:
+                reasons.append(f"{label}.source_extraction_id must reference a selected extraction")
+            else:
+                used_extractions.add(source_extraction_id)
+                extraction = extraction_index.get(source_extraction_id)
+                if extraction is not None:
+                    try:
+                        extracted = strict_json(extraction.get("extracted_value"))
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        reasons.append(
+                            f"{label} source extraction must contain strict JSON"
+                        )
+                    else:
+                        if isinstance(extracted, list):
+                            if (
+                                isinstance(source_index, bool)
+                                or not isinstance(source_index, int)
+                                or not 0 <= source_index < len(extracted)
+                            ):
+                                reasons.append(f"{label}.source_index is invalid")
+                                extracted_source = None
+                            else:
+                                extracted_source = extracted[source_index]
+                        else:
+                            if "source_index" in adjustment:
+                                reasons.append(
+                                    f"{label}.source_index must be omitted for a scalar extraction"
+                                )
+                            extracted_source = extracted
+                        if extracted_source is not None and not json_equivalent(
+                            extracted_source, source_value
+                        ):
+                            reasons.append(
+                                f"{label}.source_value does not match the bound extraction"
+                            )
+        elif "source_extraction_id" in adjustment or "source_index" in adjustment:
+            reasons.append(
+                f"{label} must not bind an extraction for an assumption-only input"
+            )
         if not currency_code(adjustment.get("source_currency")):
             reasons.append(f"{label}.source_currency must be an ISO 4217-format code")
         source_year = adjustment.get("source_price_year")
@@ -134,6 +269,8 @@ def monetary_reasons(
                 reasons.append(f"{label}.basis_ids must link valid evidence or proposed assumptions")
     if seen != set(range(len(target_values))):
         reasons.append("monetary_adjustments do not cover every target index")
+    if source_based and used_extractions != extraction_ids:
+        reasons.append("monetary_adjustments must use every selected extraction")
     return reasons
 
 
@@ -245,9 +382,9 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
         if mapping.get("uncertainty_status") not in UNCERTAINTY:
             reasons.append("uncertainty_status is invalid")
         if path.endswith("state_costs") or path == "willingness_to_pay":
-            reasons.extend(
-                monetary_reasons(plan, path, mapping, economic_basis, valid_basis_ids)
-            )
+            reasons.extend(monetary_reasons(
+                plan, path, mapping, economic_basis, valid_basis_ids, extraction_index
+            ))
         source_ids = texts(mapping.get("source_ids")) or []
         assumption_ids = texts(mapping.get("assumption_ids")) or []
         extraction_ids = texts(mapping.get("extraction_ids")) or []
@@ -273,6 +410,7 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
                     reasons.append(f"{extraction_id} record_id is not a linked source")
         elif extraction_ids:
             reasons.append("assumption-only mapping must not claim extraction_ids")
+        reasons.extend(derivation_reasons(plan, path, mapping, extraction_index))
         if reasons:
             invalid.append(f"{path}: {'; '.join(reasons)}")
         else:

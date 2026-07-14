@@ -12,9 +12,10 @@ from math import isclose, isfinite
 from typing import Any
 
 
-SCHEMA_VERSION = "0.2.0"
+SCHEMA_VERSION = "0.3.0"
+PRIOR_SCHEMA_VERSION = "0.2.0"
 LEGACY_SCHEMA_VERSION = "0.1.0"
-ENGINE_VERSION = "0.2.0"
+ENGINE_VERSION = "0.3.0"
 TOLERANCE = 1e-9
 
 
@@ -72,7 +73,7 @@ class MarkovSpecification:
         reference_case = _mapping(value.get("reference_case", {}), "reference_case")
         schema_version = str(value.get("schema_version", ""))
         economic_basis = value.get("economic_basis")
-        if schema_version == SCHEMA_VERSION:
+        if schema_version in {PRIOR_SCHEMA_VERSION, SCHEMA_VERSION}:
             economic_basis = _mapping(economic_basis, "economic_basis")
             currency = str(economic_basis.get("currency", ""))
             price_year = _strict_int(
@@ -120,12 +121,17 @@ class MarkovSpecification:
         return specification
 
     def validate(self) -> None:
-        if self.schema_version not in {LEGACY_SCHEMA_VERSION, SCHEMA_VERSION}:
+        if self.schema_version not in {
+            LEGACY_SCHEMA_VERSION,
+            PRIOR_SCHEMA_VERSION,
+            SCHEMA_VERSION,
+        }:
             raise ModelValidationError(
                 "unsupported schema_version "
-                f"{self.schema_version!r}; expected {LEGACY_SCHEMA_VERSION!r} or {SCHEMA_VERSION!r}"
+                f"{self.schema_version!r}; expected {LEGACY_SCHEMA_VERSION!r}, "
+                f"{PRIOR_SCHEMA_VERSION!r}, or {SCHEMA_VERSION!r}"
             )
-        if self.schema_version == SCHEMA_VERSION:
+        if self.schema_version in {PRIOR_SCHEMA_VERSION, SCHEMA_VERSION}:
             if self.currency is None or not (
                 len(self.currency) == 3 and self.currency.isascii() and self.currency.isalpha()
                 and self.currency.isupper()
@@ -266,6 +272,10 @@ def run_markov(specification: MarkovSpecification) -> AnalysisResult:
     if specification.schema_version == LEGACY_SCHEMA_VERSION:
         warnings.append(
             "Legacy analysis schema: currency and price-year basis are absent, so monetary results are exploratory and must not be presented with a claimed currency."
+        )
+    elif specification.schema_version == PRIOR_SCHEMA_VERSION:
+        warnings.append(
+            "Prior analysis schema: the economic basis is retained, but evidence-to-model value derivations are not executable, so the desktop must not approve this plan."
         )
     return AnalysisResult(
         analysis_id=specification.analysis_id,

@@ -94,7 +94,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Priority | Skill | Primary responsibility | Main artifact |
 | --- | --- | --- | --- |
 | Shipped | `heor-workbench` | Natural-language orchestration and handoff | `heor/analysis-plan.json` plus conversation |
-| Shipped | `heor-input-provenance` | Map every model input to evidence or an explicit reviewable assumption | `evidence_sources`, `assumptions`, `input_provenance` |
+| Shipped | `heor-input-provenance` | Map every model input to evidence or an explicit reviewable assumption and deterministically prove the selected value reaches the model | `evidence_sources`, `assumptions`, executable `input_provenance` derivations |
 | Shipped | `heor-evidence-synthesis` | PICOS screening, extraction, conflict log, applicability, and preservation of app-bound search provenance | `heor/evidence-synthesis.json` plus native and portable deterministic audits |
 | Shipped alpha | `heor-evidence-search` | Draft a bounded PubMed/ClinicalTrials.gov metadata request; require exact app-owned human network authorization; verify and losslessly import immutable candidates | `heor/evidence-search-request.json`, app-written `heor/evidence-search-runs/*.json`, app-owned authorization log, and hash-bound synthesis import |
 | Shipped alpha | `heor-local-evidence` | Verify and deterministically search app-indexed local PDF/text sources with exact path, page, and SHA-256 citations | `heor/library/*`, `heor/evidence-library.json`, and app-owned `.openscience/heor-library.sqlite` |
@@ -150,6 +150,14 @@ induced demand, dynamic cohorts, or multi-treatment markets. Optional BCEA,
 `hesim`, `heemod`, and `survHE` integrations remain candidates until their
 adapters pass the same pipeline; their maturity does not bypass platform
 admission.
+
+The schema `0.3.0` input-provenance slice applies the same rule at the evidence
+boundary. A selected extraction is no longer sufficient merely because its ID,
+target, record, and dual local review match. Direct evidence must be strict JSON
+equal to the exact model value; monetary source values must bind to extraction
+elements before adjustment arithmetic; explicit assumptions cannot claim
+extractions. Transformations that the first-party validator cannot execute are
+kept incomplete rather than delegated to an upstream prompt or hidden in prose.
 
 The evidence-search slice applies the same standard to a network capability.
 The Agent can only draft and validate the request file. Native code rejects

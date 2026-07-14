@@ -12,7 +12,7 @@ The artifact is `heor/evidence-synthesis.json`. It records what was searched, sc
 - `searches`: unique `id`, `source`, exact `query`, ISO `searched_on`, non-negative `result_count`, and `access` (`network` or `local`).
 - `deduplication`: explicit method and non-negative duplicate count.
 - `records`: unique `record_id`, title, locator, source type, contributing `search_ids`, and separate screening decisions. Every included record also requires a critical-appraisal record.
-- `extractions`: unique `extraction_id`, an included `record_id`, target claim or input, extracted value, source location, applicability, and verification status.
+- `extractions`: unique `extraction_id`, an included `record_id`, target claim or input, extracted value, source location, applicability, and verification status. Candidate model-input values use strict JSON text; narrative context belongs in applicability.
 - `conflicts`: explicit topic, involved record IDs, status, and rationale.
 - `limitations`: non-empty statements of material coverage or access limits.
 

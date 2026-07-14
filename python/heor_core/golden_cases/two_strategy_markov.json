@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.2.0",
+  "schema_version": "0.3.0",
   "analysis_id": "golden-two-strategy-markov",
   "economic_basis": {
     "currency": "CNY",

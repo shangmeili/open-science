@@ -73,7 +73,8 @@ describe("AI4HEOR human review pane", () => {
         onSubmit={onSubmit}
       />,
     );
-    expect(screen.getByText("CNY 12,500 per cycle")).toBeInTheDocument();
+    expect(screen.getByText("12500")).toBeInTheDocument();
+    expect(screen.getByText(/CNY per cycle; Chinese payer setting/)).toBeInTheDocument();
     expect(screen.getByText(/Table 3, intervention arm/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Reject selected" }));
     await userEvent.click(screen.getByRole("checkbox", {

@@ -14,7 +14,7 @@ Create a transparent evidence trail, not a citation list or an autonomous system
 3. Prefer AI4HEOR's human-authorized search and deterministic candidate import for PubMed and ClinicalTrials.gov. For every search, preserve the exact source, query, search date, result count, and any app-written authorization/run bindings.
 4. Deduplicate records without discarding their source-search links.
 5. Record title/abstract and full-text decisions separately. Keep excluded full-text records with a specific reason.
-6. Extract only values and claims directly supported by included records. Record location, unit, population, follow-up, applicability, and uncertainty when relevant.
+6. Extract only values and claims directly supported by included records. Record location, unit, population, follow-up, applicability, and uncertainty when relevant. When an extraction is a candidate model input, encode `extracted_value` as strict JSON (for example `0.74`, `[0.8,0.5,0]`, or a matrix) and keep context in `applicability` rather than mixing commentary into the value.
 7. Record conflicting evidence explicitly. Do not silently select a convenient estimate.
 8. If the file does not exist, prepare an importable skeleton from `assets/evidence-synthesis.template.json`. After app import, modify research fields only: do not rewrite app-bound provenance, convert `not_assessed` merely to satisfy validation, or overwrite existing screening/appraisal decisions.
 9. Run `scripts/validate_evidence_synthesis.py` against the final file. An importable skeleton is intentionally incomplete until at least one documented search exists and all research work is supported.

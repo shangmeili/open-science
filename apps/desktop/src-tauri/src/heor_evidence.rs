@@ -105,6 +105,92 @@ fn model_value<'a>(plan: &'a serde_json::Value, path: &str) -> Option<&'a serde_
         .try_fold(plan, |current, token| current.get(token))
 }
 
+fn json_equivalent(left: &serde_json::Value, right: &serde_json::Value) -> bool {
+    match (left, right) {
+        (serde_json::Value::Number(a), serde_json::Value::Number(b)) => {
+            match (a.as_f64(), b.as_f64()) {
+                (Some(a), Some(b)) if a.is_finite() && b.is_finite() => {
+                    let tolerance = (a.abs().max(b.abs()) * 1e-12).max(1e-12);
+                    (a - b).abs() <= tolerance
+                }
+                _ => false,
+            }
+        }
+        (serde_json::Value::Array(a), serde_json::Value::Array(b)) => {
+            a.len() == b.len()
+                && a.iter()
+                    .zip(b.iter())
+                    .all(|(left, right)| json_equivalent(left, right))
+        }
+        (serde_json::Value::Object(a), serde_json::Value::Object(b)) => {
+            a.len() == b.len()
+                && a.iter().all(|(key, value)| {
+                    b.get(key)
+                        .is_some_and(|other| json_equivalent(value, other))
+                })
+        }
+        _ => left == right,
+    }
+}
+
+fn derivation_declaration_reasons(
+    plan: &serde_json::Value,
+    path: &str,
+    mapping: &serde_json::Value,
+    source_ids: &[&str],
+    assumption_ids: &[&str],
+    extraction_ids: &[&str],
+) -> Vec<String> {
+    let mut reasons = Vec::new();
+    let Some(derivation) = mapping
+        .get("derivation")
+        .and_then(serde_json::Value::as_object)
+    else {
+        return vec!["derivation must be an object".into()];
+    };
+    let target_matches = model_value(plan, path)
+        .filter(|target| !target.is_null())
+        .is_some_and(|target| {
+            derivation
+                .get("model_value")
+                .is_some_and(|value| json_equivalent(value, target))
+        });
+    if !target_matches {
+        reasons.push("derivation.model_value does not match the current model input".into());
+    }
+    let method = derivation
+        .get("method")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if source_ids.is_empty() {
+        if method != "explicit_assumption" {
+            reasons.push(
+                "assumption-only input must use derivation method explicit_assumption".into(),
+            );
+        }
+        if !extraction_ids.is_empty() {
+            reasons.push("explicit_assumption derivation must not claim extraction IDs".into());
+        }
+        if assumption_ids.is_empty() {
+            reasons.push("explicit_assumption derivation requires a proposed assumption".into());
+        }
+    } else {
+        let expected = if monetary_path(path) {
+            "monetary_adjustment"
+        } else {
+            "direct_evidence"
+        };
+        if method != expected {
+            reasons.push(format!(
+                "source-based input must use derivation method {expected}"
+            ));
+        } else if method == "direct_evidence" && extraction_ids.len() != 1 {
+            reasons.push("direct_evidence requires exactly one extraction".into());
+        }
+    }
+    reasons
+}
+
 fn monetary_adjustment_reasons(
     plan: &serde_json::Value,
     path: &str,
@@ -364,9 +450,9 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        != Some("0.2.0")
+        != Some("0.3.0")
     {
-        invalid_mappings.push("schema_version must be 0.2.0 for approval review".into());
+        invalid_mappings.push("schema_version must be 0.3.0 for approval review".into());
     }
     let economic_basis = plan
         .get("economic_basis")
@@ -428,6 +514,9 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
         if !uncertainty_valid {
             reasons.push("uncertainty status is invalid".into());
         }
+        let source_ids = string_list(mapping.get("source_ids")).unwrap_or_default();
+        let assumption_ids = string_list(mapping.get("assumption_ids")).unwrap_or_default();
+        let extraction_ids = string_list(mapping.get("extraction_ids")).unwrap_or_default();
         if monetary_path(path) {
             reasons.extend(monetary_adjustment_reasons(
                 plan,
@@ -438,10 +527,14 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
                 &assumption_statuses,
             ));
         }
-
-        let source_ids = string_list(mapping.get("source_ids")).unwrap_or_default();
-        let assumption_ids = string_list(mapping.get("assumption_ids")).unwrap_or_default();
-        let extraction_ids = string_list(mapping.get("extraction_ids")).unwrap_or_default();
+        reasons.extend(derivation_declaration_reasons(
+            plan,
+            path,
+            mapping,
+            &source_ids,
+            &assumption_ids,
+            &extraction_ids,
+        ));
         if source_ids.is_empty() && assumption_ids.is_empty() {
             reasons.push("no evidence source or reviewable assumption is linked".into());
         }
@@ -515,6 +608,109 @@ fn incomplete_selection(error: String) -> EvidenceSelectionAudit {
         errors: vec![error],
         verification_integrity: "not_checked",
     }
+}
+
+fn extraction_derivation_reasons(
+    plan: &serde_json::Value,
+    mapping: &serde_json::Value,
+    extraction_index: &HashMap<String, crate::heor_synthesis::ExtractionLink>,
+) -> Vec<String> {
+    let path = mapping
+        .get("path")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("mapping");
+    let source_ids = string_list(mapping.get("source_ids")).unwrap_or_default();
+    if source_ids.is_empty() {
+        return Vec::new();
+    }
+    let extraction_ids = string_list(mapping.get("extraction_ids")).unwrap_or_default();
+    if !monetary_path(path) {
+        let [extraction_id] = extraction_ids.as_slice() else {
+            return Vec::new();
+        };
+        let Some(extraction) = extraction_index.get(*extraction_id) else {
+            return Vec::new();
+        };
+        let Ok(extracted) = serde_json::from_str::<serde_json::Value>(&extraction.extracted_value)
+        else {
+            return vec![format!(
+                "{extraction_id}.extracted_value must be strict JSON"
+            )];
+        };
+        if model_value(plan, path).is_some_and(|target| json_equivalent(&extracted, target)) {
+            return Vec::new();
+        }
+        return vec![format!(
+            "{extraction_id}.extracted_value does not equal the model input"
+        )];
+    }
+
+    let selected = extraction_ids.iter().copied().collect::<HashSet<_>>();
+    let mut used = HashSet::new();
+    let mut reasons = Vec::new();
+    let adjustments = mapping
+        .get("monetary_adjustments")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    for (position, adjustment) in adjustments.iter().enumerate() {
+        let label = format!("monetary_adjustments[{position}]");
+        let Some(adjustment) = adjustment.as_object() else {
+            continue;
+        };
+        let Some(extraction_id) = adjustment
+            .get("source_extraction_id")
+            .and_then(serde_json::Value::as_str)
+            .filter(|identifier| selected.contains(identifier))
+        else {
+            reasons.push(format!(
+                "{label}.source_extraction_id must reference a selected extraction"
+            ));
+            continue;
+        };
+        used.insert(extraction_id);
+        let Some(extraction) = extraction_index.get(extraction_id) else {
+            continue;
+        };
+        let Ok(extracted) = serde_json::from_str::<serde_json::Value>(&extraction.extracted_value)
+        else {
+            reasons.push(format!(
+                "{label} source extraction must contain strict JSON"
+            ));
+            continue;
+        };
+        let extracted_source = if let Some(values) = extracted.as_array() {
+            let Some(index) = adjustment
+                .get("source_index")
+                .and_then(serde_json::Value::as_u64)
+                .and_then(|value| usize::try_from(value).ok())
+                .filter(|value| *value < values.len())
+            else {
+                reasons.push(format!("{label}.source_index is invalid"));
+                continue;
+            };
+            &values[index]
+        } else {
+            if adjustment.contains_key("source_index") {
+                reasons.push(format!(
+                    "{label}.source_index must be omitted for a scalar extraction"
+                ));
+            }
+            &extracted
+        };
+        if !adjustment
+            .get("source_value")
+            .is_some_and(|value| json_equivalent(value, extracted_source))
+        {
+            reasons.push(format!(
+                "{label}.source_value does not match the bound extraction"
+            ));
+        }
+    }
+    if used != selected {
+        reasons.push("monetary_adjustments must use every selected extraction".into());
+    }
+    reasons
 }
 
 pub(crate) fn audit_evidence_selection_for_plan(
@@ -643,6 +839,11 @@ pub(crate) fn audit_evidence_selection_for_plan(
                 unverified.insert(extraction_id.to_string());
             }
         }
+        invalid_selections.extend(
+            extraction_derivation_reasons(&plan, mapping, &extraction_index)
+                .into_iter()
+                .map(|reason| format!("{path}: {reason}")),
+        );
     }
     let complete = errors.is_empty()
         && invalid_selections.is_empty()
@@ -737,10 +938,12 @@ mod tests {
                         "source_price_year": 2026,
                         "factor": 1.0,
                         "method": "none",
-                        "basis_ids": []
+                        "basis_ids": [],
+                        "source_extraction_id": format!("extract-{}", path.replace('.', "-"))
                     });
                     if path.ends_with("state_costs") {
                         item["target_index"] = serde_json::json!(index);
+                        item["source_index"] = serde_json::json!(index);
                     }
                     item
                 })
@@ -750,13 +953,27 @@ mod tests {
 
     fn complete_plan() -> serde_json::Value {
         let paths = required_input_paths(&serde_json::json!({ "willingness_to_pay": 100000 }));
-        serde_json::json!({
-            "schema_version": "0.2.0",
+        let mut plan = serde_json::json!({
+            "schema_version": "0.3.0",
             "economic_basis": {"currency": "CNY", "price_year": 2026},
             "willingness_to_pay": 100000,
+            "cycles": 3,
+            "cycle_length_years": 1.0,
+            "discount_rates": {"costs": 0.05, "outcomes": 0.05},
+            "half_cycle_correction": true,
             "strategies": {
-                "comparator": {"state_costs": [1000.0, 3000.0, 0.0]},
-                "intervention": {"state_costs": [4000.0, 3000.0, 0.0]}
+                "comparator": {
+                    "initial_distribution": [1.0, 0.0, 0.0],
+                    "transition_matrix": [[0.7, 0.2, 0.1], [0.0, 0.7, 0.3], [0.0, 0.0, 1.0]],
+                    "state_costs": [1000.0, 3000.0, 0.0],
+                    "state_utilities": [0.8, 0.5, 0.0]
+                },
+                "intervention": {
+                    "initial_distribution": [1.0, 0.0, 0.0],
+                    "transition_matrix": [[0.8, 0.15, 0.05], [0.0, 0.75, 0.25], [0.0, 0.0, 1.0]],
+                    "state_costs": [4000.0, 3000.0, 0.0],
+                    "state_utilities": [0.8, 0.5, 0.0]
+                }
             },
             "evidence_synthesis": {
                 "path": "heor/evidence-synthesis.json",
@@ -770,7 +987,9 @@ mod tests {
                 "accessed_on": "2026-07-14"
             }],
             "assumptions": [],
-            "input_provenance": paths.into_iter().map(|path| serde_json::json!({
+            "input_provenance": []
+        });
+        plan["input_provenance"] = serde_json::Value::Array(paths.into_iter().map(|path| serde_json::json!({
                 "path": path,
                 "source_ids": ["source-1"],
                 "extraction_ids": [format!("extract-{}", path.replace('.', "-"))],
@@ -780,10 +999,14 @@ mod tests {
                 "currency": if monetary_path(path) { Some("CNY") } else { None },
                 "price_year": if monetary_path(path) { Some(2026) } else { None },
                 "monetary_adjustments": monetary_adjustments(path),
+                "derivation": {
+                    "method": if monetary_path(path) { "monetary_adjustment" } else { "direct_evidence" },
+                    "model_value": model_value(&plan, path).cloned().unwrap()
+                },
                 "selection_rationale": "Pre-specified source",
                 "uncertainty_status": "fixed"
-            })).collect::<Vec<_>>()
-        })
+            })).collect());
+        plan
     }
 
     #[test]
@@ -827,6 +1050,7 @@ mod tests {
         first["source_ids"] = serde_json::json!([]);
         first["extraction_ids"] = serde_json::json!([]);
         first["assumption_ids"] = serde_json::json!(["assumption-1"]);
+        first["derivation"]["method"] = serde_json::json!("explicit_assumption");
         assert!(audit_plan(&plan).complete);
     }
 
@@ -865,9 +1089,85 @@ mod tests {
             "source_price_year": 2024,
             "factor": 8.0,
             "method": "Documented inflation and exchange-rate composite factor",
-            "basis_ids": ["source-1"]
+            "basis_ids": ["source-1"],
+            "source_extraction_id": "extract-willingness_to_pay"
         }]);
 
         assert!(audit_plan(&plan).complete);
+    }
+
+    #[test]
+    fn prior_schema_and_stale_derivation_snapshot_fail_closed() {
+        let mut plan = complete_plan();
+        plan["schema_version"] = serde_json::json!("0.2.0");
+        plan["input_provenance"][0]["derivation"]["model_value"] = serde_json::json!(999);
+
+        let audit = audit_plan(&plan);
+
+        assert!(!audit.complete);
+        let errors = audit.invalid_mappings.join("; ");
+        assert!(errors.contains("schema_version must be 0.3.0"));
+        assert!(errors.contains("does not match the current model input"));
+    }
+
+    #[test]
+    fn native_derivation_rejects_changed_extracted_value() {
+        let plan = complete_plan();
+        let mapping = &plan["input_provenance"][0];
+        let extraction_id = mapping["extraction_ids"][0].as_str().unwrap();
+        let mut index = HashMap::new();
+        index.insert(
+            extraction_id.to_string(),
+            crate::heor_synthesis::ExtractionLink {
+                record_id: "source-1".into(),
+                target: "cycles".into(),
+                extracted_value: "4".into(),
+            },
+        );
+
+        assert!(extraction_derivation_reasons(&plan, mapping, &index)
+            .join("; ")
+            .contains("does not equal the model input"));
+    }
+
+    #[test]
+    fn native_derivation_rejects_narrative_and_changed_monetary_source_values() {
+        let plan = complete_plan();
+        let direct = &plan["input_provenance"][0];
+        let direct_id = direct["extraction_ids"][0].as_str().unwrap();
+        let mut direct_index = HashMap::new();
+        direct_index.insert(
+            direct_id.to_string(),
+            crate::heor_synthesis::ExtractionLink {
+                record_id: "source-1".into(),
+                target: "cycles".into(),
+                extracted_value: "three cycles".into(),
+            },
+        );
+        assert!(extraction_derivation_reasons(&plan, direct, &direct_index)
+            .join("; ")
+            .contains("must be strict JSON"));
+
+        let monetary = plan["input_provenance"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|mapping| mapping["path"] == "strategies.intervention.state_costs")
+            .unwrap();
+        let monetary_id = monetary["extraction_ids"][0].as_str().unwrap();
+        let mut monetary_index = HashMap::new();
+        monetary_index.insert(
+            monetary_id.to_string(),
+            crate::heor_synthesis::ExtractionLink {
+                record_id: "source-1".into(),
+                target: "strategies.intervention.state_costs".into(),
+                extracted_value: "[3999,3000,0]".into(),
+            },
+        );
+        assert!(
+            extraction_derivation_reasons(&plan, monetary, &monetary_index)
+                .join("; ")
+                .contains("source_value does not match the bound extraction")
+        );
     }
 }

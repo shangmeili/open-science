@@ -860,6 +860,7 @@ pub(crate) fn audit_current_with_verification(
 pub(crate) struct ExtractionLink {
     pub record_id: String,
     pub target: String,
+    pub extracted_value: String,
 }
 
 pub(crate) fn extraction_index(raw: &[u8]) -> Result<HashMap<String, ExtractionLink>, String> {
@@ -898,11 +899,16 @@ pub(crate) fn extraction_index(raw: &[u8]) -> Result<HashMap<String, ExtractionL
             .get("target")
             .and_then(Value::as_str)
             .ok_or("evidence extraction omitted target")?;
+        let extracted_value = extraction
+            .get("extracted_value")
+            .and_then(Value::as_str)
+            .ok_or("evidence extraction omitted extracted_value")?;
         output.insert(
             id.to_string(),
             ExtractionLink {
                 record_id: record_id.to_string(),
                 target: target.to_string(),
+                extracted_value: extracted_value.to_string(),
             },
         );
     }

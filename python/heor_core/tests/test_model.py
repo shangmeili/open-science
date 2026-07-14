@@ -78,6 +78,15 @@ class MarkovModelTests(unittest.TestCase):
         self.assertIsNone(result.economic_basis)
         self.assertIn("Legacy analysis schema", " ".join(result.warnings))
 
+    def test_prior_plan_keeps_basis_but_warns_that_derivations_are_not_approvable(self) -> None:
+        payload = golden_payload()
+        payload["schema_version"] = "0.2.0"
+
+        result = run_markov(MarkovSpecification.from_dict(payload))
+
+        self.assertEqual(result.economic_basis, {"currency": "CNY", "price_year": 2026})
+        self.assertIn("derivations are not executable", " ".join(result.warnings))
+
     def test_cohort_mass_is_conserved_in_every_cycle(self) -> None:
         result = run_markov(MarkovSpecification.from_dict(golden_payload()))
 

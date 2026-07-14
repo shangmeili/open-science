@@ -101,6 +101,8 @@ export interface HeorInputProvenance {
   price_year?: number;
   monetary_adjustments?: Array<{
     target_index?: number;
+    source_extraction_id?: string;
+    source_index?: number;
     source_value: number;
     source_currency: string;
     source_price_year: number;
@@ -108,6 +110,10 @@ export interface HeorInputProvenance {
     method: string;
     basis_ids: string[];
   }>;
+  derivation: {
+    method: "direct_evidence" | "explicit_assumption" | "monetary_adjustment";
+    model_value: unknown;
+  };
   selection_rationale: string;
   uncertainty_status: "fixed" | "range_available" | "distribution_available";
 }
@@ -469,7 +475,7 @@ export interface HeorEvidenceVerificationRequest {
 }
 
 export interface HeorAnalysisPlan {
-  schema_version: "0.1.0" | "0.2.0";
+  schema_version: "0.1.0" | "0.2.0" | "0.3.0";
   analysis_id: string;
   economic_basis?: { currency: string; price_year: number };
   input_status?: string;
@@ -687,8 +693,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseHeorPlan(raw: string): HeorAnalysisPlan {
   const value: unknown = JSON.parse(raw);
   if (!isRecord(value)) throw new Error("analysis plan must be a JSON object");
-  if (value.schema_version !== "0.1.0" && value.schema_version !== "0.2.0") {
-    throw new Error("analysis plan schema_version must be 0.1.0 or 0.2.0");
+  if (!["0.1.0", "0.2.0", "0.3.0"].includes(String(value.schema_version))) {
+    throw new Error("analysis plan schema_version must be 0.1.0, 0.2.0, or 0.3.0");
   }
   if (typeof value.analysis_id !== "string" || !value.analysis_id.trim()) {
     throw new Error("analysis plan must include analysis_id");
@@ -765,6 +771,64 @@ function modelValue(plan: HeorAnalysisPlan, path: string): unknown {
   return current;
 }
 
+function jsonEquivalent(left: unknown, right: unknown): boolean {
+  if (typeof left === "number" || typeof right === "number") {
+    if (!finiteNumber(left) || !finiteNumber(right)) return false;
+    const tolerance = Math.max(1e-12, Math.max(Math.abs(left), Math.abs(right)) * 1e-12);
+    return Math.abs(left - right) <= tolerance;
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) && Array.isArray(right) && left.length === right.length
+      && left.every((value, index) => jsonEquivalent(value, right[index]));
+  }
+  if (isRecord(left) || isRecord(right)) {
+    if (!isRecord(left) || !isRecord(right)) return false;
+    const leftKeys = Object.keys(left).sort();
+    const rightKeys = Object.keys(right).sort();
+    return leftKeys.length === rightKeys.length
+      && leftKeys.every((key, index) => key === rightKeys[index]
+        && jsonEquivalent(left[key], right[key]));
+  }
+  return left === right;
+}
+
+function derivationReasons(
+  plan: HeorAnalysisPlan,
+  mapping: HeorInputProvenance,
+  sourceIds: string[],
+  assumptionIds: string[],
+  extractionIds: string[],
+): string[] {
+  const reasons: string[] = [];
+  const derivation = mapping.derivation;
+  if (!isRecord(derivation)) return ["derivation must be an object"];
+  const target = modelValue(plan, mapping.path);
+  if (target === undefined || target === null || !("model_value" in derivation)
+    || !jsonEquivalent(derivation.model_value, target)) {
+    reasons.push("derivation.model_value does not match the current model input");
+  }
+  const monetary = mapping.path.endsWith("state_costs") || mapping.path === "willingness_to_pay";
+  if (sourceIds.length === 0) {
+    if (derivation.method !== "explicit_assumption") {
+      reasons.push("assumption-only input must use derivation method explicit_assumption");
+    }
+    if (extractionIds.length > 0) {
+      reasons.push("explicit_assumption derivation must not claim extraction IDs");
+    }
+    if (assumptionIds.length === 0) {
+      reasons.push("explicit_assumption derivation requires a proposed assumption");
+    }
+  } else {
+    const expected = monetary ? "monetary_adjustment" : "direct_evidence";
+    if (derivation.method !== expected) {
+      reasons.push(`source-based input must use derivation method ${expected}`);
+    } else if (derivation.method === "direct_evidence" && extractionIds.length !== 1) {
+      reasons.push("direct_evidence requires exactly one extraction");
+    }
+  }
+  return reasons;
+}
+
 function monetaryAdjustmentReasons(
   plan: HeorAnalysisPlan,
   mapping: HeorInputProvenance,
@@ -793,6 +857,9 @@ function monetaryAdjustmentReasons(
     return [...reasons, "monetary_adjustments must cover every model value exactly once"];
   }
   const seen = new Set<number>();
+  const sourceBased = (mapping.source_ids ?? []).filter(nonempty).length > 0;
+  const selectedExtractions = new Set((mapping.extraction_ids ?? []).filter(nonempty));
+  const usedExtractions = new Set<string>();
   adjustments.forEach((adjustment, position) => {
     const label = `monetary_adjustments[${position}]`;
     const targetIndex = Array.isArray(target) ? adjustment.target_index : 0;
@@ -818,6 +885,17 @@ function monetaryAdjustmentReasons(
     if (!finiteNumber(adjustment.factor) || adjustment.factor <= 0) {
       reasons.push(`${label}.factor must be finite and positive`);
       return;
+    }
+    if (sourceBased) {
+      if (!nonempty(adjustment.source_extraction_id)
+        || !selectedExtractions.has(adjustment.source_extraction_id)) {
+        reasons.push(`${label}.source_extraction_id must reference a selected extraction`);
+      } else {
+        usedExtractions.add(adjustment.source_extraction_id);
+      }
+    } else if (adjustment.source_extraction_id !== undefined
+      || adjustment.source_index !== undefined) {
+      reasons.push(`${label} must not bind an extraction for an assumption-only input`);
     }
     if (!currencyCode(adjustment.source_currency)) {
       reasons.push(`${label}.source_currency must be an ISO 4217-format code`);
@@ -849,6 +927,10 @@ function monetaryAdjustmentReasons(
   });
   if (seen.size !== targetValues.length) {
     reasons.push("monetary_adjustments do not cover every target index");
+  }
+  if (sourceBased && (usedExtractions.size !== selectedExtractions.size
+    || [...selectedExtractions].some((id) => !usedExtractions.has(id)))) {
+    reasons.push("monetary_adjustments must use every selected extraction");
   }
   return reasons;
 }
@@ -1018,8 +1100,8 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
   const seen = new Set<string>();
   const covered = new Set<string>();
   const invalidMappings: string[] = [];
-  if (plan.schema_version !== "0.2.0") {
-    invalidMappings.push("schema_version must be 0.2.0 for approval review");
+  if (plan.schema_version !== "0.3.0") {
+    invalidMappings.push("schema_version must be 0.3.0 for approval review");
   }
   if (!plan.economic_basis || !currencyCode(plan.economic_basis.currency)
     || !Number.isInteger(plan.economic_basis.price_year)
@@ -1053,6 +1135,7 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
     const sourceIds = (mapping.source_ids ?? []).filter(nonempty);
     const extractionIds = (mapping.extraction_ids ?? []).filter(nonempty);
     const assumptionIds = (mapping.assumption_ids ?? []).filter(nonempty);
+    reasons.push(...derivationReasons(plan, mapping, sourceIds, assumptionIds, extractionIds));
     if (sourceIds.length === 0 && assumptionIds.length === 0) {
       reasons.push("no evidence source or reviewable assumption is linked");
     }
@@ -1304,17 +1387,17 @@ export const HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT: HeorEvidenceSynthesisAu
       extractionId: "extract-cost",
       recordId: "trial-cost-1",
       target: "strategies.intervention.state_costs",
-      extractedValue: "CNY 12,500 per cycle",
+      extractedValue: "12500",
       sourceLocation: "Table 3, intervention arm",
-      applicability: "Chinese payer setting; 2026 price year adjustment pending",
+      applicability: "CNY per cycle; Chinese payer setting; 2026 price year adjustment pending",
     },
     {
       extractionId: "extract-utility",
       recordId: "trial-utility-1",
       target: "strategies.intervention.state_utilities",
-      extractedValue: "0.74 progression-free utility",
+      extractedValue: "0.74",
       sourceLocation: "Supplement, Table S8",
-      applicability: "Advanced NSCLC population",
+      applicability: "Progression-free utility; advanced NSCLC population",
     },
   ],
   appVerifiedExtractionIds: [],
@@ -1358,7 +1441,7 @@ export const HEOR_BROWSER_DEMO_EVIDENCE_LIBRARY_AUDIT: HeorEvidenceLibraryAudit 
 };
 
 export const HEOR_BROWSER_DEMO_PLAN: HeorAnalysisPlan = {
-  schema_version: "0.2.0",
+  schema_version: "0.3.0",
   analysis_id: "first-line-nsclc-demo",
   economic_basis: { currency: "CNY", price_year: 2026 },
   input_status: "workflow_demo",
@@ -1577,8 +1660,8 @@ export function browserDemoRun(
   return {
     calculation: {
       analysis_id: HEOR_BROWSER_DEMO_PLAN.analysis_id,
-      engine_version: "0.2.0",
-      schema_version: "0.2.0",
+      engine_version: "0.3.0",
+      schema_version: "0.3.0",
       reference_case: {
         id: "CN-2020-current",
         status: "current",

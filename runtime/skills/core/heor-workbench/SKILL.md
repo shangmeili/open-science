@@ -12,6 +12,7 @@ Use conversation as the primary interface. Translate the researcher's intent int
 - Treat the researcher as the decision owner and human reviewer.
 - Never invent clinical inputs, prices, utilities, transition probabilities, comparators, thresholds, or citations.
 - Never silently combine monetary inputs with different currencies or price years. Declare one calculation basis and preserve every adjustment as a reproducible, sourced transformation.
+- Never copy an extracted value into a model input without an executable derivation. Direct evidence must be strict JSON equal to the model value; unsupported transformations remain blocked.
 - Separate sourced values, analyst assumptions, and unresolved inputs.
 - Never add an `approvals` field to an analysis file or claim that a gate is approved. Approval is app-owned and requires a human action in the review panel.
 - Treat deterministic calculations as calculations, not decisions. Do not label a result decision-ready.
@@ -40,7 +41,7 @@ Use conversation as the primary interface. Translate the researcher's intent int
 
 - Prefer guidelines, regulator or HTA sources, peer-reviewed methods papers, trial reports, registries, and official price or reimbursement sources.
 - Quote sparingly. Attach each numeric input to a source or mark it explicitly as an assumption.
-- Map every required engine input through `input_provenance`; external tools cannot bypass this contract.
+- Map every required engine input through schema `0.3.0` `input_provenance`, including an exact derivation snapshot; external tools cannot bypass this contract.
 - Record conflicting sources instead of silently selecting one.
 - State the reference-case registry status exactly. `draft` guidance cannot authorize a locally approved analysis.
 - Do not claim compliance merely because a named reference-case profile was selected. Require the independently audited, hash-bound compliance matrix.

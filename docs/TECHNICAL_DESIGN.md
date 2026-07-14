@@ -209,6 +209,16 @@ rejection remains blocking until the synthesis bytes change. This is a local
 integrity rule, not an authenticated reviewer-identity or independent-entry
 system.
 
+Analysis-plan schema `0.3.0` makes the evidence-to-input value transformation
+executable. The plan-only audit checks the declared derivation method and exact
+`model_value` snapshot. The portable validator additionally parses the bound
+synthesis extraction as strict JSON. The native selection audit repeats that
+check against current workspace bytes and, for monetary inputs, verifies each
+`source_value` against its named extraction scalar or array index before the
+existing normalization arithmetic. Only `direct_evidence`,
+`explicit_assumption`, and `monetary_adjustment` are supported. Free-form
+expressions remain blocked until a separate deterministic adapter exists.
+
 `heor/analysis-plan.json` carries the input-selection contract directly: a root
 `evidence_synthesis` binding plus `extraction_ids` on each source-based
 `input_provenance` mapping. The approval path independently checks synthesis
@@ -219,7 +229,8 @@ workspace artifact and circular hashes while ensuring a plan approval covers
 the exact evidence-to-input choices. The engine, uncertainty runner, and budget
 impact runner repeat the audit and invalidate stale approval bindings.
 
-Analysis-plan schema `0.2.0` also carries a root `economic_basis`. Each monetary
+Analysis-plan schema `0.2.0` introduced a root `economic_basis`; current schema
+`0.3.0` retains it and adds executable extraction-to-model derivations. Each monetary
 mapping contains element-level source values and adjustment factors so the
 portable Python validator, native Rust approval boundary, and TypeScript review
 preview can all reject mixed or unreproducible currency/price-year inputs. The

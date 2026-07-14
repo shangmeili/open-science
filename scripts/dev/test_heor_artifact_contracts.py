@@ -308,12 +308,32 @@ class InputProvenanceContractTests(unittest.TestCase):
     def fixture(self):
         synthesis = evidence_fixture()
         paths = list(input_provenance.BASE_PATHS) + ["willingness_to_pay"]
+        model_values = {
+            "cycles": 3,
+            "cycle_length_years": 1.0,
+            "discount_rates.costs": 0.05,
+            "discount_rates.outcomes": 0.05,
+            "half_cycle_correction": True,
+            "strategies.comparator.initial_distribution": [1.0, 0.0, 0.0],
+            "strategies.comparator.transition_matrix": [
+                [0.7, 0.2, 0.1], [0.0, 0.7, 0.3], [0.0, 0.0, 1.0]
+            ],
+            "strategies.comparator.state_costs": [1000.0, 3000.0, 0.0],
+            "strategies.comparator.state_utilities": [0.8, 0.5, 0.0],
+            "strategies.intervention.initial_distribution": [1.0, 0.0, 0.0],
+            "strategies.intervention.transition_matrix": [
+                [0.8, 0.15, 0.05], [0.0, 0.75, 0.25], [0.0, 0.0, 1.0]
+            ],
+            "strategies.intervention.state_costs": [4000.0, 3000.0, 0.0],
+            "strategies.intervention.state_utilities": [0.8, 0.5, 0.0],
+            "willingness_to_pay": 100000.0,
+        }
         synthesis["extractions"] = [
             {
                 "extraction_id": f"extract-{index}",
                 "record_id": "trial-1",
                 "target": path,
-                "extracted_value": "fixture value",
+                "extracted_value": json.dumps(model_values[path], separators=(",", ":")),
                 "source_location": f"Table {index + 1}",
                 "applicability": "Contract-test fixture",
                 "verification_status": "agent_extracted",
@@ -322,17 +342,29 @@ class InputProvenanceContractTests(unittest.TestCase):
         ]
         synthesis_raw = json.dumps(synthesis, ensure_ascii=False, indent=2).encode() + b"\n"
         monetary_values = {
-            "strategies.comparator.state_costs": [1000.0, 3000.0, 0.0],
-            "strategies.intervention.state_costs": [4000.0, 3000.0, 0.0],
-            "willingness_to_pay": [100000.0],
+            path: (value if isinstance(value, list) else [value])
+            for path, value in model_values.items()
+            if path.endswith("state_costs") or path == "willingness_to_pay"
         }
         plan = {
-            "schema_version": "0.2.0",
+            "schema_version": "0.3.0",
             "economic_basis": {"currency": "CNY", "price_year": 2026},
             "willingness_to_pay": 100000,
+            "cycles": model_values["cycles"],
+            "cycle_length_years": model_values["cycle_length_years"],
+            "discount_rates": {
+                "costs": model_values["discount_rates.costs"],
+                "outcomes": model_values["discount_rates.outcomes"],
+            },
+            "half_cycle_correction": model_values["half_cycle_correction"],
             "strategies": {
-                "comparator": {"state_costs": monetary_values["strategies.comparator.state_costs"]},
-                "intervention": {"state_costs": monetary_values["strategies.intervention.state_costs"]},
+                role: {
+                    field: model_values[f"strategies.{role}.{field}"]
+                    for field in (
+                        "initial_distribution", "transition_matrix", "state_costs", "state_utilities"
+                    )
+                }
+                for role in ("comparator", "intervention")
             },
             "evidence_synthesis": {
                 "path": "heor/evidence-synthesis.json",
@@ -354,6 +386,12 @@ class InputProvenanceContractTests(unittest.TestCase):
                     "assumption_ids": [],
                     "unit": "model-specific",
                     "jurisdiction": "China",
+                    "derivation": {
+                        "method": (
+                            "monetary_adjustment" if path in monetary_values else "direct_evidence"
+                        ),
+                        "model_value": model_values[path],
+                    },
                     **({
                         "currency": "CNY",
                         "price_year": 2026,
@@ -367,6 +405,9 @@ class InputProvenanceContractTests(unittest.TestCase):
                                 "factor": 1.0,
                                 "method": "none",
                                 "basis_ids": [],
+                                "source_extraction_id": f"extract-{index}",
+                                **({"source_index": target_index}
+                                   if path.endswith("state_costs") else {}),
                             }
                             for target_index, source_value in enumerate(monetary_values[path])
                         ],
@@ -412,6 +453,67 @@ class InputProvenanceContractTests(unittest.TestCase):
         self.assertFalse(result["complete"])
         self.assertIn("does not reproduce model value", "; ".join(result["invalid_mappings"]))
 
+    def test_direct_evidence_value_must_equal_the_model_input(self):
+        plan, synthesis, digest = self.fixture()
+        synthesis["extractions"][0]["extracted_value"] = "4"
+
+        result = input_provenance.audit(plan, synthesis, digest)
+
+        self.assertFalse(result["complete"])
+        self.assertIn("does not equal the model input", "; ".join(result["invalid_mappings"]))
+
+    def test_non_json_extraction_cannot_enter_an_approvable_model(self):
+        plan, synthesis, digest = self.fixture()
+        synthesis["extractions"][0]["extracted_value"] = "three cycles"
+
+        result = input_provenance.audit(plan, synthesis, digest)
+
+        self.assertFalse(result["complete"])
+        self.assertIn("must be strict JSON", "; ".join(result["invalid_mappings"]))
+
+    def test_missing_model_value_cannot_be_approved_as_json_null(self):
+        plan, synthesis, digest = self.fixture()
+        del plan["cycles"]
+        plan["input_provenance"][0]["derivation"]["model_value"] = None
+        synthesis["extractions"][0]["extracted_value"] = "null"
+
+        result = input_provenance.audit(plan, synthesis, digest)
+
+        self.assertFalse(result["complete"])
+        self.assertIn("current model input is missing or null", "; ".join(result["invalid_mappings"]))
+
+    def test_assumption_only_derivation_has_no_fabricated_extraction(self):
+        plan, synthesis, digest = self.fixture()
+        mapping = plan["input_provenance"][0]
+        mapping["source_ids"] = []
+        mapping["extraction_ids"] = []
+        mapping["assumption_ids"] = ["cycles-assumption"]
+        mapping["derivation"]["method"] = "explicit_assumption"
+        plan["assumptions"] = [{
+            "id": "cycles-assumption",
+            "statement": "Use three annual cycles",
+            "reason": "Explicit modeling assumption for the contract test",
+            "status": "proposed",
+        }]
+
+        result = input_provenance.audit(plan, synthesis, digest)
+
+        self.assertTrue(result["complete"], result)
+
+    def test_monetary_source_value_must_match_its_bound_extraction(self):
+        plan, synthesis, digest = self.fixture()
+        mapping = next(
+            item for item in plan["input_provenance"]
+            if item["path"] == "strategies.intervention.state_costs"
+        )
+        mapping["monetary_adjustments"][0]["source_value"] = 3999.0
+        mapping["monetary_adjustments"][0]["factor"] = 4000.0 / 3999.0
+
+        result = input_provenance.audit(plan, synthesis, digest)
+
+        self.assertFalse(result["complete"])
+        self.assertIn("does not match the bound extraction", "; ".join(result["invalid_mappings"]))
+
     def test_documented_cross_basis_adjustment_can_be_recomputed(self):
         plan, synthesis, digest = self.fixture()
         mapping = next(
@@ -425,7 +527,10 @@ class InputProvenanceContractTests(unittest.TestCase):
             "factor": 8.0,
             "method": "Documented inflation and exchange-rate composite factor",
             "basis_ids": ["trial-1"],
+            "source_extraction_id": mapping["extraction_ids"][0],
         }]
+        selected = int(mapping["extraction_ids"][0].split("-")[-1])
+        synthesis["extractions"][selected]["extracted_value"] = "12500"
 
         result = input_provenance.audit(plan, synthesis, digest)
 
