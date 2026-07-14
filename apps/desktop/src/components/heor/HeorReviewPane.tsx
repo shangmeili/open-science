@@ -930,6 +930,7 @@ export function HeorReviewPane({
               onRequestAudit={() => onRequestRevision(t("transition.repairPrompt"))}
               onRequestRateDerivation={() => onRequestRevision(t("transition.ratePrompt"))}
               onRequestSurvivalDerivation={() => onRequestRevision(t("transition.survivalPrompt"))}
+              onRequestSurvivalExtrapolationReview={() => onRequestRevision(t("transition.survivalExtrapolationPrompt"))}
               onRequestProbabilityTime={() => onRequestRevision(t("transition.probabilityTimePrompt"))}
               onRequestBackgroundMortality={() => onRequestRevision(t("transition.backgroundMortalityPrompt"))}
               onRequestRelativeEffect={() => onRequestRevision(t("transition.relativeEffectPrompt"))}
@@ -1859,6 +1860,7 @@ function CohortTransitionSummary({
   onRequestAudit,
   onRequestRateDerivation,
   onRequestSurvivalDerivation,
+  onRequestSurvivalExtrapolationReview,
   onRequestProbabilityTime,
   onRequestBackgroundMortality,
   onRequestRelativeEffect,
@@ -1868,6 +1870,7 @@ function CohortTransitionSummary({
   onRequestAudit: () => void;
   onRequestRateDerivation: () => void;
   onRequestSurvivalDerivation: () => void;
+  onRequestSurvivalExtrapolationReview: () => void;
   onRequestProbabilityTime: () => void;
   onRequestBackgroundMortality: () => void;
   onRequestRelativeEffect: () => void;
@@ -1923,6 +1926,12 @@ function CohortTransitionSummary({
         className="mt-2 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
       >
         <MessageSquareText size={13} /> {t("transition.askSurvivalDerivation")}
+      </button>
+      <button
+        onClick={onRequestSurvivalExtrapolationReview}
+        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+      >
+        <MessageSquareText size={13} /> {t("transition.askSurvivalExtrapolationReview")}
       </button>
       <button
         onClick={onRequestProbabilityTime}

@@ -10,7 +10,7 @@ Convert one declared all-cause survival curve into a complete, deterministic two
 ## Workflow
 
 1. Read the decision problem, conceptual model, evidence synthesis, analysis plan, and input provenance. Confirm the endpoint and both state meanings in natural language before editing JSON.
-2. Confirm the bounded case: exactly two states, one origin state, one absorbing all-cause event state, 1–10,000 model cycles, and one already-selected exponential or Weibull absolute curve. Stop if fitting, curve selection, competing risks, PFS/OS consistency, treatment-effect application, or individual history is required. Route cycle-specific absolute risks plus RR/OR to `$heor-relative-effect-adapter`; route one reviewed constant HR plus cycle-aligned baseline cumulative hazards to `$heor-hazard-ratio-adapter`; route life-table plus additive excess mortality to `$heor-background-mortality`.
+2. Confirm the bounded case: exactly two states, one origin state, one absorbing all-cause event state, 1–10,000 model cycles, and one already-selected exponential or Weibull absolute curve. Route pre-selection fitting, diagnostics, and extrapolation review to `$heor-survival-extrapolation-review`; stop if curve choice is not Human-reviewed or if competing risks, PFS/OS consistency, treatment-effect application, or individual history is required. Route cycle-specific absolute risks plus RR/OR to `$heor-relative-effect-adapter`; route one reviewed constant HR plus cycle-aligned baseline cumulative hazards to `$heor-hazard-ratio-adapter`; route life-table plus additive excess mortality to `$heor-background-mortality`.
 3. Bind every positive curve parameter to exactly one selected strict-JSON extraction or one `proposed` assumption. Never infer a missing scale convention or translate another parameterization silently.
 4. Use analysis schema `0.6.0`. Map only `strategies.<role>.transition_schedule`; set `derivation.method = "deterministic_transformation"` and `operation = "parametric_survival_to_transition_schedule"`.
 5. Recompute every model-cycle probability from the cumulative-hazard increment in the reference contract. Emit one complete matrix per cycle, beginning at cycle 1. Preserve the absorbing event state.
@@ -21,7 +21,7 @@ Convert one declared all-cause survival curve into a complete, deterministic two
 
 ## Boundaries
 
-- This adapter evaluates declared parameters; it does not fit data, compare statistical fit, select a distribution, reconstruct patient-level data, or establish internal or external validity.
+- This adapter evaluates declared parameters; `$heor-survival-extrapolation-review` can prepare a pre-specified fit comparison, but neither Skill selects a distribution, reconstructs patient-level data, or establishes internal or external validity.
 - Exponential uses `rate_per_year`; Weibull uses the scale-in-years and shape form in the contract. Do not substitute another Weibull convention.
 - Uncertainty schema `0.5.0` or `0.6.0` admits only exact positive exponential or Weibull parameter values. It does not fit covariance, infer distributions from confidence intervals, choose curves, or validate extrapolation. Never vary derived probabilities independently.
 - Do not describe this as partitioned survival, competing-risk, semi-Markov, cure, mixture, spline, or background-mortality modeling.

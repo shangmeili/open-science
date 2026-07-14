@@ -1,0 +1,68 @@
+{
+  "schema_version": "0.1.0",
+  "review_id": "replace-with-safe-id",
+  "status": "draft",
+  "context": {
+    "endpoint": "",
+    "population": "",
+    "curve_label": "",
+    "time_origin": "",
+    "time_unit": "years",
+    "observed_follow_up": 0,
+    "model_horizon": 0
+  },
+  "source_data": {
+    "classification": "unknown",
+    "execution_boundary": "local_only",
+    "format": "precomputed_survival_fit_bundle",
+    "path": "",
+    "sha256": "",
+    "time_variable": "",
+    "event_definition": "",
+    "censor_definition": ""
+  },
+  "pre_specification": {
+    "fit_method": "maximum_likelihood",
+    "candidate_models": [
+      {
+        "family": "exponential",
+        "rationale": ""
+      },
+      {
+        "family": "weibull",
+        "rationale": ""
+      }
+    ],
+    "protocol_deviations": []
+  },
+  "execution": {
+    "backend": "survHE",
+    "environment": "external_local_fit_import",
+    "r_version": "",
+    "package_versions": {},
+    "command_path": "",
+    "command_sha256": "",
+    "session_info_path": "",
+    "session_info_sha256": ""
+  },
+  "models": [],
+  "diagnostics": {
+    "km_overlay_path": "",
+    "km_overlay_sha256": "",
+    "log_cumulative_hazard_path": "",
+    "log_cumulative_hazard_sha256": "",
+    "hazard_plot_path": "",
+    "hazard_plot_sha256": "",
+    "internal_validity_assessment": "",
+    "external_validity_assessment": "",
+    "external_sources": [],
+    "clinical_plausibility_assessment": ""
+  },
+  "structural_scenarios": [],
+  "analyst_recommendation": null,
+  "limitations": [],
+  "human_gate": {
+    "state": "awaiting_human_selection",
+    "required_action": "select_curve_in_analysis_plan"
+  }
+}

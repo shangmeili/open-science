@@ -141,6 +141,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-cohort-state-transition` | Bounded static and model-cycle-dependent cohort transition structure | Complete transition matrix or schedule in `heor/analysis-plan.json` |
 | Shipped | `heor-transition-rate-adapter` | Constant competing event rates with exact evidence binding and recomputation | Schema `0.5.0` transition derivation |
 | Shipped | `heor-survival-curve-adapter` | Already-selected two-state exponential or Weibull curve evaluation | Schema `0.6.0` transition schedule derivation |
+| Bundled alpha | `heor-survival-extrapolation-review` | Pre-specified standard parametric fit comparison, observed/extrapolated diagnostics, local execution hashes, structural alternatives, and an awaiting-Human selection boundary | `heor/survival-extrapolation-review.json`; optional isolated `survHE` execution and app-native artifact audit remain unshipped |
 | Shipped | `heor-probability-time-adapter` | Single-event probability time conversion under an explicit constant-hazard assumption | Schema `0.7.0` transition derivation |
 | Shipped | `heor-background-mortality` | Age-aligned annual life-table mortality plus one constant additive excess rate, with explicit exchangeability and double-counting bases | Schema `0.9.0` transition schedule derivation |
 | Shipped | `heor-relative-effect-adapter` | Apply one aligned RR or OR to cycle-specific baseline risks with exact review bases and full schedule recomputation | Schema `0.10.0` transition schedule derivation |
@@ -282,7 +283,19 @@ same fail-closed target, positive-distribution, and exact-basis rules, with
 seeded and adversarial regression tests. This admits uncertainty propagation
 through an already-selected curve, not curve fitting or validation.
 
-Fitting, automatic model selection, flexible/cure/mixture models, KM/IPD
+The bundled `$heor-survival-extrapolation-review` now admits the audit layer of
+survival fitting without making the backend part of the deterministic engine.
+Its schema `0.1.0` binds a pre-specified 2–8-family comparison, local data and
+execution hashes, package/session versions, visible convergence failures,
+common observed/extrapolated landmarks, KM/log-cumulative-hazard/hazard views,
+external and clinical plausibility, and structural alternatives. It rejects
+automatic selection and leaves the gate `awaiting_human_selection`. A user-
+installed isolated `survHE` environment remains a future optional execution
+backend. The alpha imports only an already-generated local fit bundle and does
+not access or fit patient-level data; the current development machine does not
+provide or validate the package backend.
+
+Automatic model selection, flexible/cure/mixture models, KM/IPD
 reconstruction, partitioned survival, treatment effects, broader background mortality,
 competing risks, validation of long-term plausibility, and covariance recovery
 from incomplete fit output
@@ -315,8 +328,8 @@ admits Lognormal or strictly positive bounded Uniform PSA.
 
 This is an independent first-party implementation; no reviewed external Skill or
 plugin is an executable dependency. The separately bounded constant-HR route is
-owned by `$heor-hazard-ratio-adapter`. The next method assets are survival
-fitting/extrapolation review, partitioned survival, treatment-effect duration,
+owned by `$heor-hazard-ratio-adapter`. The next method assets after the shipped
+survival-extrapolation review contract are partitioned survival, treatment-effect duration,
 cost normalization, and utility inputs; dynamic-cohort BIA, NMA/MAIC, RWE, and
 advanced VOI follow. These backlog items are not shipped capabilities or
 approval authority.

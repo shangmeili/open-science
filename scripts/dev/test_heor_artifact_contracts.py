@@ -83,6 +83,10 @@ hazard_ratio_adapter = load(
     "validate_hazard_ratio",
     "runtime/skills/core/heor-hazard-ratio-adapter/scripts/validate_hazard_ratio.py",
 )
+survival_extrapolation_review = load(
+    "validate_survival_extrapolation_review",
+    "runtime/skills/core/heor-survival-extrapolation-review/scripts/validate_survival_extrapolation_review.py",
+)
 
 
 class MultiStrategyTemplateContractTests(unittest.TestCase):
@@ -254,6 +258,166 @@ class SurvivalCurveAdapterContractTests(unittest.TestCase):
         transformation["distribution"] = "weibull"
         with self.assertRaisesRegex(ValueError, "parameters do not match"):
             survival_adapter.derive(transformation, 3, 1.0)
+
+
+class SurvivalExtrapolationReviewContractTests(unittest.TestCase):
+    @staticmethod
+    def _write(workspace: Path, relative: str, content: str) -> str:
+        path = workspace / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def _fixture(self, workspace: Path):
+        hashes = {
+            name: self._write(workspace, name, f"auditable {name}\n")
+            for name in (
+                "data/survival-fit-bundle.json",
+                "scripts/fit.R",
+                "runs/session-info.txt",
+                "runs/exponential.json",
+                "runs/weibull.json",
+                "figures/km-overlay.png",
+                "figures/log-cumulative-hazard.png",
+                "figures/hazard.png",
+            )
+        }
+        landmarks = [
+            {"time": 0.0, "survival": 1.0, "hazard": 0.1},
+            {"time": 2.0, "survival": 0.8, "hazard": 0.12},
+            {"time": 10.0, "survival": 0.3, "hazard": 0.15},
+        ]
+        return {
+            "schema_version": "0.1.0",
+            "review_id": "overall-survival-control",
+            "status": "ready_for_human_review",
+            "context": {
+                "endpoint": "Overall survival",
+                "population": "Trial intention-to-treat population",
+                "curve_label": "Control arm overall survival",
+                "time_origin": "Randomization",
+                "time_unit": "years",
+                "observed_follow_up": 5.0,
+                "model_horizon": 20.0,
+            },
+            "source_data": {
+                "classification": "restricted",
+                "execution_boundary": "local_only",
+                "format": "precomputed_survival_fit_bundle",
+                "path": "data/survival-fit-bundle.json",
+                "sha256": hashes["data/survival-fit-bundle.json"],
+                "time_variable": "time",
+                "event_definition": "status equals 1",
+                "censor_definition": "status equals 0",
+            },
+            "pre_specification": {
+                "fit_method": "maximum_likelihood",
+                "candidate_models": [
+                    {"family": "exponential", "rationale": "Constant hazard reference."},
+                    {"family": "weibull", "rationale": "Monotone hazard alternative."},
+                ],
+                "protocol_deviations": [],
+            },
+            "execution": {
+                "backend": "survHE",
+                "environment": "external_local_fit_import",
+                "r_version": "R 4.4.2",
+                "package_versions": {
+                    "survHE": "2.0.1",
+                    "flexsurv": "2.3.2",
+                    "survival": "3.8-3",
+                },
+                "command_path": "scripts/fit.R",
+                "command_sha256": hashes["scripts/fit.R"],
+                "session_info_path": "runs/session-info.txt",
+                "session_info_sha256": hashes["runs/session-info.txt"],
+            },
+            "models": [
+                {
+                    "family": "exponential",
+                    "status": "converged",
+                    "aic": 102.0,
+                    "bic": 105.0,
+                    "log_likelihood": -50.0,
+                    "parameterization": "survHE/flexsurv exponential rate",
+                    "fit_output_path": "runs/exponential.json",
+                    "fit_output_sha256": hashes["runs/exponential.json"],
+                    "landmarks": landmarks,
+                    "warnings": [],
+                },
+                {
+                    "family": "weibull",
+                    "status": "converged",
+                    "aic": 100.0,
+                    "bic": 106.0,
+                    "log_likelihood": -48.0,
+                    "parameterization": "survHE/flexsurv Weibull shape and scale",
+                    "fit_output_path": "runs/weibull.json",
+                    "fit_output_sha256": hashes["runs/weibull.json"],
+                    "landmarks": [dict(item) for item in landmarks],
+                    "warnings": [],
+                },
+            ],
+            "diagnostics": {
+                "km_overlay_path": "figures/km-overlay.png",
+                "km_overlay_sha256": hashes["figures/km-overlay.png"],
+                "log_cumulative_hazard_path": "figures/log-cumulative-hazard.png",
+                "log_cumulative_hazard_sha256": hashes["figures/log-cumulative-hazard.png"],
+                "hazard_plot_path": "figures/hazard.png",
+                "hazard_plot_sha256": hashes["figures/hazard.png"],
+                "internal_validity_assessment": "Both candidates are retained; fit statistics are not treated as validity thresholds.",
+                "external_validity_assessment": "Long-term external comparison remains unresolved pending registry alignment.",
+                "external_sources": [],
+                "clinical_plausibility_assessment": "Human clinical review of hazard shape is still required.",
+            },
+            "structural_scenarios": ["weibull", "exponential"],
+            "analyst_recommendation": {
+                "family": "weibull",
+                "rationale": "Proposed for Human review using fit and hazard-shape evidence, not AIC alone.",
+                "alternatives": ["exponential"],
+            },
+            "limitations": ["External validity remains unresolved."],
+            "human_gate": {
+                "state": "awaiting_human_selection",
+                "required_action": "select_curve_in_analysis_plan",
+            },
+        }
+
+    def test_complete_review_binds_files_and_keeps_selection_human_owned(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            review = self._fixture(workspace)
+            result = survival_extrapolation_review.audit(review, workspace)
+            self.assertTrue(result["complete"], result["errors"])
+            self.assertEqual(result["candidate_models"], 2)
+            self.assertEqual(result["converged_models"], 2)
+            self.assertEqual(result["human_gate"], "awaiting_human_selection")
+
+    def test_hash_drift_post_hoc_results_and_approval_fields_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            review = self._fixture(workspace)
+            review["models"].reverse()
+            review["diagnostics"]["km_overlay_sha256"] = "0" * 64
+            review["execution"]["approved_local_execution"] = True
+            review["human_gate"]["approved"] = True
+            result = survival_extrapolation_review.audit(review, workspace)
+            self.assertFalse(result["complete"])
+            self.assertTrue(any("pre-specified candidate order" in error for error in result["errors"]))
+            self.assertTrue(any("KM overlay SHA-256" in error for error in result["errors"]))
+            self.assertTrue(any("execution fields" in error for error in result["errors"]))
+            self.assertTrue(any("forbidden approval" in error for error in result["errors"]))
+
+    def test_nonmonotone_or_incomparable_landmarks_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            review = self._fixture(workspace)
+            review["models"][0]["landmarks"][2]["survival"] = 0.9
+            review["models"][1]["landmarks"][2]["time"] = 12.0
+            result = survival_extrapolation_review.audit(review, workspace)
+            self.assertFalse(result["complete"])
+            self.assertTrue(any("non-increasing" in error for error in result["errors"]))
+            self.assertTrue(any("identical landmark times" in error for error in result["errors"]))
 
 
 class ProbabilityTimeAdapterContractTests(unittest.TestCase):

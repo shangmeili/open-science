@@ -267,7 +267,25 @@ uniform distributions. The compatible uncertainty engine applies all replacement
 the complete affected schedule and derivation snapshot before ordinary model
 validation. This is parameter propagation for an already-selected curve, not a
 complete survival-analysis workflow.
-Curve fitting and selection, KM/IPD reconstruction, flexible or cure models,
+
+The first-party `$heor-survival-extrapolation-review` now prepares a separate
+schema `0.1.0` review artifact before curve selection. It requires 2–8
+pre-specified standard parametric families, exact data/command/session/output
+hashes, visible failed fits and protocol deviations, common observed and
+extrapolated survival/hazard landmarks, AIC/BIC, KM and hazard diagnostics,
+external and clinical plausibility assessments, limitations, and at least two
+structural scenarios. The alpha imports an already-generated local `survHE` fit
+bundle and does not access or fit patient-level data. It neither bundles that
+GPL backend nor silently installs it. The validator rejects post-hoc model-order drift, stale hashes,
+incomparable or invalid landmarks, hidden approval fields, and fewer than two
+converged alternatives. The only admitted state is
+`awaiting_human_selection`; the selected curve enters the app-owned analysis-
+plan review rather than being chosen by a score or Agent output. This alpha
+does not yet provide an app-native artifact viewer or bind the review hash into
+the analysis-plan approval event; those remain required before the workflow is
+fully shipped.
+
+Automatic curve selection, KM/IPD reconstruction, flexible or cure models,
 PFS/OS partitioned survival, treatment effects, background mortality, competing
 risks, covariance reconstruction from incomplete fit results, and clinical
 extrapolation validity remain explicitly unsupported. NICE PMG36 and NICE DSU TSD 14/21 require validity,

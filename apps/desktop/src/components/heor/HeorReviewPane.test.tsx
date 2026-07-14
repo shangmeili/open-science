@@ -313,6 +313,17 @@ describe("AI4HEOR human review pane", () => {
     expect(hazardRatioPrompt).toContain("p=-expm1(-HR*delta_H0)");
     expect(hazardRatioPrompt).toContain("Stop for non-proportional hazards");
     await userEvent.click(screen.getByRole("button", {
+      name: "Ask Agent to review survival fitting and extrapolation",
+    }));
+    const survivalReviewPrompt = onRequestRevision.mock.calls[
+      onRequestRevision.mock.calls.length - 1
+    ]?.[0];
+    expect(survivalReviewPrompt).toContain("$heor-survival-extrapolation-review");
+    expect(survivalReviewPrompt).toContain("natural-language interaction first");
+    expect(survivalReviewPrompt).toContain("Pre-specify 2-8");
+    expect(survivalReviewPrompt).toContain("awaiting_human_selection");
+    expect(survivalReviewPrompt).toContain("Do not auto-select");
+    await userEvent.click(screen.getByRole("button", {
       name: "Ask Agent to continue screening and synthesis",
     }));
     expect(onRequestRevision).toHaveBeenCalledWith(
