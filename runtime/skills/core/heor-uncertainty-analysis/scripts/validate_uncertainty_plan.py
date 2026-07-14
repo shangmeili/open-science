@@ -20,6 +20,9 @@ PARAMETER_TARGET = re.compile(
 RATE_TARGET = re.compile(
     r"^/input_provenance/([0-9]+)/derivation/transformation/phases/([0-9]+)/rows/([0-9]+)/events/([0-9]+)/rate_per_year$"
 )
+SURVIVAL_TARGET = re.compile(
+    r"^/input_provenance/([0-9]+)/derivation/transformation/parameters/(rate_per_year|shape|scale_years)/value$"
+)
 SCHEDULE_START_TARGET = re.compile(
     r"^/strategies/(comparator|intervention)/transition_schedule/[0-9]+/start_cycle$"
 )
@@ -31,7 +34,8 @@ SCENARIO_TARGETS = {
     "/half_cycle_correction",
 }
 SUPPORTED_DISTRIBUTIONS = {"beta", "gamma", "lognormal", "uniform", "dirichlet"}
-CURRENT_SCHEMA_VERSION = "0.4.0"
+CURRENT_SCHEMA_VERSION = "0.5.0"
+CORRELATION_SCHEMA_VERSION = "0.4.0"
 RATE_SCHEMA_VERSION = "0.3.0"
 PRIOR_SCHEMA_VERSION = "0.2.0"
 LEGACY_SCHEMA_VERSION = "0.1.0"
@@ -102,11 +106,11 @@ def replacement_compatible(base: object, replacement: object) -> bool:
     return False
 
 
-def distribution_valid(value: object, base: object, *, rate_parameter: bool = False) -> bool:
+def distribution_valid(value: object, base: object, *, positive_parameter: bool = False) -> bool:
     if not isinstance(value, dict):
         return False
     kind = value.get("type")
-    if rate_parameter and kind not in {"gamma", "lognormal", "uniform"}:
+    if positive_parameter and kind not in {"gamma", "lognormal", "uniform"}:
         return False
     if kind == "beta":
         return not isinstance(base, list) and positive_number(value.get("alpha")) and positive_number(value.get("beta"))
@@ -115,7 +119,7 @@ def distribution_valid(value: object, base: object, *, rate_parameter: bool = Fa
     if kind == "lognormal":
         return not isinstance(base, list) and finite_number(value.get("mu_log")) and positive_number(value.get("sigma_log"))
     if kind == "uniform":
-        return not isinstance(base, list) and finite_number(value.get("low")) and finite_number(value.get("high")) and value["low"] < value["high"] and (not rate_parameter or value["low"] > 0)
+        return not isinstance(base, list) and finite_number(value.get("low")) and finite_number(value.get("high")) and value["low"] < value["high"] and (not positive_parameter or value["low"] > 0)
     if kind == "dirichlet":
         alpha = value.get("alpha")
         return isinstance(base, list) and isinstance(alpha, list) and len(alpha) == len(base) and all(positive_number(item) for item in alpha)
@@ -164,9 +168,10 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         LEGACY_SCHEMA_VERSION,
         PRIOR_SCHEMA_VERSION,
         RATE_SCHEMA_VERSION,
+        CORRELATION_SCHEMA_VERSION,
         CURRENT_SCHEMA_VERSION,
     }:
-        errors.append("schema_version must be 0.1.0, 0.2.0, 0.3.0, or 0.4.0")
+        errors.append("schema_version must be 0.1.0, 0.2.0, 0.3.0, 0.4.0, or 0.5.0")
     for field in ("uncertainty_id", "analysis_id"):
         if not text(value.get(field)):
             errors.append(f"{field} is required")
@@ -218,8 +223,11 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         identifier = parameter.get("id")
         target = parameter.get("target")
         rate_match = RATE_TARGET.fullmatch(target) if text(target) else None
+        survival_match = SURVIVAL_TARGET.fullmatch(target) if text(target) else None
         target_allowed = bool(PARAMETER_TARGET.fullmatch(target)) if text(target) else False
-        if rate_match and schema_version in {RATE_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
+        if rate_match and schema_version in {RATE_SCHEMA_VERSION, CORRELATION_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
+            target_allowed = True
+        if survival_match and schema_version == CURRENT_SCHEMA_VERSION:
             target_allowed = True
         if not text(identifier) or identifier in ids:
             errors.append(f"{label}.id must be non-empty and unique")
@@ -239,9 +247,10 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         provenance_path = parameter.get("provenance_path")
         mapping = mappings.get(provenance_path)
         event_basis: str | None = None
+        survival_basis: str | None = None
         if rate_match:
-            if schema_version not in {RATE_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
-                errors.append(f"{label}.target requires schema_version 0.3.0 or 0.4.0")
+            if schema_version not in {RATE_SCHEMA_VERSION, CORRELATION_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
+                errors.append(f"{label}.target requires schema_version 0.3.0, 0.4.0, or 0.5.0")
             try:
                 mapping_index, phase_index, row_index, event_index = (
                     int(item) for item in rate_match.groups()
@@ -268,14 +277,51 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
                 source_id = event.get("source_extraction_id")
                 assumption_id = event.get("assumption_id")
                 event_basis = source_id if text(source_id) else assumption_id
+        elif survival_match:
+            if schema_version != CURRENT_SCHEMA_VERSION:
+                errors.append(f"{label}.target requires schema_version 0.5.0")
+            try:
+                mapping_index = int(survival_match.group(1))
+                parameter_name = survival_match.group(2)
+                indexed_mapping = plan["input_provenance"][mapping_index]
+                transformation = indexed_mapping["derivation"]["transformation"]
+                parameter_value = transformation["parameters"][parameter_name]
+            except (KeyError, IndexError, TypeError, ValueError):
+                indexed_mapping = None
+                transformation = None
+                parameter_value = None
+                errors.append(f"{label}.target does not identify an existing survival parameter")
+            if not isinstance(indexed_mapping, dict) or indexed_mapping.get("path") != provenance_path:
+                errors.append(f"{label}.provenance_path must equal the survival transformation mapping path")
+            else:
+                mapping = indexed_mapping
+                derivation = mapping.get("derivation") or {}
+                expected_parameters = {
+                    "exponential": {"rate_per_year"},
+                    "weibull": {"shape", "scale_years"},
+                }.get(transformation.get("distribution") if isinstance(transformation, dict) else None)
+                if (
+                    plan.get("schema_version") != "0.6.0"
+                    or derivation.get("method") != "deterministic_transformation"
+                    or not isinstance(transformation, dict)
+                    or transformation.get("operation") != "parametric_survival_to_transition_schedule"
+                    or expected_parameters is None
+                    or parameter_name not in expected_parameters
+                ):
+                    errors.append(f"{label}.target requires an admitted parametric survival transformation")
+            if isinstance(parameter_value, dict):
+                source_id = parameter_value.get("source_extraction_id")
+                assumption_id = parameter_value.get("assumption_id")
+                survival_basis = source_id if text(source_id) else assumption_id
         if not isinstance(mapping, dict) or mapping.get("uncertainty_status") != "distribution_available":
             errors.append(f"{label}.provenance_path needs a distribution_available mapping")
         if (
             not rate_match
+            and not survival_match
             and isinstance(mapping, dict)
             and (mapping.get("derivation") or {}).get("method") == "deterministic_transformation"
         ):
-            errors.append(f"{label}.target must vary an admitted event rate, not a derived transition row")
+            errors.append(f"{label}.target must vary an admitted transformation parameter, not a derived transition row")
         if provenance_path not in dsa_paths or provenance_path not in psa_paths:
             errors.append(f"{label}.provenance_path must appear in both plan input lists")
         deterministic = parameter.get("deterministic") or {}
@@ -290,7 +336,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
             and finite_number(deterministic["high"])
             and deterministic["low"] < deterministic["high"]
             and deterministic["low"] <= base_value <= deterministic["high"]
-            and (not rate_match or deterministic["low"] > 0)
+            and (not (rate_match or survival_match) or deterministic["low"] > 0)
         ):
             errors.append(f"{label}.deterministic bounds must bracket the base value")
         probabilistic = parameter.get("probabilistic") or {}
@@ -303,12 +349,15 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         elif rate_match:
             if probabilistic["basis_ids"] != [event_basis]:
                 errors.append(f"{label}.probabilistic basis_ids must contain exactly the event source extraction or assumption id")
+        elif survival_match:
+            if probabilistic["basis_ids"] != [survival_basis]:
+                errors.append(f"{label}.probabilistic basis_ids must contain exactly the survival parameter source extraction or assumption id")
         elif isinstance(mapping, dict):
             allowed = set(mapping.get("source_ids") or []) | set(mapping.get("extraction_ids") or []) | set(mapping.get("assumption_ids") or [])
             if not set(probabilistic["basis_ids"]).issubset(allowed):
                 errors.append(f"{label}.probabilistic basis_ids are not linked by provenance")
         if base_value is not None and not distribution_valid(
-            probabilistic, base_value, rate_parameter=bool(rate_match)
+            probabilistic, base_value, positive_parameter=bool(rate_match or survival_match)
         ):
             errors.append(f"{label}.probabilistic distribution parameters are invalid")
 
@@ -323,6 +372,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
     if schema_version in {
         PRIOR_SCHEMA_VERSION,
         RATE_SCHEMA_VERSION,
+        CORRELATION_SCHEMA_VERSION,
         CURRENT_SCHEMA_VERSION,
     }:
         threshold_config = threshold_config if isinstance(threshold_config, dict) else {}
@@ -342,7 +392,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         if not text(threshold_config.get("rationale")):
             errors.append("decision thresholds rationale is required")
     elif threshold_config is not None:
-        errors.append("decision thresholds require schema_version 0.2.0, 0.3.0, or 0.4.0")
+        errors.append("decision thresholds require schema_version 0.2.0, 0.3.0, 0.4.0, or 0.5.0")
     convergence = psa.get("convergence") or {}
     checkpoints = convergence.get("checkpoints")
     if not (
@@ -361,7 +411,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
     correlation = psa.get("correlation_handling") or {}
     if not text(correlation.get("independence_rationale")):
         errors.append("correlation_handling.independence_rationale is required")
-    if schema_version == CURRENT_SCHEMA_VERSION:
+    if schema_version in {CORRELATION_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
         groups = correlation.get("groups")
         if not isinstance(groups, list) or len(groups) > MAX_CORRELATION_GROUPS:
             errors.append(
@@ -434,7 +484,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
             if not text(group.get("rationale")):
                 errors.append(f"{label}.rationale is required")
     elif "groups" in correlation:
-        errors.append("correlation groups require schema_version 0.4.0")
+        errors.append("correlation groups require schema_version 0.4.0 or 0.5.0")
     if correlation.get("known_omitted_correlations") != []:
         errors.append("known_omitted_correlations must be resolved before review")
     omitted = psa.get("omitted_parameters")

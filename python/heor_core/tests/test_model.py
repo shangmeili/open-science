@@ -191,6 +191,78 @@ def rate_uncertainty_payload(base_raw: bytes | None = None) -> dict:
     return value
 
 
+def survival_uncertainty_payload(base: dict, base_raw: bytes) -> dict:
+    value = uncertainty_payload()
+    value["schema_version"] = "0.5.0"
+    value["uncertainty_id"] = "golden-survival-derived-uncertainty"
+    value["analysis_id"] = base["analysis_id"]
+    value["base_analysis"]["content_sha256"] = hashlib.sha256(base_raw).hexdigest()
+    value["parameters"] = [
+        {
+            "id": "comparator-survival-rate",
+            "label": "Comparator exponential survival rate",
+            "target": "/input_provenance/0/derivation/transformation/parameters/rate_per_year/value",
+            "provenance_path": "strategies.comparator.transition_schedule",
+            "deterministic": {
+                "low": 0.1,
+                "high": 0.4,
+                "rationale": "Positive bounded rate range for complete schedule recomputation",
+            },
+            "probabilistic": {
+                "type": "gamma",
+                "shape": 4.0,
+                "scale": (-log(0.8)) / 4.0,
+                "basis_ids": ["comparator-survival-rate"],
+                "rationale": "Positive distribution centered on the declared exponential rate",
+            },
+        },
+        {
+            "id": "intervention-weibull-shape",
+            "label": "Intervention Weibull shape",
+            "target": "/input_provenance/1/derivation/transformation/parameters/shape/value",
+            "provenance_path": "strategies.intervention.transition_schedule",
+            "deterministic": {
+                "low": 1.5,
+                "high": 2.5,
+                "rationale": "Positive bounded shape range for complete schedule recomputation",
+            },
+            "probabilistic": {
+                "type": "lognormal",
+                "mu_log": log(2.0),
+                "sigma_log": 0.1,
+                "basis_ids": ["intervention-weibull-shape"],
+                "rationale": "Positive distribution centered on the declared Weibull shape",
+            },
+        },
+        {
+            "id": "intervention-weibull-scale",
+            "label": "Intervention Weibull scale",
+            "target": "/input_provenance/1/derivation/transformation/parameters/scale_years/value",
+            "provenance_path": "strategies.intervention.transition_schedule",
+            "deterministic": {
+                "low": 3.0,
+                "high": 5.0,
+                "rationale": "Positive bounded scale range for complete schedule recomputation",
+            },
+            "probabilistic": {
+                "type": "uniform",
+                "low": 3.0,
+                "high": 5.0,
+                "basis_ids": ["intervention-weibull-scale"],
+                "rationale": "Strictly positive bounded scale distribution",
+            },
+        },
+    ]
+    value["probabilistic_analysis"]["correlation_handling"]["groups"] = []
+    value["structural_scenarios"] = [{
+        "id": "alternate-cost-discount",
+        "label": "Alternative cost discount rate",
+        "rationale": "Keeps structural uncertainty separate from curve parameters",
+        "replacements": [{"target": "/discount_rates/costs", "value": 0.02}],
+    }]
+    return value
+
+
 def budget_base_payload() -> dict:
     return json.loads(BUDGET_BASE_PATH.read_text())
 
@@ -663,7 +735,7 @@ class UncertaintyAnalysisTests(unittest.TestCase):
             json.dumps(uncertainty, separators=(",", ":")).encode(),
         )
 
-        self.assertEqual(result["engine_version"], "0.5.0")
+        self.assertEqual(result["engine_version"], "0.6.0")
         self.assertEqual(
             result["deterministic_analysis"][1]["target"],
             "/strategies/intervention/transition_schedule/0/matrix/0",
@@ -693,7 +765,7 @@ class UncertaintyAnalysisTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertEqual(first["schema_version"], "0.3.0")
-        self.assertEqual(first["engine_version"], "0.5.0")
+        self.assertEqual(first["engine_version"], "0.6.0")
         self.assertEqual(len(first["probabilistic_analysis"]["samples"]), 1000)
         dsa = first["deterministic_analysis"][0]
         for bound, rate in (("low", 0.05), ("high", 0.2)):
@@ -708,6 +780,94 @@ class UncertaintyAnalysisTests(unittest.TestCase):
                 dsa[f"{bound}_result"]["incremental_net_monetary_benefit"],
                 expected.incremental_net_monetary_benefit,
             )
+
+    def test_survival_parameters_support_dsa_and_seeded_psa_via_complete_recomputation(self) -> None:
+        base = survival_derived_payload()
+        base_raw = json.dumps(base, separators=(",", ":")).encode()
+        uncertainty = survival_uncertainty_payload(base, base_raw)
+
+        first = run_uncertainty(
+            base,
+            base_raw,
+            uncertainty,
+            json.dumps(uncertainty, separators=(",", ":")).encode(),
+        )
+        second = run_uncertainty(
+            base,
+            base_raw,
+            uncertainty,
+            json.dumps(uncertainty, separators=(",", ":")).encode(),
+        )
+
+        self.assertEqual(first, second)
+        self.assertEqual(first["schema_version"], "0.5.0")
+        self.assertEqual(first["engine_version"], "0.6.0")
+        self.assertEqual(len(first["deterministic_analysis"]), 3)
+        self.assertEqual(len(first["probabilistic_analysis"]["samples"]), 1000)
+
+        specification = UncertaintySpecification.from_dict(
+            uncertainty, base, hashlib.sha256(base_raw).hexdigest()
+        )
+        shape = next(
+            parameter
+            for parameter in specification.parameters
+            if parameter.identifier == "intervention-weibull-shape"
+        )
+        scale = next(
+            parameter
+            for parameter in specification.parameters
+            if parameter.identifier == "intervention-weibull-scale"
+        )
+        recomputed = _apply_parameter_values(base, ((shape, 1.5), (scale, 3.0)))
+        schedule = recomputed["strategies"]["intervention"]["transition_schedule"]
+        transformation = recomputed["input_provenance"][1]["derivation"]
+        expected, _, _ = derive_survival_schedule(
+            transformation["transformation"],
+            state_count=2,
+            cycles=base["cycles"],
+            cycle_length_years=base["cycle_length_years"],
+        )
+        self.assertEqual(schedule, expected)
+        self.assertEqual(transformation["model_value"], expected)
+
+    def test_survival_parameter_uncertainty_fails_closed_outside_its_bounded_contract(self) -> None:
+        base = survival_derived_payload()
+        base_raw = json.dumps(base, separators=(",", ":")).encode()
+        cases = []
+        legacy = survival_uncertainty_payload(base, base_raw)
+        legacy["schema_version"] = "0.4.0"
+        cases.append((legacy, "schema_version 0.5.0"))
+        wrong_basis = survival_uncertainty_payload(base, base_raw)
+        wrong_basis["parameters"][1]["probabilistic"]["basis_ids"] = ["unlinked"]
+        cases.append((wrong_basis, "exactly the parameter source"))
+        beta = survival_uncertainty_payload(base, base_raw)
+        beta["parameters"][1]["probabilistic"] = {
+            "type": "beta",
+            "alpha": 2.0,
+            "beta": 8.0,
+            "basis_ids": ["intervention-weibull-shape"],
+            "rationale": "Deliberately invalid positive-parameter distribution",
+        }
+        cases.append((beta, "must use gamma, lognormal, or positive uniform"))
+        nonpositive = survival_uncertainty_payload(base, base_raw)
+        nonpositive["parameters"][2]["deterministic"]["low"] = 0.0
+        cases.append((nonpositive, "must be positive"))
+        wrong_parameter = survival_uncertainty_payload(base, base_raw)
+        wrong_parameter["parameters"][1]["target"] = (
+            "/input_provenance/0/derivation/transformation/parameters/shape/value"
+        )
+        cases.append((wrong_parameter, "does not exist"))
+
+        for uncertainty, message in cases:
+            with self.subTest(message=message), self.assertRaisesRegex(
+                ModelValidationError, message
+            ):
+                run_uncertainty(
+                    base,
+                    base_raw,
+                    uncertainty,
+                    json.dumps(uncertainty).encode(),
+                )
 
     def test_event_rate_uncertainty_fails_closed_outside_its_bounded_contract(self) -> None:
         base = rate_derived_payload()
@@ -986,7 +1146,7 @@ class UncertaintyAnalysisTests(unittest.TestCase):
             json.dumps(uncertainty).encode(),
         )
         self.assertEqual(result["schema_version"], "0.4.0")
-        self.assertEqual(result["engine_version"], "0.5.0")
+        self.assertEqual(result["engine_version"], "0.6.0")
         self.assertEqual(
             result["probabilistic_analysis"]["correlation_groups"][0]["parameter_ids"],
             [first["id"], second["id"]],

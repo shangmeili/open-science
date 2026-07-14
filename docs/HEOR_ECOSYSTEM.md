@@ -36,6 +36,18 @@ Assets that fail a remediable criterion are forked or wrapped and improved.
 Assets with incompatible licensing, unverifiable behavior, or an authority
 model that cannot be isolated contribute only ideas and test cases.
 
+“Improved” is not a subjective label. A candidate reaches industrially
+deliverable status only when its admission record identifies the upstream
+revision and license, retained capability and removed authority, exact
+adaptation delta, executable positive and adversarial tests, cross-platform
+evidence, security and methods review results, rollback or kill switch,
+packaged notices and dependencies, and zero unresolved blockers. Until all
+evidence exists, it remains `candidate` or `quarantined`; an upstream demo,
+benchmark, or passing test suite cannot promote it. If reuse rights prohibit
+modification or redistribution, AI4HEOR may independently implement the method
+from public specifications and use the upstream only as research evidence and
+a source of black-box test ideas.
+
 Discovery is not admission. An upstream asset must not be copied directly into
 the bundled skill or connector inventory merely because it is useful. The
 release inventory may contain only (a) a first-party derivative under
@@ -202,9 +214,19 @@ and adversarial tests cover parameterization, cycle increments, stale schedules,
 wrong schemas, invalid sources, unsupported distributions, and state-count
 violations. `$heor-survival-curve-adapter` documents the exact boundary.
 
+Uncertainty schema `0.5.0` and engine `0.6.0` industrialize the next bounded
+fragment: evidence-bound DSA/PSA for exact exponential rate and Weibull shape or
+scale values. Every run replaces parameters on an ephemeral plan and recomputes
+the full per-cycle schedule and derivation snapshot before normal validation.
+Python calculation, portable Skill validation, and native Rust audit share the
+same fail-closed target, positive-distribution, and exact-basis rules, with
+seeded and adversarial regression tests. This admits uncertainty propagation
+through an already-selected curve, not curve fitting or validation.
+
 Fitting, automatic model selection, flexible/cure/mixture models, KM/IPD
 reconstruction, partitioned survival, treatment effects, background mortality,
-competing risks, validation of long-term plausibility, and parameter uncertainty
+competing risks, validation of long-term plausibility, and covariance recovery
+from incomplete fit output
 remain future admission candidates. Mature upstream survival packages can serve
 as isolated tools or cross-checks only after their own license, version, data-
 egress, reproducibility, audit, and packaging gates pass.

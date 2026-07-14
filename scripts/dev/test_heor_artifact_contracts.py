@@ -1060,6 +1060,82 @@ class UncertaintyContractTests(unittest.TestCase):
             self.assertTrue(any("exactly the event source" in error for error in errors))
             self.assertTrue(any("distribution parameters are invalid" in error for error in errors))
 
+    def test_survival_parameter_is_exactly_bound_and_recomputable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_rate_derived.json").read_text()
+            )
+            plan["schema_version"] = "0.6.0"
+            plan["analysis_id"] = "portable-survival-uncertainty"
+            path = "strategies.intervention.transition_schedule"
+            transformation = {
+                "operation": "parametric_survival_to_transition_schedule",
+                "cycle_length_years": 1.0,
+                "from_state_index": 0,
+                "event_state_index": 1,
+                "distribution": "weibull",
+                "parameters": {
+                    "shape": {"value": 2.0, "assumption_id": "weibull-shape"},
+                    "scale_years": {"value": 4.0, "assumption_id": "weibull-scale"},
+                },
+            }
+            plan["strategies"]["intervention"].pop("transition_matrix")
+            schedule = survival_adapter.derive(transformation, plan["cycles"], 1.0)
+            plan["strategies"]["intervention"]["transition_schedule"] = schedule
+            plan["input_provenance"][1] = {
+                "path": path,
+                "source_ids": [],
+                "extraction_ids": [],
+                "assumption_ids": ["weibull-shape", "weibull-scale"],
+                "uncertainty_status": "distribution_available",
+                "derivation": {
+                    "method": "deterministic_transformation",
+                    "model_value": schedule,
+                    "transformation": transformation,
+                },
+            }
+            plan["uncertainty_analysis"] = {"path": "heor/uncertainty-plan.json"}
+            plan["methodology"] = {"uncertainty_analysis": {
+                "deterministic": {"planned": True, "input_paths": [path]},
+                "probabilistic": {"planned": True, "input_paths": [path], "iterations": 1000},
+                "structural_scenarios": ["five-year-horizon"],
+            }}
+            plan_path = root / "heor" / "analysis-plan.json"
+            plan_path.parent.mkdir(parents=True)
+            plan_raw = json.dumps(plan, ensure_ascii=False, indent=2).encode()
+            plan_path.write_bytes(plan_raw)
+            value = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_uncertainty.json").read_text()
+            )
+            value["schema_version"] = "0.5.0"
+            value["analysis_id"] = plan["analysis_id"]
+            value["base_analysis"]["content_sha256"] = hashlib.sha256(plan_raw).hexdigest()
+            value["parameters"] = [{
+                "id": "weibull-shape",
+                "label": "Intervention Weibull shape",
+                "target": "/input_provenance/1/derivation/transformation/parameters/shape/value",
+                "provenance_path": path,
+                "deterministic": {"low": 1.5, "high": 2.5, "rationale": "Evidence-bounded shape range"},
+                "probabilistic": {
+                    "type": "lognormal", "mu_log": math.log(2.0), "sigma_log": 0.1,
+                    "basis_ids": ["weibull-shape"],
+                    "rationale": "Positive shape distribution",
+                },
+            }]
+            value["probabilistic_analysis"]["correlation_handling"]["groups"] = []
+            uncertainty_path = root / "heor" / "uncertainty-plan.json"
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+
+            self.assertEqual(uncertainty.validate(uncertainty_path, plan_path), [])
+
+            value["schema_version"] = "0.4.0"
+            value["parameters"][0]["probabilistic"]["basis_ids"] = ["unlinked"]
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            errors = uncertainty.validate(uncertainty_path, plan_path)
+            self.assertTrue(any("schema_version 0.5.0" in error for error in errors))
+            self.assertTrue(any("exactly the survival parameter" in error for error in errors))
+
     def test_changed_base_hash_and_unlinked_distribution_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             uncertainty_path, plan_path = self.fixture(Path(directory))

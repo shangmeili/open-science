@@ -38,14 +38,25 @@ Exponential declares exactly `rate_per_year`. Weibull declares exactly `shape` a
 
 The analysis has exactly two states and 1–10,000 cycles. The transformation cycle length equals the analysis cycle length. The adapter emits a complete schedule entry for every cycle, beginning at cycle 1. The independently recomputed schedule must equal the current model input and `derivation.model_value` within deterministic numeric tolerance.
 
+## Parameter-uncertainty contract
+
+Uncertainty schema `0.5.0` may vary an exact positive curve parameter through one of these JSON Pointers:
+
+- `/input_provenance/<mapping>/derivation/transformation/parameters/rate_per_year/value` for exponential;
+- `/input_provenance/<mapping>/derivation/transformation/parameters/shape/value` or `/scale_years/value` for Weibull.
+
+The pointer must match the indexed analysis schema `0.6.0` survival mapping and declared distribution. `provenance_path` equals that mapping's complete schedule path. The uncertainty parameter's sole `basis_id` equals the curve parameter's `source_extraction_id` or `assumption_id`. DSA bounds are finite, positive, increasing, and bracket the base. PSA accepts gamma, lognormal, or uniform with `low > 0`; beta and Dirichlet are invalid.
+
+For each DSA run or PSA draw, uncertainty engine `0.6.0` applies all replacements to an ephemeral plan, recomputes each affected complete schedule once, updates `derivation.model_value`, and invokes the ordinary analysis validator. This propagates declared parameter uncertainty through every cycle without granting authority to fit, select, or clinically validate the curve. Alternative curve families and parameterizations remain structural questions outside this scalar target.
+
 ## Method and delivery basis
 
 - NICE PMG36 requires survival extrapolation to assess internal and external validity, use clinically plausible alternatives, and explore uncertainty: <https://www.nice.org.uk/process/pmg36/chapter/economic-evaluation-2/>
 - NICE DSU TSD 14 covers parametric survival analysis for economic evaluation: <https://www.sheffield.ac.uk/sites/default/files/2022-02/TSD14-Survival-analysis.updated-March-2013.v2.pdf>
 - NICE DSU TSD 21 covers flexible survival models when standard parametric assumptions are inadequate: <https://www.sheffield.ac.uk/sites/default/files/2022-02/TSD21-Flex-Surv-TSD-21_Final_alt_text.pdf>
 
-These sources support explicit parameterization, alternatives, validity checks, and uncertainty; they do not justify automatic curve choice. AI4HEOR therefore admits only deterministic evaluation of an already-selected curve and records wider survival-analysis work as unresolved until separately implemented and reviewed.
+These sources support explicit parameterization, alternatives, validity checks, and uncertainty; they do not justify automatic curve choice. AI4HEOR therefore admits deterministic evaluation and evidence-bound parameter propagation for an already-selected curve, while recording wider survival-analysis work as unresolved until separately implemented and reviewed.
 
 ## Unsupported inputs
 
-Stop and preserve an explicit gap when work requires curve fitting or automatic model selection; Kaplan-Meier digitization or individual-patient-data reconstruction; fractional-polynomial, spline, cure, mixture, or dependent competing-risk models; PFS/OS partitioned survival; treatment-effect or hazard-ratio application; background mortality; multiple event endpoints; time-dependent covariates; survival-parameter DSA/PSA; or a claim that extrapolation is clinically valid.
+Stop and preserve an explicit gap when work requires curve fitting or automatic model selection; deriving marginal distributions or covariance from incomplete fit output; Kaplan-Meier digitization or individual-patient-data reconstruction; fractional-polynomial, spline, cure, mixture, or dependent competing-risk models; PFS/OS partitioned survival; treatment-effect or hazard-ratio application; background mortality; multiple event endpoints; time-dependent covariates; transformation-space structural scenarios; or a claim that extrapolation is clinically valid.

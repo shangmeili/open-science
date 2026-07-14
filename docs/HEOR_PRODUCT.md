@@ -214,14 +214,14 @@ rate, matrix, cycle length, phase, or basis set therefore fails closed.
 
 This is a competing-first-event calculation under constant within-phase rates
 and an at-most-one-state-change-per-cycle assumption. It is not general CTMC
-matrix exponentiation. Uncertainty schema `0.3.0` or `0.4.0` can vary exact positive event
+matrix exponentiation. Uncertainty schemas `0.3.0` through `0.5.0` can vary exact positive event
 rates with gamma, lognormal, or strictly positive uniform distributions. For each
-DSA run or PSA draw, engine `0.5.0` recomputes each affected complete matrix or
+DSA run or PSA draw, engine `0.6.0` recomputes each affected complete matrix or
 schedule and its derivation snapshot before ordinary validation. Changing only a
 derived probability row still fails closed. The adapter does not implement
 probability time conversion, HR/RR/OR application, pooling, calibration, survival
 extrapolation, within-cycle multi-step paths, arbitrary correlated rate models, or
-transformation-space structural scenarios, except that schema `0.4.0` may correlate
+transformation-space structural scenarios, except that schemas `0.4.0` and `0.5.0` may correlate
 only evidence-bound lognormal rate members through the bounded latent log-scale
 Cholesky contract. `$heor-transition-rate-adapter`
 exposes the method and its stopping rules through the natural-language workflow.
@@ -244,11 +244,16 @@ schedule drift fails closed. The natural-language workbench exposes this through
 `$heor-survival-curve-adapter`; the form action is only a shortcut into that
 conversation.
 
-This is deterministic evaluation, not a complete survival-analysis workflow.
+Uncertainty schema `0.5.0` may vary exact positive exponential or Weibull
+parameter values with evidence-bound gamma, lognormal, or strictly positive
+uniform distributions. Engine `0.6.0` applies all replacements and recomputes
+the complete affected schedule and derivation snapshot before ordinary model
+validation. This is parameter propagation for an already-selected curve, not a
+complete survival-analysis workflow.
 Curve fitting and selection, KM/IPD reconstruction, flexible or cure models,
 PFS/OS partitioned survival, treatment effects, background mortality, competing
-risks, clinical extrapolation validity, and survival-parameter DSA/PSA remain
-explicitly unsupported. NICE PMG36 and NICE DSU TSD 14/21 require validity,
+risks, covariance reconstruction from incomplete fit results, and clinical
+extrapolation validity remain explicitly unsupported. NICE PMG36 and NICE DSU TSD 14/21 require validity,
 plausibility, alternatives, and uncertainty beyond this executable fragment;
 the platform therefore does not infer those claims from a generated schedule.
 
@@ -336,8 +341,8 @@ Changing either artifact invalidates local authorization.
 
 The dependency-free engine executes one-way sensitivity analyses, joint PSA,
 and structural scenarios with versioned `pcg32-xsh-rr` sampling and fixed beta,
-gamma, lognormal, uniform, Dirichlet, and bounded lognormal-Cholesky transforms. Schema
-`0.4.0` admits evidence-bound groups of 2–32 scalar lognormal parameters only;
+gamma, lognormal, uniform, Dirichlet, and bounded lognormal-Cholesky transforms. Schemas
+`0.4.0` and `0.5.0` admit evidence-bound groups of 2–32 scalar lognormal parameters only;
 their declared matrix is the correlation of latent standard-normal values on the
 log scale and must be symmetric, unit-diagonal, and strictly positive definite.
 Each member can belong to one group, and every group basis must already be linked
@@ -345,7 +350,7 @@ by every member distribution. The current desktop bridge
 limits PSA to 10,000 draws because it returns every draw for audit; larger runs
 require a future streamed, content-addressed result artifact. The app reports
 cost-effectiveness probability and checkpoint Monte Carlo diagnostics.
-Schemas `0.2.0`, `0.3.0`, and `0.4.0` require a declared 2–101 point threshold grid containing
+Schemas `0.2.0` through `0.5.0` require a declared 2–101 point threshold grid containing
 the analysis plan's primary willingness-to-pay value. The grid must come from
 the stated decision context or a human instruction; neither the Agent nor a
 form may invent a jurisdictional threshold.
@@ -490,15 +495,18 @@ approval, reimbursement suitability, or external tamper-proofing.
 - A schema `0.5.0` transition-rate mapping additionally requires the bounded
   constant competing-rate operation, exact cycle length, complete ordered rows
   and phases, one declared basis per event, and exact output reproduction. Rate-
-  space uncertainty additionally requires schema `0.3.0` or `0.4.0`, an exact positive
+  space uncertainty additionally requires uncertainty schema `0.3.0`, `0.4.0`, or `0.5.0`, an exact positive
   event-rate target, one matching event basis ID, and full transformation
   recomputation for every DSA/PSA run. Correlated rate sampling additionally
-  requires schema `0.4.0` and the evidence-bound lognormal-Cholesky contract.
+  requires uncertainty schema `0.4.0` or `0.5.0` and the evidence-bound lognormal-Cholesky contract.
 - A schema `0.6.0` survival mapping additionally requires exactly two states,
   one absorbing event state, an exponential or Weibull scale/shape declaration,
   positive singly bound parameters, exact cycle length, a complete per-cycle
-  schedule, and independent reproduction across all four audit layers. Fit,
-  extrapolation validity, and survival-parameter uncertainty remain explicit gaps.
+  schedule, and independent reproduction across all four audit layers. Survival-
+  parameter DSA/PSA additionally requires uncertainty schema `0.5.0`, an exact
+  positive parameter-value target, its sole basis ID, and full schedule
+  recomputation. Fit, curve selection, covariance reconstruction, and
+  extrapolation validity remain explicit gaps.
 - Exploratory, analysis-authorized, independently validated, and locally
   released decision-ready states remain distinct. Any stale package, binding,
   validation, result reproduction, actor, or approval sequence fails closed.

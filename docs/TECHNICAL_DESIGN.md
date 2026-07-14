@@ -240,12 +240,12 @@ portable provenance validator, and TypeScript preview independently compute
 `1 - exp(-sum(rate)*cycle_length)`, allocate event mass by rate share, and compare
 the complete result with both the derivation snapshot and model input. Static
 outputs require one phase; schedules start at cycle 1 and remain strictly ordered.
-Uncertainty schemas `0.3.0` and `0.4.0` admit only exact positive event-rate targets inside
+Uncertainty schemas `0.3.0` through `0.5.0` admit only exact positive event-rate targets inside
 these transformations. Python applies all sampled rates to an ephemeral plan,
 recomputes each affected complete output once, updates the derivation snapshot,
 and then invokes the ordinary model validator. The portable validator and native
 Rust boundary independently enforce exact event-basis binding and positive gamma,
-lognormal, or uniform distributions. Schema `0.4.0` may correlate 2–32 scalar
+lognormal, or uniform distributions. Schemas `0.4.0` and `0.5.0` may correlate 2–32 scalar
 lognormal members through an evidence-bound, symmetric, strictly positive-definite
 latent log-scale matrix and deterministic lower-triangular Cholesky multiplication.
 
@@ -256,9 +256,13 @@ uses the declared scale-in-years and shape parameterization. Python, Rust, the
 portable validator, and TypeScript independently evaluate cumulative hazard at
 each cycle boundary, convert its increment with stable `expm1` arithmetic, and
 compare every emitted matrix with the current schedule and derivation snapshot.
-Each parameter binds exactly one extraction or proposed assumption. The engine
-does not fit, select, or clinically validate curves and does not accept survival-
-parameter uncertainty targets; those gaps stay visible to Human-in-the-loop review.
+Each parameter binds exactly one extraction or proposed assumption. Uncertainty
+schema `0.5.0` may target the exact positive exponential rate or Weibull shape or
+scale value. Python applies all replacements, recomputes the complete schedule
+and derivation snapshot, then invokes ordinary validation; portable and native
+audits independently enforce the same target, basis, and distribution contract.
+The engine does not fit, select, reconstruct covariance for, or clinically
+validate curves; those gaps stay visible to Human-in-the-loop review.
 Group order, member order, matrix, bases, and rationale are artifact data; Python,
 Rust, and the portable validator reject reused members, unsupported marginals,
 unlinked bases, singular/perfect matrices, and fields outside the contract. The
@@ -298,7 +302,7 @@ EQ-5D/UK-3L metadata. It is an executable subset, not a copy of PMG36 or an
 agency-compliance claim.
 
 The uncertainty engine owns decision-uncertainty calculations rather than the
-language model or UI. Schemas `0.2.0` through `0.4.0` bind a declared threshold grid to the
+language model or UI. Schemas `0.2.0` through `0.5.0` bind a declared threshold grid to the
 analysis plan; the Python core uses one seeded PSA draw set for expected
 incremental NMB, intervention/comparator/tie probabilities, CEAF, and
 per-person EVPI with Monte Carlo error. Rust independently audits the grid and
@@ -309,8 +313,8 @@ legacy-shaped. The React review pane is a read-only accessible visualization
 of these app-written values; it has no authority to calculate, choose, or alter
 thresholds.
 
-Uncertainty engine `0.5.0` preserves prior schema draw behavior when no current
-correlation groups exist. For a schema `0.4.0` group it draws standard normals in
+Uncertainty engine `0.6.0` preserves prior schema draw behavior when no current
+correlation groups exist. For a schema `0.4.0` or `0.5.0` group it draws standard normals in
 declared group/member order, applies the validated lower Cholesky factor, then
 uses each member's declared lognormal parameters. Groups are sampled before
 ungrouped parameters. The result echoes every admitted group and matrix so

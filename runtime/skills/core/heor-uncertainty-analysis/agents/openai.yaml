@@ -1,4 +1,4 @@
 interface:
   display_name: "HEOR Uncertainty Analysis"
-  short_description: "Plan evidence-bound PSA and lognormal correlation"
-  default_prompt: "Use $heor-uncertainty-analysis to create a hash-bound PSA plan with evidence-supported distributions and bounded lognormal correlation groups."
+  short_description: "Audit DSA, PSA, rate and survival uncertainty"
+  default_prompt: "Use $heor-uncertainty-analysis to create a hash-bound uncertainty plan with evidence-supported distributions, exact transformation-parameter targets, and bounded dependence."

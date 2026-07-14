@@ -2025,7 +2025,7 @@ export function browserDemoRun(
   return {
     calculation: {
       analysis_id: HEOR_BROWSER_DEMO_PLAN.analysis_id,
-      engine_version: "0.5.0",
+      engine_version: "0.6.0",
       schema_version: "0.3.0",
       reference_case: {
         id: "CN-2020-current",
