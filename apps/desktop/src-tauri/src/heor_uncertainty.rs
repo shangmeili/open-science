@@ -9,6 +9,8 @@ const ANALYSIS_PLAN_PATH: &str = "heor/analysis-plan.json";
 const ARTIFACT_CAP_BYTES: u64 = 5 * 1024 * 1024;
 const OUTPUT_CAP_BYTES: usize = 25 * 1024 * 1024;
 const MAX_PARAMETERS: usize = 256;
+const MAX_CORRELATION_GROUPS: usize = 64;
+const MAX_CORRELATION_GROUP_SIZE: usize = 32;
 const MAX_SCENARIOS: usize = 64;
 const MAX_DECISION_THRESHOLDS: usize = 101;
 
@@ -23,6 +25,7 @@ pub struct UncertaintyAudit {
     pub uncertainty_sha256: String,
     pub seed: Option<String>,
     pub parameter_count: usize,
+    pub correlation_group_count: usize,
     pub scenario_count: usize,
     pub iterations: Option<u64>,
     pub primary_threshold: Option<f64>,
@@ -193,6 +196,7 @@ fn empty_audit(plan_raw: &[u8]) -> UncertaintyAudit {
         uncertainty_sha256: String::new(),
         seed: None,
         parameter_count: 0,
+        correlation_group_count: 0,
         scenario_count: 0,
         iterations: None,
         primary_threshold: None,
@@ -286,6 +290,202 @@ fn validate_distribution(
     }
 }
 
+fn correlation_matrix_error(value: &serde_json::Value, size: usize) -> Option<&'static str> {
+    let Some(matrix) = value.as_array() else {
+        return Some("must be a finite square matrix matching parameter_ids");
+    };
+    if matrix.len() != size
+        || matrix.iter().any(|row| {
+            row.as_array().is_none_or(|values| {
+                values.len() != size
+                    || values
+                        .iter()
+                        .any(|item| finite_number(Some(item)).is_none())
+            })
+        })
+    {
+        return Some("must be a finite square matrix matching parameter_ids");
+    }
+    let number =
+        |row: usize, column: usize| matrix[row].as_array().unwrap()[column].as_f64().unwrap();
+    for row in 0..size {
+        if (number(row, row) - 1.0).abs() > 1e-12 {
+            return Some("diagonal must equal 1");
+        }
+        for column in 0..row {
+            if !(-1.0..1.0).contains(&number(row, column)) {
+                return Some("off-diagonal correlations must be strictly between -1 and 1");
+            }
+            if (number(row, column) - number(column, row)).abs() > 1e-12 {
+                return Some("must be symmetric");
+            }
+        }
+    }
+    let mut lower = vec![vec![0.0; size]; size];
+    for row in 0..size {
+        for column in 0..=row {
+            let remainder = number(row, column)
+                - (0..column)
+                    .map(|item| lower[row][item] * lower[column][item])
+                    .sum::<f64>();
+            if row == column {
+                if remainder <= 1e-12 {
+                    return Some("must be strictly positive definite");
+                }
+                lower[row][column] = remainder.sqrt();
+            } else {
+                lower[row][column] = remainder / lower[column][column];
+            }
+        }
+    }
+    None
+}
+
+fn validate_correlation_groups(
+    schema_version: Option<&str>,
+    correlation: Option<&serde_json::Map<String, serde_json::Value>>,
+    parameters: &[serde_json::Value],
+    errors: &mut Vec<String>,
+) -> usize {
+    if schema_version != Some("0.4.0") {
+        if correlation.is_some_and(|value| value.contains_key("groups")) {
+            errors.push("correlation groups require uncertainty schema_version 0.4.0".into());
+        }
+        return 0;
+    }
+    let groups = correlation
+        .and_then(|value| value.get("groups"))
+        .and_then(serde_json::Value::as_array);
+    let Some(groups) = groups else {
+        errors.push("correlation groups must be an array for schema_version 0.4.0".into());
+        return 0;
+    };
+    if groups.len() > MAX_CORRELATION_GROUPS {
+        errors.push(format!(
+            "correlation groups must contain no more than {MAX_CORRELATION_GROUPS} entries"
+        ));
+    }
+    let by_id = parameters
+        .iter()
+        .filter_map(|parameter| Some((parameter.get("id")?.as_str()?, parameter)))
+        .collect::<HashMap<_, _>>();
+    let mut group_ids = HashSet::new();
+    let mut grouped_parameters = HashSet::new();
+    for (index, group) in groups.iter().enumerate() {
+        let label = format!("correlation groups[{index}]");
+        let Some(group) = group.as_object() else {
+            errors.push(format!("{label} must be an object"));
+            continue;
+        };
+        let unknown = group
+            .keys()
+            .filter(|key| {
+                !matches!(
+                    key.as_str(),
+                    "id" | "parameter_ids"
+                        | "scale"
+                        | "method"
+                        | "correlation_matrix"
+                        | "basis_ids"
+                        | "rationale"
+                )
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        if !unknown.is_empty() {
+            errors.push(format!(
+                "{label} contains unsupported fields: {}",
+                unknown.join(", ")
+            ));
+        }
+        let identifier = group
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        if identifier.trim().is_empty() || !group_ids.insert(identifier) {
+            errors.push(format!("{label} id must be non-empty and unique"));
+        }
+        let Some(parameter_ids) = string_set(group.get("parameter_ids")) else {
+            errors.push(format!(
+                "{label} parameter_ids must contain 2-{MAX_CORRELATION_GROUP_SIZE} unique ids"
+            ));
+            continue;
+        };
+        if !(2..=MAX_CORRELATION_GROUP_SIZE).contains(&parameter_ids.len()) {
+            errors.push(format!(
+                "{label} parameter_ids must contain 2-{MAX_CORRELATION_GROUP_SIZE} unique ids"
+            ));
+        }
+        if parameter_ids.iter().any(|item| !by_id.contains_key(item)) {
+            errors.push(format!("{label} references an unknown parameter id"));
+        }
+        if parameter_ids
+            .iter()
+            .any(|item| !grouped_parameters.insert(*item))
+        {
+            errors.push("an uncertainty parameter may belong to only one correlation group".into());
+        }
+        if parameter_ids.iter().any(|item| {
+            by_id
+                .get(item)
+                .and_then(|parameter| parameter.pointer("/probabilistic/type"))
+                .and_then(serde_json::Value::as_str)
+                != Some("lognormal")
+        }) {
+            errors.push(format!(
+                "{label} supports only scalar lognormal parameter members"
+            ));
+        }
+        if group.get("scale").and_then(serde_json::Value::as_str) != Some("log_standard_normal")
+            || group.get("method").and_then(serde_json::Value::as_str) != Some("cholesky")
+        {
+            errors.push(format!(
+                "{label} requires log_standard_normal scale and cholesky method"
+            ));
+        }
+        if let Some(message) = group
+            .get("correlation_matrix")
+            .and_then(|value| correlation_matrix_error(value, parameter_ids.len()))
+            .or_else(|| {
+                group
+                    .get("correlation_matrix")
+                    .is_none()
+                    .then_some("must be a finite square matrix matching parameter_ids")
+            })
+        {
+            errors.push(format!("{label} correlation_matrix {message}"));
+        }
+        let Some(basis_ids) = string_set(group.get("basis_ids")) else {
+            errors.push(format!("{label} basis_ids must be non-empty and unique"));
+            continue;
+        };
+        if basis_ids.is_empty() {
+            errors.push(format!("{label} basis_ids must be non-empty and unique"));
+        } else {
+            let linked_by_every_member = parameter_ids.iter().all(|item| {
+                let member_basis = by_id
+                    .get(item)
+                    .and_then(|parameter| parameter.pointer("/probabilistic/basis_ids"))
+                    .and_then(serde_json::Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(serde_json::Value::as_str)
+                    .collect::<HashSet<_>>();
+                basis_ids.is_subset(&member_basis)
+            });
+            if !linked_by_every_member {
+                errors.push(format!(
+                    "{label} basis_ids must be linked by every member parameter distribution"
+                ));
+            }
+        }
+        if !nonempty(group.get("rationale")) {
+            errors.push(format!("{label} rationale is required"));
+        }
+    }
+    groups.len()
+}
+
 fn audit_values(
     plan: &serde_json::Value,
     plan_raw: &[u8],
@@ -312,10 +512,10 @@ fn audit_values(
     let schema_version = uncertainty
         .get("schema_version")
         .and_then(serde_json::Value::as_str);
-    if !matches!(schema_version, Some("0.1.0" | "0.2.0" | "0.3.0")) {
+    if !matches!(schema_version, Some("0.1.0" | "0.2.0" | "0.3.0" | "0.4.0")) {
         audit
             .errors
-            .push("uncertainty schema_version must be 0.1.0, 0.2.0, or 0.3.0".into());
+            .push("uncertainty schema_version must be 0.1.0, 0.2.0, 0.3.0, or 0.4.0".into());
     }
     for field in ["uncertainty_id", "analysis_id"] {
         if !nonempty(uncertainty.get(field)) {
@@ -427,7 +627,7 @@ fn audit_values(
             continue;
         };
         let target_allowed = parameter_target_allowed(target)
-            || (schema_version == Some("0.3.0") && rate_indices.is_some());
+            || (matches!(schema_version, Some("0.3.0" | "0.4.0")) && rate_indices.is_some());
         if !target_allowed || !targets.insert(target) {
             audit.invalid_parameters.push(id.into());
             audit.errors.push(format!(
@@ -448,7 +648,7 @@ fn audit_values(
         let mut rate_basis = None;
         if let Some((mapping_index, phase, row, event)) = rate_indices {
             let indexed_mapping = plan.pointer(&format!("/input_provenance/{mapping_index}"));
-            if schema_version != Some("0.3.0")
+            if !matches!(schema_version, Some("0.3.0" | "0.4.0"))
                 || plan
                     .get("schema_version")
                     .and_then(serde_json::Value::as_str)
@@ -589,7 +789,7 @@ fn audit_values(
     let threshold_config = probabilistic
         .and_then(|value| value.get("decision_thresholds"))
         .and_then(serde_json::Value::as_object);
-    if matches!(schema_version, Some("0.2.0" | "0.3.0")) {
+    if matches!(schema_version, Some("0.2.0" | "0.3.0" | "0.4.0")) {
         let thresholds = threshold_config
             .and_then(|value| value.get("values"))
             .and_then(serde_json::Value::as_array);
@@ -620,9 +820,9 @@ fn audit_values(
                 .push("decision thresholds rationale is required".into());
         }
     } else if has_threshold_config {
-        audit
-            .errors
-            .push("decision thresholds require uncertainty schema_version 0.2.0 or 0.3.0".into());
+        audit.errors.push(
+            "decision thresholds require uncertainty schema_version 0.2.0, 0.3.0, or 0.4.0".into(),
+        );
     } else if schema_version == Some("0.1.0") {
         audit.threshold_count = usize::from(audit.primary_threshold.is_some());
     }
@@ -680,6 +880,8 @@ fn audit_values(
             .errors
             .push("known omitted correlations must be resolved before review".into());
     }
+    audit.correlation_group_count =
+        validate_correlation_groups(schema_version, correlation, parameters, &mut audit.errors);
     let omitted = probabilistic
         .and_then(|value| value.get("omitted_parameters"))
         .and_then(serde_json::Value::as_array);
@@ -1149,6 +1351,84 @@ mod tests {
             .errors
             .iter()
             .any(|error| error.contains("invalid or unsupported distribution")));
+    }
+
+    #[test]
+    fn lognormal_correlation_group_is_evidence_bound_and_positive_definite() {
+        assert!(
+            correlation_matrix_error(&serde_json::json!([[1.0, 1.0], [1.0, 1.0]]), 2)
+                .is_some_and(|error| error.contains("strictly between"))
+        );
+        assert!(correlation_matrix_error(
+            &serde_json::json!([[1.0, 0.9, 0.9], [0.9, 1.0, -0.9], [0.9, -0.9, 1.0]]),
+            3,
+        )
+        .is_some_and(|error| error.contains("strictly positive definite")));
+
+        let plan = plan();
+        let plan_raw = serde_json::to_vec(&plan).unwrap();
+        let mut uncertainty = uncertainty(&plan_raw);
+        uncertainty["schema_version"] = serde_json::json!("0.4.0");
+        uncertainty["parameters"] = serde_json::json!([{
+            "id": "stable-cost",
+            "label": "Stable-state cost",
+            "target": "/strategies/intervention/state_costs/0",
+            "provenance_path": "strategies.intervention.state_costs",
+            "deterministic": {"low": 3000, "high": 5000, "rationale": "Evidence interval"},
+            "probabilistic": {
+                "type": "lognormal", "mu_log": 8.294049640102028, "sigma_log": 0.2,
+                "basis_ids": ["source-1"], "rationale": "Joint log-scale estimate"
+            }
+        }, {
+            "id": "progressed-cost",
+            "label": "Progressed-state cost",
+            "target": "/strategies/intervention/state_costs/1",
+            "provenance_path": "strategies.intervention.state_costs",
+            "deterministic": {"low": 1000, "high": 3000, "rationale": "Evidence interval"},
+            "probabilistic": {
+                "type": "lognormal", "mu_log": 7.600902459542082, "sigma_log": 0.3,
+                "basis_ids": ["source-1"], "rationale": "Joint log-scale estimate"
+            }
+        }]);
+        uncertainty["probabilistic_analysis"]["correlation_handling"]["groups"] = serde_json::json!([{
+            "id": "joint-costs",
+            "parameter_ids": ["stable-cost", "progressed-cost"],
+            "scale": "log_standard_normal",
+            "method": "cholesky",
+            "correlation_matrix": [[1.0, 0.6], [0.6, 1.0]],
+            "basis_ids": ["source-1"],
+            "rationale": "The source reports a joint log-scale covariance estimate."
+        }]);
+        let uncertainty_raw = serde_json::to_vec(&uncertainty).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &uncertainty_raw);
+        assert!(audit.complete, "{:?}", audit.errors);
+        assert_eq!(audit.correlation_group_count, 1);
+
+        let mut asymmetric = uncertainty.clone();
+        asymmetric["probabilistic_analysis"]["correlation_handling"]["groups"][0]
+            ["correlation_matrix"] = serde_json::json!([[1.0, 0.6], [0.5, 1.0]]);
+        let raw = serde_json::to_vec(&asymmetric).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &asymmetric, &raw);
+        assert!(audit.errors.iter().any(|error| error.contains("symmetric")));
+
+        let mut unlinked = uncertainty.clone();
+        unlinked["probabilistic_analysis"]["correlation_handling"]["groups"][0]["basis_ids"] =
+            serde_json::json!(["unlinked"]);
+        let raw = serde_json::to_vec(&unlinked).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &unlinked, &raw);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("member parameter")));
+
+        let mut legacy = uncertainty;
+        legacy["schema_version"] = serde_json::json!("0.3.0");
+        let raw = serde_json::to_vec(&legacy).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &legacy, &raw);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("require uncertainty schema_version 0.4.0")));
     }
 
     #[test]

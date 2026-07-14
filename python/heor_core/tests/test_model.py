@@ -4,7 +4,7 @@ import copy
 import hashlib
 import json
 import unittest
-from math import exp
+from math import exp, log, sqrt
 from pathlib import Path
 
 from heor_core.budget_impact import run_budget_impact
@@ -17,6 +17,9 @@ from heor_core.uncertainty import (
     Pcg32,
     UncertaintySpecification,
     _apply_parameter_values,
+    _cholesky,
+    _correlation_matrix,
+    _sample_parameter_values,
     run_uncertainty,
 )
 
@@ -471,7 +474,7 @@ class UncertaintyAnalysisTests(unittest.TestCase):
             json.dumps(uncertainty, separators=(",", ":")).encode(),
         )
 
-        self.assertEqual(result["engine_version"], "0.4.0")
+        self.assertEqual(result["engine_version"], "0.5.0")
         self.assertEqual(
             result["deterministic_analysis"][1]["target"],
             "/strategies/intervention/transition_schedule/0/matrix/0",
@@ -501,7 +504,7 @@ class UncertaintyAnalysisTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertEqual(first["schema_version"], "0.3.0")
-        self.assertEqual(first["engine_version"], "0.4.0")
+        self.assertEqual(first["engine_version"], "0.5.0")
         self.assertEqual(len(first["probabilistic_analysis"]["samples"]), 1000)
         dsa = first["deterministic_analysis"][0]
         for bound, rate in (("low", 0.05), ("high", 0.2)):
@@ -568,6 +571,7 @@ class UncertaintyAnalysisTests(unittest.TestCase):
         base["analysis_id"] = "competing-rate-uncertainty"
         rates = [0.1673576634856573, 0.05578588782855244, 0.2876820724517809]
         basis_ids = ["progression-rate", "stable-death-rate", "progressed-death-rate"]
+        joint_basis_id = "joint-stable-event-rate-estimate"
         base["assumptions"] = [
             {
                 "id": identifier,
@@ -577,11 +581,17 @@ class UncertaintyAnalysisTests(unittest.TestCase):
             }
             for identifier in basis_ids
         ]
+        base["assumptions"].append({
+            "id": joint_basis_id,
+            "statement": "Use the reported joint log-rate estimate for stable-state events.",
+            "reason": "Correlated competing-rate uncertainty regression test.",
+            "status": "proposed",
+        })
         base["input_provenance"] = [{
             "path": "strategies.intervention.transition_matrix",
             "source_ids": [],
             "extraction_ids": [],
-            "assumption_ids": basis_ids,
+            "assumption_ids": [*basis_ids, joint_basis_id],
             "derivation": {
                 "method": "deterministic_transformation",
                 "model_value": copy.deepcopy(base["strategies"]["intervention"]["transition_matrix"]),
@@ -593,8 +603,8 @@ class UncertaintyAnalysisTests(unittest.TestCase):
                         "rows": [{
                             "self_index": 0,
                             "events": [
-                                {"target_index": 1, "rate_per_year": rates[0], "assumption_id": basis_ids[0]},
-                                {"target_index": 2, "rate_per_year": rates[1], "assumption_id": basis_ids[1]},
+                                {"target_index": 1, "rate_per_year": rates[0], "assumption_id": joint_basis_id},
+                                {"target_index": 2, "rate_per_year": rates[1], "assumption_id": joint_basis_id},
                             ],
                         }, {
                             "self_index": 1,
@@ -606,7 +616,7 @@ class UncertaintyAnalysisTests(unittest.TestCase):
         }]
         base_raw = json.dumps(base, separators=(",", ":")).encode()
         uncertainty = uncertainty_payload()
-        uncertainty["schema_version"] = "0.3.0"
+        uncertainty["schema_version"] = "0.4.0"
         uncertainty["analysis_id"] = base["analysis_id"]
         uncertainty["base_analysis"]["content_sha256"] = hashlib.sha256(base_raw).hexdigest()
         target_prefix = "/input_provenance/0/derivation/transformation/phases/0/rows/0/events"
@@ -622,15 +632,24 @@ class UncertaintyAnalysisTests(unittest.TestCase):
                     "rationale": "Bounded positive range",
                 },
                 "probabilistic": {
-                    "type": "gamma",
-                    "shape": 4.0,
-                    "scale": rates[index] / 4.0,
-                    "basis_ids": [basis_ids[index]],
-                    "rationale": "Positive rate distribution",
+                    "type": "lognormal",
+                    "mu_log": log(rates[index]),
+                    "sigma_log": 0.2,
+                    "basis_ids": [joint_basis_id],
+                    "rationale": "Joint positive log-rate estimate",
                 },
             }
             for index, (low, high) in enumerate(((0.1, 0.3), (0.02, 0.1)))
         ]
+        uncertainty["probabilistic_analysis"]["correlation_handling"]["groups"] = [{
+            "id": "joint-stable-event-rates",
+            "parameter_ids": basis_ids[:2],
+            "scale": "log_standard_normal",
+            "method": "cholesky",
+            "correlation_matrix": [[1.0, 0.4], [0.4, 1.0]],
+            "basis_ids": [joint_basis_id],
+            "rationale": "The bounded fixture supplies a joint log-rate estimate.",
+        }]
         specification = UncertaintySpecification.from_dict(
             uncertainty, base, hashlib.sha256(base_raw).hexdigest()
         )
@@ -649,6 +668,21 @@ class UncertaintyAnalysisTests(unittest.TestCase):
             changed["input_provenance"][0]["derivation"]["model_value"],
             changed["strategies"]["intervention"]["transition_matrix"],
         )
+
+    def test_correlation_matrix_rejects_perfect_and_non_positive_definite_inputs(self) -> None:
+        with self.assertRaisesRegex(
+            ModelValidationError,
+            "off-diagonal correlations must be strictly between",
+        ):
+            _correlation_matrix([[1.0, 1.0], [1.0, 1.0]], 2, "matrix")
+
+        matrix = _correlation_matrix(
+            [[1.0, 0.9, 0.9], [0.9, 1.0, -0.9], [0.9, -0.9, 1.0]],
+            3,
+            "matrix",
+        )
+        with self.assertRaisesRegex(ModelValidationError, "strictly positive definite"):
+            _cholesky(matrix, "matrix")
 
     def test_legacy_uncertainty_plan_rejects_a_silently_ignored_grid(self) -> None:
         uncertainty = uncertainty_payload()
@@ -704,6 +738,147 @@ class UncertaintyAnalysisTests(unittest.TestCase):
                 uncertainty,
                 json.dumps(uncertainty).encode(),
             )
+
+    def test_evidence_bound_lognormal_group_uses_declared_cholesky_correlation(self) -> None:
+        base = golden_payload()
+        uncertainty = uncertainty_payload()
+        uncertainty["schema_version"] = "0.4.0"
+        first = uncertainty["parameters"][0]
+        first["probabilistic"] = {
+            "type": "lognormal",
+            "mu_log": log(4000.0),
+            "sigma_log": 0.2,
+            "basis_ids": ["golden-cost-source"],
+            "rationale": "Joint log-scale estimate from one evidence source",
+        }
+        second = copy.deepcopy(first)
+        second.update({
+            "id": "intervention-progressed-cost",
+            "label": "Intervention progressed-state cost",
+            "target": "/strategies/intervention/state_costs/1",
+        })
+        second["deterministic"] = {
+            "low": 2000.0,
+            "high": 4000.0,
+            "rationale": "Evidence interval for the second jointly estimated cost",
+        }
+        second["probabilistic"].update({"mu_log": log(3000.0), "sigma_log": 0.3})
+        uncertainty["parameters"] = [first, second]
+        uncertainty["probabilistic_analysis"]["correlation_handling"]["groups"] = [{
+            "id": "joint-costs",
+            "parameter_ids": [first["id"], second["id"]],
+            "scale": "log_standard_normal",
+            "method": "cholesky",
+            "correlation_matrix": [[1.0, 0.6], [0.6, 1.0]],
+            "basis_ids": ["golden-cost-source"],
+            "rationale": "The source reports a joint log-scale covariance estimate.",
+        }]
+        specification = UncertaintySpecification.from_dict(
+            uncertainty,
+            base,
+            hashlib.sha256(GOLDEN_PATH.read_bytes()).hexdigest(),
+        )
+
+        expected_rng = Pcg32(uncertainty["seed"])
+        first_normal = expected_rng.normal()
+        second_normal = expected_rng.normal()
+        expected = (
+            exp(log(4000.0) + 0.2 * first_normal),
+            exp(log(3000.0) + 0.3 * (0.6 * first_normal + sqrt(1.0 - 0.6**2) * second_normal)),
+        )
+        sampled = _sample_parameter_values(Pcg32(uncertainty["seed"]), specification)
+        self.assertAlmostEqual(sampled[0][1], expected[0])
+        self.assertAlmostEqual(sampled[1][1], expected[1])
+
+        result = run_uncertainty(
+            base,
+            GOLDEN_PATH.read_bytes(),
+            uncertainty,
+            json.dumps(uncertainty).encode(),
+        )
+        self.assertEqual(result["schema_version"], "0.4.0")
+        self.assertEqual(result["engine_version"], "0.5.0")
+        self.assertEqual(
+            result["probabilistic_analysis"]["correlation_groups"][0]["parameter_ids"],
+            [first["id"], second["id"]],
+        )
+
+    def test_correlation_groups_fail_closed_outside_the_bounded_contract(self) -> None:
+        base = golden_payload()
+        valid = uncertainty_payload()
+        valid["schema_version"] = "0.4.0"
+        first = valid["parameters"][0]
+        first["probabilistic"] = {
+            "type": "lognormal",
+            "mu_log": log(4000.0),
+            "sigma_log": 0.2,
+            "basis_ids": ["golden-cost-source"],
+            "rationale": "Joint log-scale estimate",
+        }
+        second = copy.deepcopy(first)
+        second.update({
+            "id": "intervention-progressed-cost",
+            "label": "Intervention progressed-state cost",
+            "target": "/strategies/intervention/state_costs/1",
+        })
+        second["deterministic"] = {
+            "low": 2000.0,
+            "high": 4000.0,
+            "rationale": "Evidence interval",
+        }
+        second["probabilistic"]["mu_log"] = log(3000.0)
+        valid["parameters"] = [first, second]
+        valid["probabilistic_analysis"]["correlation_handling"]["groups"] = [{
+            "id": "joint-costs",
+            "parameter_ids": [first["id"], second["id"]],
+            "scale": "log_standard_normal",
+            "method": "cholesky",
+            "correlation_matrix": [[1.0, 0.5], [0.5, 1.0]],
+            "basis_ids": ["golden-cost-source"],
+            "rationale": "Joint evidence estimate",
+        }]
+        cases: list[tuple[dict, str]] = []
+
+        legacy = copy.deepcopy(valid)
+        legacy["schema_version"] = "0.3.0"
+        cases.append((legacy, "require uncertainty schema_version 0.4.0"))
+
+        asymmetric = copy.deepcopy(valid)
+        asymmetric["probabilistic_analysis"]["correlation_handling"]["groups"][0]["correlation_matrix"] = [[1.0, 0.5], [0.4, 1.0]]
+        cases.append((asymmetric, "must be symmetric"))
+
+        wrong_distribution = copy.deepcopy(valid)
+        wrong_distribution["parameters"][1]["probabilistic"] = {
+            "type": "gamma",
+            "shape": 9.0,
+            "scale": 333.3333333333,
+            "basis_ids": ["golden-cost-source"],
+            "rationale": "Deliberately unsupported group member",
+        }
+        cases.append((wrong_distribution, "supports only scalar lognormal"))
+
+        unlinked_basis = copy.deepcopy(valid)
+        unlinked_basis["probabilistic_analysis"]["correlation_handling"]["groups"][0]["basis_ids"] = ["not-linked"]
+        cases.append((unlinked_basis, "must be linked"))
+
+        reused = copy.deepcopy(valid)
+        duplicate_group = copy.deepcopy(
+            reused["probabilistic_analysis"]["correlation_handling"]["groups"][0]
+        )
+        duplicate_group["id"] = "duplicate-members"
+        reused["probabilistic_analysis"]["correlation_handling"]["groups"].append(duplicate_group)
+        cases.append((reused, "only one correlation group"))
+
+        for payload, message in cases:
+            with self.subTest(message=message), self.assertRaisesRegex(
+                ModelValidationError,
+                message,
+            ):
+                UncertaintySpecification.from_dict(
+                    payload,
+                    base,
+                    hashlib.sha256(GOLDEN_PATH.read_bytes()).hexdigest(),
+                )
 
     def test_parameter_cannot_change_an_authority_field(self) -> None:
         uncertainty = uncertainty_payload()

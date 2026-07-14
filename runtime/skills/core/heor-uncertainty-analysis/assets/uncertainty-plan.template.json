@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.3.0",
+  "schema_version": "0.4.0",
   "uncertainty_id": "replace-with-uncertainty-id",
   "analysis_id": "replace-with-analysis-id",
   "status": "draft",
@@ -40,7 +40,8 @@
       "max_probability_drift": 0.02
     },
     "correlation_handling": {
-      "independence_rationale": "Explain why parameters outside jointly sampled simplex rows may be treated as independent.",
+      "independence_rationale": "Explain why parameters outside jointly sampled simplex rows and declared lognormal groups may be treated as independent.",
+      "groups": [],
       "known_omitted_correlations": []
     },
     "omitted_parameters": []

@@ -180,11 +180,16 @@ browser preview, adds a hand-calculated golden case, exposes a dedicated
 No upstream code is copied into the core. The same admission process now extends
 the fragment with first-party rate-space DSA/PSA: exact event targets, positive
 distributions, exact evidence/assumption binding, per-run complete transformation
-recomputation, and Python/native/portable regression tests. General CTMC
+recomputation, and Python/native/portable regression tests. The next admitted
+fragment is schema `0.4.0` evidence-bound lognormal dependence: only 2–32 scalar
+lognormal members, a linked latent log-scale correlation matrix, strict positive-
+definite validation, deterministic Cholesky sampling, exact result disclosure,
+and cross-layer adversarial tests. This is a first-party bounded implementation,
+not a copied BCEA/heemod/hesim routine or a matrix inferred by the Agent. General CTMC
 conversion, probability time conversion, relative effects, extrapolation,
-within-cycle multi-step paths, correlated rate models, and transformation-space
-structural scenarios remain isolated future adapters rather than inferred
-capability.
+within-cycle multi-step paths, arbitrary copulas, gamma/uniform correlation,
+empirical posterior draws, singular/perfect matrices, and transformation-space
+structural scenarios remain isolated future adapters rather than inferred capability.
 
 The evidence-search slice applies the same standard to a network capability.
 The Agent can only draft and validate the request file. Native code rejects

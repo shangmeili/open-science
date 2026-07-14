@@ -19,11 +19,11 @@ Allowed parameter targets:
 - scalar state costs and utilities;
 - a complete static transition-matrix row;
 - a complete schema `0.4.0` scheduled row at `/strategies/<role>/transition_schedule/<phase>/matrix/<row>`.
-- a positive `rate_per_year` for one declared event inside a schema `0.5.0` `constant_competing_rates` transformation, using uncertainty schema `0.3.0`.
+- a positive `rate_per_year` for one declared event inside a schema `0.5.0` `constant_competing_rates` transformation, using uncertainty schema `0.3.0` or `0.4.0`.
 
 Probability-row and schedule-change targets do not apply to a schema `0.5.0` transition derived from constant competing rates. Changing only the derived output makes its deterministic transformation snapshot stale, so the engine rejects it. A rate target must use the exact JSON Pointer `/input_provenance/<mapping>/derivation/transformation/phases/<phase>/rows/<row>/events/<event>/rate_per_year`; its `provenance_path` must equal that indexed mapping's transition path, and its sole `basis_id` must equal the event's `source_extraction_id` or `assumption_id`.
 
-For each DSA run or PSA draw, engine version `0.4.0` applies every sampled rate to an ephemeral plan copy, recomputes each affected transformation once after all replacements, and writes the complete output to both the model transition input and `derivation.model_value` before the normal model validator runs. This preserves row sums, competing-event allocation, derivation integrity, and exact fail-closed validation. It does not admit coordinated transformation-space structural scenarios.
+For each DSA run or PSA draw, engine version `0.5.0` applies every sampled rate to an ephemeral plan copy, recomputes each affected transformation once after all replacements, and writes the complete output to both the model transition input and `derivation.model_value` before the normal model validator runs. This preserves row sums, competing-event allocation, derivation integrity, and exact fail-closed validation. It does not admit coordinated transformation-space structural scenarios.
 
 Supported probabilistic distributions:
 
@@ -38,17 +38,29 @@ The app checks that `provenance_path` exists, is `distribution_available`, appea
 
 ## Correlation and omission
 
-Dirichlet sampling preserves the dependence within a probability row. Other sampled parameters, including multiple event rates, are independent in engine version 0.4. The plan must justify that assumption and leave `known_omitted_correlations` empty before review. Known but unsupported dependence remains a blocker; it must not be hidden in prose. Every omitted uncertain input needs a provenance path and rationale.
+Dirichlet sampling preserves dependence within one probability row. Schema `0.4.0` additionally admits bounded cross-parameter dependence only when all of the following hold:
+
+- one group contains 2–32 unique scalar parameters and no parameter appears in another group;
+- every member already uses `lognormal(mu_log, sigma_log)` with positive `sigma_log`;
+- `scale` is `log_standard_normal` and `method` is `cholesky`;
+- the matrix order exactly follows `parameter_ids`, is finite and symmetric, has unit diagonal and off-diagonal entries strictly between -1 and 1, and is strictly positive definite under the engine's bounded Cholesky check;
+- group `basis_ids` are non-empty and belong to every member distribution's linked evidence or proposed assumptions, with a rationale for the joint estimate.
+
+For each group and PSA iteration, engine `0.5.0` draws independent standard normals in the declared parameter order, left-multiplies them by the lower-triangular Cholesky factor, and applies each member's declared `mu_log` and `sigma_log` before exponentiation. Groups are processed in artifact order, followed by ungrouped parameters in parameter order. The result records the exact groups and matrices.
+
+This matrix represents correlation of the latent standard-normal values on the log scale, not Pearson correlation of the exponentiated model values. AI4HEOR does not convert original-scale correlations, covariance matrices, standard errors, confidence intervals, or posterior samples into this contract. It does not repair a non-positive-definite matrix or infer dependence because parameters share a source. Gamma, beta, uniform, Dirichlet-across-rows, singular or perfect correlation, arbitrary copulas, rank correlation, empirical joint draws, and cross-group dependence remain unsupported.
+
+The plan must justify remaining independence and leave `known_omitted_correlations` empty before review. Known but unsupported dependence remains a blocker; it must not be hidden in prose or removed merely because the current adapter cannot represent it. Every omitted uncertain input needs a provenance path and rationale.
 
 ## Reproducibility and convergence
 
-Engine version 0.4 uses versioned `pcg32-xsh-rr` plus fixed beta, gamma, lognormal, uniform, and Dirichlet transforms; it supports scheduled matrix rows, structural schedule change points, and deterministic per-draw recomputation of admitted competing-rate transformations. The seed is part of the artifact. Identical inputs produce a bit-identical integer PRNG stream and a repeatable run on the same runtime. Do not claim byte-identical floating-point samples across operating systems until the release matrix passes golden tolerance tests; system math libraries may differ in their final bits.
+Engine version 0.5 uses versioned `pcg32-xsh-rr` plus fixed beta, gamma, lognormal, uniform, Dirichlet, and bounded lognormal-Cholesky transforms; it supports scheduled matrix rows, structural schedule change points, and deterministic per-draw recomputation of admitted competing-rate transformations. The seed is part of the artifact. Identical inputs produce a bit-identical integer PRNG stream and a repeatable run on the same runtime. Do not claim byte-identical floating-point samples across operating systems until the release matrix passes golden tolerance tests; system math libraries may differ in their final bits.
 
 The convergence check records cost-effectiveness probability and its Monte Carlo standard error at each checkpoint. The final MCSE and change from the preceding checkpoint must meet the declared thresholds. A pass describes only the sampled run's Monte Carlo error; it is not independent validation or proof that all uncertainty was represented.
 
 ## Decision-threshold and value-of-information contract
 
-Schemas `0.2.0` and `0.3.0` require `probabilistic_analysis.decision_thresholds` with a rationale and 2–101 unique, non-negative, strictly increasing values. The values must include the positive primary `willingness_to_pay` in the analysis plan. Schema `0.1.0` remains readable and produces one primary-threshold row only; adding a grid to a legacy artifact is rejected rather than silently ignored.
+Schemas `0.2.0`, `0.3.0`, and `0.4.0` require `probabilistic_analysis.decision_thresholds` with a rationale and 2–101 unique, non-negative, strictly increasing values. The values must include the positive primary `willingness_to_pay` in the analysis plan. Schema `0.1.0` remains readable and produces one primary-threshold row only; adding a grid to a legacy artifact is rejected rather than silently ignored. Correlation groups require `0.4.0`; placing them in an older artifact is rejected rather than silently ignored.
 
 For each PSA draw and threshold λ, the engine derives incremental net monetary benefit `λ × ΔQALY − Δcost`. It reports:
 
@@ -65,5 +77,6 @@ These are conditional on the current model, declared distributions, dependence h
 - [NICE PMG36 economic evaluation, section 4.7](https://www.nice.org.uk/process/pmg36/chapter/economic-evaluation-2/) requires justified distributions, consideration of correlation, DSA/scenario analyses for drivers, Monte Carlo error review, and CEAC/CEAF presentation across maximum acceptable ICERs.
 - [NICE company evidence guide, section 3.11](https://www.nice.org.uk/process/pmg24/chapter/cost-effectiveness) requires parameter values, ranges/distributions and sources, PSA results, CEAC/CEAF, and cost-effectiveness probability.
 - [ISPOR-SMDM parameter estimation and uncertainty task-force report](https://www.ispor.org/docs/default-source/resources/outcomes-research-guidelines-index/model_parameter_estimation_and_uncertainty-6.pdf) informs the separation of parameter estimation from uncertainty propagation.
+- [NICE DSU TSD 6 on software for probabilistic cost-effectiveness analysis](https://www.sheffield.ac.uk/sites/default/files/2022-02/TSD6-Software.final_.08.05.12.pdf) requires the joint uncertainty structure produced by evidence synthesis to be propagated through the decision model. AI4HEOR implements only the bounded lognormal correlation fragment above, not the document's broader MCMC, multivariate-normal coefficient, bootstrap, or posterior-sample workflows.
 - [Jones, Epstein, and García-Mochón on transition-rate uncertainty](https://doi.org/10.1177/0272989X17696997) supports connecting rate estimates and their uncertainty directly to probability derivation for auditable DSA and PSA; AI4HEOR retains its narrower competing-first-event transformation instead of converting each competing rate independently.
 - [ISPOR value-of-information methods overview](https://www.ispor.org/publications/journals/value-outcomes-spotlight/vos-archives/issue/view/value-assessments/value-of-information-analysis) distinguishes per-person EVPI available from PSA from population extrapolation, EVPPI, and research-design decisions.

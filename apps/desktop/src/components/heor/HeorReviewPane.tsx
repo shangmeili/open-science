@@ -2098,6 +2098,7 @@ function UncertaintyAssessment({
       {audit && (
         <div className="mt-3 grid grid-cols-2 gap-2 text-center">
           <Metric label={t("uncertainty.parameters")} value={String(audit.parameterCount)} />
+          <Metric label={t("uncertainty.correlations")} value={String(audit.correlationGroupCount)} />
           <Metric label={t("uncertainty.iterations")} value={audit.iterations?.toLocaleString() ?? "—"} />
           <Metric label={t("uncertainty.thresholds")} value={String(audit.thresholdCount)} />
           <Metric label={t("uncertainty.scenarios")} value={String(audit.scenarioCount)} />
@@ -2662,10 +2663,14 @@ function UncertaintyResultCard({
           value={psa.iterations.toLocaleString(locale)}
         />
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="mt-3 grid grid-cols-3 gap-2">
         <Metric
           label={t("uncertaintyResult.parameters")}
           value={String(calculation.deterministic_analysis.length)}
+        />
+        <Metric
+          label={t("uncertaintyResult.correlations")}
+          value={String(psa.correlation_groups.length)}
         />
         <Metric
           label={t("uncertaintyResult.scenarios")}

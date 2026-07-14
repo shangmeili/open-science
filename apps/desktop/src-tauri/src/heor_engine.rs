@@ -583,6 +583,7 @@ mod tests {
             uncertainty_sha256: "f".repeat(64),
             seed: Some("42".into()),
             parameter_count: 2,
+            correlation_group_count: 0,
             scenario_count: 1,
             iterations: Some(1000),
             primary_threshold: Some(100000.0),

@@ -51,7 +51,7 @@ The transformation cycle length must equal `analysis-plan.cycle_length_years`. T
 
 ## Rate-space uncertainty
 
-Uncertainty schema `0.3.0` may vary one or more declared event rates through an exact target:
+Uncertainty schema `0.3.0` or `0.4.0` may vary one or more declared event rates through an exact target:
 
 ```text
 /input_provenance/<mapping>/derivation/transformation/phases/<phase>/rows/<row>/events/<event>/rate_per_year
@@ -59,7 +59,7 @@ Uncertainty schema `0.3.0` may vary one or more declared event rates through an 
 
 The target must resolve to a positive base rate in an analysis schema `0.5.0` mapping whose method and operation are exactly those above. `provenance_path` equals the indexed mapping path. The parameter has exactly one `basis_id`, equal to the event's `source_extraction_id` or `assumption_id`. DSA bounds are finite, positive, increasing, and bracket the base. PSA uses gamma, lognormal, or uniform with a strictly positive lower bound; rates are not probabilities, so beta and Dirichlet are invalid.
 
-After all parameter values for one run are applied, the engine recomputes each affected transformation once, replaces the complete matrix or schedule, updates `derivation.model_value`, and invokes normal analysis-plan validation. Multiple declared rates can therefore preserve their competing allocation within a row. They are sampled independently unless a future admitted joint distribution is implemented; any known omitted correlation blocks review.
+After all parameter values for one run are applied, the engine recomputes each affected transformation once, replaces the complete matrix or schedule, updates `derivation.model_value`, and invokes normal analysis-plan validation. Multiple declared rates can therefore preserve their competing allocation within a row. Schema `0.4.0` may jointly sample 2–32 lognormal rate parameters through an evidence-bound `log_standard_normal` Cholesky correlation group. The declared matrix is latent log-scale correlation, not correlation of exponentiated rates. Gamma, uniform, singular/perfect, copula, empirical-draw, and unsupported cross-group rate dependence remain blockers rather than inferred capability.
 
 ## Evidence and method basis
 

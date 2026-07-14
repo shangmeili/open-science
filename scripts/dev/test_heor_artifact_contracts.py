@@ -6,6 +6,7 @@ from __future__ import annotations
 import importlib.util
 import hashlib
 import json
+import math
 import sys
 import tempfile
 import unittest
@@ -1001,6 +1002,83 @@ class UncertaintyContractTests(unittest.TestCase):
                 "known_omitted_correlations must be resolved before review",
                 uncertainty.validate(uncertainty_path, plan_path),
             )
+
+    def test_lognormal_correlation_group_is_evidence_bound_and_positive_definite(self):
+        self.assertTrue(any(
+            "strictly between" in error
+            for error in uncertainty.correlation_matrix_errors(
+                [[1.0, 1.0], [1.0, 1.0]], 2, "matrix"
+            )
+        ))
+        self.assertTrue(any(
+            "strictly positive definite" in error
+            for error in uncertainty.correlation_matrix_errors(
+                [[1.0, 0.9, 0.9], [0.9, 1.0, -0.9], [0.9, -0.9, 1.0]],
+                3,
+                "matrix",
+            )
+        ))
+        with tempfile.TemporaryDirectory() as directory:
+            uncertainty_path, plan_path = self.fixture(Path(directory))
+            value = json.loads(uncertainty_path.read_text())
+            value["schema_version"] = "0.4.0"
+            first = value["parameters"][0]
+            first["probabilistic"] = {
+                "type": "lognormal",
+                "mu_log": math.log(4000.0),
+                "sigma_log": 0.2,
+                "basis_ids": ["golden-cost-source"],
+                "rationale": "Joint log-scale estimate",
+            }
+            second = deepcopy(first)
+            second.update({
+                "id": "intervention-progressed-cost",
+                "label": "Intervention progressed-state cost",
+                "target": "/strategies/intervention/state_costs/1",
+            })
+            second["deterministic"] = {
+                "low": 2000.0,
+                "high": 4000.0,
+                "rationale": "Joint evidence interval",
+            }
+            second["probabilistic"].update({"mu_log": math.log(3000.0), "sigma_log": 0.3})
+            value["parameters"] = [first, second]
+            value["probabilistic_analysis"]["correlation_handling"]["groups"] = [{
+                "id": "joint-costs",
+                "parameter_ids": [first["id"], second["id"]],
+                "scale": "log_standard_normal",
+                "method": "cholesky",
+                "correlation_matrix": [[1.0, 0.6], [0.6, 1.0]],
+                "basis_ids": ["golden-cost-source"],
+                "rationale": "The source reports a joint log-scale covariance estimate.",
+            }]
+            uncertainty_path.write_text(json.dumps(value, indent=2))
+            self.assertEqual(uncertainty.validate(uncertainty_path, plan_path), [])
+
+            invalid_cases = []
+            legacy = deepcopy(value)
+            legacy["schema_version"] = "0.3.0"
+            invalid_cases.append((legacy, "correlation groups require schema_version 0.4.0"))
+            asymmetric = deepcopy(value)
+            asymmetric["probabilistic_analysis"]["correlation_handling"]["groups"][0]["correlation_matrix"] = [[1.0, 0.6], [0.5, 1.0]]
+            invalid_cases.append((asymmetric, "must be symmetric"))
+            unlinked = deepcopy(value)
+            unlinked["probabilistic_analysis"]["correlation_handling"]["groups"][0]["basis_ids"] = ["unlinked"]
+            invalid_cases.append((unlinked, "must be linked by every member parameter distribution"))
+            reused = deepcopy(value)
+            duplicate = deepcopy(
+                reused["probabilistic_analysis"]["correlation_handling"]["groups"][0]
+            )
+            duplicate["id"] = "duplicate-members"
+            reused["probabilistic_analysis"]["correlation_handling"]["groups"].append(duplicate)
+            invalid_cases.append((reused, "only one correlation group"))
+
+            for payload, message in invalid_cases:
+                with self.subTest(message=message):
+                    uncertainty_path.write_text(json.dumps(payload, indent=2))
+                    self.assertTrue(
+                        any(message in error for error in uncertainty.validate(uncertainty_path, plan_path))
+                    )
 
     def test_decision_thresholds_reject_duplicates_and_missing_primary(self):
         with tempfile.TemporaryDirectory() as directory:

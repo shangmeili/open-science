@@ -246,6 +246,7 @@ export interface HeorUncertaintyAudit {
   uncertaintySha256: string;
   seed: string | null;
   parameterCount: number;
+  correlationGroupCount: number;
   scenarioCount: number;
   iterations: number | null;
   primaryThreshold: number | null;
@@ -633,6 +634,15 @@ export interface HeorUncertaintyCalculation {
       max_probability_mcse: number;
       max_probability_drift: number;
     };
+    correlation_groups: Array<{
+      id: string;
+      parameter_ids: string[];
+      scale: "log_standard_normal";
+      method: "cholesky";
+      correlation_matrix: number[][];
+      basis_ids: string[];
+      rationale: string;
+    }>;
     omitted_parameters: Array<{ provenance_path: string; rationale: string }>;
     decision_uncertainty: {
       method: "net_monetary_benefit";
@@ -1773,6 +1783,7 @@ export const HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT: HeorUncertaintyAudit = {
   uncertaintySha256: "",
   seed: null,
   parameterCount: 0,
+  correlationGroupCount: 0,
   scenarioCount: 0,
   iterations: null,
   primaryThreshold: null,

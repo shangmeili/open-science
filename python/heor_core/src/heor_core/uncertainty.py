@@ -24,14 +24,17 @@ from .transition_rates import (
 )
 
 
-UNCERTAINTY_SCHEMA_VERSION = "0.3.0"
+UNCERTAINTY_SCHEMA_VERSION = "0.4.0"
+RATE_UNCERTAINTY_SCHEMA_VERSION = "0.3.0"
 PRIOR_UNCERTAINTY_SCHEMA_VERSION = "0.2.0"
 LEGACY_UNCERTAINTY_SCHEMA_VERSION = "0.1.0"
-UNCERTAINTY_ENGINE_VERSION = "0.4.0"
+UNCERTAINTY_ENGINE_VERSION = "0.5.0"
 PRNG_ALGORITHM = "pcg32-xsh-rr"
 PRNG_VERSION = "1"
 MAX_ITERATIONS = 10_000
 MAX_PARAMETERS = 256
+MAX_CORRELATION_GROUPS = 64
+MAX_CORRELATION_GROUP_SIZE = 32
 MAX_SCENARIOS = 64
 MAX_DECISION_THRESHOLDS = 101
 MAX_REJECTION_ATTEMPTS = 10_000
@@ -124,6 +127,18 @@ class Parameter:
 
 
 @dataclass(frozen=True)
+class CorrelationGroup:
+    identifier: str
+    parameter_ids: tuple[str, ...]
+    scale: str
+    method: str
+    correlation_matrix: tuple[tuple[float, ...], ...]
+    cholesky: tuple[tuple[float, ...], ...]
+    basis_ids: tuple[str, ...]
+    rationale: str
+
+
+@dataclass(frozen=True)
 class Scenario:
     identifier: str
     label: str
@@ -150,6 +165,7 @@ class UncertaintySpecification:
     max_probability_drift: float
     independence_rationale: str
     known_omitted_correlations: tuple[str, ...]
+    correlation_groups: tuple[CorrelationGroup, ...]
     omitted_parameters: tuple[dict[str, str], ...]
     parameters: tuple[Parameter, ...]
     scenarios: tuple[Scenario, ...]
@@ -166,10 +182,11 @@ class UncertaintySpecification:
         if schema_version not in {
             LEGACY_UNCERTAINTY_SCHEMA_VERSION,
             PRIOR_UNCERTAINTY_SCHEMA_VERSION,
+            RATE_UNCERTAINTY_SCHEMA_VERSION,
             UNCERTAINTY_SCHEMA_VERSION,
         }:
             raise ModelValidationError(
-                "uncertainty schema_version must be 0.1.0, 0.2.0, or 0.3.0"
+                "uncertainty schema_version must be 0.1.0, 0.2.0, 0.3.0, or 0.4.0"
             )
         base = _mapping(value.get("base_analysis", {}), "base_analysis")
         psa = _mapping(value.get("probabilistic_analysis", {}), "probabilistic_analysis")
@@ -180,6 +197,7 @@ class UncertaintySpecification:
         )
         if schema_version in {
             PRIOR_UNCERTAINTY_SCHEMA_VERSION,
+            RATE_UNCERTAINTY_SCHEMA_VERSION,
             UNCERTAINTY_SCHEMA_VERSION,
         }:
             threshold_config = _mapping(
@@ -201,7 +219,7 @@ class UncertaintySpecification:
         else:
             if "decision_thresholds" in psa:
                 raise ModelValidationError(
-                    "decision thresholds require uncertainty schema_version 0.2.0 or 0.3.0"
+                    "decision thresholds require uncertainty schema_version 0.2.0, 0.3.0, or 0.4.0"
                 )
             decision_thresholds = (primary_threshold,)
             threshold_rationale = (
@@ -211,6 +229,11 @@ class UncertaintySpecification:
         parameters = tuple(
             _parameter(item, index, base_payload, schema_version)
             for index, item in enumerate(_array(value.get("parameters"), "parameters"))
+        )
+        correlation_groups = _correlation_groups(
+            correlation,
+            parameters,
+            schema_version,
         )
         scenarios = tuple(
             _scenario(item, index, base_payload)
@@ -264,6 +287,7 @@ class UncertaintySpecification:
                     "probabilistic_analysis.correlation_handling.known_omitted_correlations",
                 )
             ),
+            correlation_groups=correlation_groups,
             omitted_parameters=omitted,
             parameters=parameters,
             scenarios=scenarios,
@@ -327,7 +351,11 @@ class UncertaintySpecification:
         expected_count = (
             (2, MAX_DECISION_THRESHOLDS)
             if self.schema_version
-            in {PRIOR_UNCERTAINTY_SCHEMA_VERSION, UNCERTAINTY_SCHEMA_VERSION}
+            in {
+                PRIOR_UNCERTAINTY_SCHEMA_VERSION,
+                RATE_UNCERTAINTY_SCHEMA_VERSION,
+                UNCERTAINTY_SCHEMA_VERSION,
+            }
             else (1, 1)
         )
         if not expected_count[0] <= len(self.decision_thresholds) <= expected_count[1]:
@@ -383,7 +411,7 @@ def run_uncertainty(
         "limitations": [
             "Only parameter uncertainty represented by the declared distributions is sampled.",
             "Declared event-rate parameters are sampled in rate space and deterministically transformed into complete transition inputs for each run.",
-            "Cross-parameter dependence is limited to declared Dirichlet simplex rows; the recorded independence rationale remains a human-review item.",
+            "Cross-parameter dependence is limited to declared Dirichlet simplex rows and evidence-bound lognormal correlation groups; the remaining independence rationale is a human-review item.",
             "A convergence diagnostic describes Monte Carlo error for this run and is not independent model validation.",
             "Per-person EVPI covers only the uncertainty represented in this PSA; "
             "it is not population EVPI, EVPPI, a research-funding recommendation, "
@@ -440,10 +468,7 @@ def _run_psa(
     for iteration in range(1, specification.iterations + 1):
         payload = _apply_parameter_values(
             base_payload,
-            tuple(
-                (parameter, _sample(rng, parameter.distribution))
-                for parameter in specification.parameters
-            ),
+            _sample_parameter_values(rng, specification),
         )
         result = run_markov(MarkovSpecification.from_dict(payload)).incremental
         inmb = result.incremental_net_monetary_benefit
@@ -496,6 +521,18 @@ def _run_psa(
             "checkpoints": checkpoints,
         },
         "independence_rationale": specification.independence_rationale,
+        "correlation_groups": [
+            {
+                "id": group.identifier,
+                "parameter_ids": list(group.parameter_ids),
+                "scale": group.scale,
+                "method": group.method,
+                "correlation_matrix": [list(row) for row in group.correlation_matrix],
+                "basis_ids": list(group.basis_ids),
+                "rationale": group.rationale,
+            }
+            for group in specification.correlation_groups
+        ],
         "omitted_parameters": list(specification.omitted_parameters),
         "decision_uncertainty": decision_uncertainty,
         "samples": samples,
@@ -574,9 +611,7 @@ def _sample(rng: Pcg32, distribution: dict[str, Any]) -> Any:
         elif kind == "gamma":
             result = rng.gamma(distribution["shape"], distribution["scale"])
         elif kind == "lognormal":
-            result = exp(
-                distribution["mu_log"] + distribution["sigma_log"] * rng.normal()
-            )
+            result = _lognormal_from_normal(distribution, rng.normal())
         elif kind == "uniform":
             result = distribution["low"] + (
                 distribution["high"] - distribution["low"]
@@ -601,6 +636,210 @@ def _sample(rng: Pcg32, distribution: dict[str, Any]) -> Any:
     return result
 
 
+def _sample_parameter_values(
+    rng: Pcg32,
+    specification: UncertaintySpecification,
+) -> tuple[tuple[Parameter, Any], ...]:
+    parameters = {parameter.identifier: parameter for parameter in specification.parameters}
+    correlated_values: dict[str, float] = {}
+    for group in specification.correlation_groups:
+        independent = [rng.normal() for _ in group.parameter_ids]
+        correlated = [
+            sum(group.cholesky[row][column] * independent[column] for column in range(row + 1))
+            for row in range(len(group.parameter_ids))
+        ]
+        for parameter_id, normal_value in zip(group.parameter_ids, correlated, strict=True):
+            correlated_values[parameter_id] = _lognormal_from_normal(
+                parameters[parameter_id].distribution,
+                normal_value,
+            )
+    return tuple(
+        (
+            parameter,
+            correlated_values.get(parameter.identifier)
+            if parameter.identifier in correlated_values
+            else _sample(rng, parameter.distribution),
+        )
+        for parameter in specification.parameters
+    )
+
+
+def _lognormal_from_normal(distribution: dict[str, Any], normal_value: float) -> float:
+    try:
+        result = exp(
+            distribution["mu_log"] + distribution["sigma_log"] * normal_value
+        )
+    except ArithmeticError as error:
+        raise ModelValidationError(
+            "lognormal sampler encountered a numerical overflow or division failure"
+        ) from error
+    if not isfinite(result) or result <= 0.0:
+        raise ModelValidationError("lognormal sampler returned a non-positive or non-finite value")
+    return result
+
+
+def _correlation_groups(
+    correlation: dict[str, Any],
+    parameters: tuple[Parameter, ...],
+    schema_version: str,
+) -> tuple[CorrelationGroup, ...]:
+    if schema_version != UNCERTAINTY_SCHEMA_VERSION:
+        if "groups" in correlation:
+            raise ModelValidationError(
+                "correlation groups require uncertainty schema_version 0.4.0"
+            )
+        return ()
+    raw_groups = _array(
+        correlation.get("groups"),
+        "probabilistic_analysis.correlation_handling.groups",
+    )
+    if len(raw_groups) > MAX_CORRELATION_GROUPS:
+        raise ModelValidationError(
+            f"correlation groups must contain no more than {MAX_CORRELATION_GROUPS} entries"
+        )
+    by_id = {parameter.identifier: parameter for parameter in parameters}
+    group_ids: set[str] = set()
+    grouped_parameters: set[str] = set()
+    groups: list[CorrelationGroup] = []
+    for index, raw in enumerate(raw_groups):
+        label = f"probabilistic_analysis.correlation_handling.groups[{index}]"
+        value = _mapping(raw, label)
+        allowed_fields = {
+            "id",
+            "parameter_ids",
+            "scale",
+            "method",
+            "correlation_matrix",
+            "basis_ids",
+            "rationale",
+        }
+        unknown = set(value) - allowed_fields
+        if unknown:
+            raise ModelValidationError(
+                f"{label} contains unsupported fields: {', '.join(sorted(unknown))}"
+            )
+        identifier = _nonempty(value.get("id"), f"{label}.id")
+        if identifier in group_ids:
+            raise ModelValidationError("correlation group ids must be unique")
+        group_ids.add(identifier)
+        parameter_ids = tuple(
+            _nonempty(item, f"{label}.parameter_ids")
+            for item in _array(value.get("parameter_ids"), f"{label}.parameter_ids")
+        )
+        if (
+            not 2 <= len(parameter_ids) <= MAX_CORRELATION_GROUP_SIZE
+            or len(set(parameter_ids)) != len(parameter_ids)
+        ):
+            raise ModelValidationError(
+                f"{label}.parameter_ids must contain 2-{MAX_CORRELATION_GROUP_SIZE} unique ids"
+            )
+        if any(parameter_id not in by_id for parameter_id in parameter_ids):
+            raise ModelValidationError(f"{label} references an unknown parameter id")
+        if grouped_parameters.intersection(parameter_ids):
+            raise ModelValidationError("an uncertainty parameter may belong to only one correlation group")
+        grouped_parameters.update(parameter_ids)
+        if any(
+            by_id[parameter_id].distribution.get("type") != "lognormal"
+            for parameter_id in parameter_ids
+        ):
+            raise ModelValidationError(
+                f"{label} supports only scalar lognormal parameter members"
+            )
+        scale = _nonempty(value.get("scale"), f"{label}.scale")
+        method = _nonempty(value.get("method"), f"{label}.method")
+        if scale != "log_standard_normal" or method != "cholesky":
+            raise ModelValidationError(
+                f"{label} requires log_standard_normal scale and cholesky method"
+            )
+        matrix = _correlation_matrix(
+            value.get("correlation_matrix"),
+            len(parameter_ids),
+            f"{label}.correlation_matrix",
+        )
+        basis_ids = tuple(
+            _nonempty(item, f"{label}.basis_ids")
+            for item in _array(value.get("basis_ids"), f"{label}.basis_ids")
+        )
+        if not basis_ids or len(set(basis_ids)) != len(basis_ids):
+            raise ModelValidationError(f"{label}.basis_ids must be non-empty and unique")
+        if not all(
+            set(basis_ids).issubset(set(by_id[parameter_id].basis_ids))
+            for parameter_id in parameter_ids
+        ):
+            raise ModelValidationError(
+                f"{label}.basis_ids must be linked by every member parameter distribution"
+            )
+        groups.append(
+            CorrelationGroup(
+                identifier=identifier,
+                parameter_ids=parameter_ids,
+                scale=scale,
+                method=method,
+                correlation_matrix=matrix,
+                cholesky=_cholesky(matrix, f"{label}.correlation_matrix"),
+                basis_ids=basis_ids,
+                rationale=_nonempty(value.get("rationale"), f"{label}.rationale"),
+            )
+        )
+    return tuple(groups)
+
+
+def _correlation_matrix(
+    value: Any,
+    size: int,
+    label: str,
+) -> tuple[tuple[float, ...], ...]:
+    rows = _array(value, label)
+    if len(rows) != size:
+        raise ModelValidationError(f"{label} must be a {size} by {size} matrix")
+    matrix = tuple(
+        tuple(
+            _finite_float(item, label)
+            for item in _array(row, f"{label}[{row_index}]")
+        )
+        for row_index, row in enumerate(rows)
+    )
+    if any(len(row) != size for row in matrix):
+        raise ModelValidationError(f"{label} must be a {size} by {size} matrix")
+    for row in range(size):
+        if not isclose(matrix[row][row], 1.0, rel_tol=0.0, abs_tol=1e-12):
+            raise ModelValidationError(f"{label} diagonal must equal 1")
+        for column in range(row):
+            if not -1.0 < matrix[row][column] < 1.0:
+                raise ModelValidationError(
+                    f"{label} off-diagonal correlations must be strictly between -1 and 1"
+                )
+            if not isclose(
+                matrix[row][column],
+                matrix[column][row],
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            ):
+                raise ModelValidationError(f"{label} must be symmetric")
+    return matrix
+
+
+def _cholesky(
+    matrix: tuple[tuple[float, ...], ...],
+    label: str,
+) -> tuple[tuple[float, ...], ...]:
+    size = len(matrix)
+    lower = [[0.0] * size for _ in range(size)]
+    for row in range(size):
+        for column in range(row + 1):
+            remainder = matrix[row][column] - sum(
+                lower[row][item] * lower[column][item]
+                for item in range(column)
+            )
+            if row == column:
+                if remainder <= 1e-12:
+                    raise ModelValidationError(f"{label} must be strictly positive definite")
+                lower[row][column] = sqrt(remainder)
+            else:
+                lower[row][column] = remainder / lower[column][column]
+    return tuple(tuple(row) for row in lower)
+
+
 def _parameter(
     value: Any,
     index: int,
@@ -615,9 +854,12 @@ def _parameter(
     low = copy.deepcopy(dsa.get("low"))
     high = copy.deepcopy(dsa.get("high"))
     rate_mapping_index = _rate_mapping_index(target)
-    if rate_mapping_index is not None and schema_version != UNCERTAINTY_SCHEMA_VERSION:
+    if rate_mapping_index is not None and schema_version not in {
+        RATE_UNCERTAINTY_SCHEMA_VERSION,
+        UNCERTAINTY_SCHEMA_VERSION,
+    }:
         raise ModelValidationError(
-            "event-rate uncertainty requires uncertainty schema_version 0.3.0"
+            "event-rate uncertainty requires uncertainty schema_version 0.3.0 or 0.4.0"
         )
     _validate_replacement(
         target, low, base, rate_parameter=rate_mapping_index is not None

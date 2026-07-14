@@ -214,14 +214,16 @@ rate, matrix, cycle length, phase, or basis set therefore fails closed.
 
 This is a competing-first-event calculation under constant within-phase rates
 and an at-most-one-state-change-per-cycle assumption. It is not general CTMC
-matrix exponentiation. Uncertainty schema `0.3.0` can vary exact positive event
+matrix exponentiation. Uncertainty schema `0.3.0` or `0.4.0` can vary exact positive event
 rates with gamma, lognormal, or strictly positive uniform distributions. For each
-DSA run or PSA draw, engine `0.4.0` recomputes each affected complete matrix or
+DSA run or PSA draw, engine `0.5.0` recomputes each affected complete matrix or
 schedule and its derivation snapshot before ordinary validation. Changing only a
 derived probability row still fails closed. The adapter does not implement
 probability time conversion, HR/RR/OR application, pooling, calibration, survival
-extrapolation, within-cycle multi-step paths, correlated rate models, or
-transformation-space structural scenarios. `$heor-transition-rate-adapter`
+extrapolation, within-cycle multi-step paths, arbitrary correlated rate models, or
+transformation-space structural scenarios, except that schema `0.4.0` may correlate
+only evidence-bound lognormal rate members through the bounded latent log-scale
+Cholesky contract. `$heor-transition-rate-adapter`
 exposes the method and its stopping rules through the natural-language workflow.
 
 ## Executable monetary basis
@@ -308,11 +310,16 @@ Changing either artifact invalidates local authorization.
 
 The dependency-free engine executes one-way sensitivity analyses, joint PSA,
 and structural scenarios with versioned `pcg32-xsh-rr` sampling and fixed beta,
-gamma, lognormal, uniform, and Dirichlet transforms. The current desktop bridge
+gamma, lognormal, uniform, Dirichlet, and bounded lognormal-Cholesky transforms. Schema
+`0.4.0` admits evidence-bound groups of 2–32 scalar lognormal parameters only;
+their declared matrix is the correlation of latent standard-normal values on the
+log scale and must be symmetric, unit-diagonal, and strictly positive definite.
+Each member can belong to one group, and every group basis must already be linked
+by every member distribution. The current desktop bridge
 limits PSA to 10,000 draws because it returns every draw for audit; larger runs
 require a future streamed, content-addressed result artifact. The app reports
 cost-effectiveness probability and checkpoint Monte Carlo diagnostics.
-Schemas `0.2.0` and `0.3.0` require a declared 2–101 point threshold grid containing
+Schemas `0.2.0`, `0.3.0`, and `0.4.0` require a declared 2–101 point threshold grid containing
 the analysis plan's primary willingness-to-pay value. The grid must come from
 the stated decision context or a human instruction; neither the Agent nor a
 form may invent a jurisdictional threshold.
@@ -326,7 +333,11 @@ Monte Carlo error and keeps population EVPI and EVPPI explicitly null; it does
 not infer affected population, research priority, study design, funding value,
 reimbursement, or policy advice. Rust, Python, and the portable skill validator each
 fail closed on unsafe targets, changed hashes, unsupported distributions,
-unlinked distribution bases, known omitted correlations, or invalid scenarios.
+unlinked distribution or correlation bases, reused group members, invalid or
+singular matrices, known omitted correlations, or invalid scenarios. The engine
+does not infer correlations from shared sources, convert original-scale matrices,
+or implement arbitrary copulas, rank correlation, empirical posterior draws, or
+perfect correlation.
 
 ## Implemented budget impact boundary
 
@@ -453,9 +464,10 @@ approval, reimbursement suitability, or external tamper-proofing.
 - A schema `0.5.0` transition-rate mapping additionally requires the bounded
   constant competing-rate operation, exact cycle length, complete ordered rows
   and phases, one declared basis per event, and exact output reproduction. Rate-
-  space uncertainty additionally requires schema `0.3.0`, an exact positive
+  space uncertainty additionally requires schema `0.3.0` or `0.4.0`, an exact positive
   event-rate target, one matching event basis ID, and full transformation
-  recomputation for every DSA/PSA run.
+  recomputation for every DSA/PSA run. Correlated rate sampling additionally
+  requires schema `0.4.0` and the evidence-bound lognormal-Cholesky contract.
 - Exploratory, analysis-authorized, independently validated, and locally
   released decision-ready states remain distinct. Any stale package, binding,
   validation, result reproduction, actor, or approval sequence fails closed.

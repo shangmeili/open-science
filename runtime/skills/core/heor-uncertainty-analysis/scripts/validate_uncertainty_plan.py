@@ -31,10 +31,13 @@ SCENARIO_TARGETS = {
     "/half_cycle_correction",
 }
 SUPPORTED_DISTRIBUTIONS = {"beta", "gamma", "lognormal", "uniform", "dirichlet"}
-CURRENT_SCHEMA_VERSION = "0.3.0"
+CURRENT_SCHEMA_VERSION = "0.4.0"
+RATE_SCHEMA_VERSION = "0.3.0"
 PRIOR_SCHEMA_VERSION = "0.2.0"
 LEGACY_SCHEMA_VERSION = "0.1.0"
 MAX_DECISION_THRESHOLDS = 101
+MAX_CORRELATION_GROUPS = 64
+MAX_CORRELATION_GROUP_SIZE = 32
 
 
 def load(path: Path) -> tuple[dict, bytes]:
@@ -119,6 +122,39 @@ def distribution_valid(value: object, base: object, *, rate_parameter: bool = Fa
     return False
 
 
+def correlation_matrix_errors(value: object, size: int, label: str) -> list[str]:
+    if (
+        not isinstance(value, list)
+        or len(value) != size
+        or any(not isinstance(row, list) or len(row) != size for row in value)
+        or any(not finite_number(item) for row in value for item in row)
+    ):
+        return [f"{label} must be a finite {size} by {size} matrix"]
+    matrix = value
+    for row in range(size):
+        if abs(matrix[row][row] - 1.0) > 1e-12:
+            return [f"{label} diagonal must equal 1"]
+        for column in range(row):
+            if not -1.0 < matrix[row][column] < 1.0:
+                return [f"{label} off-diagonal correlations must be strictly between -1 and 1"]
+            if abs(matrix[row][column] - matrix[column][row]) > 1e-12:
+                return [f"{label} must be symmetric"]
+    lower = [[0.0] * size for _ in range(size)]
+    for row in range(size):
+        for column in range(row + 1):
+            remainder = matrix[row][column] - sum(
+                lower[row][item] * lower[column][item]
+                for item in range(column)
+            )
+            if row == column:
+                if remainder <= 1e-12:
+                    return [f"{label} must be strictly positive definite"]
+                lower[row][column] = math.sqrt(remainder)
+            else:
+                lower[row][column] = remainder / lower[column][column]
+    return []
+
+
 def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
     value, _ = load(uncertainty_path)
     plan, plan_raw = load(plan_path)
@@ -127,9 +163,10 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
     if schema_version not in {
         LEGACY_SCHEMA_VERSION,
         PRIOR_SCHEMA_VERSION,
+        RATE_SCHEMA_VERSION,
         CURRENT_SCHEMA_VERSION,
     }:
-        errors.append("schema_version must be 0.1.0, 0.2.0, or 0.3.0")
+        errors.append("schema_version must be 0.1.0, 0.2.0, 0.3.0, or 0.4.0")
     for field in ("uncertainty_id", "analysis_id"):
         if not text(value.get(field)):
             errors.append(f"{field} is required")
@@ -171,6 +208,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         errors.append("parameters must contain from 1 to 256 entries")
         parameters = []
     ids: set[str] = set()
+    parameters_by_id: dict[str, dict] = {}
     targets: set[str] = set()
     for index, parameter in enumerate(parameters):
         label = f"parameters[{index}]"
@@ -181,12 +219,13 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         target = parameter.get("target")
         rate_match = RATE_TARGET.fullmatch(target) if text(target) else None
         target_allowed = bool(PARAMETER_TARGET.fullmatch(target)) if text(target) else False
-        if rate_match and schema_version == CURRENT_SCHEMA_VERSION:
+        if rate_match and schema_version in {RATE_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
             target_allowed = True
         if not text(identifier) or identifier in ids:
             errors.append(f"{label}.id must be non-empty and unique")
         else:
             ids.add(identifier)
+            parameters_by_id[identifier] = parameter
         if not text(target) or not target_allowed or target in targets:
             errors.append(f"{label}.target must be unique and allowlisted")
             base_value = None
@@ -201,8 +240,8 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         mapping = mappings.get(provenance_path)
         event_basis: str | None = None
         if rate_match:
-            if schema_version != CURRENT_SCHEMA_VERSION:
-                errors.append(f"{label}.target requires schema_version 0.3.0")
+            if schema_version not in {RATE_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
+                errors.append(f"{label}.target requires schema_version 0.3.0 or 0.4.0")
             try:
                 mapping_index, phase_index, row_index, event_index = (
                     int(item) for item in rate_match.groups()
@@ -281,7 +320,11 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         errors.append("plan and uncertainty iteration counts do not match")
     threshold_config = psa.get("decision_thresholds")
     primary_threshold = plan.get("willingness_to_pay")
-    if schema_version in {PRIOR_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
+    if schema_version in {
+        PRIOR_SCHEMA_VERSION,
+        RATE_SCHEMA_VERSION,
+        CURRENT_SCHEMA_VERSION,
+    }:
         threshold_config = threshold_config if isinstance(threshold_config, dict) else {}
         thresholds = threshold_config.get("values")
         valid_thresholds = (
@@ -299,7 +342,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         if not text(threshold_config.get("rationale")):
             errors.append("decision thresholds rationale is required")
     elif threshold_config is not None:
-        errors.append("decision thresholds require schema_version 0.2.0 or 0.3.0")
+        errors.append("decision thresholds require schema_version 0.2.0, 0.3.0, or 0.4.0")
     convergence = psa.get("convergence") or {}
     checkpoints = convergence.get("checkpoints")
     if not (
@@ -318,6 +361,80 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
     correlation = psa.get("correlation_handling") or {}
     if not text(correlation.get("independence_rationale")):
         errors.append("correlation_handling.independence_rationale is required")
+    if schema_version == CURRENT_SCHEMA_VERSION:
+        groups = correlation.get("groups")
+        if not isinstance(groups, list) or len(groups) > MAX_CORRELATION_GROUPS:
+            errors.append(
+                f"correlation_handling.groups must contain no more than {MAX_CORRELATION_GROUPS} entries"
+            )
+            groups = []
+        group_ids: set[str] = set()
+        grouped_parameters: set[str] = set()
+        allowed_fields = {
+            "id", "parameter_ids", "scale", "method", "correlation_matrix",
+            "basis_ids", "rationale",
+        }
+        for index, group in enumerate(groups):
+            label = f"correlation_handling.groups[{index}]"
+            if not isinstance(group, dict):
+                errors.append(f"{label} must be an object")
+                continue
+            unknown = set(group) - allowed_fields
+            if unknown:
+                errors.append(f"{label} contains unsupported fields: {', '.join(sorted(unknown))}")
+            identifier = group.get("id")
+            if not text(identifier) or identifier in group_ids:
+                errors.append(f"{label}.id must be non-empty and unique")
+            else:
+                group_ids.add(identifier)
+            parameter_ids = group.get("parameter_ids")
+            members_valid = (
+                isinstance(parameter_ids, list)
+                and 2 <= len(parameter_ids) <= MAX_CORRELATION_GROUP_SIZE
+                and all(text(item) for item in parameter_ids)
+                and len(set(parameter_ids)) == len(parameter_ids)
+            )
+            if not members_valid:
+                errors.append(
+                    f"{label}.parameter_ids must contain 2-{MAX_CORRELATION_GROUP_SIZE} unique ids"
+                )
+                parameter_ids = []
+            if any(item not in parameters_by_id for item in parameter_ids):
+                errors.append(f"{label} references an unknown parameter id")
+            if grouped_parameters.intersection(parameter_ids):
+                errors.append("an uncertainty parameter may belong to only one correlation group")
+            grouped_parameters.update(parameter_ids)
+            if any(
+                (parameters_by_id.get(item, {}).get("probabilistic") or {}).get("type") != "lognormal"
+                for item in parameter_ids
+            ):
+                errors.append(f"{label} supports only scalar lognormal parameter members")
+            if group.get("scale") != "log_standard_normal" or group.get("method") != "cholesky":
+                errors.append(f"{label} requires log_standard_normal scale and cholesky method")
+            errors.extend(
+                correlation_matrix_errors(
+                    group.get("correlation_matrix"),
+                    len(parameter_ids),
+                    f"{label}.correlation_matrix",
+                )
+            )
+            basis_ids = group.get("basis_ids")
+            if not string_list(basis_ids):
+                errors.append(f"{label}.basis_ids must be non-empty and unique")
+            else:
+                if not all(
+                    set(basis_ids).issubset(set(
+                        (parameters_by_id.get(item, {}).get("probabilistic") or {}).get("basis_ids") or []
+                    ))
+                    for item in parameter_ids
+                ):
+                    errors.append(
+                        f"{label}.basis_ids must be linked by every member parameter distribution"
+                    )
+            if not text(group.get("rationale")):
+                errors.append(f"{label}.rationale is required")
+    elif "groups" in correlation:
+        errors.append("correlation groups require schema_version 0.4.0")
     if correlation.get("known_omitted_correlations") != []:
         errors.append("known_omitted_correlations must be resolved before review")
     omitted = psa.get("omitted_parameters")
