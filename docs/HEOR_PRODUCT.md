@@ -269,7 +269,7 @@ validation. This is parameter propagation for an already-selected curve, not a
 complete survival-analysis workflow.
 
 The first-party `$heor-survival-extrapolation-review` now prepares a separate
-schema `0.1.0` review artifact before curve selection. It requires 2–8
+schema `0.2.0` review artifact before curve selection. It requires 2–8
 pre-specified standard parametric families, exact data/command/session/output
 hashes, visible failed fits and protocol deviations, common observed and
 extrapolated survival/hazard landmarks, AIC/BIC, KM and hazard diagnostics,
@@ -280,10 +280,13 @@ GPL backend nor silently installs it. The validator rejects post-hoc model-order
 incomparable or invalid landmarks, hidden approval fields, and fewer than two
 converged alternatives. The only admitted state is
 `awaiting_human_selection`; the selected curve enters the app-owned analysis-
-plan review rather than being chosen by a score or Agent output. This alpha
-does not yet provide an app-native artifact viewer or bind the review hash into
-the analysis-plan approval event; those remain required before the workflow is
-fully shipped.
+plan review rather than being chosen by a score or Agent output. The native app
+now matches the exact analysis ID and sole parametric-survival target, requires
+the selected plan distribution to be a converged candidate, independently
+verifies the contract and local hashes, shows the result in the review pane,
+and binds the current review hash into analysis-plan approval and every analysis
+authorization check. Multi-curve plans fail closed until an indexed review
+collection is admitted.
 
 Automatic curve selection, KM/IPD reconstruction, flexible or cure models,
 PFS/OS partitioned survival, treatment effects, background mortality, competing
@@ -655,11 +658,17 @@ approval, reimbursement suitability, or external tamper-proofing.
 - A schema `0.6.0` or `0.8.0` survival mapping additionally requires exactly two states,
   one absorbing event state, an exponential or Weibull scale/shape declaration,
   positive singly bound parameters, exact cycle length, a complete per-cycle
-  schedule, and independent reproduction across all four audit layers. Survival-
+  schedule, and independent reproduction across all four audit layers. Analysis-
+  plan approval also requires one schema `0.2.0` extrapolation review bound to
+  the exact current analysis ID and sole survival-mapping path; the selected
+  distribution must be a converged pre-specified candidate, every local evidence
+  hash must verify, and the approval event binds the current review hash. Multiple
+  survival targets fail closed in this alpha. Survival-
   parameter DSA/PSA additionally requires uncertainty schema `0.5.0` through `0.7.0`, an exact
   positive parameter-value target, its sole basis ID, and full schedule
-  recomputation. Fit, curve selection, covariance reconstruction, and
-  extrapolation validity remain explicit gaps.
+  recomputation. Fitting remains external and local, curve selection remains a
+  Human analysis-plan decision, and covariance reconstruction or substantive
+  extrapolation validity remains outside deterministic claims.
 - A schema `0.7.0` or `0.8.0` probability-time mapping additionally requires at most one
   event per row, a source probability strictly inside `(0,1)`, explicit positive
   source and model intervals, one declared basis per event, and exact complete

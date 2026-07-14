@@ -4,7 +4,9 @@
 
 Create one review per absolute time-to-first-event curve. The first slice accepts an already-generated local fit bundle and execution manifest; it does not read or fit individual time-to-event data. It compares standard parametric maximum-likelihood model outputs without selecting one automatically.
 
-The artifact path is `heor/survival-extrapolation-review.json`; schema version is `0.1.0`. Every ready artifact binds the exact local input, execution record, session information, model outputs, and diagnostic files by lowercase SHA-256.
+The artifact path is `heor/survival-extrapolation-review.json`; schema version is `0.2.0`. Every ready artifact binds the exact local input, execution record, session information, model outputs, and diagnostic files by lowercase SHA-256.
+
+`analysis_target` must contain the current analysis plan's exact `analysis_id` and the exact `input_provenance[].path` whose transformation operation is `parametric_survival_to_transition_schedule`. The Human-selected plan distribution must be a converged, pre-specified candidate in this review. The app-owned approval boundary requires exactly one such mapping in this alpha and fails closed for multi-curve plans; a future indexed collection contract is required before multiple curve reviews can be approved together.
 
 ## Candidate set
 
@@ -64,7 +66,7 @@ The only admitted gate object is:
 }
 ```
 
-The review may contain an analyst recommendation, but no `approved`, `selected`, `accepted`, reviewer identity, signature, or approval timestamp field. The Human selects the downstream curve by reviewing the complete analysis plan; the app-owned analysis-plan approval chain supplies authority and exact artifact bindings.
+The review may contain an analyst recommendation, but no `approved`, `selected`, `accepted`, reviewer identity, signature, or approval timestamp field. The Human selects the downstream curve by reviewing the complete analysis plan; the app-owned analysis-plan approval chain independently re-audits schema `0.2.0`, matches the exact analysis target and selected distribution, verifies local hashes, and binds the current review SHA-256.
 
 ## Method basis
 

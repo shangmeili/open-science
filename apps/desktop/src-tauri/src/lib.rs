@@ -18,6 +18,7 @@ mod heor_reference_case;
 mod heor_reporting;
 mod heor_search;
 mod heor_synthesis;
+mod heor_survival_review;
 mod heor_uncertainty;
 mod heor_validation;
 mod jupyter;
@@ -131,6 +132,7 @@ pub fn run() {
             heor_library::sync_heor_evidence_library,
             heor_synthesis::audit_heor_evidence_synthesis,
             heor_synthesis::import_heor_search_candidates,
+            heor_survival_review::audit_heor_survival_extrapolation,
             heor_evidence::audit_heor_evidence_selection,
             heor_evidence_review::list_heor_evidence_verifications,
             heor_evidence_review::verify_heor_evidence_extractions,

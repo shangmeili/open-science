@@ -14,6 +14,9 @@ use crate::heor_evidence::{
 };
 use crate::heor_reference_case::{audit_reference_case_for_plan, ReferenceCaseAudit};
 use crate::heor_reporting::{audit_report_package, ReportingAudit};
+use crate::heor_survival_review::{
+    audit_survival_review_for_plan, SurvivalReviewAudit, SURVIVAL_REVIEW_PATH,
+};
 use crate::heor_uncertainty::{audit_uncertainty_plan_for_plan, UncertaintyAudit};
 use crate::heor_validation::{audit_model_validation_for_plan, ModelValidationAudit};
 use crate::runtime::workspace_dir;
@@ -35,6 +38,8 @@ pub struct HeorWorkflowStatus {
     uncertainty_audit: UncertaintyAudit,
     budget_impact_plan_matches_approval: bool,
     budget_impact_audit: BudgetImpactAudit,
+    survival_review_matches_approval: bool,
+    survival_review_audit: SurvivalReviewAudit,
     independent_validation_matches_approval: bool,
     validation_audit: ModelValidationAudit,
     release_matches_approval: bool,
@@ -60,6 +65,7 @@ pub(crate) struct HeorWorkflowAudits {
     pub reference_case: ReferenceCaseAudit,
     pub uncertainty: UncertaintyAudit,
     pub budget_impact: BudgetImpactAudit,
+    pub survival_review: SurvivalReviewAudit,
     pub validation: ModelValidationAudit,
     pub reporting: ReportingAudit,
 }
@@ -179,6 +185,7 @@ pub(crate) fn workflow_status(
         reference_case: reference_case_audit,
         uncertainty: uncertainty_audit,
         budget_impact: budget_impact_audit,
+        survival_review: survival_review_audit,
         validation: validation_audit,
         reporting: reporting_audit,
     } = audits;
@@ -198,6 +205,17 @@ pub(crate) fn workflow_status(
             &budget_impact_audit.budget_impact_sha256,
         )
     });
+    let survival_review_matches_approval = !survival_review_audit.required
+        || (survival_review_audit.complete
+            && survival_review_audit.review_sha256.as_ref().is_some_and(|digest| {
+                analysis_plan_event(&log).is_some_and(|event| {
+                    crate::heor_approval::event_binds_artifact(
+                        event,
+                        SURVIVAL_REVIEW_PATH,
+                        digest,
+                    )
+                })
+            }));
     let evidence_synthesis_matches_approval = evidence_selection_audit.synthesis_sha256.is_empty()
         || analysis_plan_event(&log).is_some_and(|event| {
             crate::heor_approval::event_binds_artifact(
@@ -246,6 +264,8 @@ pub(crate) fn workflow_status(
         && uncertainty_plan_matches_approval
         && budget_impact_audit.complete
         && budget_impact_plan_matches_approval
+        && survival_review_audit.complete
+        && survival_review_matches_approval
         && reference_case_status != "draft";
     let mut effective_approved_gates = log.effective_approved_gates;
     if !conceptual_model_matches_artifact {
@@ -261,6 +281,8 @@ pub(crate) fn workflow_status(
         || !uncertainty_plan_matches_approval
         || !budget_impact_audit.complete
         || !budget_impact_plan_matches_approval
+        || !survival_review_audit.complete
+        || !survival_review_matches_approval
     {
         effective_approved_gates = effective_approved_gates
             .into_iter()
@@ -301,6 +323,8 @@ pub(crate) fn workflow_status(
         uncertainty_audit,
         budget_impact_plan_matches_approval,
         budget_impact_audit,
+        survival_review_matches_approval,
+        survival_review_audit,
         independent_validation_matches_approval,
         validation_audit,
         release_matches_approval,
@@ -412,6 +436,7 @@ pub fn run_heor_markov(
     let reference_case_audit = audit_reference_case_for_plan(&app, &root, &raw)?;
     let uncertainty_audit = audit_uncertainty_plan_for_plan(&root, &raw)?;
     let budget_impact_audit = audit_budget_impact_for_plan(&root, &raw)?;
+    let survival_review_audit = audit_survival_review_for_plan(&root, &raw);
     let validation_audit = audit_model_validation_for_plan(&root, &raw)?;
     let reporting_audit = audit_report_package(&root)?;
     // Evaluate authorization after calculation so a revocation made while the
@@ -437,6 +462,7 @@ pub fn run_heor_markov(
                 reference_case: reference_case_audit,
                 uncertainty: uncertainty_audit,
                 budget_impact: budget_impact_audit,
+                survival_review: survival_review_audit,
                 validation: validation_audit,
                 reporting: reporting_audit,
             },
@@ -682,6 +708,22 @@ mod tests {
             reference_case: complete_reference_case_audit(),
             uncertainty: complete_uncertainty_audit(),
             budget_impact: complete_budget_impact_audit(),
+            survival_review: SurvivalReviewAudit {
+                complete: true,
+                required: false,
+                status: "not_required",
+                review_sha256: None,
+                analysis_id: "analysis-1".into(),
+                target_path: None,
+                selected_family: None,
+                candidate_models: 0,
+                converged_models: 0,
+                failed_models: Vec::new(),
+                scenario_count: 0,
+                recommended_family: None,
+                blocking_gaps: Vec::new(),
+                errors: Vec::new(),
+            },
             validation: complete_validation_audit(),
             reporting: complete_reporting_audit(),
         }
@@ -836,6 +878,47 @@ mod tests {
             status.effective_approved_gates,
             vec![ApprovalGate::DecisionProblem, ApprovalGate::ConceptualModel]
         );
+    }
+
+    #[test]
+    fn required_survival_review_must_match_the_analysis_plan_approval() {
+        let input_hash = "c".repeat(64);
+        let digest = "8".repeat(64);
+        let mut audits = complete_workflow_audits();
+        audits.survival_review.required = true;
+        audits.survival_review.review_sha256 = Some(digest.clone());
+        audits.survival_review.target_path =
+            Some("strategies.intervention.transition_schedule".into());
+        audits.survival_review.selected_family = Some("weibull".into());
+        let status = workflow_status(
+            approved_log(&input_hash),
+            input_hash.clone(),
+            true,
+            "current",
+            audits,
+        );
+        assert_eq!(status.classification, "exploratory");
+        assert!(!status.survival_review_matches_approval);
+
+        let mut log = approved_log(&input_hash);
+        log.events
+            .iter_mut()
+            .find(|event| event.gate == ApprovalGate::AnalysisPlan)
+            .unwrap()
+            .related_artifacts
+            .push(crate::heor_approval::ArtifactBinding {
+                path: SURVIVAL_REVIEW_PATH.into(),
+                sha256: digest.clone(),
+            });
+        let mut audits = complete_workflow_audits();
+        audits.survival_review.required = true;
+        audits.survival_review.review_sha256 = Some(digest);
+        audits.survival_review.target_path =
+            Some("strategies.intervention.transition_schedule".into());
+        audits.survival_review.selected_family = Some("weibull".into());
+        let status = workflow_status(log, input_hash, true, "current", audits);
+        assert_eq!(status.classification, "analysis_authorized_local_assertion");
+        assert!(status.survival_review_matches_approval);
     }
 
     #[test]

@@ -225,6 +225,8 @@ describe("AI4HEOR human review pane", () => {
       .not.toBeInTheDocument();
     expect(screen.getByText("Evidence audit incomplete")).toBeInTheDocument();
     expect(screen.getByText("Cohort transition structure")).toBeInTheDocument();
+    expect(screen.getByText("Survival fitting and extrapolation")).toBeInTheDocument();
+    expect(screen.getByText("No parametric survival target in this plan")).toBeInTheDocument();
     expect(screen.getAllByText("Static")).toHaveLength(2);
     expect(await screen.findByText("Structural audit complete")).toBeInTheDocument();
     expect(screen.getAllByText("0/14")).toHaveLength(2);
@@ -320,6 +322,8 @@ describe("AI4HEOR human review pane", () => {
     ]?.[0];
     expect(survivalReviewPrompt).toContain("$heor-survival-extrapolation-review");
     expect(survivalReviewPrompt).toContain("natural-language interaction first");
+    expect(survivalReviewPrompt).toContain("schema 0.2.0");
+    expect(survivalReviewPrompt).toContain("analysis_target");
     expect(survivalReviewPrompt).toContain("Pre-specify 2-8");
     expect(survivalReviewPrompt).toContain("awaiting_human_selection");
     expect(survivalReviewPrompt).toContain("Do not auto-select");

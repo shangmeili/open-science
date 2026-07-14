@@ -1,7 +1,11 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "review_id": "replace-with-safe-id",
   "status": "draft",
+  "analysis_target": {
+    "analysis_id": "",
+    "path": ""
+  },
   "context": {
     "endpoint": "",
     "population": "",

@@ -1667,6 +1667,10 @@ pub fn run_heor_uncertainty(
             reference_case: reference_case_audit,
             uncertainty: uncertainty_audit,
             budget_impact: budget_impact_audit,
+            survival_review: crate::heor_survival_review::audit_survival_review_for_plan(
+                &workspace,
+                &plan_raw,
+            ),
             validation: validation_audit,
             reporting: reporting_audit,
         },

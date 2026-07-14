@@ -5,6 +5,7 @@ export const HEOR_CONCEPTUAL_MODEL_PATH = "heor/conceptual-model.json";
 export const HEOR_REFERENCE_CASE_ASSESSMENT_PATH = "heor/reference-case-assessment.json";
 export const HEOR_UNCERTAINTY_PLAN_PATH = "heor/uncertainty-plan.json";
 export const HEOR_BUDGET_IMPACT_PLAN_PATH = "heor/budget-impact-plan.json";
+export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH = "heor/survival-extrapolation-review.json";
 export const HEOR_MODEL_VALIDATION_PATH = "heor/model-validation.json";
 export const HEOR_REPORT_PACKAGE_PATH = "heor/report-package.json";
 export const HEOR_REPORT_DOCUMENT_PATH = "heor/report.md";
@@ -380,6 +381,23 @@ export interface HeorBudgetImpactAudit {
   errors: string[];
 }
 
+export interface HeorSurvivalReviewAudit {
+  complete: boolean;
+  required: boolean;
+  status: "not_required" | "complete" | "incomplete";
+  reviewSha256: string | null;
+  analysisId: string;
+  targetPath: string | null;
+  selectedFamily: string | null;
+  candidateModels: number;
+  convergedModels: number;
+  failedModels: string[];
+  scenarioCount: number;
+  recommendedFamily: string | null;
+  blockingGaps: string[];
+  errors: string[];
+}
+
 export interface HeorModelValidationAudit {
   complete: boolean;
   approvable: boolean;
@@ -715,6 +733,8 @@ export interface HeorWorkflowStatus {
     uncertaintyAudit: HeorUncertaintyAudit;
     budgetImpactPlanMatchesApproval: boolean;
     budgetImpactAudit: HeorBudgetImpactAudit;
+    survivalReviewMatchesApproval: boolean;
+    survivalReviewAudit: HeorSurvivalReviewAudit;
     independentValidationMatchesApproval: boolean;
     validationAudit: HeorModelValidationAudit;
     releaseMatchesApproval: boolean;
@@ -2367,6 +2387,12 @@ export async function auditHeorBudgetImpact(): Promise<HeorBudgetImpactAudit> {
   return invoke<HeorBudgetImpactAudit>("audit_heor_budget_impact");
 }
 
+export async function auditHeorSurvivalExtrapolation(): Promise<HeorSurvivalReviewAudit> {
+  if (!isTauri) return HEOR_BROWSER_DEMO_SURVIVAL_REVIEW_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorSurvivalReviewAudit>("audit_heor_survival_extrapolation");
+}
+
 export async function auditHeorModelValidation(): Promise<HeorModelValidationAudit> {
   if (!isTauri) return HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
@@ -2733,6 +2759,23 @@ export const HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT: HeorBudgetImpactAudit = {
   errors: ["heor/budget-impact-plan.json is required"],
 };
 
+export const HEOR_BROWSER_DEMO_SURVIVAL_REVIEW_AUDIT: HeorSurvivalReviewAudit = {
+  complete: true,
+  required: false,
+  status: "not_required",
+  reviewSha256: null,
+  analysisId: HEOR_BROWSER_DEMO_PLAN.analysis_id,
+  targetPath: null,
+  selectedFamily: null,
+  candidateModels: 0,
+  convergedModels: 0,
+  failedModels: [],
+  scenarioCount: 0,
+  recommendedFamily: null,
+  blockingGaps: [],
+  errors: [],
+};
+
 export const HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT: HeorModelValidationAudit = {
   complete: false,
   approvable: false,
@@ -2783,6 +2826,7 @@ export function browserDemoRun(
   const referenceCaseAudit = HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT;
   const uncertaintyAudit = HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT;
   const budgetImpactAudit = HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT;
+  const survivalReviewAudit = HEOR_BROWSER_DEMO_SURVIVAL_REVIEW_AUDIT;
   const validationAudit = HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT;
   const reportingAudit = HEOR_BROWSER_DEMO_REPORTING_AUDIT;
   const authorized = approvedGates.includes("analysis_plan")
@@ -2846,6 +2890,8 @@ export function browserDemoRun(
       uncertaintyAudit,
       budgetImpactPlanMatchesApproval: false,
       budgetImpactAudit,
+      survivalReviewMatchesApproval: !survivalReviewAudit.required,
+      survivalReviewAudit,
       independentValidationMatchesApproval: false,
       validationAudit,
       releaseMatchesApproval: false,

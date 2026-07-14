@@ -28,6 +28,7 @@ import {
   auditHeorEvidenceSearch,
   auditHeorEvidenceSynthesis,
   auditHeorReferenceCase,
+  auditHeorSurvivalExtrapolation,
   auditHeorUncertainty,
   auditHeorModelValidation,
   auditHeorReporting,
@@ -48,6 +49,7 @@ import {
   HEOR_EVIDENCE_SYNTHESIS_PATH,
   HEOR_PLAN_PATH,
   HEOR_REFERENCE_CASE_ASSESSMENT_PATH,
+  HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH,
   HEOR_UNCERTAINTY_PLAN_PATH,
   type HeorAnalysisPlan,
   type HeorApprovalAction,
@@ -61,6 +63,7 @@ import {
   type HeorReportingAudit,
   type HeorGate,
   type HeorReferenceCaseAudit,
+  type HeorSurvivalReviewAudit,
   type HeorRunResult,
   type HeorEvidenceSearchAudit,
   type HeorEvidenceLibraryAudit,
@@ -144,6 +147,11 @@ type BudgetImpactState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorBudgetImpactAudit };
+
+type SurvivalReviewState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorSurvivalReviewAudit };
 
 type ModelValidationState =
   | { kind: "loading" }
@@ -269,6 +277,7 @@ export function HeorReviewPane({
   const [referenceCase, setReferenceCase] = useState<ReferenceCaseState>({ kind: "loading" });
   const [uncertainty, setUncertainty] = useState<UncertaintyState>({ kind: "loading" });
   const [budgetImpact, setBudgetImpact] = useState<BudgetImpactState>({ kind: "loading" });
+  const [survivalReview, setSurvivalReview] = useState<SurvivalReviewState>({ kind: "loading" });
   const [modelValidation, setModelValidation] = useState<ModelValidationState>({ kind: "loading" });
   const [reporting, setReporting] = useState<ReportingState>({ kind: "loading" });
   const [evidenceSearch, setEvidenceSearch] = useState<EvidenceSearchState>({ kind: "loading" });
@@ -303,6 +312,7 @@ export function HeorReviewPane({
       setReferenceCase({ kind: "invalid", message: t("reference.noProject") });
       setUncertainty({ kind: "invalid", message: t("uncertainty.noProject") });
       setBudgetImpact({ kind: "invalid", message: t("budgetImpact.noProject") });
+      setSurvivalReview({ kind: "invalid", message: t("survivalReview.noProject") });
       setModelValidation({ kind: "invalid", message: t("validation.noProject") });
       setReporting({ kind: "invalid", message: t("reporting.noProject") });
       setEvidenceSearch({ kind: "invalid", message: t("search.noProject") });
@@ -318,6 +328,7 @@ export function HeorReviewPane({
     setReferenceCase({ kind: "loading" });
     setUncertainty({ kind: "loading" });
     setBudgetImpact({ kind: "loading" });
+    setSurvivalReview({ kind: "loading" });
     setModelValidation({ kind: "loading" });
     setReporting({ kind: "loading" });
     setEvidenceSearch({ kind: "loading" });
@@ -362,6 +373,7 @@ export function HeorReviewPane({
         setReferenceCase({ kind: "invalid", message: t("reference.missingPlan") });
         setUncertainty({ kind: "invalid", message: t("uncertainty.missingPlan") });
         setBudgetImpact({ kind: "invalid", message: t("budgetImpact.missingPlan") });
+        setSurvivalReview({ kind: "invalid", message: t("survivalReview.missingPlan") });
         setModelValidation({ kind: "invalid", message: t("validation.missingPlan") });
         setReporting({ kind: "invalid", message: t("reporting.missingPlan") });
         setEvidenceSelection({ kind: "invalid", message: t("evidence.missingPlan") });
@@ -399,6 +411,14 @@ export function HeorReviewPane({
         setBudgetImpact({ kind: "ready", audit: await auditHeorBudgetImpact() });
       } catch (error) {
         setBudgetImpact({
+          kind: "invalid",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      try {
+        setSurvivalReview({ kind: "ready", audit: await auditHeorSurvivalExtrapolation() });
+      } catch (error) {
+        setSurvivalReview({
           kind: "invalid",
           message: error instanceof Error ? error.message : String(error),
         });
@@ -459,6 +479,10 @@ export function HeorReviewPane({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
+      setSurvivalReview({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
       setModelValidation({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
@@ -505,7 +529,9 @@ export function HeorReviewPane({
           || uncertainty.kind !== "ready"
           || !uncertainty.audit.complete
           || budgetImpact.kind !== "ready"
-          || !budgetImpact.audit.complete)) break;
+          || !budgetImpact.audit.complete
+          || survivalReview.kind !== "ready"
+          || !survivalReview.audit.complete)) break;
       if (gate === "independent_validation"
         && (modelValidation.kind !== "ready"
           || !modelValidation.audit.complete
@@ -533,6 +559,12 @@ export function HeorReviewPane({
           && !event.relatedArtifacts?.some((binding) =>
             binding.path === HEOR_BUDGET_IMPACT_PLAN_PATH
             && binding.sha256 === budgetImpact.audit.budgetImpactSha256)) ||
+        (gate === "analysis_plan"
+          && survivalReview.kind === "ready"
+          && survivalReview.audit.required
+          && !event.relatedArtifacts?.some((binding) =>
+            binding.path === HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH
+            && binding.sha256 === survivalReview.audit.reviewSha256)) ||
         (gate === "independent_validation"
           && modelValidation.kind === "ready"
           && !validationBindingsCurrent(event, modelValidation.audit)) ||
@@ -555,6 +587,7 @@ export function HeorReviewPane({
     referenceCase,
     uncertainty,
     budgetImpact,
+    survivalReview,
     modelValidation,
     reporting,
   ]);
@@ -577,13 +610,19 @@ export function HeorReviewPane({
     const sequence = approvals.events.length + 1;
     const relatedArtifacts = gate === "analysis_plan"
       && uncertainty.kind === "ready" && budgetImpact.kind === "ready"
-      && evidenceSelection.kind === "ready"
+      && evidenceSelection.kind === "ready" && survivalReview.kind === "ready"
       ? [
           ...(evidenceSelection.audit.synthesisSha256
             ? [{ path: HEOR_EVIDENCE_SYNTHESIS_PATH, sha256: evidenceSelection.audit.synthesisSha256 }]
             : []),
           { path: HEOR_UNCERTAINTY_PLAN_PATH, sha256: uncertainty.audit.uncertaintySha256 },
           { path: HEOR_BUDGET_IMPACT_PLAN_PATH, sha256: budgetImpact.audit.budgetImpactSha256 },
+          ...(survivalReview.audit.required && survivalReview.audit.reviewSha256
+            ? [{
+                path: HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH,
+                sha256: survivalReview.audit.reviewSha256,
+              }]
+            : []),
         ]
       : gate === "independent_validation" && modelValidation.kind === "ready"
         ? [
@@ -937,6 +976,11 @@ export function HeorReviewPane({
               onRequestHazardRatio={() => onRequestRevision(t("transition.hazardRatioPrompt"))}
             />
 
+            <SurvivalReviewAssessment
+              state={survivalReview}
+              onRequestRepair={() => onRequestRevision(t("survivalReview.repairPrompt"))}
+            />
+
             <EvidenceTraceability
               audit={evidenceAudit!}
               selection={evidenceSelection}
@@ -1000,6 +1044,14 @@ export function HeorReviewPane({
                         HEOR_BUDGET_IMPACT_PLAN_PATH,
                         budgetImpact.audit.budgetImpactSha256,
                       ))
+                    || (survivalReview.kind === "ready"
+                      && survivalReview.audit.required
+                      && (!survivalReview.audit.reviewSha256
+                        || !eventBinds(
+                          gateEvent,
+                          HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH,
+                          survivalReview.audit.reviewSha256,
+                        )))
                   )) || (gate === "independent_validation"
                     && modelValidation.kind === "ready"
                     && !validationBindingsCurrent(gateEvent, modelValidation.audit))
@@ -1026,6 +1078,9 @@ export function HeorReviewPane({
                   const budgetImpactBlocked = gate === "analysis_plan"
                     && gate === nextGate
                     && (budgetImpact.kind !== "ready" || !budgetImpact.audit.complete);
+                  const survivalReviewBlocked = gate === "analysis_plan"
+                    && gate === nextGate
+                    && (survivalReview.kind !== "ready" || !survivalReview.audit.complete);
                   const validationBlocked = gate === "independent_validation"
                     && gate === nextGate
                     && (modelValidation.kind !== "ready"
@@ -1036,7 +1091,8 @@ export function HeorReviewPane({
                     && (reporting.kind !== "ready" || !reporting.audit.releasable);
                   const waiting = gate === nextGate && !stale && !conceptualBlocked
                     && !evidenceBlocked && !referenceBlocked && !uncertaintyBlocked
-                    && !budgetImpactBlocked && !validationBlocked && !reportingBlocked;
+                    && !budgetImpactBlocked && !survivalReviewBlocked
+                    && !validationBlocked && !reportingBlocked;
                   return (
                     <div key={gate} className="rounded-input border border-border bg-bg/50 px-3 py-2.5">
                       <div className="flex items-center gap-2">
@@ -1044,7 +1100,7 @@ export function HeorReviewPane({
                           <Check size={14} className="text-ok" />
                         ) : waiting || stale || conceptualBlocked || evidenceBlocked || referenceBlocked
                           || uncertaintyBlocked || budgetImpactBlocked || validationBlocked
-                          || reportingBlocked ? (
+                          || survivalReviewBlocked || reportingBlocked ? (
                           <Circle size={12} className={stale ? "text-error" : "text-accent"} />
                         ) : (
                           <LockKeyhole size={13} className="text-muted" />
@@ -1065,6 +1121,8 @@ export function HeorReviewPane({
                                 ? t("status.uncertaintyRequired")
                               : budgetImpactBlocked
                                 ? t("status.budgetImpactRequired")
+                              : survivalReviewBlocked
+                                ? t("status.survivalReviewRequired")
                               : validationBlocked
                                 ? t("status.validationRequired")
                               : reportingBlocked
@@ -2037,6 +2095,84 @@ function EvidenceTraceability({
         </>
       )}
       <p className="mt-3 text-[10px] leading-4 text-muted">{t("evidence.note")}</p>
+    </section>
+  );
+}
+
+function SurvivalReviewAssessment({
+  state,
+  onRequestRepair,
+}: {
+  state: SurvivalReviewState;
+  onRequestRepair: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const complete = audit?.complete === true;
+  const notRequired = audit?.required === false;
+  const issues = audit
+    ? [...audit.blockingGaps, ...audit.errors.filter((error) => !audit.blockingGaps.includes(error))]
+    : state.kind === "invalid" ? [state.message] : [];
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {complete ? (
+          <ShieldCheck size={16} className="mt-0.5 text-ok" />
+        ) : (
+          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("survivalReview.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+            {state.kind === "loading"
+              ? t("survivalReview.loading")
+              : notRequired
+                ? t("survivalReview.notRequired")
+                : complete ? t("survivalReview.complete") : t("survivalReview.incomplete")}
+          </div>
+          {audit?.targetPath && (
+            <div className="mt-1 truncate font-mono text-[10px] text-muted">
+              {audit.targetPath} · {audit.selectedFamily ?? "—"}
+            </div>
+          )}
+        </div>
+        {audit?.required && (
+          <span className="rounded-full border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-text">
+            {audit.convergedModels}/{audit.candidateModels}
+          </span>
+        )}
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted">
+        {HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH}
+      </div>
+      {audit?.required && (
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <Metric label={t("survivalReview.candidates")} value={String(audit.candidateModels)} />
+          <Metric label={t("survivalReview.converged")} value={String(audit.convergedModels)} />
+          <Metric label={t("survivalReview.scenarios")} value={String(audit.scenarioCount)} />
+        </div>
+      )}
+      {audit?.recommendedFamily && (
+        <p className="mt-3 text-[10px] leading-4 text-muted">
+          {t("survivalReview.recommendation", { family: audit.recommendedFamily })}
+        </p>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      {!complete && state.kind !== "loading" && (
+        <button
+          onClick={onRequestRepair}
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+        >
+          <MessageSquareText size={13} /> {t("survivalReview.askRepair")}
+        </button>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("survivalReview.note")}</p>
     </section>
   );
 }

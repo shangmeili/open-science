@@ -262,6 +262,19 @@ class SurvivalCurveAdapterContractTests(unittest.TestCase):
 
 class SurvivalExtrapolationReviewContractTests(unittest.TestCase):
     @staticmethod
+    def _plan():
+        return {
+            "analysis_id": "survival-analysis",
+            "input_provenance": [{
+                "path": "strategies.comparator.transition_schedule",
+                "derivation": {"transformation": {
+                    "operation": "parametric_survival_to_transition_schedule",
+                    "distribution": "weibull",
+                }},
+            }],
+        }
+
+    @staticmethod
     def _write(workspace: Path, relative: str, content: str) -> str:
         path = workspace / relative
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -288,9 +301,13 @@ class SurvivalExtrapolationReviewContractTests(unittest.TestCase):
             {"time": 10.0, "survival": 0.3, "hazard": 0.15},
         ]
         return {
-            "schema_version": "0.1.0",
+            "schema_version": "0.2.0",
             "review_id": "overall-survival-control",
             "status": "ready_for_human_review",
+            "analysis_target": {
+                "analysis_id": "survival-analysis",
+                "path": "strategies.comparator.transition_schedule",
+            },
             "context": {
                 "endpoint": "Overall survival",
                 "population": "Trial intention-to-treat population",
@@ -387,7 +404,7 @@ class SurvivalExtrapolationReviewContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory)
             review = self._fixture(workspace)
-            result = survival_extrapolation_review.audit(review, workspace)
+            result = survival_extrapolation_review.audit(review, workspace, self._plan())
             self.assertTrue(result["complete"], result["errors"])
             self.assertEqual(result["candidate_models"], 2)
             self.assertEqual(result["converged_models"], 2)
@@ -401,7 +418,7 @@ class SurvivalExtrapolationReviewContractTests(unittest.TestCase):
             review["diagnostics"]["km_overlay_sha256"] = "0" * 64
             review["execution"]["approved_local_execution"] = True
             review["human_gate"]["approved"] = True
-            result = survival_extrapolation_review.audit(review, workspace)
+            result = survival_extrapolation_review.audit(review, workspace, self._plan())
             self.assertFalse(result["complete"])
             self.assertTrue(any("pre-specified candidate order" in error for error in result["errors"]))
             self.assertTrue(any("KM overlay SHA-256" in error for error in result["errors"]))
@@ -414,10 +431,40 @@ class SurvivalExtrapolationReviewContractTests(unittest.TestCase):
             review = self._fixture(workspace)
             review["models"][0]["landmarks"][2]["survival"] = 0.9
             review["models"][1]["landmarks"][2]["time"] = 12.0
-            result = survival_extrapolation_review.audit(review, workspace)
+            result = survival_extrapolation_review.audit(review, workspace, self._plan())
             self.assertFalse(result["complete"])
             self.assertTrue(any("non-increasing" in error for error in result["errors"]))
             self.assertTrue(any("identical landmark times" in error for error in result["errors"]))
+
+    def test_target_drift_multiple_curves_and_unconverged_selection_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            review = self._fixture(workspace)
+            review["analysis_target"]["path"] = "strategies.intervention.transition_schedule"
+            result = survival_extrapolation_review.audit(review, workspace, self._plan())
+            self.assertFalse(result["complete"])
+            self.assertTrue(any("analysis_target" in error for error in result["errors"]))
+
+            review = self._fixture(workspace)
+            plan = self._plan()
+            plan["input_provenance"].append(deepcopy(plan["input_provenance"][0]))
+            result = survival_extrapolation_review.audit(review, workspace, plan)
+            self.assertTrue(any("exactly one" in error for error in result["errors"]))
+
+            plan = self._plan()
+            del plan["input_provenance"][0]["derivation"]["transformation"]["distribution"]
+            result = survival_extrapolation_review.audit(review, workspace, plan)
+            self.assertFalse(result["complete"])
+            self.assertTrue(any("selected distribution" in error for error in result["errors"]))
+
+            plan = self._plan()
+            review["models"][1]["status"] = "failed"
+            review["models"][1]["aic"] = None
+            review["models"][1]["bic"] = None
+            review["models"][1]["log_likelihood"] = None
+            review["models"][1]["landmarks"] = []
+            result = survival_extrapolation_review.audit(review, workspace, plan)
+            self.assertTrue(any("selected distribution" in error for error in result["errors"]))
 
 
 class ProbabilityTimeAdapterContractTests(unittest.TestCase):

@@ -28,6 +28,7 @@ TOP_LEVEL = {
     "schema_version",
     "review_id",
     "status",
+    "analysis_target",
     "context",
     "source_data",
     "pre_specification",
@@ -81,17 +82,50 @@ def hash_file(workspace: Path | None, path: Any, digest: Any, label: str, errors
         errors.append(f"{label} SHA-256 does not match the current file")
 
 
-def audit(value: Any, workspace: Path | None = None) -> dict[str, Any]:
+def survival_targets(plan: Any) -> list[tuple[str, str]]:
+    if not isinstance(plan, dict) or not isinstance(plan.get("input_provenance"), list):
+        return []
+    targets: list[tuple[str, str]] = []
+    for mapping in plan["input_provenance"]:
+        if not isinstance(mapping, dict):
+            continue
+        derivation = mapping.get("derivation")
+        transformation = derivation.get("transformation") if isinstance(derivation, dict) else None
+        if not isinstance(transformation, dict) or transformation.get("operation") != "parametric_survival_to_transition_schedule":
+            continue
+        path = mapping.get("path")
+        family = transformation.get("distribution")
+        targets.append((path if isinstance(path, str) else "", family if isinstance(family, str) else ""))
+    return targets
+
+
+def audit(value: Any, workspace: Path | None = None, analysis_plan: Any = None) -> dict[str, Any]:
     errors: list[str] = []
     if not exact_object(value, TOP_LEVEL, "review", errors):
         return {"complete": False, "errors": errors, "candidate_models": 0, "converged_models": 0}
 
-    if value["schema_version"] != "0.1.0":
-        errors.append("schema_version must be 0.1.0")
+    if value["schema_version"] != "0.2.0":
+        errors.append("schema_version must be 0.2.0")
     if not isinstance(value["review_id"], str) or not SAFE_ID.fullmatch(value["review_id"]):
         errors.append("review_id must be a safe lowercase identifier")
     if value["status"] not in {"draft", "ready_for_human_review"}:
         errors.append("status must be draft or ready_for_human_review")
+
+    analysis_target = value["analysis_target"]
+    target_family: str | None = None
+    if exact_object(analysis_target, {"analysis_id", "path"}, "analysis_target", errors):
+        if not text(analysis_target["analysis_id"]) or not text(analysis_target["path"]):
+            errors.append("analysis_target must contain a non-empty analysis_id and path")
+        if analysis_plan is None:
+            errors.append("analysis plan is required to verify analysis_target")
+        else:
+            targets = survival_targets(analysis_plan)
+            if len(targets) != 1:
+                errors.append("the alpha requires exactly one parametric survival target in the analysis plan")
+            else:
+                target_path, target_family = targets[0]
+                if analysis_target["analysis_id"] != analysis_plan.get("analysis_id") or analysis_target["path"] != target_path:
+                    errors.append("analysis_target must match the current analysis id and survival mapping path")
 
     context_fields = {
         "endpoint", "population", "curve_label", "time_origin", "time_unit",
@@ -254,6 +288,10 @@ def audit(value: Any, workspace: Path | None = None) -> dict[str, Any]:
         errors.append("model results must match the pre-specified candidate order")
     if converged < 2:
         errors.append("at least two candidate models must converge")
+    if target_family is not None:
+        selected = next((model for model in models if model.get("family") == target_family), None)
+        if target_family not in candidates or not selected or selected.get("status") != "converged":
+            errors.append("analysis-plan selected distribution must be a converged pre-specified candidate")
 
     diagnostic_fields = {
         "km_overlay_path", "km_overlay_sha256", "log_cumulative_hazard_path",
@@ -327,9 +365,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("review", type=Path)
     parser.add_argument("--workspace", type=Path, required=True)
+    parser.add_argument("--analysis-plan", type=Path, required=True)
     args = parser.parse_args()
     value = json.loads(args.review.read_text(encoding="utf-8"))
-    result = audit(value, args.workspace)
+    plan_path = args.analysis_plan if args.analysis_plan.is_absolute() else args.workspace / args.analysis_plan
+    analysis_plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    result = audit(value, args.workspace, analysis_plan)
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0 if result["complete"] else 1
 
