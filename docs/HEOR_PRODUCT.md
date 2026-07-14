@@ -24,8 +24,8 @@ a form-led modeling application.
 
 ## MVP decision problem
 
-The first complete workflow compares two strategies using a cohort state
-transition model and a three-year budget impact analysis. Both deterministic
+The first complete workflow compares two strategies using a static or piecewise
+model-cycle-dependent cohort state-transition model and a three-year budget impact analysis. Both deterministic
 calculation paths, independent validation, hash-bound reporting, and the
 human-controlled local release gate are implemented.
 
@@ -164,12 +164,41 @@ rate conversion, pooling, matrix assembly, calibration, interpolation, or
 other transformations remain incomplete until a bounded deterministic adapter
 implements and tests their semantics. A narrative in `selection_rationale`
 cannot authorize a hidden transformation. Schema `0.1.0` and `0.2.0` remain
-calculable for reproducibility but cannot pass analysis-plan approval.
+calculable for reproducibility but cannot pass analysis-plan approval. Static
+schema `0.3.0` remains approvable; new plans use `0.4.0` so the transition
+mechanism is versioned without invalidating an already traceable static plan.
+
+## Executable model-cycle-dependent transitions
+
+Analysis-plan schema `0.4.0` adds a bounded `transition_schedule` alternative
+to each strategy's static matrix. A strategy defines exactly one mechanism. A
+schedule starts at one-based cycle 1, contains unique strictly increasing
+change points within the horizon, and provides a complete square probability
+matrix at every phase; the last matrix remains active through the horizon. The
+engine validates every row and cohort-mass conservation, selects the effective
+matrix deterministically by model cycle, and records the transition mode and
+change points in each strategy result.
+
+The full schedule replaces the static matrix in input provenance. Direct
+evidence must be strict JSON equal to that schedule; unexecutable matrix
+assembly, rate or hazard conversion, pooling, or treatment-effect extrapolation
+remains blocked. DSA and PSA may target a complete scheduled matrix row, and a
+structural scenario may move a declared change point only if the resulting plan
+still passes the full engine contract.
+
+This is model time for the whole closed cohort. It is not time in state,
+tunnel-state or semi-Markov memory, patient history, individual simulation,
+partitioned survival, interactions, time-varying rewards, or an automatic
+treatment-waning assumption. `$heor-cohort-state-transition` makes that choice
+and boundary explicit before Human-in-the-loop review. The implementation uses
+the selection and transparency questions in the ISPOR-SMDM state-transition
+good-practices report and NICE PMG36; those methods sources do not certify any
+particular model.
 
 ## Executable monetary basis
 
 Analysis-plan schema `0.2.0` introduced one calculation currency and price
-year, and current schema `0.3.0` retains that contract while binding each source
+year, and current schema `0.4.0` retains that contract while binding each source
 value to evidence or an explicit assumption.
 Every state-cost element and non-null willingness-to-pay value records its
 source value, source currency, source price year, positive composite adjustment
@@ -384,10 +413,14 @@ approval, reimbursement suitability, or external tamper-proofing.
   missing second confirmation, rejection, changed synthesis, or tampered review
   chain fails closed; this remains distinct from authenticated independent
   duplicate extraction.
-- Evidence-to-input approval also requires schema `0.3.0`, an exact model-value
+- Evidence-to-input approval also requires schema `0.3.0` or `0.4.0`, an exact model-value
   snapshot per mapping, strict JSON equality for direct evidence, and extraction-
   bound source values for monetary normalization. Changed, narrative, unused,
   or silently transformed extraction values fail closed.
+- A scheduled-transition plan additionally requires schema `0.4.0`, exactly one
+  transition mechanism per strategy, ordered in-horizon change points, valid
+  matrices, mass conservation, and schedule-aware provenance and uncertainty
+  targets. Static `0.3.0` plans remain backward compatible.
 - Exploratory, analysis-authorized, independently validated, and locally
   released decision-ready states remain distinct. Any stale package, binding,
   validation, result reproduction, actor, or approval sequence fails closed.

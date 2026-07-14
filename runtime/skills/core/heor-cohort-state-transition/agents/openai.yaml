@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cohort State Transition"
+  short_description: "Build auditable static or time-varying HEOR cohort models"
+  default_prompt: "Use $heor-cohort-state-transition to build or audit a deterministic cohort state-transition analysis plan."

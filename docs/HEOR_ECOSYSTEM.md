@@ -159,6 +159,17 @@ elements before adjustment arithmetic; explicit assumptions cannot claim
 extractions. Transformations that the first-party validator cannot execute are
 kept incomplete rather than delegated to an upstream prompt or hidden in prose.
 
+The schema `0.4.0` cohort-transition slice applies the admission rule to mature
+Markov-modeling ideas rather than copying `heemod`, `hesim`, or an upstream
+prompt. AI4HEOR implements only a first-party, dependency-free piecewise
+model-cycle schedule, dynamic provenance paths, complete-row DSA/Dirichlet PSA,
+structural change-point scenarios, native/portable/browser audits, a hand-
+calculated golden trace, and the dedicated `$heor-cohort-state-transition`
+Skill. It explicitly rejects rate or hazard conversion, hidden matrix assembly,
+time-in-state memory, microsimulation, and time-varying rewards. The external R
+packages remain isolated future adapters and independent cross-check candidates;
+their broader capability and GPL licenses do not enter the MIT core.
+
 The evidence-search slice applies the same standard to a network capability.
 The Agent can only draft and validate the request file. Native code rejects
 unknown fields, arbitrary URLs, headers, credentials, sensitive egress,

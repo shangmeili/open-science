@@ -20,7 +20,7 @@ BASE_PATHS = [
     "strategies.intervention.state_utilities",
 ]
 UNCERTAINTY = {"fixed", "range_available", "distribution_available"}
-CURRENT_ANALYSIS_SCHEMA = "0.3.0"
+APPROVABLE_ANALYSIS_SCHEMAS = {"0.3.0", "0.4.0"}
 
 
 def text(value: Any) -> bool:
@@ -55,6 +55,20 @@ def model_value(plan: dict[str, Any], path: str) -> Any:
             return None
         current = current[token]
     return current
+
+
+def required_paths(plan: dict[str, Any]) -> list[str]:
+    paths = [path for path in BASE_PATHS if not path.endswith(".transition_matrix")]
+    for role in ("comparator", "intervention"):
+        strategy = (plan.get("strategies") or {}).get(role) or {}
+        transition_field = (
+            "transition_schedule"
+            if isinstance(strategy, dict) and "transition_schedule" in strategy
+            else "transition_matrix"
+        )
+        insert_after = paths.index(f"strategies.{role}.initial_distribution") + 1
+        paths.insert(insert_after, f"strategies.{role}.{transition_field}")
+    return paths
 
 
 def strict_json(value: Any) -> Any:
@@ -278,8 +292,18 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
     errors: list[str] = []
     if not isinstance(plan, dict) or not isinstance(synthesis, dict):
         return {"complete": False, "errors": ["plan and synthesis must be JSON objects"]}
-    if plan.get("schema_version") != CURRENT_ANALYSIS_SCHEMA:
-        errors.append(f"schema_version must be {CURRENT_ANALYSIS_SCHEMA} for approval review")
+    if plan.get("schema_version") not in APPROVABLE_ANALYSIS_SCHEMAS:
+        errors.append("schema_version must be 0.3.0 or 0.4.0 for approval review")
+    for role in ("comparator", "intervention"):
+        strategy = (plan.get("strategies") or {}).get(role) or {}
+        has_matrix = isinstance(strategy, dict) and strategy.get("transition_matrix") is not None
+        has_schedule = isinstance(strategy, dict) and strategy.get("transition_schedule") is not None
+        if has_matrix == has_schedule:
+            errors.append(
+                f"strategies.{role} must define exactly one of transition_matrix or transition_schedule"
+            )
+        if has_schedule and plan.get("schema_version") != "0.4.0":
+            errors.append(f"strategies.{role}.transition_schedule requires schema_version 0.4.0")
     basis_value = plan.get("economic_basis")
     economic_basis = basis_value if isinstance(basis_value, dict) else None
     if economic_basis is None or not currency_code(economic_basis.get("currency")):
@@ -290,7 +314,7 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
             or not 1900 <= economic_basis["price_year"] <= 2100):
         errors.append("economic_basis.price_year must be from 1900 to 2100")
         economic_basis = None
-    required = list(BASE_PATHS)
+    required = required_paths(plan)
     if plan.get("willingness_to_pay") is not None:
         required.append("willingness_to_pay")
     required_set = set(required)

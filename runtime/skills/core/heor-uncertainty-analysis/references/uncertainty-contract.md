@@ -17,7 +17,8 @@ Each parameter contains a stable `id`, label, JSON Pointer `target`, dot-path `p
 Allowed parameter targets:
 
 - scalar state costs and utilities;
-- a complete transition-matrix row.
+- a complete static transition-matrix row;
+- a complete schema `0.4.0` scheduled row at `/strategies/<role>/transition_schedule/<phase>/matrix/<row>`.
 
 Supported probabilistic distributions:
 
@@ -34,7 +35,7 @@ Dirichlet sampling preserves the dependence within a probability row. Other samp
 
 ## Reproducibility and convergence
 
-Engine version 0.2 uses versioned `pcg32-xsh-rr` plus fixed beta, gamma, lognormal, uniform, and Dirichlet transforms. The seed is part of the artifact. Identical inputs produce a bit-identical integer PRNG stream and a repeatable run on the same runtime. Do not claim byte-identical floating-point samples across operating systems until the release matrix passes golden tolerance tests; system math libraries may differ in their final bits.
+Engine version 0.3 uses versioned `pcg32-xsh-rr` plus fixed beta, gamma, lognormal, uniform, and Dirichlet transforms and supports scheduled matrix rows and structural schedule change points. The seed is part of the artifact. Identical inputs produce a bit-identical integer PRNG stream and a repeatable run on the same runtime. Do not claim byte-identical floating-point samples across operating systems until the release matrix passes golden tolerance tests; system math libraries may differ in their final bits.
 
 The convergence check records cost-effectiveness probability and its Monte Carlo standard error at each checkpoint. The final MCSE and change from the preceding checkpoint must meet the declared thresholds. A pass describes only the sampled run's Monte Carlo error; it is not independent validation or proof that all uncertainty was represented.
 

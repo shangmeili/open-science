@@ -925,6 +925,11 @@ export function HeorReviewPane({
               onRequestModel={() => onRequestRevision(t("conceptual.repairPrompt"))}
             />
 
+            <CohortTransitionSummary
+              plan={artifact.plan}
+              onRequestAudit={() => onRequestRevision(t("transition.repairPrompt"))}
+            />
+
             <EvidenceTraceability
               audit={evidenceAudit!}
               selection={evidenceSelection}
@@ -1839,6 +1844,52 @@ function ConceptualModelTraceability({
         </button>
       )}
       <p className="mt-3 text-[10px] leading-4 text-muted">{t("conceptual.note")}</p>
+    </section>
+  );
+}
+
+function CohortTransitionSummary({
+  plan,
+  onRequestAudit,
+}: {
+  plan: HeorAnalysisPlan;
+  onRequestAudit: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const summary = (role: "comparator" | "intervention") => {
+    const schedule = plan.strategies[role].transition_schedule;
+    return schedule
+      ? t("transition.scheduled", {
+          cycles: schedule.map((phase) => phase.start_cycle).join(", "),
+        })
+      : t("transition.static");
+  };
+  const hasSchedule = Boolean(
+    plan.strategies.comparator.transition_schedule
+      || plan.strategies.intervention.transition_schedule,
+  );
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-center gap-2">
+        <ShieldCheck size={15} className="text-accent" />
+        <div className="flex-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+          {t("transition.title")}
+        </div>
+        <span className="font-mono text-[10px] text-muted">{plan.schema_version}</span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+        <Metric label={t("transition.comparator")} value={summary("comparator")} />
+        <Metric label={t("transition.intervention")} value={summary("intervention")} />
+      </div>
+      <button
+        onClick={onRequestAudit}
+        className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+      >
+        <MessageSquareText size={13} /> {t("transition.askAudit")}
+      </button>
+      <p className="mt-3 text-[10px] leading-4 text-muted">
+        {hasSchedule ? t("transition.scheduleNote") : t("transition.staticNote")}
+      </p>
     </section>
   );
 }

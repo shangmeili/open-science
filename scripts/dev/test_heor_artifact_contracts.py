@@ -428,6 +428,52 @@ class InputProvenanceContractTests(unittest.TestCase):
         self.assertEqual(result["required_app_reviewers_per_extraction"], 2)
         self.assertEqual(len(result["selected_extraction_ids"]), 14)
 
+    def test_schema_04_schedule_replaces_static_matrix_provenance(self):
+        plan, synthesis, _ = self.fixture()
+        plan["schema_version"] = "0.4.0"
+        schedule = [
+            {"start_cycle": 1, "matrix": [[0.8, 0.15, 0.05], [0, 0.75, 0.25], [0, 0, 1]]},
+            {"start_cycle": 2, "matrix": [[0.75, 0.17, 0.08], [0, 0.7, 0.3], [0, 0, 1]]},
+        ]
+        del plan["strategies"]["intervention"]["transition_matrix"]
+        plan["strategies"]["intervention"]["transition_schedule"] = schedule
+        mapping = next(
+            item for item in plan["input_provenance"]
+            if item["path"] == "strategies.intervention.transition_matrix"
+        )
+        extraction_id = mapping["extraction_ids"][0]
+        mapping["path"] = "strategies.intervention.transition_schedule"
+        mapping["derivation"]["model_value"] = schedule
+        extraction = next(
+            item for item in synthesis["extractions"]
+            if item["extraction_id"] == extraction_id
+        )
+        extraction["target"] = mapping["path"]
+        extraction["extracted_value"] = json.dumps(schedule, separators=(",", ":"))
+        synthesis_raw = json.dumps(synthesis, ensure_ascii=False, indent=2).encode() + b"\n"
+        digest = hashlib.sha256(synthesis_raw).hexdigest()
+        plan["evidence_synthesis"]["content_sha256"] = digest
+
+        result = input_provenance.audit(plan, synthesis, digest)
+
+        self.assertTrue(result["complete"], result)
+        self.assertEqual(result["required_inputs"], 14)
+        self.assertIn(extraction_id, result["selected_extraction_ids"])
+
+    def test_schedule_requires_schema_04_and_exactly_one_transition_mechanism(self):
+        plan, synthesis, digest = self.fixture()
+        plan["strategies"]["intervention"]["transition_schedule"] = [{
+            "start_cycle": 1,
+            "matrix": plan["strategies"]["intervention"]["transition_matrix"],
+        }]
+
+        result = input_provenance.audit(plan, synthesis, digest)
+
+        self.assertFalse(result["complete"])
+        combined = "; ".join(result["errors"] + result["invalid_mappings"])
+        self.assertIn("exactly one", combined)
+        self.assertIn("requires schema_version 0.4.0", combined)
+
     def test_stale_hash_wrong_target_and_unlinked_record_fail_closed(self):
         plan, synthesis, digest = self.fixture()
         plan["evidence_synthesis"]["content_sha256"] = "0" * 64
@@ -742,6 +788,70 @@ class UncertaintyContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             paths = self.fixture(Path(directory))
             self.assertEqual(uncertainty.validate(*paths), [])
+
+    def test_time_varying_rows_and_change_point_scenarios_are_allowlisted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_time_varying.json").read_text()
+            )
+            plan["uncertainty_analysis"] = {"path": "heor/uncertainty-plan.json"}
+            paths = [
+                "strategies.intervention.state_costs",
+                "strategies.intervention.transition_schedule",
+            ]
+            plan["input_provenance"] = [
+                {
+                    "path": paths[0],
+                    "source_ids": ["golden-cost-source"],
+                    "assumption_ids": [],
+                    "uncertainty_status": "distribution_available",
+                },
+                {
+                    "path": paths[1],
+                    "source_ids": ["golden-transition-source"],
+                    "assumption_ids": [],
+                    "uncertainty_status": "distribution_available",
+                },
+            ]
+            plan["methodology"] = {"uncertainty_analysis": {
+                "deterministic": {"planned": True, "input_paths": paths},
+                "probabilistic": {"planned": True, "input_paths": paths, "iterations": 1000},
+                "structural_scenarios": ["waning-change-point"],
+            }}
+            plan_path = root / "heor" / "analysis-plan.json"
+            plan_path.parent.mkdir(parents=True)
+            plan_raw = json.dumps(plan, ensure_ascii=False, indent=2).encode()
+            plan_path.write_bytes(plan_raw)
+            value = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_uncertainty.json").read_text()
+            )
+            value["analysis_id"] = plan["analysis_id"]
+            value["base_analysis"]["content_sha256"] = hashlib.sha256(plan_raw).hexdigest()
+            value["probabilistic_analysis"]["decision_thresholds"]["values"] = [
+                0, 5000, 10000, 15000, 20000
+            ]
+            cost = value["parameters"][0]
+            cost["deterministic"].update({"low": 50, "high": 150})
+            cost["probabilistic"].update({"shape": 100, "scale": 1})
+            transition = value["parameters"][1]
+            transition["target"] = "/strategies/intervention/transition_schedule/0/matrix/0"
+            transition["provenance_path"] = paths[1]
+            transition["deterministic"].update({"low": [0.9, 0.1], "high": [0.99, 0.01]})
+            transition["probabilistic"]["alpha"] = [95, 5]
+            value["structural_scenarios"] = [{
+                "id": "waning-change-point",
+                "label": "Later waning",
+                "rationale": "Tests the declared treatment-waning change point",
+                "replacements": [{
+                    "target": "/strategies/intervention/transition_schedule/2/start_cycle",
+                    "value": 4,
+                }],
+            }]
+            uncertainty_path = root / "heor" / "uncertainty-plan.json"
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+
+            self.assertEqual(uncertainty.validate(uncertainty_path, plan_path), [])
 
     def test_changed_base_hash_and_unlinked_distribution_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:

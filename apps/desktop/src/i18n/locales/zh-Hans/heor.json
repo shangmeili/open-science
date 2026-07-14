@@ -182,10 +182,21 @@
     "unverified": "仍需另一名不同本地审阅者确认：{{id}}",
     "rejected": "已拒绝当前综合版本中的提取项：{{id}}",
     "askRepair": "让 Agent 解决证据缺口",
-    "repairPrompt": "使用 $heor-input-provenance 和 schema 0.3.0 审计并修复 heor/analysis-plan.json 的输入可追溯性。绑定当前 heor/evidence-synthesis.json 的精确 SHA-256；每个映射保存精确 derivation.model_value。只有一个严格 JSON 提取值等于模型值时才用 direct_evidence；只有 proposed 假设且没有提取项时才用 explicit_assumption；基于来源的成本或支付意愿使用 monetary_adjustment，并在应用可复算因子前把每个来源值绑定到所选提取项的标量或数组索引。无法执行的转换保持未完成。不得编造或静默获取通胀率或汇率，也不要声称人工核验或批准。",
+    "repairPrompt": "使用 $heor-input-provenance 和可审批 schema 0.3.0 或 0.4.0 审计并修复 heor/analysis-plan.json 的输入可追溯性；新计划和转移矩阵时间表使用 0.4.0。绑定当前 heor/evidence-synthesis.json 的精确 SHA-256；每个映射保存精确 derivation.model_value。只有一个严格 JSON 提取值等于模型值时才用 direct_evidence；只有 proposed 假设且没有提取项时才用 explicit_assumption；基于来源的成本或支付意愿使用 monetary_adjustment，并在应用可复算因子前把每个来源值绑定到所选提取项的标量或数组索引。无法执行的转换保持未完成。不得编造或静默获取通胀率或汇率，也不要声称人工核验或批准。",
     "note": "应用会独立核对精确推导快照、严格 JSON 提取值、直接数值等价、货币来源绑定与调整算术、综合文件哈希、提取目标、记录链接及应用持有的审阅链。每个所选提取项都获得两个不同本地标签确认且没有拒绝后，才能批准分析计划。",
     "noProject": "当前没有可审计证据到输入选择的项目。",
     "missingPlan": "必须先有分析计划，才能审计证据到输入选择。"
+  },
+  "transition": {
+    "title": "队列状态转移结构",
+    "comparator": "对照策略",
+    "intervention": "干预策略",
+    "static": "静态矩阵",
+    "scheduled": "模型周期 {{cycles}}",
+    "askAudit": "让 Agent 审计队列模型",
+    "repairPrompt": "使用 $heor-cohort-state-transition 审计或修复当前队列模型。读取当前决策问题、概念模型、证据综合、分析计划、输入溯源和不确定性计划。除非证据或明确的 proposed 假设支持 schema 0.4.0 transition_schedule，否则使用静态 transition_matrix；时间表必须从周期 1 开始，并在每个变更点提供完整矩阵。通过 $heor-input-provenance 绑定完整矩阵或时间表，并在 $heor-uncertainty-analysis 中使用完整且相干的分段矩阵行目标。在没有独立确定性适配器时，率或风险转换、汇总、外推公式、状态内时间、隧道状态、患者历史、交互、异质性和时变报酬均保持明确不支持。运行确定性校验，但不要声称获得人工批准、完成模型验证或得出报销与政策建议。",
+    "staticNote": "静态矩阵应用于每个模型周期；概率、维度和队列质量守恒仍以确定性引擎校验为准。",
+    "scheduleNote": "变更点表示整个队列的模型周期时间，不是状态内时间、隧道状态记忆、生存外推或个体模拟。"
   },
   "reference": {
     "title": "参考案例合规矩阵",
@@ -215,7 +226,7 @@
     "thresholds": "决策阈值",
     "scenarios": "情景数",
     "askRepair": "让 Agent 创建或修复不确定性分析",
-    "repairPrompt": "使用 $heor-uncertainty-analysis，针对当前 heor/analysis-plan.json 的精确字节创建或修复 heor/uncertainty-plan.json。只能从已链接证据推导范围和分布，明确记录遗漏参数及相关性假设，配置固定种子的 DSA、PSA 和结构情景，运行确定性校验器，不要创建或声称获得人工批准。",
+    "repairPrompt": "使用 $heor-uncertainty-analysis，针对当前 heor/analysis-plan.json 的精确字节创建或修复 heor/uncertainty-plan.json。只能从已链接证据推导范围和分布，明确记录遗漏参数及相关性假设，并配置固定种子的 DSA、PSA 和结构情景。对于 schema 0.4.0 转移时间表，只能以完整的分段矩阵行为参数目标，并把变更点作为结构情景；不得独立改变单个概率，也不得把模型时间称为状态内时间。运行确定性校验器，不要创建或声称获得人工批准。",
     "note": "应用会审计并以哈希绑定该可执行规范。模拟可复现不等于独立验证，也不构成医保决策建议。",
     "noProject": "没有可用于不确定性分析审计的当前项目。",
     "missingPlan": "必须先有分析计划，才能审计不确定性分析。"

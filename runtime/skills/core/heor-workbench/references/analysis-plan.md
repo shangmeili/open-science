@@ -1,10 +1,10 @@
 # Analysis plan contract
 
-Use `assets/analysis-plan.template.json` as the starting shape. The desktop deterministic engine currently supports one narrow, inspectable cohort state-transition model:
+Use `assets/analysis-plan.template.json` as the starting shape. The desktop deterministic engine currently supports one bounded, inspectable cohort state-transition model:
 
 - exactly two strategies: `comparator` and `intervention`;
 - one shared set of unique health states;
-- time-homogeneous transition matrices;
+- static or piecewise model-cycle-dependent transition matrices;
 - state costs and state utilities;
 - optional half-cycle correction;
 - separate annual discount rates for costs and outcomes;
@@ -13,7 +13,7 @@ Use `assets/analysis-plan.template.json` as the starting shape. The desktop dete
 
 ## Required engine fields
 
-`schema_version` must be `0.3.0` for a new or approvable plan. `analysis_id` must be non-empty. `economic_basis` must contain a three-letter uppercase ISO 4217-format `currency` and an integer `price_year` from 1900 through 2100. Replace the template's China example when another jurisdiction or valuation basis applies. `reference_case` contains a registered `id` and its exact `status`. `states`, `cycles`, `cycle_length_years`, `discount_rates`, `half_cycle_correction`, and `strategies` are required.
+`schema_version` must be `0.4.0` for a new plan. Static `0.3.0` plans remain approvable because they already contain executable evidence-value derivations; `transition_schedule` requires `0.4.0`. `analysis_id` must be non-empty. `economic_basis` must contain a three-letter uppercase ISO 4217-format `currency` and an integer `price_year` from 1900 through 2100. Replace the template's China example when another jurisdiction or valuation basis applies. `reference_case` contains a registered `id` and its exact `status`. `states`, `cycles`, `cycle_length_years`, `discount_rates`, `half_cycle_correction`, and `strategies` are required.
 
 The engine can still calculate a legacy `0.1.0` plan for reproducibility, but its result has no claimed currency or price-year basis. A `0.2.0` plan retains its economic basis but lacks the executable evidence-value derivation contract. Both prior versions remain calculation-only and cannot pass analysis-plan approval.
 
@@ -22,12 +22,16 @@ The complete MVP plan also fixes `uncertainty_analysis.path` to `heor/uncertaint
 For each strategy:
 
 - `initial_distribution` length equals the number of states and sums to 1;
-- `transition_matrix` is square and every row sums to 1;
+- define exactly one of `transition_matrix` or `transition_schedule`;
+- each matrix is square and every row sums to 1;
+- a schedule starts at cycle 1, uses unique strictly increasing integer `start_cycle` change points no greater than `cycles`, and carries its last phase through the horizon;
 - `state_costs` and `state_utilities` lengths equal the number of states;
 - probabilities and utilities are finite values from 0 through 1;
 - costs are finite and non-negative.
 
 The engine rejects an `approvals` field. Human approval state lives outside the workspace.
+
+`transition_schedule` varies matrices by one-based model cycle for the whole cohort. It does not represent time in state, tunnel states, semi-Markov memory, patient history, time-varying rewards, hazard conversion, or individual simulation. Use `$heor-cohort-state-transition` before selecting or changing this structure, and keep unsupported transformations or model types explicit.
 
 ## Review metadata
 

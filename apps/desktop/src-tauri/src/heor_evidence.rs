@@ -3,23 +3,6 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 use tauri::AppHandle;
 
-const BASE_INPUT_PATHS: [&str; 12] = [
-    "cycles",
-    "cycle_length_years",
-    "discount_rates.costs",
-    "discount_rates.outcomes",
-    "half_cycle_correction",
-    "strategies.comparator.initial_distribution",
-    "strategies.comparator.transition_matrix",
-    "strategies.comparator.state_costs",
-    "strategies.comparator.state_utilities",
-    "strategies.intervention.initial_distribution",
-    "strategies.intervention.transition_matrix",
-    "strategies.intervention.state_costs",
-];
-
-const FINAL_INPUT_PATH: &str = "strategies.intervention.state_utilities";
-
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EvidenceAudit {
@@ -75,14 +58,33 @@ fn is_sha256(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-fn required_input_paths(plan: &serde_json::Value) -> Vec<&'static str> {
-    let mut paths = Vec::from(BASE_INPUT_PATHS);
-    paths.push(FINAL_INPUT_PATH);
+fn required_input_paths(plan: &serde_json::Value) -> Vec<String> {
+    let mut paths = vec![
+        "cycles".into(),
+        "cycle_length_years".into(),
+        "discount_rates.costs".into(),
+        "discount_rates.outcomes".into(),
+        "half_cycle_correction".into(),
+    ];
+    for role in ["comparator", "intervention"] {
+        paths.push(format!("strategies.{role}.initial_distribution"));
+        let transition_field = if plan
+            .pointer(&format!("/strategies/{role}/transition_schedule"))
+            .is_some_and(|value| !value.is_null())
+        {
+            "transition_schedule"
+        } else {
+            "transition_matrix"
+        };
+        paths.push(format!("strategies.{role}.{transition_field}"));
+        paths.push(format!("strategies.{role}.state_costs"));
+        paths.push(format!("strategies.{role}.state_utilities"));
+    }
     if !plan
         .get("willingness_to_pay")
         .is_none_or(serde_json::Value::is_null)
     {
-        paths.push("willingness_to_pay");
+        paths.push("willingness_to_pay".into());
     }
     paths
 }
@@ -374,7 +376,7 @@ pub fn audit_plan_bytes(raw: &[u8]) -> Result<EvidenceAudit, String> {
 
 pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
     let required = required_input_paths(plan);
-    let required_set: HashSet<&str> = required.iter().copied().collect();
+    let required_set: HashSet<&str> = required.iter().map(String::as_str).collect();
     let sources = plan
         .get("evidence_sources")
         .and_then(serde_json::Value::as_array)
@@ -447,12 +449,36 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
     let mut seen = HashSet::new();
     let mut covered = HashSet::new();
     let mut invalid_mappings = Vec::new();
-    if plan
-        .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        != Some("0.3.0")
-    {
-        invalid_mappings.push("schema_version must be 0.3.0 for approval review".into());
+    if !matches!(
+        plan.get("schema_version")
+            .and_then(serde_json::Value::as_str),
+        Some("0.3.0" | "0.4.0")
+    ) {
+        invalid_mappings.push("schema_version must be 0.3.0 or 0.4.0 for approval review".into());
+    }
+    for role in ["comparator", "intervention"] {
+        let strategy = plan.pointer(&format!("/strategies/{role}"));
+        let has_matrix = strategy
+            .and_then(|value| value.get("transition_matrix"))
+            .is_some_and(|value| !value.is_null());
+        let has_schedule = strategy
+            .and_then(|value| value.get("transition_schedule"))
+            .is_some_and(|value| !value.is_null());
+        if has_matrix == has_schedule {
+            invalid_mappings.push(format!(
+                "strategies.{role} must define exactly one of transition_matrix or transition_schedule"
+            ));
+        }
+        if has_schedule
+            && plan
+                .get("schema_version")
+                .and_then(serde_json::Value::as_str)
+                != Some("0.4.0")
+        {
+            invalid_mappings.push(format!(
+                "strategies.{role}.transition_schedule requires schema_version 0.4.0"
+            ));
+        }
     }
     let economic_basis = plan
         .get("economic_basis")
@@ -573,8 +599,8 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
 
     let unsupported_inputs = required
         .iter()
-        .filter(|path| !covered.contains(**path))
-        .map(|path| (*path).to_string())
+        .filter(|path| !covered.contains(path.as_str()))
+        .cloned()
         .collect::<Vec<_>>();
     let complete = unsupported_inputs.is_empty()
         && invalid_mappings.is_empty()
@@ -996,12 +1022,12 @@ mod tests {
                 "assumption_ids": [],
                 "unit": "model-specific",
                 "jurisdiction": "China",
-                "currency": if monetary_path(path) { Some("CNY") } else { None },
-                "price_year": if monetary_path(path) { Some(2026) } else { None },
-                "monetary_adjustments": monetary_adjustments(path),
+                "currency": if monetary_path(&path) { Some("CNY") } else { None },
+                "price_year": if monetary_path(&path) { Some(2026) } else { None },
+                "monetary_adjustments": monetary_adjustments(&path),
                 "derivation": {
-                    "method": if monetary_path(path) { "monetary_adjustment" } else { "direct_evidence" },
-                    "model_value": model_value(&plan, path).cloned().unwrap()
+                    "method": if monetary_path(&path) { "monetary_adjustment" } else { "direct_evidence" },
+                    "model_value": model_value(&plan, &path).cloned().unwrap()
                 },
                 "selection_rationale": "Pre-specified source",
                 "uncertainty_status": "fixed"
@@ -1013,6 +1039,60 @@ mod tests {
     fn every_required_input_can_be_covered() {
         let audit = audit_plan(&complete_plan());
         assert!(audit.complete);
+        assert_eq!(audit.required_inputs, 14);
+        assert_eq!(audit.covered_inputs, 14);
+    }
+
+    #[test]
+    fn scheduled_transition_replaces_the_static_required_path() {
+        let plan = serde_json::json!({
+            "willingness_to_pay": null,
+            "strategies": {
+                "comparator": {"transition_matrix": [[1.0]]},
+                "intervention": {
+                    "transition_schedule": [{"start_cycle": 1, "matrix": [[1.0]]}]
+                }
+            }
+        });
+
+        let paths = required_input_paths(&plan);
+
+        assert!(paths.contains(&"strategies.comparator.transition_matrix".into()));
+        assert!(paths.contains(&"strategies.intervention.transition_schedule".into()));
+        assert!(!paths.contains(&"strategies.intervention.transition_matrix".into()));
+    }
+
+    #[test]
+    fn complete_scheduled_plan_can_pass_approval_audit() {
+        let mut plan = complete_plan();
+        plan["schema_version"] = serde_json::json!("0.4.0");
+        let matrix = plan["strategies"]["intervention"]
+            .as_object_mut()
+            .unwrap()
+            .remove("transition_matrix")
+            .unwrap();
+        let schedule = serde_json::json!([
+            {"start_cycle": 1, "matrix": matrix},
+            {"start_cycle": 3, "matrix": [[0.75, 0.2, 0.05], [0.0, 0.7, 0.3], [0.0, 0.0, 1.0]]}
+        ]);
+        plan["strategies"]["intervention"]["transition_schedule"] = schedule.clone();
+
+        let mapping = plan["input_provenance"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|mapping| {
+                mapping.get("path").and_then(serde_json::Value::as_str)
+                    == Some("strategies.intervention.transition_matrix")
+            })
+            .unwrap();
+        mapping["path"] = serde_json::json!("strategies.intervention.transition_schedule");
+        mapping["extraction_ids"] =
+            serde_json::json!(["extract-strategies-intervention-transition_schedule"]);
+        mapping["derivation"]["model_value"] = schedule;
+
+        let audit = audit_plan(&plan);
+        assert!(audit.complete, "{:?}", audit.invalid_mappings);
         assert_eq!(audit.required_inputs, 14);
         assert_eq!(audit.covered_inputs, 14);
     }
@@ -1106,7 +1186,7 @@ mod tests {
 
         assert!(!audit.complete);
         let errors = audit.invalid_mappings.join("; ");
-        assert!(errors.contains("schema_version must be 0.3.0"));
+        assert!(errors.contains("schema_version must be 0.3.0 or 0.4.0"));
         assert!(errors.contains("does not match the current model input"));
     }
 

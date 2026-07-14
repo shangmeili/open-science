@@ -1,8 +1,9 @@
 """Validated deterministic cohort state-transition analysis.
 
-The engine intentionally supports a narrow first slice: two strategies,
-time-homogeneous transition matrices, state rewards, and optional half-cycle
-correction. It has no network or language-model dependency.
+The engine supports two strategies, static or model-cycle-dependent transition
+matrices, state rewards, and optional half-cycle correction. It has no network
+or language-model dependency. Time in state and patient history remain outside
+this cohort-model boundary.
 """
 
 from __future__ import annotations
@@ -12,10 +13,17 @@ from math import isclose, isfinite
 from typing import Any
 
 
-SCHEMA_VERSION = "0.3.0"
-PRIOR_SCHEMA_VERSION = "0.2.0"
+SCHEMA_VERSION = "0.4.0"
+DERIVATION_SCHEMA_VERSION = "0.3.0"
+ECONOMIC_BASIS_SCHEMA_VERSION = "0.2.0"
 LEGACY_SCHEMA_VERSION = "0.1.0"
-ENGINE_VERSION = "0.3.0"
+SUPPORTED_SCHEMA_VERSIONS = (
+    LEGACY_SCHEMA_VERSION,
+    ECONOMIC_BASIS_SCHEMA_VERSION,
+    DERIVATION_SCHEMA_VERSION,
+    SCHEMA_VERSION,
+)
+ENGINE_VERSION = "0.4.0"
 TOLERANCE = 1e-9
 
 
@@ -24,21 +32,60 @@ class ModelValidationError(ValueError):
 
 
 @dataclass(frozen=True)
+class TransitionPhase:
+    start_cycle: int
+    matrix: tuple[tuple[float, ...], ...]
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any], index: int) -> "TransitionPhase":
+        value = _mapping(value, f"transition_schedule[{index}]")
+        matrix = value.get("matrix")
+        if not isinstance(matrix, (list, tuple)):
+            raise ModelValidationError(
+                f"transition_schedule[{index}].matrix must be an array"
+            )
+        return cls(
+            start_cycle=_strict_int(
+                value.get("start_cycle"),
+                f"transition_schedule[{index}].start_cycle",
+            ),
+            matrix=tuple(_float_tuple(row) for row in matrix),
+        )
+
+
+@dataclass(frozen=True)
 class Strategy:
     name: str
     initial_distribution: tuple[float, ...]
-    transition_matrix: tuple[tuple[float, ...], ...]
+    transition_matrix: tuple[tuple[float, ...], ...] | None
+    transition_schedule: tuple[TransitionPhase, ...] | None
     state_costs: tuple[float, ...]
     state_utilities: tuple[float, ...]
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "Strategy":
         value = _mapping(value, "strategy")
+        raw_matrix = value.get("transition_matrix")
+        raw_schedule = value.get("transition_schedule")
+        if raw_matrix is not None and not isinstance(raw_matrix, (list, tuple)):
+            raise ModelValidationError("transition_matrix must be an array")
+        if raw_schedule is not None and not isinstance(raw_schedule, (list, tuple)):
+            raise ModelValidationError("transition_schedule must be an array")
         return cls(
             name=str(value.get("name", "")),
             initial_distribution=_float_tuple(value.get("initial_distribution", [])),
-            transition_matrix=tuple(
-                _float_tuple(row) for row in value.get("transition_matrix", [])
+            transition_matrix=(
+                None
+                if raw_matrix is None
+                else tuple(_float_tuple(row) for row in raw_matrix)
+            ),
+            transition_schedule=(
+                None
+                if raw_schedule is None
+                else tuple(
+                    TransitionPhase.from_dict(phase, index)
+                    for index, phase in enumerate(raw_schedule)
+                )
             ),
             state_costs=_float_tuple(value.get("state_costs", [])),
             state_utilities=_float_tuple(value.get("state_utilities", [])),
@@ -73,7 +120,11 @@ class MarkovSpecification:
         reference_case = _mapping(value.get("reference_case", {}), "reference_case")
         schema_version = str(value.get("schema_version", ""))
         economic_basis = value.get("economic_basis")
-        if schema_version in {PRIOR_SCHEMA_VERSION, SCHEMA_VERSION}:
+        if schema_version in {
+            ECONOMIC_BASIS_SCHEMA_VERSION,
+            DERIVATION_SCHEMA_VERSION,
+            SCHEMA_VERSION,
+        }:
             economic_basis = _mapping(economic_basis, "economic_basis")
             currency = str(economic_basis.get("currency", ""))
             price_year = _strict_int(
@@ -121,17 +172,13 @@ class MarkovSpecification:
         return specification
 
     def validate(self) -> None:
-        if self.schema_version not in {
-            LEGACY_SCHEMA_VERSION,
-            PRIOR_SCHEMA_VERSION,
-            SCHEMA_VERSION,
-        }:
+        if self.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
             raise ModelValidationError(
                 "unsupported schema_version "
-                f"{self.schema_version!r}; expected {LEGACY_SCHEMA_VERSION!r}, "
-                f"{PRIOR_SCHEMA_VERSION!r}, or {SCHEMA_VERSION!r}"
+                f"{self.schema_version!r}; expected one of "
+                f"{', '.join(repr(item) for item in SUPPORTED_SCHEMA_VERSIONS)}"
             )
-        if self.schema_version in {PRIOR_SCHEMA_VERSION, SCHEMA_VERSION}:
+        if self.schema_version != LEGACY_SCHEMA_VERSION:
             if self.currency is None or not (
                 len(self.currency) == 3 and self.currency.isascii() and self.currency.isalpha()
                 and self.currency.isupper()
@@ -169,7 +216,13 @@ class MarkovSpecification:
             ("comparator", self.comparator),
             ("intervention", self.intervention),
         ):
-            _validate_strategy(role, strategy, len(self.states))
+            _validate_strategy(
+                role,
+                strategy,
+                len(self.states),
+                self.schema_version,
+                self.cycles,
+            )
         if self.comparator.name == self.intervention.name:
             raise ModelValidationError("strategy names must be different")
 
@@ -181,6 +234,8 @@ class StrategyResult:
     total_qaly: float
     net_monetary_benefit: float | None
     occupancy: tuple[tuple[float, ...], ...]
+    transition_mode: str
+    transition_schedule_start_cycles: tuple[int, ...]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -189,6 +244,10 @@ class StrategyResult:
             "total_qaly": self.total_qaly,
             "net_monetary_benefit": self.net_monetary_benefit,
             "occupancy": [list(row) for row in self.occupancy],
+            "transition_mode": self.transition_mode,
+            "transition_schedule_start_cycles": list(
+                self.transition_schedule_start_cycles
+            ),
         }
 
 
@@ -273,7 +332,7 @@ def run_markov(specification: MarkovSpecification) -> AnalysisResult:
         warnings.append(
             "Legacy analysis schema: currency and price-year basis are absent, so monetary results are exploratory and must not be presented with a claimed currency."
         )
-    elif specification.schema_version == PRIOR_SCHEMA_VERSION:
+    elif specification.schema_version == ECONOMIC_BASIS_SCHEMA_VERSION:
         warnings.append(
             "Prior analysis schema: the economic basis is retained, but evidence-to-model value derivations are not executable, so the desktop must not approve this plan."
         )
@@ -307,7 +366,8 @@ def _run_strategy(
     total_cost = 0.0
     total_qaly = 0.0
     for cycle in range(specification.cycles):
-        following = _advance(current, strategy.transition_matrix)
+        matrix = _transition_matrix_for_cycle(strategy, cycle + 1)
+        following = _advance(current, matrix)
         if not isclose(sum(following), 1.0, rel_tol=0.0, abs_tol=TOLERANCE):
             raise ModelValidationError(
                 f"{strategy.name}: cohort mass was not conserved in cycle {cycle + 1}"
@@ -356,6 +416,16 @@ def _run_strategy(
         total_qaly=total_qaly,
         net_monetary_benefit=net_monetary_benefit,
         occupancy=tuple(occupancy),
+        transition_mode=(
+            "static"
+            if strategy.transition_matrix is not None
+            else "piecewise_by_model_cycle"
+        ),
+        transition_schedule_start_cycles=(
+            (1,)
+            if strategy.transition_schedule is None
+            else tuple(phase.start_cycle for phase in strategy.transition_schedule)
+        ),
     )
 
 
@@ -401,7 +471,28 @@ def _advance(
     )
 
 
-def _validate_strategy(role: str, strategy: Strategy, state_count: int) -> None:
+def _transition_matrix_for_cycle(
+    strategy: Strategy, cycle: int
+) -> tuple[tuple[float, ...], ...]:
+    if strategy.transition_matrix is not None:
+        return strategy.transition_matrix
+    if strategy.transition_schedule is None:
+        raise ModelValidationError(f"{strategy.name}: no transition definition")
+    selected = strategy.transition_schedule[0].matrix
+    for phase in strategy.transition_schedule[1:]:
+        if phase.start_cycle > cycle:
+            break
+        selected = phase.matrix
+    return selected
+
+
+def _validate_strategy(
+    role: str,
+    strategy: Strategy,
+    state_count: int,
+    schema_version: str,
+    cycles: int,
+) -> None:
     if not strategy.name.strip():
         raise ModelValidationError(f"{role}.name must not be empty")
     for field_name, values in (
@@ -413,19 +504,50 @@ def _validate_strategy(role: str, strategy: Strategy, state_count: int) -> None:
             raise ModelValidationError(
                 f"{role}.{field_name} must contain {state_count} values"
             )
-    if len(strategy.transition_matrix) != state_count:
+    if schema_version != SCHEMA_VERSION and strategy.transition_schedule is not None:
         raise ModelValidationError(
-            f"{role}.transition_matrix must contain {state_count} rows"
+            f"{role}.transition_schedule requires schema_version {SCHEMA_VERSION}"
         )
-    if any(len(row) != state_count for row in strategy.transition_matrix):
+    if strategy.transition_matrix is None and strategy.transition_schedule is None:
         raise ModelValidationError(
-            f"{role}.transition_matrix rows must contain {state_count} values"
+            f"{role} must define transition_matrix or transition_schedule"
+        )
+    if strategy.transition_matrix is not None and strategy.transition_schedule is not None:
+        raise ModelValidationError(
+            f"{role} must define exactly one of transition_matrix or transition_schedule"
         )
     _validate_probability_vector(
         f"{role}.initial_distribution", strategy.initial_distribution
     )
-    for row_index, row in enumerate(strategy.transition_matrix):
-        _validate_probability_vector(f"{role}.transition_matrix[{row_index}]", row)
+    if strategy.transition_matrix is not None:
+        _validate_transition_matrix(
+            f"{role}.transition_matrix", strategy.transition_matrix, state_count
+        )
+    else:
+        schedule = strategy.transition_schedule or ()
+        if not schedule or len(schedule) > cycles:
+            raise ModelValidationError(
+                f"{role}.transition_schedule must contain from 1 to {cycles} phases"
+            )
+        start_cycles = tuple(phase.start_cycle for phase in schedule)
+        if start_cycles[0] != 1:
+            raise ModelValidationError(
+                f"{role}.transition_schedule must start at cycle 1"
+            )
+        if start_cycles != tuple(sorted(set(start_cycles))):
+            raise ModelValidationError(
+                f"{role}.transition_schedule start_cycle values must be unique and strictly increasing"
+            )
+        if start_cycles[-1] > cycles:
+            raise ModelValidationError(
+                f"{role}.transition_schedule start_cycle must not exceed cycles"
+            )
+        for index, phase in enumerate(schedule):
+            _validate_transition_matrix(
+                f"{role}.transition_schedule[{index}].matrix",
+                phase.matrix,
+                state_count,
+            )
     if any(cost < 0 or not isfinite(cost) for cost in strategy.state_costs):
         raise ModelValidationError(
             f"{role}.state_costs must be finite and non-negative"
@@ -437,6 +559,19 @@ def _validate_strategy(role: str, strategy: Strategy, state_count: int) -> None:
         raise ModelValidationError(
             f"{role}.state_utilities must be finite values from -1 to 1"
         )
+
+
+def _validate_transition_matrix(
+    name: str,
+    matrix: tuple[tuple[float, ...], ...],
+    state_count: int,
+) -> None:
+    if len(matrix) != state_count:
+        raise ModelValidationError(f"{name} must contain {state_count} rows")
+    if any(len(row) != state_count for row in matrix):
+        raise ModelValidationError(f"{name} rows must contain {state_count} values")
+    for row_index, row in enumerate(matrix):
+        _validate_probability_vector(f"{name}[{row_index}]", row)
 
 
 def _validate_probability_vector(name: str, values: tuple[float, ...]) -> None:

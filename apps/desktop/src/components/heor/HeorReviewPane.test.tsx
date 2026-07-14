@@ -122,6 +122,8 @@ describe("AI4HEOR human review pane", () => {
     expect(screen.queryByRole("button", { name: "Review and authorize exact search" }))
       .not.toBeInTheDocument();
     expect(screen.getByText("Evidence audit incomplete")).toBeInTheDocument();
+    expect(screen.getByText("Cohort transition structure")).toBeInTheDocument();
+    expect(screen.getAllByText("Static")).toHaveLength(2);
     expect(await screen.findByText("Structural audit complete")).toBeInTheDocument();
     expect(screen.getAllByText("0/14")).toHaveLength(2);
     await userEvent.click(screen.getByRole("button", { name: "Review Decision problem" }));
@@ -159,6 +161,12 @@ describe("AI4HEOR human review pane", () => {
     expect(screen.getByText("Report package is incomplete")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Review Analysis plan" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ask agent to resolve evidence gaps" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", {
+      name: "Ask Agent to audit the cohort model",
+    }));
+    expect(onRequestRevision).toHaveBeenCalledWith(
+      expect.stringContaining("$heor-cohort-state-transition"),
+    );
     await userEvent.click(screen.getByRole("button", {
       name: "Ask Agent to continue screening and synthesis",
     }));

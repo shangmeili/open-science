@@ -15,6 +15,10 @@ SHA256 = re.compile(r"^[a-f0-9]{64}$")
 PARAMETER_TARGET = re.compile(
     r"^/strategies/(comparator|intervention)/(state_costs|state_utilities)/[0-9]+$"
     r"|^/strategies/(comparator|intervention)/transition_matrix/[0-9]+$"
+    r"|^/strategies/(comparator|intervention)/transition_schedule/[0-9]+/matrix/[0-9]+$"
+)
+SCHEDULE_START_TARGET = re.compile(
+    r"^/strategies/(comparator|intervention)/transition_schedule/[0-9]+/start_cycle$"
 )
 SCENARIO_TARGETS = {
     "/cycles",
@@ -294,7 +298,9 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         for replacement in replacements:
             target = replacement.get("target") if isinstance(replacement, dict) else None
             if not text(target) or not (
-                target in SCENARIO_TARGETS or PARAMETER_TARGET.fullmatch(target)
+                target in SCENARIO_TARGETS
+                or PARAMETER_TARGET.fullmatch(target)
+                or SCHEDULE_START_TARGET.fullmatch(target)
             ) or target in replacement_targets:
                 errors.append(f"{label} has a replacement outside the allowlist")
                 continue

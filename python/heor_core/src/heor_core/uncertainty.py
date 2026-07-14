@@ -20,7 +20,7 @@ from .model import MarkovSpecification, ModelValidationError, run_markov
 
 UNCERTAINTY_SCHEMA_VERSION = "0.2.0"
 LEGACY_UNCERTAINTY_SCHEMA_VERSION = "0.1.0"
-UNCERTAINTY_ENGINE_VERSION = "0.2.0"
+UNCERTAINTY_ENGINE_VERSION = "0.3.0"
 PRNG_ALGORITHM = "pcg32-xsh-rr"
 PRNG_VERSION = "1"
 MAX_ITERATIONS = 10_000
@@ -727,9 +727,11 @@ def _validate_replacement(
         "/discount_rates/outcomes",
         "/half_cycle_correction",
     }
-    allowed = target.startswith(scalar_prefixes + simplex_prefixes)
+    scheduled_row = _scheduled_transition_row_target(target)
+    scheduled_start = _scheduled_transition_start_target(target)
+    allowed = target.startswith(scalar_prefixes + simplex_prefixes) or scheduled_row
     if structural:
-        allowed = allowed or target in structural_targets
+        allowed = allowed or target in structural_targets or scheduled_start
     if not allowed:
         raise ModelValidationError(f"uncertainty target {target!r} is outside the allowlist")
     if isinstance(base, bool):
@@ -748,6 +750,31 @@ def _validate_replacement(
             raise ModelValidationError(f"replacement for {target} must be a probability simplex")
     else:
         raise ModelValidationError(f"replacement for {target} has an unsupported type")
+
+
+def _scheduled_transition_row_target(target: str) -> bool:
+    tokens = _pointer_tokens(target)
+    return (
+        len(tokens) == 6
+        and tokens[0] == "strategies"
+        and tokens[1] in {"comparator", "intervention"}
+        and tokens[2] == "transition_schedule"
+        and tokens[3].isdigit()
+        and tokens[4] == "matrix"
+        and tokens[5].isdigit()
+    )
+
+
+def _scheduled_transition_start_target(target: str) -> bool:
+    tokens = _pointer_tokens(target)
+    return (
+        len(tokens) == 5
+        and tokens[0] == "strategies"
+        and tokens[1] in {"comparator", "intervention"}
+        and tokens[2] == "transition_schedule"
+        and tokens[3].isdigit()
+        and tokens[4] == "start_cycle"
+    )
 
 
 def _replace(value: dict[str, Any], pointer: str, replacement: Any) -> None:

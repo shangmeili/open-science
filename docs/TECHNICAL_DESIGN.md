@@ -219,6 +219,18 @@ existing normalization arithmetic. Only `direct_evidence`,
 `explicit_assumption`, and `monetary_adjustment` are supported. Free-form
 expressions remain blocked until a separate deterministic adapter exists.
 
+Analysis-plan schema `0.4.0` adds a first-party piecewise transition schedule
+without changing the evidence-derivation authority boundary. Each strategy has
+exactly one static matrix or a list of `{start_cycle, matrix}` phases; schedules
+start at cycle 1, are strictly ordered within the horizon, and are selected by
+one-based model cycle. Python validates every phase and mass-conserving trace;
+Rust, the portable provenance validator, and the TypeScript preview dynamically
+require the schedule path instead of an absent static-matrix path. Uncertainty
+allowlists accept complete scheduled matrix rows and structural change-point
+scenarios. The result declares `static` or `piecewise_by_model_cycle` plus the
+change points. No layer interprets this as time-in-state, semi-Markov memory,
+hazard conversion, patient history, time-varying rewards, or microsimulation.
+
 `heor/analysis-plan.json` carries the input-selection contract directly: a root
 `evidence_synthesis` binding plus `extraction_ids` on each source-based
 `input_provenance` mapping. The approval path independently checks synthesis
@@ -229,8 +241,8 @@ workspace artifact and circular hashes while ensuring a plan approval covers
 the exact evidence-to-input choices. The engine, uncertainty runner, and budget
 impact runner repeat the audit and invalidate stale approval bindings.
 
-Analysis-plan schema `0.2.0` introduced a root `economic_basis`; current schema
-`0.3.0` retains it and adds executable extraction-to-model derivations. Each monetary
+Analysis-plan schema `0.2.0` introduced a root `economic_basis`; schemas
+`0.3.0` and `0.4.0` retain it and executable extraction-to-model derivations. Each monetary
 mapping contains element-level source values and adjustment factors so the
 portable Python validator, native Rust approval boundary, and TypeScript review
 preview can all reject mixed or unreproducible currency/price-year inputs. The

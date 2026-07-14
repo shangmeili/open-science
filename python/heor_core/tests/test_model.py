@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import unittest
 from pathlib import Path
@@ -15,6 +16,9 @@ from heor_core.uncertainty import Pcg32, run_uncertainty
 
 
 GOLDEN_PATH = Path(__file__).parents[1] / "golden_cases" / "two_strategy_markov.json"
+TIME_VARYING_PATH = (
+    Path(__file__).parents[1] / "golden_cases" / "two_strategy_time_varying.json"
+)
 UNCERTAINTY_PATH = (
     Path(__file__).parents[1] / "golden_cases" / "two_strategy_uncertainty.json"
 )
@@ -33,6 +37,10 @@ def golden_payload() -> dict:
 
 def uncertainty_payload() -> dict:
     return json.loads(UNCERTAINTY_PATH.read_text())
+
+
+def time_varying_payload() -> dict:
+    return json.loads(TIME_VARYING_PATH.read_text())
 
 
 def budget_base_payload() -> dict:
@@ -103,6 +111,72 @@ class MarkovModelTests(unittest.TestCase):
         ]
 
         with self.assertRaisesRegex(ModelValidationError, "must sum to 1"):
+            MarkovSpecification.from_dict(payload)
+
+    def test_piecewise_transition_schedule_matches_hand_calculation(self) -> None:
+        result = run_markov(MarkovSpecification.from_dict(time_varying_payload()))
+
+        self.assertEqual(result.comparator.transition_mode, "static")
+        self.assertEqual(result.comparator.transition_schedule_start_cycles, (1,))
+        self.assertEqual(
+            result.intervention.transition_mode,
+            "piecewise_by_model_cycle",
+        )
+        self.assertEqual(
+            result.intervention.transition_schedule_start_cycles,
+            (1, 2, 3),
+        )
+        self.assertAlmostEqual(result.comparator.total_qaly, 3.439)
+        self.assertAlmostEqual(result.intervention.total_qaly, 3.489)
+        self.assertAlmostEqual(result.intervention.total_cost, 348.9)
+        self.assertAlmostEqual(result.incremental.delta_qaly, 0.05)
+        self.assertAlmostEqual(result.incremental.icer, 6978.0)
+        expected_occupancy = (
+            (1.0, 0.0),
+            (0.95, 0.05),
+            (0.855, 0.145),
+            (0.684, 0.316),
+            (0.5472, 0.4528),
+        )
+        for actual, expected in zip(
+            result.intervention.occupancy, expected_occupancy
+        ):
+            for actual_value, expected_value in zip(actual, expected):
+                self.assertAlmostEqual(actual_value, expected_value)
+
+    def test_transition_schedule_requires_current_schema(self) -> None:
+        payload = time_varying_payload()
+        payload["schema_version"] = "0.3.0"
+
+        with self.assertRaisesRegex(
+            ModelValidationError, "transition_schedule requires schema_version 0.4.0"
+        ):
+            MarkovSpecification.from_dict(payload)
+
+    def test_strategy_cannot_mix_static_and_scheduled_transitions(self) -> None:
+        payload = time_varying_payload()
+        payload["strategies"]["intervention"]["transition_matrix"] = [
+            [0.95, 0.05],
+            [0.0, 1.0],
+        ]
+
+        with self.assertRaisesRegex(ModelValidationError, "exactly one"):
+            MarkovSpecification.from_dict(payload)
+
+    def test_transition_schedule_must_start_at_cycle_one_and_be_ordered(self) -> None:
+        payload = time_varying_payload()
+        payload["strategies"]["intervention"]["transition_schedule"][0][
+            "start_cycle"
+        ] = 2
+
+        with self.assertRaisesRegex(ModelValidationError, "start at cycle 1"):
+            MarkovSpecification.from_dict(payload)
+
+        payload = time_varying_payload()
+        payload["strategies"]["intervention"]["transition_schedule"][2][
+            "start_cycle"
+        ] = 2
+        with self.assertRaisesRegex(ModelValidationError, "unique and strictly increasing"):
             MarkovSpecification.from_dict(payload)
 
     def test_analysis_input_cannot_self_authorize(self) -> None:
@@ -242,6 +316,59 @@ class UncertaintyAnalysisTests(unittest.TestCase):
         self.assertEqual(decision["threshold_source"], "legacy_primary_only")
         self.assertEqual(len(decision["threshold_results"]), 1)
         self.assertEqual(decision["threshold_results"][0]["threshold"], 100000.0)
+
+    def test_time_varying_transition_row_supports_dsa_and_psa(self) -> None:
+        base = time_varying_payload()
+        base_raw = json.dumps(base, separators=(",", ":")).encode()
+        uncertainty = uncertainty_payload()
+        uncertainty["analysis_id"] = base["analysis_id"]
+        uncertainty["base_analysis"]["content_sha256"] = hashlib.sha256(
+            base_raw
+        ).hexdigest()
+        uncertainty["probabilistic_analysis"]["decision_thresholds"]["values"] = [
+            0.0,
+            5000.0,
+            10000.0,
+            15000.0,
+            20000.0,
+        ]
+        cost_parameter = uncertainty["parameters"][0]
+        cost_parameter["deterministic"]["low"] = 50.0
+        cost_parameter["deterministic"]["high"] = 150.0
+        cost_parameter["probabilistic"]["shape"] = 100.0
+        cost_parameter["probabilistic"]["scale"] = 1.0
+        transition_parameter = uncertainty["parameters"][1]
+        transition_parameter["target"] = (
+            "/strategies/intervention/transition_schedule/0/matrix/0"
+        )
+        transition_parameter["provenance_path"] = (
+            "strategies.intervention.transition_schedule"
+        )
+        transition_parameter["deterministic"]["low"] = [0.9, 0.1]
+        transition_parameter["deterministic"]["high"] = [0.99, 0.01]
+        transition_parameter["probabilistic"]["alpha"] = [95.0, 5.0]
+        uncertainty["structural_scenarios"][0]["replacements"] = [{
+            "target": "/strategies/intervention/transition_schedule/2/start_cycle",
+            "value": 4,
+        }]
+
+        result = run_uncertainty(
+            base,
+            base_raw,
+            uncertainty,
+            json.dumps(uncertainty, separators=(",", ":")).encode(),
+        )
+
+        self.assertEqual(result["engine_version"], "0.3.0")
+        self.assertEqual(
+            result["deterministic_analysis"][1]["target"],
+            "/strategies/intervention/transition_schedule/0/matrix/0",
+        )
+        self.assertEqual(len(result["probabilistic_analysis"]["samples"]), 1000)
+        self.assertEqual(
+            result["structural_scenarios"][0]["replacements"][0]["target"],
+            "/strategies/intervention/transition_schedule/2/start_cycle",
+        )
 
     def test_legacy_uncertainty_plan_rejects_a_silently_ignored_grid(self) -> None:
         uncertainty = uncertainty_payload()

@@ -83,11 +83,21 @@ fn parameter_target_allowed(target: &str) -> bool {
         parts.as_slice(),
         ["", "strategies", "comparator" | "intervention", "transition_matrix", row]
             if row.parse::<usize>().is_ok()
+    ) || matches!(
+        parts.as_slice(),
+        ["", "strategies", "comparator" | "intervention", "transition_schedule", phase, "matrix", row]
+            if phase.parse::<usize>().is_ok() && row.parse::<usize>().is_ok()
     )
 }
 
 fn scenario_target_allowed(target: &str) -> bool {
+    let parts = target.split('/').collect::<Vec<_>>();
     parameter_target_allowed(target)
+        || matches!(
+            parts.as_slice(),
+            ["", "strategies", "comparator" | "intervention", "transition_schedule", phase, "start_cycle"]
+                if phase.parse::<usize>().is_ok()
+        )
         || matches!(
             target,
             "/cycles"
@@ -987,6 +997,15 @@ mod tests {
         assert!(!scenario_target_allowed("/analysis_id"));
         assert!(parameter_target_allowed(
             "/strategies/intervention/transition_matrix/0"
+        ));
+        assert!(parameter_target_allowed(
+            "/strategies/intervention/transition_schedule/1/matrix/0"
+        ));
+        assert!(scenario_target_allowed(
+            "/strategies/intervention/transition_schedule/1/start_cycle"
+        ));
+        assert!(!parameter_target_allowed(
+            "/strategies/intervention/transition_schedule/1/start_cycle"
         ));
     }
 

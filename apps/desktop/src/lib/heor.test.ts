@@ -113,7 +113,7 @@ describe("AI4HEOR artifact contract", () => {
     expect(audit.invalidMappings.join("; ")).toContain("does not reproduce model value");
   });
 
-  it("requires schema 0.3 and an exact derivation snapshot for approval review", () => {
+  it("requires an approvable schema and an exact derivation snapshot for approval review", () => {
     const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
     plan.schema_version = "0.2.0";
     plan.assumptions = [{
@@ -136,10 +136,32 @@ describe("AI4HEOR artifact contract", () => {
 
     const audit = auditHeorEvidence(plan);
 
-    expect(audit.invalidMappings.join("; ")).toContain("schema_version must be 0.3.0");
+    expect(audit.invalidMappings.join("; ")).toContain(
+      "schema_version must be 0.3.0 or 0.4.0",
+    );
     expect(audit.invalidMappings.join("; ")).toContain(
       "derivation.model_value does not match the current model input",
     );
+  });
+
+  it("requires provenance for a schema 0.4 transition schedule instead of an absent matrix", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    plan.schema_version = "0.4.0";
+    delete plan.strategies.intervention.transition_matrix;
+    plan.strategies.intervention.transition_schedule = [
+      { start_cycle: 1, matrix: [[0.8, 0.15, 0.05], [0, 0.75, 0.25], [0, 0, 1]] },
+      { start_cycle: 2, matrix: [[0.75, 0.17, 0.08], [0, 0.7, 0.3], [0, 0, 1]] },
+    ];
+
+    const audit = auditHeorEvidence(plan);
+
+    expect(audit.unsupportedInputs).toContain(
+      "strategies.intervention.transition_schedule",
+    );
+    expect(audit.unsupportedInputs).not.toContain(
+      "strategies.intervention.transition_matrix",
+    );
+    expect(parseHeorPlan(JSON.stringify(plan)).schema_version).toBe("0.4.0");
   });
 
   it("audits the conceptual model independently from numerical inputs", () => {

@@ -11,10 +11,12 @@ The desktop app repeats this audit in Rust. Agent review is explanatory; the app
 - `half_cycle_correction`
 - `strategies.comparator.initial_distribution`
 - `strategies.comparator.transition_matrix`
+- `strategies.comparator.transition_schedule` when used instead of a static matrix
 - `strategies.comparator.state_costs`
 - `strategies.comparator.state_utilities`
 - `strategies.intervention.initial_distribution`
 - `strategies.intervention.transition_matrix`
+- `strategies.intervention.transition_schedule` when used instead of a static matrix
 - `strategies.intervention.state_costs`
 - `strategies.intervention.state_utilities`
 - `willingness_to_pay` when it is not null
@@ -110,7 +112,7 @@ Add one unique `input_provenance` entry per required path:
 
 At least one valid source or `proposed` assumption is required. `unit`, `jurisdiction`, and `selection_rationale` are always required. Monetary inputs also require `currency` and integer `price_year` matching the plan's root `economic_basis`. `uncertainty_status` must be `fixed`, `range_available`, or `distribution_available`.
 
-Analysis-plan schema `0.3.0` requires a `derivation` on every mapping. `derivation.model_value` is a redundant review snapshot that must equal the exact current value at `path`; changing either side invalidates the mapping.
+Approvable analysis-plan schemas `0.3.0` and `0.4.0` require a `derivation` on every mapping. New plans use `0.4.0`, and a transition schedule maps the complete array at `strategies.<role>.transition_schedule` instead of the absent static matrix. `derivation.model_value` is a redundant review snapshot that must equal the exact current value at `path`; changing either side invalidates the mapping.
 
 Use only these executable methods:
 
@@ -165,4 +167,4 @@ For every source-based mapping, `extraction_ids` must be a non-empty unique list
 
 The portable validator checks the plan, synthesis digest, target, record links, strict extracted JSON, derivation snapshots, direct-value equality, monetary source bindings, and normalization arithmetic. It cannot read or create the app-owned review chain. The native desktop repeats these derivation checks against the current workspace synthesis and independently requires every selected extraction ID to have current confirmations from two distinct local reviewer labels and no rejection before analysis-plan approval. A single legacy event counts as one confirmation; a rejection blocks the current synthesis version until its bytes are revised and reviewed again.
 
-Structural audit is complete only when the plan uses schema `0.3.0`, all required paths have one valid executable mapping, no mapping is duplicated or invalid, and no `unresolved` assumptions remain. Schema `0.1.0` and `0.2.0` remain calculable for reproducibility but cannot pass approval. Human-review readiness additionally requires the dual local-label app review of every selected extraction. This does not prove authenticated identity, source truth, substantive appropriateness of a transformation, or independent duplicate extraction. Calculation may still run when incomplete, but analysis-plan approval must fail closed.
+Structural audit is complete only when the plan uses approvable schema `0.3.0` or `0.4.0`, all required paths have one valid executable mapping, no mapping is duplicated or invalid, and no `unresolved` assumptions remain. Schema `0.1.0` and `0.2.0` remain calculable for reproducibility but cannot pass approval. Human-review readiness additionally requires the dual local-label app review of every selected extraction. This does not prove authenticated identity, source truth, substantive appropriateness of a transformation, or independent duplicate extraction. Calculation may still run when incomplete, but analysis-plan approval must fail closed.

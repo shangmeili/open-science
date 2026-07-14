@@ -66,7 +66,8 @@ export interface HeorDecisionProblem {
 export interface HeorStrategy {
   name: string;
   initial_distribution: number[];
-  transition_matrix: number[][];
+  transition_matrix?: number[][];
+  transition_schedule?: Array<{ start_cycle: number; matrix: number[][] }>;
   state_costs: number[];
   state_utilities: number[];
 }
@@ -475,7 +476,7 @@ export interface HeorEvidenceVerificationRequest {
 }
 
 export interface HeorAnalysisPlan {
-  schema_version: "0.1.0" | "0.2.0" | "0.3.0";
+  schema_version: "0.1.0" | "0.2.0" | "0.3.0" | "0.4.0";
   analysis_id: string;
   economic_basis?: { currency: string; price_year: number };
   input_status?: string;
@@ -518,6 +519,8 @@ export interface HeorStrategyResult {
   total_qaly: number;
   net_monetary_benefit: number | null;
   occupancy: number[][];
+  transition_mode: "static" | "piecewise_by_model_cycle";
+  transition_schedule_start_cycles: number[];
 }
 
 export interface HeorCalculation {
@@ -693,8 +696,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseHeorPlan(raw: string): HeorAnalysisPlan {
   const value: unknown = JSON.parse(raw);
   if (!isRecord(value)) throw new Error("analysis plan must be a JSON object");
-  if (!["0.1.0", "0.2.0", "0.3.0"].includes(String(value.schema_version))) {
-    throw new Error("analysis plan schema_version must be 0.1.0, 0.2.0, or 0.3.0");
+  if (!["0.1.0", "0.2.0", "0.3.0", "0.4.0"].includes(String(value.schema_version))) {
+    throw new Error("analysis plan schema_version must be 0.1.0, 0.2.0, 0.3.0, or 0.4.0");
   }
   if (typeof value.analysis_id !== "string" || !value.analysis_id.trim()) {
     throw new Error("analysis plan must include analysis_id");
@@ -1071,7 +1074,19 @@ export function auditHeorConceptualModel(
 /** Browser-side review preview. The Rust command repeats this audit and is the
  * authoritative approval boundary. */
 export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
-  const requiredPaths: string[] = [...BASE_INPUT_PATHS];
+  const requiredPaths: string[] = BASE_INPUT_PATHS
+    .filter((path) => !path.endsWith(".transition_matrix"));
+  for (const role of ["comparator", "intervention"] as const) {
+    const transitionField = plan.strategies[role].transition_schedule
+      ? "transition_schedule"
+      : "transition_matrix";
+    const initialPath = `strategies.${role}.initial_distribution`;
+    requiredPaths.splice(
+      requiredPaths.indexOf(initialPath) + 1,
+      0,
+      `strategies.${role}.${transitionField}`,
+    );
+  }
   if (plan.willingness_to_pay !== null) requiredPaths.push("willingness_to_pay");
   const required = new Set<string>(requiredPaths);
   const sourceIdCounts = new Map<string, number>();
@@ -1100,8 +1115,22 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
   const seen = new Set<string>();
   const covered = new Set<string>();
   const invalidMappings: string[] = [];
-  if (plan.schema_version !== "0.3.0") {
-    invalidMappings.push("schema_version must be 0.3.0 for approval review");
+  if (!(plan.schema_version === "0.3.0" || plan.schema_version === "0.4.0")) {
+    invalidMappings.push("schema_version must be 0.3.0 or 0.4.0 for approval review");
+  }
+  for (const role of ["comparator", "intervention"] as const) {
+    const hasMatrix = plan.strategies[role].transition_matrix != null;
+    const hasSchedule = plan.strategies[role].transition_schedule != null;
+    if (hasMatrix === hasSchedule) {
+      invalidMappings.push(
+        `strategies.${role} must define exactly one of transition_matrix or transition_schedule`,
+      );
+    }
+    if (hasSchedule && plan.schema_version !== "0.4.0") {
+      invalidMappings.push(
+        `strategies.${role}.transition_schedule requires schema_version 0.4.0`,
+      );
+    }
   }
   if (!plan.economic_basis || !currencyCode(plan.economic_basis.currency)
     || !Number.isInteger(plan.economic_basis.price_year)
@@ -1660,7 +1689,7 @@ export function browserDemoRun(
   return {
     calculation: {
       analysis_id: HEOR_BROWSER_DEMO_PLAN.analysis_id,
-      engine_version: "0.3.0",
+      engine_version: "0.4.0",
       schema_version: "0.3.0",
       reference_case: {
         id: "CN-2020-current",
@@ -1677,6 +1706,8 @@ export function browserDemoRun(
           total_qaly: 1.6883071262009621,
           net_monetary_benefit: 165355.42402698507,
           occupancy: [],
+          transition_mode: "static",
+          transition_schedule_start_cycles: [1],
         },
         intervention: {
           name: "new_treatment",
@@ -1684,6 +1715,8 @@ export function browserDemoRun(
           total_qaly: 1.8826406968498464,
           net_monetary_benefit: 178614.11085140528,
           occupancy: [],
+          transition_mode: "static",
+          transition_schedule_start_cycles: [1],
         },
       },
       incremental: {

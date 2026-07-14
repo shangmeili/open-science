@@ -26,6 +26,8 @@ Every evidence item must be a bounded local file under `heor/validation-evidence
 
 For cost effectiveness, passed independent-reviewer checks must cover face validity, input data, external validity, and all five technical components: input calculations, event/state calculations, result calculations, uncertainty calculations, and overall checks.
 
+When analysis schema `0.4.0` uses `transition_schedule`, event/state verification evidence must exercise every change-point boundary, confirm the matrix active immediately before and at each `start_cycle`, check mass conservation through the full trace, and compare a one-phase schedule with the equivalent static matrix. This is still model-cycle behavior; it does not validate time-in-state or patient-history effects.
+
 For the simple BIA, passed independent-reviewer checks must cover face validity, input data, external validity, and four technical components: input calculations, result calculations, uncertainty calculations, and overall checks. Event/state verification is not required unless a future cohort or patient-level BIA is used.
 
 Cross validity must be passed or explicitly `not_feasible` for the cost-effectiveness model. Predictive validity must be passed or explicitly `not_feasible` for both calculation paths. A `not_feasible` check still needs local evidence and a rationale. External validity cannot be replaced by `not_feasible` at the independent-validation gate.
