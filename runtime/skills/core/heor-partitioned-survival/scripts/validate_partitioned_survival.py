@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 from math import isclose, isfinite
 from pathlib import Path
@@ -115,8 +116,8 @@ def validate(
     workspace: Path | None,
 ) -> list[str]:
     errors: list[str] = []
-    if plan.get("schema_version") != "0.1.0":
-        errors.append("schema_version must be 0.1.0")
+    if plan.get("schema_version") != "0.2.0":
+        errors.append("schema_version must be 0.2.0")
     for field in ("psm_id", "analysis_id", "time_origin"):
         if not isinstance(plan.get(field), str) or not plan[field].strip():
             errors.append(f"{field} must not be empty")
@@ -280,24 +281,52 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("analysis_plan", type=Path)
     parser.add_argument("partitioned_survival_plan", type=Path)
-    parser.add_argument("--workspace-root", type=Path)
+    parser.add_argument("materializations", type=Path)
+    parser.add_argument("--workspace-root", type=Path, required=True)
     args = parser.parse_args()
     try:
         analysis_raw = args.analysis_plan.read_bytes()
         plan_raw = args.partitioned_survival_plan.read_bytes()
+        materializations_raw = args.materializations.read_bytes()
         analysis = json.loads(analysis_raw)
         plan = json.loads(plan_raw)
+        materializations = json.loads(materializations_raw)
     except (OSError, json.JSONDecodeError) as error:
         print(f"INVALID: {error}")
         return 1
     errors = validate(analysis, analysis_raw, plan, args.workspace_root)
+    validator_path = (
+        Path(__file__).resolve().parents[2]
+        / "heor-survival-curve-materialization/scripts"
+        / "validate_survival_curve_materializations.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "ai4heor_survival_materialization_validator", validator_path
+    )
+    if spec is None or spec.loader is None:
+        errors.append("survival materialization validator cannot be loaded")
+    else:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        errors.extend(
+            module.validate(
+                analysis,
+                analysis_raw,
+                plan,
+                materializations,
+                materializations_raw,
+                args.workspace_root,
+            )
+        )
     if errors:
         for error in errors:
             print(f"INVALID: {error}")
         return 1
     print(
-        "VALID: partitioned survival plan 0.1.0; "
-        f"analysis_sha256={sha256(analysis_raw)}; plan_sha256={sha256(plan_raw)}"
+        "VALID: partitioned survival plan 0.2.0; "
+        f"analysis_sha256={sha256(analysis_raw)}; "
+        f"plan_sha256={sha256(plan_raw)}; "
+        f"materializations_sha256={sha256(materializations_raw)}"
     )
     return 0
 

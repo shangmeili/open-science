@@ -749,6 +749,7 @@ mod tests {
                 analysis_id: "analysis-1".into(),
                 analysis_plan_sha256: "c".repeat(64),
                 partitioned_survival_sha256: String::new(),
+                survival_curve_materializations_sha256: String::new(),
                 strategy_count: 0,
                 curve_count: 0,
                 time_point_count: 0,

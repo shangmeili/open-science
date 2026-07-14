@@ -20,10 +20,11 @@ from .model import (
     _incremental,
     _optimal_at_threshold,
 )
+from .survival_materialization import validate_survival_curve_materializations
 
 
-SCHEMA_VERSION = "0.1.0"
-ENGINE_VERSION = "0.1.0"
+SCHEMA_VERSION = "0.2.0"
+ENGINE_VERSION = "0.2.0"
 PLAN_PATH = "heor/partitioned-survival-plan.json"
 ANALYSIS_PATH = "heor/analysis-plan.json"
 STATE_ORDER = ("progression_free", "progressed", "dead")
@@ -36,11 +37,20 @@ def run_partitioned_survival(
     analysis_raw: bytes,
     partitioned_plan: dict[str, Any],
     partitioned_raw: bytes,
+    materializations: dict[str, Any],
+    materializations_raw: bytes,
 ) -> dict[str, Any]:
     """Validate and execute a hash-bound partitioned survival plan."""
 
     specification = MarkovSpecification.from_dict(analysis_plan)
     _validate(partitioned_plan, analysis_plan, analysis_raw, specification)
+    validate_survival_curve_materializations(
+        analysis_plan,
+        analysis_raw,
+        partitioned_plan,
+        materializations,
+        materializations_raw,
+    )
 
     strategy_results: list[tuple[str, StrategyResult]] = []
     curve_values = partitioned_plan["strategies"]
@@ -127,6 +137,9 @@ def run_partitioned_survival(
         "analysis_plan_sha256": hashlib.sha256(analysis_raw).hexdigest(),
         "partitioned_survival_plan_sha256": hashlib.sha256(
             partitioned_raw
+        ).hexdigest(),
+        "survival_curve_materializations_sha256": hashlib.sha256(
+            materializations_raw
         ).hexdigest(),
         "calculation_classification": "calculation_only",
         "model_type": "partitioned_survival",

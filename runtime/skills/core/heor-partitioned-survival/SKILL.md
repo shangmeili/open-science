@@ -12,21 +12,23 @@ Create a deterministic, hash-bound `heor/partitioned-survival-plan.json` without
 1. Read `heor/analysis-plan.json`, the selected PFS and OS curve reviews, and [references/contract.md](references/contract.md).
 2. Confirm the decision process is forward-only and the analysis states are exactly `progression_free`, `progressed`, and `dead` in that order. Stop if this structure is not justified.
 3. Confirm every strategy uses the same population, time origin, time unit, cycle grid, and horizon for PFS and OS. Preserve unresolved differences as blockers; do not normalize them silently.
-4. Copy [assets/partitioned-survival-plan.template.json](assets/partitioned-survival-plan.template.json) to `heor/partitioned-survival-plan.json` and replace every placeholder.
-5. Bind `base_analysis.content_sha256` to the exact analysis-plan bytes. Bind each endpoint to the exact reviewed curve artifact bytes, its logical target `partitioned_survival.strategies.<strategy_id>.<endpoint>`, and the Human-selected converged family.
-6. Record survival at time zero and every cycle endpoint. Give every value one or more evidence, extraction, assumption, or review basis IDs.
-7. Calculate the implied checks without editing the input curves:
+4. Use `$heor-survival-curve-materialization` to create and validate `heor/survival-curve-materializations.json`. Stop if a curve is not an admitted exponential-rate or Weibull AFT shape/scale materialization.
+5. Copy [assets/partitioned-survival-plan.template.json](assets/partitioned-survival-plan.template.json) to `heor/partitioned-survival-plan.json` and replace every placeholder.
+6. Bind `base_analysis.content_sha256` to the exact analysis-plan bytes and `curve_materializations.content_sha256` to the exact materialization-manifest bytes. Bind each endpoint to the exact reviewed curve artifact bytes, its logical target `partitioned_survival.strategies.<strategy_id>.<endpoint>`, and the Human-selected converged family.
+7. Copy each materialized value and its exact ordered review, fit-output, and evaluator basis IDs. Do not enter free-text or substitute basis IDs.
+8. Calculate the implied checks without editing the input curves:
    - progression free = PFS
    - progressed = OS - PFS
    - dead = 1 - OS
-8. Stop if PFS or OS increases, PFS exceeds OS, a time point is absent or duplicated, or state occupancy is negative or fails to sum to one.
-9. Record the rationale for independent endpoint extrapolation, its limitations, and face, internal, and external validation tasks.
-10. Set `status` to `ready_for_human_review` only after all placeholders and blockers are resolved.
-11. Run:
+9. Stop if PFS or OS increases, PFS exceeds OS, a time point is absent or duplicated, or state occupancy is negative or fails to sum to one.
+10. Record the rationale for independent endpoint extrapolation, its limitations, and face, internal, and external validation tasks.
+11. Set `status` to `ready_for_human_review` only after all placeholders and blockers are resolved.
+12. Run:
 
 ```bash
 python3 runtime/skills/core/heor-partitioned-survival/scripts/validate_partitioned_survival.py \
-  heor/analysis-plan.json heor/partitioned-survival-plan.json --workspace-root .
+  heor/analysis-plan.json heor/partitioned-survival-plan.json \
+  heor/survival-curve-materializations.json --workspace-root .
 ```
 
 ## Boundaries

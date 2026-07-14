@@ -1,4 +1,4 @@
-# AI4HEOR partitioned survival contract 0.1.0
+# AI4HEOR partitioned survival contract 0.2.0
 
 ## Calculation boundary
 
@@ -18,9 +18,11 @@ Each survival value is finite, from zero to one, and non-increasing. Time-zero P
 
 ## Provenance and review binding
 
-Every curve value carries at least one unique basis ID. Each PFS and OS curve also binds a reviewed curve artifact by workspace-relative path and lowercase SHA-256, the exact logical target `partitioned_survival.strategies.<strategy_id>.<endpoint>`, and the Human-selected converged family. The validator reads those exact bytes when `--workspace-root` is supplied and checks the review schema, status, analysis target, endpoint, time origin, and year unit. The desktop audit additionally applies the complete survival-review contract to the bound artifact and its referenced diagnostic inputs.
+Every curve value carries the exact ordered review-hash, typed-fit-output-hash, and evaluator basis IDs defined by the survival materialization contract. Each PFS and OS curve also binds a reviewed curve artifact by workspace-relative path and lowercase SHA-256, the exact logical target `partitioned_survival.strategies.<strategy_id>.<endpoint>`, and the Human-selected converged family. The validator reads those exact bytes when `--workspace-root` is supplied and checks the review schema, status, analysis target, endpoint, time origin, and year unit. The desktop audit additionally applies the complete survival-review contract to the bound artifact and its referenced diagnostic inputs.
 
-The alpha does not yet prove that every cycle-boundary value was reproduced from the selected model's fitted parameters. Basis IDs and review hashes provide provenance and integrity, not numerical derivation. Release integration requires a typed curve-materialization artifact that binds selected fit parameters, evaluation code/version, time grid, and reproduced values.
+Schema `0.2.0` requires `heor/survival-curve-materializations.json`. That manifest binds the selected typed fit output, admitted parameterization, evaluator identity/version, time grid, reproduced values, and exact basis IDs. The partitioned-survival validator invokes the dedicated materialization validator, so source-byte, parameter, formula, value, or copied-basis drift fails closed.
+
+This numerical derivation contract is intentionally limited to exponential rate and Weibull AFT shape/scale. It does not fit data, transform backend coefficients, select a family, infer covariance, apply treatment effects, or validate extrapolation plausibility.
 
 The plan binds the exact `heor/analysis-plan.json` bytes and the analysis plan links back to `heor/partitioned-survival-plan.json`.
 

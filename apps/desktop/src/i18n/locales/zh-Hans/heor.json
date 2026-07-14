@@ -291,8 +291,8 @@
     "curves": "PFS / OS 曲线",
     "points": "曲线点",
     "askAgent": "让 Agent 创建或修复分区生存分析",
-    "repairPrompt": "使用 $heor-partitioned-survival，基于当前 heor/analysis-plan.json 和已选 PFS/OS 曲线审查文件的精确字节创建或修复 heor/partitioned-survival-plan.json。不要把分区生存伪装为马尔可夫转移。确认正向三状态概念依据、目标人群、终点定义、时间起点和周期网格一致。按无进展=PFS、进展=OS-PFS、死亡=1-OS 计算。曲线回升、PFS 高于 OS、负占用或溯源缺失时必须失败，不得静默修补。运行确定性验证器，且不得创建或声称人工审批。",
-    "note": "自然语言依据是主交互，精确曲线行只是辅助结构化输入；可供审查不等于已获人工批准。",
+    "repairPrompt": "先使用 $heor-survival-curve-materialization，把每条经人工选择的指数率或 Weibull AFT PFS/OS 曲线，从精确绑定的类型化拟合输出重现在分析周期网格上；再使用 $heor-partitioned-survival 创建或修复 heor/partitioned-survival-plan.json，并绑定精确的曲线物化清单。不要把分区生存伪装为马尔可夫转移。确认正向三状态概念依据、目标人群、终点定义、时间起点和周期网格一致。按无进展=PFS、进展=OS-PFS、死亡=1-OS 计算。不支持的分布、参数漂移、曲线回升、PFS 高于 OS、负占用或溯源缺失时必须失败，不得静默修补。运行两个确定性验证器，且不得创建或声称人工审批。",
+    "note": "自然语言依据是主交互，精确参数与曲线行只是辅助结构化输入；应用会独立重算每条已准入曲线。可供审查不等于已获人工批准。",
     "releaseBoundary": "当前支持本地计算和分析计划审批；在报告与独立验证契约绑定本计划及结果前，发布仍会被阻断。",
     "noProject": "当前没有可供分区生存审计的项目。",
     "missingPlan": "必须先有分析计划，才能审计分区生存。"

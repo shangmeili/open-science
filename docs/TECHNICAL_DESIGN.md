@@ -799,12 +799,21 @@ layer, and provenance/reviewer as the real moat of an open-source Claude Science
 
 ## Partitioned-survival alpha contract (2026-07-15)
 
-`heor/partitioned-survival-plan.json` schema `0.1.0` is an optional, hash-bound
+`heor/partitioned-survival-plan.json` schema `0.2.0` is an optional, hash-bound
 analysis linked from the base plan. It requires the exact state order
 `progression_free`, `progressed`, `dead`; a forward-only conceptual basis;
-aligned time-zero and cycle-endpoint PFS/OS values with value-level basis IDs;
+aligned time-zero and cycle-endpoint PFS/OS values with exact ordered review,
+fit-output, and evaluator basis IDs;
 and exact PFS/OS review-file hashes, logical strategy/endpoint targets, and
-Human-selected converged families. The native boundary reuses the full
+Human-selected converged families. It also binds the exact schema `0.1.0`
+`heor/survival-curve-materializations.json` bytes. Each curve in that manifest
+binds a strict selected-fit output and one explicit `exponential_rate` or
+`weibull_shape_scale_aft` parameterization, evaluator
+`ai4heor-parametric-survival@0.1.0`, analysis grid, and reproduced values. The
+portable materialization validator and native Rust independently read the
+review and typed fit-output bytes and evaluate `exp(-rate*t)` or
+`exp(-(t/scale)^shape)`; any hash, family, parameter, value, order, or copied-
+basis drift fails closed. The native boundary reuses the full
 survival-review audit and requires the bound review context to name the matching
 PFS or OS endpoint. The dependency-free engine computes
 occupancy directly as `(PFS, OS-PFS, 1-OS)` and applies the base plan's state
@@ -817,6 +826,7 @@ result; this prevents an unsupported decision-ready claim. The alpha still
 validates the shared cohort-analysis schema, whose transition inputs are ignored
 by the PSM calculation but remain structurally required. Replacing that coupling
 with a dedicated decision-problem and economic-input contract is a release task.
-The alpha's review and basis bindings do not independently reproduce every
-cycle-boundary value from fitted parameters; a typed curve-materialization
-artifact and evaluator are also required before validation/report integration.
+The materializer does not fit data, transform backend coefficients, choose a
+family, infer covariance, apply treatment effects, support other survival
+families, or establish clinical/external validity. Those remain distinct future
+contracts, as do PSM uncertainty and validation/report integration.

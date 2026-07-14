@@ -20,6 +20,7 @@ pub struct PartitionedSurvivalAudit {
     pub analysis_id: String,
     pub analysis_plan_sha256: String,
     pub partitioned_survival_sha256: String,
+    pub survival_curve_materializations_sha256: String,
     pub strategy_count: usize,
     pub curve_count: usize,
     pub time_point_count: usize,
@@ -51,6 +52,7 @@ fn empty_audit(plan_raw: &[u8], required: bool) -> PartitionedSurvivalAudit {
         analysis_id: String::new(),
         analysis_plan_sha256: sha256(plan_raw),
         partitioned_survival_sha256: String::new(),
+        survival_curve_materializations_sha256: String::new(),
         strategy_count: 0,
         curve_count: 0,
         time_point_count: 0,
@@ -127,11 +129,11 @@ fn audit_values(
     if psm
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        != Some("0.1.0")
+        != Some("0.2.0")
     {
         audit
             .errors
-            .push("partitioned survival schema_version must be 0.1.0".into());
+            .push("partitioned survival schema_version must be 0.2.0".into());
     }
     for field in ["psm_id", "analysis_id", "time_origin"] {
         if !nonempty(psm.get(field)) {
@@ -420,6 +422,22 @@ fn audit_values(
     if string_set(psm.get("limitations")).is_none() {
         audit.errors.push("limitations are required".into());
     }
+    let materialization_audit =
+        crate::heor_survival_materialization::audit_survival_materializations(
+            workspace, plan, plan_raw, psm,
+        );
+    audit.survival_curve_materializations_sha256 = materialization_audit.sha256;
+    audit
+        .artifact_bindings
+        .extend(materialization_audit.artifact_bindings);
+    if !materialization_audit.complete {
+        audit.errors.extend(
+            materialization_audit
+                .errors
+                .into_iter()
+                .map(|error| format!("survival materialization: {error}")),
+        );
+    }
     let authority = String::from_utf8_lossy(psm_raw).to_ascii_lowercase();
     if [
         "\"approved\":",
@@ -525,6 +543,8 @@ pub fn run_heor_partitioned_survival(
     }
     let plan_path = workspace.join(ANALYSIS_PLAN_PATH);
     let psm_path = workspace.join(PARTITIONED_SURVIVAL_PLAN_PATH);
+    let materializations_path =
+        workspace.join(crate::heor_survival_materialization::SURVIVAL_MATERIALIZATION_PATH);
     let plan_raw = crate::heor_uncertainty::read_workspace_capped(&workspace, ANALYSIS_PLAN_PATH)?;
     let audit = require_partitioned_survival_approvable(&workspace, &plan_raw)?;
 
@@ -538,6 +558,8 @@ pub fn run_heor_partitioned_survival(
         .arg(&plan_path)
         .arg("--partitioned-survival-plan")
         .arg(&psm_path)
+        .arg("--survival-curve-materializations")
+        .arg(&materializations_path)
         .current_dir(&workspace)
         .env("PYTHONPATH", &package_src)
         .env("PYTHONDONTWRITEBYTECODE", "1")
@@ -567,6 +589,10 @@ pub fn run_heor_partitioned_survival(
             .get("partitioned_survival_plan_sha256")
             .and_then(serde_json::Value::as_str)
             != Some(audit.partitioned_survival_sha256.as_str())
+        || calculation
+            .get("survival_curve_materializations_sha256")
+            .and_then(serde_json::Value::as_str)
+            != Some(audit.survival_curve_materializations_sha256.as_str())
     {
         return Err("partitioned survival engine hashes do not match audited inputs".into());
     }

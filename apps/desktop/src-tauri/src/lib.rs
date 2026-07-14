@@ -19,6 +19,7 @@ mod heor_reference_case;
 mod heor_reporting;
 mod heor_search;
 mod heor_synthesis;
+mod heor_survival_materialization;
 mod heor_survival_review;
 mod heor_uncertainty;
 mod heor_validation;

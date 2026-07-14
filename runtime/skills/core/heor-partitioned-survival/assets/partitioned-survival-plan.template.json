@@ -1,10 +1,14 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "psm_id": "REPLACE_ME",
   "analysis_id": "REPLACE_ME",
   "status": "draft",
   "base_analysis": {
     "path": "heor/analysis-plan.json",
+    "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
+  },
+  "curve_materializations": {
+    "path": "heor/survival-curve-materializations.json",
     "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
   },
   "time_origin": "REPLACE_ME",
@@ -23,10 +27,10 @@
   "strategies": {
     "REPLACE_WITH_STRATEGY_ID": {
       "pfs": [
-        {"time_years": 0.0, "survival": 1.0, "basis_ids": ["REPLACE_ME"]}
+        {"time_years": 0.0, "survival": 1.0, "basis_ids": ["review-sha256:REPLACE_ME", "fit-output-sha256:REPLACE_ME", "evaluator:ai4heor-parametric-survival@0.1.0"]}
       ],
       "os": [
-        {"time_years": 0.0, "survival": 1.0, "basis_ids": ["REPLACE_ME"]}
+        {"time_years": 0.0, "survival": 1.0, "basis_ids": ["review-sha256:REPLACE_ME", "fit-output-sha256:REPLACE_ME", "evaluator:ai4heor-parametric-survival@0.1.0"]}
       ],
       "curve_review_bindings": {
         "pfs": {"path": "REPLACE_ME", "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256", "target_path": "partitioned_survival.strategies.REPLACE_WITH_STRATEGY_ID.pfs", "selected_family": "REPLACE_ME"},

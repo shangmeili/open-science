@@ -33,12 +33,25 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Optional path to a hash-bound partitioned survival plan",
     )
+    parser.add_argument(
+        "--survival-curve-materializations",
+        type=Path,
+        help="Required materialization manifest for partitioned survival",
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if (
+            args.survival_curve_materializations is not None
+            and args.partitioned_survival_plan is None
+        ):
+            raise ModelValidationError(
+                "--survival-curve-materializations requires "
+                "--partitioned-survival-plan"
+            )
         raw = args.input.read_bytes()
         payload = json.loads(raw)
         if (
@@ -60,10 +73,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             budget_payload = json.loads(budget_raw)
             result = run_budget_impact(payload, raw, budget_payload, budget_raw)
         else:
+            if args.survival_curve_materializations is None:
+                raise ModelValidationError(
+                    "partitioned survival requires --survival-curve-materializations"
+                )
             partitioned_raw = args.partitioned_survival_plan.read_bytes()
             partitioned_payload = json.loads(partitioned_raw)
+            materializations_raw = args.survival_curve_materializations.read_bytes()
+            materializations_payload = json.loads(materializations_raw)
             result = run_partitioned_survival(
-                payload, raw, partitioned_payload, partitioned_raw
+                payload,
+                raw,
+                partitioned_payload,
+                partitioned_raw,
+                materializations_payload,
+                materializations_raw,
             )
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     except (OSError, ArithmeticError, json.JSONDecodeError, ModelValidationError) as error:

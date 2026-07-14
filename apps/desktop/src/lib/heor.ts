@@ -392,6 +392,7 @@ export interface HeorPartitionedSurvivalAudit {
   analysisId: string;
   analysisPlanSha256: string;
   partitionedSurvivalSha256: string;
+  survivalCurveMaterializationsSha256: string;
   strategyCount: number;
   curveCount: number;
   timePointCount: number;
@@ -938,12 +939,13 @@ export interface HeorBudgetImpactRunResult {
 }
 
 export interface HeorPartitionedSurvivalCalculation {
-  schema_version: "0.1.0";
+  schema_version: "0.2.0";
   engine_version: string;
   analysis_id: string;
   psm_id: string;
   analysis_plan_sha256: string;
   partitioned_survival_plan_sha256: string;
+  survival_curve_materializations_sha256: string;
   calculation_classification: "calculation_only";
   model_type: "partitioned_survival";
   state_order: ["progression_free", "progressed", "dead"];
@@ -2860,6 +2862,7 @@ export const HEOR_BROWSER_DEMO_PARTITIONED_SURVIVAL_AUDIT: HeorPartitionedSurviv
   analysisId: HEOR_BROWSER_DEMO_PLAN.analysis_id,
   analysisPlanSha256: "",
   partitionedSurvivalSha256: "",
+  survivalCurveMaterializationsSha256: "",
   strategyCount: 0,
   curveCount: 0,
   timePointCount: 0,

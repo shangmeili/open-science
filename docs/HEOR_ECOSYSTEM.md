@@ -422,10 +422,17 @@ wording:
 The bounded partitioned-survival alpha is shipped as a structurally separate
 calculation, not a transition-matrix adapter. It accepts only aligned three-state
 PFS/OS cycle-boundary curves, binds the exact analysis and curve-review bytes plus
-each logical endpoint target and Human-selected converged family,
+each logical endpoint target and Human-selected converged family, and requires
+the exact schema `0.1.0` survival-materialization manifest. Each materialized
+curve binds a strict typed fit output, admitted exponential-rate or Weibull AFT
+parameterization, evaluator version, grid, values, and ordered basis IDs.
 derives `PFS`, `OS-PFS`, and `1-OS`, and returns cost, QALY, pairwise, and fully
 incremental results. Python, the standalone Skill validator, and native Rust
-independently fail on increasing curves, time-grid drift, PFS above OS, stale
-hashes, missing basis IDs, or invalid state structure. The analysis-plan Human
+independently re-read review and fit-output bytes, recalculate each admitted
+curve, and fail on parameter drift, unsupported parameterizations, increasing
+curves, time-grid drift, PFS above OS, stale hashes, missing basis IDs, or invalid
+state structure. The analysis-plan Human
 gate binds the PSM plan and reviews. PSM uncertainty and release reporting are
 not yet admitted; the app explicitly blocks release while the PSM link exists.
+Materialization is not statistical fitting, automatic selection, covariance
+recovery, treatment-effect application, or substantive extrapolation validation.

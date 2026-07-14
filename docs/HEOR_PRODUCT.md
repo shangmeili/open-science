@@ -727,7 +727,15 @@ The optional `heor/partitioned-survival-plan.json` alpha is a separate
 three-state calculation class. Natural-language interaction creates or repairs
 the rationale and bindings; curve rows are an auxiliary exact-input surface.
 Each curve review must match the current analysis, strategy/endpoint target,
-PFS or OS context, exact bytes, and Human-selected converged family.
+PFS or OS context, exact bytes, and Human-selected converged family. Schema
+`0.2.0` also binds `heor/survival-curve-materializations.json`: for each strategy
+and endpoint, that manifest binds one typed selected-fit output, its exact bytes,
+an admitted parameterization, evaluator `ai4heor-parametric-survival@0.1.0`,
+the analysis time grid, and every reproduced value. The first-party
+`$heor-survival-curve-materialization` workflow and a standalone validator create
+and check the artifact; native Rust independently re-reads the reviews and fit
+outputs and recalculates every exponential-rate or Weibull AFT value before the
+plan can enter approval.
 It derives progression-free occupancy from PFS, progressed occupancy from
 OS-PFS, and death from 1-OS; computes state rewards and incremental results;
 and blocks curve crossing, increasing survival, time-grid mismatch, stale
@@ -736,9 +744,8 @@ release is intentionally blocked until validation and reporting bind the PSM
 plan and result. The alpha also reuses the current cohort-model analysis schema,
 so transition matrices or schedules remain structurally required but are ignored
 by the PSM calculator; a dedicated shared economic-input contract is required
-before release integration.
-
-Review integrity also does not yet prove numerical derivation of every cycle-
-boundary value from the selected fit. A typed curve-materialization artifact,
-with fit parameters, evaluator version, grid, and reproduced values, is another
-release prerequisite.
+before release integration. Curve materialization closes the numerical-
+derivation gap only for the two admitted parameterizations. Statistical fitting,
+coefficient transformation, automatic family selection, covariance and PSM
+uncertainty, treatment-effect composition, other survival families, and
+substantive internal, external, or clinical validity remain outside this alpha.

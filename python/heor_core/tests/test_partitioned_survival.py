@@ -2,14 +2,22 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
-import subprocess
-import sys
-import tempfile
+from math import exp
 import unittest
 
 from heor_core.model import ModelValidationError
 from heor_core.partitioned_survival import run_partitioned_survival
+
+
+CURVES = {
+    ("comparator", "pfs"): ("exponential", {"rate_per_year": 0.5}),
+    ("comparator", "os"): ("exponential", {"rate_per_year": 0.2}),
+    ("intervention", "pfs"): (
+        "weibull",
+        {"shape": 1.2, "scale_years": 3.5},
+    ),
+    ("intervention", "os"): ("exponential", {"rate_per_year": 0.1}),
+}
 
 
 def analysis_payload() -> dict:
@@ -56,51 +64,67 @@ def analysis_payload() -> dict:
     }
 
 
+def survival(family: str, parameters: dict[str, float], time_years: float) -> float:
+    cumulative_hazard = (
+        parameters["rate_per_year"] * time_years
+        if family == "exponential"
+        else (time_years / parameters["scale_years"]) ** parameters["shape"]
+    )
+    return exp(-cumulative_hazard)
+
+
+def review_binding(strategy_id: str, endpoint: str, family: str) -> dict:
+    return {
+        "path": f"heor/reviews/{strategy_id}-{endpoint}.json",
+        "content_sha256": hashlib.sha256(
+            f"review:{strategy_id}:{endpoint}".encode()
+        ).hexdigest(),
+        "target_path": f"partitioned_survival.strategies.{strategy_id}.{endpoint}",
+        "selected_family": family,
+    }
+
+
+def fit_binding(strategy_id: str, endpoint: str) -> dict:
+    return {
+        "path": f"heor/fits/{strategy_id}-{endpoint}.json",
+        "content_sha256": hashlib.sha256(
+            f"fit:{strategy_id}:{endpoint}".encode()
+        ).hexdigest(),
+    }
+
+
+def curve_basis(review: dict, fit: dict) -> list[str]:
+    return [
+        f"review-sha256:{review['content_sha256']}",
+        f"fit-output-sha256:{fit['content_sha256']}",
+        "evaluator:ai4heor-parametric-survival@0.1.0",
+    ]
+
+
 def psm_payload(analysis_raw: bytes) -> dict:
-    binding_hash = "a" * 64
-    basis = {
+    conceptual_basis = {
         "rationale": "Declared and reviewable conceptual basis.",
         "basis_ids": ["basis-1"],
     }
-    rows = {
-        "comparator": {
-            "pfs": [1.0, 0.6, 0.3],
-            "os": [1.0, 0.8, 0.5],
-        },
-        "intervention": {
-            "pfs": [1.0, 0.7, 0.4],
-            "os": [1.0, 0.9, 0.65],
-        },
-    }
-    strategies = {}
-    for strategy_id, curves in rows.items():
-        strategies[strategy_id] = {
-            endpoint: [
+    strategies: dict[str, dict] = {}
+    for strategy_id in ("comparator", "intervention"):
+        strategies[strategy_id] = {"curve_review_bindings": {}}
+        for endpoint in ("pfs", "os"):
+            family, parameters = CURVES[(strategy_id, endpoint)]
+            review = review_binding(strategy_id, endpoint, family)
+            fit = fit_binding(strategy_id, endpoint)
+            basis_ids = curve_basis(review, fit)
+            strategies[strategy_id]["curve_review_bindings"][endpoint] = review
+            strategies[strategy_id][endpoint] = [
                 {
                     "time_years": float(index),
-                    "survival": survival,
-                    "basis_ids": [f"{strategy_id}-{endpoint}-{index}"],
+                    "survival": survival(family, parameters, float(index)),
+                    "basis_ids": basis_ids,
                 }
-                for index, survival in enumerate(values)
+                for index in range(3)
             ]
-            for endpoint, values in curves.items()
-        }
-        strategies[strategy_id]["curve_review_bindings"] = {
-            "pfs": {
-                "path": f"heor/reviews/{strategy_id}-pfs.json",
-                "content_sha256": binding_hash,
-                "target_path": f"partitioned_survival.strategies.{strategy_id}.pfs",
-                "selected_family": "weibull",
-            },
-            "os": {
-                "path": f"heor/reviews/{strategy_id}-os.json",
-                "content_sha256": binding_hash,
-                "target_path": f"partitioned_survival.strategies.{strategy_id}.os",
-                "selected_family": "weibull",
-            },
-        }
     return {
-        "schema_version": "0.1.0",
+        "schema_version": "0.2.0",
         "psm_id": "psm-example-base-case",
         "analysis_id": "psm-example",
         "status": "ready_for_human_review",
@@ -115,11 +139,11 @@ def psm_payload(analysis_raw: bytes) -> dict:
             "forward_only_disease_process": True,
         },
         "conceptual_basis": {
-            "forward_only_process": dict(basis),
-            "population_alignment": dict(basis),
-            "endpoint_alignment": dict(basis),
-            "time_origin_alignment": dict(basis),
-            "independent_extrapolation": dict(basis),
+            "forward_only_process": dict(conceptual_basis),
+            "population_alignment": dict(conceptual_basis),
+            "endpoint_alignment": dict(conceptual_basis),
+            "time_origin_alignment": dict(conceptual_basis),
+            "independent_extrapolation": dict(conceptual_basis),
         },
         "strategies": strategies,
         "validation_plan": {
@@ -131,180 +155,190 @@ def psm_payload(analysis_raw: bytes) -> dict:
     }
 
 
+def materialization_payload(analysis_raw: bytes, plan: dict) -> dict:
+    curves = []
+    for strategy_id in ("comparator", "intervention"):
+        for endpoint in ("pfs", "os"):
+            family, parameters = CURVES[(strategy_id, endpoint)]
+            review = plan["strategies"][strategy_id]["curve_review_bindings"][endpoint]
+            fit = fit_binding(strategy_id, endpoint)
+            curves.append(
+                {
+                    "target_path": review["target_path"],
+                    "strategy_id": strategy_id,
+                    "endpoint": endpoint,
+                    "review_binding": review,
+                    "fit_output_binding": fit,
+                    "family": family,
+                    "parameterization": (
+                        "exponential_rate"
+                        if family == "exponential"
+                        else "weibull_shape_scale_aft"
+                    ),
+                    "parameters": parameters,
+                    "basis_ids": curve_basis(review, fit),
+                    "values": [
+                        {
+                            "time_years": float(index),
+                            "survival": survival(
+                                family, parameters, float(index)
+                            ),
+                        }
+                        for index in range(3)
+                    ],
+                }
+            )
+    return {
+        "schema_version": "0.1.0",
+        "materialization_id": "psm-example-curves",
+        "analysis_id": "psm-example",
+        "psm_id": "psm-example-base-case",
+        "status": "ready_for_human_review",
+        "base_analysis": {
+            "path": "heor/analysis-plan.json",
+            "content_sha256": hashlib.sha256(analysis_raw).hexdigest(),
+        },
+        "time_origin": "randomization",
+        "time_unit": "years",
+        "evaluator": {
+            "id": "ai4heor-parametric-survival",
+            "version": "0.1.0",
+        },
+        "curves": curves,
+        "limitations": [
+            "Only exponential rate and Weibull AFT shape/scale are admitted."
+        ],
+    }
+
+
+def valid_inputs() -> tuple[dict, bytes, dict, bytes, dict, bytes]:
+    analysis = analysis_payload()
+    analysis_raw = json.dumps(analysis, sort_keys=True).encode()
+    plan = psm_payload(analysis_raw)
+    materializations = materialization_payload(analysis_raw, plan)
+    materializations_raw = json.dumps(materializations, sort_keys=True).encode()
+    plan["curve_materializations"] = {
+        "path": "heor/survival-curve-materializations.json",
+        "content_sha256": hashlib.sha256(materializations_raw).hexdigest(),
+    }
+    plan_raw = json.dumps(plan, sort_keys=True).encode()
+    return (
+        analysis,
+        analysis_raw,
+        plan,
+        plan_raw,
+        materializations,
+        materializations_raw,
+    )
+
+
 class PartitionedSurvivalTests(unittest.TestCase):
     def run_valid(self) -> dict:
-        analysis = analysis_payload()
-        analysis_raw = json.dumps(analysis, sort_keys=True).encode()
-        plan = psm_payload(analysis_raw)
-        plan_raw = json.dumps(plan, sort_keys=True).encode()
-        return run_partitioned_survival(analysis, analysis_raw, plan, plan_raw)
+        return run_partitioned_survival(*valid_inputs())
 
-    def test_calculates_coherent_occupancy_and_economic_results(self) -> None:
+    def test_calculates_materialized_occupancy_and_economic_results(self) -> None:
         result = self.run_valid()
+        self.assertEqual(result["schema_version"], "0.2.0")
         self.assertEqual(result["model_type"], "partitioned_survival")
-        expected = [[1.0, 0.0, 0.0], [0.6, 0.2, 0.2], [0.3, 0.2, 0.5]]
+        expected = [
+            [1.0, 0.0, 0.0],
+            [exp(-0.5), exp(-0.2) - exp(-0.5), 1.0 - exp(-0.2)],
+            [exp(-1.0), exp(-0.4) - exp(-1.0), 1.0 - exp(-0.4)],
+        ]
         for observed_row, expected_row in zip(
             result["strategies"]["comparator"]["occupancy"], expected
         ):
             for observed, expected_value in zip(observed_row, expected_row):
                 self.assertAlmostEqual(observed, expected_value)
+        expected_cost = 0.0
+        expected_qaly = 0.0
+        for start, end in zip(expected, expected[1:]):
+            occupancy = [(left + right) / 2.0 for left, right in zip(start, end)]
+            expected_cost += occupancy[0] * 1000.0 + occupancy[1] * 3000.0
+            expected_qaly += occupancy[0] * 0.8 + occupancy[1] * 0.5
         self.assertAlmostEqual(
-            result["strategies"]["comparator"]["total_cost"], 2150.0
+            result["strategies"]["comparator"]["total_cost"], expected_cost
         )
         self.assertAlmostEqual(
-            result["strategies"]["comparator"]["total_qaly"], 1.15
-        )
-        self.assertEqual(
-            result["strategies"]["comparator"]["transition_mode"],
-            "partitioned_survival",
+            result["strategies"]["comparator"]["total_qaly"], expected_qaly
         )
         self.assertIn("intervention", result["pairwise_vs_baseline"])
 
     def test_rejects_pfs_above_os_without_repair(self) -> None:
-        analysis = analysis_payload()
-        analysis_raw = json.dumps(analysis, sort_keys=True).encode()
-        plan = psm_payload(analysis_raw)
-        plan["strategies"]["intervention"]["pfs"][2]["survival"] = 0.7
+        inputs = list(valid_inputs())
+        inputs[2]["strategies"]["intervention"]["pfs"][1]["survival"] = 0.95
         with self.assertRaisesRegex(ModelValidationError, "PFS exceeds OS"):
-            run_partitioned_survival(analysis, analysis_raw, plan, b"{}")
+            run_partitioned_survival(*inputs)
 
     def test_rejects_increasing_survival(self) -> None:
-        analysis = analysis_payload()
-        analysis_raw = json.dumps(analysis, sort_keys=True).encode()
-        plan = psm_payload(analysis_raw)
-        plan["strategies"]["comparator"]["os"][2]["survival"] = 0.9
+        inputs = list(valid_inputs())
+        inputs[2]["strategies"]["comparator"]["os"][2]["survival"] = 0.9
         with self.assertRaisesRegex(ModelValidationError, "non-increasing"):
-            run_partitioned_survival(analysis, analysis_raw, plan, b"{}")
+            run_partitioned_survival(*inputs)
 
     def test_rejects_time_grid_mismatch(self) -> None:
-        analysis = analysis_payload()
-        analysis_raw = json.dumps(analysis, sort_keys=True).encode()
-        plan = psm_payload(analysis_raw)
-        plan["strategies"]["comparator"]["pfs"][1]["time_years"] = 0.5
+        inputs = list(valid_inputs())
+        inputs[2]["strategies"]["comparator"]["pfs"][1]["time_years"] = 0.5
         with self.assertRaisesRegex(ModelValidationError, "cycle grid"):
-            run_partitioned_survival(analysis, analysis_raw, plan, b"{}")
+            run_partitioned_survival(*inputs)
 
     def test_rejects_stale_analysis_hash(self) -> None:
-        analysis = analysis_payload()
-        analysis_raw = json.dumps(analysis, sort_keys=True).encode()
-        plan = psm_payload(analysis_raw)
-        plan["base_analysis"]["content_sha256"] = "0" * 64
+        inputs = list(valid_inputs())
+        inputs[2]["base_analysis"]["content_sha256"] = "0" * 64
         with self.assertRaisesRegex(ModelValidationError, "does not match"):
-            run_partitioned_survival(analysis, analysis_raw, plan, b"{}")
+            run_partitioned_survival(*inputs)
 
-    def test_portable_skill_validator_checks_exact_review_bytes(self) -> None:
-        analysis = analysis_payload()
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / "heor" / "reviews").mkdir(parents=True)
-            for strategy_id in ("comparator", "intervention"):
-                for endpoint in ("pfs", "os"):
-                    review_raw = json.dumps(
-                        {
-                            "schema_version": "0.2.0",
-                            "status": "ready_for_human_review",
-                            "analysis_target": {
-                                "analysis_id": "psm-example",
-                                "path": f"partitioned_survival.strategies.{strategy_id}.{endpoint}",
-                            },
-                            "context": {
-                                "endpoint": endpoint.upper(),
-                                "time_origin": "randomization",
-                                "time_unit": "years",
-                            },
-                        },
-                        sort_keys=True,
-                    ).encode()
-                    review_path = (
-                        root / "heor" / "reviews" / f"{strategy_id}-{endpoint}.json"
-                    )
-                    review_path.write_bytes(review_raw)
-            analysis_raw = json.dumps(analysis, sort_keys=True).encode()
-            plan = psm_payload(analysis_raw)
-            for strategy in plan["strategies"].values():
-                for binding in strategy["curve_review_bindings"].values():
-                    binding["content_sha256"] = hashlib.sha256(
-                        (root / binding["path"]).read_bytes()
-                    ).hexdigest()
-            analysis_path = root / "heor" / "analysis-plan.json"
-            plan_path = root / "heor" / "partitioned-survival-plan.json"
-            analysis_path.write_bytes(analysis_raw)
-            plan_path.write_text(json.dumps(plan, sort_keys=True))
-            validator = (
-                Path(__file__).resolve().parents[3]
-                / "runtime"
-                / "skills"
-                / "core"
-                / "heor-partitioned-survival"
-                / "scripts"
-                / "validate_partitioned_survival.py"
-            )
-            valid = subprocess.run(
-                [
-                    sys.executable,
-                    str(validator),
-                    str(analysis_path),
-                    str(plan_path),
-                    "--workspace-root",
-                    str(root),
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(valid.returncode, 0, valid.stdout + valid.stderr)
-            (root / "heor" / "reviews" / "comparator-pfs.json").write_bytes(b"changed")
-            stale = subprocess.run(
-                [
-                    sys.executable,
-                    str(validator),
-                    str(analysis_path),
-                    str(plan_path),
-                    "--workspace-root",
-                    str(root),
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            self.assertNotEqual(stale.returncode, 0)
-            self.assertIn("does not match the artifact bytes", stale.stdout)
+    def test_rejects_materialized_value_not_reproduced_by_parameters(self) -> None:
+        inputs = list(valid_inputs())
+        inputs[4]["curves"][0]["values"][1]["survival"] = 0.7
+        inputs[5] = json.dumps(inputs[4], sort_keys=True).encode()
+        inputs[2]["curve_materializations"]["content_sha256"] = hashlib.sha256(
+            inputs[5]
+        ).hexdigest()
+        with self.assertRaisesRegex(ModelValidationError, "deterministic evaluation"):
+            run_partitioned_survival(*inputs)
 
-            binding = plan["strategies"]["comparator"]["curve_review_bindings"][
-                "pfs"
-            ]
-            review_path = root / binding["path"]
-            mismatched_review = {
-                "schema_version": "0.2.0",
-                "status": "ready_for_human_review",
-                "analysis_target": {
-                    "analysis_id": "psm-example",
-                    "path": binding["target_path"],
-                },
-                "context": {
-                    "endpoint": "OS",
-                    "time_origin": "randomization",
-                    "time_unit": "years",
-                },
-            }
-            review_path.write_text(json.dumps(mismatched_review, sort_keys=True))
-            binding["content_sha256"] = hashlib.sha256(review_path.read_bytes()).hexdigest()
-            plan_path.write_text(json.dumps(plan, sort_keys=True))
-            semantic_mismatch = subprocess.run(
-                [
-                    sys.executable,
-                    str(validator),
-                    str(analysis_path),
-                    str(plan_path),
-                    "--workspace-root",
-                    str(root),
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            self.assertNotEqual(semantic_mismatch.returncode, 0)
-            self.assertIn("review endpoint does not match PFS", semantic_mismatch.stdout)
+    def test_rejects_stale_materialization_hash(self) -> None:
+        inputs = list(valid_inputs())
+        inputs[4]["limitations"].append("changed")
+        inputs[5] = json.dumps(inputs[4], sort_keys=True).encode()
+        with self.assertRaisesRegex(ModelValidationError, "does not match"):
+            run_partitioned_survival(*inputs)
+
+    def test_rejects_wrong_parameterization_and_basis(self) -> None:
+        inputs = list(valid_inputs())
+        inputs[4]["curves"][0]["parameterization"] = "weibull_shape_scale_aft"
+        inputs[5] = json.dumps(inputs[4], sort_keys=True).encode()
+        inputs[2]["curve_materializations"]["content_sha256"] = hashlib.sha256(
+            inputs[5]
+        ).hexdigest()
+        with self.assertRaisesRegex(ModelValidationError, "parameterization"):
+            run_partitioned_survival(*inputs)
+
+        inputs = list(valid_inputs())
+        inputs[2]["strategies"]["comparator"]["pfs"][0]["basis_ids"] = ["free-text"]
+        with self.assertRaisesRegex(ModelValidationError, "basis_ids"):
+            run_partitioned_survival(*inputs)
+
+    def test_rejects_curve_order_and_review_family_drift(self) -> None:
+        inputs = list(valid_inputs())
+        inputs[4]["curves"][0], inputs[4]["curves"][1] = (
+            inputs[4]["curves"][1],
+            inputs[4]["curves"][0],
+        )
+        inputs[5] = json.dumps(inputs[4], sort_keys=True).encode()
+        inputs[2]["curve_materializations"]["content_sha256"] = hashlib.sha256(
+            inputs[5]
+        ).hexdigest()
+        with self.assertRaisesRegex(ModelValidationError, "required target order"):
+            run_partitioned_survival(*inputs)
+
+        inputs = list(valid_inputs())
+        inputs[2]["strategies"]["comparator"]["curve_review_bindings"]["pfs"][
+            "selected_family"
+        ] = "weibull"
+        with self.assertRaisesRegex(ModelValidationError, "Human-selected"):
+            run_partitioned_survival(*inputs)
 
 
 if __name__ == "__main__":

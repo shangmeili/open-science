@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Survival Curve Materialization"
+  short_description: "Reproduce reviewed survival curves from fit parameters"
+  default_prompt: "Use $heor-survival-curve-materialization to reproduce each reviewed PFS and OS curve on the analysis cycle grid."
