@@ -16,6 +16,13 @@ from math import cos, exp, isclose, isfinite, log, pi, sqrt
 from typing import Any
 
 from .model import MarkovSpecification, ModelValidationError, run_markov
+from .probability_time import (
+    ANALYSIS_SCHEMA_VERSION as PROBABILITY_TIME_ANALYSIS_SCHEMA_VERSION,
+    TRANSFORMATION_METHOD as PROBABILITY_TIME_TRANSFORMATION_METHOD,
+    TRANSFORMATION_OPERATION as PROBABILITY_TIME_TRANSFORMATION_OPERATION,
+    ProbabilityTimeError,
+    apply_probability_time_mappings,
+)
 from .survival_curves import (
     ANALYSIS_SCHEMA_VERSION as SURVIVAL_ANALYSIS_SCHEMA_VERSION,
     TRANSFORMATION_METHOD as SURVIVAL_TRANSFORMATION_METHOD,
@@ -31,12 +38,13 @@ from .transition_rates import (
 )
 
 
-UNCERTAINTY_SCHEMA_VERSION = "0.5.0"
+UNCERTAINTY_SCHEMA_VERSION = "0.6.0"
+SURVIVAL_UNCERTAINTY_SCHEMA_VERSION = "0.5.0"
 CORRELATION_UNCERTAINTY_SCHEMA_VERSION = "0.4.0"
 RATE_UNCERTAINTY_SCHEMA_VERSION = "0.3.0"
 PRIOR_UNCERTAINTY_SCHEMA_VERSION = "0.2.0"
 LEGACY_UNCERTAINTY_SCHEMA_VERSION = "0.1.0"
-UNCERTAINTY_ENGINE_VERSION = "0.6.0"
+UNCERTAINTY_ENGINE_VERSION = "0.7.0"
 PRNG_ALGORITHM = "pcg32-xsh-rr"
 PRNG_VERSION = "1"
 MAX_ITERATIONS = 10_000
@@ -133,6 +141,7 @@ class Parameter:
     basis_ids: tuple[str, ...]
     rate_mapping_index: int | None
     survival_mapping_index: int | None
+    probability_mapping_index: int | None
 
 
 @dataclass(frozen=True)
@@ -193,10 +202,11 @@ class UncertaintySpecification:
             PRIOR_UNCERTAINTY_SCHEMA_VERSION,
             RATE_UNCERTAINTY_SCHEMA_VERSION,
             CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
+            SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
             UNCERTAINTY_SCHEMA_VERSION,
         }:
             raise ModelValidationError(
-                "uncertainty schema_version must be 0.1.0, 0.2.0, 0.3.0, 0.4.0, or 0.5.0"
+                "uncertainty schema_version must be 0.1.0, 0.2.0, 0.3.0, 0.4.0, 0.5.0, or 0.6.0"
             )
         base = _mapping(value.get("base_analysis", {}), "base_analysis")
         psa = _mapping(value.get("probabilistic_analysis", {}), "probabilistic_analysis")
@@ -209,6 +219,7 @@ class UncertaintySpecification:
             PRIOR_UNCERTAINTY_SCHEMA_VERSION,
             RATE_UNCERTAINTY_SCHEMA_VERSION,
             CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
+            SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
             UNCERTAINTY_SCHEMA_VERSION,
         }:
             threshold_config = _mapping(
@@ -230,7 +241,7 @@ class UncertaintySpecification:
         else:
             if "decision_thresholds" in psa:
                 raise ModelValidationError(
-                    "decision thresholds require uncertainty schema_version 0.2.0, 0.3.0, 0.4.0, or 0.5.0"
+                    "decision thresholds require uncertainty schema_version 0.2.0 through 0.6.0"
                 )
             decision_thresholds = (primary_threshold,)
             threshold_rationale = (
@@ -366,6 +377,7 @@ class UncertaintySpecification:
                 PRIOR_UNCERTAINTY_SCHEMA_VERSION,
                 RATE_UNCERTAINTY_SCHEMA_VERSION,
                 CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
+                SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
                 UNCERTAINTY_SCHEMA_VERSION,
             }
             else (1, 1)
@@ -698,11 +710,12 @@ def _correlation_groups(
 ) -> tuple[CorrelationGroup, ...]:
     if schema_version not in {
         CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
+        SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
         UNCERTAINTY_SCHEMA_VERSION,
     }:
         if "groups" in correlation:
             raise ModelValidationError(
-                "correlation groups require uncertainty schema_version 0.4.0 or 0.5.0"
+                "correlation groups require uncertainty schema_version 0.4.0, 0.5.0, or 0.6.0"
             )
         return ()
     raw_groups = _array(
@@ -872,30 +885,49 @@ def _parameter(
     rate_mapping_index = _rate_mapping_index(target)
     survival_target = _survival_mapping_parameter(target)
     survival_mapping_index = survival_target[0] if survival_target is not None else None
+    probability_mapping_index = _probability_mapping_index(target)
     if rate_mapping_index is not None and schema_version not in {
         RATE_UNCERTAINTY_SCHEMA_VERSION,
         CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
+        SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
         UNCERTAINTY_SCHEMA_VERSION,
     }:
         raise ModelValidationError(
-            "event-rate uncertainty requires uncertainty schema_version 0.3.0, 0.4.0, or 0.5.0"
+            "event-rate uncertainty requires uncertainty schema_version 0.3.0, 0.4.0, 0.5.0, or 0.6.0"
         )
-    if survival_mapping_index is not None and schema_version != UNCERTAINTY_SCHEMA_VERSION:
+    if survival_mapping_index is not None and schema_version not in {
+        SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+        UNCERTAINTY_SCHEMA_VERSION,
+    }:
         raise ModelValidationError(
-            "survival-parameter uncertainty requires uncertainty schema_version 0.5.0"
+            "survival-parameter uncertainty requires uncertainty schema_version 0.5.0 or 0.6.0"
+        )
+    if probability_mapping_index is not None and schema_version != UNCERTAINTY_SCHEMA_VERSION:
+        raise ModelValidationError(
+            "probability-time uncertainty requires uncertainty schema_version 0.6.0"
         )
     positive_parameter = rate_mapping_index is not None or survival_mapping_index is not None
+    bounded_probability = probability_mapping_index is not None
     _validate_replacement(
-        target, low, base, rate_parameter=positive_parameter
+        target,
+        low,
+        base,
+        rate_parameter=positive_parameter,
+        probability_parameter=bounded_probability,
     )
     _validate_replacement(
-        target, high, base, rate_parameter=positive_parameter
+        target,
+        high,
+        base,
+        rate_parameter=positive_parameter,
+        probability_parameter=bounded_probability,
     )
     distribution = _distribution(
         psa,
         base,
         f"parameters[{index}].probabilistic",
         rate_parameter=positive_parameter,
+        probability_parameter=bounded_probability,
     )
     basis_ids = tuple(
         _nonempty(item, f"parameters[{index}].probabilistic.basis_ids")
@@ -923,6 +955,14 @@ def _parameter(
             base_payload,
             survival_target[0],
             survival_target[1],
+            target,
+            provenance_path,
+            basis_ids,
+        )
+    elif probability_mapping_index is not None:
+        _validate_probability_parameter(
+            base_payload,
+            probability_mapping_index,
             target,
             provenance_path,
             basis_ids,
@@ -955,6 +995,7 @@ def _parameter(
         basis_ids=basis_ids,
         rate_mapping_index=rate_mapping_index,
         survival_mapping_index=survival_mapping_index,
+        probability_mapping_index=probability_mapping_index,
     )
 
 
@@ -964,6 +1005,7 @@ def _distribution(
     label: str,
     *,
     rate_parameter: bool = False,
+    probability_parameter: bool = False,
 ) -> dict[str, Any]:
     kind = _nonempty(value.get("type"), f"{label}.type")
     if kind == "beta":
@@ -1013,6 +1055,15 @@ def _distribution(
             )
         if kind == "uniform" and result["low"] <= 0:
             raise ModelValidationError(f"{label}.low must be positive for an event rate")
+    if probability_parameter:
+        if kind not in {"beta", "uniform"}:
+            raise ModelValidationError(
+                f"{label} must use beta or bounded uniform for a source probability"
+            )
+        if kind == "uniform" and not 0 < result["low"] < result["high"] < 1:
+            raise ModelValidationError(
+                f"{label}.uniform bounds must be strictly between 0 and 1 for a source probability"
+            )
     return result
 
 
@@ -1023,12 +1074,15 @@ def _apply_parameter_values(
     payload = copy.deepcopy(base_payload)
     affected_rate_mappings: set[int] = set()
     affected_survival_mappings: set[int] = set()
+    affected_probability_mappings: set[int] = set()
     for parameter, value in values:
         _replace(payload, parameter.target, value)
         if parameter.rate_mapping_index is not None:
             affected_rate_mappings.add(parameter.rate_mapping_index)
         if parameter.survival_mapping_index is not None:
             affected_survival_mappings.add(parameter.survival_mapping_index)
+        if parameter.probability_mapping_index is not None:
+            affected_probability_mappings.add(parameter.probability_mapping_index)
     for mapping_index in sorted(affected_rate_mappings):
         mapping = payload["input_provenance"][mapping_index]
         derivation = mapping["derivation"]
@@ -1052,6 +1106,13 @@ def _apply_parameter_values(
         except (KeyError, TypeError, SurvivalCurveError) as error:
             raise ModelValidationError(
                 "survival-parameter uncertainty could not recompute the affected transition schedule"
+            ) from error
+    if affected_probability_mappings:
+        try:
+            apply_probability_time_mappings(payload, affected_probability_mappings)
+        except (KeyError, TypeError, ProbabilityTimeError) as error:
+            raise ModelValidationError(
+                "probability-time uncertainty could not recompute the affected transition input"
             ) from error
     return payload
 
@@ -1086,6 +1147,73 @@ def _survival_mapping_parameter(target: str) -> tuple[int, str] | None:
     ):
         return int(tokens[1]), tokens[5]
     return None
+
+
+def _probability_mapping_index(target: str) -> int | None:
+    tokens = _pointer_tokens(target)
+    if (
+        len(tokens) == 10
+        and tokens[0] == "input_provenance"
+        and tokens[1].isdigit()
+        and tokens[2:5] == ["derivation", "transformation", "phases"]
+        and tokens[5].isdigit()
+        and tokens[6] == "rows"
+        and tokens[7].isdigit()
+        and tokens[8] == "event"
+        and tokens[9] == "source_probability"
+    ):
+        return int(tokens[1])
+    return None
+
+
+def _validate_probability_parameter(
+    base_payload: dict[str, Any],
+    mapping_index: int,
+    target: str,
+    provenance_path: str,
+    basis_ids: tuple[str, ...],
+) -> None:
+    if base_payload.get("schema_version") != PROBABILITY_TIME_ANALYSIS_SCHEMA_VERSION:
+        raise ModelValidationError(
+            f"probability-time uncertainty requires analysis schema_version {PROBABILITY_TIME_ANALYSIS_SCHEMA_VERSION}"
+        )
+    mappings = base_payload.get("input_provenance")
+    if not isinstance(mappings, list) or mapping_index >= len(mappings):
+        raise ModelValidationError(f"uncertainty target {target!r} does not exist")
+    mapping = mappings[mapping_index]
+    if not isinstance(mapping, dict) or mapping.get("path") != provenance_path:
+        raise ModelValidationError(
+            "probability-time uncertainty provenance_path must equal its transformation mapping path"
+        )
+    derivation = mapping.get("derivation")
+    transformation = (
+        derivation.get("transformation") if isinstance(derivation, dict) else None
+    )
+    if (
+        not isinstance(derivation, dict)
+        or derivation.get("method") != PROBABILITY_TIME_TRANSFORMATION_METHOD
+        or not isinstance(transformation, dict)
+        or transformation.get("operation") != PROBABILITY_TIME_TRANSFORMATION_OPERATION
+    ):
+        raise ModelValidationError(
+            "probability-time uncertainty requires an admitted single-event transformation"
+        )
+    event = _resolve(base_payload, target.rsplit("/", 1)[0])
+    if not isinstance(event, dict):
+        raise ModelValidationError(
+            "probability-time uncertainty target must belong to an event"
+        )
+    source_id = event.get("source_extraction_id")
+    assumption_id = event.get("assumption_id")
+    expected_basis = (
+        source_id
+        if isinstance(source_id, str) and source_id.strip()
+        else assumption_id
+    )
+    if not isinstance(expected_basis, str) or tuple(basis_ids) != (expected_basis,):
+        raise ModelValidationError(
+            "probability-time uncertainty basis_ids must contain exactly the event source extraction or assumption id"
+        )
 
 
 def _validate_survival_parameter(
@@ -1235,6 +1363,7 @@ def _validate_replacement(
     base: Any,
     structural: bool = False,
     rate_parameter: bool = False,
+    probability_parameter: bool = False,
 ) -> None:
     scalar_prefixes = (
         "/strategies/comparator/state_costs/",
@@ -1259,6 +1388,7 @@ def _validate_replacement(
         target.startswith(scalar_prefixes + simplex_prefixes)
         or scheduled_row
         or rate_parameter
+        or probability_parameter
     )
     if structural:
         allowed = allowed or target in structural_targets or scheduled_start
@@ -1274,6 +1404,10 @@ def _validate_replacement(
         number = _finite_float(value, f"replacement for {target}")
         if rate_parameter and number <= 0:
             raise ModelValidationError(f"replacement for {target} must be positive")
+        if probability_parameter and not 0 < number < 1:
+            raise ModelValidationError(
+                f"replacement for {target} must be strictly between 0 and 1"
+            )
     elif isinstance(base, list):
         if not isinstance(value, list) or len(value) != len(base):
             raise ModelValidationError(f"replacement for {target} must match the array length")

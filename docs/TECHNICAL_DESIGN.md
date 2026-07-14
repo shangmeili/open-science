@@ -216,7 +216,7 @@ synthesis extraction as strict JSON. The native selection audit repeats that
 check against current workspace bytes and, for monetary inputs, verifies each
 `source_value` against its named extraction scalar or array index before the
 existing normalization arithmetic. Only `direct_evidence`, `explicit_assumption`,
-`monetary_adjustment`, and the schema `0.5.0` and `0.6.0` bounded
+`monetary_adjustment`, and the schema `0.5.0` through `0.7.0` bounded
 `deterministic_transformation` operations described below are supported. Free-form
 expressions remain blocked.
 
@@ -257,18 +257,32 @@ portable validator, and TypeScript independently evaluate cumulative hazard at
 each cycle boundary, convert its increment with stable `expm1` arithmetic, and
 compare every emitted matrix with the current schedule and derivation snapshot.
 Each parameter binds exactly one extraction or proposed assumption. Uncertainty
-schema `0.5.0` may target the exact positive exponential rate or Weibull shape or
+schema `0.5.0` or `0.6.0` may target the exact positive exponential rate or Weibull shape or
 scale value. Python applies all replacements, recomputes the complete schedule
 and derivation snapshot, then invokes ordinary validation; portable and native
 audits independently enforce the same target, basis, and distribution contract.
 The engine does not fit, select, reconstruct covariance for, or clinically
 validate curves; those gaps stay visible to Human-in-the-loop review.
+
+Analysis-plan schema `0.7.0` admits
+`single_event_probability_time_conversion` on a complete strategy matrix or
+schedule. Every row declares `event: null` or one target with a source
+probability strictly inside `(0,1)`, a positive source interval, and one exact
+extraction or proposed-assumption basis. Python, Rust, the portable validator,
+and TypeScript independently compute
+`1 - exp(log(1-p) * cycle_length / source_interval)` with stable log/exponential
+primitives and compare the complete output with the current transition input
+and derivation snapshot. Uncertainty schema `0.6.0` may target only the exact
+source probability, accepts Beta or Uniform strictly inside `(0,1)`, and
+recomputes the complete affected transformation before normal validation.
+Competing events, time-varying hazards, certain events, relative effects,
+composite endpoints, and probability-parameter dependence remain blocked.
 Group order, member order, matrix, bases, and rationale are artifact data; Python,
 Rust, and the portable validator reject reused members, unsupported marginals,
 unlinked bases, singular/perfect matrices, and fields outside the contract. The
 implementation deliberately excludes
-general CTMC exponentiation, relative-effect application, probability time
-conversion, within-cycle multi-step paths, arbitrary copulas, rank correlation,
+general CTMC exponentiation, relative-effect application, within-cycle
+multi-step paths, arbitrary copulas, rank correlation,
 empirical posterior draws, and transformation-space structural scenarios.
 
 `heor/analysis-plan.json` carries the input-selection contract directly: a root
@@ -282,7 +296,7 @@ the exact evidence-to-input choices. The engine, uncertainty runner, and budget
 impact runner repeat the audit and invalidate stale approval bindings.
 
 Analysis-plan schema `0.2.0` introduced a root `economic_basis`; schemas
-`0.3.0` through `0.6.0` retain it and executable extraction-to-model derivations. Each monetary
+`0.3.0` through `0.7.0` retain it and executable extraction-to-model derivations. Each monetary
 mapping contains element-level source values and adjustment factors so the
 portable Python validator, native Rust approval boundary, and TypeScript review
 preview can all reject mixed or unreproducible currency/price-year inputs. The
@@ -313,7 +327,7 @@ legacy-shaped. The React review pane is a read-only accessible visualization
 of these app-written values; it has no authority to calculate, choose, or alter
 thresholds.
 
-Uncertainty engine `0.6.0` preserves prior schema draw behavior when no current
+Uncertainty engine `0.7.0` preserves prior schema draw behavior when no current
 correlation groups exist. For a schema `0.4.0` or `0.5.0` group it draws standard normals in
 declared group/member order, applies the validated lower Cholesky factor, then
 uses each member's declared lognormal parameters. Groups are sampled before

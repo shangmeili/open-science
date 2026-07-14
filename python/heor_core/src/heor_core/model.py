@@ -12,11 +12,16 @@ from dataclasses import dataclass
 from math import isclose, isfinite
 from typing import Any
 
+from .probability_time import (
+    ProbabilityTimeError,
+    validate_probability_time_mappings,
+)
 from .survival_curves import SurvivalCurveError, validate_survival_curve_mappings
 from .transition_rates import TransitionRateError, validate_transition_rate_mappings
 
 
-SCHEMA_VERSION = "0.6.0"
+SCHEMA_VERSION = "0.7.0"
+SURVIVAL_SCHEMA_VERSION = "0.6.0"
 TRANSITION_RATE_SCHEMA_VERSION = "0.5.0"
 TRANSITION_SCHEDULE_SCHEMA_VERSION = "0.4.0"
 DERIVATION_SCHEMA_VERSION = "0.3.0"
@@ -28,9 +33,10 @@ SUPPORTED_SCHEMA_VERSIONS = (
     DERIVATION_SCHEMA_VERSION,
     TRANSITION_SCHEDULE_SCHEMA_VERSION,
     TRANSITION_RATE_SCHEMA_VERSION,
+    SURVIVAL_SCHEMA_VERSION,
     SCHEMA_VERSION,
 )
-ENGINE_VERSION = "0.6.0"
+ENGINE_VERSION = "0.7.0"
 TOLERANCE = 1e-9
 
 
@@ -132,6 +138,7 @@ class MarkovSpecification:
             DERIVATION_SCHEMA_VERSION,
             TRANSITION_SCHEDULE_SCHEMA_VERSION,
             TRANSITION_RATE_SCHEMA_VERSION,
+            SURVIVAL_SCHEMA_VERSION,
             SCHEMA_VERSION,
         }:
             economic_basis = _mapping(economic_basis, "economic_basis")
@@ -193,7 +200,14 @@ class MarkovSpecification:
                 cycles=specification.cycles,
                 cycle_length_years=specification.cycle_length_years,
             )
-        except (TransitionRateError, SurvivalCurveError) as error:
+            validate_probability_time_mappings(
+                value,
+                schema_version=schema_version,
+                state_count=len(specification.states),
+                cycles=specification.cycles,
+                cycle_length_years=specification.cycle_length_years,
+            )
+        except (TransitionRateError, SurvivalCurveError, ProbabilityTimeError) as error:
             raise ModelValidationError(str(error)) from error
         return specification
 
@@ -533,11 +547,12 @@ def _validate_strategy(
     if schema_version not in {
         TRANSITION_SCHEDULE_SCHEMA_VERSION,
         TRANSITION_RATE_SCHEMA_VERSION,
+        SURVIVAL_SCHEMA_VERSION,
         SCHEMA_VERSION,
     } and strategy.transition_schedule is not None:
         raise ModelValidationError(
             f"{role}.transition_schedule requires schema_version "
-            f"{TRANSITION_SCHEDULE_SCHEMA_VERSION}, {TRANSITION_RATE_SCHEMA_VERSION}, or {SCHEMA_VERSION}"
+            f"{TRANSITION_SCHEDULE_SCHEMA_VERSION}, {TRANSITION_RATE_SCHEMA_VERSION}, {SURVIVAL_SCHEMA_VERSION}, or {SCHEMA_VERSION}"
         )
     if strategy.transition_matrix is None and strategy.transition_schedule is None:
         raise ModelValidationError(

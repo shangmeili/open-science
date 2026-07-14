@@ -66,6 +66,10 @@ survival_adapter = load(
     "validate_survival_curve",
     "runtime/skills/core/heor-survival-curve-adapter/scripts/validate_survival_curve.py",
 )
+probability_time_adapter = load(
+    "validate_probability_time",
+    "runtime/skills/core/heor-probability-time-adapter/scripts/validate_probability_time.py",
+)
 
 
 def evidence_search_fixture():
@@ -190,6 +194,25 @@ class SurvivalCurveAdapterContractTests(unittest.TestCase):
         transformation["distribution"] = "weibull"
         with self.assertRaisesRegex(ValueError, "parameters do not match"):
             survival_adapter.derive(transformation, 3, 1.0)
+
+
+class ProbabilityTimeAdapterContractTests(unittest.TestCase):
+    def test_template_recomputes_hand_checkable_probability(self):
+        transformation = json.loads(
+            (ROOT / "runtime/skills/core/heor-probability-time-adapter/assets/probability-time-transformation.template.json").read_text()
+        )
+        matrix = probability_time_adapter.derive(transformation, 2, 10, 1.0, False)
+        self.assertAlmostEqual(matrix[0][0], 0.8)
+        self.assertAlmostEqual(matrix[0][1], 0.2)
+        self.assertEqual(matrix[1], [0.0, 1.0])
+
+    def test_standalone_adapter_rejects_endpoint_probability(self):
+        transformation = json.loads(
+            (ROOT / "runtime/skills/core/heor-probability-time-adapter/assets/probability-time-transformation.template.json").read_text()
+        )
+        transformation["phases"][0]["rows"][0]["event"]["source_probability"] = 1.0
+        with self.assertRaisesRegex(ValueError, "strictly between 0 and 1"):
+            probability_time_adapter.derive(transformation, 2, 10, 1.0, False)
 
 
 def conceptual_fixture():
@@ -617,6 +640,63 @@ class InputProvenanceContractTests(unittest.TestCase):
         )
         self.assertTrue(any("bound extraction" in error for error in errors))
         self.assertTrue(any("does not reproduce" in error for error in errors))
+
+    def test_schema_07_probability_time_reproduces_complete_matrix(self):
+        matrix = [[0.8, 0.2], [0.0, 1.0]]
+        plan = {
+            "schema_version": "0.7.0",
+            "states": ["alive", "dead"],
+            "cycles": 3,
+            "cycle_length_years": 1.0,
+            "strategies": {"intervention": {"transition_matrix": matrix}},
+        }
+        mapping = {
+            "path": "strategies.intervention.transition_matrix",
+            "extraction_ids": ["two-year-event-probability"],
+            "assumption_ids": [],
+            "derivation": {
+                "method": "deterministic_transformation",
+                "model_value": matrix,
+                "transformation": {
+                    "operation": "single_event_probability_time_conversion",
+                    "cycle_length_years": 1.0,
+                    "phases": [{
+                        "start_cycle": 1,
+                        "rows": [
+                            {
+                                "self_index": 0,
+                                "event": {
+                                    "target_index": 1,
+                                    "source_probability": 0.36,
+                                    "source_interval_years": 2.0,
+                                    "source_extraction_id": "two-year-event-probability",
+                                },
+                            },
+                            {"self_index": 1, "event": None},
+                        ],
+                    }],
+                },
+            },
+        }
+        extraction_index = {
+            "two-year-event-probability": {"extracted_value": "0.36"}
+        }
+
+        self.assertEqual(
+            input_provenance.probability_time_reasons(
+                plan, mapping["path"], mapping, mapping["derivation"], extraction_index
+            ),
+            [],
+        )
+
+        mapping["derivation"]["transformation"]["phases"][0]["rows"][0]["event"][
+            "source_probability"
+        ] = 0.35
+        errors = input_provenance.probability_time_reasons(
+            plan, mapping["path"], mapping, mapping["derivation"], extraction_index
+        )
+        self.assertTrue(any("bound extraction" in error for error in errors))
+        self.assertTrue(any("do not reproduce" in error for error in errors))
 
     def test_schedule_requires_schema_04_and_exactly_one_transition_mechanism(self):
         plan, synthesis, digest = self.fixture()
@@ -1135,6 +1215,99 @@ class UncertaintyContractTests(unittest.TestCase):
             errors = uncertainty.validate(uncertainty_path, plan_path)
             self.assertTrue(any("schema_version 0.5.0" in error for error in errors))
             self.assertTrue(any("exactly the survival parameter" in error for error in errors))
+
+    def test_probability_source_is_exactly_bound_and_bounded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_rate_derived.json").read_text()
+            )
+            plan["schema_version"] = "0.7.0"
+            plan["analysis_id"] = "portable-probability-time-uncertainty"
+            source_probabilities = [0.36, 0.19]
+            roles = ["comparator", "intervention"]
+            for index, (role, probability) in enumerate(zip(roles, source_probabilities)):
+                assumption_id = plan["input_provenance"][index]["assumption_ids"][0]
+                transformation = {
+                    "operation": "single_event_probability_time_conversion",
+                    "cycle_length_years": 1.0,
+                    "phases": [{
+                        "start_cycle": 1,
+                        "rows": [
+                            {
+                                "self_index": 0,
+                                "event": {
+                                    "target_index": 1,
+                                    "source_probability": probability,
+                                    "source_interval_years": 2.0,
+                                    "assumption_id": assumption_id,
+                                },
+                            },
+                            {"self_index": 1, "event": None},
+                        ],
+                    }],
+                }
+                matrix = probability_time_adapter.derive(transformation, 2, 3, 1.0, False)
+                plan["strategies"][role]["transition_matrix"] = matrix
+                plan["input_provenance"][index]["derivation"] = {
+                    "method": "deterministic_transformation",
+                    "model_value": matrix,
+                    "transformation": transformation,
+                }
+            path = "strategies.intervention.transition_matrix"
+            plan["input_provenance"][1]["uncertainty_status"] = "distribution_available"
+            plan["uncertainty_analysis"] = {"path": "heor/uncertainty-plan.json"}
+            plan["methodology"] = {"uncertainty_analysis": {
+                "deterministic": {"planned": True, "input_paths": [path]},
+                "probabilistic": {"planned": True, "input_paths": [path], "iterations": 1000},
+                "structural_scenarios": ["five-year-horizon"],
+            }}
+            plan_path = root / "heor" / "analysis-plan.json"
+            plan_path.parent.mkdir(parents=True)
+            plan_raw = json.dumps(plan, ensure_ascii=False, indent=2).encode()
+            plan_path.write_bytes(plan_raw)
+
+            value = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_uncertainty.json").read_text()
+            )
+            value["schema_version"] = "0.6.0"
+            value["analysis_id"] = plan["analysis_id"]
+            value["base_analysis"]["content_sha256"] = hashlib.sha256(plan_raw).hexdigest()
+            value["parameters"] = [{
+                "id": "intervention-two-year-event-probability",
+                "label": "Intervention two-year event probability",
+                "target": "/input_provenance/1/derivation/transformation/phases/0/rows/0/event/source_probability",
+                "provenance_path": path,
+                "deterministic": {
+                    "low": 0.1,
+                    "high": 0.3,
+                    "rationale": "Evidence-bounded probability range",
+                },
+                "probabilistic": {
+                    "type": "beta",
+                    "alpha": 19.0,
+                    "beta": 81.0,
+                    "basis_ids": ["intervention-mortality-rate"],
+                    "rationale": "Bounded source-probability distribution",
+                },
+            }]
+            value["probabilistic_analysis"]["correlation_handling"]["groups"] = []
+            uncertainty_path = root / "heor" / "uncertainty-plan.json"
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+
+            self.assertEqual(uncertainty.validate(uncertainty_path, plan_path), [])
+
+            value["parameters"][0]["probabilistic"] = {
+                "type": "gamma",
+                "shape": 2.0,
+                "scale": 0.1,
+                "basis_ids": ["unlinked"],
+                "rationale": "Invalid source-probability distribution",
+            }
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            errors = uncertainty.validate(uncertainty_path, plan_path)
+            self.assertTrue(any("exactly the probability source" in error for error in errors))
+            self.assertTrue(any("distribution parameters are invalid" in error for error in errors))
 
     def test_changed_base_hash_and_unlinked_distribution_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:

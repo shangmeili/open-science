@@ -21,12 +21,15 @@ Allowed parameter targets:
 - a complete schema `0.4.0` scheduled row at `/strategies/<role>/transition_schedule/<phase>/matrix/<row>`.
 - a positive `rate_per_year` for one declared event inside an analysis schema `0.5.0` `constant_competing_rates` transformation, using uncertainty schema `0.3.0`, `0.4.0`, or `0.5.0`;
 - a positive exponential `rate_per_year` or Weibull `shape` or `scale_years` value inside an analysis schema `0.6.0` `parametric_survival_to_transition_schedule` transformation, using uncertainty schema `0.5.0`.
+- a `source_probability` strictly inside `(0,1)` for one declared event inside an analysis schema `0.7.0` `single_event_probability_time_conversion` transformation, using uncertainty schema `0.6.0`.
 
 Probability-row and schedule-change targets do not apply to a schema `0.5.0` transition derived from constant competing rates. Changing only the derived output makes its deterministic transformation snapshot stale, so the engine rejects it. A rate target must use the exact JSON Pointer `/input_provenance/<mapping>/derivation/transformation/phases/<phase>/rows/<row>/events/<event>/rate_per_year`; its `provenance_path` must equal that indexed mapping's transition path, and its sole `basis_id` must equal the event's `source_extraction_id` or `assumption_id`.
 
 For a survival parameter, the exact JSON Pointer is `/input_provenance/<mapping>/derivation/transformation/parameters/<parameter>/value`. The indexed mapping must be the declared analysis schema `0.6.0` survival transformation, the parameter name must match its exponential or Weibull distribution, `provenance_path` equals the complete schedule path, and the sole `basis_id` equals that parameter's `source_extraction_id` or `assumption_id`.
 
-For each DSA run or PSA draw, engine version `0.6.0` applies every sampled transformation parameter to an ephemeral plan copy, recomputes each affected transformation once after all replacements, and writes the complete output to both the model transition input and `derivation.model_value` before the normal model validator runs. This preserves row sums, competing-event allocation or survival-curve consistency, derivation integrity, and exact fail-closed validation. It does not admit coordinated transformation-space structural scenarios.
+For a source probability, the exact JSON Pointer is `/input_provenance/<mapping>/derivation/transformation/phases/<phase>/rows/<row>/event/source_probability`. The indexed mapping must be the declared analysis schema `0.7.0` single-event probability-time transformation, `provenance_path` equals its complete matrix or schedule path, and the sole `basis_id` equals that event's `source_extraction_id` or `assumption_id`.
+
+For each DSA run or PSA draw, engine version `0.7.0` applies every sampled transformation parameter to an ephemeral plan copy, recomputes each affected transformation once after all replacements, and writes the complete output to both the model transition input and `derivation.model_value` before the normal model validator runs. This preserves row sums, competing-event allocation, survival-curve consistency, or single-event probability-time consistency, derivation integrity, and exact fail-closed validation. It does not admit coordinated transformation-space structural scenarios.
 
 Supported probabilistic distributions:
 
@@ -37,11 +40,13 @@ Supported probabilistic distributions:
 
 An event rate or survival-curve parameter is positive but not intrinsically bounded by 1, so these targets accept only gamma, lognormal, or uniform with `low > 0`. DSA low/high values must also be positive and bracket the base. Beta and Dirichlet are rejected.
 
+A source-probability target is bounded strictly inside `(0,1)`, so it accepts only Beta or Uniform with `0 < low < high < 1`; its DSA low and high must satisfy the same strict bounds and bracket the base. The engine rejects Gamma, Lognormal, Dirichlet, and endpoint values.
+
 The app checks that `provenance_path` exists, is `distribution_available`, appears in both DSA and PSA input lists, and that every probabilistic `basis_id` belongs to the mapping's evidence sources or proposed assumptions.
 
 ## Correlation and omission
 
-Dirichlet sampling preserves dependence within one probability row. Schemas `0.4.0` and `0.5.0` additionally admit bounded cross-parameter dependence only when all of the following hold:
+Dirichlet sampling preserves dependence within one probability row. Schemas `0.4.0` through `0.6.0` additionally admit bounded cross-parameter dependence only when all of the following hold:
 
 - one group contains 2–32 unique scalar parameters and no parameter appears in another group;
 - every member already uses `lognormal(mu_log, sigma_log)` with positive `sigma_log`;
@@ -49,7 +54,7 @@ Dirichlet sampling preserves dependence within one probability row. Schemas `0.4
 - the matrix order exactly follows `parameter_ids`, is finite and symmetric, has unit diagonal and off-diagonal entries strictly between -1 and 1, and is strictly positive definite under the engine's bounded Cholesky check;
 - group `basis_ids` are non-empty and belong to every member distribution's linked evidence or proposed assumptions, with a rationale for the joint estimate.
 
-For each group and PSA iteration, engine `0.6.0` draws independent standard normals in the declared parameter order, left-multiplies them by the lower-triangular Cholesky factor, and applies each member's declared `mu_log` and `sigma_log` before exponentiation. Groups are processed in artifact order, followed by ungrouped parameters in parameter order. The result records the exact groups and matrices.
+For each group and PSA iteration, engine `0.7.0` draws independent standard normals in the declared parameter order, left-multiplies them by the lower-triangular Cholesky factor, and applies each member's declared `mu_log` and `sigma_log` before exponentiation. Groups are processed in artifact order, followed by ungrouped parameters in parameter order. The result records the exact groups and matrices.
 
 This matrix represents correlation of the latent standard-normal values on the log scale, not Pearson correlation of the exponentiated model values. AI4HEOR does not convert original-scale correlations, covariance matrices, standard errors, confidence intervals, or posterior samples into this contract. It does not repair a non-positive-definite matrix or infer dependence because parameters share a source. Gamma, beta, uniform, Dirichlet-across-rows, singular or perfect correlation, arbitrary copulas, rank correlation, empirical joint draws, and cross-group dependence remain unsupported.
 
@@ -57,13 +62,13 @@ The plan must justify remaining independence and leave `known_omitted_correlatio
 
 ## Reproducibility and convergence
 
-Engine version 0.6 uses versioned `pcg32-xsh-rr` plus fixed beta, gamma, lognormal, uniform, Dirichlet, and bounded lognormal-Cholesky transforms; it supports scheduled matrix rows, structural schedule change points, and deterministic per-draw recomputation of admitted competing-rate and bounded survival transformations. The seed is part of the artifact. Identical inputs produce a bit-identical integer PRNG stream and a repeatable run on the same runtime. Do not claim byte-identical floating-point samples across operating systems until the release matrix passes golden tolerance tests; system math libraries may differ in their final bits.
+Engine version 0.7 uses versioned `pcg32-xsh-rr` plus fixed beta, gamma, lognormal, uniform, Dirichlet, and bounded lognormal-Cholesky transforms; it supports scheduled matrix rows, structural schedule change points, and deterministic per-draw recomputation of admitted competing-rate, bounded survival, and single-event probability-time transformations. The seed is part of the artifact. Identical inputs produce a bit-identical integer PRNG stream and a repeatable run on the same runtime. Do not claim byte-identical floating-point samples across operating systems until the release matrix passes golden tolerance tests; system math libraries may differ in their final bits.
 
 The convergence check records cost-effectiveness probability and its Monte Carlo standard error at each checkpoint. The final MCSE and change from the preceding checkpoint must meet the declared thresholds. A pass describes only the sampled run's Monte Carlo error; it is not independent validation or proof that all uncertainty was represented.
 
 ## Decision-threshold and value-of-information contract
 
-Schemas `0.2.0` through `0.5.0` require `probabilistic_analysis.decision_thresholds` with a rationale and 2–101 unique, non-negative, strictly increasing values. The values must include the positive primary `willingness_to_pay` in the analysis plan. Schema `0.1.0` remains readable and produces one primary-threshold row only; adding a grid to a legacy artifact is rejected rather than silently ignored. Correlation groups require `0.4.0` or `0.5.0`; survival-parameter targets require `0.5.0`.
+Schemas `0.2.0` through `0.6.0` require `probabilistic_analysis.decision_thresholds` with a rationale and 2–101 unique, non-negative, strictly increasing values. The values must include the positive primary `willingness_to_pay` in the analysis plan. Schema `0.1.0` remains readable and produces one primary-threshold row only; adding a grid to a legacy artifact is rejected rather than silently ignored. Correlation groups require schema `0.4.0` or later, survival-parameter targets require `0.5.0` or `0.6.0`, and source-probability targets require `0.6.0`.
 
 For each PSA draw and threshold λ, the engine derives incremental net monetary benefit `λ × ΔQALY − Δcost`. It reports:
 

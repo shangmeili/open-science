@@ -930,6 +930,7 @@ export function HeorReviewPane({
               onRequestAudit={() => onRequestRevision(t("transition.repairPrompt"))}
               onRequestRateDerivation={() => onRequestRevision(t("transition.ratePrompt"))}
               onRequestSurvivalDerivation={() => onRequestRevision(t("transition.survivalPrompt"))}
+              onRequestProbabilityTime={() => onRequestRevision(t("transition.probabilityTimePrompt"))}
             />
 
             <EvidenceTraceability
@@ -1855,11 +1856,13 @@ function CohortTransitionSummary({
   onRequestAudit,
   onRequestRateDerivation,
   onRequestSurvivalDerivation,
+  onRequestProbabilityTime,
 }: {
   plan: HeorAnalysisPlan;
   onRequestAudit: () => void;
   onRequestRateDerivation: () => void;
   onRequestSurvivalDerivation: () => void;
+  onRequestProbabilityTime: () => void;
 }) {
   const { t } = useTranslation("heor");
   const summary = (role: "comparator" | "intervention") => {
@@ -1904,6 +1907,12 @@ function CohortTransitionSummary({
         className="mt-2 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
       >
         <MessageSquareText size={13} /> {t("transition.askSurvivalDerivation")}
+      </button>
+      <button
+        onClick={onRequestProbabilityTime}
+        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+      >
+        <MessageSquareText size={13} /> {t("transition.askProbabilityTime")}
       </button>
       <p className="mt-3 text-[10px] leading-4 text-muted">
         {hasSchedule ? t("transition.scheduleNote") : t("transition.staticNote")}

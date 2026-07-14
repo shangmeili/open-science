@@ -40,14 +40,14 @@ The analysis has exactly two states and 1–10,000 cycles. The transformation cy
 
 ## Parameter-uncertainty contract
 
-Uncertainty schema `0.5.0` may vary an exact positive curve parameter through one of these JSON Pointers:
+Uncertainty schema `0.5.0` or `0.6.0` may vary an exact positive curve parameter through one of these JSON Pointers:
 
 - `/input_provenance/<mapping>/derivation/transformation/parameters/rate_per_year/value` for exponential;
 - `/input_provenance/<mapping>/derivation/transformation/parameters/shape/value` or `/scale_years/value` for Weibull.
 
 The pointer must match the indexed analysis schema `0.6.0` survival mapping and declared distribution. `provenance_path` equals that mapping's complete schedule path. The uncertainty parameter's sole `basis_id` equals the curve parameter's `source_extraction_id` or `assumption_id`. DSA bounds are finite, positive, increasing, and bracket the base. PSA accepts gamma, lognormal, or uniform with `low > 0`; beta and Dirichlet are invalid.
 
-For each DSA run or PSA draw, uncertainty engine `0.6.0` applies all replacements to an ephemeral plan, recomputes each affected complete schedule once, updates `derivation.model_value`, and invokes the ordinary analysis validator. This propagates declared parameter uncertainty through every cycle without granting authority to fit, select, or clinically validate the curve. Alternative curve families and parameterizations remain structural questions outside this scalar target.
+For each DSA run or PSA draw, uncertainty engine `0.7.0` applies all replacements to an ephemeral plan, recomputes each affected complete schedule once, updates `derivation.model_value`, and invokes the ordinary analysis validator. This propagates declared parameter uncertainty through every cycle without granting authority to fit, select, or clinically validate the curve. Alternative curve families and parameterizations remain structural questions outside this scalar target.
 
 ## Method and delivery basis
 

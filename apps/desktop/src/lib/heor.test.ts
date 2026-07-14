@@ -137,7 +137,7 @@ describe("AI4HEOR artifact contract", () => {
     const audit = auditHeorEvidence(plan);
 
     expect(audit.invalidMappings.join("; ")).toContain(
-      "schema_version must be 0.3.0, 0.4.0, 0.5.0, or 0.6.0",
+      "schema_version must be 0.3.0 through 0.7.0",
     );
     expect(audit.invalidMappings.join("; ")).toContain(
       "derivation.model_value does not match the current model input",
@@ -269,6 +269,80 @@ describe("AI4HEOR artifact contract", () => {
     audit = auditHeorEvidence(plan);
     expect(audit.invalidMappings.join("; ")).toContain(
       "parametric survival curve does not reproduce the current transition schedule",
+    );
+  });
+
+  it("recomputes schema 0.7 single-event probability time conversion", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    plan.schema_version = "0.7.0";
+    plan.states = ["alive", "event"];
+    plan.cycles = 3;
+    plan.strategies.comparator = {
+      name: "Comparator",
+      initial_distribution: [1, 0],
+      transition_matrix: [[0.9, 0.1], [0, 1]],
+      state_costs: [100, 0],
+      state_utilities: [1, 0],
+    };
+    plan.strategies.intervention = {
+      name: "Intervention",
+      initial_distribution: [1, 0],
+      transition_matrix: [[0.8, 0.2], [0, 1]],
+      state_costs: [120, 0],
+      state_utilities: [1, 0],
+    };
+    plan.assumptions = [{
+      id: "two-year-event-probability",
+      statement: "Use the declared two-year event probability",
+      reason: "Browser contract test",
+      status: "proposed",
+    }];
+    plan.input_provenance = [{
+      path: "strategies.intervention.transition_matrix",
+      source_ids: [],
+      extraction_ids: [],
+      assumption_ids: ["two-year-event-probability"],
+      unit: "probability per annual model cycle",
+      jurisdiction: "China",
+      derivation: {
+        method: "deterministic_transformation",
+        model_value: plan.strategies.intervention.transition_matrix,
+        transformation: {
+          operation: "single_event_probability_time_conversion",
+          cycle_length_years: 1,
+          phases: [{
+            start_cycle: 1,
+            rows: [
+              {
+                self_index: 0,
+                event: {
+                  target_index: 1,
+                  source_probability: 0.36,
+                  source_interval_years: 2,
+                  assumption_id: "two-year-event-probability",
+                },
+              },
+              { self_index: 1, event: null },
+            ],
+          }],
+        },
+      },
+      selection_rationale: "Exercise bounded probability-time conversion",
+      uncertainty_status: "fixed",
+    }];
+
+    let audit = auditHeorEvidence(plan);
+    expect(audit.invalidMappings.join("; ")).not.toContain("source probabilities do not reproduce");
+    expect(parseHeorPlan(JSON.stringify(plan)).schema_version).toBe("0.7.0");
+
+    const transformation = plan.input_provenance[0].derivation.transformation!;
+    if (transformation.operation !== "single_event_probability_time_conversion") {
+      throw new Error("test fixture must use probability-time conversion");
+    }
+    transformation.phases[0].rows[0].event!.source_probability = 0.49;
+    audit = auditHeorEvidence(plan);
+    expect(audit.invalidMappings.join("; ")).toContain(
+      "source probabilities do not reproduce the current transition input",
     );
   });
 

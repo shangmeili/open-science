@@ -118,6 +118,20 @@ fn survival_target_indices(target: &str) -> Option<(usize, &str)> {
     }
 }
 
+fn probability_target_indices(target: &str) -> Option<(usize, usize, usize)> {
+    let parts = target.split('/').collect::<Vec<_>>();
+    match parts.as_slice() {
+        ["", "input_provenance", mapping, "derivation", "transformation", "phases", phase, "rows", row, "event", "source_probability"] => {
+            Some((
+                mapping.parse().ok()?,
+                phase.parse().ok()?,
+                row.parse().ok()?,
+            ))
+        }
+        _ => None,
+    }
+}
+
 fn scenario_target_allowed(target: &str) -> bool {
     let parts = target.split('/').collect::<Vec<_>>();
     parameter_target_allowed(target)
@@ -223,6 +237,7 @@ fn validate_distribution(
     base: &serde_json::Value,
     allowed_basis: &HashSet<&str>,
     exact_basis: Option<&str>,
+    bounded_probability: bool,
     errors: &mut Vec<String>,
 ) {
     let Some(distribution) = value.as_object() else {
@@ -255,7 +270,7 @@ fn validate_distribution(
         .get("type")
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default();
-    let positive_distribution = exact_basis.is_some();
+    let positive_distribution = exact_basis.is_some() && !bounded_probability;
     let valid = match kind {
         "beta" => {
             !positive_distribution
@@ -264,12 +279,14 @@ fn validate_distribution(
                 && positive_number(distribution.get("beta"))
         }
         "gamma" => {
-            !base.is_array()
+            !bounded_probability
+                && !base.is_array()
                 && positive_number(distribution.get("shape"))
                 && positive_number(distribution.get("scale"))
         }
         "lognormal" => {
-            !base.is_array()
+            !bounded_probability
+                && !base.is_array()
                 && finite_number(distribution.get("mu_log")).is_some()
                 && positive_number(distribution.get("sigma_log"))
         }
@@ -277,11 +294,16 @@ fn validate_distribution(
             !base.is_array()
                 && finite_number(distribution.get("low"))
                     .zip(finite_number(distribution.get("high")))
-                    .is_some_and(|(low, high)| low < high && (!positive_distribution || low > 0.0))
+                    .is_some_and(|(low, high)| {
+                        low < high
+                            && (!positive_distribution || low > 0.0)
+                            && (!bounded_probability || (low > 0.0 && high < 1.0))
+                    })
         }
         "dirichlet" => {
             let expected = base.as_array().map(Vec::len).unwrap_or_default();
             !positive_distribution
+                && !bounded_probability
                 && distribution
                     .get("alpha")
                     .and_then(serde_json::Value::as_array)
@@ -357,10 +379,11 @@ fn validate_correlation_groups(
     parameters: &[serde_json::Value],
     errors: &mut Vec<String>,
 ) -> usize {
-    if !matches!(schema_version, Some("0.4.0" | "0.5.0")) {
+    if !matches!(schema_version, Some("0.4.0" | "0.5.0" | "0.6.0")) {
         if correlation.is_some_and(|value| value.contains_key("groups")) {
             errors.push(
-                "correlation groups require uncertainty schema_version 0.4.0 or 0.5.0".into(),
+                "correlation groups require uncertainty schema_version 0.4.0, 0.5.0, or 0.6.0"
+                    .into(),
             );
         }
         return 0;
@@ -369,7 +392,9 @@ fn validate_correlation_groups(
         .and_then(|value| value.get("groups"))
         .and_then(serde_json::Value::as_array);
     let Some(groups) = groups else {
-        errors.push("correlation groups must be an array for schema_version 0.4.0 or 0.5.0".into());
+        errors.push(
+            "correlation groups must be an array for schema_version 0.4.0, 0.5.0, or 0.6.0".into(),
+        );
         return 0;
     };
     if groups.len() > MAX_CORRELATION_GROUPS {
@@ -526,11 +551,11 @@ fn audit_values(
         .and_then(serde_json::Value::as_str);
     if !matches!(
         schema_version,
-        Some("0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0")
+        Some("0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0")
     ) {
         audit
             .errors
-            .push("uncertainty schema_version must be 0.1.0, 0.2.0, 0.3.0, 0.4.0, or 0.5.0".into());
+            .push("uncertainty schema_version must be 0.1.0 through 0.6.0".into());
     }
     for field in ["uncertainty_id", "analysis_id"] {
         if !nonempty(uncertainty.get(field)) {
@@ -635,6 +660,7 @@ fn audit_values(
             .unwrap_or_default();
         let rate_indices = rate_target_indices(target);
         let survival_indices = survival_target_indices(target);
+        let probability_indices = probability_target_indices(target);
         let Some(base) = plan.pointer(target) else {
             audit.invalid_parameters.push(id.into());
             audit
@@ -643,9 +669,10 @@ fn audit_values(
             continue;
         };
         let target_allowed = parameter_target_allowed(target)
-            || (matches!(schema_version, Some("0.3.0" | "0.4.0" | "0.5.0"))
+            || (matches!(schema_version, Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0"))
                 && rate_indices.is_some())
-            || (schema_version == Some("0.5.0") && survival_indices.is_some());
+            || (matches!(schema_version, Some("0.5.0" | "0.6.0")) && survival_indices.is_some())
+            || (schema_version == Some("0.6.0") && probability_indices.is_some());
         if !target_allowed || !targets.insert(target) {
             audit.invalid_parameters.push(id.into());
             audit.errors.push(format!(
@@ -666,7 +693,7 @@ fn audit_values(
         let mut rate_basis = None;
         if let Some((mapping_index, phase, row, event)) = rate_indices {
             let indexed_mapping = plan.pointer(&format!("/input_provenance/{mapping_index}"));
-            if !matches!(schema_version, Some("0.3.0" | "0.4.0" | "0.5.0"))
+            if !matches!(schema_version, Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0"))
                 || plan
                     .get("schema_version")
                     .and_then(serde_json::Value::as_str)
@@ -722,7 +749,7 @@ fn audit_values(
                 Some("weibull") => matches!(parameter_name, "shape" | "scale_years"),
                 _ => false,
             };
-            if schema_version != Some("0.5.0")
+            if !matches!(schema_version, Some("0.5.0" | "0.6.0"))
                 || plan
                     .get("schema_version")
                     .and_then(serde_json::Value::as_str)
@@ -765,6 +792,52 @@ fn audit_values(
                 audit.invalid_parameters.push(id.into());
                 audit.errors.push(format!(
                     "parameter {id} survival parameter has no exact extraction or assumption basis"
+                ));
+            }
+        } else if let Some((mapping_index, phase, row)) = probability_indices {
+            let indexed_mapping = plan.pointer(&format!("/input_provenance/{mapping_index}"));
+            if schema_version != Some("0.6.0")
+                || plan
+                    .get("schema_version")
+                    .and_then(serde_json::Value::as_str)
+                    != Some("0.7.0")
+                || indexed_mapping
+                    .and_then(|value| value.get("path"))
+                    .and_then(serde_json::Value::as_str)
+                    != Some(provenance_path)
+                || indexed_mapping
+                    .and_then(|value| value.pointer("/derivation/method"))
+                    .and_then(serde_json::Value::as_str)
+                    != Some("deterministic_transformation")
+                || indexed_mapping
+                    .and_then(|value| value.pointer("/derivation/transformation/operation"))
+                    .and_then(serde_json::Value::as_str)
+                    != Some("single_event_probability_time_conversion")
+            {
+                audit.invalid_parameters.push(id.into());
+                audit.errors.push(format!(
+                    "parameter {id} must bind an admitted probability-time transformation"
+                ));
+            } else if let Some(indexed_mapping) = indexed_mapping {
+                mapping = indexed_mapping;
+            }
+            let event_value = mapping.pointer(&format!(
+                "/derivation/transformation/phases/{phase}/rows/{row}/event"
+            ));
+            rate_basis = event_value.and_then(|value| {
+                value
+                    .get("source_extraction_id")
+                    .and_then(serde_json::Value::as_str)
+                    .or_else(|| {
+                        value
+                            .get("assumption_id")
+                            .and_then(serde_json::Value::as_str)
+                    })
+            });
+            if rate_basis.is_none() {
+                audit.invalid_parameters.push(id.into());
+                audit.errors.push(format!(
+                    "parameter {id} source probability has no exact extraction or assumption basis"
                 ));
             }
         } else if mapping
@@ -815,6 +888,7 @@ fn audit_values(
                         && low <= base
                         && base <= high
                         && (rate_indices.is_none() && survival_indices.is_none() || low > 0.0)
+                        && (probability_indices.is_none() || (low > 0.0 && high < 1.0))
                 }),
             _ => false,
         };
@@ -834,6 +908,7 @@ fn audit_values(
             base,
             &allowed_basis,
             rate_basis,
+            probability_indices.is_some(),
             &mut audit.errors,
         );
     }
@@ -864,7 +939,10 @@ fn audit_values(
     let threshold_config = probabilistic
         .and_then(|value| value.get("decision_thresholds"))
         .and_then(serde_json::Value::as_object);
-    if matches!(schema_version, Some("0.2.0" | "0.3.0" | "0.4.0" | "0.5.0")) {
+    if matches!(
+        schema_version,
+        Some("0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0")
+    ) {
         let thresholds = threshold_config
             .and_then(|value| value.get("values"))
             .and_then(serde_json::Value::as_array);
@@ -896,8 +974,7 @@ fn audit_values(
         }
     } else if has_threshold_config {
         audit.errors.push(
-            "decision thresholds require uncertainty schema_version 0.2.0, 0.3.0, 0.4.0, or 0.5.0"
-                .into(),
+            "decision thresholds require uncertainty schema_version 0.2.0 through 0.6.0".into(),
         );
     } else if schema_version == Some("0.1.0") {
         audit.threshold_count = usize::from(audit.primary_threshold.is_some());
@@ -1495,6 +1572,80 @@ mod tests {
         let audit = audit_values(&plan, &plan_raw, &uncertainty, &uncertainty_raw);
         assert!(!audit.complete);
         assert!(audit.errors.iter().any(|error| error.contains("target")));
+    }
+
+    #[test]
+    fn probability_time_parameter_requires_bounded_distribution_and_exact_basis() {
+        let mut plan = plan();
+        plan["schema_version"] = serde_json::json!("0.7.0");
+        plan["strategies"]["intervention"]["transition_matrix"] =
+            serde_json::json!([[0.8, 0.2], [0.0, 1.0]]);
+        plan["input_provenance"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "path": "strategies.intervention.transition_matrix",
+                "source_ids": [],
+                "extraction_ids": [],
+                "assumption_ids": ["two-year-event-probability"],
+                "uncertainty_status": "distribution_available",
+                "derivation": {
+                    "method": "deterministic_transformation",
+                    "model_value": [[0.8, 0.2], [0.0, 1.0]],
+                    "transformation": {
+                        "operation": "single_event_probability_time_conversion",
+                        "cycle_length_years": 1.0,
+                        "phases": [{
+                            "start_cycle": 1,
+                            "rows": [
+                                {"self_index": 0, "event": {
+                                    "target_index": 1,
+                                    "source_probability": 0.36,
+                                    "source_interval_years": 2.0,
+                                    "assumption_id": "two-year-event-probability"
+                                }},
+                                {"self_index": 1, "event": null}
+                            ]
+                        }]
+                    }
+                }
+            }));
+        for kind in ["deterministic", "probabilistic"] {
+            plan["methodology"]["uncertainty_analysis"][kind]["input_paths"] =
+                serde_json::json!(["strategies.intervention.transition_matrix"]);
+        }
+        let plan_raw = serde_json::to_vec(&plan).unwrap();
+        let mut uncertainty = uncertainty(&plan_raw);
+        uncertainty["schema_version"] = serde_json::json!("0.6.0");
+        uncertainty["parameters"] = serde_json::json!([{
+            "id": "two-year-event-probability",
+            "label": "Two-year event probability",
+            "target": "/input_provenance/1/derivation/transformation/phases/0/rows/0/event/source_probability",
+            "provenance_path": "strategies.intervention.transition_matrix",
+            "deterministic": {"low": 0.25, "high": 0.49, "rationale": "Evidence range"},
+            "probabilistic": {
+                "type": "beta", "alpha": 36, "beta": 64,
+                "basis_ids": ["two-year-event-probability"], "rationale": "Bounded source probability"
+            }
+        }]);
+        uncertainty["probabilistic_analysis"]["correlation_handling"]["groups"] =
+            serde_json::json!([]);
+        let uncertainty_raw = serde_json::to_vec(&uncertainty).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &uncertainty_raw);
+        assert!(audit.complete, "{:?}", audit.errors);
+
+        uncertainty["parameters"][0]["probabilistic"] = serde_json::json!({
+            "type": "gamma", "shape": 4, "scale": 0.09,
+            "basis_ids": ["unlinked"], "rationale": "Invalid unbounded probability"
+        });
+        let uncertainty_raw = serde_json::to_vec(&uncertainty).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &uncertainty_raw);
+        assert!(!audit.complete);
+        assert!(audit.errors.iter().any(|error| error.contains("basis_ids")));
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("invalid or unsupported distribution")));
     }
 
     #[test]

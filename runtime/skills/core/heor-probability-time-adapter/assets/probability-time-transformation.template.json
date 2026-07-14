@@ -1,0 +1,24 @@
+{
+  "operation": "single_event_probability_time_conversion",
+  "cycle_length_years": 1.0,
+  "phases": [
+    {
+      "start_cycle": 1,
+      "rows": [
+        {
+          "self_index": 0,
+          "event": {
+            "target_index": 1,
+            "source_probability": 0.36,
+            "source_interval_years": 2.0,
+            "assumption_id": "replace-with-proposed-assumption-id"
+          }
+        },
+        {
+          "self_index": 1,
+          "event": null
+        }
+      ]
+    }
+  ]
+}

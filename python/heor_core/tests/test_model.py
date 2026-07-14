@@ -13,6 +13,10 @@ from heor_core.model import (
     ModelValidationError,
     run_markov,
 )
+from heor_core.probability_time import (
+    ProbabilityTimeError,
+    derive_probability_time,
+)
 from heor_core.survival_curves import SurvivalCurveError, derive_survival_schedule
 from heor_core.uncertainty import (
     Pcg32,
@@ -160,6 +164,102 @@ def survival_derived_payload() -> dict:
             },
         },
     ]
+    return value
+
+
+def probability_time_payload() -> dict:
+    value = rate_derived_payload()
+    value["schema_version"] = "0.7.0"
+    value["analysis_id"] = "golden-probability-time-derived"
+    probability = 0.36
+    converted = 1.0 - (1.0 - probability) ** 0.5
+    comparator_matrix = [[0.8, 0.2], [0.0, 1.0]]
+    intervention_matrix = [[1.0 - converted, converted], [0.0, 1.0]]
+    value["strategies"]["comparator"]["transition_matrix"] = comparator_matrix
+    value["strategies"]["intervention"]["transition_matrix"] = intervention_matrix
+    value["assumptions"] = [
+        {
+            "id": "comparator-mortality-rate",
+            "statement": "Use the declared comparator cycle probability.",
+            "reason": "Hand-checkable probability-time conversion fixture.",
+            "status": "proposed",
+        },
+        {
+            "id": "intervention-two-year-event-probability",
+            "statement": "Use the declared two-year single-event probability.",
+            "reason": "Hand-checkable probability-time conversion fixture.",
+            "status": "proposed",
+        },
+    ]
+    value["input_provenance"] = [
+        {
+            "path": "strategies.comparator.transition_matrix",
+            "source_ids": [],
+            "extraction_ids": [],
+            "assumption_ids": ["comparator-mortality-rate"],
+            "derivation": {
+                "method": "explicit_assumption",
+                "model_value": comparator_matrix,
+            },
+        },
+        {
+            "path": "strategies.intervention.transition_matrix",
+            "source_ids": [],
+            "extraction_ids": [],
+            "assumption_ids": ["intervention-two-year-event-probability"],
+            "derivation": {
+                "method": "deterministic_transformation",
+                "model_value": intervention_matrix,
+                "transformation": {
+                    "operation": "single_event_probability_time_conversion",
+                    "cycle_length_years": 1.0,
+                    "phases": [{
+                        "start_cycle": 1,
+                        "rows": [
+                            {
+                                "self_index": 0,
+                                "event": {
+                                    "target_index": 1,
+                                    "source_probability": probability,
+                                    "source_interval_years": 2.0,
+                                    "assumption_id": "intervention-two-year-event-probability",
+                                },
+                            },
+                            {"self_index": 1, "event": None},
+                        ],
+                    }],
+                },
+            },
+        },
+    ]
+    return value
+
+
+def probability_uncertainty_payload(base: dict, base_raw: bytes) -> dict:
+    value = uncertainty_payload()
+    value["schema_version"] = "0.6.0"
+    value["uncertainty_id"] = "golden-probability-time-uncertainty"
+    value["analysis_id"] = base["analysis_id"]
+    value["base_analysis"]["content_sha256"] = hashlib.sha256(base_raw).hexdigest()
+    value["parameters"] = [{
+        "id": "intervention-two-year-event-probability",
+        "label": "Intervention two-year event probability",
+        "target": "/input_provenance/1/derivation/transformation/phases/0/rows/0/event/source_probability",
+        "provenance_path": "strategies.intervention.transition_matrix",
+        "deterministic": {
+            "low": 0.25,
+            "high": 0.49,
+            "rationale": "Evidence-bound probability range.",
+        },
+        "probabilistic": {
+            "type": "beta",
+            "alpha": 36.0,
+            "beta": 64.0,
+            "basis_ids": ["intervention-two-year-event-probability"],
+            "rationale": "Beta distribution for the bounded source probability.",
+        },
+    }]
+    value["probabilistic_analysis"]["correlation_handling"]["groups"] = []
     return value
 
 
@@ -370,14 +470,14 @@ class MarkovModelTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ModelValidationError,
-            "transition_schedule requires schema_version 0.4.0, 0.5.0, or 0.6.0",
+            "transition_schedule requires schema_version 0.4.0, 0.5.0, 0.6.0, or 0.7.0",
         ):
             MarkovSpecification.from_dict(payload)
 
     def test_constant_rate_derivations_match_hand_calculation(self) -> None:
         result = run_markov(MarkovSpecification.from_dict(rate_derived_payload()))
 
-        self.assertEqual(result.engine_version, "0.6.0")
+        self.assertEqual(result.engine_version, "0.7.0")
         self.assertEqual(result.schema_version, "0.5.0")
         self.assertAlmostEqual(result.comparator.total_qaly, 2.44)
         self.assertAlmostEqual(result.intervention.total_qaly, 2.71)
@@ -449,7 +549,7 @@ class MarkovModelTests(unittest.TestCase):
         payload = survival_derived_payload()
         result = run_markov(MarkovSpecification.from_dict(payload))
 
-        self.assertEqual(result.engine_version, "0.6.0")
+        self.assertEqual(result.engine_version, "0.7.0")
         self.assertEqual(result.schema_version, "0.6.0")
         self.assertEqual(
             result.intervention.transition_schedule_start_cycles,
@@ -486,6 +586,70 @@ class MarkovModelTests(unittest.TestCase):
         self.assertAlmostEqual(schedule[0]["matrix"][0][1], 1.0 - exp(-0.0625))
         self.assertAlmostEqual(schedule[1]["matrix"][0][1], 1.0 - exp(-0.1875))
         self.assertEqual(schedule[1]["matrix"][1], [0.0, 1.0])
+
+    def test_single_event_probability_time_conversion_matches_hand_calculation(self) -> None:
+        payload = probability_time_payload()
+        result = run_markov(MarkovSpecification.from_dict(payload))
+
+        converted = 1.0 - (1.0 - 0.36) ** 0.5
+        self.assertEqual(result.engine_version, "0.7.0")
+        self.assertEqual(result.schema_version, "0.7.0")
+        self.assertAlmostEqual(
+            payload["strategies"]["intervention"]["transition_matrix"][0][1],
+            converted,
+        )
+        self.assertAlmostEqual(result.intervention.occupancy[1][0], 1.0 - converted)
+
+        output, extraction_ids, assumption_ids = derive_probability_time(
+            payload["input_provenance"][1]["derivation"]["transformation"],
+            target_path="strategies.intervention.transition_matrix",
+            state_count=2,
+            cycles=3,
+            cycle_length_years=1.0,
+        )
+        self.assertAlmostEqual(output[0][1], converted)
+        self.assertEqual(extraction_ids, set())
+        self.assertEqual(
+            assumption_ids, {"intervention-two-year-event-probability"}
+        )
+
+    def test_probability_time_conversion_fails_closed_outside_contract(self) -> None:
+        valid = probability_time_payload()
+        cases: list[tuple[dict, str]] = []
+
+        stale = copy.deepcopy(valid)
+        stale["strategies"]["intervention"]["transition_matrix"][0] = [0.7, 0.3]
+        stale["input_provenance"][1]["derivation"]["model_value"] = copy.deepcopy(
+            stale["strategies"]["intervention"]["transition_matrix"]
+        )
+        cases.append((stale, "do not reproduce"))
+
+        wrong_schema = copy.deepcopy(valid)
+        wrong_schema["schema_version"] = "0.6.0"
+        cases.append((wrong_schema, "require schema_version 0.7.0"))
+
+        certain = copy.deepcopy(valid)
+        certain["input_provenance"][1]["derivation"]["transformation"]["phases"][0]["rows"][0]["event"]["source_probability"] = 1.0
+        cases.append((certain, "strictly between 0 and 1"))
+
+        for payload, message in cases:
+            with self.subTest(message=message), self.assertRaisesRegex(
+                ModelValidationError, message
+            ):
+                MarkovSpecification.from_dict(payload)
+
+        transformation = copy.deepcopy(
+            valid["input_provenance"][1]["derivation"]["transformation"]
+        )
+        transformation["phases"][0]["rows"][0]["events"] = []
+        with self.assertRaisesRegex(ProbabilityTimeError, "fields must be exactly"):
+            derive_probability_time(
+                transformation,
+                target_path="strategies.intervention.transition_matrix",
+                state_count=2,
+                cycles=3,
+                cycle_length_years=1.0,
+            )
 
     def test_survival_derivation_fails_closed_outside_the_bounded_contract(self) -> None:
         valid = survival_derived_payload()
@@ -735,7 +899,7 @@ class UncertaintyAnalysisTests(unittest.TestCase):
             json.dumps(uncertainty, separators=(",", ":")).encode(),
         )
 
-        self.assertEqual(result["engine_version"], "0.6.0")
+        self.assertEqual(result["engine_version"], "0.7.0")
         self.assertEqual(
             result["deterministic_analysis"][1]["target"],
             "/strategies/intervention/transition_schedule/0/matrix/0",
@@ -765,7 +929,7 @@ class UncertaintyAnalysisTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertEqual(first["schema_version"], "0.3.0")
-        self.assertEqual(first["engine_version"], "0.6.0")
+        self.assertEqual(first["engine_version"], "0.7.0")
         self.assertEqual(len(first["probabilistic_analysis"]["samples"]), 1000)
         dsa = first["deterministic_analysis"][0]
         for bound, rate in (("low", 0.05), ("high", 0.2)):
@@ -801,7 +965,7 @@ class UncertaintyAnalysisTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertEqual(first["schema_version"], "0.5.0")
-        self.assertEqual(first["engine_version"], "0.6.0")
+        self.assertEqual(first["engine_version"], "0.7.0")
         self.assertEqual(len(first["deterministic_analysis"]), 3)
         self.assertEqual(len(first["probabilistic_analysis"]["samples"]), 1000)
 
@@ -857,6 +1021,78 @@ class UncertaintyAnalysisTests(unittest.TestCase):
             "/input_provenance/0/derivation/transformation/parameters/shape/value"
         )
         cases.append((wrong_parameter, "does not exist"))
+
+        for uncertainty, message in cases:
+            with self.subTest(message=message), self.assertRaisesRegex(
+                ModelValidationError, message
+            ):
+                run_uncertainty(
+                    base,
+                    base_raw,
+                    uncertainty,
+                    json.dumps(uncertainty).encode(),
+                )
+
+    def test_probability_time_uncertainty_recomputes_complete_matrix(self) -> None:
+        base = probability_time_payload()
+        base_raw = json.dumps(base, separators=(",", ":")).encode()
+        uncertainty = probability_uncertainty_payload(base, base_raw)
+
+        first = run_uncertainty(
+            base,
+            base_raw,
+            uncertainty,
+            json.dumps(uncertainty, separators=(",", ":")).encode(),
+        )
+        second = run_uncertainty(
+            base,
+            base_raw,
+            uncertainty,
+            json.dumps(uncertainty, separators=(",", ":")).encode(),
+        )
+
+        self.assertEqual(first, second)
+        self.assertEqual(first["schema_version"], "0.6.0")
+        self.assertEqual(first["engine_version"], "0.7.0")
+        specification = UncertaintySpecification.from_dict(
+            uncertainty, base, hashlib.sha256(base_raw).hexdigest()
+        )
+        parameter = specification.parameters[0]
+        recomputed = _apply_parameter_values(base, ((parameter, 0.49),))
+        expected = 1.0 - (1.0 - 0.49) ** 0.5
+        matrix = recomputed["strategies"]["intervention"]["transition_matrix"]
+        self.assertAlmostEqual(matrix[0][1], expected)
+        self.assertEqual(
+            recomputed["input_provenance"][1]["derivation"]["model_value"],
+            matrix,
+        )
+
+    def test_probability_time_uncertainty_rejects_invalid_distribution_and_basis(self) -> None:
+        base = probability_time_payload()
+        base_raw = json.dumps(base, separators=(",", ":")).encode()
+        cases = []
+
+        legacy = probability_uncertainty_payload(base, base_raw)
+        legacy["schema_version"] = "0.5.0"
+        cases.append((legacy, "schema_version 0.6.0"))
+
+        gamma = probability_uncertainty_payload(base, base_raw)
+        gamma["parameters"][0]["probabilistic"] = {
+            "type": "gamma",
+            "shape": 4.0,
+            "scale": 0.09,
+            "basis_ids": ["intervention-two-year-event-probability"],
+            "rationale": "Deliberately invalid unbounded probability distribution.",
+        }
+        cases.append((gamma, "must use beta or bounded uniform"))
+
+        wrong_basis = probability_uncertainty_payload(base, base_raw)
+        wrong_basis["parameters"][0]["probabilistic"]["basis_ids"] = ["unlinked"]
+        cases.append((wrong_basis, "exactly the event source"))
+
+        invalid_bound = probability_uncertainty_payload(base, base_raw)
+        invalid_bound["parameters"][0]["deterministic"]["high"] = 1.0
+        cases.append((invalid_bound, "strictly between 0 and 1"))
 
         for uncertainty, message in cases:
             with self.subTest(message=message), self.assertRaisesRegex(
@@ -1146,7 +1382,7 @@ class UncertaintyAnalysisTests(unittest.TestCase):
             json.dumps(uncertainty).encode(),
         )
         self.assertEqual(result["schema_version"], "0.4.0")
-        self.assertEqual(result["engine_version"], "0.6.0")
+        self.assertEqual(result["engine_version"], "0.7.0")
         self.assertEqual(
             result["probabilistic_analysis"]["correlation_groups"][0]["parameter_ids"],
             [first["id"], second["id"]],

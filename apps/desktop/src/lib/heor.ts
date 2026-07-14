@@ -15,6 +15,13 @@ export const HEOR_BASE_CASE_RESULT_PATH = "heor/results/base-case.json";
 export const HEOR_UNCERTAINTY_RESULT_PATH = "heor/results/uncertainty.json";
 export const HEOR_BUDGET_IMPACT_RESULT_PATH = "heor/results/budget-impact.json";
 
+const TRANSITION_PATHS = new Set([
+  "strategies.comparator.transition_matrix",
+  "strategies.intervention.transition_matrix",
+  "strategies.comparator.transition_schedule",
+  "strategies.intervention.transition_schedule",
+]);
+
 export type HeorGate =
   | "decision_problem"
   | "conceptual_model"
@@ -125,6 +132,25 @@ export interface HeorSurvivalCurveTransformation {
   }>;
 }
 
+export interface HeorProbabilityTimeTransformation {
+  operation: "single_event_probability_time_conversion";
+  cycle_length_years: number;
+  phases: Array<{
+    start_cycle: number;
+    rows: Array<{
+      self_index: number;
+      event: null | {
+        target_index: number;
+        source_probability: number;
+        source_interval_years: number;
+        source_extraction_id?: string;
+        source_pointer?: string;
+        assumption_id?: string;
+      };
+    }>;
+  }>;
+}
+
 export interface HeorInputProvenance {
   path: string;
   source_ids?: string[];
@@ -149,7 +175,8 @@ export interface HeorInputProvenance {
     method: "direct_evidence" | "explicit_assumption" | "monetary_adjustment"
       | "deterministic_transformation";
     model_value: unknown;
-    transformation?: HeorTransitionRateTransformation | HeorSurvivalCurveTransformation;
+    transformation?: HeorTransitionRateTransformation | HeorSurvivalCurveTransformation
+      | HeorProbabilityTimeTransformation;
   };
   selection_rationale: string;
   uncertainty_status: "fixed" | "range_available" | "distribution_available";
@@ -513,7 +540,7 @@ export interface HeorEvidenceVerificationRequest {
 }
 
 export interface HeorAnalysisPlan {
-  schema_version: "0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0";
+  schema_version: "0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0";
   analysis_id: string;
   economic_basis?: { currency: string; price_year: number };
   input_status?: string;
@@ -742,8 +769,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseHeorPlan(raw: string): HeorAnalysisPlan {
   const value: unknown = JSON.parse(raw);
   if (!isRecord(value)) throw new Error("analysis plan must be a JSON object");
-  if (!["0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0", "0.6.0"].includes(String(value.schema_version))) {
-    throw new Error("analysis plan schema_version must be 0.1.0, 0.2.0, 0.3.0, 0.4.0, 0.5.0, or 0.6.0");
+  if (!["0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0"].includes(String(value.schema_version))) {
+    throw new Error("analysis plan schema_version must be 0.1.0 through 0.7.0");
   }
   if (typeof value.analysis_id !== "string" || !value.analysis_id.trim()) {
     throw new Error("analysis plan must include analysis_id");
@@ -1116,6 +1143,153 @@ function survivalCurveReasons(
   return reasons;
 }
 
+function probabilityTimeReasons(
+  plan: HeorAnalysisPlan,
+  mapping: HeorInputProvenance,
+  extractionIds: string[],
+  assumptionIds: string[],
+): string[] {
+  const reasons: string[] = [];
+  if (plan.schema_version !== "0.7.0") {
+    reasons.push("probability-time transformations require schema_version 0.7.0");
+  }
+  if (!TRANSITION_PATHS.has(mapping.path)) {
+    return [...reasons, "probability-time transformation is allowed only for transition inputs"];
+  }
+  const transformation = mapping.derivation.transformation;
+  if (!isRecord(transformation)) return [...reasons, "derivation.transformation must be an object"];
+  if (!jsonEquivalent(Object.keys(transformation).sort(), ["cycle_length_years", "operation", "phases"])) {
+    reasons.push("probability-time transformation fields are not the exact supported contract");
+  }
+  const cycleLength = transformation.cycle_length_years;
+  if (!finiteNumber(cycleLength) || cycleLength <= 0
+    || Math.abs(cycleLength - plan.cycle_length_years) > 1e-12) {
+    reasons.push("transformation.cycle_length_years must equal the analysis cycle length");
+  }
+  const phases = transformation.phases;
+  if (!Array.isArray(phases) || phases.length < 1 || phases.length > plan.cycles) {
+    return [...reasons, "transformation.phases count is invalid"];
+  }
+  const starts: number[] = [];
+  const matrices: number[][][] = [];
+  const usedExtractions = new Set<string>();
+  const usedAssumptions = new Set<string>();
+  phases.forEach((rawPhase, phaseIndex) => {
+    const phaseLabel = `transformation.phases[${phaseIndex}]`;
+    if (!isRecord(rawPhase)
+      || !jsonEquivalent(Object.keys(rawPhase).sort(), ["rows", "start_cycle"])) {
+      reasons.push(`${phaseLabel} fields are invalid`);
+      return;
+    }
+    const startCycle = typeof rawPhase.start_cycle === "number"
+      ? rawPhase.start_cycle : Number.NaN;
+    if (!Number.isInteger(startCycle)
+      || startCycle < 1 || startCycle > plan.cycles) {
+      reasons.push(`${phaseLabel}.start_cycle is invalid`);
+      return;
+    }
+    starts.push(startCycle);
+    if (!Array.isArray(rawPhase.rows) || rawPhase.rows.length !== plan.states.length) {
+      reasons.push(`${phaseLabel}.rows must contain ${plan.states.length} rows`);
+      return;
+    }
+    const matrix: number[][] = [];
+    rawPhase.rows.forEach((rawRow, rowIndex) => {
+      const rowLabel = `${phaseLabel}.rows[${rowIndex}]`;
+      if (!isRecord(rawRow)
+        || !jsonEquivalent(Object.keys(rawRow).sort(), ["event", "self_index"])) {
+        reasons.push(`${rowLabel} fields are invalid`);
+        return;
+      }
+      if (rawRow.self_index !== rowIndex) {
+        reasons.push(`${rowLabel}.self_index must equal the row position`);
+      }
+      const output = Array.from({ length: plan.states.length }, () => 0);
+      output[rowIndex] = 1;
+      if (rawRow.event !== null) {
+        const eventLabel = `${rowLabel}.event`;
+        const event = rawRow.event;
+        if (!isRecord(event)) {
+          reasons.push(`${eventLabel} must be an object or null`);
+          return;
+        }
+        const allowed = new Set([
+          "target_index", "source_probability", "source_interval_years",
+          "source_extraction_id", "source_pointer", "assumption_id",
+        ]);
+        if (Object.keys(event).some((field) => !allowed.has(field))) {
+          reasons.push(`${eventLabel} contains unsupported fields`);
+        }
+        const targetIndex = typeof event.target_index === "number"
+          ? event.target_index : Number.NaN;
+        const probability = event.source_probability;
+        const sourceInterval = event.source_interval_years;
+        if (!Number.isInteger(targetIndex) || targetIndex < 0
+          || targetIndex >= plan.states.length || targetIndex === rowIndex) {
+          reasons.push(`${eventLabel}.target_index is invalid`);
+          return;
+        }
+        if (!finiteNumber(probability) || probability <= 0 || probability >= 1) {
+          reasons.push(`${eventLabel}.source_probability must be strictly between 0 and 1`);
+          return;
+        }
+        if (!finiteNumber(sourceInterval) || sourceInterval <= 0) {
+          reasons.push(`${eventLabel}.source_interval_years must be positive`);
+          return;
+        }
+        const sourceId = nonempty(event.source_extraction_id)
+          ? event.source_extraction_id : null;
+        const assumptionId = nonempty(event.assumption_id) ? event.assumption_id : null;
+        if (Boolean(sourceId) === Boolean(assumptionId)) {
+          reasons.push(`${eventLabel} must declare exactly one source extraction or assumption`);
+        } else if (sourceId) {
+          if (event.source_pointer !== undefined
+            && (typeof event.source_pointer !== "string"
+              || (event.source_pointer.length > 0 && !event.source_pointer.startsWith("/")))) {
+            reasons.push(`${eventLabel}.source_pointer must be empty or a JSON pointer`);
+          }
+          usedExtractions.add(sourceId);
+        } else if (assumptionId) {
+          if (event.source_pointer !== undefined) {
+            reasons.push(`${eventLabel}.source_pointer requires source_extraction_id`);
+          }
+          usedAssumptions.add(assumptionId);
+        }
+        const converted = -Math.expm1(
+          Math.log1p(-probability) * cycleLength / sourceInterval,
+        );
+        if (!Number.isFinite(converted) || converted <= 0 || converted >= 1) {
+          reasons.push(`${eventLabel} conversion produced an invalid probability`);
+          return;
+        }
+        output[rowIndex] = 1 - converted;
+        output[targetIndex] = converted;
+      }
+      matrix.push(output);
+    });
+    if (matrix.length === plan.states.length) matrices.push(matrix);
+  });
+  if (starts[0] !== 1 || starts.some((value, index) => index > 0 && starts[index - 1] >= value)) {
+    reasons.push("transformation phases must start at cycle 1 and strictly increase");
+  }
+  const output = mapping.path.endsWith(".transition_matrix")
+    ? (phases.length === 1 ? matrices[0] : undefined)
+    : starts.map((start_cycle, index) => ({ start_cycle, matrix: matrices[index] }));
+  if (mapping.path.endsWith(".transition_matrix") && phases.length !== 1) {
+    reasons.push("a static matrix transformation requires exactly one phase");
+  }
+  if (output === undefined || !jsonEquivalent(output, modelValue(plan, mapping.path))) {
+    reasons.push("source probabilities do not reproduce the current transition input");
+  }
+  if (!sameStringSet(usedExtractions, new Set(extractionIds))) {
+    reasons.push("transformation must use every selected extraction exactly as declared");
+  }
+  if (!sameStringSet(usedAssumptions, new Set(assumptionIds))) {
+    reasons.push("transformation must use every proposed assumption exactly as declared");
+  }
+  return reasons;
+}
+
 function derivationReasons(
   plan: HeorAnalysisPlan,
   mapping: HeorInputProvenance,
@@ -1138,6 +1312,8 @@ function derivationReasons(
       reasons.push(...transitionRateReasons(plan, mapping, extractionIds, assumptionIds));
     } else if (operation === "parametric_survival_to_transition_schedule") {
       reasons.push(...survivalCurveReasons(plan, mapping, extractionIds, assumptionIds));
+    } else if (operation === "single_event_probability_time_conversion") {
+      reasons.push(...probabilityTimeReasons(plan, mapping, extractionIds, assumptionIds));
     } else {
       reasons.push("deterministic transformation operation is unsupported");
     }
@@ -1449,8 +1625,9 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
   const covered = new Set<string>();
   const invalidMappings: string[] = [];
   if (!(plan.schema_version === "0.3.0" || plan.schema_version === "0.4.0"
-    || plan.schema_version === "0.5.0" || plan.schema_version === "0.6.0")) {
-    invalidMappings.push("schema_version must be 0.3.0, 0.4.0, 0.5.0, or 0.6.0 for approval review");
+    || plan.schema_version === "0.5.0" || plan.schema_version === "0.6.0"
+    || plan.schema_version === "0.7.0")) {
+    invalidMappings.push("schema_version must be 0.3.0 through 0.7.0 for approval review");
   }
   for (const role of ["comparator", "intervention"] as const) {
     const hasMatrix = plan.strategies[role].transition_matrix != null;
@@ -1461,9 +1638,9 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
       );
     }
     if (hasSchedule && !(plan.schema_version === "0.4.0" || plan.schema_version === "0.5.0"
-      || plan.schema_version === "0.6.0")) {
+      || plan.schema_version === "0.6.0" || plan.schema_version === "0.7.0")) {
       invalidMappings.push(
-        `strategies.${role}.transition_schedule requires schema_version 0.4.0, 0.5.0, or 0.6.0`,
+        `strategies.${role}.transition_schedule requires schema_version 0.4.0 through 0.7.0`,
       );
     }
   }
@@ -2025,7 +2202,7 @@ export function browserDemoRun(
   return {
     calculation: {
       analysis_id: HEOR_BROWSER_DEMO_PLAN.analysis_id,
-      engine_version: "0.6.0",
+      engine_version: "0.7.0",
       schema_version: "0.3.0",
       reference_case: {
         id: "CN-2020-current",

@@ -111,6 +111,10 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped alpha | `heor-evidence-search` | Draft a bounded PubMed/ClinicalTrials.gov metadata request; require exact app-owned human network authorization; verify and losslessly import immutable candidates | `heor/evidence-search-request.json`, app-written `heor/evidence-search-runs/*.json`, app-owned authorization log, and hash-bound synthesis import |
 | Shipped alpha | `heor-local-evidence` | Verify and deterministically search app-indexed local PDF/text sources with exact path, page, and SHA-256 citations | `heor/library/*`, `heor/evidence-library.json`, and app-owned `.openscience/heor-library.sqlite` |
 | Shipped | `heor-model-design` | Decision problem, conceptual model, structural alternatives | `heor/conceptual-model.json` plus app-owned gate audit |
+| Shipped | `heor-cohort-state-transition` | Bounded static and model-cycle-dependent cohort transition structure | Complete transition matrix or schedule in `heor/analysis-plan.json` |
+| Shipped | `heor-transition-rate-adapter` | Constant competing event rates with exact evidence binding and recomputation | Schema `0.5.0` transition derivation |
+| Shipped | `heor-survival-curve-adapter` | Already-selected two-state exponential or Weibull curve evaluation | Schema `0.6.0` transition schedule derivation |
+| Shipped | `heor-probability-time-adapter` | Single-event probability time conversion under an explicit constant-hazard assumption | Schema `0.7.0` transition derivation |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, per-person EVPI, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
@@ -198,7 +202,7 @@ lognormal members, a linked latent log-scale correlation matrix, strict positive
 definite validation, deterministic Cholesky sampling, exact result disclosure,
 and cross-layer adversarial tests. This is a first-party bounded implementation,
 not a copied BCEA/heemod/hesim routine or a matrix inferred by the Agent. General CTMC
-conversion, probability time conversion, relative effects, extrapolation,
+conversion, probability-time conversion outside the separately admitted single-event adapter, relative effects, extrapolation,
 within-cycle multi-step paths, arbitrary copulas, gamma/uniform correlation,
 empirical posterior draws, singular/perfect matrices, and transformation-space
 structural scenarios remain isolated future adapters rather than inferred capability.
@@ -214,7 +218,7 @@ and adversarial tests cover parameterization, cycle increments, stale schedules,
 wrong schemas, invalid sources, unsupported distributions, and state-count
 violations. `$heor-survival-curve-adapter` documents the exact boundary.
 
-Uncertainty schema `0.5.0` and engine `0.6.0` industrialize the next bounded
+Uncertainty schemas `0.5.0` and `0.6.0`, with current engine `0.7.0`, industrialize the next bounded
 fragment: evidence-bound DSA/PSA for exact exponential rate and Weibull shape or
 scale values. Every run replaces parameters on an ephemeral plan and recomputes
 the full per-cycle schedule and derivation snapshot before normal validation.
@@ -230,6 +234,20 @@ from incomplete fit output
 remain future admission candidates. Mature upstream survival packages can serve
 as isolated tools or cross-checks only after their own license, version, data-
 egress, reproducibility, audit, and packaging gates pass.
+
+Schema `0.7.0` industrializes probability time conversion without importing a
+spreadsheet macro, R package, or upstream prompt. AI4HEOR implements only the
+single-event constant-hazard identity, requires probabilities strictly inside
+`(0,1)` and explicit source/model intervals, binds each source probability to
+one extraction or proposed assumption, and recomputes the complete transition
+input in Python, the standalone Skill, the portable validator, native Rust, and
+the browser. Uncertainty schema `0.6.0` adds only evidence-bound Beta or bounded
+Uniform sampling followed by full recomputation. Adversarial tests reject
+simple division, stale matrices, probability 0 or 1, extra events, invalid
+intervals, unlinked bases, unbounded distributions, and derived-row mutation.
+Competing events, time-varying hazards, relative effects, composite endpoints,
+dependence, and clinical-validity judgments remain future methods rather than
+inferred capability.
 
 The evidence-search slice applies the same standard to a network capability.
 The Agent can only draft and validate the request file. Native code rejects

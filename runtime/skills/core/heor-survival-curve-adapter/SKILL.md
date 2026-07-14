@@ -15,7 +15,7 @@ Convert one declared all-cause survival curve into a complete, deterministic two
 4. Use analysis schema `0.6.0`. Map only `strategies.<role>.transition_schedule`; set `derivation.method = "deterministic_transformation"` and `operation = "parametric_survival_to_transition_schedule"`.
 5. Recompute every model-cycle probability from the cumulative-hazard increment in the reference contract. Emit one complete matrix per cycle, beginning at cycle 1. Preserve the absorbing event state.
 6. Require the recomputed output to equal both `derivation.model_value` and the current schedule. Require exact equality between mapping-level extraction and assumption IDs and the bases actually used by the parameters.
-7. When evidence supports parameter uncertainty, use `$heor-uncertainty-analysis` schema `0.5.0`. Target only the exact parameter `value` under the indexed transformation, use positive DSA bounds and gamma, lognormal, or strictly positive uniform PSA values, and bind exactly that parameter's extraction or proposed assumption. Let the engine recompute the complete schedule after all replacements. Keep alternative curve families as separately reviewed structural uncertainty.
+7. When evidence supports parameter uncertainty, use current `$heor-uncertainty-analysis` schema `0.6.0` (`0.5.0` remains readable). Target only the exact parameter `value` under the indexed transformation, use positive DSA bounds and gamma, lognormal, or strictly positive uniform PSA values, and bind exactly that parameter's extraction or proposed assumption. Let the engine recompute the complete schedule after all replacements. Keep alternative curve families as separately reviewed structural uncertainty.
 8. Run `scripts/validate_survival_curve.py` on the transformation and expected schedule, then run `$heor-input-provenance`, `$heor-uncertainty-analysis` when applicable, and the deterministic HEOR engine. Inspect cycle count, schedule starts, row sums, cohort-mass conservation, parameter-draw recomputation, and the exact evidence hash.
 9. Report the distribution and parameterization, basis for every parameter, time unit, observed-data boundary if known, generated schedule, represented and omitted uncertainty, unsupported methods, unresolved extrapolation questions, and the next Human-in-the-loop review gate.
 
@@ -23,7 +23,7 @@ Convert one declared all-cause survival curve into a complete, deterministic two
 
 - This adapter evaluates declared parameters; it does not fit data, compare statistical fit, select a distribution, reconstruct patient-level data, or establish internal or external validity.
 - Exponential uses `rate_per_year`; Weibull uses the scale-in-years and shape form in the contract. Do not substitute another Weibull convention.
-- Uncertainty schema `0.5.0` admits only exact positive exponential or Weibull parameter values. It does not fit covariance, infer distributions from confidence intervals, choose curves, or validate extrapolation. Never vary derived probabilities independently.
+- Uncertainty schema `0.5.0` or `0.6.0` admits only exact positive exponential or Weibull parameter values. It does not fit covariance, infer distributions from confidence intervals, choose curves, or validate extrapolation. Never vary derived probabilities independently.
 - Do not describe this as partitioned survival, competing-risk, semi-Markov, cure, mixture, spline, or background-mortality modeling.
 - Do not create or claim evidence verification, human approval, independent model validation, reimbursement, or policy advice.
 

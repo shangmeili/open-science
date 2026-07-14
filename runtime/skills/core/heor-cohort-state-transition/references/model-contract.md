@@ -13,7 +13,7 @@ These sources support the review questions; they do not certify an AI4HEOR model
 
 ## Executable transition contract
 
-Analysis schemas `0.4.0`, `0.5.0`, and `0.6.0` accept exactly one transition mechanism for each strategy:
+Analysis schemas `0.4.0` through `0.7.0` accept exactly one transition mechanism for each strategy:
 
 ```json
 "transition_matrix": [
@@ -41,13 +41,13 @@ Rules:
 - Every value is finite and from 0 through 1; every row sums to 1 within engine tolerance.
 - Initial distributions sum to 1. The engine verifies cohort-mass conservation after every cycle.
 - Rewards retain the existing start-of-cycle or half-cycle-corrected semantics. Transition schedules do not change state costs or utilities.
-- Schema `0.3.0` remains valid for static matrices. Schedules require `0.4.0`, `0.5.0`, or `0.6.0`; reserve `0.5.0` for an admitted deterministic transition-rate transformation and `0.6.0` for an admitted two-state parametric survival transformation.
+- Schema `0.3.0` remains valid for static matrices. Schedules require schema `0.4.0` or later; reserve `0.5.0` for an admitted deterministic transition-rate transformation, `0.6.0` for an admitted two-state parametric survival transformation, and `0.7.0` for an admitted single-event probability-time transformation.
 
 The result records `transition_mode` as `static` or `piecewise_by_model_cycle` and reports the effective schedule start cycles. The exact input bytes remain the authoritative record of matrices.
 
 ## Evidence and uncertainty
 
-Map a static matrix at `strategies.<role>.transition_matrix`. Map a schedule at `strategies.<role>.transition_schedule`. The derivation snapshot must equal the complete current value. A direct-evidence extraction must contain strict JSON equal to that complete matrix or schedule. Constant cause-specific competing event rates may be transformed only through `$heor-transition-rate-adapter`; an already-selected exponential or Weibull two-state survival curve may be evaluated only through `$heor-survival-curve-adapter`. Other assembly from several estimates remains incomplete.
+Map a static matrix at `strategies.<role>.transition_matrix`. Map a schedule at `strategies.<role>.transition_schedule`. The derivation snapshot must equal the complete current value. A direct-evidence extraction must contain strict JSON equal to that complete matrix or schedule. Constant cause-specific competing event rates may be transformed only through `$heor-transition-rate-adapter`; an already-selected exponential or Weibull two-state survival curve may be evaluated only through `$heor-survival-curve-adapter`; a single event probability with an explicit source interval may be converted only through `$heor-probability-time-adapter`. Other assembly from several estimates remains incomplete.
 
 Allowed uncertainty row targets are:
 
@@ -58,8 +58,8 @@ Allowed uncertainty row targets are:
 
 Use a coherent complete simplex for deterministic bounds and a Dirichlet distribution for PSA. A structural scenario may change an allowlisted schedule `start_cycle`; the resulting complete model must still pass ordering and horizon validation. Do not vary one probability independently from the rest of its row.
 
-For a schema `0.5.0` transition derived from constant competing rates, do not use these probability-row targets. Uncertainty schemas `0.3.0` through `0.5.0` may instead target an exact positive event `rate_per_year` inside `input_provenance`; the uncertainty engine then recomputes the complete affected matrix or schedule before model validation. Gamma, lognormal, and strictly positive uniform rate distributions are admitted. Schemas `0.4.0` and `0.5.0` additionally admit evidence-bound Cholesky correlation only among lognormal scalar members. For a schema `0.6.0` survival transformation, uncertainty schema `0.5.0` may target only the exact positive exponential rate or Weibull shape or scale value and must recompute the complete schedule. General CTMC intensity uncertainty, arbitrary or unsupported correlated distributions, curve selection, and transformation-space structural scenarios remain unsupported.
+For a schema `0.5.0` transition derived from constant competing rates, do not use these probability-row targets. Uncertainty schemas `0.3.0` through `0.6.0` may instead target an exact positive event `rate_per_year` inside `input_provenance`; the uncertainty engine then recomputes the complete affected matrix or schedule before model validation. Gamma, lognormal, and strictly positive uniform rate distributions are admitted. Schemas `0.4.0` through `0.6.0` additionally admit evidence-bound Cholesky correlation only among lognormal scalar members. For a schema `0.6.0` survival transformation, uncertainty schema `0.5.0` or `0.6.0` may target only the exact positive exponential rate or Weibull shape or scale value and must recompute the complete schedule. For a schema `0.7.0` probability-time transformation, uncertainty schema `0.6.0` may target only its exact source probability with Beta or bounded Uniform and must recompute the complete transition input. General CTMC intensity uncertainty, arbitrary or unsupported correlated distributions, curve selection, and transformation-space structural scenarios remain unsupported.
 
 ## Explicit exclusions
 
-The current first-party engine does not implement tunnel states automatically, time-since-entry transitions, patient-level history, recurrent-event trackers, general continuous-time matrix exponentiation, probability time conversion, relative-effect application, treatment-effect extrapolation formulas, dynamic populations, interactions, time-varying rewards, partitioned survival, or microsimulation. Only the separately admitted constant competing-rate adapter and bounded two-state survival-curve adapter are executable. The latter propagates only evidence-bound uncertainty through an already-selected exponential or Weibull curve; it does not fit or select curves, reconstruct covariance, or validate extrapolation. Record everything else as a structural gap; never approximate it invisibly with a model-cycle schedule.
+The current first-party engine does not implement tunnel states automatically, time-since-entry transitions, patient-level history, recurrent-event trackers, general continuous-time matrix exponentiation, competing-probability conversion, relative-effect application, treatment-effect extrapolation formulas, dynamic populations, interactions, time-varying rewards, partitioned survival, or microsimulation. Only the separately admitted constant competing-rate, bounded two-state survival-curve, and single-event probability-time adapters are executable. They do not fit or select curves, reconstruct covariance, validate extrapolation or clinical applicability, combine competing events, or infer time-varying hazards. Record everything else as a structural gap; never approximate it invisibly with a model-cycle schedule.

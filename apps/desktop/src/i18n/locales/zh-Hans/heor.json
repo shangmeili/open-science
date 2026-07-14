@@ -182,7 +182,7 @@
     "unverified": "仍需另一名不同本地审阅者确认：{{id}}",
     "rejected": "已拒绝当前综合版本中的提取项：{{id}}",
     "askRepair": "让 Agent 解决证据缺口",
-    "repairPrompt": "使用 $heor-input-provenance 和可审批 schema 0.3.0、0.4.0、0.5.0 或 0.6.0 审计并修复 heor/analysis-plan.json 的输入可追溯性。0.5.0 仅用于 $heor-transition-rate-adapter，0.6.0 仅用于有边界的 $heor-survival-curve-adapter。绑定当前 heor/evidence-synthesis.json 的精确 SHA-256；每个映射保存精确 derivation.model_value。只有一个严格 JSON 提取值等于模型值时才用 direct_evidence；只有 proposed 假设且没有提取项时才用 explicit_assumption；基于来源的成本或支付意愿使用 monetary_adjustment。转换前必须精确绑定每个来源参数。无法执行的转换保持未完成。不得编造或静默获取通胀率或汇率，也不要声称人工核验或批准。",
+    "repairPrompt": "使用 $heor-input-provenance 和可审批 schema 0.3.0 至 0.7.0 审计并修复 heor/analysis-plan.json 的输入可追溯性。0.5.0 仅用于 $heor-transition-rate-adapter，0.6.0 仅用于 $heor-survival-curve-adapter，0.7.0 仅用于 $heor-probability-time-adapter。绑定当前 heor/evidence-synthesis.json 的精确 SHA-256；每个映射保存精确 derivation.model_value。只有一个严格 JSON 提取值等于模型值时才用 direct_evidence；只有 proposed 假设且没有提取项时才用 explicit_assumption；基于来源的成本或支付意愿使用 monetary_adjustment。转换前必须精确绑定每个来源参数。无法执行的转换保持未完成。不得编造或静默获取通胀率或汇率，也不要声称人工核验或批准。",
     "note": "应用会独立核对精确推导快照、严格 JSON 提取值、直接数值等价、货币来源绑定与调整算术、综合文件哈希、提取目标、记录链接及应用持有的审阅链。每个所选提取项都获得两个不同本地标签确认且没有拒绝后，才能批准分析计划。",
     "noProject": "当前没有可审计证据到输入选择的项目。",
     "missingPlan": "必须先有分析计划，才能审计证据到输入选择。"
@@ -196,11 +196,13 @@
     "askAudit": "让 Agent 审计队列模型",
     "askRateDerivation": "让 Agent 从事件率推导转移矩阵",
     "askSurvivalDerivation": "让 Agent 从生存曲线推导转移时间表",
-    "ratePrompt": "使用 $heor-transition-rate-adapter 与 $heor-input-provenance 检查当前证据；仅在具备常数原因别竞争事件率、精确模型周期长度，且每个事件都绑定一个可审计提取项或 proposed 假设时，推导 schema 0.5.0 transition_matrix 或 transition_schedule。重新计算每一行，保留结构零与吸收态，并运行确定性校验。如有证据支持率不确定性，使用 $heor-uncertainty-analysis schema 0.5.0 和精确的正值事件率目标，使每次 DSA/PSA 都重算受影响的完整转移输入。只有 2–32 个成员均使用有证据绑定的对数正态分布，并有明确的潜在对数尺度严格正定 Cholesky 矩阵时才可关联抽样。概率跨周期换算、HR/RR/OR 应用、汇总、外推、通用 CTMC 矩阵指数、周期内多次转移、状态内时间行为、任意相关率模型和变换空间结构情景均保持明确不支持。不要声称人工核验或批准。",
-    "survivalPrompt": "使用 $heor-survival-curve-adapter 与 $heor-input-provenance 检查当前证据；仅在恰好两个状态、一个吸收性的全因事件终点，且指数分布或 Weibull 尺度/形状曲线已被选定时，推导 schema 0.6.0 transition_schedule。每个正值参数必须绑定一个严格 JSON 提取项或 proposed 假设，周期长度必须精确匹配，并依据累计风险增量生成每个周期后运行便携式、浏览器、原生和确定性校验。若证据支持参数不确定性，使用 $heor-uncertainty-analysis schema 0.5.0，仅改变精确的 rate_per_year、shape 或 scale_years 的 value，以 gamma、lognormal 或严格正值 uniform 抽样，并让引擎在每次 DSA/PSA 中重算完整时间表。不得拟合或自动选择曲线、从不完整拟合结果推断协方差、重建 IPD、组合 PFS 与 OS、应用 HR、添加背景死亡或竞争风险，也不得声称外推具有临床有效性或独立改变派生概率。不要声称人工核验或批准。",
-    "repairPrompt": "使用 $heor-cohort-state-transition 审计或修复当前队列模型。读取当前决策问题、概念模型、证据综合、分析计划、输入溯源和不确定性计划。除非证据或明确的 proposed 假设支持完整 transition_schedule，否则使用静态 transition_matrix。已准入的常数竞争率使用 schema 0.5.0 与 $heor-transition-rate-adapter；已准入的两状态生存曲线场景使用 schema 0.6.0 与 $heor-survival-curve-adapter；其他直接声明的时间表使用 schema 0.4.0。通过 $heor-input-provenance 绑定完整矩阵或时间表。未支持的转换和高级状态转移行为必须显式保留。运行确定性校验，但不要声称获得人工批准、完成模型验证或得出报销与政策建议。",
+    "askProbabilityTime": "让 Agent 把事件概率换算到模型周期",
+    "ratePrompt": "使用 $heor-transition-rate-adapter 与 $heor-input-provenance 检查当前证据；仅在具备常数原因别竞争事件率、精确模型周期长度，且每个事件都绑定一个可审计提取项或 proposed 假设时，推导 schema 0.5.0 transition_matrix 或 transition_schedule。重新计算每一行，保留结构零与吸收态，并运行确定性校验。如有证据支持率不确定性，使用 $heor-uncertainty-analysis 和精确的正值事件率目标，使每次 DSA/PSA 都重算受影响的完整转移输入。只有 2–32 个成员均使用有证据绑定的对数正态分布，并有明确的潜在对数尺度严格正定 Cholesky 矩阵时才可关联抽样。概率跨周期换算不属于本适配器；符合单事件边界的情况转交 $heor-probability-time-adapter。HR/RR/OR 应用、汇总、外推、通用 CTMC 矩阵指数、周期内多次转移、状态内时间行为、任意相关率模型和变换空间结构情景仍明确不支持。不要声称人工核验或批准。",
+    "survivalPrompt": "使用 $heor-survival-curve-adapter 与 $heor-input-provenance 检查当前证据；仅在恰好两个状态、一个吸收性的全因事件终点，且指数分布或 Weibull 尺度/形状曲线已被选定时，推导 schema 0.6.0 transition_schedule。每个正值参数必须绑定一个严格 JSON 提取项或 proposed 假设，周期长度必须精确匹配，并依据累计风险增量生成每个周期后运行便携式、浏览器、原生和确定性校验。若证据支持参数不确定性，使用当前 $heor-uncertainty-analysis schema 0.6.0，仅改变精确的 rate_per_year、shape 或 scale_years 的 value，以 gamma、lognormal 或严格正值 uniform 抽样，并让引擎在每次 DSA/PSA 中重算完整时间表。不得拟合或自动选择曲线、从不完整拟合结果推断协方差、重建 IPD、组合 PFS 与 OS、应用 HR、添加背景死亡或竞争风险，也不得声称外推具有临床有效性或独立改变派生概率。不要声称人工核验或批准。",
+    "probabilityTimePrompt": "使用 $heor-probability-time-adapter 与 $heor-input-provenance 检查当前证据；仅在每个受影响状态行最多有一个事件、来源概率严格位于 0 与 1 之间、来源时间区间明确，且恒定风险率假设可供审阅时，推导 schema 0.7.0 转移输入。使用 1-exp(log(1-p)*模型周期/来源区间) 换算，绝不能用周期数直接除概率。每个来源概率绑定一个严格 JSON 提取项或 proposed 假设，并由便携式、浏览器、原生和确定性校验器重算完整矩阵或时间表。若证据支持不确定性，使用 $heor-uncertainty-analysis schema 0.6.0，仅以 source_probability 为目标，使用 Beta 或严格位于 (0,1) 的 Uniform 分布，并在每次 DSA/PSA 中重算完整转移输入。遇到竞争事件、时变风险、概率 0 或 1、HR/RR/OR 应用、复合终点或临床适用性判断时必须停止。不要声称人工核验或批准。",
+    "repairPrompt": "使用 $heor-cohort-state-transition 审计或修复当前队列模型。读取当前决策问题、概念模型、证据综合、分析计划、输入溯源和不确定性计划。除非证据或明确的 proposed 假设支持完整 transition_schedule，否则使用静态 transition_matrix。已准入的常数竞争率使用 schema 0.5.0 与 $heor-transition-rate-adapter；已准入的两状态生存曲线场景使用 schema 0.6.0 与 $heor-survival-curve-adapter；有边界的单事件概率时间换算使用 schema 0.7.0 与 $heor-probability-time-adapter；其他直接声明的时间表使用 schema 0.4.0。通过 $heor-input-provenance 绑定完整矩阵或时间表。未支持的转换和高级状态转移行为必须显式保留。运行确定性校验，但不要声称获得人工批准、完成模型验证或得出报销与政策建议。",
     "staticNote": "静态矩阵应用于每个模型周期；概率、维度和队列质量守恒仍以确定性引擎校验为准。",
-    "scheduleNote": "时间表使用整个队列的模型周期时间。schema 0.6.0 可由一个已声明的两状态生存曲线确定性推导，但这并不证明拟合或外推有效性，也不等同于状态内时间或个体模拟。"
+    "scheduleNote": "时间表使用整个队列的模型周期时间。schema 0.6.0 可计算一个已声明的两状态生存曲线，schema 0.7.0 可在恒定风险率假设下换算一个已声明的来源概率；两者都不证明拟合或临床有效性，也不等同于状态内时间或个体模拟。"
   },
   "reference": {
     "title": "参考案例合规矩阵",
@@ -231,7 +233,7 @@
     "thresholds": "决策阈值",
     "scenarios": "情景数",
     "askRepair": "让 Agent 创建或修复不确定性分析",
-    "repairPrompt": "使用 $heor-uncertainty-analysis，针对当前 heor/analysis-plan.json 的精确字节创建或修复 schema 0.5.0 heor/uncertainty-plan.json。范围、分布及任何对数正态相关矩阵都只能来自已链接证据；相关参数组必须使用有依据的 log_standard_normal 尺度与 Cholesky 方法，未支持的依赖关系继续写入 known_omitted_correlations 并阻断审查。配置固定种子的 DSA、PSA 和结构情景。对直接声明的转移时间表，只能以完整分段矩阵行为参数目标，并把变更点作为结构情景。对已准入的分析 schema 0.5.0 常数竞争率变换，只改变精确的正值事件率；对分析 schema 0.6.0 生存变换，只改变精确的 rate_per_year、shape 或 scale_years 的 value。唯一 basis 必须是该参数的提取值或假设；让引擎在每次运行中重算受影响的完整转移输入。不得独立改变派生概率行、编造相关性、选择生存曲线、改变变换结构，也不得把模型时间称为状态内时间。运行确定性校验器，不要创建或声称获得人工批准。",
+    "repairPrompt": "使用 $heor-uncertainty-analysis，针对当前 heor/analysis-plan.json 的精确字节创建或修复 schema 0.6.0 heor/uncertainty-plan.json。范围、分布及任何对数正态相关矩阵都只能来自已链接证据；相关参数组必须使用有依据的 log_standard_normal 尺度与 Cholesky 方法，未支持的依赖关系继续写入 known_omitted_correlations 并阻断审查。配置固定种子的 DSA、PSA 和结构情景。对直接声明的转移时间表，只能以完整分段矩阵行为参数目标，并把变更点作为结构情景。对分析 schema 0.5.0 常数竞争率变换，只改变精确的正值事件率；对分析 schema 0.6.0 生存变换，只改变精确的 rate_per_year、shape 或 scale_years 的 value；对分析 schema 0.7.0 概率时间换算，只改变精确的 source_probability，并使用 Beta 或严格位于 (0,1) 的有界 Uniform。唯一 basis 必须是该参数的提取值或假设；让引擎在每次运行中重算受影响的完整转移输入。不得独立改变派生概率行、编造相关性、选择生存曲线、改变变换结构，也不得把模型时间称为状态内时间。运行确定性校验器，不要创建或声称获得人工批准。",
     "note": "应用会审计并以哈希绑定该可执行规范。模拟可复现不等于独立验证，也不构成医保决策建议。",
     "noProject": "没有可用于不确定性分析审计的当前项目。",
     "missingPlan": "必须先有分析计划，才能审计不确定性分析。"

@@ -161,11 +161,11 @@ considers the dual-review status.
 
 The contract deliberately does not execute free-form formulas. A narrative in
 `selection_rationale` cannot authorize a hidden transformation. Schema `0.5.0`
-admits one structured exception: constant cause-specific competing event rates
-can be converted to a complete transition matrix or schedule by the first-party
-rate adapter described below. Probability time conversion, relative-effect
-application, pooling, calibration, interpolation, extrapolation, and general
-continuous-time matrix conversion remain incomplete. Schemas `0.1.0` and
+admits constant cause-specific competing event rates, schema `0.6.0` admits a
+bounded two-state survival schedule, and schema `0.7.0` admits the single-event
+probability time conversion described below. Relative-effect application,
+pooling, calibration, interpolation, and general continuous-time matrix
+conversion remain incomplete. Schemas `0.1.0` and
 `0.2.0` remain calculable for reproducibility but cannot pass analysis-plan
 approval; static `0.3.0` and schedule-capable `0.4.0` plans remain approvable.
 
@@ -214,16 +214,17 @@ rate, matrix, cycle length, phase, or basis set therefore fails closed.
 
 This is a competing-first-event calculation under constant within-phase rates
 and an at-most-one-state-change-per-cycle assumption. It is not general CTMC
-matrix exponentiation. Uncertainty schemas `0.3.0` through `0.5.0` can vary exact positive event
+matrix exponentiation. Uncertainty schemas `0.3.0` through `0.6.0` can vary exact positive event
 rates with gamma, lognormal, or strictly positive uniform distributions. For each
-DSA run or PSA draw, engine `0.6.0` recomputes each affected complete matrix or
+DSA run or PSA draw, engine `0.7.0` recomputes each affected complete matrix or
 schedule and its derivation snapshot before ordinary validation. Changing only a
 derived probability row still fails closed. The adapter does not implement
-probability time conversion, HR/RR/OR application, pooling, calibration, survival
+probability-time conversion inside the rate adapter, HR/RR/OR application, pooling, calibration, survival
 extrapolation, within-cycle multi-step paths, arbitrary correlated rate models, or
-transformation-space structural scenarios, except that schemas `0.4.0` and `0.5.0` may correlate
+transformation-space structural scenarios, except that schemas `0.4.0` through `0.6.0` may correlate
 only evidence-bound lognormal rate members through the bounded latent log-scale
-Cholesky contract. `$heor-transition-rate-adapter`
+Cholesky contract. Eligible single-event source probabilities route to the separate
+`$heor-probability-time-adapter`; `$heor-transition-rate-adapter`
 exposes the method and its stopping rules through the natural-language workflow.
 
 ## Executable bounded survival-curve schedules
@@ -244,9 +245,9 @@ schedule drift fails closed. The natural-language workbench exposes this through
 `$heor-survival-curve-adapter`; the form action is only a shortcut into that
 conversation.
 
-Uncertainty schema `0.5.0` may vary exact positive exponential or Weibull
+Uncertainty schema `0.5.0` or `0.6.0` may vary exact positive exponential or Weibull
 parameter values with evidence-bound gamma, lognormal, or strictly positive
-uniform distributions. Engine `0.6.0` applies all replacements and recomputes
+uniform distributions. Engine `0.7.0` applies all replacements and recomputes
 the complete affected schedule and derivation snapshot before ordinary model
 validation. This is parameter propagation for an already-selected curve, not a
 complete survival-analysis workflow.
@@ -257,10 +258,36 @@ extrapolation validity remain explicitly unsupported. NICE PMG36 and NICE DSU TS
 plausibility, alternatives, and uncertainty beyond this executable fragment;
 the platform therefore does not infer those claims from a generated schedule.
 
+## Executable single-event probability time conversion
+
+Analysis-plan schema `0.7.0` changes the time unit of at most one event
+probability per affected state row under an explicit constant-hazard
+assumption. For source probability `p` over `t_source` years and model cycle
+`t_cycle`, it evaluates `1 - exp(log(1-p) * t_cycle / t_source)` with stable
+`log1p`/`expm1` implementations. It never divides the probability by a cycle
+count. Source probabilities must be strictly inside `(0,1)`; a structural zero
+uses a null event; both time intervals must be positive.
+
+Every source probability binds exactly one strict-JSON extraction or `proposed`
+assumption. Python calculation, the standalone Skill validator, portable
+provenance audit, native Rust audit, and browser preview independently
+recompute the complete matrix or schedule. `$heor-probability-time-adapter` is
+the natural-language entry point; the form action only drafts that conversation.
+
+Uncertainty schema `0.6.0` may vary the exact `source_probability` with an
+evidence-bound Beta or Uniform distribution strictly inside `(0,1)`. Every DSA
+run and PSA draw recomputes the complete transition input and derivation
+snapshot before model validation. Competing events, probabilities 0 or 1,
+time-varying hazards, HR/RR/OR application, composite endpoints, recurrent
+events, dependence between probability parameters, and clinical
+appropriateness remain unsupported. ISPOR-SMDM and PHARMAC support the
+arithmetic and disclosure requirement; they do not validate the assumption for
+a specific decision problem.
+
 ## Executable monetary basis
 
 Analysis-plan schema `0.2.0` introduced one calculation currency and price
-year, and current schemas through `0.6.0` retain that contract while binding each source
+year, and current schemas through `0.7.0` retain that contract while binding each source
 value to evidence or an explicit assumption.
 Every state-cost element and non-null willingness-to-pay value records its
 source value, source currency, source price year, positive composite adjustment
@@ -342,7 +369,7 @@ Changing either artifact invalidates local authorization.
 The dependency-free engine executes one-way sensitivity analyses, joint PSA,
 and structural scenarios with versioned `pcg32-xsh-rr` sampling and fixed beta,
 gamma, lognormal, uniform, Dirichlet, and bounded lognormal-Cholesky transforms. Schemas
-`0.4.0` and `0.5.0` admit evidence-bound groups of 2–32 scalar lognormal parameters only;
+`0.4.0` through `0.6.0` admit evidence-bound groups of 2–32 scalar lognormal parameters only;
 their declared matrix is the correlation of latent standard-normal values on the
 log scale and must be symmetric, unit-diagonal, and strictly positive definite.
 Each member can belong to one group, and every group basis must already be linked
@@ -350,7 +377,7 @@ by every member distribution. The current desktop bridge
 limits PSA to 10,000 draws because it returns every draw for audit; larger runs
 require a future streamed, content-addressed result artifact. The app reports
 cost-effectiveness probability and checkpoint Monte Carlo diagnostics.
-Schemas `0.2.0` through `0.5.0` require a declared 2–101 point threshold grid containing
+Schemas `0.2.0` through `0.6.0` require a declared 2–101 point threshold grid containing
 the analysis plan's primary willingness-to-pay value. The grid must come from
 the stated decision context or a human instruction; neither the Agent nor a
 form may invent a jurisdictional threshold.
@@ -484,7 +511,7 @@ approval, reimbursement suitability, or external tamper-proofing.
   missing second confirmation, rejection, changed synthesis, or tampered review
   chain fails closed; this remains distinct from authenticated independent
   duplicate extraction.
-- Evidence-to-input approval also requires schema `0.3.0`, `0.4.0`, `0.5.0`, or `0.6.0`, an exact model-value
+- Evidence-to-input approval also requires schema `0.3.0` through `0.7.0`, an exact model-value
   snapshot per mapping, strict JSON equality for direct evidence, and extraction-
   bound source values for monetary normalization. Changed, narrative, unused,
   or silently transformed extraction values fail closed.
@@ -495,18 +522,25 @@ approval, reimbursement suitability, or external tamper-proofing.
 - A schema `0.5.0` transition-rate mapping additionally requires the bounded
   constant competing-rate operation, exact cycle length, complete ordered rows
   and phases, one declared basis per event, and exact output reproduction. Rate-
-  space uncertainty additionally requires uncertainty schema `0.3.0`, `0.4.0`, or `0.5.0`, an exact positive
+  space uncertainty additionally requires uncertainty schema `0.3.0` through `0.6.0`, an exact positive
   event-rate target, one matching event basis ID, and full transformation
   recomputation for every DSA/PSA run. Correlated rate sampling additionally
-  requires uncertainty schema `0.4.0` or `0.5.0` and the evidence-bound lognormal-Cholesky contract.
+  requires uncertainty schema `0.4.0` through `0.6.0` and the evidence-bound lognormal-Cholesky contract.
 - A schema `0.6.0` survival mapping additionally requires exactly two states,
   one absorbing event state, an exponential or Weibull scale/shape declaration,
   positive singly bound parameters, exact cycle length, a complete per-cycle
   schedule, and independent reproduction across all four audit layers. Survival-
-  parameter DSA/PSA additionally requires uncertainty schema `0.5.0`, an exact
+  parameter DSA/PSA additionally requires uncertainty schema `0.5.0` or `0.6.0`, an exact
   positive parameter-value target, its sole basis ID, and full schedule
   recomputation. Fit, curve selection, covariance reconstruction, and
   extrapolation validity remain explicit gaps.
+- A schema `0.7.0` probability-time mapping additionally requires at most one
+  event per row, a source probability strictly inside `(0,1)`, explicit positive
+  source and model intervals, one declared basis per event, and exact complete
+  output reproduction. Source-probability DSA/PSA additionally requires
+  uncertainty schema `0.6.0`, strict `(0,1)` bounds, Beta or bounded Uniform,
+  its sole basis ID, and full transition-input recomputation. Competing events,
+  time-varying hazards, relative effects, and clinical applicability remain gaps.
 - Exploratory, analysis-authorized, independently validated, and locally
   released decision-ready states remain distinct. Any stale package, binding,
   validation, result reproduction, actor, or approval sequence fails closed.
