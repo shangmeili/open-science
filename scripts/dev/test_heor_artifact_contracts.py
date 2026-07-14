@@ -57,6 +57,10 @@ evidence_search = load(
     "validate_evidence_search_request",
     "runtime/skills/core/heor-evidence-search/scripts/validate_evidence_search_request.py",
 )
+input_provenance = load(
+    "validate_input_provenance",
+    "runtime/skills/core/heor-input-provenance/scripts/validate_input_provenance.py",
+)
 
 
 def evidence_search_fixture():
@@ -290,6 +294,81 @@ class EvidenceSynthesisContractTests(unittest.TestCase):
         self.assertFalse(result["complete"])
         self.assertTrue(any("unsupported field" in error for error in result["errors"]))
         self.assertTrue(any("searched_on" in error for error in result["errors"]))
+
+    def test_reported_digest_can_bind_exact_file_bytes(self):
+        value = evidence_fixture()
+        raw = json.dumps(value, ensure_ascii=False, indent=2).encode() + b"\n"
+        result = evidence.audit(value, raw_sha256=hashlib.sha256(raw).hexdigest())
+        self.assertEqual(result["synthesis_sha256"], hashlib.sha256(raw).hexdigest())
+
+
+class InputProvenanceContractTests(unittest.TestCase):
+    def fixture(self):
+        synthesis = evidence_fixture()
+        paths = list(input_provenance.BASE_PATHS) + ["willingness_to_pay"]
+        synthesis["extractions"] = [
+            {
+                "extraction_id": f"extract-{index}",
+                "record_id": "trial-1",
+                "target": path,
+                "extracted_value": "fixture value",
+                "source_location": f"Table {index + 1}",
+                "applicability": "Contract-test fixture",
+                "verification_status": "agent_extracted",
+            }
+            for index, path in enumerate(paths)
+        ]
+        synthesis_raw = json.dumps(synthesis, ensure_ascii=False, indent=2).encode() + b"\n"
+        plan = {
+            "willingness_to_pay": 100000,
+            "evidence_synthesis": {
+                "path": "heor/evidence-synthesis.json",
+                "content_sha256": hashlib.sha256(synthesis_raw).hexdigest(),
+            },
+            "evidence_sources": [{
+                "id": "trial-1",
+                "title": "Treatment A randomized trial",
+                "source_type": "randomized_trial",
+                "url": "https://example.test/trial-1",
+                "accessed_on": "2026-07-14",
+            }],
+            "assumptions": [],
+            "input_provenance": [
+                {
+                    "path": path,
+                    "source_ids": ["trial-1"],
+                    "extraction_ids": [f"extract-{index}"],
+                    "assumption_ids": [],
+                    "unit": "model-specific",
+                    "jurisdiction": "China",
+                    **({"price_year": 2026} if path.endswith("state_costs")
+                       or path == "willingness_to_pay" else {}),
+                    "selection_rationale": "Direct contract-test extraction",
+                    "uncertainty_status": "fixed",
+                }
+                for index, path in enumerate(paths)
+            ],
+        }
+        return plan, synthesis, hashlib.sha256(synthesis_raw).hexdigest()
+
+    def test_exact_synthesis_and_extraction_links_pass_structural_review(self):
+        plan, synthesis, digest = self.fixture()
+        result = input_provenance.audit(plan, synthesis, digest)
+        self.assertTrue(result["complete"], result)
+        self.assertFalse(result["human_verification_checked"])
+        self.assertEqual(len(result["selected_extraction_ids"]), 14)
+
+    def test_stale_hash_wrong_target_and_unlinked_record_fail_closed(self):
+        plan, synthesis, digest = self.fixture()
+        plan["evidence_synthesis"]["content_sha256"] = "0" * 64
+        synthesis["extractions"][0]["target"] = "another.path"
+        synthesis["extractions"][1]["record_id"] = "another-record"
+        result = input_provenance.audit(plan, synthesis, digest)
+        self.assertFalse(result["complete"])
+        combined = "; ".join(result["errors"] + result["invalid_mappings"])
+        self.assertIn("does not match", combined)
+        self.assertIn("targets another.path", combined)
+        self.assertIn("absent, conflicting, or ineligible", combined)
 
 
 class ConceptualModelContractTests(unittest.TestCase):

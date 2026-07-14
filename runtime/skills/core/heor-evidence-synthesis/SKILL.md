@@ -18,13 +18,15 @@ Create a transparent evidence trail, not a citation list or an autonomous system
 7. Record conflicting evidence explicitly. Do not silently select a convenient estimate.
 8. If the file does not exist, prepare an importable skeleton from `assets/evidence-synthesis.template.json`. After app import, modify research fields only: do not rewrite app-bound provenance, convert `not_assessed` merely to satisfy validation, or overwrite existing screening/appraisal decisions.
 9. Run `scripts/validate_evidence_synthesis.py` against the final file. An importable skeleton is intentionally incomplete until at least one documented search exists and all research work is supported.
-10. Summarize coverage, unresolved conflicts, limitations, and candidate source IDs for `$heor-input-provenance`.
+10. Treat every non-conflicting extraction as eligible for app review, not verified. Ask the researcher to use the AI4HEOR review pane; never write or simulate the app-owned verification event.
+11. Summarize coverage, unresolved conflicts, limitations, and candidate extraction IDs plus record IDs for `$heor-input-provenance`.
 
 ## Boundaries
 
 - Treat PRISMA as reporting guidance, not proof of methodological quality.
 - Do not claim dual independent screening, librarian review, risk-of-bias completion, certainty grading, or human verification unless those actions actually occurred and are recorded.
 - An agent screening decision is a draft research action. It is not a human approval.
+- `human_checked` inside the workspace records claimed activity only. The analysis-plan gate accepts a selected extraction only when the desktop app independently binds its ID to the exact current synthesis SHA-256.
 - Keep unavailable full text, translation limitations, inaccessible databases, and search-date limits visible.
 - Do not pool effects merely because multiple estimates exist. Statistical synthesis requires a separate prespecified method and deterministic implementation.
 - Keep network calls source-specific and disclose them in the conversation. Store artifacts in the active project.

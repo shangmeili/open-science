@@ -9,7 +9,9 @@ use crate::heor_approval::{
     ApprovalAction, ApprovalEvent, ApprovalGate, ApprovalLog, HeorApprovalState,
 };
 use crate::heor_budget_impact::{audit_budget_impact_for_plan, BudgetImpactAudit};
-use crate::heor_evidence::{audit_plan_bytes, EvidenceAudit};
+use crate::heor_evidence::{
+    audit_evidence_selection_for_plan, audit_plan_bytes, EvidenceAudit, EvidenceSelectionAudit,
+};
 use crate::heor_reference_case::{audit_reference_case_for_plan, ReferenceCaseAudit};
 use crate::heor_reporting::{audit_report_package, ReportingAudit};
 use crate::heor_uncertainty::{audit_uncertainty_plan_for_plan, UncertaintyAudit};
@@ -41,6 +43,8 @@ pub struct HeorWorkflowStatus {
     approval_integrity: &'static str,
     identity_assurance: &'static str,
     evidence_audit: EvidenceAudit,
+    evidence_selection_audit: EvidenceSelectionAudit,
+    evidence_synthesis_matches_approval: bool,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -52,6 +56,7 @@ pub struct HeorRunResult {
 
 pub(crate) struct HeorWorkflowAudits {
     pub evidence: EvidenceAudit,
+    pub evidence_selection: EvidenceSelectionAudit,
     pub reference_case: ReferenceCaseAudit,
     pub uncertainty: UncertaintyAudit,
     pub budget_impact: BudgetImpactAudit,
@@ -170,6 +175,7 @@ pub(crate) fn workflow_status(
 ) -> HeorWorkflowStatus {
     let HeorWorkflowAudits {
         evidence: evidence_audit,
+        evidence_selection: evidence_selection_audit,
         reference_case: reference_case_audit,
         uncertainty: uncertainty_audit,
         budget_impact: budget_impact_audit,
@@ -192,6 +198,14 @@ pub(crate) fn workflow_status(
             &budget_impact_audit.budget_impact_sha256,
         )
     });
+    let evidence_synthesis_matches_approval = evidence_selection_audit.synthesis_sha256.is_empty()
+        || analysis_plan_event(&log).is_some_and(|event| {
+            crate::heor_approval::event_binds_artifact(
+                event,
+                crate::heor_synthesis::EVIDENCE_SYNTHESIS_PATH,
+                &evidence_selection_audit.synthesis_sha256,
+            )
+        });
     let independent_validation_matches_approval = log
         .effective_approved_gates
         .contains(&ApprovalGate::IndependentValidation)
@@ -225,6 +239,8 @@ pub(crate) fn workflow_status(
     let locally_authorized = plan_matches
         && conceptual_model_matches_artifact
         && evidence_audit.complete
+        && evidence_selection_audit.complete
+        && evidence_synthesis_matches_approval
         && reference_case_audit.complete
         && uncertainty_audit.complete
         && uncertainty_plan_matches_approval
@@ -238,6 +254,8 @@ pub(crate) fn workflow_status(
             .take_while(|gate| *gate != ApprovalGate::ConceptualModel)
             .collect();
     } else if !evidence_audit.complete
+        || !evidence_selection_audit.complete
+        || !evidence_synthesis_matches_approval
         || !reference_case_audit.complete
         || !uncertainty_audit.complete
         || !uncertainty_plan_matches_approval
@@ -291,6 +309,8 @@ pub(crate) fn workflow_status(
         approval_integrity: log.integrity,
         identity_assurance: log.identity_assurance,
         evidence_audit,
+        evidence_selection_audit,
+        evidence_synthesis_matches_approval,
     }
 }
 
@@ -334,6 +354,8 @@ pub fn run_heor_markov(
     let raw = std::fs::read(&input).map_err(|e| format!("HEOR input read failed: {e}"))?;
     let input_sha256 = sha256_bytes(&raw);
     let evidence_audit = audit_plan_bytes(&raw)?;
+    let evidence_selection_audit =
+        audit_evidence_selection_for_plan(&app, &root, &project_id, &raw);
 
     let package_src = app
         .path()
@@ -411,6 +433,7 @@ pub fn run_heor_markov(
             &reference_case_status,
             HeorWorkflowAudits {
                 evidence: evidence_audit,
+                evidence_selection: evidence_selection_audit,
                 reference_case: reference_case_audit,
                 uncertainty: uncertainty_audit,
                 budget_impact: budget_impact_audit,
@@ -456,6 +479,10 @@ mod tests {
             crate::heor_approval::ArtifactBinding {
                 path: crate::heor_budget_impact::BUDGET_IMPACT_PLAN_PATH.into(),
                 sha256: "9".repeat(64),
+            },
+            crate::heor_approval::ArtifactBinding {
+                path: crate::heor_synthesis::EVIDENCE_SYNTHESIS_PATH.into(),
+                sha256: "7".repeat(64),
             },
         ];
         ApprovalLog {
@@ -503,6 +530,23 @@ mod tests {
             unresolved_assumptions: Vec::new(),
             source_count: 1,
             mapping_count: 12,
+            source_based_inputs: 12,
+            selected_extraction_count: 12,
+        }
+    }
+
+    fn complete_evidence_selection_audit() -> EvidenceSelectionAudit {
+        EvidenceSelectionAudit {
+            complete: true,
+            status: "complete",
+            synthesis_sha256: "7".repeat(64),
+            selected_input_count: 12,
+            selected_extraction_count: 12,
+            verified_extraction_count: 12,
+            unverified_extraction_ids: Vec::new(),
+            invalid_selections: Vec::new(),
+            errors: Vec::new(),
+            verification_integrity: "verified_unanchored_sha256_chain",
         }
     }
 
@@ -630,6 +674,7 @@ mod tests {
     fn complete_workflow_audits() -> HeorWorkflowAudits {
         HeorWorkflowAudits {
             evidence: complete_audit(),
+            evidence_selection: complete_evidence_selection_audit(),
             reference_case: complete_reference_case_audit(),
             uncertainty: complete_uncertainty_audit(),
             budget_impact: complete_budget_impact_audit(),
@@ -704,6 +749,43 @@ mod tests {
             status.effective_approved_gates,
             vec![ApprovalGate::DecisionProblem, ApprovalGate::ConceptualModel]
         );
+    }
+
+    #[test]
+    fn unverified_or_changed_evidence_selection_invalidates_authorization() {
+        let input_hash = "c".repeat(64);
+        let mut unverified = complete_evidence_selection_audit();
+        unverified.complete = false;
+        unverified.status = "incomplete";
+        unverified.verified_extraction_count = 11;
+        unverified.unverified_extraction_ids = vec!["extract-12".into()];
+        let status = workflow_status(
+            approved_log(&input_hash),
+            input_hash.clone(),
+            true,
+            "current",
+            HeorWorkflowAudits {
+                evidence_selection: unverified,
+                ..complete_workflow_audits()
+            },
+        );
+        assert_eq!(status.classification, "exploratory");
+        assert!(!status.evidence_selection_audit.complete);
+
+        let mut changed = complete_evidence_selection_audit();
+        changed.synthesis_sha256 = "0".repeat(64);
+        let status = workflow_status(
+            approved_log(&input_hash),
+            input_hash,
+            true,
+            "current",
+            HeorWorkflowAudits {
+                evidence_selection: changed,
+                ..complete_workflow_audits()
+            },
+        );
+        assert!(!status.evidence_synthesis_matches_approval);
+        assert_eq!(status.classification, "exploratory");
     }
 
     #[test]

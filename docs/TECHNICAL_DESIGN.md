@@ -193,6 +193,23 @@ or conflict judgments. The portable Python validator and native Rust audit both
 fail closed on unknown fields, malformed dates, incomplete bindings, invalid
 links, and collection caps.
 
+Evidence verification is a separate native trust boundary. The Agent may write
+research fields in `heor/evidence-synthesis.json`, but only the desktop command
+can append a local human verification event under the app-data directory. The
+event hash covers project ID, exact synthesis SHA-256, sorted extraction IDs,
+actor label, rationale, timestamp, sequence, and previous hash. Log reads are
+capped, reject symlinks, and verify every event before use.
+
+`heor/analysis-plan.json` carries the input-selection contract directly: a root
+`evidence_synthesis` binding plus `extraction_ids` on each source-based
+`input_provenance` mapping. The approval path independently checks synthesis
+structure, current bytes, extraction eligibility, exact target, record/source
+link, and app-owned verification. Its approval event binds the synthesis digest
+alongside uncertainty and budget-impact artifacts. This avoids a second
+workspace artifact and circular hashes while ensuring a plan approval covers
+the exact evidence-to-input choices. The engine, uncertainty runner, and budget
+impact runner repeat the audit and invalidate stale approval bindings.
+
 ### 6.4 MCP servers
 
 First batch: `filesystem` (project files), `paper-search-mcp` (literature), `BioMCP`

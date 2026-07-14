@@ -93,6 +93,7 @@ export interface HeorAssumption {
 export interface HeorInputProvenance {
   path: string;
   source_ids?: string[];
+  extraction_ids?: string[];
   assumption_ids?: string[];
   unit: string;
   jurisdiction: string;
@@ -111,6 +112,21 @@ export interface HeorEvidenceAudit {
   unresolvedAssumptions: string[];
   sourceCount: number;
   mappingCount: number;
+  sourceBasedInputs: number;
+  selectedExtractionCount: number;
+}
+
+export interface HeorEvidenceSelectionAudit {
+  complete: boolean;
+  status: "complete" | "incomplete";
+  synthesisSha256: string;
+  selectedInputCount: number;
+  selectedExtractionCount: number;
+  verifiedExtractionCount: number;
+  unverifiedExtractionIds: string[];
+  invalidSelections: string[];
+  errors: string[];
+  verificationIntegrity: string;
 }
 
 export interface HeorConceptualModel {
@@ -363,6 +379,11 @@ export interface HeorEvidenceSynthesisAudit {
   notAssessedCount: number;
   includedCount: number;
   extractionCount: number;
+  eligibleExtractionIds: string[];
+  appVerifiedExtractionIds: string[];
+  unverifiedExtractionIds: string[];
+  humanReviewComplete: boolean;
+  verificationIntegrity: string;
   unresolvedConflicts: string[];
   errors: string[];
   importBlockers: string[];
@@ -412,6 +433,14 @@ export interface HeorImportCandidatesResponse {
   sourceRunSha256: string;
 }
 
+export interface HeorEvidenceVerificationRequest {
+  projectId: string;
+  synthesisSha256: string;
+  extractionIds: string[];
+  actorLabel: string;
+  rationale: string;
+}
+
 export interface HeorAnalysisPlan {
   schema_version: "0.1.0";
   analysis_id: string;
@@ -421,6 +450,7 @@ export interface HeorAnalysisPlan {
   reference_case_assessment?: { path: string; content_sha256: string };
   uncertainty_analysis?: { path: string };
   budget_impact_analysis?: { path: string };
+  evidence_synthesis?: { path: string; content_sha256: string };
   states: string[];
   cycles: number;
   cycle_length_years: number;
@@ -505,6 +535,8 @@ export interface HeorWorkflowStatus {
     approvalIntegrity: string;
     identityAssurance: string;
     evidenceAudit: HeorEvidenceAudit;
+    evidenceSelectionAudit: HeorEvidenceSelectionAudit;
+    evidenceSynthesisMatchesApproval: boolean;
 }
 
 export interface HeorRunResult {
@@ -831,6 +863,10 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
   const seen = new Set<string>();
   const covered = new Set<string>();
   const invalidMappings: string[] = [];
+  let sourceBasedInputs = 0;
+  const selectedExtractions = new Set<string>();
+  const synthesisBindingValid = plan.evidence_synthesis?.path === HEOR_EVIDENCE_SYNTHESIS_PATH
+    && validSha256(plan.evidence_synthesis.content_sha256);
 
   for (const mapping of plan.input_provenance ?? []) {
     const reasons: string[] = [];
@@ -847,12 +883,24 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
       reasons.push("price year is missing");
     }
     const sourceIds = (mapping.source_ids ?? []).filter(nonempty);
+    const extractionIds = (mapping.extraction_ids ?? []).filter(nonempty);
     const assumptionIds = (mapping.assumption_ids ?? []).filter(nonempty);
     if (sourceIds.length === 0 && assumptionIds.length === 0) {
       reasons.push("no evidence source or reviewable assumption is linked");
     }
     if (sourceIds.some((id) => !validSources.has(id))) {
       reasons.push("source link is missing or source metadata is incomplete");
+    }
+    if (sourceIds.length > 0) {
+      sourceBasedInputs += 1;
+      if (!synthesisBindingValid) reasons.push("current evidence synthesis binding is missing or invalid");
+      if (extractionIds.length === 0) reasons.push("source-based input has no selected extraction");
+      if (new Set(extractionIds).size !== extractionIds.length) {
+        reasons.push("selected extraction IDs are duplicated");
+      }
+      extractionIds.forEach((id) => selectedExtractions.add(id));
+    } else if (extractionIds.length > 0) {
+      reasons.push("extraction IDs require at least one evidence source");
     }
     if (assumptionIds.some((id) => statuses.get(id) !== "proposed")) {
       reasons.push("assumption link is missing or is not proposed for human review");
@@ -875,6 +923,8 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
     unresolvedAssumptions,
     sourceCount: validSources.size,
     mappingCount: plan.input_provenance?.length ?? 0,
+    sourceBasedInputs,
+    selectedExtractionCount: selectedExtractions.size,
   };
 }
 
@@ -958,6 +1008,20 @@ export async function auditHeorEvidenceSynthesis(): Promise<HeorEvidenceSynthesi
   if (!isTauri) return HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<HeorEvidenceSynthesisAudit>("audit_heor_evidence_synthesis");
+}
+
+export async function auditHeorEvidenceSelection(): Promise<HeorEvidenceSelectionAudit> {
+  if (!isTauri) return HEOR_BROWSER_DEMO_EVIDENCE_SELECTION_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorEvidenceSelectionAudit>("audit_heor_evidence_selection");
+}
+
+export async function verifyHeorEvidenceExtractions(
+  request: HeorEvidenceVerificationRequest,
+): Promise<HeorEvidenceSynthesisAudit> {
+  if (!isTauri) throw new Error("evidence verification is available only in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorEvidenceSynthesisAudit>("verify_heor_evidence_extractions", { request });
 }
 
 export async function auditHeorEvidenceLibrary(): Promise<HeorEvidenceLibraryAudit> {
@@ -1066,9 +1130,27 @@ export const HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT: HeorEvidenceSynthesisAu
   notAssessedCount: 12,
   includedCount: 4,
   extractionCount: 2,
+  eligibleExtractionIds: ["extract-cost", "extract-utility"],
+  appVerifiedExtractionIds: [],
+  unverifiedExtractionIds: ["extract-cost", "extract-utility"],
+  humanReviewComplete: false,
+  verificationIntegrity: "verified_unanchored_sha256_chain",
   unresolvedConflicts: ["utility-weight-selection"],
   errors: ["12 records remain not_assessed", "unresolved conflicts: utility-weight-selection"],
   importBlockers: [],
+};
+
+export const HEOR_BROWSER_DEMO_EVIDENCE_SELECTION_AUDIT: HeorEvidenceSelectionAudit = {
+  complete: false,
+  status: "incomplete",
+  synthesisSha256: "e".repeat(64),
+  selectedInputCount: 2,
+  selectedExtractionCount: 2,
+  verifiedExtractionCount: 0,
+  unverifiedExtractionIds: ["extract-cost", "extract-utility"],
+  invalidSelections: [],
+  errors: [],
+  verificationIntegrity: "verified_unanchored_sha256_chain",
 };
 
 export const HEOR_BROWSER_DEMO_EVIDENCE_LIBRARY_AUDIT: HeorEvidenceLibraryAudit = {
@@ -1360,6 +1442,8 @@ export function browserDemoRun(
       approvalIntegrity: "verified_unanchored_sha256_chain",
       identityAssurance: "local_human_assertion",
       evidenceAudit,
+      evidenceSelectionAudit: HEOR_BROWSER_DEMO_EVIDENCE_SELECTION_AUDIT,
+      evidenceSynthesisMatchesApproval: false,
     },
   };
 }

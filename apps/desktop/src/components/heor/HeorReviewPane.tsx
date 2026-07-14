@@ -24,6 +24,7 @@ import {
   auditHeorConceptualModel,
   auditHeorEvidence,
   auditHeorEvidenceLibrary,
+  auditHeorEvidenceSelection,
   auditHeorEvidenceSearch,
   auditHeorEvidenceSynthesis,
   auditHeorReferenceCase,
@@ -63,6 +64,7 @@ import {
   type HeorRunResult,
   type HeorEvidenceSearchAudit,
   type HeorEvidenceLibraryAudit,
+  type HeorEvidenceSelectionAudit,
   type HeorEvidenceSynthesisAudit,
   type HeorImportCandidatesResponse,
   type HeorSearchAuthorizationLog,
@@ -79,6 +81,7 @@ import {
   syncHeorEvidenceLibrary,
   executeHeorEvidenceSearch,
   importHeorSearchCandidates,
+  verifyHeorEvidenceExtractions,
   runHeorUncertainty,
   sha256Text,
 } from "@/lib/heor";
@@ -160,6 +163,11 @@ type EvidenceSynthesisState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorEvidenceSynthesisAudit };
+
+type EvidenceSelectionState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorEvidenceSelectionAudit };
 
 type EvidenceLibraryState =
   | { kind: "loading" }
@@ -264,6 +272,7 @@ export function HeorReviewPane({
   const [reporting, setReporting] = useState<ReportingState>({ kind: "loading" });
   const [evidenceSearch, setEvidenceSearch] = useState<EvidenceSearchState>({ kind: "loading" });
   const [evidenceSynthesis, setEvidenceSynthesis] = useState<EvidenceSynthesisState>({ kind: "loading" });
+  const [evidenceSelection, setEvidenceSelection] = useState<EvidenceSelectionState>({ kind: "loading" });
   const [evidenceLibrary, setEvidenceLibrary] = useState<EvidenceLibraryState>({ kind: "loading" });
   const [searchAuthorizations, setSearchAuthorizations] = useState(EMPTY_SEARCH_LOG);
   const [searchResult, setSearchResult] = useState<HeorSearchExecutionResponse | null>(null);
@@ -272,6 +281,8 @@ export function HeorReviewPane({
   const [importRunning, setImportRunning] = useState(false);
   const [librarySyncing, setLibrarySyncing] = useState(false);
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
+  const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
+  const [verificationRunning, setVerificationRunning] = useState(false);
   const [approvals, setApprovals] = useState<HeorApprovalLog>(EMPTY_LOG);
   const [result, setResult] = useState<HeorRunResult | null>(null);
   const [uncertaintyResult, setUncertaintyResult] = useState<HeorUncertaintyRunResult | null>(null);
@@ -295,6 +306,7 @@ export function HeorReviewPane({
       setReporting({ kind: "invalid", message: t("reporting.noProject") });
       setEvidenceSearch({ kind: "invalid", message: t("search.noProject") });
       setEvidenceSynthesis({ kind: "invalid", message: t("synthesis.noProject") });
+      setEvidenceSelection({ kind: "invalid", message: t("evidence.noProject") });
       setEvidenceLibrary({ kind: "invalid", message: t("library.noProject") });
       setSearchAuthorizations(EMPTY_SEARCH_LOG);
       setApprovals(EMPTY_LOG);
@@ -309,6 +321,7 @@ export function HeorReviewPane({
     setReporting({ kind: "loading" });
     setEvidenceSearch({ kind: "loading" });
     setEvidenceSynthesis({ kind: "loading" });
+    setEvidenceSelection({ kind: "loading" });
     setEvidenceLibrary({ kind: "loading" });
     try {
       setEvidenceLibrary({ kind: "ready", audit: await auditHeorEvidenceLibrary() });
@@ -350,12 +363,21 @@ export function HeorReviewPane({
         setBudgetImpact({ kind: "invalid", message: t("budgetImpact.missingPlan") });
         setModelValidation({ kind: "invalid", message: t("validation.missingPlan") });
         setReporting({ kind: "invalid", message: t("reporting.missingPlan") });
+        setEvidenceSelection({ kind: "invalid", message: t("evidence.missingPlan") });
         setApprovals(await listHeorApprovals(project.id));
         return;
       }
       const plan = parseHeorPlan(raw);
       const sha256 = await sha256Text(raw);
       setArtifact({ kind: "ready", plan, raw, sha256 });
+      try {
+        setEvidenceSelection({ kind: "ready", audit: await auditHeorEvidenceSelection() });
+      } catch (error) {
+        setEvidenceSelection({
+          kind: "invalid",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
       try {
         setReferenceCase({ kind: "ready", audit: await auditHeorReferenceCase() });
       } catch (error) {
@@ -444,6 +466,10 @@ export function HeorReviewPane({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
+      setEvidenceSelection({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
       toast.error(t("toast.loadFailed"));
     }
   }, [project, t]);
@@ -471,6 +497,8 @@ export function HeorReviewPane({
         && !conceptualArtifact.audit.complete) break;
       if (gate === "analysis_plan"
         && (!auditHeorEvidence(artifact.plan).complete
+          || evidenceSelection.kind !== "ready"
+          || !evidenceSelection.audit.complete
           || referenceCase.kind !== "ready"
           || !referenceCase.audit.complete
           || uncertainty.kind !== "ready"
@@ -488,6 +516,12 @@ export function HeorReviewPane({
         !event ||
         event.action !== "approve" ||
         event.artifactSha256 !== artifactSha256 ||
+        (gate === "analysis_plan"
+          && evidenceSelection.kind === "ready"
+          && evidenceSelection.audit.synthesisSha256.length > 0
+          && !event.relatedArtifacts?.some((binding) =>
+            binding.path === HEOR_EVIDENCE_SYNTHESIS_PATH
+            && binding.sha256 === evidenceSelection.audit.synthesisSha256)) ||
         (gate === "analysis_plan"
           && uncertainty.kind === "ready"
           && !event.relatedArtifacts?.some((binding) =>
@@ -516,6 +550,7 @@ export function HeorReviewPane({
     approvals.events,
     artifact,
     conceptualArtifact,
+    evidenceSelection,
     referenceCase,
     uncertainty,
     budgetImpact,
@@ -541,7 +576,11 @@ export function HeorReviewPane({
     const sequence = approvals.events.length + 1;
     const relatedArtifacts = gate === "analysis_plan"
       && uncertainty.kind === "ready" && budgetImpact.kind === "ready"
+      && evidenceSelection.kind === "ready"
       ? [
+          ...(evidenceSelection.audit.synthesisSha256
+            ? [{ path: HEOR_EVIDENCE_SYNTHESIS_PATH, sha256: evidenceSelection.audit.synthesisSha256 }]
+            : []),
           { path: HEOR_UNCERTAINTY_PLAN_PATH, sha256: uncertainty.audit.uncertaintySha256 },
           { path: HEOR_BUDGET_IMPACT_PLAN_PATH, sha256: budgetImpact.audit.budgetImpactSha256 },
         ]
@@ -734,6 +773,30 @@ export function HeorReviewPane({
     }
   };
 
+  const verifyEvidenceExtractions = async (actorLabel: string, rationale: string) => {
+    if (!project || evidenceSynthesis.kind !== "ready" || !evidenceSynthesis.audit.complete
+      || evidenceSynthesis.audit.unverifiedExtractionIds.length === 0
+      || verificationRunning || !isTauri) return;
+    setVerificationRunning(true);
+    try {
+      const audit = await verifyHeorEvidenceExtractions({
+        projectId: project.id,
+        synthesisSha256: evidenceSynthesis.audit.synthesisSha256,
+        extractionIds: evidenceSynthesis.audit.unverifiedExtractionIds,
+        actorLabel,
+        rationale,
+      });
+      setEvidenceSynthesis({ kind: "ready", audit });
+      setEvidenceSelection({ kind: "ready", audit: await auditHeorEvidenceSelection() });
+      setVerificationDialogOpen(false);
+      toast.success(t("toast.evidenceVerified"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setVerificationRunning(false);
+    }
+  };
+
   const syncLibrary = async (pickFiles: boolean) => {
     if (!project || librarySyncing || !isTauri) return;
     setLibrarySyncing(true);
@@ -797,9 +860,11 @@ export function HeorReviewPane({
             authorization={searchResult?.authorization ?? latestSearchAuthorization(searchAuthorizations)}
             importResult={importResult}
             importing={importRunning}
+            verifying={verificationRunning}
             onPrepare={() => onRequestRevision(t("synthesis.preparePrompt"))}
             onImport={() => void importSearchCandidates()}
             onContinue={() => onRequestRevision(t("synthesis.continuePrompt"))}
+            onVerify={() => setVerificationDialogOpen(true)}
           />
         )}
 
@@ -855,6 +920,7 @@ export function HeorReviewPane({
 
             <EvidenceTraceability
               audit={evidenceAudit!}
+              selection={evidenceSelection}
               onRequestRepair={() => onRequestRevision(t("evidence.repairPrompt"))}
             />
 
@@ -896,7 +962,14 @@ export function HeorReviewPane({
                   );
                   const gateEvent = latest.get(gate);
                   const relatedStale = (gate === "analysis_plan" && (
-                    (uncertainty.kind === "ready"
+                    (evidenceSelection.kind === "ready"
+                      && evidenceSelection.audit.synthesisSha256.length > 0
+                      && !eventBinds(
+                        gateEvent,
+                        HEOR_EVIDENCE_SYNTHESIS_PATH,
+                        evidenceSelection.audit.synthesisSha256,
+                      ))
+                    || (uncertainty.kind === "ready"
                       && !eventBinds(
                         gateEvent,
                         HEOR_UNCERTAINTY_PLAN_PATH,
@@ -922,7 +995,9 @@ export function HeorReviewPane({
                     && (conceptualArtifact.kind !== "ready" || !conceptualArtifact.audit.complete);
                   const evidenceBlocked = gate === "analysis_plan"
                     && gate === nextGate
-                    && !evidenceAudit?.complete;
+                    && (!evidenceAudit?.complete
+                      || evidenceSelection.kind !== "ready"
+                      || !evidenceSelection.audit.complete);
                   const referenceBlocked = gate === "analysis_plan"
                     && gate === nextGate
                     && (referenceCase.kind !== "ready" || !referenceCase.audit.complete);
@@ -1095,6 +1170,70 @@ export function HeorReviewPane({
           onSubmit={(actor, rationale) => void runEvidenceSearch(actor, rationale)}
         />
       )}
+      {verificationDialogOpen && evidenceSynthesis.kind === "ready" && (
+        <EvidenceVerificationDialog
+          audit={evidenceSynthesis.audit}
+          running={verificationRunning}
+          onCancel={() => setVerificationDialogOpen(false)}
+          onSubmit={(actor, rationale) => void verifyEvidenceExtractions(actor, rationale)}
+        />
+      )}
+    </div>
+  );
+}
+
+function EvidenceVerificationDialog({
+  audit,
+  running,
+  onCancel,
+  onSubmit,
+}: {
+  audit: HeorEvidenceSynthesisAudit;
+  running: boolean;
+  onCancel: () => void;
+  onSubmit: (actor: string, rationale: string) => void;
+}) {
+  const { t } = useTranslation("heor");
+  const [actor, setActor] = useState("");
+  const [rationale, setRationale] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const valid = actor.trim().length > 0 && rationale.trim().length > 1 && confirmed && !running;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && !running && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, running]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => !running && onCancel()} role="presentation">
+      <div role="dialog" aria-modal="true" aria-label={t("synthesis.verifyTitle")} className="w-full max-w-md rounded-card border border-border bg-surface p-5 shadow-card" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center gap-2 text-sm font-semibold text-text">
+          <ShieldCheck size={17} className="text-accent" /> {t("synthesis.verifyTitle")}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          {t("synthesis.verifyBody", {
+            count: audit.unverifiedExtractionIds.length,
+            hash: `${audit.synthesisSha256.slice(0, 12)}…`,
+          })}
+        </p>
+        <label className="mt-4 block text-xs font-medium text-text">
+          {t("dialog.actor")}
+          <input value={actor} onChange={(event) => setActor(event.target.value)} autoFocus placeholder={t("dialog.actorPlaceholder")} className="mt-1.5 w-full rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent" />
+        </label>
+        <label className="mt-3 block text-xs font-medium text-text">
+          {t("dialog.rationale")}
+          <textarea value={rationale} onChange={(event) => setRationale(event.target.value)} placeholder={t("synthesis.verifyRationale")} rows={3} className="mt-1.5 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent" />
+        </label>
+        <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-text">
+          <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 accent-[var(--color-accent)]" />
+          <span>{t("synthesis.verifyConfirm")}</span>
+        </label>
+        <div className="mt-5 flex justify-end gap-2">
+          <button disabled={running} onClick={onCancel} className="rounded-input border border-border px-3 py-2 text-xs text-muted hover:text-text disabled:opacity-50">{t("dialog.cancel")}</button>
+          <button disabled={!valid} onClick={() => onSubmit(actor.trim(), rationale.trim())} className="rounded-input bg-accent px-3 py-2 text-xs font-semibold text-accent-fg disabled:opacity-50">
+            {running ? t("synthesis.verifying") : t("synthesis.verifySubmit")}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1328,17 +1467,21 @@ function EvidenceSynthesisAssessment({
   authorization,
   importResult,
   importing,
+  verifying,
   onPrepare,
   onImport,
   onContinue,
+  onVerify,
 }: {
   state: EvidenceSynthesisState;
   authorization: HeorSearchAuthorizationEvent | null;
   importResult: HeorImportCandidatesResponse | null;
   importing: boolean;
+  verifying: boolean;
   onPrepare: () => void;
   onImport: () => void;
   onContinue: () => void;
+  onVerify: () => void;
 }) {
   const { t } = useTranslation("heor");
   const audit = state.kind === "ready" ? state.audit : null;
@@ -1377,6 +1520,10 @@ function EvidenceSynthesisAssessment({
             <Metric label={t("synthesis.included")} value={String(audit.includedCount)} />
             <Metric label={t("synthesis.extractions")} value={String(audit.extractionCount)} />
             <Metric label={t("synthesis.conflicts")} value={String(audit.unresolvedConflicts.length)} />
+            <Metric
+              label={t("synthesis.verified")}
+              value={`${audit.appVerifiedExtractionIds.length}/${audit.eligibleExtractionIds.length}`}
+            />
           </div>
           <div className="mt-2 break-all font-mono text-[9px] text-muted">
             {t("synthesis.hash")} {audit.synthesisSha256}
@@ -1407,6 +1554,16 @@ function EvidenceSynthesisAssessment({
         {audit?.recordCount !== undefined && audit.recordCount > 0 && (
           <button onClick={onContinue} className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
             <MessageSquareText size={13} /> {t("synthesis.continue")}
+          </button>
+        )}
+        {isTauri && audit?.complete && audit.unverifiedExtractionIds.length > 0 && (
+          <button
+            disabled={verifying}
+            onClick={onVerify}
+            className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline disabled:opacity-50"
+          >
+            {verifying ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+            {t("synthesis.verify")}
           </button>
         )}
       </div>
@@ -1592,9 +1749,11 @@ function ConceptualModelTraceability({
 
 function EvidenceTraceability({
   audit,
+  selection,
   onRequestRepair,
 }: {
   audit: ReturnType<typeof auditHeorEvidence>;
+  selection: EvidenceSelectionState;
   onRequestRepair: () => void;
 }) {
   const { t } = useTranslation("heor");
@@ -1603,10 +1762,12 @@ function EvidenceTraceability({
     ...audit.unresolvedAssumptions.map((id) => t("evidence.unresolved", { id })),
     ...audit.invalidMappings.slice(0, 3),
   ];
+  const selectionAudit = selection.kind === "ready" ? selection.audit : null;
+  const fullyTraceable = audit.complete && selectionAudit?.complete === true;
   return (
     <section className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
-        {audit.complete ? (
+        {fullyTraceable ? (
           <ShieldCheck size={16} className="mt-0.5 text-ok" />
         ) : (
           <AlertTriangle size={16} className="mt-0.5 text-accent" />
@@ -1615,8 +1776,8 @@ function EvidenceTraceability({
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("evidence.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", audit.complete ? "text-ok" : "text-accent")}>
-            {audit.complete ? t("evidence.complete") : t("evidence.incomplete")}
+          <div className={cn("mt-1 text-xs font-semibold", fullyTraceable ? "text-ok" : "text-accent")}>
+            {fullyTraceable ? t("evidence.complete") : t("evidence.incomplete")}
           </div>
         </div>
         <span className="rounded-full border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-text">
@@ -1627,11 +1788,23 @@ function EvidenceTraceability({
         <Metric label={t("evidence.inputs")} value={`${audit.coveredInputs}/${audit.requiredInputs}`} />
         <Metric label={t("evidence.sources")} value={String(audit.sourceCount)} />
         <Metric label={t("evidence.mappings")} value={String(audit.mappingCount)} />
+        <Metric
+          label={t("evidence.verified")}
+          value={selectionAudit
+            ? `${selectionAudit.verifiedExtractionCount}/${selectionAudit.selectedExtractionCount}`
+            : "—"}
+        />
       </div>
-      {!audit.complete && (
+      {!fullyTraceable && (
         <>
           <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
             {gaps.slice(0, 5).map((gap) => <li key={gap}>• {gap}</li>)}
+            {selectionAudit?.unverifiedExtractionIds.slice(0, 3).map((id) => (
+              <li key={id}>• {t("evidence.unverified", { id })}</li>
+            ))}
+            {selectionAudit?.invalidSelections.slice(0, 3).map((issue) => (
+              <li key={issue}>• {issue}</li>
+            ))}
           </ul>
           <button
             onClick={onRequestRepair}

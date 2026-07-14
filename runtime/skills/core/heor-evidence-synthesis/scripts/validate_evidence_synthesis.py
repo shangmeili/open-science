@@ -51,7 +51,7 @@ def _sha(value: Any) -> bool:
     return isinstance(value, str) and len(value) == 64 and all(ch in "0123456789abcdef" for ch in value)
 
 
-def audit(value: Any, allow_empty_searches: bool = False) -> dict[str, Any]:
+def audit(value: Any, allow_empty_searches: bool = False, raw_sha256: str | None = None) -> dict[str, Any]:
     errors: list[str] = []
     if not isinstance(value, dict):
         return {"complete": False, "importable": False, "errors": ["artifact must be a JSON object"]}
@@ -328,7 +328,7 @@ def audit(value: Any, allow_empty_searches: bool = False) -> dict[str, Any]:
         "complete": complete,
         "importable": not import_blockers,
         "status": "complete" if complete else "incomplete",
-        "synthesis_sha256": sha256(json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()).hexdigest(),
+        "synthesis_sha256": raw_sha256 or sha256(json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()).hexdigest(),
         "errors": errors,
         "import_blockers": import_blockers,
         "search_count": len(searches),
@@ -345,8 +345,9 @@ def main(argv: list[str]) -> int:
         print("usage: validate_evidence_synthesis.py ARTIFACT.json", file=sys.stderr)
         return 2
     try:
-        value = json.loads(Path(argv[1]).read_text(encoding="utf-8"))
-        result = audit(value)
+        raw = Path(argv[1]).read_bytes()
+        value = json.loads(raw)
+        result = audit(value, raw_sha256=sha256(raw).hexdigest())
     except (OSError, json.JSONDecodeError) as error:
         result = {"complete": False, "status": "incomplete", "errors": [str(error)]}
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))

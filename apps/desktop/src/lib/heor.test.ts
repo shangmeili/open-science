@@ -42,6 +42,38 @@ describe("AI4HEOR artifact contract", () => {
     expect(audit.unresolvedAssumptions).toEqual(["demo-only"]);
   });
 
+  it("requires source-based inputs to bind the synthesis and exact extractions", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    plan.evidence_sources = [{
+      id: "trial-1",
+      title: "Input study",
+      source_type: "randomized_trial",
+      url: "https://example.test/trial-1",
+      accessed_on: "2026-07-14",
+    }];
+    plan.input_provenance = [{
+      path: "cycles",
+      source_ids: ["trial-1"],
+      assumption_ids: [],
+      unit: "cycles",
+      jurisdiction: "China",
+      selection_rationale: "Directly reported follow-up",
+      uncertainty_status: "fixed",
+    }];
+    let audit = auditHeorEvidence(plan);
+    expect(audit.invalidMappings[0]).toContain("current evidence synthesis binding");
+    expect(audit.invalidMappings[0]).toContain("no selected extraction");
+
+    plan.evidence_synthesis = {
+      path: "heor/evidence-synthesis.json",
+      content_sha256: "a".repeat(64),
+    };
+    plan.input_provenance[0].extraction_ids = ["extract-cycles"];
+    audit = auditHeorEvidence(plan);
+    expect(audit.invalidMappings.join("; ")).not.toContain("current evidence synthesis binding");
+    expect(audit.selectedExtractionCount).toBe(1);
+  });
+
   it("audits the conceptual model independently from numerical inputs", () => {
     const parsed = parseHeorConceptualModel(JSON.stringify(HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL));
     const audit = auditHeorConceptualModel(parsed);

@@ -139,6 +139,7 @@
     "included": "Included",
     "extractions": "Extractions",
     "conflicts": "Open conflicts",
+    "verified": "App-verified",
     "hash": "Synthesis SHA-256",
     "askPrepare": "Ask Agent to prepare the synthesis ledger",
     "preparePrompt": "Use $heor-evidence-synthesis to create or repair heor/evidence-synthesis.json as an importable empty synthesis ledger for the current PICOS question. Preserve existing valid work, run the deterministic validator, and do not fabricate search runs, screening decisions, appraisals, extractions, or human approvals.",
@@ -146,6 +147,13 @@
     "importing": "Verifying and importing candidates…",
     "continue": "Ask Agent to continue screening and synthesis",
     "continuePrompt": "Use $heor-evidence-synthesis to continue the current evidence workflow in heor/evidence-synthesis.json. Preserve app-bound search provenance and all existing human screening decisions. Assess remaining not_assessed candidates, keep exclusions reasoned, extract only supported data, surface conflicts and limitations, and run the deterministic validator. Do not claim human approval or review completeness unless the artifact proves it.",
+    "verify": "Review and verify extracted values",
+    "verifyTitle": "Verify these exact evidence extractions?",
+    "verifyBody": "The app will bind {{count}} selected extraction(s) to synthesis {{hash}} in its app-owned human-verification chain.",
+    "verifyRationale": "How you checked the values, source locations, units, and applicability",
+    "verifyConfirm": "I checked every listed extraction against its cited source location and accept it for input-selection review. I understand any synthesis edit invalidates this verification.",
+    "verifySubmit": "Record verification",
+    "verifying": "Recording verification…",
     "importResult": "Imported {{added}} new records and reconciled {{reconciled}} existing records without changing screening decisions.",
     "note": "The app verifies the authorization chain, run path and SHA-256 before lossless import. Import creates not_assessed candidates only; the Agent supports screening and extraction through natural-language work, while research judgments remain reviewable by a human.",
     "noProject": "There is no current project for an evidence-synthesis ledger."
@@ -157,11 +165,15 @@
     "inputs": "Inputs covered",
     "sources": "Valid sources",
     "mappings": "Mappings",
+    "verified": "Selected / verified",
     "unsupported": "Unsupported input: {{path}}",
     "unresolved": "Unresolved assumption: {{id}}",
+    "unverified": "Not app-verified: {{id}}",
     "askRepair": "Ask agent to resolve evidence gaps",
-    "repairPrompt": "Audit and repair the input traceability in heor/analysis-plan.json. Use $heor-input-provenance. Map every decision-relevant input to valid evidence or an explicit proposed analyst assumption. Preserve uncertainty and do not create or claim human approval.",
-    "note": "Exploratory calculation remains available. Analysis-plan approval stays locked until this audit is complete."
+    "repairPrompt": "Audit and repair input traceability in heor/analysis-plan.json. Use $heor-input-provenance. Bind the exact current heor/evidence-synthesis.json SHA-256, map every source-based input to eligible extraction_ids whose target matches the input path and whose record_id is a linked source, and keep unsupported values as explicit proposed assumptions. Preserve uncertainty and do not create or claim human verification or approval.",
+    "note": "The app independently checks the current synthesis hash, extraction target, record link, and app-owned human-verification chain. Analysis-plan approval stays locked until both structural traceability and exact evidence selection are complete.",
+    "noProject": "There is no current project for evidence-to-input selection.",
+    "missingPlan": "An analysis plan is required before evidence-to-input selection can be audited."
   },
   "reference": {
     "title": "Reference-case compliance matrix",
@@ -311,6 +323,7 @@
     "limitations": "Scope and limitations"
   },
   "toast": {
+    "evidenceVerified": "Evidence extractions were recorded in the app-owned human-verification chain",
     "approvalRecorded": "Human approval recorded",
     "approvalRevoked": "Stale approval revoked",
     "runComplete": "Deterministic analysis complete",

@@ -470,6 +470,19 @@ pub fn append_heor_approval(
                 crate::heor_reference_case::require_analysis_plan_approvable(
                     &app, &workspace, &raw,
                 )?;
+                let evidence_selection =
+                    crate::heor_evidence::require_evidence_selection_approvable(
+                        &app,
+                        &workspace,
+                        &request.project_id,
+                        &raw,
+                    )?;
+                if !evidence_selection.synthesis_sha256.is_empty() {
+                    related_artifacts.push(ArtifactBinding {
+                        path: crate::heor_synthesis::EVIDENCE_SYNTHESIS_PATH.into(),
+                        sha256: evidence_selection.synthesis_sha256,
+                    });
+                }
                 let uncertainty =
                     crate::heor_uncertainty::require_uncertainty_plan_approvable(&workspace, &raw)?;
                 related_artifacts.push(ArtifactBinding {

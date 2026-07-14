@@ -43,12 +43,22 @@ Do not use `accepted`. Acceptance is represented only by the app-owned approval 
 
 ## Input mappings
 
+When at least one input is source-based, bind the exact synthesis bytes at plan root:
+
+```json
+"evidence_synthesis": {
+  "path": "heor/evidence-synthesis.json",
+  "content_sha256": "64-lowercase-hex-digest"
+}
+```
+
 Add one unique `input_provenance` entry per required path:
 
 ```json
 {
   "path": "strategies.comparator.state_costs",
   "source_ids": ["cn-cost-study-2025"],
+  "extraction_ids": ["extract-comparator-state-costs-2025"],
   "assumption_ids": [],
   "unit": "CNY per cycle by health state",
   "jurisdiction": "China",
@@ -60,4 +70,8 @@ Add one unique `input_provenance` entry per required path:
 
 At least one valid source or `proposed` assumption is required. `unit`, `jurisdiction`, and `selection_rationale` are always required. Monetary inputs also require integer `price_year`. `uncertainty_status` must be `fixed`, `range_available`, or `distribution_available`.
 
-An audit is complete only when all required paths have one valid mapping, no mapping is duplicated or invalid, and no `unresolved` assumptions remain. Calculation may still run when incomplete, but analysis-plan approval must fail closed.
+For every source-based mapping, `extraction_ids` must be a non-empty unique list. Each ID must identify a non-conflicting extraction in the bound synthesis, its `target` must exactly equal the mapping `path`, and its `record_id` must appear in `source_ids`. An assumption-only mapping must not claim extraction IDs.
+
+The portable validator checks the plan, synthesis digest, target, and record links. It cannot read or create the app-owned human-verification chain. AI4HEOR independently requires every selected extraction ID to have a current app-owned verification event before analysis-plan approval.
+
+Structural audit is complete only when all required paths have one valid mapping, no mapping is duplicated or invalid, and no `unresolved` assumptions remain. Human-review readiness additionally requires current app-owned verification of every selected extraction. Calculation may still run when incomplete, but analysis-plan approval must fail closed.

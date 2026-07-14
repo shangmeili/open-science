@@ -26,6 +26,10 @@
   "budget_impact_analysis": {
     "path": "heor/budget-impact-plan.json"
   },
+  "evidence_synthesis": {
+    "path": "heor/evidence-synthesis.json",
+    "content_sha256": ""
+  },
   "states": ["stable", "progressed", "dead"],
   "cycles": 10,
   "cycle_length_years": 1.0,

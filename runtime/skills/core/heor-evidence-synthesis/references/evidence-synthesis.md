@@ -44,7 +44,9 @@ Use `include`, `exclude`, `unclear`, or `not_assessed`. Full-text exclusions req
 - `human_checked`: checked by a named human outside the artifact approval mechanism;
 - `conflict`: disagrees with another extraction and requires resolution.
 
-Keep the human checker in `verified_by` only when status is `human_checked`. This records an activity; it does not create an app approval.
+Keep the human checker in `verified_by` only when status is `human_checked`. This records claimed activity inside an agent-writable artifact; it does not create an app-owned verification or approval.
+
+After the artifact is structurally complete, AI4HEOR can record a local human verification event outside the workspace. That event binds the exact synthesis SHA-256 and a sorted set of eligible extraction IDs in an app-owned hash chain. Editing any synthesis byte changes the digest and makes prior verification inapplicable. The Agent must never create, edit, or claim this event.
 
 ## Critical appraisal
 

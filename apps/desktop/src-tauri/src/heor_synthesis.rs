@@ -7,7 +7,7 @@
 
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::io::Write;
 use std::path::{Component, Path};
 use std::sync::Mutex;
@@ -36,6 +36,11 @@ pub struct SynthesisAudit {
     pub not_assessed_count: usize,
     pub included_count: usize,
     pub extraction_count: usize,
+    pub eligible_extraction_ids: Vec<String>,
+    pub app_verified_extraction_ids: Vec<String>,
+    pub unverified_extraction_ids: Vec<String>,
+    pub human_review_complete: bool,
+    pub verification_integrity: &'static str,
     pub unresolved_conflicts: Vec<String>,
     pub errors: Vec<String>,
     pub import_blockers: Vec<String>,
@@ -144,6 +149,11 @@ fn audit_value(
         not_assessed_count: 0,
         included_count: 0,
         extraction_count: 0,
+        eligible_extraction_ids: Vec::new(),
+        app_verified_extraction_ids: Vec::new(),
+        unverified_extraction_ids: Vec::new(),
+        human_review_complete: false,
+        verification_integrity: "not_checked",
         unresolved_conflicts: Vec::new(),
         errors: Vec::new(),
         import_blockers: Vec::new(),
@@ -616,6 +626,9 @@ fn audit_value(
                         .errors
                         .push(format!("{label}.verified_by is required"));
                 }
+                if !id.trim().is_empty() && status != Some("conflict") {
+                    audit.eligible_extraction_ids.push(id.to_string());
+                }
             }
         }
         Some(_) => audit
@@ -716,6 +729,9 @@ fn audit_value(
         ));
     }
     audit.complete = audit.errors.is_empty();
+    audit.eligible_extraction_ids.sort();
+    audit.eligible_extraction_ids.dedup();
+    audit.unverified_extraction_ids = audit.eligible_extraction_ids.clone();
     audit.status = if audit.complete {
         "complete"
     } else {
@@ -739,11 +755,99 @@ pub(crate) fn audit_bytes(raw: &[u8]) -> SynthesisAudit {
             not_assessed_count: 0,
             included_count: 0,
             extraction_count: 0,
+            eligible_extraction_ids: Vec::new(),
+            app_verified_extraction_ids: Vec::new(),
+            unverified_extraction_ids: Vec::new(),
+            human_review_complete: false,
+            verification_integrity: "not_checked",
             unresolved_conflicts: Vec::new(),
             errors: vec![format!("evidence synthesis is invalid JSON: {error}")],
             import_blockers: vec![format!("evidence synthesis is invalid JSON: {error}")],
         },
     }
+}
+
+pub(crate) fn enrich_with_verification(
+    app: &AppHandle,
+    project_id: &str,
+    mut audit: SynthesisAudit,
+) -> Result<SynthesisAudit, String> {
+    let log = crate::heor_evidence_review::verified_log(app, project_id)?;
+    let verified =
+        crate::heor_evidence_review::verified_extraction_ids(&log, &audit.synthesis_sha256);
+    let eligible = audit
+        .eligible_extraction_ids
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    audit.app_verified_extraction_ids = eligible.intersection(&verified).cloned().collect();
+    audit.unverified_extraction_ids = eligible.difference(&verified).cloned().collect();
+    audit.human_review_complete =
+        audit.complete && !eligible.is_empty() && audit.unverified_extraction_ids.is_empty();
+    audit.verification_integrity = log.integrity;
+    Ok(audit)
+}
+
+pub(crate) fn audit_current_with_verification(
+    app: &AppHandle,
+    workspace: &Path,
+) -> Result<SynthesisAudit, String> {
+    let project_id = crate::project::require_project_id(workspace)?;
+    let raw = crate::heor_uncertainty::read_workspace_capped(workspace, EVIDENCE_SYNTHESIS_PATH)?;
+    enrich_with_verification(app, &project_id, audit_bytes(&raw))
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct ExtractionLink {
+    pub record_id: String,
+    pub target: String,
+}
+
+pub(crate) fn extraction_index(raw: &[u8]) -> Result<HashMap<String, ExtractionLink>, String> {
+    let audit = audit_bytes(raw);
+    if !audit.complete {
+        return Err(format!(
+            "evidence synthesis is structurally incomplete: {}",
+            audit.errors.join("; ")
+        ));
+    }
+    let value: Value = serde_json::from_slice(raw)
+        .map_err(|error| format!("evidence synthesis is invalid JSON: {error}"))?;
+    let mut output = HashMap::new();
+    for extraction in value
+        .get("extractions")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        if extraction
+            .get("verification_status")
+            .and_then(Value::as_str)
+            == Some("conflict")
+        {
+            continue;
+        }
+        let id = extraction
+            .get("extraction_id")
+            .and_then(Value::as_str)
+            .ok_or("evidence extraction omitted extraction_id")?;
+        let record_id = extraction
+            .get("record_id")
+            .and_then(Value::as_str)
+            .ok_or("evidence extraction omitted record_id")?;
+        let target = extraction
+            .get("target")
+            .and_then(Value::as_str)
+            .ok_or("evidence extraction omitted target")?;
+        output.insert(
+            id.to_string(),
+            ExtractionLink {
+                record_id: record_id.to_string(),
+                target: target.to_string(),
+            },
+        );
+    }
+    Ok(output)
 }
 
 fn safe_relative_run_path(value: &str) -> bool {
@@ -947,7 +1051,10 @@ fn import_candidates(
 pub fn audit_heor_evidence_synthesis(app: AppHandle) -> Result<SynthesisAudit, String> {
     let workspace = crate::runtime::workspace_dir(&app)?;
     match crate::heor_uncertainty::read_workspace_capped(&workspace, EVIDENCE_SYNTHESIS_PATH) {
-        Ok(raw) => Ok(audit_bytes(&raw)),
+        Ok(raw) => {
+            let project_id = crate::project::require_project_id(&workspace)?;
+            enrich_with_verification(&app, &project_id, audit_bytes(&raw))
+        }
         Err(error) => Ok(SynthesisAudit {
             complete: false,
             importable: false,
@@ -959,6 +1066,11 @@ pub fn audit_heor_evidence_synthesis(app: AppHandle) -> Result<SynthesisAudit, S
             not_assessed_count: 0,
             included_count: 0,
             extraction_count: 0,
+            eligible_extraction_ids: Vec::new(),
+            app_verified_extraction_ids: Vec::new(),
+            unverified_extraction_ids: Vec::new(),
+            human_review_complete: false,
+            verification_integrity: "not_checked",
             unresolved_conflicts: Vec::new(),
             errors: vec![error.clone()],
             import_blockers: vec![error],
@@ -1005,7 +1117,7 @@ pub fn import_heor_search_candidates(
     write_synthesis(&workspace, &raw)?;
     crate::git_snapshot::commit_best_effort(&workspace, "Import authorized evidence candidates");
     Ok(ImportCandidatesResponse {
-        audit: audit_bytes(&raw),
+        audit: enrich_with_verification(&app, &request.project_id, audit_bytes(&raw))?,
         added_searches,
         added_records,
         reconciled_records,

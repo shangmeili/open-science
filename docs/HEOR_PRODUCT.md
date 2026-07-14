@@ -103,6 +103,32 @@ inclusion, appraisal, extraction, full-text verification, or proof that a
 systematic search is complete. OpenAlex and licensed databases remain out of
 scope until separate API-key, license, and consent boundaries are designed.
 
+## App-owned evidence verification and input selection
+
+Workspace fields such as `human_checked` and `verified_by` remain agent-writable
+activity records and are not trusted as approval facts. After a synthesis is
+structurally complete, the desktop can record an app-owned local human
+verification event that binds the exact synthesis SHA-256 and a sorted set of
+eligible, non-conflicting extraction IDs. Events form a per-project append-only
+SHA-256 chain outside the workspace. Any synthesis-byte change gives it a new
+identity, so old verification no longer applies.
+
+The analysis plan now binds the current `heor/evidence-synthesis.json` digest.
+Every source-based input mapping must name one or more `extraction_ids`; each
+extraction target must exactly equal the model-input path and its record ID must
+be a linked evidence-source ID. The native analysis-plan gate requires all
+selected IDs to exist in the current structurally complete synthesis and in the
+current app-owned verification set, then binds the synthesis digest into the
+analysis-plan approval event. Execution, uncertainty, and budget-impact status
+repeat the check. Structural validation remains portable, but portable tools
+explicitly cannot claim human verification.
+
+This boundary records a local human assertion and detects inconsistent or
+partial edits. It does not prove reviewer identity, source truth, duplicate
+independent extraction, or resistance to an attacker able to rewrite the whole
+local app-data store. OS-backed identity and external anchoring remain future
+hardening, not current claims.
+
 ## Local evidence library
 
 The shipped alpha accepts PDF, plain text, Markdown, CSV, and JSON sources under

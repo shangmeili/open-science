@@ -955,6 +955,12 @@ pub fn run_heor_budget_impact(
     let validation_audit =
         crate::heor_validation::audit_model_validation_for_plan(&workspace, &plan_raw)?;
     let reporting_audit = crate::heor_reporting::audit_report_package(&workspace)?;
+    let evidence_selection = crate::heor_evidence::audit_evidence_selection_for_plan(
+        &app,
+        &workspace,
+        &project_id,
+        &plan_raw,
+    );
     let approval_log = {
         let _guard = approval_state
             .0
@@ -971,6 +977,7 @@ pub fn run_heor_budget_impact(
         &reference_case_status,
         crate::heor_engine::HeorWorkflowAudits {
             evidence: evidence_audit,
+            evidence_selection,
             reference_case: reference_case_audit,
             uncertainty: uncertainty_audit,
             budget_impact: budget_audit,

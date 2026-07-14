@@ -139,6 +139,7 @@
     "included": "已纳入",
     "extractions": "提取项",
     "conflicts": "未解决冲突",
+    "verified": "应用内已核验",
     "hash": "综合文件 SHA-256",
     "askPrepare": "让 Agent 准备证据综合台账",
     "preparePrompt": "使用 $heor-evidence-synthesis，针对当前 PICOS 问题创建或修复 heor/evidence-synthesis.json，使其成为可导入候选记录的空白证据综合台账。保留已有有效工作，运行确定性校验器；不要虚构检索运行、筛选结论、质量评价、数据提取或人工批准。",
@@ -146,6 +147,13 @@
     "importing": "正在核验并导入候选记录……",
     "continue": "让 Agent 继续筛选与综合",
     "continuePrompt": "使用 $heor-evidence-synthesis 继续维护 heor/evidence-synthesis.json 中的证据工作流。保留应用绑定的检索溯源和全部既有人工作业判断；评估仍为 not_assessed 的候选记录，为排除项记录理由，只提取有证据支持的数据，显式呈现冲突与局限，并运行确定性校验器。除非文件本身能够证明，否则不要声称获得人工批准或已完成全面检索。",
+    "verify": "审阅并核验提取值",
+    "verifyTitle": "核验这些精确证据提取项？",
+    "verifyBody": "应用将把 {{count}} 个提取项与综合文件 {{hash}} 绑定，写入应用持有的人工核验链。",
+    "verifyRationale": "说明如何核对数值、来源位置、单位和适用性",
+    "verifyConfirm": "我已按标注的来源位置核对每个提取项，并同意其进入输入选择审阅；我理解综合文件的任何修改都会使本次核验失效。",
+    "verifySubmit": "记录核验",
+    "verifying": "正在记录核验……",
     "importResult": "已导入 {{added}} 条新记录，并在不改变筛选判断的前提下合并 {{reconciled}} 条已有记录。",
     "note": "应用会先核验授权链、运行路径和 SHA-256，再进行无损导入。导入只创建 not_assessed 候选记录；Agent 通过自然语言协助筛选和提取，研究判断仍由人复核。",
     "noProject": "当前没有可绑定证据综合台账的项目。"
@@ -157,11 +165,15 @@
     "inputs": "已覆盖参数",
     "sources": "有效来源",
     "mappings": "映射数",
+    "verified": "已选择 / 已核验",
     "unsupported": "无支持的参数：{{path}}",
     "unresolved": "未解决假设：{{id}}",
+    "unverified": "尚未在应用内核验：{{id}}",
     "askRepair": "让 Agent 解决证据缺口",
-    "repairPrompt": "审计并修复 heor/analysis-plan.json 的输入可追溯性。使用 $heor-input-provenance，将每个决策相关参数映射到有效证据或明确标记为 proposed 的分析者假设。保留不确定性，不要创建或声称获得人工批准。",
-    "note": "仍可运行探索性计算；只有证据审计完整后才能批准分析计划。"
+    "repairPrompt": "审计并修复 heor/analysis-plan.json 的输入可追溯性。使用 $heor-input-provenance：绑定当前 heor/evidence-synthesis.json 的精确 SHA-256；将每个基于来源的输入映射到 eligible extraction_ids，且其 target 必须等于输入路径、record_id 必须是已链接来源；无支持的值只能保留为明确的 proposed 假设。保留不确定性，不要创建或声称人工核验或批准。",
+    "note": "应用会独立核对当前综合文件哈希、提取目标、记录链接与应用持有的人工核验链。结构可追溯性与精确证据选择均完成后，才能批准分析计划。",
+    "noProject": "当前没有可审计证据到输入选择的项目。",
+    "missingPlan": "必须先有分析计划，才能审计证据到输入选择。"
   },
   "reference": {
     "title": "参考案例合规矩阵",
@@ -311,6 +323,7 @@
     "limitations": "范围与局限"
   },
   "toast": {
+    "evidenceVerified": "证据提取项已写入应用持有的人工核验链",
     "approvalRecorded": "已记录人工批准",
     "approvalRevoked": "已撤销过期批准",
     "runComplete": "确定性分析已完成",

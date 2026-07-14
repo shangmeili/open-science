@@ -1,0 +1,445 @@
+//! App-owned human verification for evidence extractions.
+//!
+//! The workspace synthesis is agent-writable and may describe review activity,
+//! but it cannot create these events. Each event binds the exact synthesis
+//! bytes and an explicit set of extraction IDs in an append-only SHA-256 chain.
+
+use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::{AppHandle, Manager};
+
+const SCHEMA_VERSION: u32 = 1;
+const ASSURANCE: &str = "local_human_assertion";
+const MAX_LOG_BYTES: u64 = 8 * 1024 * 1024;
+const MAX_EVENTS: usize = 10_000;
+const MAX_EXTRACTIONS_PER_EVENT: usize = 10_000;
+
+#[derive(Default)]
+pub struct HeorEvidenceReviewState(pub Mutex<()>);
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct EvidenceVerificationRequest {
+    project_id: String,
+    synthesis_sha256: String,
+    extraction_ids: Vec<String>,
+    actor_label: String,
+    rationale: String,
+}
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct EvidenceVerificationEvent {
+    schema_version: u32,
+    sequence: u64,
+    event_id: String,
+    project_id: String,
+    synthesis_sha256: String,
+    extraction_ids: Vec<String>,
+    actor_label: String,
+    rationale: String,
+    timestamp: u64,
+    assurance: String,
+    previous_hash: Option<String>,
+    event_hash: String,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EventHashPayload<'a> {
+    schema_version: u32,
+    sequence: u64,
+    event_id: &'a str,
+    project_id: &'a str,
+    synthesis_sha256: &'a str,
+    extraction_ids: &'a [String],
+    actor_label: &'a str,
+    rationale: &'a str,
+    timestamp: u64,
+    assurance: &'a str,
+    previous_hash: &'a Option<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EvidenceVerificationLog {
+    pub events: Vec<EvidenceVerificationEvent>,
+    pub chain_head: Option<String>,
+    pub integrity: &'static str,
+    pub identity_assurance: &'static str,
+}
+
+fn review_root(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?
+        .join("heor")
+        .join("evidence-verification-events"))
+}
+
+fn safe_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 120
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b':' | b'.'))
+}
+
+fn validate_project_id(value: &str) -> Result<(), String> {
+    if value.is_empty()
+        || value.len() > 80
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    {
+        return Err("projectId must be 1-80 ASCII letters, digits, hyphens, or underscores".into());
+    }
+    Ok(())
+}
+
+fn validate_text(value: &str, field: &str, max_chars: usize) -> Result<(), String> {
+    if value.trim() != value || value.is_empty() || value.chars().count() > max_chars {
+        return Err(format!(
+            "{field} must contain 1-{max_chars} characters without surrounding whitespace"
+        ));
+    }
+    if value.chars().any(char::is_control) {
+        return Err(format!("{field} must not contain control characters"));
+    }
+    Ok(())
+}
+
+fn is_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn project_file(root: &Path, project_id: &str) -> Result<PathBuf, String> {
+    validate_project_id(project_id)?;
+    Ok(root.join(format!("{project_id}.jsonl")))
+}
+
+fn hash_event(event: &EvidenceVerificationEvent) -> Result<String, String> {
+    let encoded = serde_json::to_vec(&EventHashPayload {
+        schema_version: event.schema_version,
+        sequence: event.sequence,
+        event_id: &event.event_id,
+        project_id: &event.project_id,
+        synthesis_sha256: &event.synthesis_sha256,
+        extraction_ids: &event.extraction_ids,
+        actor_label: &event.actor_label,
+        rationale: &event.rationale,
+        timestamp: event.timestamp,
+        assurance: &event.assurance,
+        previous_hash: &event.previous_hash,
+    })
+    .map_err(|error| error.to_string())?;
+    Ok(format!("{:x}", Sha256::digest(encoded)))
+}
+
+fn validate_event(event: &EvidenceVerificationEvent, project_id: &str) -> Result<(), String> {
+    if event.schema_version != SCHEMA_VERSION
+        || event.project_id != project_id
+        || event.assurance != ASSURANCE
+        || event.event_id.len() != 32
+        || !event.event_id.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || !is_sha256(&event.synthesis_sha256)
+        || !is_sha256(&event.event_hash)
+    {
+        return Err("invalid evidence-verification event metadata".into());
+    }
+    validate_text(&event.actor_label, "actorLabel", 120)?;
+    validate_text(&event.rationale, "rationale", 2_000)?;
+    if event.extraction_ids.is_empty()
+        || event.extraction_ids.len() > MAX_EXTRACTIONS_PER_EVENT
+        || event
+            .extraction_ids
+            .windows(2)
+            .any(|pair| pair[0] >= pair[1])
+        || event.extraction_ids.iter().any(|id| !safe_id(id))
+    {
+        return Err("extractionIds must be a non-empty sorted unique list of safe IDs".into());
+    }
+    Ok(())
+}
+
+fn read_verified(root: &Path, project_id: &str) -> Result<Vec<EvidenceVerificationEvent>, String> {
+    let file = project_file(root, project_id)?;
+    let metadata = match std::fs::symlink_metadata(&file) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => {
+            return Err(format!(
+                "evidence-verification log metadata failed: {error}"
+            ))
+        }
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_file() || metadata.len() > MAX_LOG_BYTES {
+        return Err("evidence-verification log must be a capped regular non-symlink file".into());
+    }
+    let text = std::fs::read_to_string(&file)
+        .map_err(|error| format!("evidence-verification log read failed: {error}"))?;
+    let mut events = Vec::new();
+    let mut previous_hash = None;
+    for (index, line) in text.lines().enumerate() {
+        if line.trim().is_empty() || index >= MAX_EVENTS {
+            return Err(format!(
+                "evidence-verification log is invalid at line {}",
+                index + 1
+            ));
+        }
+        let event: EvidenceVerificationEvent = serde_json::from_str(line).map_err(|error| {
+            format!(
+                "evidence-verification log line {} is invalid: {error}",
+                index + 1
+            )
+        })?;
+        validate_event(&event, project_id).map_err(|error| {
+            format!(
+                "evidence-verification log line {} is invalid: {error}",
+                index + 1
+            )
+        })?;
+        if event.sequence != index as u64 + 1 || event.previous_hash != previous_hash {
+            return Err(format!(
+                "evidence-verification chain breaks at line {}",
+                index + 1
+            ));
+        }
+        if hash_event(&event)? != event.event_hash {
+            return Err(format!(
+                "evidence-verification hash mismatch at line {}",
+                index + 1
+            ));
+        }
+        previous_hash = Some(event.event_hash.clone());
+        events.push(event);
+    }
+    Ok(events)
+}
+
+fn summary(events: Vec<EvidenceVerificationEvent>) -> EvidenceVerificationLog {
+    EvidenceVerificationLog {
+        chain_head: events.last().map(|event| event.event_hash.clone()),
+        events,
+        integrity: "verified_unanchored_sha256_chain",
+        identity_assurance: ASSURANCE,
+    }
+}
+
+pub(crate) fn verified_log(
+    app: &AppHandle,
+    project_id: &str,
+) -> Result<EvidenceVerificationLog, String> {
+    Ok(summary(read_verified(&review_root(app)?, project_id)?))
+}
+
+pub(crate) fn verified_extraction_ids(
+    log: &EvidenceVerificationLog,
+    synthesis_sha256: &str,
+) -> BTreeSet<String> {
+    log.events
+        .iter()
+        .filter(|event| event.synthesis_sha256 == synthesis_sha256)
+        .flat_map(|event| event.extraction_ids.iter().cloned())
+        .collect()
+}
+
+fn append_at(
+    root: &Path,
+    request: EvidenceVerificationRequest,
+    timestamp: u64,
+    event_id: String,
+) -> Result<EvidenceVerificationEvent, String> {
+    let events = read_verified(root, &request.project_id)?;
+    if events.len() >= MAX_EVENTS {
+        return Err("evidence-verification event cap reached".into());
+    }
+    let mut event = EvidenceVerificationEvent {
+        schema_version: SCHEMA_VERSION,
+        sequence: events.len() as u64 + 1,
+        event_id,
+        project_id: request.project_id,
+        synthesis_sha256: request.synthesis_sha256,
+        extraction_ids: request.extraction_ids,
+        actor_label: request.actor_label,
+        rationale: request.rationale,
+        timestamp,
+        assurance: ASSURANCE.into(),
+        previous_hash: events.last().map(|event| event.event_hash.clone()),
+        event_hash: "0".repeat(64),
+    };
+    validate_event(&event, &event.project_id)?;
+    event.event_hash = hash_event(&event)?;
+    let file = project_file(root, &event.project_id)?;
+    if let Some(parent) = file.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|error| format!("evidence-verification log directory failed: {error}"))?;
+        crate::runtime::tighten_private(parent);
+    }
+    let line = serde_json::to_string(&event).map_err(|error| error.to_string())?;
+    let mut output = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&file)
+        .map_err(|error| format!("evidence-verification log open failed: {error}"))?;
+    crate::runtime::tighten_private(&file);
+    writeln!(output, "{line}")
+        .and_then(|_| output.sync_all())
+        .map_err(|error| format!("evidence-verification log write failed: {error}"))?;
+    Ok(event)
+}
+
+#[tauri::command(async)]
+pub fn verify_heor_evidence_extractions(
+    app: AppHandle,
+    state: tauri::State<HeorEvidenceReviewState>,
+    request: EvidenceVerificationRequest,
+) -> Result<crate::heor_synthesis::SynthesisAudit, String> {
+    let _guard = state
+        .0
+        .lock()
+        .map_err(|_| "HEOR evidence-review lock poisoned")?;
+    validate_project_id(&request.project_id)?;
+    validate_text(&request.actor_label, "actorLabel", 120)?;
+    validate_text(&request.rationale, "rationale", 2_000)?;
+    if !is_sha256(&request.synthesis_sha256) {
+        return Err("synthesisSha256 must be 64 lowercase hexadecimal characters".into());
+    }
+    let requested = request
+        .extraction_ids
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    if requested.len() != request.extraction_ids.len()
+        || requested.is_empty()
+        || requested.len() > MAX_EXTRACTIONS_PER_EVENT
+        || requested.iter().any(|id| !safe_id(id))
+    {
+        return Err("extractionIds must be a non-empty unique list of safe IDs".into());
+    }
+    let workspace = crate::runtime::workspace_dir(&app)?;
+    if crate::project::require_project_id(&workspace)? != request.project_id {
+        return Err("evidence verification projectId does not match the current project".into());
+    }
+    let raw = crate::heor_uncertainty::read_workspace_capped(
+        &workspace,
+        crate::heor_synthesis::EVIDENCE_SYNTHESIS_PATH,
+    )?;
+    let audit = crate::heor_synthesis::audit_bytes(&raw);
+    if !audit.complete || audit.synthesis_sha256 != request.synthesis_sha256 {
+        return Err(
+            "evidence verification must target the exact current structurally complete synthesis"
+                .into(),
+        );
+    }
+    let eligible = audit
+        .eligible_extraction_ids
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    if !requested.is_subset(&eligible) {
+        return Err(
+            "evidence verification contains an ineligible or conflicting extraction".into(),
+        );
+    }
+    let normalized = EvidenceVerificationRequest {
+        extraction_ids: requested.into_iter().collect(),
+        ..request
+    };
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| error.to_string())?
+        .as_secs();
+    append_at(
+        &review_root(&app)?,
+        normalized,
+        timestamp,
+        crate::runtime::random_hex(16),
+    )?;
+    crate::heor_synthesis::audit_current_with_verification(&app, &workspace)
+}
+
+#[tauri::command(async)]
+pub fn list_heor_evidence_verifications(
+    app: AppHandle,
+    state: tauri::State<HeorEvidenceReviewState>,
+    project_id: String,
+) -> Result<EvidenceVerificationLog, String> {
+    let _guard = state
+        .0
+        .lock()
+        .map_err(|_| "HEOR evidence-review lock poisoned")?;
+    let workspace = crate::runtime::workspace_dir(&app)?;
+    if crate::project::require_project_id(&workspace)? != project_id {
+        return Err("evidence verification projectId does not match the current project".into());
+    }
+    verified_log(&app, &project_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn request(ids: &[&str]) -> EvidenceVerificationRequest {
+        EvidenceVerificationRequest {
+            project_id: "project-1".into(),
+            synthesis_sha256: "a".repeat(64),
+            extraction_ids: ids.iter().map(|id| (*id).into()).collect(),
+            actor_label: "Evidence reviewer".into(),
+            rationale: "Checked source location and value against the report".into(),
+        }
+    }
+
+    #[test]
+    fn verification_events_form_a_hash_chain_and_are_synthesis_scoped() {
+        let root =
+            std::env::temp_dir().join(format!("heor-evidence-review-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        append_at(
+            &root,
+            request(&["extract-2", "extract-1"]),
+            1,
+            "1".repeat(32),
+        )
+        .unwrap_err();
+        let mut first = request(&["extract-1", "extract-2"]);
+        first.extraction_ids.sort();
+        append_at(&root, first, 1, "1".repeat(32)).unwrap();
+        let second = request(&["extract-3"]);
+        append_at(&root, second, 2, "2".repeat(32)).unwrap();
+        let log = summary(read_verified(&root, "project-1").unwrap());
+        assert_eq!(verified_extraction_ids(&log, &"a".repeat(64)).len(), 3);
+        assert_eq!(
+            log.events[1].previous_hash,
+            Some(log.events[0].event_hash.clone())
+        );
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn tampering_fails_closed() {
+        let root = std::env::temp_dir().join(format!(
+            "heor-evidence-review-tamper-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        append_at(&root, request(&["extract-1"]), 1, "1".repeat(32)).unwrap();
+        let file = root.join("project-1.jsonl");
+        let changed = std::fs::read_to_string(&file)
+            .unwrap()
+            .replace("extract-1", "extract-9");
+        std::fs::write(&file, changed).unwrap();
+        assert!(read_verified(&root, "project-1").is_err());
+        let _ = std::fs::remove_dir_all(root);
+    }
+}
