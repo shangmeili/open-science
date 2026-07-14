@@ -16,11 +16,18 @@ from math import cos, exp, isclose, isfinite, log, pi, sqrt
 from typing import Any
 
 from .model import MarkovSpecification, ModelValidationError, run_markov
+from .transition_rates import (
+    TRANSFORMATION_METHOD,
+    TRANSFORMATION_OPERATION,
+    TransitionRateError,
+    derive_competing_rates,
+)
 
 
-UNCERTAINTY_SCHEMA_VERSION = "0.2.0"
+UNCERTAINTY_SCHEMA_VERSION = "0.3.0"
+PRIOR_UNCERTAINTY_SCHEMA_VERSION = "0.2.0"
 LEGACY_UNCERTAINTY_SCHEMA_VERSION = "0.1.0"
-UNCERTAINTY_ENGINE_VERSION = "0.3.0"
+UNCERTAINTY_ENGINE_VERSION = "0.4.0"
 PRNG_ALGORITHM = "pcg32-xsh-rr"
 PRNG_VERSION = "1"
 MAX_ITERATIONS = 10_000
@@ -113,6 +120,7 @@ class Parameter:
     distribution: dict[str, Any]
     distribution_rationale: str
     basis_ids: tuple[str, ...]
+    rate_mapping_index: int | None
 
 
 @dataclass(frozen=True)
@@ -157,10 +165,11 @@ class UncertaintySpecification:
         schema_version = str(value.get("schema_version", ""))
         if schema_version not in {
             LEGACY_UNCERTAINTY_SCHEMA_VERSION,
+            PRIOR_UNCERTAINTY_SCHEMA_VERSION,
             UNCERTAINTY_SCHEMA_VERSION,
         }:
             raise ModelValidationError(
-                "uncertainty schema_version must be 0.1.0 or 0.2.0"
+                "uncertainty schema_version must be 0.1.0, 0.2.0, or 0.3.0"
             )
         base = _mapping(value.get("base_analysis", {}), "base_analysis")
         psa = _mapping(value.get("probabilistic_analysis", {}), "probabilistic_analysis")
@@ -169,7 +178,10 @@ class UncertaintySpecification:
         primary_threshold = _positive_float(
             base_payload.get("willingness_to_pay"), "willingness_to_pay"
         )
-        if schema_version == UNCERTAINTY_SCHEMA_VERSION:
+        if schema_version in {
+            PRIOR_UNCERTAINTY_SCHEMA_VERSION,
+            UNCERTAINTY_SCHEMA_VERSION,
+        }:
             threshold_config = _mapping(
                 psa.get("decision_thresholds", {}),
                 "probabilistic_analysis.decision_thresholds",
@@ -189,7 +201,7 @@ class UncertaintySpecification:
         else:
             if "decision_thresholds" in psa:
                 raise ModelValidationError(
-                    "decision thresholds require uncertainty schema_version 0.2.0"
+                    "decision thresholds require uncertainty schema_version 0.2.0 or 0.3.0"
                 )
             decision_thresholds = (primary_threshold,)
             threshold_rationale = (
@@ -197,7 +209,7 @@ class UncertaintySpecification:
             )
             threshold_source = "legacy_primary_only"
         parameters = tuple(
-            _parameter(item, index, base_payload)
+            _parameter(item, index, base_payload, schema_version)
             for index, item in enumerate(_array(value.get("parameters"), "parameters"))
         )
         scenarios = tuple(
@@ -314,7 +326,8 @@ class UncertaintySpecification:
         )
         expected_count = (
             (2, MAX_DECISION_THRESHOLDS)
-            if self.schema_version == UNCERTAINTY_SCHEMA_VERSION
+            if self.schema_version
+            in {PRIOR_UNCERTAINTY_SCHEMA_VERSION, UNCERTAINTY_SCHEMA_VERSION}
             else (1, 1)
         )
         if not expected_count[0] <= len(self.decision_thresholds) <= expected_count[1]:
@@ -369,6 +382,7 @@ def run_uncertainty(
         "structural_scenarios": scenarios,
         "limitations": [
             "Only parameter uncertainty represented by the declared distributions is sampled.",
+            "Declared event-rate parameters are sampled in rate space and deterministically transformed into complete transition inputs for each run.",
             "Cross-parameter dependence is limited to declared Dirichlet simplex rows; the recorded independence rationale remains a human-review item.",
             "A convergence diagnostic describes Monte Carlo error for this run and is not independent model validation.",
             "Per-person EVPI covers only the uncertainty represented in this PSA; "
@@ -381,8 +395,7 @@ def run_uncertainty(
 def _run_dsa(base_payload: dict[str, Any], parameter: Parameter) -> dict[str, Any]:
     outcomes: dict[str, Any] = {}
     for label, value in (("low", parameter.dsa_low), ("high", parameter.dsa_high)):
-        payload = copy.deepcopy(base_payload)
-        _replace(payload, parameter.target, value)
+        payload = _apply_parameter_values(base_payload, ((parameter, value),))
         result = run_markov(MarkovSpecification.from_dict(payload)).incremental
         outcomes[label] = result.to_dict()
     low_inmb = outcomes["low"]["incremental_net_monetary_benefit"]
@@ -425,9 +438,13 @@ def _run_psa(
     checkpoints: list[dict[str, Any]] = []
     checkpoint_set = set(specification.checkpoints)
     for iteration in range(1, specification.iterations + 1):
-        payload = copy.deepcopy(base_payload)
-        for parameter in specification.parameters:
-            _replace(payload, parameter.target, _sample(rng, parameter.distribution))
+        payload = _apply_parameter_values(
+            base_payload,
+            tuple(
+                (parameter, _sample(rng, parameter.distribution))
+                for parameter in specification.parameters
+            ),
+        )
         result = run_markov(MarkovSpecification.from_dict(payload)).incremental
         inmb = result.incremental_net_monetary_benefit
         if inmb is None:
@@ -584,7 +601,12 @@ def _sample(rng: Pcg32, distribution: dict[str, Any]) -> Any:
     return result
 
 
-def _parameter(value: Any, index: int, base_payload: dict[str, Any]) -> Parameter:
+def _parameter(
+    value: Any,
+    index: int,
+    base_payload: dict[str, Any],
+    schema_version: str,
+) -> Parameter:
     value = _mapping(value, f"parameters[{index}]")
     dsa = _mapping(value.get("deterministic"), f"parameters[{index}].deterministic")
     psa = _mapping(value.get("probabilistic"), f"parameters[{index}].probabilistic")
@@ -592,9 +614,23 @@ def _parameter(value: Any, index: int, base_payload: dict[str, Any]) -> Paramete
     base = _resolve(base_payload, target)
     low = copy.deepcopy(dsa.get("low"))
     high = copy.deepcopy(dsa.get("high"))
-    _validate_replacement(target, low, base)
-    _validate_replacement(target, high, base)
-    distribution = _distribution(psa, base, f"parameters[{index}].probabilistic")
+    rate_mapping_index = _rate_mapping_index(target)
+    if rate_mapping_index is not None and schema_version != UNCERTAINTY_SCHEMA_VERSION:
+        raise ModelValidationError(
+            "event-rate uncertainty requires uncertainty schema_version 0.3.0"
+        )
+    _validate_replacement(
+        target, low, base, rate_parameter=rate_mapping_index is not None
+    )
+    _validate_replacement(
+        target, high, base, rate_parameter=rate_mapping_index is not None
+    )
+    distribution = _distribution(
+        psa,
+        base,
+        f"parameters[{index}].probabilistic",
+        rate_parameter=rate_mapping_index is not None,
+    )
     basis_ids = tuple(
         _nonempty(item, f"parameters[{index}].probabilistic.basis_ids")
         for item in _array(
@@ -604,6 +640,21 @@ def _parameter(value: Any, index: int, base_payload: dict[str, Any]) -> Paramete
     if not basis_ids:
         raise ModelValidationError(
             f"parameters[{index}].probabilistic.basis_ids must not be empty"
+        )
+    provenance_path = _nonempty(
+        value.get("provenance_path"), f"parameters[{index}].provenance_path"
+    )
+    if rate_mapping_index is not None:
+        _validate_rate_parameter(
+            base_payload,
+            rate_mapping_index,
+            target,
+            provenance_path,
+            basis_ids,
+        )
+    elif _deterministic_mapping(base_payload, provenance_path):
+        raise ModelValidationError(
+            f"parameters[{index}] targets a derived transition input; vary an admitted event rate instead"
         )
     if isinstance(base, (int, float)) and not isinstance(base, bool):
         low_number = _finite_float(low, f"parameters[{index}].deterministic.low")
@@ -616,9 +667,7 @@ def _parameter(value: Any, index: int, base_payload: dict[str, Any]) -> Paramete
         identifier=_nonempty(value.get("id"), f"parameters[{index}].id"),
         label=_nonempty(value.get("label"), f"parameters[{index}].label"),
         target=target,
-        provenance_path=_nonempty(
-            value.get("provenance_path"), f"parameters[{index}].provenance_path"
-        ),
+        provenance_path=provenance_path,
         dsa_low=low,
         dsa_high=high,
         dsa_rationale=_nonempty(
@@ -629,10 +678,17 @@ def _parameter(value: Any, index: int, base_payload: dict[str, Any]) -> Paramete
             psa.get("rationale"), f"parameters[{index}].probabilistic.rationale"
         ),
         basis_ids=basis_ids,
+        rate_mapping_index=rate_mapping_index,
     )
 
 
-def _distribution(value: dict[str, Any], base: Any, label: str) -> dict[str, Any]:
+def _distribution(
+    value: dict[str, Any],
+    base: Any,
+    label: str,
+    *,
+    rate_parameter: bool = False,
+) -> dict[str, Any]:
     kind = _nonempty(value.get("type"), f"{label}.type")
     if kind == "beta":
         result = {
@@ -674,7 +730,122 @@ def _distribution(value: dict[str, Any], base: Any, label: str) -> dict[str, Any
         raise ModelValidationError(
             f"{label} must use dirichlet for a simplex row and a scalar distribution otherwise"
         )
+    if rate_parameter:
+        if kind not in {"gamma", "lognormal", "uniform"}:
+            raise ModelValidationError(
+                f"{label} must use gamma, lognormal, or positive uniform for an event rate"
+            )
+        if kind == "uniform" and result["low"] <= 0:
+            raise ModelValidationError(f"{label}.low must be positive for an event rate")
     return result
+
+
+def _apply_parameter_values(
+    base_payload: dict[str, Any],
+    values: tuple[tuple[Parameter, Any], ...],
+) -> dict[str, Any]:
+    payload = copy.deepcopy(base_payload)
+    affected_rate_mappings: set[int] = set()
+    for parameter, value in values:
+        _replace(payload, parameter.target, value)
+        if parameter.rate_mapping_index is not None:
+            affected_rate_mappings.add(parameter.rate_mapping_index)
+    for mapping_index in sorted(affected_rate_mappings):
+        mapping = payload["input_provenance"][mapping_index]
+        derivation = mapping["derivation"]
+        try:
+            output, _, _ = derive_competing_rates(
+                derivation["transformation"],
+                target_path=mapping["path"],
+                state_count=len(payload["states"]),
+                cycles=payload["cycles"],
+                cycle_length_years=payload["cycle_length_years"],
+            )
+        except (KeyError, TypeError, TransitionRateError) as error:
+            raise ModelValidationError(
+                f"rate-space uncertainty could not recompute input_provenance[{mapping_index}]"
+            ) from error
+        _replace_dot_path(payload, mapping["path"], output)
+        derivation["model_value"] = copy.deepcopy(output)
+    return payload
+
+
+def _rate_mapping_index(target: str) -> int | None:
+    tokens = _pointer_tokens(target)
+    if (
+        len(tokens) == 11
+        and tokens[0] == "input_provenance"
+        and tokens[1].isdigit()
+        and tokens[2:5] == ["derivation", "transformation", "phases"]
+        and tokens[5].isdigit()
+        and tokens[6] == "rows"
+        and tokens[7].isdigit()
+        and tokens[8] == "events"
+        and tokens[9].isdigit()
+        and tokens[10] == "rate_per_year"
+    ):
+        return int(tokens[1])
+    return None
+
+
+def _validate_rate_parameter(
+    base_payload: dict[str, Any],
+    mapping_index: int,
+    target: str,
+    provenance_path: str,
+    basis_ids: tuple[str, ...],
+) -> None:
+    if base_payload.get("schema_version") != "0.5.0":
+        raise ModelValidationError(
+            "event-rate uncertainty requires analysis schema_version 0.5.0"
+        )
+    mappings = base_payload.get("input_provenance")
+    if not isinstance(mappings, list) or mapping_index >= len(mappings):
+        raise ModelValidationError(f"uncertainty target {target!r} does not exist")
+    mapping = mappings[mapping_index]
+    if not isinstance(mapping, dict) or mapping.get("path") != provenance_path:
+        raise ModelValidationError(
+            "event-rate uncertainty provenance_path must equal its transformation mapping path"
+        )
+    derivation = mapping.get("derivation")
+    transformation = derivation.get("transformation") if isinstance(derivation, dict) else None
+    if (
+        not isinstance(derivation, dict)
+        or derivation.get("method") != TRANSFORMATION_METHOD
+        or not isinstance(transformation, dict)
+        or transformation.get("operation") != TRANSFORMATION_OPERATION
+    ):
+        raise ModelValidationError(
+            "event-rate uncertainty requires an admitted constant competing-rate transformation"
+        )
+    event_pointer = target.rsplit("/", 1)[0]
+    event = _resolve(base_payload, event_pointer)
+    if not isinstance(event, dict):
+        raise ModelValidationError("event-rate uncertainty target must belong to an event")
+    source_id = event.get("source_extraction_id")
+    assumption_id = event.get("assumption_id")
+    expected_basis = (
+        source_id
+        if isinstance(source_id, str) and source_id.strip()
+        else assumption_id
+    )
+    if not isinstance(expected_basis, str) or tuple(basis_ids) != (expected_basis,):
+        raise ModelValidationError(
+            "event-rate uncertainty basis_ids must contain exactly the event source extraction or assumption id"
+        )
+
+
+def _deterministic_mapping(base_payload: dict[str, Any], provenance_path: str) -> bool:
+    mappings = base_payload.get("input_provenance")
+    if not isinstance(mappings, list):
+        return False
+    return any(
+        isinstance(mapping, dict)
+        and mapping.get("path") == provenance_path
+        and isinstance(mapping.get("derivation"), dict)
+        and mapping["derivation"].get("method") == TRANSFORMATION_METHOD
+        for mapping in mappings
+    )
 
 
 def _scenario(value: Any, index: int, base_payload: dict[str, Any]) -> Scenario:
@@ -708,7 +879,11 @@ def _scenario(value: Any, index: int, base_payload: dict[str, Any]) -> Scenario:
 
 
 def _validate_replacement(
-    target: str, value: Any, base: Any, structural: bool = False
+    target: str,
+    value: Any,
+    base: Any,
+    structural: bool = False,
+    rate_parameter: bool = False,
 ) -> None:
     scalar_prefixes = (
         "/strategies/comparator/state_costs/",
@@ -729,7 +904,11 @@ def _validate_replacement(
     }
     scheduled_row = _scheduled_transition_row_target(target)
     scheduled_start = _scheduled_transition_start_target(target)
-    allowed = target.startswith(scalar_prefixes + simplex_prefixes) or scheduled_row
+    allowed = (
+        target.startswith(scalar_prefixes + simplex_prefixes)
+        or scheduled_row
+        or rate_parameter
+    )
     if structural:
         allowed = allowed or target in structural_targets or scheduled_start
     if not allowed:
@@ -741,7 +920,9 @@ def _validate_replacement(
         if isinstance(value, bool) or not isinstance(value, int):
             raise ModelValidationError(f"replacement for {target} must be an integer")
     elif isinstance(base, (int, float)):
-        _finite_float(value, f"replacement for {target}")
+        number = _finite_float(value, f"replacement for {target}")
+        if rate_parameter and number <= 0:
+            raise ModelValidationError(f"replacement for {target} must be positive")
     elif isinstance(base, list):
         if not isinstance(value, list) or len(value) != len(base):
             raise ModelValidationError(f"replacement for {target} must match the array length")
@@ -787,6 +968,21 @@ def _replace(value: dict[str, Any], pointer: str, replacement: Any) -> None:
         current[int(last)] = copy.deepcopy(replacement)
     else:
         current[last] = copy.deepcopy(replacement)
+
+
+def _replace_dot_path(value: dict[str, Any], path: str, replacement: Any) -> None:
+    tokens = path.split(".")
+    if not tokens or any(not token for token in tokens):
+        raise ModelValidationError("rate transformation mapping path is invalid")
+    current: Any = value
+    try:
+        for token in tokens[:-1]:
+            current = current[token]
+        current[tokens[-1]] = copy.deepcopy(replacement)
+    except (KeyError, TypeError) as error:
+        raise ModelValidationError(
+            f"rate transformation mapping path {path!r} does not exist"
+        ) from error
 
 
 def _resolve(value: dict[str, Any], pointer: str) -> Any:

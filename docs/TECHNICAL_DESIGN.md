@@ -240,9 +240,15 @@ portable provenance validator, and TypeScript preview independently compute
 `1 - exp(-sum(rate)*cycle_length)`, allocate event mass by rate share, and compare
 the complete result with both the derivation snapshot and model input. Static
 outputs require one phase; schedules start at cycle 1 and remain strictly ordered.
-The implementation deliberately excludes general CTMC exponentiation, relative-
-effect application, probability time conversion, within-cycle multi-step paths,
-and rate-space uncertainty.
+Uncertainty schema `0.3.0` admits only exact positive event-rate targets inside
+these transformations. Python applies all sampled rates to an ephemeral plan,
+recomputes each affected complete output once, updates the derivation snapshot,
+and then invokes the ordinary model validator. The portable validator and native
+Rust boundary independently enforce exact event-basis binding and positive gamma,
+lognormal, or uniform distributions. The implementation deliberately excludes
+general CTMC exponentiation, relative-effect application, probability time
+conversion, within-cycle multi-step paths, correlated rate distributions, and
+transformation-space structural scenarios.
 
 `heor/analysis-plan.json` carries the input-selection contract directly: a root
 `evidence_synthesis` binding plus `extraction_ids` on each source-based
@@ -275,7 +281,7 @@ EQ-5D/UK-3L metadata. It is an executable subset, not a copy of PMG36 or an
 agency-compliance claim.
 
 The uncertainty engine owns decision-uncertainty calculations rather than the
-language model or UI. Schema `0.2.0` binds a declared threshold grid to the
+language model or UI. Schemas `0.2.0` and `0.3.0` bind a declared threshold grid to the
 analysis plan; the Python core uses one seeded PSA draw set for expected
 incremental NMB, intervention/comparator/tie probabilities, CEAF, and
 per-person EVPI with Monte Carlo error. Rust independently audits the grid and

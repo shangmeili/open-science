@@ -214,11 +214,14 @@ rate, matrix, cycle length, phase, or basis set therefore fails closed.
 
 This is a competing-first-event calculation under constant within-phase rates
 and an at-most-one-state-change-per-cycle assumption. It is not general CTMC
-matrix exponentiation. It does not implement probability time conversion,
-HR/RR/OR application, pooling, calibration, survival extrapolation, within-cycle
-multi-step paths, or rate-space DSA/PSA. Derived transition outputs are fixed in
-the current uncertainty engine; changing only a probability row or change point
-makes the transformation stale and is rejected. `$heor-transition-rate-adapter`
+matrix exponentiation. Uncertainty schema `0.3.0` can vary exact positive event
+rates with gamma, lognormal, or strictly positive uniform distributions. For each
+DSA run or PSA draw, engine `0.4.0` recomputes each affected complete matrix or
+schedule and its derivation snapshot before ordinary validation. Changing only a
+derived probability row still fails closed. The adapter does not implement
+probability time conversion, HR/RR/OR application, pooling, calibration, survival
+extrapolation, within-cycle multi-step paths, correlated rate models, or
+transformation-space structural scenarios. `$heor-transition-rate-adapter`
 exposes the method and its stopping rules through the natural-language workflow.
 
 ## Executable monetary basis
@@ -309,7 +312,7 @@ gamma, lognormal, uniform, and Dirichlet transforms. The current desktop bridge
 limits PSA to 10,000 draws because it returns every draw for audit; larger runs
 require a future streamed, content-addressed result artifact. The app reports
 cost-effectiveness probability and checkpoint Monte Carlo diagnostics.
-Schema `0.2.0` also requires a declared 2–101 point threshold grid containing
+Schemas `0.2.0` and `0.3.0` require a declared 2–101 point threshold grid containing
 the analysis plan's primary willingness-to-pay value. The grid must come from
 the stated decision context or a human instruction; neither the Agent nor a
 form may invent a jurisdictional threshold.
@@ -449,8 +452,10 @@ approval, reimbursement suitability, or external tamper-proofing.
   targets. Static `0.3.0` plans remain backward compatible.
 - A schema `0.5.0` transition-rate mapping additionally requires the bounded
   constant competing-rate operation, exact cycle length, complete ordered rows
-  and phases, one declared basis per event, exact output reproduction, and
-  rate-derived transition uncertainty to remain fixed.
+  and phases, one declared basis per event, and exact output reproduction. Rate-
+  space uncertainty additionally requires schema `0.3.0`, an exact positive
+  event-rate target, one matching event basis ID, and full transformation
+  recomputation for every DSA/PSA run.
 - Exploratory, analysis-authorized, independently validated, and locally
   released decision-ready states remain distinct. Any stale package, binding,
   validation, result reproduction, actor, or approval sequence fails closed.

@@ -49,12 +49,25 @@ The phase row count equals the health-state count, `self_index` equals the zero-
 
 The transformation cycle length must equal `analysis-plan.cycle_length_years`. The recomputed output must equal the current transition input and `derivation.model_value` within deterministic numerical tolerance. Every mapping-level extraction and assumption ID must be used by the transformation and no undeclared ID may be used.
 
+## Rate-space uncertainty
+
+Uncertainty schema `0.3.0` may vary one or more declared event rates through an exact target:
+
+```text
+/input_provenance/<mapping>/derivation/transformation/phases/<phase>/rows/<row>/events/<event>/rate_per_year
+```
+
+The target must resolve to a positive base rate in an analysis schema `0.5.0` mapping whose method and operation are exactly those above. `provenance_path` equals the indexed mapping path. The parameter has exactly one `basis_id`, equal to the event's `source_extraction_id` or `assumption_id`. DSA bounds are finite, positive, increasing, and bracket the base. PSA uses gamma, lognormal, or uniform with a strictly positive lower bound; rates are not probabilities, so beta and Dirichlet are invalid.
+
+After all parameter values for one run are applied, the engine recomputes each affected transformation once, replaces the complete matrix or schedule, updates `derivation.model_value`, and invokes normal analysis-plan validation. Multiple declared rates can therefore preserve their competing allocation within a row. They are sampled independently unless a future admitted joint distribution is implemented; any known omitted correlation blocks review.
+
 ## Evidence and method basis
 
 - ISPOR-SMDM state-transition good-practice guidance requires rates and probabilities to be used appropriately, probability derivations to be described, and cycle length to be short enough for the modeled event semantics: <https://www.ispor.org/docs/default-source/resources/outcomes-research-guidelines-index/state-transition_modeling-3.pdf>
-- PHARMAC explains the constant-rate relationship `p = 1 - exp(-r*t)` and requires probabilities to match model-cycle length: <https://www.pharmac.govt.nz/assets/5-transformation-of-evidence-2059.pdf>
+- PHARMAC explains the single-rate relationship `p = 1 - exp(-r*t)` and requires probabilities to match model-cycle length: <https://www.pharmac.govt.nz/assets/5-transformation-of-evidence-2059.pdf>. AI4HEOR does not apply that formula separately to competing causes; it uses the total-rate allocation above.
 - Welton and colleagues show why conversions become more complex in multi-state systems; this adapter therefore does not claim general CTMC conversion: <https://www.repository.cam.ac.uk/items/5ddd5a9c-483a-4fe0-9f03-dda1bd248f8d>
+- Jones, Epstein, and García-Mochón show the audit advantage of propagating uncertainty from rates through probability derivation: <https://doi.org/10.1177/0272989X17696997>. This supports the data flow, not a broader multi-state method claim.
 
 ## Unsupported inputs
 
-Keep the mapping incomplete and explain the required future adapter when the source supplies only cumulative probability at another time unit, hazard/risk/odds ratios, survival curves, time-varying hazards within a phase, transition intensities with material multi-step paths, competing outcomes that are not mutually exclusive, or parameter uncertainty that must be propagated in rate space.
+Keep the mapping incomplete and explain the required future adapter when the source supplies only cumulative probability at another time unit, hazard/risk/odds ratios, survival curves, time-varying hazards within a phase, transition intensities with material multi-step paths, competing outcomes that are not mutually exclusive, correlated rate uncertainty, or a structural scenario that changes transformation shape or timing.

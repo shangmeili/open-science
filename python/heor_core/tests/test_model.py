@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import unittest
+from math import exp
 from pathlib import Path
 
 from heor_core.budget_impact import run_budget_impact
@@ -12,7 +13,12 @@ from heor_core.model import (
     ModelValidationError,
     run_markov,
 )
-from heor_core.uncertainty import Pcg32, run_uncertainty
+from heor_core.uncertainty import (
+    Pcg32,
+    UncertaintySpecification,
+    _apply_parameter_values,
+    run_uncertainty,
+)
 
 
 GOLDEN_PATH = Path(__file__).parents[1] / "golden_cases" / "two_strategy_markov.json"
@@ -48,6 +54,34 @@ def time_varying_payload() -> dict:
 
 def rate_derived_payload() -> dict:
     return json.loads(RATE_DERIVED_PATH.read_text())
+
+
+def rate_uncertainty_payload(base_raw: bytes | None = None) -> dict:
+    value = uncertainty_payload()
+    raw = base_raw if base_raw is not None else RATE_DERIVED_PATH.read_bytes()
+    value["schema_version"] = "0.3.0"
+    value["uncertainty_id"] = "golden-rate-derived-uncertainty"
+    value["analysis_id"] = "golden-rate-derived"
+    value["base_analysis"]["content_sha256"] = hashlib.sha256(raw).hexdigest()
+    value["parameters"] = [{
+        "id": "intervention-mortality-rate",
+        "label": "Intervention mortality event rate",
+        "target": "/input_provenance/1/derivation/transformation/phases/0/rows/0/events/0/rate_per_year",
+        "provenance_path": "strategies.intervention.transition_matrix",
+        "deterministic": {
+            "low": 0.05,
+            "high": 0.2,
+            "rationale": "Bounded rate-space sensitivity range for the golden test",
+        },
+        "probabilistic": {
+            "type": "gamma",
+            "shape": 4.0,
+            "scale": 0.02634012891445657,
+            "basis_ids": ["intervention-mortality-rate"],
+            "rationale": "Positive event-rate distribution centered on the base rate",
+        },
+    }]
+    return value
 
 
 def budget_base_payload() -> dict:
@@ -437,7 +471,7 @@ class UncertaintyAnalysisTests(unittest.TestCase):
             json.dumps(uncertainty, separators=(",", ":")).encode(),
         )
 
-        self.assertEqual(result["engine_version"], "0.3.0")
+        self.assertEqual(result["engine_version"], "0.4.0")
         self.assertEqual(
             result["deterministic_analysis"][1]["target"],
             "/strategies/intervention/transition_schedule/0/matrix/0",
@@ -446,6 +480,174 @@ class UncertaintyAnalysisTests(unittest.TestCase):
         self.assertEqual(
             result["structural_scenarios"][0]["replacements"][0]["target"],
             "/strategies/intervention/transition_schedule/2/start_cycle",
+        )
+
+    def test_event_rate_supports_dsa_and_seeded_psa_via_complete_recomputation(self) -> None:
+        base = rate_derived_payload()
+        uncertainty = rate_uncertainty_payload()
+
+        first = run_uncertainty(
+            base,
+            RATE_DERIVED_PATH.read_bytes(),
+            uncertainty,
+            json.dumps(uncertainty, separators=(",", ":")).encode(),
+        )
+        second = run_uncertainty(
+            base,
+            RATE_DERIVED_PATH.read_bytes(),
+            uncertainty,
+            json.dumps(uncertainty, separators=(",", ":")).encode(),
+        )
+
+        self.assertEqual(first, second)
+        self.assertEqual(first["schema_version"], "0.3.0")
+        self.assertEqual(first["engine_version"], "0.4.0")
+        self.assertEqual(len(first["probabilistic_analysis"]["samples"]), 1000)
+        dsa = first["deterministic_analysis"][0]
+        for bound, rate in (("low", 0.05), ("high", 0.2)):
+            expected_plan = copy.deepcopy(base)
+            probability = 1.0 - exp(-rate)
+            expected_matrix = [[1.0 - probability, probability], [0.0, 1.0]]
+            expected_plan["strategies"]["intervention"]["transition_matrix"] = expected_matrix
+            expected_plan["input_provenance"][1]["derivation"]["transformation"]["phases"][0]["rows"][0]["events"][0]["rate_per_year"] = rate
+            expected_plan["input_provenance"][1]["derivation"]["model_value"] = expected_matrix
+            expected = run_markov(MarkovSpecification.from_dict(expected_plan)).incremental
+            self.assertAlmostEqual(
+                dsa[f"{bound}_result"]["incremental_net_monetary_benefit"],
+                expected.incremental_net_monetary_benefit,
+            )
+
+    def test_event_rate_uncertainty_fails_closed_outside_its_bounded_contract(self) -> None:
+        base = rate_derived_payload()
+        cases = []
+        legacy = rate_uncertainty_payload()
+        legacy["schema_version"] = "0.2.0"
+        cases.append((legacy, "schema_version 0.3.0"))
+        wrong_basis = rate_uncertainty_payload()
+        wrong_basis["parameters"][0]["probabilistic"]["basis_ids"] = ["unlinked"]
+        cases.append((wrong_basis, "exactly the event source"))
+        beta = rate_uncertainty_payload()
+        beta["parameters"][0]["probabilistic"] = {
+            "type": "beta",
+            "alpha": 2.0,
+            "beta": 8.0,
+            "basis_ids": ["intervention-mortality-rate"],
+            "rationale": "Deliberately invalid rate distribution",
+        }
+        cases.append((beta, "must use gamma, lognormal, or positive uniform"))
+        nonpositive = rate_uncertainty_payload()
+        nonpositive["parameters"][0]["deterministic"]["low"] = 0.0
+        cases.append((nonpositive, "must be positive"))
+        derived_row = rate_uncertainty_payload()
+        parameter = derived_row["parameters"][0]
+        parameter["target"] = "/strategies/intervention/transition_matrix/0"
+        parameter["deterministic"]["low"] = [0.85, 0.15]
+        parameter["deterministic"]["high"] = [0.95, 0.05]
+        parameter["probabilistic"] = {
+            "type": "dirichlet",
+            "alpha": [9.0, 1.0],
+            "basis_ids": ["intervention-mortality-rate"],
+            "rationale": "Deliberately targets a derived row",
+        }
+        cases.append((derived_row, "vary an admitted event rate"))
+
+        for uncertainty, message in cases:
+            with self.subTest(message=message), self.assertRaisesRegex(
+                ModelValidationError, message
+            ):
+                run_uncertainty(
+                    base,
+                    RATE_DERIVED_PATH.read_bytes(),
+                    uncertainty,
+                    json.dumps(uncertainty).encode(),
+                )
+
+    def test_multiple_competing_rates_are_applied_before_one_complete_row_recomputation(self) -> None:
+        base = golden_payload()
+        base["schema_version"] = "0.5.0"
+        base["analysis_id"] = "competing-rate-uncertainty"
+        rates = [0.1673576634856573, 0.05578588782855244, 0.2876820724517809]
+        basis_ids = ["progression-rate", "stable-death-rate", "progressed-death-rate"]
+        base["assumptions"] = [
+            {
+                "id": identifier,
+                "statement": f"Use constant {identifier} in this bounded fixture.",
+                "reason": "Competing-rate uncertainty regression test.",
+                "status": "proposed",
+            }
+            for identifier in basis_ids
+        ]
+        base["input_provenance"] = [{
+            "path": "strategies.intervention.transition_matrix",
+            "source_ids": [],
+            "extraction_ids": [],
+            "assumption_ids": basis_ids,
+            "derivation": {
+                "method": "deterministic_transformation",
+                "model_value": copy.deepcopy(base["strategies"]["intervention"]["transition_matrix"]),
+                "transformation": {
+                    "operation": "constant_competing_rates",
+                    "cycle_length_years": 1.0,
+                    "phases": [{
+                        "start_cycle": 1,
+                        "rows": [{
+                            "self_index": 0,
+                            "events": [
+                                {"target_index": 1, "rate_per_year": rates[0], "assumption_id": basis_ids[0]},
+                                {"target_index": 2, "rate_per_year": rates[1], "assumption_id": basis_ids[1]},
+                            ],
+                        }, {
+                            "self_index": 1,
+                            "events": [{"target_index": 2, "rate_per_year": rates[2], "assumption_id": basis_ids[2]}],
+                        }, {"self_index": 2, "events": []}],
+                    }],
+                },
+            },
+        }]
+        base_raw = json.dumps(base, separators=(",", ":")).encode()
+        uncertainty = uncertainty_payload()
+        uncertainty["schema_version"] = "0.3.0"
+        uncertainty["analysis_id"] = base["analysis_id"]
+        uncertainty["base_analysis"]["content_sha256"] = hashlib.sha256(base_raw).hexdigest()
+        target_prefix = "/input_provenance/0/derivation/transformation/phases/0/rows/0/events"
+        uncertainty["parameters"] = [
+            {
+                "id": basis_ids[index],
+                "label": basis_ids[index],
+                "target": f"{target_prefix}/{index}/rate_per_year",
+                "provenance_path": "strategies.intervention.transition_matrix",
+                "deterministic": {
+                    "low": low,
+                    "high": high,
+                    "rationale": "Bounded positive range",
+                },
+                "probabilistic": {
+                    "type": "gamma",
+                    "shape": 4.0,
+                    "scale": rates[index] / 4.0,
+                    "basis_ids": [basis_ids[index]],
+                    "rationale": "Positive rate distribution",
+                },
+            }
+            for index, (low, high) in enumerate(((0.1, 0.3), (0.02, 0.1)))
+        ]
+        specification = UncertaintySpecification.from_dict(
+            uncertainty, base, hashlib.sha256(base_raw).hexdigest()
+        )
+
+        changed = _apply_parameter_values(
+            base,
+            ((specification.parameters[0], 0.1), (specification.parameters[1], 0.2)),
+        )
+
+        event_mass = 1.0 - exp(-0.3)
+        row = changed["strategies"]["intervention"]["transition_matrix"][0]
+        self.assertAlmostEqual(row[0], exp(-0.3))
+        self.assertAlmostEqual(row[1], event_mass / 3.0)
+        self.assertAlmostEqual(row[2], event_mass * 2.0 / 3.0)
+        self.assertEqual(
+            changed["input_provenance"][0]["derivation"]["model_value"],
+            changed["strategies"]["intervention"]["transition_matrix"],
         )
 
     def test_legacy_uncertainty_plan_rejects_a_silently_ignored_grid(self) -> None:

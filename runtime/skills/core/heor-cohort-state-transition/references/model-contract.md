@@ -58,6 +58,8 @@ Allowed uncertainty row targets are:
 
 Use a coherent complete simplex for deterministic bounds and a Dirichlet distribution for PSA. A structural scenario may change an allowlisted schedule `start_cycle`; the resulting complete model must still pass ordering and horizon validation. Do not vary one probability independently from the rest of its row.
 
+For a schema `0.5.0` transition derived from constant competing rates, do not use these probability-row targets. Uncertainty schema `0.3.0` may instead target an exact positive event `rate_per_year` inside `input_provenance`; the uncertainty engine then recomputes the complete affected matrix or schedule before model validation. Gamma, lognormal, and strictly positive uniform rate distributions are admitted. General CTMC intensity uncertainty, correlated rate distributions, and transformation-space structural scenarios remain unsupported.
+
 ## Explicit exclusions
 
 The current first-party engine does not implement tunnel states automatically, time-since-entry transitions, patient-level history, recurrent-event trackers, general continuous-time matrix exponentiation, probability time conversion, relative-effect application, treatment-effect extrapolation formulas, dynamic populations, interactions, time-varying rewards, partitioned survival, or microsimulation. Only the separately admitted constant competing-rate adapter is executable. Record everything else as a structural gap; never approximate it invisibly with a model-cycle schedule.

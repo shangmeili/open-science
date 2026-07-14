@@ -929,6 +929,55 @@ class UncertaintyContractTests(unittest.TestCase):
 
             self.assertEqual(uncertainty.validate(uncertainty_path, plan_path), [])
 
+    def test_rate_space_parameter_is_exactly_bound_and_positive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_rate_derived.json").read_text()
+            )
+            path = "strategies.intervention.transition_matrix"
+            plan["uncertainty_analysis"] = {"path": "heor/uncertainty-plan.json"}
+            plan["input_provenance"][1]["uncertainty_status"] = "distribution_available"
+            plan["methodology"] = {"uncertainty_analysis": {
+                "deterministic": {"planned": True, "input_paths": [path]},
+                "probabilistic": {"planned": True, "input_paths": [path], "iterations": 1000},
+                "structural_scenarios": ["five-year-horizon"],
+            }}
+            plan_path = root / "heor" / "analysis-plan.json"
+            plan_path.parent.mkdir(parents=True)
+            plan_raw = json.dumps(plan, ensure_ascii=False, indent=2).encode()
+            plan_path.write_bytes(plan_raw)
+            value = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_uncertainty.json").read_text()
+            )
+            value["schema_version"] = "0.3.0"
+            value["analysis_id"] = plan["analysis_id"]
+            value["base_analysis"]["content_sha256"] = hashlib.sha256(plan_raw).hexdigest()
+            value["parameters"] = [{
+                "id": "intervention-mortality-rate",
+                "label": "Intervention mortality event rate",
+                "target": "/input_provenance/1/derivation/transformation/phases/0/rows/0/events/0/rate_per_year",
+                "provenance_path": path,
+                "deterministic": {"low": 0.05, "high": 0.2, "rationale": "Evidence-bounded rate range"},
+                "probabilistic": {
+                    "type": "gamma", "shape": 4.0, "scale": 0.02634012891445657,
+                    "basis_ids": ["intervention-mortality-rate"],
+                    "rationale": "Positive rate distribution",
+                },
+            }]
+            uncertainty_path = root / "heor" / "uncertainty-plan.json"
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+
+            self.assertEqual(uncertainty.validate(uncertainty_path, plan_path), [])
+
+            value["parameters"][0]["probabilistic"]["basis_ids"] = ["unlinked"]
+            value["parameters"][0]["probabilistic"]["type"] = "beta"
+            value["parameters"][0]["probabilistic"].update({"alpha": 2, "beta": 8})
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            errors = uncertainty.validate(uncertainty_path, plan_path)
+            self.assertTrue(any("exactly the event source" in error for error in errors))
+            self.assertTrue(any("distribution parameters are invalid" in error for error in errors))
+
     def test_changed_base_hash_and_unlinked_distribution_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             uncertainty_path, plan_path = self.fixture(Path(directory))

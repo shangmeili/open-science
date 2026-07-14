@@ -1,4 +1,4 @@
 interface:
   display_name: "HEOR Uncertainty Analysis"
-  short_description: "Plan DSA, PSA, CEAC, EVPI, and structural scenarios"
-  default_prompt: "Use $heor-uncertainty-analysis to create a hash-bound uncertainty plan with an explicit decision-threshold grid for the current HEOR analysis."
+  short_description: "Plan DSA, PSA, CEAC, EVPI, and rate uncertainty"
+  default_prompt: "Use $heor-uncertainty-analysis to create a hash-bound uncertainty plan, including exact rate-space parameters for admitted competing-rate transformations when supported by evidence."

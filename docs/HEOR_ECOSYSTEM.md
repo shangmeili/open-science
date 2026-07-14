@@ -177,9 +177,13 @@ bounded formula in its dependency-free core, gives every event an extraction or
 assumption binding, recomputes it in Python, Rust, the portable validator, and the
 browser preview, adds a hand-calculated golden case, exposes a dedicated
 `$heor-transition-rate-adapter` Skill, and documents explicit stopping rules.
-No upstream code is copied into the core. General CTMC conversion, probability
-time conversion, relative effects, extrapolation, within-cycle multi-step paths,
-and rate-space uncertainty remain isolated future adapters rather than inferred
+No upstream code is copied into the core. The same admission process now extends
+the fragment with first-party rate-space DSA/PSA: exact event targets, positive
+distributions, exact evidence/assumption binding, per-run complete transformation
+recomputation, and Python/native/portable regression tests. General CTMC
+conversion, probability time conversion, relative effects, extrapolation,
+within-cycle multi-step paths, correlated rate models, and transformation-space
+structural scenarios remain isolated future adapters rather than inferred
 capability.
 
 The evidence-search slice applies the same standard to a network capability.

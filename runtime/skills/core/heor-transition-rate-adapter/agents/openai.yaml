@@ -1,4 +1,4 @@
 interface:
   display_name: "HEOR Transition Rate Adapter"
-  short_description: "Derive auditable matrices from competing rates"
-  default_prompt: "Use $heor-transition-rate-adapter to derive and audit a schema 0.5.0 cohort transition matrix or schedule from constant competing event rates."
+  short_description: "Derive and vary auditable competing event rates"
+  default_prompt: "Use $heor-transition-rate-adapter to derive a schema 0.5.0 cohort transition input from constant competing event rates and, when evidence supports it, prepare auditable rate-space DSA/PSA."
