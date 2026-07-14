@@ -60,3 +60,9 @@ The Agent drafts a validated request, while only the desktop app can execute
 the exact human-authorized bytes against fixed PubMed and ClinicalTrials.gov
 endpoints. Its outputs are candidate metadata and never bypass screening,
 appraisal, or evidence-synthesis review.
+
+`core/heor-local-evidence` is the first-party local knowledge-base retrieval
+boundary. The desktop owns source import, page extraction, SHA-256 manifesting,
+and index rebuilds; the Skill verifies those bindings and returns compact
+path/page/hash citations without network access. OCR-required and failed files
+are excluded rather than treated as reviewed evidence.

@@ -87,6 +87,23 @@
     "repairPrompt": "使用 $heor-model-design，为当前决策问题创建或修复 heor/conceptual-model.json。保留结构备选和结构不确定性，运行确定性校验器，不要创建或声称获得人工批准。",
     "note": "应用会独立审计该文件。结构完整仅允许进入人工审阅，不代表模型已经有效。"
   },
+  "library": {
+    "title": "本地证据库",
+    "loading": "正在审计本地证据库……",
+    "complete": "本地资料已绑定哈希并可检索",
+    "partial": "可检索，但存在已明确披露的提取问题",
+    "incomplete": "本地证据库为空、已过期或被阻断",
+    "documents": "资料数",
+    "indexed": "已索引",
+    "ocr": "需 OCR",
+    "hash": "清单 SHA-256",
+    "add": "添加本地资料",
+    "sync": "重新扫描精确源文件",
+    "ask": "让 Agent 检索本地证据库",
+    "searchPrompt": "使用 $heor-local-evidence，针对我的研究问题检索当前本地 HEOR 证据库。先核验 heor/evidence-library.json 与源文件哈希，使用确定性本地检索工具；每项主张均引用源路径、SHA-256 和页码，并区分原文证据与解释。不要联网，也不要声称已审阅需要 OCR 或提取失败的资料。",
+    "note": "源文件保留在 heor/library；应用不调用模型、不联网，在本地提取和建立索引，并保留可复核的精确源文件哈希与页码。扫描型 PDF 需要单独且明确的 OCR 工作流。",
+    "noProject": "当前没有可建立本地证据库的项目。"
+  },
   "search": {
     "title": "人工授权的证据检索",
     "loading": "正在审计检索请求……",
@@ -301,6 +318,7 @@
     "budgetImpactRunComplete": "预算影响分析已完成",
     "searchComplete": "人工授权的证据检索已完成",
     "candidatesImported": "已导入授权候选记录，未改变研究判断",
+    "librarySynced": "本地证据库已同步并绑定精确文件哈希",
     "loadFailed": "无法读取 AI4HEOR 工作流",
     "actionFailed": "AI4HEOR 操作失败"
   }

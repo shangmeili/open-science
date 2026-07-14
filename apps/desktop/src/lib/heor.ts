@@ -10,6 +10,7 @@ export const HEOR_REPORT_PACKAGE_PATH = "heor/report-package.json";
 export const HEOR_REPORT_DOCUMENT_PATH = "heor/report.md";
 export const HEOR_EVIDENCE_SEARCH_REQUEST_PATH = "heor/evidence-search-request.json";
 export const HEOR_EVIDENCE_SYNTHESIS_PATH = "heor/evidence-synthesis.json";
+export const HEOR_EVIDENCE_LIBRARY_PATH = "heor/evidence-library.json";
 export const HEOR_BASE_CASE_RESULT_PATH = "heor/results/base-case.json";
 export const HEOR_UNCERTAINTY_RESULT_PATH = "heor/results/uncertainty.json";
 export const HEOR_BUDGET_IMPACT_RESULT_PATH = "heor/results/budget-impact.json";
@@ -365,6 +366,34 @@ export interface HeorEvidenceSynthesisAudit {
   unresolvedConflicts: string[];
   errors: string[];
   importBlockers: string[];
+}
+
+export interface HeorEvidenceLibraryAudit {
+  complete: boolean;
+  searchable: boolean;
+  stale: boolean;
+  status: "complete" | "incomplete";
+  manifestSha256: string;
+  documentCount: number;
+  indexedCount: number;
+  requiresOcrCount: number;
+  failedCount: number;
+  totalBytes: number;
+  errors: string[];
+}
+
+export interface HeorEvidenceLibrarySearchHit {
+  path: string;
+  sourceSha256: string;
+  page: number;
+  score: number;
+  snippet: string;
+}
+
+export interface HeorEvidenceLibrarySearchResponse {
+  audit: HeorEvidenceLibraryAudit;
+  query: string;
+  hits: HeorEvidenceLibrarySearchHit[];
 }
 
 export interface HeorImportCandidatesRequest {
@@ -931,6 +960,40 @@ export async function auditHeorEvidenceSynthesis(): Promise<HeorEvidenceSynthesi
   return invoke<HeorEvidenceSynthesisAudit>("audit_heor_evidence_synthesis");
 }
 
+export async function auditHeorEvidenceLibrary(): Promise<HeorEvidenceLibraryAudit> {
+  if (!isTauri) return HEOR_BROWSER_DEMO_EVIDENCE_LIBRARY_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorEvidenceLibraryAudit>("audit_heor_evidence_library");
+}
+
+export async function addHeorLibraryFiles(): Promise<string[]> {
+  if (!isTauri) return [];
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string[]>("add_heor_library_files");
+}
+
+export async function syncHeorEvidenceLibrary(projectId: string): Promise<HeorEvidenceLibraryAudit> {
+  if (!isTauri) return HEOR_BROWSER_DEMO_EVIDENCE_LIBRARY_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorEvidenceLibraryAudit>("sync_heor_evidence_library", { projectId });
+}
+
+export async function searchHeorEvidenceLibrary(
+  query: string,
+  limit = 10,
+): Promise<HeorEvidenceLibrarySearchResponse> {
+  if (!isTauri) return {
+    audit: HEOR_BROWSER_DEMO_EVIDENCE_LIBRARY_AUDIT,
+    query,
+    hits: [],
+  };
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorEvidenceLibrarySearchResponse>("search_heor_evidence_library", {
+    query,
+    limit,
+  });
+}
+
 export async function listHeorSearchAuthorizations(
   projectId: string,
 ): Promise<HeorSearchAuthorizationLog> {
@@ -1006,6 +1069,20 @@ export const HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT: HeorEvidenceSynthesisAu
   unresolvedConflicts: ["utility-weight-selection"],
   errors: ["12 records remain not_assessed", "unresolved conflicts: utility-weight-selection"],
   importBlockers: [],
+};
+
+export const HEOR_BROWSER_DEMO_EVIDENCE_LIBRARY_AUDIT: HeorEvidenceLibraryAudit = {
+  complete: true,
+  searchable: true,
+  stale: false,
+  status: "complete",
+  manifestSha256: "f".repeat(64),
+  documentCount: 3,
+  indexedCount: 3,
+  requiresOcrCount: 0,
+  failedCount: 0,
+  totalBytes: 1_280_000,
+  errors: [],
 };
 
 export const HEOR_BROWSER_DEMO_PLAN: HeorAnalysisPlan = {

@@ -1,0 +1,38 @@
+name: Rust dependency security
+
+on:
+  pull_request:
+    paths:
+      - ".cargo/audit.toml"
+      - "apps/desktop/src-tauri/Cargo.lock"
+      - "apps/desktop/src-tauri/Cargo.toml"
+      - ".github/workflows/rust-security.yml"
+  push:
+    branches: [master]
+    paths:
+      - ".cargo/audit.toml"
+      - "apps/desktop/src-tauri/Cargo.lock"
+      - "apps/desktop/src-tauri/Cargo.toml"
+      - ".github/workflows/rust-security.yml"
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify reviewed security-exception boundaries
+        run: python scripts/dev/test_rust_security_policy.py -v
+      - name: Install pinned RustSec auditor
+        run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Audit the desktop dependency lockfile
+        run: cargo audit --file apps/desktop/src-tauri/Cargo.lock

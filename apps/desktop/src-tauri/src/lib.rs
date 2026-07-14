@@ -12,6 +12,7 @@ mod heor_artifacts;
 mod heor_budget_impact;
 mod heor_engine;
 mod heor_evidence;
+mod heor_library;
 mod heor_reference_case;
 mod heor_reporting;
 mod heor_search;
@@ -64,6 +65,7 @@ pub fn run() {
         .manage(heor_approval::HeorApprovalState::default())
         .manage(heor_search::HeorSearchState::default())
         .manage(heor_synthesis::HeorSynthesisState::default())
+        .manage(heor_library::HeorLibraryState::default())
         .manage(runs::RunState::default())
         .invoke_handler(tauri::generate_handler![
             runtime::start_runtime,
@@ -121,6 +123,10 @@ pub fn run() {
             heor_search::audit_heor_evidence_search,
             heor_search::execute_heor_evidence_search,
             heor_search::list_heor_search_authorizations,
+            heor_library::add_heor_library_files,
+            heor_library::audit_heor_evidence_library,
+            heor_library::search_heor_evidence_library,
+            heor_library::sync_heor_evidence_library,
             heor_synthesis::audit_heor_evidence_synthesis,
             heor_synthesis::import_heor_search_candidates,
             heor_uncertainty::audit_heor_uncertainty,

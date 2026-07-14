@@ -23,6 +23,8 @@ describe("AI4HEOR human review pane", () => {
     expect(screen.getByText("Exact request is ready for human authorization")).toBeInTheDocument();
     expect(screen.getByText("semaglutide AND type 2 diabetes AND cost effectiveness")).toBeInTheDocument();
     expect(screen.getByText("Evidence synthesis ledger")).toBeInTheDocument();
+    expect(screen.getByText("Local evidence library")).toBeInTheDocument();
+    expect(screen.getByText("Local sources are hash-bound and searchable")).toBeInTheDocument();
     expect(screen.getByText("Evidence synthesis needs human-guided work")).toBeInTheDocument();
     expect(screen.getByText("Not assessed")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Review and authorize exact search" }))
@@ -70,6 +72,12 @@ describe("AI4HEOR human review pane", () => {
     }));
     expect(onRequestRevision).toHaveBeenCalledWith(
       expect.stringContaining("$heor-evidence-synthesis"),
+    );
+    await userEvent.click(screen.getByRole("button", {
+      name: "Ask Agent to search the local library",
+    }));
+    expect(onRequestRevision).toHaveBeenCalledWith(
+      expect.stringContaining("$heor-local-evidence"),
     );
     await userEvent.click(screen.getByRole("button", {
       name: "Ask agent to assess or repair reference-case gaps",

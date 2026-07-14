@@ -260,14 +260,18 @@ Windows: `%APPDATA%/AI4S Workbench/` · macOS: `~/Library/Application Support/AI
 workspace/
   project.json  plan.md
   data/{raw,processed}/  papers/  parsed/  scripts/  notebooks/
+  heor/library/  heor/evidence-library.json
+  .openscience/heor-library.sqlite
   figures/  reports/  artifacts/  reviews/
   provenance.jsonl  manifest.json
 ```
 
 ### 9.2 SQLite
 
-Stores: project list, session index, artifact index, literature metadata index,
-tool-call state, user settings, runtime state.
+Stores: project list, session index, artifact index, app-derived local evidence
+pages and source bindings, tool-call state, user settings, runtime state. The
+reviewable `heor/evidence-library.json` remains the source manifest; SQLite is a
+rebuildable local index and never a substitute for exact source hashes.
 
 ### 9.3 JSONL
 

@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
+  BookOpen,
   Check,
   Circle,
   FileJson,
+  FolderPlus,
   Loader2,
   LockKeyhole,
   MessageSquareText,
@@ -21,12 +23,14 @@ import {
   auditHeorBudgetImpact,
   auditHeorConceptualModel,
   auditHeorEvidence,
+  auditHeorEvidenceLibrary,
   auditHeorEvidenceSearch,
   auditHeorEvidenceSynthesis,
   auditHeorReferenceCase,
   auditHeorUncertainty,
   auditHeorModelValidation,
   auditHeorReporting,
+  addHeorLibraryFiles,
   browserDemoRun,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_PLAN,
@@ -39,6 +43,7 @@ import {
   HEOR_UNCERTAINTY_RESULT_PATH,
   HEOR_BUDGET_IMPACT_RESULT_PATH,
   HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
+  HEOR_EVIDENCE_LIBRARY_PATH,
   HEOR_EVIDENCE_SYNTHESIS_PATH,
   HEOR_PLAN_PATH,
   HEOR_REFERENCE_CASE_ASSESSMENT_PATH,
@@ -57,6 +62,7 @@ import {
   type HeorReferenceCaseAudit,
   type HeorRunResult,
   type HeorEvidenceSearchAudit,
+  type HeorEvidenceLibraryAudit,
   type HeorEvidenceSynthesisAudit,
   type HeorImportCandidatesResponse,
   type HeorSearchAuthorizationLog,
@@ -70,6 +76,7 @@ import {
   parseHeorPlan,
   runHeorMarkov,
   runHeorBudgetImpact,
+  syncHeorEvidenceLibrary,
   executeHeorEvidenceSearch,
   importHeorSearchCandidates,
   runHeorUncertainty,
@@ -153,6 +160,11 @@ type EvidenceSynthesisState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorEvidenceSynthesisAudit };
+
+type EvidenceLibraryState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorEvidenceLibraryAudit };
 
 const EMPTY_SEARCH_LOG: HeorSearchAuthorizationLog = {
   events: [],
@@ -252,11 +264,13 @@ export function HeorReviewPane({
   const [reporting, setReporting] = useState<ReportingState>({ kind: "loading" });
   const [evidenceSearch, setEvidenceSearch] = useState<EvidenceSearchState>({ kind: "loading" });
   const [evidenceSynthesis, setEvidenceSynthesis] = useState<EvidenceSynthesisState>({ kind: "loading" });
+  const [evidenceLibrary, setEvidenceLibrary] = useState<EvidenceLibraryState>({ kind: "loading" });
   const [searchAuthorizations, setSearchAuthorizations] = useState(EMPTY_SEARCH_LOG);
   const [searchResult, setSearchResult] = useState<HeorSearchExecutionResponse | null>(null);
   const [importResult, setImportResult] = useState<HeorImportCandidatesResponse | null>(null);
   const [searchRunning, setSearchRunning] = useState(false);
   const [importRunning, setImportRunning] = useState(false);
+  const [librarySyncing, setLibrarySyncing] = useState(false);
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [approvals, setApprovals] = useState<HeorApprovalLog>(EMPTY_LOG);
   const [result, setResult] = useState<HeorRunResult | null>(null);
@@ -281,6 +295,7 @@ export function HeorReviewPane({
       setReporting({ kind: "invalid", message: t("reporting.noProject") });
       setEvidenceSearch({ kind: "invalid", message: t("search.noProject") });
       setEvidenceSynthesis({ kind: "invalid", message: t("synthesis.noProject") });
+      setEvidenceLibrary({ kind: "invalid", message: t("library.noProject") });
       setSearchAuthorizations(EMPTY_SEARCH_LOG);
       setApprovals(EMPTY_LOG);
       return;
@@ -294,6 +309,15 @@ export function HeorReviewPane({
     setReporting({ kind: "loading" });
     setEvidenceSearch({ kind: "loading" });
     setEvidenceSynthesis({ kind: "loading" });
+    setEvidenceLibrary({ kind: "loading" });
+    try {
+      setEvidenceLibrary({ kind: "ready", audit: await auditHeorEvidenceLibrary() });
+    } catch (error) {
+      setEvidenceLibrary({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
     try {
       setEvidenceSearch({ kind: "ready", audit: await auditHeorEvidenceSearch() });
     } catch (error) {
@@ -710,6 +734,21 @@ export function HeorReviewPane({
     }
   };
 
+  const syncLibrary = async (pickFiles: boolean) => {
+    if (!project || librarySyncing || !isTauri) return;
+    setLibrarySyncing(true);
+    try {
+      if (pickFiles) await addHeorLibraryFiles();
+      const audit = await syncHeorEvidenceLibrary(project.id);
+      setEvidenceLibrary({ kind: "ready", audit });
+      toast.success(t("toast.librarySynced"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setLibrarySyncing(false);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col border-l border-border bg-surface">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
@@ -731,6 +770,16 @@ export function HeorReviewPane({
           currentApprovals={currentApprovals}
           hasResult={!!result || !!uncertaintyResult || !!budgetImpactResult}
         />
+
+        {project && (
+          <EvidenceLibraryAssessment
+            state={evidenceLibrary}
+            syncing={librarySyncing}
+            onAdd={() => void syncLibrary(true)}
+            onSync={() => void syncLibrary(false)}
+            onAsk={() => onRequestRevision(t("library.searchPrompt"))}
+          />
+        )}
 
         {project && (
           <EvidenceSearchAssessment
@@ -1078,6 +1127,106 @@ function StageRail({ currentApprovals, hasResult }: { currentApprovals: HeorGate
         ))}
       </div>
     </div>
+  );
+}
+
+function EvidenceLibraryAssessment({
+  state,
+  syncing,
+  onAdd,
+  onSync,
+  onAsk,
+}: {
+  state: EvidenceLibraryState;
+  syncing: boolean;
+  onAdd: () => void;
+  onSync: () => void;
+  onAsk: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const issues = audit?.errors ?? (state.kind === "invalid" ? [state.message] : []);
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        <BookOpen
+          size={16}
+          className={audit?.searchable ? "mt-0.5 text-ok" : "mt-0.5 text-warning"}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("library.title")}
+          </div>
+          <div className={cn(
+            "mt-1 text-xs font-semibold",
+            audit?.searchable ? "text-ok" : "text-warning",
+          )}>
+            {state.kind === "loading"
+              ? t("library.loading")
+              : audit?.complete
+                ? t("library.complete")
+                : audit?.searchable
+                  ? t("library.partial")
+                  : t("library.incomplete")}
+          </div>
+        </div>
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted">
+        {HEOR_EVIDENCE_LIBRARY_PATH}
+      </div>
+      {audit && (
+        <>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <Metric label={t("library.documents")} value={String(audit.documentCount)} />
+            <Metric label={t("library.indexed")} value={String(audit.indexedCount)} />
+            <Metric label={t("library.ocr")} value={String(audit.requiresOcrCount)} />
+          </div>
+          {audit.manifestSha256 && (
+            <div className="mt-2 break-all font-mono text-[9px] text-muted">
+              {t("library.hash")} {audit.manifestSha256}
+            </div>
+          )}
+        </>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
+          {issues.slice(0, 4).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap gap-3">
+        {isTauri && (
+          <button
+            disabled={syncing}
+            onClick={onAdd}
+            className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline disabled:opacity-50"
+          >
+            {syncing
+              ? <Loader2 size={13} className="animate-spin" />
+              : <FolderPlus size={13} />}
+            {t("library.add")}
+          </button>
+        )}
+        {isTauri && (
+          <button
+            disabled={syncing}
+            onClick={onSync}
+            className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
+            {t("library.sync")}
+          </button>
+        )}
+        {audit?.searchable && (
+          <button
+            onClick={onAsk}
+            className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+          >
+            <MessageSquareText size={13} /> {t("library.ask")}
+          </button>
+        )}
+      </div>
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("library.note")}</p>
+    </section>
   );
 }
 

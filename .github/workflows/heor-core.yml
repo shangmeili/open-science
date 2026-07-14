@@ -43,5 +43,7 @@ jobs:
         run: python -m unittest discover -s python/heor_core/tests -v
       - name: Test portable HEOR artifact contracts
         run: python scripts/dev/test_heor_artifact_contracts.py -v
+      - name: Test local evidence search contract
+        run: python scripts/dev/test_heor_local_evidence.py -v
       - name: Test third-party asset admission contract
         run: python scripts/dev/test_asset_admission.py -v

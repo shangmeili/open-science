@@ -103,6 +103,25 @@ inclusion, appraisal, extraction, full-text verification, or proof that a
 systematic search is complete. OpenAlex and licensed databases remain out of
 scope until separate API-key, license, and consent boundaries are designed.
 
+## Local evidence library
+
+The shipped alpha accepts PDF, plain text, Markdown, CSV, and JSON sources under
+`heor/library`. Native sync rejects symlinks, caps file count, source bytes, and
+total extracted text, hashes the exact source and derived index, extracts
+searchable text without a model or network call, and writes a reviewable
+`heor/evidence-library.json`. The SQLite index stays under `.openscience`, is
+serialized against concurrent access, and is rebuildable.
+
+Natural-language retrieval routes through `$heor-local-evidence`. Its portable
+search script re-verifies every indexed source hash and every returned page-text
+hash, then emits compact snippets with exact local path, page, and source
+SHA-256. Changed bytes invalidate search until a native rescan. Searchable
+results are extracted evidence, not appraisal or an automatic model input.
+Image-only PDFs are `requires_ocr`; encrypted, malformed, unsupported, or
+oversized documents remain explicit issues. OCR, layout/table reconstruction,
+semantic embeddings, and licensed corpus connectors are not silently inferred
+from this alpha.
+
 ## Implemented reference-case registry
 
 | ID | Status | Use |

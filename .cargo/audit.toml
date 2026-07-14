@@ -1,0 +1,24 @@
+[advisories]
+# wayland-scanner 0.31.10 is a Linux-only build dependency. It parses the
+# immutable Wayland protocol XML bundled by wayland-rs; AI4HEOR never passes
+# user or network XML to it. No patched wayland-scanner release exists yet.
+# Remove both exceptions as soon as wayland-scanner publishes quick-xml >=0.41.
+ignore = ["RUSTSEC-2026-0194", "RUSTSEC-2026-0195"]
+informational_warnings = ["unmaintained", "unsound"]
+severity_threshold = "low"
+
+[database]
+path = "~/.cargo/advisory-db"
+url = "https://github.com/RustSec/advisory-db.git"
+fetch = true
+stale = false
+
+[output]
+deny = []
+format = "terminal"
+quiet = false
+show_tree = true
+
+[yanked]
+enabled = true
+update_index = true

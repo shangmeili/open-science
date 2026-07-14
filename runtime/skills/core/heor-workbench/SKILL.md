@@ -21,8 +21,9 @@ Use conversation as the primary interface. Translate the researcher's intent int
 
 1. Restate the decision question in one concise paragraph. Identify population, intervention, comparator, perspective, horizon, outcome, jurisdiction, and decision context.
 2. List material unknowns before searching or modeling. Ask only questions that would change the model or interpretation.
-3. Use `$heor-evidence-search` to draft and validate a bounded PubMed/ClinicalTrials.gov metadata request when public-source retrieval is needed. Never execute or bypass the app-owned human network authorization; import app-written results only as `not_assessed` candidates.
-4. Use `$heor-evidence-synthesis` for screening, extraction, applicability, critical appraisal, or conflict trails. Keep `heor/evidence-synthesis.json` separate from retrieved candidates and selected model inputs.
+3. Use `$heor-local-evidence` for project-local PDF or text knowledge-base retrieval. Require the app-owned hash manifest and cite the exact path, SHA-256, and page; never treat OCR-required or failed extraction as reviewed evidence.
+4. Use `$heor-evidence-search` to draft and validate a bounded PubMed/ClinicalTrials.gov metadata request when public-source retrieval is needed. Never execute or bypass the app-owned human network authorization; import app-written results only as `not_assessed` candidates.
+5. Use `$heor-evidence-synthesis` for screening, extraction, applicability, critical appraisal, or conflict trails. Keep `heor/evidence-synthesis.json` separate from retrieved candidates and selected model inputs.
 5. Use `$heor-model-design` to create or review `heor/conceptual-model.json`. Propose the smallest adequate structure, explicit structural assumptions, and plausible alternatives before the conceptual-model gate.
 6. Create or update `heor/analysis-plan.json` from `assets/analysis-plan.template.json`. Read `references/analysis-plan.md` before editing it. Use `$heor-input-provenance` whenever evidence is selected for model inputs, mapped, audited, or prepared for analysis-plan review.
 7. Use `$heor-reference-case` to assess every requirement in the selected versioned profile and bind `heor/reference-case-assessment.json` to the plan by exact content hash.

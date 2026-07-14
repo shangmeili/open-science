@@ -175,11 +175,19 @@ call. Each run binds request and response hashes, preserves source limitations,
 and imports records only as `not_assessed` candidates for later screening and
 appraisal.
 
-The broader platform backlog—arXiv, Crossref, OpenAlex, Semantic Scholar, local
-PDF import, deduplication, `corpus.csv`, and BibTeX export—remains planned. It is
-not represented as an AI4HEOR production capability. OpenAlex currently needs
-an API key, so it requires a separate credential and consent flow before
-admission.
+AI4HEOR also ships a local evidence-library alpha. The desktop copies selected
+PDF/TXT/Markdown/CSV/JSON files into `heor/library`, binds exact source SHA-256
+values and the derived index SHA-256 in `heor/evidence-library.json`, extracts
+searchable pages locally, and stores the serialized index under `.openscience`.
+`$heor-local-evidence` verifies the manifest, index, source, and page bytes
+before returning path/page/hash citations. Scanned
+PDFs are marked `requires_ocr`; encryption, unsupported formats, extraction
+failure, source changes, and symlink escapes remain visible and fail closed.
+
+The broader platform backlog—arXiv, Crossref, OpenAlex, Semantic Scholar,
+deduplication exports, `corpus.csv`, BibTeX export, OCR, and complex layout/table
+reconstruction—remains planned. OpenAlex currently needs an API key, so it
+requires a separate credential and consent flow before admission.
 
 #### 5.1.6 Skills library
 
