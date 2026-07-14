@@ -349,6 +349,7 @@ class InputProvenanceContractTests(unittest.TestCase):
         plan = {
             "schema_version": "0.3.0",
             "economic_basis": {"currency": "CNY", "price_year": 2026},
+            "states": ["stable", "progressed", "dead"],
             "willingness_to_pay": 100000,
             "cycles": model_values["cycles"],
             "cycle_length_years": model_values["cycle_length_years"],
@@ -459,6 +460,81 @@ class InputProvenanceContractTests(unittest.TestCase):
         self.assertTrue(result["complete"], result)
         self.assertEqual(result["required_inputs"], 14)
         self.assertIn(extraction_id, result["selected_extraction_ids"])
+
+    def test_schema_05_competing_rates_reproduce_a_complete_matrix(self):
+        plan, synthesis, _ = self.fixture()
+        plan["schema_version"] = "0.5.0"
+        mapping = next(
+            item for item in plan["input_provenance"]
+            if item["path"] == "strategies.intervention.transition_matrix"
+        )
+        extraction_id = mapping["extraction_ids"][0]
+        rates = [
+            0.1673576634856573,
+            0.05578588782855244,
+            0.2876820724517809,
+        ]
+        mapping["derivation"] = {
+            "method": "deterministic_transformation",
+            "model_value": plan["strategies"]["intervention"]["transition_matrix"],
+            "transformation": {
+                "operation": "constant_competing_rates",
+                "cycle_length_years": 1.0,
+                "phases": [{
+                    "start_cycle": 1,
+                    "rows": [
+                        {
+                            "self_index": 0,
+                            "events": [
+                                {
+                                    "target_index": 1,
+                                    "rate_per_year": rates[0],
+                                    "source_extraction_id": extraction_id,
+                                    "source_pointer": "/0",
+                                },
+                                {
+                                    "target_index": 2,
+                                    "rate_per_year": rates[1],
+                                    "source_extraction_id": extraction_id,
+                                    "source_pointer": "/1",
+                                },
+                            ],
+                        },
+                        {
+                            "self_index": 1,
+                            "events": [{
+                                "target_index": 2,
+                                "rate_per_year": rates[2],
+                                "source_extraction_id": extraction_id,
+                                "source_pointer": "/2",
+                            }],
+                        },
+                        {"self_index": 2, "events": []},
+                    ],
+                }],
+            },
+        }
+        extraction = next(
+            item for item in synthesis["extractions"]
+            if item["extraction_id"] == extraction_id
+        )
+        extraction["extracted_value"] = json.dumps(rates, separators=(",", ":"))
+        synthesis_raw = json.dumps(synthesis, ensure_ascii=False, indent=2).encode() + b"\n"
+        digest = hashlib.sha256(synthesis_raw).hexdigest()
+        plan["evidence_synthesis"]["content_sha256"] = digest
+
+        result = input_provenance.audit(plan, synthesis, digest)
+
+        self.assertTrue(result["complete"], result)
+
+        mapping["derivation"]["transformation"]["phases"][0]["rows"][0]["events"][0][
+            "rate_per_year"
+        ] = rates[0] + 0.01
+        changed = input_provenance.audit(plan, synthesis, digest)
+        self.assertFalse(changed["complete"])
+        combined = "; ".join(changed["invalid_mappings"])
+        self.assertIn("does not match the bound extraction", combined)
+        self.assertIn("do not reproduce", combined)
 
     def test_schedule_requires_schema_04_and_exactly_one_transition_mechanism(self):
         plan, synthesis, digest = self.fixture()

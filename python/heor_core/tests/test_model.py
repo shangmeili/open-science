@@ -19,6 +19,9 @@ GOLDEN_PATH = Path(__file__).parents[1] / "golden_cases" / "two_strategy_markov.
 TIME_VARYING_PATH = (
     Path(__file__).parents[1] / "golden_cases" / "two_strategy_time_varying.json"
 )
+RATE_DERIVED_PATH = (
+    Path(__file__).parents[1] / "golden_cases" / "two_strategy_rate_derived.json"
+)
 UNCERTAINTY_PATH = (
     Path(__file__).parents[1] / "golden_cases" / "two_strategy_uncertainty.json"
 )
@@ -41,6 +44,10 @@ def uncertainty_payload() -> dict:
 
 def time_varying_payload() -> dict:
     return json.loads(TIME_VARYING_PATH.read_text())
+
+
+def rate_derived_payload() -> dict:
+    return json.loads(RATE_DERIVED_PATH.read_text())
 
 
 def budget_base_payload() -> dict:
@@ -149,9 +156,80 @@ class MarkovModelTests(unittest.TestCase):
         payload["schema_version"] = "0.3.0"
 
         with self.assertRaisesRegex(
-            ModelValidationError, "transition_schedule requires schema_version 0.4.0"
+            ModelValidationError, "transition_schedule requires schema_version 0.4.0 or 0.5.0"
         ):
             MarkovSpecification.from_dict(payload)
+
+    def test_constant_rate_derivations_match_hand_calculation(self) -> None:
+        result = run_markov(MarkovSpecification.from_dict(rate_derived_payload()))
+
+        self.assertEqual(result.engine_version, "0.5.0")
+        self.assertEqual(result.schema_version, "0.5.0")
+        self.assertAlmostEqual(result.comparator.total_qaly, 2.44)
+        self.assertAlmostEqual(result.intervention.total_qaly, 2.71)
+        self.assertAlmostEqual(result.intervention.total_cost, 271.0)
+        self.assertAlmostEqual(result.incremental.delta_qaly, 0.27)
+        self.assertAlmostEqual(result.incremental.icer, 271.0 / 0.27)
+
+    def test_rate_derivation_must_reproduce_the_current_matrix(self) -> None:
+        payload = rate_derived_payload()
+        payload["strategies"]["intervention"]["transition_matrix"][0] = [0.85, 0.15]
+        payload["input_provenance"][1]["derivation"]["model_value"][0] = [0.85, 0.15]
+
+        with self.assertRaisesRegex(
+            ModelValidationError, "rates do not reproduce"
+        ):
+            MarkovSpecification.from_dict(payload)
+
+    def test_rate_derivation_must_bind_every_declared_basis(self) -> None:
+        payload = rate_derived_payload()
+        payload["input_provenance"][1]["assumption_ids"].append("unused-rate")
+
+        with self.assertRaisesRegex(
+            ModelValidationError, "use every proposed assumption"
+        ):
+            MarkovSpecification.from_dict(payload)
+
+    def test_rate_derivation_supports_piecewise_model_cycle_phases(self) -> None:
+        payload = rate_derived_payload()
+        payload["assumptions"].append({
+            "id": "later-intervention-rate",
+            "statement": "Later intervention mortality rate",
+            "reason": "Schedule adapter test",
+            "status": "proposed",
+        })
+        strategy = payload["strategies"]["intervention"]
+        del strategy["transition_matrix"]
+        strategy["transition_schedule"] = [
+            {"start_cycle": 1, "matrix": [[0.9, 0.1], [0.0, 1.0]]},
+            {"start_cycle": 2, "matrix": [[0.8, 0.2], [0.0, 1.0]]},
+        ]
+        mapping = payload["input_provenance"][1]
+        mapping["path"] = "strategies.intervention.transition_schedule"
+        mapping["assumption_ids"].append("later-intervention-rate")
+        mapping["derivation"]["model_value"] = copy.deepcopy(
+            strategy["transition_schedule"]
+        )
+        mapping["derivation"]["transformation"]["phases"].append({
+            "start_cycle": 2,
+            "rows": [
+                {
+                    "self_index": 0,
+                    "events": [{
+                        "target_index": 1,
+                        "rate_per_year": 0.22314355131420976,
+                        "assumption_id": "later-intervention-rate",
+                    }],
+                },
+                {"self_index": 1, "events": []},
+            ],
+        })
+
+        result = run_markov(MarkovSpecification.from_dict(payload))
+
+        self.assertEqual(result.intervention.transition_mode, "piecewise_by_model_cycle")
+        self.assertEqual(result.intervention.transition_schedule_start_cycles, (1, 2))
+        self.assertAlmostEqual(result.intervention.total_qaly, 2.62)
 
     def test_strategy_cannot_mix_static_and_scheduled_transitions(self) -> None:
         payload = time_varying_payload()

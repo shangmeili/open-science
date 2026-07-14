@@ -20,6 +20,8 @@ Allowed parameter targets:
 - a complete static transition-matrix row;
 - a complete schema `0.4.0` scheduled row at `/strategies/<role>/transition_schedule/<phase>/matrix/<row>`.
 
+These probability-row and schedule-change targets do not apply to a schema `0.5.0` transition derived from constant competing rates. Changing only the derived output makes its deterministic transformation snapshot stale, so the engine rejects it. Rate-space DSA/PSA and coordinated transformation-space structural scenarios are not implemented; record those transition inputs as fixed and list the omission.
+
 Supported probabilistic distributions:
 
 - `beta(alpha, beta)` for bounded 0–1 quantities;

@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import sys
 from hashlib import sha256
-from math import isclose, isfinite
+from math import expm1, isclose, isfinite
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +20,13 @@ BASE_PATHS = [
     "strategies.intervention.state_utilities",
 ]
 UNCERTAINTY = {"fixed", "range_available", "distribution_available"}
-APPROVABLE_ANALYSIS_SCHEMAS = {"0.3.0", "0.4.0"}
+APPROVABLE_ANALYSIS_SCHEMAS = {"0.3.0", "0.4.0", "0.5.0"}
+TRANSITION_PATHS = {
+    "strategies.comparator.transition_matrix",
+    "strategies.intervention.transition_matrix",
+    "strategies.comparator.transition_schedule",
+    "strategies.intervention.transition_schedule",
+}
 
 
 def text(value: Any) -> bool:
@@ -105,6 +111,193 @@ def json_equivalent(left: Any, right: Any) -> bool:
     return left == right
 
 
+def json_pointer(value: Any, pointer: str) -> Any:
+    if pointer == "":
+        return value
+    if not isinstance(pointer, str) or not pointer.startswith("/"):
+        raise ValueError("source_pointer must be empty or a JSON pointer")
+    current = value
+    for encoded in pointer[1:].split("/"):
+        token = encoded.replace("~1", "/").replace("~0", "~")
+        if isinstance(current, list):
+            if not token.isdigit() or int(token) >= len(current):
+                raise ValueError("source_pointer does not resolve")
+            current = current[int(token)]
+        elif isinstance(current, dict) and token in current:
+            current = current[token]
+        else:
+            raise ValueError("source_pointer does not resolve")
+    return current
+
+
+def transition_rate_reasons(
+    plan: dict[str, Any],
+    path: str,
+    mapping: dict[str, Any],
+    derivation: dict[str, Any],
+    extraction_index: dict[str, dict[str, Any]],
+) -> list[str]:
+    reasons: list[str] = []
+    if plan.get("schema_version") != "0.5.0":
+        return ["deterministic transition-rate transformations require schema_version 0.5.0"]
+    if path not in TRANSITION_PATHS:
+        return ["deterministic transformation is allowed only for transition inputs"]
+    transformation = derivation.get("transformation")
+    if not isinstance(transformation, dict):
+        return ["derivation.transformation must be an object"]
+    expected_keys = {"operation", "cycle_length_years", "phases"}
+    if set(transformation) != expected_keys:
+        reasons.append("transformation fields are not the exact supported contract")
+    if transformation.get("operation") != "constant_competing_rates":
+        reasons.append("transformation.operation must be constant_competing_rates")
+    cycle_length = transformation.get("cycle_length_years")
+    cycle_valid = (
+        finite_number(cycle_length)
+        and cycle_length > 0
+        and finite_number(plan.get("cycle_length_years"))
+        and isclose(
+            float(cycle_length),
+            float(plan["cycle_length_years"]),
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        )
+    )
+    if not cycle_valid:
+        reasons.append("transformation cycle length must equal the analysis cycle length")
+    declared_cycle = float(cycle_length) if finite_number(cycle_length) else 0.0
+    states = plan.get("states")
+    state_count = len(states) if isinstance(states, list) else 0
+    cycles = plan.get("cycles")
+    phases = transformation.get("phases")
+    if (
+        not isinstance(cycles, int)
+        or isinstance(cycles, bool)
+        or not isinstance(phases, list)
+        or not 1 <= len(phases) <= cycles
+    ):
+        return reasons + ["transformation.phases count is invalid"]
+    starts: list[int] = []
+    matrices: list[list[list[float]]] = []
+    used_extractions: set[str] = set()
+    used_assumptions: set[str] = set()
+    for phase_index, phase in enumerate(phases):
+        phase_label = f"transformation.phases[{phase_index}]"
+        if not isinstance(phase, dict) or set(phase) != {"start_cycle", "rows"}:
+            reasons.append(f"{phase_label} fields are invalid")
+            continue
+        start = phase.get("start_cycle")
+        if isinstance(start, bool) or not isinstance(start, int) or not 1 <= start <= cycles:
+            reasons.append(f"{phase_label}.start_cycle is invalid")
+            continue
+        starts.append(start)
+        rows = phase.get("rows")
+        if not isinstance(rows, list) or len(rows) != state_count:
+            reasons.append(f"{phase_label}.rows must contain {state_count} rows")
+            continue
+        matrix: list[list[float]] = []
+        for row_index, row in enumerate(rows):
+            row_label = f"{phase_label}.rows[{row_index}]"
+            if not isinstance(row, dict) or set(row) != {"self_index", "events"}:
+                reasons.append(f"{row_label} fields are invalid")
+                continue
+            if row.get("self_index") != row_index:
+                reasons.append(f"{row_label}.self_index must equal the row position")
+            events = row.get("events")
+            if not isinstance(events, list) or len(events) > max(0, state_count - 1):
+                reasons.append(f"{row_label}.events count is invalid")
+                continue
+            targets: set[int] = set()
+            parsed: list[tuple[int, float]] = []
+            total_rate = 0.0
+            for event_index, event in enumerate(events):
+                event_label = f"{row_label}.events[{event_index}]"
+                allowed = {
+                    "target_index", "rate_per_year", "source_extraction_id",
+                    "source_pointer", "assumption_id",
+                }
+                if not isinstance(event, dict) or set(event) - allowed:
+                    reasons.append(f"{event_label} contains unsupported fields")
+                    continue
+                target_index = event.get("target_index")
+                if (
+                    isinstance(target_index, bool)
+                    or not isinstance(target_index, int)
+                    or not 0 <= target_index < state_count
+                    or target_index == row_index
+                    or target_index in targets
+                ):
+                    reasons.append(f"{event_label}.target_index is invalid or duplicated")
+                    continue
+                targets.add(target_index)
+                rate = event.get("rate_per_year")
+                if not finite_number(rate) or rate <= 0:
+                    reasons.append(f"{event_label}.rate_per_year must be positive")
+                    continue
+                source_id = event.get("source_extraction_id")
+                assumption_id = event.get("assumption_id")
+                has_source = text(source_id)
+                has_assumption = text(assumption_id)
+                if has_source == has_assumption:
+                    reasons.append(
+                        f"{event_label} must declare one extraction or assumption basis"
+                    )
+                elif has_source:
+                    used_extractions.add(source_id)
+                    extraction = extraction_index.get(source_id)
+                    if extraction is not None:
+                        try:
+                            extracted = strict_json(extraction.get("extracted_value"))
+                            extracted = json_pointer(extracted, event.get("source_pointer", ""))
+                        except (TypeError, ValueError, json.JSONDecodeError) as error:
+                            reasons.append(f"{event_label}: {error}")
+                        else:
+                            if not json_equivalent(extracted, rate):
+                                reasons.append(
+                                    f"{event_label}.rate_per_year does not match the bound extraction"
+                                )
+                else:
+                    used_assumptions.add(assumption_id)
+                    if "source_pointer" in event:
+                        reasons.append(f"{event_label}.source_pointer requires an extraction")
+                total_rate += float(rate)
+                parsed.append((target_index, float(rate)))
+            output_row = [0.0] * state_count
+            if total_rate == 0:
+                if state_count:
+                    output_row[row_index] = 1.0
+            else:
+                event_mass = -expm1(-total_rate * declared_cycle)
+                output_row[row_index] = 1.0 - event_mass
+                for target_index, rate in parsed:
+                    output_row[target_index] = event_mass * rate / total_rate
+            matrix.append(output_row)
+        if len(matrix) == state_count:
+            matrices.append(matrix)
+    if not starts or starts[0] != 1 or any(a >= b for a, b in zip(starts, starts[1:])):
+        reasons.append("transformation phases must start at cycle 1 and strictly increase")
+    output: Any = None
+    if path.endswith(".transition_matrix"):
+        if len(phases) != 1:
+            reasons.append("a static matrix transformation requires exactly one phase")
+        elif matrices:
+            output = matrices[0]
+    elif len(matrices) == len(starts):
+        output = [
+            {"start_cycle": start, "matrix": matrix}
+            for start, matrix in zip(starts, matrices)
+        ]
+    target = model_value(plan, path)
+    if output is None or not json_equivalent(output, target):
+        reasons.append("constant competing rates do not reproduce the current transition input")
+    selected_extractions = set(texts(mapping.get("extraction_ids")) or [])
+    selected_assumptions = set(texts(mapping.get("assumption_ids")) or [])
+    if used_extractions != selected_extractions:
+        reasons.append("transformation must use every selected extraction")
+    if used_assumptions != selected_assumptions:
+        reasons.append("transformation must use every proposed assumption")
+    return reasons
+
+
 def derivation_reasons(
     plan: dict[str, Any],
     path: str,
@@ -126,6 +319,11 @@ def derivation_reasons(
     extraction_ids = texts(mapping.get("extraction_ids")) or []
     assumption_ids = texts(mapping.get("assumption_ids")) or []
     method = derivation.get("method")
+    if method == "deterministic_transformation":
+        reasons.extend(
+            transition_rate_reasons(plan, path, mapping, derivation, extraction_index)
+        )
+        return reasons
     if not source_ids:
         if method != "explicit_assumption":
             reasons.append("assumption-only input must use derivation method explicit_assumption")
@@ -293,7 +491,7 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
     if not isinstance(plan, dict) or not isinstance(synthesis, dict):
         return {"complete": False, "errors": ["plan and synthesis must be JSON objects"]}
     if plan.get("schema_version") not in APPROVABLE_ANALYSIS_SCHEMAS:
-        errors.append("schema_version must be 0.3.0 or 0.4.0 for approval review")
+        errors.append("schema_version must be 0.3.0, 0.4.0, or 0.5.0 for approval review")
     for role in ("comparator", "intervention"):
         strategy = (plan.get("strategies") or {}).get(role) or {}
         has_matrix = isinstance(strategy, dict) and strategy.get("transition_matrix") is not None
@@ -302,8 +500,10 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
             errors.append(
                 f"strategies.{role} must define exactly one of transition_matrix or transition_schedule"
             )
-        if has_schedule and plan.get("schema_version") != "0.4.0":
-            errors.append(f"strategies.{role}.transition_schedule requires schema_version 0.4.0")
+        if has_schedule and plan.get("schema_version") not in {"0.4.0", "0.5.0"}:
+            errors.append(
+                f"strategies.{role}.transition_schedule requires schema_version 0.4.0 or 0.5.0"
+            )
     basis_value = plan.get("economic_basis")
     economic_basis = basis_value if isinstance(basis_value, dict) else None
     if economic_basis is None or not currency_code(economic_basis.get("currency")):

@@ -159,14 +159,15 @@ The portable validator checks the current synthesis bytes; the native desktop
 repeats the same value audit in the app-owned selection boundary before it
 considers the dual-review status.
 
-The contract deliberately does not execute free-form formulas. Probability or
-rate conversion, pooling, matrix assembly, calibration, interpolation, or
-other transformations remain incomplete until a bounded deterministic adapter
-implements and tests their semantics. A narrative in `selection_rationale`
-cannot authorize a hidden transformation. Schema `0.1.0` and `0.2.0` remain
-calculable for reproducibility but cannot pass analysis-plan approval. Static
-schema `0.3.0` remains approvable; new plans use `0.4.0` so the transition
-mechanism is versioned without invalidating an already traceable static plan.
+The contract deliberately does not execute free-form formulas. A narrative in
+`selection_rationale` cannot authorize a hidden transformation. Schema `0.5.0`
+admits one structured exception: constant cause-specific competing event rates
+can be converted to a complete transition matrix or schedule by the first-party
+rate adapter described below. Probability time conversion, relative-effect
+application, pooling, calibration, interpolation, extrapolation, and general
+continuous-time matrix conversion remain incomplete. Schemas `0.1.0` and
+`0.2.0` remain calculable for reproducibility but cannot pass analysis-plan
+approval; static `0.3.0` and schedule-capable `0.4.0` plans remain approvable.
 
 ## Executable model-cycle-dependent transitions
 
@@ -195,10 +196,35 @@ the selection and transparency questions in the ISPOR-SMDM state-transition
 good-practices report and NICE PMG36; those methods sources do not certify any
 particular model.
 
+## Executable constant competing-event rates
+
+Analysis-plan schema `0.5.0` adds the first admitted evidence transformation
+for transition inputs. For each state and phase, a structured declaration binds
+every positive cause-specific event rate to exactly one selected extraction or
+`proposed` assumption and records the exact cycle length. With total rate `R`,
+the adapter computes total event mass `1 - exp(-R*t)`, allocates it in proportion
+to each cause-specific rate, and assigns `exp(-R*t)` to remaining in the state.
+Structural zeros are omitted and an absorbing row has no events.
+
+Python calculation, portable Skill validation, native Rust approval audit, and
+the browser preview independently recompute the complete matrix or schedule.
+They require the output to equal the current model input and derivation snapshot,
+and require every declared extraction and assumption ID to be used. Altering a
+rate, matrix, cycle length, phase, or basis set therefore fails closed.
+
+This is a competing-first-event calculation under constant within-phase rates
+and an at-most-one-state-change-per-cycle assumption. It is not general CTMC
+matrix exponentiation. It does not implement probability time conversion,
+HR/RR/OR application, pooling, calibration, survival extrapolation, within-cycle
+multi-step paths, or rate-space DSA/PSA. Derived transition outputs are fixed in
+the current uncertainty engine; changing only a probability row or change point
+makes the transformation stale and is rejected. `$heor-transition-rate-adapter`
+exposes the method and its stopping rules through the natural-language workflow.
+
 ## Executable monetary basis
 
 Analysis-plan schema `0.2.0` introduced one calculation currency and price
-year, and current schema `0.4.0` retains that contract while binding each source
+year, and current schemas through `0.5.0` retain that contract while binding each source
 value to evidence or an explicit assumption.
 Every state-cost element and non-null willingness-to-pay value records its
 source value, source currency, source price year, positive composite adjustment
@@ -413,7 +439,7 @@ approval, reimbursement suitability, or external tamper-proofing.
   missing second confirmation, rejection, changed synthesis, or tampered review
   chain fails closed; this remains distinct from authenticated independent
   duplicate extraction.
-- Evidence-to-input approval also requires schema `0.3.0` or `0.4.0`, an exact model-value
+- Evidence-to-input approval also requires schema `0.3.0`, `0.4.0`, or `0.5.0`, an exact model-value
   snapshot per mapping, strict JSON equality for direct evidence, and extraction-
   bound source values for monetary normalization. Changed, narrative, unused,
   or silently transformed extraction values fail closed.
@@ -421,6 +447,10 @@ approval, reimbursement suitability, or external tamper-proofing.
   transition mechanism per strategy, ordered in-horizon change points, valid
   matrices, mass conservation, and schedule-aware provenance and uncertainty
   targets. Static `0.3.0` plans remain backward compatible.
+- A schema `0.5.0` transition-rate mapping additionally requires the bounded
+  constant competing-rate operation, exact cycle length, complete ordered rows
+  and phases, one declared basis per event, exact output reproduction, and
+  rate-derived transition uncertainty to remain fixed.
 - Exploratory, analysis-authorized, independently validated, and locally
   released decision-ready states remain distinct. Any stale package, binding,
   validation, result reproduction, actor, or approval sequence fails closed.

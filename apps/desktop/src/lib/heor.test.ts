@@ -137,10 +137,67 @@ describe("AI4HEOR artifact contract", () => {
     const audit = auditHeorEvidence(plan);
 
     expect(audit.invalidMappings.join("; ")).toContain(
-      "schema_version must be 0.3.0 or 0.4.0",
+      "schema_version must be 0.3.0, 0.4.0, or 0.5.0",
     );
     expect(audit.invalidMappings.join("; ")).toContain(
       "derivation.model_value does not match the current model input",
+    );
+  });
+
+  it("recomputes a schema 0.5 transition matrix from constant competing rates", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    plan.schema_version = "0.5.0";
+    plan.assumptions = [{
+      id: "rate-assumption",
+      statement: "Use the declared constant annual competing event rates",
+      reason: "Browser contract test",
+      status: "proposed",
+    }];
+    plan.input_provenance = [{
+      path: "strategies.comparator.transition_matrix",
+      source_ids: [],
+      extraction_ids: [],
+      assumption_ids: ["rate-assumption"],
+      unit: "probability per annual model cycle",
+      jurisdiction: "China",
+      derivation: {
+        method: "deterministic_transformation",
+        model_value: plan.strategies.comparator.transition_matrix,
+        transformation: {
+          operation: "constant_competing_rates",
+          cycle_length_years: 1,
+          phases: [{
+            start_cycle: 1,
+            rows: [
+              {
+                self_index: 0,
+                events: [
+                  { target_index: 1, rate_per_year: 0.23778329595915496, assumption_id: "rate-assumption" },
+                  { target_index: 2, rate_per_year: 0.11889164797957748, assumption_id: "rate-assumption" },
+                ],
+              },
+              {
+                self_index: 1,
+                events: [{ target_index: 2, rate_per_year: 0.35667494393873245, assumption_id: "rate-assumption" }],
+              },
+              { self_index: 2, events: [] },
+            ],
+          }],
+        },
+      },
+      selection_rationale: "Exercise deterministic rate conversion",
+      uncertainty_status: "fixed",
+    }];
+
+    let audit = auditHeorEvidence(plan);
+    expect(audit.invalidMappings.join("; ")).not.toContain("constant competing rates");
+    expect(parseHeorPlan(JSON.stringify(plan)).schema_version).toBe("0.5.0");
+
+    plan.input_provenance[0].derivation.transformation!.phases[0].rows[0].events[0]
+      .rate_per_year = 0.3;
+    audit = auditHeorEvidence(plan);
+    expect(audit.invalidMappings.join("; ")).toContain(
+      "constant competing rates do not reproduce the current transition input",
     );
   });
 

@@ -1,0 +1,117 @@
+{
+  "schema_version": "0.5.0",
+  "analysis_id": "golden-rate-derived",
+  "reference_case": {
+    "id": "test-reference-case",
+    "status": "current"
+  },
+  "economic_basis": {
+    "currency": "CNY",
+    "price_year": 2026
+  },
+  "states": ["alive", "dead"],
+  "cycles": 3,
+  "cycle_length_years": 1.0,
+  "discount_rates": {
+    "costs": 0.0,
+    "outcomes": 0.0
+  },
+  "half_cycle_correction": false,
+  "willingness_to_pay": 100000.0,
+  "strategies": {
+    "comparator": {
+      "name": "Comparator",
+      "initial_distribution": [1.0, 0.0],
+      "transition_matrix": [[0.8, 0.2], [0.0, 1.0]],
+      "state_costs": [0.0, 0.0],
+      "state_utilities": [1.0, 0.0]
+    },
+    "intervention": {
+      "name": "Intervention",
+      "initial_distribution": [1.0, 0.0],
+      "transition_matrix": [[0.9, 0.1], [0.0, 1.0]],
+      "state_costs": [100.0, 0.0],
+      "state_utilities": [1.0, 0.0]
+    }
+  },
+  "assumptions": [
+    {
+      "id": "comparator-mortality-rate",
+      "statement": "Comparator mortality follows a constant annual rate for this golden fixture.",
+      "reason": "Hand-checkable deterministic adapter test.",
+      "status": "proposed"
+    },
+    {
+      "id": "intervention-mortality-rate",
+      "statement": "Intervention mortality follows a constant annual rate for this golden fixture.",
+      "reason": "Hand-checkable deterministic adapter test.",
+      "status": "proposed"
+    }
+  ],
+  "input_provenance": [
+    {
+      "path": "strategies.comparator.transition_matrix",
+      "source_ids": [],
+      "extraction_ids": [],
+      "assumption_ids": ["comparator-mortality-rate"],
+      "derivation": {
+        "method": "deterministic_transformation",
+        "model_value": [[0.8, 0.2], [0.0, 1.0]],
+        "transformation": {
+          "operation": "constant_competing_rates",
+          "cycle_length_years": 1.0,
+          "phases": [
+            {
+              "start_cycle": 1,
+              "rows": [
+                {
+                  "self_index": 0,
+                  "events": [
+                    {
+                      "target_index": 1,
+                      "rate_per_year": 0.22314355131420976,
+                      "assumption_id": "comparator-mortality-rate"
+                    }
+                  ]
+                },
+                {"self_index": 1, "events": []}
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "strategies.intervention.transition_matrix",
+      "source_ids": [],
+      "extraction_ids": [],
+      "assumption_ids": ["intervention-mortality-rate"],
+      "derivation": {
+        "method": "deterministic_transformation",
+        "model_value": [[0.9, 0.1], [0.0, 1.0]],
+        "transformation": {
+          "operation": "constant_competing_rates",
+          "cycle_length_years": 1.0,
+          "phases": [
+            {
+              "start_cycle": 1,
+              "rows": [
+                {
+                  "self_index": 0,
+                  "events": [
+                    {
+                      "target_index": 1,
+                      "rate_per_year": 0.10536051565782628,
+                      "assumption_id": "intervention-mortality-rate"
+                    }
+                  ]
+                },
+                {"self_index": 1, "events": []}
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

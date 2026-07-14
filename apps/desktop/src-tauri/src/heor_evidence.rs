@@ -135,6 +135,279 @@ fn json_equivalent(left: &serde_json::Value, right: &serde_json::Value) -> bool 
     }
 }
 
+fn transition_path(path: &str) -> bool {
+    matches!(
+        path,
+        "strategies.comparator.transition_matrix"
+            | "strategies.intervention.transition_matrix"
+            | "strategies.comparator.transition_schedule"
+            | "strategies.intervention.transition_schedule"
+    )
+}
+
+fn exact_fields(object: &serde_json::Map<String, serde_json::Value>, fields: &[&str]) -> bool {
+    object.len() == fields.len() && fields.iter().all(|field| object.contains_key(*field))
+}
+
+fn derive_competing_rates(
+    plan: &serde_json::Value,
+    path: &str,
+    transformation: &serde_json::Value,
+) -> Result<(serde_json::Value, HashSet<String>, HashSet<String>), String> {
+    let transformation = transformation
+        .as_object()
+        .ok_or("derivation.transformation must be an object")?;
+    if !exact_fields(
+        transformation,
+        &["operation", "cycle_length_years", "phases"],
+    ) {
+        return Err("transformation fields are not the exact supported contract".into());
+    }
+    if transformation
+        .get("operation")
+        .and_then(serde_json::Value::as_str)
+        != Some("constant_competing_rates")
+    {
+        return Err("transformation.operation must be constant_competing_rates".into());
+    }
+    let declared_cycle = transformation
+        .get("cycle_length_years")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("transformation.cycle_length_years must be finite and positive")?;
+    let plan_cycle = plan
+        .get("cycle_length_years")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("analysis cycle_length_years is invalid")?;
+    if (declared_cycle - plan_cycle).abs() > 1e-12 {
+        return Err("transformation cycle length must equal the analysis cycle length".into());
+    }
+    let state_count = plan
+        .get("states")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::len)
+        .filter(|count| *count > 0)
+        .ok_or("analysis states are missing")?;
+    let cycles = plan
+        .get("cycles")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .filter(|value| *value > 0)
+        .ok_or("analysis cycles are invalid")?;
+    let phases = transformation
+        .get("phases")
+        .and_then(serde_json::Value::as_array)
+        .filter(|values| !values.is_empty() && values.len() <= cycles)
+        .ok_or("transformation.phases count is invalid")?;
+    let mut starts = Vec::new();
+    let mut matrices: Vec<Vec<Vec<f64>>> = Vec::new();
+    let mut used_extractions = HashSet::new();
+    let mut used_assumptions = HashSet::new();
+    for (phase_index, phase) in phases.iter().enumerate() {
+        let label = format!("transformation.phases[{phase_index}]");
+        let phase = phase
+            .as_object()
+            .ok_or_else(|| format!("{label} must be an object"))?;
+        if !exact_fields(phase, &["start_cycle", "rows"]) {
+            return Err(format!("{label} fields are invalid"));
+        }
+        let start = phase
+            .get("start_cycle")
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| usize::try_from(value).ok())
+            .filter(|value| (1..=cycles).contains(value))
+            .ok_or_else(|| format!("{label}.start_cycle is invalid"))?;
+        starts.push(start);
+        let rows = phase
+            .get("rows")
+            .and_then(serde_json::Value::as_array)
+            .filter(|values| values.len() == state_count)
+            .ok_or_else(|| format!("{label}.rows must contain {state_count} rows"))?;
+        let mut matrix = Vec::new();
+        for (row_index, row) in rows.iter().enumerate() {
+            let row_label = format!("{label}.rows[{row_index}]");
+            let row = row
+                .as_object()
+                .ok_or_else(|| format!("{row_label} must be an object"))?;
+            if !exact_fields(row, &["self_index", "events"]) {
+                return Err(format!("{row_label} fields are invalid"));
+            }
+            if row
+                .get("self_index")
+                .and_then(serde_json::Value::as_u64)
+                .and_then(|value| usize::try_from(value).ok())
+                != Some(row_index)
+            {
+                return Err(format!(
+                    "{row_label}.self_index must equal the row position"
+                ));
+            }
+            let events = row
+                .get("events")
+                .and_then(serde_json::Value::as_array)
+                .filter(|values| values.len() < state_count)
+                .ok_or_else(|| format!("{row_label}.events count is invalid"))?;
+            let mut targets = HashSet::new();
+            let mut parsed = Vec::new();
+            let mut total_rate = 0.0;
+            for (event_index, event) in events.iter().enumerate() {
+                let event_label = format!("{row_label}.events[{event_index}]");
+                let event = event
+                    .as_object()
+                    .ok_or_else(|| format!("{event_label} must be an object"))?;
+                let allowed = [
+                    "target_index",
+                    "rate_per_year",
+                    "source_extraction_id",
+                    "source_pointer",
+                    "assumption_id",
+                ];
+                if event.keys().any(|field| !allowed.contains(&field.as_str())) {
+                    return Err(format!("{event_label} contains unsupported fields"));
+                }
+                let target = event
+                    .get("target_index")
+                    .and_then(serde_json::Value::as_u64)
+                    .and_then(|value| usize::try_from(value).ok())
+                    .filter(|value| *value < state_count && *value != row_index)
+                    .ok_or_else(|| format!("{event_label}.target_index is invalid"))?;
+                if !targets.insert(target) {
+                    return Err(format!("{event_label}.target_index is duplicated"));
+                }
+                let rate = event
+                    .get("rate_per_year")
+                    .and_then(serde_json::Value::as_f64)
+                    .filter(|value| value.is_finite() && *value > 0.0)
+                    .ok_or_else(|| format!("{event_label}.rate_per_year must be positive"))?;
+                let source_id = event
+                    .get("source_extraction_id")
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|value| !value.trim().is_empty());
+                let assumption_id = event
+                    .get("assumption_id")
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|value| !value.trim().is_empty());
+                if source_id.is_some() == assumption_id.is_some() {
+                    return Err(format!(
+                        "{event_label} must declare one extraction or assumption basis"
+                    ));
+                }
+                if let Some(source_id) = source_id {
+                    let pointer = match event.get("source_pointer") {
+                        Some(value) => value.as_str().ok_or_else(|| {
+                            format!("{event_label}.source_pointer must be a string")
+                        })?,
+                        None => "",
+                    };
+                    if !pointer.is_empty() && !pointer.starts_with('/') {
+                        return Err(format!(
+                            "{event_label}.source_pointer must be empty or a JSON pointer"
+                        ));
+                    }
+                    used_extractions.insert(source_id.to_string());
+                } else if let Some(assumption_id) = assumption_id {
+                    if event.contains_key("source_pointer") {
+                        return Err(format!(
+                            "{event_label}.source_pointer requires an extraction"
+                        ));
+                    }
+                    used_assumptions.insert(assumption_id.to_string());
+                }
+                total_rate += rate;
+                if !(total_rate * declared_cycle).is_finite() {
+                    return Err(format!("{row_label} integrated rate is non-finite"));
+                }
+                parsed.push((target, rate));
+            }
+            let mut output_row = vec![0.0; state_count];
+            if total_rate == 0.0 {
+                output_row[row_index] = 1.0;
+            } else {
+                let event_mass = -(-total_rate * declared_cycle).exp_m1();
+                output_row[row_index] = 1.0 - event_mass;
+                for (target, rate) in parsed {
+                    output_row[target] = event_mass * rate / total_rate;
+                }
+            }
+            matrix.push(output_row);
+        }
+        matrices.push(matrix);
+    }
+    if starts.first() != Some(&1) || starts.windows(2).any(|pair| pair[0] >= pair[1]) {
+        return Err("transformation phases must start at cycle 1 and strictly increase".into());
+    }
+    let output = if path.ends_with(".transition_matrix") {
+        if matrices.len() != 1 {
+            return Err("a static matrix transformation requires exactly one phase".into());
+        }
+        serde_json::to_value(&matrices[0]).map_err(|error| error.to_string())?
+    } else if path.ends_with(".transition_schedule") {
+        serde_json::Value::Array(
+            starts
+                .into_iter()
+                .zip(matrices)
+                .map(|(start_cycle, matrix)| {
+                    serde_json::json!({"start_cycle": start_cycle, "matrix": matrix})
+                })
+                .collect(),
+        )
+    } else {
+        return Err("deterministic transformation target is unsupported".into());
+    };
+    Ok((output, used_extractions, used_assumptions))
+}
+
+fn transition_rate_declaration_reasons(
+    plan: &serde_json::Value,
+    path: &str,
+    mapping: &serde_json::Value,
+    derivation: &serde_json::Map<String, serde_json::Value>,
+) -> Vec<String> {
+    if plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        != Some("0.5.0")
+    {
+        return vec![
+            "deterministic transition-rate transformations require schema_version 0.5.0".into(),
+        ];
+    }
+    if !transition_path(path) {
+        return vec!["deterministic transformation is allowed only for transition inputs".into()];
+    }
+    let Some(transformation) = derivation.get("transformation") else {
+        return vec!["derivation.transformation must be an object".into()];
+    };
+    let (output, used_extractions, used_assumptions) =
+        match derive_competing_rates(plan, path, transformation) {
+            Ok(value) => value,
+            Err(error) => return vec![error],
+        };
+    let mut reasons = Vec::new();
+    if !model_value(plan, path).is_some_and(|target| json_equivalent(&output, target)) {
+        reasons
+            .push("constant competing rates do not reproduce the current transition input".into());
+    }
+    let selected_extractions = string_list(mapping.get("extraction_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    let selected_assumptions = string_list(mapping.get("assumption_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    if used_extractions != selected_extractions {
+        reasons.push("transformation must use every selected extraction".into());
+    }
+    if used_assumptions != selected_assumptions {
+        reasons.push("transformation must use every proposed assumption".into());
+    }
+    reasons
+}
+
 fn derivation_declaration_reasons(
     plan: &serde_json::Value,
     path: &str,
@@ -164,6 +437,12 @@ fn derivation_declaration_reasons(
         .get("method")
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default();
+    if method == "deterministic_transformation" {
+        reasons.extend(transition_rate_declaration_reasons(
+            plan, path, mapping, derivation,
+        ));
+        return reasons;
+    }
     if source_ids.is_empty() {
         if method != "explicit_assumption" {
             reasons.push(
@@ -452,9 +731,10 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.3.0" | "0.4.0")
+        Some("0.3.0" | "0.4.0" | "0.5.0")
     ) {
-        invalid_mappings.push("schema_version must be 0.3.0 or 0.4.0 for approval review".into());
+        invalid_mappings
+            .push("schema_version must be 0.3.0, 0.4.0, or 0.5.0 for approval review".into());
     }
     for role in ["comparator", "intervention"] {
         let strategy = plan.pointer(&format!("/strategies/{role}"));
@@ -470,13 +750,14 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
             ));
         }
         if has_schedule
-            && plan
-                .get("schema_version")
-                .and_then(serde_json::Value::as_str)
-                != Some("0.4.0")
+            && !matches!(
+                plan.get("schema_version")
+                    .and_then(serde_json::Value::as_str),
+                Some("0.4.0" | "0.5.0")
+            )
         {
             invalid_mappings.push(format!(
-                "strategies.{role}.transition_schedule requires schema_version 0.4.0"
+                "strategies.{role}.transition_schedule requires schema_version 0.4.0 or 0.5.0"
             ));
         }
     }
@@ -636,6 +917,94 @@ fn incomplete_selection(error: String) -> EvidenceSelectionAudit {
     }
 }
 
+fn transition_rate_extraction_reasons(
+    mapping: &serde_json::Value,
+    extraction_index: &HashMap<String, crate::heor_synthesis::ExtractionLink>,
+) -> Vec<String> {
+    let selected = string_list(mapping.get("extraction_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    let mut used = HashSet::new();
+    let mut reasons = Vec::new();
+    let phases = mapping
+        .pointer("/derivation/transformation/phases")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    for (phase_index, phase) in phases.iter().enumerate() {
+        for (row_index, row) in phase
+            .get("rows")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .enumerate()
+        {
+            for (event_index, event) in row
+                .get("events")
+                .and_then(serde_json::Value::as_array)
+                .into_iter()
+                .flatten()
+                .enumerate()
+            {
+                let label = format!(
+                    "transformation.phases[{phase_index}].rows[{row_index}].events[{event_index}]"
+                );
+                let Some(extraction_id) = event
+                    .get("source_extraction_id")
+                    .and_then(serde_json::Value::as_str)
+                else {
+                    continue;
+                };
+                if !selected.contains(extraction_id) {
+                    reasons.push(format!(
+                        "{label}.source_extraction_id must reference a selected extraction"
+                    ));
+                    continue;
+                }
+                used.insert(extraction_id.to_string());
+                let Some(extraction) = extraction_index.get(extraction_id) else {
+                    continue;
+                };
+                let Ok(extracted) =
+                    serde_json::from_str::<serde_json::Value>(&extraction.extracted_value)
+                else {
+                    reasons.push(format!(
+                        "{label} source extraction must contain strict JSON"
+                    ));
+                    continue;
+                };
+                let pointer = event
+                    .get("source_pointer")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default();
+                let extracted_source = if pointer.is_empty() {
+                    Some(&extracted)
+                } else {
+                    extracted.pointer(pointer)
+                };
+                let Some(extracted_source) = extracted_source else {
+                    reasons.push(format!("{label}.source_pointer does not resolve"));
+                    continue;
+                };
+                if !event
+                    .get("rate_per_year")
+                    .is_some_and(|value| json_equivalent(value, extracted_source))
+                {
+                    reasons.push(format!(
+                        "{label}.rate_per_year does not match the bound extraction"
+                    ));
+                }
+            }
+        }
+    }
+    if used != selected {
+        reasons.push("transformation must use every selected extraction".into());
+    }
+    reasons
+}
+
 fn extraction_derivation_reasons(
     plan: &serde_json::Value,
     mapping: &serde_json::Value,
@@ -650,6 +1019,13 @@ fn extraction_derivation_reasons(
         return Vec::new();
     }
     let extraction_ids = string_list(mapping.get("extraction_ids")).unwrap_or_default();
+    let method = mapping
+        .pointer("/derivation/method")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if method == "deterministic_transformation" {
+        return transition_rate_extraction_reasons(mapping, extraction_index);
+    }
     if !monetary_path(path) {
         let [extraction_id] = extraction_ids.as_slice() else {
             return Vec::new();
@@ -982,6 +1358,7 @@ mod tests {
         let mut plan = serde_json::json!({
             "schema_version": "0.3.0",
             "economic_basis": {"currency": "CNY", "price_year": 2026},
+            "states": ["stable", "progressed", "dead"],
             "willingness_to_pay": 100000,
             "cycles": 3,
             "cycle_length_years": 1.0,
@@ -1098,6 +1475,67 @@ mod tests {
     }
 
     #[test]
+    fn complete_rate_derived_plan_can_pass_approval_audit() {
+        let mut plan = complete_plan();
+        plan["schema_version"] = serde_json::json!("0.5.0");
+        plan["assumptions"] = serde_json::json!([
+            {"id": "rate-01", "statement": "Stable to progressed rate", "reason": "Adapter test", "status": "proposed"},
+            {"id": "rate-02", "statement": "Stable to dead rate", "reason": "Adapter test", "status": "proposed"},
+            {"id": "rate-12", "statement": "Progressed to dead rate", "reason": "Adapter test", "status": "proposed"}
+        ]);
+        let mapping = plan["input_provenance"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|mapping| {
+                mapping.get("path").and_then(serde_json::Value::as_str)
+                    == Some("strategies.intervention.transition_matrix")
+            })
+            .unwrap();
+        mapping["source_ids"] = serde_json::json!([]);
+        mapping["extraction_ids"] = serde_json::json!([]);
+        mapping["assumption_ids"] = serde_json::json!(["rate-01", "rate-02", "rate-12"]);
+        mapping["derivation"] = serde_json::json!({
+            "method": "deterministic_transformation",
+            "model_value": [[0.8, 0.15, 0.05], [0.0, 0.75, 0.25], [0.0, 0.0, 1.0]],
+            "transformation": {
+                "operation": "constant_competing_rates",
+                "cycle_length_years": 1.0,
+                "phases": [{
+                    "start_cycle": 1,
+                    "rows": [
+                        {"self_index": 0, "events": [
+                            {"target_index": 1, "rate_per_year": 0.1673576634856573, "assumption_id": "rate-01"},
+                            {"target_index": 2, "rate_per_year": 0.05578588782855244, "assumption_id": "rate-02"}
+                        ]},
+                        {"self_index": 1, "events": [
+                            {"target_index": 2, "rate_per_year": 0.2876820724517809, "assumption_id": "rate-12"}
+                        ]},
+                        {"self_index": 2, "events": []}
+                    ]
+                }]
+            }
+        });
+
+        let audit = audit_plan(&plan);
+
+        assert!(audit.complete, "{:?}", audit.invalid_mappings);
+        assert_eq!(audit.covered_inputs, 14);
+
+        plan["input_provenance"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|mapping| {
+                mapping.get("path").and_then(serde_json::Value::as_str)
+                    == Some("strategies.intervention.transition_matrix")
+            })
+            .unwrap()["derivation"]["transformation"]["phases"][0]["rows"][0]["events"][0]
+            ["rate_per_year"] = serde_json::json!(0.2);
+        assert!(!audit_plan(&plan).complete);
+    }
+
+    #[test]
     fn missing_mapping_and_unresolved_assumption_fail_closed() {
         let mut plan = complete_plan();
         plan["input_provenance"].as_array_mut().unwrap().pop();
@@ -1186,7 +1624,7 @@ mod tests {
 
         assert!(!audit.complete);
         let errors = audit.invalid_mappings.join("; ");
-        assert!(errors.contains("schema_version must be 0.3.0 or 0.4.0"));
+        assert!(errors.contains("schema_version must be 0.3.0, 0.4.0, or 0.5.0"));
         assert!(errors.contains("does not match the current model input"));
     }
 
@@ -1208,6 +1646,69 @@ mod tests {
         assert!(extraction_derivation_reasons(&plan, mapping, &index)
             .join("; ")
             .contains("does not equal the model input"));
+    }
+
+    #[test]
+    fn native_rate_derivation_binds_nested_extracted_rates() {
+        let mapping = serde_json::json!({
+            "extraction_ids": ["rates"],
+            "derivation": {
+                "method": "deterministic_transformation",
+                "transformation": {
+                    "phases": [{"rows": [{"events": [
+                        {"rate_per_year": 0.2, "source_extraction_id": "rates", "source_pointer": "/event"}
+                    ]}]}]
+                }
+            }
+        });
+        let mut index = HashMap::new();
+        index.insert(
+            "rates".to_string(),
+            crate::heor_synthesis::ExtractionLink {
+                record_id: "source-1".into(),
+                target: "strategies.intervention.transition_matrix".into(),
+                extracted_value: r#"{"event":0.2}"#.into(),
+            },
+        );
+
+        assert!(transition_rate_extraction_reasons(&mapping, &index).is_empty());
+        index.get_mut("rates").unwrap().extracted_value = r#"{"event":0.3}"#.into();
+        assert!(transition_rate_extraction_reasons(&mapping, &index)
+            .join("; ")
+            .contains("does not match the bound extraction"));
+    }
+
+    #[test]
+    fn native_rate_derivation_rejects_non_string_source_pointer() {
+        let plan = serde_json::json!({
+            "states": ["alive", "dead"],
+            "cycles": 1,
+            "cycle_length_years": 1.0
+        });
+        let transformation = serde_json::json!({
+            "operation": "constant_competing_rates",
+            "cycle_length_years": 1.0,
+            "phases": [{
+                "start_cycle": 1,
+                "rows": [
+                    {"self_index": 0, "events": [{
+                        "target_index": 1,
+                        "rate_per_year": 0.2,
+                        "source_extraction_id": "rate",
+                        "source_pointer": 0
+                    }]},
+                    {"self_index": 1, "events": []}
+                ]
+            }]
+        });
+
+        assert!(derive_competing_rates(
+            &plan,
+            "strategies.intervention.transition_matrix",
+            &transformation,
+        )
+        .unwrap_err()
+        .contains("source_pointer must be a string"));
     }
 
     #[test]

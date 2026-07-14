@@ -215,9 +215,10 @@ executable. The plan-only audit checks the declared derivation method and exact
 synthesis extraction as strict JSON. The native selection audit repeats that
 check against current workspace bytes and, for monetary inputs, verifies each
 `source_value` against its named extraction scalar or array index before the
-existing normalization arithmetic. Only `direct_evidence`,
-`explicit_assumption`, and `monetary_adjustment` are supported. Free-form
-expressions remain blocked until a separate deterministic adapter exists.
+existing normalization arithmetic. Only `direct_evidence`, `explicit_assumption`,
+`monetary_adjustment`, and the schema `0.5.0` bounded
+`deterministic_transformation` described below are supported. Free-form
+expressions remain blocked.
 
 Analysis-plan schema `0.4.0` adds a first-party piecewise transition schedule
 without changing the evidence-derivation authority boundary. Each strategy has
@@ -231,6 +232,18 @@ scenarios. The result declares `static` or `piecewise_by_model_cycle` plus the
 change points. No layer interprets this as time-in-state, semi-Markov memory,
 hazard conversion, patient history, time-varying rewards, or microsimulation.
 
+Analysis-plan schema `0.5.0` admits `constant_competing_rates` only on a strategy
+transition matrix or schedule. Each complete phase declares ordered state rows;
+each nonzero event declares a target, positive annual rate, and exactly one
+extraction or proposed-assumption basis. The Python engine, Rust approval path,
+portable provenance validator, and TypeScript preview independently compute
+`1 - exp(-sum(rate)*cycle_length)`, allocate event mass by rate share, and compare
+the complete result with both the derivation snapshot and model input. Static
+outputs require one phase; schedules start at cycle 1 and remain strictly ordered.
+The implementation deliberately excludes general CTMC exponentiation, relative-
+effect application, probability time conversion, within-cycle multi-step paths,
+and rate-space uncertainty.
+
 `heor/analysis-plan.json` carries the input-selection contract directly: a root
 `evidence_synthesis` binding plus `extraction_ids` on each source-based
 `input_provenance` mapping. The approval path independently checks synthesis
@@ -242,7 +255,7 @@ the exact evidence-to-input choices. The engine, uncertainty runner, and budget
 impact runner repeat the audit and invalidate stale approval bindings.
 
 Analysis-plan schema `0.2.0` introduced a root `economic_basis`; schemas
-`0.3.0` and `0.4.0` retain it and executable extraction-to-model derivations. Each monetary
+`0.3.0` through `0.5.0` retain it and executable extraction-to-model derivations. Each monetary
 mapping contains element-level source values and adjustment factors so the
 portable Python validator, native Rust approval boundary, and TypeScript review
 preview can all reject mixed or unreproducible currency/price-year inputs. The

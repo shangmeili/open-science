@@ -165,10 +165,22 @@ prompt. AI4HEOR implements only a first-party, dependency-free piecewise
 model-cycle schedule, dynamic provenance paths, complete-row DSA/Dirichlet PSA,
 structural change-point scenarios, native/portable/browser audits, a hand-
 calculated golden trace, and the dedicated `$heor-cohort-state-transition`
-Skill. It explicitly rejects rate or hazard conversion, hidden matrix assembly,
+Skill. It explicitly rejects hidden matrix assembly and unsupported rate or hazard conversion,
 time-in-state memory, microsimulation, and time-varying rewards. The external R
 packages remain isolated future adapters and independent cross-check candidates;
 their broader capability and GPL licenses do not enter the MIT core.
+
+Schema `0.5.0` applies the same industrialization rule to a useful but otherwise
+unsafe fragment commonly found in spreadsheets, packages, and prompts: converting
+constant competing event rates into cycle probabilities. AI4HEOR reimplements the
+bounded formula in its dependency-free core, gives every event an extraction or
+assumption binding, recomputes it in Python, Rust, the portable validator, and the
+browser preview, adds a hand-calculated golden case, exposes a dedicated
+`$heor-transition-rate-adapter` Skill, and documents explicit stopping rules.
+No upstream code is copied into the core. General CTMC conversion, probability
+time conversion, relative effects, extrapolation, within-cycle multi-step paths,
+and rate-space uncertainty remain isolated future adapters rather than inferred
+capability.
 
 The evidence-search slice applies the same standard to a network capability.
 The Agent can only draft and validate the request file. Native code rejects

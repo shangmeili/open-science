@@ -91,6 +91,26 @@ export interface HeorAssumption {
   status: "unresolved" | "proposed" | "rejected";
 }
 
+export interface HeorTransitionRateEvent {
+  target_index: number;
+  rate_per_year: number;
+  source_extraction_id?: string;
+  source_pointer?: string;
+  assumption_id?: string;
+}
+
+export interface HeorTransitionRateTransformation {
+  operation: "constant_competing_rates";
+  cycle_length_years: number;
+  phases: Array<{
+    start_cycle: number;
+    rows: Array<{
+      self_index: number;
+      events: HeorTransitionRateEvent[];
+    }>;
+  }>;
+}
+
 export interface HeorInputProvenance {
   path: string;
   source_ids?: string[];
@@ -112,8 +132,10 @@ export interface HeorInputProvenance {
     basis_ids: string[];
   }>;
   derivation: {
-    method: "direct_evidence" | "explicit_assumption" | "monetary_adjustment";
+    method: "direct_evidence" | "explicit_assumption" | "monetary_adjustment"
+      | "deterministic_transformation";
     model_value: unknown;
+    transformation?: HeorTransitionRateTransformation;
   };
   selection_rationale: string;
   uncertainty_status: "fixed" | "range_available" | "distribution_available";
@@ -476,7 +498,7 @@ export interface HeorEvidenceVerificationRequest {
 }
 
 export interface HeorAnalysisPlan {
-  schema_version: "0.1.0" | "0.2.0" | "0.3.0" | "0.4.0";
+  schema_version: "0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0";
   analysis_id: string;
   economic_basis?: { currency: string; price_year: number };
   input_status?: string;
@@ -696,8 +718,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseHeorPlan(raw: string): HeorAnalysisPlan {
   const value: unknown = JSON.parse(raw);
   if (!isRecord(value)) throw new Error("analysis plan must be a JSON object");
-  if (!["0.1.0", "0.2.0", "0.3.0", "0.4.0"].includes(String(value.schema_version))) {
-    throw new Error("analysis plan schema_version must be 0.1.0, 0.2.0, 0.3.0, or 0.4.0");
+  if (!["0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0"].includes(String(value.schema_version))) {
+    throw new Error("analysis plan schema_version must be 0.1.0, 0.2.0, 0.3.0, 0.4.0, or 0.5.0");
   }
   if (typeof value.analysis_id !== "string" || !value.analysis_id.trim()) {
     throw new Error("analysis plan must include analysis_id");
@@ -795,6 +817,149 @@ function jsonEquivalent(left: unknown, right: unknown): boolean {
   return left === right;
 }
 
+function sameStringSet(left: Set<string>, right: Set<string>): boolean {
+  return left.size === right.size && Array.from(left).every((value) => right.has(value));
+}
+
+function transitionRateReasons(
+  plan: HeorAnalysisPlan,
+  mapping: HeorInputProvenance,
+  extractionIds: string[],
+  assumptionIds: string[],
+): string[] {
+  const reasons: string[] = [];
+  if (plan.schema_version !== "0.5.0") {
+    reasons.push("deterministic transition-rate transformations require schema_version 0.5.0");
+  }
+  if (!(
+    mapping.path.endsWith(".transition_matrix")
+    || mapping.path.endsWith(".transition_schedule")
+  )) {
+    return [...reasons, "deterministic transformation is allowed only for a transition matrix or schedule"];
+  }
+  const transformation = mapping.derivation.transformation;
+  if (!isRecord(transformation)) return [...reasons, "derivation.transformation must be an object"];
+  if (transformation.operation !== "constant_competing_rates") {
+    reasons.push("transformation.operation must be constant_competing_rates");
+  }
+  const declaredCycle = transformation.cycle_length_years;
+  if (!finiteNumber(declaredCycle) || declaredCycle <= 0
+    || !jsonEquivalent(declaredCycle, plan.cycle_length_years)) {
+    reasons.push("transformation.cycle_length_years must equal the analysis cycle length");
+  }
+  const phases = transformation.phases;
+  if (!Array.isArray(phases) || phases.length < 1 || phases.length > plan.cycles) {
+    return [...reasons, `transformation.phases must contain from 1 to ${plan.cycles} phases`];
+  }
+  const usedExtractions = new Set<string>();
+  const usedAssumptions = new Set<string>();
+  const starts: number[] = [];
+  const matrices: number[][][] = [];
+  phases.forEach((rawPhase, phaseIndex) => {
+    const label = `transformation.phases[${phaseIndex}]`;
+    if (!isRecord(rawPhase)) {
+      reasons.push(`${label} must be an object`);
+      return;
+    }
+    const start = rawPhase.start_cycle;
+    if (!Number.isInteger(start) || (start as number) < 1 || (start as number) > plan.cycles) {
+      reasons.push(`${label}.start_cycle is outside the horizon`);
+      return;
+    }
+    starts.push(start as number);
+    if (!Array.isArray(rawPhase.rows) || rawPhase.rows.length !== plan.states.length) {
+      reasons.push(`${label}.rows must contain ${plan.states.length} rows`);
+      return;
+    }
+    const matrix: number[][] = [];
+    rawPhase.rows.forEach((rawRow, rowIndex) => {
+      const rowLabel = `${label}.rows[${rowIndex}]`;
+      if (!isRecord(rawRow) || rawRow.self_index !== rowIndex || !Array.isArray(rawRow.events)) {
+        reasons.push(`${rowLabel} must declare its row position and an events array`);
+        return;
+      }
+      const targets = new Set<number>();
+      const events: Array<[number, number]> = [];
+      let totalRate = 0;
+      rawRow.events.forEach((rawEvent, eventIndex) => {
+        const eventLabel = `${rowLabel}.events[${eventIndex}]`;
+        if (!isRecord(rawEvent)) {
+          reasons.push(`${eventLabel} must be an object`);
+          return;
+        }
+        const target = rawEvent.target_index;
+        const rate = rawEvent.rate_per_year;
+        if (!Number.isInteger(target) || (target as number) < 0
+          || (target as number) >= plan.states.length || target === rowIndex
+          || targets.has(target as number)) {
+          reasons.push(`${eventLabel}.target_index is invalid or duplicated`);
+          return;
+        }
+        if (!finiteNumber(rate) || rate <= 0) {
+          reasons.push(`${eventLabel}.rate_per_year must be positive; omit structural zeros`);
+          return;
+        }
+        const sourceId = nonempty(rawEvent.source_extraction_id)
+          ? rawEvent.source_extraction_id
+          : null;
+        const assumptionId = nonempty(rawEvent.assumption_id) ? rawEvent.assumption_id : null;
+        if (Boolean(sourceId) === Boolean(assumptionId)) {
+          reasons.push(`${eventLabel} must declare exactly one source_extraction_id or assumption_id`);
+          return;
+        }
+        if (sourceId) {
+          if (rawEvent.source_pointer !== undefined
+            && (typeof rawEvent.source_pointer !== "string"
+              || (rawEvent.source_pointer.length > 0 && !rawEvent.source_pointer.startsWith("/")))) {
+            reasons.push(`${eventLabel}.source_pointer must be empty or a JSON pointer`);
+          }
+          usedExtractions.add(sourceId);
+        } else if (assumptionId) {
+          if (rawEvent.source_pointer !== undefined) {
+            reasons.push(`${eventLabel}.source_pointer requires source_extraction_id`);
+          }
+          usedAssumptions.add(assumptionId);
+        }
+        targets.add(target as number);
+        totalRate += rate;
+        events.push([target as number, rate]);
+      });
+      const row = Array(plan.states.length).fill(0) as number[];
+      if (totalRate === 0) {
+        row[rowIndex] = 1;
+      } else {
+        const eventMass = -Math.expm1(-totalRate * (declaredCycle as number));
+        row[rowIndex] = 1 - eventMass;
+        events.forEach(([target, rate]) => { row[target] = eventMass * rate / totalRate; });
+      }
+      matrix.push(row);
+    });
+    if (matrix.length === plan.states.length) matrices.push(matrix);
+  });
+  if (starts[0] !== 1 || starts.some((start, index) => index > 0 && starts[index - 1] >= start)) {
+    reasons.push("transformation phase start_cycle values must start at 1 and strictly increase");
+  }
+  let output: unknown;
+  if (mapping.path.endsWith(".transition_matrix")) {
+    if (phases.length !== 1) {
+      reasons.push("a static transition_matrix transformation must contain exactly one phase");
+    }
+    output = matrices[0];
+  } else {
+    output = starts.map((start, index) => ({ start_cycle: start, matrix: matrices[index] }));
+  }
+  if (!jsonEquivalent(output, modelValue(plan, mapping.path))) {
+    reasons.push("constant competing rates do not reproduce the current transition input");
+  }
+  if (!sameStringSet(usedExtractions, new Set(extractionIds))) {
+    reasons.push("transformation must use every selected extraction exactly as declared");
+  }
+  if (!sameStringSet(usedAssumptions, new Set(assumptionIds))) {
+    reasons.push("transformation must use every proposed assumption exactly as declared");
+  }
+  return reasons;
+}
+
 function derivationReasons(
   plan: HeorAnalysisPlan,
   mapping: HeorInputProvenance,
@@ -809,6 +974,10 @@ function derivationReasons(
   if (target === undefined || target === null || !("model_value" in derivation)
     || !jsonEquivalent(derivation.model_value, target)) {
     reasons.push("derivation.model_value does not match the current model input");
+  }
+  if (derivation.method === "deterministic_transformation") {
+    reasons.push(...transitionRateReasons(plan, mapping, extractionIds, assumptionIds));
+    return reasons;
   }
   const monetary = mapping.path.endsWith("state_costs") || mapping.path === "willingness_to_pay";
   if (sourceIds.length === 0) {
@@ -1115,8 +1284,9 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
   const seen = new Set<string>();
   const covered = new Set<string>();
   const invalidMappings: string[] = [];
-  if (!(plan.schema_version === "0.3.0" || plan.schema_version === "0.4.0")) {
-    invalidMappings.push("schema_version must be 0.3.0 or 0.4.0 for approval review");
+  if (!(plan.schema_version === "0.3.0" || plan.schema_version === "0.4.0"
+    || plan.schema_version === "0.5.0")) {
+    invalidMappings.push("schema_version must be 0.3.0, 0.4.0, or 0.5.0 for approval review");
   }
   for (const role of ["comparator", "intervention"] as const) {
     const hasMatrix = plan.strategies[role].transition_matrix != null;
@@ -1126,9 +1296,9 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
         `strategies.${role} must define exactly one of transition_matrix or transition_schedule`,
       );
     }
-    if (hasSchedule && plan.schema_version !== "0.4.0") {
+    if (hasSchedule && !(plan.schema_version === "0.4.0" || plan.schema_version === "0.5.0")) {
       invalidMappings.push(
-        `strategies.${role}.transition_schedule requires schema_version 0.4.0`,
+        `strategies.${role}.transition_schedule requires schema_version 0.4.0 or 0.5.0`,
       );
     }
   }
@@ -1689,7 +1859,7 @@ export function browserDemoRun(
   return {
     calculation: {
       analysis_id: HEOR_BROWSER_DEMO_PLAN.analysis_id,
-      engine_version: "0.4.0",
+      engine_version: "0.5.0",
       schema_version: "0.3.0",
       reference_case: {
         id: "CN-2020-current",

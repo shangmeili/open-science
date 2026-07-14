@@ -928,6 +928,7 @@ export function HeorReviewPane({
             <CohortTransitionSummary
               plan={artifact.plan}
               onRequestAudit={() => onRequestRevision(t("transition.repairPrompt"))}
+              onRequestRateDerivation={() => onRequestRevision(t("transition.ratePrompt"))}
             />
 
             <EvidenceTraceability
@@ -1851,9 +1852,11 @@ function ConceptualModelTraceability({
 function CohortTransitionSummary({
   plan,
   onRequestAudit,
+  onRequestRateDerivation,
 }: {
   plan: HeorAnalysisPlan;
   onRequestAudit: () => void;
+  onRequestRateDerivation: () => void;
 }) {
   const { t } = useTranslation("heor");
   const summary = (role: "comparator" | "intervention") => {
@@ -1886,6 +1889,12 @@ function CohortTransitionSummary({
         className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
       >
         <MessageSquareText size={13} /> {t("transition.askAudit")}
+      </button>
+      <button
+        onClick={onRequestRateDerivation}
+        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+      >
+        <MessageSquareText size={13} /> {t("transition.askRateDerivation")}
       </button>
       <p className="mt-3 text-[10px] leading-4 text-muted">
         {hasSchedule ? t("transition.scheduleNote") : t("transition.staticNote")}

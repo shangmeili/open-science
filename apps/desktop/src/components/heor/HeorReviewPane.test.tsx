@@ -168,6 +168,12 @@ describe("AI4HEOR human review pane", () => {
       expect.stringContaining("$heor-cohort-state-transition"),
     );
     await userEvent.click(screen.getByRole("button", {
+      name: "Ask Agent to derive transitions from rates",
+    }));
+    expect(onRequestRevision).toHaveBeenCalledWith(
+      expect.stringContaining("$heor-transition-rate-adapter"),
+    );
+    await userEvent.click(screen.getByRole("button", {
       name: "Ask Agent to continue screening and synthesis",
     }));
     expect(onRequestRevision).toHaveBeenCalledWith(

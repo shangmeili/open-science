@@ -42,6 +42,7 @@
       "../../../python/heor_core/src/heor_core/__main__.py": "heor-core/src/heor_core/__main__.py",
       "../../../python/heor_core/src/heor_core/cli.py": "heor-core/src/heor_core/cli.py",
       "../../../python/heor_core/src/heor_core/model.py": "heor-core/src/heor_core/model.py",
+      "../../../python/heor_core/src/heor_core/transition_rates.py": "heor-core/src/heor_core/transition_rates.py",
       "../../../python/heor_core/src/heor_core/uncertainty.py": "heor-core/src/heor_core/uncertainty.py",
       "../../../python/heor_core/src/heor_core/budget_impact.py": "heor-core/src/heor_core/budget_impact.py",
       "../../../runtime/skills/core/heor-reference-case/assets/profiles/CN-2020-current.json": "reference-cases/CN-2020-current.json",
