@@ -230,6 +230,18 @@ NHS plus personal social services, 3.5% equal discounting, and structured
 EQ-5D/UK-3L metadata. It is an executable subset, not a copy of PMG36 or an
 agency-compliance claim.
 
+The uncertainty engine owns decision-uncertainty calculations rather than the
+language model or UI. Schema `0.2.0` binds a declared threshold grid to the
+analysis plan; the Python core uses one seeded PSA draw set for expected
+incremental NMB, intervention/comparator/tie probabilities, CEAF, and
+per-person EVPI with Monte Carlo error. Rust independently audits the grid and
+records its primary threshold and count. The portable validator implements the
+same fail-closed contract. The report package must copy the complete
+`decision_uncertainty` object exactly when present, while legacy results remain
+legacy-shaped. The React review pane is a read-only accessible visualization
+of these app-written values; it has no authority to calculate, choose, or alter
+thresholds.
+
 ### 6.4 MCP servers
 
 First batch: `filesystem` (project files), `paper-search-mcp` (literature), `BioMCP`

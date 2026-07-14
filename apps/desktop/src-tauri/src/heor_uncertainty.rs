@@ -10,6 +10,7 @@ const ARTIFACT_CAP_BYTES: u64 = 5 * 1024 * 1024;
 const OUTPUT_CAP_BYTES: usize = 25 * 1024 * 1024;
 const MAX_PARAMETERS: usize = 256;
 const MAX_SCENARIOS: usize = 64;
+const MAX_DECISION_THRESHOLDS: usize = 101;
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,6 +25,8 @@ pub struct UncertaintyAudit {
     pub parameter_count: usize,
     pub scenario_count: usize,
     pub iterations: Option<u64>,
+    pub primary_threshold: Option<f64>,
+    pub threshold_count: usize,
     pub omitted_parameter_count: usize,
     pub invalid_parameters: Vec<String>,
     pub errors: Vec<String>,
@@ -167,6 +170,8 @@ fn empty_audit(plan_raw: &[u8]) -> UncertaintyAudit {
         parameter_count: 0,
         scenario_count: 0,
         iterations: None,
+        primary_threshold: None,
+        threshold_count: 0,
         omitted_parameter_count: 0,
         invalid_parameters: Vec::new(),
         errors: Vec::new(),
@@ -271,14 +276,13 @@ fn audit_values(
         .and_then(serde_json::Value::as_u64)
         .map(|seed| seed.to_string());
 
-    if uncertainty
+    let schema_version = uncertainty
         .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        != Some("0.1.0")
-    {
+        .and_then(serde_json::Value::as_str);
+    if !matches!(schema_version, Some("0.1.0" | "0.2.0")) {
         audit
             .errors
-            .push("uncertainty schema_version must be 0.1.0".into());
+            .push("uncertainty schema_version must be 0.1.0 or 0.2.0".into());
     }
     for field in ["uncertainty_id", "analysis_id"] {
         if !nonempty(uncertainty.get(field)) {
@@ -328,11 +332,11 @@ fn audit_values(
             .errors
             .push("uncertainty seed must be an unsigned 64-bit integer".into());
     }
-    if !plan
+    audit.primary_threshold = plan
         .get("willingness_to_pay")
         .and_then(serde_json::Value::as_f64)
-        .is_some_and(|value| value.is_finite() && value > 0.0)
-    {
+        .filter(|value| value.is_finite() && *value > 0.0);
+    if audit.primary_threshold.is_none() {
         audit.errors.push(
             "a positive willingness_to_pay is required for cost-effectiveness probability".into(),
         );
@@ -478,6 +482,49 @@ fn audit_values(
         audit
             .errors
             .push("PSA iterations must be 1000-10000 and match the analysis plan".into());
+    }
+    let has_threshold_config = probabilistic
+        .and_then(|value| value.get("decision_thresholds"))
+        .is_some();
+    let threshold_config = probabilistic
+        .and_then(|value| value.get("decision_thresholds"))
+        .and_then(serde_json::Value::as_object);
+    if schema_version == Some("0.2.0") {
+        let thresholds = threshold_config
+            .and_then(|value| value.get("values"))
+            .and_then(serde_json::Value::as_array);
+        audit.threshold_count = thresholds.map_or(0, Vec::len);
+        let values = thresholds
+            .into_iter()
+            .flatten()
+            .filter_map(serde_json::Value::as_f64)
+            .collect::<Vec<_>>();
+        let increasing = values
+            .windows(2)
+            .all(|pair| pair[0].is_finite() && pair[1].is_finite() && pair[0] < pair[1]);
+        let valid = audit.threshold_count == values.len()
+            && (2..=MAX_DECISION_THRESHOLDS).contains(&values.len())
+            && increasing
+            && values.first().is_some_and(|value| *value >= 0.0)
+            && audit
+                .primary_threshold
+                .is_some_and(|primary| values.iter().any(|value| (value - primary).abs() <= 1e-9));
+        if !valid {
+            audit.errors.push(
+                "decision thresholds must be 2-101 unique, non-negative, strictly increasing values and include the primary threshold".into(),
+            );
+        }
+        if !nonempty(threshold_config.and_then(|value| value.get("rationale"))) {
+            audit
+                .errors
+                .push("decision thresholds rationale is required".into());
+        }
+    } else if has_threshold_config {
+        audit
+            .errors
+            .push("decision thresholds require uncertainty schema_version 0.2.0".into());
+    } else if schema_version == Some("0.1.0") {
+        audit.threshold_count = usize::from(audit.primary_threshold.is_some());
     }
     let checkpoints = probabilistic
         .and_then(|value| value.get("convergence"))
@@ -837,7 +884,7 @@ mod tests {
 
     fn uncertainty(plan_raw: &[u8]) -> serde_json::Value {
         serde_json::json!({
-            "schema_version": "0.1.0",
+            "schema_version": "0.2.0",
             "uncertainty_id": "uncertainty-1",
             "analysis_id": "analysis-1",
             "status": "ready_for_human_review",
@@ -855,6 +902,10 @@ mod tests {
             }],
             "probabilistic_analysis": {
                 "iterations": 1000,
+                "decision_thresholds": {
+                    "values": [0, 50000, 100000, 150000, 200000],
+                    "rationale": "Threshold range for CEAC, CEAF, and per-person EVPI"
+                },
                 "convergence": {"checkpoints": [500, 1000], "max_probability_mcse": 0.02, "max_probability_drift": 0.02},
                 "correlation_handling": {"independence_rationale": "One sampled scalar", "known_omitted_correlations": []},
                 "omitted_parameters": []
@@ -876,6 +927,40 @@ mod tests {
         assert!(audit.complete, "{:?}", audit.errors);
         assert_eq!(audit.parameter_count, 1);
         assert_eq!(audit.scenario_count, 1);
+        assert_eq!(audit.threshold_count, 5);
+        assert_eq!(audit.primary_threshold, Some(100000.0));
+    }
+
+    #[test]
+    fn decision_thresholds_fail_closed_on_duplicates_or_missing_primary() {
+        let plan = plan();
+        let plan_raw = serde_json::to_vec(&plan).unwrap();
+        for values in [
+            serde_json::json!([0, 100000, 100000]),
+            serde_json::json!([0, 50000, 150000]),
+        ] {
+            let mut uncertainty = uncertainty(&plan_raw);
+            uncertainty["probabilistic_analysis"]["decision_thresholds"]["values"] = values;
+            let uncertainty_raw = serde_json::to_vec(&uncertainty).unwrap();
+            let audit = audit_values(&plan, &plan_raw, &uncertainty, &uncertainty_raw);
+            assert!(!audit.complete);
+            assert!(audit.errors.iter().any(|error| error.contains("threshold")));
+        }
+    }
+
+    #[test]
+    fn legacy_schema_rejects_a_silently_ignored_threshold_grid() {
+        let plan = plan();
+        let plan_raw = serde_json::to_vec(&plan).unwrap();
+        let mut uncertainty = uncertainty(&plan_raw);
+        uncertainty["schema_version"] = serde_json::json!("0.1.0");
+        let uncertainty_raw = serde_json::to_vec(&uncertainty).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &uncertainty_raw);
+        assert!(!audit.complete);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("schema_version 0.2.0")));
     }
 
     #[test]

@@ -74,6 +74,12 @@
 <!-- report-section:results.uncertainty-effects -->
 ## Effects of uncertainty
 
+Report the declared threshold grid, intervention CEAC and CEAF separately, and
+the primary-threshold per-person EVPI with Monte Carlo error. State that
+population EVPI and EVPPI were not calculated unless separately supported by a
+validated method and explicit inputs. Do not convert these results into a
+reimbursement or research-funding recommendation.
+
 <!-- report-section:results.engagement-effects -->
 ## Effects of engagement
 

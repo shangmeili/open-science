@@ -206,6 +206,23 @@ def audit(package_path: Path, workspace: Path) -> dict:
         errors.append("missing reporting items: " + ", ".join(missing_items))
 
     summary = package.get("result_summary") if isinstance(package.get("result_summary"), dict) else {}
+    expected_uncertainty = {
+        "iterations": nested(uncertainty_result, "probabilistic_analysis", "iterations"),
+        "cost_effective_probability": nested(
+            uncertainty_result, "probabilistic_analysis", "cost_effective_probability"
+        ),
+        "mean_incremental_net_monetary_benefit": nested(
+            uncertainty_result,
+            "probabilistic_analysis",
+            "mean_incremental_net_monetary_benefit",
+        ),
+    }
+    decision_uncertainty = nested(
+        uncertainty_result, "probabilistic_analysis", "decision_uncertainty"
+    )
+    if decision_uncertainty is not None:
+        expected_uncertainty["decision_uncertainty"] = decision_uncertainty
+
     expected_summary = {
         "cost_effectiveness": {
             "delta_cost": nested(loaded.get("base_case_result", {}), "incremental", "delta_cost"),
@@ -213,11 +230,7 @@ def audit(package_path: Path, workspace: Path) -> dict:
             "icer": nested(loaded.get("base_case_result", {}), "incremental", "icer"),
             "incremental_net_monetary_benefit": nested(loaded.get("base_case_result", {}), "incremental", "incremental_net_monetary_benefit"),
         },
-        "uncertainty": {
-            "iterations": nested(uncertainty_result, "probabilistic_analysis", "iterations"),
-            "cost_effective_probability": nested(uncertainty_result, "probabilistic_analysis", "cost_effective_probability"),
-            "mean_incremental_net_monetary_benefit": nested(uncertainty_result, "probabilistic_analysis", "mean_incremental_net_monetary_benefit"),
-        },
+        "uncertainty": expected_uncertainty,
         "budget_impact": {
             "annual_net_budget_impact": nested(bia_result, "base_case", "annual_net_budget_impact"),
             "cumulative_net_budget_impact": nested(bia_result, "base_case", "cumulative_net_budget_impact"),

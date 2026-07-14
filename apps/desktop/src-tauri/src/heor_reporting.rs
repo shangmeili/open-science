@@ -150,6 +150,36 @@ fn read_json(workspace: &Path, relative: &str) -> Result<(serde_json::Value, Vec
     Ok((value, raw))
 }
 
+fn expected_result_summary(loaded: &HashMap<&str, serde_json::Value>) -> serde_json::Value {
+    let mut expected_uncertainty = serde_json::json!({
+        "iterations": loaded.get("uncertainty_result").and_then(|v| v.pointer("/probabilistic_analysis/iterations")).cloned().unwrap_or(serde_json::Value::Null),
+        "cost_effective_probability": loaded.get("uncertainty_result").and_then(|v| v.pointer("/probabilistic_analysis/cost_effective_probability")).cloned().unwrap_or(serde_json::Value::Null),
+        "mean_incremental_net_monetary_benefit": loaded.get("uncertainty_result").and_then(|v| v.pointer("/probabilistic_analysis/mean_incremental_net_monetary_benefit")).cloned().unwrap_or(serde_json::Value::Null)
+    });
+    if let Some(decision_uncertainty) = loaded
+        .get("uncertainty_result")
+        .and_then(|value| value.pointer("/probabilistic_analysis/decision_uncertainty"))
+    {
+        expected_uncertainty
+            .as_object_mut()
+            .expect("uncertainty summary is an object")
+            .insert("decision_uncertainty".into(), decision_uncertainty.clone());
+    }
+    serde_json::json!({
+        "cost_effectiveness": {
+            "delta_cost": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/delta_cost")).cloned().unwrap_or(serde_json::Value::Null),
+            "delta_qaly": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/delta_qaly")).cloned().unwrap_or(serde_json::Value::Null),
+            "icer": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/icer")).cloned().unwrap_or(serde_json::Value::Null),
+            "incremental_net_monetary_benefit": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/incremental_net_monetary_benefit")).cloned().unwrap_or(serde_json::Value::Null)
+        },
+        "uncertainty": expected_uncertainty,
+        "budget_impact": {
+            "annual_net_budget_impact": loaded.get("budget_impact_result").and_then(|v| v.pointer("/base_case/annual_net_budget_impact")).cloned().unwrap_or(serde_json::Value::Null),
+            "cumulative_net_budget_impact": loaded.get("budget_impact_result").and_then(|v| v.pointer("/base_case/cumulative_net_budget_impact")).cloned().unwrap_or(serde_json::Value::Null)
+        }
+    })
+}
+
 pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> {
     let (package, package_raw) = match read_json(workspace, REPORT_PACKAGE_PATH) {
         Ok(value) => value,
@@ -356,23 +386,7 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
             .push("required reporting items are missing".into());
     }
 
-    let expected_summary = serde_json::json!({
-        "cost_effectiveness": {
-            "delta_cost": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/delta_cost")).cloned().unwrap_or(serde_json::Value::Null),
-            "delta_qaly": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/delta_qaly")).cloned().unwrap_or(serde_json::Value::Null),
-            "icer": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/icer")).cloned().unwrap_or(serde_json::Value::Null),
-            "incremental_net_monetary_benefit": loaded.get("base_case_result").and_then(|v| v.pointer("/incremental/incremental_net_monetary_benefit")).cloned().unwrap_or(serde_json::Value::Null)
-        },
-        "uncertainty": {
-            "iterations": loaded.get("uncertainty_result").and_then(|v| v.pointer("/probabilistic_analysis/iterations")).cloned().unwrap_or(serde_json::Value::Null),
-            "cost_effective_probability": loaded.get("uncertainty_result").and_then(|v| v.pointer("/probabilistic_analysis/cost_effective_probability")).cloned().unwrap_or(serde_json::Value::Null),
-            "mean_incremental_net_monetary_benefit": loaded.get("uncertainty_result").and_then(|v| v.pointer("/probabilistic_analysis/mean_incremental_net_monetary_benefit")).cloned().unwrap_or(serde_json::Value::Null)
-        },
-        "budget_impact": {
-            "annual_net_budget_impact": loaded.get("budget_impact_result").and_then(|v| v.pointer("/base_case/annual_net_budget_impact")).cloned().unwrap_or(serde_json::Value::Null),
-            "cumulative_net_budget_impact": loaded.get("budget_impact_result").and_then(|v| v.pointer("/base_case/cumulative_net_budget_impact")).cloned().unwrap_or(serde_json::Value::Null)
-        }
-    });
+    let expected_summary = expected_result_summary(&loaded);
     if package.get("result_summary") != Some(&expected_summary) {
         audit
             .errors
@@ -642,6 +656,49 @@ mod tests {
             invalid_items: Vec::new(),
             errors: Vec::new(),
         }
+    }
+
+    #[test]
+    fn result_summary_copies_decision_uncertainty_without_inference() {
+        let decision_uncertainty = serde_json::json!({
+            "threshold_results": [{"threshold": 100000.0, "per_person_evpi": 125.0}],
+            "population_evpi": null,
+            "evppi": null
+        });
+        let loaded = HashMap::from([
+            ("base_case_result", serde_json::json!({"incremental": {}})),
+            (
+                "uncertainty_result",
+                serde_json::json!({"probabilistic_analysis": {
+                    "decision_uncertainty": decision_uncertainty
+                }}),
+            ),
+            ("budget_impact_result", serde_json::json!({"base_case": {}})),
+        ]);
+        let summary = expected_result_summary(&loaded);
+        assert_eq!(
+            summary.pointer("/uncertainty/decision_uncertainty"),
+            loaded["uncertainty_result"].pointer("/probabilistic_analysis/decision_uncertainty")
+        );
+        assert!(summary
+            .pointer("/uncertainty/decision_uncertainty/population_evpi")
+            .is_some_and(serde_json::Value::is_null));
+    }
+
+    #[test]
+    fn legacy_result_summary_does_not_manufacture_decision_uncertainty() {
+        let loaded = HashMap::from([
+            ("base_case_result", serde_json::json!({"incremental": {}})),
+            (
+                "uncertainty_result",
+                serde_json::json!({"probabilistic_analysis": {"iterations": 1000}}),
+            ),
+            ("budget_impact_result", serde_json::json!({"base_case": {}})),
+        ]);
+        let summary = expected_result_summary(&loaded);
+        assert!(summary
+            .pointer("/uncertainty/decision_uncertainty")
+            .is_none());
     }
 
     #[test]

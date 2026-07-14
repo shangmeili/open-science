@@ -2036,9 +2036,10 @@ function UncertaintyAssessment({
       </div>
       <div className="mt-1 font-mono text-[10px] text-muted">{HEOR_UNCERTAINTY_PLAN_PATH}</div>
       {audit && (
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+        <div className="mt-3 grid grid-cols-2 gap-2 text-center">
           <Metric label={t("uncertainty.parameters")} value={String(audit.parameterCount)} />
           <Metric label={t("uncertainty.iterations")} value={audit.iterations?.toLocaleString() ?? "—"} />
+          <Metric label={t("uncertainty.thresholds")} value={String(audit.thresholdCount)} />
           <Metric label={t("uncertainty.scenarios")} value={String(audit.scenarioCount)} />
         </div>
       )}
@@ -2396,6 +2397,133 @@ function ResultCard({ result, locale }: { result: HeorRunResult; locale: string 
   );
 }
 
+type DecisionThresholdRow = HeorUncertaintyRunResult["calculation"]["probabilistic_analysis"]["decision_uncertainty"]["threshold_results"][number];
+
+function lineSegments(
+  rows: DecisionThresholdRow[],
+  x: (row: DecisionThresholdRow) => number,
+  y: (row: DecisionThresholdRow) => number | null,
+) {
+  const segments: string[] = [];
+  let current: string[] = [];
+  for (const row of rows) {
+    const value = y(row);
+    if (value === null) {
+      if (current.length > 1) segments.push(current.join(" "));
+      current = [];
+      continue;
+    }
+    current.push(`${current.length ? "L" : "M"} ${x(row).toFixed(2)} ${value.toFixed(2)}`);
+  }
+  if (current.length > 1) segments.push(current.join(" "));
+  return segments;
+}
+
+export function CeacChart({ rows, primaryThreshold, locale }: {
+  rows: DecisionThresholdRow[];
+  primaryThreshold: number;
+  locale: string;
+}) {
+  const { t } = useTranslation("heor");
+  if (rows.length < 2) return null;
+  const width = 320;
+  const height = 168;
+  const plot = { left: 42, right: 10, top: 18, bottom: 32 };
+  const innerWidth = width - plot.left - plot.right;
+  const innerHeight = height - plot.top - plot.bottom;
+  const minimum = rows[0].threshold;
+  const maximum = rows[rows.length - 1].threshold;
+  const x = (row: DecisionThresholdRow) => (
+    plot.left + ((row.threshold - minimum) / (maximum - minimum)) * innerWidth
+  );
+  const y = (value: number) => plot.top + (1 - value) * innerHeight;
+  const intervention = lineSegments(rows, x, (row) => y(row.intervention_optimal_probability));
+  const frontier = lineSegments(rows, x, (row) => (
+    row.ceaf_probability === null ? null : y(row.ceaf_probability)
+  ));
+  const compact = new Intl.NumberFormat(locale, {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  });
+  const percent = new Intl.NumberFormat(locale, {
+    style: "percent",
+    maximumFractionDigits: 0,
+  });
+  const ticks = [...new Set([minimum, primaryThreshold, maximum])].sort((a, b) => a - b);
+  const tickX = (value: number) => (
+    plot.left + ((value - minimum) / (maximum - minimum)) * innerWidth
+  );
+  return (
+    <figure className="mt-4" aria-labelledby="ceac-chart-title">
+      <figcaption>
+        <div id="ceac-chart-title" className="text-[10px] font-semibold text-text">
+          {t("uncertaintyResult.ceacTitle")}
+        </div>
+        <div className="mt-0.5 text-[9px] leading-4 text-muted">
+          {t("uncertaintyResult.ceacSubtitle")}
+        </div>
+      </figcaption>
+      <div className="mt-2 overflow-hidden rounded-input border border-border bg-bg px-1 py-2">
+        <svg
+          role="img"
+          aria-label={t("uncertaintyResult.ceacAria")}
+          viewBox={`0 0 ${width} ${height}`}
+          className="h-auto w-full"
+        >
+          {[0, 0.5, 1].map((value) => (
+            <g key={value} className="text-muted">
+              <line
+                x1={plot.left}
+                x2={width - plot.right}
+                y1={y(value)}
+                y2={y(value)}
+                stroke="currentColor"
+                strokeOpacity="0.18"
+              />
+              <text x={plot.left - 6} y={y(value) + 3} textAnchor="end" fill="currentColor" fontSize="9">
+                {percent.format(value)}
+              </text>
+            </g>
+          ))}
+          <line x1={plot.left} x2={plot.left} y1={plot.top} y2={height - plot.bottom} stroke="currentColor" className="text-muted" />
+          <line x1={plot.left} x2={width - plot.right} y1={height - plot.bottom} y2={height - plot.bottom} stroke="currentColor" className="text-muted" />
+          {ticks.map((value) => (
+            <g key={value} className="text-muted">
+              <line x1={tickX(value)} x2={tickX(value)} y1={height - plot.bottom} y2={height - plot.bottom + 4} stroke="currentColor" />
+              <text x={tickX(value)} y={height - 12} textAnchor="middle" fill="currentColor" fontSize="9">
+                {compact.format(value)}
+              </text>
+            </g>
+          ))}
+          {intervention.map((path) => (
+            <path key={path} d={path} fill="none" stroke="currentColor" strokeWidth="2" className="text-link" />
+          ))}
+          {frontier.map((path) => (
+            <path key={path} d={path} fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="5 4" className="text-text" />
+          ))}
+          {rows.map((row) => (
+            <g key={row.threshold}>
+              <circle cx={x(row)} cy={y(row.intervention_optimal_probability)} r="2.5" fill="currentColor" className="text-link" />
+              {row.ceaf_probability !== null && (
+                <circle cx={x(row)} cy={y(row.ceaf_probability)} r="2.5" fill="var(--color-bg)" stroke="currentColor" className="text-text" />
+              )}
+            </g>
+          ))}
+          <g transform={`translate(${plot.left + 4} 8)`} fontSize="8.5">
+            <line x1="0" x2="16" y1="0" y2="0" stroke="currentColor" strokeWidth="2" className="text-link" />
+            <text x="20" y="3" fill="currentColor" className="text-muted">{t("uncertaintyResult.interventionCeac")}</text>
+            <line x1="126" x2="142" y1="0" y2="0" stroke="currentColor" strokeWidth="1.5" strokeDasharray="5 4" className="text-text" />
+            <text x="146" y="3" fill="currentColor" className="text-muted">{t("uncertaintyResult.ceaf")}</text>
+          </g>
+        </svg>
+        <div className="px-2 text-center text-[9px] text-muted">
+          {t("uncertaintyResult.thresholdAxis")}
+        </div>
+      </div>
+    </figure>
+  );
+}
+
 function UncertaintyResultCard({
   result,
   locale,
@@ -2404,9 +2532,7 @@ function UncertaintyResultCard({
   locale: string;
 }) {
   const { t } = useTranslation("heor");
-  const currency = new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: "CNY",
+  const amount = new Intl.NumberFormat(locale, {
     maximumFractionDigits: 0,
   });
   const probability = new Intl.NumberFormat(locale, {
@@ -2415,6 +2541,10 @@ function UncertaintyResultCard({
   });
   const calculation = result.calculation;
   const psa = calculation.probabilistic_analysis;
+  const decision = psa.decision_uncertainty;
+  const primary = decision.threshold_results.find(
+    (row) => Math.abs(row.threshold - decision.primary_threshold) <= 1e-9,
+  );
   const authorized = result.workflow.classification !== "exploratory";
   return (
     <section className="border-b border-border px-5 py-4">
@@ -2448,7 +2578,7 @@ function UncertaintyResultCard({
         />
         <Metric
           label={t("uncertaintyResult.meanInmb")}
-          value={currency.format(psa.mean_incremental_net_monetary_benefit)}
+          value={amount.format(psa.mean_incremental_net_monetary_benefit)}
         />
         <Metric
           label={t("uncertaintyResult.iterations")}
@@ -2465,6 +2595,24 @@ function UncertaintyResultCard({
           value={String(calculation.structural_scenarios.length)}
         />
       </div>
+      {primary && (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Metric
+            label={t("uncertaintyResult.primaryEvpi")}
+            value={amount.format(primary.per_person_evpi)}
+            accent
+          />
+          <Metric
+            label={t("uncertaintyResult.evpiMcse")}
+            value={amount.format(primary.per_person_evpi_mcse)}
+          />
+        </div>
+      )}
+      <CeacChart
+        rows={decision.threshold_results}
+        primaryThreshold={decision.primary_threshold}
+        locale={locale}
+      />
       <details className="mt-3 text-[10px] text-muted">
         <summary className="cursor-pointer font-medium text-text">
           {t("uncertaintyResult.limitations")} ({calculation.limitations.length})

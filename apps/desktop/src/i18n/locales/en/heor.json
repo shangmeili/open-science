@@ -212,6 +212,7 @@
     "seed": "seed",
     "parameters": "DSA / PSA inputs",
     "iterations": "PSA draws",
+    "thresholds": "Decision thresholds",
     "scenarios": "Scenarios",
     "askRepair": "Ask agent to create or repair uncertainty analysis",
     "repairPrompt": "Use $heor-uncertainty-analysis to create or repair heor/uncertainty-plan.json for the exact current analysis-plan bytes. Derive ranges and distributions only from linked evidence, make omissions and dependence assumptions explicit, configure seeded DSA, PSA and structural scenarios, run the deterministic validator, and do not create or claim human approval.",
@@ -321,6 +322,14 @@
     "iterations": "PSA draws",
     "parameters": "DSA parameters",
     "scenarios": "Structural scenarios",
+    "primaryEvpi": "Per-person EVPI · primary threshold",
+    "evpiMcse": "EVPI Monte Carlo SE",
+    "ceacTitle": "Cost-effectiveness acceptability curve",
+    "ceacSubtitle": "Declared threshold grid; probabilities estimated from the same bounded PSA draws.",
+    "ceacAria": "Line chart of intervention optimal probability and cost-effectiveness acceptability frontier across decision thresholds",
+    "interventionCeac": "Intervention CEAC",
+    "ceaf": "CEAF",
+    "thresholdAxis": "Maximum acceptable ICER · model currency per QALY",
     "limitations": "Scope and limitations"
   },
   "budgetImpactResult": {

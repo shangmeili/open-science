@@ -209,6 +209,8 @@ export interface HeorUncertaintyAudit {
   parameterCount: number;
   scenarioCount: number;
   iterations: number | null;
+  primaryThreshold: number | null;
+  thresholdCount: number;
   omittedParameterCount: number;
   invalidParameters: string[];
   errors: string[];
@@ -588,6 +590,26 @@ export interface HeorUncertaintyCalculation {
       max_probability_drift: number;
     };
     omitted_parameters: Array<{ provenance_path: string; rationale: string }>;
+    decision_uncertainty: {
+      method: "net_monetary_benefit";
+      primary_threshold: number;
+      threshold_source: "declared_grid" | "legacy_primary_only";
+      threshold_rationale: string;
+      threshold_results: Array<{
+        threshold: number;
+        expected_incremental_net_monetary_benefit: number;
+        intervention_optimal_probability: number;
+        comparator_optimal_probability: number;
+        tie_probability: number;
+        probability_mcse: number;
+        strategy_with_highest_expected_net_benefit: "comparator" | "intervention" | "tie";
+        ceaf_probability: number | null;
+        per_person_evpi: number;
+        per_person_evpi_mcse: number;
+      }>;
+      population_evpi: null;
+      evppi: null;
+    };
   };
   structural_scenarios: Array<{ scenario_id: string; label: string }>;
   limitations: string[];
@@ -1339,6 +1361,8 @@ export const HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT: HeorUncertaintyAudit = {
   parameterCount: 0,
   scenarioCount: 0,
   iterations: null,
+  primaryThreshold: null,
+  thresholdCount: 0,
   omittedParameterCount: 0,
   invalidParameters: [],
   errors: ["heor/uncertainty-plan.json is required"],

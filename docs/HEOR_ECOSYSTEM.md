@@ -100,7 +100,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped alpha | `heor-local-evidence` | Verify and deterministically search app-indexed local PDF/text sources with exact path, page, and SHA-256 citations | `heor/library/*`, `heor/evidence-library.json`, and app-owned `.openscience/heor-library.sqlite` |
 | Shipped | `heor-model-design` | Decision problem, conceptual model, structural alternatives | `heor/conceptual-model.json` plus app-owned gate audit |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
-| Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
+| Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, per-person EVPI, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
 | Shipped | `heor-model-validation` | Intended-use validation package covering face, input, external, cross-model, predictive, and TECH-VER checks without a score | `heor/model-validation.json`, local evidence, and app-owned independent-review gate |
 | Shipped | `heor-reporting` | Separate CHEERS 2022 and ISPOR BIA reporting, exact result summaries, disclosures, and release preparation without checklist scoring | `heor/report-package.json`, `heor/report.md`, app-written results, and app-owned release gate |
@@ -134,7 +134,17 @@ public skills and HEOR tools supplied useful terminology and negative cases, but
 none was admitted as executable authority. AI4HEOR rewrote the capabilities
 around first-party schemas, evidence-linked inputs, bounded deterministic
 execution, three validator layers, exact artifact hashes, app-owned approval
-bindings, and natural-language repair. The BIA slice also rejects method creep:
+bindings, and natural-language repair. The uncertainty slice now internalizes
+the useful CEAC/EVPI concepts identified in BCEA and methods guidance without
+embedding BCEA, R, or an upstream prompt: the first-party two-strategy engine
+derives CEAC, CEAF, and per-person EVPI from its own seeded PSA, exposes Monte
+Carlo error, and leaves population EVPI and EVPPI uncalculated. This derivative
+passes the same schema, portable/native audit, regression, adversarial,
+report-binding, UI, and packaging gates as other first-party assets. BCEA
+remains an optional future adapter for broader validated analyses, not a hidden
+runtime dependency.
+
+The BIA slice also rejects method creep:
 it stops rather than pretending a two-strategy cost calculator can represent
 induced demand, dynamic cohorts, or multi-treatment markets. Optional BCEA,
 `hesim`, `heemod`, and `survHE` integrations remain candidates until their

@@ -212,6 +212,7 @@
     "seed": "随机种子",
     "parameters": "DSA / PSA 参数",
     "iterations": "PSA 抽样",
+    "thresholds": "决策阈值",
     "scenarios": "情景数",
     "askRepair": "让 Agent 创建或修复不确定性分析",
     "repairPrompt": "使用 $heor-uncertainty-analysis，针对当前 heor/analysis-plan.json 的精确字节创建或修复 heor/uncertainty-plan.json。只能从已链接证据推导范围和分布，明确记录遗漏参数及相关性假设，配置固定种子的 DSA、PSA 和结构情景，运行确定性校验器，不要创建或声称获得人工批准。",
@@ -321,6 +322,14 @@
     "iterations": "PSA 抽样",
     "parameters": "DSA 参数",
     "scenarios": "结构情景",
+    "primaryEvpi": "主阈值下每人 EVPI",
+    "evpiMcse": "EVPI 蒙特卡洛标准误",
+    "ceacTitle": "成本效果可接受曲线",
+    "ceacSubtitle": "使用同一组有界 PSA 抽样，在声明的阈值网格上计算。",
+    "ceacAria": "干预最优概率和成本效果可接受前沿随决策阈值变化的折线图",
+    "interventionCeac": "干预 CEAC",
+    "ceaf": "CEAF",
+    "thresholdAxis": "最大可接受 ICER · 模型货币单位/QALY",
     "limitations": "范围与局限"
   },
   "budgetImpactResult": {

@@ -167,6 +167,79 @@ class UncertaintyAnalysisTests(unittest.TestCase):
         self.assertEqual(len(first["deterministic_analysis"]), 2)
         self.assertEqual(len(first["structural_scenarios"]), 1)
 
+        decision = first["probabilistic_analysis"]["decision_uncertainty"]
+        self.assertEqual(decision["primary_threshold"], 100000.0)
+        self.assertEqual(
+            [row["threshold"] for row in decision["threshold_results"]],
+            [0.0, 50000.0, 100000.0, 150000.0, 200000.0],
+        )
+        samples = first["probabilistic_analysis"]["samples"]
+        for row in decision["threshold_results"]:
+            incremental_nmb = [
+                row["threshold"] * sample["delta_qaly"] - sample["delta_cost"]
+                for sample in samples
+            ]
+            expected_mean = sum(incremental_nmb) / len(incremental_nmb)
+            expected_evpi = (
+                sum(max(0.0, value) for value in incremental_nmb)
+                / len(incremental_nmb)
+                - max(0.0, expected_mean)
+            )
+            self.assertAlmostEqual(row["expected_incremental_net_monetary_benefit"], expected_mean)
+            self.assertAlmostEqual(row["per_person_evpi"], expected_evpi)
+            self.assertGreaterEqual(row["per_person_evpi"], 0.0)
+            self.assertAlmostEqual(
+                row["intervention_optimal_probability"]
+                + row["comparator_optimal_probability"]
+                + row["tie_probability"],
+                1.0,
+            )
+
+    def test_legacy_uncertainty_plan_retains_single_threshold_output(self) -> None:
+        uncertainty = uncertainty_payload()
+        uncertainty["schema_version"] = "0.1.0"
+        del uncertainty["probabilistic_analysis"]["decision_thresholds"]
+
+        result = run_uncertainty(
+            golden_payload(),
+            GOLDEN_PATH.read_bytes(),
+            uncertainty,
+            json.dumps(uncertainty).encode(),
+        )
+
+        decision = result["probabilistic_analysis"]["decision_uncertainty"]
+        self.assertEqual(decision["threshold_source"], "legacy_primary_only")
+        self.assertEqual(len(decision["threshold_results"]), 1)
+        self.assertEqual(decision["threshold_results"][0]["threshold"], 100000.0)
+
+    def test_legacy_uncertainty_plan_rejects_a_silently_ignored_grid(self) -> None:
+        uncertainty = uncertainty_payload()
+        uncertainty["schema_version"] = "0.1.0"
+        with self.assertRaisesRegex(ModelValidationError, "schema_version 0.2.0"):
+            run_uncertainty(
+                golden_payload(),
+                GOLDEN_PATH.read_bytes(),
+                uncertainty,
+                json.dumps(uncertainty).encode(),
+            )
+
+    def test_decision_threshold_grid_must_be_increasing_and_include_primary(self) -> None:
+        for values, message in (
+            ([0.0, 100000.0, 100000.0], "strictly increasing"),
+            ([0.0, 50000.0, 150000.0], "primary willingness_to_pay"),
+        ):
+            uncertainty = uncertainty_payload()
+            uncertainty["probabilistic_analysis"]["decision_thresholds"]["values"] = values
+            with self.subTest(values=values), self.assertRaisesRegex(
+                ModelValidationError, message
+            ):
+                run_uncertainty(
+                    golden_payload(),
+                    GOLDEN_PATH.read_bytes(),
+                    uncertainty,
+                    json.dumps(uncertainty).encode(),
+                )
+
     def test_changed_base_plan_hash_fails_closed(self) -> None:
         payload = golden_payload()
         payload["cycles"] = 4

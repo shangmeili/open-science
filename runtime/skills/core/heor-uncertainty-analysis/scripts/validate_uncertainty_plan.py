@@ -24,6 +24,9 @@ SCENARIO_TARGETS = {
     "/half_cycle_correction",
 }
 SUPPORTED_DISTRIBUTIONS = {"beta", "gamma", "lognormal", "uniform", "dirichlet"}
+CURRENT_SCHEMA_VERSION = "0.2.0"
+LEGACY_SCHEMA_VERSION = "0.1.0"
+MAX_DECISION_THRESHOLDS = 101
 
 
 def load(path: Path) -> tuple[dict, bytes]:
@@ -110,8 +113,9 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
     value, _ = load(uncertainty_path)
     plan, plan_raw = load(plan_path)
     errors: list[str] = []
-    if value.get("schema_version") != "0.1.0":
-        errors.append("schema_version must be 0.1.0")
+    schema_version = value.get("schema_version")
+    if schema_version not in {LEGACY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION}:
+        errors.append("schema_version must be 0.1.0 or 0.2.0")
     for field in ("uncertainty_id", "analysis_id"):
         if not text(value.get(field)):
             errors.append(f"{field} is required")
@@ -215,6 +219,27 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         errors.append("probabilistic_analysis.iterations must be from 1000 to 10000")
     if ((methodology.get("probabilistic") or {}).get("iterations")) != iterations:
         errors.append("plan and uncertainty iteration counts do not match")
+    threshold_config = psa.get("decision_thresholds")
+    primary_threshold = plan.get("willingness_to_pay")
+    if schema_version == CURRENT_SCHEMA_VERSION:
+        threshold_config = threshold_config if isinstance(threshold_config, dict) else {}
+        thresholds = threshold_config.get("values")
+        valid_thresholds = (
+            isinstance(thresholds, list)
+            and 2 <= len(thresholds) <= MAX_DECISION_THRESHOLDS
+            and all(finite_number(item) and item >= 0 for item in thresholds)
+            and thresholds == sorted(set(thresholds))
+        )
+        if not valid_thresholds:
+            errors.append(
+                "decision thresholds must be 2-101 unique, non-negative, strictly increasing values"
+            )
+        elif not any(abs(item - primary_threshold) <= 1e-9 for item in thresholds):
+            errors.append("decision thresholds must include the primary willingness_to_pay")
+        if not text(threshold_config.get("rationale")):
+            errors.append("decision thresholds rationale is required")
+    elif threshold_config is not None:
+        errors.append("decision thresholds require schema_version 0.2.0")
     convergence = psa.get("convergence") or {}
     checkpoints = convergence.get("checkpoints")
     if not (

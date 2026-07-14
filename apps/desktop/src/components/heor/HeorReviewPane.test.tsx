@@ -3,11 +3,66 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT } from "@/lib/heor";
 import { useUiStore } from "@/lib/store";
-import { EvidenceVerificationDialog, HeorReviewPane } from "./HeorReviewPane";
+import { CeacChart, EvidenceVerificationDialog, HeorReviewPane } from "./HeorReviewPane";
 
 afterEach(() => useUiStore.getState().setLocale("en"));
 
 describe("AI4HEOR human review pane", () => {
+  it("renders CEAC and CEAF with accessible labels and non-color distinction", () => {
+    const { container } = render(
+      <CeacChart
+        locale="en"
+        primaryThreshold={100000}
+        rows={[
+          {
+            threshold: 0,
+            expected_incremental_net_monetary_benefit: -5000,
+            intervention_optimal_probability: 0.1,
+            comparator_optimal_probability: 0.9,
+            tie_probability: 0,
+            probability_mcse: 0.01,
+            strategy_with_highest_expected_net_benefit: "comparator",
+            ceaf_probability: 0.9,
+            per_person_evpi: 100,
+            per_person_evpi_mcse: 10,
+          },
+          {
+            threshold: 100000,
+            expected_incremental_net_monetary_benefit: 5000,
+            intervention_optimal_probability: 0.8,
+            comparator_optimal_probability: 0.2,
+            tie_probability: 0,
+            probability_mcse: 0.01,
+            strategy_with_highest_expected_net_benefit: "intervention",
+            ceaf_probability: 0.8,
+            per_person_evpi: 200,
+            per_person_evpi_mcse: 20,
+          },
+          {
+            threshold: 200000,
+            expected_incremental_net_monetary_benefit: 15000,
+            intervention_optimal_probability: 0.95,
+            comparator_optimal_probability: 0.05,
+            tie_probability: 0,
+            probability_mcse: 0.01,
+            strategy_with_highest_expected_net_benefit: "intervention",
+            ceaf_probability: 0.95,
+            per_person_evpi: 50,
+            per_person_evpi_mcse: 5,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Cost-effectiveness acceptability curve")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /intervention optimal probability/ })).toBeInTheDocument();
+    expect(screen.getByText("Intervention CEAC")).toBeInTheDocument();
+    expect(screen.getByText("CEAF")).toBeInTheDocument();
+    const paths = [...container.querySelectorAll("path")];
+    expect(paths).toHaveLength(2);
+    expect(paths.some((path) => path.getAttribute("stroke-dasharray"))).toBe(true);
+  });
+
   it("shows exact extraction details and records a selected rejection", async () => {
     const onSubmit = vi.fn();
     render(

@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "uncertainty_id": "golden-two-strategy-uncertainty",
   "analysis_id": "golden-two-strategy-markov",
   "status": "ready_for_human_review",
@@ -47,6 +47,10 @@
   ],
   "probabilistic_analysis": {
     "iterations": 1000,
+    "decision_thresholds": {
+      "values": [0.0, 50000.0, 100000.0, 150000.0, 200000.0],
+      "rationale": "Bounded threshold grid for the golden CEAC, CEAF, and per-person EVPI contract."
+    },
     "convergence": {
       "checkpoints": [500, 1000],
       "max_probability_mcse": 0.02,

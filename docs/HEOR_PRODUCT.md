@@ -201,9 +201,20 @@ and structural scenarios with versioned `pcg32-xsh-rr` sampling and fixed beta,
 gamma, lognormal, uniform, and Dirichlet transforms. The current desktop bridge
 limits PSA to 10,000 draws because it returns every draw for audit; larger runs
 require a future streamed, content-addressed result artifact. The app reports
-cost-effectiveness probability and checkpoint Monte Carlo diagnostics, while
-keeping the result explicitly separate from independent model validation and
-policy recommendation. Rust, Python, and the portable skill validator each
+cost-effectiveness probability and checkpoint Monte Carlo diagnostics.
+Schema `0.2.0` also requires a declared 2–101 point threshold grid containing
+the analysis plan's primary willingness-to-pay value. The grid must come from
+the stated decision context or a human instruction; neither the Agent nor a
+form may invent a jurisdictional threshold.
+
+The engine reuses the same draws to calculate intervention CEAC, two-strategy
+CEAF, and per-person EVPI at every declared threshold. The review pane renders
+CEAC and CEAF as distinct accessible line series and retains exact values in
+the result artifact. This is a secondary evidence surface in the
+natural-language workflow, not a new form-led modeling path. The result reports
+Monte Carlo error and keeps population EVPI and EVPPI explicitly null; it does
+not infer affected population, research priority, study design, funding value,
+reimbursement, or policy advice. Rust, Python, and the portable skill validator each
 fail closed on unsafe targets, changed hashes, unsupported distributions,
 unlinked distribution bases, known omitted correlations, or invalid scenarios.
 
@@ -278,7 +289,10 @@ budget-impact report. All 40 entries require a rationale, bound evidence paths,
 and exactly one report section marker.
 
 The portable and native validators require exact copied numerical summaries,
-explicit disclosures, limitations, a named release owner, and current hashes.
+including the complete decision-uncertainty object when present, explicit
+disclosures, limitations, a named release owner, and current hashes. Legacy
+uncertainty results retain their legacy summary shape rather than receiving
+manufactured CEAC, CEAF, or value-of-information values.
 At release, the desktop requires the current independent-validation approval,
 re-executes base-case, uncertainty, and budget-impact calculations, compares
 their exact output hashes with the bound result files, and records the report

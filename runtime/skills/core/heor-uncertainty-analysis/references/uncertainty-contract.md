@@ -34,12 +34,27 @@ Dirichlet sampling preserves the dependence within a probability row. Other samp
 
 ## Reproducibility and convergence
 
-The engine uses versioned `pcg32-xsh-rr` plus fixed beta, gamma, lognormal, uniform, and Dirichlet transforms. The seed is part of the artifact. Identical inputs produce a bit-identical integer PRNG stream and a repeatable run on the same runtime. Do not claim byte-identical floating-point samples across operating systems until the release matrix passes golden tolerance tests; system math libraries may differ in their final bits.
+Engine version 0.2 uses versioned `pcg32-xsh-rr` plus fixed beta, gamma, lognormal, uniform, and Dirichlet transforms. The seed is part of the artifact. Identical inputs produce a bit-identical integer PRNG stream and a repeatable run on the same runtime. Do not claim byte-identical floating-point samples across operating systems until the release matrix passes golden tolerance tests; system math libraries may differ in their final bits.
 
 The convergence check records cost-effectiveness probability and its Monte Carlo standard error at each checkpoint. The final MCSE and change from the preceding checkpoint must meet the declared thresholds. A pass describes only the sampled run's Monte Carlo error; it is not independent validation or proof that all uncertainty was represented.
 
+## Decision-threshold and value-of-information contract
+
+Schema `0.2.0` requires `probabilistic_analysis.decision_thresholds` with a rationale and 2–101 unique, non-negative, strictly increasing values. The values must include the positive primary `willingness_to_pay` in the analysis plan. Schema `0.1.0` remains readable and produces one primary-threshold row only; adding a grid to a legacy artifact is rejected rather than silently ignored.
+
+For each PSA draw and threshold λ, the engine derives incremental net monetary benefit `λ × ΔQALY − Δcost`. It reports:
+
+- the probability that the intervention, comparator, or neither uniquely has the higher net benefit;
+- the CEAF probability for the strategy with the highest expected net benefit, leaving it null when expected net benefit is tied;
+- expected incremental net monetary benefit and probability Monte Carlo standard error;
+- per-person EVPI as `E[max(0, incremental NMB)] − max(0, E[incremental NMB])` for the two-strategy model;
+- EVPI Monte Carlo standard error from draw-level opportunity loss.
+
+These are conditional on the current model, declared distributions, dependence handling, and omitted parameters. `population_evpi` and `evppi` remain explicit nulls. Population extrapolation needs separate epidemiology, technology lifetime, discounting, and affected-population inputs; EVPPI needs parameter grouping and validated nested or regression methods. Neither is inferred from the threshold curve.
+
 ## Method basis
 
-- [NICE PMG36 economic evaluation, section 4.7](https://www.nice.org.uk/process/pmg36/chapter/economic-evaluation-2/) requires justified distributions, consideration of correlation, DSA/scenario analyses for drivers, and PSA for joint parameter uncertainty.
-- [NICE company evidence guide, section 3.11](https://www.nice.org.uk/process/pmg24/chapter/cost-effectiveness) requires parameter values, ranges/distributions and sources, PSA results, and cost-effectiveness probability.
+- [NICE PMG36 economic evaluation, section 4.7](https://www.nice.org.uk/process/pmg36/chapter/economic-evaluation-2/) requires justified distributions, consideration of correlation, DSA/scenario analyses for drivers, Monte Carlo error review, and CEAC/CEAF presentation across maximum acceptable ICERs.
+- [NICE company evidence guide, section 3.11](https://www.nice.org.uk/process/pmg24/chapter/cost-effectiveness) requires parameter values, ranges/distributions and sources, PSA results, CEAC/CEAF, and cost-effectiveness probability.
 - [ISPOR-SMDM parameter estimation and uncertainty task-force report](https://www.ispor.org/docs/default-source/resources/outcomes-research-guidelines-index/model_parameter_estimation_and_uncertainty-6.pdf) informs the separation of parameter estimation from uncertainty propagation.
+- [ISPOR value-of-information methods overview](https://www.ispor.org/publications/journals/value-outcomes-spotlight/vos-archives/issue/view/value-assessments/value-of-information-analysis) distinguishes per-person EVPI available from PSA from population extrapolation, EVPPI, and research-design decisions.

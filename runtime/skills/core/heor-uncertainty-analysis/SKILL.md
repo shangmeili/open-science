@@ -1,6 +1,6 @@
 ---
 name: heor-uncertainty-analysis
-description: Create and audit a hash-bound HEOR uncertainty plan for deterministic one-way sensitivity analysis, probabilistic sensitivity analysis, Monte Carlo convergence, parameter dependence, and structural scenarios. Use when preparing or repairing heor/uncertainty-plan.json, converting evidence ranges or distributions into executable model inputs, explaining uncertainty drivers, or preparing the analysis-plan human gate without claiming validation or decision certainty.
+description: Create and audit a hash-bound HEOR uncertainty plan for deterministic one-way sensitivity analysis, probabilistic sensitivity analysis, CEAC, CEAF, per-person EVPI, Monte Carlo convergence, parameter dependence, and structural scenarios. Use when preparing or repairing heor/uncertainty-plan.json, converting evidence ranges or distributions into executable model inputs, explaining decision uncertainty or value of information, or preparing the analysis-plan human gate without claiming validation, population EVPI, research priority, or decision certainty.
 ---
 
 # HEOR Uncertainty Analysis
@@ -16,9 +16,10 @@ Create a reproducible local uncertainty artifact; do not generate ad hoc simulat
 5. Choose an evidence-compatible distribution. Record basis IDs from the linked provenance mapping and explain the parameterization. Use Dirichlet for a complete transition row.
 6. State the independence rationale and resolve known omitted correlations. List PSA omissions with a reason; omission is visible, not silently converted to fixed certainty.
 7. Set an explicit unsigned 64-bit seed, 1,000–10,000 iterations, at least two increasing convergence checkpoints ending at the iteration count, and probability MCSE/drift thresholds no greater than 0.1. The first-party desktop caps iterations because it returns auditable per-draw output; larger production runs require a future streamed artifact format, not an unbounded response.
-8. Define at least one bounded structural scenario with allowlisted replacements and a rationale. Keep structural uncertainty separate from parameter uncertainty.
-9. Write `heor/uncertainty-plan.json` from the bundled template. Bind `base_analysis.content_sha256` to the final exact bytes of `heor/analysis-plan.json`.
-10. Run `scripts/validate_uncertainty_plan.py`. The desktop repeats and extends the audit before approval or execution.
+8. Declare 2–101 unique increasing, non-negative decision thresholds and a rationale. Include the analysis plan's primary willingness-to-pay value. Derive the range from an explicit decision context or human instruction; never invent a jurisdictional threshold. The engine uses the same PSA draws to calculate the intervention CEAC, two-strategy CEAF, and per-person EVPI at every threshold.
+9. Define at least one bounded structural scenario with allowlisted replacements and a rationale. Keep structural uncertainty separate from parameter uncertainty.
+10. Write schema `0.2.0` `heor/uncertainty-plan.json` from the bundled template. Bind `base_analysis.content_sha256` to the final exact bytes of `heor/analysis-plan.json`. Schema `0.1.0` remains readable but evaluates only the primary threshold.
+11. Run `scripts/validate_uncertainty_plan.py`. The desktop repeats and extends the audit before approval or execution.
 
 ## Boundaries
 
@@ -27,8 +28,11 @@ Create a reproducible local uncertainty artifact; do not generate ad hoc simulat
 - Do not report a seeded run as generally converged merely because it completed. Report its checkpoint diagnostic and thresholds.
 - Do not treat DSA as a substitute for joint PSA in a nonlinear model.
 - Do not treat cost-effectiveness probability as a recommendation or policy threshold decision.
+- Report CEAC and CEAF separately: the intervention's probability of being optimal is not always the probability that the strategy with the highest expected net benefit is optimal.
+- Treat EVPI as a per-person upper bound over uncertainty represented in the current PSA only. Do not extrapolate it to a population without explicit eligible population, incidence/prevalence, time horizon, technology lifetime, and discounting inputs.
+- Do not claim EVPPI, expected value of sample information, optimal study design, or a research-funding recommendation from this engine.
 - Preserve unsupported distributions, correlations, and structural uncertainty as explicit blockers or limitations.
 
 ## Handoff
 
-Report the analysis and uncertainty IDs, exact plan and uncertainty hashes, PRNG algorithm/version, seed, parameter and scenario counts, PSA iterations, omitted parameters, correlation handling, convergence result, blocking errors, and the next natural-language repair. Distinguish calculation reproducibility from methodological validity.
+Report the analysis and uncertainty IDs, exact plan and uncertainty hashes, PRNG algorithm/version, seed, parameter, threshold, and scenario counts, PSA iterations, CEAC/CEAF at the declared thresholds, primary-threshold per-person EVPI and its Monte Carlo standard error, omitted parameters, correlation handling, convergence result, blocking errors, and the next natural-language repair. Distinguish calculation reproducibility from methodological validity and leave population EVPI/EVPPI explicitly uncalculated.

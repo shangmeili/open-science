@@ -12,19 +12,21 @@ from __future__ import annotations
 import copy
 import hashlib
 from dataclasses import dataclass
-from math import cos, exp, isfinite, log, pi, sqrt
+from math import cos, exp, isclose, isfinite, log, pi, sqrt
 from typing import Any
 
 from .model import MarkovSpecification, ModelValidationError, run_markov
 
 
-UNCERTAINTY_SCHEMA_VERSION = "0.1.0"
-UNCERTAINTY_ENGINE_VERSION = "0.1.0"
+UNCERTAINTY_SCHEMA_VERSION = "0.2.0"
+LEGACY_UNCERTAINTY_SCHEMA_VERSION = "0.1.0"
+UNCERTAINTY_ENGINE_VERSION = "0.2.0"
 PRNG_ALGORITHM = "pcg32-xsh-rr"
 PRNG_VERSION = "1"
 MAX_ITERATIONS = 10_000
 MAX_PARAMETERS = 256
 MAX_SCENARIOS = 64
+MAX_DECISION_THRESHOLDS = 101
 MAX_REJECTION_ATTEMPTS = 10_000
 
 
@@ -123,6 +125,7 @@ class Scenario:
 
 @dataclass(frozen=True)
 class UncertaintySpecification:
+    schema_version: str
     uncertainty_id: str
     analysis_id: str
     status: str
@@ -130,6 +133,10 @@ class UncertaintySpecification:
     base_sha256: str
     seed: int
     iterations: int
+    primary_threshold: float
+    decision_thresholds: tuple[float, ...]
+    threshold_rationale: str
+    threshold_source: str
     checkpoints: tuple[int, ...]
     max_probability_mcse: float
     max_probability_drift: float
@@ -147,14 +154,48 @@ class UncertaintySpecification:
         base_sha256: str,
     ) -> "UncertaintySpecification":
         value = _mapping(value, "uncertainty plan")
-        if value.get("schema_version") != UNCERTAINTY_SCHEMA_VERSION:
+        schema_version = str(value.get("schema_version", ""))
+        if schema_version not in {
+            LEGACY_UNCERTAINTY_SCHEMA_VERSION,
+            UNCERTAINTY_SCHEMA_VERSION,
+        }:
             raise ModelValidationError(
-                "uncertainty schema_version must be " + UNCERTAINTY_SCHEMA_VERSION
+                "uncertainty schema_version must be 0.1.0 or 0.2.0"
             )
         base = _mapping(value.get("base_analysis", {}), "base_analysis")
         psa = _mapping(value.get("probabilistic_analysis", {}), "probabilistic_analysis")
         convergence = _mapping(psa.get("convergence", {}), "probabilistic_analysis.convergence")
         correlation = _mapping(psa.get("correlation_handling", {}), "probabilistic_analysis.correlation_handling")
+        primary_threshold = _positive_float(
+            base_payload.get("willingness_to_pay"), "willingness_to_pay"
+        )
+        if schema_version == UNCERTAINTY_SCHEMA_VERSION:
+            threshold_config = _mapping(
+                psa.get("decision_thresholds", {}),
+                "probabilistic_analysis.decision_thresholds",
+            )
+            decision_thresholds = tuple(
+                _finite_float(item, "probabilistic_analysis.decision_thresholds.values")
+                for item in _array(
+                    threshold_config.get("values"),
+                    "probabilistic_analysis.decision_thresholds.values",
+                )
+            )
+            threshold_rationale = _nonempty(
+                threshold_config.get("rationale"),
+                "probabilistic_analysis.decision_thresholds.rationale",
+            )
+            threshold_source = "declared_grid"
+        else:
+            if "decision_thresholds" in psa:
+                raise ModelValidationError(
+                    "decision thresholds require uncertainty schema_version 0.2.0"
+                )
+            decision_thresholds = (primary_threshold,)
+            threshold_rationale = (
+                "Legacy uncertainty schema: only the analysis-plan primary threshold is evaluated."
+            )
+            threshold_source = "legacy_primary_only"
         parameters = tuple(
             _parameter(item, index, base_payload)
             for index, item in enumerate(_array(value.get("parameters"), "parameters"))
@@ -176,6 +217,7 @@ class UncertaintySpecification:
             )
         )
         specification = cls(
+            schema_version=schema_version,
             uncertainty_id=_nonempty(value.get("uncertainty_id"), "uncertainty_id"),
             analysis_id=_nonempty(value.get("analysis_id"), "analysis_id"),
             status=_nonempty(value.get("status"), "status"),
@@ -183,6 +225,10 @@ class UncertaintySpecification:
             base_sha256=_nonempty(base.get("content_sha256"), "base_analysis.content_sha256"),
             seed=_strict_int(value.get("seed"), "seed"),
             iterations=_strict_int(psa.get("iterations"), "probabilistic_analysis.iterations"),
+            primary_threshold=primary_threshold,
+            decision_thresholds=decision_thresholds,
+            threshold_rationale=threshold_rationale,
+            threshold_source=threshold_source,
             checkpoints=tuple(
                 _strict_int(item, "probabilistic_analysis.convergence.checkpoint")
                 for item in _array(convergence.get("checkpoints"), "probabilistic_analysis.convergence.checkpoints")
@@ -263,6 +309,30 @@ class UncertaintySpecification:
             raise ModelValidationError(
                 "willingness_to_pay is required to estimate cost-effectiveness probability"
             )
+        primary_threshold = _positive_float(
+            base_payload.get("willingness_to_pay"), "willingness_to_pay"
+        )
+        expected_count = (
+            (2, MAX_DECISION_THRESHOLDS)
+            if self.schema_version == UNCERTAINTY_SCHEMA_VERSION
+            else (1, 1)
+        )
+        if not expected_count[0] <= len(self.decision_thresholds) <= expected_count[1]:
+            raise ModelValidationError(
+                "decision thresholds must contain from "
+                f"{expected_count[0]} to {expected_count[1]} values"
+            )
+        if any(value < 0.0 for value in self.decision_thresholds):
+            raise ModelValidationError("decision thresholds must be non-negative")
+        if tuple(sorted(set(self.decision_thresholds))) != self.decision_thresholds:
+            raise ModelValidationError("decision thresholds must be unique and strictly increasing")
+        if not any(
+            isclose(value, primary_threshold, rel_tol=0.0, abs_tol=1e-9)
+            for value in self.decision_thresholds
+        ):
+            raise ModelValidationError(
+                "decision thresholds must include the primary willingness_to_pay"
+            )
 
 
 def run_uncertainty(
@@ -284,7 +354,7 @@ def run_uncertainty(
         "analysis_id": specification.analysis_id,
         "uncertainty_id": specification.uncertainty_id,
         "engine_version": UNCERTAINTY_ENGINE_VERSION,
-        "schema_version": UNCERTAINTY_SCHEMA_VERSION,
+        "schema_version": specification.schema_version,
         "base_analysis_sha256": base_sha256,
         "uncertainty_plan_sha256": uncertainty_sha256,
         "prng": {"algorithm": PRNG_ALGORITHM, "version": PRNG_VERSION},
@@ -300,6 +370,9 @@ def run_uncertainty(
             "Only parameter uncertainty represented by the declared distributions is sampled.",
             "Cross-parameter dependence is limited to declared Dirichlet simplex rows; the recorded independence rationale remains a human-review item.",
             "A convergence diagnostic describes Monte Carlo error for this run and is not independent model validation.",
+            "Per-person EVPI covers only the uncertainty represented in this PSA; "
+            "it is not population EVPI, EVPPI, a research-funding recommendation, "
+            "or a reimbursement recommendation.",
         ],
     }
 
@@ -391,6 +464,7 @@ def _run_psa(
         final["probability_mcse"] <= specification.max_probability_mcse
         and probability_drift <= specification.max_probability_drift
     )
+    decision_uncertainty = _decision_uncertainty(samples, specification)
     return {
         "iterations": specification.iterations,
         "cost_effective_probability": final["cost_effective_probability"],
@@ -405,7 +479,72 @@ def _run_psa(
         },
         "independence_rationale": specification.independence_rationale,
         "omitted_parameters": list(specification.omitted_parameters),
+        "decision_uncertainty": decision_uncertainty,
         "samples": samples,
+    }
+
+
+def _decision_uncertainty(
+    samples: list[dict[str, Any]], specification: UncertaintySpecification
+) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    sample_count = len(samples)
+    for threshold in specification.decision_thresholds:
+        values = [
+            threshold * sample["delta_qaly"] - sample["delta_cost"]
+            for sample in samples
+        ]
+        if any(not isfinite(value) for value in values):
+            raise ModelValidationError(
+                f"decision threshold {threshold} produced a non-finite net monetary benefit"
+            )
+        mean = sum(values) / sample_count
+        positive = sum(value > 0.0 for value in values)
+        negative = sum(value < 0.0 for value in values)
+        ties = sample_count - positive - negative
+        if mean > 0.0:
+            selected_strategy = "intervention"
+            ceaf_probability: float | None = positive / sample_count
+            losses = [max(0.0, value) - value for value in values]
+        elif mean < 0.0:
+            selected_strategy = "comparator"
+            ceaf_probability = negative / sample_count
+            losses = [max(0.0, value) for value in values]
+        else:
+            selected_strategy = "tie"
+            ceaf_probability = None
+            losses = [max(0.0, value) for value in values]
+        evpi = sum(losses) / sample_count
+        loss_variance = sum((value - evpi) ** 2 for value in losses) / (
+            sample_count - 1
+        )
+        intervention_probability = positive / sample_count
+        rows.append(
+            {
+                "threshold": threshold,
+                "expected_incremental_net_monetary_benefit": mean,
+                "intervention_optimal_probability": intervention_probability,
+                "comparator_optimal_probability": negative / sample_count,
+                "tie_probability": ties / sample_count,
+                "probability_mcse": sqrt(
+                    intervention_probability
+                    * (1.0 - intervention_probability)
+                    / sample_count
+                ),
+                "strategy_with_highest_expected_net_benefit": selected_strategy,
+                "ceaf_probability": ceaf_probability,
+                "per_person_evpi": evpi,
+                "per_person_evpi_mcse": sqrt(loss_variance / sample_count),
+            }
+        )
+    return {
+        "method": "net_monetary_benefit",
+        "primary_threshold": specification.primary_threshold,
+        "threshold_source": specification.threshold_source,
+        "threshold_rationale": specification.threshold_rationale,
+        "threshold_results": rows,
+        "population_evpi": None,
+        "evppi": None,
     }
 
 

@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "uncertainty_id": "replace-with-uncertainty-id",
   "analysis_id": "replace-with-analysis-id",
   "status": "draft",
@@ -30,6 +30,10 @@
   ],
   "probabilistic_analysis": {
     "iterations": 1000,
+    "decision_thresholds": {
+      "values": [],
+      "rationale": "Replace with the explicit decision or presentation range and include the analysis-plan willingness_to_pay value."
+    },
     "convergence": {
       "checkpoints": [500, 1000],
       "max_probability_mcse": 0.02,

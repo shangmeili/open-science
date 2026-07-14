@@ -604,6 +604,16 @@ class UncertaintyContractTests(unittest.TestCase):
                 uncertainty.validate(uncertainty_path, plan_path),
             )
 
+    def test_decision_thresholds_reject_duplicates_and_missing_primary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            uncertainty_path, plan_path = self.fixture(Path(directory))
+            for values in ([0, 100000, 100000], [0, 50000, 150000]):
+                value = json.loads(uncertainty_path.read_text())
+                value["probabilistic_analysis"]["decision_thresholds"]["values"] = values
+                uncertainty_path.write_text(json.dumps(value, indent=2))
+                errors = uncertainty.validate(uncertainty_path, plan_path)
+                self.assertTrue(any("decision threshold" in error for error in errors))
+
 
 class BudgetImpactContractTests(unittest.TestCase):
     def fixture(self, root: Path):
@@ -837,6 +847,28 @@ class ReportingContractTests(unittest.TestCase):
                     "iterations": 1000,
                     "cost_effective_probability": 0.82,
                     "mean_incremental_net_monetary_benefit": 61000.0,
+                    "decision_uncertainty": {
+                        "method": "net_monetary_benefit",
+                        "primary_threshold": 100000.0,
+                        "threshold_source": "declared_grid",
+                        "threshold_rationale": "Decision-context presentation range.",
+                        "threshold_results": [
+                            {
+                                "threshold": 100000.0,
+                                "expected_incremental_net_monetary_benefit": 61000.0,
+                                "intervention_optimal_probability": 0.82,
+                                "comparator_optimal_probability": 0.18,
+                                "tie_probability": 0.0,
+                                "probability_mcse": 0.012,
+                                "strategy_with_highest_expected_net_benefit": "intervention",
+                                "ceaf_probability": 0.82,
+                                "per_person_evpi": 125.0,
+                                "per_person_evpi_mcse": 8.0,
+                            }
+                        ],
+                        "population_evpi": None,
+                        "evppi": None,
+                    },
                 },
             },
             "budget_impact_result": {
@@ -942,6 +974,21 @@ class ReportingContractTests(unittest.TestCase):
             root = Path(directory)
             package_path, package, _ = self.fixture(root)
             package["result_summary"]["cost_effectiveness"]["icer"] = 1.0
+            package_path.write_text(json.dumps(package, indent=2))
+            result = reporting.audit(package_path, root)
+            self.assertFalse(result["complete"])
+            self.assertIn(
+                "result_summary must exactly match the bound deterministic result artifacts",
+                result["errors"],
+            )
+
+    def test_copied_decision_uncertainty_mismatch_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, package, _ = self.fixture(root)
+            package["result_summary"]["uncertainty"]["decision_uncertainty"][
+                "threshold_results"
+            ][0]["per_person_evpi"] = 1.0
             package_path.write_text(json.dumps(package, indent=2))
             result = reporting.audit(package_path, root)
             self.assertFalse(result["complete"])

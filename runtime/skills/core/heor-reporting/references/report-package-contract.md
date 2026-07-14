@@ -55,11 +55,17 @@ passed. The validator reports coverage, not a score.
 
 ## Numerical summaries
 
-`result_summary` copies the defined scalars from the three deterministic result
+`result_summary` copies the defined values from the three deterministic result
 files. Values must match exactly, including `null` when the ICER is undefined.
+When the uncertainty result contains `decision_uncertainty`, the package copies
+that complete object exactly: threshold rows, CEAC/CEAF probabilities,
+per-person EVPI and Monte Carlo error, and the explicit null population EVPI
+and EVPPI fields. A legacy result without that object keeps the legacy summary
+shape; the reporting layer does not manufacture a value-of-information result.
 The report must distinguish cost effectiveness, uncertainty, and affordability.
 A favorable value in one analysis cannot be presented as proof of another or as
-a reimbursement recommendation.
+a reimbursement recommendation. Per-person EVPI is conditional on uncertainty
+represented in the bound PSA and is not a population research-funding value.
 
 ## Disclosure and authority
 

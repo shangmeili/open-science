@@ -585,6 +585,8 @@ mod tests {
             parameter_count: 2,
             scenario_count: 1,
             iterations: Some(1000),
+            primary_threshold: Some(100000.0),
+            threshold_count: 5,
             omitted_parameter_count: 0,
             invalid_parameters: Vec::new(),
             errors: Vec::new(),
