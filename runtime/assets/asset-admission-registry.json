@@ -101,7 +101,7 @@
         "authority": "no-approval-or-decision-authority"
       },
       "industrialization": {
-        "adaptation_mode": "isolated-adapter-required",
+        "adaptation_mode": "first-party-bounded-rewrite-shipped-upstream-still-quarantined",
         "delta_record": "docs/HEOR_ECOSYSTEM.md",
         "contract_tests": [],
         "adversarial_tests": [],
@@ -451,7 +451,9 @@
         "kill_switch": false,
         "upstream_evidence": [
           "Audited revision: 1521 tests passed and 6 skipped",
-          "Install audit reported 12 dependency vulnerabilities including 4 high severity"
+          "Fresh 2026-07-14 install audit reported 12 dependency vulnerabilities including 4 high severity",
+          "Remote HEAD remained 19f5f0eea5764d7a2695c372f3ec8f3aa0f53dd8 on 2026-07-14",
+          "Useful bounded-search pattern was independently rewritten as first-party heor-evidence-search; no upstream Node package is bundled or executed"
         ]
       },
       "distribution": null,
@@ -460,7 +462,7 @@
         "Default global knowledge root is outside the active AI4HEOR project",
         "Telemetry and direct network sources require an app-owned capability and consent boundary",
         "Economic calculations and self-reported validation states must be excluded from authority",
-        "Current upstream has advanced beyond the audited revision and requires a fresh delta audit"
+        "No newer upstream revision is available; the audited dependency and authority blockers remain"
       ]
     }
   ]

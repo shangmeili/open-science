@@ -9,6 +9,7 @@
     "title": "先说清楚研究问题",
     "body": "Agent 负责结构化分析、检索证据并维护可审计文件；你审阅假设和批准关口，表单只作为辅助。",
     "scope": { "title": "界定成本效果研究", "body": "明确人群、干预、对照、视角、时间范围和结局。", "prompt": "帮我界定一项成本效果研究。先识别决策问题，只询问会实质改变分析的问题。" },
+    "search": { "title": "起草证据检索", "body": "为人工授权的公共数据源检索准备精确请求。", "prompt": "使用 $heor-evidence-search，针对当前证据缺口起草 heor/evidence-search-request.json。不要自行联网；只可选择 PubMed 与 ClinicalTrials.gov，披露精确外发字段并校验请求，执行留给我在 AI4HEOR 审阅面板中明确授权。" },
     "inputs": { "title": "研究模型参数", "body": "寻找最新证据、提取数值，并将来源与假设严格分开。", "prompt": "帮我研究药物经济学模型参数。先识别决策问题和证据缺口，将有来源数值与分析假设严格分开。" },
     "audit": { "title": "审查现有分析计划", "body": "检查模型结构、证据溯源、无来源参数和参考案例缺口。", "prompt": "审查当前药物经济学分析计划的结构、可溯源性、无来源参数和参考案例缺口，不要创建任何批准记录。" }
   },
@@ -85,6 +86,30 @@
     "askRepair": "让 Agent 设计或修复模型",
     "repairPrompt": "使用 $heor-model-design，为当前决策问题创建或修复 heor/conceptual-model.json。保留结构备选和结构不确定性，运行确定性校验器，不要创建或声称获得人工批准。",
     "note": "应用会独立审计该文件。结构完整仅允许进入人工审阅，不代表模型已经有效。"
+  },
+  "search": {
+    "title": "人工授权的证据检索",
+    "loading": "正在审计检索请求……",
+    "complete": "精确请求已可进入人工授权",
+    "incomplete": "检索请求缺失或被阻断",
+    "sources": "公共数据源",
+    "range": "日期范围",
+    "cap": "单数据源上限",
+    "hash": "请求 SHA-256",
+    "askDraft": "让 Agent 起草或修复请求",
+    "repairPrompt": "使用 $heor-evidence-search，针对当前证据缺口起草或修复 heor/evidence-search-request.json。不要自行联网；只可选择 PubMed 与 ClinicalTrials.gov，将 query、date_from、date_to 精确声明为非敏感外发字段，运行可移植校验器，并把执行留给我在 AI4HEOR 审阅面板中明确授权。",
+    "authorize": "审阅并授权精确检索",
+    "running": "正在检索公共元数据……",
+    "result": "已获取候选元数据",
+    "records": "候选记录",
+    "sourceRuns": "各数据源获取数",
+    "note": "Agent 只起草请求；只有桌面应用可发送经审阅的公共查询。获取的元数据仍是 not_assessed 候选证据，不等于纳入、质量评价、数据提取或系统综述完整性证明。",
+    "dialogTitle": "授权这一次精确公共检索？",
+    "dialogBody": "应用会把本地人工网络授权事件绑定到请求 {{hash}}，并只向固定公共端点发送已声明的查询与日期。",
+    "rationalePlaceholder": "为什么该精确查询和数据源组合适合当前证据缺口",
+    "confirm": "我已审阅精确查询与数据源，并确认其中不含个人、患者级、机密或其他敏感数据",
+    "execute": "授权并检索",
+    "noProject": "当前没有可绑定证据检索请求的项目。"
   },
   "evidence": {
     "title": "输入可追溯性",
@@ -252,6 +277,7 @@
     "runComplete": "确定性分析已完成",
     "uncertaintyRunComplete": "不确定性分析已完成",
     "budgetImpactRunComplete": "预算影响分析已完成",
+    "searchComplete": "人工授权的证据检索已完成",
     "loadFailed": "无法读取 AI4HEOR 工作流",
     "actionFailed": "AI4HEOR 操作失败"
   }

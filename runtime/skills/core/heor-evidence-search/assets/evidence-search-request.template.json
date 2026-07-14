@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.1.0",
+  "request_id": "replace-with-search-id",
+  "status": "draft",
+  "purpose": "Replace with the evidence gap this search addresses",
+  "query": "Replace with the exact public-source query",
+  "sources": ["pubmed", "clinicaltrials"],
+  "max_results_per_source": 20,
+  "date_from": null,
+  "date_to": null,
+  "data_egress": {
+    "contains_sensitive_data": false,
+    "fields": ["query", "date_from", "date_to"],
+    "justification": "Replace with why these fields must be sent to the selected public sources"
+  },
+  "limitations": [
+    "Metadata retrieval does not establish systematic-review completeness or study quality"
+  ]
+}

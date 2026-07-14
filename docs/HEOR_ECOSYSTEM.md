@@ -59,7 +59,7 @@ unmanaged project content; they never become bundled AI4HEOR assets implicitly.
 | --- | --- | --- | --- |
 | [ai4s-research/ai4s-skills](https://github.com/ai4s-research/ai4s-skills) | Useful general research decomposition, integrity cases, and rendering patterns | Seven individually registered, quarantined candidates; no longer bundled | Reuse only verified ideas/tests; rewrite around HEOR artifacts, source controls, deterministic authority, and app-owned gates; independently admit each derivative |
 | Anthropic `docx` / `pdf` / `pptx` / `xlsx` Skills | Sophisticated document-workflow reference | Rejected and removed from fetch, package, and deployment paths | Their per-directory source-available license prohibits copying, derivatives, and redistribution; implement independent document capabilities without retaining protected material |
-| [HEORAgent MCP](https://github.com/neptun2000/heor-agent-mcp) | Broad HEOR research, literature, screening, evidence-network, HTA, BIA, and dossier tools | P0 research-only pilot after hardening | Pin audited revision; Node MCP provisioner; tool allowlist; set `HEOR_KB_ROOT` inside active project; disable telemetry; disclose and approve each network source; convert outputs to AI4HEOR evidence records; exclude its calculations and tool-set verification states from authority |
+| [HEORAgent MCP](https://github.com/neptun2000/heor-agent-mcp) | Broad HEOR research, literature, screening, evidence-network, HTA, BIA, and dossier tools | Upstream package remains quarantined; bounded search pattern rewritten first-party | Do not run or bundle its 48-tool Node process. AI4HEOR independently implements only PubMed and ClinicalTrials.gov metadata retrieval behind fixed endpoints, exact request hashes, non-sensitive egress declarations, app-owned human authorization, immutable run files, and candidate-only import semantics |
 | [CaseMark health-economics skill](https://agentskills.med/skills/conducting-health-economics-research) | Useful task decomposition and terminology | Rewrite as first-party skills; do not bundle verbatim | Remove hard-coded jurisdiction rules and universal claims; split by artifact; attach current primary methods sources; add tests and app-owned HITL boundary |
 | [awesome-rosetta health-economics-eval](https://github.com/xjtulyc/awesome-rosetta-skills/tree/main/skills/17-public-health/health-economics-eval) | Compact educational outline | Extract scenarios and negative test cases only | Remove generic GDP threshold and free-form Python authority; replace with versioned reference-case profiles and deterministic engines |
 | [medical-research-skills](https://github.com/aipoch/medical-research-skills) | Broad adjacent evidence workflows | Audit selected evidence and review tasks only | Reject low-quality generic market-access template; adapt only source-verifiable components behind AI4HEOR contracts |
@@ -69,11 +69,15 @@ unmanaged project content; they never become bundled AI4HEOR assets implicitly.
 | [heemod](https://pierucci.org/heemod/) | Mature Markov modeling and sensitivity analysis | Reference and optional independent cross-check | GPL isolation; golden cases against the AI4HEOR core; document semantic differences rather than forcing parity |
 
 The HEORAgent audit used revision
-`19f5f0eea5764d7a2695c372f3ec8f3aa0f53dd8` (`1.27.0`). Its local test suite
-passed 1,521 tests with 6 skipped, but installation reported 12 dependency
-vulnerabilities, including 4 high severity. This supports continued evaluation,
-not immediate bundling. Its default global knowledge root and optional PostHog
-telemetry also conflict with AI4HEOR defaults until wrapped.
+`19f5f0eea5764d7a2695c372f3ec8f3aa0f53dd8` (`1.27.0`). A 2026-07-14
+remote check found the same upstream HEAD. Its local test suite passed 1,521
+tests with 6 skipped, but a fresh installation audit still reported 12
+dependency vulnerabilities, including 4 high severity. Its default global
+knowledge root, optional PostHog telemetry, direct multi-source egress, and 48
+mixed-authority tools are broader than the product boundary. AI4HEOR therefore
+does not wrap the package and call it production-ready. It preserves the MIT
+notice and independently rewrites the useful bounded-search concept as
+`heor-evidence-search`; the upstream asset remains quarantined.
 
 The earlier desktop baseline also fetched four Anthropic document Skills under
 an incorrect Apache-2.0 assumption. The copied `LICENSE.txt` is authoritative:
@@ -91,6 +95,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-workbench` | Natural-language orchestration and handoff | `heor/analysis-plan.json` plus conversation |
 | Shipped | `heor-input-provenance` | Map every model input to evidence or an explicit reviewable assumption | `evidence_sources`, `assumptions`, `input_provenance` |
 | Shipped | `heor-evidence-synthesis` | PICOS search, screening, extraction, conflict log, applicability | `heor/evidence-synthesis.json` plus deterministic audit |
+| Shipped alpha | `heor-evidence-search` | Draft a bounded PubMed/ClinicalTrials.gov metadata request; require exact app-owned human network authorization; preserve immutable candidate results | `heor/evidence-search-request.json`, app-written `heor/evidence-search-runs/*.json`, and app-owned authorization log |
 | Shipped | `heor-model-design` | Decision problem, conceptual model, structural alternatives | `heor/conceptual-model.json` plus app-owned gate audit |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
@@ -133,6 +138,17 @@ induced demand, dynamic cohorts, or multi-treatment markets. Optional BCEA,
 `hesim`, `heemod`, and `survHE` integrations remain candidates until their
 adapters pass the same pipeline; their maturity does not bypass platform
 admission.
+
+The evidence-search slice applies the same standard to a network capability.
+The Agent can only draft and validate the request file. Native code rejects
+unknown fields, arbitrary URLs, headers, credentials, sensitive egress,
+unreviewed byte changes, redirects, oversized/non-JSON responses, symlinked
+output paths, and overwrites. A human reviews the exact SHA-256, fixed public
+sources, query, dates, and result cap before the app executes it. Results are
+metadata candidates with source-response hashes and explicit limitations; they
+never become included or appraised evidence automatically. OpenAlex is not in
+this alpha because its current API requires a key and therefore needs a
+separate credential and consent design.
 
 The validation skill follows the same industrialization rule. AdViSHE and
 TECH-VER are valuable methods assets but are not executable authority: AI4HEOR

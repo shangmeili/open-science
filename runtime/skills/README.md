@@ -54,3 +54,9 @@ natural-language industrialization review and keeps the candidate inactive;
 only the native registry controls the bundled production inventory.
 
 Each skill directory must contain a `SKILL.md`.
+
+`core/heor-evidence-search` is the first-party public-metadata search boundary.
+The Agent drafts a validated request, while only the desktop app can execute
+the exact human-authorized bytes against fixed PubMed and ClinicalTrials.gov
+endpoints. Its outputs are candidate metadata and never bypass screening,
+appraisal, or evidence-synthesis review.

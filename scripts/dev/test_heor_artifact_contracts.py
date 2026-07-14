@@ -53,6 +53,32 @@ reporting = load(
     "validate_report_package",
     "runtime/skills/core/heor-reporting/scripts/validate_report_package.py",
 )
+evidence_search = load(
+    "validate_evidence_search_request",
+    "runtime/skills/core/heor-evidence-search/scripts/validate_evidence_search_request.py",
+)
+
+
+def evidence_search_fixture():
+    return {
+        "schema_version": "0.1.0",
+        "request_id": "semaglutide-t2d",
+        "status": "ready_for_human_review",
+        "purpose": "Find candidate trial and bibliographic metadata for an HEOR evidence review.",
+        "query": "semaglutide AND type 2 diabetes AND cost effectiveness",
+        "sources": ["pubmed", "clinicaltrials"],
+        "max_results_per_source": 10,
+        "date_from": "2020-01-01",
+        "date_to": "2026-07-14",
+        "data_egress": {
+            "contains_sensitive_data": False,
+            "fields": ["query", "date_from", "date_to"],
+            "justification": "Search public metadata sources for candidate evidence.",
+        },
+        "limitations": [
+            "Metadata retrieval is not screening, critical appraisal, or full-text verification."
+        ],
+    }
 
 
 def evidence_fixture():
@@ -109,6 +135,31 @@ def evidence_fixture():
         "conflicts": [],
         "limitations": ["Single database search in this fixture"],
     }
+
+
+class EvidenceSearchRequestContractTests(unittest.TestCase):
+    def test_complete_request_passes(self):
+        result = evidence_search.audit(evidence_search_fixture())
+        self.assertTrue(result["complete"])
+        self.assertEqual(result["sources"], ["pubmed", "clinicaltrials"])
+
+    def test_sensitive_egress_and_dynamic_source_fail_closed(self):
+        value = evidence_search_fixture()
+        value["sources"] = ["https://example.test/search"]
+        value["data_egress"]["contains_sensitive_data"] = True
+        result = evidence_search.audit(value)
+        self.assertFalse(result["complete"])
+        self.assertTrue(any("sources" in error for error in result["errors"]))
+        self.assertTrue(any("sensitive" in error for error in result["errors"]))
+
+    def test_unknown_fields_and_invalid_date_fail_closed(self):
+        value = evidence_search_fixture()
+        value["endpoint"] = "https://example.test"
+        value["date_from"] = "2026-02-30"
+        result = evidence_search.audit(value)
+        self.assertFalse(result["complete"])
+        self.assertTrue(any("unsupported top-level field" in error for error in result["errors"]))
+        self.assertTrue(any("date_from" in error for error in result["errors"]))
 
 
 def conceptual_fixture():

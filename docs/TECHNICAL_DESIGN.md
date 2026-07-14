@@ -171,6 +171,16 @@ app-managed OpenCode profile. The Skills page shows both the native registry aud
 the real skills OpenCode loaded. Workspace `.opencode/skills/` content is visibly
 unmanaged and never becomes a bundled product asset automatically.
 
+The first-party `heor-evidence-search` connector is deliberately not an MCP
+passthrough. The Agent writes only a validated request artifact. A native Tauri
+command re-reads and hashes those bytes, checks a fixed PubMed/ClinicalTrials.gov
+allowlist and non-sensitive egress declaration, then accepts an app-owned human
+authorization bound to that hash. The HTTP client disables redirects and uses
+fixed endpoints, bounded time/response sizes, JSON content checks, immutable
+run files, response hashes, and a separate hash-linked authorization log. No
+URL, header, credential, output path, or arbitrary upstream tool is supplied by
+the Agent.
+
 ### 6.4 MCP servers
 
 First batch: `filesystem` (project files), `paper-search-mcp` (literature), `BioMCP`

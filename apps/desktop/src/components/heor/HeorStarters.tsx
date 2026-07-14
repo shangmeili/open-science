@@ -1,10 +1,11 @@
-import { BookOpenCheck, FileSearch, Route } from "lucide-react";
+import { BookOpenCheck, FileSearch, Route, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export function HeorStarters({ onPick }: { onPick: (prompt: string) => void }) {
   const { t } = useTranslation("heor");
   const items = [
     { key: "scope" as const, icon: Route },
+    { key: "search" as const, icon: Search },
     { key: "inputs" as const, icon: FileSearch },
     { key: "audit" as const, icon: BookOpenCheck },
   ];

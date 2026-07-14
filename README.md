@@ -146,7 +146,8 @@ skills implement the admitted research workflow.
 ## Skills and connectors
 
 Only first-party core skills in `runtime/skills/core/` are bundled by default,
-including the AI4HEOR evidence, model-design, reference-case, uncertainty,
+including the AI4HEOR human-authorized PubMed/ClinicalTrials.gov evidence
+search, evidence synthesis, model-design, reference-case, uncertainty,
 budget-impact, validation, and reporting workflows. Third-party Skills and MCP
 servers are governed by a packaged admission registry: discovery candidates are
 inactive, and only a compatible, reviewed, cross-platform, hash-locked

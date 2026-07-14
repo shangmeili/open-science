@@ -8,6 +8,7 @@ export const HEOR_BUDGET_IMPACT_PLAN_PATH = "heor/budget-impact-plan.json";
 export const HEOR_MODEL_VALIDATION_PATH = "heor/model-validation.json";
 export const HEOR_REPORT_PACKAGE_PATH = "heor/report-package.json";
 export const HEOR_REPORT_DOCUMENT_PATH = "heor/report.md";
+export const HEOR_EVIDENCE_SEARCH_REQUEST_PATH = "heor/evidence-search-request.json";
 export const HEOR_BASE_CASE_RESULT_PATH = "heor/results/base-case.json";
 export const HEOR_UNCERTAINTY_RESULT_PATH = "heor/results/uncertainty.json";
 export const HEOR_BUDGET_IMPACT_RESULT_PATH = "heor/results/budget-impact.json";
@@ -257,6 +258,84 @@ export interface HeorReportingAudit {
   missingItems: string[];
   invalidItems: string[];
   errors: string[];
+}
+
+export interface HeorEvidenceSearchAudit {
+  complete: boolean;
+  status: "complete" | "incomplete";
+  requestId: string;
+  requestSha256: string;
+  query: string;
+  sources: Array<"pubmed" | "clinicaltrials">;
+  maxResultsPerSource: number | null;
+  dateFrom: string | null;
+  dateTo: string | null;
+  containsSensitiveData: boolean | null;
+  errors: string[];
+}
+
+export interface HeorEvidenceRecord {
+  recordId: string;
+  title: string;
+  locator: string;
+  sourceType: string;
+  publishedOn?: string;
+  authors?: string[];
+  doi?: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface HeorSourceSearchRun {
+  source: string;
+  endpoint: string;
+  requestUrls: string[];
+  totalCount: number;
+  fetchedCount: number;
+  responseSha256: string[];
+  records: HeorEvidenceRecord[];
+  limitations: string[];
+}
+
+export interface HeorEvidenceSearchResult {
+  schemaVersion: "0.1.0";
+  requestId: string;
+  requestSha256: string;
+  executedAt: number;
+  authorizationEventId: string;
+  outputPath: string;
+  sourceRuns: HeorSourceSearchRun[];
+  records: HeorEvidenceRecord[];
+  limitations: string[];
+}
+
+export interface HeorSearchAuthorizationRequest {
+  projectId: string;
+  requestSha256: string;
+  actorLabel: string;
+  rationale: string;
+  confirmedNoSensitiveData: true;
+}
+
+export interface HeorSearchAuthorizationEvent {
+  schemaVersion: number;
+  sequence: number;
+  eventId: string;
+  projectId: string;
+  requestSha256: string;
+  sources: string[];
+  actorLabel: string;
+  rationale: string;
+  timestamp: number;
+  outputPath: string;
+  outputSha256: string;
+  assurance: string;
+  previousHash: string | null;
+  eventHash: string;
+}
+
+export interface HeorSearchExecutionResponse {
+  result: HeorEvidenceSearchResult;
+  authorization: HeorSearchAuthorizationEvent;
 }
 
 export interface HeorAnalysisPlan {
@@ -795,6 +874,20 @@ export async function auditHeorReporting(): Promise<HeorReportingAudit> {
   return invoke<HeorReportingAudit>("audit_heor_reporting");
 }
 
+export async function auditHeorEvidenceSearch(): Promise<HeorEvidenceSearchAudit> {
+  if (!isTauri) return HEOR_BROWSER_DEMO_EVIDENCE_SEARCH_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorEvidenceSearchAudit>("audit_heor_evidence_search");
+}
+
+export async function executeHeorEvidenceSearch(
+  authorization: HeorSearchAuthorizationRequest,
+): Promise<HeorSearchExecutionResponse> {
+  if (!isTauri) throw new Error("evidence search is available only in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorSearchExecutionResponse>("execute_heor_evidence_search", { authorization });
+}
+
 export async function runHeorUncertainty(
   projectId: string,
 ): Promise<HeorUncertaintyRunResult> {
@@ -813,6 +906,20 @@ export async function runHeorBudgetImpact(
 
 /** Browser-only fixture for interaction and visual regression. Values are a
  *  workflow example, not clinical evidence and never ship into a user project. */
+export const HEOR_BROWSER_DEMO_EVIDENCE_SEARCH_AUDIT: HeorEvidenceSearchAudit = {
+  complete: true,
+  status: "complete",
+  requestId: "semaglutide-t2d-demo",
+  requestSha256: "d".repeat(64),
+  query: "semaglutide AND type 2 diabetes AND cost effectiveness",
+  sources: ["pubmed", "clinicaltrials"],
+  maxResultsPerSource: 10,
+  dateFrom: "2020-01-01",
+  dateTo: "2026-07-14",
+  containsSensitiveData: false,
+  errors: [],
+};
+
 export const HEOR_BROWSER_DEMO_PLAN: HeorAnalysisPlan = {
   schema_version: "0.1.0",
   analysis_id: "first-line-nsclc-demo",

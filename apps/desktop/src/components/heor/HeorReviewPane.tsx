@@ -10,6 +10,7 @@ import {
   MessageSquareText,
   Play,
   RefreshCw,
+  Search,
   ShieldCheck,
   X,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import {
   auditHeorBudgetImpact,
   auditHeorConceptualModel,
   auditHeorEvidence,
+  auditHeorEvidenceSearch,
   auditHeorReferenceCase,
   auditHeorUncertainty,
   auditHeorModelValidation,
@@ -35,6 +37,7 @@ import {
   HEOR_BASE_CASE_RESULT_PATH,
   HEOR_UNCERTAINTY_RESULT_PATH,
   HEOR_BUDGET_IMPACT_RESULT_PATH,
+  HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
   HEOR_PLAN_PATH,
   HEOR_REFERENCE_CASE_ASSESSMENT_PATH,
   HEOR_UNCERTAINTY_PLAN_PATH,
@@ -51,6 +54,8 @@ import {
   type HeorGate,
   type HeorReferenceCaseAudit,
   type HeorRunResult,
+  type HeorEvidenceSearchAudit,
+  type HeorSearchExecutionResponse,
   type HeorUncertaintyAudit,
   type HeorUncertaintyRunResult,
   listHeorApprovals,
@@ -58,6 +63,7 @@ import {
   parseHeorPlan,
   runHeorMarkov,
   runHeorBudgetImpact,
+  executeHeorEvidenceSearch,
   runHeorUncertainty,
   sha256Text,
 } from "@/lib/heor";
@@ -129,6 +135,11 @@ type ReportingState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorReportingAudit };
+
+type EvidenceSearchState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorEvidenceSearchAudit };
 
 type ReviewIntent = {
   action: HeorApprovalAction;
@@ -213,6 +224,10 @@ export function HeorReviewPane({
   const [budgetImpact, setBudgetImpact] = useState<BudgetImpactState>({ kind: "loading" });
   const [modelValidation, setModelValidation] = useState<ModelValidationState>({ kind: "loading" });
   const [reporting, setReporting] = useState<ReportingState>({ kind: "loading" });
+  const [evidenceSearch, setEvidenceSearch] = useState<EvidenceSearchState>({ kind: "loading" });
+  const [searchResult, setSearchResult] = useState<HeorSearchExecutionResponse | null>(null);
+  const [searchRunning, setSearchRunning] = useState(false);
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [approvals, setApprovals] = useState<HeorApprovalLog>(EMPTY_LOG);
   const [result, setResult] = useState<HeorRunResult | null>(null);
   const [uncertaintyResult, setUncertaintyResult] = useState<HeorUncertaintyRunResult | null>(null);
@@ -224,6 +239,7 @@ export function HeorReviewPane({
     setResult(null);
     setUncertaintyResult(null);
     setBudgetImpactResult(null);
+    setSearchResult(null);
     if (!project) {
       setArtifact({ kind: "missing" });
       setConceptualArtifact({ kind: "missing" });
@@ -232,6 +248,7 @@ export function HeorReviewPane({
       setBudgetImpact({ kind: "invalid", message: t("budgetImpact.noProject") });
       setModelValidation({ kind: "invalid", message: t("validation.noProject") });
       setReporting({ kind: "invalid", message: t("reporting.noProject") });
+      setEvidenceSearch({ kind: "invalid", message: t("search.noProject") });
       setApprovals(EMPTY_LOG);
       return;
     }
@@ -242,6 +259,15 @@ export function HeorReviewPane({
     setBudgetImpact({ kind: "loading" });
     setModelValidation({ kind: "loading" });
     setReporting({ kind: "loading" });
+    setEvidenceSearch({ kind: "loading" });
+    try {
+      setEvidenceSearch({ kind: "ready", audit: await auditHeorEvidenceSearch() });
+    } catch (error) {
+      setEvidenceSearch({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
     try {
       const raw = isTauri
         ? (await readArtifact(HEOR_PLAN_PATH))?.data ?? null
@@ -584,6 +610,29 @@ export function HeorReviewPane({
     }
   };
 
+  const runEvidenceSearch = async (actorLabel: string, rationale: string) => {
+    if (!project || evidenceSearch.kind !== "ready" || !evidenceSearch.audit.complete
+      || searchRunning || !isTauri) return;
+    setSearchRunning(true);
+    try {
+      const next = await executeHeorEvidenceSearch({
+        projectId: project.id,
+        requestSha256: evidenceSearch.audit.requestSha256,
+        actorLabel,
+        rationale,
+        confirmedNoSensitiveData: true,
+      });
+      setSearchResult(next);
+      setSearchDialogOpen(false);
+      setEvidenceSearch({ kind: "ready", audit: await auditHeorEvidenceSearch() });
+      toast.success(t("toast.searchComplete"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setSearchRunning(false);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col border-l border-border bg-surface">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
@@ -605,6 +654,16 @@ export function HeorReviewPane({
           currentApprovals={currentApprovals}
           hasResult={!!result || !!uncertaintyResult || !!budgetImpactResult}
         />
+
+        {project && (
+          <EvidenceSearchAssessment
+            state={evidenceSearch}
+            result={searchResult}
+            running={searchRunning}
+            onRequestDraft={() => onRequestRevision(t("search.repairPrompt"))}
+            onAuthorize={() => setSearchDialogOpen(true)}
+          />
+        )}
 
         {!project ? (
           <EmptyState title={t("panel.noProjectTitle")} body={t("panel.noProjectBody")} />
@@ -890,6 +949,14 @@ export function HeorReviewPane({
           onSubmit={(actor, rationale) => void submitReview(actor, rationale)}
         />
       )}
+      {searchDialogOpen && evidenceSearch.kind === "ready" && (
+        <SearchAuthorizationDialog
+          audit={evidenceSearch.audit}
+          running={searchRunning}
+          onCancel={() => setSearchDialogOpen(false)}
+          onSubmit={(actor, rationale) => void runEvidenceSearch(actor, rationale)}
+        />
+      )}
     </div>
   );
 }
@@ -920,6 +987,154 @@ function StageRail({ currentApprovals, hasResult }: { currentApprovals: HeorGate
             )}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function EvidenceSearchAssessment({
+  state,
+  result,
+  running,
+  onRequestDraft,
+  onAuthorize,
+}: {
+  state: EvidenceSearchState;
+  result: HeorSearchExecutionResponse | null;
+  running: boolean;
+  onRequestDraft: () => void;
+  onAuthorize: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const complete = audit?.complete === true;
+  const issues = audit?.errors ?? (state.kind === "invalid" ? [state.message] : []);
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        <Search size={16} className={complete ? "mt-0.5 text-ok" : "mt-0.5 text-warning"} />
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("search.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+            {state.kind === "loading"
+              ? t("search.loading")
+              : complete ? t("search.complete") : t("search.incomplete")}
+          </div>
+        </div>
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted">
+        {HEOR_EVIDENCE_SEARCH_REQUEST_PATH}
+      </div>
+      {audit && complete && (
+        <>
+          <p className="mt-3 break-words text-xs leading-5 text-text">{audit.query}</p>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <Metric label={t("search.sources")} value={audit.sources.join(" + ")} />
+            <Metric
+              label={t("search.range")}
+              value={`${audit.dateFrom ?? "—"} → ${audit.dateTo ?? "—"}`}
+            />
+            <Metric label={t("search.cap")} value={String(audit.maxResultsPerSource ?? "—")} />
+          </div>
+          <div className="mt-2 break-all font-mono text-[9px] text-muted">
+            {t("search.hash")} {audit.requestSha256}
+          </div>
+        </>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
+          {issues.slice(0, 4).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap gap-3">
+        {!complete && state.kind !== "loading" && (
+          <button onClick={onRequestDraft} className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
+            <MessageSquareText size={13} /> {t("search.askDraft")}
+          </button>
+        )}
+        {complete && isTauri && (
+          <button
+            disabled={running}
+            onClick={onAuthorize}
+            className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline disabled:opacity-50"
+          >
+            {running ? <Loader2 size={13} className="animate-spin" /> : <LockKeyhole size={13} />}
+            {running ? t("search.running") : t("search.authorize")}
+          </button>
+        )}
+      </div>
+      {result && (
+        <div className="mt-4 rounded-input border border-ok/30 bg-ok/5 p-3">
+          <div className="text-xs font-semibold text-ok">{t("search.result")}</div>
+          <div className="mt-2 grid grid-cols-2 gap-2 text-center">
+            <Metric label={t("search.records")} value={String(result.result.records.length)} />
+            <Metric
+              label={t("search.sourceRuns")}
+              value={result.result.sourceRuns.map((run) => `${run.source}: ${run.fetchedCount}`).join(" · ")}
+            />
+          </div>
+          <div className="mt-2 break-all font-mono text-[9px] text-muted">
+            {result.result.outputPath} · {result.authorization.eventHash.slice(0, 12)}…
+          </div>
+        </div>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("search.note")}</p>
+    </section>
+  );
+}
+
+function SearchAuthorizationDialog({
+  audit,
+  running,
+  onCancel,
+  onSubmit,
+}: {
+  audit: HeorEvidenceSearchAudit;
+  running: boolean;
+  onCancel: () => void;
+  onSubmit: (actor: string, rationale: string) => void;
+}) {
+  const { t } = useTranslation("heor");
+  const [actor, setActor] = useState("");
+  const [rationale, setRationale] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const valid = actor.trim().length > 0 && rationale.trim().length > 1 && confirmed && !running;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && !running && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, running]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => !running && onCancel()} role="presentation">
+      <div role="dialog" aria-modal="true" aria-label={t("search.dialogTitle")} className="w-full max-w-md rounded-card border border-border bg-surface p-5 shadow-card" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center gap-2 text-sm font-semibold text-text">
+          <LockKeyhole size={17} className="text-accent" /> {t("search.dialogTitle")}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          {t("search.dialogBody", { hash: `${audit.requestSha256.slice(0, 12)}…` })}
+        </p>
+        <div className="mt-3 rounded-input border border-border bg-bg p-3 text-xs leading-5 text-text">
+          <div className="break-words">{audit.query}</div>
+          <div className="mt-1 font-mono text-[10px] text-muted">{audit.sources.join(" + ")}</div>
+        </div>
+        <label className="mt-4 block text-xs font-medium text-text">
+          {t("dialog.actor")}
+          <input value={actor} onChange={(event) => setActor(event.target.value)} autoFocus placeholder={t("dialog.actorPlaceholder")} className="mt-1.5 w-full rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent" />
+        </label>
+        <label className="mt-3 block text-xs font-medium text-text">
+          {t("dialog.rationale")}
+          <textarea value={rationale} onChange={(event) => setRationale(event.target.value)} placeholder={t("search.rationalePlaceholder")} rows={3} className="mt-1.5 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent" />
+        </label>
+        <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-text">
+          <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 accent-[var(--color-accent)]" />
+          <span>{t("search.confirm")}</span>
+        </label>
+        <div className="mt-5 flex justify-end gap-2">
+          <button disabled={running} onClick={onCancel} className="rounded-input border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-surface-2 disabled:opacity-40">{t("dialog.cancel")}</button>
+          <button disabled={!valid} onClick={() => onSubmit(actor.trim(), rationale.trim())} className="rounded-input bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40">{running ? t("search.running") : t("search.execute")}</button>
+        </div>
       </div>
     </div>
   );

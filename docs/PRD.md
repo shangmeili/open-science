@@ -168,11 +168,18 @@ User options: Approve · Edit Plan · Run Step by Step · Cancel.
 
 #### 5.1.5 Literature search
 
-v1 sources: arXiv, PubMed, Crossref, OpenAlex, Semantic Scholar (optional API key),
-local PDF import.
+AI4HEOR alpha ships a narrower, verified HEOR path: natural-language drafting
+of an exact request followed by app-owned human authorization for fixed PubMed
+and ClinicalTrials.gov metadata endpoints. The Agent cannot make the network
+call. Each run binds request and response hashes, preserves source limitations,
+and imports records only as `not_assessed` candidates for later screening and
+appraisal.
 
-Features: keyword search; filter by year and source; dedup; export `corpus.csv`; save
-search logs; record data-source limits.
+The broader platform backlog—arXiv, Crossref, OpenAlex, Semantic Scholar, local
+PDF import, deduplication, `corpus.csv`, and BibTeX export—remains planned. It is
+not represented as an AI4HEOR production capability. OpenAlex currently needs
+an API key, so it requires a separate credential and consent flow before
+admission.
 
 #### 5.1.6 Skills library
 

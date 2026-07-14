@@ -9,6 +9,7 @@
     "title": "Start with the research question",
     "body": "The agent structures the analysis, researches evidence, and maintains auditable files. You review assumptions and approve gates; forms stay secondary.",
     "scope": { "title": "Frame a cost-effectiveness study", "body": "Define population, intervention, comparator, perspective, horizon, and outcome.", "prompt": "Help me frame a cost-effectiveness study. Start by identifying the decision problem and only ask questions that would materially change the analysis." },
+    "search": { "title": "Draft an evidence search", "body": "Prepare an exact public-source query for human-authorized retrieval.", "prompt": "Use $heor-evidence-search to draft heor/evidence-search-request.json for the current evidence gap. Do not make a network call. Use only PubMed and ClinicalTrials.gov, disclose the exact egress fields, validate the request, and leave execution for my explicit review in the AI4HEOR pane." },
     "inputs": { "title": "Research model inputs", "body": "Find current evidence, extract values, and keep sources separate from assumptions.", "prompt": "Help me research inputs for a pharmacoeconomic model. First identify the decision question and evidence gaps; keep sourced values separate from assumptions." },
     "audit": { "title": "Audit an existing plan", "body": "Check structure, evidence traceability, unsupported inputs, and reference-case gaps.", "prompt": "Audit the current HEOR analysis plan for structure, traceability, unsupported inputs, and reference-case gaps. Do not create approvals." }
   },
@@ -85,6 +86,30 @@
     "askRepair": "Ask agent to design or repair the model",
     "repairPrompt": "Use $heor-model-design to create or repair heor/conceptual-model.json for the current decision problem. Preserve structural alternatives and uncertainty, run the deterministic validator, and do not create or claim human approval.",
     "note": "The app audits this independent artifact. Structural completeness permits human review; it does not establish model validity."
+  },
+  "search": {
+    "title": "Human-authorized evidence search",
+    "loading": "Auditing the search request…",
+    "complete": "Exact request is ready for human authorization",
+    "incomplete": "Search request is missing or blocked",
+    "sources": "Public sources",
+    "range": "Date range",
+    "cap": "Per-source cap",
+    "hash": "Request SHA-256",
+    "askDraft": "Ask Agent to draft or repair the request",
+    "repairPrompt": "Use $heor-evidence-search to draft or repair heor/evidence-search-request.json for the current evidence gap. Do not make a network call. Use only PubMed and ClinicalTrials.gov, disclose exactly query, date_from, and date_to as non-sensitive egress, run the portable validator, and leave execution for my explicit review in the AI4HEOR pane.",
+    "authorize": "Review and authorize exact search",
+    "running": "Searching public metadata…",
+    "result": "Candidate metadata retrieved",
+    "records": "Candidate records",
+    "sourceRuns": "Retrieved by source",
+    "note": "The Agent drafts the request; only the desktop app can send the reviewed public query. Retrieved metadata remains not_assessed candidate evidence—not inclusion, appraisal, extraction, or proof of review completeness.",
+    "dialogTitle": "Authorize this exact public search?",
+    "dialogBody": "The app will bind a local human network-authorization event to request {{hash}} and send only the declared query and dates to fixed public endpoints.",
+    "rationalePlaceholder": "Why this exact query and source set are appropriate for the evidence gap",
+    "confirm": "I reviewed the exact query and sources and confirm they contain no personal, patient-level, confidential, or other sensitive data",
+    "execute": "Authorize and search",
+    "noProject": "There is no current project for an evidence-search request."
   },
   "evidence": {
     "title": "Input traceability",
@@ -252,6 +277,7 @@
     "runComplete": "Deterministic analysis complete",
     "uncertaintyRunComplete": "Uncertainty analysis complete",
     "budgetImpactRunComplete": "Budget impact analysis complete",
+    "searchComplete": "Human-authorized evidence search complete",
     "loadFailed": "Could not read the AI4HEOR workflow",
     "actionFailed": "AI4HEOR action failed"
   }

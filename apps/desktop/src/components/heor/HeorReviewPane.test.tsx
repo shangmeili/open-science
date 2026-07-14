@@ -19,6 +19,11 @@ describe("AI4HEOR human review pane", () => {
     expect(
       await screen.findByText("Cost-effectiveness of a new first-line treatment for advanced NSCLC"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Human-authorized evidence search")).toBeInTheDocument();
+    expect(screen.getByText("Exact request is ready for human authorization")).toBeInTheDocument();
+    expect(screen.getByText("semaglutide AND type 2 diabetes AND cost effectiveness")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Review and authorize exact search" }))
+      .not.toBeInTheDocument();
     expect(screen.getByText("Evidence audit incomplete")).toBeInTheDocument();
     expect(screen.getByText("Structural audit complete")).toBeInTheDocument();
     expect(screen.getAllByText("0/14")).toHaveLength(2);
