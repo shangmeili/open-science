@@ -16,9 +16,10 @@ description: Prepare, audit, and explain a hash-bound independent-validation rep
 7. Preserve failed checks and defects. Link failures to issues, record root cause and retest evidence, and mark an issue resolved only when the evidence supports it.
 8. For analysis `0.9.0`, require independent checks of annual-probability-to-cycle hazard scaling, subannual attained-age alignment, exact life-table and excess-rate bases, two-state absorption, and full schedule recomputation. Require scientific review of population exchangeability, no double counting, and the unimplemented multiplicative/SMR alternative. Confirm uncertainty `0.8.0` varies only the exact positive excess rate while the life table and transformation internals remain fixed.
 9. For analysis `0.10.0`, independently recompute every RR/OR-treated probability and complete two-state schedule. Check exact baseline/effect bases, interval equality, at least one positive baseline, RR risk ceiling, absorbing event state, and endpoint, population, and constant-effect review bases. Confirm uncertainty `0.9.0` varies only the effect with measure-specific support and keeps all transformation internals fixed.
-9. Leave reviewer identity, independence declaration, conflict statement, independent observations, and final recommendation for the qualified independent human reviewer. Codex may structure incomplete placeholders but must not invent them.
-10. Run `python3 scripts/validate_model_validation.py WORKSPACE/heor/model-validation.json WORKSPACE`. Treat `valid` as structural readiness only.
-11. Ask the independent reviewer to inspect the report and use the desktop approval surface. Never write approval events.
+10. For analysis `0.11.0`, independently recompute every HR-treated probability from cumulative-hazard increments and the complete two-state schedule. Check exact hazard/HR bases, monotonicity, at least one positive increment, absorbing event state, and all five review bases. Confirm uncertainty `0.10.0` varies only the HR with bounded positive support and keeps every transformation internal fixed.
+11. Leave reviewer identity, independence declaration, conflict statement, independent observations, and final recommendation for the qualified independent human reviewer. Codex may structure incomplete placeholders but must not invent them.
+12. Run `python3 scripts/validate_model_validation.py WORKSPACE/heor/model-validation.json WORKSPACE`. Treat `valid` as structural readiness only.
+13. Ask the independent reviewer to inspect the report and use the desktop approval surface. Never write approval events.
 
 ## Boundaries
 

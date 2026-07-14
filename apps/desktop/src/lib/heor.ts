@@ -195,6 +195,25 @@ export interface HeorRelativeEffectTransformation {
   };
 }
 
+export interface HeorHazardRatioTransformation {
+  operation: "hazard_ratio_to_transition_schedule";
+  cycle_length_years: number;
+  from_state_index: number;
+  event_state_index: number;
+  baseline_cumulative_hazards: Array<{
+    cycle: number;
+    cumulative_hazard: { value: number } & HeorTransformationBasis;
+  }>;
+  hazard_ratio: { value: number } & HeorTransformationBasis;
+  review_bases: {
+    endpoint_alignment: HeorTransformationBasis;
+    population_transportability: HeorTransformationBasis;
+    proportional_hazards_assumption: HeorTransformationBasis;
+    effect_constancy_over_horizon: HeorTransformationBasis;
+    treatment_switching_assessment: HeorTransformationBasis;
+  };
+}
+
 export interface HeorInputProvenance {
   path: string;
   source_ids?: string[];
@@ -221,7 +240,7 @@ export interface HeorInputProvenance {
     model_value: unknown;
     transformation?: HeorTransitionRateTransformation | HeorSurvivalCurveTransformation
       | HeorProbabilityTimeTransformation | HeorBackgroundMortalityTransformation
-      | HeorRelativeEffectTransformation;
+      | HeorRelativeEffectTransformation | HeorHazardRatioTransformation;
   };
   selection_rationale: string;
   uncertainty_status: "fixed" | "range_available" | "distribution_available";
@@ -585,7 +604,7 @@ export interface HeorEvidenceVerificationRequest {
 }
 
 export interface HeorAnalysisPlan {
-  schema_version: "0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0" | "0.10.0";
+  schema_version: "0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0";
   analysis_id: string;
   economic_basis?: { currency: string; price_year: number };
   input_status?: string;
@@ -855,8 +874,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseHeorPlan(raw: string): HeorAnalysisPlan {
   const value: unknown = JSON.parse(raw);
   if (!isRecord(value)) throw new Error("analysis plan must be a JSON object");
-  if (!["0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0"].includes(String(value.schema_version))) {
-    throw new Error("analysis plan schema_version must be 0.1.0 through 0.10.0");
+  if (!["0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0"].includes(String(value.schema_version))) {
+    throw new Error("analysis plan schema_version must be 0.1.0 through 0.11.0");
   }
   if (typeof value.analysis_id !== "string" || !value.analysis_id.trim()) {
     throw new Error("analysis plan must include analysis_id");
@@ -868,7 +887,7 @@ export function parseHeorPlan(raw: string): HeorAnalysisPlan {
     throw new Error("analysis plan must include reference_case and strategies");
   }
   const parsedStrategies = value.strategies;
-  if (value.schema_version === "0.8.0" || value.schema_version === "0.9.0" || value.schema_version === "0.10.0") {
+  if (value.schema_version === "0.8.0" || value.schema_version === "0.9.0" || value.schema_version === "0.10.0" || value.schema_version === "0.11.0") {
     if (!Array.isArray(value.strategy_order)
       || value.strategy_order.length < 2 || value.strategy_order.length > 16
       || !value.strategy_order.every((item) => typeof item === "string"
@@ -915,7 +934,7 @@ const BASE_INPUT_PATHS = [
 ] as const;
 
 function strategyIds(plan: HeorAnalysisPlan): string[] {
-  return plan.schema_version === "0.8.0" || plan.schema_version === "0.9.0" || plan.schema_version === "0.10.0"
+  return plan.schema_version === "0.8.0" || plan.schema_version === "0.9.0" || plan.schema_version === "0.10.0" || plan.schema_version === "0.11.0"
     ? [...(plan.strategy_order ?? [])]
     : ["comparator", "intervention"];
 }
@@ -981,8 +1000,8 @@ function transitionRateReasons(
   assumptionIds: string[],
 ): string[] {
   const reasons: string[] = [];
-  if (!(plan.schema_version === "0.5.0" || plan.schema_version === "0.8.0" || plan.schema_version === "0.9.0" || plan.schema_version === "0.10.0")) {
-    reasons.push("deterministic transition-rate transformations require schema_version 0.5.0, 0.8.0, 0.9.0, or 0.10.0");
+  if (!(plan.schema_version === "0.5.0" || plan.schema_version === "0.8.0" || plan.schema_version === "0.9.0" || plan.schema_version === "0.10.0" || plan.schema_version === "0.11.0")) {
+    reasons.push("deterministic transition-rate transformations require schema_version 0.5.0 through 0.11.0");
   }
   if (!(
     mapping.path.endsWith(".transition_matrix")
@@ -1120,8 +1139,8 @@ function survivalCurveReasons(
   assumptionIds: string[],
 ): string[] {
   const reasons: string[] = [];
-  if (!(plan.schema_version === "0.6.0" || plan.schema_version === "0.8.0" || plan.schema_version === "0.9.0" || plan.schema_version === "0.10.0")) {
-    reasons.push("parametric survival transformations require schema_version 0.6.0, 0.8.0, 0.9.0, or 0.10.0");
+  if (!(plan.schema_version === "0.6.0" || plan.schema_version === "0.8.0" || plan.schema_version === "0.9.0" || plan.schema_version === "0.10.0" || plan.schema_version === "0.11.0")) {
+    reasons.push("parametric survival transformations require schema_version 0.6.0 through 0.11.0");
   }
   if (!/^strategies\.[a-z][a-z0-9_-]{0,63}\.transition_schedule$/.test(mapping.path)) {
     return [...reasons, "parametric survival transformation is allowed only for a transition schedule"];
@@ -1251,8 +1270,8 @@ function probabilityTimeReasons(
   assumptionIds: string[],
 ): string[] {
   const reasons: string[] = [];
-  if (!(plan.schema_version === "0.7.0" || plan.schema_version === "0.8.0" || plan.schema_version === "0.9.0" || plan.schema_version === "0.10.0")) {
-    reasons.push("probability-time transformations require schema_version 0.7.0, 0.8.0, 0.9.0, or 0.10.0");
+  if (!(plan.schema_version === "0.7.0" || plan.schema_version === "0.8.0" || plan.schema_version === "0.9.0" || plan.schema_version === "0.10.0" || plan.schema_version === "0.11.0")) {
+    reasons.push("probability-time transformations require schema_version 0.7.0 through 0.11.0");
   }
   if (!transitionPath(mapping.path)) {
     return [...reasons, "probability-time transformation is allowed only for transition inputs"];
@@ -1443,8 +1462,8 @@ function backgroundMortalityReasons(
   assumptionIds: string[],
 ): string[] {
   const reasons: string[] = [];
-  if (plan.schema_version !== "0.9.0" && plan.schema_version !== "0.10.0") {
-    reasons.push("background mortality transformations require schema_version 0.9.0 or 0.10.0");
+  if (plan.schema_version !== "0.9.0" && plan.schema_version !== "0.10.0" && plan.schema_version !== "0.11.0") {
+    reasons.push("background mortality transformations require schema_version 0.9.0 through 0.11.0");
   }
   if (!mapping.path.endsWith(".transition_schedule")) {
     return [...reasons, "background mortality transformation is allowed only for a transition schedule"];
@@ -1607,8 +1626,8 @@ function relativeEffectReasons(
   assumptionIds: string[],
 ): string[] {
   const reasons: string[] = [];
-  if (plan.schema_version !== "0.10.0") {
-    reasons.push("relative-effect transformations require schema_version 0.10.0");
+  if (plan.schema_version !== "0.10.0" && plan.schema_version !== "0.11.0") {
+    reasons.push("relative-effect transformations require schema_version 0.10.0 or 0.11.0");
   }
   if (!mapping.path.endsWith(".transition_schedule")) {
     return [...reasons, "relative-effect transformation is allowed only for a transition schedule"];
@@ -1722,6 +1741,129 @@ function relativeEffectReasons(
   return reasons;
 }
 
+function hazardRatioReasons(
+  plan: HeorAnalysisPlan,
+  mapping: HeorInputProvenance,
+  extractionIds: string[],
+  assumptionIds: string[],
+): string[] {
+  const reasons: string[] = [];
+  if (plan.schema_version !== "0.11.0") {
+    reasons.push("hazard-ratio transformations require schema_version 0.11.0");
+  }
+  if (!mapping.path.endsWith(".transition_schedule")) {
+    return [...reasons, "hazard-ratio transformation is allowed only for a transition schedule"];
+  }
+  const transformation = mapping.derivation.transformation;
+  if (!isRecord(transformation)) return [...reasons, "derivation.transformation must be an object"];
+  const fields = [
+    "operation", "cycle_length_years", "from_state_index", "event_state_index",
+    "baseline_cumulative_hazards", "hazard_ratio", "review_bases",
+  ].sort();
+  if (!jsonEquivalent(Object.keys(transformation).sort(), fields)) {
+    reasons.push("hazard-ratio transformation fields are not the exact supported contract");
+  }
+  if (transformation.operation !== "hazard_ratio_to_transition_schedule") {
+    reasons.push("transformation.operation must be hazard_ratio_to_transition_schedule");
+  }
+  if (plan.states.length !== 2) reasons.push("hazard-ratio transformation requires exactly two states");
+  if (!Number.isInteger(plan.cycles) || plan.cycles < 1 || plan.cycles > 10_000) {
+    reasons.push("hazard-ratio transformation supports 1-10000 cycles");
+  }
+  const cycleLength = transformation.cycle_length_years;
+  if (!finiteNumber(cycleLength) || cycleLength <= 0
+    || Math.abs(cycleLength - plan.cycle_length_years) > 1e-12) {
+    reasons.push("transformation.cycle_length_years must equal the analysis cycle length");
+  }
+  const fromIndex = transformation.from_state_index;
+  const eventIndex = transformation.event_state_index;
+  const numericFromIndex = typeof fromIndex === "number" ? fromIndex : Number.NaN;
+  const numericEventIndex = typeof eventIndex === "number" ? eventIndex : Number.NaN;
+  const validIndices = Number.isInteger(numericFromIndex) && Number.isInteger(numericEventIndex)
+    && numericFromIndex !== numericEventIndex && [numericFromIndex, numericEventIndex].includes(0)
+    && [numericFromIndex, numericEventIndex].includes(1);
+  if (!validIndices) {
+    reasons.push("from_state_index and event_state_index must be the two distinct state indices");
+  }
+  const usedExtractions = new Set<string>();
+  const usedAssumptions = new Set<string>();
+  const hazardRatio = backgroundMortalityBasis(
+    transformation.hazard_ratio, "transformation.hazard_ratio", true,
+    usedExtractions, usedAssumptions, reasons,
+  );
+  if (hazardRatio === null || hazardRatio <= 0) {
+    reasons.push("transformation.hazard_ratio.value must be finite and positive");
+  }
+  const reviewBases = transformation.review_bases;
+  const reviewNames = [
+    "effect_constancy_over_horizon", "endpoint_alignment", "population_transportability",
+    "proportional_hazards_assumption", "treatment_switching_assessment",
+  ];
+  if (!isRecord(reviewBases) || !jsonEquivalent(Object.keys(reviewBases).sort(), reviewNames)) {
+    reasons.push("transformation.review_bases fields are not the exact supported contract");
+  } else {
+    reviewNames.forEach((name) => {
+      backgroundMortalityBasis(
+        reviewBases[name], `transformation.review_bases.${name}`, false,
+        usedExtractions, usedAssumptions, reasons,
+      );
+    });
+  }
+  const baseline = transformation.baseline_cumulative_hazards;
+  if (!Array.isArray(baseline) || baseline.length !== plan.cycles) {
+    return [...reasons, "transformation.baseline_cumulative_hazards must cover every model cycle"];
+  }
+  let previousHazard = 0;
+  let anyPositive = false;
+  const output: Array<{ start_cycle: number; matrix: number[][] }> = [];
+  baseline.forEach((entry, index) => {
+    const label = `transformation.baseline_cumulative_hazards[${index}]`;
+    if (!isRecord(entry)
+      || !jsonEquivalent(Object.keys(entry).sort(), ["cumulative_hazard", "cycle"])) {
+      reasons.push(`${label} fields are not the exact supported contract`);
+      return;
+    }
+    if (entry.cycle !== index + 1) reasons.push(`${label}.cycle must equal ${index + 1}`);
+    const cumulativeHazard = backgroundMortalityBasis(
+      entry.cumulative_hazard, `${label}.cumulative_hazard`, true,
+      usedExtractions, usedAssumptions, reasons,
+    );
+    if (cumulativeHazard === null || cumulativeHazard < 0) {
+      reasons.push(`${label}.cumulative_hazard.value must be finite and non-negative`);
+      return;
+    }
+    if (cumulativeHazard + 1e-12 < previousHazard) {
+      reasons.push("baseline_cumulative_hazards must be non-decreasing across cycles");
+      return;
+    }
+    const increment = Math.max(0, cumulativeHazard - previousHazard);
+    anyPositive ||= increment > 1e-12;
+    previousHazard = cumulativeHazard;
+    if (hazardRatio === null || hazardRatio <= 0 || !validIndices) return;
+    const eventProbability = -Math.expm1(-hazardRatio * increment);
+    if (!Number.isFinite(eventProbability) || eventProbability < 0 || eventProbability >= 1) {
+      reasons.push(`${label} produced a non-finite or invalid event probability`);
+      return;
+    }
+    const matrix = [[0, 0], [0, 0]];
+    matrix[numericFromIndex][numericFromIndex] = 1 - eventProbability;
+    matrix[numericFromIndex][numericEventIndex] = eventProbability;
+    matrix[numericEventIndex][numericEventIndex] = 1;
+    output.push({ start_cycle: index + 1, matrix });
+  });
+  if (!anyPositive) reasons.push("baseline_cumulative_hazards must contain at least one positive increment");
+  if (output.length !== plan.cycles || !jsonEquivalent(output, modelValue(plan, mapping.path))) {
+    reasons.push("hazard ratio does not reproduce the current transition schedule");
+  }
+  if (!sameStringSet(usedExtractions, new Set(extractionIds))) {
+    reasons.push("transformation must use every selected extraction exactly as declared");
+  }
+  if (!sameStringSet(usedAssumptions, new Set(assumptionIds))) {
+    reasons.push("transformation must use every proposed assumption exactly as declared");
+  }
+  return reasons;
+}
+
 function derivationReasons(
   plan: HeorAnalysisPlan,
   mapping: HeorInputProvenance,
@@ -1750,6 +1892,8 @@ function derivationReasons(
       reasons.push(...backgroundMortalityReasons(plan, mapping, extractionIds, assumptionIds));
     } else if (operation === "relative_effect_to_transition_schedule") {
       reasons.push(...relativeEffectReasons(plan, mapping, extractionIds, assumptionIds));
+    } else if (operation === "hazard_ratio_to_transition_schedule") {
+      reasons.push(...hazardRatioReasons(plan, mapping, extractionIds, assumptionIds));
     } else {
       reasons.push("deterministic transformation operation is unsupported");
     }
@@ -2063,8 +2207,9 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
   if (!(plan.schema_version === "0.3.0" || plan.schema_version === "0.4.0"
     || plan.schema_version === "0.5.0" || plan.schema_version === "0.6.0"
     || plan.schema_version === "0.7.0" || plan.schema_version === "0.8.0"
-    || plan.schema_version === "0.9.0" || plan.schema_version === "0.10.0")) {
-    invalidMappings.push("schema_version must be 0.3.0 through 0.10.0 for approval review");
+    || plan.schema_version === "0.9.0" || plan.schema_version === "0.10.0"
+    || plan.schema_version === "0.11.0")) {
+    invalidMappings.push("schema_version must be 0.3.0 through 0.11.0 for approval review");
   }
   for (const role of strategyIds(plan)) {
     const strategy = plan.strategies[role];
@@ -2082,9 +2227,9 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
     if (hasSchedule && !(plan.schema_version === "0.4.0" || plan.schema_version === "0.5.0"
       || plan.schema_version === "0.6.0" || plan.schema_version === "0.7.0"
       || plan.schema_version === "0.8.0" || plan.schema_version === "0.9.0"
-      || plan.schema_version === "0.10.0")) {
+      || plan.schema_version === "0.10.0" || plan.schema_version === "0.11.0")) {
       invalidMappings.push(
-        `strategies.${role}.transition_schedule requires schema_version 0.4.0 through 0.10.0`,
+        `strategies.${role}.transition_schedule requires schema_version 0.4.0 through 0.11.0`,
       );
     }
   }

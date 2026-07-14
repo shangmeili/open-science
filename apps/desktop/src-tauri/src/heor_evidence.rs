@@ -71,7 +71,7 @@ fn strategy_ids(plan: &serde_json::Value) -> Vec<&str> {
     if matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.8.0" | "0.9.0" | "0.10.0")
+        Some("0.8.0" | "0.9.0" | "0.10.0" | "0.11.0")
     ) {
         return plan
             .get("strategy_order")
@@ -697,6 +697,214 @@ fn derive_relative_effect_schedule(
     ))
 }
 
+fn derive_hazard_ratio_schedule(
+    plan: &serde_json::Value,
+    path: &str,
+    transformation: &serde_json::Value,
+) -> Result<(serde_json::Value, HashSet<String>, HashSet<String>), String> {
+    if !path.ends_with(".transition_schedule") {
+        return Err("hazard-ratio transformation is allowed only for a transition schedule".into());
+    }
+    let transformation = transformation
+        .as_object()
+        .ok_or("derivation.transformation must be an object")?;
+    if !exact_fields(
+        transformation,
+        &[
+            "operation",
+            "cycle_length_years",
+            "from_state_index",
+            "event_state_index",
+            "baseline_cumulative_hazards",
+            "hazard_ratio",
+            "review_bases",
+        ],
+    ) {
+        return Err(
+            "hazard-ratio transformation fields are not the exact supported contract".into(),
+        );
+    }
+    if transformation
+        .get("operation")
+        .and_then(serde_json::Value::as_str)
+        != Some("hazard_ratio_to_transition_schedule")
+    {
+        return Err("transformation.operation must be hazard_ratio_to_transition_schedule".into());
+    }
+    let state_count = plan
+        .get("states")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::len)
+        .unwrap_or_default();
+    if state_count != 2 {
+        return Err("hazard-ratio transformation requires exactly two states".into());
+    }
+    let cycles = plan
+        .get("cycles")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .filter(|value| (1..=10_000).contains(value))
+        .ok_or("hazard-ratio transformation supports 1-10000 cycles")?;
+    let plan_cycle = plan
+        .get("cycle_length_years")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("analysis cycle_length_years is invalid")?;
+    let declared_cycle = transformation
+        .get("cycle_length_years")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("transformation.cycle_length_years must be finite and positive")?;
+    if (declared_cycle - plan_cycle).abs() > 1e-12 {
+        return Err(
+            "transformation.cycle_length_years must equal the analysis cycle length".into(),
+        );
+    }
+    let from_index = transformation
+        .get("from_state_index")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok());
+    let event_index = transformation
+        .get("event_state_index")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok());
+    if !matches!(
+        (from_index, event_index),
+        (Some(0), Some(1)) | (Some(1), Some(0))
+    ) {
+        return Err(
+            "from_state_index and event_state_index must be the two distinct state indices".into(),
+        );
+    }
+    let from_index = from_index.unwrap();
+    let event_index = event_index.unwrap();
+    let mut used_extractions = HashSet::new();
+    let mut used_assumptions = HashSet::new();
+    let hazard_ratio = transformation
+        .get("hazard_ratio")
+        .and_then(serde_json::Value::as_object)
+        .ok_or("transformation.hazard_ratio must be an object")?;
+    let hazard_ratio_value = hazard_ratio
+        .get("value")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("transformation.hazard_ratio.value must be finite and positive")?;
+    collect_exact_basis(
+        hazard_ratio,
+        "transformation.hazard_ratio",
+        Some("value"),
+        &mut used_extractions,
+        &mut used_assumptions,
+    )?;
+    let review_bases = transformation
+        .get("review_bases")
+        .and_then(serde_json::Value::as_object)
+        .ok_or("transformation.review_bases must be an object")?;
+    let review_names = [
+        "endpoint_alignment",
+        "population_transportability",
+        "proportional_hazards_assumption",
+        "effect_constancy_over_horizon",
+        "treatment_switching_assessment",
+    ];
+    if !exact_fields(review_bases, &review_names) {
+        return Err(
+            "transformation.review_bases fields are not the exact supported contract".into(),
+        );
+    }
+    for name in review_names {
+        let basis = review_bases
+            .get(name)
+            .and_then(serde_json::Value::as_object)
+            .ok_or_else(|| format!("transformation.review_bases.{name} must be an object"))?;
+        collect_exact_basis(
+            basis,
+            &format!("transformation.review_bases.{name}"),
+            None,
+            &mut used_extractions,
+            &mut used_assumptions,
+        )?;
+    }
+    let baseline = transformation
+        .get("baseline_cumulative_hazards")
+        .and_then(serde_json::Value::as_array)
+        .filter(|items| items.len() == cycles)
+        .ok_or("transformation.baseline_cumulative_hazards must cover every model cycle")?;
+    let mut previous_hazard = 0.0;
+    let mut any_positive = false;
+    let mut schedule = Vec::with_capacity(cycles);
+    for (index, entry) in baseline.iter().enumerate() {
+        let label = format!("transformation.baseline_cumulative_hazards[{index}]");
+        let entry = entry
+            .as_object()
+            .ok_or_else(|| format!("{label} must be an object"))?;
+        if !exact_fields(entry, &["cycle", "cumulative_hazard"]) {
+            return Err(format!(
+                "{label} fields are not the exact supported contract"
+            ));
+        }
+        let cycle = index + 1;
+        if entry
+            .get("cycle")
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| usize::try_from(value).ok())
+            != Some(cycle)
+        {
+            return Err(format!("{label}.cycle must equal {cycle}"));
+        }
+        let cumulative_hazard = entry
+            .get("cumulative_hazard")
+            .and_then(serde_json::Value::as_object)
+            .ok_or_else(|| format!("{label}.cumulative_hazard must be an object"))?;
+        let cumulative_hazard_value = cumulative_hazard
+            .get("value")
+            .and_then(serde_json::Value::as_f64)
+            .filter(|value| value.is_finite() && *value >= 0.0)
+            .ok_or_else(|| {
+                format!("{label}.cumulative_hazard.value must be finite and non-negative")
+            })?;
+        collect_exact_basis(
+            cumulative_hazard,
+            &format!("{label}.cumulative_hazard"),
+            Some("value"),
+            &mut used_extractions,
+            &mut used_assumptions,
+        )?;
+        if cumulative_hazard_value + 1e-12 < previous_hazard {
+            return Err("baseline_cumulative_hazards must be non-decreasing across cycles".into());
+        }
+        let increment = (cumulative_hazard_value - previous_hazard).max(0.0);
+        any_positive |= increment > 1e-12;
+        let integrated_hazard = hazard_ratio_value * increment;
+        let event_probability = -(-integrated_hazard).exp_m1();
+        if !integrated_hazard.is_finite()
+            || integrated_hazard < 0.0
+            || !event_probability.is_finite()
+            || !(0.0..1.0).contains(&event_probability)
+        {
+            return Err(format!(
+                "{label} produced a non-finite or invalid event probability"
+            ));
+        }
+        let mut matrix = vec![vec![0.0; 2]; 2];
+        matrix[from_index][from_index] = 1.0 - event_probability;
+        matrix[from_index][event_index] = event_probability;
+        matrix[event_index][event_index] = 1.0;
+        schedule.push(serde_json::json!({"start_cycle": cycle, "matrix": matrix}));
+        previous_hazard = cumulative_hazard_value;
+    }
+    if !any_positive {
+        return Err(
+            "baseline_cumulative_hazards must contain at least one positive increment".into(),
+        );
+    }
+    Ok((
+        serde_json::Value::Array(schedule),
+        used_extractions,
+        used_assumptions,
+    ))
+}
+
 fn derive_competing_rates(
     plan: &serde_json::Value,
     path: &str,
@@ -1310,10 +1518,10 @@ fn transition_rate_declaration_reasons(
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.5.0" | "0.8.0" | "0.9.0" | "0.10.0")
+        Some("0.5.0" | "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0")
     ) {
         return vec![
-            "deterministic transition-rate transformations require schema_version 0.5.0, 0.8.0, 0.9.0, or 0.10.0"
+            "deterministic transition-rate transformations require schema_version 0.5.0 through 0.11.0"
                 .into(),
         ];
     }
@@ -1361,10 +1569,10 @@ fn survival_curve_declaration_reasons(
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.6.0" | "0.8.0" | "0.9.0" | "0.10.0")
+        Some("0.6.0" | "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0")
     ) {
         return vec![
-            "parametric survival transformations require schema_version 0.6.0, 0.8.0, 0.9.0, or 0.10.0"
+            "parametric survival transformations require schema_version 0.6.0 through 0.11.0"
                 .into(),
         ];
     }
@@ -1410,10 +1618,10 @@ fn probability_time_declaration_reasons(
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.7.0" | "0.8.0" | "0.9.0" | "0.10.0")
+        Some("0.7.0" | "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0")
     ) {
         return vec![
-            "probability-time transformations require schema_version 0.7.0, 0.8.0, 0.9.0, or 0.10.0".into(),
+            "probability-time transformations require schema_version 0.7.0 through 0.11.0".into(),
         ];
     }
     if !transition_path(path) {
@@ -1461,10 +1669,11 @@ fn background_mortality_declaration_reasons(
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        .is_none_or(|version| !matches!(version, "0.9.0" | "0.10.0"))
+        .is_none_or(|version| !matches!(version, "0.9.0" | "0.10.0" | "0.11.0"))
     {
         return vec![
-            "background mortality transformations require schema_version 0.9.0 or 0.10.0".into(),
+            "background mortality transformations require schema_version 0.9.0 through 0.11.0"
+                .into(),
         ];
     }
     let Some(transformation) = derivation.get("transformation") else {
@@ -1513,9 +1722,11 @@ fn relative_effect_declaration_reasons(
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        != Some("0.10.0")
+        .is_none_or(|version| !matches!(version, "0.10.0" | "0.11.0"))
     {
-        return vec!["relative-effect transformations require schema_version 0.10.0".into()];
+        return vec![
+            "relative-effect transformations require schema_version 0.10.0 or 0.11.0".into(),
+        ];
     }
     let Some(transformation) = derivation.get("transformation") else {
         return vec!["derivation.transformation must be an object".into()];
@@ -1528,6 +1739,50 @@ fn relative_effect_declaration_reasons(
     let mut reasons = Vec::new();
     if !model_value(plan, path).is_some_and(|target| json_equivalent(&output, target)) {
         reasons.push("relative effect does not reproduce the current transition schedule".into());
+    }
+    let selected_extractions = string_list(mapping.get("extraction_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    let selected_assumptions = string_list(mapping.get("assumption_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    if used_extractions != selected_extractions {
+        reasons.push("transformation must use every selected extraction".into());
+    }
+    if used_assumptions != selected_assumptions {
+        reasons.push("transformation must use every proposed assumption".into());
+    }
+    reasons
+}
+
+fn hazard_ratio_declaration_reasons(
+    plan: &serde_json::Value,
+    path: &str,
+    mapping: &serde_json::Value,
+    derivation: &serde_json::Map<String, serde_json::Value>,
+) -> Vec<String> {
+    if plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        != Some("0.11.0")
+    {
+        return vec!["hazard-ratio transformations require schema_version 0.11.0".into()];
+    }
+    let Some(transformation) = derivation.get("transformation") else {
+        return vec!["derivation.transformation must be an object".into()];
+    };
+    let (output, used_extractions, used_assumptions) =
+        match derive_hazard_ratio_schedule(plan, path, transformation) {
+            Ok(value) => value,
+            Err(error) => return vec![error],
+        };
+    let mut reasons = Vec::new();
+    if !model_value(plan, path).is_some_and(|target| json_equivalent(&output, target)) {
+        reasons.push("hazard ratio does not reproduce the current transition schedule".into());
     }
     let selected_extractions = string_list(mapping.get("extraction_ids"))
         .unwrap_or_default()
@@ -1597,6 +1852,9 @@ fn derivation_declaration_reasons(
             ),
             Some("relative_effect_to_transition_schedule") => reasons.extend(
                 relative_effect_declaration_reasons(plan, path, mapping, derivation),
+            ),
+            Some("hazard_ratio_to_transition_schedule") => reasons.extend(
+                hazard_ratio_declaration_reasons(plan, path, mapping, derivation),
             ),
             _ => reasons.push("deterministic transformation operation is unsupported".into()),
         }
@@ -1890,16 +2148,26 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0" | "0.10.0")
+        Some(
+            "0.3.0"
+                | "0.4.0"
+                | "0.5.0"
+                | "0.6.0"
+                | "0.7.0"
+                | "0.8.0"
+                | "0.9.0"
+                | "0.10.0"
+                | "0.11.0"
+        )
     ) {
         invalid_mappings
-            .push("schema_version must be 0.3.0 through 0.10.0 for approval review".into());
+            .push("schema_version must be 0.3.0 through 0.11.0 for approval review".into());
     }
     let declared_strategy_ids = strategy_ids(plan);
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        .is_some_and(|version| matches!(version, "0.8.0" | "0.9.0"))
+        .is_some_and(|version| matches!(version, "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0"))
     {
         let raw_strategy_count = plan
             .get("strategy_order")
@@ -1927,7 +2195,7 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
             || actual != unique
         {
             invalid_mappings.push(
-                "schema 0.8.0 or 0.9.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first".into(),
+                "schema 0.8.0 through 0.11.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first".into(),
             );
         }
     }
@@ -1948,11 +2216,13 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
             && !matches!(
                 plan.get("schema_version")
                     .and_then(serde_json::Value::as_str),
-                Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0" | "0.10.0")
+                Some(
+                    "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0"
+                )
             )
         {
             invalid_mappings.push(format!(
-                "strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.10.0"
+                "strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.11.0"
             ));
         }
     }
@@ -2529,6 +2799,76 @@ fn relative_effect_extraction_reasons(
     reasons
 }
 
+fn hazard_ratio_extraction_reasons(
+    mapping: &serde_json::Value,
+    extraction_index: &HashMap<String, crate::heor_synthesis::ExtractionLink>,
+) -> Vec<String> {
+    let selected = string_list(mapping.get("extraction_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    let transformation = mapping
+        .pointer("/derivation/transformation")
+        .unwrap_or(&serde_json::Value::Null);
+    let mut used = HashSet::new();
+    let mut reasons = Vec::new();
+    if let Some(effect) = transformation.get("hazard_ratio") {
+        validate_background_extraction_basis(
+            effect,
+            effect.get("value"),
+            "transformation.hazard_ratio",
+            &selected,
+            &mut used,
+            extraction_index,
+            &mut reasons,
+        );
+    }
+    if let Some(cycles) = transformation
+        .get("baseline_cumulative_hazards")
+        .and_then(serde_json::Value::as_array)
+    {
+        for (index, cycle) in cycles.iter().enumerate() {
+            if let Some(hazard) = cycle.get("cumulative_hazard") {
+                validate_background_extraction_basis(
+                    hazard,
+                    hazard.get("value"),
+                    &format!(
+                        "transformation.baseline_cumulative_hazards[{index}].cumulative_hazard"
+                    ),
+                    &selected,
+                    &mut used,
+                    extraction_index,
+                    &mut reasons,
+                );
+            }
+        }
+    }
+    for name in [
+        "endpoint_alignment",
+        "population_transportability",
+        "proportional_hazards_assumption",
+        "effect_constancy_over_horizon",
+        "treatment_switching_assessment",
+    ] {
+        if let Some(basis) = transformation.pointer(&format!("/review_bases/{name}")) {
+            validate_background_extraction_basis(
+                basis,
+                None,
+                &format!("transformation.review_bases.{name}"),
+                &selected,
+                &mut used,
+                extraction_index,
+                &mut reasons,
+            );
+        }
+    }
+    if used != selected {
+        reasons.push("transformation must use every selected extraction".into());
+    }
+    reasons
+}
+
 fn extraction_derivation_reasons(
     plan: &serde_json::Value,
     mapping: &serde_json::Value,
@@ -2566,6 +2906,9 @@ fn extraction_derivation_reasons(
             }
             Some("relative_effect_to_transition_schedule") => {
                 relative_effect_extraction_reasons(mapping, extraction_index)
+            }
+            Some("hazard_ratio_to_transition_schedule") => {
+                hazard_ratio_extraction_reasons(mapping, extraction_index)
             }
             _ => vec!["deterministic transformation operation is unsupported".into()],
         };
@@ -3313,6 +3656,75 @@ mod tests {
     }
 
     #[test]
+    fn native_hazard_ratio_uses_cumulative_hazard_increments_and_fails_closed() {
+        let plan = serde_json::json!({
+            "schema_version": "0.11.0",
+            "states": ["event_free", "event"],
+            "cycles": 3,
+            "cycle_length_years": 1.0
+        });
+        let mut transformation = serde_json::json!({
+            "operation": "hazard_ratio_to_transition_schedule",
+            "cycle_length_years": 1.0,
+            "from_state_index": 0,
+            "event_state_index": 1,
+            "baseline_cumulative_hazards": [
+                {"cycle": 1, "cumulative_hazard": {"value": 0.1, "source_extraction_id": "h1"}},
+                {"cycle": 2, "cumulative_hazard": {"value": 0.3, "source_extraction_id": "h2"}},
+                {"cycle": 3, "cumulative_hazard": {"value": 0.3, "source_extraction_id": "h3"}}
+            ],
+            "hazard_ratio": {"value": 0.5, "source_extraction_id": "hr"},
+            "review_bases": {
+                "endpoint_alignment": {"assumption_id": "endpoint"},
+                "population_transportability": {"assumption_id": "population"},
+                "proportional_hazards_assumption": {"assumption_id": "ph"},
+                "effect_constancy_over_horizon": {"assumption_id": "constancy"},
+                "treatment_switching_assessment": {"assumption_id": "switching"}
+            }
+        });
+        let (schedule, extractions, assumptions) = derive_hazard_ratio_schedule(
+            &plan,
+            "strategies.treatment.transition_schedule",
+            &transformation,
+        )
+        .unwrap();
+        let probabilities = schedule
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value.pointer("/matrix/0/1").unwrap().as_f64().unwrap())
+            .collect::<Vec<_>>();
+        assert!((probabilities[0] - (1.0 - (-0.05_f64).exp())).abs() < 1e-12);
+        assert!((probabilities[1] - (1.0 - (-0.10_f64).exp())).abs() < 1e-12);
+        assert_eq!(probabilities[2], 0.0);
+        assert_eq!(
+            extractions,
+            HashSet::from(["h1".into(), "h2".into(), "h3".into(), "hr".into()])
+        );
+        assert_eq!(assumptions.len(), 5);
+
+        transformation["baseline_cumulative_hazards"][1]["cumulative_hazard"]["value"] =
+            serde_json::json!(0.05);
+        assert!(derive_hazard_ratio_schedule(
+            &plan,
+            "strategies.treatment.transition_schedule",
+            &transformation,
+        )
+        .unwrap_err()
+        .contains("non-decreasing"));
+        transformation["baseline_cumulative_hazards"][1]["cumulative_hazard"]["value"] =
+            serde_json::json!(0.3);
+        transformation["hazard_ratio"]["value"] = serde_json::json!(1e308);
+        assert!(derive_hazard_ratio_schedule(
+            &plan,
+            "strategies.treatment.transition_schedule",
+            &transformation,
+        )
+        .unwrap_err()
+        .contains("invalid event probability"));
+    }
+
+    #[test]
     fn missing_mapping_and_unresolved_assumption_fail_closed() {
         let mut plan = complete_plan();
         plan["input_provenance"].as_array_mut().unwrap().pop();
@@ -3401,7 +3813,7 @@ mod tests {
 
         assert!(!audit.complete);
         let errors = audit.invalid_mappings.join("; ");
-        assert!(errors.contains("schema_version must be 0.3.0 through 0.10.0"));
+        assert!(errors.contains("schema_version must be 0.3.0 through 0.11.0"));
         assert!(errors.contains("does not match the current model input"));
     }
 

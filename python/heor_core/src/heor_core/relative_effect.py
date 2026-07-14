@@ -16,6 +16,7 @@ from typing import Any
 TRANSFORMATION_METHOD = "deterministic_transformation"
 TRANSFORMATION_OPERATION = "relative_effect_to_transition_schedule"
 ANALYSIS_SCHEMA_VERSION = "0.10.0"
+CURRENT_ANALYSIS_SCHEMA_VERSION = "0.11.0"
 STRATEGY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 TOLERANCE = 1e-12
 MAX_CYCLES = 10_000
@@ -53,10 +54,10 @@ def validate_relative_effect_mappings(
         ):
             continue
         label = f"input_provenance[{position}]"
-        if schema_version != ANALYSIS_SCHEMA_VERSION:
+        if schema_version not in {ANALYSIS_SCHEMA_VERSION, CURRENT_ANALYSIS_SCHEMA_VERSION}:
             raise RelativeEffectError(
                 f"{label}: relative-effect transformations require schema_version "
-                f"{ANALYSIS_SCHEMA_VERSION}"
+                f"{ANALYSIS_SCHEMA_VERSION} or {CURRENT_ANALYSIS_SCHEMA_VERSION}"
             )
         path = mapping.get("path")
         if not isinstance(path, str) or not _transition_schedule_path(path, plan):

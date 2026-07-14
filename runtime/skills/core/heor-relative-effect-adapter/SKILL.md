@@ -1,6 +1,6 @@
 ---
 name: heor-relative-effect-adapter
-description: Derive, propagate bounded uncertainty through, and audit AI4HEOR analysis schema 0.10.0 two-state transition schedules from cycle-specific baseline event probabilities plus one aligned risk ratio or odds ratio. Use only for one absorbing event, an effect interval equal to the model cycle, exact baseline/effect provenance, and explicit endpoint, population, and constant-effect review bases; route hazard ratios to a future hazard-ratio adapter and stop for rate ratios, risk differences, competing events, effect waning, or clinical-validity claims.
+description: Derive, propagate bounded uncertainty through, and audit AI4HEOR analysis schema 0.10.0 two-state transition schedules from cycle-specific baseline event probabilities plus one aligned risk ratio or odds ratio. Use only for one absorbing event, an effect interval equal to the model cycle, exact baseline/effect provenance, and explicit endpoint, population, and constant-effect review bases; route hazard ratios to the dedicated hazard-ratio adapter and stop for rate ratios, risk differences, competing events, effect waning, or clinical-validity claims.
 ---
 
 # HEOR Relative Effect Adapter
@@ -20,7 +20,7 @@ Apply one evidence-bound RR or OR to cycle-specific baseline absolute risks and 
 
 ## Stop rules
 
-- Do not interpret a hazard ratio, rate ratio, odds ratio, risk ratio, or risk difference as another measure. Route HR to a future `$heor-hazard-ratio-adapter`; the current survival Skill evaluates absolute curves and does not apply treatment effects.
+- Do not interpret a hazard ratio, rate ratio, odds ratio, risk ratio, or risk difference as another measure. Route one reviewed constant HR plus cycle-aligned baseline cumulative hazards to `$heor-hazard-ratio-adapter`; the survival-curve Skill evaluates absolute curves and does not apply treatment effects.
 - Do not convert probability time units inside this operation. Route an absolute single-event probability conversion to `$heor-probability-time-adapter`; stop if composed effect application and time conversion are required.
 - Do not apply relative effects to competing events, composite or recurrent endpoints, multiple origin states, non-absorbing events, or partitioned-survival structures.
 - Do not infer proportionality, effect constancy, population transportability, endpoint compatibility, or extrapolation beyond supported follow-up.

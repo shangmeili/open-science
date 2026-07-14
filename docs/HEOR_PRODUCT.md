@@ -167,9 +167,10 @@ admits constant cause-specific competing event rates, schema `0.6.0` admits a
 bounded two-state survival schedule, and schema `0.7.0` admits the single-event
 probability time conversion described below. Schema `0.9.0` admits the bounded
 background-plus-excess mortality operation described below. Schema `0.10.0`
-admits only the bounded RR/OR relative-effect operation described below. Other
-effect measures, pooling, calibration, interpolation, and general continuous-time
-matrix conversion remain incomplete. Schemas `0.1.0` and
+admits only the bounded RR/OR relative-effect operation described below, and
+schema `0.11.0` admits only the bounded constant-HR operation described below.
+Other effect measures, pooling, calibration, interpolation, and general
+continuous-time matrix conversion remain incomplete. Schemas `0.1.0` and
 `0.2.0` remain calculable for reproducibility but cannot pass analysis-plan
 approval; static `0.3.0` and schedule-capable `0.4.0` plans remain approvable.
 
@@ -356,14 +357,41 @@ its high strictly below `1/max(q>0)`, while OR admits Lognormal or strictly
 positive bounded Uniform PSA. Baselines and transformation internals stay fixed.
 
 Hazard ratio, rate ratio, risk difference, competing events, and treatment-effect
-extrapolation remain unsupported. HR routes to the future
-`$heor-hazard-ratio-adapter`; the form interface remains subordinate to the
-natural-language workflow and Human-in-the-loop review.
+extrapolation remain unsupported by this RR/OR operation. Eligible constant HR
+work routes to `$heor-hazard-ratio-adapter`; the form interface remains
+subordinate to the natural-language workflow and Human-in-the-loop review.
+
+## Executable bounded constant hazard ratio
+
+Analysis-plan schema `0.11.0` admits one deliberately narrow operation:
+`hazard_ratio_to_transition_schedule`. It applies one positive constant HR to
+cycle-specific increments of one selected baseline cumulative-hazard curve for a
+single absorbing time-to-first event in exactly two states. Baseline cumulative
+hazards are non-negative, non-decreasing, cycle-aligned, individually bound to
+evidence or proposed assumptions, and contain at least one positive increment.
+The HR has its own exact basis.
+
+With `H0(0)=0`, each cycle uses
+`p=-expm1(-HR*(H0(i)-H0(i-1)))`. The transformation requires exactly the
+`endpoint_alignment`, `population_transportability`,
+`proportional_hazards_assumption`, `effect_constancy_over_horizon`, and
+`treatment_switching_assessment` review bases. Python, Rust, TypeScript, the
+portable provenance audit, and the standalone Skill independently recompute the
+complete absorbing schedule and reject stale output, non-monotone hazards,
+non-finite arithmetic, and probability saturation.
+
+Paired uncertainty schema `0.10.0` targets only `hazard_ratio.value`. DSA and a
+strictly positive bounded Uniform PSA must bracket the base and keep every
+recomputed probability finite and below one. Unbounded Lognormal support is
+deferred until a truncated distribution can be represented and audited exactly.
+Time-varying or non-proportional HRs, effect stopping or waning, unresolved
+treatment switching, competing/recurrent events, curve fitting or selection,
+PFS/OS partitioned survival, and scientific-validity claims remain blocked.
 
 ## Executable monetary basis
 
 Analysis-plan schema `0.2.0` introduced one calculation currency and price
-year, and current schemas through `0.10.0` retain that contract while binding each source
+year, and current schemas through `0.11.0` retain that contract while binding each source
 value to evidence or an explicit assumption.
 Every state-cost element and non-null willingness-to-pay value records its
 source value, source currency, source price year, positive composite adjustment
@@ -591,11 +619,11 @@ approval, reimbursement suitability, or external tamper-proofing.
   missing second confirmation, rejection, changed synthesis, or tampered review
   chain fails closed; this remains distinct from authenticated independent
   duplicate extraction.
-- Evidence-to-input approval also requires schema `0.3.0` through `0.10.0`, an exact model-value
+- Evidence-to-input approval also requires schema `0.3.0` through `0.11.0`, an exact model-value
   snapshot per mapping, strict JSON equality for direct evidence, and extraction-
   bound source values for monetary normalization. Changed, narrative, unused,
   or silently transformed extraction values fail closed.
-- A scheduled-transition plan additionally requires schema `0.4.0` through `0.10.0`, exactly one
+- A scheduled-transition plan additionally requires schema `0.4.0` through `0.11.0`, exactly one
   transition mechanism per strategy, ordered in-horizon change points, valid
   matrices, mass conservation, and schedule-aware provenance and uncertainty
   targets. Static `0.3.0` plans remain backward compatible.
@@ -643,7 +671,16 @@ approval, reimbursement suitability, or external tamper-proofing.
   uncertainty schema `0.9.0` permits only the relative-effect value. RR DSA and
   bounded Uniform PSA remain strictly below the positive-baseline ceiling; OR
   admits Lognormal or strictly positive bounded Uniform PSA. HR and all other
-  effect measures remain blocked.
+  effect measures remain blocked by that operation.
+- A schema `0.11.0` constant-HR mapping additionally requires exactly two states
+  with one absorbing time-to-first event; complete non-negative non-decreasing
+  baseline cumulative hazards with at least one positive increment; one positive
+  HR; the exact five review bases; and exact schedule reproduction from hazard
+  increments. Paired uncertainty schema `0.10.0` permits only the HR value with
+  strictly positive bounded Uniform support whose high reproduces finite
+  probabilities below one. Non-proportional/time-varying effects, waning or
+  stopping, unresolved switching, competing/recurrent events, fitting/selection,
+  and partitioned survival remain blocked.
 - Exploratory, analysis-authorized, independently validated, and locally
   released decision-ready states remain distinct. Any stale package, binding,
   validation, result reproduction, actor, or approval sequence fails closed.

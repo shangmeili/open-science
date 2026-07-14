@@ -79,6 +79,8 @@ For analysis schema `0.9.0`, the methods and limitations sections report the sel
 
 For analysis schema `0.10.0`, the methods and limitations sections report the measure, exact interval alignment, baseline-risk schedule, transformation `q*RR` or `q*OR/(1-q+q*OR)`, relative-effect basis, and separate `endpoint_alignment`, `population_transportability`, and `effect_constancy_over_cycles` bases. These are review inputs, not approval claims. The uncertainty section states that schema `0.9.0` varies only `relative_effect.value`, reports the RR ceiling or OR support, and holds baselines and transformation internals fixed. The limitations section discloses every applicable stopping-rule gap, including HR, rate ratio, risk difference, competing events, and treatment-effect extrapolation.
 
+For analysis schema `0.11.0`, the methods and limitations sections report the baseline cumulative-hazard schedule and increments, HR and basis, transformation `-expm1(-HR*(H0(i)-H0(i-1)))`, and separate `endpoint_alignment`, `population_transportability`, `proportional_hazards_assumption`, `effect_constancy_over_horizon`, and `treatment_switching_assessment` bases. These are review inputs, not approval claims. The uncertainty section states that schema `0.10.0` varies only `hazard_ratio.value`, reports the bounded Uniform support and numerical ceiling, and holds baseline hazards and transformation internals fixed. The limitations section discloses every applicable stopping-rule gap, including non-proportional or time-varying effects, waning/stopping, unresolved switching, competing/recurrent events, fitting/selection, and partitioned survival.
+
 ## Disclosure and authority
 
 Funding, conflicts of interest, Agent contributions, model providers,

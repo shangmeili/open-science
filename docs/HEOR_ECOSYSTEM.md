@@ -76,11 +76,12 @@ unmanaged project content; they never become bundled AI4HEOR assets implicitly.
 | [CaseMark health-economics skill](https://agentskills.med/skills/conducting-health-economics-research) | Useful task decomposition and terminology | Rewrite as first-party skills; do not bundle verbatim | Remove hard-coded jurisdiction rules and universal claims; split by artifact; attach current primary methods sources; add tests and app-owned HITL boundary |
 | [awesome-rosetta health-economics-eval](https://github.com/xjtulyc/awesome-rosetta-skills/tree/main/skills/17-public-health/health-economics-eval) | Compact educational outline | Extract scenarios and negative test cases only | Remove generic GDP threshold and free-form Python authority; replace with versioned reference-case profiles and deterministic engines |
 | [medical-research-skills](https://github.com/aipoch/medical-research-skills) | Broad adjacent evidence workflows | Audit selected evidence and review tasks only | Reject low-quality generic market-access template; adapt only source-verifiable components behind AI4HEOR contracts |
+| [mcp-stata](https://github.com/tmonk/mcp-stata) | Strong local Stata execution, audit, replication, provenance, and publication workflows | P2 user-installed connector candidate only | AGPL isolation; require licensed local Stata; restrict workspace and command scope; app-owned execution approval; capture do-files, logs, data hashes, Stata/package versions, and failure states |
 | [hesim](https://hesim-dev.github.io/hesim/) | Advanced cohort, individual, partitioned-survival, and semi-Markov simulation | P1 optional R execution/validation adapter | User-installed isolated R environment; pinned lockfile; GPL boundary; capture package/session versions; golden cross-checks; never link into the MIT deterministic core |
 | [BCEA](https://n8thangreen.github.io/BCEA/) | PSA post-processing, CEAC, EVPI, and VOI | P1 optional uncertainty adapter | Same R isolation and provenance; standardized input/output artifact contract; parity fixtures |
 | [survHE](https://cran.r-project.org/package=survHE) | Survival extrapolation for economic evaluation | P1 optional survival adapter | Pre-specified model set; diagnostics and extrapolation audit; version capture; no automatic model selection without review |
 | [heemod](https://pierucci.org/heemod/) | Mature Markov modeling and sensitivity analysis | Reference and optional independent cross-check | GPL isolation; golden cases against the AI4HEOR core; document semantic differences rather than forcing parity |
-| External relative-effect Skills/plugins | No reviewed candidate supplies a bounded, provenance-complete RR/OR-to-absolute-risk contract | Do not integrate an external executable asset; implement first-party | Preserve only method/test ideas; require exact measure, baseline risks, aligned interval/estimand, full recomputation, and app-owned review |
+| External relative-effect Skills/plugins | No reviewed candidate supplies a bounded, provenance-complete RR/OR- or HR-to-absolute-risk contract | Do not integrate an external executable asset; implement first-party | Preserve only method/test ideas; require exact measure, baseline input, aligned interval/estimand, full recomputation, and app-owned review |
 
 The admission registry contains 12 reviewed external Skill/MCP entries: seven
 `ai4s-skills` candidates and HEORAgent are quarantined, while four Anthropic
@@ -99,10 +100,24 @@ does not wrap the package and call it production-ready. It preserves the MIT
 notice and independently rewrites the useful bounded-search concept as
 `heor-evidence-search`; the upstream asset remains quarantined.
 
-A 2026-07-15 refresh still found HEORAgent at its audited revision. The
-`ai4s-skills` upstream had advanced by 27 mostly non-HEOR files and supplied no
-new HEOR-specific Skill or contract; the registry therefore remains intentionally
-pinned and quarantined rather than treating upstream drift as admission.
+A 2026-07-15 refresh still found HEORAgent Git HEAD at its audited revision, but
+the release channels no longer supplied one coherent identity: the repository
+described v1.23.0 with 45 tools and 44 sources while npm reported v1.35.0,
+modified 2026-07-04. The registry therefore remains intentionally pinned and
+quarantined; the latest npm package requires a fresh package, dependency,
+telemetry, methods, and adversarial audit before any narrower idea can advance.
+The `ai4s-skills` upstream had advanced by 27 mostly non-HEOR files and supplied
+no new HEOR-specific Skill or contract.
+
+The same refresh reviewed AIPOCH medical-research Skills at
+`7cc568024021a3de07cbeb935691dc72c69bfe28`, awesome-rosetta at
+`6cffda43d7cd6c07c563e2f2e24a88a615bcf003`, and mcp-stata at
+`a2f9c4abc2c7662e73684f8cf954895c6806ea27`. Their useful patterns do not alter
+the admission decision: generic method defaults, unpinned dependencies,
+heuristic units, automated confidence, broad code execution, copyleft/runtime
+boundaries, and commercial Stata requirements all need first-party contracts or
+isolated adapters. The evidence and complete first-party backlog are recorded in
+[`SKILL_AND_PLUGIN_STRATEGY.md`](SKILL_AND_PLUGIN_STRATEGY.md).
 
 The earlier desktop baseline also fetched four Anthropic document Skills under
 an incorrect Apache-2.0 assumption. The copied `LICENSE.txt` is authoritative:
@@ -129,6 +144,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-probability-time-adapter` | Single-event probability time conversion under an explicit constant-hazard assumption | Schema `0.7.0` transition derivation |
 | Shipped | `heor-background-mortality` | Age-aligned annual life-table mortality plus one constant additive excess rate, with explicit exchangeability and double-counting bases | Schema `0.9.0` transition schedule derivation |
 | Shipped | `heor-relative-effect-adapter` | Apply one aligned RR or OR to cycle-specific baseline risks with exact review bases and full schedule recomputation | Schema `0.10.0` transition schedule derivation |
+| Shipped | `heor-hazard-ratio-adapter` | Apply one reviewed constant HR to cycle-aligned baseline cumulative-hazard increments with explicit proportional-hazards, effect-duration, and switching review bases | Schema `0.11.0` transition schedule derivation |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, per-person EVPI, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
@@ -298,11 +314,30 @@ RR admits only bounded Uniform PSA below the baseline-risk ceiling, while OR
 admits Lognormal or strictly positive bounded Uniform PSA.
 
 This is an independent first-party implementation; no reviewed external Skill or
-plugin is an executable dependency. Hazard ratios route to the future
-`$heor-hazard-ratio-adapter`. The next method assets after that are partitioned
-survival plus survival fitting/extrapolation review; later candidates are cost
-normalization, utility mapping, dynamic-cohort BIA, and NMA/MAIC evidence
-synthesis. These backlog items are not shipped capabilities or approval authority.
+plugin is an executable dependency. The separately bounded constant-HR route is
+owned by `$heor-hazard-ratio-adapter`. The next method assets are survival
+fitting/extrapolation review, partitioned survival, treatment-effect duration,
+cost normalization, and utility inputs; dynamic-cohort BIA, NMA/MAIC, RWE, and
+advanced VOI follow. These backlog items are not shipped capabilities or
+approval authority.
+
+Schema `0.11.0` adds the first-party `$heor-hazard-ratio-adapter` for one
+absorbing time-to-first event. It applies one positive, reviewed constant HR to
+the increment of one selected, cycle-aligned baseline cumulative-hazard curve:
+`p=-expm1(-HR*(H0(i)-H0(i-1)))`, with `H0(0)=0`. The contract requires exact
+endpoint, population, proportional-hazards, effect-duration, and treatment-
+switching review bases. Python, Rust, TypeScript, portable provenance, and the
+standalone Skill independently recompute the complete schedule and reject
+non-monotone hazards, probability saturation, stale output, time-varying or
+non-proportional effects, waning/stopping, unresolved switching, competing or
+recurrent events, curve fitting/selection, and partitioned survival.
+
+Uncertainty schema `0.10.0` targets only the HR value and admits a strictly
+positive bounded Uniform distribution whose DSA and PSA high bounds reproduce a
+finite complete schedule. It deliberately defers unbounded Lognormal support
+until an auditable truncated distribution exists. NICE PMG36, DSU TSD14, and
+TSD21 provide the method boundary; they do not establish proportional hazards,
+transportability, effect duration, or validity for a specific analysis.
 
 The evidence-search slice applies the same standard to a network capability.
 The Agent can only draft and validate the request file. Native code rejects

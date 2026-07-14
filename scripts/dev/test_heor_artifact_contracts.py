@@ -79,6 +79,10 @@ relative_effect_adapter = load(
     "validate_relative_effect",
     "runtime/skills/core/heor-relative-effect-adapter/scripts/validate_relative_effect.py",
 )
+hazard_ratio_adapter = load(
+    "validate_hazard_ratio",
+    "runtime/skills/core/heor-hazard-ratio-adapter/scripts/validate_hazard_ratio.py",
+)
 
 
 class MultiStrategyTemplateContractTests(unittest.TestCase):
@@ -353,6 +357,34 @@ class RelativeEffectAdapterContractTests(unittest.TestCase):
         transformation["relative_effect"]["value"] = 5.0
         with self.assertRaisesRegex(ValueError, "invalid probability|strictly below"):
             relative_effect_adapter.derive(transformation, 3, 1.0)
+
+
+class HazardRatioAdapterContractTests(unittest.TestCase):
+    TEMPLATE = ROOT / (
+        "runtime/skills/core/heor-hazard-ratio-adapter/assets/"
+        "hazard-ratio-transformation.template.json"
+    )
+
+    def test_template_recomputes_cumulative_hazard_increments(self):
+        transformation = json.loads(self.TEMPLATE.read_text())
+        schedule = hazard_ratio_adapter.derive(transformation)
+        self.assertEqual([item["start_cycle"] for item in schedule], [1, 2, 3])
+        self.assertAlmostEqual(schedule[0]["matrix"][0][1], -math.expm1(-0.075))
+        self.assertAlmostEqual(schedule[1]["matrix"][0][1], -math.expm1(-0.15))
+        self.assertEqual(schedule[2]["matrix"], [[1.0, 0.0], [0.0, 1.0]])
+
+    def test_nonmonotone_baseline_and_saturated_probability_fail_closed(self):
+        transformation = json.loads(self.TEMPLATE.read_text())
+        transformation["baseline_cumulative_hazards"][1]["cumulative_hazard"][
+            "value"
+        ] = 0.05
+        with self.assertRaisesRegex(ValueError, "non-decreasing"):
+            hazard_ratio_adapter.derive(transformation)
+
+        transformation = json.loads(self.TEMPLATE.read_text())
+        transformation["hazard_ratio"]["value"] = 1e308
+        with self.assertRaisesRegex(ValueError, "invalid probability"):
+            hazard_ratio_adapter.derive(transformation)
 
 
 def conceptual_fixture():
@@ -1059,6 +1091,54 @@ class InputProvenanceContractTests(unittest.TestCase):
             plan, mapping["path"], mapping, mapping["derivation"], extraction_index
         )
         self.assertTrue(any("risk_ratio or odds_ratio" in error for error in errors), errors)
+
+    def test_schema_011_hazard_ratio_is_recomputed_and_basis_bound(self):
+        transformation = json.loads(HazardRatioAdapterContractTests.TEMPLATE.read_text())
+        schedule = hazard_ratio_adapter.derive(transformation)
+        plan = {
+            "schema_version": "0.11.0",
+            "states": ["event-free", "event"],
+            "cycles": 3,
+            "cycle_length_years": 1.0,
+            "strategies": {"intervention": {"transition_schedule": schedule}},
+        }
+        mapping = {
+            "path": "strategies.intervention.transition_schedule",
+            "extraction_ids": ["baseline-h-1", "baseline-h-2", "baseline-h-3", "treatment-hr"],
+            "assumption_ids": [
+                "endpoint-alignment",
+                "population-transportability",
+                "proportional-hazards",
+                "effect-constancy",
+                "treatment-switching",
+            ],
+            "derivation": {
+                "method": "deterministic_transformation",
+                "model_value": schedule,
+                "transformation": transformation,
+            },
+        }
+        extraction_index = {
+            "baseline-h-1": {"extracted_value": json.dumps({"cumulative_hazard": 0.1})},
+            "baseline-h-2": {"extracted_value": json.dumps({"cumulative_hazard": 0.3})},
+            "baseline-h-3": {"extracted_value": json.dumps({"cumulative_hazard": 0.3})},
+            "treatment-hr": {"extracted_value": json.dumps({"hazard_ratio": 0.75})},
+        }
+        self.assertEqual(
+            input_provenance.hazard_ratio_reasons(
+                plan, mapping["path"], mapping, mapping["derivation"], extraction_index
+            ),
+            [],
+        )
+
+        transformation["baseline_cumulative_hazards"][1]["cumulative_hazard"][
+            "value"
+        ] = 0.05
+        errors = input_provenance.hazard_ratio_reasons(
+            plan, mapping["path"], mapping, mapping["derivation"], extraction_index
+        )
+        self.assertTrue(any("non-decreasing" in error for error in errors), errors)
+        self.assertTrue(any("bound extraction" in error for error in errors), errors)
 
     def test_schedule_requires_schema_04_and_exactly_one_transition_mechanism(self):
         plan, synthesis, digest = self.fixture()
@@ -2033,6 +2113,113 @@ class UncertaintyContractTests(unittest.TestCase):
             }
             uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
             self.assertEqual(uncertainty.validate(uncertainty_path, plan_path), [])
+
+    def test_schema_010_hazard_ratio_uncertainty_is_bounded_and_recomputable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_markov.json").read_text()
+            )
+            plan.update({
+                "schema_version": "0.11.0",
+                "analysis_id": "portable-hazard-ratio-uncertainty",
+                "states": ["event-free", "event"],
+                "cycles": 3,
+                "cycle_length_years": 1.0,
+                "strategy_order": ["comparator", "intervention"],
+                "baseline_strategy_id": "comparator",
+                "uncertainty_analysis": {"path": "heor/uncertainty-plan.json"},
+            })
+            for role in plan["strategy_order"]:
+                strategy = plan["strategies"][role]
+                strategy["initial_distribution"] = [1.0, 0.0]
+                strategy["state_costs"] = [strategy["state_costs"][0], 0.0]
+                strategy["state_utilities"] = [strategy["state_utilities"][0], 0.0]
+                strategy["transition_matrix"] = [[0.9, 0.1], [0.0, 1.0]]
+            transformation = json.loads(
+                HazardRatioAdapterContractTests.TEMPLATE.read_text()
+            )
+            schedule = hazard_ratio_adapter.derive(transformation)
+            plan["strategies"]["intervention"].pop("transition_matrix")
+            plan["strategies"]["intervention"]["transition_schedule"] = schedule
+            path = "strategies.intervention.transition_schedule"
+            plan["input_provenance"] = [{
+                "path": path,
+                "source_ids": ["baseline-hazard-source", "hazard-ratio-source"],
+                "extraction_ids": [
+                    "baseline-h-1", "baseline-h-2", "baseline-h-3", "treatment-hr"
+                ],
+                "assumption_ids": [
+                    "endpoint-alignment",
+                    "population-transportability",
+                    "proportional-hazards",
+                    "effect-constancy",
+                    "treatment-switching",
+                ],
+                "uncertainty_status": "distribution_available",
+                "derivation": {
+                    "method": "deterministic_transformation",
+                    "model_value": schedule,
+                    "transformation": transformation,
+                },
+            }]
+            plan["methodology"] = {"uncertainty_analysis": {
+                "deterministic": {"planned": True, "input_paths": [path]},
+                "probabilistic": {
+                    "planned": True, "input_paths": [path], "iterations": 1000
+                },
+                "structural_scenarios": ["cost-discount"],
+            }}
+            plan_path = root / "heor" / "analysis-plan.json"
+            plan_path.parent.mkdir(parents=True)
+
+            value = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_uncertainty.json").read_text()
+            )
+            value.update({
+                "schema_version": "0.10.0",
+                "analysis_id": plan["analysis_id"],
+                "parameters": [{
+                    "id": "hazard-ratio",
+                    "label": "Hazard ratio",
+                    "target": "/input_provenance/0/derivation/transformation/hazard_ratio/value",
+                    "provenance_path": path,
+                    "deterministic": {
+                        "low": 0.5, "high": 1.0,
+                        "rationale": "Reviewed positive HR interval",
+                    },
+                    "probabilistic": {
+                        "type": "uniform", "low": 0.5, "high": 1.0,
+                        "basis_ids": ["treatment-hr"],
+                        "rationale": "Bounded HR support",
+                    },
+                }],
+                "structural_scenarios": [{
+                    "id": "cost-discount",
+                    "label": "Alternative cost discount rate",
+                    "rationale": "External non-transition scenario",
+                    "replacements": [{"target": "/discount_rates/costs", "value": 0.03}],
+                }],
+            })
+            value["probabilistic_analysis"]["correlation_handling"]["groups"] = []
+            value["probabilistic_analysis"]["omitted_parameters"] = [{
+                "provenance_path": path,
+                "rationale": "Baseline cumulative hazards remain fixed",
+            }]
+            plan_raw = json.dumps(plan, ensure_ascii=False, indent=2).encode()
+            plan_path.write_bytes(plan_raw)
+            value["base_analysis"]["content_sha256"] = hashlib.sha256(plan_raw).hexdigest()
+            uncertainty_path = root / "heor" / "uncertainty-plan.json"
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            self.assertEqual(uncertainty.validate(uncertainty_path, plan_path), [])
+
+            value["parameters"][0]["probabilistic"] = {
+                "type": "lognormal", "mu_log": math.log(0.75), "sigma_log": 0.1,
+                "basis_ids": ["treatment-hr"], "rationale": "Invalid unbounded HR",
+            }
+            uncertainty_path.write_text(json.dumps(value, ensure_ascii=False, indent=2))
+            errors = uncertainty.validate(uncertainty_path, plan_path)
+            self.assertTrue(any("bounded Uniform" in error for error in errors), errors)
 
     def test_changed_base_hash_and_unlinked_distribution_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:

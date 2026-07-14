@@ -933,6 +933,7 @@ export function HeorReviewPane({
               onRequestProbabilityTime={() => onRequestRevision(t("transition.probabilityTimePrompt"))}
               onRequestBackgroundMortality={() => onRequestRevision(t("transition.backgroundMortalityPrompt"))}
               onRequestRelativeEffect={() => onRequestRevision(t("transition.relativeEffectPrompt"))}
+              onRequestHazardRatio={() => onRequestRevision(t("transition.hazardRatioPrompt"))}
             />
 
             <EvidenceTraceability
@@ -1861,6 +1862,7 @@ function CohortTransitionSummary({
   onRequestProbabilityTime,
   onRequestBackgroundMortality,
   onRequestRelativeEffect,
+  onRequestHazardRatio,
 }: {
   plan: HeorAnalysisPlan;
   onRequestAudit: () => void;
@@ -1869,10 +1871,11 @@ function CohortTransitionSummary({
   onRequestProbabilityTime: () => void;
   onRequestBackgroundMortality: () => void;
   onRequestRelativeEffect: () => void;
+  onRequestHazardRatio: () => void;
 }) {
   const { t } = useTranslation("heor");
   const strategyIds = plan.schema_version === "0.8.0" || plan.schema_version === "0.9.0"
-    || plan.schema_version === "0.10.0"
+    || plan.schema_version === "0.10.0" || plan.schema_version === "0.11.0"
     ? (plan.strategy_order ?? []) : ["comparator", "intervention"];
   const summary = (strategyId: string) => {
     const schedule = plan.strategies[strategyId]?.transition_schedule;
@@ -1938,6 +1941,12 @@ function CohortTransitionSummary({
         className="mt-2 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
       >
         <MessageSquareText size={13} /> {t("transition.askRelativeEffect")}
+      </button>
+      <button
+        onClick={onRequestHazardRatio}
+        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+      >
+        <MessageSquareText size={13} /> {t("transition.askHazardRatio")}
       </button>
       <p className="mt-3 text-[10px] leading-4 text-muted">
         {hasSchedule ? t("transition.scheduleNote") : t("transition.staticNote")}

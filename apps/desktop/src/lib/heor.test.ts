@@ -187,7 +187,7 @@ describe("AI4HEOR artifact contract", () => {
     const audit = auditHeorEvidence(plan);
 
     expect(audit.invalidMappings.join("; ")).toContain(
-      "schema_version must be 0.3.0 through 0.10.0",
+      "schema_version must be 0.3.0 through 0.11.0",
     );
     expect(audit.invalidMappings.join("; ")).toContain(
       "derivation.model_value does not match the current model input",
@@ -597,6 +597,86 @@ describe("AI4HEOR artifact contract", () => {
     transformation.baseline_cycle_probabilities.forEach((entry) => { entry.probability.value = 0; });
     errors = auditHeorEvidence(plan).invalidMappings.join("; ");
     expect(errors).toContain("at least one positive probability");
+  });
+
+  it("independently derives a proportional-hazards schedule and fails closed", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    plan.schema_version = "0.11.0";
+    plan.baseline_strategy_id = "comparator";
+    plan.strategy_order = ["comparator", "intervention"];
+    plan.states = ["event-free", "event"];
+    plan.cycles = 3;
+    const hazards = [0.1, 0.3, 0.3];
+    const hr = 0.5;
+    let previous = 0;
+    const schedule = hazards.map((hazard, index) => {
+      const probability = -Math.expm1(-hr * (hazard - previous));
+      previous = hazard;
+      return { start_cycle: index + 1, matrix: [[1 - probability, probability], [0, 1]] };
+    });
+    plan.strategies.comparator = {
+      name: "Comparator", initial_distribution: [1, 0], transition_schedule: schedule,
+      state_costs: [100, 0], state_utilities: [1, 0],
+    };
+    plan.strategies.intervention = {
+      name: "Intervention", initial_distribution: [1, 0], transition_matrix: [[0.9, 0.1], [0, 1]],
+      state_costs: [120, 0], state_utilities: [1, 0],
+    };
+    const assumptionIds = [
+      "h1", "h2", "h3", "hr", "endpoint", "population", "ph", "constancy", "switching",
+    ];
+    plan.assumptions = assumptionIds.map((id) => ({
+      id, statement: id, reason: "Browser HR fixture", status: "proposed" as const,
+    }));
+    plan.input_provenance = [{
+      path: "strategies.comparator.transition_schedule",
+      source_ids: [], extraction_ids: [], assumption_ids: assumptionIds,
+      unit: "probability per annual model cycle", jurisdiction: "China",
+      derivation: {
+        method: "deterministic_transformation", model_value: schedule,
+        transformation: {
+          operation: "hazard_ratio_to_transition_schedule",
+          cycle_length_years: 1,
+          from_state_index: 0,
+          event_state_index: 1,
+          baseline_cumulative_hazards: hazards.map((value, index) => ({
+            cycle: index + 1,
+            cumulative_hazard: { value, assumption_id: `h${index + 1}` },
+          })),
+          hazard_ratio: { value: hr, assumption_id: "hr" },
+          review_bases: {
+            endpoint_alignment: { assumption_id: "endpoint" },
+            population_transportability: { assumption_id: "population" },
+            proportional_hazards_assumption: { assumption_id: "ph" },
+            effect_constancy_over_horizon: { assumption_id: "constancy" },
+            treatment_switching_assessment: { assumption_id: "switching" },
+          },
+        },
+      },
+      selection_rationale: "Exercise hazard-ratio audit",
+      uncertainty_status: "distribution_available",
+    }];
+    expect(parseHeorPlan(JSON.stringify(plan)).schema_version).toBe("0.11.0");
+    let errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).not.toContain("hazard ratio does not reproduce");
+
+    const transformation = plan.input_provenance[0].derivation.transformation;
+    if (transformation?.operation !== "hazard_ratio_to_transition_schedule") {
+      throw new Error("test fixture must use hazard ratio");
+    }
+    transformation.baseline_cumulative_hazards[1].cumulative_hazard.value = 0.05;
+    errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).toContain("non-decreasing");
+    transformation.baseline_cumulative_hazards[1].cumulative_hazard.value = 0.3;
+    transformation.hazard_ratio.value = Number.MAX_VALUE;
+    errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).toContain("invalid event probability");
+    transformation.hazard_ratio.value = hr;
+    transformation.baseline_cumulative_hazards.forEach((entry) => {
+      entry.cumulative_hazard.value = 0;
+    });
+    errors = auditHeorEvidence(plan).invalidMappings.join("; ");
+    expect(errors).toContain("at least one positive increment");
   });
 
   it("requires provenance for a schema 0.4 transition schedule instead of an absent matrix", () => {

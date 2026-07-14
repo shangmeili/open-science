@@ -22,8 +22,17 @@ from .background_mortality import (
     BackgroundMortalityError,
     apply_background_mortality_mappings,
 )
+from .hazard_ratio import (
+    ANALYSIS_SCHEMA_VERSION as HAZARD_RATIO_ANALYSIS_SCHEMA_VERSION,
+    TRANSFORMATION_METHOD as HAZARD_RATIO_TRANSFORMATION_METHOD,
+    TRANSFORMATION_OPERATION as HAZARD_RATIO_TRANSFORMATION_OPERATION,
+    HazardRatioError,
+    apply_hazard_ratio_mappings,
+    derive_hazard_ratio_schedule,
+)
 from .model import (
     SCHEMA_VERSION as MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
+    EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION,
     PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION,
     PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
     MarkovSpecification,
@@ -59,7 +68,8 @@ from .transition_rates import (
 )
 
 
-UNCERTAINTY_SCHEMA_VERSION = "0.9.0"
+UNCERTAINTY_SCHEMA_VERSION = "0.10.0"
+RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION = "0.9.0"
 PREVIOUS_UNCERTAINTY_SCHEMA_VERSION = "0.8.0"
 PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION = "0.7.0"
 PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION = "0.6.0"
@@ -68,7 +78,8 @@ CORRELATION_UNCERTAINTY_SCHEMA_VERSION = "0.4.0"
 RATE_UNCERTAINTY_SCHEMA_VERSION = "0.3.0"
 PRIOR_UNCERTAINTY_SCHEMA_VERSION = "0.2.0"
 LEGACY_UNCERTAINTY_SCHEMA_VERSION = "0.1.0"
-UNCERTAINTY_ENGINE_VERSION = "0.10.0"
+UNCERTAINTY_ENGINE_VERSION = "0.11.0"
+RELATIVE_EFFECT_UNCERTAINTY_ENGINE_VERSION = "0.10.0"
 PREVIOUS_UNCERTAINTY_ENGINE_VERSION = "0.9.0"
 PRIOR_MULTI_STRATEGY_UNCERTAINTY_ENGINE_VERSION = "0.8.0"
 PRNG_ALGORITHM = "pcg32-xsh-rr"
@@ -170,6 +181,7 @@ class Parameter:
     probability_mapping_index: int | None
     background_mortality_mapping_index: int | None
     relative_effect_mapping_index: int | None
+    hazard_ratio_mapping_index: int | None
 
 
 @dataclass(frozen=True)
@@ -198,17 +210,24 @@ def _validate_schema_pairing(analysis_schema: Any, uncertainty_schema: str) -> N
         and uncertainty_schema != UNCERTAINTY_SCHEMA_VERSION
     ):
         raise ModelValidationError(
-            "analysis schema_version 0.10.0 requires uncertainty schema_version 0.9.0"
+            "analysis schema_version 0.11.0 requires uncertainty schema_version 0.10.0"
         )
     if (
         analysis_schema == PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION
+        and uncertainty_schema != RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
+            "analysis schema_version 0.10.0 requires uncertainty schema_version 0.9.0"
+        )
+    if (
+        analysis_schema == PRIOR_MULTI_STRATEGY_SCHEMA_VERSION
         and uncertainty_schema != PREVIOUS_UNCERTAINTY_SCHEMA_VERSION
     ):
         raise ModelValidationError(
             "analysis schema_version 0.9.0 requires uncertainty schema_version 0.8.0"
         )
     if (
-        analysis_schema == PRIOR_MULTI_STRATEGY_SCHEMA_VERSION
+        analysis_schema == EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION
         and uncertainty_schema != PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION
     ):
         raise ModelValidationError(
@@ -219,18 +238,25 @@ def _validate_schema_pairing(analysis_schema: Any, uncertainty_schema: str) -> N
         and analysis_schema != MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION
     ):
         raise ModelValidationError(
+            "uncertainty schema_version 0.10.0 requires analysis schema_version 0.11.0"
+        )
+    if (
+        uncertainty_schema == RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION
+        and analysis_schema != PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
             "uncertainty schema_version 0.9.0 requires analysis schema_version 0.10.0"
         )
     if (
         uncertainty_schema == PREVIOUS_UNCERTAINTY_SCHEMA_VERSION
-        and analysis_schema != PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION
+        and analysis_schema != PRIOR_MULTI_STRATEGY_SCHEMA_VERSION
     ):
         raise ModelValidationError(
             "uncertainty schema_version 0.8.0 requires analysis schema_version 0.9.0"
         )
     if (
         uncertainty_schema == PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION
-        and analysis_schema != PRIOR_MULTI_STRATEGY_SCHEMA_VERSION
+        and analysis_schema != EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION
     ):
         raise ModelValidationError(
             "uncertainty schema_version 0.7.0 requires analysis schema_version 0.8.0"
@@ -279,10 +305,11 @@ class UncertaintySpecification:
             PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
             PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
             PREVIOUS_UNCERTAINTY_SCHEMA_VERSION,
+            RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
             UNCERTAINTY_SCHEMA_VERSION,
         }:
             raise ModelValidationError(
-                "uncertainty schema_version must be 0.1.0 through 0.9.0"
+                "uncertainty schema_version must be 0.1.0 through 0.10.0"
             )
         _validate_schema_pairing(base_payload.get("schema_version"), schema_version)
         base = _mapping(value.get("base_analysis", {}), "base_analysis")
@@ -300,6 +327,7 @@ class UncertaintySpecification:
             PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
             PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
             PREVIOUS_UNCERTAINTY_SCHEMA_VERSION,
+            RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
             UNCERTAINTY_SCHEMA_VERSION,
         }:
             threshold_config = _mapping(
@@ -464,6 +492,7 @@ class UncertaintySpecification:
                 PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
                 PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
                 PREVIOUS_UNCERTAINTY_SCHEMA_VERSION,
+                RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
                 UNCERTAINTY_SCHEMA_VERSION,
             }
             else (1, 1)
@@ -501,6 +530,7 @@ def run_uncertainty(
     multi_strategy = specification.schema_version in {
         PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
         PREVIOUS_UNCERTAINTY_SCHEMA_VERSION,
+        RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
         UNCERTAINTY_SCHEMA_VERSION,
     }
     if multi_strategy:
@@ -525,6 +555,8 @@ def run_uncertainty(
         "engine_version": (
             UNCERTAINTY_ENGINE_VERSION
             if specification.schema_version == UNCERTAINTY_SCHEMA_VERSION
+            else RELATIVE_EFFECT_UNCERTAINTY_ENGINE_VERSION
+            if specification.schema_version == RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION
             else PREVIOUS_UNCERTAINTY_ENGINE_VERSION
             if specification.schema_version == PREVIOUS_UNCERTAINTY_SCHEMA_VERSION
             else PRIOR_MULTI_STRATEGY_UNCERTAINTY_ENGINE_VERSION
@@ -1150,11 +1182,12 @@ def _correlation_groups(
         PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
         PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
         PREVIOUS_UNCERTAINTY_SCHEMA_VERSION,
+        RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
         UNCERTAINTY_SCHEMA_VERSION,
     }:
         if "groups" in correlation:
             raise ModelValidationError(
-                "correlation groups require uncertainty schema_version 0.4.0 through 0.9.0"
+                "correlation groups require uncertainty schema_version 0.4.0 through 0.10.0"
             )
         return ()
     raw_groups = _array(
@@ -1327,8 +1360,16 @@ def _parameter(
     probability_mapping_index = _probability_mapping_index(target)
     background_mortality_mapping_index = _background_mortality_mapping_index(target)
     relative_effect_mapping_index = _relative_effect_mapping_index(target)
+    hazard_ratio_mapping_index = _hazard_ratio_mapping_index(target)
     if (
         schema_version == UNCERTAINTY_SCHEMA_VERSION
+        and hazard_ratio_mapping_index is None
+    ):
+        raise ModelValidationError(
+            "uncertainty schema_version 0.10.0 permits only the exact hazard_ratio.value target"
+        )
+    if (
+        schema_version == RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION
         and relative_effect_mapping_index is None
     ):
         raise ModelValidationError(
@@ -1371,6 +1412,7 @@ def _parameter(
         or survival_mapping_index is not None
         or background_mortality_mapping_index is not None
         or relative_effect_mapping_index is not None
+        or hazard_ratio_mapping_index is not None
     )
     bounded_probability = probability_mapping_index is not None
     strategy_ids = _analysis_strategy_ids(base_payload)
@@ -1399,6 +1441,8 @@ def _parameter(
         relative_effect_measure=(
             _relative_effect_measure(base_payload, relative_effect_mapping_index)
             if relative_effect_mapping_index is not None
+            else "hazard_ratio"
+            if hazard_ratio_mapping_index is not None
             else None
         ),
     )
@@ -1458,6 +1502,16 @@ def _parameter(
             high,
             distribution,
         )
+    elif hazard_ratio_mapping_index is not None:
+        _validate_hazard_ratio_parameter(
+            base_payload,
+            hazard_ratio_mapping_index,
+            target,
+            provenance_path,
+            basis_ids,
+            high,
+            distribution,
+        )
     elif _deterministic_mapping(base_payload, provenance_path):
         raise ModelValidationError(
             f"parameters[{index}] targets a derived transition input; vary an admitted event rate instead"
@@ -1489,6 +1543,7 @@ def _parameter(
         probability_mapping_index=probability_mapping_index,
         background_mortality_mapping_index=background_mortality_mapping_index,
         relative_effect_mapping_index=relative_effect_mapping_index,
+        hazard_ratio_mapping_index=hazard_ratio_mapping_index,
     )
 
 
@@ -1560,6 +1615,15 @@ def _distribution(
             raise ModelValidationError(
                 f"{label}.low must be positive for an odds ratio"
             )
+    elif relative_effect_measure == "hazard_ratio":
+        if kind != "uniform":
+            raise ModelValidationError(
+                f"{label} must use bounded uniform for a hazard ratio"
+            )
+        if result["low"] <= 0:
+            raise ModelValidationError(
+                f"{label}.low must be positive for a hazard ratio"
+            )
     elif rate_parameter:
         if kind not in {"gamma", "lognormal", "uniform"}:
             raise ModelValidationError(
@@ -1589,6 +1653,7 @@ def _apply_parameter_values(
     affected_probability_mappings: set[int] = set()
     affected_background_mortality_mappings: set[int] = set()
     affected_relative_effect_mappings: set[int] = set()
+    affected_hazard_ratio_mappings: set[int] = set()
     for parameter, value in values:
         _replace(payload, parameter.target, value)
         if parameter.rate_mapping_index is not None:
@@ -1605,6 +1670,8 @@ def _apply_parameter_values(
             affected_relative_effect_mappings.add(
                 parameter.relative_effect_mapping_index
             )
+        if parameter.hazard_ratio_mapping_index is not None:
+            affected_hazard_ratio_mappings.add(parameter.hazard_ratio_mapping_index)
     for mapping_index in sorted(affected_rate_mappings):
         mapping = payload["input_provenance"][mapping_index]
         derivation = mapping["derivation"]
@@ -1651,6 +1718,13 @@ def _apply_parameter_values(
         except (KeyError, TypeError, RelativeEffectError) as error:
             raise ModelValidationError(
                 "relative-effect uncertainty could not recompute the affected transition schedule"
+            ) from error
+    if affected_hazard_ratio_mappings:
+        try:
+            apply_hazard_ratio_mappings(payload, affected_hazard_ratio_mappings)
+        except (KeyError, TypeError, HazardRatioError) as error:
+            raise ModelValidationError(
+                "hazard-ratio uncertainty could not recompute the affected transition schedule"
             ) from error
     return payload
 
@@ -1725,6 +1799,19 @@ def _relative_effect_mapping_index(target: str) -> int | None:
         and tokens[0] == "input_provenance"
         and tokens[1].isdigit()
         and tokens[2:5] == ["derivation", "transformation", "relative_effect"]
+        and tokens[5] == "value"
+    ):
+        return int(tokens[1])
+    return None
+
+
+def _hazard_ratio_mapping_index(target: str) -> int | None:
+    tokens = _pointer_tokens(target)
+    if (
+        len(tokens) == 6
+        and tokens[0] == "input_provenance"
+        and tokens[1].isdigit()
+        and tokens[2:5] == ["derivation", "transformation", "hazard_ratio"]
         and tokens[5] == "value"
     ):
         return int(tokens[1])
@@ -1848,6 +1935,78 @@ def _validate_relative_effect_parameter(
         raise ModelValidationError(
             "risk-ratio uniform high must be strictly below 1 / max baseline probability"
         )
+
+
+def _validate_hazard_ratio_parameter(
+    base_payload: dict[str, Any],
+    mapping_index: int,
+    target: str,
+    provenance_path: str,
+    basis_ids: tuple[str, ...],
+    dsa_high: Any,
+    distribution: dict[str, Any],
+) -> None:
+    if base_payload.get("schema_version") != HAZARD_RATIO_ANALYSIS_SCHEMA_VERSION:
+        raise ModelValidationError(
+            "hazard-ratio uncertainty requires analysis schema_version 0.11.0"
+        )
+    mappings = base_payload.get("input_provenance")
+    if not isinstance(mappings, list) or not 0 <= mapping_index < len(mappings):
+        raise ModelValidationError(f"uncertainty target {target!r} does not exist")
+    mapping = mappings[mapping_index]
+    if not isinstance(mapping, dict) or mapping.get("path") != provenance_path:
+        raise ModelValidationError(
+            "hazard-ratio uncertainty provenance_path must equal its transformation mapping path"
+        )
+    derivation = mapping.get("derivation")
+    transformation = (
+        derivation.get("transformation") if isinstance(derivation, dict) else None
+    )
+    if (
+        not isinstance(derivation, dict)
+        or derivation.get("method") != HAZARD_RATIO_TRANSFORMATION_METHOD
+        or not isinstance(transformation, dict)
+        or transformation.get("operation") != HAZARD_RATIO_TRANSFORMATION_OPERATION
+    ):
+        raise ModelValidationError(
+            "hazard-ratio uncertainty requires an admitted hazard-ratio transformation"
+        )
+    parameter = transformation.get("hazard_ratio")
+    if not isinstance(parameter, dict):
+        raise ModelValidationError(
+            "hazard-ratio uncertainty target must identify hazard_ratio.value"
+        )
+    source_id = parameter.get("source_extraction_id")
+    assumption_id = parameter.get("assumption_id")
+    expected_basis = (
+        source_id if isinstance(source_id, str) and source_id.strip() else assumption_id
+    )
+    if not isinstance(expected_basis, str) or tuple(basis_ids) != (expected_basis,):
+        raise ModelValidationError(
+            "hazard-ratio uncertainty basis_ids must contain exactly the hazard-ratio source extraction or assumption id"
+        )
+    if distribution.get("type") != "uniform":
+        raise ModelValidationError(
+            "hazard-ratio uncertainty requires a bounded uniform distribution"
+        )
+    for label, candidate in (
+        ("deterministic high", dsa_high),
+        ("uniform high", distribution.get("high")),
+    ):
+        candidate_value = _finite_float(candidate, f"hazard-ratio {label}")
+        proposed = copy.deepcopy(transformation)
+        proposed["hazard_ratio"]["value"] = candidate_value
+        try:
+            derive_hazard_ratio_schedule(
+                proposed,
+                state_count=len(base_payload.get("states", [])),
+                cycles=base_payload.get("cycles"),
+                cycle_length_years=base_payload.get("cycle_length_years"),
+            )
+        except (TypeError, HazardRatioError) as error:
+            raise ModelValidationError(
+                f"hazard-ratio {label} must reproduce a valid complete transition schedule"
+            ) from error
 
 
 def _validate_background_mortality_parameter(
@@ -2113,7 +2272,11 @@ def _scenario(
             strategy_ids=_analysis_strategy_ids(base_payload),
             background_mortality_schema=(
                 schema_version
-                in {PREVIOUS_UNCERTAINTY_SCHEMA_VERSION, UNCERTAINTY_SCHEMA_VERSION}
+                in {
+                    PREVIOUS_UNCERTAINTY_SCHEMA_VERSION,
+                    RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
+                    UNCERTAINTY_SCHEMA_VERSION,
+                }
             ),
         )
         replacements.append((target, new_value))
@@ -2235,7 +2398,9 @@ def _scheduled_transition_start_target(
 
 def _analysis_strategy_ids(base_payload: dict[str, Any]) -> tuple[str, ...]:
     if base_payload.get("schema_version") not in {
+        EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION,
         PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
+        PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION,
         MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
     }:
         return ("comparator", "intervention")

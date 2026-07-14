@@ -218,7 +218,7 @@ synthesis extraction as strict JSON. The native selection audit repeats that
 check against current workspace bytes and, for monetary inputs, verifies each
 `source_value` against its named extraction scalar or array index before the
 existing normalization arithmetic. Only `direct_evidence`, `explicit_assumption`,
-`monetary_adjustment`, and the schema `0.5.0` through `0.10.0` bounded
+`monetary_adjustment`, and the schema `0.5.0` through `0.11.0` bounded
 `deterministic_transformation` operations described below are supported. Free-form
 expressions remain blocked.
 
@@ -336,8 +336,25 @@ Uncertainty schema `0.9.0` pairs only with analysis `0.10.0` and targets only
 strictly below `1/max(q>0)`; unbounded RR distributions fail closed. OR permits
 Lognormal or strictly positive bounded Uniform PSA. Baselines, measure, intervals,
 operation, and review bases remain fixed. HR, rate ratio, risk difference,
-competing events, and treatment-effect extrapolation remain blocked; HR routes
-to the future `$heor-hazard-ratio-adapter`.
+competing events, and treatment-effect extrapolation remain blocked by this
+operation; eligible constant HR work routes to `$heor-hazard-ratio-adapter`.
+
+Analysis-plan schema `0.11.0` adds the bounded
+`hazard_ratio_to_transition_schedule` operation. It accepts exactly two states,
+one absorbing time-to-first event, one positive constant HR, one non-negative
+and non-decreasing baseline cumulative-hazard value at every model-cycle end,
+and exact endpoint, population, proportional-hazards, effect-duration, and
+treatment-switching review bases. With `H0(0)=0`, Python, Rust, TypeScript, the
+standalone Skill, and portable provenance independently recompute every complete
+matrix using `p=-expm1(-HR*(H0(i)-H0(i-1)))`.
+
+Uncertainty schema `0.10.0` pairs only with analysis `0.11.0` and targets only
+`hazard_ratio.value`. It admits strictly positive DSA bounds and bounded Uniform
+PSA whose high values reproduce finite probabilities below one. Baseline hazards,
+operation, indices, review bases, and schedule structure remain fixed. Unbounded
+HR distributions, time-varying or non-proportional effects, stopping/waning,
+unresolved switching, competing/recurrent events, fitting/selection, and PFS/OS
+partitioned survival remain blocked.
 
 `heor/analysis-plan.json` carries the input-selection contract directly: a root
 `evidence_synthesis` binding plus `extraction_ids` on each source-based
@@ -350,7 +367,7 @@ the exact evidence-to-input choices. The engine, uncertainty runner, and budget
 impact runner repeat the audit and invalidate stale approval bindings.
 
 Analysis-plan schema `0.2.0` introduced a root `economic_basis`; schemas
-`0.3.0` through `0.10.0` retain it and executable extraction-to-model derivations. Schema
+`0.3.0` through `0.11.0` retain it and executable extraction-to-model derivations. Schema
 `0.8.0` adds 2–16 explicitly ordered strategy IDs, a declared pairwise baseline,
 fully incremental dominance/frontier output, and dynamic evidence paths. Each monetary
 mapping contains element-level source values and adjustment factors so the

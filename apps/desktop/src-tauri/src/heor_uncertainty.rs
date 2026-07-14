@@ -89,7 +89,7 @@ fn strategy_ids(plan: &serde_json::Value) -> HashSet<&str> {
     if matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.8.0" | "0.9.0" | "0.10.0")
+        Some("0.8.0" | "0.9.0" | "0.10.0" | "0.11.0")
     ) {
         return plan
             .get("strategy_order")
@@ -182,6 +182,16 @@ fn relative_effect_target_index(target: &str) -> Option<usize> {
     let parts = target.split('/').collect::<Vec<_>>();
     match parts.as_slice() {
         ["", "input_provenance", mapping, "derivation", "transformation", "relative_effect", "value"] => {
+            mapping.parse().ok()
+        }
+        _ => None,
+    }
+}
+
+fn hazard_ratio_target_index(target: &str) -> Option<usize> {
+    let parts = target.split('/').collect::<Vec<_>>();
+    match parts.as_slice() {
+        ["", "input_provenance", mapping, "derivation", "transformation", "hazard_ratio", "value"] => {
             mapping.parse().ok()
         }
         _ => None,
@@ -452,11 +462,11 @@ fn validate_correlation_groups(
 ) -> usize {
     if !matches!(
         schema_version,
-        Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0")
+        Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0" | "0.10.0")
     ) {
         if correlation.is_some_and(|value| value.contains_key("groups")) {
             errors.push(
-                "correlation groups require uncertainty schema_version 0.4.0 through 0.9.0".into(),
+                "correlation groups require uncertainty schema_version 0.4.0 through 0.10.0".into(),
             );
         }
         return 0;
@@ -466,7 +476,7 @@ fn validate_correlation_groups(
         .and_then(serde_json::Value::as_array);
     let Some(groups) = groups else {
         errors.push(
-            "correlation groups must be an array for schema_version 0.4.0 through 0.9.0".into(),
+            "correlation groups must be an array for schema_version 0.4.0 through 0.10.0".into(),
         );
         return 0;
     };
@@ -625,12 +635,21 @@ fn audit_values(
     if !matches!(
         schema_version,
         Some(
-            "0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0"
+            "0.1.0"
+                | "0.2.0"
+                | "0.3.0"
+                | "0.4.0"
+                | "0.5.0"
+                | "0.6.0"
+                | "0.7.0"
+                | "0.8.0"
+                | "0.9.0"
+                | "0.10.0"
         )
     ) {
         audit
             .errors
-            .push("uncertainty schema_version must be 0.1.0 through 0.9.0".into());
+            .push("uncertainty schema_version must be 0.1.0 through 0.10.0".into());
     }
     let analysis_schema = plan
         .get("schema_version")
@@ -640,12 +659,17 @@ fn audit_values(
         (Some("0.8.0"), Some("0.7.0"))
             | (Some("0.9.0"), Some("0.8.0"))
             | (Some("0.10.0"), Some("0.9.0"))
+            | (Some("0.11.0"), Some("0.10.0"))
     );
-    let versioned_analysis = matches!(analysis_schema, Some("0.8.0" | "0.9.0" | "0.10.0"));
-    let versioned_uncertainty = matches!(schema_version, Some("0.7.0" | "0.8.0" | "0.9.0"));
+    let versioned_analysis = matches!(
+        analysis_schema,
+        Some("0.8.0" | "0.9.0" | "0.10.0" | "0.11.0")
+    );
+    let versioned_uncertainty =
+        matches!(schema_version, Some("0.7.0" | "0.8.0" | "0.9.0" | "0.10.0"));
     if (versioned_analysis || versioned_uncertainty) && !version_pair {
         audit.errors.push(
-            "analysis schema_version 0.8.0/0.9.0/0.10.0 must pair with uncertainty schema_version 0.7.0/0.8.0/0.9.0 respectively".into(),
+            "analysis schema_version 0.8.0 through 0.11.0 must pair with uncertainty schema_version 0.7.0 through 0.10.0 respectively".into(),
         );
     }
     for field in ["uncertainty_id", "analysis_id"] {
@@ -755,6 +779,7 @@ fn audit_values(
         let probability_indices = probability_target_indices(target);
         let background_index = background_excess_target_index(target);
         let relative_index = relative_effect_target_index(target);
+        let hazard_index = hazard_ratio_target_index(target);
         let Some(base) = plan.pointer(target) else {
             audit.invalid_parameters.push(id.into());
             audit
@@ -762,7 +787,9 @@ fn audit_values(
                 .push(format!("parameter {id} target does not exist"));
             continue;
         };
-        let target_allowed = if schema_version == Some("0.9.0") {
+        let target_allowed = if schema_version == Some("0.10.0") {
+            hazard_index.is_some()
+        } else if schema_version == Some("0.9.0") {
             relative_index.is_some()
         } else if schema_version == Some("0.8.0") {
             background_index.is_some()
@@ -1057,6 +1084,66 @@ fn audit_values(
                     "parameter {id} relative effect has no valid measure, positive baseline risk, or exact basis"
                 ));
             }
+        } else if let Some(mapping_index) = hazard_index {
+            let indexed_mapping = plan.pointer(&format!("/input_provenance/{mapping_index}"));
+            let transformation =
+                indexed_mapping.and_then(|value| value.pointer("/derivation/transformation"));
+            if schema_version != Some("0.10.0")
+                || analysis_schema != Some("0.11.0")
+                || indexed_mapping
+                    .and_then(|value| value.get("path"))
+                    .and_then(serde_json::Value::as_str)
+                    != Some(provenance_path)
+                || indexed_mapping
+                    .and_then(|value| value.pointer("/derivation/method"))
+                    .and_then(serde_json::Value::as_str)
+                    != Some("deterministic_transformation")
+                || transformation
+                    .and_then(|value| value.get("operation"))
+                    .and_then(serde_json::Value::as_str)
+                    != Some("hazard_ratio_to_transition_schedule")
+            {
+                audit.invalid_parameters.push(id.into());
+                audit.errors.push(format!(
+                    "parameter {id} must bind an admitted hazard-ratio transformation"
+                ));
+            } else if let Some(indexed_mapping) = indexed_mapping {
+                mapping = indexed_mapping;
+            }
+            relative_measure = Some("hazard_ratio");
+            relative_max_baseline = transformation
+                .and_then(|value| value.get("baseline_cumulative_hazards"))
+                .and_then(serde_json::Value::as_array)
+                .and_then(|items| {
+                    let mut previous = 0.0;
+                    let mut max_increment = 0.0_f64;
+                    for item in items {
+                        let value = item
+                            .pointer("/cumulative_hazard/value")
+                            .and_then(serde_json::Value::as_f64)
+                            .filter(|value| value.is_finite() && *value >= previous)?;
+                        max_increment = max_increment.max(value - previous);
+                        previous = value;
+                    }
+                    (max_increment > 0.0).then_some(max_increment)
+                });
+            let effect = mapping.pointer("/derivation/transformation/hazard_ratio");
+            rate_basis = effect.and_then(|value| {
+                value
+                    .get("source_extraction_id")
+                    .and_then(serde_json::Value::as_str)
+                    .or_else(|| {
+                        value
+                            .get("assumption_id")
+                            .and_then(serde_json::Value::as_str)
+                    })
+            });
+            if relative_max_baseline.is_none() || rate_basis.is_none() {
+                audit.invalid_parameters.push(id.into());
+                audit.errors.push(format!(
+                    "parameter {id} hazard ratio has no positive baseline hazard increment or exact basis"
+                ));
+            }
         } else if mapping
             .pointer("/derivation/method")
             .and_then(serde_json::Value::as_str)
@@ -1108,10 +1195,16 @@ fn audit_values(
                             && survival_indices.is_none()
                             && background_index.is_none()
                             && relative_index.is_none()
+                            && hazard_index.is_none()
                             || low > 0.0)
                         && (probability_indices.is_none() || (low > 0.0 && high < 1.0))
                         && (relative_measure != Some("risk_ratio")
                             || relative_max_baseline.is_some_and(|max_q| high < 1.0 / max_q))
+                        && (relative_measure != Some("hazard_ratio")
+                            || relative_max_baseline.is_some_and(|max_delta| {
+                                let integrated = high * max_delta;
+                                integrated.is_finite() && -(-integrated).exp_m1() < 1.0
+                            }))
                 }),
             _ => false,
         };
@@ -1155,6 +1248,21 @@ fn audit_values(
                             .is_some_and(|(high, max_q)| high.is_finite() && high < 1.0 / max_q)
                 }
                 "odds_ratio" => kind == Some("lognormal") || kind == Some("uniform"),
+                "hazard_ratio" => {
+                    kind == Some("uniform")
+                        && distribution
+                            .and_then(|value| value.get("low"))
+                            .and_then(serde_json::Value::as_f64)
+                            .is_some_and(|low| low.is_finite() && low > 0.0)
+                        && distribution
+                            .and_then(|value| value.get("high"))
+                            .and_then(serde_json::Value::as_f64)
+                            .zip(relative_max_baseline)
+                            .is_some_and(|(high, max_delta)| {
+                                let integrated = high * max_delta;
+                                integrated.is_finite() && -(-integrated).exp_m1() < 1.0
+                            })
+                }
                 _ => false,
             };
             if !valid {
@@ -1193,7 +1301,17 @@ fn audit_values(
         .and_then(serde_json::Value::as_object);
     if matches!(
         schema_version,
-        Some("0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0")
+        Some(
+            "0.2.0"
+                | "0.3.0"
+                | "0.4.0"
+                | "0.5.0"
+                | "0.6.0"
+                | "0.7.0"
+                | "0.8.0"
+                | "0.9.0"
+                | "0.10.0"
+        )
     ) {
         let thresholds = threshold_config
             .and_then(|value| value.get("values"))
@@ -1226,7 +1344,7 @@ fn audit_values(
         }
     } else if has_threshold_config {
         audit.errors.push(
-            "decision thresholds require uncertainty schema_version 0.2.0 through 0.9.0".into(),
+            "decision thresholds require uncertainty schema_version 0.2.0 through 0.10.0".into(),
         );
     } else if schema_version == Some("0.1.0") {
         audit.threshold_count = usize::from(audit.primary_threshold.is_some());
@@ -1351,7 +1469,7 @@ fn audit_values(
                         base,
                         value,
                         &allowed_strategy_ids,
-                        matches!(schema_version, Some("0.8.0" | "0.9.0")),
+                        matches!(schema_version, Some("0.8.0" | "0.9.0" | "0.10.0")),
                     )
                 })
             });
@@ -1850,6 +1968,80 @@ mod tests {
         let raw = serde_json::to_vec(&uncertainty).unwrap();
         let audit = audit_values(&plan, &plan_raw, &uncertainty, &raw);
         assert!(audit.complete, "{:?}", audit.errors);
+    }
+
+    #[test]
+    fn schema_010_admits_only_bounded_numerically_safe_hazard_ratio_uncertainty() {
+        let mut plan = plan();
+        plan["schema_version"] = serde_json::json!("0.11.0");
+        plan["baseline_strategy_id"] = serde_json::json!("comparator");
+        plan["strategy_order"] = serde_json::json!(["comparator", "intervention"]);
+        plan["input_provenance"][0] = serde_json::json!({
+            "path": "strategies.comparator.transition_schedule",
+            "source_ids": [], "extraction_ids": [], "assumption_ids": ["hr"],
+            "uncertainty_status": "distribution_available",
+            "derivation": {"method": "deterministic_transformation", "transformation": {
+                "operation": "hazard_ratio_to_transition_schedule",
+                "baseline_cumulative_hazards": [
+                    {"cycle": 1, "cumulative_hazard": {"value": 0.1, "assumption_id": "h1"}},
+                    {"cycle": 2, "cumulative_hazard": {"value": 0.3, "assumption_id": "h2"}},
+                    {"cycle": 3, "cumulative_hazard": {"value": 0.3, "assumption_id": "h3"}}
+                ],
+                "hazard_ratio": {"value": 0.5, "assumption_id": "hr"}
+            }}
+        });
+        plan["methodology"]["uncertainty_analysis"]["deterministic"]["input_paths"] =
+            serde_json::json!(["strategies.comparator.transition_schedule"]);
+        plan["methodology"]["uncertainty_analysis"]["probabilistic"]["input_paths"] =
+            serde_json::json!(["strategies.comparator.transition_schedule"]);
+        let plan_raw = serde_json::to_vec(&plan).unwrap();
+        let mut uncertainty = uncertainty(&plan_raw);
+        uncertainty["schema_version"] = serde_json::json!("0.10.0");
+        uncertainty["parameters"][0] = serde_json::json!({
+            "id": "hazard-ratio", "label": "Hazard ratio",
+            "target": "/input_provenance/0/derivation/transformation/hazard_ratio/value",
+            "provenance_path": "strategies.comparator.transition_schedule",
+            "deterministic": {"low": 0.3, "high": 0.8, "rationale": "Evidence interval"},
+            "probabilistic": {
+                "type": "uniform", "low": 0.3, "high": 0.8,
+                "basis_ids": ["hr"], "rationale": "Bounded HR"
+            }
+        });
+        uncertainty["probabilistic_analysis"]["correlation_handling"]["groups"] =
+            serde_json::json!([]);
+        uncertainty["structural_scenarios"][0]["replacements"] = serde_json::json!([{
+            "target": "/discount_rates/costs", "value": 0.02
+        }]);
+        let raw = serde_json::to_vec(&uncertainty).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &raw);
+        assert!(audit.complete, "{:?}", audit.errors);
+
+        uncertainty["parameters"][0]["probabilistic"] = serde_json::json!({
+            "type": "lognormal", "mu_log": -0.7, "sigma_log": 0.2,
+            "basis_ids": ["hr"], "rationale": "Unbounded HR"
+        });
+        let raw = serde_json::to_vec(&uncertainty).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &raw);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| { error.contains("incompatible with its relative-effect measure") }));
+
+        uncertainty["parameters"][0]["probabilistic"] = serde_json::json!({
+            "type": "uniform", "low": 0.3, "high": 1e308,
+            "basis_ids": ["hr"], "rationale": "Unsafe HR"
+        });
+        uncertainty["parameters"][0]["deterministic"]["high"] = serde_json::json!(1e308);
+        let raw = serde_json::to_vec(&uncertainty).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &raw);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("deterministic bounds")));
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| { error.contains("incompatible with its relative-effect measure") }));
     }
 
     #[test]

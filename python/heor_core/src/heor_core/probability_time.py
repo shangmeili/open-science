@@ -18,10 +18,12 @@ ANALYSIS_SCHEMA_VERSION = "0.7.0"
 MULTI_STRATEGY_SCHEMA_VERSION = "0.8.0"
 PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION = "0.9.0"
 CURRENT_MULTI_STRATEGY_SCHEMA_VERSION = "0.10.0"
+LATEST_MULTI_STRATEGY_SCHEMA_VERSION = "0.11.0"
 MULTI_STRATEGY_SCHEMA_VERSIONS = {
     MULTI_STRATEGY_SCHEMA_VERSION,
     PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION,
     CURRENT_MULTI_STRATEGY_SCHEMA_VERSION,
+    LATEST_MULTI_STRATEGY_SCHEMA_VERSION,
 }
 STRATEGY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 TOLERANCE = 1e-12
@@ -61,7 +63,7 @@ def validate_probability_time_mappings(
         label = f"input_provenance[{position}]"
         if schema_version not in {ANALYSIS_SCHEMA_VERSION, *MULTI_STRATEGY_SCHEMA_VERSIONS}:
             raise ProbabilityTimeError(
-                f"{label}: probability-time transformations require schema_version {ANALYSIS_SCHEMA_VERSION}, {MULTI_STRATEGY_SCHEMA_VERSION}, {PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION}, or {CURRENT_MULTI_STRATEGY_SCHEMA_VERSION}"
+                f"{label}: probability-time transformations require schema_version {ANALYSIS_SCHEMA_VERSION} through {LATEST_MULTI_STRATEGY_SCHEMA_VERSION}"
             )
         path = mapping.get("path")
         if not isinstance(path, str) or not _transition_path(

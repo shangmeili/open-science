@@ -18,7 +18,7 @@ BASE_PATHS = [
 ]
 UNCERTAINTY = {"fixed", "range_available", "distribution_available"}
 APPROVABLE_ANALYSIS_SCHEMAS = {
-    "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0"
+    "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0"
 }
 STRATEGY_ID = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 
@@ -76,7 +76,7 @@ def required_paths(plan: dict[str, Any]) -> list[str]:
 
 
 def strategy_ids(plan: dict[str, Any]) -> list[str]:
-    if plan.get("schema_version") in {"0.8.0", "0.9.0", "0.10.0"}:
+    if plan.get("schema_version") in {"0.8.0", "0.9.0", "0.10.0", "0.11.0"}:
         order = plan.get("strategy_order")
         return order if isinstance(order, list) and all(isinstance(item, str) for item in order) else []
     return ["comparator", "intervention"]
@@ -152,8 +152,8 @@ def transition_rate_reasons(
     extraction_index: dict[str, dict[str, Any]],
 ) -> list[str]:
     reasons: list[str] = []
-    if plan.get("schema_version") not in {"0.5.0", "0.8.0", "0.9.0", "0.10.0"}:
-        return ["deterministic transition-rate transformations require schema_version 0.5.0, 0.8.0, 0.9.0, or 0.10.0"]
+    if plan.get("schema_version") not in {"0.5.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0"}:
+        return ["deterministic transition-rate transformations require schema_version 0.5.0 through 0.11.0"]
     if not transition_path(path):
         return ["deterministic transformation is allowed only for transition inputs"]
     transformation = derivation.get("transformation")
@@ -320,8 +320,8 @@ def survival_curve_reasons(
     extraction_index: dict[str, dict[str, Any]],
 ) -> list[str]:
     reasons: list[str] = []
-    if plan.get("schema_version") not in {"0.6.0", "0.8.0", "0.9.0", "0.10.0"}:
-        return ["parametric survival transformations require schema_version 0.6.0, 0.8.0, 0.9.0, or 0.10.0"]
+    if plan.get("schema_version") not in {"0.6.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0"}:
+        return ["parametric survival transformations require schema_version 0.6.0 through 0.11.0"]
     if not transition_path(path) or not path.endswith(".transition_schedule"):
         return ["parametric survival transformation is allowed only for a transition schedule"]
     transformation = derivation.get("transformation")
@@ -457,8 +457,8 @@ def probability_time_reasons(
     extraction_index: dict[str, dict[str, Any]],
 ) -> list[str]:
     reasons: list[str] = []
-    if plan.get("schema_version") not in {"0.7.0", "0.8.0", "0.9.0", "0.10.0"}:
-        return ["probability-time transformations require schema_version 0.7.0, 0.8.0, 0.9.0, or 0.10.0"]
+    if plan.get("schema_version") not in {"0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0"}:
+        return ["probability-time transformations require schema_version 0.7.0 through 0.11.0"]
     if not transition_path(path):
         return ["probability-time transformation is allowed only for transition inputs"]
     transformation = derivation.get("transformation")
@@ -605,8 +605,8 @@ def relative_effect_reasons(
     extraction_index: dict[str, dict[str, Any]],
 ) -> list[str]:
     reasons: list[str] = []
-    if plan.get("schema_version") != "0.10.0":
-        return ["relative-effect transformations require schema_version 0.10.0"]
+    if plan.get("schema_version") not in {"0.10.0", "0.11.0"}:
+        return ["relative-effect transformations require schema_version 0.10.0 or 0.11.0"]
     if not transition_path(path) or not path.endswith(".transition_schedule"):
         return ["relative-effect transformation is allowed only for a transition schedule"]
     transformation = derivation.get("transformation")
@@ -791,6 +791,168 @@ def relative_effect_reasons(
     return reasons
 
 
+def hazard_ratio_reasons(
+    plan: dict[str, Any],
+    path: str,
+    mapping: dict[str, Any],
+    derivation: dict[str, Any],
+    extraction_index: dict[str, dict[str, Any]],
+) -> list[str]:
+    reasons: list[str] = []
+    if plan.get("schema_version") != "0.11.0":
+        return ["hazard-ratio transformations require schema_version 0.11.0"]
+    if not transition_path(path) or not path.endswith(".transition_schedule"):
+        return ["hazard-ratio transformation is allowed only for a transition schedule"]
+    transformation = derivation.get("transformation")
+    if not isinstance(transformation, dict):
+        return ["derivation.transformation must be an object"]
+    expected_fields = {
+        "operation", "cycle_length_years", "from_state_index", "event_state_index",
+        "baseline_cumulative_hazards", "hazard_ratio", "review_bases",
+    }
+    if set(transformation) != expected_fields:
+        reasons.append("hazard-ratio fields are not the exact supported contract")
+    if transformation.get("operation") != "hazard_ratio_to_transition_schedule":
+        reasons.append("transformation.operation must be hazard_ratio_to_transition_schedule")
+    states = plan.get("states")
+    if not isinstance(states, list) or len(states) != 2:
+        reasons.append("hazard-ratio transformation requires exactly two states")
+    cycles = plan.get("cycles")
+    if isinstance(cycles, bool) or not isinstance(cycles, int) or not 1 <= cycles <= 10_000:
+        reasons.append("hazard-ratio transformation supports 1-10000 cycles")
+        cycles = 0
+    cycle_length = transformation.get("cycle_length_years")
+    if (
+        not finite_number(cycle_length)
+        or cycle_length <= 0
+        or not finite_number(plan.get("cycle_length_years"))
+        or not isclose(float(cycle_length), float(plan["cycle_length_years"]), rel_tol=0.0, abs_tol=1e-12)
+    ):
+        reasons.append("cycle_length_years must equal the positive analysis cycle length")
+    from_index = transformation.get("from_state_index")
+    event_index = transformation.get("event_state_index")
+    valid_indices = (
+        isinstance(from_index, int) and not isinstance(from_index, bool)
+        and isinstance(event_index, int) and not isinstance(event_index, bool)
+        and {from_index, event_index} == {0, 1}
+    )
+    if not valid_indices:
+        reasons.append("from_state_index and event_state_index must be the two distinct state indices")
+    used_extractions: set[str] = set()
+    used_assumptions: set[str] = set()
+
+    def value_with_basis(value: Any, label: str) -> float | None:
+        allowed = {"value", "source_extraction_id", "source_pointer", "assumption_id"}
+        if not isinstance(value, dict) or set(value) - allowed:
+            reasons.append(f"{label} contains unsupported fields")
+            return None
+        number = value.get("value")
+        if not finite_number(number):
+            reasons.append(f"{label}.value must be finite")
+            return None
+        source_id = value.get("source_extraction_id")
+        assumption_id = value.get("assumption_id")
+        if text(source_id) == text(assumption_id):
+            reasons.append(f"{label} must declare exactly one extraction or assumption basis")
+        elif text(source_id):
+            used_extractions.add(source_id)
+            extraction = extraction_index.get(source_id)
+            if extraction is not None:
+                try:
+                    extracted = strict_json(extraction.get("extracted_value"))
+                    extracted = json_pointer(extracted, value.get("source_pointer", ""))
+                except (TypeError, ValueError, json.JSONDecodeError) as error:
+                    reasons.append(f"{label}: {error}")
+                else:
+                    if not json_equivalent(extracted, number):
+                        reasons.append(f"{label}.value does not match the bound extraction")
+        else:
+            used_assumptions.add(assumption_id)
+            if "source_pointer" in value:
+                reasons.append(f"{label}.source_pointer requires an extraction")
+        return float(number)
+
+    def review_basis(value: Any, label: str) -> None:
+        allowed = {"source_extraction_id", "source_pointer", "assumption_id"}
+        if not isinstance(value, dict) or set(value) - allowed:
+            reasons.append(f"{label} fields are invalid")
+            return
+        source_id = value.get("source_extraction_id")
+        assumption_id = value.get("assumption_id")
+        if text(source_id) == text(assumption_id):
+            reasons.append(f"{label} must declare exactly one extraction or assumption basis")
+        elif text(source_id):
+            used_extractions.add(source_id)
+            pointer = value.get("source_pointer")
+            if pointer is not None and (
+                not isinstance(pointer, str) or (pointer and not pointer.startswith("/"))
+            ):
+                reasons.append(f"{label}.source_pointer is invalid")
+        else:
+            used_assumptions.add(assumption_id)
+            if "source_pointer" in value:
+                reasons.append(f"{label}.source_pointer requires an extraction")
+
+    hazard_ratio = value_with_basis(transformation.get("hazard_ratio"), "hazard_ratio")
+    if hazard_ratio is None or hazard_ratio <= 0:
+        reasons.append("hazard_ratio.value must be positive")
+    review_bases = transformation.get("review_bases")
+    required_reviews = {
+        "endpoint_alignment", "population_transportability",
+        "proportional_hazards_assumption", "effect_constancy_over_horizon",
+        "treatment_switching_assessment",
+    }
+    if not isinstance(review_bases, dict) or set(review_bases) != required_reviews:
+        reasons.append("review_bases must contain exactly the five required review questions")
+    else:
+        for name in sorted(required_reviews):
+            review_basis(review_bases[name], f"review_bases.{name}")
+    entries = transformation.get("baseline_cumulative_hazards")
+    if not isinstance(entries, list) or len(entries) != cycles:
+        reasons.append("baseline_cumulative_hazards must cover every model cycle")
+        entries = []
+    previous = 0.0
+    any_positive = False
+    output: list[dict[str, Any]] = []
+    for index, entry in enumerate(entries):
+        label = f"baseline_cumulative_hazards[{index}]"
+        if not isinstance(entry, dict) or set(entry) != {"cycle", "cumulative_hazard"}:
+            reasons.append(f"{label} fields are invalid")
+            continue
+        if entry.get("cycle") != index + 1:
+            reasons.append(f"{label}.cycle must equal its one-based position")
+        cumulative = value_with_basis(entry.get("cumulative_hazard"), f"{label}.cumulative_hazard")
+        if cumulative is None or cumulative < 0:
+            reasons.append(f"{label}.cumulative_hazard.value must be non-negative")
+            continue
+        if cumulative + 1e-12 < previous:
+            reasons.append("baseline_cumulative_hazards must be non-decreasing across cycles")
+            continue
+        increment = max(0.0, cumulative - previous)
+        any_positive = any_positive or increment > 1e-12
+        previous = cumulative
+        if hazard_ratio is None or hazard_ratio <= 0 or not valid_indices:
+            continue
+        probability = -expm1(-hazard_ratio * increment)
+        if not isfinite(probability) or not 0 <= probability < 1:
+            reasons.append(f"{label} produced a non-finite or invalid event probability")
+            continue
+        matrix = [[0.0, 0.0], [0.0, 0.0]]
+        matrix[from_index][from_index] = 1.0 - probability
+        matrix[from_index][event_index] = probability
+        matrix[event_index][event_index] = 1.0
+        output.append({"start_cycle": index + 1, "matrix": matrix})
+    if not any_positive:
+        reasons.append("baseline_cumulative_hazards must contain at least one positive increment")
+    if not output or not json_equivalent(output, model_value(plan, path)):
+        reasons.append("hazard ratio does not reproduce the current transition schedule")
+    if used_extractions != set(texts(mapping.get("extraction_ids")) or []):
+        reasons.append("transformation must use every selected extraction")
+    if used_assumptions != set(texts(mapping.get("assumption_ids")) or []):
+        reasons.append("transformation must use every proposed assumption")
+    return reasons
+
+
 def background_mortality_reasons(
     plan: dict[str, Any],
     path: str,
@@ -799,8 +961,8 @@ def background_mortality_reasons(
     extraction_index: dict[str, dict[str, Any]],
 ) -> list[str]:
     reasons: list[str] = []
-    if plan.get("schema_version") not in {"0.9.0", "0.10.0"}:
-        return ["background-plus-excess mortality requires schema_version 0.9.0 or 0.10.0"]
+    if plan.get("schema_version") not in {"0.9.0", "0.10.0", "0.11.0"}:
+        return ["background-plus-excess mortality requires schema_version 0.9.0 through 0.11.0"]
     if not transition_path(path) or not path.endswith(".transition_schedule"):
         return ["background mortality transformation is allowed only for a transition schedule"]
     transformation = derivation.get("transformation")
@@ -1066,6 +1228,12 @@ def derivation_reasons(
                     plan, path, mapping, derivation, extraction_index
                 )
             )
+        elif operation == "hazard_ratio_to_transition_schedule":
+            reasons.extend(
+                hazard_ratio_reasons(
+                    plan, path, mapping, derivation, extraction_index
+                )
+            )
         else:
             reasons.append("deterministic transformation operation is unsupported")
         return reasons
@@ -1236,9 +1404,9 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
     if not isinstance(plan, dict) or not isinstance(synthesis, dict):
         return {"complete": False, "errors": ["plan and synthesis must be JSON objects"]}
     if plan.get("schema_version") not in APPROVABLE_ANALYSIS_SCHEMAS:
-        errors.append("schema_version must be 0.3.0 through 0.10.0 for approval review")
+        errors.append("schema_version must be 0.3.0 through 0.11.0 for approval review")
     roles = strategy_ids(plan)
-    if plan.get("schema_version") in {"0.8.0", "0.9.0", "0.10.0"}:
+    if plan.get("schema_version") in {"0.8.0", "0.9.0", "0.10.0", "0.11.0"}:
         strategies = plan.get("strategies")
         if (
             not 2 <= len(roles) <= 16 or len(set(roles)) != len(roles)
@@ -1247,7 +1415,7 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
             or not isinstance(strategies, dict) or set(strategies) != set(roles)
         ):
             errors.append(
-                "schema 0.8.0 through 0.10.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first"
+                "schema 0.8.0 through 0.11.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first"
             )
     for role in roles:
         strategy = (plan.get("strategies") or {}).get(role) or {}
@@ -1257,9 +1425,9 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
             errors.append(
                 f"strategies.{role} must define exactly one of transition_matrix or transition_schedule"
             )
-        if has_schedule and plan.get("schema_version") not in {"0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0"}:
+        if has_schedule and plan.get("schema_version") not in {"0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0"}:
             errors.append(
-                f"strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.10.0"
+                f"strategies.{role}.transition_schedule requires schema_version 0.4.0 through 0.11.0"
             )
     basis_value = plan.get("economic_basis")
     economic_basis = basis_value if isinstance(basis_value, dict) else None

@@ -17,6 +17,7 @@ from .background_mortality import (
     BackgroundMortalityError,
     validate_background_mortality_mappings,
 )
+from .hazard_ratio import HazardRatioError, validate_hazard_ratio_mappings
 from .probability_time import (
     ProbabilityTimeError,
     validate_probability_time_mappings,
@@ -26,10 +27,12 @@ from .survival_curves import SurvivalCurveError, validate_survival_curve_mapping
 from .transition_rates import TransitionRateError, validate_transition_rate_mappings
 
 
-SCHEMA_VERSION = "0.10.0"
-PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION = "0.9.0"
-PRIOR_MULTI_STRATEGY_SCHEMA_VERSION = "0.8.0"
+SCHEMA_VERSION = "0.11.0"
+PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION = "0.10.0"
+PRIOR_MULTI_STRATEGY_SCHEMA_VERSION = "0.9.0"
+EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION = "0.8.0"
 MULTI_STRATEGY_SCHEMA_VERSIONS = {
+    EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION,
     PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
     PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION,
     SCHEMA_VERSION,
@@ -49,13 +52,15 @@ SUPPORTED_SCHEMA_VERSIONS = (
     TRANSITION_RATE_SCHEMA_VERSION,
     SURVIVAL_SCHEMA_VERSION,
     PROBABILITY_TIME_SCHEMA_VERSION,
+    EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION,
     PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
     PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION,
     SCHEMA_VERSION,
 )
-ENGINE_VERSION = "0.10.0"
-PREVIOUS_MULTI_STRATEGY_ENGINE_VERSION = "0.9.0"
-PRIOR_MULTI_STRATEGY_ENGINE_VERSION = "0.8.0"
+ENGINE_VERSION = "0.11.0"
+PREVIOUS_MULTI_STRATEGY_ENGINE_VERSION = "0.10.0"
+PRIOR_MULTI_STRATEGY_ENGINE_VERSION = "0.9.0"
+EARLIEST_MULTI_STRATEGY_ENGINE_VERSION = "0.8.0"
 TOLERANCE = 1e-9
 MAX_STRATEGIES = 16
 STRATEGY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
@@ -178,6 +183,7 @@ class MarkovSpecification:
             TRANSITION_RATE_SCHEMA_VERSION,
             SURVIVAL_SCHEMA_VERSION,
             PROBABILITY_TIME_SCHEMA_VERSION,
+            EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION,
             PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
             PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION,
             SCHEMA_VERSION,
@@ -288,12 +294,20 @@ class MarkovSpecification:
                 cycles=specification.cycles,
                 cycle_length_years=specification.cycle_length_years,
             )
+            validate_hazard_ratio_mappings(
+                value,
+                schema_version=schema_version,
+                state_count=len(specification.states),
+                cycles=specification.cycles,
+                cycle_length_years=specification.cycle_length_years,
+            )
         except (
             TransitionRateError,
             SurvivalCurveError,
             ProbabilityTimeError,
             BackgroundMortalityError,
             RelativeEffectError,
+            HazardRatioError,
         ) as error:
             raise ModelValidationError(str(error)) from error
         return specification
@@ -553,6 +567,8 @@ def run_markov(specification: MarkovSpecification) -> AnalysisResult:
             if specification.schema_version == PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION
             else PRIOR_MULTI_STRATEGY_ENGINE_VERSION
             if specification.schema_version == PRIOR_MULTI_STRATEGY_SCHEMA_VERSION
+            else EARLIEST_MULTI_STRATEGY_ENGINE_VERSION
+            if specification.schema_version == EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION
             else "0.7.0"
         ),
         schema_version=specification.schema_version,
@@ -953,13 +969,14 @@ def _validate_strategy(
         TRANSITION_RATE_SCHEMA_VERSION,
         SURVIVAL_SCHEMA_VERSION,
         PROBABILITY_TIME_SCHEMA_VERSION,
+        EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION,
         PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
         PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION,
         SCHEMA_VERSION,
     } and strategy.transition_schedule is not None:
         raise ModelValidationError(
             f"{role}.transition_schedule requires schema_version "
-            f"{TRANSITION_SCHEDULE_SCHEMA_VERSION}, {TRANSITION_RATE_SCHEMA_VERSION}, {SURVIVAL_SCHEMA_VERSION}, or {PROBABILITY_TIME_SCHEMA_VERSION}; schema_versions {PRIOR_MULTI_STRATEGY_SCHEMA_VERSION}, {PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION}, and {SCHEMA_VERSION} are also supported"
+            f"{TRANSITION_SCHEDULE_SCHEMA_VERSION}, {TRANSITION_RATE_SCHEMA_VERSION}, {SURVIVAL_SCHEMA_VERSION}, or {PROBABILITY_TIME_SCHEMA_VERSION}; schema_versions {EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION}, {PRIOR_MULTI_STRATEGY_SCHEMA_VERSION}, {PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION}, and {SCHEMA_VERSION} are also supported"
         )
     if strategy.transition_matrix is None and strategy.transition_schedule is None:
         raise ModelValidationError(

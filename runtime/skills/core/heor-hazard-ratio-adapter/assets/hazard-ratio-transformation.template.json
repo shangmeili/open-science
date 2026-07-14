@@ -1,0 +1,19 @@
+{
+  "operation": "hazard_ratio_to_transition_schedule",
+  "cycle_length_years": 1.0,
+  "from_state_index": 0,
+  "event_state_index": 1,
+  "baseline_cumulative_hazards": [
+    {"cycle": 1, "cumulative_hazard": {"value": 0.1, "source_extraction_id": "baseline-h-1", "source_pointer": "/cumulative_hazard"}},
+    {"cycle": 2, "cumulative_hazard": {"value": 0.3, "source_extraction_id": "baseline-h-2", "source_pointer": "/cumulative_hazard"}},
+    {"cycle": 3, "cumulative_hazard": {"value": 0.3, "source_extraction_id": "baseline-h-3", "source_pointer": "/cumulative_hazard"}}
+  ],
+  "hazard_ratio": {"value": 0.75, "source_extraction_id": "treatment-hr", "source_pointer": "/hazard_ratio"},
+  "review_bases": {
+    "endpoint_alignment": {"assumption_id": "endpoint-alignment"},
+    "population_transportability": {"assumption_id": "population-transportability"},
+    "proportional_hazards_assumption": {"assumption_id": "proportional-hazards"},
+    "effect_constancy_over_horizon": {"assumption_id": "effect-constancy"},
+    "treatment_switching_assessment": {"assumption_id": "treatment-switching"}
+  }
+}

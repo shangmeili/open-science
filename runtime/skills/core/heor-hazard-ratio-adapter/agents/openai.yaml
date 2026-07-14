@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Hazard Ratio Adapter"
+  short_description: "Apply a reviewed constant HR to baseline cumulative hazards."
+  default_prompt: "Use $heor-hazard-ratio-adapter to derive and audit a two-state transition schedule from a constant hazard ratio and cycle-aligned baseline cumulative hazards."

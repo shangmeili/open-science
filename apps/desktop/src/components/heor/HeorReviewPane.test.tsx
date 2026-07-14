@@ -303,6 +303,16 @@ describe("AI4HEOR human review pane", () => {
     expect(relativeEffectPrompt).toContain("Stop if the evidence reports an HR");
     expect(relativeEffectPrompt).toContain("strictly below 1/max(positive baseline q)");
     await userEvent.click(screen.getByRole("button", {
+      name: "Ask Agent to apply a hazard ratio",
+    }));
+    const hazardRatioPrompt = onRequestRevision.mock.calls[
+      onRequestRevision.mock.calls.length - 1
+    ]?.[0];
+    expect(hazardRatioPrompt).toContain("$heor-hazard-ratio-adapter");
+    expect(hazardRatioPrompt).toContain("natural-language interaction first");
+    expect(hazardRatioPrompt).toContain("p=-expm1(-HR*delta_H0)");
+    expect(hazardRatioPrompt).toContain("Stop for non-proportional hazards");
+    await userEvent.click(screen.getByRole("button", {
       name: "Ask Agent to continue screening and synthesis",
     }));
     expect(onRequestRevision).toHaveBeenCalledWith(
