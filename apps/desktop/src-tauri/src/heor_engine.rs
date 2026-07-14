@@ -544,6 +544,7 @@ mod tests {
             selected_extraction_count: 12,
             verified_extraction_count: 12,
             unverified_extraction_ids: Vec::new(),
+            rejected_extraction_ids: Vec::new(),
             invalid_selections: Vec::new(),
             errors: Vec::new(),
             verification_integrity: "verified_unanchored_sha256_chain",

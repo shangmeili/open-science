@@ -185,11 +185,15 @@ PDFs are marked `requires_ocr`; encryption, unsupported formats, extraction
 failure, source changes, and symlink escapes remain visible and fail closed.
 
 Decision-relevant extracted values cross a separate Human-in-the-loop boundary.
-The app records exact extraction IDs against the current synthesis SHA-256 in
-an app-owned hash chain; the analysis plan binds that synthesis and maps each
-source-based input to matching extraction IDs. Workspace `human_checked` text
-alone is never accepted as verification, and changing the synthesis invalidates
-the prior evidence-to-input authorization.
+The app shows the exact value, target, record, source location, and applicability,
+then records confirmed or rejected extraction IDs against the current synthesis
+SHA-256 in an app-owned hash chain. Each selected extraction needs confirmations
+from two distinct local reviewer labels; a duplicate label or any rejection
+fails closed. The analysis plan binds that synthesis and maps each source-based
+input to matching extraction IDs. Workspace `human_checked` text alone is never
+accepted, and changing the synthesis invalidates every prior review decision.
+The alpha does not claim authenticated identity or truly independent duplicate
+extraction.
 
 The broader platform backlog—arXiv, Crossref, OpenAlex, Semantic Scholar,
 deduplication exports, `corpus.csv`, BibTeX export, OCR, and complex layout/table

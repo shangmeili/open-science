@@ -107,27 +107,37 @@ scope until separate API-key, license, and consent boundaries are designed.
 
 Workspace fields such as `human_checked` and `verified_by` remain agent-writable
 activity records and are not trusted as approval facts. After a synthesis is
-structurally complete, the desktop can record an app-owned local human
-verification event that binds the exact synthesis SHA-256 and a sorted set of
-eligible, non-conflicting extraction IDs. Events form a per-project append-only
-SHA-256 chain outside the workspace. Any synthesis-byte change gives it a new
-identity, so old verification no longer applies.
+structurally complete, the desktop exposes each exact extraction value, model
+target, record ID, source location, and applicability. An app-owned review event
+binds the exact synthesis SHA-256, a sorted set of eligible extraction IDs, one
+local reviewer label and rationale, and a `confirmed` or `rejected` decision.
+Events form a per-project append-only SHA-256 chain outside the workspace.
+
+Every selected extraction now requires confirmations from at least two distinct
+local reviewer labels. A label cannot review the same extraction twice for the
+same synthesis. Any rejection blocks that extraction from model-input approval;
+the evidence synthesis must be revised, which gives it a new SHA-256 and makes
+all prior decisions inapplicable. Schema-v1 single-reviewer events remain
+verifiable but count as one confirmation only.
 
 The analysis plan now binds the current `heor/evidence-synthesis.json` digest.
 Every source-based input mapping must name one or more `extraction_ids`; each
 extraction target must exactly equal the model-input path and its record ID must
 be a linked evidence-source ID. The native analysis-plan gate requires all
 selected IDs to exist in the current structurally complete synthesis and in the
-current app-owned verification set, then binds the synthesis digest into the
+current dual-confirmed, non-rejected app-owned set, then binds the synthesis digest into the
 analysis-plan approval event. Execution, uncertainty, and budget-impact status
 repeat the check. Structural validation remains portable, but portable tools
 explicitly cannot claim human verification.
 
-This boundary records a local human assertion and detects inconsistent or
-partial edits. It does not prove reviewer identity, source truth, duplicate
-independent extraction, or resistance to an attacker able to rewrite the whole
-local app-data store. OS-backed identity and external anchoring remain future
-hardening, not current claims.
+This boundary records two distinct local labels and detects inconsistent or
+partial edits. It does not prove reviewer identity, source truth, blinding,
+duplicate independent extraction, consensus or arbitration, or resistance to
+an attacker able to rewrite the whole local app-data store. Cochrane requires
+at least two people to extract critical outcome data independently and a
+prespecified disagreement process; AI4HEOR does not claim that stronger method
+until identity, independent entry, and resolution workflow are implemented and
+used. OS-backed identity and external anchoring remain future hardening.
 
 ## Local evidence library
 
@@ -294,6 +304,11 @@ approval, reimbursement suitability, or external tamper-proofing.
   declared reviewer/developer separation, complete required coverage, and zero
   open blocker or major issues. Invalid evidence, stale bytes, or actor mismatch
   fails closed.
+- Evidence-to-input approval requires two distinct local-label confirmations
+  per selected extraction against the exact synthesis bytes. A duplicate label,
+  missing second confirmation, rejection, changed synthesis, or tampered review
+  chain fails closed; this remains distinct from authenticated independent
+  duplicate extraction.
 - Exploratory, analysis-authorized, independently validated, and locally
   released decision-ready states remain distinct. Any stale package, binding,
   validation, result reproduction, actor, or approval sequence fails closed.

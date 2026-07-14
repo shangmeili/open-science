@@ -46,7 +46,9 @@ Use `include`, `exclude`, `unclear`, or `not_assessed`. Full-text exclusions req
 
 Keep the human checker in `verified_by` only when status is `human_checked`. This records claimed activity inside an agent-writable artifact; it does not create an app-owned verification or approval.
 
-After the artifact is structurally complete, AI4HEOR can record a local human verification event outside the workspace. That event binds the exact synthesis SHA-256 and a sorted set of eligible extraction IDs in an app-owned hash chain. Editing any synthesis byte changes the digest and makes prior verification inapplicable. The Agent must never create, edit, or claim this event.
+After the artifact is structurally complete, AI4HEOR can record app-owned local review events outside the workspace. Each event binds the exact synthesis SHA-256, a sorted set of eligible extraction IDs, one local reviewer label, rationale, and a `confirmed` or `rejected` decision in a hash chain. An extraction can support an approvable model input only after two distinct local labels confirm it and no label rejects it. A rejection requires revising the synthesis; editing any byte changes the digest and makes every prior decision inapplicable. Legacy single-reviewer events remain readable but count as only one confirmation. The Agent must never create, edit, or claim these events.
+
+This is a fail-closed local integrity boundary, not proof that two authenticated people worked independently. Cochrane recommends at least two people independently extract critical outcome data and prespecify disagreement resolution. AI4HEOR does not claim that stronger method until reviewer identity, independent entry, and consensus or arbitration are implemented and actually used.
 
 ## Critical appraisal
 
@@ -64,4 +66,4 @@ Do not collapse critical appraisal into an overall quality score. Preserve domai
 - [Cochrane Handbook version 6.5, Chapter 5](https://training.cochrane.org/handbook/current/chapter-05), for accurate, complete, accessible, and transparent data collection.
 - [PRISMA 2020](https://www.prisma-statement.org/prisma-2020) for reporting items and flow representation, not as a quality score.
 
-The validator checks structure and internal links. It cannot prove database execution, source accuracy, completeness, risk of bias, or human independence.
+The validator checks structure and internal links and reports that two app reviewers are required. It cannot inspect app-owned decisions or prove database execution, source accuracy, completeness, risk of bias, reviewer identity, or human independence.

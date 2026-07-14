@@ -37,13 +37,28 @@ pub struct SynthesisAudit {
     pub included_count: usize,
     pub extraction_count: usize,
     pub eligible_extraction_ids: Vec<String>,
+    pub eligible_extractions: Vec<ReviewableExtraction>,
     pub app_verified_extraction_ids: Vec<String>,
     pub unverified_extraction_ids: Vec<String>,
+    pub rejected_extraction_ids: Vec<String>,
+    pub required_reviewers_per_extraction: usize,
+    pub review_confirmation_count: usize,
     pub human_review_complete: bool,
     pub verification_integrity: &'static str,
     pub unresolved_conflicts: Vec<String>,
     pub errors: Vec<String>,
     pub import_blockers: Vec<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewableExtraction {
+    pub extraction_id: String,
+    pub record_id: String,
+    pub target: String,
+    pub extracted_value: String,
+    pub source_location: String,
+    pub applicability: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -150,8 +165,13 @@ fn audit_value(
         included_count: 0,
         extraction_count: 0,
         eligible_extraction_ids: Vec::new(),
+        eligible_extractions: Vec::new(),
         app_verified_extraction_ids: Vec::new(),
         unverified_extraction_ids: Vec::new(),
+        rejected_extraction_ids: Vec::new(),
+        required_reviewers_per_extraction:
+            crate::heor_evidence_review::REQUIRED_REVIEWERS_PER_EXTRACTION,
+        review_confirmation_count: 0,
         human_review_complete: false,
         verification_integrity: "not_checked",
         unresolved_conflicts: Vec::new(),
@@ -628,6 +648,30 @@ fn audit_value(
                 }
                 if !id.trim().is_empty() && status != Some("conflict") {
                     audit.eligible_extraction_ids.push(id.to_string());
+                    audit.eligible_extractions.push(ReviewableExtraction {
+                        extraction_id: id.to_string(),
+                        record_id: record_id.to_string(),
+                        target: extraction
+                            .get("target")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                            .to_string(),
+                        extracted_value: extraction
+                            .get("extracted_value")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                            .to_string(),
+                        source_location: extraction
+                            .get("source_location")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                            .to_string(),
+                        applicability: extraction
+                            .get("applicability")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                            .to_string(),
+                    });
                 }
             }
         }
@@ -731,6 +775,12 @@ fn audit_value(
     audit.complete = audit.errors.is_empty();
     audit.eligible_extraction_ids.sort();
     audit.eligible_extraction_ids.dedup();
+    audit
+        .eligible_extractions
+        .sort_by(|left, right| left.extraction_id.cmp(&right.extraction_id));
+    audit
+        .eligible_extractions
+        .dedup_by(|left, right| left.extraction_id == right.extraction_id);
     audit.unverified_extraction_ids = audit.eligible_extraction_ids.clone();
     audit.status = if audit.complete {
         "complete"
@@ -756,8 +806,13 @@ pub(crate) fn audit_bytes(raw: &[u8]) -> SynthesisAudit {
             included_count: 0,
             extraction_count: 0,
             eligible_extraction_ids: Vec::new(),
+            eligible_extractions: Vec::new(),
             app_verified_extraction_ids: Vec::new(),
             unverified_extraction_ids: Vec::new(),
+            rejected_extraction_ids: Vec::new(),
+            required_reviewers_per_extraction:
+                crate::heor_evidence_review::REQUIRED_REVIEWERS_PER_EXTRACTION,
+            review_confirmation_count: 0,
             human_review_complete: false,
             verification_integrity: "not_checked",
             unresolved_conflicts: Vec::new(),
@@ -773,15 +828,19 @@ pub(crate) fn enrich_with_verification(
     mut audit: SynthesisAudit,
 ) -> Result<SynthesisAudit, String> {
     let log = crate::heor_evidence_review::verified_log(app, project_id)?;
-    let verified =
-        crate::heor_evidence_review::verified_extraction_ids(&log, &audit.synthesis_sha256);
     let eligible = audit
         .eligible_extraction_ids
         .iter()
         .cloned()
         .collect::<BTreeSet<_>>();
-    audit.app_verified_extraction_ids = eligible.intersection(&verified).cloned().collect();
-    audit.unverified_extraction_ids = eligible.difference(&verified).cloned().collect();
+    let review =
+        crate::heor_evidence_review::review_status(&log, &audit.synthesis_sha256, &eligible);
+    audit.app_verified_extraction_ids = review.verified_extraction_ids.into_iter().collect();
+    let mut unverified = review.pending_extraction_ids;
+    unverified.extend(review.rejected_extraction_ids.iter().cloned());
+    audit.rejected_extraction_ids = review.rejected_extraction_ids.into_iter().collect();
+    audit.unverified_extraction_ids = unverified.into_iter().collect();
+    audit.review_confirmation_count = review.confirmation_count;
     audit.human_review_complete =
         audit.complete && !eligible.is_empty() && audit.unverified_extraction_ids.is_empty();
     audit.verification_integrity = log.integrity;
@@ -1067,8 +1126,13 @@ pub fn audit_heor_evidence_synthesis(app: AppHandle) -> Result<SynthesisAudit, S
             included_count: 0,
             extraction_count: 0,
             eligible_extraction_ids: Vec::new(),
+            eligible_extractions: Vec::new(),
             app_verified_extraction_ids: Vec::new(),
             unverified_extraction_ids: Vec::new(),
+            rejected_extraction_ids: Vec::new(),
+            required_reviewers_per_extraction:
+                crate::heor_evidence_review::REQUIRED_REVIEWERS_PER_EXTRACTION,
+            review_confirmation_count: 0,
             human_review_complete: false,
             verification_integrity: "not_checked",
             unresolved_conflicts: Vec::new(),

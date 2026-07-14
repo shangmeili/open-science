@@ -1,12 +1,46 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT } from "@/lib/heor";
 import { useUiStore } from "@/lib/store";
-import { HeorReviewPane } from "./HeorReviewPane";
+import { EvidenceVerificationDialog, HeorReviewPane } from "./HeorReviewPane";
 
 afterEach(() => useUiStore.getState().setLocale("en"));
 
 describe("AI4HEOR human review pane", () => {
+  it("shows exact extraction details and records a selected rejection", async () => {
+    const onSubmit = vi.fn();
+    render(
+      <EvidenceVerificationDialog
+        audit={HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT}
+        running={false}
+        onCancel={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+    expect(screen.getByText("CNY 12,500 per cycle")).toBeInTheDocument();
+    expect(screen.getByText(/Table 3, intervention arm/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Reject selected" }));
+    await userEvent.click(screen.getByRole("checkbox", {
+      name: "Select extraction extract-cost",
+    }));
+    await userEvent.type(screen.getByPlaceholderText("Name or local reviewer label"), "Reviewer A");
+    await userEvent.type(
+      screen.getByPlaceholderText(/How you checked the values/),
+      "The table reports a different cycle cost.",
+    );
+    await userEvent.click(screen.getByRole("checkbox", {
+      name: /I personally checked and reject all 1 selected extractions/,
+    }));
+    await userEvent.click(screen.getByRole("button", { name: "Record rejection" }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      "Reviewer A",
+      "The table reports a different cycle cost.",
+      "rejected",
+      ["extract-cost"],
+    );
+  });
+
   it("reads an agent-authored artifact and keeps approval human-only", async () => {
     render(
       <HeorReviewPane
@@ -27,10 +61,12 @@ describe("AI4HEOR human review pane", () => {
     expect(screen.getByText("Local sources are hash-bound and searchable")).toBeInTheDocument();
     expect(screen.getByText("Evidence synthesis needs human-guided work")).toBeInTheDocument();
     expect(screen.getByText("Not assessed")).toBeInTheDocument();
+    expect(screen.getByText("Reviewer confirmations")).toBeInTheDocument();
+    expect(screen.getByText("0/4")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Review and authorize exact search" }))
       .not.toBeInTheDocument();
     expect(screen.getByText("Evidence audit incomplete")).toBeInTheDocument();
-    expect(screen.getByText("Structural audit complete")).toBeInTheDocument();
+    expect(await screen.findByText("Structural audit complete")).toBeInTheDocument();
     expect(screen.getAllByText("0/14")).toHaveLength(2);
     await userEvent.click(screen.getByRole("button", { name: "Review Decision problem" }));
 

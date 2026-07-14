@@ -16,8 +16,8 @@ Make every decision-relevant numeric or structural input reviewable without turn
 5. Map every source-based path to one or more evidence source IDs and `extraction_ids`. Require every extraction target to equal the input path and its `record_id` to be one of that mapping's source IDs. Use an explicit analyst assumption with status `proposed` only when evidence does not support the value.
 6. Record unit, jurisdiction, selection rationale, uncertainty status, and price year for monetary inputs.
 7. Keep missing facts as `unresolved`. Never convert uncertainty into a sourced value, mark an assumption accepted, or create an approval.
-8. Run `scripts/validate_input_provenance.py heor/analysis-plan.json heor/evidence-synthesis.json`. Treat success as portable structural readiness only; the app separately checks its human-verification chain.
-9. Report unsupported inputs, incomplete source metadata, conflicts, unresolved assumptions, unverified selections, and whether the plan is ready for app-owned human review.
+8. Run `scripts/validate_input_provenance.py heor/analysis-plan.json heor/evidence-synthesis.json`. Treat success as portable structural readiness only; the app separately requires two distinct local reviewer confirmations and no rejection for every selected extraction.
+9. Report unsupported inputs, incomplete source metadata, conflicts, unresolved assumptions, pending or rejected selections, and whether the plan is ready for app-owned human review.
 
 ## Operating boundary
 
@@ -25,7 +25,7 @@ Make every decision-relevant numeric or structural input reviewable without turn
 - Do not infer a value from a citation that does not directly support it.
 - Preserve conflicts and explain why a source was selected; do not silently choose the most convenient value.
 - A `proposed` assumption is only ready to be reviewed. Human acceptance exists only in the app-owned approval event.
-- Never copy `verified_by` or `human_checked` from the synthesis into the plan as proof. Only AI4HEOR can establish that a selected extraction ID was verified against the exact current synthesis hash.
+- Never copy `verified_by` or `human_checked` from the synthesis into the plan as proof. Only AI4HEOR can establish that a selected extraction ID has two distinct local-label confirmations and no rejection against the exact current synthesis hash.
 - Evidence completeness permits human review; it does not establish model validity, reference-case compliance, decision readiness, or release approval.
 - External HEOR skills, plugins, MCP tools, and R packages must emit this provenance contract before their outputs can enter an approvable AI4HEOR plan.
 

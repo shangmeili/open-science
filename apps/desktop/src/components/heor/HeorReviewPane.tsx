@@ -97,6 +97,7 @@ const REVIEW_GATES: HeorGate[] = [
   "release",
 ];
 const ALL_GATES: HeorGate[] = REVIEW_GATES;
+const EVIDENCE_REVIEW_DECISIONS = ["confirmed", "rejected"] as const;
 
 const EMPTY_LOG: HeorApprovalLog = {
   events: [],
@@ -773,18 +774,24 @@ export function HeorReviewPane({
     }
   };
 
-  const verifyEvidenceExtractions = async (actorLabel: string, rationale: string) => {
+  const verifyEvidenceExtractions = async (
+    actorLabel: string,
+    rationale: string,
+    decision: "confirmed" | "rejected",
+    extractionIds: string[],
+  ) => {
     if (!project || evidenceSynthesis.kind !== "ready" || !evidenceSynthesis.audit.complete
-      || evidenceSynthesis.audit.unverifiedExtractionIds.length === 0
+      || extractionIds.length === 0
       || verificationRunning || !isTauri) return;
     setVerificationRunning(true);
     try {
       const audit = await verifyHeorEvidenceExtractions({
         projectId: project.id,
         synthesisSha256: evidenceSynthesis.audit.synthesisSha256,
-        extractionIds: evidenceSynthesis.audit.unverifiedExtractionIds,
+        extractionIds,
         actorLabel,
         rationale,
+        decision,
       });
       setEvidenceSynthesis({ kind: "ready", audit });
       setEvidenceSelection({ kind: "ready", audit: await auditHeorEvidenceSelection() });
@@ -1175,14 +1182,15 @@ export function HeorReviewPane({
           audit={evidenceSynthesis.audit}
           running={verificationRunning}
           onCancel={() => setVerificationDialogOpen(false)}
-          onSubmit={(actor, rationale) => void verifyEvidenceExtractions(actor, rationale)}
+          onSubmit={(actor, rationale, decision, extractionIds) =>
+            void verifyEvidenceExtractions(actor, rationale, decision, extractionIds)}
         />
       )}
     </div>
   );
 }
 
-function EvidenceVerificationDialog({
+export function EvidenceVerificationDialog({
   audit,
   running,
   onCancel,
@@ -1191,13 +1199,30 @@ function EvidenceVerificationDialog({
   audit: HeorEvidenceSynthesisAudit;
   running: boolean;
   onCancel: () => void;
-  onSubmit: (actor: string, rationale: string) => void;
+  onSubmit: (
+    actor: string,
+    rationale: string,
+    decision: "confirmed" | "rejected",
+    extractionIds: string[],
+  ) => void;
 }) {
   const { t } = useTranslation("heor");
   const [actor, setActor] = useState("");
   const [rationale, setRationale] = useState("");
+  const [decision, setDecision] = useState<"confirmed" | "rejected">("confirmed");
   const [confirmed, setConfirmed] = useState(false);
-  const valid = actor.trim().length > 0 && rationale.trim().length > 1 && confirmed && !running;
+  const pendingAll = useMemo(() => {
+    const rejected = new Set(audit.rejectedExtractionIds);
+    const unverified = new Set(audit.unverifiedExtractionIds);
+    return audit.eligibleExtractions
+      .filter((item) => unverified.has(item.extractionId) && !rejected.has(item.extractionId));
+  }, [audit]);
+  const pending = pendingAll.slice(0, 100);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    () => new Set(pending.map((item) => item.extractionId)),
+  );
+  const valid = actor.trim().length > 0 && rationale.trim().length > 1
+    && selectedIds.size > 0 && confirmed && !running;
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && !running && onCancel();
     document.addEventListener("keydown", onKey);
@@ -1211,10 +1236,67 @@ function EvidenceVerificationDialog({
         </div>
         <p className="mt-2 text-xs leading-5 text-muted">
           {t("synthesis.verifyBody", {
-            count: audit.unverifiedExtractionIds.length,
+            count: pending.length,
+            total: pendingAll.length,
             hash: `${audit.synthesisSha256.slice(0, 12)}…`,
           })}
         </p>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label={t("synthesis.decisionLabel")}>
+          {EVIDENCE_REVIEW_DECISIONS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={decision === value}
+              onClick={() => {
+                setDecision(value);
+                setConfirmed(false);
+                setSelectedIds(value === "confirmed"
+                  ? new Set(pending.map((item) => item.extractionId))
+                  : new Set());
+              }}
+              className={cn(
+                "rounded-input border px-3 py-2 text-xs font-medium",
+                decision === value
+                  ? value === "confirmed" ? "border-ok bg-ok/10 text-ok" : "border-danger bg-danger/10 text-danger"
+                  : "border-border text-muted",
+              )}
+            >
+              {t(`synthesis.${value}`)}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 max-h-56 space-y-2 overflow-y-auto rounded-input border border-border bg-bg p-2">
+          {pending.map((item) => (
+            <label key={item.extractionId} className="flex cursor-pointer items-start gap-2 rounded-input border border-border bg-surface p-2 text-xs">
+              <input
+                type="checkbox"
+                aria-label={t("synthesis.selectExtraction", { id: item.extractionId })}
+                checked={selectedIds.has(item.extractionId)}
+                onChange={(event) => setSelectedIds((current) => {
+                  const next = new Set(current);
+                  if (event.target.checked) next.add(item.extractionId);
+                  else next.delete(item.extractionId);
+                  setConfirmed(false);
+                  return next;
+                })}
+                className="mt-1 accent-[var(--color-accent)]"
+              />
+              <span className="min-w-0">
+                <span className="block break-all font-mono text-[10px] text-muted">
+                  {item.extractionId} · {item.recordId}
+                </span>
+                <span className="mt-1 block break-words font-medium text-text">{item.extractedValue}</span>
+                <span className="mt-1 block break-words text-muted">{item.target}</span>
+                <span className="block break-words text-muted">
+                  {t("synthesis.sourceLocation")}: {item.sourceLocation}
+                </span>
+                <span className="block break-words text-muted">
+                  {t("synthesis.applicability")}: {item.applicability}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
         <label className="mt-4 block text-xs font-medium text-text">
           {t("dialog.actor")}
           <input value={actor} onChange={(event) => setActor(event.target.value)} autoFocus placeholder={t("dialog.actorPlaceholder")} className="mt-1.5 w-full rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent" />
@@ -1225,12 +1307,14 @@ function EvidenceVerificationDialog({
         </label>
         <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-text">
           <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 accent-[var(--color-accent)]" />
-          <span>{t("synthesis.verifyConfirm")}</span>
+          <span>{t(decision === "confirmed"
+            ? "synthesis.verifyConfirm"
+            : "synthesis.rejectConfirm", { count: selectedIds.size })}</span>
         </label>
         <div className="mt-5 flex justify-end gap-2">
           <button disabled={running} onClick={onCancel} className="rounded-input border border-border px-3 py-2 text-xs text-muted hover:text-text disabled:opacity-50">{t("dialog.cancel")}</button>
-          <button disabled={!valid} onClick={() => onSubmit(actor.trim(), rationale.trim())} className="rounded-input bg-accent px-3 py-2 text-xs font-semibold text-accent-fg disabled:opacity-50">
-            {running ? t("synthesis.verifying") : t("synthesis.verifySubmit")}
+          <button disabled={!valid} onClick={() => onSubmit(actor.trim(), rationale.trim(), decision, [...selectedIds])} className={cn("rounded-input px-3 py-2 text-xs font-semibold disabled:opacity-50", decision === "confirmed" ? "bg-accent text-accent-fg" : "bg-danger text-white")}>
+            {running ? t("synthesis.verifying") : t(decision === "confirmed" ? "synthesis.verifySubmit" : "synthesis.rejectSubmit")}
           </button>
         </div>
       </div>
@@ -1485,8 +1569,16 @@ function EvidenceSynthesisAssessment({
 }) {
   const { t } = useTranslation("heor");
   const audit = state.kind === "ready" ? state.audit : null;
-  const issues = audit?.errors ?? (state.kind === "invalid" ? [state.message] : []);
+  const issues = audit
+    ? [
+        ...audit.errors,
+        ...audit.rejectedExtractionIds.map((id) => t("synthesis.rejectedIssue", { id })),
+      ]
+    : state.kind === "invalid" ? [state.message] : [];
   const canImport = isTauri && authorization !== null && audit?.importable === true;
+  const pendingReviewCount = audit
+    ? audit.unverifiedExtractionIds.filter((id) => !audit.rejectedExtractionIds.includes(id)).length
+    : 0;
   return (
     <section className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
@@ -1521,8 +1613,12 @@ function EvidenceSynthesisAssessment({
             <Metric label={t("synthesis.extractions")} value={String(audit.extractionCount)} />
             <Metric label={t("synthesis.conflicts")} value={String(audit.unresolvedConflicts.length)} />
             <Metric
-              label={t("synthesis.verified")}
+              label={t("synthesis.dualVerified")}
               value={`${audit.appVerifiedExtractionIds.length}/${audit.eligibleExtractionIds.length}`}
+            />
+            <Metric
+              label={t("synthesis.confirmations")}
+              value={`${audit.reviewConfirmationCount}/${audit.eligibleExtractionIds.length * audit.requiredReviewersPerExtraction}`}
             />
           </div>
           <div className="mt-2 break-all font-mono text-[9px] text-muted">
@@ -1556,7 +1652,7 @@ function EvidenceSynthesisAssessment({
             <MessageSquareText size={13} /> {t("synthesis.continue")}
           </button>
         )}
-        {isTauri && audit?.complete && audit.unverifiedExtractionIds.length > 0 && (
+        {isTauri && audit?.complete && pendingReviewCount > 0 && (
           <button
             disabled={verifying}
             onClick={onVerify}
@@ -1799,7 +1895,12 @@ function EvidenceTraceability({
         <>
           <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
             {gaps.slice(0, 5).map((gap) => <li key={gap}>• {gap}</li>)}
-            {selectionAudit?.unverifiedExtractionIds.slice(0, 3).map((id) => (
+            {selectionAudit?.rejectedExtractionIds.slice(0, 3).map((id) => (
+              <li key={`rejected-${id}`}>• {t("evidence.rejected", { id })}</li>
+            ))}
+            {selectionAudit?.unverifiedExtractionIds
+              .filter((id) => !selectionAudit.rejectedExtractionIds.includes(id))
+              .slice(0, 3).map((id) => (
               <li key={id}>• {t("evidence.unverified", { id })}</li>
             ))}
             {selectionAudit?.invalidSelections.slice(0, 3).map((issue) => (

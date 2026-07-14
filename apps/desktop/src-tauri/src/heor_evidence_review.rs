@@ -5,15 +5,17 @@
 //! bytes and an explicit set of extraction IDs in an append-only SHA-256 chain.
 
 use sha2::{Digest, Sha256};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 
-const SCHEMA_VERSION: u32 = 1;
+const LEGACY_SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: u32 = 2;
 const ASSURANCE: &str = "local_human_assertion";
+pub(crate) const REQUIRED_REVIEWERS_PER_EXTRACTION: usize = 2;
 const MAX_LOG_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_EVENTS: usize = 10_000;
 const MAX_EXTRACTIONS_PER_EVENT: usize = 10_000;
@@ -29,6 +31,14 @@ pub struct EvidenceVerificationRequest {
     extraction_ids: Vec<String>,
     actor_label: String,
     rationale: String,
+    decision: EvidenceReviewDecision,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceReviewDecision {
+    Confirmed,
+    Rejected,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
@@ -42,6 +52,8 @@ pub struct EvidenceVerificationEvent {
     extraction_ids: Vec<String>,
     actor_label: String,
     rationale: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    decision: Option<EvidenceReviewDecision>,
     timestamp: u64,
     assurance: String,
     previous_hash: Option<String>,
@@ -50,7 +62,7 @@ pub struct EvidenceVerificationEvent {
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-struct EventHashPayload<'a> {
+struct EventHashPayloadV1<'a> {
     schema_version: u32,
     sequence: u64,
     event_id: &'a str,
@@ -59,6 +71,23 @@ struct EventHashPayload<'a> {
     extraction_ids: &'a [String],
     actor_label: &'a str,
     rationale: &'a str,
+    timestamp: u64,
+    assurance: &'a str,
+    previous_hash: &'a Option<String>,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EventHashPayloadV2<'a> {
+    schema_version: u32,
+    sequence: u64,
+    event_id: &'a str,
+    project_id: &'a str,
+    synthesis_sha256: &'a str,
+    extraction_ids: &'a [String],
+    actor_label: &'a str,
+    rationale: &'a str,
+    decision: EvidenceReviewDecision,
     timestamp: u64,
     assurance: &'a str,
     previous_hash: &'a Option<String>,
@@ -127,25 +156,50 @@ fn project_file(root: &Path, project_id: &str) -> Result<PathBuf, String> {
 }
 
 fn hash_event(event: &EvidenceVerificationEvent) -> Result<String, String> {
-    let encoded = serde_json::to_vec(&EventHashPayload {
-        schema_version: event.schema_version,
-        sequence: event.sequence,
-        event_id: &event.event_id,
-        project_id: &event.project_id,
-        synthesis_sha256: &event.synthesis_sha256,
-        extraction_ids: &event.extraction_ids,
-        actor_label: &event.actor_label,
-        rationale: &event.rationale,
-        timestamp: event.timestamp,
-        assurance: &event.assurance,
-        previous_hash: &event.previous_hash,
-    })
-    .map_err(|error| error.to_string())?;
+    let encoded = if event.schema_version == LEGACY_SCHEMA_VERSION {
+        serde_json::to_vec(&EventHashPayloadV1 {
+            schema_version: event.schema_version,
+            sequence: event.sequence,
+            event_id: &event.event_id,
+            project_id: &event.project_id,
+            synthesis_sha256: &event.synthesis_sha256,
+            extraction_ids: &event.extraction_ids,
+            actor_label: &event.actor_label,
+            rationale: &event.rationale,
+            timestamp: event.timestamp,
+            assurance: &event.assurance,
+            previous_hash: &event.previous_hash,
+        })
+        .map_err(|error| error.to_string())?
+    } else {
+        serde_json::to_vec(&EventHashPayloadV2 {
+            schema_version: event.schema_version,
+            sequence: event.sequence,
+            event_id: &event.event_id,
+            project_id: &event.project_id,
+            synthesis_sha256: &event.synthesis_sha256,
+            extraction_ids: &event.extraction_ids,
+            actor_label: &event.actor_label,
+            rationale: &event.rationale,
+            decision: event
+                .decision
+                .ok_or_else(|| "schema-v2 evidence review event omitted decision".to_string())?,
+            timestamp: event.timestamp,
+            assurance: &event.assurance,
+            previous_hash: &event.previous_hash,
+        })
+        .map_err(|error| error.to_string())?
+    };
     Ok(format!("{:x}", Sha256::digest(encoded)))
 }
 
 fn validate_event(event: &EvidenceVerificationEvent, project_id: &str) -> Result<(), String> {
-    if event.schema_version != SCHEMA_VERSION
+    let schema_valid = match event.schema_version {
+        LEGACY_SCHEMA_VERSION => event.decision.is_none(),
+        SCHEMA_VERSION => event.decision.is_some(),
+        _ => false,
+    };
+    if !schema_valid
         || event.project_id != project_id
         || event.assurance != ASSURANCE
         || event.event_id.len() != 32
@@ -241,15 +295,75 @@ pub(crate) fn verified_log(
     Ok(summary(read_verified(&review_root(app)?, project_id)?))
 }
 
-pub(crate) fn verified_extraction_ids(
+#[derive(Clone, Debug)]
+pub(crate) struct EvidenceReviewStatus {
+    pub verified_extraction_ids: BTreeSet<String>,
+    pub pending_extraction_ids: BTreeSet<String>,
+    pub rejected_extraction_ids: BTreeSet<String>,
+    pub confirmation_count: usize,
+}
+
+fn event_decision(event: &EvidenceVerificationEvent) -> EvidenceReviewDecision {
+    event.decision.unwrap_or(EvidenceReviewDecision::Confirmed)
+}
+
+pub(crate) fn review_status(
     log: &EvidenceVerificationLog,
     synthesis_sha256: &str,
-) -> BTreeSet<String> {
-    log.events
+    eligible: &BTreeSet<String>,
+) -> EvidenceReviewStatus {
+    let mut decisions = BTreeMap::<String, BTreeMap<String, EvidenceReviewDecision>>::new();
+    for event in log
+        .events
         .iter()
         .filter(|event| event.synthesis_sha256 == synthesis_sha256)
-        .flat_map(|event| event.extraction_ids.iter().cloned())
-        .collect()
+    {
+        let actor = event.actor_label.to_lowercase();
+        for extraction_id in event
+            .extraction_ids
+            .iter()
+            .filter(|id| eligible.contains(*id))
+        {
+            decisions
+                .entry(extraction_id.clone())
+                .or_default()
+                .entry(actor.clone())
+                .or_insert_with(|| event_decision(event));
+        }
+    }
+    let mut verified_extraction_ids = BTreeSet::new();
+    let mut rejected_extraction_ids = BTreeSet::new();
+    let mut confirmation_count = 0usize;
+    for extraction_id in eligible {
+        let per_actor = decisions.get(extraction_id);
+        let confirmations = per_actor
+            .into_iter()
+            .flat_map(|values| values.values())
+            .filter(|decision| **decision == EvidenceReviewDecision::Confirmed)
+            .count();
+        confirmation_count += confirmations;
+        let rejected = per_actor.is_some_and(|values| {
+            values
+                .values()
+                .any(|decision| *decision == EvidenceReviewDecision::Rejected)
+        });
+        if rejected {
+            rejected_extraction_ids.insert(extraction_id.clone());
+        } else if confirmations >= REQUIRED_REVIEWERS_PER_EXTRACTION {
+            verified_extraction_ids.insert(extraction_id.clone());
+        }
+    }
+    let pending_extraction_ids = eligible
+        .difference(&verified_extraction_ids)
+        .filter(|id| !rejected_extraction_ids.contains(*id))
+        .cloned()
+        .collect();
+    EvidenceReviewStatus {
+        verified_extraction_ids,
+        pending_extraction_ids,
+        rejected_extraction_ids,
+        confirmation_count,
+    }
 }
 
 fn append_at(
@@ -262,6 +376,21 @@ fn append_at(
     if events.len() >= MAX_EVENTS {
         return Err("evidence-verification event cap reached".into());
     }
+    let actor = request.actor_label.to_lowercase();
+    let duplicate = events.iter().any(|event| {
+        event.synthesis_sha256 == request.synthesis_sha256
+            && event.actor_label.to_lowercase() == actor
+            && event
+                .extraction_ids
+                .iter()
+                .any(|id| request.extraction_ids.contains(id))
+    });
+    if duplicate {
+        return Err(
+            "this reviewer label already reviewed at least one selected extraction for the current synthesis"
+                .into(),
+        );
+    }
     let mut event = EvidenceVerificationEvent {
         schema_version: SCHEMA_VERSION,
         sequence: events.len() as u64 + 1,
@@ -271,6 +400,7 @@ fn append_at(
         extraction_ids: request.extraction_ids,
         actor_label: request.actor_label,
         rationale: request.rationale,
+        decision: Some(request.decision),
         timestamp,
         assurance: ASSURANCE.into(),
         previous_hash: events.last().map(|event| event.event_hash.clone()),
@@ -388,13 +518,18 @@ pub fn list_heor_evidence_verifications(
 mod tests {
     use super::*;
 
-    fn request(ids: &[&str]) -> EvidenceVerificationRequest {
+    fn request(
+        ids: &[&str],
+        actor_label: &str,
+        decision: EvidenceReviewDecision,
+    ) -> EvidenceVerificationRequest {
         EvidenceVerificationRequest {
             project_id: "project-1".into(),
             synthesis_sha256: "a".repeat(64),
             extraction_ids: ids.iter().map(|id| (*id).into()).collect(),
-            actor_label: "Evidence reviewer".into(),
+            actor_label: actor_label.into(),
             rationale: "Checked source location and value against the report".into(),
+            decision,
         }
     }
 
@@ -406,23 +541,153 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         append_at(
             &root,
-            request(&["extract-2", "extract-1"]),
+            request(
+                &["extract-2", "extract-1"],
+                "Reviewer one",
+                EvidenceReviewDecision::Confirmed,
+            ),
             1,
             "1".repeat(32),
         )
         .unwrap_err();
-        let mut first = request(&["extract-1", "extract-2"]);
+        let mut first = request(
+            &["extract-1", "extract-2"],
+            "Reviewer one",
+            EvidenceReviewDecision::Confirmed,
+        );
         first.extraction_ids.sort();
         append_at(&root, first, 1, "1".repeat(32)).unwrap();
-        let second = request(&["extract-3"]);
+        let second = request(
+            &["extract-3"],
+            "Reviewer two",
+            EvidenceReviewDecision::Confirmed,
+        );
         append_at(&root, second, 2, "2".repeat(32)).unwrap();
         let log = summary(read_verified(&root, "project-1").unwrap());
-        assert_eq!(verified_extraction_ids(&log, &"a".repeat(64)).len(), 3);
+        let eligible = ["extract-1", "extract-2", "extract-3"]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        let review = review_status(&log, &"a".repeat(64), &eligible);
+        assert!(review.verified_extraction_ids.is_empty());
+        assert_eq!(review.confirmation_count, 3);
+        assert_eq!(review.pending_extraction_ids.len(), 3);
         assert_eq!(
             log.events[1].previous_hash,
             Some(log.events[0].event_hash.clone())
         );
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn two_distinct_confirmations_are_required_and_rejection_blocks() {
+        let root =
+            std::env::temp_dir().join(format!("heor-evidence-review-dual-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        append_at(
+            &root,
+            request(
+                &["extract-1", "extract-2"],
+                "Reviewer one",
+                EvidenceReviewDecision::Confirmed,
+            ),
+            1,
+            "1".repeat(32),
+        )
+        .unwrap();
+        append_at(
+            &root,
+            request(
+                &["extract-1", "extract-2"],
+                "Reviewer two",
+                EvidenceReviewDecision::Confirmed,
+            ),
+            2,
+            "2".repeat(32),
+        )
+        .unwrap();
+        append_at(
+            &root,
+            request(
+                &["extract-2"],
+                "Reviewer three",
+                EvidenceReviewDecision::Rejected,
+            ),
+            3,
+            "3".repeat(32),
+        )
+        .unwrap();
+        let log = summary(read_verified(&root, "project-1").unwrap());
+        let eligible = ["extract-1", "extract-2"]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        let review = review_status(&log, &"a".repeat(64), &eligible);
+        assert_eq!(review.verified_extraction_ids, ["extract-1".into()].into());
+        assert_eq!(review.rejected_extraction_ids, ["extract-2".into()].into());
+        assert_eq!(review.confirmation_count, 4);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn one_label_cannot_review_the_same_extraction_twice() {
+        let root = std::env::temp_dir().join(format!(
+            "heor-evidence-review-duplicate-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        append_at(
+            &root,
+            request(
+                &["extract-1"],
+                "Reviewer One",
+                EvidenceReviewDecision::Confirmed,
+            ),
+            1,
+            "1".repeat(32),
+        )
+        .unwrap();
+        let error = append_at(
+            &root,
+            request(
+                &["extract-1"],
+                "reviewer one",
+                EvidenceReviewDecision::Confirmed,
+            ),
+            2,
+            "2".repeat(32),
+        )
+        .unwrap_err();
+        assert!(error.contains("already reviewed"));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn legacy_single_reviewer_event_remains_valid_but_is_not_dual_confirmation() {
+        let mut event = EvidenceVerificationEvent {
+            schema_version: LEGACY_SCHEMA_VERSION,
+            sequence: 1,
+            event_id: "1".repeat(32),
+            project_id: "project-1".into(),
+            synthesis_sha256: "a".repeat(64),
+            extraction_ids: vec!["extract-1".into()],
+            actor_label: "Legacy reviewer".into(),
+            rationale: "Checked source location and value against the report".into(),
+            decision: None,
+            timestamp: 1,
+            assurance: ASSURANCE.into(),
+            previous_hash: None,
+            event_hash: "0".repeat(64),
+        };
+        event.event_hash = hash_event(&event).unwrap();
+        validate_event(&event, "project-1").unwrap();
+        let eligible = ["extract-1".to_string()].into();
+        let review = review_status(&summary(vec![event]), &"a".repeat(64), &eligible);
+        assert!(review.verified_extraction_ids.is_empty());
+        assert_eq!(review.confirmation_count, 1);
+        assert_eq!(review.pending_extraction_ids, eligible);
     }
 
     #[test]
@@ -433,7 +698,17 @@ mod tests {
         ));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
-        append_at(&root, request(&["extract-1"]), 1, "1".repeat(32)).unwrap();
+        append_at(
+            &root,
+            request(
+                &["extract-1"],
+                "Reviewer one",
+                EvidenceReviewDecision::Confirmed,
+            ),
+            1,
+            "1".repeat(32),
+        )
+        .unwrap();
         let file = root.join("project-1.jsonl");
         let changed = std::fs::read_to_string(&file)
             .unwrap()

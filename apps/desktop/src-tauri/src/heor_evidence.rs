@@ -46,6 +46,7 @@ pub struct EvidenceSelectionAudit {
     pub selected_extraction_count: usize,
     pub verified_extraction_count: usize,
     pub unverified_extraction_ids: Vec<String>,
+    pub rejected_extraction_ids: Vec<String>,
     pub invalid_selections: Vec<String>,
     pub errors: Vec<String>,
     pub verification_integrity: &'static str,
@@ -297,6 +298,7 @@ fn incomplete_selection(error: String) -> EvidenceSelectionAudit {
         selected_extraction_count: 0,
         verified_extraction_count: 0,
         unverified_extraction_ids: Vec::new(),
+        rejected_extraction_ids: Vec::new(),
         invalid_selections: Vec::new(),
         errors: vec![error],
         verification_integrity: "not_checked",
@@ -331,6 +333,7 @@ pub(crate) fn audit_evidence_selection_for_plan(
             selected_extraction_count: 0,
             verified_extraction_count: 0,
             unverified_extraction_ids: Vec::new(),
+            rejected_extraction_ids: Vec::new(),
             invalid_selections: Vec::new(),
             errors: Vec::new(),
             verification_integrity: "not_applicable_no_source_based_inputs",
@@ -373,8 +376,11 @@ pub(crate) fn audit_evidence_selection_for_plan(
         Ok(log) => log,
         Err(error) => return incomplete_selection(error),
     };
-    let verified =
-        crate::heor_evidence_review::verified_extraction_ids(&verification_log, &synthesis_sha256);
+    let eligible = extraction_index.keys().cloned().collect::<BTreeSet<_>>();
+    let review =
+        crate::heor_evidence_review::review_status(&verification_log, &synthesis_sha256, &eligible);
+    let verified = review.verified_extraction_ids;
+    let rejected = review.rejected_extraction_ids;
     let mut selected_inputs = 0usize;
     let mut selected_ids = BTreeSet::new();
     let mut unverified = BTreeSet::new();
@@ -438,6 +444,7 @@ pub(crate) fn audit_evidence_selection_for_plan(
         selected_extraction_count: selected_ids.len(),
         verified_extraction_count: selected_ids.intersection(&verified).count(),
         unverified_extraction_ids: unverified.into_iter().collect(),
+        rejected_extraction_ids: selected_ids.intersection(&rejected).cloned().collect(),
         invalid_selections,
         errors,
         verification_integrity: verification_log.integrity,

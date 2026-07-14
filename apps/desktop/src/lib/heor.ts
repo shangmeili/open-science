@@ -124,6 +124,7 @@ export interface HeorEvidenceSelectionAudit {
   selectedExtractionCount: number;
   verifiedExtractionCount: number;
   unverifiedExtractionIds: string[];
+  rejectedExtractionIds: string[];
   invalidSelections: string[];
   errors: string[];
   verificationIntegrity: string;
@@ -380,13 +381,26 @@ export interface HeorEvidenceSynthesisAudit {
   includedCount: number;
   extractionCount: number;
   eligibleExtractionIds: string[];
+  eligibleExtractions: HeorReviewableExtraction[];
   appVerifiedExtractionIds: string[];
   unverifiedExtractionIds: string[];
+  rejectedExtractionIds: string[];
+  requiredReviewersPerExtraction: number;
+  reviewConfirmationCount: number;
   humanReviewComplete: boolean;
   verificationIntegrity: string;
   unresolvedConflicts: string[];
   errors: string[];
   importBlockers: string[];
+}
+
+export interface HeorReviewableExtraction {
+  extractionId: string;
+  recordId: string;
+  target: string;
+  extractedValue: string;
+  sourceLocation: string;
+  applicability: string;
 }
 
 export interface HeorEvidenceLibraryAudit {
@@ -439,6 +453,7 @@ export interface HeorEvidenceVerificationRequest {
   extractionIds: string[];
   actorLabel: string;
   rationale: string;
+  decision: "confirmed" | "rejected";
 }
 
 export interface HeorAnalysisPlan {
@@ -1131,8 +1146,29 @@ export const HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT: HeorEvidenceSynthesisAu
   includedCount: 4,
   extractionCount: 2,
   eligibleExtractionIds: ["extract-cost", "extract-utility"],
+  eligibleExtractions: [
+    {
+      extractionId: "extract-cost",
+      recordId: "trial-cost-1",
+      target: "strategies.intervention.state_costs",
+      extractedValue: "CNY 12,500 per cycle",
+      sourceLocation: "Table 3, intervention arm",
+      applicability: "Chinese payer setting; 2026 price year adjustment pending",
+    },
+    {
+      extractionId: "extract-utility",
+      recordId: "trial-utility-1",
+      target: "strategies.intervention.state_utilities",
+      extractedValue: "0.74 progression-free utility",
+      sourceLocation: "Supplement, Table S8",
+      applicability: "Advanced NSCLC population",
+    },
+  ],
   appVerifiedExtractionIds: [],
   unverifiedExtractionIds: ["extract-cost", "extract-utility"],
+  rejectedExtractionIds: [],
+  requiredReviewersPerExtraction: 2,
+  reviewConfirmationCount: 0,
   humanReviewComplete: false,
   verificationIntegrity: "verified_unanchored_sha256_chain",
   unresolvedConflicts: ["utility-weight-selection"],
@@ -1148,6 +1184,7 @@ export const HEOR_BROWSER_DEMO_EVIDENCE_SELECTION_AUDIT: HeorEvidenceSelectionAu
   selectedExtractionCount: 2,
   verifiedExtractionCount: 0,
   unverifiedExtractionIds: ["extract-cost", "extract-utility"],
+  rejectedExtractionIds: [],
   invalidSelections: [],
   errors: [],
   verificationIntegrity: "verified_unanchored_sha256_chain",

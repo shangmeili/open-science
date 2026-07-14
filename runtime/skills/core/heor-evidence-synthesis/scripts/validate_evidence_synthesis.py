@@ -337,6 +337,8 @@ def audit(value: Any, allow_empty_searches: bool = False, raw_sha256: str | None
         "included_count": len(included_records),
         "extraction_count": len(extractions),
         "unresolved_conflicts": unresolved_conflicts,
+        "app_review_checked": False,
+        "required_app_reviewers_per_extraction": 2,
     }
 
 

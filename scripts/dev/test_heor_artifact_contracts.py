@@ -227,6 +227,8 @@ class EvidenceSynthesisContractTests(unittest.TestCase):
         result = evidence.audit(evidence_fixture())
         self.assertTrue(result["complete"])
         self.assertEqual(result["included_count"], 1)
+        self.assertFalse(result["app_review_checked"])
+        self.assertEqual(result["required_app_reviewers_per_extraction"], 2)
 
     def test_included_record_requires_extraction(self):
         value = evidence_fixture()
@@ -356,6 +358,7 @@ class InputProvenanceContractTests(unittest.TestCase):
         result = input_provenance.audit(plan, synthesis, digest)
         self.assertTrue(result["complete"], result)
         self.assertFalse(result["human_verification_checked"])
+        self.assertEqual(result["required_app_reviewers_per_extraction"], 2)
         self.assertEqual(len(result["selected_extraction_ids"]), 14)
 
     def test_stale_hash_wrong_target_and_unlinked_record_fail_closed(self):

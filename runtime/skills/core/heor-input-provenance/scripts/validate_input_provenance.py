@@ -174,6 +174,7 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
         "invalid_mappings": invalid,
         "errors": errors,
         "human_verification_checked": False,
+        "required_app_reviewers_per_extraction": 2,
     }
 
 
