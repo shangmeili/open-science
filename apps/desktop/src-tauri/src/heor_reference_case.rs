@@ -87,6 +87,76 @@ fn is_sha256(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
+fn is_iso_date(value: &str) -> bool {
+    let mut parts = value.split('-');
+    let Some(year) = parts.next() else {
+        return false;
+    };
+    let Some(month) = parts.next() else {
+        return false;
+    };
+    let Some(day) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_some() || year.len() != 4 || month.len() != 2 || day.len() != 2 {
+        return false;
+    }
+    let Ok(year) = year.parse::<u16>() else {
+        return false;
+    };
+    let Ok(month) = month.parse::<u8>() else {
+        return false;
+    };
+    let Ok(day) = day.parse::<u8>() else {
+        return false;
+    };
+    if year == 0 || !(1..=12).contains(&month) {
+        return false;
+    }
+    let leap_year = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let days_in_month = match month {
+        2 if leap_year => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    };
+    (1..=days_in_month).contains(&day)
+}
+
+fn text_at<'a>(value: &'a serde_json::Value, pointer: &str) -> Option<&'a str> {
+    value
+        .pointer(pointer)
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn supported_app_check(check: &str) -> bool {
+    matches!(
+        check,
+        "decision_scope_declared"
+            | "perspective_declared"
+            | "comparator_declared"
+            | "jurisdiction_england"
+            | "nice_nhs_pss_perspective"
+            | "full_horizon_declared"
+            | "discount_0_035"
+            | "discount_0_045"
+            | "discount_0_05"
+            | "qaly_outcome"
+            | "nice_eq5d_reference_case"
+            | "incremental_design"
+            | "conceptual_model_complete"
+            | "validation_plan_documented"
+            | "model_artifacts_independent"
+            | "half_cycle_enabled"
+            | "input_provenance_complete"
+            | "assumptions_resolved"
+            | "cost_scope_documented"
+            | "uncertainty_plan_documented"
+    )
+}
+
 fn read_capped(path: &Path, label: &str) -> Result<Vec<u8>, String> {
     let metadata =
         std::fs::metadata(path).map_err(|error| format!("{label} unavailable: {error}"))?;
@@ -150,8 +220,33 @@ fn automatic_check(
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(0.0);
     match check {
+        "decision_scope_declared" => {
+            [
+                "title",
+                "population",
+                "intervention",
+                "comparator",
+                "perspective",
+                "outcome",
+                "jurisdiction",
+            ]
+            .iter()
+            .all(|field| nonempty(plan.pointer(&format!("/decision_problem/{field}"))))
+                && horizon.is_finite()
+                && horizon > 0.0
+        }
         "perspective_declared" => nonempty(plan.pointer("/decision_problem/perspective")),
         "comparator_declared" => nonempty(plan.pointer("/decision_problem/comparator")),
+        "jurisdiction_england" => text_at(plan, "/decision_problem/jurisdiction")
+            .is_some_and(|value| value.eq_ignore_ascii_case("england")),
+        "nice_nhs_pss_perspective" => {
+            text_at(plan, "/decision_problem/perspective").is_some_and(|value| {
+                let normalized = value.to_ascii_lowercase();
+                normalized.contains("nhs")
+                    && (normalized.contains("personal social services")
+                        || normalized.contains("pss"))
+            })
+        }
         "full_horizon_declared" => {
             let cycles = plan
                 .get("cycles")
@@ -185,10 +280,58 @@ fn automatic_check(
                         .and_then(serde_json::Value::as_f64)
                         == Some(0.045))
         }
+        "discount_0_035" => {
+            horizon <= 1.0
+                || (plan
+                    .pointer("/discount_rates/costs")
+                    .and_then(serde_json::Value::as_f64)
+                    == Some(0.035)
+                    && plan
+                        .pointer("/discount_rates/outcomes")
+                        .and_then(serde_json::Value::as_f64)
+                        == Some(0.035))
+        }
         "qaly_outcome" => plan
             .pointer("/decision_problem/outcome")
             .and_then(serde_json::Value::as_str)
             .is_some_and(|value| value.to_ascii_lowercase().contains("qaly")),
+        "nice_eq5d_reference_case" => {
+            let measure =
+                text_at(plan, "/methodology/health_outcomes/measure").map(str::to_ascii_lowercase);
+            let data_system = text_at(plan, "/methodology/health_outcomes/data_descriptive_system")
+                .map(str::to_ascii_lowercase);
+            let value_set = text_at(plan, "/methodology/health_outcomes/value_set")
+                .map(str::to_ascii_lowercase);
+            let valuation_population =
+                text_at(plan, "/methodology/health_outcomes/valuation_population")
+                    .map(str::to_ascii_lowercase);
+            let respondent = text_at(plan, "/methodology/health_outcomes/respondent")
+                .map(str::to_ascii_lowercase);
+            let mapping = text_at(plan, "/methodology/health_outcomes/mapping_method")
+                .map(str::to_ascii_lowercase);
+            let departure = text_at(
+                plan,
+                "/methodology/health_outcomes/reference_case_departure",
+            );
+            measure.is_some_and(|value| value.replace('-', "").contains("eq5d"))
+                && value_set.is_some_and(|value| {
+                    value.contains("3l") && (value.contains("uk") || value.contains("england"))
+                })
+                && valuation_population.is_some_and(|value| {
+                    (value.contains("uk") || value.contains("united kingdom"))
+                        && value.contains("general")
+                })
+                && respondent
+                    .is_some_and(|value| value.contains("patient") || value.contains("carer"))
+                && data_system.is_some_and(|value| {
+                    value.contains("3l")
+                        || (value.contains("5l")
+                            && mapping.as_deref().is_some_and(|mapping| {
+                                mapping.contains("dsu") && mapping.contains("3l")
+                            }))
+                })
+                && departure.is_none()
+        }
         "incremental_design" => {
             plan.pointer("/strategies/comparator").is_some()
                 && plan.pointer("/strategies/intervention").is_some()
@@ -318,6 +461,82 @@ fn audit_values(
             .errors
             .push("reference-case profile schema_version must be 0.2.0".into());
     }
+    for field in [
+        "id",
+        "title",
+        "revision",
+        "checked_on",
+        "source_url",
+        "source_sha256",
+    ] {
+        if !nonempty(profile.get(field)) {
+            audit
+                .errors
+                .push(format!("reference-case profile {field} is required"));
+        }
+    }
+    if !profile
+        .get("source_url")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|value| value.starts_with("https://"))
+    {
+        audit
+            .errors
+            .push("reference-case profile source_url must use HTTPS".into());
+    }
+    if !profile
+        .get("source_sha256")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(is_sha256)
+    {
+        audit
+            .errors
+            .push("reference-case profile source_sha256 is invalid".into());
+    }
+    if profile.get("canonical_source_url").is_some()
+        && !profile
+            .get("canonical_source_url")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|value| value.starts_with("https://"))
+    {
+        audit
+            .errors
+            .push("reference-case profile canonical_source_url must use HTTPS".into());
+    }
+    if profile.get("source_media_type").is_some() && !nonempty(profile.get("source_media_type")) {
+        audit
+            .errors
+            .push("reference-case profile source_media_type is invalid".into());
+    }
+    if profile.get("source_bytes").is_some()
+        && !profile
+            .get("source_bytes")
+            .and_then(serde_json::Value::as_u64)
+            .is_some_and(|value| value > 0)
+    {
+        audit
+            .errors
+            .push("reference-case profile source_bytes must be positive".into());
+    }
+    if !profile
+        .get("checked_on")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(is_iso_date)
+    {
+        audit
+            .errors
+            .push("reference-case profile checked_on must be an ISO date".into());
+    }
+    if audit.profile_status == "current"
+        && !profile
+            .get("effective_on")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(is_iso_date)
+    {
+        audit
+            .errors
+            .push("current reference-case profile effective_on must be an ISO date".into());
+    }
     if requirements.is_empty() {
         audit
             .errors
@@ -331,12 +550,35 @@ fn audit_values(
                 "registered requirement {index} has a missing or duplicate id"
             ));
         }
-        for field in ["title", "source_locator", "app_check", "applicability"] {
+        for field in [
+            "category",
+            "title",
+            "source_locator",
+            "app_check",
+            "applicability",
+        ] {
             if !nonempty(requirement.get(field)) {
                 audit
                     .errors
                     .push(format!("registered requirement {index} omitted {field}"));
             }
+        }
+        if !matches!(
+            requirement.get("level").and_then(serde_json::Value::as_str),
+            Some("required" | "recommended")
+        ) {
+            audit
+                .errors
+                .push(format!("registered requirement {index} has invalid level"));
+        }
+        if !requirement
+            .get("app_check")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(supported_app_check)
+        {
+            audit.errors.push(format!(
+                "registered requirement {index} has unsupported app_check"
+            ));
         }
         if !matches!(
             requirement
@@ -698,6 +940,162 @@ mod tests {
     }
 
     #[test]
+    fn automatic_checks_enforce_nice_jurisdiction_perspective_and_discount() {
+        let mut plan = serde_json::json!({
+            "decision_problem": {
+                "title": "Technology appraisal",
+                "population": "Adults with advanced disease",
+                "intervention": "New treatment",
+                "comparator": "Established NHS practice",
+                "perspective": "NHS and personal social services (PSS)",
+                "time_horizon_years": 20,
+                "outcome": "QALY",
+                "jurisdiction": "England"
+            },
+            "cycles": 20,
+            "cycle_length_years": 1,
+            "discount_rates": {"costs": 0.035, "outcomes": 0.035},
+            "methodology": {
+                "health_outcomes": {
+                    "measure": "EQ-5D",
+                    "data_descriptive_system": "5L",
+                    "value_set": "UK EQ-5D-3L",
+                    "valuation_population": "UK general population",
+                    "respondent": "patient_or_carer",
+                    "mapping_method": "NICE DSU EEPRU mapping to 3L",
+                    "reference_case_departure": null
+                }
+            },
+            "strategies": {"comparator": {}, "intervention": {}}
+        });
+        assert!(automatic_check(
+            "decision_scope_declared",
+            &plan,
+            true,
+            true
+        ));
+        assert!(automatic_check("jurisdiction_england", &plan, true, true));
+        assert!(automatic_check(
+            "nice_nhs_pss_perspective",
+            &plan,
+            true,
+            true
+        ));
+        assert!(automatic_check("discount_0_035", &plan, true, true));
+        assert!(automatic_check(
+            "nice_eq5d_reference_case",
+            &plan,
+            true,
+            true
+        ));
+
+        plan["decision_problem"]["jurisdiction"] = serde_json::json!("Scotland");
+        assert!(!automatic_check("jurisdiction_england", &plan, true, true));
+        plan["decision_problem"]["jurisdiction"] = serde_json::json!("England");
+        plan["decision_problem"]["perspective"] = serde_json::json!("NHS only");
+        assert!(!automatic_check(
+            "nice_nhs_pss_perspective",
+            &plan,
+            true,
+            true
+        ));
+        plan["decision_problem"]["perspective"] =
+            serde_json::json!("NHS and personal social services (PSS)");
+        plan["discount_rates"]["costs"] = serde_json::json!(0.05);
+        assert!(!automatic_check("discount_0_035", &plan, true, true));
+        plan["methodology"]["health_outcomes"]["value_set"] = serde_json::json!("EQ-5D-5L England");
+        assert!(!automatic_check(
+            "nice_eq5d_reference_case",
+            &plan,
+            true,
+            true
+        ));
+    }
+
+    #[test]
+    fn malformed_profile_source_and_unknown_app_check_fail_closed() {
+        let root = std::env::temp_dir().join(format!(
+            "heor-reference-case-profile-contract-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let profile = serde_json::json!({
+            "schema_version": "0.2.0",
+            "id": "test-current",
+            "title": "Test profile",
+            "revision": "test-1",
+            "status": "current",
+            "effective_on": "2026-04-31",
+            "checked_on": "2026-02-31",
+            "source_url": "http://example.test/profile.pdf",
+            "source_sha256": "not-a-sha256",
+            "requirements": [{
+                "id": "perspective",
+                "category": "decision_problem",
+                "level": "required",
+                "title": "Perspective",
+                "source_locator": "Test 1",
+                "app_check": "unknown_check",
+                "applicability": "always"
+            }]
+        });
+        let profile_raw = serde_json::to_vec(&profile).unwrap();
+        let plan = serde_json::json!({
+            "reference_case": {"id": "test-current", "status": "current"}
+        });
+        let audit = audit_values(&root, &plan, &profile, &profile_raw, None);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("source_url must use HTTPS")));
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("source_sha256 is invalid")));
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("checked_on must be an ISO date")));
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("effective_on must be an ISO date")));
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("unsupported app_check")));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn packaged_nice_profile_contract_is_native_auditable() {
+        let raw = include_bytes!(
+            "../../../../runtime/skills/core/heor-reference-case/assets/profiles/NICE-PMG36-2026-current.json"
+        );
+        let profile: serde_json::Value = serde_json::from_slice(raw).unwrap();
+        let plan = serde_json::json!({
+            "reference_case": {
+                "id": "NICE-PMG36-2026-current",
+                "status": "current"
+            }
+        });
+        let root = std::env::temp_dir().join(format!(
+            "heor-reference-case-packaged-profile-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+
+        let audit = audit_values(&root, &plan, &profile, raw, None);
+
+        assert_eq!(audit.profile_id, "NICE-PMG36-2026-current");
+        assert_eq!(audit.required_count + audit.recommended_count, 15);
+        assert_eq!(audit.errors, vec![format!("{ASSESSMENT_PATH} is required")]);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn structured_cost_and_uncertainty_plans_are_machine_checkable() {
         let plan = serde_json::json!({
             "methodology": {
@@ -743,21 +1141,26 @@ mod tests {
         let profile = serde_json::json!({
             "schema_version": "0.2.0",
             "id": "test-current",
+            "title": "Test current profile",
             "revision": "test-1",
             "status": "current",
+            "effective_on": "2026-01-01",
+            "checked_on": "2026-07-14",
+            "source_url": "https://example.test/profile.pdf",
+            "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "requirements": [
                 {
-                    "id": "perspective", "level": "required",
+                    "id": "perspective", "category": "decision_problem", "level": "required",
                     "title": "Perspective", "source_locator": "Test 1",
                     "app_check": "perspective_declared", "applicability": "always"
                 },
                 {
-                    "id": "half-cycle", "level": "recommended",
+                    "id": "half-cycle", "category": "model", "level": "recommended",
                     "title": "Half cycle", "source_locator": "Test 2",
                     "app_check": "half_cycle_enabled", "applicability": "markov_model"
                 },
                 {
-                    "id": "discount", "level": "required",
+                    "id": "discount", "category": "discounting", "level": "required",
                     "title": "Discount", "source_locator": "Test 3",
                     "app_check": "discount_0_05", "applicability": "horizon_over_one_year"
                 }

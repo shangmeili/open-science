@@ -164,6 +164,7 @@ from this alpha.
 | --- | --- | --- |
 | `CN-2020-current` | current | Current Chinese pharmacoeconomic guidance |
 | `CN-2026-draft` | draft | Gap analysis only until formally issued |
+| `NICE-PMG36-2026-current` | current | NICE technology appraisal and highly specialised technologies economic-evaluation subset for England |
 
 The registry profiles now contain source-snapshot hashes, source locators,
 required/recommended levels, applicability, and app-check identifiers. The
@@ -174,8 +175,16 @@ automatic plan checks, profile revision/hash/status, and analysis link at both
 analysis-plan approval and execution. Required gaps, unresolved items, changed
 bytes, and draft profiles fail closed. A complete audit is still only a
 prerequisite for human review, not a general compliance certification.
-NICE PMG36 and CDA-AMC profiles remain planned registry expansions rather than
-implemented options.
+The NICE profile binds the official 31 March 2026 PMG36 PDF hash and adds
+machine checks for the England jurisdiction, NHS and personal social services
+perspective, 3.5% reference-case discounting, and structured EQ-5D/UK-3L
+health-outcome metadata. It remains an executable subset: topic scope,
+cost-comparison, paediatric HRQoL, diagnostics, severity modifiers, equality,
+and managed-access conditions require direct review of current NICE guidance.
+The source PDF is not redistributed. CDA-AMC remains a planned profile because
+its official fourth-edition source was methodologically readable but its
+Cloudflare-protected bytes could not be independently re-hashed in the current
+build environment; the platform does not admit an unverifiable source digest.
 
 ## Implemented uncertainty boundary
 

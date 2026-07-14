@@ -403,9 +403,55 @@ class ConceptualModelContractTests(unittest.TestCase):
 
 
 class ReferenceCaseContractTests(unittest.TestCase):
-    def fixture(self, root: Path):
+    def test_profile_inventory_matches_packaged_resources(self):
+        profile_dir = ROOT / "runtime/skills/core/heor-reference-case/assets/profiles"
+        profile_paths = sorted(profile_dir.glob("*.json"))
+        self.assertGreaterEqual(len(profile_paths), 3)
+        tauri = json.loads((ROOT / "apps/desktop/src-tauri/tauri.conf.json").read_text())
+        resources = tauri["bundle"]["resources"]
+        ids: set[str] = set()
+        for profile_path in profile_paths:
+            profile = json.loads(profile_path.read_text())
+            self.assertNotIn(profile["id"], ids)
+            ids.add(profile["id"])
+            relative = profile_path.relative_to(ROOT).as_posix()
+            self.assertEqual(
+                resources.get(f"../../../{relative}"),
+                f"reference-cases/{profile_path.name}",
+            )
+
+    def test_nice_2026_profile_is_current_source_bound_and_packaged(self):
+        relative = (
+            "runtime/skills/core/heor-reference-case/assets/profiles/"
+            "NICE-PMG36-2026-current.json"
+        )
+        profile_path = ROOT / relative
+        self.assertTrue(profile_path.is_file())
+        profile = json.loads(profile_path.read_text())
+        self.assertEqual(profile["schema_version"], "0.2.0")
+        self.assertEqual(profile["id"], "NICE-PMG36-2026-current")
+        self.assertEqual(profile["status"], "current")
+        self.assertEqual(profile["effective_on"], "2026-03-31")
+        self.assertEqual(
+            profile["source_sha256"],
+            "b2c39677825d2b954a247086cac7bb355bb91d21aebce4274af744f827d103a7",
+        )
+        checks = {item["app_check"] for item in profile["requirements"]}
+        self.assertTrue({
+            "jurisdiction_england",
+            "nice_nhs_pss_perspective",
+            "discount_0_035",
+        }.issubset(checks))
+        tauri = json.loads((ROOT / "apps/desktop/src-tauri/tauri.conf.json").read_text())
+        resources = tauri["bundle"]["resources"]
+        self.assertEqual(
+            resources[f"../../../{relative}"],
+            "reference-cases/NICE-PMG36-2026-current.json",
+        )
+
+    def fixture(self, root: Path, profile_name: str = "CN-2020-current.json"):
         profile_path = ROOT / (
-            "runtime/skills/core/heor-reference-case/assets/profiles/CN-2020-current.json"
+            "runtime/skills/core/heor-reference-case/assets/profiles/" + profile_name
         )
         profile_raw = profile_path.read_bytes()
         profile = json.loads(profile_raw)
@@ -445,6 +491,11 @@ class ReferenceCaseContractTests(unittest.TestCase):
         plan_path.write_text(json.dumps(plan, indent=2))
         return assessment_path, plan_path, profile_path
 
+    def test_nice_matrix_passes_portable_profile_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = self.fixture(Path(directory), "NICE-PMG36-2026-current.json")
+            self.assertEqual(reference_case.validate(*paths), [])
+
     def test_complete_hash_bound_matrix_passes(self):
         with tempfile.TemporaryDirectory() as directory:
             paths = self.fixture(Path(directory))
@@ -458,6 +509,25 @@ class ReferenceCaseContractTests(unittest.TestCase):
             plan_path.write_text(json.dumps(plan, indent=2))
             errors = reference_case.validate(assessment_path, plan_path, profile_path)
             self.assertIn("plan assessment hash does not match the assessment bytes", errors)
+
+    def test_profile_source_and_app_check_contract_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            assessment_path, plan_path, profile_path = self.fixture(root)
+            profile = json.loads(profile_path.read_text())
+            profile["source_url"] = "http://example.test/profile.pdf"
+            profile["source_sha256"] = "not-a-sha256"
+            profile["checked_on"] = "2026-02-31"
+            profile["effective_on"] = "2026-04-31"
+            profile["requirements"][0]["app_check"] = "unknown_check"
+            changed_profile = root / "profile.json"
+            changed_profile.write_text(json.dumps(profile, indent=2))
+            errors = reference_case.validate(assessment_path, plan_path, changed_profile)
+            self.assertIn("profile source_url must use HTTPS", errors)
+            self.assertIn("profile source_sha256 is invalid", errors)
+            self.assertIn("profile checked_on must be an ISO date", errors)
+            self.assertIn("current profile effective_on must be an ISO date", errors)
+            self.assertIn("profile requirements[0].app_check is unsupported", errors)
 
 
 class UncertaintyContractTests(unittest.TestCase):

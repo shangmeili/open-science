@@ -40,6 +40,15 @@
   "half_cycle_correction": true,
   "willingness_to_pay": null,
   "methodology": {
+    "health_outcomes": {
+      "measure": "",
+      "data_descriptive_system": "",
+      "value_set": "",
+      "valuation_population": "",
+      "respondent": "",
+      "mapping_method": "",
+      "reference_case_departure": null
+    },
     "cost_scope": {
       "included_categories": [],
       "perspective_alignment": "Explain why the included cost categories match the selected perspective.",

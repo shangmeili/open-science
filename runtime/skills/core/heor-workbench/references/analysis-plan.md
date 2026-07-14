@@ -34,7 +34,7 @@ Use `$heor-input-provenance` and its reference contract for exact fields. Each r
 
 ## Reference-case profiles
 
-The packaged registry currently exposes `CN-2020-current` and `CN-2026-draft`. Registry entries are metadata pointers, not encoded compliance checks. Selecting either profile does not establish guideline compliance; a `draft` profile also prevents local analysis authorization.
+The packaged registry currently exposes `CN-2020-current`, `CN-2026-draft`, and `NICE-PMG36-2026-current`. Registry entries are versioned executable subsets, not copies of guidance or compliance certificates. Selecting any profile does not establish guideline compliance; a `draft` profile also prevents local analysis authorization. NICE analyses must standardize the jurisdiction as `England`, state the NHS and personal social services perspective, use the profile's discounting rule, and populate `methodology.health_outcomes` for the app-owned reference-case audit.
 
 ## Artifact stability
 

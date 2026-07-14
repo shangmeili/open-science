@@ -1,6 +1,6 @@
 ---
 name: heor-reference-case
-description: Create and audit a version-bound HEOR reference-case compliance matrix for heor/analysis-plan.json. Use when selecting China 2020 or draft 2026 guidance, identifying methodological gaps, preparing analysis-plan review, or repairing heor/reference-case-assessment.json without claiming that profile selection alone proves compliance.
+description: Create and audit a version-bound HEOR reference-case compliance matrix for heor/analysis-plan.json. Use when selecting China 2020, China draft 2026, or NICE PMG36 updated 2026 guidance; identifying jurisdiction-specific methodological gaps; preparing analysis-plan review; or repairing heor/reference-case-assessment.json without claiming that profile selection alone proves compliance.
 ---
 
 # HEOR Reference Case
@@ -11,6 +11,7 @@ Turn a named guideline into an auditable requirement-by-requirement assessment. 
 
 1. Read `heor/analysis-plan.json`, `heor/conceptual-model.json`, and the selected bundled profile under `assets/profiles/`. Never substitute a remembered guideline version.
 2. Verify the profile status and source snapshot. A `draft` profile may be explored but cannot authorize an analysis.
+   For NICE, require the standardized jurisdiction `England`, the NHS and personal social services perspective, the 3.5% reference-case discount rate when applicable, and the structured health-outcome fields described in the reference contract.
 3. Assess every profile requirement exactly once as `met`, `gap`, `not_applicable`, or `unresolved`. Preserve gaps; do not optimize the matrix for approval.
 4. For `met`, record a concise rationale and one or more existing workspace-relative evidence paths. For `not_applicable`, explain why the profile's applicability condition does not hold.
 5. Use `gap` when the current artifacts contradict or do not satisfy the requirement. Use `unresolved` when the available evidence cannot support a conclusion.
@@ -24,6 +25,7 @@ Turn a named guideline into an auditable requirement-by-requirement assessment. 
 - Do not mark a requirement `met` based only on a planned future action.
 - Do not treat a validator pass as human approval, independent validation, or legal/regulatory certification.
 - Required gaps and all unresolved items block analysis-plan approval. Recommended gaps remain visible but do not by themselves authorize or block.
+- Treat `NICE-PMG36-2026-current` as an executable subset for NICE technology appraisal and highly specialised technologies, not as a complete copy of PMG36 or evidence of NICE acceptance. Review topic scope and the current source directly for conditions outside the profile.
 - The app owns the reference-case registry, approval log, and final authorization decision.
 
 ## Handoff

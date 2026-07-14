@@ -10,11 +10,44 @@ import hashlib
 import json
 import re
 import sys
+from datetime import date
 from pathlib import Path
 
 
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
 STATUSES = {"met", "gap", "not_applicable", "unresolved"}
+PROFILE_LEVELS = {"required", "recommended"}
+PROFILE_STATUSES = {"current", "draft"}
+APPLICABILITY = {
+    "always",
+    "horizon_over_one_year",
+    "cost_utility_analysis",
+    "model_based",
+    "markov_model",
+    "markov_or_partitioned_survival",
+}
+APP_CHECKS = {
+    "decision_scope_declared",
+    "perspective_declared",
+    "comparator_declared",
+    "jurisdiction_england",
+    "nice_nhs_pss_perspective",
+    "full_horizon_declared",
+    "discount_0_035",
+    "discount_0_045",
+    "discount_0_05",
+    "qaly_outcome",
+    "nice_eq5d_reference_case",
+    "incremental_design",
+    "conceptual_model_complete",
+    "validation_plan_documented",
+    "model_artifacts_independent",
+    "half_cycle_enabled",
+    "input_provenance_complete",
+    "assumptions_resolved",
+    "cost_scope_documented",
+    "uncertainty_plan_documented",
+}
 
 
 def load(path: Path) -> tuple[dict, bytes]:
@@ -29,11 +62,49 @@ def nonempty(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
+def is_iso_date(value: object) -> bool:
+    if not isinstance(value, str) or len(value) != 10:
+        return False
+    try:
+        return date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
+
+
 def validate(assessment_path: Path, plan_path: Path, profile_path: Path) -> list[str]:
     assessment, assessment_raw = load(assessment_path)
     plan, _ = load(plan_path)
     profile, profile_raw = load(profile_path)
     errors: list[str] = []
+
+    if profile.get("schema_version") != "0.2.0":
+        errors.append("profile schema_version must be 0.2.0")
+    for field in ("id", "title", "revision", "checked_on", "source_url", "source_sha256"):
+        if not nonempty(profile.get(field)):
+            errors.append(f"profile {field} is required")
+    if profile.get("status") not in PROFILE_STATUSES:
+        errors.append("profile status must be current or draft")
+    if not isinstance(profile.get("source_url"), str) or not profile["source_url"].startswith("https://"):
+        errors.append("profile source_url must use HTTPS")
+    if not isinstance(profile.get("source_sha256"), str) or not SHA256.fullmatch(profile["source_sha256"]):
+        errors.append("profile source_sha256 is invalid")
+    if "canonical_source_url" in profile and (
+        not isinstance(profile["canonical_source_url"], str)
+        or not profile["canonical_source_url"].startswith("https://")
+    ):
+        errors.append("profile canonical_source_url must use HTTPS")
+    if "source_media_type" in profile and not nonempty(profile["source_media_type"]):
+        errors.append("profile source_media_type is invalid")
+    if "source_bytes" in profile and (
+        not isinstance(profile["source_bytes"], int)
+        or isinstance(profile["source_bytes"], bool)
+        or profile["source_bytes"] <= 0
+    ):
+        errors.append("profile source_bytes must be positive")
+    if not is_iso_date(profile.get("checked_on")):
+        errors.append("profile checked_on must be an ISO date")
+    if profile.get("status") == "current" and not is_iso_date(profile.get("effective_on")):
+        errors.append("current profile effective_on must be an ISO date")
 
     if assessment.get("schema_version") != "0.1.0":
         errors.append("assessment schema_version must be 0.1.0")
@@ -74,7 +145,25 @@ def validate(assessment_path: Path, plan_path: Path, profile_path: Path) -> list
         errors.append("assessment requirements must be an array")
         return errors
 
-    expected = {item.get("id"): item for item in profile_requirements if isinstance(item, dict)}
+    expected: dict[str, dict] = {}
+    for index, item in enumerate(profile_requirements):
+        if not isinstance(item, dict):
+            errors.append(f"profile requirements[{index}] must be an object")
+            continue
+        requirement_id = item.get("id")
+        if not nonempty(requirement_id) or requirement_id in expected:
+            errors.append(f"profile requirements[{index}].id must be non-empty and unique")
+            continue
+        expected[requirement_id] = item
+        for field in ("category", "title", "source_locator"):
+            if not nonempty(item.get(field)):
+                errors.append(f"profile requirements[{index}].{field} is required")
+        if item.get("level") not in PROFILE_LEVELS:
+            errors.append(f"profile requirements[{index}].level is invalid")
+        if item.get("applicability") not in APPLICABILITY:
+            errors.append(f"profile requirements[{index}].applicability is unsupported")
+        if item.get("app_check") not in APP_CHECKS:
+            errors.append(f"profile requirements[{index}].app_check is unsupported")
     seen: set[str] = set()
     for index, row in enumerate(rows):
         if not isinstance(row, dict):

@@ -170,6 +170,17 @@ bytes; portable and native validators reject copied or stale summaries; the
 desktop re-executes all three deterministic engines before a named human can
 record release. This is the production derivative admitted to the platform.
 
+The NICE reference-case expansion applies the same rule to methods guidance.
+AI4HEOR does not bundle PMG36 or copy its tables. It stores a first-party,
+bounded set of paraphrased requirements with exact locators, the official
+31 March 2026 PDF URL, byte count, and SHA-256, then adds portable profile
+validation and native jurisdiction/perspective/discounting/health-outcome
+checks. The profile is explicitly narrower than full NICE submission guidance.
+CDA-AMC fourth-edition guidance remains a researched candidate: its content is
+available through the official web publication, but Cloudflare prevented a
+reproducible raw-source digest in this build environment, so no guessed or
+proxy-derived digest was admitted.
+
 ## Method sources governing the adaptation
 
 The evidence contract is grounded in requirements for transparent assumptions,

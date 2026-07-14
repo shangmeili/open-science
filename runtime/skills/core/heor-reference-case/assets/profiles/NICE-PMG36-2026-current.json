@@ -1,0 +1,158 @@
+{
+  "schema_version": "0.2.0",
+  "id": "NICE-PMG36-2026-current",
+  "title": "NICE Technology Appraisal and Highly Specialised Technologies Guidance: The Manual",
+  "revision": "PMG36, updated 31 March 2026",
+  "status": "current",
+  "effective_on": "2026-03-31",
+  "checked_on": "2026-07-14",
+  "canonical_source_url": "https://www.nice.org.uk/process/pmg36/chapter/economic-evaluation-2/",
+  "source_url": "https://www.nice.org.uk/guidance/pmg36/resources/nice-technology-appraisal-and-highly-specialised-technologies-guidance-the-manual-pdf-72286779244741",
+  "source_media_type": "application/pdf",
+  "source_bytes": 1032391,
+  "source_sha256": "b2c39677825d2b954a247086cac7bb355bb91d21aebce4274af744f827d103a7",
+  "source_rights_note": "The source PDF is not bundled. This profile contains short method paraphrases and source locators only.",
+  "scope": "Economic-evaluation reference-case subset for NICE technology appraisal and highly specialised technologies in England.",
+  "limitations": [
+    "This profile is an executable subset, not a reproduction of PMG36.",
+    "A complete matrix is a prerequisite for local review and is not a claim of NICE acceptance or legal compliance.",
+    "Cost-comparison, paediatric HRQoL, diagnostics, equality weighting, severity modifiers, managed access, and topic-specific scope decisions still require direct review of the current manual and topic scope."
+  ],
+  "requirements": [
+    {
+      "id": "decision-scope",
+      "category": "decision_problem",
+      "level": "required",
+      "title": "Define the technologies, population, perspective, outcomes, jurisdiction, and horizon for the NICE decision problem",
+      "applicability": "always",
+      "source_locator": "Sections 4.2.4-4.2.6, PDF pages 62-64",
+      "app_check": "decision_scope_declared"
+    },
+    {
+      "id": "jurisdiction-england",
+      "category": "decision_problem",
+      "level": "required",
+      "title": "Use this profile only for an England decision context",
+      "applicability": "always",
+      "source_locator": "PMG36 scope and Sections 4.2.7-4.2.10, PDF pages 5-7 and 64-65",
+      "app_check": "jurisdiction_england"
+    },
+    {
+      "id": "decision-comparator",
+      "category": "decision_problem",
+      "level": "required",
+      "title": "Use and justify comparator strategies consistent with the NICE topic scope",
+      "applicability": "always",
+      "source_locator": "Table 4.1 and Sections 4.2.4-4.2.6, PDF pages 62-64",
+      "app_check": "comparator_declared"
+    },
+    {
+      "id": "decision-perspective",
+      "category": "decision_problem",
+      "level": "required",
+      "title": "Use NHS and personal social services as the reference-case cost perspective",
+      "applicability": "always",
+      "source_locator": "Table 4.1 and Sections 4.2.7-4.2.10, PDF pages 62-65",
+      "app_check": "nice_nhs_pss_perspective"
+    },
+    {
+      "id": "time-horizon",
+      "category": "study_design",
+      "level": "required",
+      "title": "Use a horizon long enough to capture all important cost and outcome differences",
+      "applicability": "always",
+      "source_locator": "Table 4.1 and Sections 4.2.22-4.2.25, PDF pages 62-68",
+      "app_check": "full_horizon_declared"
+    },
+    {
+      "id": "cost-utility-outcome",
+      "category": "outcomes",
+      "level": "required",
+      "title": "Use QALYs for a cost-utility reference-case analysis",
+      "applicability": "always",
+      "source_locator": "Table 4.1 and Sections 4.2.14-4.2.17, PDF pages 62-66",
+      "app_check": "qaly_outcome"
+    },
+    {
+      "id": "incremental-analysis",
+      "category": "analysis",
+      "level": "required",
+      "title": "Present a fully incremental analysis of the compared technologies",
+      "applicability": "cost_utility_analysis",
+      "source_locator": "Table 4.1 and Section 4.10.8, PDF pages 62-63 and 95",
+      "app_check": "incremental_design"
+    },
+    {
+      "id": "systematic-health-effects",
+      "category": "evidence",
+      "level": "required",
+      "title": "Base health-effect synthesis on systematic review and preserve traceable model-input evidence",
+      "applicability": "model_based",
+      "source_locator": "Table 4.1, Section 3.4, and Section 4.6.3, PDF pages 56-63 and 79-80",
+      "app_check": "input_provenance_complete"
+    },
+    {
+      "id": "health-outcome-valuation",
+      "category": "outcomes",
+      "level": "required",
+      "title": "For adult CUA, use patient- or carer-reported EQ-5D with a UK 3L value set, including required 5L-to-3L mapping",
+      "applicability": "cost_utility_analysis",
+      "source_locator": "Table 4.1 and Sections 4.3.3, 4.3.4, 4.3.6, and 4.3.16, PDF pages 62-63 and 69-73",
+      "app_check": "nice_eq5d_reference_case"
+    },
+    {
+      "id": "cost-scope",
+      "category": "costs",
+      "level": "required",
+      "title": "Identify NHS and PSS resource use systematically and value it using relevant prices",
+      "applicability": "always",
+      "source_locator": "Table 4.1 and Sections 4.4.1-4.4.24, PDF pages 62-63 and 73-78",
+      "app_check": "cost_scope_documented"
+    },
+    {
+      "id": "discounting",
+      "category": "discounting",
+      "level": "required",
+      "title": "Discount costs and health effects at 3.5% per year in the reference case",
+      "applicability": "horizon_over_one_year",
+      "source_locator": "Table 4.1 and Section 4.5.1, PDF pages 62-63 and 78",
+      "app_check": "discount_0_035"
+    },
+    {
+      "id": "model-structure",
+      "category": "model",
+      "level": "required",
+      "title": "Justify the conceptual model, model type, structure, assumptions, and input choices for this decision problem",
+      "applicability": "model_based",
+      "source_locator": "Sections 4.6.1-4.6.3, PDF pages 79-80",
+      "app_check": "conceptual_model_complete"
+    },
+    {
+      "id": "model-validation",
+      "category": "validation",
+      "level": "required",
+      "title": "Document model quality assurance and validation methods and results",
+      "applicability": "model_based",
+      "source_locator": "Section 4.6.4, PDF page 80",
+      "app_check": "validation_plan_documented"
+    },
+    {
+      "id": "model-transparency",
+      "category": "reporting",
+      "level": "required",
+      "title": "Maintain an independently reviewable model description, disaggregated outputs, and documented inputs",
+      "applicability": "model_based",
+      "source_locator": "Sections 4.6.1-4.6.4 and 4.10.1-4.10.8, PDF pages 79-80 and 94-95",
+      "app_check": "model_artifacts_independent"
+    },
+    {
+      "id": "uncertainty-analysis",
+      "category": "uncertainty",
+      "level": "required",
+      "title": "Prespecify parameter, structural, methodological, and probabilistic uncertainty analyses with justified distributions",
+      "applicability": "model_based",
+      "source_locator": "Sections 4.7.1-4.7.24, PDF pages 85-90",
+      "app_check": "uncertainty_plan_documented"
+    }
+  ]
+}

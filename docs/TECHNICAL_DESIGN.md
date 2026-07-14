@@ -219,6 +219,17 @@ workspace artifact and circular hashes while ensuring a plan approval covers
 the exact evidence-to-input choices. The engine, uncertainty runner, and budget
 impact runner repeat the audit and invalidate stale approval bindings.
 
+Reference-case profiles are immutable packaged resources loaded by ID, never
+workspace-supplied policy. The audit validates profile schema, HTTPS source,
+source SHA-256, checked/effective dates, unique requirements, supported
+applicability rules, and an allowlist of native checks before it considers the
+researcher's matrix. The current registry contains China 2020 current, China
+2026 consultation draft, and `NICE-PMG36-2026-current`. The NICE adapter binds
+the official 31 March 2026 PDF digest and adds deterministic checks for England,
+NHS plus personal social services, 3.5% equal discounting, and structured
+EQ-5D/UK-3L metadata. It is an executable subset, not a copy of PMG36 or an
+agency-compliance claim.
+
 ### 6.4 MCP servers
 
 First batch: `filesystem` (project files), `paper-search-mcp` (literature), `BioMCP`

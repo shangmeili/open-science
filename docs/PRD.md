@@ -195,6 +195,16 @@ accepted, and changing the synthesis invalidates every prior review decision.
 The alpha does not claim authenticated identity or truly independent duplicate
 extraction.
 
+Reference-case selection is also natural-language first. The Agent can prepare
+an analysis against China 2020 current, China 2026 consultation draft, or NICE
+PMG36 updated 31 March 2026, but the desktop independently loads the exact
+packaged profile and audits every matrix row. The NICE executable subset binds
+the official PDF hash and checks England jurisdiction, NHS and personal social
+services perspective, 3.5% discounting, and structured EQ-5D/UK-3L metadata.
+Profile selection is never presented as jurisdictional compliance or agency
+acceptance. CDA-AMC remains unbundled until its official source bytes can pass
+the same reproducible source-hash admission gate.
+
 The broader platform backlog—arXiv, Crossref, OpenAlex, Semantic Scholar,
 deduplication exports, `corpus.csv`, BibTeX export, OCR, and complex layout/table
 reconstruction—remains planned. OpenAlex currently needs an API key, so it
