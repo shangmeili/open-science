@@ -126,14 +126,31 @@ fn audit_values(
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default()
         .to_string();
-    if psm
+    let psm_schema = psm
         .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        != Some("0.2.0")
-    {
+        .and_then(serde_json::Value::as_str);
+    let analysis_schema = plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str);
+    if !matches!(psm_schema, Some("0.2.0" | "0.3.0")) {
         audit
             .errors
-            .push("partitioned survival schema_version must be 0.2.0".into());
+            .push("partitioned survival schema_version must be 0.2.0 or 0.3.0".into());
+    }
+    if psm_schema == Some("0.3.0") && analysis_schema != Some("0.12.0") {
+        audit
+            .errors
+            .push("partitioned survival schema 0.3.0 requires analysis schema 0.12.0".into());
+    }
+    if analysis_schema == Some("0.12.0") && psm_schema != Some("0.3.0") {
+        audit
+            .errors
+            .push("analysis schema 0.12.0 requires partitioned survival schema 0.3.0".into());
+    }
+    if psm_schema == Some("0.3.0") {
+        audit
+            .errors
+            .extend(crate::heor_economic_inputs::audit_economic_inputs(plan));
     }
     for field in ["psm_id", "analysis_id", "time_origin"] {
         if !nonempty(psm.get(field)) {

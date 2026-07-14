@@ -1,0 +1,41 @@
+{
+  "schema_version": "0.12.0",
+  "analysis_id": "REPLACE_WITH_ANALYSIS_ID",
+  "decision_problem": {
+    "population": "REPLACE_ME",
+    "interventions": ["REPLACE_ME"],
+    "comparators": ["REPLACE_ME"],
+    "perspective": "REPLACE_ME",
+    "time_horizon": "REPLACE_ME",
+    "outcomes": ["costs", "QALYs"],
+    "jurisdiction": "REPLACE_ME",
+    "decision_context": "REPLACE_ME"
+  },
+  "economic_basis": {"currency": "REPLACE_WITH_ISO_4217", "price_year": 2026},
+  "reference_case": {"id": "REPLACE_ME", "status": "REPLACE_ME"},
+  "partitioned_survival_analysis": {"path": "heor/partitioned-survival-plan.json"},
+  "states": ["progression_free", "progressed", "dead"],
+  "cycles": 120,
+  "cycle_length_years": 0.08333333333333333,
+  "discount_rates": {"costs": 0.035, "outcomes": 0.035},
+  "half_cycle_correction": true,
+  "willingness_to_pay": null,
+  "strategy_order": ["comparator", "intervention"],
+  "baseline_strategy_id": "comparator",
+  "strategies": {
+    "comparator": {
+      "name": "REPLACE_ME",
+      "state_costs": [0, 0, 0],
+      "state_utilities": [0, 0, 0]
+    },
+    "intervention": {
+      "name": "REPLACE_ME",
+      "state_costs": [0, 0, 0],
+      "state_utilities": [0, 0, 0]
+    }
+  },
+  "evidence_sources": [],
+  "assumptions": [],
+  "input_provenance": [],
+  "input_status": "incomplete"
+}

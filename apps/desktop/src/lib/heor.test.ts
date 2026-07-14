@@ -94,6 +94,27 @@ describe("AI4HEOR artifact contract", () => {
     expect(audit.unresolvedAssumptions).toEqual(["demo-only"]);
   });
 
+  it("audits schema 0.12 economic inputs without requiring Markov structure", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    plan.schema_version = "0.12.0";
+    plan.partitioned_survival_analysis = { path: "heor/partitioned-survival-plan.json" };
+    plan.strategy_order = ["comparator", "intervention"];
+    plan.baseline_strategy_id = "comparator";
+    for (const strategy of Object.values(plan.strategies)) {
+      delete strategy.initial_distribution;
+      delete strategy.transition_matrix;
+    }
+
+    const audit = auditHeorEvidence(plan);
+
+    expect(audit.requiredInputs).toBe(10);
+    expect(audit.invalidMappings.join("; ")).not.toContain("must define exactly one");
+    plan.strategies.intervention.transition_matrix = [[1]];
+    expect(auditHeorEvidence(plan).invalidMappings.join("; ")).toContain(
+      "transition structure is forbidden",
+    );
+  });
+
   it("requires source-based inputs to bind the synthesis and exact extractions", () => {
     const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
     plan.evidence_sources = [{
@@ -189,7 +210,7 @@ describe("AI4HEOR artifact contract", () => {
     const audit = auditHeorEvidence(plan);
 
     expect(audit.invalidMappings.join("; ")).toContain(
-      "schema_version must be 0.3.0 through 0.11.0",
+      "schema_version must be 0.3.0 through 0.12.0",
     );
     expect(audit.invalidMappings.join("; ")).toContain(
       "derivation.model_value does not match the current model input",

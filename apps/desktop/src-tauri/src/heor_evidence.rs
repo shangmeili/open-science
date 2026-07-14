@@ -71,7 +71,7 @@ fn strategy_ids(plan: &serde_json::Value) -> Vec<&str> {
     if matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.8.0" | "0.9.0" | "0.10.0" | "0.11.0")
+        Some("0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0")
     ) {
         return plan
             .get("strategy_order")
@@ -95,8 +95,14 @@ fn required_input_paths(plan: &serde_json::Value) -> Vec<String> {
         "discount_rates.outcomes".into(),
         "half_cycle_correction".into(),
     ];
+    let structure_neutral = plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        == Some("0.12.0");
     for role in strategy_ids(plan) {
-        paths.push(format!("strategies.{role}.initial_distribution"));
+        if !structure_neutral {
+            paths.push(format!("strategies.{role}.initial_distribution"));
+        }
         let transition_field = if plan
             .pointer(&format!("/strategies/{role}/transition_schedule"))
             .is_some_and(|value| !value.is_null())
@@ -105,7 +111,9 @@ fn required_input_paths(plan: &serde_json::Value) -> Vec<String> {
         } else {
             "transition_matrix"
         };
-        paths.push(format!("strategies.{role}.{transition_field}"));
+        if !structure_neutral {
+            paths.push(format!("strategies.{role}.{transition_field}"));
+        }
         paths.push(format!("strategies.{role}.state_costs"));
         paths.push(format!("strategies.{role}.state_utilities"));
     }
@@ -2158,16 +2166,19 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
                 | "0.9.0"
                 | "0.10.0"
                 | "0.11.0"
+                | "0.12.0"
         )
     ) {
         invalid_mappings
-            .push("schema_version must be 0.3.0 through 0.11.0 for approval review".into());
+            .push("schema_version must be 0.3.0 through 0.12.0 for approval review".into());
     }
     let declared_strategy_ids = strategy_ids(plan);
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        .is_some_and(|version| matches!(version, "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0"))
+        .is_some_and(|version| {
+            matches!(version, "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0")
+        })
     {
         let raw_strategy_count = plan
             .get("strategy_order")
@@ -2195,7 +2206,7 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
             || actual != unique
         {
             invalid_mappings.push(
-                "schema 0.8.0 through 0.11.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first".into(),
+                "schema 0.8.0 through 0.12.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first".into(),
             );
         }
     }
@@ -2207,7 +2218,21 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
         let has_schedule = strategy
             .and_then(|value| value.get("transition_schedule"))
             .is_some_and(|value| !value.is_null());
-        if has_matrix == has_schedule {
+        if plan
+            .get("schema_version")
+            .and_then(serde_json::Value::as_str)
+            == Some("0.12.0")
+            && (has_matrix || has_schedule)
+        {
+            invalid_mappings.push(format!(
+                "strategies.{role} transition structure is forbidden for partitioned survival"
+            ));
+        } else if plan
+            .get("schema_version")
+            .and_then(serde_json::Value::as_str)
+            != Some("0.12.0")
+            && has_matrix == has_schedule
+        {
             invalid_mappings.push(format!(
                 "strategies.{role} must define exactly one of transition_matrix or transition_schedule"
             ));
@@ -3327,6 +3352,27 @@ mod tests {
     }
 
     #[test]
+    fn structure_neutral_required_paths_exclude_markov_structure() {
+        let plan = serde_json::json!({
+            "schema_version": "0.12.0",
+            "strategy_order": ["usual_care", "new_treatment"],
+            "baseline_strategy_id": "usual_care",
+            "willingness_to_pay": null,
+            "strategies": {
+                "usual_care": {"state_costs": [1.0, 2.0, 0.0], "state_utilities": [0.8, 0.5, 0.0]},
+                "new_treatment": {"state_costs": [3.0, 2.0, 0.0], "state_utilities": [0.82, 0.5, 0.0]}
+            }
+        });
+
+        let paths = required_input_paths(&plan);
+
+        assert_eq!(paths.len(), 9);
+        assert!(paths.contains(&"strategies.new_treatment.state_costs".into()));
+        assert!(!paths.iter().any(|path| path.contains("initial_distribution")));
+        assert!(!paths.iter().any(|path| path.contains("transition_")));
+    }
+
+    #[test]
     fn multi_strategy_required_paths_follow_the_declared_order() {
         let plan = serde_json::json!({
             "schema_version": "0.8.0",
@@ -3813,7 +3859,7 @@ mod tests {
 
         assert!(!audit.complete);
         let errors = audit.invalid_mappings.join("; ");
-        assert!(errors.contains("schema_version must be 0.3.0 through 0.11.0"));
+        assert!(errors.contains("schema_version must be 0.3.0 through 0.12.0"));
         assert!(errors.contains("does not match the current model input"));
     }
 

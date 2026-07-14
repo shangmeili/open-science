@@ -727,8 +727,8 @@ The optional `heor/partitioned-survival-plan.json` alpha is a separate
 three-state calculation class. Natural-language interaction creates or repairs
 the rationale and bindings; curve rows are an auxiliary exact-input surface.
 Each curve review must match the current analysis, strategy/endpoint target,
-PFS or OS context, exact bytes, and Human-selected converged family. Schema
-`0.2.0` also binds `heor/survival-curve-materializations.json`: for each strategy
+PFS or OS context, exact bytes, and Human-selected converged family. PSM schema
+`0.3.0` also binds `heor/survival-curve-materializations.json`: for each strategy
 and endpoint, that manifest binds one typed selected-fit output, its exact bytes,
 an admitted parameterization, evaluator `ai4heor-parametric-survival@0.1.0`,
 the analysis time grid, and every reproduced value. The first-party
@@ -741,10 +741,11 @@ OS-PFS, and death from 1-OS; computes state rewards and incremental results;
 and blocks curve crossing, increasing survival, time-grid mismatch, stale
 hashes, and hidden approval claims. Analysis-plan approval is supported, but
 release is intentionally blocked until validation and reporting bind the PSM
-plan and result. The alpha also reuses the current cohort-model analysis schema,
-so transition matrices or schedules remain structurally required but are ignored
-by the PSM calculator; a dedicated shared economic-input contract is required
-before release integration. Curve materialization closes the numerical-
+plan and result. Analysis schema `0.12.0` now separates common costs, utilities,
+cycle settings, discounting, and thresholds from PSM structure; its strategy
+objects forbid initial distributions and transition definitions. Portable,
+Python, browser, and native validators independently enforce that boundary while
+legacy PSM schema `0.2.0` remains calculation-compatible. Curve materialization closes the numerical-
 derivation gap only for the two admitted parameterizations. Statistical fitting,
 coefficient transformation, automatic family selection, covariance and PSM
 uncertainty, treatment-effect composition, other survival families, and

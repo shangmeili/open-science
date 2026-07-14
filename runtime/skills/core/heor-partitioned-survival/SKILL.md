@@ -9,7 +9,7 @@ Create a deterministic, hash-bound `heor/partitioned-survival-plan.json` without
 
 ## Workflow
 
-1. Read `heor/analysis-plan.json`, the selected PFS and OS curve reviews, and [references/contract.md](references/contract.md).
+1. Use `$heor-economic-inputs` to create or validate the structure-neutral `heor/analysis-plan.json` schema `0.12.0`, then read the selected PFS and OS curve reviews and [references/contract.md](references/contract.md).
 2. Confirm the decision process is forward-only and the analysis states are exactly `progression_free`, `progressed`, and `dead` in that order. Stop if this structure is not justified.
 3. Confirm every strategy uses the same population, time origin, time unit, cycle grid, and horizon for PFS and OS. Preserve unresolved differences as blockers; do not normalize them silently.
 4. Use `$heor-survival-curve-materialization` to create and validate `heor/survival-curve-materializations.json`. Stop if a curve is not an admitted exponential-rate or Weibull AFT shape/scale materialization.
@@ -37,6 +37,7 @@ python3 runtime/skills/core/heor-partitioned-survival/scripts/validate_partition
 - Do not infer OS from PFS, PFS from OS, or transitions from state occupancy.
 - Do not clamp, reorder, smooth, splice, or otherwise repair curves unless a human-reviewed method and replacement artifact explicitly authorize the transformation.
 - Do not describe this calculation as a Markov or state-transition model.
+- Do not add an initial distribution, transition matrix, or transition schedule to satisfy another model's schema.
 - Do not claim evidence verification, human approval, independent validation, cost effectiveness, reimbursement, or policy authority.
 - Leave the artifact in `draft` and report exact blockers when the contract cannot be satisfied.
 

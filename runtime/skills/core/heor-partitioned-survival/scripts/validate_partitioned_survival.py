@@ -116,8 +116,14 @@ def validate(
     workspace: Path | None,
 ) -> list[str]:
     errors: list[str] = []
-    if plan.get("schema_version") != "0.2.0":
-        errors.append("schema_version must be 0.2.0")
+    psm_schema = plan.get("schema_version")
+    analysis_schema = analysis.get("schema_version")
+    if psm_schema not in {"0.2.0", "0.3.0"}:
+        errors.append("schema_version must be 0.2.0 or 0.3.0")
+    if psm_schema == "0.3.0" and analysis_schema != "0.12.0":
+        errors.append("partitioned survival schema 0.3.0 requires analysis schema 0.12.0")
+    if analysis_schema == "0.12.0" and psm_schema != "0.3.0":
+        errors.append("analysis schema 0.12.0 requires partitioned survival schema 0.3.0")
     for field in ("psm_id", "analysis_id", "time_origin"):
         if not isinstance(plan.get(field), str) or not plan[field].strip():
             errors.append(f"{field} must not be empty")
@@ -295,6 +301,21 @@ def main() -> int:
         print(f"INVALID: {error}")
         return 1
     errors = validate(analysis, analysis_raw, plan, args.workspace_root)
+    if analysis.get("schema_version") == "0.12.0":
+        economic_validator_path = (
+            Path(__file__).resolve().parents[2]
+            / "heor-economic-inputs/scripts"
+            / "validate_economic_inputs.py"
+        )
+        economic_spec = importlib.util.spec_from_file_location(
+            "ai4heor_economic_input_validator", economic_validator_path
+        )
+        if economic_spec is None or economic_spec.loader is None:
+            errors.append("economic input validator cannot be loaded")
+        else:
+            economic_module = importlib.util.module_from_spec(economic_spec)
+            economic_spec.loader.exec_module(economic_module)
+            errors.extend(economic_module.validate(analysis))
     validator_path = (
         Path(__file__).resolve().parents[2]
         / "heor-survival-curve-materialization/scripts"
@@ -323,7 +344,7 @@ def main() -> int:
             print(f"INVALID: {error}")
         return 1
     print(
-        "VALID: partitioned survival plan 0.2.0; "
+        f"VALID: partitioned survival plan {plan.get('schema_version')}; "
         f"analysis_sha256={sha256(analysis_raw)}; "
         f"plan_sha256={sha256(plan_raw)}; "
         f"materializations_sha256={sha256(materializations_raw)}"

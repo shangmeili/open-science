@@ -12,8 +12,8 @@ import hashlib
 from math import isclose, isfinite
 from typing import Any
 
+from .economic_inputs import EconomicSpecification
 from .model import (
-    MarkovSpecification,
     ModelValidationError,
     StrategyResult,
     _fully_incremental_analysis,
@@ -23,8 +23,9 @@ from .model import (
 from .survival_materialization import validate_survival_curve_materializations
 
 
-SCHEMA_VERSION = "0.2.0"
-ENGINE_VERSION = "0.2.0"
+SCHEMA_VERSION = "0.3.0"
+LEGACY_SCHEMA_VERSION = "0.2.0"
+ENGINE_VERSION = "0.3.0"
 PLAN_PATH = "heor/partitioned-survival-plan.json"
 ANALYSIS_PATH = "heor/analysis-plan.json"
 STATE_ORDER = ("progression_free", "progressed", "dead")
@@ -42,7 +43,12 @@ def run_partitioned_survival(
 ) -> dict[str, Any]:
     """Validate and execute a hash-bound partitioned survival plan."""
 
-    specification = MarkovSpecification.from_dict(analysis_plan)
+    plan_schema = partitioned_plan.get("schema_version")
+    specification = (
+        EconomicSpecification.from_analysis_plan(analysis_plan)
+        if plan_schema == SCHEMA_VERSION
+        else EconomicSpecification.from_legacy_markov_plan(analysis_plan)
+    )
     _validate(partitioned_plan, analysis_plan, analysis_raw, specification)
     validate_survival_curve_materializations(
         analysis_plan,
@@ -131,6 +137,7 @@ def run_partitioned_survival(
     }
     return {
         "schema_version": SCHEMA_VERSION,
+        "partitioned_survival_plan_schema_version": plan_schema,
         "engine_version": ENGINE_VERSION,
         "analysis_id": specification.analysis_id,
         "psm_id": partitioned_plan["psm_id"],
@@ -169,9 +176,14 @@ def run_partitioned_survival(
         "warnings": [
             "PFS and OS were evaluated as independently supplied curves; "
             "their extrapolated dependency is not estimated by this calculator.",
-            "Base-plan transition matrices or schedules are not used by this "
-            "calculation, although the current shared economic-input schema "
-            "still requires them.",
+            *(
+                [
+                    "Legacy schema 0.2.0 transition inputs were validated for "
+                    "compatibility but were not used by this calculation."
+                ]
+                if plan_schema == LEGACY_SCHEMA_VERSION
+                else []
+            ),
             "Workflow authorization, evidence verification, and independent "
             "validation are app-owned human controls.",
         ],
@@ -182,12 +194,22 @@ def _validate(
     value: dict[str, Any],
     analysis_plan: dict[str, Any],
     analysis_raw: bytes,
-    specification: MarkovSpecification,
+    specification: EconomicSpecification,
 ) -> None:
     value = _mapping(value, "partitioned survival plan")
-    if value.get("schema_version") != SCHEMA_VERSION:
+    plan_schema = value.get("schema_version")
+    if plan_schema not in {LEGACY_SCHEMA_VERSION, SCHEMA_VERSION}:
         raise ModelValidationError(
-            f"partitioned survival schema_version must be {SCHEMA_VERSION}"
+            f"partitioned survival schema_version must be {LEGACY_SCHEMA_VERSION} or {SCHEMA_VERSION}"
+        )
+    analysis_schema = analysis_plan.get("schema_version")
+    if plan_schema == SCHEMA_VERSION and analysis_schema != "0.12.0":
+        raise ModelValidationError(
+            "partitioned survival schema 0.3.0 requires analysis schema 0.12.0"
+        )
+    if plan_schema == LEGACY_SCHEMA_VERSION and analysis_schema == "0.12.0":
+        raise ModelValidationError(
+            "analysis schema 0.12.0 requires partitioned survival schema 0.3.0"
         )
     for field in ("psm_id", "analysis_id", "time_origin"):
         _nonempty(value.get(field), field)

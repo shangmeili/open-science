@@ -63,6 +63,10 @@ input_provenance = load(
     "validate_input_provenance",
     "runtime/skills/core/heor-input-provenance/scripts/validate_input_provenance.py",
 )
+economic_inputs = load(
+    "validate_economic_inputs",
+    "runtime/skills/core/heor-economic-inputs/scripts/validate_economic_inputs.py",
+)
 survival_adapter = load(
     "validate_survival_curve",
     "runtime/skills/core/heor-survival-curve-adapter/scripts/validate_survival_curve.py",
@@ -806,6 +810,35 @@ class EvidenceSynthesisContractTests(unittest.TestCase):
         self.assertEqual(result["synthesis_sha256"], hashlib.sha256(raw).hexdigest())
 
 
+class EconomicInputsContractTests(unittest.TestCase):
+    def fixture(self):
+        return {
+            "schema_version": "0.12.0",
+            "analysis_id": "economic-contract-test",
+            "economic_basis": {"currency": "GBP", "price_year": 2026},
+            "partitioned_survival_analysis": {"path": "heor/partitioned-survival-plan.json"},
+            "states": ["progression_free", "progressed", "dead"],
+            "cycles": 120,
+            "cycle_length_years": 1 / 12,
+            "discount_rates": {"costs": 0.035, "outcomes": 0.035},
+            "half_cycle_correction": True,
+            "willingness_to_pay": None,
+            "strategy_order": ["usual_care", "new_treatment"],
+            "baseline_strategy_id": "usual_care",
+            "strategies": {
+                "usual_care": {"name": "Usual care", "state_costs": [1, 2, 0], "state_utilities": [0.8, 0.5, 0]},
+                "new_treatment": {"name": "New treatment", "state_costs": [3, 2, 0], "state_utilities": [0.82, 0.5, 0]},
+            },
+        }
+
+    def test_structure_neutral_contract_rejects_markov_fields(self):
+        plan = self.fixture()
+        self.assertEqual(economic_inputs.validate(plan), [])
+        plan["strategies"]["usual_care"]["initial_distribution"] = [1, 0, 0]
+        errors = economic_inputs.validate(plan)
+        self.assertTrue(any("transition structure is forbidden" in error for error in errors))
+
+
 class InputProvenanceContractTests(unittest.TestCase):
     def fixture(self):
         synthesis = evidence_fixture()
@@ -939,6 +972,38 @@ class InputProvenanceContractTests(unittest.TestCase):
         self.assertFalse(result["human_verification_checked"])
         self.assertEqual(result["required_app_reviewers_per_extraction"], 2)
         self.assertEqual(len(result["selected_extraction_ids"]), 14)
+
+    def test_schema_012_requires_only_common_economic_inputs_and_forbids_transitions(self):
+        plan, synthesis, digest = self.fixture()
+        plan["schema_version"] = "0.12.0"
+        plan["strategy_order"] = ["comparator", "intervention"]
+        plan["baseline_strategy_id"] = "comparator"
+        plan["partitioned_survival_analysis"] = {
+            "path": "heor/partitioned-survival-plan.json"
+        }
+        excluded = {
+            f"strategies.{role}.{field}"
+            for role in ("comparator", "intervention")
+            for field in ("initial_distribution", "transition_matrix")
+        }
+        for strategy in plan["strategies"].values():
+            strategy.pop("initial_distribution")
+            strategy.pop("transition_matrix")
+        plan["input_provenance"] = [
+            item for item in plan["input_provenance"] if item["path"] not in excluded
+        ]
+
+        result = input_provenance.audit(plan, synthesis, digest)
+
+        self.assertTrue(result["complete"], result)
+        self.assertEqual(result["required_inputs"], 10)
+        plan["strategies"]["intervention"]["transition_matrix"] = [[1.0]]
+        rejected = input_provenance.audit(plan, synthesis, digest)
+        self.assertFalse(rejected["complete"])
+        self.assertTrue(
+            any("transition structure is forbidden" in error for error in rejected["errors"]),
+            rejected,
+        )
 
     def test_schema_04_schedule_replaces_static_matrix_provenance(self):
         plan, synthesis, _ = self.fixture()

@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Economic Inputs"
+  short_description: "Validate model-neutral costs, utilities, and analysis settings"
+  default_prompt: "Use $heor-economic-inputs to prepare structure-neutral economic inputs for a partitioned-survival analysis."

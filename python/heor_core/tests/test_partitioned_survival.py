@@ -22,7 +22,7 @@ CURVES = {
 
 def analysis_payload() -> dict:
     return {
-        "schema_version": "0.11.0",
+        "schema_version": "0.12.0",
         "analysis_id": "psm-example",
         "economic_basis": {"currency": "CNY", "price_year": 2026},
         "reference_case": {"id": "CN-2020-current", "status": "current"},
@@ -40,23 +40,11 @@ def analysis_payload() -> dict:
         "strategies": {
             "comparator": {
                 "name": "Standard care",
-                "initial_distribution": [1.0, 0.0, 0.0],
-                "transition_matrix": [
-                    [0.7, 0.2, 0.1],
-                    [0.0, 0.7, 0.3],
-                    [0.0, 0.0, 1.0],
-                ],
                 "state_costs": [1000.0, 3000.0, 0.0],
                 "state_utilities": [0.8, 0.5, 0.0],
             },
             "intervention": {
                 "name": "New treatment",
-                "initial_distribution": [1.0, 0.0, 0.0],
-                "transition_matrix": [
-                    [0.8, 0.15, 0.05],
-                    [0.0, 0.75, 0.25],
-                    [0.0, 0.0, 1.0],
-                ],
                 "state_costs": [4000.0, 3000.0, 0.0],
                 "state_utilities": [0.8, 0.5, 0.0],
             },
@@ -124,7 +112,7 @@ def psm_payload(analysis_raw: bytes) -> dict:
                 for index in range(3)
             ]
     return {
-        "schema_version": "0.2.0",
+        "schema_version": "0.3.0",
         "psm_id": "psm-example-base-case",
         "analysis_id": "psm-example",
         "status": "ready_for_human_review",
@@ -238,7 +226,8 @@ class PartitionedSurvivalTests(unittest.TestCase):
 
     def test_calculates_materialized_occupancy_and_economic_results(self) -> None:
         result = self.run_valid()
-        self.assertEqual(result["schema_version"], "0.2.0")
+        self.assertEqual(result["schema_version"], "0.3.0")
+        self.assertEqual(result["partitioned_survival_plan_schema_version"], "0.3.0")
         self.assertEqual(result["model_type"], "partitioned_survival")
         expected = [
             [1.0, 0.0, 0.0],
@@ -339,6 +328,55 @@ class PartitionedSurvivalTests(unittest.TestCase):
         ] = "weibull"
         with self.assertRaisesRegex(ModelValidationError, "Human-selected"):
             run_partitioned_survival(*inputs)
+
+    def test_rejects_transition_inputs_in_structure_neutral_plan(self) -> None:
+        inputs = list(valid_inputs())
+        inputs[0]["strategies"]["comparator"]["transition_matrix"] = [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+        inputs[1] = json.dumps(inputs[0], sort_keys=True).encode()
+        with self.assertRaisesRegex(ModelValidationError, "transition structure is forbidden"):
+            run_partitioned_survival(*inputs)
+
+    def test_rejects_missing_or_invalid_economic_rewards(self) -> None:
+        inputs = list(valid_inputs())
+        inputs[0]["strategies"]["intervention"]["state_costs"] = [4000.0, -1.0, 0.0]
+        inputs[1] = json.dumps(inputs[0], sort_keys=True).encode()
+        with self.assertRaisesRegex(ModelValidationError, "state_costs must be non-negative"):
+            run_partitioned_survival(*inputs)
+
+    def test_legacy_schema_02_remains_calculable(self) -> None:
+        analysis, _, plan, _, materializations, _ = valid_inputs()
+        analysis["schema_version"] = "0.11.0"
+        for strategy in analysis["strategies"].values():
+            strategy["initial_distribution"] = [1.0, 0.0, 0.0]
+            strategy["transition_matrix"] = [
+                [0.8, 0.15, 0.05],
+                [0.0, 0.75, 0.25],
+                [0.0, 0.0, 1.0],
+            ]
+        analysis_raw = json.dumps(analysis, sort_keys=True).encode()
+        analysis_hash = hashlib.sha256(analysis_raw).hexdigest()
+        plan["schema_version"] = "0.2.0"
+        plan["base_analysis"]["content_sha256"] = analysis_hash
+        materializations["base_analysis"]["content_sha256"] = analysis_hash
+        materializations_raw = json.dumps(materializations, sort_keys=True).encode()
+        plan["curve_materializations"]["content_sha256"] = hashlib.sha256(
+            materializations_raw
+        ).hexdigest()
+        plan_raw = json.dumps(plan, sort_keys=True).encode()
+        result = run_partitioned_survival(
+            analysis,
+            analysis_raw,
+            plan,
+            plan_raw,
+            materializations,
+            materializations_raw,
+        )
+        self.assertEqual(result["partitioned_survival_plan_schema_version"], "0.2.0")
+        self.assertTrue(any("Legacy schema 0.2.0" in item for item in result["warnings"]))
 
 
 if __name__ == "__main__":

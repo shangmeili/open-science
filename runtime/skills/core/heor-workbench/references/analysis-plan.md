@@ -1,8 +1,8 @@
 # Analysis plan contract
 
-Use `assets/multi-strategy-analysis-plan.template.json` for new work that compares all relevant alternatives in one analysis. Keep `assets/analysis-plan.template.json` for legacy two-role projects. The desktop deterministic engine supports one bounded, inspectable cohort state-transition model:
+Use `assets/multi-strategy-analysis-plan.template.json` for new state-transition work that compares all relevant alternatives in one analysis. Keep `assets/analysis-plan.template.json` for legacy two-role projects. Use `$heor-economic-inputs` for partitioned survival. The desktop deterministic engine supports bounded, inspectable state-transition and partitioned-survival calculations:
 
-- 2–16 explicitly ordered strategies under schema `0.8.0` through portable schema `0.11.0`, or legacy `comparator` and `intervention` roles under schemas `0.1.0`–`0.7.0`;
+- 2–16 explicitly ordered strategies under state-transition schemas `0.8.0` through `0.11.0`, structure-neutral PSM schema `0.12.0`, or legacy `comparator` and `intervention` roles under schemas `0.1.0`–`0.7.0`;
 - one shared set of unique health states;
 - static or piecewise model-cycle-dependent transition matrices;
 - state costs and state utilities;
@@ -13,7 +13,7 @@ Use `assets/multi-strategy-analysis-plan.template.json` for new work that compar
 
 ## Required engine fields
 
-Use schema `0.8.0` for ordinary new multi-strategy work. Schema `0.9.0` adds only portable background mortality; schema `0.10.0` adds only bounded RR/OR application; schema `0.11.0` adds only bounded constant-HR application. Declare `strategy_order` with 2–16 unique IDs matching `^[a-z][a-z0-9_-]{0,63}$`; `strategies` must contain exactly those keys, and `baseline_strategy_id` must equal the first entry. The baseline is the reference for pairwise results, not an instruction to replace complete incremental analysis. Schemas `0.4.0`–`0.7.0` remain supported for existing two-role projects and their introduced transition transformations. `analysis_id`, economic basis, reference case, states, cycles, cycle length, discount rates, half-cycle correction, and strategies are required.
+Use schema `0.8.0` for ordinary new multi-strategy state-transition work. Schema `0.9.0` adds only portable background mortality; schema `0.10.0` adds only bounded RR/OR application; schema `0.11.0` adds only bounded constant-HR application. Use `$heor-economic-inputs` and schema `0.12.0` only for partitioned survival; each strategy then contains exactly `name`, `state_costs`, and `state_utilities`, with no initial distribution or transition definition. Declare `strategy_order` with 2–16 unique IDs matching `^[a-z][a-z0-9_-]{0,63}$`; `strategies` must contain exactly those keys, and `baseline_strategy_id` must equal the first entry. The baseline is the reference for pairwise results, not an instruction to replace complete incremental analysis. Schemas `0.4.0`–`0.7.0` remain supported for existing two-role projects and their introduced transition transformations. `analysis_id`, economic basis, reference case, states, cycles, cycle length, discount rates, half-cycle correction, and strategies are required.
 
 Schema `0.8.0` results include all strategy totals, pairwise results versus the declared baseline, a fully incremental table sorted by expected QALY, strict and extended dominance status, the efficiency frontier, sequential ICERs between adjacent frontier strategies, and the strategy with maximum net monetary benefit at the primary threshold. Equivalent cost/QALY points remain explicit; declaration order resolves which identical point is retained on the frontier. Pairwise-versus-baseline output never substitutes for the fully incremental table.
 
@@ -21,7 +21,7 @@ The engine can still calculate a legacy `0.1.0` plan for reproducibility, but it
 
 The complete plan fixes `uncertainty_analysis.path` and `budget_impact_analysis.path` to their canonical files. A multi-strategy uncertainty plan evaluates all declared strategies. The bounded BIA remains a two-market-share calculator, so its comparator/intervention IDs must explicitly select two distinct strategy keys from a schema `0.8.0` plan; it does not model three-way market shares.
 
-For each strategy:
+For each state-transition strategy through schema `0.11.0`:
 
 - `initial_distribution` length equals the number of states and sums to 1;
 - define exactly one of `transition_matrix` or `transition_schedule`;
