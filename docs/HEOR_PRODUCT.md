@@ -226,10 +226,36 @@ only evidence-bound lognormal rate members through the bounded latent log-scale
 Cholesky contract. `$heor-transition-rate-adapter`
 exposes the method and its stopping rules through the natural-language workflow.
 
+## Executable bounded survival-curve schedules
+
+Analysis-plan schema `0.6.0` admits one deliberately narrow survival operation:
+an already-selected exponential or Weibull scale/shape curve for one all-cause
+event in an exactly two-state model. At every model-cycle boundary the adapter
+evaluates cumulative hazard and converts its increment into the interval event
+probability. It emits a complete two-state matrix for every cycle and preserves
+the event state as absorbing.
+
+Every positive curve parameter binds exactly one strict-JSON extraction or
+`proposed` assumption. Python calculation, the standalone Skill validator,
+portable provenance audit, native Rust audit, and browser preview independently
+recompute the schedule and compare it with both the current model input and the
+derivation snapshot. Parameter, cycle-length, source, version, state-count, or
+schedule drift fails closed. The natural-language workbench exposes this through
+`$heor-survival-curve-adapter`; the form action is only a shortcut into that
+conversation.
+
+This is deterministic evaluation, not a complete survival-analysis workflow.
+Curve fitting and selection, KM/IPD reconstruction, flexible or cure models,
+PFS/OS partitioned survival, treatment effects, background mortality, competing
+risks, clinical extrapolation validity, and survival-parameter DSA/PSA remain
+explicitly unsupported. NICE PMG36 and NICE DSU TSD 14/21 require validity,
+plausibility, alternatives, and uncertainty beyond this executable fragment;
+the platform therefore does not infer those claims from a generated schedule.
+
 ## Executable monetary basis
 
 Analysis-plan schema `0.2.0` introduced one calculation currency and price
-year, and current schemas through `0.5.0` retain that contract while binding each source
+year, and current schemas through `0.6.0` retain that contract while binding each source
 value to evidence or an explicit assumption.
 Every state-cost element and non-null willingness-to-pay value records its
 source value, source currency, source price year, positive composite adjustment
@@ -453,7 +479,7 @@ approval, reimbursement suitability, or external tamper-proofing.
   missing second confirmation, rejection, changed synthesis, or tampered review
   chain fails closed; this remains distinct from authenticated independent
   duplicate extraction.
-- Evidence-to-input approval also requires schema `0.3.0`, `0.4.0`, or `0.5.0`, an exact model-value
+- Evidence-to-input approval also requires schema `0.3.0`, `0.4.0`, `0.5.0`, or `0.6.0`, an exact model-value
   snapshot per mapping, strict JSON equality for direct evidence, and extraction-
   bound source values for monetary normalization. Changed, narrative, unused,
   or silently transformed extraction values fail closed.
@@ -468,6 +494,11 @@ approval, reimbursement suitability, or external tamper-proofing.
   event-rate target, one matching event basis ID, and full transformation
   recomputation for every DSA/PSA run. Correlated rate sampling additionally
   requires schema `0.4.0` and the evidence-bound lognormal-Cholesky contract.
+- A schema `0.6.0` survival mapping additionally requires exactly two states,
+  one absorbing event state, an exponential or Weibull scale/shape declaration,
+  positive singly bound parameters, exact cycle length, a complete per-cycle
+  schedule, and independent reproduction across all four audit layers. Fit,
+  extrapolation validity, and survival-parameter uncertainty remain explicit gaps.
 - Exploratory, analysis-authorized, independently validated, and locally
   released decision-ready states remain distinct. Any stale package, binding,
   validation, result reproduction, actor, or approval sequence fails closed.

@@ -13,7 +13,7 @@ These sources support the review questions; they do not certify an AI4HEOR model
 
 ## Executable transition contract
 
-Analysis schemas `0.4.0` and `0.5.0` accept exactly one transition mechanism for each strategy:
+Analysis schemas `0.4.0`, `0.5.0`, and `0.6.0` accept exactly one transition mechanism for each strategy:
 
 ```json
 "transition_matrix": [
@@ -41,13 +41,13 @@ Rules:
 - Every value is finite and from 0 through 1; every row sums to 1 within engine tolerance.
 - Initial distributions sum to 1. The engine verifies cohort-mass conservation after every cycle.
 - Rewards retain the existing start-of-cycle or half-cycle-corrected semantics. Transition schedules do not change state costs or utilities.
-- Schema `0.3.0` remains valid for static matrices. Schedules require `0.4.0` or `0.5.0`; reserve `0.5.0` for an admitted deterministic transition-rate transformation.
+- Schema `0.3.0` remains valid for static matrices. Schedules require `0.4.0`, `0.5.0`, or `0.6.0`; reserve `0.5.0` for an admitted deterministic transition-rate transformation and `0.6.0` for an admitted two-state parametric survival transformation.
 
 The result records `transition_mode` as `static` or `piecewise_by_model_cycle` and reports the effective schedule start cycles. The exact input bytes remain the authoritative record of matrices.
 
 ## Evidence and uncertainty
 
-Map a static matrix at `strategies.<role>.transition_matrix`. Map a schedule at `strategies.<role>.transition_schedule`. The derivation snapshot must equal the complete current value. A direct-evidence extraction must contain strict JSON equal to that complete matrix or schedule. Constant cause-specific competing event rates may be transformed only through `$heor-transition-rate-adapter`; other assembly from several estimates remains incomplete.
+Map a static matrix at `strategies.<role>.transition_matrix`. Map a schedule at `strategies.<role>.transition_schedule`. The derivation snapshot must equal the complete current value. A direct-evidence extraction must contain strict JSON equal to that complete matrix or schedule. Constant cause-specific competing event rates may be transformed only through `$heor-transition-rate-adapter`; an already-selected exponential or Weibull two-state survival curve may be evaluated only through `$heor-survival-curve-adapter`. Other assembly from several estimates remains incomplete.
 
 Allowed uncertainty row targets are:
 
@@ -62,4 +62,4 @@ For a schema `0.5.0` transition derived from constant competing rates, do not us
 
 ## Explicit exclusions
 
-The current first-party engine does not implement tunnel states automatically, time-since-entry transitions, patient-level history, recurrent-event trackers, general continuous-time matrix exponentiation, probability time conversion, relative-effect application, treatment-effect extrapolation formulas, dynamic populations, interactions, time-varying rewards, partitioned survival, or microsimulation. Only the separately admitted constant competing-rate adapter is executable. Record everything else as a structural gap; never approximate it invisibly with a model-cycle schedule.
+The current first-party engine does not implement tunnel states automatically, time-since-entry transitions, patient-level history, recurrent-event trackers, general continuous-time matrix exponentiation, probability time conversion, relative-effect application, treatment-effect extrapolation formulas, dynamic populations, interactions, time-varying rewards, partitioned survival, or microsimulation. Only the separately admitted constant competing-rate adapter and bounded two-state survival-curve adapter are executable. The latter does not fit or select curves, validate extrapolation, or propagate survival-parameter uncertainty. Record everything else as a structural gap; never approximate it invisibly with a model-cycle schedule.

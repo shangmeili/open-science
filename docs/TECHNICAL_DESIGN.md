@@ -216,8 +216,8 @@ synthesis extraction as strict JSON. The native selection audit repeats that
 check against current workspace bytes and, for monetary inputs, verifies each
 `source_value` against its named extraction scalar or array index before the
 existing normalization arithmetic. Only `direct_evidence`, `explicit_assumption`,
-`monetary_adjustment`, and the schema `0.5.0` bounded
-`deterministic_transformation` described below are supported. Free-form
+`monetary_adjustment`, and the schema `0.5.0` and `0.6.0` bounded
+`deterministic_transformation` operations described below are supported. Free-form
 expressions remain blocked.
 
 Analysis-plan schema `0.4.0` adds a first-party piecewise transition schedule
@@ -248,6 +248,17 @@ Rust boundary independently enforce exact event-basis binding and positive gamma
 lognormal, or uniform distributions. Schema `0.4.0` may correlate 2–32 scalar
 lognormal members through an evidence-bound, symmetric, strictly positive-definite
 latent log-scale matrix and deterministic lower-triangular Cholesky multiplication.
+
+Analysis-plan schema `0.6.0` admits
+`parametric_survival_to_transition_schedule` only for a complete two-state
+strategy schedule. Exponential parameters use a positive annual rate; Weibull
+uses the declared scale-in-years and shape parameterization. Python, Rust, the
+portable validator, and TypeScript independently evaluate cumulative hazard at
+each cycle boundary, convert its increment with stable `expm1` arithmetic, and
+compare every emitted matrix with the current schedule and derivation snapshot.
+Each parameter binds exactly one extraction or proposed assumption. The engine
+does not fit, select, or clinically validate curves and does not accept survival-
+parameter uncertainty targets; those gaps stay visible to Human-in-the-loop review.
 Group order, member order, matrix, bases, and rationale are artifact data; Python,
 Rust, and the portable validator reject reused members, unsupported marginals,
 unlinked bases, singular/perfect matrices, and fields outside the contract. The
@@ -267,7 +278,7 @@ the exact evidence-to-input choices. The engine, uncertainty runner, and budget
 impact runner repeat the audit and invalidate stale approval bindings.
 
 Analysis-plan schema `0.2.0` introduced a root `economic_basis`; schemas
-`0.3.0` through `0.5.0` retain it and executable extraction-to-model derivations. Each monetary
+`0.3.0` through `0.6.0` retain it and executable extraction-to-model derivations. Each monetary
 mapping contains element-level source values and adjustment factors so the
 portable Python validator, native Rust approval boundary, and TypeScript review
 preview can all reject mixed or unreproducible currency/price-year inputs. The

@@ -358,6 +358,191 @@ fn derive_competing_rates(
     Ok((output, used_extractions, used_assumptions))
 }
 
+fn derive_survival_schedule(
+    plan: &serde_json::Value,
+    path: &str,
+    transformation: &serde_json::Value,
+) -> Result<(serde_json::Value, HashSet<String>, HashSet<String>), String> {
+    if !path.ends_with(".transition_schedule") {
+        return Err(
+            "parametric survival transformation is allowed only for a transition schedule".into(),
+        );
+    }
+    let transformation = transformation
+        .as_object()
+        .ok_or("derivation.transformation must be an object")?;
+    if !exact_fields(
+        transformation,
+        &[
+            "operation",
+            "cycle_length_years",
+            "from_state_index",
+            "event_state_index",
+            "distribution",
+            "parameters",
+        ],
+    ) {
+        return Err("survival transformation fields are not the exact supported contract".into());
+    }
+    if transformation
+        .get("operation")
+        .and_then(serde_json::Value::as_str)
+        != Some("parametric_survival_to_transition_schedule")
+    {
+        return Err(
+            "transformation.operation must be parametric_survival_to_transition_schedule".into(),
+        );
+    }
+    let state_count = plan
+        .get("states")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::len)
+        .unwrap_or_default();
+    if state_count != 2 {
+        return Err("parametric survival transformation requires exactly two states".into());
+    }
+    let cycles = plan
+        .get("cycles")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .filter(|value| (1..=10_000).contains(value))
+        .ok_or("parametric survival transformation supports 1-10000 cycles")?;
+    let declared_cycle = transformation
+        .get("cycle_length_years")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("transformation.cycle_length_years must be finite and positive")?;
+    let plan_cycle = plan
+        .get("cycle_length_years")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or("analysis cycle_length_years is invalid")?;
+    if (declared_cycle - plan_cycle).abs() > 1e-12 {
+        return Err(
+            "transformation.cycle_length_years must equal the analysis cycle length".into(),
+        );
+    }
+    let from_index = transformation
+        .get("from_state_index")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .ok_or("transformation.from_state_index must be an integer")?;
+    let event_index = transformation
+        .get("event_state_index")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .ok_or("transformation.event_state_index must be an integer")?;
+    if !matches!((from_index, event_index), (0, 1) | (1, 0)) {
+        return Err(
+            "from_state_index and event_state_index must be the two distinct state indices".into(),
+        );
+    }
+    let distribution = transformation
+        .get("distribution")
+        .and_then(serde_json::Value::as_str)
+        .ok_or("transformation.distribution must be exponential or weibull")?;
+    let expected_parameters: &[&str] = match distribution {
+        "exponential" => &["rate_per_year"],
+        "weibull" => &["shape", "scale_years"],
+        _ => return Err("transformation.distribution must be exponential or weibull".into()),
+    };
+    let parameters = transformation
+        .get("parameters")
+        .and_then(serde_json::Value::as_object)
+        .ok_or("transformation.parameters must be an object")?;
+    if !exact_fields(parameters, expected_parameters) {
+        return Err("transformation.parameters fields do not match the distribution".into());
+    }
+    let mut parsed = HashMap::new();
+    let mut used_extractions = HashSet::new();
+    let mut used_assumptions = HashSet::new();
+    for name in expected_parameters {
+        let label = format!("transformation.parameters.{name}");
+        let parameter = parameters
+            .get(*name)
+            .and_then(serde_json::Value::as_object)
+            .ok_or_else(|| format!("{label} must be an object"))?;
+        let allowed = [
+            "value",
+            "source_extraction_id",
+            "source_pointer",
+            "assumption_id",
+        ];
+        if parameter
+            .keys()
+            .any(|field| !allowed.contains(&field.as_str()))
+        {
+            return Err(format!("{label} contains unsupported fields"));
+        }
+        let value = parameter
+            .get("value")
+            .and_then(serde_json::Value::as_f64)
+            .filter(|value| value.is_finite() && *value > 0.0)
+            .ok_or_else(|| format!("{label}.value must be positive"))?;
+        parsed.insert(*name, value);
+        let source_id = parameter
+            .get("source_extraction_id")
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.trim().is_empty());
+        let assumption_id = parameter
+            .get("assumption_id")
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.trim().is_empty());
+        if source_id.is_some() == assumption_id.is_some() {
+            return Err(format!(
+                "{label} must declare exactly one source_extraction_id or assumption_id"
+            ));
+        }
+        if let Some(source_id) = source_id {
+            let pointer = match parameter.get("source_pointer") {
+                Some(value) => value
+                    .as_str()
+                    .ok_or_else(|| format!("{label}.source_pointer must be a string"))?,
+                None => "",
+            };
+            if !pointer.is_empty() && !pointer.starts_with('/') {
+                return Err(format!(
+                    "{label}.source_pointer must be empty or a JSON pointer"
+                ));
+            }
+            used_extractions.insert(source_id.to_string());
+        } else if let Some(assumption_id) = assumption_id {
+            if parameter.contains_key("source_pointer") {
+                return Err(format!("{label}.source_pointer requires an extraction"));
+            }
+            used_assumptions.insert(assumption_id.to_string());
+        }
+    }
+    let mut previous_hazard = 0.0;
+    let mut schedule = Vec::with_capacity(cycles);
+    for cycle in 1..=cycles {
+        let time_years = cycle as f64 * declared_cycle;
+        let cumulative_hazard = if distribution == "exponential" {
+            parsed["rate_per_year"] * time_years
+        } else {
+            (time_years / parsed["scale_years"]).powf(parsed["shape"])
+        };
+        let increment = cumulative_hazard - previous_hazard;
+        if !increment.is_finite() || increment < -1e-12 {
+            return Err(
+                "parametric survival cumulative hazard must be finite and non-decreasing".into(),
+            );
+        }
+        let event_probability = -(-increment.max(0.0)).exp_m1();
+        let mut matrix = vec![vec![0.0; 2]; 2];
+        matrix[from_index][from_index] = 1.0 - event_probability;
+        matrix[from_index][event_index] = event_probability;
+        matrix[event_index][event_index] = 1.0;
+        schedule.push(serde_json::json!({"start_cycle": cycle, "matrix": matrix}));
+        previous_hazard = cumulative_hazard;
+    }
+    Ok((
+        serde_json::Value::Array(schedule),
+        used_extractions,
+        used_assumptions,
+    ))
+}
+
 fn transition_rate_declaration_reasons(
     plan: &serde_json::Value,
     path: &str,
@@ -408,6 +593,52 @@ fn transition_rate_declaration_reasons(
     reasons
 }
 
+fn survival_curve_declaration_reasons(
+    plan: &serde_json::Value,
+    path: &str,
+    mapping: &serde_json::Value,
+    derivation: &serde_json::Map<String, serde_json::Value>,
+) -> Vec<String> {
+    if plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        != Some("0.6.0")
+    {
+        return vec!["parametric survival transformations require schema_version 0.6.0".into()];
+    }
+    let Some(transformation) = derivation.get("transformation") else {
+        return vec!["derivation.transformation must be an object".into()];
+    };
+    let (output, used_extractions, used_assumptions) =
+        match derive_survival_schedule(plan, path, transformation) {
+            Ok(value) => value,
+            Err(error) => return vec![error],
+        };
+    let mut reasons = Vec::new();
+    if !model_value(plan, path).is_some_and(|target| json_equivalent(&output, target)) {
+        reasons.push(
+            "parametric survival curve does not reproduce the current transition schedule".into(),
+        );
+    }
+    let selected_extractions = string_list(mapping.get("extraction_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    let selected_assumptions = string_list(mapping.get("assumption_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    if used_extractions != selected_extractions {
+        reasons.push("transformation must use every selected extraction".into());
+    }
+    if used_assumptions != selected_assumptions {
+        reasons.push("transformation must use every proposed assumption".into());
+    }
+    reasons
+}
+
 fn derivation_declaration_reasons(
     plan: &serde_json::Value,
     path: &str,
@@ -438,9 +669,19 @@ fn derivation_declaration_reasons(
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default();
     if method == "deterministic_transformation" {
-        reasons.extend(transition_rate_declaration_reasons(
-            plan, path, mapping, derivation,
-        ));
+        match derivation
+            .get("transformation")
+            .and_then(|value| value.get("operation"))
+            .and_then(serde_json::Value::as_str)
+        {
+            Some("constant_competing_rates") => reasons.extend(
+                transition_rate_declaration_reasons(plan, path, mapping, derivation),
+            ),
+            Some("parametric_survival_to_transition_schedule") => reasons.extend(
+                survival_curve_declaration_reasons(plan, path, mapping, derivation),
+            ),
+            _ => reasons.push("deterministic transformation operation is unsupported".into()),
+        }
         return reasons;
     }
     if source_ids.is_empty() {
@@ -731,10 +972,11 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
     if !matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.3.0" | "0.4.0" | "0.5.0")
+        Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0")
     ) {
-        invalid_mappings
-            .push("schema_version must be 0.3.0, 0.4.0, or 0.5.0 for approval review".into());
+        invalid_mappings.push(
+            "schema_version must be 0.3.0, 0.4.0, 0.5.0, or 0.6.0 for approval review".into(),
+        );
     }
     for role in ["comparator", "intervention"] {
         let strategy = plan.pointer(&format!("/strategies/{role}"));
@@ -753,11 +995,11 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
             && !matches!(
                 plan.get("schema_version")
                     .and_then(serde_json::Value::as_str),
-                Some("0.4.0" | "0.5.0")
+                Some("0.4.0" | "0.5.0" | "0.6.0")
             )
         {
             invalid_mappings.push(format!(
-                "strategies.{role}.transition_schedule requires schema_version 0.4.0 or 0.5.0"
+                "strategies.{role}.transition_schedule requires schema_version 0.4.0, 0.5.0, or 0.6.0"
             ));
         }
     }
@@ -1005,6 +1247,74 @@ fn transition_rate_extraction_reasons(
     reasons
 }
 
+fn survival_curve_extraction_reasons(
+    mapping: &serde_json::Value,
+    extraction_index: &HashMap<String, crate::heor_synthesis::ExtractionLink>,
+) -> Vec<String> {
+    let selected = string_list(mapping.get("extraction_ids"))
+        .unwrap_or_default()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+    let mut used = HashSet::new();
+    let mut reasons = Vec::new();
+    let Some(parameters) = mapping
+        .pointer("/derivation/transformation/parameters")
+        .and_then(serde_json::Value::as_object)
+    else {
+        return vec!["transformation.parameters must be an object".into()];
+    };
+    for (name, parameter) in parameters {
+        let label = format!("transformation.parameters.{name}");
+        let Some(extraction_id) = parameter
+            .get("source_extraction_id")
+            .and_then(serde_json::Value::as_str)
+        else {
+            continue;
+        };
+        if !selected.contains(extraction_id) {
+            reasons.push(format!(
+                "{label}.source_extraction_id must reference a selected extraction"
+            ));
+            continue;
+        }
+        used.insert(extraction_id.to_string());
+        let Some(extraction) = extraction_index.get(extraction_id) else {
+            continue;
+        };
+        let Ok(extracted) = serde_json::from_str::<serde_json::Value>(&extraction.extracted_value)
+        else {
+            reasons.push(format!(
+                "{label} source extraction must contain strict JSON"
+            ));
+            continue;
+        };
+        let pointer = parameter
+            .get("source_pointer")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let extracted_source = if pointer.is_empty() {
+            Some(&extracted)
+        } else {
+            extracted.pointer(pointer)
+        };
+        let Some(extracted_source) = extracted_source else {
+            reasons.push(format!("{label}.source_pointer does not resolve"));
+            continue;
+        };
+        if !parameter
+            .get("value")
+            .is_some_and(|value| json_equivalent(value, extracted_source))
+        {
+            reasons.push(format!("{label}.value does not match the bound extraction"));
+        }
+    }
+    if used != selected {
+        reasons.push("transformation must use every selected extraction".into());
+    }
+    reasons
+}
+
 fn extraction_derivation_reasons(
     plan: &serde_json::Value,
     mapping: &serde_json::Value,
@@ -1024,7 +1334,18 @@ fn extraction_derivation_reasons(
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default();
     if method == "deterministic_transformation" {
-        return transition_rate_extraction_reasons(mapping, extraction_index);
+        return match mapping
+            .pointer("/derivation/transformation/operation")
+            .and_then(serde_json::Value::as_str)
+        {
+            Some("constant_competing_rates") => {
+                transition_rate_extraction_reasons(mapping, extraction_index)
+            }
+            Some("parametric_survival_to_transition_schedule") => {
+                survival_curve_extraction_reasons(mapping, extraction_index)
+            }
+            _ => vec!["deterministic transformation operation is unsupported".into()],
+        };
     }
     if !monetary_path(path) {
         let [extraction_id] = extraction_ids.as_slice() else {
@@ -1624,7 +1945,7 @@ mod tests {
 
         assert!(!audit.complete);
         let errors = audit.invalid_mappings.join("; ");
-        assert!(errors.contains("schema_version must be 0.3.0, 0.4.0, or 0.5.0"));
+        assert!(errors.contains("schema_version must be 0.3.0, 0.4.0, 0.5.0, or 0.6.0"));
         assert!(errors.contains("does not match the current model input"));
     }
 
@@ -1674,6 +1995,71 @@ mod tests {
         assert!(transition_rate_extraction_reasons(&mapping, &index).is_empty());
         index.get_mut("rates").unwrap().extracted_value = r#"{"event":0.3}"#.into();
         assert!(transition_rate_extraction_reasons(&mapping, &index)
+            .join("; ")
+            .contains("does not match the bound extraction"));
+    }
+
+    #[test]
+    fn native_survival_derivation_recomputes_and_binds_the_schedule() {
+        let transformation = serde_json::json!({
+            "operation": "parametric_survival_to_transition_schedule",
+            "cycle_length_years": 1.0,
+            "from_state_index": 0,
+            "event_state_index": 1,
+            "distribution": "exponential",
+            "parameters": {
+                "rate_per_year": {
+                    "value": 0.22314355131420976,
+                    "source_extraction_id": "survival-rate",
+                    "source_pointer": "/rate"
+                }
+            }
+        });
+        let mut plan = serde_json::json!({
+            "schema_version": "0.6.0",
+            "states": ["alive", "dead"],
+            "cycles": 3,
+            "cycle_length_years": 1.0,
+            "strategies": {"intervention": {"transition_schedule": []}}
+        });
+        let (schedule, _, _) = derive_survival_schedule(
+            &plan,
+            "strategies.intervention.transition_schedule",
+            &transformation,
+        )
+        .unwrap();
+        plan["strategies"]["intervention"]["transition_schedule"] = schedule.clone();
+        let mapping = serde_json::json!({
+            "path": "strategies.intervention.transition_schedule",
+            "extraction_ids": ["survival-rate"],
+            "assumption_ids": [],
+            "derivation": {
+                "method": "deterministic_transformation",
+                "model_value": schedule,
+                "transformation": transformation
+            }
+        });
+        let derivation = mapping["derivation"].as_object().unwrap();
+        assert!(survival_curve_declaration_reasons(
+            &plan,
+            "strategies.intervention.transition_schedule",
+            &mapping,
+            derivation,
+        )
+        .is_empty());
+
+        let mut index = HashMap::new();
+        index.insert(
+            "survival-rate".to_string(),
+            crate::heor_synthesis::ExtractionLink {
+                record_id: "source-1".into(),
+                target: "strategies.intervention.transition_schedule".into(),
+                extracted_value: r#"{"rate":0.22314355131420976}"#.into(),
+            },
+        );
+        assert!(survival_curve_extraction_reasons(&mapping, &index).is_empty());
+        index.get_mut("survival-rate").unwrap().extracted_value = r#"{"rate":0.3}"#.into();
+        assert!(survival_curve_extraction_reasons(&mapping, &index)
             .join("; ")
             .contains("does not match the bound extraction"));
     }

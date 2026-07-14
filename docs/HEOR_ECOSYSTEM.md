@@ -191,6 +191,24 @@ within-cycle multi-step paths, arbitrary copulas, gamma/uniform correlation,
 empirical posterior draws, singular/perfect matrices, and transformation-space
 structural scenarios remain isolated future adapters rather than inferred capability.
 
+Schema `0.6.0` industrializes another useful but unsafe fragment: evaluating an
+already-selected exponential or Weibull survival curve as a two-state model-cycle
+schedule. AI4HEOR does not copy `survHE` or another fitting implementation. It
+reimplements only cumulative-hazard evaluation in the dependency-free core,
+binds each positive parameter to evidence or a proposed assumption, and
+independently recomputes the complete schedule in Python, a standalone Skill,
+the portable provenance validator, native Rust, and the browser. Hand-calculated
+and adversarial tests cover parameterization, cycle increments, stale schedules,
+wrong schemas, invalid sources, unsupported distributions, and state-count
+violations. `$heor-survival-curve-adapter` documents the exact boundary.
+
+Fitting, automatic model selection, flexible/cure/mixture models, KM/IPD
+reconstruction, partitioned survival, treatment effects, background mortality,
+competing risks, validation of long-term plausibility, and parameter uncertainty
+remain future admission candidates. Mature upstream survival packages can serve
+as isolated tools or cross-checks only after their own license, version, data-
+egress, reproducibility, audit, and packaging gates pass.
+
 The evidence-search slice applies the same standard to a network capability.
 The Agent can only draft and validate the request file. Native code rejects
 unknown fields, arbitrary URLs, headers, credentials, sensitive egress,

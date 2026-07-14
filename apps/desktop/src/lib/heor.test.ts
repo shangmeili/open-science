@@ -137,7 +137,7 @@ describe("AI4HEOR artifact contract", () => {
     const audit = auditHeorEvidence(plan);
 
     expect(audit.invalidMappings.join("; ")).toContain(
-      "schema_version must be 0.3.0, 0.4.0, or 0.5.0",
+      "schema_version must be 0.3.0, 0.4.0, 0.5.0, or 0.6.0",
     );
     expect(audit.invalidMappings.join("; ")).toContain(
       "derivation.model_value does not match the current model input",
@@ -193,11 +193,82 @@ describe("AI4HEOR artifact contract", () => {
     expect(audit.invalidMappings.join("; ")).not.toContain("constant competing rates");
     expect(parseHeorPlan(JSON.stringify(plan)).schema_version).toBe("0.5.0");
 
-    plan.input_provenance[0].derivation.transformation!.phases[0].rows[0].events[0]
-      .rate_per_year = 0.3;
+    const transformation = plan.input_provenance[0].derivation.transformation!;
+    if (transformation.operation !== "constant_competing_rates") {
+      throw new Error("test fixture must use competing rates");
+    }
+    transformation.phases[0].rows[0].events[0].rate_per_year = 0.3;
     audit = auditHeorEvidence(plan);
     expect(audit.invalidMappings.join("; ")).toContain(
       "constant competing rates do not reproduce the current transition input",
+    );
+  });
+
+  it("recomputes a schema 0.6 two-state schedule from a parametric survival curve", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    plan.schema_version = "0.6.0";
+    plan.states = ["alive", "dead"];
+    plan.cycles = 3;
+    plan.strategies.comparator = {
+      name: "Comparator",
+      initial_distribution: [1, 0],
+      transition_schedule: [1, 2, 3].map((start_cycle) => ({
+        start_cycle,
+        matrix: [[0.8, 0.2], [0, 1]],
+      })),
+      state_costs: [100, 0],
+      state_utilities: [1, 0],
+    };
+    plan.strategies.intervention = {
+      name: "Intervention",
+      initial_distribution: [1, 0],
+      transition_matrix: [[0.9, 0.1], [0, 1]],
+      state_costs: [120, 0],
+      state_utilities: [1, 0],
+    };
+    plan.assumptions = [{
+      id: "survival-rate",
+      statement: "Use the declared exponential survival rate",
+      reason: "Browser contract test",
+      status: "proposed",
+    }];
+    plan.input_provenance = [{
+      path: "strategies.comparator.transition_schedule",
+      source_ids: [],
+      extraction_ids: [],
+      assumption_ids: ["survival-rate"],
+      unit: "probability per annual model cycle",
+      jurisdiction: "China",
+      derivation: {
+        method: "deterministic_transformation",
+        model_value: plan.strategies.comparator.transition_schedule,
+        transformation: {
+          operation: "parametric_survival_to_transition_schedule",
+          cycle_length_years: 1,
+          from_state_index: 0,
+          event_state_index: 1,
+          distribution: "exponential",
+          parameters: {
+            rate_per_year: { value: -Math.log(0.8), assumption_id: "survival-rate" },
+          },
+        },
+      },
+      selection_rationale: "Exercise bounded survival conversion",
+      uncertainty_status: "fixed",
+    }];
+
+    let audit = auditHeorEvidence(plan);
+    expect(audit.invalidMappings.join("; ")).not.toContain("parametric survival curve");
+    expect(parseHeorPlan(JSON.stringify(plan)).schema_version).toBe("0.6.0");
+
+    const survival = plan.input_provenance[0].derivation.transformation!;
+    if (survival.operation !== "parametric_survival_to_transition_schedule") {
+      throw new Error("test fixture must use a survival transformation");
+    }
+    survival.parameters.rate_per_year.value = 0.3;
+    audit = auditHeorEvidence(plan);
+    expect(audit.invalidMappings.join("; ")).toContain(
+      "parametric survival curve does not reproduce the current transition schedule",
     );
   });
 

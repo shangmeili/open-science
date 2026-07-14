@@ -112,16 +112,16 @@ Add one unique `input_provenance` entry per required path:
 
 At least one valid source or `proposed` assumption is required. `unit`, `jurisdiction`, and `selection_rationale` are always required. Monetary inputs also require `currency` and integer `price_year` matching the plan's root `economic_basis`. `uncertainty_status` must be `fixed`, `range_available`, or `distribution_available`.
 
-Approvable analysis-plan schemas `0.3.0`, `0.4.0`, and `0.5.0` require a `derivation` on every mapping. Reserve `0.5.0` for an admitted deterministic transition-rate transformation; a transition schedule maps the complete array at `strategies.<role>.transition_schedule` instead of the absent static matrix. `derivation.model_value` is a redundant review snapshot that must equal the exact current value at `path`; changing either side invalidates the mapping.
+Approvable analysis-plan schemas `0.3.0`, `0.4.0`, `0.5.0`, and `0.6.0` require a `derivation` on every mapping. Reserve `0.5.0` for an admitted deterministic transition-rate transformation and `0.6.0` for the admitted bounded survival-curve transformation. A transition schedule maps the complete array at `strategies.<role>.transition_schedule` instead of the absent static matrix. `derivation.model_value` is a redundant review snapshot that must equal the exact current value at `path`; changing either side invalidates the mapping.
 
 Use only these executable methods:
 
 - `direct_evidence`: exactly one selected extraction; its `extracted_value` must parse as strict JSON and equal the complete model value. For example, `[0.8,0.5,0]` can directly support a state-utility vector, while `0.8, 0.5 and 0 with caveats` cannot.
 - `explicit_assumption`: no source or extraction IDs, at least one linked `proposed` assumption, and a snapshot equal to the model value.
 - `monetary_adjustment`: source-based state costs or willingness-to-pay, with each source value bound to a selected extraction and then arithmetically normalized.
-- `deterministic_transformation`: schema `0.5.0` transition matrix or schedule derived by `$heor-transition-rate-adapter` from constant cause-specific competing event rates. Every event binds exactly one extraction or proposed assumption, and the validator recomputes the complete output.
+- `deterministic_transformation`: either a schema `0.5.0` matrix or schedule derived by `$heor-transition-rate-adapter` from constant cause-specific competing event rates, or a schema `0.6.0` complete per-cycle two-state schedule derived by `$heor-survival-curve-adapter` from one declared exponential or Weibull curve. Every event or curve parameter binds exactly one extraction or proposed assumption, and the validator independently recomputes the complete output.
 
-Do not place a probability conversion, pooling rule, matrix assembly, calibration, interpolation, or other formula only in `selection_rationale`. The contract evaluates only admitted structured transformations, currently constant competing event rates. Keep every other mapping incomplete until a bounded deterministic adapter supports it.
+Do not place a probability conversion, pooling rule, matrix assembly, calibration, interpolation, or other formula only in `selection_rationale`. The contract evaluates only the two admitted structured transformations above. Keep every other mapping incomplete until a bounded deterministic adapter supports it.
 
 An assumption-only mapping is explicit and executable at the artifact level:
 

@@ -20,7 +20,7 @@ BASE_PATHS = [
     "strategies.intervention.state_utilities",
 ]
 UNCERTAINTY = {"fixed", "range_available", "distribution_available"}
-APPROVABLE_ANALYSIS_SCHEMAS = {"0.3.0", "0.4.0", "0.5.0"}
+APPROVABLE_ANALYSIS_SCHEMAS = {"0.3.0", "0.4.0", "0.5.0", "0.6.0"}
 TRANSITION_PATHS = {
     "strategies.comparator.transition_matrix",
     "strategies.intervention.transition_matrix",
@@ -298,6 +298,146 @@ def transition_rate_reasons(
     return reasons
 
 
+def survival_curve_reasons(
+    plan: dict[str, Any],
+    path: str,
+    mapping: dict[str, Any],
+    derivation: dict[str, Any],
+    extraction_index: dict[str, dict[str, Any]],
+) -> list[str]:
+    reasons: list[str] = []
+    if plan.get("schema_version") != "0.6.0":
+        return ["parametric survival transformations require schema_version 0.6.0"]
+    if path not in {
+        "strategies.comparator.transition_schedule",
+        "strategies.intervention.transition_schedule",
+    }:
+        return ["parametric survival transformation is allowed only for a transition schedule"]
+    transformation = derivation.get("transformation")
+    if not isinstance(transformation, dict):
+        return ["derivation.transformation must be an object"]
+    expected_keys = {
+        "operation", "cycle_length_years", "from_state_index", "event_state_index",
+        "distribution", "parameters",
+    }
+    if set(transformation) != expected_keys:
+        reasons.append("survival transformation fields are not the exact supported contract")
+    states = plan.get("states")
+    if not isinstance(states, list) or len(states) != 2:
+        reasons.append("parametric survival transformation requires exactly two states")
+    cycles = plan.get("cycles")
+    if isinstance(cycles, bool) or not isinstance(cycles, int) or not 1 <= cycles <= 10_000:
+        reasons.append("parametric survival transformation supports 1-10000 cycles")
+        cycles = 0
+    declared_cycle = transformation.get("cycle_length_years")
+    if (
+        not finite_number(declared_cycle) or declared_cycle <= 0
+        or not finite_number(plan.get("cycle_length_years"))
+        or not isclose(
+            float(declared_cycle), float(plan["cycle_length_years"]),
+            rel_tol=0.0, abs_tol=1e-12,
+        )
+    ):
+        reasons.append("transformation.cycle_length_years must equal the analysis cycle length")
+    from_index = transformation.get("from_state_index")
+    event_index = transformation.get("event_state_index")
+    if (
+        isinstance(from_index, bool) or not isinstance(from_index, int)
+        or isinstance(event_index, bool) or not isinstance(event_index, int)
+        or {from_index, event_index} != {0, 1}
+    ):
+        reasons.append(
+            "from_state_index and event_state_index must be the two distinct state indices"
+        )
+    distribution = transformation.get("distribution")
+    expected_parameters = {
+        "exponential": {"rate_per_year"},
+        "weibull": {"shape", "scale_years"},
+    }.get(distribution)
+    raw_parameters = transformation.get("parameters")
+    if expected_parameters is None:
+        reasons.append("transformation.distribution must be exponential or weibull")
+        expected_parameters = set()
+    if not isinstance(raw_parameters, dict) or set(raw_parameters) != expected_parameters:
+        reasons.append("transformation.parameters fields do not match the distribution")
+        raw_parameters = {}
+    parameters: dict[str, float] = {}
+    used_extractions: set[str] = set()
+    used_assumptions: set[str] = set()
+    for name in sorted(expected_parameters):
+        label = f"transformation.parameters.{name}"
+        parameter = raw_parameters.get(name)
+        allowed = {"value", "source_extraction_id", "source_pointer", "assumption_id"}
+        if not isinstance(parameter, dict) or set(parameter) - allowed:
+            reasons.append(f"{label} contains unsupported fields")
+            continue
+        value = parameter.get("value")
+        if not finite_number(value) or value <= 0:
+            reasons.append(f"{label}.value must be positive")
+            continue
+        parameters[name] = float(value)
+        source_id = parameter.get("source_extraction_id")
+        assumption_id = parameter.get("assumption_id")
+        has_source = text(source_id)
+        has_assumption = text(assumption_id)
+        if has_source == has_assumption:
+            reasons.append(f"{label} must declare exactly one extraction or assumption basis")
+        elif has_source:
+            used_extractions.add(source_id)
+            extraction = extraction_index.get(source_id)
+            if extraction is not None:
+                try:
+                    extracted = strict_json(extraction.get("extracted_value"))
+                    extracted = json_pointer(extracted, parameter.get("source_pointer", ""))
+                except (TypeError, ValueError, json.JSONDecodeError) as error:
+                    reasons.append(f"{label}: {error}")
+                else:
+                    if not json_equivalent(extracted, value):
+                        reasons.append(f"{label}.value does not match the bound extraction")
+        else:
+            used_assumptions.add(assumption_id)
+            if "source_pointer" in parameter:
+                reasons.append(f"{label}.source_pointer requires an extraction")
+    output: list[dict[str, Any]] = []
+    if (
+        cycles > 0 and finite_number(declared_cycle) and declared_cycle > 0
+        and from_index in {0, 1} and event_index in {0, 1}
+        and from_index != event_index and set(parameters) == expected_parameters
+    ):
+        previous_hazard = 0.0
+        for cycle in range(1, cycles + 1):
+            time_years = cycle * float(declared_cycle)
+            try:
+                cumulative_hazard = (
+                    parameters["rate_per_year"] * time_years
+                    if distribution == "exponential"
+                    else (time_years / parameters["scale_years"]) ** parameters["shape"]
+                )
+            except OverflowError:
+                cumulative_hazard = float("inf")
+            increment = cumulative_hazard - previous_hazard
+            if not isfinite(increment) or increment < -1e-12:
+                reasons.append("parametric survival cumulative hazard must be finite and non-decreasing")
+                output = []
+                break
+            event_probability = -expm1(-max(0.0, increment))
+            matrix = [[0.0, 0.0], [0.0, 0.0]]
+            matrix[from_index][from_index] = 1.0 - event_probability
+            matrix[from_index][event_index] = event_probability
+            matrix[event_index][event_index] = 1.0
+            output.append({"start_cycle": cycle, "matrix": matrix})
+            previous_hazard = cumulative_hazard
+    if not output or not json_equivalent(output, model_value(plan, path)):
+        reasons.append("parametric survival curve does not reproduce the current transition schedule")
+    selected_extractions = set(texts(mapping.get("extraction_ids")) or [])
+    selected_assumptions = set(texts(mapping.get("assumption_ids")) or [])
+    if used_extractions != selected_extractions:
+        reasons.append("transformation must use every selected extraction")
+    if used_assumptions != selected_assumptions:
+        reasons.append("transformation must use every proposed assumption")
+    return reasons
+
+
 def derivation_reasons(
     plan: dict[str, Any],
     path: str,
@@ -320,9 +460,18 @@ def derivation_reasons(
     assumption_ids = texts(mapping.get("assumption_ids")) or []
     method = derivation.get("method")
     if method == "deterministic_transformation":
-        reasons.extend(
-            transition_rate_reasons(plan, path, mapping, derivation, extraction_index)
-        )
+        transformation = derivation.get("transformation")
+        operation = transformation.get("operation") if isinstance(transformation, dict) else None
+        if operation == "constant_competing_rates":
+            reasons.extend(
+                transition_rate_reasons(plan, path, mapping, derivation, extraction_index)
+            )
+        elif operation == "parametric_survival_to_transition_schedule":
+            reasons.extend(
+                survival_curve_reasons(plan, path, mapping, derivation, extraction_index)
+            )
+        else:
+            reasons.append("deterministic transformation operation is unsupported")
         return reasons
     if not source_ids:
         if method != "explicit_assumption":
@@ -491,7 +640,7 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
     if not isinstance(plan, dict) or not isinstance(synthesis, dict):
         return {"complete": False, "errors": ["plan and synthesis must be JSON objects"]}
     if plan.get("schema_version") not in APPROVABLE_ANALYSIS_SCHEMAS:
-        errors.append("schema_version must be 0.3.0, 0.4.0, or 0.5.0 for approval review")
+        errors.append("schema_version must be 0.3.0, 0.4.0, 0.5.0, or 0.6.0 for approval review")
     for role in ("comparator", "intervention"):
         strategy = (plan.get("strategies") or {}).get(role) or {}
         has_matrix = isinstance(strategy, dict) and strategy.get("transition_matrix") is not None
@@ -500,9 +649,9 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
             errors.append(
                 f"strategies.{role} must define exactly one of transition_matrix or transition_schedule"
             )
-        if has_schedule and plan.get("schema_version") not in {"0.4.0", "0.5.0"}:
+        if has_schedule and plan.get("schema_version") not in {"0.4.0", "0.5.0", "0.6.0"}:
             errors.append(
-                f"strategies.{role}.transition_schedule requires schema_version 0.4.0 or 0.5.0"
+                f"strategies.{role}.transition_schedule requires schema_version 0.4.0, 0.5.0, or 0.6.0"
             )
     basis_value = plan.get("economic_basis")
     economic_basis = basis_value if isinstance(basis_value, dict) else None

@@ -13,6 +13,7 @@ from heor_core.model import (
     ModelValidationError,
     run_markov,
 )
+from heor_core.survival_curves import SurvivalCurveError, derive_survival_schedule
 from heor_core.uncertainty import (
     Pcg32,
     UncertaintySpecification,
@@ -57,6 +58,109 @@ def time_varying_payload() -> dict:
 
 def rate_derived_payload() -> dict:
     return json.loads(RATE_DERIVED_PATH.read_text())
+
+
+def survival_derived_payload() -> dict:
+    value = rate_derived_payload()
+    value["schema_version"] = "0.6.0"
+    value["analysis_id"] = "golden-survival-derived"
+    value["strategies"]["comparator"].pop("transition_matrix")
+    value["strategies"]["intervention"].pop("transition_matrix")
+    comparator_rate = -log(0.8)
+    comparator_schedule = []
+    intervention_schedule = []
+    previous_hazard = 0.0
+    for cycle in range(1, 4):
+        comparator_event = 1.0 - exp(-comparator_rate)
+        comparator_schedule.append({
+            "start_cycle": cycle,
+            "matrix": [[1.0 - comparator_event, comparator_event], [0.0, 1.0]],
+        })
+        cumulative_hazard = (cycle / 4.0) ** 2.0
+        intervention_event = 1.0 - exp(-(cumulative_hazard - previous_hazard))
+        intervention_schedule.append({
+            "start_cycle": cycle,
+            "matrix": [[1.0 - intervention_event, intervention_event], [0.0, 1.0]],
+        })
+        previous_hazard = cumulative_hazard
+    value["strategies"]["comparator"]["transition_schedule"] = comparator_schedule
+    value["strategies"]["intervention"]["transition_schedule"] = intervention_schedule
+    value["assumptions"] = [
+        {
+            "id": "comparator-survival-rate",
+            "statement": "Use the declared comparator exponential rate.",
+            "reason": "Hand-checkable survival adapter fixture.",
+            "status": "proposed",
+        },
+        {
+            "id": "intervention-weibull-shape",
+            "statement": "Use the declared intervention Weibull shape.",
+            "reason": "Hand-checkable survival adapter fixture.",
+            "status": "proposed",
+        },
+        {
+            "id": "intervention-weibull-scale",
+            "statement": "Use the declared intervention Weibull scale in years.",
+            "reason": "Hand-checkable survival adapter fixture.",
+            "status": "proposed",
+        },
+    ]
+    value["input_provenance"] = [
+        {
+            "path": "strategies.comparator.transition_schedule",
+            "source_ids": [],
+            "extraction_ids": [],
+            "assumption_ids": ["comparator-survival-rate"],
+            "derivation": {
+                "method": "deterministic_transformation",
+                "model_value": copy.deepcopy(comparator_schedule),
+                "transformation": {
+                    "operation": "parametric_survival_to_transition_schedule",
+                    "cycle_length_years": 1.0,
+                    "from_state_index": 0,
+                    "event_state_index": 1,
+                    "distribution": "exponential",
+                    "parameters": {
+                        "rate_per_year": {
+                            "value": comparator_rate,
+                            "assumption_id": "comparator-survival-rate",
+                        }
+                    },
+                },
+            },
+        },
+        {
+            "path": "strategies.intervention.transition_schedule",
+            "source_ids": [],
+            "extraction_ids": [],
+            "assumption_ids": [
+                "intervention-weibull-shape",
+                "intervention-weibull-scale",
+            ],
+            "derivation": {
+                "method": "deterministic_transformation",
+                "model_value": copy.deepcopy(intervention_schedule),
+                "transformation": {
+                    "operation": "parametric_survival_to_transition_schedule",
+                    "cycle_length_years": 1.0,
+                    "from_state_index": 0,
+                    "event_state_index": 1,
+                    "distribution": "weibull",
+                    "parameters": {
+                        "shape": {
+                            "value": 2.0,
+                            "assumption_id": "intervention-weibull-shape",
+                        },
+                        "scale_years": {
+                            "value": 4.0,
+                            "assumption_id": "intervention-weibull-scale",
+                        },
+                    },
+                },
+            },
+        },
+    ]
+    return value
 
 
 def rate_uncertainty_payload(base_raw: bytes | None = None) -> dict:
@@ -193,14 +297,15 @@ class MarkovModelTests(unittest.TestCase):
         payload["schema_version"] = "0.3.0"
 
         with self.assertRaisesRegex(
-            ModelValidationError, "transition_schedule requires schema_version 0.4.0 or 0.5.0"
+            ModelValidationError,
+            "transition_schedule requires schema_version 0.4.0, 0.5.0, or 0.6.0",
         ):
             MarkovSpecification.from_dict(payload)
 
     def test_constant_rate_derivations_match_hand_calculation(self) -> None:
         result = run_markov(MarkovSpecification.from_dict(rate_derived_payload()))
 
-        self.assertEqual(result.engine_version, "0.5.0")
+        self.assertEqual(result.engine_version, "0.6.0")
         self.assertEqual(result.schema_version, "0.5.0")
         self.assertAlmostEqual(result.comparator.total_qaly, 2.44)
         self.assertAlmostEqual(result.intervention.total_qaly, 2.71)
@@ -267,6 +372,90 @@ class MarkovModelTests(unittest.TestCase):
         self.assertEqual(result.intervention.transition_mode, "piecewise_by_model_cycle")
         self.assertEqual(result.intervention.transition_schedule_start_cycles, (1, 2))
         self.assertAlmostEqual(result.intervention.total_qaly, 2.62)
+
+    def test_parametric_survival_schedule_matches_hand_calculation(self) -> None:
+        payload = survival_derived_payload()
+        result = run_markov(MarkovSpecification.from_dict(payload))
+
+        self.assertEqual(result.engine_version, "0.6.0")
+        self.assertEqual(result.schema_version, "0.6.0")
+        self.assertEqual(
+            result.intervention.transition_schedule_start_cycles,
+            (1, 2, 3),
+        )
+        self.assertAlmostEqual(result.comparator.total_qaly, 1.0 + 0.8 + 0.64)
+        expected_qaly = 1.0 + exp(-((1.0 / 4.0) ** 2.0)) + exp(-((2.0 / 4.0) ** 2.0))
+        self.assertAlmostEqual(result.intervention.total_qaly, expected_qaly)
+        self.assertAlmostEqual(result.intervention.total_cost, expected_qaly * 100.0)
+        for cycle, occupancy in enumerate(result.intervention.occupancy):
+            self.assertAlmostEqual(occupancy[0], exp(-((cycle / 4.0) ** 2.0)))
+            self.assertAlmostEqual(sum(occupancy), 1.0)
+
+    def test_survival_adapter_uses_cumulative_hazard_differences(self) -> None:
+        schedule, extraction_ids, assumption_ids = derive_survival_schedule(
+            {
+                "operation": "parametric_survival_to_transition_schedule",
+                "cycle_length_years": 0.5,
+                "from_state_index": 0,
+                "event_state_index": 1,
+                "distribution": "weibull",
+                "parameters": {
+                    "shape": {"value": 2.0, "assumption_id": "shape"},
+                    "scale_years": {"value": 2.0, "assumption_id": "scale"},
+                },
+            },
+            state_count=2,
+            cycles=2,
+            cycle_length_years=0.5,
+        )
+
+        self.assertEqual(extraction_ids, set())
+        self.assertEqual(assumption_ids, {"shape", "scale"})
+        self.assertAlmostEqual(schedule[0]["matrix"][0][1], 1.0 - exp(-0.0625))
+        self.assertAlmostEqual(schedule[1]["matrix"][0][1], 1.0 - exp(-0.1875))
+        self.assertEqual(schedule[1]["matrix"][1], [0.0, 1.0])
+
+    def test_survival_derivation_fails_closed_outside_the_bounded_contract(self) -> None:
+        valid = survival_derived_payload()
+        cases: list[tuple[dict, str]] = []
+
+        stale = copy.deepcopy(valid)
+        stale["strategies"]["intervention"]["transition_schedule"][0]["matrix"][0] = [0.5, 0.5]
+        stale["input_provenance"][1]["derivation"]["model_value"] = copy.deepcopy(
+            stale["strategies"]["intervention"]["transition_schedule"]
+        )
+        cases.append((stale, "does not reproduce"))
+
+        legacy = copy.deepcopy(valid)
+        legacy["schema_version"] = "0.5.0"
+        cases.append((legacy, "require schema_version 0.6.0"))
+
+        unsupported = copy.deepcopy(valid)
+        unsupported["input_provenance"][1]["derivation"]["transformation"]["distribution"] = "lognormal"
+        cases.append((unsupported, "must be exponential or weibull"))
+
+        missing_basis = copy.deepcopy(valid)
+        parameter = missing_basis["input_provenance"][1]["derivation"]["transformation"]["parameters"]["shape"]
+        del parameter["assumption_id"]
+        cases.append((missing_basis, "exactly one source_extraction_id or assumption_id"))
+
+        for payload, message in cases:
+            with self.subTest(message=message), self.assertRaisesRegex(
+                ModelValidationError,
+                message,
+            ):
+                MarkovSpecification.from_dict(payload)
+
+        transformation = valid["input_provenance"][1]["derivation"][
+            "transformation"
+        ]
+        with self.assertRaisesRegex(SurvivalCurveError, "requires exactly two states"):
+            derive_survival_schedule(
+                transformation,
+                state_count=3,
+                cycles=valid["cycles"],
+                cycle_length_years=valid["cycle_length_years"],
+            )
 
     def test_strategy_cannot_mix_static_and_scheduled_transitions(self) -> None:
         payload = time_varying_payload()

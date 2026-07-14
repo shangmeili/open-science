@@ -38,7 +38,15 @@ def validate_transition_rate_mappings(
         if not isinstance(mapping, dict):
             continue
         derivation = mapping.get("derivation")
-        if not isinstance(derivation, dict) or derivation.get("method") != TRANSFORMATION_METHOD:
+        transformation = (
+            derivation.get("transformation") if isinstance(derivation, dict) else None
+        )
+        if (
+            not isinstance(derivation, dict)
+            or derivation.get("method") != TRANSFORMATION_METHOD
+            or not isinstance(transformation, dict)
+            or transformation.get("operation") != TRANSFORMATION_OPERATION
+        ):
             continue
         label = f"input_provenance[{position}]"
         if schema_version != "0.5.0":
@@ -58,7 +66,7 @@ def validate_transition_rate_mappings(
                 f"{label}: derivation.model_value does not match the current transition input"
             )
         output, used_extractions, used_assumptions = derive_competing_rates(
-            derivation.get("transformation"),
+            transformation,
             target_path=path,
             state_count=state_count,
             cycles=cycles,

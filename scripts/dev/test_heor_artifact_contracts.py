@@ -62,6 +62,10 @@ input_provenance = load(
     "validate_input_provenance",
     "runtime/skills/core/heor-input-provenance/scripts/validate_input_provenance.py",
 )
+survival_adapter = load(
+    "validate_survival_curve",
+    "runtime/skills/core/heor-survival-curve-adapter/scripts/validate_survival_curve.py",
+)
 
 
 def evidence_search_fixture():
@@ -165,6 +169,27 @@ class EvidenceSearchRequestContractTests(unittest.TestCase):
         self.assertFalse(result["complete"])
         self.assertTrue(any("unsupported top-level field" in error for error in result["errors"]))
         self.assertTrue(any("date_from" in error for error in result["errors"]))
+
+
+class SurvivalCurveAdapterContractTests(unittest.TestCase):
+    def test_template_recomputes_hand_checkable_exponential_schedule(self):
+        transformation = json.loads(
+            (ROOT / "runtime/skills/core/heor-survival-curve-adapter/assets/survival-transformation.template.json").read_text()
+        )
+        schedule = survival_adapter.derive(transformation, 3, 1.0)
+        self.assertEqual(len(schedule), 3)
+        for phase in schedule:
+            self.assertAlmostEqual(phase["matrix"][0][0], 0.8)
+            self.assertAlmostEqual(phase["matrix"][0][1], 0.2)
+            self.assertEqual(phase["matrix"][1], [0.0, 1.0])
+
+    def test_standalone_adapter_rejects_ambiguous_weibull_parameterization(self):
+        transformation = json.loads(
+            (ROOT / "runtime/skills/core/heor-survival-curve-adapter/assets/survival-transformation.template.json").read_text()
+        )
+        transformation["distribution"] = "weibull"
+        with self.assertRaisesRegex(ValueError, "parameters do not match"):
+            survival_adapter.derive(transformation, 3, 1.0)
 
 
 def conceptual_fixture():
@@ -536,6 +561,62 @@ class InputProvenanceContractTests(unittest.TestCase):
         combined = "; ".join(changed["invalid_mappings"])
         self.assertIn("does not match the bound extraction", combined)
         self.assertIn("do not reproduce", combined)
+
+    def test_schema_06_survival_curve_reproduces_complete_schedule(self):
+        rate = 0.22314355131420976
+        schedule = [
+            {
+                "start_cycle": cycle,
+                "matrix": [[0.8, 0.2], [0.0, 1.0]],
+            }
+            for cycle in range(1, 4)
+        ]
+        plan = {
+            "schema_version": "0.6.0",
+            "states": ["alive", "dead"],
+            "cycles": 3,
+            "cycle_length_years": 1.0,
+            "strategies": {"intervention": {"transition_schedule": schedule}},
+        }
+        mapping = {
+            "path": "strategies.intervention.transition_schedule",
+            "extraction_ids": ["survival-rate"],
+            "assumption_ids": [],
+            "derivation": {
+                "method": "deterministic_transformation",
+                "model_value": schedule,
+                "transformation": {
+                    "operation": "parametric_survival_to_transition_schedule",
+                    "cycle_length_years": 1.0,
+                    "from_state_index": 0,
+                    "event_state_index": 1,
+                    "distribution": "exponential",
+                    "parameters": {
+                        "rate_per_year": {
+                            "value": rate,
+                            "source_extraction_id": "survival-rate",
+                        }
+                    },
+                },
+            },
+        }
+        extraction_index = {"survival-rate": {"extracted_value": json.dumps(rate)}}
+
+        self.assertEqual(
+            input_provenance.survival_curve_reasons(
+                plan, mapping["path"], mapping, mapping["derivation"], extraction_index
+            ),
+            [],
+        )
+
+        mapping["derivation"]["transformation"]["parameters"]["rate_per_year"][
+            "value"
+        ] = rate + 0.01
+        errors = input_provenance.survival_curve_reasons(
+            plan, mapping["path"], mapping, mapping["derivation"], extraction_index
+        )
+        self.assertTrue(any("bound extraction" in error for error in errors))
+        self.assertTrue(any("does not reproduce" in error for error in errors))
 
     def test_schedule_requires_schema_04_and_exactly_one_transition_mechanism(self):
         plan, synthesis, digest = self.fixture()
