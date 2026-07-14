@@ -23,6 +23,98 @@ export async function startRuntime(): Promise<string | null> {
   return invoke<string>("start_runtime");
 }
 
+export interface AssetAdmissionRecord {
+  assetId: string;
+  displayName: string;
+  kind: "skill" | "mcp" | "package" | string;
+  status: "validated-adapter" | "quarantined" | "rejected" | string;
+  releaseEligible: boolean;
+  repository: string;
+  revision: string;
+  licenseSpdx: string;
+  licenseCompatible: boolean;
+  networkEgress: string;
+  execution: string;
+  blockers: string[];
+}
+
+export interface AssetAdmissionAudit {
+  complete: boolean;
+  failClosed: boolean;
+  schemaVersion: string;
+  policyRevision: string;
+  totalCount: number;
+  admittedCount: number;
+  quarantinedCount: number;
+  rejectedCount: number;
+  assets: AssetAdmissionRecord[];
+  errors: string[];
+}
+
+const BROWSER_ASSET_ADMISSION_AUDIT: AssetAdmissionAudit = {
+  complete: true,
+  failClosed: false,
+  schemaVersion: "1.0.0",
+  policyRevision: "2026-07-14",
+  totalCount: 12,
+  admittedCount: 0,
+  quarantinedCount: 8,
+  rejectedCount: 4,
+  assets: [
+    {
+      assetId: "ai4s-skills/literature-survey",
+      displayName: "AI4S Literature Survey",
+      kind: "skill",
+      status: "quarantined",
+      releaseEligible: false,
+      repository: "https://github.com/ai4s-research/ai4s-skills",
+      revision: "8fa2ab0523082c135598909b227ed8feb48263ad",
+      licenseSpdx: "MIT",
+      licenseCompatible: true,
+      networkEgress: "agent-mediated-web-access",
+      execution: "latex-and-figure-tools-with-human-approval",
+      blockers: ["Requires a first-party HEOR evidence-workflow rewrite"],
+    },
+    {
+      assetId: "heor-agent-mcp",
+      displayName: "HEORAgent MCP",
+      kind: "mcp",
+      status: "quarantined",
+      releaseEligible: false,
+      repository: "https://github.com/neptun2000/heor-agent-mcp",
+      revision: "19f5f0eea5764d7a2695c372f3ec8f3aa0f53dd8",
+      licenseSpdx: "MIT",
+      licenseCompatible: true,
+      networkEgress: "direct-multiple-external-apis",
+      execution: "isolated-pinned-node-runtime-required",
+      blockers: ["Security, egress, project-root, and authority adapters remain incomplete"],
+    },
+    {
+      assetId: "anthropic-skills/docx",
+      displayName: "Anthropic DOCX Skill",
+      kind: "skill",
+      status: "rejected",
+      releaseEligible: false,
+      repository: "https://github.com/anthropics/skills",
+      revision: "9d2f1ae187231d8199c64b5b762e1bdf2244733d",
+      licenseSpdx: "LicenseRef-Anthropic-Source-Available",
+      licenseCompatible: false,
+      networkEgress: "unknown",
+      execution: "document-scripts",
+      blockers: ["License prohibits redistribution and derivative use"],
+    },
+  ],
+  errors: [],
+};
+
+/** Audit the packaged third-party asset registry. Missing or invalid registry
+ *  data is returned as a fail-closed audit by the native service. */
+export async function auditAssetAdmission(): Promise<AssetAdmissionAudit> {
+  if (!isTauri) return BROWSER_ASSET_ADMISSION_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<AssetAdmissionAudit>("audit_asset_admission");
+}
+
 /**
  * Per-run password the sidecar requires on every request (desktop only —
  * browser dev talks to a user-run, passwordless `opencode serve`). Held in

@@ -123,8 +123,9 @@ model OpenCode supports:
 | `mindmap-render` | Render a mindmap | Image generated from a `topic_matrix.md` |
 | `integrity-auditor` | Audit a paper's integrity | Image / numerical / logical findings, 4-level evidence grading, `audit_report.md` |
 
-These ship in the `ai4s-skills` pack alongside first-party review skills and the
-office/document skills below.
+These upstream `ai4s-skills` patterns are registered as inactive adaptation
+candidates; they do not ship as runtime capabilities. AI4HEOR's first-party
+skills implement the admitted research workflow.
 
 ### Platform
 
@@ -144,15 +145,17 @@ office/document skills below.
 
 ## Skills and connectors
 
-Bundled skills are fetched for builds and releases instead of being committed into
-git history:
+Only first-party core skills in `runtime/skills/core/` are bundled by default,
+including the AI4HEOR evidence, model-design, reference-case, uncertainty,
+budget-impact, validation, and reporting workflows. Third-party Skills and MCP
+servers are governed by a packaged admission registry: discovery candidates are
+inactive, and only a compatible, reviewed, cross-platform, hash-locked
+`validated-adapter` may enter the app-managed runtime.
 
-- `ai4s-skills` pack from `ai4s-research/ai4s-skills`.
-- Office/document skills from the Apache-2.0 `anthropics/skills` repository:
-  `docx`, `pdf`, `pptx`, and `xlsx`.
-- First-party core skills in `runtime/skills/core/`:
-  `traceability-review`, `stats-integrity`, `domain-check`, `large-file`,
-  `publication-figures`, `remote-compute`, and `modal-run`.
+The seven `ai4s-research/ai4s-skills` entries are currently quarantined for
+adaptation. Anthropic's source-available `docx`, `pdf`, `pptx`, and `xlsx` Skills
+are rejected because their per-directory license prohibits copying, derivatives,
+and redistribution; AI4HEOR does not fetch or bundle them.
 
 One-click science MCP connectors currently include:
 

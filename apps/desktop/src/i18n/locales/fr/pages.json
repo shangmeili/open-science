@@ -56,16 +56,33 @@
   "skills": {
     "title": "Compétences et agents",
     "description": {
-      "prefix": "Chargé en direct depuis le runtime OpenCode — le pack ai4s-skills intégré, plus tout ce qui se trouve sous ",
+      "prefix": "Chargé en direct depuis OpenCode — les capacités AI4HEOR admises, plus tout ce qui se trouve sous ",
       "suffix": " dans votre espace de travail."
     },
     "install": {
-      "sectionTitle": "Installer une compétence",
-      "placeholder": "Collez une compétence (Markdown) ou une URL GitHub — l'agent l'installe dans .opencode/skills/",
+      "sectionTitle": "Évaluer un actif externe",
+      "placeholder": "Décrivez ou collez une Skill, un plugin, un MCP, un paquet ou une URL GitHub pour une revue d'industrialisation",
       "starting": "Démarrage…",
-      "cta": "Installer avec l'agent",
-      "hintConnected": "Ouvre une session et demande à l'agent de l'ajouter (customize-opencode).",
+      "cta": "Examiner avec l'agent",
+      "hintConnected": "Ouvre une revue en langage naturel. Le candidat reste inactif jusqu'à une admission revue dans le code.",
       "hintDisconnected": "Connectez d'abord le runtime."
+    },
+    "assetAdmission": {
+      "sectionTitle": "Admission des actifs tiers",
+      "loading": "Lecture du registre d'admission embarqué…",
+      "unavailable": "Le registre d'admission est indisponible. Les actifs externes restent désactivés.",
+      "admitted": "admis",
+      "quarantined": "en quarantaine",
+      "rejected": "rejetés",
+      "noneAdmitted": "Aucun actif tiers de production n'est admis. Les candidats en quarantaine ou rejetés restent visibles pour examen, mais ne sont pas chargés dans le runtime.",
+      "registryValid": "Le registre est valide et {{count}} actif tiers est admis par hash exact.",
+      "failClosed": "La validation du registre a échoué. Tous les actifs tiers restent désactivés.",
+      "noBlockers": "Aucun blocage non résolu",
+      "status": {
+        "admitted": "admis",
+        "quarantined": "quarantaine",
+        "rejected": "rejeté"
+      }
     },
     "environment": {
       "sectionTitle": "Environnement scientifique",
@@ -88,8 +105,8 @@
       "empty": "Aucune compétence chargée pour le moment.",
       "source": {
         "builtin": "intégré",
-        "project": "projet",
-        "user": "utilisateur"
+        "project": "espace de travail · non géré",
+        "bundled": "AI4HEOR · interne"
       }
     },
     "disconnected": "Connectez le runtime pour lister les compétences et agents qu'il a chargés."

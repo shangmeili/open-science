@@ -94,7 +94,7 @@ Formerly Open Science. Eine quelloffene Desktop-Alternative zu Claude Science un
 | `mindmap-render` | Eine Mindmap rendern | Aus einer `topic_matrix.md` generiertes Bild |
 | `integrity-auditor` | Die Integrität eines Papers prüfen | Bild-/numerische/logische Befunde, 4-stufige Evidenzbewertung, `audit_report.md` |
 
-Diese sind im `ai4s-skills`-Pack enthalten, neben den First-Party-Review-Skills und den Office-/Dokument-Skills weiter unten.
+Diese `ai4s-skills`-Muster sind als inaktive Anpassungskandidaten registriert und werden nicht als Runtime-Fähigkeiten ausgeliefert. First-Party-Skills von AI4HEOR implementieren den zugelassenen Ablauf.
 
 ### Plattform
 
@@ -112,7 +112,7 @@ Diese sind im `ai4s-skills`-Pack enthalten, neben den First-Party-Review-Skills 
 
 ## Skills und Konnektoren
 
-Beim Build werden `ai4s-skills`, die `docx`/`pdf`/`pptx`/`xlsx`-Skills aus `anthropics/skills` und First-Party-Skills aus `runtime/skills/core/` geholt: `traceability-review`, `stats-integrity`, `domain-check`, `large-file`, `publication-figures`, `remote-compute` und `modal-run`.
+Standardmäßig werden nur First-Party-Skills aus `runtime/skills/core/` ausgeliefert. Drittanbieter-Assets bleiben bis zu Lizenz-, Grenz-, Test-, Review-, Plattform- und Hash-Nachweisen inaktiv. Anthropics Dokument-Skills sind wegen ihres Weitergabeverbots abgelehnt.
 
 Ein-Klick-MCP-Konnektoren: Literatursuche, biomedizinische Datenbanken, Materials Project, FRED, Space weather, Open-Meteo und USGS water data. Beliebige lokale oder entfernte MCP-Server können in Settings ergänzt werden.
 

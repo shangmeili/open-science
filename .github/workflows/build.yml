@@ -66,9 +66,8 @@ jobs:
         shell: bash
         run: bash scripts/dev/fetch-opencode.sh ${{ matrix.target }}
 
-      - name: Fetch bundled ai4s-skills pack
-        shell: bash
-        run: bash scripts/dev/fetch-skills.sh
+      - name: Validate third-party asset admission registry
+        run: python scripts/dev/test_asset_admission.py -v
 
       - name: Fetch bundled uv sidecar
         shell: bash

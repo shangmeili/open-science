@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { OpenCodeEvent, HistoryMessage } from "@ai4s/sdk";
 import {
+  buildAssetReviewPrompt,
   datedWorkspaceName,
   foldCarriageReturns,
   foldEvent,
@@ -11,6 +12,17 @@ import {
   toolPresentation,
   type FoldState,
 } from "./runtime";
+
+describe("buildAssetReviewPrompt", () => {
+  it("keeps discovery inactive and preserves the app-owned admission boundary", () => {
+    const prompt = buildAssetReviewPrompt("https://example.test/candidate");
+    expect(prompt).toContain("Do not install, enable, or copy");
+    expect(prompt).toContain("Keep it inactive");
+    expect(prompt).toContain("macOS/Windows/Linux tests");
+    expect(prompt).toContain("separate code-reviewed product change");
+    expect(prompt).toContain("https://example.test/candidate");
+  });
+});
 
 const empty: FoldState = { blocks: [], index: {} };
 const S = "ses_1";

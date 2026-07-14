@@ -56,16 +56,33 @@
   "skills": {
     "title": "スキル & エージェント",
     "description": {
-      "prefix": "OpenCode ランタイムからライブで読み込まれます — バンドルされた ai4s-skills パックと、ワークスペース内の ",
+      "prefix": "OpenCode ランタイムからライブで読み込まれます — 承認済みの AI4HEOR 機能と、ワークスペース内の ",
       "suffix": " にあるものすべて。"
     },
     "install": {
-      "sectionTitle": "スキルをインストール",
-      "placeholder": "スキル（Markdown）または GitHub URL を貼り付けてください — エージェントが .opencode/skills/ にインストールします",
+      "sectionTitle": "外部アセットを評価",
+      "placeholder": "Skill、プラグイン、MCP、パッケージ、または GitHub URL を貼り付けて産業化レビューを開始",
       "starting": "開始中…",
-      "cta": "エージェントでインストール",
-      "hintConnected": "セッションを開き、エージェントに追加を依頼します（customize-opencode）。",
+      "cta": "エージェントでレビュー",
+      "hintConnected": "自然言語レビューを開きます。別途コードレビューで承認されるまで候補は無効です。",
       "hintDisconnected": "先にランタイムに接続してください。"
+    },
+    "assetAdmission": {
+      "sectionTitle": "第三者アセットの承認",
+      "loading": "パッケージ化された承認レジストリを読み込んでいます…",
+      "unavailable": "承認レジストリを利用できません。外部アセットは無効のままです。",
+      "admitted": "承認済み",
+      "quarantined": "隔離中",
+      "rejected": "拒否",
+      "noneAdmitted": "第三者の本番アセットは承認されていません。隔離・拒否された候補はレビュー用に表示されますが、ランタイムには読み込まれません。",
+      "registryValid": "レジストリは有効で、{{count}} 件の第三者アセットが正確なハッシュで承認されています。",
+      "failClosed": "レジストリの検証に失敗しました。すべての第三者アセットは無効のままです。",
+      "noBlockers": "未解決の阻害要因なし",
+      "status": {
+        "admitted": "承認済み",
+        "quarantined": "隔離",
+        "rejected": "拒否"
+      }
     },
     "environment": {
       "sectionTitle": "科学計算環境",
@@ -88,8 +105,8 @@
       "empty": "まだスキルが読み込まれていません。",
       "source": {
         "builtin": "組み込み",
-        "project": "プロジェクト",
-        "user": "ユーザー"
+        "project": "ワークスペース・未管理",
+        "bundled": "AI4HEOR・ファーストパーティ"
       }
     },
     "disconnected": "読み込まれたスキルとエージェントを一覧表示するには、ランタイムに接続してください。"

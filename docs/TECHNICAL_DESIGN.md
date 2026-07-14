@@ -146,7 +146,7 @@ to pick it up. Keys never enter the user's global OpenCode config, logs, or git.
 skills/
   core/      # reproducible-research, literature-review, figure-provenance,
              # citation-reviewer, paper-to-report
-  external/  # K-Dense scientific-agent-skills
+  external/  # inactive third-party review cache; never loaded directly
   user/      # custom skills
 ```
 
@@ -163,11 +163,13 @@ skills/
 
 ### 6.3 Third-party skills
 
-`K-Dense-AI/scientific-agent-skills` (large set; compatible with Cursor, Claude Code,
-Codex, OpenCode) can be added later. Do **not** enable all ~148 skills by default: use
-curated install, enable by domain, and show license, dependencies, and risk. (Curated
-third-party install is a later feature; today the Skills page lists the real skills
-OpenCode has loaded — built-in + project `.opencode/skill/` + user config.)
+Third-party Skills are discovery candidates, not runtime capabilities. The packaged
+asset-admission registry requires a compatible license, pinned revision, declared
+capability boundary, adaptation delta, tests, cross-platform evidence, reviews, kill
+switch, and exact content hash before a `validated-adapter` can be copied into the
+app-managed OpenCode profile. The Skills page shows both the native registry audit and
+the real skills OpenCode loaded. Workspace `.opencode/skills/` content is visibly
+unmanaged and never becomes a bundled product asset automatically.
 
 ### 6.4 MCP servers
 

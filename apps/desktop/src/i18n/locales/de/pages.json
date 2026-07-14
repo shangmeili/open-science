@@ -56,16 +56,33 @@
   "skills": {
     "title": "Skills & Agenten",
     "description": {
-      "prefix": "Live aus der OpenCode-Runtime geladen — das gebündelte ai4s-skills-Paket plus alles unter ",
+      "prefix": "Live aus der OpenCode-Runtime geladen — zugelassene AI4HEOR-Fähigkeiten plus alles unter ",
       "suffix": " in Ihrem Arbeitsbereich."
     },
     "install": {
-      "sectionTitle": "Einen Skill installieren",
-      "placeholder": "Einen Skill (Markdown) oder eine GitHub-URL einfügen — der Agent installiert ihn in .opencode/skills/",
+      "sectionTitle": "Externes Asset bewerten",
+      "placeholder": "Skill, Plugin, MCP, Paket oder GitHub-URL für eine Industrialisierungsprüfung beschreiben oder einfügen",
       "starting": "Wird gestartet…",
-      "cta": "Mit Agent installieren",
-      "hintConnected": "Öffnet eine Sitzung und bittet den Agenten, ihn hinzuzufügen (customize-opencode).",
+      "cta": "Mit Agent prüfen",
+      "hintConnected": "Öffnet eine natürlichsprachige Prüfung. Der Kandidat bleibt bis zur separaten Code-Zulassung inaktiv.",
       "hintDisconnected": "Verbinden Sie zuerst die Runtime."
+    },
+    "assetAdmission": {
+      "sectionTitle": "Zulassung von Drittanbieter-Assets",
+      "loading": "Das paketierte Zulassungsregister wird gelesen…",
+      "unavailable": "Das Zulassungsregister ist nicht verfügbar. Externe Assets bleiben deaktiviert.",
+      "admitted": "zugelassen",
+      "quarantined": "Quarantäne",
+      "rejected": "abgelehnt",
+      "noneAdmitted": "Kein Drittanbieter-Produktionsasset ist zugelassen. Quarantäne- und abgelehnte Kandidaten sind zur Prüfung sichtbar, werden aber nicht in die Runtime geladen.",
+      "registryValid": "Das Register ist gültig und {{count}} Drittanbieter-Asset ist per exaktem Hash zugelassen.",
+      "failClosed": "Die Registerprüfung ist fehlgeschlagen. Alle Drittanbieter-Assets bleiben deaktiviert.",
+      "noBlockers": "Keine ungelösten Blocker",
+      "status": {
+        "admitted": "zugelassen",
+        "quarantined": "Quarantäne",
+        "rejected": "abgelehnt"
+      }
     },
     "environment": {
       "sectionTitle": "Wissenschaftliche Umgebung",
@@ -88,8 +105,8 @@
       "empty": "Noch keine Skills geladen.",
       "source": {
         "builtin": "integriert",
-        "project": "Projekt",
-        "user": "Benutzer"
+        "project": "Arbeitsbereich · nicht verwaltet",
+        "bundled": "AI4HEOR · Erstanbieter"
       }
     },
     "disconnected": "Verbinden Sie die Runtime, um die geladenen Skills und Agenten aufzulisten."

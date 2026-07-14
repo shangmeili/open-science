@@ -43,10 +43,22 @@ release inventory may contain only (a) a first-party derivative under
 isolated adapter that has passed every criterion above. The untouched upstream
 snapshot remains evidence for review, not an AI4HEOR production capability.
 
+This rule is now executable. `runtime/assets/asset-admission-registry.json`
+records each reviewed third-party Skill or MCP asset. The native runtime accepts
+only `validated-adapter`, requires compatible license evidence, a pinned commit,
+explicit capability boundaries, adaptation delta, contract and adversarial
+tests, macOS/Windows/Linux evidence, passed security and methods reviews, a kill
+switch, zero blockers, and an exact tree hash. Invalid registry data, a changed
+tree, or a missing resource fails closed and removes any stale external copy
+from the app-managed OpenCode profile. Workspace-installed user skills remain
+unmanaged project content; they never become bundled AI4HEOR assets implicitly.
+
 ## Candidate decisions
 
 | Asset | Value | Current decision | Required adaptation |
 | --- | --- | --- | --- |
+| [ai4s-research/ai4s-skills](https://github.com/ai4s-research/ai4s-skills) | Useful general research decomposition, integrity cases, and rendering patterns | Seven individually registered, quarantined candidates; no longer bundled | Reuse only verified ideas/tests; rewrite around HEOR artifacts, source controls, deterministic authority, and app-owned gates; independently admit each derivative |
+| Anthropic `docx` / `pdf` / `pptx` / `xlsx` Skills | Sophisticated document-workflow reference | Rejected and removed from fetch, package, and deployment paths | Their per-directory source-available license prohibits copying, derivatives, and redistribution; implement independent document capabilities without retaining protected material |
 | [HEORAgent MCP](https://github.com/neptun2000/heor-agent-mcp) | Broad HEOR research, literature, screening, evidence-network, HTA, BIA, and dossier tools | P0 research-only pilot after hardening | Pin audited revision; Node MCP provisioner; tool allowlist; set `HEOR_KB_ROOT` inside active project; disable telemetry; disclose and approve each network source; convert outputs to AI4HEOR evidence records; exclude its calculations and tool-set verification states from authority |
 | [CaseMark health-economics skill](https://agentskills.med/skills/conducting-health-economics-research) | Useful task decomposition and terminology | Rewrite as first-party skills; do not bundle verbatim | Remove hard-coded jurisdiction rules and universal claims; split by artifact; attach current primary methods sources; add tests and app-owned HITL boundary |
 | [awesome-rosetta health-economics-eval](https://github.com/xjtulyc/awesome-rosetta-skills/tree/main/skills/17-public-health/health-economics-eval) | Compact educational outline | Extract scenarios and negative test cases only | Remove generic GDP threshold and free-form Python authority; replace with versioned reference-case profiles and deterministic engines |
@@ -62,6 +74,13 @@ passed 1,521 tests with 6 skipped, but installation reported 12 dependency
 vulnerabilities, including 4 high severity. This supports continued evaluation,
 not immediate bundling. Its default global knowledge root and optional PostHog
 telemetry also conflict with AI4HEOR defaults until wrapped.
+
+The earlier desktop baseline also fetched four Anthropic document Skills under
+an incorrect Apache-2.0 assumption. The copied `LICENSE.txt` is authoritative:
+it prohibits retaining, reproducing, deriving, and distributing those
+materials. AI4HEOR now rejects them in the registry and no longer fetches or
+packages them. A public GitHub repository is not evidence of an open-source
+license.
 
 ## First-party skill architecture
 

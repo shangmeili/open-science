@@ -91,7 +91,10 @@ pub fn base_workspace_dir(app: &AppHandle) -> Result<PathBuf, String> {
     // One-time migrations, oldest name last. A failed rename (e.g. cross-volume)
     // keeps the existing location rather than splitting the user's files.
     if !dir.exists() {
-        for old in [docs.join("Open Science"), runtime_root(app)?.join("workspace")] {
+        for old in [
+            docs.join("Open Science"),
+            runtime_root(app)?.join("workspace"),
+        ] {
             if old.is_dir() {
                 if std::fs::rename(&old, &dir).is_ok() {
                     break;
@@ -143,11 +146,17 @@ fn user_auth_source() -> Option<PathBuf> {
 /// (from the Settings page) — never silently. Returns false when there is no
 /// CLI login to import. Restarts the sidecar so it picks the credentials up.
 #[tauri::command(async)]
-pub fn import_opencode_login(app: AppHandle, state: State<'_, RuntimeState>) -> Result<bool, String> {
+pub fn import_opencode_login(
+    app: AppHandle,
+    state: State<'_, RuntimeState>,
+) -> Result<bool, String> {
     let Some(src) = user_auth_source() else {
         return Ok(false);
     };
-    let dst = runtime_root(&app)?.join("xdg-data").join("opencode").join("auth.json");
+    let dst = runtime_root(&app)?
+        .join("xdg-data")
+        .join("opencode")
+        .join("auth.json");
     if let Some(parent) = dst.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
@@ -158,60 +167,125 @@ pub fn import_opencode_login(app: AppHandle, state: State<'_, RuntimeState>) -> 
     Ok(true)
 }
 
-/// Deploy the bundled skill packs (Tauri resources) into the app-private
-/// profile's global skills dir (`<xdg-config>/opencode/skills/`), which OpenCode
-/// scans regardless of project detection: `skills/` is the external ai4s-skills
-/// pack, `skills-office/` Anthropic's document skills (docx/pdf/pptx/xlsx),
-/// `skills-core/` the first-party skills from `runtime/skills/core`. The
-/// workspace's own `.opencode/skills/` stays reserved for skills the user
-/// installs. Runs before every sidecar start so app upgrades refresh the packs.
+/// Deploy first-party skills and only hash-locked third-party adapters admitted
+/// by the packaged registry. Discovery candidates and rejected assets are never
+/// copied into OpenCode's active global skill directory. The workspace's own
+/// `.opencode/skills/` remains user-controlled and is not a platform admission.
 fn deploy_bundled_skills(app: &AppHandle) {
     let dst = match xdg_config_home(app) {
         Ok(cfg) => cfg.join("opencode").join("skills"),
         Err(_) => return,
     };
-    let mut bundled: std::collections::HashSet<std::ffi::OsString> = std::collections::HashSet::new();
-    let mut all_ok = true;
-    for resource in ["skills", "skills-office", "skills-core"] {
-        let src = match app
-            .path()
-            .resolve(resource, tauri::path::BaseDirectory::Resource)
-        {
-            Ok(p) if p.is_dir() => p,
-            _ => {
-                all_ok = false; // dev run without `fetch-skills.sh` — nothing to deploy
-                continue;
+    let mut bundled: std::collections::HashSet<std::ffi::OsString> =
+        std::collections::HashSet::new();
+    let core = app
+        .path()
+        .resolve("skills-core", tauri::path::BaseDirectory::Resource)
+        .ok()
+        .filter(|path| path.is_dir());
+    let core_ok = match core {
+        Some(src) => match sync_skill_pack(&src, &dst) {
+            Ok(names) => {
+                bundled.extend(names);
+                true
             }
-        };
-        match sync_skill_pack(&src, &dst) {
-            Ok(names) => bundled.extend(names),
-            Err(e) => {
-                all_ok = false;
-                eprintln!("failed to deploy bundled skills ({resource}): {e}");
+            Err(error) => {
+                eprintln!("failed to deploy first-party skills: {error}");
+                false
+            }
+        },
+        None => false,
+    };
+
+    let registry = crate::asset_admission::read_registry_resource(app)
+        .map(|raw| crate::asset_admission::validate_registry(&raw));
+    match registry {
+        Ok((audit, deployments)) if audit.complete => {
+            for deployment in deployments {
+                let src = app
+                    .path()
+                    .resolve(
+                        &deployment.resource_pack,
+                        tauri::path::BaseDirectory::Resource,
+                    )
+                    .ok()
+                    .filter(|path| path.is_dir());
+                match src.and_then(|src| {
+                    sync_admitted_skill(&src, &dst, &deployment)
+                        .map_err(|error| {
+                            eprintln!(
+                                "failed to deploy admitted asset {}/{}: {error}",
+                                deployment.resource_pack, deployment.entry
+                            );
+                        })
+                        .ok()
+                }) {
+                    Some(name) => {
+                        bundled.insert(name);
+                    }
+                    None => {
+                        // Fail closed: omit it from `bundled`; stale-pruning below
+                        // removes any previously deployed version.
+                    }
+                }
             }
         }
+        Ok((audit, _)) => {
+            eprintln!(
+                "asset admission registry failed closed: {}",
+                audit.errors.join("; ")
+            );
+        }
+        Err(error) => eprintln!("asset admission registry failed closed: {error}"),
     }
     // The global skills dir is exclusively app-managed (the user's own skills
     // live in the workspace's `.opencode/skills/`), so any skill dir not in the
     // freshly-bundled set is a stale leftover — e.g. one renamed across an app
     // upgrade (`hpc-slurm` → `remote-compute`) — and must be removed so the
-    // obsolete duplicate can't shadow or confuse the agent. Prune ONLY when all
-    // three packs deployed cleanly: a partial deploy would make `bundled`
-    // incomplete and wrongly delete valid skills.
-    if all_ok {
+    // obsolete duplicate can't shadow or confuse the agent. Once the first-party
+    // pack is known-good, prune even when the external registry or adapter copy
+    // fails: retaining a previously admitted but now-unverifiable adapter would
+    // turn a fail-closed policy into fail-open behavior.
+    if core_ok {
         prune_stale_skills(&dst, &bundled);
     }
+}
+
+fn sync_admitted_skill(
+    src_pack: &Path,
+    dst: &Path,
+    deployment: &crate::asset_admission::SkillDeployment,
+) -> Result<std::ffi::OsString, String> {
+    crate::asset_admission::verify_skill_deployment(src_pack, deployment)?;
+    let src = src_pack.join(&deployment.entry);
+    std::fs::create_dir_all(dst).map_err(|error| error.to_string())?;
+    let target = dst.join(&deployment.entry);
+    let stage = dst.join(format!(".asset-stage-{}", deployment.entry));
+    if stage.exists() {
+        std::fs::remove_dir_all(&stage).map_err(|error| error.to_string())?;
+    }
+    copy_dir(&src, &stage).map_err(|error| error.to_string())?;
+    let staged = crate::asset_admission::tree_sha256(&stage)?;
+    if staged != deployment.content_sha256 {
+        let _ = std::fs::remove_dir_all(&stage);
+        return Err("copied asset hash does not match the admitted bytes".into());
+    }
+    if target.exists() {
+        std::fs::remove_dir_all(&target).map_err(|error| error.to_string())?;
+    }
+    std::fs::rename(&stage, &target).map_err(|error| error.to_string())?;
+    Ok(std::ffi::OsString::from(&deployment.entry))
 }
 
 /// Remove every SKILL.md-bearing directory in `dst` whose name is not in
 /// `bundled` (the set just deployed). Non-skill directories are left untouched.
 fn prune_stale_skills(dst: &Path, bundled: &std::collections::HashSet<std::ffi::OsString>) {
-    let Ok(entries) = std::fs::read_dir(dst) else { return };
+    let Ok(entries) = std::fs::read_dir(dst) else {
+        return;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir()
-            && path.join("SKILL.md").is_file()
-            && !bundled.contains(&entry.file_name())
+        if path.is_dir() && path.join("SKILL.md").is_file() && !bundled.contains(&entry.file_name())
         {
             let _ = std::fs::remove_dir_all(&path);
         }
@@ -245,10 +319,22 @@ fn copy_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let to = dst.join(entry.file_name());
-        if entry.file_type()?.is_dir() {
+        let file_type = entry.file_type()?;
+        if file_type.is_symlink() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "skill trees cannot contain symlinks",
+            ));
+        }
+        if file_type.is_dir() {
             copy_dir(&entry.path(), &to)?;
-        } else {
+        } else if file_type.is_file() {
             std::fs::copy(entry.path(), &to)?;
+        } else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "skill trees may contain only regular files",
+            ));
         }
     }
     Ok(())
@@ -320,15 +406,17 @@ pub(crate) fn enriched_path() -> String {
     roots.push("C:\\ProgramData\\miniconda3".into());
     let mut extras: Vec<String> = Vec::new();
     for root in roots {
-        for dir in [root.clone(), format!("{root}\\Scripts"), format!("{root}\\Library\\bin")] {
+        for dir in [
+            root.clone(),
+            format!("{root}\\Scripts"),
+            format!("{root}\\Library\\bin"),
+        ] {
             extras.push(dir);
         }
     }
     let mut parts: Vec<String> = extras
         .into_iter()
-        .filter(|p| {
-            !base.split(';').any(|b| b.eq_ignore_ascii_case(p)) && Path::new(p).is_dir()
-        })
+        .filter(|p| !base.split(';').any(|b| b.eq_ignore_ascii_case(p)) && Path::new(p).is_dir())
         .collect();
     if !base.is_empty() {
         parts.push(base);
@@ -570,8 +658,11 @@ fn system_proxy_url() -> Option<String> {
 fn parse_scutil_proxy(text: &str) -> Option<String> {
     let get = |key: &str| -> Option<String> {
         let prefix = format!("{key} : ");
-        text.lines()
-            .find_map(|l| l.trim().strip_prefix(prefix.as_str()).map(|v| v.trim().to_string()))
+        text.lines().find_map(|l| {
+            l.trim()
+                .strip_prefix(prefix.as_str())
+                .map(|v| v.trim().to_string())
+        })
     };
     let enabled = |key: &str| get(key).as_deref() == Some("1");
     for (en, host, port, scheme) in [
@@ -633,7 +724,13 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
         .shell()
         .sidecar("opencode")
         .map_err(|e| format!("sidecar not found: {e}"))?
-        .args(["serve", "--hostname", "127.0.0.1", "--port", port_str.as_str()])
+        .args([
+            "serve",
+            "--hostname",
+            "127.0.0.1",
+            "--port",
+            port_str.as_str(),
+        ])
         // Require auth on every request (P0-7): without a password the server
         // trusts ANY localhost-origin page (verified in the 1.17.13 source —
         // its CORS allowlist admits http://localhost:*/127.0.0.1:* wholesale,
@@ -649,7 +746,10 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
         // Lets bundled skill helpers (e.g. remote-compute's record_run.py) stamp
         // the recording app version into provenance — they run outside the app
         // and can't otherwise know it.
-        .env("OPENSCIENCE_APP_VERSION", app.package_info().version.to_string())
+        .env(
+            "OPENSCIENCE_APP_VERSION",
+            app.package_info().version.to_string(),
+        )
         .current_dir(workspace);
     // GUI-launched apps get a minimal PATH; give the agent the user's real tools.
     let mut cmd = cmd.env("PATH", enriched_path());
@@ -660,7 +760,9 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
         cmd = cmd.env(k, v);
     }
 
-    let (mut rx, child) = cmd.spawn().map_err(|e| format!("failed to spawn opencode: {e}"))?;
+    let (mut rx, child) = cmd
+        .spawn()
+        .map_err(|e| format!("failed to spawn opencode: {e}"))?;
     // Drain events so the child's stdout/stderr buffer never blocks it.
     tauri::async_runtime::spawn(async move { while rx.recv().await.is_some() {} });
     Ok(child)
@@ -738,8 +840,11 @@ pub fn set_workspace_base(app: AppHandle, path: String) -> Result<String, String
     }
     std::fs::create_dir_all(&dir).map_err(|e| format!("could not create folder: {e}"))?;
     let canon = dir.canonicalize().map_err(|e| e.to_string())?;
-    std::fs::write(base_workspace_file(&app)?, canon.to_string_lossy().as_bytes())
-        .map_err(|e| e.to_string())?;
+    std::fs::write(
+        base_workspace_file(&app)?,
+        canon.to_string_lossy().as_bytes(),
+    )
+    .map_err(|e| e.to_string())?;
     Ok(canon.to_string_lossy().to_string())
 }
 
@@ -769,8 +874,11 @@ pub fn set_workspace(
     }
     std::fs::create_dir_all(&dir).map_err(|e| format!("could not create folder: {e}"))?;
     let canon = dir.canonicalize().map_err(|e| e.to_string())?;
-    std::fs::write(active_workspace_file(&app)?, canon.to_string_lossy().as_bytes())
-        .map_err(|e| e.to_string())?;
+    std::fs::write(
+        active_workspace_file(&app)?,
+        canon.to_string_lossy().as_bytes(),
+    )
+    .map_err(|e| e.to_string())?;
 
     // No sidecar restart: OpenCode serves every folder from one process via
     // per-directory instances, and the frontend reconnects its event stream
@@ -866,7 +974,7 @@ pub fn kill_child(state: &RuntimeState) {
 mod tests {
     use super::{
         parse_scutil_proxy, prune_stale_skills, random_hex, remove_key_from_config,
-        resolve_proxy_env, sync_skill_pack, validate_proxy_url,
+        resolve_proxy_env, sync_admitted_skill, sync_skill_pack, validate_proxy_url,
     };
     use std::fs;
 
@@ -885,20 +993,32 @@ mod tests {
     fn proxy_env_modes() {
         let none = resolve_proxy_env("none", "");
         assert!(none.iter().any(|(k, v)| *k == "NO_PROXY" && v == "*"));
-        assert!(none.iter().any(|(k, v)| *k == "HTTPS_PROXY" && v.is_empty()));
+        assert!(none
+            .iter()
+            .any(|(k, v)| *k == "HTTPS_PROXY" && v.is_empty()));
 
         let custom = resolve_proxy_env("custom", "http://127.0.0.1:7890");
-        assert!(custom.iter().any(|(k, v)| *k == "HTTPS_PROXY" && v == "http://127.0.0.1:7890"));
-        assert!(custom.iter().any(|(k, v)| *k == "NO_PROXY" && v.contains("127.0.0.1")));
+        assert!(custom
+            .iter()
+            .any(|(k, v)| *k == "HTTPS_PROXY" && v == "http://127.0.0.1:7890"));
+        assert!(custom
+            .iter()
+            .any(|(k, v)| *k == "NO_PROXY" && v.contains("127.0.0.1")));
     }
 
     #[test]
     fn scutil_proxy_parses_and_prefers_https() {
         // Real `scutil --proxy` shape (indented `Key : value` lines).
         let all = "<dictionary> {\n  HTTPEnable : 1\n  HTTPPort : 1087\n  HTTPProxy : 127.0.0.1\n  HTTPSEnable : 1\n  HTTPSPort : 1087\n  HTTPSProxy : 127.0.0.1\n  SOCKSEnable : 1\n  SOCKSPort : 1087\n  SOCKSProxy : 127.0.0.1\n}";
-        assert_eq!(parse_scutil_proxy(all).as_deref(), Some("http://127.0.0.1:1087"));
+        assert_eq!(
+            parse_scutil_proxy(all).as_deref(),
+            Some("http://127.0.0.1:1087")
+        );
         let socks_only = "  SOCKSEnable : 1\n  SOCKSPort : 7890\n  SOCKSProxy : 10.0.0.2\n";
-        assert_eq!(parse_scutil_proxy(socks_only).as_deref(), Some("socks5://10.0.0.2:7890"));
+        assert_eq!(
+            parse_scutil_proxy(socks_only).as_deref(),
+            Some("socks5://10.0.0.2:7890")
+        );
         let disabled = "  HTTPEnable : 0\n  HTTPPort : 1087\n  HTTPProxy : 127.0.0.1\n";
         assert_eq!(parse_scutil_proxy(disabled), None);
         assert_eq!(parse_scutil_proxy(""), None);
@@ -920,7 +1040,10 @@ mod tests {
         prune_stale_skills(&dst, &bundled);
 
         assert!(dst.join("remote-compute").is_dir(), "bundled skill kept");
-        assert!(!dst.join("hpc-slurm").exists(), "stale renamed skill removed");
+        assert!(
+            !dst.join("hpc-slurm").exists(),
+            "stale renamed skill removed"
+        );
         assert!(dst.join("notes").is_dir(), "non-skill dir left alone");
         let _ = fs::remove_dir_all(&dst);
     }
@@ -941,9 +1064,15 @@ mod tests {
         // auth.json) — it must be unreadable to other users even when the
         // sidecar later rewrites files inside with a default umask.
         super::tighten_private(&dir);
-        assert_eq!(fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
+        assert_eq!(
+            fs::metadata(&dir).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
         super::tighten_private(&cfg);
-        assert_eq!(fs::metadata(&cfg).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            fs::metadata(&cfg).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -1001,15 +1130,30 @@ mod tests {
 
         sync_skill_pack(&src, &dst).unwrap();
 
-        assert_eq!(fs::read_to_string(dst.join("paper-writer/SKILL.md")).unwrap(), "v2");
+        assert_eq!(
+            fs::read_to_string(dst.join("paper-writer/SKILL.md")).unwrap(),
+            "v2"
+        );
         assert_eq!(
             fs::read_to_string(dst.join("paper-writer/references/guide.md")).unwrap(),
             "ref"
         );
-        assert!(!dst.join("paper-writer/obsolete.md").exists(), "stale file must be gone");
-        assert_eq!(fs::read_to_string(dst.join("my-skill/SKILL.md")).unwrap(), "user");
-        assert!(!dst.join(".commit").exists(), "top-level files are not skills");
-        assert!(!dst.join("placeholder").exists(), "dirs without SKILL.md are not skills");
+        assert!(
+            !dst.join("paper-writer/obsolete.md").exists(),
+            "stale file must be gone"
+        );
+        assert_eq!(
+            fs::read_to_string(dst.join("my-skill/SKILL.md")).unwrap(),
+            "user"
+        );
+        assert!(
+            !dst.join(".commit").exists(),
+            "top-level files are not skills"
+        );
+        assert!(
+            !dst.join("placeholder").exists(),
+            "dirs without SKILL.md are not skills"
+        );
 
         fs::remove_dir_all(&tmp).unwrap();
     }
@@ -1028,6 +1172,38 @@ mod tests {
             "s"
         );
         fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    #[test]
+    fn admitted_skill_sync_requires_the_exact_tree_hash() {
+        let tmp = std::env::temp_dir().join(format!("admitted-sync-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&tmp);
+        let src = tmp.join("pack");
+        let dst = tmp.join("active");
+        write(&src.join("review-adapter/SKILL.md"), "approved");
+        write(&src.join("review-adapter/references/contract.md"), "bound");
+        let hash = crate::asset_admission::tree_sha256(&src.join("review-adapter")).unwrap();
+        let valid = crate::asset_admission::SkillDeployment {
+            resource_pack: "skills-admitted-test".into(),
+            entry: "review-adapter".into(),
+            content_sha256: hash,
+        };
+        sync_admitted_skill(&src, &dst, &valid).unwrap();
+        assert_eq!(
+            fs::read_to_string(dst.join("review-adapter/SKILL.md")).unwrap(),
+            "approved"
+        );
+
+        write(&src.join("review-adapter/SKILL.md"), "changed upstream");
+        assert!(sync_admitted_skill(&src, &dst, &valid)
+            .unwrap_err()
+            .contains("content hash mismatch"));
+        assert_eq!(
+            fs::read_to_string(dst.join("review-adapter/SKILL.md")).unwrap(),
+            "approved",
+            "a mismatched candidate cannot replace the last admitted bytes"
+        );
+        fs::remove_dir_all(tmp).unwrap();
     }
 }
 
@@ -1071,7 +1247,9 @@ fn remove_key_from_config(text: &str, section: &str, key: &str) -> Result<String
         .map(|p| p.remove(key).is_some())
         .unwrap_or(false);
     if !removed {
-        return Err(format!("\"{key}\" is not in the config's {section} section"));
+        return Err(format!(
+            "\"{key}\" is not in the config's {section} section"
+        ));
     }
     serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())
 }

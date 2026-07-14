@@ -34,7 +34,13 @@ describe("SkillsPage strings (i18n)", () => {
   it("renders the page heading and the disconnected-runtime prompts in English", async () => {
     renderAt("/skills");
     expect(await screen.findByRole("heading", { level: 1, name: "Skills & Agents" })).toBeInTheDocument();
+    expect(screen.getByText("Evaluate an external asset")).toBeInTheDocument();
     expect(screen.getByText("Environment detection runs in the desktop app.")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "No third-party production asset is admitted. Quarantined and rejected candidates are visible for review but are not loaded into the runtime.",
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Connect the runtime to list the skills and agents it has loaded."),
     ).toBeInTheDocument();

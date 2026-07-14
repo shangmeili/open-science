@@ -65,16 +65,18 @@ Add it as a **local** server with the command that launches it. Restart-free.
 ## Bring your own skill
 
 A skill is a folder with a `SKILL.md` (instructions the agent follows) plus any
-scripts/templates it needs. Install one from the **Skills** page (paste a URL or
-Markdown; the agent saves it under the workspace's `.opencode/skills/`). The
-app also bundles first-party skills (e.g. `traceability-review`) and the
-`ai4s-skills` pack.
+scripts/templates it needs. The **Skills** page evaluates an external candidate
+through natural-language review but does not install or enable it. Advanced
+users may place their own content under the workspace's `.opencode/skills/`;
+the app labels that content unmanaged, and it never becomes a bundled product
+asset automatically. AI4HEOR bundles only first-party skills plus any future
+third-party adapter that passes the packaged, hash-locked admission registry.
 
 ## Safety
 
-- Every server you add can make its own network calls and run its own code —
-  review the source before enabling. The curated list is vetted; your own
-  entries are your responsibility.
+- Every server or workspace Skill you add can make its own network calls and run
+  its own code. Review it before enabling; user-added entries are outside the
+  bundled asset admission boundary.
 - Command execution, file deletion, dependency installs, and remote connections
   still go through the agent's approval flow.
 - Provider keys and tokens live in an app-private file, never in the workspace,

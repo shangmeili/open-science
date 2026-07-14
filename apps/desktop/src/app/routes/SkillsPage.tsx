@@ -1,32 +1,50 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Bot, Boxes, Check, Package, Puzzle, X } from "lucide-react";
+import { Bot, Boxes, Check, Package, Puzzle, ShieldCheck, X } from "lucide-react";
 import { useRuntimeStore } from "@/lib/runtime";
 import { cn } from "@/lib/cn";
+import { auditAssetAdmission, type AssetAdmissionAudit, type AssetAdmissionRecord } from "@/lib/tauri";
 
 /**
- * Skills, agents, install-a-skill, and detected scientific environment — all real:
- * skills/agents from the OpenCode runtime, environment from the host system.
+ * Runtime capabilities plus the app-owned third-party admission registry.
+ * Natural-language review is the primary external-asset workflow; the registry
+ * is the secondary, deterministic release control.
  */
 export function SkillsPage() {
   const { t } = useTranslation(["pages", "common"]);
   const navigate = useNavigate();
-  const { skills, agents, tools, status, loadCatalog, detectTools, installSkill } = useRuntimeStore();
+  const { skills, agents, tools, status, loadCatalog, detectTools, reviewAssetCandidate } = useRuntimeStore();
   const connected = status === "ready";
   const [text, setText] = useState("");
-  const [installing, setInstalling] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const [admission, setAdmission] = useState<AssetAdmissionAudit | null>(null);
+  const [admissionError, setAdmissionError] = useState(false);
 
   useEffect(() => {
     if (connected) void loadCatalog();
     void detectTools();
   }, [connected, loadCatalog, detectTools]);
 
-  const onInstall = async () => {
+  useEffect(() => {
+    let current = true;
+    void auditAssetAdmission()
+      .then((result) => {
+        if (current) setAdmission(result);
+      })
+      .catch(() => {
+        if (current) setAdmissionError(true);
+      });
+    return () => {
+      current = false;
+    };
+  }, []);
+
+  const onReview = async () => {
     if (!text.trim()) return;
-    setInstalling(true);
-    const id = await installSkill(text.trim());
-    setInstalling(false);
+    setReviewing(true);
+    const id = await reviewAssetCandidate(text.trim());
+    setReviewing(false);
     if (id) {
       setText("");
       navigate(`/live/${id}`); // watch the agent install it
@@ -44,7 +62,7 @@ export function SkillsPage() {
           {t("skills.description.suffix")}
         </p>
 
-        {/* Install a skill (#1) */}
+        {/* Natural-language work first: review and adapt, never install directly. */}
         <Section title={t("skills.install.sectionTitle")} icon={<Boxes size={15} />}>
           <div className="p-4">
             <textarea
@@ -56,17 +74,42 @@ export function SkillsPage() {
             />
             <div className="mt-2 flex items-center gap-3">
               <button
-                onClick={onInstall}
-                disabled={!connected || !text.trim() || installing}
+                onClick={onReview}
+                disabled={!connected || !text.trim() || reviewing}
                 className="rounded-input bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:opacity-90 disabled:opacity-40"
               >
-                {installing ? t("skills.install.starting") : t("skills.install.cta")}
+                {reviewing ? t("skills.install.starting") : t("skills.install.cta")}
               </button>
               <span className="text-xs text-muted">
                 {connected ? t("skills.install.hintConnected") : t("skills.install.hintDisconnected")}
               </span>
             </div>
           </div>
+        </Section>
+
+        <Section title={t("skills.assetAdmission.sectionTitle")} icon={<ShieldCheck size={15} />}>
+          {admissionError && <Empty>{t("skills.assetAdmission.unavailable")}</Empty>}
+          {!admission && !admissionError && <Empty>{t("skills.assetAdmission.loading")}</Empty>}
+          {admission && (
+            <>
+              <div className="grid grid-cols-3 gap-px bg-border">
+                <AdmissionCount value={admission.admittedCount} label={t("skills.assetAdmission.admitted")} />
+                <AdmissionCount value={admission.quarantinedCount} label={t("skills.assetAdmission.quarantined")} />
+                <AdmissionCount value={admission.rejectedCount} label={t("skills.assetAdmission.rejected")} />
+              </div>
+              <p className={cn("px-4 py-3 text-xs", admission.complete ? "text-muted" : "text-danger") }>
+                {admission.complete
+                  ? admission.admittedCount === 0
+                    ? t("skills.assetAdmission.noneAdmitted")
+                    : t("skills.assetAdmission.registryValid", { count: admission.admittedCount })
+                  : t("skills.assetAdmission.failClosed")}
+              </p>
+              {admission.errors.map((error) => (
+                <div key={error} className="px-4 py-2 text-xs text-danger">{error}</div>
+              ))}
+              {admission.assets.map((asset) => <AdmissionRow key={asset.assetId} asset={asset} />)}
+            </>
+          )}
         </Section>
 
         {/* Environment (#2) */}
@@ -103,8 +146,8 @@ export function SkillsPage() {
                     ? t("skills.skillsListSection.source.builtin")
                     : source === "project"
                       ? t("skills.skillsListSection.source.project")
-                      : source === "user"
-                        ? t("skills.skillsListSection.source.user")
+                      : source === "bundled"
+                        ? t("skills.skillsListSection.source.bundled")
                         : undefined;
                 return <RowItem key={s.name} name={s.name} desc={s.description} tag={sourceLabel} />;
               })}
@@ -120,13 +163,14 @@ export function SkillsPage() {
   );
 }
 
-type SkillSource = "builtin" | "project" | "user";
+type SkillSource = "builtin" | "project" | "bundled";
 
 function sourceOf(location?: string): SkillSource | undefined {
   if (!location) return undefined;
-  if (location.includes("/builtin/")) return "builtin";
-  if (location.includes("/.opencode/")) return "project";
-  return "user";
+  const normalized = location.split("\\").join("/");
+  if (normalized.includes("/builtin/")) return "builtin";
+  if (normalized.includes("/.opencode/")) return "project";
+  return "bundled";
 }
 
 // AgentInfo.mode is typed `string` (external SDK), but OpenCode only ever
@@ -167,6 +211,48 @@ function RowItem({ name, desc, tag }: { name: string; desc: string; tag?: string
       )}
     </div>
   );
+}
+
+function AdmissionCount({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="bg-surface px-4 py-3 text-center">
+      <div className="font-mono text-lg font-semibold text-text">{value}</div>
+      <div className="text-xs text-muted">{label}</div>
+    </div>
+  );
+}
+
+function AdmissionRow({ asset }: { asset: AssetAdmissionRecord }) {
+  const { t } = useTranslation("pages");
+  const status = admissionStatus(asset.status);
+  const label = status ? t(`skills.assetAdmission.status.${status}`) : asset.status;
+  return (
+    <div className="flex items-start gap-3 px-4 py-3">
+      {asset.status === "validated-adapter" ? (
+        <Check size={16} className="mt-0.5 shrink-0 text-ok" />
+      ) : (
+        <X size={16} className={cn("mt-0.5 shrink-0", asset.status === "rejected" ? "text-danger" : "text-muted")} />
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-text">{asset.displayName}</span>
+          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted ring-1 ring-border">{label}</span>
+          <span className="font-mono text-[11px] text-muted">{asset.licenseSpdx}</span>
+        </div>
+        <div className="mt-1 line-clamp-2 text-xs text-muted">
+          {asset.blockers[0] ?? t("skills.assetAdmission.noBlockers")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type AdmissionStatus = "admitted" | "quarantined" | "rejected";
+
+function admissionStatus(status: string): AdmissionStatus | undefined {
+  if (status === "validated-adapter") return "admitted";
+  if (status === "quarantined" || status === "rejected") return status;
+  return undefined;
 }
 
 function Empty({ children }: { children: React.ReactNode }) {

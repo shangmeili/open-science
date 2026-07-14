@@ -6,48 +6,51 @@ Scientific skills, layered:
 skills/
   core/      # self-authored skills specific to this app (traceability-review;
              # other dirs are roadmap placeholders until they get a SKILL.md)
-  external/  # third-party skill packs, fetched by script — git-ignored
+  external/  # third-party review cache, fetched by script — git-ignored/inactive
   user/      # user-installed / custom skills (live in the runtime workspace)
 ```
 
-Core skills are bundled as the `skills-core/` app resource and deployed next to
-the external pack on every sidecar start; directories without a `SKILL.md` are
-skipped.
+Core skills are bundled as the `skills-core/` app resource. Third-party source
+trees are not bundled merely because they were fetched. On every sidecar start,
+`runtime.rs::deploy_bundled_skills` loads the packaged
+`asset-admission-registry.json`, verifies its contract, and deploys only an exact
+tree hash whose status is `validated-adapter`. Invalid or missing registry data
+fails closed and stale external skills are removed from the app-managed profile.
 
-## Default pack: ai4s-skills (bundled into the installer)
+## Candidate pack: ai4s-skills (not bundled)
 
 The default scientific skills come from
 [ai4s-research/ai4s-skills](https://github.com/ai4s-research/ai4s-skills)
 (research-explorer, literature-survey, experiment-suite, paper-writer,
 integrity-auditor, mindmap-render, ai4s-agent).
 
-How they ship, end to end:
+How they are evaluated:
 
-1. `scripts/dev/fetch-skills.sh` (run locally and in CI) downloads the pack at a
-   pinned commit into `external/ai4s-skills/`.
-2. `tauri.conf.json` bundles that directory as an app resource (`resources/skills/`).
-3. On every sidecar start, `runtime.rs::deploy_bundled_skills` syncs the pack into
-   the app-private profile's global skills dir (`<xdg-config>/opencode/skills/`),
-   which OpenCode scans regardless of project detection. Bundled skill directories
-   are replaced on app upgrade; the workspace's own `.opencode/skills/` stays
-   reserved for user-installed skills. Skill listing must be workspace-scoped
-   (`GET /api/skill?directory=…`) — the SDK does this via its `directory` option.
+1. `scripts/dev/fetch-skills.sh` downloads a pinned revision into the ignored
+   `external/ai4s-skills/` review cache.
+2. Each Skill has its own quarantined entry in
+   `runtime/assets/asset-admission-registry.json` with license, boundary,
+   adaptation, test, review, platform, and blocker fields.
+3. A code-reviewed update may add a first-party derivative or an isolated
+   `skills-admitted-*` resource only after all release evidence is complete and
+   its deterministic tree hash is locked.
 
-To bump the pack version, update `AI4S_SKILLS_COMMIT` in `fetch-skills.sh`.
+Fetching or bumping the review cache never changes the released capability set.
 
-## Office pack: Anthropic document skills (bundled into the installer)
+## Rejected source-available document skills
 
-The docx / pdf / pptx / xlsx skills come from Anthropic's open-source
-[anthropics/skills](https://github.com/anthropics/skills) repo (Apache-2.0;
-each skill directory keeps its own `LICENSE.txt`). Same pipeline as above:
-`fetch-skills.sh` pins them into `external/anthropic-skills/`, bundled as the
-`skills-office/` app resource, deployed by `deploy_bundled_skills`. Bump via
-`ANTHROPIC_SKILLS_COMMIT` in `fetch-skills.sh`.
+The `docx`, `pdf`, `pptx`, and `xlsx` directories in
+[anthropics/skills](https://github.com/anthropics/skills) are source-available,
+not Apache-2.0. Their per-skill license prohibits retaining, copying, deriving,
+and distributing the materials. AI4HEOR therefore neither fetches nor bundles
+them. Their registry records are `rejected`; only independently written,
+compatibly licensed document capabilities may replace the product need.
 
 ## Third-party skills
 
-Do **not** enable large third-party collections (e.g. ~148 K-Dense skills) by
-default. Use curated install, enable by domain, and always surface each skill's
-license, dependencies, and risk.
+Do **not** enable third-party collections by default. Discovery and a passing
+upstream test are evidence, not admission. The Skills page starts a
+natural-language industrialization review and keeps the candidate inactive;
+only the native registry controls the bundled production inventory.
 
 Each skill directory must contain a `SKILL.md`.

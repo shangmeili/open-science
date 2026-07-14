@@ -94,7 +94,7 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 | `mindmap-render` | マインドマップを描画 | `topic_matrix.md` から生成した画像 |
 | `integrity-auditor` | 論文の整合性を監査 | 画像/数値/論理の指摘、4 段階の証拠グレーディング、`audit_report.md` |
 
-これらは `ai4s-skills` パックとして、第一者のレビュースキルおよび下記の Office/ドキュメントスキルとともに提供されます。
+これらの上流 `ai4s-skills` パターンは無効な適応候補として登録され、ランタイム機能としては配布されません。承認済みの研究ワークフローは AI4HEOR のファーストパーティ Skill が実装します。
 
 ### プラットフォーム
 
@@ -112,7 +112,7 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 
 ## スキルとコネクタ
 
-ビルド時に `ai4s-skills`、`anthropics/skills` の `docx`/`pdf`/`pptx`/`xlsx`、および `runtime/skills/core/` の第一者スキルを取得します。コアスキルには `traceability-review`、`stats-integrity`、`domain-check`、`large-file`、`publication-figures`、`remote-compute`、`modal-run` が含まれます。
+デフォルトで配布されるのは `runtime/skills/core/` のファーストパーティ Skill のみです。第三者資産はライセンス、境界、テスト、レビュー、クロスプラットフォーム証拠、正確なハッシュを満たすまで無効です。Anthropic の文書 Skill は再配布不可のため拒否されています。
 
 ワンクリック科学 MCP コネクタ: 文献検索、Biomedical databases、Materials Project、FRED、Space weather、Open-Meteo、USGS water data。任意のローカル/リモート MCP サーバーも Settings から追加できます。
 

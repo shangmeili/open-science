@@ -56,16 +56,33 @@
   "skills": {
     "title": "Skills & Agents",
     "description": {
-      "prefix": "Loaded live from the OpenCode runtime — the bundled ai4s-skills pack plus anything under ",
+      "prefix": "Loaded live from the OpenCode runtime — admitted AI4HEOR capabilities plus anything under ",
       "suffix": " in your workspace."
     },
     "install": {
-      "sectionTitle": "Install a skill",
-      "placeholder": "Paste a skill (Markdown) or a GitHub URL — the agent installs it into .opencode/skills/",
+      "sectionTitle": "Evaluate an external asset",
+      "placeholder": "Describe or paste a Skill, plugin, MCP server, package, or GitHub URL for an industrialization review",
       "starting": "Starting…",
-      "cta": "Install with agent",
-      "hintConnected": "Opens a session and asks the agent to add it (customize-opencode).",
+      "cta": "Review with agent",
+      "hintConnected": "Opens a natural-language review. The candidate stays inactive until a separate code-reviewed admission.",
       "hintDisconnected": "Connect the runtime first."
+    },
+    "assetAdmission": {
+      "sectionTitle": "Third-party asset admission",
+      "loading": "Reading the packaged admission registry…",
+      "unavailable": "The admission registry is unavailable. External assets remain disabled.",
+      "admitted": "admitted",
+      "quarantined": "quarantined",
+      "rejected": "rejected",
+      "noneAdmitted": "No third-party production asset is admitted. Quarantined and rejected candidates are visible for review but are not loaded into the runtime.",
+      "registryValid": "The registry is valid and {{count}} third-party asset is admitted by exact hash.",
+      "failClosed": "The registry failed validation. All third-party assets remain disabled.",
+      "noBlockers": "No unresolved blocker",
+      "status": {
+        "admitted": "admitted",
+        "quarantined": "quarantined",
+        "rejected": "rejected"
+      }
     },
     "environment": {
       "sectionTitle": "Scientific environment",
@@ -88,8 +105,8 @@
       "empty": "No skills loaded yet.",
       "source": {
         "builtin": "built-in",
-        "project": "project",
-        "user": "user"
+        "project": "workspace · unmanaged",
+        "bundled": "AI4HEOR · first-party"
       }
     },
     "disconnected": "Connect the runtime to list the skills and agents it has loaded."

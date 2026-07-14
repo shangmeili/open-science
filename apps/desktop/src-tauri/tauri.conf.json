@@ -35,9 +35,8 @@
       "minimumSystemVersion": "13.0"
     },
     "resources": {
-      "../../../runtime/skills/external/ai4s-skills": "skills/",
-      "../../../runtime/skills/external/anthropic-skills": "skills-office/",
       "../../../runtime/skills/core": "skills-core/",
+      "../../../runtime/assets/asset-admission-registry.json": "asset-admission-registry.json",
       "../../../runtime/harness": "harness/",
       "../../../python/heor_core/src/heor_core/__init__.py": "heor-core/src/heor_core/__init__.py",
       "../../../python/heor_core/src/heor_core/__main__.py": "heor-core/src/heor_core/__main__.py",

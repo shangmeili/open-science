@@ -56,16 +56,33 @@
   "skills": {
     "title": "技能与代理",
     "description": {
-      "prefix": "从 OpenCode 运行时实时加载——内置的 ai4s-skills 包，以及您工作区中位于 ",
+      "prefix": "从 OpenCode 运行时实时加载——已准入的 AI4HEOR 能力，以及您工作区中位于 ",
       "suffix": " 下的所有内容。"
     },
     "install": {
-      "sectionTitle": "安装技能",
-      "placeholder": "粘贴一个技能（Markdown）或 GitHub URL — 代理会将其安装到 .opencode/skills/",
+      "sectionTitle": "评估外部资产",
+      "placeholder": "描述或粘贴 Skill、插件、MCP、计算包或 GitHub URL，启动工业化审查",
       "starting": "正在启动…",
-      "cta": "使用代理安装",
-      "hintConnected": "将打开一个会话并让代理添加它（customize-opencode）。",
+      "cta": "使用代理审查",
+      "hintConnected": "将打开自然语言审查会话；候选资产保持停用，只有通过独立代码审查后才能准入。",
       "hintDisconnected": "请先连接运行时。"
+    },
+    "assetAdmission": {
+      "sectionTitle": "第三方资产准入",
+      "loading": "正在读取安装包内的准入注册表…",
+      "unavailable": "准入注册表不可用；所有外部资产保持停用。",
+      "admitted": "已准入",
+      "quarantined": "隔离候选",
+      "rejected": "已拒绝",
+      "noneAdmitted": "当前没有第三方生产资产获得准入。隔离和拒绝项目仅供审查，不会加载到运行时。",
+      "registryValid": "注册表有效，已有 {{count}} 个第三方资产按精确哈希准入。",
+      "failClosed": "注册表验证失败；所有第三方资产保持停用。",
+      "noBlockers": "没有未解决阻断项",
+      "status": {
+        "admitted": "已准入",
+        "quarantined": "隔离",
+        "rejected": "拒绝"
+      }
     },
     "environment": {
       "sectionTitle": "科学计算环境",
@@ -88,8 +105,8 @@
       "empty": "尚未加载任何技能。",
       "source": {
         "builtin": "内置",
-        "project": "项目",
-        "user": "用户"
+        "project": "工作区 · 未托管",
+        "bundled": "AI4HEOR · 第一方"
       }
     },
     "disconnected": "连接运行时以列出其已加载的技能和代理。"

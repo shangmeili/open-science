@@ -94,7 +94,7 @@ Formerly Open Science. Claude Science 및 유사한 AI-for-science 워크벤치�
 | `mindmap-render` | 마인드맵 렌더링 | `topic_matrix.md`로 생성한 이미지 |
 | `integrity-auditor` | 논문 무결성 감사 | 이미지/수치/논리 발견, 4단계 증거 등급, `audit_report.md` |
 
-이들은 `ai4s-skills` 팩으로 제공되며, 자체 리뷰 스킬 및 아래의 Office/문서 스킬과 함께 번들됩니다.
+이 업스트림 `ai4s-skills` 패턴은 비활성 적응 후보로만 등록되며 런타임 기능으로 배포되지 않습니다. 승인된 연구 흐름은 AI4HEOR의 자체 Skill이 구현합니다.
 
 ### 플랫폼
 
@@ -112,7 +112,7 @@ Formerly Open Science. Claude Science 및 유사한 AI-for-science 워크벤치�
 
 ## 스킬과 커넥터
 
-빌드 시 `ai4s-skills`, `anthropics/skills`의 `docx`/`pdf`/`pptx`/`xlsx`, 그리고 `runtime/skills/core/`의 first-party 스킬을 가져옵니다: `traceability-review`, `stats-integrity`, `domain-check`, `large-file`, `publication-figures`, `remote-compute`, `modal-run`.
+기본 배포에는 `runtime/skills/core/`의 자체 Skill만 포함됩니다. 외부 자산은 라이선스, 경계, 테스트, 검토, 크로스 플랫폼 증거와 정확한 해시를 통과할 때까지 비활성입니다. Anthropic 문서 Skill은 재배포 금지 라이선스로 인해 거부되었습니다.
 
 원클릭 과학 MCP 커넥터: literature search, biomedical databases, Materials Project, FRED, Space weather, Open-Meteo, USGS water data. Settings에서 로컬 또는 원격 MCP 서버를 직접 추가할 수도 있습니다.
 

@@ -177,7 +177,9 @@ interface RuntimeState {
   reconcileRunning: () => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
   hideExample: (id: string) => void;
-  installSkill: (text: string) => Promise<string | null>;
+  /** Open a natural-language industrialization review. The candidate remains
+   *  inactive; only the app's locked registry can admit a platform asset. */
+  reviewAssetCandidate: (text: string) => Promise<string | null>;
 }
 
 let client: OpenCodeClient | null = null;
@@ -254,6 +256,21 @@ const liveFoldPending = new Map<
   string,
   { sessionId: string; timer: number; event: Extract<OpenCodeEvent, { type: "tool.updated" }> }
 >();
+
+export function buildAssetReviewPrompt(text: string): string {
+  return (
+    "Evaluate the following external Skill, plugin, MCP server, or calculation package as an " +
+    "AI4HEOR asset candidate. Do not install, enable, or copy it into .opencode/skills. Keep it " +
+    "inactive. Establish the exact source revision and license; map workspace access, network " +
+    "egress, executable dependencies, and authority; identify the smallest first-party derivative " +
+    "or isolated adapter; define contract, regression, adversarial, and macOS/Windows/Linux tests; " +
+    "and preserve every unresolved blocker. No asset may create human approvals, claim independent " +
+    "validation, or produce authoritative HEOR calculations. Write a review package under " +
+    "heor/asset-reviews/<safe-name>/ and finish with a natural-language recommendation. Updating the " +
+    "app's release registry remains a separate code-reviewed product change.\n\n---\n" +
+    text
+  );
+}
 
 /** Drop a session's queued partial folds — when its turn ends (idle, error,
  *  interrupt) a late timer must not fold a stale "running" event into a
@@ -1253,27 +1270,24 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     set({ hiddenExamples: next });
   },
 
-  // Install a skill by asking the agent (uses OpenCode's customize-opencode skill) (#1).
-  installSkill: async (text) => {
+  // Start a review, never an active install. Workspace skills remain a separate,
+  // user-managed mechanism and cannot enter the bundled platform inventory.
+  reviewAssetCandidate: async (text) => {
     if (!client) {
-      set({ error: "Connect the runtime first to install skills." });
+      set({ error: "Connect the runtime first to review an external asset." });
       return null;
     }
     try {
       const id = await client.createSession();
       set((s) => ({ currentId: id, threads: { ...s.threads, [id]: { ...emptyThread(), loaded: true } } }));
       await get().refreshSessions();
-      const prompt =
-        "Install the following as an OpenCode skill for this project. Use the " +
-        "customize-opencode skill. If it is a URL, fetch it; if it is Markdown, save it as " +
-        "a skill file under .opencode/skills/<name>/SKILL.md. Then reply with the installed skill's name.\n\n---\n" +
-        text;
+      const prompt = buildAssetReviewPrompt(text);
       set((s) => {
         const cur = s.threads[id];
         return {
           threads: {
             ...s.threads,
-            [id]: { ...cur, blocks: [...cur.blocks, { kind: "user", text: `Install skill:\n${text}` }] },
+            [id]: { ...cur, blocks: [...cur.blocks, { kind: "user", text: `Review asset candidate:\n${text}` }] },
           },
         };
       });

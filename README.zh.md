@@ -107,7 +107,8 @@
 | `mindmap-render` | 渲染思维导图 | 由 `topic_matrix.md` 生成的图片 |
 | `integrity-auditor` | 审计论文完整性 | 图像/数值/逻辑问题、四级证据分级、`audit_report.md` |
 
-这些技能随 `ai4s-skills` 技能包一起提供,与第一方审查技能以及下方的 Office/文档技能并列。
+这些上游 `ai4s-skills` 模式目前只作为停用的改造候选登记，不会作为运行时
+能力发布；AI4HEOR 由第一方技能实现已准入的科研工作流。
 
 ### 平台
 
@@ -127,11 +128,15 @@
 
 ## 技能与连接器
 
-构建和发布时会拉取内置技能，避免把第三方技能包直接提交到 git 历史：
+默认只打包 `runtime/skills/core/` 中的第一方技能，包括 AI4HEOR 的证据、
+模型设计、参考案例、不确定性、预算影响、验证和报告工作流。第三方 Skill
+与 MCP 由安装包内的准入注册表控制：发现候选保持停用，只有许可证兼容、
+经过审查、完成跨平台验证并锁定精确哈希的 `validated-adapter` 才能进入
+应用托管的运行时。
 
-- `ai4s-research/ai4s-skills` 技能包。
-- Apache-2.0 `anthropics/skills` 仓库中的 Office/文档技能：`docx`、`pdf`、`pptx`、`xlsx`。
-- `runtime/skills/core/` 中的第一方技能：`traceability-review`、`stats-integrity`、`domain-check`、`large-file`、`publication-figures`、`remote-compute`、`modal-run`。
+`ai4s-research/ai4s-skills` 的 7 个条目当前处于隔离改造状态。Anthropic
+的 `docx`、`pdf`、`pptx`、`xlsx` 是 source-available，而非可再分发的
+开源资产；其目录许可证禁止复制、衍生和分发，因此 AI4HEOR 不再获取或打包。
 
 当前一键科学 MCP 连接器包括：
 

@@ -176,16 +176,17 @@ search logs; record data-source limits.
 
 #### 5.1.6 Skills library
 
-The Skills page lists the **real** skills and agents the OpenCode runtime has loaded
-(built-in + project `.opencode/skill/` + user config) — no hardcoded catalog. Skill
-sources, layered:
+The Skills page lists the **real** skills and agents OpenCode loaded and separately
+shows the native third-party admission audit. Its natural-language action evaluates
+and adapts a candidate but never installs it directly. Skill sources are layered:
 
 1. **OpenCode built-in** skills/agents (shipped with the runtime).
 2. **Self-authored AI4S skills** — planned: `literature-review`, `reproducible-analysis`,
    `citation-reviewer`, `figure-provenance`, `paper-to-report` (Markdown skills under
    `runtime/skills/core`, loaded from the workspace `.opencode/skill/`).
-3. **Third-party scientific skills** — e.g. K-Dense `scientific-agent-skills` (curated
-   install, a later feature).
+3. **Third-party scientific skills** — inactive until a machine-validated,
+   hash-locked `validated-adapter` entry passes license, security, methods,
+   cross-platform, and Human-in-the-loop release evidence.
 
 K-Dense `scientific-agent-skills` is a collection for science/research; its README
 describes ~148 skills and compatibility with Claude Code, Codex, Cursor, OpenCode, and

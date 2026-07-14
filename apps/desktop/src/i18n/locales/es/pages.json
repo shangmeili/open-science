@@ -56,16 +56,33 @@
   "skills": {
     "title": "Habilidades y agentes",
     "description": {
-      "prefix": "Cargado en vivo desde el entorno de ejecución de OpenCode — el paquete ai4s-skills incluido, más todo lo que haya bajo ",
+      "prefix": "Cargado en vivo desde OpenCode — capacidades AI4HEOR admitidas más todo lo que haya bajo ",
       "suffix": " en tu espacio de trabajo."
     },
     "install": {
-      "sectionTitle": "Instalar una habilidad",
-      "placeholder": "Pega una habilidad (Markdown) o una URL de GitHub — el agente la instalará en .opencode/skills/",
+      "sectionTitle": "Evaluar un activo externo",
+      "placeholder": "Describe o pega una Skill, plugin, MCP, paquete o URL de GitHub para una revisión de industrialización",
       "starting": "Iniciando…",
-      "cta": "Instalar con el agente",
-      "hintConnected": "Abre una sesión y le pide al agente que la añada (customize-opencode).",
+      "cta": "Revisar con el agente",
+      "hintConnected": "Abre una revisión en lenguaje natural. El candidato permanece inactivo hasta una admisión revisada por código.",
       "hintDisconnected": "Conecta primero el entorno de ejecución."
+    },
+    "assetAdmission": {
+      "sectionTitle": "Admisión de activos externos",
+      "loading": "Leyendo el registro de admisión empaquetado…",
+      "unavailable": "El registro de admisión no está disponible. Los activos externos permanecen desactivados.",
+      "admitted": "admitidos",
+      "quarantined": "en cuarentena",
+      "rejected": "rechazados",
+      "noneAdmitted": "No hay activos externos de producción admitidos. Los candidatos en cuarentena o rechazados son visibles para revisión, pero no se cargan en el runtime.",
+      "registryValid": "El registro es válido y {{count}} activo externo está admitido por hash exacto.",
+      "failClosed": "La validación del registro falló. Todos los activos externos permanecen desactivados.",
+      "noBlockers": "Sin bloqueos pendientes",
+      "status": {
+        "admitted": "admitido",
+        "quarantined": "cuarentena",
+        "rejected": "rechazado"
+      }
     },
     "environment": {
       "sectionTitle": "Entorno científico",
@@ -88,8 +105,8 @@
       "empty": "Aún no se ha cargado ninguna habilidad.",
       "source": {
         "builtin": "incluida",
-        "project": "proyecto",
-        "user": "usuario"
+        "project": "espacio de trabajo · no gestionado",
+        "bundled": "AI4HEOR · propio"
       }
     },
     "disconnected": "Conecta el entorno de ejecución para listar las habilidades y agentes que ha cargado."

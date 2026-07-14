@@ -94,7 +94,7 @@ Formerly Open Science. Une alternative desktop open source à Claude Science et 
 | `mindmap-render` | Rendre une carte mentale | Image générée à partir d'un `topic_matrix.md` |
 | `integrity-auditor` | Auditer l'intégrité d'un article | Constats image/numériques/logiques, évaluation en 4 niveaux, `audit_report.md` |
 
-Ils sont fournis dans le pack `ai4s-skills`, aux côtés des skills de revue maison et des skills Office/documents ci-dessous.
+Ces modèles `ai4s-skills` sont enregistrés comme candidats d'adaptation inactifs et ne sont pas distribués comme capacités du runtime. Les skills internes d'AI4HEOR implémentent le flux admis.
 
 ### Plateforme
 
@@ -112,7 +112,7 @@ Ils sont fournis dans le pack `ai4s-skills`, aux côtés des skills de revue mai
 
 ## Skills et connecteurs
 
-Au build, le projet récupère `ai4s-skills`, les skills `docx`/`pdf`/`pptx`/`xlsx` de `anthropics/skills`, et les skills internes de `runtime/skills/core/` : `traceability-review`, `stats-integrity`, `domain-check`, `large-file`, `publication-figures`, `remote-compute` et `modal-run`.
+Par défaut, seuls les skills internes de `runtime/skills/core/` sont distribués. Les actifs tiers restent inactifs jusqu'aux preuves de licence, limites, tests, revues, plateformes et hash exact. Les skills documentaires d'Anthropic sont rejetés car leur licence interdit la redistribution.
 
 Connecteurs MCP scientifiques en un clic : recherche bibliographique, bases biomédicales, Materials Project, FRED, Space weather, Open-Meteo et USGS water data. Tout serveur MCP local ou distant peut aussi être ajouté depuis Settings.
 
