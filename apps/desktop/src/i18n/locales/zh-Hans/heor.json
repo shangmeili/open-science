@@ -111,6 +111,28 @@
     "execute": "授权并检索",
     "noProject": "当前没有可绑定证据检索请求的项目。"
   },
+  "synthesis": {
+    "title": "证据综合台账",
+    "loading": "正在审计证据综合文件……",
+    "complete": "筛选、提取与冲突记录在结构上已完整",
+    "incomplete": "证据综合仍需人机协作处理",
+    "searches": "绑定检索",
+    "records": "记录",
+    "notAssessed": "待评估",
+    "included": "已纳入",
+    "extractions": "提取项",
+    "conflicts": "未解决冲突",
+    "hash": "综合文件 SHA-256",
+    "askPrepare": "让 Agent 准备证据综合台账",
+    "preparePrompt": "使用 $heor-evidence-synthesis，针对当前 PICOS 问题创建或修复 heor/evidence-synthesis.json，使其成为可导入候选记录的空白证据综合台账。保留已有有效工作，运行确定性校验器；不要虚构检索运行、筛选结论、质量评价、数据提取或人工批准。",
+    "import": "导入最近一次已授权候选记录",
+    "importing": "正在核验并导入候选记录……",
+    "continue": "让 Agent 继续筛选与综合",
+    "continuePrompt": "使用 $heor-evidence-synthesis 继续维护 heor/evidence-synthesis.json 中的证据工作流。保留应用绑定的检索溯源和全部既有人工作业判断；评估仍为 not_assessed 的候选记录，为排除项记录理由，只提取有证据支持的数据，显式呈现冲突与局限，并运行确定性校验器。除非文件本身能够证明，否则不要声称获得人工批准或已完成全面检索。",
+    "importResult": "已导入 {{added}} 条新记录，并在不改变筛选判断的前提下合并 {{reconciled}} 条已有记录。",
+    "note": "应用会先核验授权链、运行路径和 SHA-256，再进行无损导入。导入只创建 not_assessed 候选记录；Agent 通过自然语言协助筛选和提取，研究判断仍由人复核。",
+    "noProject": "当前没有可绑定证据综合台账的项目。"
+  },
   "evidence": {
     "title": "输入可追溯性",
     "complete": "证据审计已完成",
@@ -278,6 +300,7 @@
     "uncertaintyRunComplete": "不确定性分析已完成",
     "budgetImpactRunComplete": "预算影响分析已完成",
     "searchComplete": "人工授权的证据检索已完成",
+    "candidatesImported": "已导入授权候选记录，未改变研究判断",
     "loadFailed": "无法读取 AI4HEOR 工作流",
     "actionFailed": "AI4HEOR 操作失败"
   }

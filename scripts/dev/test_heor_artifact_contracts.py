@@ -243,6 +243,54 @@ class EvidenceSynthesisContractTests(unittest.TestCase):
         self.assertFalse(result["complete"])
         self.assertTrue(any("critical_appraisal" in error for error in result["errors"]))
 
+    def test_empty_prepared_ledger_is_importable_but_not_complete(self):
+        value = evidence_fixture()
+        value["searches"] = []
+        value["records"] = []
+        value["extractions"] = []
+        result = evidence.audit(value)
+        self.assertFalse(result["complete"])
+        self.assertTrue(result["importable"])
+
+    def test_imported_candidate_is_safe_to_extend_but_not_research_complete(self):
+        value = evidence_fixture()
+        value["records"][0]["screening"] = {
+            "title_abstract": "not_assessed",
+            "full_text": "not_assessed",
+        }
+        del value["records"][0]["critical_appraisal"]
+        value["extractions"] = []
+        result = evidence.audit(value)
+        self.assertFalse(result["complete"])
+        self.assertTrue(result["importable"])
+        self.assertEqual(result["not_assessed_count"], 1)
+
+    def test_complete_app_search_binding_passes_as_an_indivisible_unit(self):
+        value = evidence_fixture()
+        value["searches"][0].update({
+            "source": "pubmed",
+            "authorization_event_id": "a" * 32,
+            "request_sha256": "b" * 64,
+            "run_path": "heor/evidence-search-runs/request-event.json",
+            "run_sha256": "c" * 64,
+            "endpoint": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+            "response_sha256": ["d" * 64],
+        })
+        self.assertTrue(evidence.audit(value)["complete"])
+        del value["searches"][0]["run_sha256"]
+        result = evidence.audit(value)
+        self.assertFalse(result["complete"])
+        self.assertTrue(any("incomplete app-search binding" in error for error in result["errors"]))
+
+    def test_unknown_fields_and_invalid_dates_fail_closed(self):
+        value = evidence_fixture()
+        value["unreviewed_claim"] = True
+        value["searches"][0]["searched_on"] = "2026-02-30"
+        result = evidence.audit(value)
+        self.assertFalse(result["complete"])
+        self.assertTrue(any("unsupported field" in error for error in result["errors"]))
+        self.assertTrue(any("searched_on" in error for error in result["errors"]))
+
 
 class ConceptualModelContractTests(unittest.TestCase):
     def test_complete_conceptual_model_passes(self):

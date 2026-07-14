@@ -9,6 +9,7 @@ export const HEOR_MODEL_VALIDATION_PATH = "heor/model-validation.json";
 export const HEOR_REPORT_PACKAGE_PATH = "heor/report-package.json";
 export const HEOR_REPORT_DOCUMENT_PATH = "heor/report.md";
 export const HEOR_EVIDENCE_SEARCH_REQUEST_PATH = "heor/evidence-search-request.json";
+export const HEOR_EVIDENCE_SYNTHESIS_PATH = "heor/evidence-synthesis.json";
 export const HEOR_BASE_CASE_RESULT_PATH = "heor/results/base-case.json";
 export const HEOR_UNCERTAINTY_RESULT_PATH = "heor/results/uncertainty.json";
 export const HEOR_BUDGET_IMPACT_RESULT_PATH = "heor/results/budget-impact.json";
@@ -300,7 +301,12 @@ export interface HeorEvidenceSearchResult {
   schemaVersion: "0.1.0";
   requestId: string;
   requestSha256: string;
+  query: string;
+  dateFrom: string | null;
+  dateTo: string | null;
+  maxResultsPerSource: number;
   executedAt: number;
+  executedOn: string;
   authorizationEventId: string;
   outputPath: string;
   sourceRuns: HeorSourceSearchRun[];
@@ -336,6 +342,45 @@ export interface HeorSearchAuthorizationEvent {
 export interface HeorSearchExecutionResponse {
   result: HeorEvidenceSearchResult;
   authorization: HeorSearchAuthorizationEvent;
+}
+
+export interface HeorSearchAuthorizationLog {
+  events: HeorSearchAuthorizationEvent[];
+  chainHead: string | null;
+  integrity: string;
+  identityAssurance: string;
+}
+
+export interface HeorEvidenceSynthesisAudit {
+  complete: boolean;
+  importable: boolean;
+  status: "complete" | "incomplete";
+  synthesisId: string;
+  synthesisSha256: string;
+  searchCount: number;
+  recordCount: number;
+  notAssessedCount: number;
+  includedCount: number;
+  extractionCount: number;
+  unresolvedConflicts: string[];
+  errors: string[];
+  importBlockers: string[];
+}
+
+export interface HeorImportCandidatesRequest {
+  projectId: string;
+  outputPath: string;
+  outputSha256: string;
+  synthesisSha256: string;
+}
+
+export interface HeorImportCandidatesResponse {
+  audit: HeorEvidenceSynthesisAudit;
+  addedSearches: number;
+  addedRecords: number;
+  reconciledRecords: number;
+  sourceRunPath: string;
+  sourceRunSha256: string;
 }
 
 export interface HeorAnalysisPlan {
@@ -880,6 +925,33 @@ export async function auditHeorEvidenceSearch(): Promise<HeorEvidenceSearchAudit
   return invoke<HeorEvidenceSearchAudit>("audit_heor_evidence_search");
 }
 
+export async function auditHeorEvidenceSynthesis(): Promise<HeorEvidenceSynthesisAudit> {
+  if (!isTauri) return HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorEvidenceSynthesisAudit>("audit_heor_evidence_synthesis");
+}
+
+export async function listHeorSearchAuthorizations(
+  projectId: string,
+): Promise<HeorSearchAuthorizationLog> {
+  if (!isTauri) return {
+    events: [],
+    chainHead: null,
+    integrity: "verified_unanchored_sha256_chain",
+    identityAssurance: "local_human_assertion",
+  };
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorSearchAuthorizationLog>("list_heor_search_authorizations", { projectId });
+}
+
+export async function importHeorSearchCandidates(
+  request: HeorImportCandidatesRequest,
+): Promise<HeorImportCandidatesResponse> {
+  if (!isTauri) throw new Error("candidate import is available only in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorImportCandidatesResponse>("import_heor_search_candidates", { request });
+}
+
 export async function executeHeorEvidenceSearch(
   authorization: HeorSearchAuthorizationRequest,
 ): Promise<HeorSearchExecutionResponse> {
@@ -918,6 +990,22 @@ export const HEOR_BROWSER_DEMO_EVIDENCE_SEARCH_AUDIT: HeorEvidenceSearchAudit = 
   dateTo: "2026-07-14",
   containsSensitiveData: false,
   errors: [],
+};
+
+export const HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT: HeorEvidenceSynthesisAudit = {
+  complete: false,
+  importable: true,
+  status: "incomplete",
+  synthesisId: "semaglutide-t2d-demo",
+  synthesisSha256: "e".repeat(64),
+  searchCount: 2,
+  recordCount: 18,
+  notAssessedCount: 12,
+  includedCount: 4,
+  extractionCount: 2,
+  unresolvedConflicts: ["utility-weight-selection"],
+  errors: ["12 records remain not_assessed", "unresolved conflicts: utility-weight-selection"],
+  importBlockers: [],
 };
 
 export const HEOR_BROWSER_DEMO_PLAN: HeorAnalysisPlan = {

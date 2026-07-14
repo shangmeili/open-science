@@ -16,7 +16,8 @@ Draft a bounded search request; never make the network call yourself. Read `refe
 5. Declare the exact egress fields and confirm in the artifact that the query contains no patient-level, personal, confidential, or otherwise sensitive data.
 6. Run `scripts/validate_evidence_search_request.py`; set `status` to `ready_for_human_review` only after the query, dates, sources, purpose, and limitations are complete and the validator passes.
 7. Ask the researcher to open the AI4HEOR review pane. The researcher—not the Agent—reviews the exact SHA-256, sources, and egress declaration and authorizes execution.
-8. After the app writes a file under `heor/evidence-search-runs/`, read that immutable run as candidate metadata. Add records to `heor/evidence-synthesis.json` with screening decisions initially `not_assessed`; never treat retrieval as inclusion, appraisal, extraction, or verification.
+8. After the app writes a file under `heor/evidence-search-runs/`, use the review pane's deterministic import when available. It verifies the app-owned authorization chain, run path, and SHA-256, then adds only `not_assessed` candidates. Do not manually copy or rewrite an authorized run when this import path is available.
+9. After import, use `$heor-evidence-synthesis` through natural-language work to screen and extract. Preserve every app-bound search field and existing research judgment; never treat retrieval as inclusion, appraisal, extraction, or verification.
 
 ## Boundaries
 
@@ -25,7 +26,7 @@ Draft a bounded search request; never make the network call yourself. Read `refe
 - Treat PubMed results as bibliographic metadata and ClinicalTrials.gov results as registry records. Neither proves full-text availability, peer review, methodological quality, results validity, or review completeness.
 - Do not silently broaden queries, substitute sources, paginate beyond the approved cap, or rerun a changed request under an old authorization.
 - Do not perform economic calculations, evidence grading, automated inclusion, human approval, or reimbursement interpretation.
-- Preserve zero-result searches and source failures as evidence. Do not invent records or counts.
+- Preserve zero-result searches and source failures as evidence. Do not invent records, counts, authorization bindings, or run hashes.
 
 ## Handoff
 

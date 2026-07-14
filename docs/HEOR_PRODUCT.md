@@ -85,7 +85,19 @@ arbitrary provider. It disables redirects, caps time and response size, verifies
 JSON responses, writes a new immutable run under
 `heor/evidence-search-runs/`, and appends a hash-linked authorization event to
 app-owned storage outside the Agent workspace. A changed request requires a new
-authorization. Returned bibliographic and registry metadata is candidate
+authorization.
+
+The evidence-synthesis ledger is now a native review surface rather than a
+manual copy step. The desktop re-verifies the app-owned authorization chain,
+active project, safe run path, exact request/run hashes, fixed endpoints,
+response hashes, result caps, and normalized record set before importing. A
+compare-and-swap synthesis hash prevents stale writes; repeated imports are
+idempotent; existing screening, appraisal, and extraction judgments are never
+overwritten. New records always enter as `not_assessed`, after which the Agent
+continues screening and extraction through `$heor-evidence-synthesis` in the
+natural-language workflow.
+
+Returned bibliographic and registry metadata is candidate
 evidence with initial screening status `not_assessed`; retrieval is not
 inclusion, appraisal, extraction, full-text verification, or proof that a
 systematic search is complete. OpenAlex and licensed databases remain out of

@@ -22,6 +22,7 @@ import {
   auditHeorConceptualModel,
   auditHeorEvidence,
   auditHeorEvidenceSearch,
+  auditHeorEvidenceSynthesis,
   auditHeorReferenceCase,
   auditHeorUncertainty,
   auditHeorModelValidation,
@@ -38,6 +39,7 @@ import {
   HEOR_UNCERTAINTY_RESULT_PATH,
   HEOR_BUDGET_IMPACT_RESULT_PATH,
   HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
+  HEOR_EVIDENCE_SYNTHESIS_PATH,
   HEOR_PLAN_PATH,
   HEOR_REFERENCE_CASE_ASSESSMENT_PATH,
   HEOR_UNCERTAINTY_PLAN_PATH,
@@ -55,15 +57,21 @@ import {
   type HeorReferenceCaseAudit,
   type HeorRunResult,
   type HeorEvidenceSearchAudit,
+  type HeorEvidenceSynthesisAudit,
+  type HeorImportCandidatesResponse,
+  type HeorSearchAuthorizationLog,
   type HeorSearchExecutionResponse,
+  type HeorSearchAuthorizationEvent,
   type HeorUncertaintyAudit,
   type HeorUncertaintyRunResult,
   listHeorApprovals,
+  listHeorSearchAuthorizations,
   parseHeorConceptualModel,
   parseHeorPlan,
   runHeorMarkov,
   runHeorBudgetImpact,
   executeHeorEvidenceSearch,
+  importHeorSearchCandidates,
   runHeorUncertainty,
   sha256Text,
 } from "@/lib/heor";
@@ -140,6 +148,24 @@ type EvidenceSearchState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorEvidenceSearchAudit };
+
+type EvidenceSynthesisState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorEvidenceSynthesisAudit };
+
+const EMPTY_SEARCH_LOG: HeorSearchAuthorizationLog = {
+  events: [],
+  chainHead: null,
+  integrity: "verified_unanchored_sha256_chain",
+  identityAssurance: "local_human_assertion",
+};
+
+function latestSearchAuthorization(
+  log: HeorSearchAuthorizationLog,
+): HeorSearchAuthorizationEvent | null {
+  return log.events.length > 0 ? log.events[log.events.length - 1] : null;
+}
 
 type ReviewIntent = {
   action: HeorApprovalAction;
@@ -225,8 +251,12 @@ export function HeorReviewPane({
   const [modelValidation, setModelValidation] = useState<ModelValidationState>({ kind: "loading" });
   const [reporting, setReporting] = useState<ReportingState>({ kind: "loading" });
   const [evidenceSearch, setEvidenceSearch] = useState<EvidenceSearchState>({ kind: "loading" });
+  const [evidenceSynthesis, setEvidenceSynthesis] = useState<EvidenceSynthesisState>({ kind: "loading" });
+  const [searchAuthorizations, setSearchAuthorizations] = useState(EMPTY_SEARCH_LOG);
   const [searchResult, setSearchResult] = useState<HeorSearchExecutionResponse | null>(null);
+  const [importResult, setImportResult] = useState<HeorImportCandidatesResponse | null>(null);
   const [searchRunning, setSearchRunning] = useState(false);
+  const [importRunning, setImportRunning] = useState(false);
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [approvals, setApprovals] = useState<HeorApprovalLog>(EMPTY_LOG);
   const [result, setResult] = useState<HeorRunResult | null>(null);
@@ -240,6 +270,7 @@ export function HeorReviewPane({
     setUncertaintyResult(null);
     setBudgetImpactResult(null);
     setSearchResult(null);
+    setImportResult(null);
     if (!project) {
       setArtifact({ kind: "missing" });
       setConceptualArtifact({ kind: "missing" });
@@ -249,6 +280,8 @@ export function HeorReviewPane({
       setModelValidation({ kind: "invalid", message: t("validation.noProject") });
       setReporting({ kind: "invalid", message: t("reporting.noProject") });
       setEvidenceSearch({ kind: "invalid", message: t("search.noProject") });
+      setEvidenceSynthesis({ kind: "invalid", message: t("synthesis.noProject") });
+      setSearchAuthorizations(EMPTY_SEARCH_LOG);
       setApprovals(EMPTY_LOG);
       return;
     }
@@ -260,6 +293,7 @@ export function HeorReviewPane({
     setModelValidation({ kind: "loading" });
     setReporting({ kind: "loading" });
     setEvidenceSearch({ kind: "loading" });
+    setEvidenceSynthesis({ kind: "loading" });
     try {
       setEvidenceSearch({ kind: "ready", audit: await auditHeorEvidenceSearch() });
     } catch (error) {
@@ -267,6 +301,19 @@ export function HeorReviewPane({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
+    }
+    try {
+      setEvidenceSynthesis({ kind: "ready", audit: await auditHeorEvidenceSynthesis() });
+    } catch (error) {
+      setEvidenceSynthesis({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    try {
+      setSearchAuthorizations(await listHeorSearchAuthorizations(project.id));
+    } catch {
+      setSearchAuthorizations(EMPTY_SEARCH_LOG);
     }
     try {
       const raw = isTauri
@@ -623,6 +670,13 @@ export function HeorReviewPane({
         confirmedNoSensitiveData: true,
       });
       setSearchResult(next);
+      setSearchAuthorizations((current) => ({
+        ...current,
+        events: current.events.some((event) => event.eventId === next.authorization.eventId)
+          ? current.events
+          : [...current.events, next.authorization],
+        chainHead: next.authorization.eventHash,
+      }));
       setSearchDialogOpen(false);
       setEvidenceSearch({ kind: "ready", audit: await auditHeorEvidenceSearch() });
       toast.success(t("toast.searchComplete"));
@@ -630,6 +684,29 @@ export function HeorReviewPane({
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setSearchRunning(false);
+    }
+  };
+
+  const importSearchCandidates = async () => {
+    if (!project || evidenceSynthesis.kind !== "ready" || !evidenceSynthesis.audit.importable
+      || importRunning || !isTauri) return;
+    const authorization = searchResult?.authorization ?? latestSearchAuthorization(searchAuthorizations);
+    if (!authorization) return;
+    setImportRunning(true);
+    try {
+      const next = await importHeorSearchCandidates({
+        projectId: project.id,
+        outputPath: authorization.outputPath,
+        outputSha256: authorization.outputSha256,
+        synthesisSha256: evidenceSynthesis.audit.synthesisSha256,
+      });
+      setImportResult(next);
+      setEvidenceSynthesis({ kind: "ready", audit: next.audit });
+      toast.success(t("toast.candidatesImported"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setImportRunning(false);
     }
   };
 
@@ -662,6 +739,18 @@ export function HeorReviewPane({
             running={searchRunning}
             onRequestDraft={() => onRequestRevision(t("search.repairPrompt"))}
             onAuthorize={() => setSearchDialogOpen(true)}
+          />
+        )}
+
+        {project && (
+          <EvidenceSynthesisAssessment
+            state={evidenceSynthesis}
+            authorization={searchResult?.authorization ?? latestSearchAuthorization(searchAuthorizations)}
+            importResult={importResult}
+            importing={importRunning}
+            onPrepare={() => onRequestRevision(t("synthesis.preparePrompt"))}
+            onImport={() => void importSearchCandidates()}
+            onContinue={() => onRequestRevision(t("synthesis.continuePrompt"))}
           />
         )}
 
@@ -1081,6 +1170,106 @@ function EvidenceSearchAssessment({
         </div>
       )}
       <p className="mt-3 text-[10px] leading-4 text-muted">{t("search.note")}</p>
+    </section>
+  );
+}
+
+function EvidenceSynthesisAssessment({
+  state,
+  authorization,
+  importResult,
+  importing,
+  onPrepare,
+  onImport,
+  onContinue,
+}: {
+  state: EvidenceSynthesisState;
+  authorization: HeorSearchAuthorizationEvent | null;
+  importResult: HeorImportCandidatesResponse | null;
+  importing: boolean;
+  onPrepare: () => void;
+  onImport: () => void;
+  onContinue: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const issues = audit?.errors ?? (state.kind === "invalid" ? [state.message] : []);
+  const canImport = isTauri && authorization !== null && audit?.importable === true;
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        <FileJson
+          size={16}
+          className={audit?.complete ? "mt-0.5 text-ok" : "mt-0.5 text-warning"}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("synthesis.title")}
+          </div>
+          <div className={cn(
+            "mt-1 text-xs font-semibold",
+            audit?.complete ? "text-ok" : "text-warning",
+          )}>
+            {state.kind === "loading"
+              ? t("synthesis.loading")
+              : audit?.complete ? t("synthesis.complete") : t("synthesis.incomplete")}
+          </div>
+        </div>
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted">
+        {HEOR_EVIDENCE_SYNTHESIS_PATH}
+      </div>
+      {audit && audit.synthesisSha256 && (
+        <>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <Metric label={t("synthesis.searches")} value={String(audit.searchCount)} />
+            <Metric label={t("synthesis.records")} value={String(audit.recordCount)} />
+            <Metric label={t("synthesis.notAssessed")} value={String(audit.notAssessedCount)} />
+            <Metric label={t("synthesis.included")} value={String(audit.includedCount)} />
+            <Metric label={t("synthesis.extractions")} value={String(audit.extractionCount)} />
+            <Metric label={t("synthesis.conflicts")} value={String(audit.unresolvedConflicts.length)} />
+          </div>
+          <div className="mt-2 break-all font-mono text-[9px] text-muted">
+            {t("synthesis.hash")} {audit.synthesisSha256}
+          </div>
+        </>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
+          {issues.slice(0, 4).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap gap-3">
+        {audit?.importable !== true && state.kind !== "loading" && (
+          <button onClick={onPrepare} className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
+            <MessageSquareText size={13} /> {t("synthesis.askPrepare")}
+          </button>
+        )}
+        {canImport && (
+          <button
+            disabled={importing}
+            onClick={onImport}
+            className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline disabled:opacity-50"
+          >
+            {importing ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+            {importing ? t("synthesis.importing") : t("synthesis.import")}
+          </button>
+        )}
+        {audit?.recordCount !== undefined && audit.recordCount > 0 && (
+          <button onClick={onContinue} className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
+            <MessageSquareText size={13} /> {t("synthesis.continue")}
+          </button>
+        )}
+      </div>
+      {importResult && (
+        <div className="mt-4 rounded-input border border-ok/30 bg-ok/5 p-3 text-xs text-ok">
+          {t("synthesis.importResult", {
+            added: importResult.addedRecords,
+            reconciled: importResult.reconciledRecords,
+          })}
+        </div>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("synthesis.note")}</p>
     </section>
   );
 }

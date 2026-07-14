@@ -11,13 +11,14 @@ Create a transparent evidence trail, not a citation list or an autonomous system
 
 1. Read the decision question and any existing `heor/evidence-synthesis.json`; preserve valid researcher-authored records and decisions.
 2. Define PICOS plus explicit inclusion and exclusion criteria before searching.
-3. Search appropriate authoritative and bibliographic sources. Record the exact source, query, search date, and result count for every search.
+3. Prefer AI4HEOR's human-authorized search and deterministic candidate import for PubMed and ClinicalTrials.gov. For every search, preserve the exact source, query, search date, result count, and any app-written authorization/run bindings.
 4. Deduplicate records without discarding their source-search links.
 5. Record title/abstract and full-text decisions separately. Keep excluded full-text records with a specific reason.
 6. Extract only values and claims directly supported by included records. Record location, unit, population, follow-up, applicability, and uncertainty when relevant.
 7. Record conflicting evidence explicitly. Do not silently select a convenient estimate.
-8. Write `heor/evidence-synthesis.json` from `assets/evidence-synthesis.template.json`, then run `scripts/validate_evidence_synthesis.py` against it.
-9. Summarize coverage, unresolved conflicts, limitations, and candidate source IDs for `$heor-input-provenance`.
+8. If the file does not exist, prepare an importable skeleton from `assets/evidence-synthesis.template.json`. After app import, modify research fields only: do not rewrite app-bound provenance, convert `not_assessed` merely to satisfy validation, or overwrite existing screening/appraisal decisions.
+9. Run `scripts/validate_evidence_synthesis.py` against the final file. An importable skeleton is intentionally incomplete until at least one documented search exists and all research work is supported.
+10. Summarize coverage, unresolved conflicts, limitations, and candidate source IDs for `$heor-input-provenance`.
 
 ## Boundaries
 
@@ -27,6 +28,7 @@ Create a transparent evidence trail, not a citation list or an autonomous system
 - Keep unavailable full text, translation limitations, inaccessible databases, and search-date limits visible.
 - Do not pool effects merely because multiple estimates exist. Statistical synthesis requires a separate prespecified method and deterministic implementation.
 - Keep network calls source-specific and disclose them in the conversation. Store artifacts in the active project.
+- Never fabricate `authorization_event_id`, request/run hashes, endpoints, response hashes, or an app-owned run path. Only the desktop app may create those bindings.
 
 ## Handoff
 

@@ -130,47 +130,52 @@ pub struct SearchAuthorizationLog {
     identity_assurance: &'static str,
 }
 
-#[derive(Clone, Debug, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EvidenceRecord {
-    record_id: String,
-    title: String,
-    locator: String,
-    source_type: String,
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct EvidenceRecord {
+    pub(crate) record_id: String,
+    pub(crate) title: String,
+    pub(crate) locator: String,
+    pub(crate) source_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    published_on: Option<String>,
+    pub(crate) published_on: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    authors: Vec<String>,
+    pub(crate) authors: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    doi: Option<String>,
-    metadata: Value,
+    pub(crate) doi: Option<String>,
+    pub(crate) metadata: Value,
 }
 
-#[derive(Clone, Debug, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SourceSearchRun {
-    source: String,
-    endpoint: String,
-    request_urls: Vec<String>,
-    total_count: u64,
-    fetched_count: usize,
-    response_sha256: Vec<String>,
-    records: Vec<EvidenceRecord>,
-    limitations: Vec<String>,
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct SourceSearchRun {
+    pub(crate) source: String,
+    pub(crate) endpoint: String,
+    pub(crate) request_urls: Vec<String>,
+    pub(crate) total_count: u64,
+    pub(crate) fetched_count: usize,
+    pub(crate) response_sha256: Vec<String>,
+    pub(crate) records: Vec<EvidenceRecord>,
+    pub(crate) limitations: Vec<String>,
 }
 
-#[derive(Clone, Debug, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EvidenceSearchResult {
-    schema_version: &'static str,
-    request_id: String,
-    request_sha256: String,
-    executed_at: u64,
-    authorization_event_id: String,
-    output_path: String,
-    source_runs: Vec<SourceSearchRun>,
-    records: Vec<EvidenceRecord>,
-    limitations: Vec<String>,
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct EvidenceSearchResult {
+    pub(crate) schema_version: String,
+    pub(crate) request_id: String,
+    pub(crate) request_sha256: String,
+    pub(crate) query: String,
+    pub(crate) date_from: Option<String>,
+    pub(crate) date_to: Option<String>,
+    pub(crate) max_results_per_source: u32,
+    pub(crate) executed_at: u64,
+    pub(crate) executed_on: String,
+    pub(crate) authorization_event_id: String,
+    pub(crate) output_path: String,
+    pub(crate) source_runs: Vec<SourceSearchRun>,
+    pub(crate) records: Vec<EvidenceRecord>,
+    pub(crate) limitations: Vec<String>,
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
@@ -182,6 +187,30 @@ pub struct SearchExecutionResponse {
 
 fn sha256(raw: &[u8]) -> String {
     format!("{:x}", Sha256::digest(raw))
+}
+
+fn unix_date(timestamp: u64) -> Result<String, String> {
+    let days = i64::try_from(timestamp / 86_400)
+        .map_err(|_| "search timestamp is outside the supported date range")?;
+    let shifted = days + 719_468;
+    let era = if shifted >= 0 {
+        shifted
+    } else {
+        shifted - 146_096
+    } / 146_097;
+    let day_of_era = shifted - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let mut year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
+    year += i64::from(month <= 2);
+    if !(1900..=3000).contains(&year) {
+        return Err("search timestamp is outside the supported date range".into());
+    }
+    Ok(format!("{year:04}-{month:02}-{day:02}"))
 }
 
 fn text(value: Option<&Value>) -> Option<&str> {
@@ -667,6 +696,7 @@ fn normalize_clinical_trials(value: &Value) -> Vec<EvidenceRecord> {
                     protocol,
                     &["statusModule", "studyFirstPostDateStruct", "date"],
                 )
+                .filter(|value| date_key(value).is_some())
                 .map(str::to_string),
                 authors: Vec::new(),
                 doi: None,
@@ -950,10 +980,15 @@ fn execute_at(
         &event_id[..8]
     );
     let result = EvidenceSearchResult {
-        schema_version: SCHEMA_VERSION,
+        schema_version: SCHEMA_VERSION.into(),
         request_id: request.request_id,
         request_sha256: audit.request_sha256.clone(),
+        query: request.query,
+        date_from: request.date_from,
+        date_to: request.date_to,
+        max_results_per_source: request.max_results_per_source,
         executed_at: timestamp,
+        executed_on: unix_date(timestamp)?,
         authorization_event_id: event_id.clone(),
         output_path: output_path.clone(),
         source_runs,
@@ -999,6 +1034,103 @@ fn execute_at(
         result,
         authorization: event,
     })
+}
+
+pub(crate) fn verified_search_result(
+    app: &AppHandle,
+    project_id: &str,
+    output_path: &str,
+    expected_output_sha256: &str,
+) -> Result<EvidenceSearchResult, String> {
+    if !safe_id(project_id)
+        || !is_sha256(expected_output_sha256)
+        || Path::new(output_path).is_absolute()
+        || !output_path.starts_with(&format!("{SEARCH_RUN_DIRECTORY}/"))
+        || Path::new(output_path)
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_)))
+    {
+        return Err("evidence-search import reference is invalid".into());
+    }
+    let workspace = crate::runtime::workspace_dir(app)?;
+    if crate::project::require_project_id(&workspace)? != project_id {
+        return Err("evidence-search import projectId does not match the current project".into());
+    }
+    let events = read_verified_events(&event_root(app)?, project_id)?;
+    let event = events
+        .iter()
+        .find(|event| event.output_path == output_path)
+        .ok_or("evidence-search run has no verified app-owned authorization event")?;
+    if event.output_sha256 != expected_output_sha256 {
+        return Err("evidence-search run hash does not match its authorization event".into());
+    }
+    let raw = crate::heor_uncertainty::read_workspace_capped(&workspace, output_path)?;
+    if sha256(&raw) != expected_output_sha256 {
+        return Err("evidence-search run bytes changed after authorization".into());
+    }
+    let result: EvidenceSearchResult = serde_json::from_slice(&raw)
+        .map_err(|error| format!("evidence-search run contract is invalid: {error}"))?;
+    if result.schema_version != SCHEMA_VERSION
+        || result.output_path != output_path
+        || result.authorization_event_id != event.event_id
+        || result.request_sha256 != event.request_sha256
+        || result.executed_at != event.timestamp
+        || date_key(&result.executed_on).is_none()
+        || result.source_runs.is_empty()
+        || result.source_runs.len() > 2
+        || result.max_results_per_source == 0
+        || result.max_results_per_source > 50
+    {
+        return Err("evidence-search run does not match its authorization event".into());
+    }
+    let mut sources = BTreeSet::new();
+    let mut record_ids = HashSet::new();
+    for run in &result.source_runs {
+        let (endpoint, host) = match run.source.as_str() {
+            "pubmed" => (PUBMED_SEARCH, "eutils.ncbi.nlm.nih.gov"),
+            "clinicaltrials" => (CLINICAL_TRIALS_SEARCH, "clinicaltrials.gov"),
+            _ => return Err("evidence-search run contains an unsupported source".into()),
+        };
+        if !sources.insert(run.source.clone())
+            || run.endpoint != endpoint
+            || run.fetched_count != run.records.len()
+            || run.fetched_count > result.max_results_per_source as usize
+            || run.response_sha256.is_empty()
+            || run.response_sha256.iter().any(|value| !is_sha256(value))
+            || run.request_urls.is_empty()
+        {
+            return Err("evidence-search source run is internally inconsistent".into());
+        }
+        for request_url in &run.request_urls {
+            let url = reqwest::Url::parse(request_url)
+                .map_err(|_| "evidence-search run contains an invalid request URL")?;
+            if url.scheme() != "https" || url.host_str() != Some(host) {
+                return Err("evidence-search run contains a non-allowlisted request URL".into());
+            }
+        }
+        for record in &run.records {
+            if !record_ids.insert(record.record_id.clone()) {
+                return Err("evidence-search run contains duplicate source record IDs".into());
+            }
+        }
+    }
+    if sources != event.sources.iter().cloned().collect::<BTreeSet<_>>() {
+        return Err("evidence-search run sources do not match its authorization event".into());
+    }
+    let combined_ids = result
+        .records
+        .iter()
+        .map(|record| record.record_id.as_str())
+        .collect::<HashSet<_>>();
+    if combined_ids.len() != result.records.len()
+        || combined_ids.len() != record_ids.len()
+        || !record_ids
+            .iter()
+            .all(|record_id| combined_ids.contains(record_id.as_str()))
+    {
+        return Err("evidence-search combined records do not match its source runs".into());
+    }
+    Ok(result)
 }
 
 #[tauri::command]

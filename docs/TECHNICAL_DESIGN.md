@@ -181,6 +181,18 @@ run files, response hashes, and a separate hash-linked authorization log. No
 URL, header, credential, output path, or arbitrary upstream tool is supplied by
 the Agent.
 
+Candidate import is a second native trust boundary. It accepts only the latest
+explicit run path/hash supplied by the UI, verifies that pair against the
+app-owned authorization event and the immutable run's internal contract, and
+requires the exact current SHA-256 of `heor/evidence-synthesis.json`. The writer
+rejects symlinks and path escapes, stages and syncs a replacement, keeps a
+rollback copy during rename, and produces app-owned provenance fields. Import
+is idempotent by authorization/source ID and record ID; it adds source links to
+existing records without modifying screening, critical appraisal, extraction,
+or conflict judgments. The portable Python validator and native Rust audit both
+fail closed on unknown fields, malformed dates, incomplete bindings, invalid
+links, and collection caps.
+
 ### 6.4 MCP servers
 
 First batch: `filesystem` (project files), `paper-search-mcp` (literature), `BioMCP`

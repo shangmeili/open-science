@@ -94,8 +94,8 @@ Skills stay small and are separated by the artifact they produce or audit.
 | --- | --- | --- | --- |
 | Shipped | `heor-workbench` | Natural-language orchestration and handoff | `heor/analysis-plan.json` plus conversation |
 | Shipped | `heor-input-provenance` | Map every model input to evidence or an explicit reviewable assumption | `evidence_sources`, `assumptions`, `input_provenance` |
-| Shipped | `heor-evidence-synthesis` | PICOS search, screening, extraction, conflict log, applicability | `heor/evidence-synthesis.json` plus deterministic audit |
-| Shipped alpha | `heor-evidence-search` | Draft a bounded PubMed/ClinicalTrials.gov metadata request; require exact app-owned human network authorization; preserve immutable candidate results | `heor/evidence-search-request.json`, app-written `heor/evidence-search-runs/*.json`, and app-owned authorization log |
+| Shipped | `heor-evidence-synthesis` | PICOS screening, extraction, conflict log, applicability, and preservation of app-bound search provenance | `heor/evidence-synthesis.json` plus native and portable deterministic audits |
+| Shipped alpha | `heor-evidence-search` | Draft a bounded PubMed/ClinicalTrials.gov metadata request; require exact app-owned human network authorization; verify and losslessly import immutable candidates | `heor/evidence-search-request.json`, app-written `heor/evidence-search-runs/*.json`, app-owned authorization log, and hash-bound synthesis import |
 | Shipped | `heor-model-design` | Decision problem, conceptual model, structural alternatives | `heor/conceptual-model.json` plus app-owned gate audit |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |

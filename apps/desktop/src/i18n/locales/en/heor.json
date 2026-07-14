@@ -111,6 +111,28 @@
     "execute": "Authorize and search",
     "noProject": "There is no current project for an evidence-search request."
   },
+  "synthesis": {
+    "title": "Evidence synthesis ledger",
+    "loading": "Auditing evidence synthesis…",
+    "complete": "Screening, extraction, and conflicts are structurally complete",
+    "incomplete": "Evidence synthesis needs human-guided work",
+    "searches": "Bound searches",
+    "records": "Records",
+    "notAssessed": "Not assessed",
+    "included": "Included",
+    "extractions": "Extractions",
+    "conflicts": "Open conflicts",
+    "hash": "Synthesis SHA-256",
+    "askPrepare": "Ask Agent to prepare the synthesis ledger",
+    "preparePrompt": "Use $heor-evidence-synthesis to create or repair heor/evidence-synthesis.json as an importable empty synthesis ledger for the current PICOS question. Preserve existing valid work, run the deterministic validator, and do not fabricate search runs, screening decisions, appraisals, extractions, or human approvals.",
+    "import": "Import latest authorized candidates",
+    "importing": "Verifying and importing candidates…",
+    "continue": "Ask Agent to continue screening and synthesis",
+    "continuePrompt": "Use $heor-evidence-synthesis to continue the current evidence workflow in heor/evidence-synthesis.json. Preserve app-bound search provenance and all existing human screening decisions. Assess remaining not_assessed candidates, keep exclusions reasoned, extract only supported data, surface conflicts and limitations, and run the deterministic validator. Do not claim human approval or review completeness unless the artifact proves it.",
+    "importResult": "Imported {{added}} new records and reconciled {{reconciled}} existing records without changing screening decisions.",
+    "note": "The app verifies the authorization chain, run path and SHA-256 before lossless import. Import creates not_assessed candidates only; the Agent supports screening and extraction through natural-language work, while research judgments remain reviewable by a human.",
+    "noProject": "There is no current project for an evidence-synthesis ledger."
+  },
   "evidence": {
     "title": "Input traceability",
     "complete": "Evidence audit complete",
@@ -278,6 +300,7 @@
     "uncertaintyRunComplete": "Uncertainty analysis complete",
     "budgetImpactRunComplete": "Budget impact analysis complete",
     "searchComplete": "Human-authorized evidence search complete",
+    "candidatesImported": "Authorized candidates imported without changing research judgments",
     "loadFailed": "Could not read the AI4HEOR workflow",
     "actionFailed": "AI4HEOR action failed"
   }

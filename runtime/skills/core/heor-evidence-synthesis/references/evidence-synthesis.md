@@ -16,6 +16,22 @@ The artifact is `heor/evidence-synthesis.json`. It records what was searched, sc
 - `conflicts`: explicit topic, involved record IDs, status, and rationale.
 - `limitations`: non-empty statements of material coverage or access limits.
 
+An empty `searches` array is accepted only as an importable preparation state. It is never a complete synthesis.
+
+## App-authorized search binding
+
+When a search is imported by AI4HEOR, its search entry also contains the complete, indivisible binding below:
+
+- `authorization_event_id`: app-owned local human authorization event ID;
+- `request_sha256`: exact reviewed request bytes;
+- `run_path` and `run_sha256`: immutable app-written run location and digest;
+- `endpoint`: fixed first-party source endpoint;
+- `response_sha256`: one or more exact upstream response digests.
+
+All binding fields must be present together. The Agent must preserve them byte-for-value and must never invent or repair them. The desktop app independently verifies the event chain, current project, safe path, run hash, fixed endpoint, request identity, response hashes, result cap, and combined record set before import.
+
+Imported records may also include `published_on`, `authors`, `doi`, and `retrieval_metadata`. These are source metadata, not extracted outcomes or critical appraisal. They begin with both screening decisions set to `not_assessed`.
+
 ## Screening decisions
 
 Use `include`, `exclude`, `unclear`, or `not_assessed`. Full-text exclusions require a specific reason. Do not label a decision independently duplicated unless two named human reviewers actually performed it.

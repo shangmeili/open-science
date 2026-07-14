@@ -15,7 +15,7 @@
   },
   "searches": [],
   "deduplication": {
-    "method": "Replace with deterministic or documented manual method",
+    "method": "Exact record_id, then DOI, then documented normalized-title review; preserve all contributing search_ids",
     "duplicate_records_removed": 0
   },
   "records": [],

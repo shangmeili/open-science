@@ -22,6 +22,9 @@ describe("AI4HEOR human review pane", () => {
     expect(screen.getByText("Human-authorized evidence search")).toBeInTheDocument();
     expect(screen.getByText("Exact request is ready for human authorization")).toBeInTheDocument();
     expect(screen.getByText("semaglutide AND type 2 diabetes AND cost effectiveness")).toBeInTheDocument();
+    expect(screen.getByText("Evidence synthesis ledger")).toBeInTheDocument();
+    expect(screen.getByText("Evidence synthesis needs human-guided work")).toBeInTheDocument();
+    expect(screen.getByText("Not assessed")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Review and authorize exact search" }))
       .not.toBeInTheDocument();
     expect(screen.getByText("Evidence audit incomplete")).toBeInTheDocument();
@@ -62,6 +65,12 @@ describe("AI4HEOR human review pane", () => {
     expect(screen.getByText("Report package is incomplete")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Review Analysis plan" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ask agent to resolve evidence gaps" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", {
+      name: "Ask Agent to continue screening and synthesis",
+    }));
+    expect(onRequestRevision).toHaveBeenCalledWith(
+      expect.stringContaining("$heor-evidence-synthesis"),
+    );
     await userEvent.click(screen.getByRole("button", {
       name: "Ask agent to assess or repair reference-case gaps",
     }));
