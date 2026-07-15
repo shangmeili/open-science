@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.13.0",
+  "schema_version": "0.14.0",
   "analysis_id": "REPLACE_WITH_ANALYSIS_ID",
   "decision_problem": {
     "population": "REPLACE_ME",
@@ -15,6 +15,7 @@
   "reference_case": {"id": "REPLACE_ME", "status": "REPLACE_ME"},
   "partitioned_survival_analysis": {"path": "heor/partitioned-survival-plan.json"},
   "cost_input_normalization": {"path": "heor/cost-input-normalization.json"},
+  "utility_inputs": {"path": "heor/utility-inputs.json"},
   "states": ["progression_free", "progressed", "dead"],
   "cycles": 120,
   "cycle_length_years": 0.08333333333333333,

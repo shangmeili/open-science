@@ -41,12 +41,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--treatment-effect-duration",
         type=Path,
-        help="Required treatment-effect duration artifact for PSM schema 0.4.0 or 0.5.0",
+        help="Required treatment-effect duration artifact for PSM schema 0.4.0 through 0.6.0",
     )
     parser.add_argument(
         "--cost-input-normalization",
         type=Path,
-        help="Required cost-input normalization artifact for PSM schema 0.5.0",
+        help="Required cost-input normalization artifact for PSM schema 0.5.0 or 0.6.0",
+    )
+    parser.add_argument(
+        "--utility-inputs",
+        type=Path,
+        help="Required health-state utility artifact for PSM schema 0.6.0",
     )
     parser.add_argument(
         "--joint-survival-uncertainty-manifest",
@@ -81,6 +86,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ModelValidationError(
                 "--cost-input-normalization requires --partitioned-survival-plan"
             )
+        if args.utility_inputs is not None and args.partitioned_survival_plan is None:
+            raise ModelValidationError(
+                "--utility-inputs requires --partitioned-survival-plan"
+            )
         joint_options = (
             args.joint_survival_uncertainty_manifest,
             args.joint_survival_draws,
@@ -110,6 +119,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = run_markov(specification).to_dict()
             result["input_sha256"] = hashlib.sha256(raw).hexdigest()
         elif args.uncertainty_plan is not None:
+            if payload.get("schema_version") == "0.14.0":
+                raise ModelValidationError(
+                    "analysis schema 0.14.0 utility-component uncertainty is not yet implemented"
+                )
             uncertainty_raw = args.uncertainty_plan.read_bytes()
             uncertainty_payload = json.loads(uncertainty_raw)
             if payload.get("schema_version") == "0.12.0":
@@ -197,15 +210,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             partitioned_payload = json.loads(partitioned_raw)
             materializations_raw = args.survival_curve_materializations.read_bytes()
             materializations_payload = json.loads(materializations_raw)
-            duration_required = partitioned_payload.get("schema_version") in {"0.4.0", "0.5.0"}
+            duration_required = partitioned_payload.get("schema_version") in {"0.4.0", "0.5.0", "0.6.0"}
             if duration_required != (args.treatment_effect_duration is not None):
                 raise ModelValidationError(
-                    "partitioned-survival schema 0.4.0 or 0.5.0 requires exactly one --treatment-effect-duration option"
+                    "partitioned-survival schema 0.4.0 through 0.6.0 requires exactly one --treatment-effect-duration option"
                 )
-            cost_required = partitioned_payload.get("schema_version") == "0.5.0"
+            cost_required = partitioned_payload.get("schema_version") in {"0.5.0", "0.6.0"}
             if cost_required != (args.cost_input_normalization is not None):
                 raise ModelValidationError(
-                    "partitioned-survival schema 0.5.0 requires exactly one --cost-input-normalization option"
+                    "partitioned-survival schema 0.5.0 or 0.6.0 requires exactly one --cost-input-normalization option"
+                )
+            utility_required = partitioned_payload.get("schema_version") == "0.6.0"
+            if utility_required != (args.utility_inputs is not None):
+                raise ModelValidationError(
+                    "partitioned-survival schema 0.6.0 requires exactly one --utility-inputs option"
                 )
             duration_raw = (
                 args.treatment_effect_duration.read_bytes() if duration_required else None
@@ -213,6 +231,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             duration_payload = json.loads(duration_raw) if duration_raw is not None else None
             cost_raw = args.cost_input_normalization.read_bytes() if cost_required else None
             cost_payload = json.loads(cost_raw) if cost_raw is not None else None
+            utility_raw = args.utility_inputs.read_bytes() if utility_required else None
+            utility_payload = json.loads(utility_raw) if utility_raw is not None else None
             result = run_partitioned_survival(
                 payload,
                 raw,
@@ -224,6 +244,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 duration_raw,
                 cost_payload,
                 cost_raw,
+                utility_payload,
+                utility_raw,
             )
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     except (OSError, ArithmeticError, json.JSONDecodeError, ModelValidationError) as error:

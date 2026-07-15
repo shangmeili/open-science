@@ -404,6 +404,11 @@ export interface HeorPartitionedSurvivalAudit {
   costInputNormalizationRequired: boolean;
   costInputNormalizationSha256: string | null;
   costInputNormalizationItemCount: number | null;
+  utilityInputsRequired: boolean;
+  utilityInputsSha256: string | null;
+  utilityInputsItemCount: number | null;
+  utilityInputsMappedItemCount: number | null;
+  utilityInputsAdjustedItemCount: number | null;
   strategyCount: number;
   curveCount: number;
   timePointCount: number;
@@ -2909,6 +2914,11 @@ export const HEOR_BROWSER_DEMO_PARTITIONED_SURVIVAL_AUDIT: HeorPartitionedSurviv
   costInputNormalizationRequired: false,
   costInputNormalizationSha256: null,
   costInputNormalizationItemCount: null,
+  utilityInputsRequired: false,
+  utilityInputsSha256: null,
+  utilityInputsItemCount: null,
+  utilityInputsMappedItemCount: null,
+  utilityInputsAdjustedItemCount: null,
   strategyCount: 0,
   curveCount: 0,
   timePointCount: 0,

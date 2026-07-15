@@ -20,7 +20,7 @@ SCHEMA_VERSION = "0.1.0"
 ARTIFACT_PATH = "heor/treatment-effect-duration.json"
 ANALYSIS_PATH = "heor/analysis-plan.json"
 MATERIALIZATION_PATH = "heor/survival-curve-materializations.json"
-PSM_SCHEMA_VERSIONS = {"0.4.0", "0.5.0"}
+PSM_SCHEMA_VERSIONS = {"0.4.0", "0.5.0", "0.6.0"}
 MAX_SCENARIOS = 5
 TOLERANCE = 1e-9
 MODES = (
@@ -66,7 +66,7 @@ def validate_treatment_effect_duration(
         )
     if partitioned_plan.get("schema_version") not in PSM_SCHEMA_VERSIONS:
         raise ModelValidationError(
-            "treatment-effect duration requires partitioned-survival schema 0.4.0 or 0.5.0"
+            "treatment-effect duration requires partitioned-survival schema 0.4.0 through 0.6.0"
         )
     _nonempty(value.get("duration_id"), "duration_id")
     if value.get("status") != "ready_for_human_review":

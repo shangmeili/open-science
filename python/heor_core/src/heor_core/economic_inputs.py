@@ -10,10 +10,12 @@ from typing import Any
 from .model import MarkovSpecification, ModelValidationError
 
 
-SCHEMA_VERSION = "0.13.0"
-PREVIOUS_SCHEMA_VERSION = "0.12.0"
+SCHEMA_VERSION = "0.14.0"
+PREVIOUS_SCHEMA_VERSION = "0.13.0"
+EARLIER_SCHEMA_VERSION = "0.12.0"
 PSM_PLAN_PATH = "heor/partitioned-survival-plan.json"
 COST_NORMALIZATION_PATH = "heor/cost-input-normalization.json"
+UTILITY_INPUTS_PATH = "heor/utility-inputs.json"
 MAX_STRATEGIES = 16
 STRATEGY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 
@@ -50,9 +52,13 @@ class EconomicSpecification:
     def from_analysis_plan(cls, value: dict[str, Any]) -> "EconomicSpecification":
         value = _mapping(value, "analysis plan")
         schema_version = value.get("schema_version")
-        if schema_version not in {PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION}:
+        if schema_version not in {
+            EARLIER_SCHEMA_VERSION,
+            PREVIOUS_SCHEMA_VERSION,
+            SCHEMA_VERSION,
+        }:
             raise ModelValidationError(
-                "structure-neutral economic inputs require analysis schema_version 0.12.0 or 0.13.0"
+                "structure-neutral economic inputs require analysis schema_version 0.12.0 through 0.14.0"
             )
         if "approvals" in value:
             raise ModelValidationError(
@@ -64,14 +70,24 @@ class EconomicSpecification:
                 f"analysis schema {SCHEMA_VERSION} must link only {PSM_PLAN_PATH}"
             )
         cost_link = value.get("cost_input_normalization")
-        if schema_version == SCHEMA_VERSION:
+        if schema_version in {PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION}:
             if cost_link != {"path": COST_NORMALIZATION_PATH}:
                 raise ModelValidationError(
-                    f"analysis schema {SCHEMA_VERSION} must link only {COST_NORMALIZATION_PATH}"
+                    f"analysis schema {schema_version} must link only {COST_NORMALIZATION_PATH}"
                 )
         elif cost_link is not None:
             raise ModelValidationError(
-                "cost_input_normalization is admitted only by analysis schema 0.13.0"
+                "cost_input_normalization is admitted only by analysis schema 0.13.0 or 0.14.0"
+            )
+        utility_link = value.get("utility_inputs")
+        if schema_version == SCHEMA_VERSION:
+            if utility_link != {"path": UTILITY_INPUTS_PATH}:
+                raise ModelValidationError(
+                    f"analysis schema {SCHEMA_VERSION} must link only {UTILITY_INPUTS_PATH}"
+                )
+        elif utility_link is not None:
+            raise ModelValidationError(
+                "utility_inputs is admitted only by analysis schema 0.14.0"
             )
         economic_basis = _mapping(value.get("economic_basis"), "economic_basis")
         if set(economic_basis) != {"currency", "price_year"}:

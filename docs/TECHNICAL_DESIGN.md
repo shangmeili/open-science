@@ -799,8 +799,8 @@ layer, and provenance/reviewer as the real moat of an open-source Claude Science
 
 ## Partitioned-survival alpha contract (2026-07-15)
 
-`heor/partitioned-survival-plan.json` schema `0.5.0` is an optional, hash-bound
-analysis linked from structure-neutral analysis schema `0.13.0`. It requires the exact state order
+`heor/partitioned-survival-plan.json` schema `0.6.0` is an optional, hash-bound
+analysis linked from structure-neutral analysis schema `0.14.0`. It requires the exact state order
 `progression_free`, `progressed`, `dead`; a forward-only conceptual basis;
 aligned time-zero and cycle-endpoint PFS/OS values with exact ordered review,
 fit-output, and evaluator basis IDs;
@@ -830,9 +830,21 @@ reads every bound review byte and binds the PSM assets into analysis-plan
 approval. The current release gate rejects linked PSM analyses until the model-
 validation and report-package schemas are extended to bind the PSM plan and
 result; this prevents an unsupported decision-ready claim. Analysis schema
-`0.13.0` contains only common economic inputs for each strategy; transition
+`0.14.0` contains only common economic inputs for each strategy; transition
 matrices, schedules, and initial distributions are forbidden rather than
 silently ignored.
+
+PSM `0.6.0` also binds exact schema `0.1.0`
+`heor/utility-inputs.json` bytes. Each strategy/state item records measurement,
+valuation, mapping, license, captured/excluded effects, overlap assessment,
+source utility, optional explicit multiplicative cycle adjustments, and
+uncertainty availability. Python, the dependency-free Skill validator, and
+native Rust independently reproduce each cycle value and complete schedule;
+the PSM engine consumes that schedule for QALYs. The generic engine does not
+hard-code an instrument or value set. Human review retains those choices and
+event-disutility overlap; event disutilities and utility-component DSA/PSA are
+not yet executed. The analysis `state_utilities` must equal the first schedule
+row, and legacy analysis `0.13.0` / PSM `0.5.0` remains readable.
 
 PSM `0.5.0` also binds exact schema `0.1.0`
 `heor/cost-input-normalization.json` bytes. Each annual state-cost item records

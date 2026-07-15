@@ -116,12 +116,13 @@ def validate(
     workspace: Path | None,
     duration_raw: bytes | None = None,
     cost_raw: bytes | None = None,
+    utility_raw: bytes | None = None,
 ) -> list[str]:
     errors: list[str] = []
     psm_schema = plan.get("schema_version")
     analysis_schema = analysis.get("schema_version")
-    if psm_schema not in {"0.2.0", "0.3.0", "0.4.0", "0.5.0"}:
-        errors.append("schema_version must be 0.2.0 through 0.5.0")
+    if psm_schema not in {"0.2.0", "0.3.0", "0.4.0", "0.5.0", "0.6.0"}:
+        errors.append("schema_version must be 0.2.0 through 0.6.0")
     if psm_schema in {"0.3.0", "0.4.0"} and analysis_schema != "0.12.0":
         errors.append("partitioned survival schema 0.3.0 or 0.4.0 requires analysis schema 0.12.0")
     if analysis_schema == "0.12.0" and psm_schema not in {"0.3.0", "0.4.0"}:
@@ -130,6 +131,10 @@ def validate(
         errors.append("partitioned survival schema 0.5.0 requires analysis schema 0.13.0")
     if analysis_schema == "0.13.0" and psm_schema != "0.5.0":
         errors.append("analysis schema 0.13.0 requires partitioned survival schema 0.5.0")
+    if psm_schema == "0.6.0" and analysis_schema != "0.14.0":
+        errors.append("partitioned survival schema 0.6.0 requires analysis schema 0.14.0")
+    if analysis_schema == "0.14.0" and psm_schema != "0.6.0":
+        errors.append("analysis schema 0.14.0 requires partitioned survival schema 0.6.0")
     for field in ("psm_id", "analysis_id", "time_origin"):
         if not isinstance(plan.get(field), str) or not plan[field].strip():
             errors.append(f"{field} must not be empty")
@@ -145,25 +150,35 @@ def validate(
     if (analysis.get("partitioned_survival_analysis") or {}).get("path") != PLAN_PATH:
         errors.append(f"analysis plan must link {PLAN_PATH}")
     duration_binding = plan.get("treatment_effect_duration")
-    if psm_schema in {"0.4.0", "0.5.0"}:
+    if psm_schema in {"0.4.0", "0.5.0", "0.6.0"}:
         if duration_raw is None:
-            errors.append("schema 0.4.0 or 0.5.0 requires --treatment-effect-duration")
+            errors.append("schema 0.4.0 through 0.6.0 requires --treatment-effect-duration")
         elif not isinstance(duration_binding, dict) or set(duration_binding) != {"path", "content_sha256"}:
             errors.append("treatment_effect_duration must contain only path and content_sha256")
         elif duration_binding.get("path") != "heor/treatment-effect-duration.json" or duration_binding.get("content_sha256") != sha256(duration_raw):
             errors.append("treatment_effect_duration does not bind the current artifact bytes")
     elif duration_binding is not None or duration_raw is not None:
-        errors.append("treatment-effect duration requires partitioned survival schema 0.4.0 or 0.5.0")
+        errors.append("treatment-effect duration requires partitioned survival schema 0.4.0 through 0.6.0")
     cost_binding = plan.get("cost_input_normalization")
-    if psm_schema == "0.5.0":
+    if psm_schema in {"0.5.0", "0.6.0"}:
         if cost_raw is None:
-            errors.append("schema 0.5.0 requires --cost-input-normalization")
+            errors.append("schema 0.5.0 or 0.6.0 requires --cost-input-normalization")
         elif not isinstance(cost_binding, dict) or set(cost_binding) != {"path", "content_sha256"}:
             errors.append("cost_input_normalization must contain only path and content_sha256")
         elif cost_binding.get("path") != "heor/cost-input-normalization.json" or cost_binding.get("content_sha256") != sha256(cost_raw):
             errors.append("cost_input_normalization does not bind the current artifact bytes")
     elif cost_binding is not None or cost_raw is not None:
-        errors.append("cost-input normalization requires partitioned survival schema 0.5.0")
+        errors.append("cost-input normalization requires partitioned survival schema 0.5.0 or 0.6.0")
+    utility_binding = plan.get("utility_inputs")
+    if psm_schema == "0.6.0":
+        if utility_raw is None:
+            errors.append("schema 0.6.0 requires --utility-inputs")
+        elif not isinstance(utility_binding, dict) or set(utility_binding) != {"path", "content_sha256"}:
+            errors.append("utility_inputs must contain only path and content_sha256")
+        elif utility_binding.get("path") != "heor/utility-inputs.json" or utility_binding.get("content_sha256") != sha256(utility_raw):
+            errors.append("utility_inputs does not bind the current artifact bytes")
+    elif utility_binding is not None or utility_raw is not None:
+        errors.append("utility inputs require partitioned survival schema 0.6.0")
     if analysis.get("states") != STATE_ORDER:
         errors.append("analysis states must be progression_free, progressed, dead")
 
@@ -316,6 +331,7 @@ def main() -> int:
     parser.add_argument("materializations", type=Path)
     parser.add_argument("--treatment-effect-duration", type=Path)
     parser.add_argument("--cost-input-normalization", type=Path)
+    parser.add_argument("--utility-inputs", type=Path)
     parser.add_argument("--workspace-root", type=Path, required=True)
     args = parser.parse_args()
     try:
@@ -335,13 +351,18 @@ def main() -> int:
             if args.cost_input_normalization is not None
             else None
         )
+        utility_raw = (
+            args.utility_inputs.read_bytes()
+            if args.utility_inputs is not None
+            else None
+        )
     except (OSError, json.JSONDecodeError) as error:
         print(f"INVALID: {error}")
         return 1
     errors = validate(
-        analysis, analysis_raw, plan, args.workspace_root, duration_raw, cost_raw
+        analysis, analysis_raw, plan, args.workspace_root, duration_raw, cost_raw, utility_raw
     )
-    if analysis.get("schema_version") in {"0.12.0", "0.13.0"}:
+    if analysis.get("schema_version") in {"0.12.0", "0.13.0", "0.14.0"}:
         economic_validator_path = (
             Path(__file__).resolve().parents[2]
             / "heor-economic-inputs/scripts"
@@ -356,7 +377,7 @@ def main() -> int:
             economic_module = importlib.util.module_from_spec(economic_spec)
             economic_spec.loader.exec_module(economic_module)
             errors.extend(economic_module.validate(analysis))
-    if analysis.get("schema_version") == "0.13.0" and cost_raw is not None:
+    if analysis.get("schema_version") in {"0.13.0", "0.14.0"} and cost_raw is not None:
         cost_validator_path = (
             Path(__file__).resolve().parents[2]
             / "heor-cost-input-normalization/scripts"
@@ -376,6 +397,26 @@ def main() -> int:
                 errors.append(f"cost-input normalization is invalid JSON: {error}")
             else:
                 errors.extend(cost_module.validate(analysis, analysis_raw, cost_value))
+    if analysis.get("schema_version") == "0.14.0" and utility_raw is not None:
+        utility_validator_path = (
+            Path(__file__).resolve().parents[2]
+            / "heor-utility-inputs/scripts"
+            / "validate_utility_inputs.py"
+        )
+        utility_spec = importlib.util.spec_from_file_location(
+            "ai4heor_utility_input_validator", utility_validator_path
+        )
+        if utility_spec is None or utility_spec.loader is None:
+            errors.append("utility-input validator cannot be loaded")
+        else:
+            utility_module = importlib.util.module_from_spec(utility_spec)
+            utility_spec.loader.exec_module(utility_module)
+            try:
+                utility_value = json.loads(utility_raw)
+            except json.JSONDecodeError as error:
+                errors.append(f"utility inputs are invalid JSON: {error}")
+            else:
+                errors.extend(utility_module.validate(analysis, analysis_raw, utility_value))
     validator_path = (
         Path(__file__).resolve().parents[2]
         / "heor-survival-curve-materialization/scripts"

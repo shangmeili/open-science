@@ -23,10 +23,11 @@ pub fn audit_economic_inputs(plan: &serde_json::Value) -> Vec<String> {
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        .is_none_or(|value| !matches!(value, "0.12.0" | "0.13.0"))
+        .is_none_or(|value| !matches!(value, "0.12.0" | "0.13.0" | "0.14.0"))
     {
         errors.push(
-            "structure-neutral economic inputs require analysis schema 0.12.0 or 0.13.0".into(),
+            "structure-neutral economic inputs require analysis schema 0.12.0 through 0.14.0"
+                .into(),
         );
     }
     if plan.get("approvals").is_some() {
@@ -36,7 +37,7 @@ pub fn audit_economic_inputs(plan: &serde_json::Value) -> Vec<String> {
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        == Some("0.13.0")
+        .is_some_and(|schema| matches!(schema, "0.13.0" | "0.14.0"))
     {
         if cost_link
             != Some(&serde_json::json!({
@@ -44,11 +45,27 @@ pub fn audit_economic_inputs(plan: &serde_json::Value) -> Vec<String> {
             }))
         {
             errors.push(
-                "analysis schema 0.13.0 must link only heor/cost-input-normalization.json".into(),
+                "analysis schema 0.13.0 or 0.14.0 must link only heor/cost-input-normalization.json".into(),
             );
         }
     } else if cost_link.is_some() {
-        errors.push("cost_input_normalization is admitted only by analysis schema 0.13.0".into());
+        errors.push(
+            "cost_input_normalization is admitted only by analysis schema 0.13.0 or 0.14.0".into(),
+        );
+    }
+    let utility_link = plan.get("utility_inputs");
+    if plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        == Some("0.14.0")
+    {
+        if utility_link
+            != Some(&serde_json::json!({"path": crate::heor_utility_inputs::UTILITY_INPUTS_PATH}))
+        {
+            errors.push("analysis schema 0.14.0 must link only heor/utility-inputs.json".into());
+        }
+    } else if utility_link.is_some() {
+        errors.push("utility_inputs is admitted only by analysis schema 0.14.0".into());
     }
     if plan
         .pointer("/partitioned_survival_analysis/path")

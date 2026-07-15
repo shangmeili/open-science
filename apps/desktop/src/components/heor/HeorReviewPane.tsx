@@ -2533,6 +2533,9 @@ function PartitionedSurvivalAssessment({
           <Metric label={t("partitionedSurvival.points")} value={String(audit.timePointCount)} />
           <Metric label={t("partitionedSurvival.durationScenarios")} value={String(audit.treatmentEffectDurationScenarioCount ?? 0)} />
           <Metric label={t("partitionedSurvival.costItems")} value={String(audit.costInputNormalizationItemCount ?? 0)} />
+          <Metric label={t("partitionedSurvival.utilityItems")} value={String(audit.utilityInputsItemCount ?? 0)} />
+          <Metric label={t("partitionedSurvival.mappedUtilities")} value={String(audit.utilityInputsMappedItemCount ?? 0)} />
+          <Metric label={t("partitionedSurvival.adjustedUtilities")} value={String(audit.utilityInputsAdjustedItemCount ?? 0)} />
         </div>
       )}
       {audit?.treatmentEffectDurationBaseCaseId && (

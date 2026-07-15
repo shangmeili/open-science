@@ -13,7 +13,8 @@ import unittest
 
 from heor_core.cli import main as cli_main
 from heor_core.model import ModelValidationError
-from heor_core.partitioned_survival import run_partitioned_survival
+from heor_core.economic_inputs import EconomicSpecification
+from heor_core.partitioned_survival import calculate_partitioned_survival, run_partitioned_survival
 from heor_core.uncertainty import run_uncertainty
 from test_partitioned_survival import valid_inputs as valid_psm_inputs
 from test_partitioned_survival_uncertainty import valid_inputs as valid_partial_inputs
@@ -191,14 +192,21 @@ def cost_normalized_inputs() -> list:
     }
     analysis["decision_problem"] = {
         "jurisdiction": "China",
+        "population": "Adults with advanced disease",
         "perspective": "Healthcare system",
     }
     analysis["evidence_sources"] = [
         {"id": "quantity-source"},
         {"id": "price-source"},
         {"id": "scope-source"},
+        {"id": "utility-source"},
+        {"id": "value-set-source"},
+        {"id": "population-norm-source"},
     ]
-    analysis["assumptions"] = []
+    analysis["assumptions"] = [
+        {"id": "overlap-assessment", "status": "proposed"},
+        {"id": "dead-anchor", "status": "proposed"},
+    ]
     analysis["input_provenance"] = []
     analysis_raw = _json_bytes(analysis)
 
@@ -284,7 +292,163 @@ def cost_normalized_inputs() -> list:
     ]
 
 
+def utility_normalized_inputs() -> list:
+    inputs = cost_normalized_inputs()
+    analysis, _, psm = inputs[0], inputs[1], inputs[2]
+    analysis["schema_version"] = "0.14.0"
+    analysis["utility_inputs"] = {"path": "heor/utility-inputs.json"}
+    analysis_raw = _json_bytes(analysis)
+
+    inputs[4]["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    materializations_raw = _json_bytes(inputs[4])
+    psm["curve_materializations"]["content_sha256"] = hashlib.sha256(materializations_raw).hexdigest()
+    inputs[6]["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    inputs[6]["source_curve_materializations"]["content_sha256"] = hashlib.sha256(materializations_raw).hexdigest()
+    duration_raw = _json_bytes(inputs[6])
+    psm["treatment_effect_duration"]["content_sha256"] = hashlib.sha256(duration_raw).hexdigest()
+    _apply_base_rows(psm, duration_raw, materializations_raw)
+    inputs[8]["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    cost_raw = _json_bytes(inputs[8])
+    psm["cost_input_normalization"]["content_sha256"] = hashlib.sha256(cost_raw).hexdigest()
+
+    utility = {
+        "schema_version": "0.1.0",
+        "utility_input_id": "psm-utility-inputs",
+        "analysis_id": analysis["analysis_id"],
+        "status": "ready_for_human_review",
+        "base_analysis": {
+            "path": "heor/analysis-plan.json",
+            "content_sha256": hashlib.sha256(analysis_raw).hexdigest(),
+        },
+        "target_context": {
+            "jurisdiction": "China",
+            "population": "Adults with advanced disease",
+            "outcome": "QALY",
+        },
+        "cycle_value_timing": "cycle_average",
+        "item_order": [],
+        "items": {},
+        "cycle_state_utilities": {},
+        "limitations": ["Event disutilities and component uncertainty are outside this contract."],
+    }
+    for strategy_id in analysis["strategy_order"]:
+        source_values = analysis["strategies"][strategy_id]["state_utilities"]
+        rows = []
+        for cycle in range(analysis["cycles"]):
+            rows.append([
+                source_values[0] * (0.5 if strategy_id == "comparator" and cycle == 1 else 1.0),
+                source_values[1],
+                0.0,
+            ])
+        utility["cycle_state_utilities"][strategy_id] = rows
+        for state_index, state_id in enumerate(analysis["states"]):
+            dead = state_id == "dead"
+            adjusted = strategy_id == "comparator" and state_id == "progression_free"
+            factors = [1.0, 0.5] if adjusted else [1.0, 1.0]
+            item_id = f"{strategy_id}-{state_id.replace('_', '-')}"
+            utility["item_order"].append(item_id)
+            utility["items"][item_id] = {
+                "item_id": item_id,
+                "strategy_id": strategy_id,
+                "state_id": state_id,
+                "description": "QALY dead anchor" if dead else "Cycle-average health-state utility",
+                "application": {
+                    "type": "health_state_utility",
+                    "timing": "cycle_average_while_in_state",
+                    "captured_effects": ["health_state"],
+                    "excluded_effects": ["acute_adverse_events"],
+                    "overlap_assessment": {
+                        "rationale": "No separate event disutility is applied.",
+                        "basis_ids": ["dead-anchor" if dead else "overlap-assessment"],
+                    },
+                },
+                "measurement": {
+                    "source_design": "anchor" if dead else "randomized_trial",
+                    "instrument_name": "QALY anchor" if dead else "EQ-5D",
+                    "instrument_version": "not_applicable" if dead else "5L",
+                    "instrument_class": "qaly_anchor" if dead else "generic_preference_based",
+                    "respondent": "not_applicable" if dead else "patient",
+                    "source_population": "QALY definition" if dead else "Trial population",
+                    "sample_size": None if dead else 200,
+                    "assessment_timing": "not_applicable" if dead else "Scheduled visits",
+                    "basis_ids": ["dead-anchor" if dead else "utility-source"],
+                },
+                "valuation": {
+                    "value_origin": "anchor" if dead else "value_set",
+                    "value_set_id": None if dead else "reviewed-value-set",
+                    "value_set_jurisdiction": None if dead else "China",
+                    "preference_population": "not_applicable" if dead else "General population",
+                    "valuation_method": "anchor" if dead else "time_trade_off",
+                    "anchor": "dead_0_full_health_1",
+                    "license_status": "not_applicable" if dead else "link_only",
+                    "basis_ids": ["dead-anchor" if dead else "value-set-source"],
+                },
+                "mapping": None,
+                "source_utility": {
+                    "value": source_values[state_index],
+                    "basis_ids": ["dead-anchor" if dead else "utility-source"],
+                },
+                "adjustments": ([{
+                    "kind": "age_adjustment",
+                    "operation": "multiply",
+                    "method": "Test-only reviewed multiplicative factor",
+                    "factors": factors,
+                    "basis_ids": ["population-norm-source"],
+                }] if adjusted else []),
+                "cycle_values": [source_values[state_index] * factor for factor in factors],
+                "uncertainty": {
+                    "status": "fixed",
+                    "basis_ids": ["dead-anchor" if dead else "utility-source"],
+                    "limitations": ["Component uncertainty is not executed."],
+                },
+            }
+    utility_raw = _json_bytes(utility)
+    psm["schema_version"] = "0.6.0"
+    psm["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    psm["utility_inputs"] = {
+        "path": "heor/utility-inputs.json",
+        "content_sha256": hashlib.sha256(utility_raw).hexdigest(),
+    }
+    psm_raw = _json_bytes(psm)
+    return [
+        analysis,
+        analysis_raw,
+        psm,
+        psm_raw,
+        inputs[4],
+        materializations_raw,
+        inputs[6],
+        duration_raw,
+        inputs[8],
+        cost_raw,
+        utility,
+        utility_raw,
+    ]
+
+
 class TreatmentEffectDurationTests(unittest.TestCase):
+    def test_psm_0_6_binds_and_uses_cycle_specific_utility_inputs(self) -> None:
+        inputs = utility_normalized_inputs()
+        result = run_partitioned_survival(*inputs)
+        fixed = calculate_partitioned_survival(
+            EconomicSpecification.from_analysis_plan(inputs[0]), inputs[2]
+        )
+        self.assertEqual(result["schema_version"], "0.6.0")
+        self.assertEqual(result["engine_version"], "0.6.0")
+        self.assertEqual(result["utility_inputs_summary"]["item_count"], 6)
+        self.assertEqual(result["utility_inputs_summary"]["adjusted_item_count"], 1)
+        self.assertLess(
+            result["strategies"]["comparator"]["total_qaly"],
+            fixed["strategies"]["comparator"]["total_qaly"],
+        )
+
+    def test_psm_0_6_rejects_stale_utility_binding(self) -> None:
+        inputs = utility_normalized_inputs()
+        inputs[2]["utility_inputs"]["content_sha256"] = "0" * 64
+        inputs[3] = _json_bytes(inputs[2])
+        with self.assertRaisesRegex(ModelValidationError, "utility_inputs.content_sha256"):
+            run_partitioned_survival(*inputs)
+
     def test_psm_0_5_binds_and_reports_normalized_cost_inputs(self) -> None:
         inputs = cost_normalized_inputs()
         result = run_partitioned_survival(*inputs)

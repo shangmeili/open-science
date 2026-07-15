@@ -146,8 +146,9 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-background-mortality` | Age-aligned annual life-table mortality plus one constant additive excess rate, with explicit exchangeability and double-counting bases | Schema `0.9.0` transition schedule derivation |
 | Shipped | `heor-relative-effect-adapter` | Apply one aligned RR or OR to cycle-specific baseline risks with exact review bases and full schedule recomputation | Schema `0.10.0` transition schedule derivation |
 | Shipped | `heor-hazard-ratio-adapter` | Apply one reviewed constant HR to cycle-aligned baseline cumulative-hazard increments with explicit proportional-hazards, effect-duration, and switching review bases | Schema `0.11.0` transition schedule derivation |
-| Shipped alpha | `heor-treatment-effect-duration` | Preserve source PFS/OS through an explicit evidence horizon, then derive sustained, immediate-stop, and log-linear-waning intervention tails from comparator hazard increments without inferring duration from an HR point estimate | `heor/treatment-effect-duration.json`, PSM schemas `0.4.0` / `0.5.0`, scenario cost/QALY summaries |
-| Shipped alpha | `heor-cost-input-normalization` | Reproduce evidence-bound annual state costs from annual quantities, compatible units, source prices, explicit price-year/currency/price adjustments, and Human-selected economic bases | `heor/cost-input-normalization.json`, analysis schema `0.13.0`, PSM schema `0.5.0` |
+| Shipped alpha | `heor-treatment-effect-duration` | Preserve source PFS/OS through an explicit evidence horizon, then derive sustained, immediate-stop, and log-linear-waning intervention tails from comparator hazard increments without inferring duration from an HR point estimate | `heor/treatment-effect-duration.json`, PSM schemas `0.4.0` through `0.6.0`, scenario cost/QALY summaries |
+| Shipped alpha | `heor-cost-input-normalization` | Reproduce evidence-bound annual state costs from annual quantities, compatible units, source prices, explicit price-year/currency/price adjustments, and Human-selected economic bases | `heor/cost-input-normalization.json`, analysis schemas `0.13.0` / `0.14.0`, PSM schemas `0.5.0` / `0.6.0` |
+| Shipped alpha | `heor-utility-inputs` | Reproduce one evidence-linked health-state utility per strategy/state and its complete cycle schedule, with instrument/version/respondent, value set and license, mapping, adjustment, uncertainty, and overlap metadata | `heor/utility-inputs.json`, analysis schema `0.14.0`, PSM schema `0.6.0` |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, per-person EVPI, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
@@ -156,6 +157,16 @@ Skills stay small and are separated by the artifact they produce or audit.
 
 `heor-workbench` routes to these skills; it should not absorb their detailed
 methodology. This avoids a single prompt becoming an untestable source of truth.
+
+The next HEOR-specific assets should stay equally narrow. P0 is
+`heor-event-disutilities`, with explicit incidence, duration, recurrence,
+timing, captured-effect overlap, and state-utility double-count checks. P0 after
+that is a utility-component extension to `heor-uncertainty-analysis` that
+recomputes mapped/value-set/adjustment components rather than varying only the
+aggregate state reward. P1 is `heor-utility-evidence-review` only if evidence
+identification and suitability review outgrow the current bounded
+`heor-utility-inputs` workflow; do not pre-emptively split it. No external
+candidate reviewed on 2026-07-15 supplies these fail-closed contracts.
 
 ## Industrialization pipeline
 
@@ -452,7 +463,15 @@ crossing, and consume one whole row per PSA iteration. Joint manifest schema `0.
 binds the duration bytes; non-base duration alternatives remain separate deterministic
 scenario results. Curve-family selection, extrapolation, source-model validity, independent
 validation, and release reporting remain blocked.
-PSM `0.5.0` additionally binds the first-party schema `0.1.0` annual state-cost
+PSM `0.6.0` retains the PSM `0.5.0` annual state-cost binding and additionally
+binds first-party schema `0.1.0` utility inputs. Python, the standalone Skill,
+and native Rust reproduce every source-utility-times-adjustment value and the
+complete strategy/cycle/state schedule before QALY calculation. Instrument,
+respondent, value set, mapping, licensing, transferability, and overlap choices
+remain Human-owned; event disutilities and component uncertainty remain
+unshipped. Legacy PSM `0.5.0` remains readable without the utility binding.
+
+PSM `0.5.0` binds the first-party schema `0.1.0` annual state-cost
 normalization artifact and independently recomputes every quantity-times-price
 item, adjustment chain, and strategy/state aggregate. This is deterministic
 ingredient costing, not authority to choose indices, exchange rates, tax

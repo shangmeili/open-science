@@ -70,8 +70,8 @@ def validate(plan: dict[str, Any], raw: bytes, artifact: dict[str, Any]) -> list
         "annual_state_costs", "limitations",
     }):
         errors.append("cost-input normalization fields are not the exact contract")
-    if plan.get("schema_version") not in {"0.12.0", "0.13.0"}:
-        errors.append("analysis schema_version must be 0.12.0 or 0.13.0")
+    if plan.get("schema_version") not in {"0.12.0", "0.13.0", "0.14.0"}:
+        errors.append("analysis schema_version must be 0.12.0 through 0.14.0")
     if artifact.get("schema_version") != "0.1.0":
         errors.append("cost-input normalization schema_version must be 0.1.0")
     if not isinstance(artifact.get("normalization_id"), str) or SAFE_ID.fullmatch(artifact["normalization_id"]) is None:

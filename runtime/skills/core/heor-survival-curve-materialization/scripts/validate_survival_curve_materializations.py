@@ -332,7 +332,7 @@ def validate(
             errors.append(f"{target} values must contain cycles + 1 rows")
             values = []
         psm_values = psm_strategy.get(endpoint)
-        duration_derived = psm.get("schema_version") in {"0.4.0", "0.5.0"}
+        duration_derived = psm.get("schema_version") in {"0.4.0", "0.5.0", "0.6.0"}
         if not duration_derived and (not isinstance(psm_values, list) or len(psm_values) != cycles + 1):
             errors.append(f"{target} PSM values must contain cycles + 1 rows")
             psm_values = []

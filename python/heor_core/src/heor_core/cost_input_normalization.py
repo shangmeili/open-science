@@ -20,7 +20,7 @@ from .model import ModelValidationError
 SCHEMA_VERSION = "0.1.0"
 ARTIFACT_PATH = "heor/cost-input-normalization.json"
 ANALYSIS_PATH = "heor/analysis-plan.json"
-SUPPORTED_ANALYSIS_SCHEMAS = {"0.12.0", "0.13.0"}
+SUPPORTED_ANALYSIS_SCHEMAS = {"0.12.0", "0.13.0", "0.14.0"}
 MAX_ITEMS = 1_000
 TOLERANCE = 1e-9
 SAFE_ID = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
@@ -56,7 +56,7 @@ def validate_cost_input_normalization(
     plan = _object(analysis_plan, "analysis plan")
     if plan.get("schema_version") not in SUPPORTED_ANALYSIS_SCHEMAS:
         raise ModelValidationError(
-            "cost-input normalization requires analysis schema 0.12.0 or 0.13.0"
+            "cost-input normalization requires analysis schema 0.12.0 through 0.14.0"
         )
     value = _object(artifact, "cost-input normalization artifact")
     _exact_keys(

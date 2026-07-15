@@ -1,0 +1,74 @@
+{
+  "schema_version": "0.1.0",
+  "utility_input_id": "replace-with-safe-id",
+  "analysis_id": "replace-with-analysis-id",
+  "status": "ready_for_human_review",
+  "base_analysis": {
+    "path": "heor/analysis-plan.json",
+    "content_sha256": "replace-with-current-analysis-sha256"
+  },
+  "target_context": {
+    "jurisdiction": "replace-with-analysis-jurisdiction",
+    "population": "replace-with-analysis-population",
+    "outcome": "QALY"
+  },
+  "cycle_value_timing": "cycle_average",
+  "item_order": ["replace-with-one-item-per-strategy-state"],
+  "items": {
+    "replace-with-one-item-per-strategy-state": {
+      "item_id": "replace-with-one-item-per-strategy-state",
+      "strategy_id": "replace-with-strategy-id",
+      "state_id": "replace-with-state-id",
+      "description": "replace-with-description",
+      "application": {
+        "type": "health_state_utility",
+        "timing": "cycle_average_while_in_state",
+        "captured_effects": ["replace-with-captured-effect"],
+        "excluded_effects": ["replace-with-excluded-effect"],
+        "overlap_assessment": {
+          "rationale": "replace-with-overlap-rationale",
+          "basis_ids": ["replace-with-analysis-linked-id"]
+        }
+      },
+      "measurement": {
+        "source_design": "randomized_trial",
+        "instrument_name": "replace-with-instrument",
+        "instrument_version": "replace-with-version",
+        "instrument_class": "generic_preference_based",
+        "respondent": "patient",
+        "source_population": "replace-with-source-population",
+        "sample_size": 1,
+        "assessment_timing": "replace-with-timing",
+        "basis_ids": ["replace-with-analysis-linked-id"]
+      },
+      "valuation": {
+        "value_origin": "value_set",
+        "value_set_id": "replace-with-value-set-id",
+        "value_set_jurisdiction": "replace-with-value-set-jurisdiction",
+        "preference_population": "replace-with-preference-population",
+        "valuation_method": "time_trade_off",
+        "anchor": "dead_0_full_health_1",
+        "license_status": "link_only",
+        "basis_ids": ["replace-with-analysis-linked-id"]
+      },
+      "mapping": null,
+      "source_utility": {
+        "value": 0.5,
+        "basis_ids": ["replace-with-analysis-linked-id"]
+      },
+      "adjustments": [],
+      "cycle_values": [0.5],
+      "uncertainty": {
+        "status": "fixed",
+        "basis_ids": ["replace-with-analysis-linked-id"],
+        "limitations": ["Component uncertainty is not executed by this alpha."]
+      }
+    }
+  },
+  "cycle_state_utilities": {
+    "replace-with-strategy-id": [[0.5]]
+  },
+  "limitations": [
+    "Event disutilities and component-level uncertainty are outside this contract."
+  ]
+}

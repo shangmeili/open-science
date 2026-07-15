@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "psm_id": "REPLACE_ME",
   "analysis_id": "REPLACE_ME",
   "status": "draft",
@@ -17,6 +17,10 @@
   },
   "cost_input_normalization": {
     "path": "heor/cost-input-normalization.json",
+    "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
+  },
+  "utility_inputs": {
+    "path": "heor/utility-inputs.json",
     "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
   },
   "time_origin": "REPLACE_ME",

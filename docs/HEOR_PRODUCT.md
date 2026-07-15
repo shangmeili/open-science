@@ -754,7 +754,7 @@ three-state calculation class. Natural-language interaction creates or repairs
 the rationale and bindings; curve rows are an auxiliary exact-input surface.
 Each curve review must match the current analysis, strategy/endpoint target,
 PFS or OS context, exact bytes, and Human-selected converged family. PSM schema
-`0.5.0` binds `heor/survival-curve-materializations.json` as immutable source curves and
+`0.6.0` binds `heor/survival-curve-materializations.json` as immutable source curves and
 `heor/treatment-effect-duration.json` as explicit structural policy: for each strategy
 and endpoint, that manifest binds one typed selected-fit output, its exact bytes,
 an admitted parameterization, evaluator `ai4heor-parametric-survival@0.1.0`,
@@ -773,12 +773,22 @@ OS-PFS, and death from 1-OS; computes state rewards and incremental results;
 and blocks curve crossing, increasing survival, time-grid mismatch, stale
 hashes, and hidden approval claims. Analysis-plan approval is supported, but
 release is intentionally blocked until validation and reporting bind the PSM
-plan and result. Analysis schema `0.13.0` now separates common costs, utilities,
+plan and result. Analysis schema `0.14.0` now separates common costs, utilities,
 cycle settings, discounting, and thresholds from PSM structure; its strategy
 objects forbid initial distributions and transition definitions. Portable,
 Python, browser, and native validators independently enforce that boundary while
-legacy analysis `0.12.0` / PSM `0.4.0` remains calculation-compatible. PSM
-`0.5.0` additionally requires `heor/cost-input-normalization.json`: natural
+legacy analysis `0.13.0` / PSM `0.5.0` remains calculation-compatible. PSM
+`0.6.0` retains `heor/cost-input-normalization.json` and additionally requires
+`heor/utility-inputs.json`. One item per strategy/state records instrument and
+version, respondent and source population, value set and license, optional
+mapping and performance evidence, captured/excluded effects, overlap rationale,
+source utility, and explicit multiplicative cycle adjustments. Python, the
+portable Skill, and native Rust independently reproduce the full cycle schedule,
+and the PSM calculation consumes it for QALYs. The engine never chooses a value
+set, mapping algorithm, population adjustment, or overlap policy. Event
+disutilities and utility-component uncertainty remain blocked.
+
+PSM `0.5.0` introduced `heor/cost-input-normalization.json`: natural
 language is the primary way to identify ingredients and resolve missing method
 choices, while structured item rows are an auxiliary review surface. Each row
 binds annual quantity, unit, unit price, currency, price year, jurisdiction,

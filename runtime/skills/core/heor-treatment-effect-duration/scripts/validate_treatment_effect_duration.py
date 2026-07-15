@@ -59,8 +59,8 @@ def _validate(
 ) -> None:
     if analysis.get("schema_version") not in {"0.12.0", "0.13.0"}:
         raise ContractError("analysis schema_version must be 0.12.0 or 0.13.0")
-    if psm.get("schema_version") not in {"0.4.0", "0.5.0"}:
-        raise ContractError("partitioned-survival schema_version must be 0.4.0 or 0.5.0")
+    if psm.get("schema_version") not in {"0.4.0", "0.5.0", "0.6.0"}:
+        raise ContractError("partitioned-survival schema_version must be 0.4.0 through 0.6.0")
     strategy_order = analysis.get("strategy_order")
     if (
         not isinstance(strategy_order, list)

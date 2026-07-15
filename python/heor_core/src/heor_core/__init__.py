@@ -15,6 +15,7 @@ from .cost_input_normalization import (
     CostNormalizationSummary,
     validate_cost_input_normalization,
 )
+from .utility_inputs import UtilityInputSummary, validate_utility_inputs
 from .hazard_ratio import HazardRatioError, derive_hazard_ratio_schedule
 from .relative_effect import RelativeEffectError, derive_relative_effect_schedule
 from .partitioned_survival import run_partitioned_survival
@@ -38,6 +39,8 @@ __all__ = [
     "run_partitioned_survival",
     "validate_joint_survival_uncertainty",
     "validate_cost_input_normalization",
+    "UtilityInputSummary",
+    "validate_utility_inputs",
     "validate_survival_curve_materializations",
     "validate_treatment_effect_duration",
 ]

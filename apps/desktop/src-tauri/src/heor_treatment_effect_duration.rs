@@ -264,7 +264,7 @@ pub fn audit_treatment_effect_duration(
     if !matches!(
         psm.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.4.0" | "0.5.0")
+        Some("0.4.0" | "0.5.0" | "0.6.0")
     ) {
         audit.complete = true;
         return audit;
