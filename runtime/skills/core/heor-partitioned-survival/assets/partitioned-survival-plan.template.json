@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.3.0",
+  "schema_version": "0.4.0",
   "psm_id": "REPLACE_ME",
   "analysis_id": "REPLACE_ME",
   "status": "draft",
@@ -9,6 +9,10 @@
   },
   "curve_materializations": {
     "path": "heor/survival-curve-materializations.json",
+    "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
+  },
+  "treatment_effect_duration": {
+    "path": "heor/treatment-effect-duration.json",
     "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
   },
   "time_origin": "REPLACE_ME",

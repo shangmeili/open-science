@@ -241,10 +241,12 @@ def validate(
     materializations_path: Path | None = None,
     joint_manifest_path: Path | None = None,
     joint_draws_path: Path | None = None,
+    treatment_effect_duration_path: Path | None = None,
 ) -> list[str]:
     value, _ = load(uncertainty_path)
     plan, plan_raw = load(plan_path)
     errors: list[str] = []
+    duration_required = False
     schema_version = value.get("schema_version")
     if schema_version not in {
         LEGACY_SCHEMA_VERSION,
@@ -317,22 +319,37 @@ def validate(
             try:
                 partitioned, partitioned_raw = load(partitioned_path)
                 materializations, materializations_raw = load(materializations_path)
+                duration_required = partitioned.get("schema_version") == "0.4.0"
+                duration_raw = (
+                    treatment_effect_duration_path.read_bytes()
+                    if treatment_effect_duration_path is not None
+                    else None
+                )
             except (OSError, ValueError, json.JSONDecodeError) as error:
                 errors.append(f"partitioned-survival artifact is invalid: {error}")
             else:
                 inputs = value.get("partitioned_survival_inputs")
-                if not isinstance(inputs, dict) or set(inputs) != {"plan", "curve_materializations"}:
-                    errors.append("partitioned_survival_inputs must contain only plan and curve_materializations")
+                expected_inputs = {"plan", "curve_materializations"} | ({"treatment_effect_duration"} if duration_required else set())
+                if not isinstance(inputs, dict) or set(inputs) != expected_inputs:
+                    errors.append("partitioned_survival_inputs fields do not match the current PSM schema")
                 else:
-                    for field, path, raw in (
+                    bindings = [
                         ("plan", "heor/partitioned-survival-plan.json", partitioned_raw),
                         ("curve_materializations", "heor/survival-curve-materializations.json", materializations_raw),
-                    ):
+                    ]
+                    if duration_required:
+                        if duration_raw is None:
+                            errors.append("PSM schema 0.4.0 requires --treatment-effect-duration")
+                        else:
+                            bindings.append(("treatment_effect_duration", "heor/treatment-effect-duration.json", duration_raw))
+                    elif duration_raw is not None:
+                        errors.append("treatment-effect duration requires PSM schema 0.4.0")
+                    for field, path, raw in bindings:
                         binding = inputs.get(field)
                         if not isinstance(binding, dict) or set(binding) != {"path", "content_sha256"} or binding.get("path") != path or binding.get("content_sha256") != hashlib.sha256(raw).hexdigest():
                             errors.append(f"partitioned_survival_inputs.{field} does not bind the current artifact bytes")
-                if partitioned.get("schema_version") != "0.3.0" or partitioned.get("analysis_id") != plan.get("analysis_id"):
-                    errors.append("partitioned-survival plan must be schema 0.3.0 for the current analysis")
+                if partitioned.get("schema_version") not in {"0.3.0", "0.4.0"} or partitioned.get("analysis_id") != plan.get("analysis_id"):
+                    errors.append("partitioned-survival plan must be schema 0.3.0 or 0.4.0 for the current analysis")
                 if materializations.get("schema_version") != "0.1.0" or materializations.get("analysis_id") != plan.get("analysis_id"):
                     errors.append("survival-curve materializations must be schema 0.1.0 for the current analysis")
         if schema_version == JOINT_SURVIVAL_SCHEMA_VERSION:
@@ -988,10 +1005,16 @@ def validate(
             required = {
                 "partitioned_survival.structural.curve_family_selection",
                 "partitioned_survival.structural.extrapolation_assumptions",
-                "partitioned_survival.structural.treatment_effect_duration",
             }
             if not required.issubset(declared_omissions):
                 errors.append("schema 0.12.0 must explicitly omit unresolved structural survival uncertainty")
+            duration_omitted = "partitioned_survival.structural.treatment_effect_duration" in declared_omissions
+            if duration_required == duration_omitted:
+                errors.append(
+                    "modeled treatment-effect duration must not be omitted"
+                    if duration_required
+                    else "unmodeled treatment-effect duration must be explicitly omitted"
+                )
 
     scenarios = value.get("structural_scenarios")
     if not isinstance(scenarios, list) or not 1 <= len(scenarios) <= 64:
@@ -1066,6 +1089,7 @@ def main() -> int:
     parser.add_argument("--survival-curve-materializations", type=Path)
     parser.add_argument("--joint-survival-uncertainty-manifest", type=Path)
     parser.add_argument("--joint-survival-draws", type=Path)
+    parser.add_argument("--treatment-effect-duration", type=Path)
     args = parser.parse_args()
     try:
         errors = validate(
@@ -1075,6 +1099,7 @@ def main() -> int:
             args.survival_curve_materializations,
             args.joint_survival_uncertainty_manifest,
             args.joint_survival_draws,
+            args.treatment_effect_duration,
         )
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"INVALID: {error}", file=sys.stderr)

@@ -520,8 +520,12 @@ pub fn audit_survival_materializations(
             .pointer(&format!("/strategies/{strategy_id}/{endpoint}"))
             .and_then(serde_json::Value::as_array);
         let expected_count = cycles.map_or(0, |value| value as usize + 1);
+        let duration_derived = psm
+            .get("schema_version")
+            .and_then(serde_json::Value::as_str)
+            == Some("0.4.0");
         if manifest_values.map_or(0, Vec::len) != expected_count
-            || psm_values.map_or(0, Vec::len) != expected_count
+            || (!duration_derived && psm_values.map_or(0, Vec::len) != expected_count)
         {
             audit
                 .errors
@@ -537,10 +541,11 @@ pub fn audit_survival_materializations(
                         .push(format!("{target} deterministic evaluation failed"));
                     break;
                 };
-                for (label, row, require_basis) in [
-                    ("manifest", &manifest_values.unwrap()[value_index], false),
-                    ("PSM", &psm_values.unwrap()[value_index], true),
-                ] {
+                let mut rows = vec![("manifest", &manifest_values.unwrap()[value_index], false)];
+                if !duration_derived {
+                    rows.push(("PSM", &psm_values.unwrap()[value_index], true));
+                }
+                for (label, row, require_basis) in rows {
                     let observed_time = row.get("time_years").and_then(serde_json::Value::as_f64);
                     let observed = row.get("survival").and_then(serde_json::Value::as_f64);
                     if !observed_time

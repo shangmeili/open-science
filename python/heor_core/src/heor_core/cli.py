@@ -39,6 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Required materialization manifest for partitioned survival",
     )
     parser.add_argument(
+        "--treatment-effect-duration",
+        type=Path,
+        help="Required treatment-effect duration artifact for PSM schema 0.4.0",
+    )
+    parser.add_argument(
         "--joint-survival-uncertainty-manifest",
         type=Path,
         help="Required manifest for uncertainty schema 0.12.0",
@@ -62,6 +67,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ModelValidationError(
                 "--survival-curve-materializations requires "
                 "--partitioned-survival-plan"
+            )
+        if args.treatment_effect_duration is not None and args.partitioned_survival_plan is None:
+            raise ModelValidationError(
+                "--treatment-effect-duration requires --partitioned-survival-plan"
             )
         joint_options = (
             args.joint_survival_uncertainty_manifest,
@@ -106,6 +115,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 partitioned_payload = json.loads(partitioned_raw)
                 materializations_raw = args.survival_curve_materializations.read_bytes()
                 materializations_payload = json.loads(materializations_raw)
+                duration_required = partitioned_payload.get("schema_version") == "0.4.0"
+                if duration_required != (args.treatment_effect_duration is not None):
+                    raise ModelValidationError(
+                        "partitioned-survival schema 0.4.0 requires exactly one --treatment-effect-duration option"
+                    )
+                duration_raw = (
+                    args.treatment_effect_duration.read_bytes()
+                    if duration_required
+                    else None
+                )
+                duration_payload = (
+                    json.loads(duration_raw) if duration_raw is not None else None
+                )
                 joint_schema = uncertainty_payload.get("schema_version") == "0.12.0"
                 if joint_schema and not all(item is not None for item in joint_options):
                     raise ModelValidationError(
@@ -138,6 +160,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     joint_manifest_payload,
                     joint_manifest_raw,
                     joint_draws_raw,
+                    duration_payload,
+                    duration_raw,
                 )
             else:
                 if args.partitioned_survival_plan is not None:
@@ -160,6 +184,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             partitioned_payload = json.loads(partitioned_raw)
             materializations_raw = args.survival_curve_materializations.read_bytes()
             materializations_payload = json.loads(materializations_raw)
+            duration_required = partitioned_payload.get("schema_version") == "0.4.0"
+            if duration_required != (args.treatment_effect_duration is not None):
+                raise ModelValidationError(
+                    "partitioned-survival schema 0.4.0 requires exactly one --treatment-effect-duration option"
+                )
+            duration_raw = (
+                args.treatment_effect_duration.read_bytes() if duration_required else None
+            )
+            duration_payload = json.loads(duration_raw) if duration_raw is not None else None
             result = run_partitioned_survival(
                 payload,
                 raw,
@@ -167,6 +200,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 partitioned_raw,
                 materializations_payload,
                 materializations_raw,
+                duration_payload,
+                duration_raw,
             )
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     except (OSError, ArithmeticError, json.JSONDecodeError, ModelValidationError) as error:

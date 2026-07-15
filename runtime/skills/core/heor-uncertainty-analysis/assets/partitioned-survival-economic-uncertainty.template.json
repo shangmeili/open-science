@@ -15,6 +15,10 @@
     "curve_materializations": {
       "path": "heor/survival-curve-materializations.json",
       "content_sha256": "REPLACE_WITH_SHA256"
+    },
+    "treatment_effect_duration": {
+      "path": "heor/treatment-effect-duration.json",
+      "content_sha256": "REPLACE_WITH_SHA256"
     }
   },
   "seed": 20260715,

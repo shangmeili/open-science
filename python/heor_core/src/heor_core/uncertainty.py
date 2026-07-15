@@ -565,6 +565,8 @@ def run_uncertainty(
     joint_survival_manifest: dict[str, Any] | None = None,
     joint_survival_manifest_raw: bytes | None = None,
     joint_survival_draws_raw: bytes | None = None,
+    treatment_effect_duration: dict[str, Any] | None = None,
+    treatment_effect_duration_raw: bytes | None = None,
 ) -> dict[str, Any]:
     base_sha256 = hashlib.sha256(base_raw).hexdigest()
     uncertainty_sha256 = hashlib.sha256(uncertainty_raw).hexdigest()
@@ -592,9 +594,26 @@ def run_uncertainty(
             base_payload,
             uncertainty_payload,
             specification,
+            partitioned_plan,
             partitioned_raw,
             materializations_raw,
+            treatment_effect_duration_raw,
         )
+        duration_required = partitioned_plan.get("schema_version") == "0.4.0"
+        if duration_required and (
+            treatment_effect_duration is None
+            or treatment_effect_duration_raw is None
+        ):
+            raise ModelValidationError(
+                "partitioned-survival schema 0.4.0 uncertainty requires treatment-effect duration artifacts"
+            )
+        if not duration_required and (
+            treatment_effect_duration is not None
+            or treatment_effect_duration_raw is not None
+        ):
+            raise ModelValidationError(
+                "treatment-effect duration artifacts require partitioned-survival schema 0.4.0"
+            )
         if joint_survival:
             if (
                 joint_survival_manifest is None
@@ -620,6 +639,7 @@ def run_uncertainty(
                 joint_survival_manifest_raw,
                 joint_survival_draws_raw,
                 specification.iterations,
+                treatment_effect_duration_raw,
             )
             joint_curve_plans = iter_joint_survival_curve_plans(
                 joint_survival_draws_raw,
@@ -644,6 +664,8 @@ def run_uncertainty(
             partitioned_raw,
             materializations,
             materializations_raw,
+            treatment_effect_duration,
+            treatment_effect_duration_raw,
         )
 
         def evaluate(
@@ -667,6 +689,8 @@ def run_uncertainty(
                 joint_survival_manifest,
                 joint_survival_manifest_raw,
                 joint_survival_draws_raw,
+                treatment_effect_duration,
+                treatment_effect_duration_raw,
             )
         ):
             raise ModelValidationError(
@@ -750,6 +774,15 @@ def run_uncertainty(
                 "survival_curve_materializations_sha256": hashlib.sha256(
                     materializations_raw
                 ).hexdigest(),
+                **(
+                    {
+                        "treatment_effect_duration_sha256": hashlib.sha256(
+                            treatment_effect_duration_raw
+                        ).hexdigest(),
+                    }
+                    if treatment_effect_duration_raw is not None
+                    else {}
+                ),
             }
             if partitioned
             else {}
@@ -771,6 +804,16 @@ def run_uncertainty(
         "deterministic_analysis": deterministic,
         "probabilistic_analysis": probabilistic,
         "structural_scenarios": scenarios,
+        **(
+            {
+                "treatment_effect_duration_scenarios": base_result_dict[
+                    "treatment_effect_duration_scenarios"
+                ]
+            }
+            if partitioned
+            and "treatment_effect_duration_scenarios" in base_result_dict
+            else {}
+        ),
         "limitations": [
             (
                 "Only uncertainty represented by the hash-bound joint survival draws and declared economic-input distributions is sampled."
@@ -787,7 +830,11 @@ def run_uncertainty(
                 else [
                     "Schema 0.12.0 propagates one hash-bound joint draw across every strategy PFS/OS curve together with declared economic-input distributions in each PSA iteration.",
                     "The engine verifies draw completeness and curve coherence but does not establish that the source posterior or paired bootstrap is statistically or clinically appropriate; that remains a Human and independent-validation responsibility.",
-                    "Curve-family selection, extrapolation assumptions, and treatment-effect duration remain structural uncertainty outside the joint draw artifact and block release-ready interpretation.",
+                    (
+                        "Curve-family selection and extrapolation assumptions remain structural uncertainty outside the joint draw artifact; treatment-effect duration is reported separately through explicit sustained, immediate-stop, and log-linear-waning scenarios."
+                        if treatment_effect_duration_raw is not None
+                        else "Curve-family selection, extrapolation assumptions, and treatment-effect duration remain structural uncertainty outside the joint draw artifact and block release-ready interpretation."
+                    ),
                     "Per-person EVPI is conditional on the selected structural survival assumptions and covers only represented joint curve draws and economic inputs.",
                 ]
                 if joint_survival
@@ -817,25 +864,44 @@ def _validate_partitioned_survival_uncertainty_bindings(
     base_payload: dict[str, Any],
     uncertainty_payload: dict[str, Any],
     specification: UncertaintySpecification,
+    partitioned_plan: dict[str, Any],
     partitioned_raw: bytes,
     materializations_raw: bytes,
+    treatment_effect_duration_raw: bytes | None,
 ) -> None:
     inputs = _mapping(
         uncertainty_payload.get("partitioned_survival_inputs"),
         "partitioned_survival_inputs",
     )
-    if set(inputs) != {"plan", "curve_materializations"}:
+    duration_required = partitioned_plan.get("schema_version") == "0.4.0"
+    expected_fields = {"plan", "curve_materializations"}
+    if duration_required:
+        expected_fields.add("treatment_effect_duration")
+    if set(inputs) != expected_fields:
         raise ModelValidationError(
-            "partitioned_survival_inputs must contain only plan and curve_materializations"
+            "partitioned_survival_inputs fields do not match the current PSM schema"
         )
-    for field, expected_path, raw in (
+    bindings: list[tuple[str, str, bytes]] = [
         ("plan", "heor/partitioned-survival-plan.json", partitioned_raw),
         (
             "curve_materializations",
             "heor/survival-curve-materializations.json",
             materializations_raw,
         ),
-    ):
+    ]
+    if duration_required:
+        if treatment_effect_duration_raw is None:
+            raise ModelValidationError(
+                "partitioned_survival_inputs requires treatment_effect_duration for PSM schema 0.4.0"
+            )
+        bindings.append(
+            (
+                "treatment_effect_duration",
+                "heor/treatment-effect-duration.json",
+                treatment_effect_duration_raw,
+            )
+        )
+    for field, expected_path, raw in bindings:
         binding = _mapping(inputs.get(field), f"partitioned_survival_inputs.{field}")
         if set(binding) != {"path", "content_sha256"}:
             raise ModelValidationError(
@@ -874,8 +940,11 @@ def _validate_partitioned_survival_uncertainty_bindings(
         required_structural_omissions = {
             "partitioned_survival.structural.curve_family_selection",
             "partitioned_survival.structural.extrapolation_assumptions",
-            "partitioned_survival.structural.treatment_effect_duration",
         }
+        if not duration_required:
+            required_structural_omissions.add(
+                "partitioned_survival.structural.treatment_effect_duration"
+            )
         missing = sorted(required_structural_omissions - declared_omissions)
         if missing:
             raise ModelValidationError(

@@ -114,16 +114,17 @@ def validate(
     analysis_raw: bytes,
     plan: dict[str, Any],
     workspace: Path | None,
+    duration_raw: bytes | None = None,
 ) -> list[str]:
     errors: list[str] = []
     psm_schema = plan.get("schema_version")
     analysis_schema = analysis.get("schema_version")
-    if psm_schema not in {"0.2.0", "0.3.0"}:
-        errors.append("schema_version must be 0.2.0 or 0.3.0")
-    if psm_schema == "0.3.0" and analysis_schema != "0.12.0":
-        errors.append("partitioned survival schema 0.3.0 requires analysis schema 0.12.0")
-    if analysis_schema == "0.12.0" and psm_schema != "0.3.0":
-        errors.append("analysis schema 0.12.0 requires partitioned survival schema 0.3.0")
+    if psm_schema not in {"0.2.0", "0.3.0", "0.4.0"}:
+        errors.append("schema_version must be 0.2.0, 0.3.0, or 0.4.0")
+    if psm_schema in {"0.3.0", "0.4.0"} and analysis_schema != "0.12.0":
+        errors.append("partitioned survival schema 0.3.0 or 0.4.0 requires analysis schema 0.12.0")
+    if analysis_schema == "0.12.0" and psm_schema not in {"0.3.0", "0.4.0"}:
+        errors.append("analysis schema 0.12.0 requires partitioned survival schema 0.3.0 or 0.4.0")
     for field in ("psm_id", "analysis_id", "time_origin"):
         if not isinstance(plan.get(field), str) or not plan[field].strip():
             errors.append(f"{field} must not be empty")
@@ -138,6 +139,16 @@ def validate(
         errors.append("base_analysis.content_sha256 does not match analysis bytes")
     if (analysis.get("partitioned_survival_analysis") or {}).get("path") != PLAN_PATH:
         errors.append(f"analysis plan must link {PLAN_PATH}")
+    duration_binding = plan.get("treatment_effect_duration")
+    if psm_schema == "0.4.0":
+        if duration_raw is None:
+            errors.append("schema 0.4.0 requires --treatment-effect-duration")
+        elif not isinstance(duration_binding, dict) or set(duration_binding) != {"path", "content_sha256"}:
+            errors.append("treatment_effect_duration must contain only path and content_sha256")
+        elif duration_binding.get("path") != "heor/treatment-effect-duration.json" or duration_binding.get("content_sha256") != sha256(duration_raw):
+            errors.append("treatment_effect_duration does not bind the current artifact bytes")
+    elif duration_binding is not None or duration_raw is not None:
+        errors.append("treatment-effect duration requires partitioned survival schema 0.4.0")
     if analysis.get("states") != STATE_ORDER:
         errors.append("analysis states must be progression_free, progressed, dead")
 
@@ -288,6 +299,7 @@ def main() -> int:
     parser.add_argument("analysis_plan", type=Path)
     parser.add_argument("partitioned_survival_plan", type=Path)
     parser.add_argument("materializations", type=Path)
+    parser.add_argument("--treatment-effect-duration", type=Path)
     parser.add_argument("--workspace-root", type=Path, required=True)
     args = parser.parse_args()
     try:
@@ -297,10 +309,15 @@ def main() -> int:
         analysis = json.loads(analysis_raw)
         plan = json.loads(plan_raw)
         materializations = json.loads(materializations_raw)
+        duration_raw = (
+            args.treatment_effect_duration.read_bytes()
+            if args.treatment_effect_duration is not None
+            else None
+        )
     except (OSError, json.JSONDecodeError) as error:
         print(f"INVALID: {error}")
         return 1
-    errors = validate(analysis, analysis_raw, plan, args.workspace_root)
+    errors = validate(analysis, analysis_raw, plan, args.workspace_root, duration_raw)
     if analysis.get("schema_version") == "0.12.0":
         economic_validator_path = (
             Path(__file__).resolve().parents[2]

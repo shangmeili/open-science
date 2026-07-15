@@ -21,6 +21,10 @@ pub struct PartitionedSurvivalAudit {
     pub analysis_plan_sha256: String,
     pub partitioned_survival_sha256: String,
     pub survival_curve_materializations_sha256: String,
+    pub treatment_effect_duration_required: bool,
+    pub treatment_effect_duration_sha256: Option<String>,
+    pub treatment_effect_duration_scenario_count: Option<usize>,
+    pub treatment_effect_duration_base_case_id: Option<String>,
     pub strategy_count: usize,
     pub curve_count: usize,
     pub time_point_count: usize,
@@ -53,6 +57,10 @@ fn empty_audit(plan_raw: &[u8], required: bool) -> PartitionedSurvivalAudit {
         analysis_plan_sha256: sha256(plan_raw),
         partitioned_survival_sha256: String::new(),
         survival_curve_materializations_sha256: String::new(),
+        treatment_effect_duration_required: false,
+        treatment_effect_duration_sha256: None,
+        treatment_effect_duration_scenario_count: None,
+        treatment_effect_duration_base_case_id: None,
         strategy_count: 0,
         curve_count: 0,
         time_point_count: 0,
@@ -132,22 +140,22 @@ fn audit_values(
     let analysis_schema = plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str);
-    if !matches!(psm_schema, Some("0.2.0" | "0.3.0")) {
+    if !matches!(psm_schema, Some("0.2.0" | "0.3.0" | "0.4.0")) {
         audit
             .errors
-            .push("partitioned survival schema_version must be 0.2.0 or 0.3.0".into());
+            .push("partitioned survival schema_version must be 0.2.0, 0.3.0, or 0.4.0".into());
     }
-    if psm_schema == Some("0.3.0") && analysis_schema != Some("0.12.0") {
-        audit
-            .errors
-            .push("partitioned survival schema 0.3.0 requires analysis schema 0.12.0".into());
+    if matches!(psm_schema, Some("0.3.0" | "0.4.0")) && analysis_schema != Some("0.12.0") {
+        audit.errors.push(
+            "partitioned survival schema 0.3.0 or 0.4.0 requires analysis schema 0.12.0".into(),
+        );
     }
-    if analysis_schema == Some("0.12.0") && psm_schema != Some("0.3.0") {
-        audit
-            .errors
-            .push("analysis schema 0.12.0 requires partitioned survival schema 0.3.0".into());
+    if analysis_schema == Some("0.12.0") && !matches!(psm_schema, Some("0.3.0" | "0.4.0")) {
+        audit.errors.push(
+            "analysis schema 0.12.0 requires partitioned survival schema 0.3.0 or 0.4.0".into(),
+        );
     }
-    if psm_schema == Some("0.3.0") {
+    if matches!(psm_schema, Some("0.3.0" | "0.4.0")) {
         audit
             .errors
             .extend(crate::heor_economic_inputs::audit_economic_inputs(plan));
@@ -455,6 +463,38 @@ fn audit_values(
                 .map(|error| format!("survival materialization: {error}")),
         );
     }
+    if psm_schema == Some("0.4.0") {
+        audit.treatment_effect_duration_required = true;
+        let duration_audit = crate::heor_treatment_effect_duration::audit_treatment_effect_duration(
+            workspace,
+            plan,
+            plan_raw,
+            psm,
+            &audit.survival_curve_materializations_sha256,
+        );
+        audit.treatment_effect_duration_sha256 =
+            (!duration_audit.sha256.is_empty()).then_some(duration_audit.sha256);
+        audit.treatment_effect_duration_scenario_count = Some(duration_audit.scenario_count);
+        audit.treatment_effect_duration_base_case_id =
+            (!duration_audit.base_case_scenario_id.is_empty())
+                .then_some(duration_audit.base_case_scenario_id);
+        audit
+            .artifact_bindings
+            .extend(duration_audit.artifact_bindings);
+        if !duration_audit.complete {
+            audit.errors.extend(
+                duration_audit
+                    .errors
+                    .into_iter()
+                    .map(|error| format!("treatment-effect duration: {error}")),
+            );
+        }
+    } else if psm.get("treatment_effect_duration").is_some() {
+        audit.errors.push(
+            "treatment_effect_duration is admitted only by partitioned-survival schema 0.4.0"
+                .into(),
+        );
+    }
     let authority = String::from_utf8_lossy(psm_raw).to_ascii_lowercase();
     if [
         "\"approved\":",
@@ -562,6 +602,8 @@ pub fn run_heor_partitioned_survival(
     let psm_path = workspace.join(PARTITIONED_SURVIVAL_PLAN_PATH);
     let materializations_path =
         workspace.join(crate::heor_survival_materialization::SURVIVAL_MATERIALIZATION_PATH);
+    let duration_path =
+        workspace.join(crate::heor_treatment_effect_duration::TREATMENT_EFFECT_DURATION_PATH);
     let plan_raw = crate::heor_uncertainty::read_workspace_capped(&workspace, ANALYSIS_PLAN_PATH)?;
     let audit = require_partitioned_survival_approvable(&workspace, &plan_raw)?;
 
@@ -570,7 +612,8 @@ pub fn run_heor_partitioned_survival(
         .resolve("heor-core/src", BaseDirectory::Resource)
         .map_err(|error| format!("bundled HEOR engine unavailable: {error}"))?;
     let (python, _) = crate::kernel::python_bin(&app)?;
-    let output = crate::runtime::quiet_command(python)
+    let mut command = crate::runtime::quiet_command(python);
+    command
         .args(["-m", "heor_core"])
         .arg(&plan_path)
         .arg("--partitioned-survival-plan")
@@ -580,7 +623,13 @@ pub fn run_heor_partitioned_survival(
         .current_dir(&workspace)
         .env("PYTHONPATH", &package_src)
         .env("PYTHONDONTWRITEBYTECODE", "1")
-        .env("PYTHONNOUSERSITE", "1")
+        .env("PYTHONNOUSERSITE", "1");
+    if audit.treatment_effect_duration_required {
+        command
+            .arg("--treatment-effect-duration")
+            .arg(&duration_path);
+    }
+    let output = command
         .output()
         .map_err(|error| format!("partitioned survival engine failed to start: {error}"))?;
     if !output.status.success() {
@@ -610,6 +659,11 @@ pub fn run_heor_partitioned_survival(
             .get("survival_curve_materializations_sha256")
             .and_then(serde_json::Value::as_str)
             != Some(audit.survival_curve_materializations_sha256.as_str())
+        || (audit.treatment_effect_duration_required
+            && calculation
+                .get("treatment_effect_duration_sha256")
+                .and_then(serde_json::Value::as_str)
+                != audit.treatment_effect_duration_sha256.as_deref())
     {
         return Err("partitioned survival engine hashes do not match audited inputs".into());
     }

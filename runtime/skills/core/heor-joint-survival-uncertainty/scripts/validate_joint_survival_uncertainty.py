@@ -13,7 +13,8 @@ from pathlib import Path
 
 
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
-SCHEMA_VERSION = "0.1.0"
+LEGACY_SCHEMA_VERSION = "0.1.0"
+DURATION_SCHEMA_VERSION = "0.2.0"
 DRAW_FORMAT = "ai4heor-joint-survival-draws-jsonl@0.1.0"
 DRAW_PATH = "heor/joint-survival-draws.jsonl"
 MAX_DRAW_BYTES = 128 * 1024 * 1024
@@ -38,7 +39,6 @@ MANIFEST_FIELDS = {
 STRUCTURAL_OMISSIONS = {
     "partitioned_survival.structural.curve_family_selection",
     "partitioned_survival.structural.extrapolation_assumptions",
-    "partitioned_survival.structural.treatment_effect_duration",
 }
 
 
@@ -158,6 +158,7 @@ def validate(
     manifest_path: Path,
     draws_path: Path,
     workspace_root: Path,
+    duration_path: Path | None = None,
 ) -> list[str]:
     analysis, analysis_raw = load_object(analysis_path)
     psm, psm_raw = load_object(psm_path)
@@ -165,20 +166,24 @@ def validate(
     uncertainty, uncertainty_raw = load_object(uncertainty_path)
     manifest, manifest_raw = load_object(manifest_path)
     draws_raw = draws_path.read_bytes()
+    duration_required = psm.get("schema_version") == "0.4.0"
+    duration_raw = duration_path.read_bytes() if duration_path is not None else None
     errors: list[str] = []
 
-    if set(manifest) != MANIFEST_FIELDS:
-        errors.append("manifest fields do not match schema 0.1.0 exactly")
-    if manifest.get("schema_version") != SCHEMA_VERSION:
-        errors.append(f"manifest schema_version must be {SCHEMA_VERSION}")
+    expected_fields = MANIFEST_FIELDS | ({"treatment_effect_duration"} if duration_required else set())
+    expected_schema = DURATION_SCHEMA_VERSION if duration_required else LEGACY_SCHEMA_VERSION
+    if set(manifest) != expected_fields:
+        errors.append(f"manifest fields do not match schema {expected_schema} exactly")
+    if manifest.get("schema_version") != expected_schema:
+        errors.append(f"manifest schema_version must be {expected_schema}")
     if not text(manifest.get("survival_uncertainty_id")):
         errors.append("survival_uncertainty_id must not be empty")
     if manifest.get("status") != "ready_for_human_review":
         errors.append("manifest status must be ready_for_human_review")
     if analysis.get("schema_version") != "0.12.0":
         errors.append("analysis schema_version must be 0.12.0")
-    if psm.get("schema_version") != "0.3.0":
-        errors.append("partitioned-survival schema_version must be 0.3.0")
+    if psm.get("schema_version") not in {"0.3.0", "0.4.0"}:
+        errors.append("partitioned-survival schema_version must be 0.3.0 or 0.4.0")
     if uncertainty.get("schema_version") != "0.12.0":
         errors.append("uncertainty schema_version must be 0.12.0")
     if manifest.get("analysis_id") != analysis.get("analysis_id") or psm.get("analysis_id") != analysis.get("analysis_id"):
@@ -189,6 +194,13 @@ def validate(
     exact_binding(manifest.get("base_analysis"), "heor/analysis-plan.json", analysis_raw, "base_analysis", errors)
     exact_binding(manifest.get("partitioned_survival_plan"), "heor/partitioned-survival-plan.json", psm_raw, "partitioned_survival_plan", errors)
     exact_binding(manifest.get("curve_materializations"), "heor/survival-curve-materializations.json", materializations_raw, "curve_materializations", errors)
+    if duration_required:
+        if duration_raw is None:
+            errors.append("PSM schema 0.4.0 requires --treatment-effect-duration")
+        else:
+            exact_binding(manifest.get("treatment_effect_duration"), "heor/treatment-effect-duration.json", duration_raw, "treatment_effect_duration", errors)
+    elif duration_raw is not None or "treatment_effect_duration" in manifest:
+        errors.append("treatment-effect duration requires PSM schema 0.4.0")
 
     order = analysis.get("strategy_order")
     if not string_list(order):
@@ -300,6 +312,13 @@ def validate(
         errors.append("represented PFS/OS curves must not be listed as omitted")
     if not STRUCTURAL_OMISSIONS.issubset(omission_paths):
         errors.append("all required structural survival omissions must be declared")
+    duration_omitted = "partitioned_survival.structural.treatment_effect_duration" in omission_paths
+    if duration_required == duration_omitted:
+        errors.append(
+            "modeled treatment-effect duration must not be omitted"
+            if duration_required
+            else "unmodeled treatment-effect duration must be explicitly omitted"
+        )
 
     if draw_count and expected_grid and order:
         cells = draw_count * len(expected_curve_order) * len(expected_grid)
@@ -324,6 +343,7 @@ def main() -> int:
     parser.add_argument("manifest", type=Path)
     parser.add_argument("draws", type=Path)
     parser.add_argument("--workspace-root", type=Path, default=Path("."))
+    parser.add_argument("--treatment-effect-duration", type=Path)
     args = parser.parse_args()
     try:
         errors = validate(
@@ -334,6 +354,7 @@ def main() -> int:
             args.manifest,
             args.draws,
             args.workspace_root,
+            args.treatment_effect_duration,
         )
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"FAIL: {error}", file=sys.stderr)

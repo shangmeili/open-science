@@ -50,6 +50,7 @@
       "../../../python/heor_core/src/heor_core/relative_effect.py": "heor-core/src/heor_core/relative_effect.py",
       "../../../python/heor_core/src/heor_core/hazard_ratio.py": "heor-core/src/heor_core/hazard_ratio.py",
       "../../../python/heor_core/src/heor_core/joint_survival_uncertainty.py": "heor-core/src/heor_core/joint_survival_uncertainty.py",
+      "../../../python/heor_core/src/heor_core/treatment_effect_duration.py": "heor-core/src/heor_core/treatment_effect_duration.py",
       "../../../python/heor_core/src/heor_core/survival_curves.py": "heor-core/src/heor_core/survival_curves.py",
       "../../../python/heor_core/src/heor_core/transition_rates.py": "heor-core/src/heor_core/transition_rates.py",
       "../../../python/heor_core/src/heor_core/uncertainty.py": "heor-core/src/heor_core/uncertainty.py",

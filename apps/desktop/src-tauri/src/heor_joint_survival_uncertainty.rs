@@ -248,30 +248,45 @@ pub fn audit_joint_survival_for_plan(
             return audit;
         }
     };
-    if !object_has_exact_keys(
-        &manifest,
-        &[
-            "schema_version",
-            "survival_uncertainty_id",
-            "analysis_id",
-            "psm_id",
-            "status",
-            "base_analysis",
-            "partitioned_survival_plan",
-            "curve_materializations",
-            "draw_file",
-            "curve_order",
-            "time_grid_years",
-            "generation",
-            "limitations",
-        ],
-    ) {
+    let legacy_fields = [
+        "schema_version",
+        "survival_uncertainty_id",
+        "analysis_id",
+        "psm_id",
+        "status",
+        "base_analysis",
+        "partitioned_survival_plan",
+        "curve_materializations",
+        "draw_file",
+        "curve_order",
+        "time_grid_years",
+        "generation",
+        "limitations",
+    ];
+    let duration_fields = [
+        "schema_version",
+        "survival_uncertainty_id",
+        "analysis_id",
+        "psm_id",
+        "status",
+        "base_analysis",
+        "partitioned_survival_plan",
+        "curve_materializations",
+        "treatment_effect_duration",
+        "draw_file",
+        "curve_order",
+        "time_grid_years",
+        "generation",
+        "limitations",
+    ];
+    if !object_has_exact_keys(&manifest, &legacy_fields)
+        && !object_has_exact_keys(&manifest, &duration_fields)
+    {
         audit
             .errors
-            .push("joint survival manifest fields do not match schema 0.1.0".into());
+            .push("joint survival manifest fields do not match a supported schema".into());
     }
-    if text(manifest.get("schema_version")) != Some("0.1.0")
-        || text(manifest.get("status")) != Some("ready_for_human_review")
+    if text(manifest.get("status")) != Some("ready_for_human_review")
         || text(manifest.get("survival_uncertainty_id")).is_none()
     {
         audit
@@ -308,6 +323,19 @@ pub fn audit_joint_survival_for_plan(
             return audit;
         }
     };
+    let duration_required = psm
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        == Some("0.4.0");
+    let expected_schema = if duration_required { "0.2.0" } else { "0.1.0" };
+    if text(manifest.get("schema_version")) != Some(expected_schema)
+        || (duration_required && !object_has_exact_keys(&manifest, &duration_fields))
+        || (!duration_required && !object_has_exact_keys(&manifest, &legacy_fields))
+    {
+        audit.errors.push(format!(
+            "joint survival manifest must use schema {expected_schema} for the current PSM"
+        ));
+    }
     if manifest.get("analysis_id") != plan.get("analysis_id")
         || manifest.get("psm_id") != psm.get("psm_id")
     {
@@ -336,6 +364,21 @@ pub fn audit_joint_survival_for_plan(
         "curve_materializations",
         &mut audit.errors,
     );
+    if duration_required {
+        match crate::heor_uncertainty::read_workspace_capped(
+            workspace,
+            crate::heor_treatment_effect_duration::TREATMENT_EFFECT_DURATION_PATH,
+        ) {
+            Ok(duration_raw) => validate_binding(
+                manifest.get("treatment_effect_duration"),
+                crate::heor_treatment_effect_duration::TREATMENT_EFFECT_DURATION_PATH,
+                &sha256(&duration_raw),
+                "treatment_effect_duration",
+                &mut audit.errors,
+            ),
+            Err(error) => audit.errors.push(error),
+        }
+    }
     if uncertainty
         .get("joint_survival_inputs")
         .is_none_or(|value| !object_has_exact_keys(value, &["manifest", "draws"]))

@@ -18,10 +18,11 @@ description: Prepare, audit, and revise a release-reviewable HEOR report package
 9. For analysis `0.9.0`, report the life-table jurisdiction, year, population, sex, start age, attained-age rule, annual-probability-to-cycle formula, constant excess-rate basis, and exact `population_exchangeability` and `no_double_counting` bases. State that those bases are not approvals. Disclose that uncertainty `0.8.0` holds the life table fixed and varies only the excess rate, and that an untested multiplicative/SMR structure remains a Human-in-the-loop limitation.
 10. For analysis `0.10.0`, report every baseline cycle risk, RR or OR measure and basis, effect interval, exact arithmetic, and the `endpoint_alignment`, `population_transportability`, and `effect_constancy_over_cycles` bases without treating them as approvals. Disclose that uncertainty `0.9.0` varies only the relative effect with measure-specific support, and that HR, waning, competing risks, and unsupported extrapolation remain limitations.
 11. For analysis `0.11.0`, report every baseline cumulative hazard, its increment, the HR and basis, exact arithmetic, and all five endpoint, population, proportional-hazards, effect-duration, and switching review bases without treating them as approvals. Disclose that uncertainty `0.10.0` varies only the HR with bounded Uniform support and that time-varying effects, waning/stopping, unresolved switching, competing/recurrent events, fitting/selection, and partitioned survival remain limitations.
-12. Disclose funding, conflicts, Agent contributions, model providers, data/model availability, and patient/public involvement. Never infer a missing disclosure.
-13. Copy `release_owner_label` only from an explicit human instruction. Do not invent an owner, create an approval event, or call a package released.
-14. Run `python3 scripts/validate_report_package.py WORKSPACE/heor/report-package.json WORKSPACE`. Treat `valid` as structural reporting readiness, not methodological quality, policy endorsement, or release.
-15. Ask the named human release owner to inspect the report and use the desktop release control.
+12. For partitioned-survival analysis `0.12.0` with PSM `0.4.0`, report the immutable source curves, evidence horizon, HR and basis, selected base duration scenario, all sustained/immediate-stop/log-linear-waning scenario cost and QALY summaries, and which duration alternatives remain outside the joint PSA. Do not present a base-duration PSA as probabilistic integration over structural alternatives.
+13. Disclose funding, conflicts, Agent contributions, model providers, data/model availability, and patient/public involvement. Never infer a missing disclosure.
+14. Copy `release_owner_label` only from an explicit human instruction. Do not invent an owner, create an approval event, or call a package released.
+15. Run `python3 scripts/validate_report_package.py WORKSPACE/heor/report-package.json WORKSPACE`. Treat `valid` as structural reporting readiness, not methodological quality, policy endorsement, or release.
+16. Ask the named human release owner to inspect the report and use the desktop release control.
 
 ## Boundaries
 

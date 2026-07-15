@@ -754,14 +754,20 @@ three-state calculation class. Natural-language interaction creates or repairs
 the rationale and bindings; curve rows are an auxiliary exact-input surface.
 Each curve review must match the current analysis, strategy/endpoint target,
 PFS or OS context, exact bytes, and Human-selected converged family. PSM schema
-`0.3.0` also binds `heor/survival-curve-materializations.json`: for each strategy
+`0.4.0` binds `heor/survival-curve-materializations.json` as immutable source curves and
+`heor/treatment-effect-duration.json` as explicit structural policy: for each strategy
 and endpoint, that manifest binds one typed selected-fit output, its exact bytes,
 an admitted parameterization, evaluator `ai4heor-parametric-survival@0.1.0`,
 the analysis time grid, and every reproduced value. The first-party
 `$heor-survival-curve-materialization` workflow and a standalone validator create
 and check the artifact; native Rust independently re-reads the reviews and fit
 outputs and recalculates every exponential-rate or Weibull AFT value before the
-plan can enter approval.
+plan can enter approval. The first-party `$heor-treatment-effect-duration` workflow
+then requires exactly two ordered strategies and three complete sustained,
+immediate-stop, and log-linear-waning scenarios. It retains each source intervention
+curve through a declared evidence horizon, rebuilds the later tail from comparator
+hazard increments and an evidence-bound HR, rejects PFS above OS, and never infers
+duration from the HR point estimate.
 It derives progression-free occupancy from PFS, progressed occupancy from
 OS-PFS, and death from 1-OS; computes state rewards and incremental results;
 and blocks curve crossing, increasing survival, time-grid mismatch, stale
@@ -771,8 +777,8 @@ plan and result. Analysis schema `0.12.0` now separates common costs, utilities,
 cycle settings, discounting, and thresholds from PSM structure; its strategy
 objects forbid initial distributions and transition definitions. Portable,
 Python, browser, and native validators independently enforce that boundary while
-legacy PSM schema `0.2.0` remains calculation-compatible. Curve materialization closes the numerical-
+legacy PSM schemas `0.2.0` and `0.3.0` remain calculation-compatible. Curve materialization closes the numerical-
 derivation gap only for the two admitted parameterizations. Statistical fitting,
 coefficient transformation, automatic family selection, covariance and PSM
-uncertainty, treatment-effect composition, other survival families, and
+uncertainty, other survival families, probabilistic integration across duration alternatives, and
 substantive internal, external, or clinical validity remain outside this alpha.

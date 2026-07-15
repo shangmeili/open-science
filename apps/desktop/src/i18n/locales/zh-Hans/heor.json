@@ -290,8 +290,10 @@
     "strategies": "策略",
     "curves": "PFS / OS 曲线",
     "points": "曲线点",
+    "durationScenarios": "持续时间情景",
+    "baseDuration": "基准持续时间情景",
     "askAgent": "让 Agent 创建或修复分区生存分析",
-    "repairPrompt": "以自然语言交互为主，表单只作辅助。先使用 $heor-economic-inputs 创建或修复结构中立的 analysis schema 0.12.0，写入成本、效用、周期和贴现设置，但不得添加初始分布、转移矩阵或转移计划；再使用 $heor-survival-curve-materialization，把每条经人工选择的指数率或 Weibull AFT PFS/OS 曲线从精确绑定的类型化拟合输出重现在分析周期网格上；最后使用 $heor-partitioned-survival 创建或修复 schema 0.3.0 heor/partitioned-survival-plan.json，并绑定精确的曲线物化清单。确认正向三状态概念依据、目标人群、终点定义、时间起点和周期网格一致。按无进展=PFS、进展=OS-PFS、死亡=1-OS 计算。不支持的分布、参数漂移、曲线回升、PFS 高于 OS、负占用或溯源缺失时必须失败，不得静默修补。运行全部确定性验证器，且不得创建或声称人工审批。",
+    "repairPrompt": "以自然语言交互为主，表单只作辅助。使用 $heor-economic-inputs 创建结构中立的 analysis schema 0.12.0，使用 $heor-survival-curve-materialization 重现经人工选择且精确绑定的源曲线，再使用 $heor-treatment-effect-duration 创建有证据依据的效应持续、立即停止和对数线性衰减三类情景；不得从 HR 点估计推断持续时间。最后使用 $heor-partitioned-survival 创建或修复 schema 0.4.0 heor/partitioned-survival-plan.json，并绑定源曲线物化与持续时间工件。确认正向三状态概念依据、目标人群、终点、时间起点和周期网格一致。按无进展=PFS、进展=OS-PFS、死亡=1-OS 计算。不支持的分布、参数漂移、曲线回升、PFS 高于 OS、负占用或溯源缺失时必须失败，不得静默修补。运行全部确定性验证器，且不得创建或声称人工审批。",
     "note": "自然语言依据是主交互，精确参数与曲线行只是辅助结构化输入；应用会独立重算每条已准入曲线。可供审查不等于已获人工批准。",
     "releaseBoundary": "当前支持本地计算和分析计划审批；在报告与独立验证契约绑定本计划及结果前，发布仍会被阻断。",
     "noProject": "当前没有可供分区生存审计的项目。",
@@ -427,7 +429,10 @@
   "partitionedSurvivalResult": {
     "title": "分区生存结果",
     "strategy": "策略",
-    "note": "状态占用直接来自已绑定的 PFS 与 OS 数值；终点独立外推仍是必须显式披露的结构性局限。"
+    "durationScenarios": "治疗效应持续时间情景",
+    "incrementalCost": "增量成本",
+    "incrementalQaly": "增量 QALY",
+    "note": "状态占用直接来自已绑定的 PFS 与 OS 数值；持续时间备选是确定性结构情景，不代表已对结构不确定性完成概率整合。"
   },
   "toast": {
     "evidenceVerified": "证据审阅决定已写入应用持有的核验链",

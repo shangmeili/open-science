@@ -397,6 +397,10 @@ export interface HeorPartitionedSurvivalAudit {
   analysisPlanSha256: string;
   partitionedSurvivalSha256: string;
   survivalCurveMaterializationsSha256: string;
+  treatmentEffectDurationRequired: boolean;
+  treatmentEffectDurationSha256: string | null;
+  treatmentEffectDurationScenarioCount: number | null;
+  treatmentEffectDurationBaseCaseId: string | null;
   strategyCount: number;
   curveCount: number;
   timePointCount: number;
@@ -948,14 +952,25 @@ export interface HeorBudgetImpactRunResult {
 }
 
 export interface HeorPartitionedSurvivalCalculation {
-  schema_version: "0.3.0";
+  schema_version: "0.3.0" | "0.4.0";
   engine_version: string;
   analysis_id: string;
   psm_id: string;
   analysis_plan_sha256: string;
   partitioned_survival_plan_sha256: string;
-  partitioned_survival_plan_schema_version: "0.2.0" | "0.3.0";
+  partitioned_survival_plan_schema_version: "0.2.0" | "0.3.0" | "0.4.0";
   survival_curve_materializations_sha256: string;
+  treatment_effect_duration_sha256?: string;
+  treatment_effect_duration_scenarios?: Array<{
+    scenario_id: string;
+    label: string;
+    strategy_order: string[];
+    baseline_strategy_id: string;
+    strategies: Record<string, Pick<HeorStrategyResult, "name" | "total_cost" | "total_qaly" | "net_monetary_benefit">>;
+    pairwise_vs_baseline: Record<string, HeorIncrementalResult>;
+    fully_incremental_analysis: NonNullable<HeorCalculation["fully_incremental_analysis"]>;
+    optimal_at_primary_threshold: HeorCalculation["optimal_at_primary_threshold"];
+  }>;
   calculation_classification: "calculation_only";
   model_type: "partitioned_survival";
   state_order: ["progression_free", "progressed", "dead"];
@@ -2884,6 +2899,10 @@ export const HEOR_BROWSER_DEMO_PARTITIONED_SURVIVAL_AUDIT: HeorPartitionedSurviv
   analysisPlanSha256: "",
   partitionedSurvivalSha256: "",
   survivalCurveMaterializationsSha256: "",
+  treatmentEffectDurationRequired: false,
+  treatmentEffectDurationSha256: null,
+  treatmentEffectDurationScenarioCount: null,
+  treatmentEffectDurationBaseCaseId: null,
   strategyCount: 0,
   curveCount: 0,
   timePointCount: 0,

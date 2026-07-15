@@ -290,8 +290,10 @@
     "strategies": "Strategies",
     "curves": "PFS / OS curves",
     "points": "Curve points",
+    "durationScenarios": "Duration scenarios",
+    "baseDuration": "Base duration scenario",
     "askAgent": "Ask Agent to build or repair partitioned survival",
-    "repairPrompt": "Use natural-language interaction first and forms only as an aid. First use $heor-economic-inputs to create or repair structure-neutral analysis schema 0.12.0 with costs, utilities, cycle settings and discounting but no initial distribution, transition matrix or transition schedule. Use $heor-survival-curve-materialization to reproduce every Human-selected exponential-rate or Weibull AFT PFS/OS curve from its exact typed fit output on the analysis cycle grid. Then use $heor-partitioned-survival to create or repair schema 0.3.0 heor/partitioned-survival-plan.json and bind the exact materialization manifest. Confirm the forward-only three-state conceptual basis, aligned population, endpoint definitions, time origin and cycle grid. Calculate progression free = PFS, progressed = OS - PFS, and dead = 1 - OS. Fail rather than silently repair unsupported families, parameter drift, increasing curves, PFS above OS, negative occupancy or missing provenance. Run all deterministic validators and never create or claim human approval.",
+    "repairPrompt": "Use natural-language interaction first and forms only as an aid. Use $heor-economic-inputs for structure-neutral analysis schema 0.12.0, $heor-survival-curve-materialization for exact reviewed source curves, and $heor-treatment-effect-duration to create evidence-bound sustained, immediate-stop, and log-linear-waning scenarios. Never infer duration from an HR point estimate. Then use $heor-partitioned-survival to create or repair schema 0.4.0 heor/partitioned-survival-plan.json and bind the exact source materialization and duration artifacts. Confirm the forward-only three-state basis, aligned population, endpoints, time origin and cycle grid. Calculate progression free = PFS, progressed = OS - PFS, and dead = 1 - OS. Fail rather than silently repair unsupported families, parameter drift, increasing curves, PFS above OS, negative occupancy or missing provenance. Run all deterministic validators and never create or claim human approval.",
     "note": "Natural-language rationale remains primary; exact parameter and curve rows are auxiliary structured inputs. The app independently re-evaluates every admitted curve. Ready for review is not human approval.",
     "releaseBoundary": "Local calculation and analysis-plan approval are supported. Release remains blocked until the report and independent-validation contracts bind this plan and result.",
     "noProject": "There is no current project for partitioned survival audit.",
@@ -427,7 +429,10 @@
   "partitionedSurvivalResult": {
     "title": "Partitioned survival result",
     "strategy": "Strategy",
-    "note": "State occupancy was derived directly from the bound PFS and OS values. Independent endpoint extrapolation remains an explicit structural limitation."
+    "durationScenarios": "Treatment-effect duration scenarios",
+    "incrementalCost": "Incremental cost",
+    "incrementalQaly": "Incremental QALY",
+    "note": "State occupancy was derived directly from bound PFS and OS values. Duration alternatives are deterministic structural scenarios, not probabilistic integration across structural uncertainty."
   },
   "toast": {
     "evidenceVerified": "Evidence review decision was recorded in the app-owned chain",

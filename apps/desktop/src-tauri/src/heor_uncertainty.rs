@@ -68,6 +68,12 @@ fn string_set(value: Option<&serde_json::Value>) -> Option<HashSet<&str>> {
     Some(result)
 }
 
+fn object_has_exact_keys(value: &serde_json::Value, expected: &[&str]) -> bool {
+    value.as_object().is_some_and(|object| {
+        object.len() == expected.len() && expected.iter().all(|field| object.contains_key(*field))
+    })
+}
+
 fn positive_number(value: Option<&serde_json::Value>) -> bool {
     value
         .and_then(serde_json::Value::as_f64)
@@ -470,7 +476,17 @@ fn validate_correlation_groups(
 ) -> usize {
     if !matches!(
         schema_version,
-        Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0")
+        Some(
+            "0.4.0"
+                | "0.5.0"
+                | "0.6.0"
+                | "0.7.0"
+                | "0.8.0"
+                | "0.9.0"
+                | "0.10.0"
+                | "0.11.0"
+                | "0.12.0"
+        )
     ) {
         if correlation.is_some_and(|value| value.contains_key("groups")) {
             errors.push(
@@ -1537,7 +1553,6 @@ fn audit_values(
         for required in [
             "partitioned_survival.structural.curve_family_selection",
             "partitioned_survival.structural.extrapolation_assumptions",
-            "partitioned_survival.structural.treatment_effect_duration",
         ] {
             if !declared.contains(required) {
                 audit.errors.push(format!(
@@ -1646,14 +1661,14 @@ pub fn audit_uncertainty_plan_for_plan(
         .get("schema_version")
         .and_then(serde_json::Value::as_str);
     if matches!(schema_version, Some("0.11.0" | "0.12.0")) {
-        if let Err(error) =
+        let partitioned_audit =
             crate::heor_partitioned_survival::require_partitioned_survival_approvable(
                 workspace, plan_raw,
-            )
-        {
-            audit.errors.push(error);
+            );
+        if let Err(error) = &partitioned_audit {
+            audit.errors.push(error.clone());
         }
-        for (field, path) in [
+        let mut bindings = vec![
             (
                 "plan",
                 crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_PLAN_PATH,
@@ -1662,7 +1677,49 @@ pub fn audit_uncertainty_plan_for_plan(
                 "curve_materializations",
                 crate::heor_survival_materialization::SURVIVAL_MATERIALIZATION_PATH,
             ),
-        ] {
+        ];
+        if partitioned_audit
+            .as_ref()
+            .is_ok_and(|value| value.treatment_effect_duration_required)
+        {
+            bindings.push((
+                "treatment_effect_duration",
+                crate::heor_treatment_effect_duration::TREATMENT_EFFECT_DURATION_PATH,
+            ));
+        }
+        let expected_fields = bindings.iter().map(|(field, _)| *field).collect::<Vec<_>>();
+        if uncertainty
+            .get("partitioned_survival_inputs")
+            .is_none_or(|value| !object_has_exact_keys(value, &expected_fields))
+        {
+            audit.errors.push(
+                "partitioned_survival_inputs fields do not match the current PSM schema".into(),
+            );
+        }
+        if schema_version == Some("0.12.0") {
+            let duration_omitted = uncertainty
+                .pointer("/probabilistic_analysis/omitted_parameters")
+                .and_then(serde_json::Value::as_array)
+                .is_some_and(|items| {
+                    items.iter().any(|item| {
+                        item.get("provenance_path")
+                            .and_then(serde_json::Value::as_str)
+                            == Some("partitioned_survival.structural.treatment_effect_duration")
+                    })
+                });
+            let duration_required = partitioned_audit
+                .as_ref()
+                .is_ok_and(|value| value.treatment_effect_duration_required);
+            if duration_required == duration_omitted {
+                audit.errors.push(if duration_required {
+                    "modeled treatment-effect duration must not be listed as omitted".into()
+                } else {
+                    "unmodeled treatment-effect duration must be explicitly listed as omitted"
+                        .into()
+                });
+            }
+        }
+        for (field, path) in bindings {
             match read_workspace_capped(workspace, path) {
                 Ok(raw) => {
                     let expected_sha256 = sha256(&raw);
@@ -1796,15 +1853,18 @@ pub fn run_heor_uncertainty(
         if uncertainty_audit.joint_survival_required {
             command
                 .arg("--joint-survival-uncertainty-manifest")
-                .arg(
-                    workspace.join(
-                        crate::heor_joint_survival_uncertainty::MANIFEST_PATH,
-                    ),
-                )
+                .arg(workspace.join(crate::heor_joint_survival_uncertainty::MANIFEST_PATH))
                 .arg("--joint-survival-draws")
-                .arg(
-                    workspace.join(crate::heor_joint_survival_uncertainty::DRAWS_PATH),
-                );
+                .arg(workspace.join(crate::heor_joint_survival_uncertainty::DRAWS_PATH));
+        }
+        if partitioned_audit
+            .as_ref()
+            .is_some_and(|audit| audit.treatment_effect_duration_required)
+        {
+            command.arg("--treatment-effect-duration").arg(
+                workspace
+                    .join(crate::heor_treatment_effect_duration::TREATMENT_EFFECT_DURATION_PATH),
+            );
         }
     }
     let output = command
@@ -1850,6 +1910,11 @@ pub fn run_heor_uncertainty(
                 .get("survival_curve_materializations_sha256")
                 .and_then(serde_json::Value::as_str)
                 != Some(audit.survival_curve_materializations_sha256.as_str())
+            || (audit.treatment_effect_duration_required
+                && calculation
+                    .get("treatment_effect_duration_sha256")
+                    .and_then(serde_json::Value::as_str)
+                    != audit.treatment_effect_duration_sha256.as_deref())
         {
             return Err(
                 "HEOR uncertainty engine partitioned-survival hashes do not match desktop-audited inputs".into(),

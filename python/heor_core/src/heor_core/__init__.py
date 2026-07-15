@@ -16,6 +16,7 @@ from .relative_effect import RelativeEffectError, derive_relative_effect_schedul
 from .partitioned_survival import run_partitioned_survival
 from .joint_survival_uncertainty import validate_joint_survival_uncertainty
 from .survival_materialization import validate_survival_curve_materializations
+from .treatment_effect_duration import validate_treatment_effect_duration
 
 __all__ = [
     "AnalysisResult",
@@ -32,6 +33,7 @@ __all__ = [
     "run_partitioned_survival",
     "validate_joint_survival_uncertainty",
     "validate_survival_curve_materializations",
+    "validate_treatment_effect_duration",
 ]
 
 __version__ = "0.1.0"

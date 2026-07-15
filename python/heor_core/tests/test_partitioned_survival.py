@@ -163,7 +163,7 @@ def materialization_payload(analysis_raw: bytes, plan: dict) -> dict:
                         if family == "exponential"
                         else "weibull_shape_scale_aft"
                     ),
-                    "parameters": parameters,
+                    "parameters": dict(parameters),
                     "basis_ids": curve_basis(review, fit),
                     "values": [
                         {

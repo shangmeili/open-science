@@ -10,7 +10,8 @@ from typing import Any, Iterator
 from .model import ModelValidationError
 
 
-SCHEMA_VERSION = "0.1.0"
+SCHEMA_VERSION = "0.2.0"
+PREVIOUS_SCHEMA_VERSION = "0.1.0"
 MANIFEST_PATH = "heor/joint-survival-uncertainty.json"
 DRAW_PATH = "heor/joint-survival-draws.jsonl"
 DRAW_FORMAT = "ai4heor-joint-survival-draws-jsonl@0.1.0"
@@ -39,32 +40,38 @@ def validate_joint_survival_uncertainty(
     manifest_raw: bytes,
     draws_raw: bytes,
     expected_iterations: int,
+    treatment_effect_duration_raw: bytes | None = None,
 ) -> None:
     """Fail closed unless one JSONL row jointly covers every PFS/OS curve."""
 
     manifest = _object(manifest, "joint survival uncertainty manifest")
+    duration_required = partitioned_plan.get("schema_version") == "0.4.0"
+    expected_fields = {
+        "schema_version",
+        "survival_uncertainty_id",
+        "analysis_id",
+        "psm_id",
+        "status",
+        "base_analysis",
+        "partitioned_survival_plan",
+        "curve_materializations",
+        "draw_file",
+        "curve_order",
+        "time_grid_years",
+        "generation",
+        "limitations",
+    }
+    if duration_required:
+        expected_fields.add("treatment_effect_duration")
     _exact_keys(
         manifest,
-        {
-            "schema_version",
-            "survival_uncertainty_id",
-            "analysis_id",
-            "psm_id",
-            "status",
-            "base_analysis",
-            "partitioned_survival_plan",
-            "curve_materializations",
-            "draw_file",
-            "curve_order",
-            "time_grid_years",
-            "generation",
-            "limitations",
-        },
+        expected_fields,
         "joint survival uncertainty manifest",
     )
-    if manifest.get("schema_version") != SCHEMA_VERSION:
+    expected_schema = SCHEMA_VERSION if duration_required else PREVIOUS_SCHEMA_VERSION
+    if manifest.get("schema_version") != expected_schema:
         raise ModelValidationError(
-            f"joint survival uncertainty schema_version must be {SCHEMA_VERSION}"
+            f"joint survival uncertainty schema_version must be {expected_schema} for the current PSM schema"
         )
     _nonempty(manifest.get("survival_uncertainty_id"), "survival_uncertainty_id")
     if manifest.get("status") != "ready_for_human_review":
@@ -93,6 +100,21 @@ def validate_joint_survival_uncertainty(
         ),
     ):
         _validate_binding(manifest.get(field), field, expected_path, expected_raw)
+    if duration_required:
+        if treatment_effect_duration_raw is None:
+            raise ModelValidationError(
+                "joint survival uncertainty requires current treatment-effect duration bytes"
+            )
+        _validate_binding(
+            manifest.get("treatment_effect_duration"),
+            "treatment_effect_duration",
+            "heor/treatment-effect-duration.json",
+            treatment_effect_duration_raw,
+        )
+    elif treatment_effect_duration_raw is not None:
+        raise ModelValidationError(
+            "joint survival treatment-effect duration binding requires PSM schema 0.4.0"
+        )
 
     strategy_order = analysis_plan.get("strategy_order")
     if not _nonempty_strings(strategy_order):

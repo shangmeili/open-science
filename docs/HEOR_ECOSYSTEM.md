@@ -146,6 +146,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-background-mortality` | Age-aligned annual life-table mortality plus one constant additive excess rate, with explicit exchangeability and double-counting bases | Schema `0.9.0` transition schedule derivation |
 | Shipped | `heor-relative-effect-adapter` | Apply one aligned RR or OR to cycle-specific baseline risks with exact review bases and full schedule recomputation | Schema `0.10.0` transition schedule derivation |
 | Shipped | `heor-hazard-ratio-adapter` | Apply one reviewed constant HR to cycle-aligned baseline cumulative-hazard increments with explicit proportional-hazards, effect-duration, and switching review bases | Schema `0.11.0` transition schedule derivation |
+| Shipped alpha | `heor-treatment-effect-duration` | Preserve source PFS/OS through an explicit evidence horizon, then derive sustained, immediate-stop, and log-linear-waning intervention tails from comparator hazard increments without inferring duration from an HR point estimate | `heor/treatment-effect-duration.json`, PSM schema `0.4.0`, scenario cost/QALY summaries |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, per-person EVPI, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
@@ -423,10 +424,15 @@ The bounded partitioned-survival alpha is shipped as a structurally separate
 calculation, not a transition-matrix adapter. It accepts only aligned three-state
 PFS/OS cycle-boundary curves, binds the exact analysis and curve-review bytes plus
 each logical endpoint target and Human-selected converged family, and requires
-the exact schema `0.1.0` survival-materialization manifest. Each materialized
+the exact schema `0.1.0` survival-materialization manifest and schema `0.1.0`
+treatment-duration artifact. Each materialized
 curve binds a strict typed fit output, admitted exponential-rate or Weibull AFT
 parameterization, evaluator version, grid, values, and ordered basis IDs.
-derives `PFS`, `OS-PFS`, and `1-OS`, and returns cost, QALY, pairwise, and fully
+The duration artifact covers sustained, immediate-stop, and log-linear-waning
+policies for exactly two ordered strategies. It shares endpoint evidence horizons
+and HR bases across scenarios, derives post-horizon intervention survival from
+comparator hazard increments, and fails closed on crossing or stale hashes. PSM
+schema `0.4.0` derives `PFS`, `OS-PFS`, and `1-OS`, and returns cost, QALY, pairwise, and fully
 incremental results. Python, the standalone Skill validator, and native Rust
 independently re-read review and fit-output bytes, recalculate each admitted
 curve, and fail on parameter drift, unsupported parameterizations, increasing
@@ -441,8 +447,10 @@ The first-party `heor-joint-survival-uncertainty` asset and uncertainty schema
 `0.12.0` now admit already-generated joint posterior or paired-patient-bootstrap
 rows across all strategy PFS/OS curves. The portable/Python/native contracts
 bind every source and draw byte, reject independent endpoint sampling and curve
-crossing, and consume one whole row per PSA iteration. Curve-family selection,
-extrapolation, treatment-effect duration, source-model validity, independent
+crossing, and consume one whole row per PSA iteration. Joint manifest schema `0.2.0`
+binds the duration bytes; non-base duration alternatives remain separate deterministic
+scenario results. Curve-family selection, extrapolation, source-model validity, independent
 validation, and release reporting remain blocked.
 Materialization is not statistical fitting, automatic selection, covariance
-recovery, treatment-effect application, or substantive extrapolation validation.
+recovery, or substantive extrapolation validation. Treatment-effect application is
+limited to the explicit first-party duration contract.

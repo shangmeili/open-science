@@ -2527,11 +2527,17 @@ function PartitionedSurvivalAssessment({
       </div>
       <div className="mt-1 font-mono text-[10px] text-muted">{HEOR_PARTITIONED_SURVIVAL_PLAN_PATH}</div>
       {audit && audit.required && (
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+        <div className="mt-3 grid grid-cols-4 gap-2 text-center">
           <Metric label={t("partitionedSurvival.strategies")} value={String(audit.strategyCount)} />
           <Metric label={t("partitionedSurvival.curves")} value={String(audit.curveCount)} />
           <Metric label={t("partitionedSurvival.points")} value={String(audit.timePointCount)} />
+          <Metric label={t("partitionedSurvival.durationScenarios")} value={String(audit.treatmentEffectDurationScenarioCount ?? 0)} />
         </div>
+      )}
+      {audit?.treatmentEffectDurationBaseCaseId && (
+        <p className="mt-2 text-[10px] leading-4 text-muted">
+          {t("partitionedSurvival.baseDuration")}: <span className="font-mono text-text">{audit.treatmentEffectDurationBaseCaseId}</span>
+        </p>
       )}
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
@@ -3306,6 +3312,28 @@ function PartitionedSurvivalResultCard({
           </tbody>
         </table>
       </div>
+      {calculation.treatment_effect_duration_scenarios?.length ? (
+        <div className="mt-4">
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("partitionedSurvivalResult.durationScenarios")}
+          </div>
+          <div className="space-y-2">
+            {calculation.treatment_effect_duration_scenarios.map((scenario) => {
+              const interventionId = scenario.strategy_order.find((id) => id !== scenario.baseline_strategy_id);
+              const incremental = interventionId ? scenario.pairwise_vs_baseline[interventionId] : undefined;
+              return (
+                <div key={scenario.scenario_id} className="rounded-input border border-border bg-bg px-3 py-2">
+                  <div className="text-[10px] font-medium text-text">{scenario.label}</div>
+                  <div className="mt-1 flex gap-4 text-[9px] tabular-nums text-muted">
+                    <span>{t("partitionedSurvivalResult.incrementalCost")}: {incremental ? currency.format(incremental.delta_cost) : "—"}</span>
+                    <span>{t("partitionedSurvivalResult.incrementalQaly")}: {incremental ? qaly.format(incremental.delta_qaly) : "—"}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
       <p className="mt-3 text-[10px] leading-4 text-muted">{t("partitionedSurvivalResult.note")}</p>
     </section>
   );

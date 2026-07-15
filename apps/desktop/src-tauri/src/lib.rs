@@ -23,6 +23,7 @@ mod heor_search;
 mod heor_synthesis;
 mod heor_survival_materialization;
 mod heor_survival_review;
+mod heor_treatment_effect_duration;
 mod heor_uncertainty;
 mod heor_validation;
 mod jupyter;

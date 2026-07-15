@@ -799,21 +799,28 @@ layer, and provenance/reviewer as the real moat of an open-source Claude Science
 
 ## Partitioned-survival alpha contract (2026-07-15)
 
-`heor/partitioned-survival-plan.json` schema `0.3.0` is an optional, hash-bound
+`heor/partitioned-survival-plan.json` schema `0.4.0` is an optional, hash-bound
 analysis linked from structure-neutral analysis schema `0.12.0`. It requires the exact state order
 `progression_free`, `progressed`, `dead`; a forward-only conceptual basis;
 aligned time-zero and cycle-endpoint PFS/OS values with exact ordered review,
 fit-output, and evaluator basis IDs;
 and exact PFS/OS review-file hashes, logical strategy/endpoint targets, and
-Human-selected converged families. It also binds the exact schema `0.1.0`
-`heor/survival-curve-materializations.json` bytes. Each curve in that manifest
+Human-selected converged families. It binds the exact schema `0.1.0`
+`heor/survival-curve-materializations.json` bytes as immutable source curves and
+the exact schema `0.1.0` `heor/treatment-effect-duration.json` bytes. Each source curve
 binds a strict selected-fit output and one explicit `exponential_rate` or
 `weibull_shape_scale_aft` parameterization, evaluator
 `ai4heor-parametric-survival@0.1.0`, analysis grid, and reproduced values. The
 portable materialization validator and native Rust independently read the
 review and typed fit-output bytes and evaluate `exp(-rate*t)` or
 `exp(-(t/scale)^shape)`; any hash, family, parameter, value, order, or copied-
-basis drift fails closed. The native boundary reuses the full
+basis drift fails closed. The duration contract admits exactly two ordered strategies
+and requires endpoint-specific policies covering sustained, immediate-stop, and
+log-linear-waning effects. Every scenario shares one explicit evidence horizon,
+HR, and HR evidence basis per endpoint. After the evidence horizon, the intervention
+curve is rebuilt from comparator cumulative-hazard increments; the engine never
+infers duration from an HR point estimate, silently repairs crossing, or mutates the
+source materialization. The native boundary reuses the full
 survival-review audit and requires the bound review context to name the matching
 PFS or OS endpoint. The dependency-free engine computes
 occupancy directly as `(PFS, OS-PFS, 1-OS)` and applies the base plan's state
@@ -827,8 +834,8 @@ result; this prevents an unsupported decision-ready claim. Analysis schema
 matrices, schedules, and initial distributions are forbidden rather than
 silently ignored.
 
-Paired uncertainty schema `0.11.0` hash-binds the fixed PSM plan and survival-
-curve materializations and runs DSA, PSA, and bounded economic structural
+Paired uncertainty schema `0.11.0` hash-binds the fixed PSM plan, source materializations,
+and duration artifact and runs DSA, PSA, and bounded economic structural
 scenarios only over exact state-cost and state-utility scalars. The Python core,
 portable validator, native Rust boundary, and browser result surface enforce the
 same `partial_parameter_uncertainty` / `economic_inputs_only` classification.
@@ -837,7 +844,7 @@ parameter covariance and joint PFS/OS uncertainty therefore remain explicit
 limitations of this compatibility path.
 
 Uncertainty schema `0.12.0` and engine `0.13.0` add a bounded backend-neutral
-joint-draw path through `heor/joint-survival-uncertainty.json` and
+joint-draw path through schema `0.2.0` `heor/joint-survival-uncertainty.json` and
 `heor/joint-survival-draws.jsonl`. One row covers every strategy PFS then OS
 curve on the exact analysis grid and is consumed intact in one PSA iteration,
 together with sampled economic inputs. The admitted source is a reviewed joint
@@ -848,11 +855,14 @@ and native Rust independently verify hashes, source bytes, row count/order,
 finite monotone survival, and PFS no greater than OS. The output classification
 is `joint_curve_draw_parameter_uncertainty` with scope
 `joint_survival_curves_and_economic_inputs`. Curve-family selection,
-extrapolation assumptions, treatment-effect duration, source-model validity,
-and independent validation remain explicit structural or release blockers;
+extrapolation assumptions, source-model validity, probabilistic integration across
+duration alternatives, and independent validation remain explicit structural or release blockers.
+Treatment-effect duration is no longer a silent omission: the base policy is hash-bound
+and all three alternatives are returned as separate deterministic cost/QALY scenarios;
 conditional CEAC, CEAF, and per-person EVPI are not presented as complete PSM
 uncertainty.
 The materializer does not fit data, transform backend coefficients, choose a
-family, infer covariance, apply treatment effects, support other survival
-families, or establish clinical/external validity. Those remain distinct future
+family, infer covariance, support other survival families, or establish clinical/external
+validity. Treatment-effect application is limited to the separate duration contract above.
+Those remain distinct future
 contracts, as do validation/report integration.

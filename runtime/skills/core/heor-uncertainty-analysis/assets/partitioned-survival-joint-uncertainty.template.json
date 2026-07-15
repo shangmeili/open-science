@@ -15,6 +15,10 @@
     "curve_materializations": {
       "path": "heor/survival-curve-materializations.json",
       "content_sha256": "REPLACE_WITH_SHA256"
+    },
+    "treatment_effect_duration": {
+      "path": "heor/treatment-effect-duration.json",
+      "content_sha256": "REPLACE_WITH_SHA256"
     }
   },
   "joint_survival_inputs": {
@@ -72,10 +76,6 @@
       {
         "provenance_path": "partitioned_survival.structural.extrapolation_assumptions",
         "rationale": "Alternative extrapolation assumptions remain structural uncertainty outside the selected joint draw model."
-      },
-      {
-        "provenance_path": "partitioned_survival.structural.treatment_effect_duration",
-        "rationale": "Alternative treatment-effect durations remain structural uncertainty outside the selected joint draw model."
       }
     ]
   },

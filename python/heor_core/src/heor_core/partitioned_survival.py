@@ -21,11 +21,14 @@ from .model import (
     _optimal_at_threshold,
 )
 from .survival_materialization import validate_survival_curve_materializations
+from .treatment_effect_duration import validate_treatment_effect_duration
 
 
-SCHEMA_VERSION = "0.3.0"
+SCHEMA_VERSION = "0.4.0"
+PREVIOUS_SCHEMA_VERSION = "0.3.0"
 LEGACY_SCHEMA_VERSION = "0.2.0"
-ENGINE_VERSION = "0.3.0"
+ENGINE_VERSION = "0.4.0"
+PREVIOUS_ENGINE_VERSION = "0.3.0"
 PLAN_PATH = "heor/partitioned-survival-plan.json"
 ANALYSIS_PATH = "heor/analysis-plan.json"
 STATE_ORDER = ("progression_free", "progressed", "dead")
@@ -40,29 +43,54 @@ def run_partitioned_survival(
     partitioned_raw: bytes,
     materializations: dict[str, Any],
     materializations_raw: bytes,
+    treatment_effect_duration: dict[str, Any] | None = None,
+    treatment_effect_duration_raw: bytes | None = None,
 ) -> dict[str, Any]:
     """Validate and execute a hash-bound partitioned survival plan."""
 
     plan_schema = partitioned_plan.get("schema_version")
     specification = (
         EconomicSpecification.from_analysis_plan(analysis_plan)
-        if plan_schema == SCHEMA_VERSION
+        if plan_schema in {PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION}
         else EconomicSpecification.from_legacy_markov_plan(analysis_plan)
     )
     _validate(partitioned_plan, analysis_plan, analysis_raw, specification)
-    validate_survival_curve_materializations(
+    source_curves = validate_survival_curve_materializations(
         analysis_plan,
         analysis_raw,
         partitioned_plan,
         materializations,
         materializations_raw,
     )
+    duration_scenarios = None
+    if plan_schema == SCHEMA_VERSION:
+        if treatment_effect_duration is None or treatment_effect_duration_raw is None:
+            raise ModelValidationError(
+                "partitioned-survival schema 0.4.0 requires treatment-effect duration artifacts"
+            )
+        duration_scenarios = validate_treatment_effect_duration(
+            analysis_plan,
+            analysis_raw,
+            partitioned_plan,
+            materializations_raw,
+            source_curves,
+            treatment_effect_duration,
+            treatment_effect_duration_raw,
+        )
+    elif treatment_effect_duration is not None or treatment_effect_duration_raw is not None:
+        raise ModelValidationError(
+            "treatment-effect duration artifacts require partitioned-survival schema 0.4.0"
+        )
 
     result = calculate_partitioned_survival(specification, partitioned_plan)
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": (
+            SCHEMA_VERSION if plan_schema == SCHEMA_VERSION else PREVIOUS_SCHEMA_VERSION
+        ),
         "partitioned_survival_plan_schema_version": plan_schema,
-        "engine_version": ENGINE_VERSION,
+        "engine_version": (
+            ENGINE_VERSION if plan_schema == SCHEMA_VERSION else PREVIOUS_ENGINE_VERSION
+        ),
         "analysis_id": specification.analysis_id,
         "psm_id": partitioned_plan["psm_id"],
         "analysis_plan_sha256": hashlib.sha256(analysis_raw).hexdigest(),
@@ -72,6 +100,28 @@ def run_partitioned_survival(
         "survival_curve_materializations_sha256": hashlib.sha256(
             materializations_raw
         ).hexdigest(),
+        **(
+            {
+                "treatment_effect_duration_sha256": hashlib.sha256(
+                    treatment_effect_duration_raw
+                ).hexdigest(),
+                "treatment_effect_duration_scenarios": [
+                    {
+                        "scenario_id": scenario["scenario_id"],
+                        "label": scenario["label"],
+                        **_duration_scenario_summary(
+                            calculate_partitioned_survival(
+                                specification,
+                                {"strategies": scenario["strategies"]},
+                            )
+                        ),
+                    }
+                    for scenario in duration_scenarios.values()
+                ],
+            }
+            if duration_scenarios is not None
+            else {}
+        ),
         "calculation_classification": "calculation_only",
         "model_type": "partitioned_survival",
         "state_order": list(STATE_ORDER),
@@ -79,8 +129,15 @@ def run_partitioned_survival(
         **result,
         "limitations": list(partitioned_plan["limitations"]),
         "warnings": [
-            "PFS and OS were evaluated as independently supplied curves; "
-            "their extrapolated dependency is not estimated by this calculator.",
+            *(
+                [
+                    "Treatment-effect duration was represented by explicit sustained, immediate-stop, and log-linear-waning scenarios; statistical and clinical validity remain Human review responsibilities."
+                ]
+                if duration_scenarios is not None
+                else [
+                    "PFS and OS were evaluated as independently supplied curves; their extrapolated dependency and treatment-effect duration are not estimated by this calculator."
+                ]
+            ),
             *(
                 [
                     "Legacy schema 0.2.0 transition inputs were validated for "
@@ -216,18 +273,23 @@ def _validate(
 ) -> None:
     value = _mapping(value, "partitioned survival plan")
     plan_schema = value.get("schema_version")
-    if plan_schema not in {LEGACY_SCHEMA_VERSION, SCHEMA_VERSION}:
+    if plan_schema not in {
+        LEGACY_SCHEMA_VERSION,
+        PREVIOUS_SCHEMA_VERSION,
+        SCHEMA_VERSION,
+    }:
         raise ModelValidationError(
-            f"partitioned survival schema_version must be {LEGACY_SCHEMA_VERSION} or {SCHEMA_VERSION}"
+            "partitioned survival schema_version must be "
+            f"{LEGACY_SCHEMA_VERSION}, {PREVIOUS_SCHEMA_VERSION}, or {SCHEMA_VERSION}"
         )
     analysis_schema = analysis_plan.get("schema_version")
-    if plan_schema == SCHEMA_VERSION and analysis_schema != "0.12.0":
+    if plan_schema in {PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION} and analysis_schema != "0.12.0":
         raise ModelValidationError(
-            "partitioned survival schema 0.3.0 requires analysis schema 0.12.0"
+            "partitioned survival schema 0.3.0 or 0.4.0 requires analysis schema 0.12.0"
         )
     if plan_schema == LEGACY_SCHEMA_VERSION and analysis_schema == "0.12.0":
         raise ModelValidationError(
-            "analysis schema 0.12.0 requires partitioned survival schema 0.3.0"
+            "analysis schema 0.12.0 requires partitioned survival schema 0.3.0 or 0.4.0"
         )
     for field in ("psm_id", "analysis_id", "time_origin"):
         _nonempty(value.get(field), field)
@@ -254,6 +316,21 @@ def _validate(
     )
     if linked.get("path") != PLAN_PATH:
         raise ModelValidationError(f"analysis plan must link {PLAN_PATH}")
+    duration_link = value.get("treatment_effect_duration")
+    if plan_schema == SCHEMA_VERSION:
+        duration_link = _mapping(duration_link, "treatment_effect_duration")
+        if duration_link.get("path") != "heor/treatment-effect-duration.json":
+            raise ModelValidationError(
+                "treatment_effect_duration.path must be heor/treatment-effect-duration.json"
+            )
+        if not _valid_sha256(duration_link.get("content_sha256")):
+            raise ModelValidationError(
+                "treatment_effect_duration.content_sha256 must be lowercase SHA-256"
+            )
+    elif duration_link is not None:
+        raise ModelValidationError(
+            "treatment_effect_duration is admitted only by partitioned-survival schema 0.4.0"
+        )
     if specification.states != STATE_ORDER:
         raise ModelValidationError(
             "partitioned survival requires analysis states progression_free, "
@@ -405,6 +482,27 @@ def _mapping(value: Any, name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ModelValidationError(f"{name} must be an object")
     return value
+
+
+def _duration_scenario_summary(result: dict[str, Any]) -> dict[str, Any]:
+    """Keep structural scenario output bounded while preserving decisions."""
+
+    return {
+        "strategy_order": result["strategy_order"],
+        "baseline_strategy_id": result["baseline_strategy_id"],
+        "strategies": {
+            strategy_id: {
+                "name": strategy["name"],
+                "total_cost": strategy["total_cost"],
+                "total_qaly": strategy["total_qaly"],
+                "net_monetary_benefit": strategy["net_monetary_benefit"],
+            }
+            for strategy_id, strategy in result["strategies"].items()
+        },
+        "pairwise_vs_baseline": result["pairwise_vs_baseline"],
+        "fully_incremental_analysis": result["fully_incremental_analysis"],
+        "optimal_at_primary_threshold": result["optimal_at_primary_threshold"],
+    }
 
 
 def _nonempty(value: Any, name: str) -> None:

@@ -113,7 +113,11 @@ class JointSurvivalTemplateContractTests(unittest.TestCase):
             ROOT / "runtime/skills/core/heor-joint-survival-uncertainty/assets/joint-survival-draws.example.jsonl"
         ).read_text().splitlines()
 
-        self.assertEqual(manifest["schema_version"], "0.1.0")
+        self.assertEqual(manifest["schema_version"], "0.2.0")
+        self.assertEqual(
+            manifest["treatment_effect_duration"]["path"],
+            "heor/treatment-effect-duration.json",
+        )
         self.assertEqual(manifest["status"], "draft")
         self.assertFalse(manifest["generation"]["independent_endpoint_sampling"])
         self.assertEqual(
@@ -2654,6 +2658,7 @@ class UncertaintyContractTests(unittest.TestCase):
             value["base_analysis"]["content_sha256"] = hashlib.sha256(plan_raw).hexdigest()
             value["partitioned_survival_inputs"]["plan"]["content_sha256"] = hashlib.sha256(psm_raw).hexdigest()
             value["partitioned_survival_inputs"]["curve_materializations"]["content_sha256"] = hashlib.sha256(materializations_raw).hexdigest()
+            value["partitioned_survival_inputs"].pop("treatment_effect_duration")
             value["parameters"][0]["id"] = "intervention-pf-cost"
             value["parameters"][0]["label"] = "Intervention PF cost"
             value["parameters"][0]["probabilistic"]["basis_ids"] = ["cost-basis"]
