@@ -71,6 +71,10 @@ economic_inputs = load(
     "validate_economic_inputs",
     "runtime/skills/core/heor-economic-inputs/scripts/validate_economic_inputs.py",
 )
+cost_input_normalization = load(
+    "validate_cost_input_normalization",
+    "runtime/skills/core/heor-cost-input-normalization/scripts/validate_cost_input_normalization.py",
+)
 survival_adapter = load(
     "validate_survival_curve",
     "runtime/skills/core/heor-survival-curve-adapter/scripts/validate_survival_curve.py",
@@ -99,6 +103,81 @@ survival_extrapolation_collection = load(
     "validate_survival_extrapolation_collection",
     "runtime/skills/core/heor-survival-extrapolation-review/scripts/validate_survival_extrapolation_collection.py",
 )
+
+
+class CostInputNormalizationContractTests(unittest.TestCase):
+    @staticmethod
+    def fixture():
+        plan = {
+            "schema_version": "0.13.0",
+            "analysis_id": "portable-cost-inputs",
+            "decision_problem": {"jurisdiction": "England", "perspective": "NHS and PSS"},
+            "economic_basis": {"currency": "GBP", "price_year": 2026},
+            "states": ["progression_free", "dead"],
+            "strategy_order": ["comparator", "intervention"],
+            "strategies": {
+                "comparator": {"state_costs": [120.0, 0.0]},
+                "intervention": {"state_costs": [240.0, 0.0]},
+            },
+            "evidence_sources": [{"id": "price-source"}, {"id": "quantity-source"}],
+            "assumptions": [{"id": "scope-basis", "status": "proposed"}],
+            "input_provenance": [],
+        }
+        raw = json.dumps(plan, separators=(",", ":")).encode()
+        artifact = {
+            "schema_version": "0.1.0",
+            "normalization_id": "portable-cost-inputs",
+            "analysis_id": plan["analysis_id"],
+            "status": "ready_for_human_review",
+            "base_analysis": {
+                "path": "heor/analysis-plan.json",
+                "content_sha256": hashlib.sha256(raw).hexdigest(),
+            },
+            "target_basis": {
+                "currency": "GBP", "price_year": 2026,
+                "jurisdiction": "England", "perspective": "NHS and PSS",
+            },
+            "item_order": ["comparator-drug", "intervention-drug"],
+            "items": {},
+            "annual_state_costs": {
+                "comparator": [120.0, 0.0], "intervention": [240.0, 0.0],
+            },
+            "limitations": ["Only annual state-cost rates are represented."],
+        }
+        for item_id, strategy_id, amount in (
+            ("comparator-drug", "comparator", 10.0),
+            ("intervention-drug", "intervention", 20.0),
+        ):
+            artifact["items"][item_id] = {
+                "item_id": item_id, "strategy_id": strategy_id,
+                "state_id": "progression_free", "category": "drug_acquisition",
+                "description": "One monthly dose represented as an annual state-cost rate.",
+                "scope_basis_ids": ["scope-basis"],
+                "annual_quantity": {"value": 12.0, "unit": "dose", "basis_ids": ["quantity-source"]},
+                "unit_price": {
+                    "amount": amount, "per_unit": "dose", "currency": "GBP",
+                    "price_year": 2026, "jurisdiction": "England",
+                    "price_basis": "paid_price", "tax_status": "excluded",
+                    "basis_ids": ["price-source"],
+                },
+                "adjustments": [], "normalized_unit_price": amount,
+                "normalized_annual_cost": amount * 12.0,
+            }
+        return plan, raw, artifact
+
+    def test_portable_validator_reproduces_item_and_state_totals(self):
+        plan, raw, artifact = self.fixture()
+        self.assertEqual(cost_input_normalization.validate(plan, raw, artifact), [])
+
+    def test_portable_validator_rejects_unknown_fields_and_arithmetic_drift(self):
+        for mutation in ("unknown-field", "arithmetic"):
+            with self.subTest(mutation=mutation):
+                plan, raw, artifact = self.fixture()
+                if mutation == "unknown-field":
+                    artifact["items"]["intervention-drug"]["approval"] = True
+                else:
+                    artifact["items"]["intervention-drug"]["normalized_annual_cost"] = 239.0
+                self.assertTrue(cost_input_normalization.validate(plan, raw, artifact))
 
 
 class JointSurvivalTemplateContractTests(unittest.TestCase):
@@ -2616,6 +2695,7 @@ class UncertaintyContractTests(unittest.TestCase):
                 ROOT / "runtime/skills/core/heor-economic-inputs/assets/partitioned-survival-analysis-plan.template.json"
             ).read_text())
             plan.update({
+                "schema_version": "0.12.0",
                 "analysis_id": "portable-psm-economic-uncertainty",
                 "willingness_to_pay": 100000,
                 "uncertainty_analysis": {"path": "heor/uncertainty-plan.json"},
@@ -2632,6 +2712,7 @@ class UncertaintyContractTests(unittest.TestCase):
                     "structural_scenarios": ["cost-discount"],
                 }},
             })
+            plan.pop("cost_input_normalization", None)
             plan["economic_basis"] = {"currency": "CNY", "price_year": 2026}
             plan["strategies"]["comparator"]["name"] = "Comparator"
             plan["strategies"]["intervention"]["name"] = "Intervention"

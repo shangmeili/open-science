@@ -25,6 +25,9 @@ pub struct PartitionedSurvivalAudit {
     pub treatment_effect_duration_sha256: Option<String>,
     pub treatment_effect_duration_scenario_count: Option<usize>,
     pub treatment_effect_duration_base_case_id: Option<String>,
+    pub cost_input_normalization_required: bool,
+    pub cost_input_normalization_sha256: Option<String>,
+    pub cost_input_normalization_item_count: Option<usize>,
     pub strategy_count: usize,
     pub curve_count: usize,
     pub time_point_count: usize,
@@ -61,6 +64,9 @@ fn empty_audit(plan_raw: &[u8], required: bool) -> PartitionedSurvivalAudit {
         treatment_effect_duration_sha256: None,
         treatment_effect_duration_scenario_count: None,
         treatment_effect_duration_base_case_id: None,
+        cost_input_normalization_required: false,
+        cost_input_normalization_sha256: None,
+        cost_input_normalization_item_count: None,
         strategy_count: 0,
         curve_count: 0,
         time_point_count: 0,
@@ -140,10 +146,10 @@ fn audit_values(
     let analysis_schema = plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str);
-    if !matches!(psm_schema, Some("0.2.0" | "0.3.0" | "0.4.0")) {
+    if !matches!(psm_schema, Some("0.2.0" | "0.3.0" | "0.4.0" | "0.5.0")) {
         audit
             .errors
-            .push("partitioned survival schema_version must be 0.2.0, 0.3.0, or 0.4.0".into());
+            .push("partitioned survival schema_version must be 0.2.0 through 0.5.0".into());
     }
     if matches!(psm_schema, Some("0.3.0" | "0.4.0")) && analysis_schema != Some("0.12.0") {
         audit.errors.push(
@@ -155,7 +161,17 @@ fn audit_values(
             "analysis schema 0.12.0 requires partitioned survival schema 0.3.0 or 0.4.0".into(),
         );
     }
-    if matches!(psm_schema, Some("0.3.0" | "0.4.0")) {
+    if psm_schema == Some("0.5.0") && analysis_schema != Some("0.13.0") {
+        audit
+            .errors
+            .push("partitioned survival schema 0.5.0 requires analysis schema 0.13.0".into());
+    }
+    if analysis_schema == Some("0.13.0") && psm_schema != Some("0.5.0") {
+        audit
+            .errors
+            .push("analysis schema 0.13.0 requires partitioned survival schema 0.5.0".into());
+    }
+    if matches!(psm_schema, Some("0.3.0" | "0.4.0" | "0.5.0")) {
         audit
             .errors
             .extend(crate::heor_economic_inputs::audit_economic_inputs(plan));
@@ -463,7 +479,7 @@ fn audit_values(
                 .map(|error| format!("survival materialization: {error}")),
         );
     }
-    if psm_schema == Some("0.4.0") {
+    if matches!(psm_schema, Some("0.4.0" | "0.5.0")) {
         audit.treatment_effect_duration_required = true;
         let duration_audit = crate::heor_treatment_effect_duration::audit_treatment_effect_duration(
             workspace,
@@ -491,8 +507,30 @@ fn audit_values(
         }
     } else if psm.get("treatment_effect_duration").is_some() {
         audit.errors.push(
-            "treatment_effect_duration is admitted only by partitioned-survival schema 0.4.0"
+            "treatment_effect_duration is admitted only by partitioned-survival schema 0.4.0 or 0.5.0"
                 .into(),
+        );
+    }
+    if psm_schema == Some("0.5.0") {
+        audit.cost_input_normalization_required = true;
+        let cost_audit = crate::heor_cost_input_normalization::audit_cost_input_normalization(
+            workspace, plan, plan_raw, psm,
+        );
+        audit.cost_input_normalization_sha256 =
+            (!cost_audit.sha256.is_empty()).then_some(cost_audit.sha256);
+        audit.cost_input_normalization_item_count = Some(cost_audit.item_count);
+        audit.artifact_bindings.extend(cost_audit.artifact_bindings);
+        if !cost_audit.complete {
+            audit.errors.extend(
+                cost_audit
+                    .errors
+                    .into_iter()
+                    .map(|error| format!("cost-input normalization: {error}")),
+            );
+        }
+    } else if psm.get("cost_input_normalization").is_some() {
+        audit.errors.push(
+            "cost_input_normalization is admitted only by partitioned-survival schema 0.5.0".into(),
         );
     }
     let authority = String::from_utf8_lossy(psm_raw).to_ascii_lowercase();
@@ -604,6 +642,8 @@ pub fn run_heor_partitioned_survival(
         workspace.join(crate::heor_survival_materialization::SURVIVAL_MATERIALIZATION_PATH);
     let duration_path =
         workspace.join(crate::heor_treatment_effect_duration::TREATMENT_EFFECT_DURATION_PATH);
+    let cost_input_path =
+        workspace.join(crate::heor_cost_input_normalization::COST_INPUT_NORMALIZATION_PATH);
     let plan_raw = crate::heor_uncertainty::read_workspace_capped(&workspace, ANALYSIS_PLAN_PATH)?;
     let audit = require_partitioned_survival_approvable(&workspace, &plan_raw)?;
 
@@ -628,6 +668,11 @@ pub fn run_heor_partitioned_survival(
         command
             .arg("--treatment-effect-duration")
             .arg(&duration_path);
+    }
+    if audit.cost_input_normalization_required {
+        command
+            .arg("--cost-input-normalization")
+            .arg(&cost_input_path);
     }
     let output = command
         .output()
@@ -664,6 +709,11 @@ pub fn run_heor_partitioned_survival(
                 .get("treatment_effect_duration_sha256")
                 .and_then(serde_json::Value::as_str)
                 != audit.treatment_effect_duration_sha256.as_deref())
+        || (audit.cost_input_normalization_required
+            && calculation
+                .get("cost_input_normalization_sha256")
+                .and_then(serde_json::Value::as_str)
+                != audit.cost_input_normalization_sha256.as_deref())
     {
         return Err("partitioned survival engine hashes do not match audited inputs".into());
     }

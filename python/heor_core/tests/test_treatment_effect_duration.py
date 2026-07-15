@@ -182,7 +182,120 @@ def _rebind_duration(inputs: list, *, update_rows: bool = False) -> None:
     inputs[3] = _json_bytes(inputs[2])
 
 
+def cost_normalized_inputs() -> list:
+    inputs = valid_inputs()
+    analysis, _, psm, _, materializations, _, duration, _ = inputs
+    analysis["schema_version"] = "0.13.0"
+    analysis["cost_input_normalization"] = {
+        "path": "heor/cost-input-normalization.json"
+    }
+    analysis["decision_problem"] = {
+        "jurisdiction": "China",
+        "perspective": "Healthcare system",
+    }
+    analysis["evidence_sources"] = [
+        {"id": "quantity-source"},
+        {"id": "price-source"},
+        {"id": "scope-source"},
+    ]
+    analysis["assumptions"] = []
+    analysis["input_provenance"] = []
+    analysis_raw = _json_bytes(analysis)
+
+    psm["schema_version"] = "0.5.0"
+    psm["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    materializations["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    materializations_raw = _json_bytes(materializations)
+    psm["curve_materializations"]["content_sha256"] = hashlib.sha256(materializations_raw).hexdigest()
+    duration["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    duration["source_curve_materializations"]["content_sha256"] = hashlib.sha256(materializations_raw).hexdigest()
+    duration_raw = _json_bytes(duration)
+    psm["treatment_effect_duration"]["content_sha256"] = hashlib.sha256(duration_raw).hexdigest()
+    _apply_base_rows(psm, duration_raw, materializations_raw)
+
+    cost = {
+        "schema_version": "0.1.0",
+        "normalization_id": "psm-cost-inputs",
+        "analysis_id": analysis["analysis_id"],
+        "status": "ready_for_human_review",
+        "base_analysis": {
+            "path": "heor/analysis-plan.json",
+            "content_sha256": hashlib.sha256(analysis_raw).hexdigest(),
+        },
+        "target_basis": {
+            "currency": "CNY",
+            "price_year": 2026,
+            "jurisdiction": "China",
+            "perspective": "Healthcare system",
+        },
+        "item_order": ["comparator-pf", "comparator-pd", "intervention-pf", "intervention-pd"],
+        "items": {},
+        "annual_state_costs": {
+            "comparator": [1000.0, 3000.0, 0.0],
+            "intervention": [4000.0, 3000.0, 0.0],
+        },
+        "limitations": ["Event and time-varying costs are outside this annual-rate contract."],
+    }
+    for item_id, strategy_id, state_id, amount in (
+        ("comparator-pf", "comparator", "progression_free", 1000.0),
+        ("comparator-pd", "comparator", "progressed", 3000.0),
+        ("intervention-pf", "intervention", "progression_free", 4000.0),
+        ("intervention-pd", "intervention", "progressed", 3000.0),
+    ):
+        cost["items"][item_id] = {
+            "item_id": item_id,
+            "strategy_id": strategy_id,
+            "state_id": state_id,
+            "category": "healthcare_resource",
+            "description": "Annual resource rate for deterministic test.",
+            "scope_basis_ids": ["scope-source"],
+            "annual_quantity": {"value": 1.0, "unit": "annual_bundle", "basis_ids": ["quantity-source"]},
+            "unit_price": {
+                "amount": amount,
+                "per_unit": "annual_bundle",
+                "currency": "CNY",
+                "price_year": 2026,
+                "jurisdiction": "China",
+                "price_basis": "paid_price",
+                "tax_status": "not_applicable",
+                "basis_ids": ["price-source"],
+            },
+            "adjustments": [],
+            "normalized_unit_price": amount,
+            "normalized_annual_cost": amount,
+        }
+    cost_raw = _json_bytes(cost)
+    psm["cost_input_normalization"] = {
+        "path": "heor/cost-input-normalization.json",
+        "content_sha256": hashlib.sha256(cost_raw).hexdigest(),
+    }
+    psm_raw = _json_bytes(psm)
+    return [
+        analysis,
+        analysis_raw,
+        psm,
+        psm_raw,
+        materializations,
+        materializations_raw,
+        duration,
+        duration_raw,
+        cost,
+        cost_raw,
+    ]
+
+
 class TreatmentEffectDurationTests(unittest.TestCase):
+    def test_psm_0_5_binds_and_reports_normalized_cost_inputs(self) -> None:
+        inputs = cost_normalized_inputs()
+        result = run_partitioned_survival(*inputs)
+        self.assertEqual(result["schema_version"], "0.5.0")
+        self.assertEqual(result["engine_version"], "0.5.0")
+        self.assertEqual(result["cost_input_normalization_summary"]["item_count"], 4)
+        self.assertEqual(
+            result["cost_input_normalization_sha256"],
+            hashlib.sha256(inputs[9]).hexdigest(),
+        )
+
     def test_runs_three_complete_structural_scenarios(self) -> None:
         inputs = valid_inputs()
         result = run_partitioned_survival(*inputs)

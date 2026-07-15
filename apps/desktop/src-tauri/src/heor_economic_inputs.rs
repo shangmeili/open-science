@@ -23,12 +23,32 @@ pub fn audit_economic_inputs(plan: &serde_json::Value) -> Vec<String> {
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        != Some("0.12.0")
+        .is_none_or(|value| !matches!(value, "0.12.0" | "0.13.0"))
     {
-        errors.push("structure-neutral economic inputs require analysis schema 0.12.0".into());
+        errors.push(
+            "structure-neutral economic inputs require analysis schema 0.12.0 or 0.13.0".into(),
+        );
     }
     if plan.get("approvals").is_some() {
         errors.push("analysis plan approvals are app-owned and forbidden".into());
+    }
+    let cost_link = plan.get("cost_input_normalization");
+    if plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        == Some("0.13.0")
+    {
+        if cost_link
+            != Some(&serde_json::json!({
+                "path": crate::heor_cost_input_normalization::COST_INPUT_NORMALIZATION_PATH
+            }))
+        {
+            errors.push(
+                "analysis schema 0.13.0 must link only heor/cost-input-normalization.json".into(),
+            );
+        }
+    } else if cost_link.is_some() {
+        errors.push("cost_input_normalization is admitted only by analysis schema 0.13.0".into());
     }
     if plan
         .pointer("/partitioned_survival_analysis/path")

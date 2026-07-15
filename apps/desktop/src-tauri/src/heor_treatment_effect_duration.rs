@@ -261,11 +261,11 @@ pub fn audit_treatment_effect_duration(
         artifact_bindings: Vec::new(),
         errors: Vec::new(),
     };
-    if psm
-        .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        != Some("0.4.0")
-    {
+    if !matches!(
+        psm.get("schema_version")
+            .and_then(serde_json::Value::as_str),
+        Some("0.4.0" | "0.5.0")
+    ) {
         audit.complete = true;
         return audit;
     }

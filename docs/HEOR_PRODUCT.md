@@ -413,7 +413,7 @@ PFS/OS partitioned survival, and scientific-validity claims remain blocked.
 ## Executable monetary basis
 
 Analysis-plan schema `0.2.0` introduced one calculation currency and price
-year, and current schemas through `0.11.0` retain that contract while binding each source
+year, and current schemas through `0.13.0` retain that contract while binding each source
 value to evidence or an explicit assumption.
 Every state-cost element and non-null willingness-to-pay value records its
 source value, source currency, source price year, positive composite adjustment
@@ -667,7 +667,7 @@ approval, reimbursement suitability, or external tamper-proofing.
   missing second confirmation, rejection, changed synthesis, or tampered review
   chain fails closed; this remains distinct from authenticated independent
   duplicate extraction.
-- Evidence-to-input approval also requires schema `0.3.0` through `0.11.0`, an exact model-value
+- Evidence-to-input approval also requires schema `0.3.0` through `0.13.0`, an exact model-value
   snapshot per mapping, strict JSON equality for direct evidence, and extraction-
   bound source values for monetary normalization. Changed, narrative, unused,
   or silently transformed extraction values fail closed.
@@ -754,7 +754,7 @@ three-state calculation class. Natural-language interaction creates or repairs
 the rationale and bindings; curve rows are an auxiliary exact-input surface.
 Each curve review must match the current analysis, strategy/endpoint target,
 PFS or OS context, exact bytes, and Human-selected converged family. PSM schema
-`0.4.0` binds `heor/survival-curve-materializations.json` as immutable source curves and
+`0.5.0` binds `heor/survival-curve-materializations.json` as immutable source curves and
 `heor/treatment-effect-duration.json` as explicit structural policy: for each strategy
 and endpoint, that manifest binds one typed selected-fit output, its exact bytes,
 an admitted parameterization, evaluator `ai4heor-parametric-survival@0.1.0`,
@@ -773,11 +773,22 @@ OS-PFS, and death from 1-OS; computes state rewards and incremental results;
 and blocks curve crossing, increasing survival, time-grid mismatch, stale
 hashes, and hidden approval claims. Analysis-plan approval is supported, but
 release is intentionally blocked until validation and reporting bind the PSM
-plan and result. Analysis schema `0.12.0` now separates common costs, utilities,
+plan and result. Analysis schema `0.13.0` now separates common costs, utilities,
 cycle settings, discounting, and thresholds from PSM structure; its strategy
 objects forbid initial distributions and transition definitions. Portable,
 Python, browser, and native validators independently enforce that boundary while
-legacy PSM schemas `0.2.0` and `0.3.0` remain calculation-compatible. Curve materialization closes the numerical-
+legacy analysis `0.12.0` / PSM `0.4.0` remains calculation-compatible. PSM
+`0.5.0` additionally requires `heor/cost-input-normalization.json`: natural
+language is the primary way to identify ingredients and resolve missing method
+choices, while structured item rows are an auxiliary review surface. Each row
+binds annual quantity, unit, unit price, currency, price year, jurisdiction,
+price basis, tax status, and explicit adjustment factors to existing evidence
+or assumptions. The engine independently recalculates normalized unit price,
+annual item cost, and each strategy/state aggregate before accepting the plan's
+annual state-cost rates. It never chooses an inflation index, exchange rate,
+tax treatment, price concept, or transferability assumption. Component-level
+uncertainty, event/one-time/time-varying costs, capital annualization, dynamic
+BIA, and societal-cost structures remain blocked. Curve materialization closes the numerical-
 derivation gap only for the two admitted parameterizations. Statistical fitting,
 coefficient transformation, automatic family selection, covariance and PSM
 uncertainty, other survival families, probabilistic integration across duration alternatives, and

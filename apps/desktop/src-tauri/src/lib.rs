@@ -12,6 +12,7 @@ mod heor_artifacts;
 mod heor_budget_impact;
 mod heor_engine;
 mod heor_economic_inputs;
+mod heor_cost_input_normalization;
 mod heor_evidence;
 mod heor_evidence_review;
 mod heor_library;

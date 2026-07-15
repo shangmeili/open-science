@@ -401,6 +401,9 @@ export interface HeorPartitionedSurvivalAudit {
   treatmentEffectDurationSha256: string | null;
   treatmentEffectDurationScenarioCount: number | null;
   treatmentEffectDurationBaseCaseId: string | null;
+  costInputNormalizationRequired: boolean;
+  costInputNormalizationSha256: string | null;
+  costInputNormalizationItemCount: number | null;
   strategyCount: number;
   curveCount: number;
   timePointCount: number;
@@ -2903,6 +2906,9 @@ export const HEOR_BROWSER_DEMO_PARTITIONED_SURVIVAL_AUDIT: HeorPartitionedSurviv
   treatmentEffectDurationSha256: null,
   treatmentEffectDurationScenarioCount: null,
   treatmentEffectDurationBaseCaseId: null,
+  costInputNormalizationRequired: false,
+  costInputNormalizationSha256: null,
+  costInputNormalizationItemCount: null,
   strategyCount: 0,
   curveCount: 0,
   timePointCount: 0,

@@ -332,17 +332,18 @@ def validate(
             errors.append(f"{target} values must contain cycles + 1 rows")
             values = []
         psm_values = psm_strategy.get(endpoint)
-        if not isinstance(psm_values, list) or len(psm_values) != cycles + 1:
+        duration_derived = psm.get("schema_version") in {"0.4.0", "0.5.0"}
+        if not duration_derived and (not isinstance(psm_values, list) or len(psm_values) != cycles + 1):
             errors.append(f"{target} PSM values must contain cycles + 1 rows")
             psm_values = []
         if len(parameters) == len(expected_parameter_names):
             for value_index in range(cycles + 1):
                 expected_time = value_index * cycle_length
                 expected_survival = evaluate(family, parameters, expected_time)
-                for rows, row_name, needs_basis in (
-                    (values, "materialization", False),
-                    (psm_values, "PSM", True),
-                ):
+                rows_to_check = [(values, "materialization", False)]
+                if not duration_derived:
+                    rows_to_check.append((psm_values, "PSM", True))
+                for rows, row_name, needs_basis in rows_to_check:
                     if value_index >= len(rows):
                         continue
                     row = mapping(rows[value_index], f"{target} {row_name}[{value_index}]", errors)

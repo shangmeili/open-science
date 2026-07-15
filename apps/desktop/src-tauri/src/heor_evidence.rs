@@ -71,7 +71,7 @@ fn strategy_ids(plan: &serde_json::Value) -> Vec<&str> {
     if matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0")
+        Some("0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0" | "0.13.0")
     ) {
         return plan
             .get("strategy_order")
@@ -98,7 +98,7 @@ fn required_input_paths(plan: &serde_json::Value) -> Vec<String> {
     let structure_neutral = plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        == Some("0.12.0");
+        .is_some_and(|version| matches!(version, "0.12.0" | "0.13.0"));
     for role in strategy_ids(plan) {
         if !structure_neutral {
             paths.push(format!("strategies.{role}.initial_distribution"));
@@ -2167,17 +2167,21 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
                 | "0.10.0"
                 | "0.11.0"
                 | "0.12.0"
+                | "0.13.0"
         )
     ) {
         invalid_mappings
-            .push("schema_version must be 0.3.0 through 0.12.0 for approval review".into());
+            .push("schema_version must be 0.3.0 through 0.13.0 for approval review".into());
     }
     let declared_strategy_ids = strategy_ids(plan);
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
         .is_some_and(|version| {
-            matches!(version, "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0")
+            matches!(
+                version,
+                "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0" | "0.13.0"
+            )
         })
     {
         let raw_strategy_count = plan
@@ -2206,7 +2210,7 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
             || actual != unique
         {
             invalid_mappings.push(
-                "schema 0.8.0 through 0.12.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first".into(),
+                "schema 0.8.0 through 0.13.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first".into(),
             );
         }
     }
@@ -2221,7 +2225,7 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
         if plan
             .get("schema_version")
             .and_then(serde_json::Value::as_str)
-            == Some("0.12.0")
+            .is_some_and(|version| matches!(version, "0.12.0" | "0.13.0"))
             && (has_matrix || has_schedule)
         {
             invalid_mappings.push(format!(
@@ -2230,7 +2234,7 @@ pub fn audit_plan(plan: &serde_json::Value) -> EvidenceAudit {
         } else if plan
             .get("schema_version")
             .and_then(serde_json::Value::as_str)
-            != Some("0.12.0")
+            .is_none_or(|version| !matches!(version, "0.12.0" | "0.13.0"))
             && has_matrix == has_schedule
         {
             invalid_mappings.push(format!(
@@ -3368,7 +3372,9 @@ mod tests {
 
         assert_eq!(paths.len(), 9);
         assert!(paths.contains(&"strategies.new_treatment.state_costs".into()));
-        assert!(!paths.iter().any(|path| path.contains("initial_distribution")));
+        assert!(!paths
+            .iter()
+            .any(|path| path.contains("initial_distribution")));
         assert!(!paths.iter().any(|path| path.contains("transition_")));
     }
 
@@ -3859,7 +3865,7 @@ mod tests {
 
         assert!(!audit.complete);
         let errors = audit.invalid_mappings.join("; ");
-        assert!(errors.contains("schema_version must be 0.3.0 through 0.12.0"));
+        assert!(errors.contains("schema_version must be 0.3.0 through 0.13.0"));
         assert!(errors.contains("does not match the current model input"));
     }
 

@@ -396,7 +396,7 @@ the exact evidence-to-input choices. The engine, uncertainty runner, and budget
 impact runner repeat the audit and invalidate stale approval bindings.
 
 Analysis-plan schema `0.2.0` introduced a root `economic_basis`; schemas
-`0.3.0` through `0.11.0` retain it and executable extraction-to-model derivations. Schema
+`0.3.0` through `0.13.0` retain it and executable extraction-to-model derivations. Schema
 `0.8.0` adds 2–16 explicitly ordered strategy IDs, a declared pairwise baseline,
 fully incremental dominance/frontier output, and dynamic evidence paths. Each monetary
 mapping contains element-level source values and adjustment factors so the
@@ -799,8 +799,8 @@ layer, and provenance/reviewer as the real moat of an open-source Claude Science
 
 ## Partitioned-survival alpha contract (2026-07-15)
 
-`heor/partitioned-survival-plan.json` schema `0.4.0` is an optional, hash-bound
-analysis linked from structure-neutral analysis schema `0.12.0`. It requires the exact state order
+`heor/partitioned-survival-plan.json` schema `0.5.0` is an optional, hash-bound
+analysis linked from structure-neutral analysis schema `0.13.0`. It requires the exact state order
 `progression_free`, `progressed`, `dead`; a forward-only conceptual basis;
 aligned time-zero and cycle-endpoint PFS/OS values with exact ordered review,
 fit-output, and evaluator basis IDs;
@@ -830,9 +830,26 @@ reads every bound review byte and binds the PSM assets into analysis-plan
 approval. The current release gate rejects linked PSM analyses until the model-
 validation and report-package schemas are extended to bind the PSM plan and
 result; this prevents an unsupported decision-ready claim. Analysis schema
-`0.12.0` contains only common economic inputs for each strategy; transition
+`0.13.0` contains only common economic inputs for each strategy; transition
 matrices, schedules, and initial distributions are forbidden rather than
 silently ignored.
+
+PSM `0.5.0` also binds exact schema `0.1.0`
+`heor/cost-input-normalization.json` bytes. Each annual state-cost item records
+an evidence-bound annual quantity, compatible unit, source unit price, currency,
+price year, jurisdiction, price basis, tax status, and every explicit inflation,
+currency-conversion, or price-adjustment factor. Python, the dependency-free
+Skill validator, and native Rust independently reproduce
+`normalized_unit_price = source_unit_price * product(adjustment_factors)` and
+`annual_item_cost = annual_quantity * normalized_unit_price`, then require the
+strategy/state item sum to equal the analysis `state_costs`. Inflation is
+required exactly when price years differ; currency conversion is required
+exactly when currencies differ. The contract does not choose an index, exchange
+rate, tax treatment, price concept, or transferability judgment. It currently
+admits deterministic annual state-cost rates only; event, one-time, time-varying,
+capital, dynamic-BIA, and societal-cost structures and component-level
+uncertainty remain blocked. Legacy analysis `0.12.0` / PSM `0.4.0` remains
+readable without this binding.
 
 Paired uncertainty schema `0.11.0` hash-binds the fixed PSM plan, source materializations,
 and duration artifact and runs DSA, PSA, and bounded economic structural

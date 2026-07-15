@@ -10,6 +10,7 @@ The canonical artifact is `heor/uncertainty-plan.json`. It is an executable spec
 - The analysis plan contains only the fixed artifact path under `uncertainty_analysis`; the app records the uncertainty artifact hash in the app-owned analysis-plan approval event. This avoids a circular pair of file hashes.
 - A changed plan or uncertainty artifact invalidates the relevant approval binding.
 - Under analysis `0.12.0` with uncertainty `0.11.0` or `0.12.0`, `partitioned_survival_inputs.plan` and `partitioned_survival_inputs.curve_materializations` additionally bind the exact current PSM plan and curve-materialization bytes. Schema `0.12.0` also binds `heor/joint-survival-uncertainty.json` and `heor/joint-survival-draws.jsonl`. These are one-way uncertainty-artifact bindings and do not change their source artifacts.
+- Analysis `0.13.0` / PSM `0.5.0` is intentionally unsupported by the current uncertainty schemas. Cost-component distributions must bind exact quantities, prices, and adjustment factors in a future contract; an aggregate state-cost distribution cannot stand in for them.
 
 ## Parameter contract
 

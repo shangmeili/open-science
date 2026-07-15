@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Cost Input Normalization"
+  short_description: "Normalize auditable annual state-cost inputs"
+  default_prompt: "Use $heor-cost-input-normalization to turn evidence-linked resource quantities and unit prices into deterministic annual state costs without choosing the cost scope or price basis for me."

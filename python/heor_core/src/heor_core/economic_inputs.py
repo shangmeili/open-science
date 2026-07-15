@@ -10,8 +10,10 @@ from typing import Any
 from .model import MarkovSpecification, ModelValidationError
 
 
-SCHEMA_VERSION = "0.12.0"
+SCHEMA_VERSION = "0.13.0"
+PREVIOUS_SCHEMA_VERSION = "0.12.0"
 PSM_PLAN_PATH = "heor/partitioned-survival-plan.json"
+COST_NORMALIZATION_PATH = "heor/cost-input-normalization.json"
 MAX_STRATEGIES = 16
 STRATEGY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 
@@ -47,9 +49,10 @@ class EconomicSpecification:
     @classmethod
     def from_analysis_plan(cls, value: dict[str, Any]) -> "EconomicSpecification":
         value = _mapping(value, "analysis plan")
-        if value.get("schema_version") != SCHEMA_VERSION:
+        schema_version = value.get("schema_version")
+        if schema_version not in {PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION}:
             raise ModelValidationError(
-                f"structure-neutral economic inputs require analysis schema_version {SCHEMA_VERSION}"
+                "structure-neutral economic inputs require analysis schema_version 0.12.0 or 0.13.0"
             )
         if "approvals" in value:
             raise ModelValidationError(
@@ -59,6 +62,16 @@ class EconomicSpecification:
         if linked != {"path": PSM_PLAN_PATH}:
             raise ModelValidationError(
                 f"analysis schema {SCHEMA_VERSION} must link only {PSM_PLAN_PATH}"
+            )
+        cost_link = value.get("cost_input_normalization")
+        if schema_version == SCHEMA_VERSION:
+            if cost_link != {"path": COST_NORMALIZATION_PATH}:
+                raise ModelValidationError(
+                    f"analysis schema {SCHEMA_VERSION} must link only {COST_NORMALIZATION_PATH}"
+                )
+        elif cost_link is not None:
+            raise ModelValidationError(
+                "cost_input_normalization is admitted only by analysis schema 0.13.0"
             )
         economic_basis = _mapping(value.get("economic_basis"), "economic_basis")
         if set(economic_basis) != {"currency", "price_year"}:
@@ -146,7 +159,7 @@ class EconomicSpecification:
         if len({strategy.name for _, strategy in strategies}) != len(strategies):
             raise ModelValidationError("strategy names must be unique")
         return cls(
-            schema_version=SCHEMA_VERSION,
+            schema_version=schema_version,
             analysis_id=analysis_id,
             currency=currency,
             price_year=price_year,

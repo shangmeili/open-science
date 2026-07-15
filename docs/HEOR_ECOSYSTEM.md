@@ -146,7 +146,8 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-background-mortality` | Age-aligned annual life-table mortality plus one constant additive excess rate, with explicit exchangeability and double-counting bases | Schema `0.9.0` transition schedule derivation |
 | Shipped | `heor-relative-effect-adapter` | Apply one aligned RR or OR to cycle-specific baseline risks with exact review bases and full schedule recomputation | Schema `0.10.0` transition schedule derivation |
 | Shipped | `heor-hazard-ratio-adapter` | Apply one reviewed constant HR to cycle-aligned baseline cumulative-hazard increments with explicit proportional-hazards, effect-duration, and switching review bases | Schema `0.11.0` transition schedule derivation |
-| Shipped alpha | `heor-treatment-effect-duration` | Preserve source PFS/OS through an explicit evidence horizon, then derive sustained, immediate-stop, and log-linear-waning intervention tails from comparator hazard increments without inferring duration from an HR point estimate | `heor/treatment-effect-duration.json`, PSM schema `0.4.0`, scenario cost/QALY summaries |
+| Shipped alpha | `heor-treatment-effect-duration` | Preserve source PFS/OS through an explicit evidence horizon, then derive sustained, immediate-stop, and log-linear-waning intervention tails from comparator hazard increments without inferring duration from an HR point estimate | `heor/treatment-effect-duration.json`, PSM schemas `0.4.0` / `0.5.0`, scenario cost/QALY summaries |
+| Shipped alpha | `heor-cost-input-normalization` | Reproduce evidence-bound annual state costs from annual quantities, compatible units, source prices, explicit price-year/currency/price adjustments, and Human-selected economic bases | `heor/cost-input-normalization.json`, analysis schema `0.13.0`, PSM schema `0.5.0` |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, per-person EVPI, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
@@ -335,11 +336,11 @@ admits Lognormal or strictly positive bounded Uniform PSA.
 
 This is an independent first-party implementation; no reviewed external Skill or
 plugin is an executable dependency. The separately bounded constant-HR route is
-owned by `$heor-hazard-ratio-adapter`. The next method assets after the shipped
-survival-extrapolation review contract are partitioned survival, treatment-effect duration,
-cost normalization, and utility inputs; dynamic-cohort BIA, NMA/MAIC, RWE, and
-advanced VOI follow. These backlog items are not shipped capabilities or
-approval authority.
+owned by `$heor-hazard-ratio-adapter`. Partitioned survival, explicit treatment-
+effect duration, and deterministic annual state-cost normalization are now
+shipped bounded alphas. Utility inputs are the next P0 method asset; dynamic-
+cohort BIA, NMA/MAIC, RWE, and advanced VOI follow. Those backlog items are not
+shipped capabilities or approval authority.
 
 Schema `0.11.0` adds the first-party `$heor-hazard-ratio-adapter` for one
 absorbing time-to-first event. It applies one positive, reviewed constant HR to
@@ -432,7 +433,7 @@ The duration artifact covers sustained, immediate-stop, and log-linear-waning
 policies for exactly two ordered strategies. It shares endpoint evidence horizons
 and HR bases across scenarios, derives post-horizon intervention survival from
 comparator hazard increments, and fails closed on crossing or stale hashes. PSM
-schema `0.4.0` derives `PFS`, `OS-PFS`, and `1-OS`, and returns cost, QALY, pairwise, and fully
+schema `0.5.0` derives `PFS`, `OS-PFS`, and `1-OS`, and returns cost, QALY, pairwise, and fully
 incremental results. Python, the standalone Skill validator, and native Rust
 independently re-read review and fit-output bytes, recalculate each admitted
 curve, and fail on parameter drift, unsupported parameterizations, increasing
@@ -451,6 +452,12 @@ crossing, and consume one whole row per PSA iteration. Joint manifest schema `0.
 binds the duration bytes; non-base duration alternatives remain separate deterministic
 scenario results. Curve-family selection, extrapolation, source-model validity, independent
 validation, and release reporting remain blocked.
+PSM `0.5.0` additionally binds the first-party schema `0.1.0` annual state-cost
+normalization artifact and independently recomputes every quantity-times-price
+item, adjustment chain, and strategy/state aggregate. This is deterministic
+ingredient costing, not authority to choose indices, exchange rates, tax
+treatment, price concepts, or transferability; component uncertainty and
+non-annual cost structures remain unshipped. Legacy PSM `0.4.0` remains readable.
 Materialization is not statistical fitting, automatic selection, covariance
 recovery, or substantive extrapolation validation. Treatment-effect application is
 limited to the explicit first-party duration contract.

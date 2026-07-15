@@ -23,12 +23,18 @@ def validate(plan: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     if not isinstance(plan, dict):
         return ["analysis plan must be an object"]
-    if plan.get("schema_version") != "0.12.0":
-        errors.append("schema_version must be 0.12.0")
+    schema = plan.get("schema_version")
+    if schema not in {"0.12.0", "0.13.0"}:
+        errors.append("schema_version must be 0.12.0 or 0.13.0")
     if "approvals" in plan:
         errors.append("approvals are app-owned and forbidden in the analysis plan")
     if plan.get("partitioned_survival_analysis") != {"path": "heor/partitioned-survival-plan.json"}:
         errors.append("partitioned_survival_analysis must link only heor/partitioned-survival-plan.json")
+    if schema == "0.13.0":
+        if plan.get("cost_input_normalization") != {"path": "heor/cost-input-normalization.json"}:
+            errors.append("analysis schema 0.13.0 must link only heor/cost-input-normalization.json")
+    elif plan.get("cost_input_normalization") is not None:
+        errors.append("cost_input_normalization is admitted only by analysis schema 0.13.0")
     if not isinstance(plan.get("analysis_id"), str) or not plan["analysis_id"].strip():
         errors.append("analysis_id must not be empty")
     basis = plan.get("economic_basis")
@@ -106,7 +112,7 @@ def main() -> int:
         for error in errors:
             print(f"INVALID: {error}")
         return 1
-    print("VALID: structure-neutral economic inputs 0.12.0")
+    print(f"VALID: structure-neutral economic inputs {plan.get('schema_version')}")
     return 0
 
 

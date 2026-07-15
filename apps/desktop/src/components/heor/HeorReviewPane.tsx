@@ -2527,11 +2527,12 @@ function PartitionedSurvivalAssessment({
       </div>
       <div className="mt-1 font-mono text-[10px] text-muted">{HEOR_PARTITIONED_SURVIVAL_PLAN_PATH}</div>
       {audit && audit.required && (
-        <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+        <div className="mt-3 grid grid-cols-5 gap-2 text-center">
           <Metric label={t("partitionedSurvival.strategies")} value={String(audit.strategyCount)} />
           <Metric label={t("partitionedSurvival.curves")} value={String(audit.curveCount)} />
           <Metric label={t("partitionedSurvival.points")} value={String(audit.timePointCount)} />
           <Metric label={t("partitionedSurvival.durationScenarios")} value={String(audit.treatmentEffectDurationScenarioCount ?? 0)} />
+          <Metric label={t("partitionedSurvival.costItems")} value={String(audit.costInputNormalizationItemCount ?? 0)} />
         </div>
       )}
       {audit?.treatmentEffectDurationBaseCaseId && (

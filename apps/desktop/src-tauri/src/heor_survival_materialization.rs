@@ -520,10 +520,11 @@ pub fn audit_survival_materializations(
             .pointer(&format!("/strategies/{strategy_id}/{endpoint}"))
             .and_then(serde_json::Value::as_array);
         let expected_count = cycles.map_or(0, |value| value as usize + 1);
-        let duration_derived = psm
-            .get("schema_version")
-            .and_then(serde_json::Value::as_str)
-            == Some("0.4.0");
+        let duration_derived = matches!(
+            psm.get("schema_version")
+                .and_then(serde_json::Value::as_str),
+            Some("0.4.0" | "0.5.0")
+        );
         if manifest_values.map_or(0, Vec::len) != expected_count
             || (!duration_derived && psm_values.map_or(0, Vec::len) != expected_count)
         {

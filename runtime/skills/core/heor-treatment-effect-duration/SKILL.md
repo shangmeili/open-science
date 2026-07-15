@@ -1,6 +1,6 @@
 ---
 name: heor-treatment-effect-duration
-description: Create, audit, and explain AI4HEOR treatment-effect duration scenarios for exactly two-strategy partitioned-survival models. Use for heor/treatment-effect-duration.json, sustained treatment benefit, immediate stopping after an evidence horizon, log-hazard-ratio waning to no effect, duration scenario analysis, PFS/OS curve regeneration, or repair of PSM schema 0.4.0 without inferring duration from a point estimate or claiming clinical validity.
+description: Create, audit, and explain AI4HEOR treatment-effect duration scenarios for exactly two-strategy partitioned-survival models. Use for heor/treatment-effect-duration.json, sustained treatment benefit, immediate stopping after an evidence horizon, log-hazard-ratio waning to no effect, duration scenario analysis, PFS/OS curve regeneration, or repair of PSM schema 0.4.0 or 0.5.0 without inferring duration from a point estimate or claiming clinical validity.
 ---
 
 # HEOR treatment-effect duration
@@ -9,13 +9,13 @@ Keep natural-language discussion primary. Use the artifact and validator as the
 auditable calculation surface; use forms only to inspect or edit declared fields.
 
 1. Read `references/treatment-effect-duration-contract.md` before creating or changing an artifact.
-2. Confirm the bounded case: analysis schema `0.12.0`, PSM schema `0.4.0`, exactly two ordered strategies, the baseline strategy as comparator, endpoints PFS then OS, year-based cycle-aligned source curves, and one evidence-supported non-null HR per endpoint. Stop outside this boundary.
+2. Confirm the bounded case: analysis `0.12.0`/PSM `0.4.0` or cost-normalized analysis `0.13.0`/PSM `0.5.0`, exactly two ordered strategies, the baseline strategy as comparator, endpoints PFS then OS, year-based cycle-aligned source curves, and one evidence-supported non-null HR per endpoint. Stop outside this boundary.
 3. Copy `assets/treatment-effect-duration.template.json` to `heor/treatment-effect-duration.json` when absent. Preserve `draft` until every placeholder is replaced.
 4. Bind the exact analysis and source-materialization bytes. Never bind the PSM bytes from this artifact because the PSM binds the duration artifact and would create a circular hash.
 5. For PFS and OS separately, record one evidence horizon, one HR and evidence basis shared by all scenarios. Never infer the horizon, duration, or waning endpoint from the HR value.
 6. Provide three complete scenarios for both endpoints: `sustained`, `immediate_stop`, and `log_linear_waning`. Give every scenario and policy a rationale and basis IDs. Additional scenarios are allowed only within the five-scenario cap.
 7. Keep the reviewed intervention source curve through the evidence horizon. After it, reconstruct survival from comparator hazard increments using the declared policy. Reject non-aligned horizons, undefined hazards, increasing/zero curves, incomplete grids, PFS above OS, or any silent repair.
-8. Set one scenario as `base_case_scenario_id`, change the PSM to schema `0.4.0`, bind the exact duration artifact hash, and materialize that scenario into every PSM curve row with exact generated basis IDs. Keep all scenarios visible in calculation output.
+8. Set one scenario as `base_case_scenario_id`, use PSM schema `0.4.0` or `0.5.0` as required by the analysis, bind the exact duration artifact hash, and materialize that scenario into every PSM curve row with exact generated basis IDs. Keep all scenarios visible in calculation output.
 9. Update PSM uncertainty bindings to include this artifact. Joint survival draws must bind the same duration artifact; do not list treatment-effect duration as omitted when the three required scenarios are current. Curve-family and extrapolation uncertainty remain separate.
 10. Run `python3 scripts/validate_treatment_effect_duration.py WORKSPACE/heor/treatment-effect-duration.json WORKSPACE/heor/analysis-plan.json WORKSPACE/heor/partitioned-survival-plan.json WORKSPACE/heor/survival-curve-materializations.json`. Treat `valid` as contract integrity, not evidence sufficiency, statistical fit, clinical plausibility, independent validation, or approval.
 
