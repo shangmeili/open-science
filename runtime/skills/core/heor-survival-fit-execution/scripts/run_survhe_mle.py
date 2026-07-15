@@ -18,7 +18,9 @@ from survhe_execution_contract import (
     EVALUATOR,
     MANDATORY_FAMILIES,
     REQUIRED_CROSSCHECKS,
+    RESULT_SCHEMA_VERSION,
     SCHEMA_VERSION,
+    UNCERTAINTY_SCHEMA_VERSION,
     audit_result,
     digest,
     expected_curve,
@@ -228,6 +230,93 @@ def build_model_outputs(
     return bindings, checks, cross_complete, converged
 
 
+def build_parameter_uncertainty_outputs(
+    raw_dir: Path,
+    final_dir: Path,
+    final_relative: str,
+    families: list[str],
+    model_bindings: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], bool]:
+    status_rows = {row["family"]: row for row in read_tsv(raw_dir / "uncertainty-status.tsv")}
+    parameter_rows = read_tsv(raw_dir / "estimation-parameters.tsv")
+    covariance_rows = read_tsv(raw_dir / "covariance.tsv")
+    output_dir = final_dir / "parameter-uncertainty"
+    output_dir.mkdir()
+    bindings: list[dict[str, Any]] = []
+    complete = True
+    for family, model_binding in zip(families, model_bindings):
+        if model_binding["status"] == "failed":
+            bindings.append({"family": family, "status": "fit_failed", "path": None, "sha256": None})
+            continue
+        row = status_rows.get(family)
+        if row is None or row.get("status") not in {"available", "unavailable"}:
+            raise RuntimeError(f"R output omitted parameter uncertainty status for {family}")
+        status = row["status"]
+        artifact_path = output_dir / f"{family}.json"
+        common = {
+            "schema_version": UNCERTAINTY_SCHEMA_VERSION,
+            "family": family,
+            "status": status,
+            "source_model": {"path": model_binding["path"], "sha256": model_binding["sha256"]},
+            "sampling_scope": "within_one_absolute_curve_only",
+            "limitations": [
+                "The covariance is an asymptotic inverse-observed-Hessian estimate on the flexsurv estimation scale.",
+                "It represents parameter dependence within this one fitted absolute curve only.",
+                "It does not establish dependence between PFS and OS or between strategies and cannot authorize joint survival PSA rows.",
+            ],
+        }
+        if status == "unavailable":
+            complete = False
+            artifact = {
+                **common,
+                "estimation_scale": None,
+                "parameter_order": [],
+                "estimates": [],
+                "covariance_matrix": [],
+                "inverse_transforms": [],
+                "covariance_method": None,
+                "sampling_distribution": None,
+                "reason": row.get("reason") or "The backend did not expose an auditable covariance matrix.",
+            }
+        else:
+            parameters = sorted(
+                (item for item in parameter_rows if item["family"] == family),
+                key=lambda item: int(item["position"]),
+            )
+            size = len(parameters)
+            matrix = [[0.0] * size for _ in range(size)]
+            entries = [item for item in covariance_rows if item["family"] == family]
+            if len(entries) != size * size:
+                raise RuntimeError(f"R covariance output has the wrong size for {family}")
+            for item in entries:
+                row_index = int(item["row_position"]) - 1
+                column_index = int(item["column_position"]) - 1
+                if not 0 <= row_index < size or not 0 <= column_index < size:
+                    raise RuntimeError(f"R covariance position is invalid for {family}")
+                matrix[row_index][column_index] = float(item["value"])
+            artifact = {
+                **common,
+                "estimation_scale": "unconstrained_real_line",
+                "parameter_order": [item["name"] for item in parameters],
+                "estimates": [float(item["estimate"]) for item in parameters],
+                "covariance_matrix": matrix,
+                "inverse_transforms": [item["inverse_transform"] for item in parameters],
+                "covariance_method": "inverse_observed_hessian",
+                "sampling_distribution": "asymptotic_multivariate_normal",
+                "reason": None,
+            }
+        artifact_sha = write_json(artifact_path, artifact)
+        bindings.append(
+            {
+                "family": family,
+                "status": status,
+                "path": f"{final_relative}/parameter-uncertainty/{family}.json",
+                "sha256": artifact_sha,
+            }
+        )
+    return bindings, complete
+
+
 def run_request(request_path: Path, workspace: Path, rscript: Path, library: Path) -> tuple[Path, dict[str, Any]]:
     workspace = workspace.resolve()
     request_path = request_path.resolve()
@@ -291,7 +380,22 @@ def run_request(request_path: Path, workspace: Path, rscript: Path, library: Pat
             facts["families"],
             float(request["fit"]["cross_implementation_tolerance"]),
         )
-        for raw_name in ("models.tsv", "parameters.tsv", "predictions.tsv", "runtime.tsv"):
+        uncertainty_bindings, uncertainty_complete = build_parameter_uncertainty_outputs(
+            temporary,
+            temporary,
+            final_relative,
+            facts["families"],
+            bindings,
+        )
+        for raw_name in (
+            "models.tsv",
+            "parameters.tsv",
+            "predictions.tsv",
+            "runtime.tsv",
+            "uncertainty-status.tsv",
+            "estimation-parameters.tsv",
+            "covariance.tsv",
+        ):
             (temporary / raw_name).unlink()
         failed = len(facts["families"]) - converged
         numerical_cross_failure = any(check["status"] == "failed" for check in checks)
@@ -314,7 +418,7 @@ def run_request(request_path: Path, workspace: Path, rscript: Path, library: Pat
         log_hazard_binding = bound("log-cumulative-hazard.png")
         hazard_binding = bound("hazard.png")
         manifest = {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": RESULT_SCHEMA_VERSION,
             "execution_id": request["execution_id"],
             "status": status,
             "request": {"path": relative(workspace, request_path), "sha256": digest(request_raw)},
@@ -337,6 +441,13 @@ def run_request(request_path: Path, workspace: Path, rscript: Path, library: Pat
             },
             "model_order": facts["families"],
             "models": bindings,
+            "parameter_uncertainty": {
+                "artifact_schema_version": UNCERTAINTY_SCHEMA_VERSION,
+                "scope": "within_model_curve_only",
+                "joint_curve_draw_authority": False,
+                "bindings": uncertainty_bindings,
+                "complete": uncertainty_complete,
+            },
             "diagnostics": {
                 "km_overlay_path": km_binding["path"],
                 "km_overlay_sha256": km_binding["sha256"],
@@ -356,6 +467,7 @@ def run_request(request_path: Path, workspace: Path, rscript: Path, library: Pat
                 "Package output and numerical agreement do not establish internal, external, or clinical validity.",
                 "The fixed adapter performs no package installation and does not claim operating-system network isolation.",
                 "Every converged admitted family receives an independent first-party survival and hazard cross-check.",
+                "Exported covariance represents parameter dependence within one fitted curve only and cannot supply joint PFS/OS or between-strategy dependence.",
             ],
             "human_gate": {
                 "state": "awaiting_human_review",

@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import math
 import sys
 import tempfile
 import unittest
@@ -15,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIR = ROOT / "runtime/skills/core/heor-survival-fit-execution/scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
-from survhe_execution_contract import EVALUATOR, audit_result, digest, expected_curve, validate_request  # noqa: E402
+from survhe_execution_contract import EVALUATOR, audit_result, digest, expected_curve, expected_parameterization, validate_request  # noqa: E402
 
 REVIEW_VALIDATOR = ROOT / "runtime/skills/core/heor-survival-extrapolation-review/scripts/validate_survival_extrapolation_review.py"
 review_spec = importlib.util.spec_from_file_location("ai4heor_survival_review", REVIEW_VALIDATOR)
@@ -103,7 +104,7 @@ class SurvheExecutionContractTests(unittest.TestCase):
             "family": family,
             "status": "converged",
             "fit_statistics": {"aic": 10.0, "bic": 12.0, "log_likelihood": -4.0},
-            "parameterization": "survHE/flexsurv",
+            "parameterization": expected_parameterization(family),
             "parameters": [{"name": name, "estimate": value} for name, value in parameters.items()],
             "landmarks": landmarks,
             "warnings": [],
@@ -317,6 +318,59 @@ class SurvheExecutionContractTests(unittest.TestCase):
             self.assertTrue(result["complete"], result["errors"])
             self.assertTrue(result["eligible_for_review"])
             self.assertTrue(result["cross_implementation_complete"])
+
+    def test_schema_0_2_covariance_is_bound_and_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            manifest_path, manifest = self.result_fixture(workspace)
+            manifest["schema_version"] = "0.2.0"
+            bindings = []
+            specifications = {
+                "exponential": (["rate"], [0.2], [[0.04]], ["exp"]),
+                "weibull": (["shape", "scale"], [1.5, 4.0], [[0.04, 0.01], [0.01, 0.09]], ["exp", "exp"]),
+            }
+            for model_binding in manifest["models"]:
+                family = model_binding["family"]
+                order, natural, covariance, transforms = specifications[family]
+                artifact = {
+                    "schema_version": "0.1.0",
+                    "family": family,
+                    "status": "available",
+                    "source_model": {"path": model_binding["path"], "sha256": model_binding["sha256"]},
+                    "estimation_scale": "unconstrained_real_line",
+                    "parameter_order": order,
+                    "estimates": [math.log(value) for value in natural],
+                    "covariance_matrix": covariance,
+                    "inverse_transforms": transforms,
+                    "covariance_method": "inverse_observed_hessian",
+                    "sampling_distribution": "asymptotic_multivariate_normal",
+                    "sampling_scope": "within_one_absolute_curve_only",
+                    "reason": None,
+                    "limitations": ["This artifact does not establish joint endpoint dependence."],
+                }
+                relative = f"heor/survival-fit-executions/os-control/parameter-uncertainty/{family}.json"
+                artifact_sha = write_json(workspace / relative, artifact)
+                bindings.append({"family": family, "status": "available", "path": relative, "sha256": artifact_sha})
+            manifest["parameter_uncertainty"] = {
+                "artifact_schema_version": "0.1.0",
+                "scope": "within_model_curve_only",
+                "joint_curve_draw_authority": False,
+                "bindings": bindings,
+                "complete": True,
+            }
+            write_json(manifest_path, manifest)
+            result = audit_result(manifest_path, workspace)
+            self.assertTrue(result["complete"], result["errors"])
+            self.assertTrue(result["parameter_uncertainty_complete"])
+
+            artifact_path = workspace / bindings[1]["path"]
+            artifact = json.loads(artifact_path.read_text())
+            artifact["covariance_matrix"] = [[0.04, 0.1], [0.1, 0.09]]
+            bindings[1]["sha256"] = write_json(artifact_path, artifact)
+            write_json(manifest_path, manifest)
+            result = audit_result(manifest_path, workspace)
+            self.assertFalse(result["complete"])
+            self.assertTrue(any("positive definite" in error for error in result["errors"]))
 
     def test_parameterization_drift_fails_even_when_attacker_updates_hash(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -345,8 +345,12 @@ into authority. `$heor-survival-fit-execution` now provides the bounded optional
 backend for one authorized local UTF-8 two-column time/event CSV: it preflights
 classification, hashes, counts, candidates and exact installed package versions;
 runs a fixed intercept-only MLE adapter without installation; preserves every
-attempted fit and diagnostic; and independently recalculates exponential and
-Weibull outputs in Python and native Rust. The review schema `0.3.0` must exactly
+attempted fit and diagnostic; independently recalculates every converged admitted
+family in Python and native Rust; and emits result schema `0.2.0` with one hash-bound
+estimation-scale covariance artifact per converged model. Both auditors require
+exact order/transforms, finite symmetric positive-definite covariance, and recovery
+of the bound natural parameters. The artifact explicitly has within-one-curve scope
+and no joint-curve-draw authority. The review schema `0.3.0` must exactly
 reproduce this eligible bundle. `survHE` remains user-installed and GPL code is
 not bundled or linked into the deterministic core. The local system R lacks the
 required packages, while a temporary network-disabled Linux container validated

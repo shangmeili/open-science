@@ -141,7 +141,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-cohort-state-transition` | Bounded static and model-cycle-dependent cohort transition structure | Complete transition matrix or schedule in `heor/analysis-plan.json` |
 | Shipped | `heor-transition-rate-adapter` | Constant competing event rates with exact evidence binding and recomputation | Schema `0.5.0` transition derivation |
 | Shipped | `heor-survival-curve-adapter` | Already-selected two-state exponential or Weibull curve evaluation | Schema `0.6.0` transition schedule derivation |
-| Shipped alpha | `heor-survival-fit-execution` | Human-authorized strict local two-column survival MLE against a user-installed isolated `survHE` library, with fixed adapter, exact versions/hashes, preserved failures, diagnostics, and independent exponential/Weibull challenge | Schema `0.1.0` request and normalized result bundle; no installation, model selection, GPL package bundling, or scientific-validity claim |
+| Shipped alpha | `heor-survival-fit-execution` | Human-authorized strict local two-column survival MLE against a user-installed isolated `survHE` library, with fixed adapter, exact versions/hashes, preserved failures, diagnostics, independent all-family challenge, and audited within-curve covariance export | Request/model schema `0.1.0`, current result schema `0.2.0`, legacy result `0.1.0`; no installation, model selection, cross-curve dependence, GPL package bundling, or scientific-validity claim |
 | Shipped alpha | `heor-survival-extrapolation-review` | One or more independently reviewed pre-specified standard parametric fit comparisons, exact plan-target/selected-family match, observed/extrapolated diagnostics, local execution hashes, structural alternatives, native audit, and an awaiting-Human selection boundary | Schema `0.2.0` external import or `0.3.0` first-party execution review, optionally under the ordered schema `0.1.0` collection; cross-curve PFS/OS consistency remains unshipped |
 | Shipped | `heor-probability-time-adapter` | Single-event probability time conversion under an explicit constant-hazard assumption | Schema `0.7.0` transition derivation |
 | Shipped | `heor-background-mortality` | Age-aligned annual life-table mortality plus one constant additive excess rate, with explicit exchangeability and double-counting bases | Schema `0.9.0` transition schedule derivation |
@@ -302,9 +302,14 @@ through an already-selected curve, not curve fitting or validation.
 
 The bundled `$heor-survival-fit-execution` and
 `$heor-survival-extrapolation-review` now admit a bounded execution-plus-audit
-path without making the backend part of the deterministic engine. Execution
+path without making the backend part of the deterministic engine. Request/model
 schema `0.1.0` binds one authorized strict local CSV, fixed adapter, exact runtime,
-all attempted models and diagnostics; review schema `0.3.0` must exactly reproduce
+all attempted models and diagnostics. Result schema `0.2.0` additionally binds
+estimation-scale coefficients, full covariance, exact parameter order, and inverse
+transforms for each converged model; portable Python and native Rust reject stale
+source bindings, invalid dimensions, asymmetry, non-positive-definiteness, or
+natural-scale reproduction drift. These artifacts explicitly cover only one
+absolute curve and cannot authorize joint endpoint or strategy draws. Review schema `0.3.0` must exactly reproduce
 an eligible result. External import schema `0.2.0` remains supported. Reviews
 bind a pre-specified 2–8-family comparison, local data and
 execution hashes, package/session versions, visible convergence failures,
@@ -318,15 +323,17 @@ pane, and bind all required review hashes into plan approval and run authorizati
 The user-installed GPL backend is never bundled or auto-installed. The local
 system R lacks the packages, but a disposable network-disabled Linux validation
 environment ran the fixed adapter with R 4.6.1, survHE 2.0.51, flexsurv 2.3.2 and
-survival 3.8.6; exponential and Weibull outputs agreed with the independent
-evaluator within `3.61e-16` and `1.39e-15` respectively. Multi-curve integrity is admitted, but
+survival 3.8.6. A 228-row public `survival::lung` smoke run converged all eight
+families, passed all eight independent curve challenges (maximum survival error
+`1.67e-15`, maximum hazard error `6.08e-17`), and produced eight independently
+audited positive-definite covariance artifacts. Multi-curve integrity is admitted, but
 PFS/OS, treatment-arm, joint-uncertainty, and partitioned-survival consistency
 remain explicitly outside this collection contract.
 
 Automatic model selection, flexible/cure/mixture models, KM/IPD
 reconstruction, partitioned survival, treatment effects, broader background mortality,
-competing risks, validation of long-term plausibility, and covariance recovery
-from incomplete fit output
+competing risks, validation of long-term plausibility, covariance recovery from
+incomplete fit output, and joint cross-curve draw generation
 remain future admission candidates. Mature upstream survival packages can serve
 as isolated tools or cross-checks only after their own license, version, data-
 egress, reproducibility, audit, and packaging gates pass.

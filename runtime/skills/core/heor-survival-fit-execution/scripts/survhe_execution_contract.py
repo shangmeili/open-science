@@ -12,6 +12,9 @@ from typing import Any
 
 
 SCHEMA_VERSION = "0.1.0"
+RESULT_SCHEMA_VERSION = "0.2.0"
+LEGACY_RESULT_SCHEMA_VERSION = "0.1.0"
+UNCERTAINTY_SCHEMA_VERSION = "0.1.0"
 EVALUATOR = "ai4heor-survival-crosscheck@0.2.0"
 SAFE_ID = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 SAFE_COLUMN = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
@@ -45,7 +48,7 @@ REQUEST_FIELDS = {
     "limitations",
     "human_gate",
 }
-RESULT_FIELDS = {
+LEGACY_RESULT_FIELDS = {
     "schema_version",
     "execution_id",
     "status",
@@ -58,6 +61,28 @@ RESULT_FIELDS = {
     "cross_implementation",
     "limitations",
     "human_gate",
+}
+RESULT_FIELDS = LEGACY_RESULT_FIELDS | {"parameter_uncertainty"}
+
+PARAMETER_ORDERS = {
+    "exponential": ("rate",),
+    "weibull": ("shape", "scale"),
+    "gompertz": ("shape", "rate"),
+    "gamma": ("shape", "rate"),
+    "generalized_gamma": ("mu", "sigma", "Q"),
+    "generalized_f": ("mu", "sigma", "Q", "P"),
+    "lognormal": ("meanlog", "sdlog"),
+    "loglogistic": ("shape", "scale"),
+}
+INVERSE_TRANSFORMS = {
+    "exponential": ("exp",),
+    "weibull": ("exp", "exp"),
+    "gompertz": ("identity", "exp"),
+    "gamma": ("exp", "exp"),
+    "generalized_gamma": ("identity", "exp", "identity"),
+    "generalized_f": ("identity", "exp", "identity", "exp"),
+    "lognormal": ("identity", "exp"),
+    "loglogistic": ("exp", "exp"),
 }
 
 
@@ -248,7 +273,7 @@ def validate_request(value: Any, workspace: Path) -> tuple[list[str], dict[str, 
                     errors.append(f"candidate_models[{index}].rationale must be non-empty")
             if len(families) != len(set(families)):
                 errors.append("candidate model families must be unique")
-            if not REQUIRED_CROSSCHECKS.issubset(families):
+            if not MANDATORY_FAMILIES.issubset(families):
                 errors.append("candidate_models must include exponential and weibull for independent cross-checking")
         raw_times = fit["prediction_times"]
         if not isinstance(raw_times, list) or not 3 <= len(raw_times) <= 256 or any(not finite(item) for item in raw_times):
@@ -340,16 +365,142 @@ def _bound_file(workspace: Path, path: Any, sha256: Any, label: str, errors: lis
     return candidate
 
 
+def _positive_definite(matrix: list[list[float]]) -> bool:
+    """Dependency-free Cholesky check for a finite symmetric matrix."""
+    size = len(matrix)
+    lower = [[0.0] * size for _ in range(size)]
+    for row in range(size):
+        for column in range(row + 1):
+            subtotal = sum(lower[row][index] * lower[column][index] for index in range(column))
+            if row == column:
+                diagonal = matrix[row][row] - subtotal
+                if not math.isfinite(diagonal) or diagonal <= 0:
+                    return False
+                lower[row][column] = math.sqrt(diagonal)
+            else:
+                divisor = lower[column][column]
+                if divisor <= 0:
+                    return False
+                lower[row][column] = (matrix[row][column] - subtotal) / divisor
+    return True
+
+
+def audit_parameter_uncertainty_artifact(
+    artifact: Any,
+    family: str,
+    source_path: str,
+    source_sha256: str,
+    source_model: dict[str, Any],
+    errors: list[str],
+    label: str,
+) -> bool:
+    fields = {
+        "schema_version",
+        "family",
+        "status",
+        "source_model",
+        "estimation_scale",
+        "parameter_order",
+        "estimates",
+        "covariance_matrix",
+        "inverse_transforms",
+        "covariance_method",
+        "sampling_distribution",
+        "sampling_scope",
+        "reason",
+        "limitations",
+    }
+    if not exact(artifact, fields):
+        errors.append(f"{label} fields are invalid")
+        return False
+    if artifact["schema_version"] != UNCERTAINTY_SCHEMA_VERSION or artifact["family"] != family:
+        errors.append(f"{label} schema or family is invalid")
+        return False
+    if artifact["source_model"] != {"path": source_path, "sha256": source_sha256}:
+        errors.append(f"{label} source_model binding is invalid")
+    if artifact["sampling_scope"] != "within_one_absolute_curve_only":
+        errors.append(f"{label} sampling_scope must remain within one absolute curve")
+    limitations = artifact["limitations"]
+    if not isinstance(limitations, list) or not limitations or any(not text(item) for item in limitations):
+        errors.append(f"{label} limitations must contain non-empty strings")
+
+    status = artifact["status"]
+    if status == "unavailable":
+        expected_empty = {
+            "estimation_scale": None,
+            "parameter_order": [],
+            "estimates": [],
+            "covariance_matrix": [],
+            "inverse_transforms": [],
+            "covariance_method": None,
+            "sampling_distribution": None,
+        }
+        if any(artifact[field] != value for field, value in expected_empty.items()) or not text(artifact["reason"]):
+            errors.append(f"{label} unavailable payload is invalid")
+        return False
+    if status != "available":
+        errors.append(f"{label} status is invalid")
+        return False
+    if artifact["reason"] is not None:
+        errors.append(f"{label} available artifact must have null reason")
+    if artifact["estimation_scale"] != "unconstrained_real_line":
+        errors.append(f"{label} estimation_scale is invalid")
+    if artifact["covariance_method"] != "inverse_observed_hessian":
+        errors.append(f"{label} covariance_method is invalid")
+    if artifact["sampling_distribution"] != "asymptotic_multivariate_normal":
+        errors.append(f"{label} sampling_distribution is invalid")
+
+    order = artifact["parameter_order"]
+    estimates = artifact["estimates"]
+    transforms = artifact["inverse_transforms"]
+    matrix = artifact["covariance_matrix"]
+    expected_order = list(PARAMETER_ORDERS[family])
+    expected_transforms = list(INVERSE_TRANSFORMS[family])
+    if order != expected_order or transforms != expected_transforms:
+        errors.append(f"{label} parameter order or inverse transforms do not match the admitted family")
+        return False
+    size = len(expected_order)
+    if not isinstance(estimates, list) or len(estimates) != size or any(not finite(value) for value in estimates):
+        errors.append(f"{label} estimates are invalid")
+        return False
+    if (
+        not isinstance(matrix, list)
+        or len(matrix) != size
+        or any(not isinstance(row, list) or len(row) != size or any(not finite(value) for value in row) for row in matrix)
+    ):
+        errors.append(f"{label} covariance_matrix is invalid")
+        return False
+    numeric_matrix = [[float(value) for value in row] for row in matrix]
+    if any(abs(numeric_matrix[row][column] - numeric_matrix[column][row]) > 1e-10 for row in range(size) for column in range(size)):
+        errors.append(f"{label} covariance_matrix is not symmetric")
+    elif not _positive_definite(numeric_matrix):
+        errors.append(f"{label} covariance_matrix is not positive definite")
+
+    natural = _parameter_map(source_model)
+    if list(natural) != expected_order:
+        errors.append(f"{label} source model parameter order is invalid")
+    else:
+        for name, estimate, transform in zip(expected_order, estimates, transforms):
+            transformed = math.exp(float(estimate)) if transform == "exp" else float(estimate)
+            if not math.isclose(transformed, natural[name], rel_tol=1e-10, abs_tol=1e-12):
+                errors.append(f"{label} inverse transform does not reproduce source model parameter {name}")
+    return not any(item.startswith(label) for item in errors)
+
+
 def audit_result(manifest_path: Path, workspace: Path) -> dict[str, Any]:
     errors: list[str] = []
     try:
         manifest, _ = load_json(manifest_path)
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
         return {"complete": False, "eligible_for_review": False, "errors": [str(error)]}
-    if not exact(manifest, RESULT_FIELDS):
+    result_schema = manifest.get("schema_version")
+    expected_result_fields = RESULT_FIELDS if result_schema == RESULT_SCHEMA_VERSION else LEGACY_RESULT_FIELDS
+    if not exact(manifest, expected_result_fields):
         return {"complete": False, "eligible_for_review": False, "errors": ["result fields are not the exact contract"]}
-    if manifest["schema_version"] != SCHEMA_VERSION:
-        errors.append(f"result schema_version must be {SCHEMA_VERSION}")
+    if result_schema not in {LEGACY_RESULT_SCHEMA_VERSION, RESULT_SCHEMA_VERSION}:
+        errors.append(
+            f"result schema_version must be {LEGACY_RESULT_SCHEMA_VERSION} or {RESULT_SCHEMA_VERSION}"
+        )
     execution_id = manifest["execution_id"]
     if not isinstance(execution_id, str) or SAFE_ID.fullmatch(execution_id) is None:
         errors.append("result execution_id is invalid")
@@ -502,6 +653,68 @@ def audit_result(manifest_path: Path, workspace: Path) -> dict[str, Any]:
                         errors.append(f"{label} cannot be independently evaluated: {error}")
             models[binding["family"]] = model
 
+    parameter_uncertainty_complete = False
+    if result_schema == RESULT_SCHEMA_VERSION:
+        uncertainty = manifest["parameter_uncertainty"]
+        uncertainty_fields = {
+            "artifact_schema_version",
+            "scope",
+            "joint_curve_draw_authority",
+            "bindings",
+            "complete",
+        }
+        available_families: set[str] = set()
+        if not exact(uncertainty, uncertainty_fields):
+            errors.append("parameter_uncertainty fields are invalid")
+        else:
+            if uncertainty["artifact_schema_version"] != UNCERTAINTY_SCHEMA_VERSION:
+                errors.append("parameter_uncertainty artifact_schema_version is invalid")
+            if uncertainty["scope"] != "within_model_curve_only" or uncertainty["joint_curve_draw_authority"] is not False:
+                errors.append("parameter_uncertainty scope or joint authority is invalid")
+            bindings = uncertainty["bindings"]
+            if not isinstance(bindings, list) or len(bindings) != len(model_order):
+                errors.append("parameter_uncertainty must bind every requested family in order")
+            else:
+                for index, (binding, family) in enumerate(zip(bindings, model_order)):
+                    label = f"parameter_uncertainty.bindings[{index}]"
+                    model = models.get(family, {})
+                    model_binding = model_bindings[index] if isinstance(model_bindings, list) and index < len(model_bindings) else {}
+                    if not exact(binding, {"family", "status", "path", "sha256"}) or binding.get("family") != family:
+                        errors.append(f"{label} is invalid or out of order")
+                        continue
+                    if model.get("status") == "failed":
+                        if binding != {"family": family, "status": "fit_failed", "path": None, "sha256": None}:
+                            errors.append(f"{label} must record the failed fit without an artifact")
+                        continue
+                    if binding.get("status") not in {"available", "unavailable"}:
+                        errors.append(f"{label} status is invalid")
+                        continue
+                    path = _bound_file(workspace, binding.get("path"), binding.get("sha256"), label, errors)
+                    if path is None:
+                        continue
+                    try:
+                        artifact, _ = load_json(path)
+                    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
+                        errors.append(f"{label} cannot be loaded: {error}")
+                        continue
+                    if artifact.get("status") != binding.get("status"):
+                        errors.append(f"{label} status does not match the artifact")
+                        continue
+                    if audit_parameter_uncertainty_artifact(
+                        artifact,
+                        family,
+                        str(model_binding.get("path", "")),
+                        str(model_binding.get("sha256", "")),
+                        model,
+                        errors,
+                        label,
+                    ):
+                        available_families.add(family)
+            converged_families = {family for family, model in models.items() if model.get("status") == "converged"}
+            parameter_uncertainty_complete = bool(converged_families) and available_families == converged_families
+            if uncertainty.get("complete") is not parameter_uncertainty_complete:
+                errors.append("parameter_uncertainty.complete does not match audited artifacts")
+
     diagnostics = manifest["diagnostics"]
     diagnostic_fields = {
         "km_overlay_path",
@@ -595,4 +808,5 @@ def audit_result(manifest_path: Path, workspace: Path) -> dict[str, Any]:
         "candidate_models": len(model_order),
         "converged_models": converged,
         "cross_implementation_complete": cross_complete,
+        "parameter_uncertainty_complete": parameter_uncertainty_complete,
     }

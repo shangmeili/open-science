@@ -1,6 +1,6 @@
 ---
 name: heor-survival-fit-execution
-description: Execute and audit a pre-specified intercept-only maximum-likelihood survival fit in a user-installed isolated survHE R library. Use when AI4HEOR must fit one local absolute time-to-event curve, preserve every attempted standard parametric model, generate fixed diagnostic evidence, or independently cross-check every converged admitted family before survival extrapolation review. Never install packages, select a curve, or treat numerical agreement as scientific validity.
+description: Execute and audit a pre-specified intercept-only maximum-likelihood survival fit in a user-installed isolated survHE R library. Use when AI4HEOR must fit one local absolute time-to-event curve, preserve every attempted standard parametric model, export source-model parameter covariance, generate fixed diagnostic evidence, or independently cross-check every converged admitted family before survival extrapolation review. Never install packages, select a curve, combine independently fitted curves into joint PSA draws, or treat numerical agreement as scientific validity.
 ---
 
 # HEOR Survival Fit Execution
@@ -23,7 +23,7 @@ Run one bounded local fitting job whose request, source CSV, R executable, fixed
    `python3 scripts/run_survhe_mle.py run <request> --workspace <project-root> --rscript <Rscript> --library <isolated-library>`
 
    The runner uses an argument array rather than a shell, disables user/site R profiles, refuses version drift and existing output, captures failures, and never installs a package. It copies the fixed adapter into the result bundle and hashes all generated evidence.
-7. Run `python3 scripts/validate_survhe_fit_execution.py <result-manifest> --workspace <project-root>`. The portable validator re-reads the request and current CSV, verifies every file hash, and independently recalculates survival and hazard values for every converged candidate from exported natural parameters. Stop if it reports incomplete or ineligible.
+7. Run `python3 scripts/validate_survhe_fit_execution.py <result-manifest> --workspace <project-root>`. The portable validator re-reads the request and current CSV, verifies every file hash, independently recalculates survival and hazard values for every converged candidate from exported natural parameters, and audits each estimation-scale covariance artifact for order, transforms, symmetry, positive definiteness, and agreement with the natural parameters. Stop if it reports incomplete or ineligible.
 8. Route an eligible bundle to `$heor-survival-extrapolation-review`. Preserve all attempted models and backend warnings, assess observed and extrapolated periods, external evidence, hazard shape, clinical plausibility, and structural alternatives. Leave the curve gate `awaiting_human_selection`; only a later Human-reviewed analysis plan may select a curve.
 
 ## Boundaries
@@ -32,7 +32,8 @@ Run one bounded local fitting job whose request, source CSV, R executable, fixed
 - Do not infer or write patient-level values, formulae, candidate families, package versions, or approval state.
 - Do not run if the source contains direct identifiers or more than the two admitted columns.
 - Do not auto-rank or select by AIC, BIC, plots, convergence, or cross-implementation agreement.
-- Do not claim OS/PFS consistency, treatment-arm alignment, parameter covariance, internal validity, external validity, clinical plausibility, independent validation, or release readiness.
+- Do not claim OS/PFS consistency, treatment-arm alignment, cross-curve covariance, internal validity, external validity, clinical plausibility, independent validation, or release readiness.
+- Treat exported covariance as an asymptotic inverse-observed-Hessian estimate within one fitted absolute curve. Never independently sample separate PFS, OS, or strategy fits and label the result joint; `$heor-joint-survival-uncertainty` still requires a reviewed joint posterior or paired-patient bootstrap covering every curve in one sampling unit.
 - Treat the network-blocking environment variables as defense in depth, not an operating-system network sandbox. The fixed adapter contains no network or installation operation, but the user-installed R process remains an external tool.
 - Keep GPL packages outside the MIT deterministic core and bundle only the first-party adapter, request, normalized outputs, diagnostics, and hashes.
 

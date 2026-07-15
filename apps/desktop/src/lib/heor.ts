@@ -467,6 +467,7 @@ export interface HeorSurvivalFitExecutionAudit {
   candidateModels: number;
   convergedModels: number;
   crossImplementationComplete: boolean;
+  parameterUncertaintyComplete: boolean;
   packageVersions: Record<string, string>;
   errors: string[];
 }
@@ -2573,6 +2574,7 @@ export async function auditHeorSurvivalFitExecution(
       candidateModels: 0,
       convergedModels: 0,
       crossImplementationComplete: false,
+      parameterUncertaintyComplete: false,
       packageVersions: {},
       errors: ["Local survival execution audit requires the desktop runtime."],
     };

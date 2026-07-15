@@ -277,8 +277,13 @@ extrapolated survival/hazard landmarks, AIC/BIC, KM and hazard diagnostics,
 external and clinical plausibility assessments, limitations, and at least two
 structural scenarios. For an authorized strict two-column local CSV,
 `$heor-survival-fit-execution` can now use an already-installed isolated `survHE`
-library, preserve exact runtime evidence, and independently challenge exponential
-and Weibull predictions before review. It neither bundles that GPL backend nor
+library, preserve exact runtime evidence, independently challenge every converged
+admitted family before review, and export a hash-bound estimation-scale coefficient
+vector, full covariance matrix, parameter order, and inverse transforms for each
+converged model. Portable Python and native Rust audits require symmetry, positive
+definiteness, and recovery of the natural-scale fit. The artifact covers parameters
+within one absolute curve only and explicitly cannot authorize joint PFS/OS or
+between-strategy draws. It neither bundles that GPL backend nor
 silently installs it. The validator rejects post-hoc model-order drift, stale hashes,
 incomparable or invalid landmarks, hidden approval fields, and fewer than two
 converged alternatives. The only admitted state is
@@ -294,7 +299,7 @@ or PFS/OS reviews without implying joint cross-curve validity.
 
 Automatic curve selection, KM/IPD reconstruction, flexible or cure models,
 PFS/OS consistency and partitioned survival, treatment effects, background mortality, competing
-risks, covariance reconstruction from incomplete fit results, and clinical
+risks, covariance reconstruction from incomplete fit results, cross-curve dependence, and clinical
 extrapolation validity remain explicitly unsupported. NICE PMG36 and NICE DSU TSD 14/21 require validity,
 plausibility, alternatives, and uncertainty beyond this executable fragment;
 the platform therefore does not infer those claims from a generated schedule.

@@ -86,6 +86,9 @@ positive_times <- prediction_times[prediction_times > 0]
 models_rows <- list()
 parameters_rows <- list()
 predictions_rows <- list()
+uncertainty_rows <- list()
+estimation_parameters_rows <- list()
+covariance_rows <- list()
 fitted_models <- list()
 
 clean_message <- function(value) {
@@ -168,6 +171,71 @@ for (family in families) {
     stringsAsFactors = FALSE
   )
 
+  expected_transforms <- switch(
+    family,
+    exponential = c(rate = "exp"),
+    weibull = c(shape = "exp", scale = "exp"),
+    gompertz = c(shape = "identity", rate = "exp"),
+    gamma = c(shape = "exp", rate = "exp"),
+    generalized_gamma = c(mu = "identity", sigma = "exp", Q = "identity"),
+    generalized_f = c(mu = "identity", sigma = "exp", Q = "identity", P = "exp"),
+    lognormal = c(meanlog = "identity", sdlog = "exp"),
+    loglogistic = c(shape = "exp", scale = "exp")
+  )
+  transformed_parameters <- model$res.t
+  covariance <- model$cov
+  uncertainty_reason <- ""
+  if (
+    is.null(transformed_parameters) || is.null(rownames(transformed_parameters)) ||
+    !"est" %in% colnames(transformed_parameters) ||
+    !identical(rownames(transformed_parameters), names(expected_transforms))
+  ) {
+    uncertainty_reason <- "transformed parameter order does not match the admitted family contract"
+  } else if (
+    is.null(covariance) || !is.matrix(covariance) ||
+    !identical(dim(covariance), c(length(expected_transforms), length(expected_transforms))) ||
+    any(!is.finite(covariance))
+  ) {
+    uncertainty_reason <- "finite full-dimension covariance matrix is unavailable"
+  } else if (max(abs(covariance - t(covariance))) > 1e-10) {
+    uncertainty_reason <- "covariance matrix is not symmetric within tolerance"
+  } else if (inherits(tryCatch(chol(covariance), error = function(error) error), "error")) {
+    uncertainty_reason <- "covariance matrix is not positive definite"
+  } else {
+    transformed_estimates <- as.numeric(transformed_parameters[, "est"])
+    recovered_natural <- vapply(
+      seq_along(transformed_estimates),
+      function(index) if (expected_transforms[[index]] == "exp") exp(transformed_estimates[[index]]) else transformed_estimates[[index]],
+      numeric(1)
+    )
+    natural_estimates <- as.numeric(natural_parameters[, "est"])
+    if (any(abs(recovered_natural - natural_estimates) > 1e-10 * pmax(1, abs(natural_estimates)))) {
+      uncertainty_reason <- "inverse transforms do not reproduce natural-scale estimates"
+    } else {
+      estimation_parameters_rows[[length(estimation_parameters_rows) + 1]] <- data.frame(
+        family = family,
+        position = seq_along(transformed_estimates),
+        name = names(expected_transforms),
+        estimate = transformed_estimates,
+        inverse_transform = unname(expected_transforms),
+        stringsAsFactors = FALSE
+      )
+      covariance_rows[[length(covariance_rows) + 1]] <- data.frame(
+        family = family,
+        row_position = rep(seq_along(transformed_estimates), each = length(transformed_estimates)),
+        column_position = rep(seq_along(transformed_estimates), times = length(transformed_estimates)),
+        value = as.numeric(t(covariance)),
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+  uncertainty_rows[[length(uncertainty_rows) + 1]] <- data.frame(
+    family = family,
+    status = if (nzchar(uncertainty_reason)) "unavailable" else "available",
+    reason = uncertainty_reason,
+    stringsAsFactors = FALSE
+  )
+
   survival <- summary_frame(summary(model, t = positive_times, type = "survival", ci = FALSE))
   hazard <- summary_frame(summary(model, t = positive_times, type = "hazard", ci = FALSE))
   if (nrow(survival) != length(positive_times) || nrow(hazard) != length(positive_times)) {
@@ -186,10 +254,16 @@ for (family in families) {
 models_table <- do.call(rbind, models_rows)
 parameters_table <- if (length(parameters_rows)) do.call(rbind, parameters_rows) else data.frame(family = character(), name = character(), estimate = numeric())
 predictions_table <- if (length(predictions_rows)) do.call(rbind, predictions_rows) else data.frame(family = character(), time = numeric(), survival = numeric(), hazard = numeric())
+uncertainty_table <- if (length(uncertainty_rows)) do.call(rbind, uncertainty_rows) else data.frame(family = character(), status = character(), reason = character())
+estimation_parameters_table <- if (length(estimation_parameters_rows)) do.call(rbind, estimation_parameters_rows) else data.frame(family = character(), position = integer(), name = character(), estimate = numeric(), inverse_transform = character())
+covariance_table <- if (length(covariance_rows)) do.call(rbind, covariance_rows) else data.frame(family = character(), row_position = integer(), column_position = integer(), value = numeric())
 
 utils::write.table(models_table, file.path(output_dir, "models.tsv"), sep = "\t", quote = TRUE, row.names = FALSE, na = "")
 utils::write.table(parameters_table, file.path(output_dir, "parameters.tsv"), sep = "\t", quote = TRUE, row.names = FALSE, na = "")
 utils::write.table(predictions_table, file.path(output_dir, "predictions.tsv"), sep = "\t", quote = TRUE, row.names = FALSE, na = "")
+utils::write.table(uncertainty_table, file.path(output_dir, "uncertainty-status.tsv"), sep = "\t", quote = TRUE, row.names = FALSE, na = "")
+utils::write.table(estimation_parameters_table, file.path(output_dir, "estimation-parameters.tsv"), sep = "\t", quote = TRUE, row.names = FALSE, na = "")
+utils::write.table(covariance_table, file.path(output_dir, "covariance.tsv"), sep = "\t", quote = TRUE, row.names = FALSE, na = "")
 utils::write.table(package_rows, file.path(output_dir, "runtime.tsv"), sep = "\t", quote = TRUE, row.names = FALSE)
 capture.output(sessionInfo(), file = file.path(output_dir, "session-info.txt"))
 

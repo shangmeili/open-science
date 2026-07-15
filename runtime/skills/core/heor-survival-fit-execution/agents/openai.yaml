@@ -1,4 +1,4 @@
 interface:
   display_name: "HEOR Survival Fit Execution"
-  short_description: "Run and audit all admitted survHE parametric fits"
-  default_prompt: "Use $heor-survival-fit-execution to run a pre-specified local survHE MLE fit, preserve every attempted model, and independently verify every converged admitted family."
+  short_description: "Run, audit, and export covariance for survHE fits"
+  default_prompt: "Use $heor-survival-fit-execution to run a pre-specified local survHE MLE fit, audit every admitted family, and export within-curve parameter covariance without claiming joint survival uncertainty."
