@@ -18,7 +18,7 @@ BASE_PATHS = [
 ]
 UNCERTAINTY = {"fixed", "range_available", "distribution_available"}
 APPROVABLE_ANALYSIS_SCHEMAS = {
-    "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0"
+    "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0"
 }
 STRATEGY_ID = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 
@@ -59,7 +59,7 @@ def model_value(plan: dict[str, Any], path: str) -> Any:
 
 def required_paths(plan: dict[str, Any]) -> list[str]:
     paths = list(BASE_PATHS)
-    structure_neutral = plan.get("schema_version") in {"0.12.0", "0.13.0"}
+    structure_neutral = plan.get("schema_version") in {"0.12.0", "0.13.0", "0.14.0", "0.15.0"}
     for role in strategy_ids(plan):
         strategy = (plan.get("strategies") or {}).get(role) or {}
         transition_field = (
@@ -80,7 +80,7 @@ def required_paths(plan: dict[str, Any]) -> list[str]:
 
 
 def strategy_ids(plan: dict[str, Any]) -> list[str]:
-    if plan.get("schema_version") in {"0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0"}:
+    if plan.get("schema_version") in {"0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0"}:
         order = plan.get("strategy_order")
         return order if isinstance(order, list) and all(isinstance(item, str) for item in order) else []
     return ["comparator", "intervention"]
@@ -1408,9 +1408,9 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
     if not isinstance(plan, dict) or not isinstance(synthesis, dict):
         return {"complete": False, "errors": ["plan and synthesis must be JSON objects"]}
     if plan.get("schema_version") not in APPROVABLE_ANALYSIS_SCHEMAS:
-        errors.append("schema_version must be 0.3.0 through 0.13.0 for approval review")
+        errors.append("schema_version must be 0.3.0 through 0.15.0 for approval review")
     roles = strategy_ids(plan)
-    if plan.get("schema_version") in {"0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0"}:
+    if plan.get("schema_version") in {"0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0"}:
         strategies = plan.get("strategies")
         if (
             not 2 <= len(roles) <= 16 or len(set(roles)) != len(roles)
@@ -1419,17 +1419,17 @@ def audit(plan: Any, synthesis: Any, synthesis_sha256: str) -> dict[str, Any]:
             or not isinstance(strategies, dict) or set(strategies) != set(roles)
         ):
             errors.append(
-                "schema 0.8.0 through 0.13.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first"
+                "schema 0.8.0 through 0.15.0 requires 2-16 unique safe strategy ids, an exact strategies object, and baseline_strategy_id first"
             )
     for role in roles:
         strategy = (plan.get("strategies") or {}).get(role) or {}
         has_matrix = isinstance(strategy, dict) and strategy.get("transition_matrix") is not None
         has_schedule = isinstance(strategy, dict) and strategy.get("transition_schedule") is not None
-        if plan.get("schema_version") in {"0.12.0", "0.13.0"} and (has_matrix or has_schedule):
+        if plan.get("schema_version") in {"0.12.0", "0.13.0", "0.14.0", "0.15.0"} and (has_matrix or has_schedule):
             errors.append(
                 f"strategies.{role} transition structure is forbidden for partitioned survival"
             )
-        elif plan.get("schema_version") not in {"0.12.0", "0.13.0"} and has_matrix == has_schedule:
+        elif plan.get("schema_version") not in {"0.12.0", "0.13.0", "0.14.0", "0.15.0"} and has_matrix == has_schedule:
             errors.append(
                 f"strategies.{role} must define exactly one of transition_matrix or transition_schedule"
             )

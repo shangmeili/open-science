@@ -1,4 +1,4 @@
-# AI4HEOR structure-neutral economic input contract 0.13.0
+# AI4HEOR structure-neutral economic input contract 0.15.0
 
 ## Purpose
 
@@ -8,7 +8,7 @@ The common economic calculation uses state occupancy multiplied by state costs o
 
 ## Required structure
 
-The analysis plan must use schema `0.13.0`, link exactly `heor/partitioned-survival-plan.json` and `heor/cost-input-normalization.json`, and define:
+The analysis plan must use schema `0.15.0`, link the partitioned-survival, cost, utility, and event-disutility artifacts, and define:
 
 - one analysis ID, decision problem, reference case, and declared currency and price year;
 - states exactly `progression_free`, `progressed`, and `dead` for the current PSM implementation;
@@ -18,11 +18,11 @@ The analysis plan must use schema `0.13.0`, link exactly `heor/partitioned-survi
 
 Cost and utility arrays must match state order. Costs are finite and non-negative. Utilities are finite and from -1 to 1. Strategy names are non-empty and unique. Willingness-to-pay is optional and, when present, finite and non-negative.
 
-`initial_distribution`, `transition_matrix`, and `transition_schedule` are forbidden. Survival curves and occupancy belong to partitioned-survival artifacts. Quantity, unit-price, price-basis, tax, inflation, currency, and price-adjustment arithmetic belongs to `$heor-cost-input-normalization`; aggregate `state_costs` must reproduce that artifact.
+`initial_distribution`, `transition_matrix`, and `transition_schedule` are forbidden. Survival curves and occupancy belong to partitioned-survival artifacts. Cost arithmetic belongs to `$heor-cost-input-normalization`; state utility schedules belong to `$heor-utility-inputs`; separately excluded event QALY losses belong to `$heor-event-disutilities`.
 
 ## Evidence boundary
 
-Every required common input remains covered by the AI4HEOR input-provenance contract. Cost normalization additionally binds exact analysis bytes and evidence IDs. Proposed assumptions remain review inputs and never become approvals. Schema `0.12.0` remains readable but does not require itemized cost normalization.
+Every required common input remains covered by the AI4HEOR input-provenance contract. Each component artifact binds exact analysis bytes and evidence IDs. Proposed assumptions remain review inputs and never become approvals. Earlier structure-neutral schemas remain readable under their narrower contracts.
 
 ## Method basis
 

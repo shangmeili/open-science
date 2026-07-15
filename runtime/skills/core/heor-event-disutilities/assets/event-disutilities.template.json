@@ -1,0 +1,86 @@
+{
+  "schema_version": "0.1.0",
+  "event_disutility_id": "replace-with-safe-id",
+  "analysis_id": "replace-with-analysis-id",
+  "status": "ready_for_human_review",
+  "base_analysis": {
+    "path": "heor/analysis-plan.json",
+    "content_sha256": "replace-with-current-analysis-sha256"
+  },
+  "base_utility_inputs": {
+    "path": "heor/utility-inputs.json",
+    "content_sha256": "replace-with-current-utility-inputs-sha256"
+  },
+  "day_count_convention": {
+    "days_per_year": 365.25,
+    "rationale": "replace-with-reviewed-day-count-rationale",
+    "basis_ids": ["replace-with-analysis-linked-id"]
+  },
+  "combination_rule": {
+    "method": "additive_expected_qaly_loss",
+    "rationale": "replace-with-reviewed-combination-rationale",
+    "basis_ids": ["replace-with-analysis-linked-id"]
+  },
+  "item_order": ["replace-with-event-item-id"],
+  "items": {
+    "replace-with-event-item-id": {
+      "item_id": "replace-with-event-item-id",
+      "event_id": "replace-with-event-id",
+      "strategy_id": "replace-with-strategy-id",
+      "label": "replace-with-event-label",
+      "event": {
+        "category": "adverse_event",
+        "terminology_system": "replace-with-terminology-system",
+        "terminology_code": null,
+        "severity": {
+          "system": "replace-with-severity-system",
+          "grade": "replace-with-grade",
+          "rationale": "replace-with-severity-rationale"
+        }
+      },
+      "application": {
+        "mode": "one_time",
+        "eligible_states": ["replace-with-non-dead-state-id"],
+        "timing": "cycle_average",
+        "cost_handling": "not_in_this_artifact",
+        "rationale": "replace-with-application-rationale",
+        "basis_ids": ["replace-with-analysis-linked-id"]
+      },
+      "health_impact": {
+        "utility_decrement": 0.1,
+        "decrement_scale": "absolute_utility_decrement",
+        "duration_days": 7.0,
+        "qaly_loss_per_occurrence": 0.001916495550992471,
+        "instrument_or_method": "replace-with-instrument-or-method",
+        "respondent": "replace-with-respondent",
+        "source_population": "replace-with-source-population",
+        "basis_ids": ["replace-with-analysis-linked-id"]
+      },
+      "occurrence": {
+        "measure": "probability",
+        "schedule": [0.2],
+        "source_population": "replace-with-source-population",
+        "observation_window": "replace-with-observation-window",
+        "basis_ids": ["replace-with-analysis-linked-id"]
+      },
+      "utility_overlap": {
+        "status": "excluded_from_health_state_utility",
+        "reviewed_utility_item_ids": ["replace-with-eligible-utility-item-id"],
+        "rationale": "The named utility item explicitly excludes this event id.",
+        "basis_ids": ["replace-with-analysis-linked-id"]
+      },
+      "cycle_qaly_loss_per_eligible_person": [0.0003832991101984942],
+      "uncertainty": {
+        "status": "fixed",
+        "basis_ids": ["replace-with-analysis-linked-id"],
+        "limitations": ["Component uncertainty is recorded but not executed."]
+      }
+    }
+  },
+  "cycle_state_qaly_losses": {
+    "replace-with-strategy-id": [[0.0003832991101984942, 0.0]]
+  },
+  "limitations": [
+    "Long sequelae, event costs, interactions, caregiver spillovers, and component uncertainty execution are outside this contract."
+  ]
+}

@@ -9,14 +9,14 @@ Create a deterministic, hash-bound `heor/partitioned-survival-plan.json` without
 
 ## Workflow
 
-1. Use `$heor-economic-inputs`, `$heor-cost-input-normalization`, and `$heor-utility-inputs` to create or validate structure-neutral analysis schema `0.14.0`, its itemized annual state-cost ledger, and its cycle-specific state-utility schedule; then read the selected PFS and OS curve reviews and [references/contract.md](references/contract.md).
+1. Use `$heor-economic-inputs`, `$heor-cost-input-normalization`, `$heor-utility-inputs`, and `$heor-event-disutilities` to create or validate structure-neutral analysis schema `0.15.0` and its exact cost, state-utility, and event-loss ledgers; then read the selected PFS and OS curve reviews and [references/contract.md](references/contract.md).
 2. Confirm the decision process is forward-only and the analysis states are exactly `progression_free`, `progressed`, and `dead` in that order. Stop if this structure is not justified.
 3. Confirm every strategy uses the same population, time origin, time unit, cycle grid, and horizon for PFS and OS. Preserve unresolved differences as blockers; do not normalize them silently.
 4. Use `$heor-survival-curve-materialization` to create and validate `heor/survival-curve-materializations.json`. Stop if a curve is not an admitted exponential-rate or Weibull AFT shape/scale materialization.
 5. Use `$heor-treatment-effect-duration` to state the evidence horizon and shared endpoint HR basis, create the sustained, immediate-stop, and log-linear-waning scenarios, and select one Human-reviewable base case. Stop instead of inferring duration from the HR point estimate.
 6. Copy [assets/partitioned-survival-plan.template.json](assets/partitioned-survival-plan.template.json) to `heor/partitioned-survival-plan.json` and replace every placeholder.
-7. Bind `base_analysis.content_sha256`, `curve_materializations.content_sha256`, `treatment_effect_duration.content_sha256`, `cost_input_normalization.content_sha256`, and `utility_inputs.content_sha256` to the exact current bytes. Bind each endpoint to the exact reviewed curve artifact, its logical target `partitioned_survival.strategies.<strategy_id>.<endpoint>`, and the Human-selected converged family.
-8. Use the selected duration scenario's complete PFS and OS values in PSM schema `0.6.0`, preserving its exact duration-scenario basis IDs. Do not enter free-text or substitute basis IDs.
+7. Bind `base_analysis.content_sha256`, `curve_materializations.content_sha256`, `treatment_effect_duration.content_sha256`, `cost_input_normalization.content_sha256`, `utility_inputs.content_sha256`, and `event_disutilities.content_sha256` to the exact current bytes. Bind each endpoint to the exact reviewed curve artifact and Human-selected converged family.
+8. Use the selected duration scenario's complete PFS and OS values in PSM schema `0.7.0`, preserving its exact duration-scenario basis IDs. Do not enter free-text or substitute basis IDs.
 9. Calculate the implied checks without editing the duration-derived curves:
    - progression free = PFS
    - progressed = OS - PFS
@@ -33,6 +33,7 @@ python3 runtime/skills/core/heor-partitioned-survival/scripts/validate_partition
   --treatment-effect-duration heor/treatment-effect-duration.json \
   --cost-input-normalization heor/cost-input-normalization.json \
   --utility-inputs heor/utility-inputs.json \
+  --event-disutilities heor/event-disutilities.json \
   --workspace-root .
 python3 runtime/skills/core/heor-treatment-effect-duration/scripts/validate_treatment_effect_duration.py \
   heor/treatment-effect-duration.json heor/analysis-plan.json \

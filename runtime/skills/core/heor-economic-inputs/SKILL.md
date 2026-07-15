@@ -5,16 +5,16 @@ description: Create, repair, or validate AI4HEOR model-structure-neutral economi
 
 # HEOR Economic Inputs
 
-Translate a natural-language economic analysis scope into the common, deterministic inputs in `heor/analysis-plan.json` schema `0.14.0`. Keep survival structure, cost decomposition, and utility construction in their dedicated artifacts.
+Translate a natural-language economic analysis scope into the common, deterministic inputs in `heor/analysis-plan.json` schema `0.15.0`. Keep survival structure, cost decomposition, utility construction, and event QALY losses in their dedicated artifacts.
 
 ## Workflow
 
 1. Read [references/contract.md](references/contract.md), the decision problem, selected evidence, assumptions, and reference-case assessment.
 2. Confirm that partitioned survival is the intended structure and that the states are exactly `progression_free`, `progressed`, and `dead` in that order. Otherwise stop and route to the relevant model-design Skill.
-3. Copy [assets/partitioned-survival-analysis-plan.template.json](assets/partitioned-survival-analysis-plan.template.json) to `heor/analysis-plan.json`, replace every placeholder, and link `heor/cost-input-normalization.json` plus `heor/utility-inputs.json` without embedding their hashes.
+3. Copy [assets/partitioned-survival-analysis-plan.template.json](assets/partitioned-survival-analysis-plan.template.json) to `heor/analysis-plan.json`, replace every placeholder, and link the cost, utility, and event-disutility artifacts without embedding their hashes.
 4. Capture currency, price year, cycle grid, discount rates, half-cycle correction, optional willingness-to-pay, ordered strategies, and state rewards. Obtain missing choices through natural-language conversation; use form fields only as an entry aid.
 5. Keep each strategy object exactly to `name`, `state_costs`, and `state_utilities`. Do not add `initial_distribution`, `transition_matrix`, or `transition_schedule`.
-6. Use `$heor-cost-input-normalization` to decompose every annual state-cost rate, `$heor-utility-inputs` to reproduce every cycle-specific state utility, and `$heor-input-provenance` to bind every required input to evidence or an explicit proposed assumption. Do not invent or silently normalize costs, utilities, thresholds, or time bases.
+6. Use `$heor-cost-input-normalization` to decompose every annual state-cost rate, `$heor-utility-inputs` to reproduce every cycle-specific state utility, `$heor-event-disutilities` to reproduce separately excluded event QALY losses, and `$heor-input-provenance` to bind every required input to evidence or an explicit proposed assumption. Do not invent or silently normalize values or time bases.
 7. Leave `input_status` incomplete and report blockers until every required value and derivation is reviewable.
 8. Run:
 

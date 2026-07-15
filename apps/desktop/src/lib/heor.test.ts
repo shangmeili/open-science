@@ -51,6 +51,27 @@ describe("AI4HEOR artifact contract", () => {
     expect(() => parseHeorPlan(JSON.stringify(plan))).toThrow(/first strategy_order/);
   });
 
+  it("admits structure-neutral analysis schema 0.15 without Markov transitions", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    plan.schema_version = "0.15.0";
+    plan.baseline_strategy_id = "comparator";
+    plan.strategy_order = ["comparator", "intervention"];
+    for (const strategy of Object.values(plan.strategies)) {
+      delete strategy.initial_distribution;
+      delete strategy.transition_matrix;
+      delete strategy.transition_schedule;
+    }
+    plan.partitioned_survival_analysis = { path: "heor/partitioned-survival-plan.json" };
+    plan.cost_input_normalization = { path: "heor/cost-input-normalization.json" };
+    plan.utility_inputs = { path: "heor/utility-inputs.json" };
+    plan.event_disutilities = { path: "heor/event-disutilities.json" };
+
+    expect(parseHeorPlan(JSON.stringify(plan)).schema_version).toBe("0.15.0");
+    expect(auditHeorEvidence(plan).invalidMappings.join("; ")).not.toContain(
+      "transition structure is forbidden",
+    );
+  });
+
   it("rejects malformed multi-strategy order and exact-key declarations", () => {
     const makePlan = (): Record<string, unknown> => ({
       ...structuredClone(HEOR_BROWSER_DEMO_PLAN),
@@ -210,7 +231,7 @@ describe("AI4HEOR artifact contract", () => {
     const audit = auditHeorEvidence(plan);
 
     expect(audit.invalidMappings.join("; ")).toContain(
-      "schema_version must be 0.3.0 through 0.12.0",
+      "schema_version must be 0.3.0 through 0.15.0",
     );
     expect(audit.invalidMappings.join("; ")).toContain(
       "derivation.model_value does not match the current model input",

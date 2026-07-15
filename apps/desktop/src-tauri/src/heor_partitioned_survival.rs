@@ -33,6 +33,9 @@ pub struct PartitionedSurvivalAudit {
     pub utility_inputs_item_count: Option<usize>,
     pub utility_inputs_mapped_item_count: Option<usize>,
     pub utility_inputs_adjusted_item_count: Option<usize>,
+    pub event_disutilities_required: bool,
+    pub event_disutilities_sha256: Option<String>,
+    pub event_disutilities_item_count: Option<usize>,
     pub strategy_count: usize,
     pub curve_count: usize,
     pub time_point_count: usize,
@@ -77,6 +80,9 @@ fn empty_audit(plan_raw: &[u8], required: bool) -> PartitionedSurvivalAudit {
         utility_inputs_item_count: None,
         utility_inputs_mapped_item_count: None,
         utility_inputs_adjusted_item_count: None,
+        event_disutilities_required: false,
+        event_disutilities_sha256: None,
+        event_disutilities_item_count: None,
         strategy_count: 0,
         curve_count: 0,
         time_point_count: 0,
@@ -158,11 +164,11 @@ fn audit_values(
         .and_then(serde_json::Value::as_str);
     if !matches!(
         psm_schema,
-        Some("0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0")
+        Some("0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")
     ) {
         audit
             .errors
-            .push("partitioned survival schema_version must be 0.2.0 through 0.6.0".into());
+            .push("partitioned survival schema_version must be 0.2.0 through 0.7.0".into());
     }
     if matches!(psm_schema, Some("0.3.0" | "0.4.0")) && analysis_schema != Some("0.12.0") {
         audit.errors.push(
@@ -194,7 +200,20 @@ fn audit_values(
             .errors
             .push("analysis schema 0.14.0 requires partitioned survival schema 0.6.0".into());
     }
-    if matches!(psm_schema, Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0")) {
+    if psm_schema == Some("0.7.0") && analysis_schema != Some("0.15.0") {
+        audit
+            .errors
+            .push("partitioned survival schema 0.7.0 requires analysis schema 0.15.0".into());
+    }
+    if analysis_schema == Some("0.15.0") && psm_schema != Some("0.7.0") {
+        audit
+            .errors
+            .push("analysis schema 0.15.0 requires partitioned survival schema 0.7.0".into());
+    }
+    if matches!(
+        psm_schema,
+        Some("0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")
+    ) {
         audit
             .errors
             .extend(crate::heor_economic_inputs::audit_economic_inputs(plan));
@@ -502,7 +521,7 @@ fn audit_values(
                 .map(|error| format!("survival materialization: {error}")),
         );
     }
-    if matches!(psm_schema, Some("0.4.0" | "0.5.0" | "0.6.0")) {
+    if matches!(psm_schema, Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0")) {
         audit.treatment_effect_duration_required = true;
         let duration_audit = crate::heor_treatment_effect_duration::audit_treatment_effect_duration(
             workspace,
@@ -530,11 +549,11 @@ fn audit_values(
         }
     } else if psm.get("treatment_effect_duration").is_some() {
         audit.errors.push(
-            "treatment_effect_duration is admitted only by partitioned-survival schema 0.4.0 through 0.6.0"
+            "treatment_effect_duration is admitted only by partitioned-survival schema 0.4.0 through 0.7.0"
                 .into(),
         );
     }
-    if matches!(psm_schema, Some("0.5.0" | "0.6.0")) {
+    if matches!(psm_schema, Some("0.5.0" | "0.6.0" | "0.7.0")) {
         audit.cost_input_normalization_required = true;
         let cost_audit = crate::heor_cost_input_normalization::audit_cost_input_normalization(
             workspace, plan, plan_raw, psm,
@@ -553,10 +572,10 @@ fn audit_values(
         }
     } else if psm.get("cost_input_normalization").is_some() {
         audit.errors.push(
-            "cost_input_normalization is admitted only by partitioned-survival schema 0.5.0 or 0.6.0".into(),
+            "cost_input_normalization is admitted only by partitioned-survival schema 0.5.0 through 0.7.0".into(),
         );
     }
-    if psm_schema == Some("0.6.0") {
+    if matches!(psm_schema, Some("0.6.0" | "0.7.0")) {
         audit.utility_inputs_required = true;
         let utility_audit =
             crate::heor_utility_inputs::audit_utility_inputs(workspace, plan, plan_raw, psm);
@@ -577,9 +596,51 @@ fn audit_values(
             );
         }
     } else if psm.get("utility_inputs").is_some() {
-        audit
-            .errors
-            .push("utility_inputs is admitted only by partitioned-survival schema 0.6.0".into());
+        audit.errors.push(
+            "utility_inputs is admitted only by partitioned-survival schema 0.6.0 or 0.7.0".into(),
+        );
+    }
+    if psm_schema == Some("0.7.0") {
+        audit.event_disutilities_required = true;
+        match crate::heor_uncertainty::read_workspace_capped(
+            workspace,
+            crate::heor_utility_inputs::UTILITY_INPUTS_PATH,
+        ) {
+            Ok(utility_raw) => match serde_json::from_slice(&utility_raw) {
+                Ok(utility_value) => {
+                    let event_audit = crate::heor_event_disutilities::audit_event_disutilities(
+                        workspace,
+                        plan,
+                        plan_raw,
+                        psm,
+                        &utility_value,
+                        &utility_raw,
+                    );
+                    audit.event_disutilities_sha256 =
+                        (!event_audit.sha256.is_empty()).then_some(event_audit.sha256);
+                    audit.event_disutilities_item_count = Some(event_audit.item_count);
+                    audit
+                        .artifact_bindings
+                        .extend(event_audit.artifact_bindings);
+                    if !event_audit.complete {
+                        audit.errors.extend(
+                            event_audit
+                                .errors
+                                .into_iter()
+                                .map(|error| format!("event disutilities: {error}")),
+                        );
+                    }
+                }
+                Err(error) => audit.errors.push(format!(
+                    "event disutilities: utility inputs are invalid JSON: {error}"
+                )),
+            },
+            Err(error) => audit.errors.push(format!("event disutilities: {error}")),
+        }
+    } else if psm.get("event_disutilities").is_some() {
+        audit.errors.push(
+            "event_disutilities is admitted only by partitioned-survival schema 0.7.0".into(),
+        );
     }
     let authority = String::from_utf8_lossy(psm_raw).to_ascii_lowercase();
     if [
@@ -693,6 +754,8 @@ pub fn run_heor_partitioned_survival(
     let cost_input_path =
         workspace.join(crate::heor_cost_input_normalization::COST_INPUT_NORMALIZATION_PATH);
     let utility_inputs_path = workspace.join(crate::heor_utility_inputs::UTILITY_INPUTS_PATH);
+    let event_disutilities_path =
+        workspace.join(crate::heor_event_disutilities::EVENT_DISUTILITIES_PATH);
     let plan_raw = crate::heor_uncertainty::read_workspace_capped(&workspace, ANALYSIS_PLAN_PATH)?;
     let audit = require_partitioned_survival_approvable(&workspace, &plan_raw)?;
 
@@ -725,6 +788,11 @@ pub fn run_heor_partitioned_survival(
     }
     if audit.utility_inputs_required {
         command.arg("--utility-inputs").arg(&utility_inputs_path);
+    }
+    if audit.event_disutilities_required {
+        command
+            .arg("--event-disutilities")
+            .arg(&event_disutilities_path);
     }
     let output = command
         .output()
@@ -771,6 +839,11 @@ pub fn run_heor_partitioned_survival(
                 .get("utility_inputs_sha256")
                 .and_then(serde_json::Value::as_str)
                 != audit.utility_inputs_sha256.as_deref())
+        || (audit.event_disutilities_required
+            && calculation
+                .get("event_disutilities_sha256")
+                .and_then(serde_json::Value::as_str)
+                != audit.event_disutilities_sha256.as_deref())
     {
         return Err("partitioned survival engine hashes do not match audited inputs".into());
     }

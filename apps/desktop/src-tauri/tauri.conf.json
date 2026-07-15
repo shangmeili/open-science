@@ -45,6 +45,7 @@
       "../../../python/heor_core/src/heor_core/economic_inputs.py": "heor-core/src/heor_core/economic_inputs.py",
       "../../../python/heor_core/src/heor_core/cost_input_normalization.py": "heor-core/src/heor_core/cost_input_normalization.py",
       "../../../python/heor_core/src/heor_core/utility_inputs.py": "heor-core/src/heor_core/utility_inputs.py",
+      "../../../python/heor_core/src/heor_core/event_disutilities.py": "heor-core/src/heor_core/event_disutilities.py",
       "../../../python/heor_core/src/heor_core/model.py": "heor-core/src/heor_core/model.py",
       "../../../python/heor_core/src/heor_core/partitioned_survival.py": "heor-core/src/heor_core/partitioned_survival.py",
       "../../../python/heor_core/src/heor_core/survival_materialization.py": "heor-core/src/heor_core/survival_materialization.py",

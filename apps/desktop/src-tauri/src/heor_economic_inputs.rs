@@ -20,13 +20,12 @@ fn safe_id(value: &str) -> bool {
 
 pub fn audit_economic_inputs(plan: &serde_json::Value) -> Vec<String> {
     let mut errors = Vec::new();
-    if plan
+    let schema = plan
         .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        .is_none_or(|value| !matches!(value, "0.12.0" | "0.13.0" | "0.14.0"))
-    {
+        .and_then(serde_json::Value::as_str);
+    if schema.is_none_or(|value| !matches!(value, "0.12.0" | "0.13.0" | "0.14.0" | "0.15.0")) {
         errors.push(
-            "structure-neutral economic inputs require analysis schema 0.12.0 through 0.14.0"
+            "structure-neutral economic inputs require analysis schema 0.12.0 through 0.15.0"
                 .into(),
         );
     }
@@ -37,7 +36,7 @@ pub fn audit_economic_inputs(plan: &serde_json::Value) -> Vec<String> {
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        .is_some_and(|schema| matches!(schema, "0.13.0" | "0.14.0"))
+        .is_some_and(|schema| matches!(schema, "0.13.0" | "0.14.0" | "0.15.0"))
     {
         if cost_link
             != Some(&serde_json::json!({
@@ -45,27 +44,39 @@ pub fn audit_economic_inputs(plan: &serde_json::Value) -> Vec<String> {
             }))
         {
             errors.push(
-                "analysis schema 0.13.0 or 0.14.0 must link only heor/cost-input-normalization.json".into(),
+                "analysis schema 0.13.0 through 0.15.0 must link only heor/cost-input-normalization.json".into(),
             );
         }
     } else if cost_link.is_some() {
         errors.push(
-            "cost_input_normalization is admitted only by analysis schema 0.13.0 or 0.14.0".into(),
+            "cost_input_normalization is admitted only by analysis schema 0.13.0 through 0.15.0"
+                .into(),
         );
     }
     let utility_link = plan.get("utility_inputs");
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        == Some("0.14.0")
+        .is_some_and(|schema| matches!(schema, "0.14.0" | "0.15.0"))
     {
         if utility_link
             != Some(&serde_json::json!({"path": crate::heor_utility_inputs::UTILITY_INPUTS_PATH}))
         {
-            errors.push("analysis schema 0.14.0 must link only heor/utility-inputs.json".into());
+            errors.push(
+                "analysis schema 0.14.0 or 0.15.0 must link only heor/utility-inputs.json".into(),
+            );
         }
     } else if utility_link.is_some() {
-        errors.push("utility_inputs is admitted only by analysis schema 0.14.0".into());
+        errors.push("utility_inputs is admitted only by analysis schema 0.14.0 or 0.15.0".into());
+    }
+    let event_link = plan.get("event_disutilities");
+    if schema == Some("0.15.0") {
+        if event_link != Some(&serde_json::json!({"path": "heor/event-disutilities.json"})) {
+            errors
+                .push("analysis schema 0.15.0 must link only heor/event-disutilities.json".into());
+        }
+    } else if event_link.is_some() {
+        errors.push("event_disutilities is admitted only by analysis schema 0.15.0".into());
     }
     if plan
         .pointer("/partitioned_survival_analysis/path")
@@ -252,6 +263,22 @@ mod tests {
     #[test]
     fn accepts_structure_neutral_inputs() {
         assert!(audit_economic_inputs(&valid_plan()).is_empty());
+    }
+
+    #[test]
+    fn accepts_event_disutility_analysis_links() {
+        let mut plan = valid_plan();
+        plan["schema_version"] = serde_json::json!("0.15.0");
+        plan["cost_input_normalization"] = serde_json::json!({
+            "path": crate::heor_cost_input_normalization::COST_INPUT_NORMALIZATION_PATH
+        });
+        plan["utility_inputs"] = serde_json::json!({
+            "path": crate::heor_utility_inputs::UTILITY_INPUTS_PATH
+        });
+        plan["event_disutilities"] = serde_json::json!({
+            "path": crate::heor_event_disutilities::EVENT_DISUTILITIES_PATH
+        });
+        assert!(audit_economic_inputs(&plan).is_empty());
     }
 
     #[test]

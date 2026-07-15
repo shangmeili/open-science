@@ -190,11 +190,11 @@ pub fn audit_utility_inputs(
     if plan
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        != Some("0.14.0")
+        .is_none_or(|schema| !matches!(schema, "0.14.0" | "0.15.0"))
     {
         audit
             .errors
-            .push("utility inputs require analysis schema 0.14.0".into());
+            .push("utility inputs require analysis schema 0.14.0 or 0.15.0".into());
     }
     if !exact(
         &value,

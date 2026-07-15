@@ -2536,6 +2536,7 @@ function PartitionedSurvivalAssessment({
           <Metric label={t("partitionedSurvival.utilityItems")} value={String(audit.utilityInputsItemCount ?? 0)} />
           <Metric label={t("partitionedSurvival.mappedUtilities")} value={String(audit.utilityInputsMappedItemCount ?? 0)} />
           <Metric label={t("partitionedSurvival.adjustedUtilities")} value={String(audit.utilityInputsAdjustedItemCount ?? 0)} />
+          <Metric label={t("partitionedSurvival.eventDisutilities")} value={String(audit.eventDisutilitiesItemCount ?? 0)} />
         </div>
       )}
       {audit?.treatmentEffectDurationBaseCaseId && (
@@ -3300,6 +3301,9 @@ function PartitionedSurvivalResultCard({
               <th className="px-2 py-2 text-left font-medium">{t("partitionedSurvivalResult.strategy")}</th>
               <th className="px-2 py-2 text-right font-medium">{t("result.cost")}</th>
               <th className="px-2 py-2 text-right font-medium">{t("result.qaly")}</th>
+              {calculation.event_disutilities_summary && (
+                <th className="px-2 py-2 text-right font-medium">{t("result.eventQalyLoss")}</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -3310,6 +3314,11 @@ function PartitionedSurvivalResultCard({
                   <td className="px-2 py-2 text-text">{strategy.name}</td>
                   <td className="px-2 py-2 text-right tabular-nums text-text">{currency.format(strategy.total_cost)}</td>
                   <td className="px-2 py-2 text-right tabular-nums text-text">{qaly.format(strategy.total_qaly)}</td>
+                  {calculation.event_disutilities_summary && (
+                    <td className="px-2 py-2 text-right tabular-nums text-text">
+                      {qaly.format(strategy.event_disutility_qaly_loss ?? 0)}
+                    </td>
+                  )}
                 </tr>
               );
             })}

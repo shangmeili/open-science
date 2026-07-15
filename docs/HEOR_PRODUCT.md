@@ -773,20 +773,25 @@ OS-PFS, and death from 1-OS; computes state rewards and incremental results;
 and blocks curve crossing, increasing survival, time-grid mismatch, stale
 hashes, and hidden approval claims. Analysis-plan approval is supported, but
 release is intentionally blocked until validation and reporting bind the PSM
-plan and result. Analysis schema `0.14.0` now separates common costs, utilities,
+plan and result. Analysis schema `0.15.0` now separates common costs, utilities, event losses,
 cycle settings, discounting, and thresholds from PSM structure; its strategy
 objects forbid initial distributions and transition definitions. Portable,
 Python, browser, and native validators independently enforce that boundary while
 legacy analysis `0.13.0` / PSM `0.5.0` remains calculation-compatible. PSM
-`0.6.0` retains `heor/cost-input-normalization.json` and additionally requires
+`0.7.0` retains the PSM `0.6.0` cost and utility contracts and additionally requires
 `heor/utility-inputs.json`. One item per strategy/state records instrument and
 version, respondent and source population, value set and license, optional
 mapping and performance evidence, captured/excluded effects, overlap rationale,
 source utility, and explicit multiplicative cycle adjustments. Python, the
 portable Skill, and native Rust independently reproduce the full cycle schedule,
 and the PSM calculation consumes it for QALYs. The engine never chooses a value
-set, mapping algorithm, population adjustment, or overlap policy. Event
-disutilities and utility-component uncertainty remain blocked.
+set, mapping algorithm, population adjustment, or overlap policy. The separate
+`heor/event-disutilities.json` ledger reproduces one-time, recurrent, and continuous-
+exposure QALY losses from explicit decrements, durations, schedules, and eligible
+states. Every event must be explicitly excluded from each affected health-state
+utility; the engine subtracts the occupancy-weighted loss under the same half-cycle
+and outcome-discount rules. Long sequelae require explicit states. Event selection,
+additivity, and component uncertainty remain Human-owned or blocked.
 
 PSM `0.5.0` introduced `heor/cost-input-normalization.json`: natural
 language is the primary way to identify ingredients and resolve missing method

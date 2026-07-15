@@ -117,8 +117,8 @@ def basis_ids(plan: dict[str, Any]) -> set[str]:
 def validate(analysis: dict[str, Any], analysis_raw: bytes, artifact: dict[str, Any]) -> list[str]:
     try:
         plan = obj(analysis, "analysis plan")
-        if plan.get("schema_version") != "0.14.0":
-            raise Invalid("utility inputs require analysis schema 0.14.0")
+        if plan.get("schema_version") not in {"0.14.0", "0.15.0"}:
+            raise Invalid("utility inputs require analysis schema 0.14.0 or 0.15.0")
         value = obj(artifact, "utility-input artifact")
         exact(value, TOP_KEYS, "utility-input artifact")
         if value.get("schema_version") != "0.1.0":

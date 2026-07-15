@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.6.0",
+  "schema_version": "0.7.0",
   "psm_id": "REPLACE_ME",
   "analysis_id": "REPLACE_ME",
   "status": "draft",
@@ -21,6 +21,10 @@
   },
   "utility_inputs": {
     "path": "heor/utility-inputs.json",
+    "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
+  },
+  "event_disutilities": {
+    "path": "heor/event-disutilities.json",
     "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
   },
   "time_origin": "REPLACE_ME",

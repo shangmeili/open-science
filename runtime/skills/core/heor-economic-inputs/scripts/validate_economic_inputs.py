@@ -24,22 +24,27 @@ def validate(plan: dict[str, Any]) -> list[str]:
     if not isinstance(plan, dict):
         return ["analysis plan must be an object"]
     schema = plan.get("schema_version")
-    if schema not in {"0.12.0", "0.13.0", "0.14.0"}:
-        errors.append("schema_version must be 0.12.0 through 0.14.0")
+    if schema not in {"0.12.0", "0.13.0", "0.14.0", "0.15.0"}:
+        errors.append("schema_version must be 0.12.0 through 0.15.0")
     if "approvals" in plan:
         errors.append("approvals are app-owned and forbidden in the analysis plan")
     if plan.get("partitioned_survival_analysis") != {"path": "heor/partitioned-survival-plan.json"}:
         errors.append("partitioned_survival_analysis must link only heor/partitioned-survival-plan.json")
-    if schema in {"0.13.0", "0.14.0"}:
+    if schema in {"0.13.0", "0.14.0", "0.15.0"}:
         if plan.get("cost_input_normalization") != {"path": "heor/cost-input-normalization.json"}:
             errors.append(f"analysis schema {schema} must link only heor/cost-input-normalization.json")
     elif plan.get("cost_input_normalization") is not None:
-        errors.append("cost_input_normalization is admitted only by analysis schema 0.13.0 or 0.14.0")
-    if schema == "0.14.0":
+        errors.append("cost_input_normalization is admitted only by analysis schema 0.13.0 through 0.15.0")
+    if schema in {"0.14.0", "0.15.0"}:
         if plan.get("utility_inputs") != {"path": "heor/utility-inputs.json"}:
-            errors.append("analysis schema 0.14.0 must link only heor/utility-inputs.json")
+            errors.append(f"analysis schema {schema} must link only heor/utility-inputs.json")
     elif plan.get("utility_inputs") is not None:
-        errors.append("utility_inputs is admitted only by analysis schema 0.14.0")
+        errors.append("utility_inputs is admitted only by analysis schema 0.14.0 or 0.15.0")
+    if schema == "0.15.0":
+        if plan.get("event_disutilities") != {"path": "heor/event-disutilities.json"}:
+            errors.append("analysis schema 0.15.0 must link only heor/event-disutilities.json")
+    elif plan.get("event_disutilities") is not None:
+        errors.append("event_disutilities is admitted only by analysis schema 0.15.0")
     if not isinstance(plan.get("analysis_id"), str) or not plan["analysis_id"].strip():
         errors.append("analysis_id must not be empty")
     basis = plan.get("economic_basis")

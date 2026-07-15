@@ -20,7 +20,7 @@ from .model import ModelValidationError
 SCHEMA_VERSION = "0.1.0"
 ARTIFACT_PATH = "heor/utility-inputs.json"
 ANALYSIS_PATH = "heor/analysis-plan.json"
-SUPPORTED_ANALYSIS_SCHEMAS = {"0.14.0"}
+SUPPORTED_ANALYSIS_SCHEMAS = {"0.14.0", "0.15.0"}
 TOLERANCE = 1e-9
 SAFE_ID = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 SOURCE_DESIGNS = {
@@ -84,7 +84,7 @@ def validate_utility_inputs(
     plan = _object(analysis_plan, "analysis plan")
     if plan.get("schema_version") not in SUPPORTED_ANALYSIS_SCHEMAS:
         raise ModelValidationError(
-            "utility inputs require analysis schema 0.14.0"
+            "utility inputs require analysis schema 0.14.0 or 0.15.0"
         )
     value = _object(artifact, "utility-input artifact")
     _exact_keys(

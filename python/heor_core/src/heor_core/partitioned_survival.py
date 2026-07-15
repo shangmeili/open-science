@@ -15,6 +15,7 @@ from typing import Any
 from .economic_inputs import EconomicSpecification
 from .cost_input_normalization import validate_cost_input_normalization
 from .utility_inputs import validate_utility_inputs
+from .event_disutilities import validate_event_disutilities
 from .model import (
     ModelValidationError,
     StrategyResult,
@@ -26,14 +27,16 @@ from .survival_materialization import validate_survival_curve_materializations
 from .treatment_effect_duration import validate_treatment_effect_duration
 
 
-SCHEMA_VERSION = "0.6.0"
-PREVIOUS_SCHEMA_VERSION = "0.5.0"
-EARLIER_SCHEMA_VERSION = "0.4.0"
-OLDER_SCHEMA_VERSION = "0.3.0"
-LEGACY_SCHEMA_VERSION = "0.2.0"
-ENGINE_VERSION = "0.6.0"
-PREVIOUS_ENGINE_VERSION = "0.5.0"
-EARLIER_ENGINE_VERSION = "0.4.0"
+SCHEMA_VERSION = "0.7.0"
+PREVIOUS_SCHEMA_VERSION = "0.6.0"
+EARLIER_SCHEMA_VERSION = "0.5.0"
+OLDER_SCHEMA_VERSION = "0.4.0"
+LEGACY_SCHEMA_VERSION = "0.3.0"
+INITIAL_SCHEMA_VERSION = "0.2.0"
+ENGINE_VERSION = "0.7.0"
+PREVIOUS_ENGINE_VERSION = "0.6.0"
+EARLIER_ENGINE_VERSION = "0.5.0"
+OLDER_ENGINE_VERSION = "0.4.0"
 PLAN_PATH = "heor/partitioned-survival-plan.json"
 ANALYSIS_PATH = "heor/analysis-plan.json"
 STATE_ORDER = ("progression_free", "progressed", "dead")
@@ -54,6 +57,8 @@ def run_partitioned_survival(
     cost_input_normalization_raw: bytes | None = None,
     utility_inputs: dict[str, Any] | None = None,
     utility_inputs_raw: bytes | None = None,
+    event_disutilities: dict[str, Any] | None = None,
+    event_disutilities_raw: bytes | None = None,
 ) -> dict[str, Any]:
     """Validate and execute a hash-bound partitioned survival plan."""
 
@@ -65,6 +70,7 @@ def run_partitioned_survival(
             EARLIER_SCHEMA_VERSION,
             PREVIOUS_SCHEMA_VERSION,
             SCHEMA_VERSION,
+            LEGACY_SCHEMA_VERSION,
         }
         else EconomicSpecification.from_legacy_markov_plan(analysis_plan)
     )
@@ -77,10 +83,15 @@ def run_partitioned_survival(
         materializations_raw,
     )
     duration_scenarios = None
-    if plan_schema in {EARLIER_SCHEMA_VERSION, PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION}:
+    if plan_schema in {
+        OLDER_SCHEMA_VERSION,
+        EARLIER_SCHEMA_VERSION,
+        PREVIOUS_SCHEMA_VERSION,
+        SCHEMA_VERSION,
+    }:
         if treatment_effect_duration is None or treatment_effect_duration_raw is None:
             raise ModelValidationError(
-                "partitioned-survival schema 0.4.0 through 0.6.0 requires treatment-effect duration artifacts"
+                "partitioned-survival schema 0.4.0 through 0.7.0 requires treatment-effect duration artifacts"
             )
         duration_scenarios = validate_treatment_effect_duration(
             analysis_plan,
@@ -93,14 +104,14 @@ def run_partitioned_survival(
         )
     elif treatment_effect_duration is not None or treatment_effect_duration_raw is not None:
         raise ModelValidationError(
-            "treatment-effect duration artifacts require partitioned-survival schema 0.4.0 through 0.6.0"
+            "treatment-effect duration artifacts require partitioned-survival schema 0.4.0 through 0.7.0"
         )
 
     cost_summary = None
-    if plan_schema in {PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION}:
+    if plan_schema in {EARLIER_SCHEMA_VERSION, PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION}:
         if cost_input_normalization is None or cost_input_normalization_raw is None:
             raise ModelValidationError(
-                "partitioned-survival schema 0.5.0 or 0.6.0 requires cost-input normalization artifacts"
+                "partitioned-survival schema 0.5.0 through 0.7.0 requires cost-input normalization artifacts"
             )
         cost_summary = validate_cost_input_normalization(
             analysis_plan,
@@ -120,14 +131,14 @@ def run_partitioned_survival(
             )
     elif cost_input_normalization is not None or cost_input_normalization_raw is not None:
         raise ModelValidationError(
-            "cost-input normalization artifacts require partitioned-survival schema 0.5.0 or 0.6.0"
+            "cost-input normalization artifacts require partitioned-survival schema 0.5.0 through 0.7.0"
         )
 
     utility_summary = None
-    if plan_schema == SCHEMA_VERSION:
+    if plan_schema in {PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION}:
         if utility_inputs is None or utility_inputs_raw is None:
             raise ModelValidationError(
-                "partitioned-survival schema 0.6.0 requires utility-input artifacts"
+                "partitioned-survival schema 0.6.0 or 0.7.0 requires utility-input artifacts"
             )
         utility_summary = validate_utility_inputs(
             analysis_plan,
@@ -142,16 +153,50 @@ def run_partitioned_survival(
             )
     elif utility_inputs is not None or utility_inputs_raw is not None:
         raise ModelValidationError(
-            "utility-input artifacts require partitioned-survival schema 0.6.0"
+            "utility-input artifacts require partitioned-survival schema 0.6.0 or 0.7.0"
+        )
+
+    event_summary = None
+    if plan_schema == SCHEMA_VERSION:
+        if event_disutilities is None or event_disutilities_raw is None:
+            raise ModelValidationError(
+                "partitioned-survival schema 0.7.0 requires event-disutility artifacts"
+            )
+        if utility_inputs is None or utility_inputs_raw is None:
+            raise ModelValidationError("event disutilities require utility-input artifacts")
+        event_summary = validate_event_disutilities(
+            analysis_plan,
+            analysis_raw,
+            utility_inputs,
+            utility_inputs_raw,
+            event_disutilities,
+            event_disutilities_raw,
+        )
+        event_link = _mapping(
+            partitioned_plan.get("event_disutilities"), "event_disutilities"
+        )
+        if event_link.get("content_sha256") != hashlib.sha256(
+            event_disutilities_raw
+        ).hexdigest():
+            raise ModelValidationError(
+                "event_disutilities.content_sha256 does not match current bytes"
+            )
+    elif event_disutilities is not None or event_disutilities_raw is not None:
+        raise ModelValidationError(
+            "event-disutility artifacts require partitioned-survival schema 0.7.0"
         )
 
     utility_schedule = (
         utility_summary.cycle_state_utilities if utility_summary is not None else None
     )
+    event_schedule = (
+        event_summary.cycle_state_qaly_losses if event_summary is not None else None
+    )
     result = calculate_partitioned_survival(
         specification,
         partitioned_plan,
         utility_schedule,
+        event_schedule,
     )
     return {
         "schema_version": (
@@ -162,6 +207,8 @@ def run_partitioned_survival(
             else EARLIER_SCHEMA_VERSION
             if plan_schema == EARLIER_SCHEMA_VERSION
             else OLDER_SCHEMA_VERSION
+            if plan_schema == OLDER_SCHEMA_VERSION
+            else LEGACY_SCHEMA_VERSION
         ),
         "partitioned_survival_plan_schema_version": plan_schema,
         "engine_version": (
@@ -171,7 +218,9 @@ def run_partitioned_survival(
             if plan_schema == PREVIOUS_SCHEMA_VERSION
             else EARLIER_ENGINE_VERSION
             if plan_schema == EARLIER_SCHEMA_VERSION
-            else OLDER_SCHEMA_VERSION
+            else OLDER_ENGINE_VERSION
+            if plan_schema == OLDER_SCHEMA_VERSION
+            else LEGACY_SCHEMA_VERSION
         ),
         "analysis_id": specification.analysis_id,
         "psm_id": partitioned_plan["psm_id"],
@@ -196,6 +245,7 @@ def run_partitioned_survival(
                                 specification,
                                 {"strategies": scenario["strategies"]},
                                 utility_schedule,
+                                event_schedule,
                             )
                         ),
                     }
@@ -220,6 +270,22 @@ def run_partitioned_survival(
                 },
             }
             if cost_summary is not None and cost_input_normalization_raw is not None
+            else {}
+        ),
+        **(
+            {
+                "event_disutilities_sha256": hashlib.sha256(
+                    event_disutilities_raw
+                ).hexdigest(),
+                "event_disutilities_summary": {
+                    "event_disutility_id": event_summary.event_disutility_id,
+                    "item_count": event_summary.item_count,
+                    "one_time_item_count": event_summary.one_time_item_count,
+                    "recurrent_item_count": event_summary.recurrent_item_count,
+                    "continuous_exposure_item_count": event_summary.continuous_exposure_item_count,
+                },
+            }
+            if event_summary is not None and event_disutilities_raw is not None
             else {}
         ),
         **(
@@ -260,6 +326,13 @@ def run_partitioned_survival(
             ),
             *(
                 [
+                    "Event QALY losses were reproduced from explicit decrement, duration, occurrence/exposure schedules, eligible states, and cross-artifact overlap review; event selection, source fitness, additive-impact validity, and uncertainty remain Human review responsibilities."
+                ]
+                if event_summary is not None
+                else []
+            ),
+            *(
+                [
                     "Cycle-specific health-state utilities were reproduced from explicit measurement, valuation, mapping, adjustment, and overlap metadata; instrument suitability, value-set choice, mapping validity, licensing, and event double counting remain Human review responsibilities."
                 ]
                 if utility_summary is not None
@@ -270,7 +343,7 @@ def run_partitioned_survival(
                     "Legacy schema 0.2.0 transition inputs were validated for "
                     "compatibility but were not used by this calculation."
                 ]
-                if plan_schema == LEGACY_SCHEMA_VERSION
+                if plan_schema == INITIAL_SCHEMA_VERSION
                 else []
             ),
             "Workflow authorization, evidence verification, and independent "
@@ -283,6 +356,7 @@ def calculate_partitioned_survival(
     specification: EconomicSpecification,
     partitioned_plan: dict[str, Any],
     utility_schedule: dict[str, tuple[tuple[float, ...], ...]] | None = None,
+    event_qaly_loss_schedule: dict[str, tuple[tuple[float, ...], ...]] | None = None,
 ) -> dict[str, Any]:
     """Evaluate already validated fixed curves against economic inputs.
 
@@ -293,6 +367,7 @@ def calculate_partitioned_survival(
     """
 
     strategy_results: list[tuple[str, StrategyResult]] = []
+    event_losses: dict[str, float] = {}
     curve_values = partitioned_plan["strategies"]
     for strategy_id in specification.strategy_order:
         strategy = specification.strategy_map[strategy_id]
@@ -304,6 +379,7 @@ def calculate_partitioned_survival(
         ]
         total_cost = 0.0
         total_qaly = 0.0
+        total_event_qaly_loss = 0.0
         for cycle in range(specification.cycles):
             if specification.half_cycle_correction:
                 reward_occupancy = tuple(
@@ -337,13 +413,29 @@ def calculate_partitioned_survival(
                 )
                 * specification.cycle_length_years
             )
+            cycle_event_qaly_loss = (
+                sum(
+                    probability * qaly_loss
+                    for probability, qaly_loss in zip(
+                        reward_occupancy,
+                        event_qaly_loss_schedule[strategy_id][cycle],
+                    )
+                )
+                if event_qaly_loss_schedule is not None
+                else 0.0
+            )
             total_cost += cycle_cost / (
                 (1.0 + specification.cost_discount_rate) ** discount_time
             )
-            total_qaly += cycle_qaly / (
+            outcome_discount = (
                 (1.0 + specification.outcome_discount_rate) ** discount_time
             )
-        if not all(isfinite(value) for value in (total_cost, total_qaly)):
+            total_qaly += (cycle_qaly - cycle_event_qaly_loss) / outcome_discount
+            total_event_qaly_loss += cycle_event_qaly_loss / outcome_discount
+        if not all(
+            isfinite(value)
+            for value in (total_cost, total_qaly, total_event_qaly_loss)
+        ):
             raise ModelValidationError(
                 f"partitioned survival strategy {strategy_id} produced a non-finite result"
             )
@@ -362,6 +454,7 @@ def calculate_partitioned_survival(
             transition_schedule_start_cycles=(),
         )
         strategy_results.append((strategy_id, result))
+        event_losses[strategy_id] = total_event_qaly_loss
 
     result_map = dict(strategy_results)
     baseline = result_map[specification.baseline_strategy_id]
@@ -382,7 +475,19 @@ def calculate_partitioned_survival(
         "strategy_order": list(specification.strategy_order),
         "baseline_strategy_id": specification.baseline_strategy_id,
         "strategies": {
-            strategy_id: result.to_dict() for strategy_id, result in strategy_results
+            strategy_id: {
+                **result.to_dict(),
+                **(
+                    {
+                        "pre_event_total_qaly": result.total_qaly
+                        + event_losses[strategy_id],
+                        "event_disutility_qaly_loss": event_losses[strategy_id],
+                    }
+                    if event_qaly_loss_schedule is not None
+                    else {}
+                ),
+            }
+            for strategy_id, result in strategy_results
         },
         "pairwise_vs_baseline": pairwise,
         "fully_incremental_analysis": _fully_incremental_analysis(
@@ -408,6 +513,7 @@ def _validate(
     plan_schema = value.get("schema_version")
     if plan_schema not in {
         LEGACY_SCHEMA_VERSION,
+        INITIAL_SCHEMA_VERSION,
         OLDER_SCHEMA_VERSION,
         PREVIOUS_SCHEMA_VERSION,
         EARLIER_SCHEMA_VERSION,
@@ -415,22 +521,31 @@ def _validate(
     }:
         raise ModelValidationError(
             "partitioned survival schema_version must be "
-            f"{LEGACY_SCHEMA_VERSION} through {SCHEMA_VERSION}"
+            f"{INITIAL_SCHEMA_VERSION} through {SCHEMA_VERSION}"
         )
     analysis_schema = analysis_plan.get("schema_version")
-    if plan_schema in {OLDER_SCHEMA_VERSION, EARLIER_SCHEMA_VERSION} and analysis_schema != "0.12.0":
+    if plan_schema in {LEGACY_SCHEMA_VERSION, OLDER_SCHEMA_VERSION} and analysis_schema != "0.12.0":
         raise ModelValidationError(
             "partitioned survival schema 0.3.0 or 0.4.0 requires analysis schema 0.12.0"
         )
-    if plan_schema == PREVIOUS_SCHEMA_VERSION and analysis_schema != "0.13.0":
+    if plan_schema == EARLIER_SCHEMA_VERSION and analysis_schema != "0.13.0":
         raise ModelValidationError(
             "partitioned survival schema 0.5.0 requires analysis schema 0.13.0"
         )
-    if plan_schema == SCHEMA_VERSION and analysis_schema != "0.14.0":
+    if plan_schema == SCHEMA_VERSION and analysis_schema != "0.15.0":
+        raise ModelValidationError(
+            "partitioned survival schema 0.7.0 requires analysis schema 0.15.0"
+        )
+    if plan_schema == PREVIOUS_SCHEMA_VERSION and analysis_schema != "0.14.0":
         raise ModelValidationError(
             "partitioned survival schema 0.6.0 requires analysis schema 0.14.0"
         )
-    if plan_schema == LEGACY_SCHEMA_VERSION and analysis_schema in {"0.12.0", "0.13.0", "0.14.0"}:
+    if plan_schema == INITIAL_SCHEMA_VERSION and analysis_schema in {
+        "0.12.0",
+        "0.13.0",
+        "0.14.0",
+        "0.15.0",
+    }:
         raise ModelValidationError(
             "structure-neutral analysis schemas require a compatible partitioned-survival schema"
         )
@@ -460,7 +575,12 @@ def _validate(
     if linked.get("path") != PLAN_PATH:
         raise ModelValidationError(f"analysis plan must link {PLAN_PATH}")
     duration_link = value.get("treatment_effect_duration")
-    if plan_schema in {EARLIER_SCHEMA_VERSION, PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION}:
+    if plan_schema in {
+        OLDER_SCHEMA_VERSION,
+        EARLIER_SCHEMA_VERSION,
+        PREVIOUS_SCHEMA_VERSION,
+        SCHEMA_VERSION,
+    }:
         duration_link = _mapping(duration_link, "treatment_effect_duration")
         if duration_link.get("path") != "heor/treatment-effect-duration.json":
             raise ModelValidationError(
@@ -472,10 +592,10 @@ def _validate(
             )
     elif duration_link is not None:
         raise ModelValidationError(
-            "treatment_effect_duration is admitted only by partitioned-survival schema 0.4.0 through 0.6.0"
+            "treatment_effect_duration is admitted only by partitioned-survival schema 0.4.0 through 0.7.0"
         )
     cost_link = value.get("cost_input_normalization")
-    if plan_schema in {PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION}:
+    if plan_schema in {EARLIER_SCHEMA_VERSION, PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION}:
         cost_link = _mapping(cost_link, "cost_input_normalization")
         if cost_link.get("path") != "heor/cost-input-normalization.json":
             raise ModelValidationError(
@@ -487,10 +607,10 @@ def _validate(
             )
     elif cost_link is not None:
         raise ModelValidationError(
-            "cost_input_normalization is admitted only by partitioned-survival schema 0.5.0 or 0.6.0"
+            "cost_input_normalization is admitted only by partitioned-survival schema 0.5.0 through 0.7.0"
         )
     utility_link = value.get("utility_inputs")
-    if plan_schema == SCHEMA_VERSION:
+    if plan_schema in {PREVIOUS_SCHEMA_VERSION, SCHEMA_VERSION}:
         utility_link = _mapping(utility_link, "utility_inputs")
         if utility_link.get("path") != "heor/utility-inputs.json":
             raise ModelValidationError(
@@ -502,7 +622,22 @@ def _validate(
             )
     elif utility_link is not None:
         raise ModelValidationError(
-            "utility_inputs is admitted only by partitioned-survival schema 0.6.0"
+            "utility_inputs is admitted only by partitioned-survival schema 0.6.0 or 0.7.0"
+        )
+    event_link = value.get("event_disutilities")
+    if plan_schema == SCHEMA_VERSION:
+        event_link = _mapping(event_link, "event_disutilities")
+        if event_link.get("path") != "heor/event-disutilities.json":
+            raise ModelValidationError(
+                "event_disutilities.path must be heor/event-disutilities.json"
+            )
+        if not _valid_sha256(event_link.get("content_sha256")):
+            raise ModelValidationError(
+                "event_disutilities.content_sha256 must be lowercase SHA-256"
+            )
+    elif event_link is not None:
+        raise ModelValidationError(
+            "event_disutilities is admitted only by partitioned-survival schema 0.7.0"
         )
     if specification.states != STATE_ORDER:
         raise ModelValidationError(

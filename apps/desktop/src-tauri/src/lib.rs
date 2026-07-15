@@ -13,6 +13,7 @@ mod heor_budget_impact;
 mod heor_cost_input_normalization;
 mod heor_economic_inputs;
 mod heor_engine;
+mod heor_event_disutilities;
 mod heor_evidence;
 mod heor_evidence_review;
 mod heor_joint_survival_uncertainty;

@@ -197,10 +197,10 @@ def validate_survival_curve_materializations(
         observed_values = curve.get("values")
         _compare_values(observed_values, expected_values, f"{target} materialization")
         psm_values = psm_strategy.get(endpoint)
-        # PSM schemas 0.4.0 through 0.6.0 keep these fit-derived rows as hash-bound source
+        # PSM schemas 0.4.0 through 0.7.0 keep these fit-derived rows as hash-bound source
         # curves, then a separate treatment-effect-duration artifact produces
         # the final base-case rows. Earlier schemas use the source rows directly.
-        if partitioned_plan.get("schema_version") not in {"0.4.0", "0.5.0", "0.6.0"}:
+        if partitioned_plan.get("schema_version") not in {"0.4.0", "0.5.0", "0.6.0", "0.7.0"}:
             _compare_psm_values(psm_values, expected_values, basis_ids, target)
         output[target] = expected_values
 

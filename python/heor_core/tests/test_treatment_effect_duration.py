@@ -426,7 +426,280 @@ def utility_normalized_inputs() -> list:
     ]
 
 
+def event_disutility_inputs() -> list:
+    inputs = utility_normalized_inputs()
+    analysis, psm, materializations, duration, cost, utility = (
+        inputs[0], inputs[2], inputs[4], inputs[6], inputs[8], inputs[10]
+    )
+    analysis["schema_version"] = "0.15.0"
+    analysis["event_disutilities"] = {"path": "heor/event-disutilities.json"}
+    analysis["evidence_sources"].extend(
+        [
+            {"id": "event-frequency-source"},
+            {"id": "event-impact-source"},
+            {"id": "event-method-source"},
+        ]
+    )
+    analysis_raw = _json_bytes(analysis)
+
+    materializations["base_analysis"]["content_sha256"] = hashlib.sha256(
+        analysis_raw
+    ).hexdigest()
+    materializations_raw = _json_bytes(materializations)
+    psm["curve_materializations"]["content_sha256"] = hashlib.sha256(
+        materializations_raw
+    ).hexdigest()
+    duration["base_analysis"]["content_sha256"] = hashlib.sha256(
+        analysis_raw
+    ).hexdigest()
+    duration["source_curve_materializations"]["content_sha256"] = hashlib.sha256(
+        materializations_raw
+    ).hexdigest()
+    duration_raw = _json_bytes(duration)
+    psm["treatment_effect_duration"]["content_sha256"] = hashlib.sha256(
+        duration_raw
+    ).hexdigest()
+    _apply_base_rows(psm, duration_raw, materializations_raw)
+    cost["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    cost_raw = _json_bytes(cost)
+    psm["cost_input_normalization"]["content_sha256"] = hashlib.sha256(
+        cost_raw
+    ).hexdigest()
+
+    utility["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    utility["items"]["intervention-progression-free"]["application"][
+        "excluded_effects"
+    ] = ["infusion-reaction", "recurrent-fatigue", "treatment-burden"]
+    utility["items"]["intervention-progressed"]["application"][
+        "excluded_effects"
+    ] = ["recurrent-fatigue"]
+    utility_raw = _json_bytes(utility)
+    psm["utility_inputs"]["content_sha256"] = hashlib.sha256(utility_raw).hexdigest()
+
+    days_per_year = 365.25
+    one_time_qaly = 0.2 * 7.0 / days_per_year
+    recurrent_qaly = 0.05 * 14.0 / days_per_year
+    event = {
+        "schema_version": "0.1.0",
+        "event_disutility_id": "psm-event-disutilities",
+        "analysis_id": analysis["analysis_id"],
+        "status": "ready_for_human_review",
+        "base_analysis": {
+            "path": "heor/analysis-plan.json",
+            "content_sha256": hashlib.sha256(analysis_raw).hexdigest(),
+        },
+        "base_utility_inputs": {
+            "path": "heor/utility-inputs.json",
+            "content_sha256": hashlib.sha256(utility_raw).hexdigest(),
+        },
+        "day_count_convention": {
+            "days_per_year": days_per_year,
+            "rationale": "Use the reviewed day-count convention consistently.",
+            "basis_ids": ["event-method-source"],
+        },
+        "combination_rule": {
+            "method": "additive_expected_qaly_loss",
+            "rationale": "Add separately excluded expected event losses.",
+            "basis_ids": ["event-method-source"],
+        },
+        "item_order": [
+            "intervention-infusion-reaction",
+            "intervention-recurrent-fatigue",
+            "intervention-treatment-burden",
+        ],
+        "items": {},
+        "cycle_state_qaly_losses": {
+            "comparator": [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+            "intervention": [
+                [0.2 * one_time_qaly + 0.5 * recurrent_qaly + 0.02, 0.5 * recurrent_qaly, 0.0],
+                [0.25 * recurrent_qaly + 0.01, 0.25 * recurrent_qaly, 0.0],
+            ],
+        },
+        "limitations": [
+            "Long-lasting sequelae, event costs, interactions, and component uncertainty are outside this contract."
+        ],
+    }
+
+    def item(
+        item_id: str,
+        event_id: str,
+        label: str,
+        category: str,
+        mode: str,
+        eligible_states: list[str],
+        decrement: float,
+        duration_days: float | None,
+        qaly_loss: float | None,
+        measure: str,
+        schedule: list[float],
+        reviewed_ids: list[str],
+        cycle_losses: list[float],
+    ) -> dict:
+        return {
+            "item_id": item_id,
+            "event_id": event_id,
+            "strategy_id": "intervention",
+            "label": label,
+            "event": {
+                "category": category,
+                "terminology_system": "Test terminology",
+                "terminology_code": event_id,
+                "severity": {
+                    "system": "Test severity",
+                    "grade": "reviewed",
+                    "rationale": "Severity is explicit for Human review.",
+                },
+            },
+            "application": {
+                "mode": mode,
+                "eligible_states": eligible_states,
+                "timing": "cycle_average",
+                "cost_handling": "not_in_this_artifact",
+                "rationale": "Apply only to the declared at-risk states.",
+                "basis_ids": ["event-method-source"],
+            },
+            "health_impact": {
+                "utility_decrement": decrement,
+                "decrement_scale": "absolute_utility_decrement",
+                "duration_days": duration_days,
+                "qaly_loss_per_occurrence": qaly_loss,
+                "instrument_or_method": "Reviewed utility decrement",
+                "respondent": "patient",
+                "source_population": "Trial population",
+                "basis_ids": ["event-impact-source"],
+            },
+            "occurrence": {
+                "measure": measure,
+                "schedule": schedule,
+                "source_population": "Trial safety population",
+                "observation_window": "Model-cycle aligned",
+                "basis_ids": ["event-frequency-source"],
+            },
+            "utility_overlap": {
+                "status": "excluded_from_health_state_utility",
+                "reviewed_utility_item_ids": reviewed_ids,
+                "rationale": "The named utility items explicitly exclude this event.",
+                "basis_ids": ["overlap-assessment"],
+            },
+            "cycle_qaly_loss_per_eligible_person": cycle_losses,
+            "uncertainty": {
+                "status": "fixed",
+                "basis_ids": ["event-impact-source"],
+                "limitations": ["Component uncertainty is not executed."],
+            },
+        }
+
+    event["items"]["intervention-infusion-reaction"] = item(
+        "intervention-infusion-reaction",
+        "infusion-reaction",
+        "Infusion reaction",
+        "adverse_event",
+        "one_time",
+        ["progression_free"],
+        0.2,
+        7.0,
+        one_time_qaly,
+        "probability",
+        [0.2, 0.0],
+        ["intervention-progression-free"],
+        [0.2 * one_time_qaly, 0.0],
+    )
+    event["items"]["intervention-recurrent-fatigue"] = item(
+        "intervention-recurrent-fatigue",
+        "recurrent-fatigue",
+        "Recurrent fatigue",
+        "adverse_event",
+        "recurrent",
+        ["progression_free", "progressed"],
+        0.05,
+        14.0,
+        recurrent_qaly,
+        "expected_events",
+        [0.5, 0.25],
+        ["intervention-progression-free", "intervention-progressed"],
+        [0.5 * recurrent_qaly, 0.25 * recurrent_qaly],
+    )
+    event["items"]["intervention-treatment-burden"] = item(
+        "intervention-treatment-burden",
+        "treatment-burden",
+        "Continuous treatment burden",
+        "treatment_process",
+        "continuous_exposure",
+        ["progression_free"],
+        0.02,
+        None,
+        None,
+        "exposure_fraction",
+        [1.0, 0.5],
+        ["intervention-progression-free"],
+        [0.02, 0.01],
+    )
+    event_raw = _json_bytes(event)
+    psm["schema_version"] = "0.7.0"
+    psm["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    psm["event_disutilities"] = {
+        "path": "heor/event-disutilities.json",
+        "content_sha256": hashlib.sha256(event_raw).hexdigest(),
+    }
+    psm_raw = _json_bytes(psm)
+    return [
+        analysis,
+        analysis_raw,
+        psm,
+        psm_raw,
+        materializations,
+        materializations_raw,
+        duration,
+        duration_raw,
+        cost,
+        cost_raw,
+        utility,
+        utility_raw,
+        event,
+        event_raw,
+    ]
+
+
 class TreatmentEffectDurationTests(unittest.TestCase):
+    def test_psm_0_7_binds_and_applies_event_qaly_losses(self) -> None:
+        inputs = event_disutility_inputs()
+        result = run_partitioned_survival(*inputs)
+        intervention = result["strategies"]["intervention"]
+        self.assertEqual(result["schema_version"], "0.7.0")
+        self.assertEqual(result["engine_version"], "0.7.0")
+        self.assertEqual(result["event_disutilities_summary"]["item_count"], 3)
+        self.assertEqual(result["event_disutilities_summary"]["one_time_item_count"], 1)
+        self.assertGreater(intervention["event_disutility_qaly_loss"], 0.0)
+        occupancy = intervention["occupancy"]
+        schedule = inputs[12]["cycle_state_qaly_losses"]["intervention"]
+        expected_loss = 0.0
+        for cycle in range(inputs[0]["cycles"]):
+            reward_occupancy = [
+                (start + end) / 2.0
+                for start, end in zip(occupancy[cycle], occupancy[cycle + 1])
+            ]
+            undiscounted = sum(
+                probability * loss
+                for probability, loss in zip(reward_occupancy, schedule[cycle])
+            )
+            discount_time = (cycle + 0.5) * inputs[0]["cycle_length_years"]
+            expected_loss += undiscounted / (
+                (1.0 + inputs[0]["discount_rates"]["outcomes"]) ** discount_time
+            )
+        self.assertAlmostEqual(intervention["event_disutility_qaly_loss"], expected_loss)
+        self.assertAlmostEqual(
+            intervention["pre_event_total_qaly"]
+            - intervention["event_disutility_qaly_loss"],
+            intervention["total_qaly"],
+        )
+
+    def test_psm_0_7_rejects_stale_event_binding(self) -> None:
+        inputs = event_disutility_inputs()
+        inputs[2]["event_disutilities"]["content_sha256"] = "0" * 64
+        inputs[3] = _json_bytes(inputs[2])
+        with self.assertRaisesRegex(ModelValidationError, "event_disutilities.content_sha256"):
+            run_partitioned_survival(*inputs)
+
     def test_psm_0_6_binds_and_uses_cycle_specific_utility_inputs(self) -> None:
         inputs = utility_normalized_inputs()
         result = run_partitioned_survival(*inputs)

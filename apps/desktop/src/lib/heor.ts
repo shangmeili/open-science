@@ -409,6 +409,9 @@ export interface HeorPartitionedSurvivalAudit {
   utilityInputsItemCount: number | null;
   utilityInputsMappedItemCount: number | null;
   utilityInputsAdjustedItemCount: number | null;
+  eventDisutilitiesRequired: boolean;
+  eventDisutilitiesSha256: string | null;
+  eventDisutilitiesItemCount: number | null;
   strategyCount: number;
   curveCount: number;
   timePointCount: number;
@@ -688,7 +691,7 @@ export interface HeorEvidenceVerificationRequest {
 }
 
 export interface HeorAnalysisPlan {
-  schema_version: "0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0";
+  schema_version: "0.1.0" | "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0" | "0.13.0" | "0.14.0" | "0.15.0";
   analysis_id: string;
   economic_basis?: { currency: string; price_year: number };
   input_status?: string;
@@ -698,6 +701,9 @@ export interface HeorAnalysisPlan {
   uncertainty_analysis?: { path: string };
   budget_impact_analysis?: { path: string };
   partitioned_survival_analysis?: { path: string };
+  cost_input_normalization?: { path: string };
+  utility_inputs?: { path: string };
+  event_disutilities?: { path: string };
   evidence_synthesis?: { path: string; content_sha256: string };
   states: string[];
   cycles: number;
@@ -733,6 +739,8 @@ export interface HeorStrategyResult {
   occupancy: number[][];
   transition_mode: "static" | "piecewise_by_model_cycle" | "partitioned_survival";
   transition_schedule_start_cycles: number[];
+  pre_event_total_qaly?: number;
+  event_disutility_qaly_loss?: number;
 }
 
 export interface HeorCalculation {
@@ -960,15 +968,23 @@ export interface HeorBudgetImpactRunResult {
 }
 
 export interface HeorPartitionedSurvivalCalculation {
-  schema_version: "0.3.0" | "0.4.0";
+  schema_version: "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0";
   engine_version: string;
   analysis_id: string;
   psm_id: string;
   analysis_plan_sha256: string;
   partitioned_survival_plan_sha256: string;
-  partitioned_survival_plan_schema_version: "0.2.0" | "0.3.0" | "0.4.0";
+  partitioned_survival_plan_schema_version: "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" | "0.6.0" | "0.7.0";
   survival_curve_materializations_sha256: string;
   treatment_effect_duration_sha256?: string;
+  event_disutilities_sha256?: string;
+  event_disutilities_summary?: {
+    event_disutility_id: string;
+    item_count: number;
+    one_time_item_count: number;
+    recurrent_item_count: number;
+    continuous_exposure_item_count: number;
+  };
   treatment_effect_duration_scenarios?: Array<{
     scenario_id: string;
     label: string;
@@ -1008,8 +1024,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseHeorPlan(raw: string): HeorAnalysisPlan {
   const value: unknown = JSON.parse(raw);
   if (!isRecord(value)) throw new Error("analysis plan must be a JSON object");
-  if (!["0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0"].includes(String(value.schema_version))) {
-    throw new Error("analysis plan schema_version must be 0.1.0 through 0.12.0");
+  if (!["0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0"].includes(String(value.schema_version))) {
+    throw new Error("analysis plan schema_version must be 0.1.0 through 0.15.0");
   }
   if (typeof value.analysis_id !== "string" || !value.analysis_id.trim()) {
     throw new Error("analysis plan must include analysis_id");
@@ -1021,7 +1037,7 @@ export function parseHeorPlan(raw: string): HeorAnalysisPlan {
     throw new Error("analysis plan must include reference_case and strategies");
   }
   const parsedStrategies = value.strategies;
-  if (value.schema_version === "0.8.0" || value.schema_version === "0.9.0" || value.schema_version === "0.10.0" || value.schema_version === "0.11.0" || value.schema_version === "0.12.0") {
+  if (["0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0"].includes(String(value.schema_version))) {
     if (!Array.isArray(value.strategy_order)
       || value.strategy_order.length < 2 || value.strategy_order.length > 16
       || !value.strategy_order.every((item) => typeof item === "string"
@@ -1068,7 +1084,7 @@ const BASE_INPUT_PATHS = [
 ] as const;
 
 function strategyIds(plan: HeorAnalysisPlan): string[] {
-  return plan.schema_version === "0.8.0" || plan.schema_version === "0.9.0" || plan.schema_version === "0.10.0" || plan.schema_version === "0.11.0" || plan.schema_version === "0.12.0"
+  return ["0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0"].includes(plan.schema_version)
     ? [...(plan.strategy_order ?? [])]
     : ["comparator", "intervention"];
 }
@@ -2298,7 +2314,7 @@ export function auditHeorConceptualModel(
  * authoritative approval boundary. */
 export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
   const requiredPaths: string[] = [...BASE_INPUT_PATHS];
-  const structureNeutral = plan.schema_version === "0.12.0";
+  const structureNeutral = ["0.12.0", "0.13.0", "0.14.0", "0.15.0"].includes(plan.schema_version);
   for (const role of strategyIds(plan)) {
     const strategy = plan.strategies[role];
     const transitionField = strategy?.transition_schedule
@@ -2345,8 +2361,10 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
     || plan.schema_version === "0.5.0" || plan.schema_version === "0.6.0"
     || plan.schema_version === "0.7.0" || plan.schema_version === "0.8.0"
     || plan.schema_version === "0.9.0" || plan.schema_version === "0.10.0"
-    || plan.schema_version === "0.11.0" || plan.schema_version === "0.12.0")) {
-    invalidMappings.push("schema_version must be 0.3.0 through 0.12.0 for approval review");
+    || plan.schema_version === "0.11.0" || plan.schema_version === "0.12.0"
+    || plan.schema_version === "0.13.0" || plan.schema_version === "0.14.0"
+    || plan.schema_version === "0.15.0")) {
+    invalidMappings.push("schema_version must be 0.3.0 through 0.15.0 for approval review");
   }
   for (const role of strategyIds(plan)) {
     const strategy = plan.strategies[role];
@@ -2919,6 +2937,9 @@ export const HEOR_BROWSER_DEMO_PARTITIONED_SURVIVAL_AUDIT: HeorPartitionedSurviv
   utilityInputsItemCount: null,
   utilityInputsMappedItemCount: null,
   utilityInputsAdjustedItemCount: null,
+  eventDisutilitiesRequired: false,
+  eventDisutilitiesSha256: null,
+  eventDisutilitiesItemCount: null,
   strategyCount: 0,
   curveCount: 0,
   timePointCount: 0,
