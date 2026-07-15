@@ -1,7 +1,7 @@
 """Deterministic materialization of selected parametric survival curves.
 
-The contract is deliberately narrow: exponential rate or Weibull accelerated-
-failure-time shape/scale parameters are evaluated on the analysis cycle grid.
+The contract evaluates explicitly admitted natural parameterizations on the
+analysis cycle grid.
 It does not fit, select, transform, or clinically validate a survival model.
 """
 
@@ -9,15 +9,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-from math import exp, isclose, isfinite
+from math import isclose, isfinite
 from typing import Any
 
 from .model import ModelValidationError
+from .parametric_survival import PARAMETERIZATIONS, survival
 
 
-SCHEMA_VERSION = "0.1.0"
+SCHEMA_VERSIONS = {"0.1.0", "0.2.0"}
 EVALUATOR_ID = "ai4heor-parametric-survival"
-EVALUATOR_VERSION = "0.1.0"
 MATERIALIZATION_PATH = "heor/survival-curve-materializations.json"
 ANALYSIS_PATH = "heor/analysis-plan.json"
 TOLERANCE = 1e-12
@@ -50,10 +50,10 @@ def validate_survival_curve_materializations(
         },
         "survival curve materializations",
     )
-    if value.get("schema_version") != SCHEMA_VERSION:
-        raise ModelValidationError(
-            f"survival materialization schema_version must be {SCHEMA_VERSION}"
-        )
+    schema_version = value.get("schema_version")
+    if schema_version not in SCHEMA_VERSIONS:
+        raise ModelValidationError("survival materialization schema_version is unsupported")
+    evaluator_version = "0.1.0" if schema_version == "0.1.0" else "0.2.0"
     for field in ("materialization_id", "analysis_id", "psm_id", "time_origin"):
         _nonempty(value.get(field), field)
     if value.get("status") != "ready_for_human_review":
@@ -97,7 +97,7 @@ def validate_survival_curve_materializations(
             "curve_materializations.content_sha256 does not match materialization bytes"
         )
     evaluator = _object(value.get("evaluator"), "evaluator")
-    if evaluator != {"id": EVALUATOR_ID, "version": EVALUATOR_VERSION}:
+    if evaluator != {"id": EVALUATOR_ID, "version": evaluator_version}:
         raise ModelValidationError("survival materialization evaluator is unsupported")
 
     strategy_order = analysis_plan.get("strategy_order")
@@ -160,7 +160,12 @@ def validate_survival_curve_materializations(
                 f"{target} review_binding does not match partitioned plan"
             )
         family = curve.get("family")
-        if family not in {"exponential", "weibull"}:
+        admitted_families = (
+            {"exponential", "weibull"}
+            if schema_version == "0.1.0"
+            else set(PARAMETERIZATIONS)
+        )
+        if family not in admitted_families:
             raise ModelValidationError(f"{target} family is unsupported")
         if review_binding.get("selected_family") != family:
             raise ModelValidationError(
@@ -183,7 +188,7 @@ def validate_survival_curve_materializations(
         basis_ids = [
             f"review-sha256:{review_binding.get('content_sha256')}",
             f"fit-output-sha256:{fit_binding.get('content_sha256')}",
-            f"evaluator:{EVALUATOR_ID}@{EVALUATOR_VERSION}",
+            f"evaluator:{EVALUATOR_ID}@{evaluator_version}",
         ]
         if curve.get("basis_ids") != basis_ids:
             raise ModelValidationError(f"{target} basis_ids do not match exact inputs")
@@ -223,17 +228,21 @@ def _parameters(
     curve: dict[str, Any], family: str, target: str
 ) -> tuple[str, dict[str, float]]:
     raw = _object(curve.get("parameters"), f"{target} parameters")
-    if family == "exponential":
-        expected = {"rate_per_year"}
-        parameterization = "exponential_rate"
-    else:
-        expected = {"shape", "scale_years"}
-        parameterization = "weibull_shape_scale_aft"
+    parameterization, parameter_names = PARAMETERIZATIONS[family]
+    expected = set(parameter_names)
     _exact_keys(raw, expected, f"{target} parameters")
-    return parameterization, {
-        key: _positive(raw.get(key), f"{target} parameters.{key}")
-        for key in sorted(expected)
+    positive_names = {
+        "rate_per_year", "shape", "scale_years", "sigma", "P", "sdlog"
     }
+    parameters = {}
+    for key in sorted(expected):
+        if key == "P" and family == "generalized_f":
+            parameters[key] = _nonnegative(raw.get(key), f"{target} parameters.{key}")
+        elif key in positive_names:
+            parameters[key] = _positive(raw.get(key), f"{target} parameters.{key}")
+        else:
+            parameters[key] = _number(raw.get(key), f"{target} parameters.{key}")
+    return parameterization, parameters
 
 
 def _evaluate(
@@ -247,21 +256,11 @@ def _evaluate(
     prior = 1.0
     for index in range(cycles + 1):
         time_years = index * cycle_length_years
-        try:
-            cumulative_hazard = (
-                parameters["rate_per_year"] * time_years
-                if family == "exponential"
-                else (time_years / parameters["scale_years"]) ** parameters["shape"]
-            )
-            survival = exp(-cumulative_hazard)
-        except (ArithmeticError, OverflowError) as error:
-            raise ModelValidationError(f"{target} evaluation overflowed") from error
-        if not isfinite(cumulative_hazard) or not isfinite(survival):
-            raise ModelValidationError(f"{target} evaluation is non-finite")
-        if survival > prior + TOLERANCE:
+        evaluated = survival(family, parameters, time_years)
+        if evaluated > prior + TOLERANCE:
             raise ModelValidationError(f"{target} survival increased")
-        values.append({"time_years": time_years, "survival": survival})
-        prior = survival
+        values.append({"time_years": time_years, "survival": evaluated})
+        prior = evaluated
     return values
 
 
@@ -333,6 +332,13 @@ def _positive(value: Any, label: str) -> float:
     result = _number(value, label)
     if result <= 0:
         raise ModelValidationError(f"{label} must be positive")
+    return result
+
+
+def _nonnegative(value: Any, label: str) -> float:
+    result = _number(value, label)
+    if result < 0:
+        raise ModelValidationError(f"{label} must be non-negative")
     return result
 
 

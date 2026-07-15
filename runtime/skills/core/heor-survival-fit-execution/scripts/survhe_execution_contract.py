@@ -12,7 +12,7 @@ from typing import Any
 
 
 SCHEMA_VERSION = "0.1.0"
-EVALUATOR = "ai4heor-survival-crosscheck@0.1.0"
+EVALUATOR = "ai4heor-survival-crosscheck@0.2.0"
 SAFE_ID = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 SAFE_COLUMN = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -27,7 +27,8 @@ FAMILIES = {
     "lognormal",
     "loglogistic",
 }
-REQUIRED_CROSSCHECKS = {"exponential", "weibull"}
+REQUIRED_CROSSCHECKS = set(FAMILIES)
+MANDATORY_FAMILIES = {"exponential", "weibull"}
 PACKAGE_NAMES = {"survHE", "flexsurv", "survival"}
 MAX_DATA_BYTES = 256 * 1024 * 1024
 MAX_ROWS = 1_000_000
@@ -317,23 +318,15 @@ def _parameter_map(model: dict[str, Any]) -> dict[str, float]:
 
 
 def expected_curve(family: str, parameters: dict[str, float], time: float) -> tuple[float, float | None]:
-    if family == "exponential":
-        rate = parameters.get("rate")
-        if rate is None or rate <= 0:
-            raise ValueError("exponential rate must be positive")
-        return math.exp(-rate * time), None if time == 0 else rate
-    if family == "weibull":
-        shape = parameters.get("shape")
-        scale = parameters.get("scale")
-        if shape is None or scale is None or shape <= 0 or scale <= 0:
-            raise ValueError("weibull shape and scale must be positive")
-        survival = math.exp(-((time / scale) ** shape))
-        if time == 0:
-            hazard = None
-        else:
-            hazard = (shape / scale) * ((time / scale) ** (shape - 1))
-        return survival, hazard
-    raise ValueError(f"{family} has no admitted independent evaluator")
+    from parametric_survival import curve
+
+    return curve(family, parameters, time)
+
+
+def expected_parameterization(family: str) -> str:
+    from parametric_survival import PARAMETERIZATIONS
+
+    return PARAMETERIZATIONS[family]
 
 
 def _bound_file(workspace: Path, path: Any, sha256: Any, label: str, errors: list[str]) -> Path | None:
@@ -360,7 +353,7 @@ def audit_result(manifest_path: Path, workspace: Path) -> dict[str, Any]:
     execution_id = manifest["execution_id"]
     if not isinstance(execution_id, str) or SAFE_ID.fullmatch(execution_id) is None:
         errors.append("result execution_id is invalid")
-    if manifest["status"] not in {"execution_complete", "execution_complete_with_model_failures"}:
+    if manifest["status"] not in {"execution_complete", "execution_complete_with_model_failures", "cross_implementation_failed"}:
         errors.append("result status is not an admitted completed execution state")
 
     request_binding = manifest["request"]
@@ -467,8 +460,8 @@ def audit_result(manifest_path: Path, workspace: Path) -> dict[str, Any]:
             statistics = model["fit_statistics"]
             if not exact(statistics, {"aic", "bic", "log_likelihood"}) or any(not finite(statistics.get(field)) for field in statistics):
                 errors.append(f"{label}.fit_statistics must be finite")
-            if not text(model["parameterization"]):
-                errors.append(f"{label}.parameterization must be recorded")
+            if model["parameterization"] != expected_parameterization(binding["family"]):
+                errors.append(f"{label}.parameterization does not match the admitted natural scale")
             parameters = _parameter_map(model)
             if len(parameters) != len(model["parameters"]):
                 errors.append(f"{label}.parameters must contain unique finite named estimates")
@@ -546,40 +539,43 @@ def audit_result(manifest_path: Path, workspace: Path) -> dict[str, Any]:
                 model = models.get(family, {})
                 if model.get("status") == "failed":
                     expected_statuses.append("fit_failed")
-                elif family in REQUIRED_CROSSCHECKS:
-                    expected_statuses.append("passed")
                 else:
-                    expected_statuses.append("not_applicable")
+                    expected_statuses.append("passed")
             for index, (check, family, expected_status) in enumerate(zip(checks, model_order, expected_statuses)):
+                if expected_status == "passed" and check.get("status") == "failed":
+                    expected_status = "failed"
                 if not exact(check, {"family", "status", "max_abs_survival_error", "max_abs_hazard_error"}) or check.get("family") != family or check.get("status") != expected_status:
                     errors.append(f"cross_implementation.checks[{index}] is invalid")
                     continue
                 if expected_status == "passed" and any(not finite(check[field]) for field in ("max_abs_survival_error", "max_abs_hazard_error")):
                     errors.append(f"cross_implementation.checks[{index}] errors must be finite")
-                if expected_status != "passed" and any(check[field] is not None for field in ("max_abs_survival_error", "max_abs_hazard_error")):
-                    errors.append(f"cross_implementation.checks[{index}] non-applicable errors must be null")
+                if expected_status == "fit_failed" and any(check[field] is not None for field in ("max_abs_survival_error", "max_abs_hazard_error")):
+                    errors.append(f"cross_implementation.checks[{index}] fit-failed errors must be null")
+                if expected_status == "failed":
+                    failed_values = [check[field] for field in ("max_abs_survival_error", "max_abs_hazard_error")]
+                    if not (all(value is None for value in failed_values) or all(finite(value) for value in failed_values)):
+                        errors.append(f"cross_implementation.checks[{index}] failed errors must be both finite or both null")
             passed_families = {
                 family
-                for family, status in zip(model_order, expected_statuses)
-                if status == "passed"
+                for family, check in zip(model_order, checks)
+                if check.get("status") == "passed"
+                and finite(check.get("max_abs_survival_error"))
+                and finite(check.get("max_abs_hazard_error"))
+                and float(check["max_abs_survival_error"]) <= float(cross["tolerance"])
+                and float(check["max_abs_hazard_error"]) <= float(cross["tolerance"])
             }
-            cross_complete = REQUIRED_CROSSCHECKS.issubset(passed_families) and all(
-                status != "passed" or (
-                    finite(checks[index].get("max_abs_survival_error"))
-                    and finite(checks[index].get("max_abs_hazard_error"))
-                    and float(checks[index]["max_abs_survival_error"]) <= float(cross["tolerance"])
-                    and float(checks[index]["max_abs_hazard_error"]) <= float(cross["tolerance"])
-                )
-                for index, status in enumerate(expected_statuses)
+            cross_complete = MANDATORY_FAMILIES.issubset(passed_families) and all(
+                models.get(family, {}).get("status") == "failed" or family in passed_families
+                for family in model_order
             )
         if cross.get("complete") is not cross_complete:
             errors.append("cross_implementation.complete does not match the audited checks")
 
     failed_models = len(model_order) - converged
-    expected_result_status = (
+    expected_result_status = "cross_implementation_failed" if not cross_complete else (
         "execution_complete_with_model_failures" if failed_models else "execution_complete"
     )
-    if cross_complete and manifest["status"] != expected_result_status:
+    if manifest["status"] != expected_result_status:
         errors.append("result status does not match model convergence")
 
     if not isinstance(manifest["limitations"], list) or not manifest["limitations"] or any(not text(item) for item in manifest["limitations"]):

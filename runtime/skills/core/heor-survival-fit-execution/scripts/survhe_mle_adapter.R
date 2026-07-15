@@ -137,9 +137,14 @@ for (family in families) {
   }
   parameterization <- switch(
     family,
-    exponential = "survHE/flexsurv exponential rate",
-    weibull = "survHE/flexsurv Weibull AFT shape and scale",
-    paste("survHE/flexsurv", family)
+    exponential = "exponential_rate",
+    weibull = "weibull_shape_scale_aft",
+    gompertz = "gompertz_shape_rate",
+    gamma = "gamma_shape_rate",
+    generalized_gamma = "generalized_gamma_prentice",
+    generalized_f = "generalized_f_prentice",
+    lognormal = "lognormal_meanlog_sdlog",
+    loglogistic = "loglogistic_shape_scale"
   )
   models_rows[[length(models_rows) + 1]] <- data.frame(
     family = family,

@@ -30,13 +30,13 @@ The output binds the exact request and current source bytes, R executable hash, 
 
 ## Independent numerical challenge
 
-For a converged exponential model, the Python evaluator recomputes `S(t) = exp(-rate*t)` and positive-time `h(t) = rate`. For a converged Weibull AFT model, it recomputes `S(t) = exp(-(t/scale)^shape)` and, for positive time, `h(t) = (shape/scale)*(t/scale)^(shape-1)`. The interchange represents hazard at time zero as `null` for every family because the Weibull limit may be zero, finite, or infinite depending on shape.
+Evaluator `ai4heor-survival-crosscheck@0.2.0` independently recomputes survival and positive-time hazard for exponential, Weibull AFT, Gompertz, gamma, generalized gamma, generalized F, lognormal, and loglogistic models from their exported natural parameters. The interchange represents hazard at time zero as `null` for every family because the limit may be zero, finite, or infinite.
 
-Every requested survival and positive-time hazard value must agree with the `flexsurv` predictions exported through the survHE fit within the pre-specified absolute tolerance. Other families are retained for review but are `not_applicable` to this first independent evaluator. Agreement detects interface and parameterization drift; it does not validate the statistical model or evidence.
+Every converged model's requested survival and positive-time hazard values must agree with the `flexsurv` predictions exported through the survHE fit within the pre-specified absolute tolerance. Failed fits remain `fit_failed`; no converged admitted family can bypass the check as `not_applicable`. Agreement detects interface and parameterization drift; it does not validate the statistical model or evidence.
 
 ## Human and downstream boundary
 
-An eligible execution requires current hashes, exact versions, at least two converged candidates, and completed exponential and Weibull cross-checks. It then routes to `$heor-survival-extrapolation-review`; it never selects a curve. Human review remains responsible for data fitness, censoring assumptions, proportional-hazards questions, statistical and graphical fit, external evidence, clinical plausibility, extrapolation, alternatives, and downstream structure.
+An eligible execution requires current hashes, exact versions, at least two converged candidates, successful exponential and Weibull baseline fits, and a passed independent check for every converged candidate. It then routes to `$heor-survival-extrapolation-review`; it never selects a curve. Human review remains responsible for data fitness, censoring assumptions, proportional-hazards questions, statistical and graphical fit, external evidence, clinical plausibility, extrapolation, alternatives, and downstream structure.
 
 Covariates, arms in one model, left truncation, interval censoring, competing or recurrent events, relative survival, treatment switching, reconstructed IPD, cure/mixture/spline models, Bayesian inference, joint PFS/OS modeling, covariance export, and probabilistic model averaging are outside schema `0.1.0`.
 

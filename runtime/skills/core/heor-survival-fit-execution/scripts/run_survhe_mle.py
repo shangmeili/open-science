@@ -16,6 +16,7 @@ from typing import Any
 
 from survhe_execution_contract import (
     EVALUATOR,
+    MANDATORY_FAMILIES,
     REQUIRED_CROSSCHECKS,
     SCHEMA_VERSION,
     audit_result,
@@ -152,7 +153,7 @@ def build_model_outputs(
             }
             check_status = "fit_failed"
             max_survival_error = max_hazard_error = None
-            if family in REQUIRED_CROSSCHECKS:
+            if family in MANDATORY_FAMILIES:
                 cross_complete = False
         elif status == "converged":
             converged += 1
@@ -184,22 +185,27 @@ def build_model_outputs(
                 "landmarks": landmarks,
                 "warnings": warnings,
             }
-            if family in REQUIRED_CROSSCHECKS:
-                parameter_map = {item["name"]: item["estimate"] for item in parameters}
-                survival_errors: list[float] = []
-                hazard_errors: list[float] = []
+            parameter_map = {item["name"]: item["estimate"] for item in parameters}
+            survival_errors: list[float] = []
+            hazard_errors: list[float] = []
+            evaluation_error: str | None = None
+            try:
                 for landmark in landmarks:
                     expected_survival, expected_hazard = expected_curve(family, parameter_map, landmark["time"])
                     survival_errors.append(abs(landmark["survival"] - expected_survival))
                     if expected_hazard is not None:
                         hazard_errors.append(abs(float(landmark["hazard"]) - expected_hazard))
+            except (KeyError, TypeError, ValueError) as error:
+                evaluation_error = str(error)
+            if evaluation_error is None:
                 max_survival_error = max(survival_errors, default=0.0)
                 max_hazard_error = max(hazard_errors, default=0.0)
                 check_status = "passed" if max(max_survival_error, max_hazard_error) <= tolerance else "failed"
-                cross_complete = cross_complete and check_status == "passed"
             else:
-                check_status = "not_applicable"
+                model["warnings"].append(f"Independent evaluator failed: {evaluation_error}")
                 max_survival_error = max_hazard_error = None
+                check_status = "failed"
+            cross_complete = cross_complete and check_status == "passed"
         else:
             raise RuntimeError(f"R output returned unsupported status for {family}: {status}")
         model_sha = write_json(model_path, model)
@@ -349,7 +355,7 @@ def run_request(request_path: Path, workspace: Path, rscript: Path, library: Pat
             + [
                 "Package output and numerical agreement do not establish internal, external, or clinical validity.",
                 "The fixed adapter performs no package installation and does not claim operating-system network isolation.",
-                "Only exponential and Weibull point curves receive an independent first-party formula cross-check.",
+                "Every converged admitted family receives an independent first-party survival and hazard cross-check.",
             ],
             "human_gate": {
                 "state": "awaiting_human_review",

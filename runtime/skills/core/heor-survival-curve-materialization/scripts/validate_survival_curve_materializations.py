@@ -6,16 +6,38 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from math import exp, isclose, isfinite
+from math import isclose, isfinite
 from pathlib import Path
+import sys
 from typing import Any
+
+EXECUTION_SCRIPTS = Path(__file__).resolve().parents[2] / "heor-survival-fit-execution/scripts"
+sys.path.insert(0, str(EXECUTION_SCRIPTS))
+from parametric_survival import PARAMETERIZATIONS, curve as natural_curve  # noqa: E402
 
 
 ANALYSIS_PATH = "heor/analysis-plan.json"
 MATERIALIZATION_PATH = "heor/survival-curve-materializations.json"
 EVALUATOR_ID = "ai4heor-parametric-survival"
-EVALUATOR_VERSION = "0.1.0"
 TOLERANCE = 1e-12
+
+TYPED_PARAMETERS = {
+    "exponential": ("exponential_rate", ("rate_per_year",)),
+    "weibull": ("weibull_shape_scale_aft", ("shape", "scale_years")),
+    "gompertz": ("gompertz_shape_rate", ("shape_per_year", "rate_per_year")),
+    "gamma": ("gamma_shape_rate", ("shape", "rate_per_year")),
+    "generalized_gamma": ("generalized_gamma_prentice", ("mu_log_years", "sigma", "Q")),
+    "generalized_f": ("generalized_f_prentice", ("mu_log_years", "sigma", "Q", "P")),
+    "lognormal": ("lognormal_meanlog_sdlog", ("meanlog_years", "sdlog")),
+    "loglogistic": ("loglogistic_shape_scale", ("shape", "scale_years")),
+}
+NATURAL_NAMES = {
+    "exponential": ("rate",), "weibull": ("shape", "scale"),
+    "gompertz": ("shape", "rate"), "gamma": ("shape", "rate"),
+    "generalized_gamma": ("mu", "sigma", "Q"),
+    "generalized_f": ("mu", "sigma", "Q", "P"),
+    "lognormal": ("meanlog", "sdlog"), "loglogistic": ("shape", "scale"),
+}
 
 
 def sha256(raw: bytes) -> str:
@@ -54,6 +76,13 @@ def positive(value: Any, name: str, errors: list[str]) -> float | None:
         or float(value) <= 0.0
     ):
         errors.append(f"{name} must be positive and finite")
+        return None
+    return float(value)
+
+
+def finite_number(value: Any, name: str, errors: list[str]) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(float(value)):
+        errors.append(f"{name} must be finite")
         return None
     return float(value)
 
@@ -116,12 +145,8 @@ def evaluate(
     parameters: dict[str, float],
     time_years: float,
 ) -> float:
-    cumulative_hazard = (
-        parameters["rate_per_year"] * time_years
-        if family == "exponential"
-        else (time_years / parameters["scale_years"]) ** parameters["shape"]
-    )
-    return exp(-cumulative_hazard)
+    natural = dict(zip(NATURAL_NAMES[family], parameters.values()))
+    return natural_curve(family, natural, time_years)[0]
 
 
 def validate(
@@ -133,8 +158,10 @@ def validate(
     workspace: Path | None,
 ) -> list[str]:
     errors: list[str] = []
-    if materializations.get("schema_version") != "0.1.0":
-        errors.append("materialization schema_version must be 0.1.0")
+    schema_version = materializations.get("schema_version")
+    if schema_version not in {"0.1.0", "0.2.0"}:
+        errors.append("materialization schema_version must be 0.1.0 or 0.2.0")
+    evaluator_version = "0.1.0" if schema_version == "0.1.0" else "0.2.0"
     for field in ("materialization_id", "analysis_id", "psm_id", "time_origin"):
         if not isinstance(materializations.get(field), str) or not materializations[field].strip():
             errors.append(f"materialization {field} must not be empty")
@@ -150,7 +177,7 @@ def validate(
         errors.append("materialization time_unit must be years")
     if materializations.get("evaluator") != {
         "id": EVALUATOR_ID,
-        "version": EVALUATOR_VERSION,
+        "version": evaluator_version,
     }:
         errors.append("materialization evaluator is unsupported")
     base = mapping(materializations.get("base_analysis"), "base_analysis", errors)
@@ -222,7 +249,8 @@ def validate(
             errors.append(f"{target} review target_path does not match")
 
         family = curve.get("family")
-        if family not in {"exponential", "weibull"}:
+        admitted = {"exponential", "weibull"} if schema_version == "0.1.0" else set(TYPED_PARAMETERS)
+        if family not in admitted:
             errors.append(f"{target} family is unsupported")
             family = ""
         if review_binding.get("selected_family") != family:
@@ -242,8 +270,9 @@ def validate(
         selected_model: dict[str, Any] = {}
         if review_loaded:
             review = review_loaded[1]
-            if review.get("schema_version") != "0.2.0":
-                errors.append(f"{target} review schema_version must be 0.2.0")
+            expected_review_schema = "0.2.0" if schema_version == "0.1.0" else "0.3.0"
+            if review.get("schema_version") != expected_review_schema:
+                errors.append(f"{target} review schema_version must be {expected_review_schema}")
             if review.get("status") != "ready_for_human_review":
                 errors.append(f"{target} review must be ready_for_human_review")
             if review.get("analysis_target") != {
@@ -285,23 +314,28 @@ def validate(
             f"{target} fit output",
             errors,
         )
-        expected_parameterization = (
-            "exponential_rate" if family == "exponential" else "weibull_shape_scale_aft"
-        )
-        expected_parameter_names = (
-            {"rate_per_year"} if family == "exponential" else {"shape", "scale_years"}
-        )
+        expected_parameterization, parameter_order = TYPED_PARAMETERS.get(family, ("", ()))
+        expected_parameter_names = set(parameter_order)
         parameters_raw = mapping(curve.get("parameters"), f"{target} parameters", errors)
         if set(parameters_raw) != expected_parameter_names:
             errors.append(f"{target} parameter fields are unsupported")
         parameters: dict[str, float] = {}
         for key in sorted(expected_parameter_names):
-            value = positive(parameters_raw.get(key), f"{target} parameters.{key}", errors)
+            label = f"{target} parameters.{key}"
+            if key == "P":
+                value = finite_number(parameters_raw.get(key), label, errors)
+                if value is not None and value < 0:
+                    errors.append(f"{label} must be non-negative")
+                    value = None
+            elif key in {"shape_per_year", "mu_log_years", "meanlog_years", "Q"}:
+                value = finite_number(parameters_raw.get(key), label, errors)
+            else:
+                value = positive(parameters_raw.get(key), label, errors)
             if value is not None:
                 parameters[key] = value
         if curve.get("parameterization") != expected_parameterization:
             errors.append(f"{target} parameterization is unsupported")
-        if fit_loaded:
+        if fit_loaded and schema_version == "0.1.0":
             fit = fit_loaded[1]
             exact_keys(
                 fit,
@@ -319,11 +353,40 @@ def validate(
                 errors.append(f"{target} fit-output time_unit must be years")
             if fit.get("parameters") != curve.get("parameters"):
                 errors.append(f"{target} manifest parameters do not match fit-output bytes")
+        elif fit_loaded:
+            fit = fit_loaded[1]
+            exact_keys(
+                fit,
+                {"schema_version", "family", "status", "fit_statistics", "parameterization", "parameters", "landmarks", "warnings"},
+                f"{target} normalized fit output",
+                errors,
+            )
+            if fit.get("schema_version") != "0.1.0" or fit.get("family") != family or fit.get("status") != "converged":
+                errors.append(f"{target} normalized fit output identity is invalid")
+            if fit.get("parameterization") != expected_parameterization:
+                errors.append(f"{target} normalized fit parameterization does not match")
+            rows = fit.get("parameters")
+            natural_names = NATURAL_NAMES.get(family, ())
+            natural: dict[str, float] = {}
+            if not isinstance(rows, list) or len(rows) != len(natural_names):
+                errors.append(f"{target} normalized fit parameters are incomplete")
+            else:
+                for row, expected_name in zip(rows, natural_names):
+                    item = mapping(row, f"{target} normalized parameter", errors)
+                    exact_keys(item, {"name", "estimate"}, f"{target} normalized parameter", errors)
+                    estimate = finite_number(item.get("estimate"), f"{target} normalized parameter estimate", errors)
+                    if item.get("name") != expected_name:
+                        errors.append(f"{target} normalized parameter order does not match")
+                    elif estimate is not None:
+                        natural[expected_name] = estimate
+            typed_as_natural = dict(zip(natural_names, (parameters.get(name) for name in parameter_order)))
+            if natural != typed_as_natural:
+                errors.append(f"{target} manifest parameters do not match normalized fit-output bytes")
 
         basis = [
             f"review-sha256:{review_binding.get('content_sha256')}",
             f"fit-output-sha256:{fit_binding.get('content_sha256')}",
-            f"evaluator:{EVALUATOR_ID}@{EVALUATOR_VERSION}",
+            f"evaluator:{EVALUATOR_ID}@{evaluator_version}",
         ]
         if curve.get("basis_ids") != basis:
             errors.append(f"{target} basis_ids do not match exact inputs")
@@ -339,7 +402,8 @@ def validate(
         if len(parameters) == len(expected_parameter_names):
             for value_index in range(cycles + 1):
                 expected_time = value_index * cycle_length
-                expected_survival = evaluate(family, parameters, expected_time)
+                ordered_parameters = {name: parameters[name] for name in parameter_order}
+                expected_survival = evaluate(family, ordered_parameters, expected_time)
                 rows_to_check = [(values, "materialization", False)]
                 if not duration_derived:
                     rows_to_check.append((psm_values, "PSM", True))
@@ -405,7 +469,7 @@ def main() -> int:
             print(f"INVALID: {error}")
         return 1
     print(
-        "VALID: survival curve materializations 0.1.0; "
+        f"VALID: survival curve materializations {materializations.get('schema_version')}; "
         f"analysis_sha256={sha256(analysis_raw)}; "
         f"psm_sha256={sha256(psm_raw)}; "
         f"materializations_sha256={sha256(materializations_raw)}"

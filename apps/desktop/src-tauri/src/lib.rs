@@ -19,6 +19,7 @@ mod heor_evidence_review;
 mod heor_joint_survival_uncertainty;
 mod heor_library;
 mod heor_partitioned_survival;
+mod heor_parametric_survival;
 mod heor_reference_case;
 mod heor_reporting;
 mod heor_search;

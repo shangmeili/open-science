@@ -66,10 +66,16 @@ def main() -> int:
                 "candidate_models": [
                     {"family": "exponential", "rationale": "Fixed constant-hazard cross-check."},
                     {"family": "weibull", "rationale": "Fixed monotone-hazard cross-check."},
+                    {"family": "gompertz", "rationale": "Challenge a log-linear hazard."},
+                    {"family": "gamma", "rationale": "Challenge a gamma event-time distribution."},
+                    {"family": "generalized_gamma", "rationale": "Challenge the Prentice generalized gamma interface."},
+                    {"family": "generalized_f", "rationale": "Challenge the Prentice generalized F interface."},
+                    {"family": "lognormal", "rationale": "Challenge a non-monotone lognormal hazard."},
+                    {"family": "loglogistic", "rationale": "Challenge a non-monotone loglogistic hazard."},
                 ],
-                "prediction_times": [0, 1, 3, 5, 8],
+                "prediction_times": [0, 1, 3, 5, 5.1],
                 "observed_follow_up": 5,
-                "model_horizon": 8,
+                "model_horizon": 5.1,
                 "cross_implementation_tolerance": 1e-8,
             },
             "runtime": {"expected_packages": runtime["package_versions"]},
@@ -86,12 +92,17 @@ def main() -> int:
         request_path = workspace / "heor/survival-fit-requests/real-backend-smoke.json"
         write_json(request_path, request)
         manifest_path, result = run_request(request_path, workspace, rscript, library)
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         print(
             json.dumps(
                 {
                     "runtime": runtime,
                     "result": result,
-                    "manifest": json.loads(manifest_path.read_text(encoding="utf-8")),
+                    "manifest": manifest,
+                    "models": {
+                        binding["family"]: json.loads((workspace / binding["path"]).read_text(encoding="utf-8"))
+                        for binding in manifest["models"]
+                    },
                 },
                 indent=2,
             )

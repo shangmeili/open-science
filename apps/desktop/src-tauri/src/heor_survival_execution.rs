@@ -6,7 +6,7 @@ use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 
 const SCHEMA_VERSION: &str = "0.1.0";
-const EVALUATOR: &str = "ai4heor-survival-crosscheck@0.1.0";
+const EVALUATOR: &str = "ai4heor-survival-crosscheck@0.2.0";
 const JSON_CAP: u64 = 10 * 1024 * 1024;
 const DATA_CAP: u64 = 256 * 1024 * 1024;
 const MAX_ROWS: usize = 1_000_000;
@@ -541,28 +541,20 @@ fn expected_curve(
     parameters: &HashMap<String, f64>,
     time: f64,
 ) -> Result<(f64, Option<f64>), String> {
+    crate::heor_parametric_survival::curve(family, parameters, time)
+}
+
+fn expected_parameterization(family: &str) -> Option<&'static str> {
     match family {
-        "exponential" => {
-            let rate = *parameters
-                .get("rate")
-                .filter(|value| **value > 0.0)
-                .ok_or("exponential rate must be positive")?;
-            Ok(((-rate * time).exp(), (time > 0.0).then_some(rate)))
-        }
-        "weibull" => {
-            let shape = *parameters
-                .get("shape")
-                .filter(|value| **value > 0.0)
-                .ok_or("weibull shape must be positive")?;
-            let scale = *parameters
-                .get("scale")
-                .filter(|value| **value > 0.0)
-                .ok_or("weibull scale must be positive")?;
-            let survival = (-((time / scale).powf(shape))).exp();
-            let hazard = (time > 0.0).then(|| (shape / scale) * (time / scale).powf(shape - 1.0));
-            Ok((survival, hazard))
-        }
-        _ => Err("family has no admitted independent evaluator".into()),
+        "exponential" => Some("exponential_rate"),
+        "weibull" => Some("weibull_shape_scale_aft"),
+        "gompertz" => Some("gompertz_shape_rate"),
+        "gamma" => Some("gamma_shape_rate"),
+        "generalized_gamma" => Some("generalized_gamma_prentice"),
+        "generalized_f" => Some("generalized_f_prentice"),
+        "lognormal" => Some("lognormal_meanlog_sdlog"),
+        "loglogistic" => Some("loglogistic_shape_scale"),
+        _ => None,
     }
 }
 
@@ -640,7 +632,9 @@ pub(crate) fn audit_survival_fit_execution_path(
     if !safe_id(&audit.execution_id)
         || !matches!(
             audit.status.as_str(),
-            "execution_complete" | "execution_complete_with_model_failures"
+            "execution_complete"
+                | "execution_complete_with_model_failures"
+                | "cross_implementation_failed"
         )
     {
         audit
@@ -852,7 +846,7 @@ pub(crate) fn audit_survival_fit_execution_path(
                 || ["aic", "bic", "log_likelihood"]
                     .iter()
                     .any(|field| finite(statistics.get(*field)).is_none())
-                || text(model.get("parameterization")).is_none()
+                || text(model.get("parameterization")) != expected_parameterization(family)
             {
                 audit
                     .errors
@@ -883,7 +877,7 @@ pub(crate) fn audit_survival_fit_execution_path(
                     if !exact_fields(landmark, &["time", "survival", "hazard"])
                         || !time.is_some_and(|value| (value - expected_time).abs() <= 1e-12)
                         || !survival.is_some_and(|value| {
-                            value >= 0.0 && value <= 1.0 && value <= previous_survival + 1e-12
+                            (0.0..=1.0).contains(&value) && value <= previous_survival + 1e-12
                         })
                         || (*expected_time == 0.0
                             && !landmark
@@ -899,28 +893,26 @@ pub(crate) fn audit_survival_fit_execution_path(
                         previous_survival = value;
                     }
                 }
-                if matches!(family, "exponential" | "weibull") {
-                    if let Some(parameters) = parameters {
-                        for landmark in landmarks.unwrap() {
-                            let time = finite(landmark.get("time")).unwrap_or(f64::NAN);
-                            let survival = finite(landmark.get("survival")).unwrap_or(f64::NAN);
-                            let hazard = finite(landmark.get("hazard"));
-                            match expected_curve(family, &parameters, time) {
-                                Ok((expected_survival, expected_hazard))
-                                    if (survival - expected_survival).abs()
-                                        <= request_facts.tolerance
-                                        && expected_hazard.is_none_or(|expected| {
-                                            hazard.is_some_and(|actual| {
-                                                (actual - expected).abs() <= request_facts.tolerance
-                                            })
-                                        }) => {}
-                                Ok(_) => audit.errors.push(format!(
-                                    "models[{index}] exceeds independent cross-check tolerance"
-                                )),
-                                Err(error) => audit.errors.push(format!(
-                                    "models[{index}] cannot be independently evaluated: {error}"
-                                )),
-                            }
+                if let Some(parameters) = parameters {
+                    for landmark in landmarks.unwrap() {
+                        let time = finite(landmark.get("time")).unwrap_or(f64::NAN);
+                        let survival = finite(landmark.get("survival")).unwrap_or(f64::NAN);
+                        let hazard = finite(landmark.get("hazard"));
+                        match expected_curve(family, &parameters, time) {
+                            Ok((expected_survival, expected_hazard))
+                                if (survival - expected_survival).abs()
+                                    <= request_facts.tolerance
+                                    && expected_hazard.is_none_or(|expected| {
+                                        hazard.is_some_and(|actual| {
+                                            (actual - expected).abs() <= request_facts.tolerance
+                                        })
+                                    }) => {}
+                            Ok(_) => audit.errors.push(format!(
+                                "models[{index}] exceeds independent cross-check tolerance"
+                            )),
+                            Err(error) => audit.errors.push(format!(
+                                "models[{index}] cannot be independently evaluated: {error}"
+                            )),
                         }
                     }
                 }
@@ -989,11 +981,12 @@ pub(crate) fn audit_survival_fit_execution_path(
                 .unwrap_or_default();
             let expected_status = if model_status == "failed" {
                 "fit_failed"
-            } else if matches!(family.as_str(), "exponential" | "weibull") {
-                "passed"
             } else {
-                "not_applicable"
+                "passed"
             };
+            let observed_status = text(check.get("status")).unwrap_or_default();
+            let admitted_status = observed_status == expected_status
+                || (expected_status == "passed" && observed_status == "failed");
             if !exact_fields(
                 check,
                 &[
@@ -1003,14 +996,14 @@ pub(crate) fn audit_survival_fit_execution_path(
                     "max_abs_hazard_error",
                 ],
             ) || text(check.get("family")) != Some(family)
-                || text(check.get("status")) != Some(expected_status)
+                || !admitted_status
             {
                 audit
                     .errors
                     .push(format!("cross_implementation.checks[{index}] is invalid"));
                 continue;
             }
-            if expected_status == "passed" {
+            if observed_status == "passed" {
                 let survival_error = finite(check.get("max_abs_survival_error"));
                 let hazard_error = finite(check.get("max_abs_hazard_error"));
                 if !survival_error.is_some_and(|value| value <= request_facts.tolerance)
@@ -1022,16 +1015,20 @@ pub(crate) fn audit_survival_fit_execution_path(
                 } else {
                     required_passed.insert(family.clone());
                 }
-            } else if !check
-                .get("max_abs_survival_error")
-                .is_some_and(serde_json::Value::is_null)
-                || !check
-                    .get("max_abs_hazard_error")
-                    .is_some_and(serde_json::Value::is_null)
-            {
-                audit.errors.push(format!(
-                    "cross_implementation.checks[{index}] non-applicable errors must be null"
-                ));
+            } else {
+                let survival_error = check.get("max_abs_survival_error");
+                let hazard_error = check.get("max_abs_hazard_error");
+                let both_null = survival_error.is_some_and(serde_json::Value::is_null)
+                    && hazard_error.is_some_and(serde_json::Value::is_null);
+                let both_finite =
+                    finite(survival_error).is_some() && finite(hazard_error).is_some();
+                if (observed_status == "fit_failed" && !both_null)
+                    || (observed_status == "failed" && !both_null && !both_finite)
+                {
+                    audit.errors.push(format!(
+                        "cross_implementation.checks[{index}] failed errors are invalid"
+                    ));
+                }
             }
         }
     } else {
@@ -1041,7 +1038,14 @@ pub(crate) fn audit_survival_fit_execution_path(
     }
     audit.cross_implementation_complete = ["exponential", "weibull"]
         .iter()
-        .all(|family| required_passed.contains(*family));
+        .all(|family| required_passed.contains(*family))
+        && model_order.iter().all(|family| {
+            models
+                .get(family)
+                .and_then(|model| text(model.get("status")))
+                == Some("failed")
+                || required_passed.contains(family)
+        });
     if cross.get("complete").and_then(serde_json::Value::as_bool)
         != Some(audit.cross_implementation_complete)
     {
@@ -1050,7 +1054,9 @@ pub(crate) fn audit_survival_fit_execution_path(
             .push("cross_implementation.complete is incorrect".into());
     }
     let failed_models = model_order.len().saturating_sub(audit.converged_models);
-    let expected_status = if failed_models == 0 {
+    let expected_status = if !audit.cross_implementation_complete {
+        "cross_implementation_failed"
+    } else if failed_models == 0 {
         "execution_complete"
     } else {
         "execution_complete_with_model_failures"
@@ -1289,7 +1295,7 @@ mod tests {
             "family": family,
             "status": "converged",
             "fit_statistics": {"aic": 10.0, "bic": 12.0, "log_likelihood": -4.0},
-            "parameterization": "survHE/flexsurv natural scale",
+            "parameterization": expected_parameterization(family).unwrap(),
             "parameters": parameters,
             "landmarks": landmarks,
             "warnings": []

@@ -1,6 +1,6 @@
 ---
 name: heor-survival-fit-execution
-description: Execute and audit a pre-specified intercept-only maximum-likelihood survival fit in a user-installed isolated survHE R library. Use when AI4HEOR must fit one local absolute time-to-event curve, preserve every attempted standard parametric model, generate fixed diagnostic evidence, or independently cross-check exponential and Weibull predictions before survival extrapolation review. Never install packages, select a curve, or treat numerical agreement as scientific validity.
+description: Execute and audit a pre-specified intercept-only maximum-likelihood survival fit in a user-installed isolated survHE R library. Use when AI4HEOR must fit one local absolute time-to-event curve, preserve every attempted standard parametric model, generate fixed diagnostic evidence, or independently cross-check every converged admitted family before survival extrapolation review. Never install packages, select a curve, or treat numerical agreement as scientific validity.
 ---
 
 # HEOR Survival Fit Execution
@@ -16,14 +16,14 @@ Run one bounded local fitting job whose request, source CSV, R executable, fixed
    `python3 scripts/run_survhe_mle.py probe --rscript <Rscript> --library <isolated-library>`
 
    Record the exact reported `survHE`, `flexsurv`, and `survival` versions in the request. Stop when the packages are absent or differ from the request; never run `install.packages` from this Skill.
-4. Copy [assets/survival-fit-execution-request.template.json](assets/survival-fit-execution-request.template.json) to a safely named file under `heor/survival-fit-requests/`. Populate exact row/event/censor counts, current SHA-256, candidate rationales, a common observed/extrapolated prediction grid ending at the model horizon, exact package versions, limitations, and the fixed output directory. Include both exponential and Weibull so the independent evaluator can challenge the backend.
+4. Copy [assets/survival-fit-execution-request.template.json](assets/survival-fit-execution-request.template.json) to a safely named file under `heor/survival-fit-requests/`. Populate exact row/event/censor counts, current SHA-256, candidate rationales, a common observed/extrapolated prediction grid ending at the model horizon, exact package versions, limitations, and the fixed output directory. Include both exponential and Weibull as required baseline candidates.
 5. Run `python3 scripts/validate_survhe_fit_request.py <request> --workspace <project-root>`. Fix every path, hash, data-shape, pre-specification, version, horizon, or authority error before execution.
 6. Present the exact fixed command for Human authorization. Only after the app's command-approval gate permits it, run:
 
    `python3 scripts/run_survhe_mle.py run <request> --workspace <project-root> --rscript <Rscript> --library <isolated-library>`
 
    The runner uses an argument array rather than a shell, disables user/site R profiles, refuses version drift and existing output, captures failures, and never installs a package. It copies the fixed adapter into the result bundle and hashes all generated evidence.
-7. Run `python3 scripts/validate_survhe_fit_execution.py <result-manifest> --workspace <project-root>`. The portable validator re-reads the request and current CSV, verifies every file hash, and independently recalculates exponential and Weibull survival and hazard values from exported parameters. Stop if it reports incomplete or ineligible.
+7. Run `python3 scripts/validate_survhe_fit_execution.py <result-manifest> --workspace <project-root>`. The portable validator re-reads the request and current CSV, verifies every file hash, and independently recalculates survival and hazard values for every converged candidate from exported natural parameters. Stop if it reports incomplete or ineligible.
 8. Route an eligible bundle to `$heor-survival-extrapolation-review`. Preserve all attempted models and backend warnings, assess observed and extrapolated periods, external evidence, hazard shape, clinical plausibility, and structural alternatives. Leave the curve gate `awaiting_human_selection`; only a later Human-reviewed analysis plan may select a curve.
 
 ## Boundaries

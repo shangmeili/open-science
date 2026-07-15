@@ -1,11 +1,11 @@
 //! Independent app-owned audit for selected parametric survival materialization.
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::path::Path;
 
 pub const SURVIVAL_MATERIALIZATION_PATH: &str = "heor/survival-curve-materializations.json";
 const ANALYSIS_PLAN_PATH: &str = "heor/analysis-plan.json";
 const EVALUATOR_ID: &str = "ai4heor-parametric-survival";
-const EVALUATOR_VERSION: &str = "0.1.0";
 const TOLERANCE: f64 = 1e-12;
 
 #[derive(Clone, Debug)]
@@ -25,6 +25,12 @@ fn finite_positive(value: Option<&serde_json::Value>) -> Option<f64> {
     value
         .and_then(serde_json::Value::as_f64)
         .filter(|value| value.is_finite() && *value > 0.0)
+}
+
+fn finite(value: Option<&serde_json::Value>) -> Option<f64> {
+    value
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite())
 }
 
 fn valid_sha(value: Option<&serde_json::Value>) -> bool {
@@ -94,18 +100,78 @@ fn read_bound_json(
     Some((path.to_owned(), digest.to_owned(), raw, value))
 }
 
-fn evaluate(family: &str, parameters: &serde_json::Value, time: f64) -> Option<f64> {
-    let cumulative_hazard = match family {
-        "exponential" => finite_positive(parameters.get("rate_per_year"))? * time,
-        "weibull" => {
-            let shape = finite_positive(parameters.get("shape"))?;
-            let scale = finite_positive(parameters.get("scale_years"))?;
-            (time / scale).powf(shape)
+fn parameterization_contract(
+    family: &str,
+) -> Option<(
+    &'static str,
+    &'static [&'static str],
+    &'static [&'static str],
+)> {
+    match family {
+        "exponential" => Some(("exponential_rate", &["rate_per_year"], &["rate"])),
+        "weibull" => Some((
+            "weibull_shape_scale_aft",
+            &["shape", "scale_years"],
+            &["shape", "scale"],
+        )),
+        "gompertz" => Some((
+            "gompertz_shape_rate",
+            &["shape_per_year", "rate_per_year"],
+            &["shape", "rate"],
+        )),
+        "gamma" => Some((
+            "gamma_shape_rate",
+            &["shape", "rate_per_year"],
+            &["shape", "rate"],
+        )),
+        "generalized_gamma" => Some((
+            "generalized_gamma_prentice",
+            &["mu_log_years", "sigma", "Q"],
+            &["mu", "sigma", "Q"],
+        )),
+        "generalized_f" => Some((
+            "generalized_f_prentice",
+            &["mu_log_years", "sigma", "Q", "P"],
+            &["mu", "sigma", "Q", "P"],
+        )),
+        "lognormal" => Some((
+            "lognormal_meanlog_sdlog",
+            &["meanlog_years", "sdlog"],
+            &["meanlog", "sdlog"],
+        )),
+        "loglogistic" => Some((
+            "loglogistic_shape_scale",
+            &["shape", "scale_years"],
+            &["shape", "scale"],
+        )),
+        _ => None,
+    }
+}
+
+fn typed_natural(family: &str, parameters: &serde_json::Value) -> Option<HashMap<String, f64>> {
+    let (_, typed_names, natural_names) = parameterization_contract(family)?;
+    if !exact_fields(parameters, typed_names) {
+        return None;
+    }
+    let mut result = HashMap::new();
+    for (typed, natural) in typed_names.iter().zip(natural_names.iter()) {
+        let value = finite(parameters.get(*typed))?;
+        let positive = !matches!(
+            *typed,
+            "shape_per_year" | "mu_log_years" | "meanlog_years" | "Q" | "P"
+        );
+        if (positive && value <= 0.0) || (*typed == "P" && value < 0.0) {
+            return None;
         }
-        _ => return None,
-    };
-    let survival = (-cumulative_hazard).exp();
-    survival.is_finite().then_some(survival)
+        result.insert((*natural).to_owned(), value);
+    }
+    Some(result)
+}
+
+fn evaluate(family: &str, parameters: &serde_json::Value, time: f64) -> Option<f64> {
+    crate::heor_parametric_survival::curve(family, &typed_natural(family, parameters)?, time)
+        .ok()
+        .map(|value| value.0)
 }
 
 pub fn audit_survival_materializations(
@@ -170,15 +236,19 @@ pub fn audit_survival_materializations(
             .errors
             .push("survival materialization fields are not the exact contract".into());
     }
-    if manifest
+    let schema_version = manifest
         .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        != Some("0.1.0")
-    {
+        .and_then(serde_json::Value::as_str);
+    if !matches!(schema_version, Some("0.1.0" | "0.2.0")) {
         audit
             .errors
-            .push("survival materialization schema_version must be 0.1.0".into());
+            .push("survival materialization schema_version must be 0.1.0 or 0.2.0".into());
     }
+    let evaluator_version = if schema_version == Some("0.2.0") {
+        "0.2.0"
+    } else {
+        "0.1.0"
+    };
     if manifest.get("status").and_then(serde_json::Value::as_str) != Some("ready_for_human_review")
     {
         audit
@@ -228,7 +298,7 @@ pub fn audit_survival_materializations(
         || manifest
             .pointer("/evaluator/version")
             .and_then(serde_json::Value::as_str)
-            != Some(EVALUATOR_VERSION)
+            != Some(evaluator_version)
         || !exact_fields(
             manifest
                 .get("evaluator")
@@ -317,9 +387,13 @@ pub fn audit_survival_materializations(
             .get("parameterization")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
-        let expected_parameterization = match family {
-            "exponential" => "exponential_rate",
-            "weibull" => "weibull_shape_scale_aft",
+        let expected_parameterization = match parameterization_contract(family) {
+            Some((name, _, _))
+                if schema_version == Some("0.2.0")
+                    || matches!(family, "exponential" | "weibull") =>
+            {
+                name
+            }
             _ => {
                 audit.errors.push(format!("{target} family is unsupported"));
                 ""
@@ -437,30 +511,77 @@ pub fn audit_survival_materializations(
             &mut audit.errors,
         );
         if let Some((path, digest, _, fit)) = fit_loaded {
-            if !exact_fields(
-                &fit,
-                &[
-                    "schema_version",
-                    "family",
-                    "parameterization",
-                    "time_unit",
-                    "parameters",
-                ],
-            ) || fit
-                .get("schema_version")
-                .and_then(serde_json::Value::as_str)
-                != Some("0.1.0")
-                || fit.get("family").and_then(serde_json::Value::as_str) != Some(family)
-                || fit
-                    .get("parameterization")
+            if schema_version == Some("0.1.0")
+                && (!exact_fields(
+                    &fit,
+                    &[
+                        "schema_version",
+                        "family",
+                        "parameterization",
+                        "time_unit",
+                        "parameters",
+                    ],
+                ) || fit
+                    .get("schema_version")
                     .and_then(serde_json::Value::as_str)
-                    != Some(parameterization)
-                || fit.get("time_unit").and_then(serde_json::Value::as_str) != Some("years")
-                || fit.get("parameters") != curve.get("parameters")
+                    != Some("0.1.0")
+                    || fit.get("family").and_then(serde_json::Value::as_str) != Some(family)
+                    || fit
+                        .get("parameterization")
+                        .and_then(serde_json::Value::as_str)
+                        != Some(parameterization)
+                    || fit.get("time_unit").and_then(serde_json::Value::as_str) != Some("years")
+                    || fit.get("parameters") != curve.get("parameters"))
             {
                 audit
                     .errors
                     .push(format!("{target} typed fit output does not match manifest"));
+            } else if schema_version == Some("0.2.0") {
+                let expected_fields = [
+                    "schema_version",
+                    "family",
+                    "status",
+                    "fit_statistics",
+                    "parameterization",
+                    "parameters",
+                    "landmarks",
+                    "warnings",
+                ];
+                let natural = typed_natural(
+                    family,
+                    curve.get("parameters").unwrap_or(&serde_json::Value::Null),
+                );
+                let rows = fit.get("parameters").and_then(serde_json::Value::as_array);
+                let normalized = rows.and_then(|items| {
+                    let mut values = HashMap::new();
+                    for item in items {
+                        if !exact_fields(item, &["name", "estimate"]) {
+                            return None;
+                        }
+                        values.insert(
+                            item.get("name")?.as_str()?.to_owned(),
+                            finite(item.get("estimate"))?,
+                        );
+                    }
+                    Some(values)
+                });
+                if !exact_fields(&fit, &expected_fields)
+                    || fit
+                        .get("schema_version")
+                        .and_then(serde_json::Value::as_str)
+                        != Some("0.1.0")
+                    || fit.get("family").and_then(serde_json::Value::as_str) != Some(family)
+                    || fit.get("status").and_then(serde_json::Value::as_str) != Some("converged")
+                    || fit
+                        .get("parameterization")
+                        .and_then(serde_json::Value::as_str)
+                        != Some(parameterization)
+                    || normalized != natural
+                {
+                    audit.errors.push(format!(
+                        "{target} normalized fit output does not match manifest"
+                    ));
+                }
             }
             audit
                 .artifact_bindings
@@ -471,18 +592,7 @@ pub fn audit_survival_materializations(
         }
 
         let parameters = curve.get("parameters").unwrap_or(&serde_json::Value::Null);
-        let parameter_fields_valid = match family {
-            "exponential" => {
-                exact_fields(parameters, &["rate_per_year"])
-                    && finite_positive(parameters.get("rate_per_year")).is_some()
-            }
-            "weibull" => {
-                exact_fields(parameters, &["shape", "scale_years"])
-                    && finite_positive(parameters.get("shape")).is_some()
-                    && finite_positive(parameters.get("scale_years")).is_some()
-            }
-            _ => false,
-        };
+        let parameter_fields_valid = typed_natural(family, parameters).is_some();
         if !parameter_fields_valid {
             audit
                 .errors
@@ -496,10 +606,10 @@ pub fn audit_survival_materializations(
             .and_then(|value| value.get("content_sha256"))
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
-        let expected_basis = vec![
+        let expected_basis = [
             format!("review-sha256:{review_sha}"),
             format!("fit-output-sha256:{fit_sha}"),
-            format!("evaluator:{EVALUATOR_ID}@{EVALUATOR_VERSION}"),
+            format!("evaluator:{EVALUATOR_ID}@{evaluator_version}"),
         ];
         let basis = curve
             .get("basis_ids")

@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "materialization_id": "replace-with-safe-id",
   "analysis_id": "replace-with-analysis-id",
   "psm_id": "replace-with-psm-id",
@@ -12,7 +12,7 @@
   "time_unit": "years",
   "evaluator": {
     "id": "ai4heor-parametric-survival",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "curves": [
     {
@@ -37,7 +37,7 @@
       "basis_ids": [
         "review-sha256:replace-with-lowercase-sha256",
         "fit-output-sha256:replace-with-lowercase-sha256",
-        "evaluator:ai4heor-parametric-survival@0.1.0"
+        "evaluator:ai4heor-parametric-survival@0.2.0"
       ],
       "values": [
         {
@@ -48,6 +48,6 @@
     }
   ],
   "limitations": [
-    "Only exponential rate and Weibull AFT shape/scale are admitted."
+    "Materialization reproduces a Human-selected reviewed model and does not establish clinical plausibility."
   ]
 }
