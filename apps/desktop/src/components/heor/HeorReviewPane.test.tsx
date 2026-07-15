@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT,
+  type HeorPairedBootstrapAudit,
   type HeorUncertaintyRunResult,
 } from "@/lib/heor";
 import { useUiStore } from "@/lib/store";
@@ -10,12 +11,85 @@ import {
   CeacChart,
   EvidenceVerificationDialog,
   HeorReviewPane,
+  PairedBootstrapAssessment,
+  PairedBootstrapReviewDialog,
   UncertaintyResultCard,
 } from "./HeorReviewPane";
 
 afterEach(() => useUiStore.getState().setLocale("en"));
 
 describe("AI4HEOR human review pane", () => {
+  const pairedAudit: HeorPairedBootstrapAudit = {
+    complete: true,
+    reviewable: true,
+    status: "complete",
+    executionId: "paired-run-1",
+    resultPath: "heor/paired-survival-bootstrap-executions/paired-run-1/result-manifest.json",
+    resultSha256: "a".repeat(64),
+    requestPath: "heor/paired-survival-bootstrap-request.json",
+    requestSha256: "b".repeat(64),
+    candidatePath: "heor/paired-survival-bootstrap-executions/paired-run-1/joint-survival-draws.candidate.jsonl",
+    candidateSha256: "c".repeat(64),
+    iterations: 1000,
+    completedReplicates: 1000,
+    failedReplicates: 0,
+    curveCount: 4,
+    strategyCounts: { standard: 120, intervention: 118 },
+    packageVersions: { survHE: "2.0.51", flexsurv: "2.3.2", survival: "3.8.6" },
+    crossImplementationComplete: true,
+    curveCoherenceComplete: true,
+    dependencePreserved: true,
+    betweenStrategyAssumption: "conditional_independence_given_parallel_arm_design",
+    limitations: ["Human method review required."],
+    errors: [],
+  };
+
+  it("keeps paired-bootstrap acceptance behind every Human method check", async () => {
+    const onSubmit = vi.fn();
+    const card = render(
+      <PairedBootstrapAssessment
+        state={{ kind: "ready", audit: pairedAudit }}
+        currentReview={null}
+        accepted={false}
+        onRequestPreparation={vi.fn()}
+        onReview={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Complete native audit · awaiting Human method review")).toBeInTheDocument();
+    expect(screen.getByText("1000/1000")).toBeInTheDocument();
+    card.unmount();
+
+    render(
+      <PairedBootstrapReviewDialog
+        audit={pairedAudit}
+        running={false}
+        onCancel={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+    const submit = screen.getByRole("button", { name: "Record acceptance" });
+    expect(submit).toBeDisabled();
+    const checkboxes = screen.getAllByRole("checkbox");
+    expect(checkboxes).toHaveLength(7);
+    for (const checkbox of checkboxes) await userEvent.click(checkbox);
+    await userEvent.type(screen.getByPlaceholderText("Name or local reviewer label"), "Methods reviewer");
+    await userEvent.type(
+      screen.getByPlaceholderText(/Why this exact design/),
+      "Reviewed the exact endpoints, censoring, model families, and extrapolation limits.",
+    );
+    expect(submit).toBeEnabled();
+    await userEvent.click(submit);
+    expect(onSubmit).toHaveBeenCalledWith(
+      "accept",
+      expect.objectContaining({
+        resamplingDesignReviewed: true,
+        clinicalPlausibilityReviewed: true,
+      }),
+      "Methods reviewer",
+      "Reviewed the exact endpoints, censoring, model families, and extrapolation limits.",
+    );
+  });
+
   it("renders CEAC and CEAF with accessible labels and non-color distinction", () => {
     const { container } = render(
       <CeacChart

@@ -20,6 +20,7 @@ import { readArtifact } from "@/lib/artifactFile";
 import { cn } from "@/lib/cn";
 import {
   appendHeorApproval,
+  appendHeorPairedBootstrapReview,
   auditHeorBudgetImpact,
   auditHeorPartitionedSurvival,
   auditHeorConceptualModel,
@@ -30,6 +31,7 @@ import {
   auditHeorEvidenceSynthesis,
   auditHeorReferenceCase,
   auditHeorSurvivalExtrapolation,
+  auditHeorPairedSurvivalBootstrap,
   auditHeorUncertainty,
   auditHeorModelValidation,
   auditHeorReporting,
@@ -53,6 +55,7 @@ import {
   HEOR_REFERENCE_CASE_ASSESSMENT_PATH,
   HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH,
   HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH,
+  HEOR_PAIRED_BOOTSTRAP_REQUEST_PATH,
   HEOR_UNCERTAINTY_PLAN_PATH,
   type HeorAnalysisPlan,
   type HeorApprovalAction,
@@ -64,6 +67,9 @@ import {
   type HeorBudgetImpactRunResult,
   type HeorPartitionedSurvivalAudit,
   type HeorPartitionedSurvivalRunResult,
+  type HeorPairedBootstrapAudit,
+  type HeorPairedBootstrapChecklist,
+  type HeorPairedBootstrapReviewLog,
   type HeorModelValidationAudit,
   type HeorReportingAudit,
   type HeorGate,
@@ -81,6 +87,7 @@ import {
   type HeorUncertaintyAudit,
   type HeorUncertaintyRunResult,
   listHeorApprovals,
+  listHeorPairedBootstrapReviews,
   listHeorSearchAuthorizations,
   parseHeorConceptualModel,
   parseHeorPlan,
@@ -108,6 +115,7 @@ const REVIEW_GATES: HeorGate[] = [
 ];
 const ALL_GATES: HeorGate[] = REVIEW_GATES;
 const EVIDENCE_REVIEW_DECISIONS = ["confirmed", "rejected"] as const;
+const PAIRED_BOOTSTRAP_REVIEW_ACTIONS = ["accept", "reject"] as const;
 
 const EMPTY_LOG: HeorApprovalLog = {
   events: [],
@@ -165,6 +173,11 @@ type SurvivalReviewState =
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorSurvivalReviewAudit };
 
+type PairedBootstrapState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorPairedBootstrapAudit };
+
 type ModelValidationState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
@@ -200,6 +213,13 @@ const EMPTY_SEARCH_LOG: HeorSearchAuthorizationLog = {
   chainHead: null,
   integrity: "verified_unanchored_sha256_chain",
   identityAssurance: "local_human_assertion",
+};
+
+const EMPTY_PAIRED_BOOTSTRAP_REVIEW_LOG: HeorPairedBootstrapReviewLog = {
+  events: [],
+  chainHead: null,
+  integrity: "verified_unanchored_sha256_chain",
+  identityAssurance: "app_owned_local_human_assertion",
 };
 
 function latestSearchAuthorization(
@@ -291,6 +311,10 @@ export function HeorReviewPane({
   const [budgetImpact, setBudgetImpact] = useState<BudgetImpactState>({ kind: "loading" });
   const [partitionedSurvival, setPartitionedSurvival] = useState<PartitionedSurvivalState>({ kind: "loading" });
   const [survivalReview, setSurvivalReview] = useState<SurvivalReviewState>({ kind: "loading" });
+  const [pairedBootstrap, setPairedBootstrap] = useState<PairedBootstrapState>({ kind: "loading" });
+  const [pairedBootstrapReviews, setPairedBootstrapReviews] = useState<HeorPairedBootstrapReviewLog>(EMPTY_PAIRED_BOOTSTRAP_REVIEW_LOG);
+  const [pairedBootstrapDialogOpen, setPairedBootstrapDialogOpen] = useState(false);
+  const [pairedBootstrapReviewRunning, setPairedBootstrapReviewRunning] = useState(false);
   const [modelValidation, setModelValidation] = useState<ModelValidationState>({ kind: "loading" });
   const [reporting, setReporting] = useState<ReportingState>({ kind: "loading" });
   const [evidenceSearch, setEvidenceSearch] = useState<EvidenceSearchState>({ kind: "loading" });
@@ -329,6 +353,8 @@ export function HeorReviewPane({
       setBudgetImpact({ kind: "invalid", message: t("budgetImpact.noProject") });
       setPartitionedSurvival({ kind: "invalid", message: t("partitionedSurvival.noProject") });
       setSurvivalReview({ kind: "invalid", message: t("survivalReview.noProject") });
+      setPairedBootstrap({ kind: "invalid", message: t("pairedBootstrap.noProject") });
+      setPairedBootstrapReviews(EMPTY_PAIRED_BOOTSTRAP_REVIEW_LOG);
       setModelValidation({ kind: "invalid", message: t("validation.noProject") });
       setReporting({ kind: "invalid", message: t("reporting.noProject") });
       setEvidenceSearch({ kind: "invalid", message: t("search.noProject") });
@@ -346,6 +372,7 @@ export function HeorReviewPane({
     setBudgetImpact({ kind: "loading" });
     setPartitionedSurvival({ kind: "loading" });
     setSurvivalReview({ kind: "loading" });
+    setPairedBootstrap({ kind: "loading" });
     setModelValidation({ kind: "loading" });
     setReporting({ kind: "loading" });
     setEvidenceSearch({ kind: "loading" });
@@ -392,6 +419,7 @@ export function HeorReviewPane({
         setBudgetImpact({ kind: "invalid", message: t("budgetImpact.missingPlan") });
         setPartitionedSurvival({ kind: "invalid", message: t("partitionedSurvival.missingPlan") });
         setSurvivalReview({ kind: "invalid", message: t("survivalReview.missingPlan") });
+        setPairedBootstrap({ kind: "invalid", message: t("pairedBootstrap.missingPlan") });
         setModelValidation({ kind: "invalid", message: t("validation.missingPlan") });
         setReporting({ kind: "invalid", message: t("reporting.missingPlan") });
         setEvidenceSelection({ kind: "invalid", message: t("evidence.missingPlan") });
@@ -448,6 +476,16 @@ export function HeorReviewPane({
           kind: "invalid",
           message: error instanceof Error ? error.message : String(error),
         });
+      }
+      try {
+        setPairedBootstrap({ kind: "ready", audit: await auditHeorPairedSurvivalBootstrap() });
+        setPairedBootstrapReviews(await listHeorPairedBootstrapReviews(project.id));
+      } catch (error) {
+        setPairedBootstrap({
+          kind: "invalid",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        setPairedBootstrapReviews(EMPTY_PAIRED_BOOTSTRAP_REVIEW_LOG);
       }
       try {
         setModelValidation({ kind: "ready", audit: await auditHeorModelValidation() });
@@ -513,6 +551,10 @@ export function HeorReviewPane({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
+      setPairedBootstrap({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
       setModelValidation({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
@@ -532,6 +574,20 @@ export function HeorReviewPane({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const currentPairedBootstrapReview = useMemo(() => {
+    if (pairedBootstrap.kind !== "ready" || !pairedBootstrap.audit.resultSha256) return null;
+    return [...pairedBootstrapReviews.events].reverse().find((event) =>
+      event.executionId === pairedBootstrap.audit.executionId) ?? null;
+  }, [pairedBootstrap, pairedBootstrapReviews.events]);
+  const pairedBootstrapReviewRequired = pairedBootstrap.kind === "ready"
+    && pairedBootstrap.audit.reviewable
+    && uncertainty.kind === "ready"
+    && uncertainty.audit.pairedBootstrapReviewRequired;
+  const pairedBootstrapReviewAccepted = pairedBootstrapReviewRequired
+    && currentPairedBootstrapReview?.action === "accept"
+    && currentPairedBootstrapReview.resultPath === pairedBootstrap.audit.resultPath
+    && currentPairedBootstrapReview.resultSha256 === pairedBootstrap.audit.resultSha256;
 
   const currentApprovals = useMemo(() => {
     if (artifact.kind !== "ready") return [] as HeorGate[];
@@ -563,7 +619,8 @@ export function HeorReviewPane({
           || partitionedSurvival.kind !== "ready"
           || !partitionedSurvival.audit.complete
           || survivalReview.kind !== "ready"
-          || !survivalReview.audit.complete)) break;
+          || !survivalReview.audit.complete
+          || (pairedBootstrapReviewRequired && !pairedBootstrapReviewAccepted))) break;
       if (gate === "independent_validation"
         && (modelValidation.kind !== "ready"
           || !modelValidation.audit.complete
@@ -602,6 +659,12 @@ export function HeorReviewPane({
           && survivalReview.kind === "ready"
           && survivalReview.audit.required
           && !heorSurvivalReviewBindingsCurrent(event, survivalReview.audit)) ||
+        (gate === "analysis_plan"
+          && pairedBootstrapReviewAccepted
+          && currentPairedBootstrapReview
+          && !event.relatedArtifacts?.some((binding) =>
+            binding.path === currentPairedBootstrapReview.recordPath
+            && binding.sha256 === currentPairedBootstrapReview.recordSha256)) ||
         (gate === "independent_validation"
           && modelValidation.kind === "ready"
           && !validationBindingsCurrent(event, modelValidation.audit)) ||
@@ -626,6 +689,9 @@ export function HeorReviewPane({
     budgetImpact,
     partitionedSurvival,
     survivalReview,
+    pairedBootstrapReviewRequired,
+    pairedBootstrapReviewAccepted,
+    currentPairedBootstrapReview,
     modelValidation,
     reporting,
   ]);
@@ -660,6 +726,12 @@ export function HeorReviewPane({
             ? partitionedSurvival.audit.artifactBindings
             : []),
           ...(survivalReview.audit.required ? survivalReview.audit.artifactBindings : []),
+          ...(pairedBootstrapReviewAccepted && currentPairedBootstrapReview
+            ? [{
+                path: currentPairedBootstrapReview.recordPath,
+                sha256: currentPairedBootstrapReview.recordSha256,
+              }]
+            : []),
         ]
       : gate === "independent_validation" && modelValidation.kind === "ready"
         ? [
@@ -912,6 +984,37 @@ export function HeorReviewPane({
     }
   };
 
+  const submitPairedBootstrapReview = async (
+    action: "accept" | "reject",
+    checklist: HeorPairedBootstrapChecklist,
+    actorLabel: string,
+    rationale: string,
+  ) => {
+    if (!project || pairedBootstrap.kind !== "ready" || !pairedBootstrap.audit.resultSha256
+      || pairedBootstrapReviewRunning || !isTauri) return;
+    setPairedBootstrapReviewRunning(true);
+    try {
+      await appendHeorPairedBootstrapReview({
+        projectId: project.id,
+        resultPath: pairedBootstrap.audit.resultPath,
+        resultSha256: pairedBootstrap.audit.resultSha256,
+        action,
+        checklist,
+        actorLabel,
+        rationale,
+      });
+      setPairedBootstrapReviews(await listHeorPairedBootstrapReviews(project.id));
+      setPairedBootstrapDialogOpen(false);
+      toast.success(action === "accept"
+        ? t("pairedBootstrap.acceptedToast")
+        : t("pairedBootstrap.rejectedToast"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setPairedBootstrapReviewRunning(false);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col border-l border-border bg-surface">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
@@ -1035,6 +1138,14 @@ export function HeorReviewPane({
               onRequestRepair={() => onRequestRevision(t("survivalReview.repairPrompt"))}
             />
 
+            <PairedBootstrapAssessment
+              state={pairedBootstrap}
+              currentReview={currentPairedBootstrapReview}
+              accepted={pairedBootstrapReviewAccepted}
+              onRequestPreparation={() => onRequestRevision(t("pairedBootstrap.preparePrompt"))}
+              onReview={() => setPairedBootstrapDialogOpen(true)}
+            />
+
             <EvidenceTraceability
               audit={evidenceAudit!}
               selection={evidenceSelection}
@@ -1109,6 +1220,13 @@ export function HeorReviewPane({
                       && partitionedSurvival.audit.required
                       && !partitionedSurvival.audit.artifactBindings.every((expected) =>
                         eventBinds(gateEvent, expected.path, expected.sha256)))
+                    || (pairedBootstrapReviewAccepted
+                      && currentPairedBootstrapReview
+                      && !eventBinds(
+                        gateEvent,
+                        currentPairedBootstrapReview.recordPath,
+                        currentPairedBootstrapReview.recordSha256,
+                      ))
                   )) || (gate === "independent_validation"
                     && modelValidation.kind === "ready"
                     && !validationBindingsCurrent(gateEvent, modelValidation.audit))
@@ -1141,6 +1259,10 @@ export function HeorReviewPane({
                   const survivalReviewBlocked = gate === "analysis_plan"
                     && gate === nextGate
                     && (survivalReview.kind !== "ready" || !survivalReview.audit.complete);
+                  const pairedBootstrapBlocked = gate === "analysis_plan"
+                    && gate === nextGate
+                    && pairedBootstrapReviewRequired
+                    && !pairedBootstrapReviewAccepted;
                   const validationBlocked = gate === "independent_validation"
                     && gate === nextGate
                     && (modelValidation.kind !== "ready"
@@ -1153,6 +1275,7 @@ export function HeorReviewPane({
                   const waiting = gate === nextGate && !stale && !conceptualBlocked
                     && !evidenceBlocked && !referenceBlocked && !uncertaintyBlocked
                     && !budgetImpactBlocked && !survivalReviewBlocked
+                    && !pairedBootstrapBlocked
                     && !partitionedSurvivalBlocked
                     && !validationBlocked && !reportingBlocked;
                   return (
@@ -1162,7 +1285,8 @@ export function HeorReviewPane({
                           <Check size={14} className="text-ok" />
                         ) : waiting || stale || conceptualBlocked || evidenceBlocked || referenceBlocked
                           || uncertaintyBlocked || budgetImpactBlocked || validationBlocked
-                          || survivalReviewBlocked || partitionedSurvivalBlocked || reportingBlocked ? (
+                          || survivalReviewBlocked || pairedBootstrapBlocked
+                          || partitionedSurvivalBlocked || reportingBlocked ? (
                           <Circle size={12} className={stale ? "text-error" : "text-accent"} />
                         ) : (
                           <LockKeyhole size={13} className="text-muted" />
@@ -1185,6 +1309,8 @@ export function HeorReviewPane({
                                 ? t("status.budgetImpactRequired")
                               : survivalReviewBlocked
                                 ? t("status.survivalReviewRequired")
+                              : pairedBootstrapBlocked
+                                ? t("status.pairedBootstrapReviewRequired")
                               : validationBlocked
                                 ? t("status.validationRequired")
                               : reportingBlocked
@@ -1330,6 +1456,15 @@ export function HeorReviewPane({
           onCancel={() => setVerificationDialogOpen(false)}
           onSubmit={(actor, rationale, decision, extractionIds) =>
             void verifyEvidenceExtractions(actor, rationale, decision, extractionIds)}
+        />
+      )}
+      {pairedBootstrapDialogOpen && pairedBootstrap.kind === "ready" && (
+        <PairedBootstrapReviewDialog
+          audit={pairedBootstrap.audit}
+          running={pairedBootstrapReviewRunning}
+          onCancel={() => setPairedBootstrapDialogOpen(false)}
+          onSubmit={(action, checklist, actor, rationale) =>
+            void submitPairedBootstrapReview(action, checklist, actor, rationale)}
         />
       )}
     </div>
@@ -2287,6 +2422,235 @@ function SurvivalReviewAssessment({
       )}
       <p className="mt-3 text-[10px] leading-4 text-muted">{t("survivalReview.note")}</p>
     </section>
+  );
+}
+
+export function PairedBootstrapAssessment({
+  state,
+  currentReview,
+  accepted,
+  onRequestPreparation,
+  onReview,
+}: {
+  state: PairedBootstrapState;
+  currentReview: HeorPairedBootstrapReviewLog["events"][number] | null;
+  accepted: boolean;
+  onRequestPreparation: () => void;
+  onReview: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const issues = audit?.errors ?? (state.kind === "invalid" ? [state.message] : []);
+  const status = state.kind === "loading"
+    ? t("pairedBootstrap.loading")
+    : accepted
+      ? t("pairedBootstrap.accepted")
+      : currentReview?.action === "reject"
+        ? t("pairedBootstrap.rejected")
+        : audit?.reviewable
+          ? t("pairedBootstrap.awaiting")
+          : audit?.executionId
+            ? t("pairedBootstrap.incomplete")
+            : t("pairedBootstrap.notPrepared");
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {accepted
+          ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
+          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("pairedBootstrap.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warning")}>
+            {status}
+          </div>
+          <div className="mt-1 break-all font-mono text-[10px] text-muted">
+            {audit?.resultPath || HEOR_PAIRED_BOOTSTRAP_REQUEST_PATH}
+          </div>
+        </div>
+      </div>
+      {audit?.executionId && (
+        <>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <Metric label={t("pairedBootstrap.replicates")} value={`${audit.completedReplicates}/${audit.iterations}`} />
+            <Metric label={t("pairedBootstrap.failures")} value={String(audit.failedReplicates)} />
+            <Metric label={t("pairedBootstrap.curves")} value={String(audit.curveCount)} />
+          </div>
+          <p className="mt-3 text-[10px] leading-4 text-muted">
+            {t("pairedBootstrap.dependence", { assumption: audit.betweenStrategyAssumption || "—" })}
+          </p>
+          {audit.resultSha256 && (
+            <div className="mt-2 break-all font-mono text-[9px] text-muted">
+              {t("pairedBootstrap.hash")} {audit.resultSha256}
+            </div>
+          )}
+        </>
+      )}
+      {currentReview && (
+        <div className={cn(
+          "mt-3 rounded-input border p-3 text-[10px] leading-4",
+          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warning/30 bg-warning/5 text-warning",
+        )}>
+          {accepted ? t("pairedBootstrap.currentAccepted") : t("pairedBootstrap.currentRejected")}
+          <div className="mt-1 break-all font-mono text-[9px] text-muted">
+            {currentReview.recordPath} · {currentReview.recordSha256.slice(0, 12)}…
+          </div>
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap gap-3">
+        {audit?.reviewable && isTauri && (
+          <button
+            onClick={onReview}
+            className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline"
+          >
+            <LockKeyhole size={13} /> {t("pairedBootstrap.review")}
+          </button>
+        )}
+        {!accepted && (
+          <button
+            onClick={onRequestPreparation}
+            className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+          >
+            <MessageSquareText size={13} /> {t("pairedBootstrap.askAgent")}
+          </button>
+        )}
+      </div>
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("pairedBootstrap.note")}</p>
+    </section>
+  );
+}
+
+const PAIRED_CHECKLIST_KEYS: Array<keyof HeorPairedBootstrapChecklist> = [
+  "resamplingDesignReviewed",
+  "endpointsAndCensoringReviewed",
+  "selectedFamiliesReviewed",
+  "failuresAndConvergenceReviewed",
+  "followUpAndExtrapolationReviewed",
+  "parallelArmAssumptionReviewed",
+  "clinicalPlausibilityReviewed",
+];
+
+const EMPTY_PAIRED_CHECKLIST: HeorPairedBootstrapChecklist = {
+  resamplingDesignReviewed: false,
+  endpointsAndCensoringReviewed: false,
+  selectedFamiliesReviewed: false,
+  failuresAndConvergenceReviewed: false,
+  followUpAndExtrapolationReviewed: false,
+  parallelArmAssumptionReviewed: false,
+  clinicalPlausibilityReviewed: false,
+};
+
+export function PairedBootstrapReviewDialog({
+  audit,
+  running,
+  onCancel,
+  onSubmit,
+}: {
+  audit: HeorPairedBootstrapAudit;
+  running: boolean;
+  onCancel: () => void;
+  onSubmit: (
+    action: "accept" | "reject",
+    checklist: HeorPairedBootstrapChecklist,
+    actor: string,
+    rationale: string,
+  ) => void;
+}) {
+  const { t } = useTranslation("heor");
+  const [action, setAction] = useState<"accept" | "reject">("accept");
+  const [checklist, setChecklist] = useState(EMPTY_PAIRED_CHECKLIST);
+  const [actor, setActor] = useState("");
+  const [rationale, setRationale] = useState("");
+  const acceptedReady = PAIRED_CHECKLIST_KEYS.every((key) => checklist[key]);
+  const valid = actor.trim().length > 0 && rationale.trim().length > 1
+    && (action === "reject" || acceptedReady) && !running;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && !running && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, running]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => !running && onCancel()} role="presentation">
+      <div role="dialog" aria-modal="true" aria-label={t("pairedBootstrap.dialogTitle")} className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-card border border-border bg-surface p-5 shadow-card" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center gap-2 text-sm font-semibold text-text">
+          <ShieldCheck size={17} className="text-accent" /> {t("pairedBootstrap.dialogTitle")}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          {t("pairedBootstrap.dialogBody", {
+            id: audit.executionId,
+            hash: audit.resultSha256?.slice(0, 12) ?? "—",
+          })}
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label={t("pairedBootstrap.decisionLabel")}>
+          {PAIRED_BOOTSTRAP_REVIEW_ACTIONS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={action === value}
+              onClick={() => setAction(value)}
+              className={cn(
+                "rounded-input border px-3 py-2 text-xs font-medium",
+                action === value
+                  ? value === "accept" ? "border-ok bg-ok/10 text-ok" : "border-danger bg-danger/10 text-danger"
+                  : "border-border text-muted",
+              )}
+            >
+              {t(`pairedBootstrap.${value}`)}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 space-y-2 rounded-input border border-border bg-bg p-3">
+          {PAIRED_CHECKLIST_KEYS.map((key) => (
+            <label key={key} className="flex cursor-pointer items-start gap-2 text-xs leading-5 text-text">
+              <input
+                type="checkbox"
+                checked={checklist[key]}
+                onChange={(event) => setChecklist((current) => ({
+                  ...current,
+                  [key]: event.target.checked,
+                }))}
+                className="mt-1 accent-[var(--color-accent)]"
+              />
+              <span>{t(`pairedBootstrap.checklist.${key}`)}</span>
+            </label>
+          ))}
+        </div>
+        <input
+          value={actor}
+          onChange={(event) => setActor(event.target.value)}
+          placeholder={t("dialog.actorPlaceholder")}
+          className="mt-3 w-full rounded-input border border-border bg-bg px-3 py-2 text-xs text-text outline-none focus:border-accent"
+        />
+        <textarea
+          value={rationale}
+          onChange={(event) => setRationale(event.target.value)}
+          placeholder={action === "accept" ? t("pairedBootstrap.acceptRationale") : t("pairedBootstrap.rejectRationale")}
+          rows={3}
+          className="mt-2 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-xs leading-5 text-text outline-none focus:border-accent"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button disabled={running} onClick={onCancel} className="rounded-input border border-border px-3 py-2 text-xs text-muted hover:text-text disabled:opacity-50">
+            {t("dialog.cancel")}
+          </button>
+          <button
+            disabled={!valid}
+            onClick={() => onSubmit(action, checklist, actor.trim(), rationale.trim())}
+            className={cn(
+              "rounded-input px-3 py-2 text-xs font-semibold text-white disabled:opacity-40",
+              action === "accept" ? "bg-ok" : "bg-danger",
+            )}
+          >
+            {running ? t("pairedBootstrap.recording") : action === "accept" ? t("pairedBootstrap.recordAccept") : t("pairedBootstrap.recordReject")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

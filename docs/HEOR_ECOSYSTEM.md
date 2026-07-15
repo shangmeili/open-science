@@ -143,7 +143,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-survival-curve-adapter` | Already-selected two-state exponential or Weibull curve evaluation | Schema `0.6.0` transition schedule derivation |
 | Shipped alpha | `heor-survival-fit-execution` | Human-authorized strict local two-column survival MLE against a user-installed isolated `survHE` library, with fixed adapter, exact versions/hashes, preserved failures, diagnostics, independent all-family challenge, and audited within-curve covariance export | Request/model schema `0.1.0`, current result schema `0.2.0`, legacy result `0.1.0`; no installation, model selection, cross-curve dependence, GPL package bundling, or scientific-validity claim |
 | Shipped alpha | `heor-survival-extrapolation-review` | One or more independently reviewed pre-specified standard parametric fit comparisons, exact plan-target/selected-family match, observed/extrapolated diagnostics, local execution hashes, structural alternatives, native audit, and an awaiting-Human selection boundary | Schema `0.2.0` external import or `0.3.0` first-party execution review, optionally under the ordered schema `0.1.0` collection; cross-curve PFS/OS consistency remains unshipped |
-| Shipped alpha | `heor-paired-survival-bootstrap` | Human-authorized whole-subject resampling and repeated refitting of already-selected PFS/OS families from one strict local paired-row CSV | Request/result schema `0.1.0`; deterministic PCG32 plan, fixed R adapter, preserved failed replicates, portable independent curve challenge, conditional independence between parallel arms, and awaiting-Human method review |
+| Shipped alpha | `heor-paired-survival-bootstrap` | Human-authorized whole-subject resampling and repeated refitting of already-selected PFS/OS families from one strict local paired-row CSV | Request/result schema `0.1.0`; deterministic PCG32 plan, fixed R adapter, preserved failed replicates, portable plus native plan/curve challenge, conditional independence between parallel arms, and app-owned seven-item Human method review |
 | Shipped | `heor-probability-time-adapter` | Single-event probability time conversion under an explicit constant-hazard assumption | Schema `0.7.0` transition derivation |
 | Shipped | `heor-background-mortality` | Age-aligned annual life-table mortality plus one constant additive excess rate, with explicit exchangeability and double-counting bases | Schema `0.9.0` transition schedule derivation |
 | Shipped | `heor-relative-effect-adapter` | Apply one aligned RR or OR to cycle-specific baseline risks with exact review bases and full schedule recomputation | Schema `0.10.0` transition schedule derivation |
@@ -480,12 +480,17 @@ The first-party `heor-joint-survival-uncertainty` asset and uncertainty schema
 rows across all strategy PFS/OS curves. The portable/Python/native contracts
 bind every source and draw byte, reject independent endpoint sampling and curve
 crossing, and consume one whole row per PSA iteration. Current joint manifest
-schema `0.4.0` binds analysis `0.15.0`, PSM `0.7.0`, materializations, duration,
-and an explicit strategy-dependence assumption; prior current schema `0.3.0`
-remains readable. A joint posterior may represent both within- and between-strategy
+schema `0.5.0` binds analysis `0.15.0`, PSM `0.7.0`, materializations, duration,
+and an explicit strategy-dependence assumption; paired-bootstrap generation also
+binds the exact app-owned accepted method-review record and result. Prior-current
+schemas `0.4.0` and `0.3.0` remain readable, but only `0.5.0` paired manifests can
+pass the current analysis approval. A joint posterior may represent both within- and between-strategy
 dependence. The ordinary paired bootstrap preserves PFS/OS dependence within each
 strategy but resamples independent parallel arms separately and therefore declares
-conditional independence rather than observed between-strategy correlation.
+conditional independence rather than observed between-strategy correlation. The
+desktop independently regenerates the plan and every reported curve, then rechecks
+the app-data review chain at analysis approval and uncertainty execution; this is
+not an independent Rust refit of the source data.
 Uncertainty schema `0.14.0` combines each row with one recomputed component
 draw and labels the result as composed parameter uncertainty. Non-base duration
 alternatives remain separate deterministic results; curve-family selection,

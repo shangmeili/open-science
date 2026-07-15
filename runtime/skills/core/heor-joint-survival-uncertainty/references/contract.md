@@ -4,13 +4,14 @@ The canonical artifacts are `heor/joint-survival-uncertainty.json` and `heor/joi
 
 ## Identity and bindings
 
-The current manifest uses schema `0.4.0` with analysis `0.15.0` / PSM `0.7.0`; prior current schema `0.3.0` remains readable. Legacy `0.1.0` and `0.2.0` pairings also remain readable. It carries a stable `survival_uncertainty_id`, the current `analysis_id` and `psm_id`, and status `ready_for_human_review`. It binds exact bytes for:
+The current manifest uses schema `0.5.0` with analysis `0.15.0` / PSM `0.7.0`; prior-current schemas `0.4.0` and `0.3.0` remain readable. Legacy `0.1.0` and `0.2.0` pairings also remain readable. It carries a stable `survival_uncertainty_id`, the current `analysis_id` and `psm_id`, and status `ready_for_human_review`. It binds exact bytes for:
 
 - `heor/analysis-plan.json`;
 - `heor/partitioned-survival-plan.json`;
 - `heor/survival-curve-materializations.json`;
 - `heor/joint-survival-draws.jsonl`;
 - every local fitting, posterior, patient-level bootstrap, or transformation artifact used to generate the rows.
+- for a paired-patient bootstrap under schema `0.5.0`, the exact app-owned Human method-review record and its accepted result manifest.
 
 All paths are safe workspace-relative paths under `heor/`; all hashes are lowercase SHA-256. A changed source, base artifact, manifest, or draw file invalidates downstream approval bindings.
 
@@ -30,14 +31,16 @@ The row count is 1,000–10,000 and exactly equals uncertainty-plan PSA iteratio
 
 ## Generation contract
 
-Allowed methods are `joint_posterior` and `paired_patient_bootstrap`. `sampling_unit` is exactly `joint_draw_across_all_curves` and `independent_endpoint_sampling` is false. Schema `0.4.0` makes strategy design and between-strategy assumptions explicit:
+Allowed methods are `joint_posterior` and `paired_patient_bootstrap`. `sampling_unit` is exactly `joint_draw_across_all_curves` and `independent_endpoint_sampling` is false. Schemas `0.4.0` and `0.5.0` make strategy design and between-strategy assumptions explicit:
 
 - a `joint_posterior` uses `strategy_resampling_design: joint_model`, `between_strategy_assumption: represented_by_source_joint_distribution`, and declares both `within_strategy_pfs_os` and `between_strategy_curves`;
 - a `paired_patient_bootstrap` for independent parallel arms uses `strategy_resampling_design: stratified_independent_parallel_arms`, `between_strategy_assumption: conditional_independence_given_parallel_arm_design`, and declares only `within_strategy_pfs_os`.
 
 For a joint posterior, preserve the same posterior iteration across all coefficients and all endpoint/strategy curve evaluations. For a paired-patient bootstrap, resample the complete patient row once within each strategy and refit both endpoints within that same replicate. Independently randomized parallel arms are resampled separately; their shared replicate number is not evidence of between-strategy correlation. Failed fits remain visible methodological blockers; do not replace, reorder, or filter replicates merely to meet the requested row count.
 
-The manifest records source artifacts and a rationale, but AI4HEOR does not inspect backend-specific MCMC diagnostics, fitting code, censoring assumptions, bootstrap unit selection, treatment switching adjustments, or covariate models. Those require Human review and independent validation.
+For schema `0.5.0`, a paired bootstrap also declares `generation.method_review` with exact `review_id`, `record_path`, `record_sha256`, `action: accept`, `assurance: app_owned_local_human_assertion`, `result_path`, and `result_sha256`. The review record must be an exact source binding under `heor/paired-survival-bootstrap-reviews/`, must contain all seven true checklist values, and must bind the same accepted execution result. Agents may reference this record but may not create or modify it. The desktop verifies its separate app-data event chain before analysis approval and again before uncertainty execution, so a later rejection for the same execution invalidates the prior acceptance.
+
+The manifest records source artifacts and a rationale, but AI4HEOR does not inspect backend-specific MCMC diagnostics, fitting code, censoring assumptions, bootstrap unit selection, treatment switching adjustments, or covariate models. Native Rust independently regenerates the bootstrap plan and reevaluates reported curves, but it does not refit source data. Those remaining methodological questions require Human review and independent fitting validation.
 
 ## Integration with uncertainty schema 0.12.0
 
@@ -53,7 +56,7 @@ Conditional CEAC, CEAF, and per-person EVPI cover the represented joint rows and
 
 ## Integration with current uncertainty schema 0.14.0
 
-For analysis `0.15.0` / PSM `0.7.0`, manifest `0.4.0` also binds treatment-effect-duration bytes and records the between-strategy assumption. The uncertainty plan binds all six current PSM artifacts plus this manifest and draw file. Engine `0.15.0` combines exactly one complete curve row with recomputed cost, utility, and event components per iteration. It returns `joint_curve_and_component_parameter_uncertainty` / `joint_survival_curves_and_cost_utility_event_components`.
+For analysis `0.15.0` / PSM `0.7.0`, manifest `0.5.0` binds treatment-effect-duration bytes and records the between-strategy assumption. Paired-bootstrap generation additionally binds the current app-owned method-review record; joint-posterior generation does not require that record. The uncertainty plan binds all six current PSM artifacts plus this manifest and draw file. Engine `0.15.0` combines exactly one complete curve row with recomputed cost, utility, and event components per iteration. It returns `joint_curve_and_component_parameter_uncertainty` / `joint_survival_curves_and_cost_utility_event_components`.
 
 The plan does not omit represented curves. It explicitly omits curve-family selection, extrapolation assumptions, and source-model validity. Treatment-duration alternatives remain separately deterministic. The composed PSA still does not validate the source model, average structures, or establish complete structural uncertainty.
 

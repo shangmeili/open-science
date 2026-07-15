@@ -16,6 +16,7 @@ const TOLERANCE: f64 = 1e-9;
 #[derive(Clone, Debug, Default)]
 pub struct JointSurvivalAudit {
     pub complete: bool,
+    pub paired_bootstrap_source: bool,
     pub manifest_sha256: String,
     pub draws_sha256: String,
     pub draw_count: Option<u64>,
@@ -24,6 +25,13 @@ pub struct JointSurvivalAudit {
 
 fn sha256(raw: &[u8]) -> String {
     format!("{:x}", Sha256::digest(raw))
+}
+
+fn is_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn text(value: Option<&serde_json::Value>) -> Option<&str> {
@@ -248,6 +256,8 @@ pub fn audit_joint_survival_for_plan(
             return audit;
         }
     };
+    audit.paired_bootstrap_source =
+        text(manifest.pointer("/generation/method")) == Some("paired_patient_bootstrap");
     let legacy_fields = [
         "schema_version",
         "survival_uncertainty_id",
@@ -329,7 +339,7 @@ pub fn audit_joint_survival_for_plan(
     let duration_required = matches!(psm_schema, Some("0.4.0" | "0.7.0"));
     let manifest_schema = text(manifest.get("schema_version"));
     let schema_supported = match psm_schema {
-        Some("0.7.0") => matches!(manifest_schema, Some("0.4.0" | "0.3.0")),
+        Some("0.7.0") => matches!(manifest_schema, Some("0.5.0" | "0.4.0" | "0.3.0")),
         Some("0.4.0") => manifest_schema == Some("0.2.0"),
         _ => manifest_schema == Some("0.1.0"),
     };
@@ -338,7 +348,7 @@ pub fn audit_joint_survival_for_plan(
         || (!duration_required && !object_has_exact_keys(&manifest, &legacy_fields))
     {
         let expected = if psm_schema == Some("0.7.0") {
-            "0.4.0 or prior current schema 0.3.0"
+            "0.5.0 or readable prior schemas 0.4.0 and 0.3.0"
         } else if psm_schema == Some("0.4.0") {
             "0.2.0"
         } else {
@@ -472,9 +482,11 @@ pub fn audit_joint_survival_for_plan(
     }
 
     let generation = manifest.get("generation");
-    let current_generation = manifest_schema == Some("0.4.0");
+    let current_generation = matches!(manifest_schema, Some("0.5.0" | "0.4.0"));
+    let reviewed_generation = manifest_schema == Some("0.5.0");
+    let generation_method = generation.and_then(|value| text(value.get("method")));
     let generation_fields = if current_generation {
-        vec![
+        let mut fields = vec![
             "method",
             "sampling_unit",
             "independent_endpoint_sampling",
@@ -483,7 +495,11 @@ pub fn audit_joint_survival_for_plan(
             "dependence_scope",
             "source_artifact_bindings",
             "rationale",
-        ]
+        ];
+        if reviewed_generation && generation_method == Some("paired_patient_bootstrap") {
+            fields.push("method_review");
+        }
+        fields
     } else {
         vec![
             "method",
@@ -526,7 +542,7 @@ pub fn audit_joint_survival_for_plan(
                 .collect::<Option<Vec<_>>>()
         });
     if current_generation {
-        let method = generation.and_then(|value| text(value.get("method")));
+        let method = generation_method;
         let design = generation.and_then(|value| text(value.get("strategy_resampling_design")));
         let between_strategy =
             generation.and_then(|value| text(value.get("between_strategy_assumption")));
@@ -559,6 +575,7 @@ pub fn audit_joint_survival_for_plan(
         .and_then(|value| value.get("source_artifact_bindings"))
         .and_then(serde_json::Value::as_array);
     let mut source_paths = HashSet::new();
+    let mut source_hashes = std::collections::HashMap::new();
     if source_bindings.is_none_or(Vec::is_empty) {
         audit
             .errors
@@ -583,11 +600,120 @@ pub fn audit_joint_survival_for_plan(
             continue;
         }
         match hash_workspace_file(workspace, path.unwrap()) {
-            Ok(actual) if Some(actual.as_str()) == digest => {}
+            Ok(actual) if Some(actual.as_str()) == digest => {
+                source_hashes.insert(path.unwrap().to_owned(), actual);
+            }
             Ok(_) => audit
                 .errors
                 .push(format!("source artifact binding {index} hash is stale")),
             Err(error) => audit.errors.push(error),
+        }
+    }
+    if reviewed_generation && generation_method == Some("paired_patient_bootstrap") {
+        let review = generation.and_then(|value| value.get("method_review"));
+        let review_valid_fields = review.is_some_and(|value| {
+            object_has_exact_keys(
+                value,
+                &[
+                    "review_id",
+                    "record_path",
+                    "record_sha256",
+                    "action",
+                    "assurance",
+                    "result_path",
+                    "result_sha256",
+                ],
+            )
+        });
+        if !review_valid_fields {
+            audit
+                .errors
+                .push("joint survival paired bootstrap method_review fields are invalid".into());
+        } else if let Some(review) = review {
+            let review_id = text(review.get("review_id")).unwrap_or_default();
+            let record_path = text(review.get("record_path")).unwrap_or_default();
+            let record_sha = text(review.get("record_sha256")).unwrap_or_default();
+            let result_path = text(review.get("result_path")).unwrap_or_default();
+            let result_sha = text(review.get("result_sha256")).unwrap_or_default();
+            let review_declaration_valid = review_id.len() == 32
+                && review_id.bytes().all(|byte| byte.is_ascii_hexdigit())
+                && record_path.starts_with("heor/paired-survival-bootstrap-reviews/")
+                && safe_relative_path(record_path)
+                && result_path.contains("/paired-survival-bootstrap-executions/")
+                && result_path.ends_with("/result-manifest.json")
+                && safe_relative_path(result_path)
+                && is_sha256(record_sha)
+                && is_sha256(result_sha)
+                && text(review.get("action")) == Some("accept")
+                && text(review.get("assurance")) == Some("app_owned_local_human_assertion")
+                && source_hashes.get(record_path).map(String::as_str) == Some(record_sha)
+                && source_hashes.get(result_path).map(String::as_str) == Some(result_sha);
+            if !review_declaration_valid {
+                audit.errors.push(
+                    "joint survival method_review must bind an app-owned accepted record and exact bootstrap result"
+                        .into(),
+                );
+            } else {
+                match crate::heor_uncertainty::read_workspace_capped(workspace, record_path) {
+                    Ok(raw) => match serde_json::from_slice::<serde_json::Value>(&raw) {
+                        Ok(record) => {
+                            let record_fields = [
+                                "schemaVersion",
+                                "reviewId",
+                                "projectId",
+                                "executionId",
+                                "action",
+                                "status",
+                                "resultPath",
+                                "resultSha256",
+                                "relatedArtifacts",
+                                "checklist",
+                                "actorLabel",
+                                "rationale",
+                                "timestamp",
+                                "assurance",
+                            ];
+                            let checklist_fields = [
+                                "resamplingDesignReviewed",
+                                "endpointsAndCensoringReviewed",
+                                "selectedFamiliesReviewed",
+                                "failuresAndConvergenceReviewed",
+                                "followUpAndExtrapolationReviewed",
+                                "parallelArmAssumptionReviewed",
+                                "clinicalPlausibilityReviewed",
+                            ];
+                            let checklist = record.get("checklist");
+                            if !object_has_exact_keys(&record, &record_fields)
+                                || text(record.get("schemaVersion")) != Some("0.1.0")
+                                || text(record.get("reviewId")) != Some(review_id)
+                                || text(record.get("action")) != Some("accept")
+                                || text(record.get("status"))
+                                    != Some("accepted_for_joint_packaging")
+                                || text(record.get("resultPath")) != Some(result_path)
+                                || text(record.get("resultSha256")) != Some(result_sha)
+                                || text(record.get("assurance"))
+                                    != Some("app_owned_local_human_assertion")
+                                || checklist.is_none_or(|value| {
+                                    !object_has_exact_keys(value, &checklist_fields)
+                                        || checklist_fields.iter().any(|field| {
+                                            value.get(*field).and_then(serde_json::Value::as_bool)
+                                                != Some(true)
+                                        })
+                                })
+                            {
+                                audit.errors.push(
+                                    "joint survival method review record is stale or incomplete"
+                                        .into(),
+                                );
+                            }
+                        }
+                        Err(error) => audit.errors.push(format!(
+                            "joint survival method review record is invalid JSON: {error}"
+                        )),
+                    },
+                    Err(error) => audit.errors.push(error),
+                }
+            }
         }
     }
 
@@ -847,6 +973,103 @@ mod tests {
         let paired =
             audit_joint_survival_for_plan(&root, &plan_raw, &paired_uncertainty, Some(1000));
         assert!(paired.complete, "{:?}", paired.errors);
+
+        let result_path = "heor/paired-survival-bootstrap-executions/run-1/result-manifest.json";
+        let record_path = "heor/paired-survival-bootstrap-reviews/run-1-review.json";
+        let result_raw = br#"{"schema_version":"0.1.0","execution_id":"run-1"}"#;
+        let review_id = "a".repeat(32);
+        let record = serde_json::json!({
+            "schemaVersion": "0.1.0",
+            "reviewId": review_id,
+            "projectId": "project-1",
+            "executionId": "run-1",
+            "action": "accept",
+            "status": "accepted_for_joint_packaging",
+            "resultPath": result_path,
+            "resultSha256": sha256(result_raw),
+            "relatedArtifacts": [],
+            "checklist": {
+                "resamplingDesignReviewed": true,
+                "endpointsAndCensoringReviewed": true,
+                "selectedFamiliesReviewed": true,
+                "failuresAndConvergenceReviewed": true,
+                "followUpAndExtrapolationReviewed": true,
+                "parallelArmAssumptionReviewed": true,
+                "clinicalPlausibilityReviewed": true
+            },
+            "actorLabel": "Human methods reviewer",
+            "rationale": "Reviewed the complete method checklist.",
+            "timestamp": 1700000000,
+            "assurance": "app_owned_local_human_assertion"
+        });
+        let record_raw = serde_json::to_vec(&record).unwrap();
+        std::fs::create_dir_all(root.join(Path::new(result_path).parent().unwrap())).unwrap();
+        std::fs::create_dir_all(root.join(Path::new(record_path).parent().unwrap())).unwrap();
+        std::fs::write(root.join(result_path), result_raw).unwrap();
+        std::fs::write(root.join(record_path), &record_raw).unwrap();
+        let mut reviewed_manifest = paired_manifest.clone();
+        reviewed_manifest["schema_version"] = serde_json::json!("0.5.0");
+        reviewed_manifest["generation"]["source_artifact_bindings"] = serde_json::json!([
+            {
+                "path": "heor/fits/joint.json",
+                "content_sha256": sha256(source_raw),
+                "role": "Complete paired bootstrap candidate rows"
+            },
+            {
+                "path": result_path,
+                "content_sha256": sha256(result_raw),
+                "role": "Native-audited paired bootstrap result"
+            },
+            {
+                "path": record_path,
+                "content_sha256": sha256(&record_raw),
+                "role": "App-owned Human method acceptance"
+            }
+        ]);
+        reviewed_manifest["generation"]["method_review"] = serde_json::json!({
+            "review_id": review_id,
+            "record_path": record_path,
+            "record_sha256": sha256(&record_raw),
+            "action": "accept",
+            "assurance": "app_owned_local_human_assertion",
+            "result_path": result_path,
+            "result_sha256": sha256(result_raw)
+        });
+        let reviewed_raw = serde_json::to_vec(&reviewed_manifest).unwrap();
+        let reviewed_uncertainty = serde_json::json!({
+            "joint_survival_inputs": {
+                "manifest": {"path": MANIFEST_PATH, "content_sha256": sha256(&reviewed_raw)},
+                "draws": {"path": DRAWS_PATH, "content_sha256": sha256(&draws_raw)}
+            }
+        });
+        std::fs::write(root.join(MANIFEST_PATH), &reviewed_raw).unwrap();
+        let reviewed =
+            audit_joint_survival_for_plan(&root, &plan_raw, &reviewed_uncertainty, Some(1000));
+        assert!(reviewed.complete, "{:?}", reviewed.errors);
+
+        let mut incomplete_record = record.clone();
+        incomplete_record["checklist"]["clinicalPlausibilityReviewed"] = serde_json::json!(false);
+        let incomplete_record_raw = serde_json::to_vec(&incomplete_record).unwrap();
+        std::fs::write(root.join(record_path), &incomplete_record_raw).unwrap();
+        reviewed_manifest["generation"]["source_artifact_bindings"][2]["content_sha256"] =
+            serde_json::json!(sha256(&incomplete_record_raw));
+        reviewed_manifest["generation"]["method_review"]["record_sha256"] =
+            serde_json::json!(sha256(&incomplete_record_raw));
+        let incomplete_raw = serde_json::to_vec(&reviewed_manifest).unwrap();
+        let incomplete_uncertainty = serde_json::json!({
+            "joint_survival_inputs": {
+                "manifest": {"path": MANIFEST_PATH, "content_sha256": sha256(&incomplete_raw)},
+                "draws": {"path": DRAWS_PATH, "content_sha256": sha256(&draws_raw)}
+            }
+        });
+        std::fs::write(root.join(MANIFEST_PATH), &incomplete_raw).unwrap();
+        let incomplete =
+            audit_joint_survival_for_plan(&root, &plan_raw, &incomplete_uncertainty, Some(1000));
+        assert!(!incomplete.complete);
+        assert!(incomplete
+            .errors
+            .iter()
+            .any(|error| error.contains("stale or incomplete")));
 
         paired_manifest["generation"]["dependence_scope"] =
             serde_json::json!(["within_strategy_pfs_os", "between_strategy_curves"]);

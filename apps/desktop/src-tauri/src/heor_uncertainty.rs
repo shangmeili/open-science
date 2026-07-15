@@ -32,6 +32,7 @@ pub struct UncertaintyAudit {
     pub threshold_count: usize,
     pub omitted_parameter_count: usize,
     pub joint_survival_required: bool,
+    pub paired_bootstrap_review_required: bool,
     pub joint_survival_manifest_sha256: Option<String>,
     pub joint_survival_draws_sha256: Option<String>,
     pub joint_survival_draw_count: Option<u64>,
@@ -395,6 +396,7 @@ fn empty_audit(plan_raw: &[u8]) -> UncertaintyAudit {
         threshold_count: 0,
         omitted_parameter_count: 0,
         joint_survival_required: false,
+        paired_bootstrap_review_required: false,
         joint_survival_manifest_sha256: None,
         joint_survival_draws_sha256: None,
         joint_survival_draw_count: None,
@@ -2241,6 +2243,7 @@ pub fn audit_uncertainty_plan_for_plan(
                 &uncertainty,
                 audit.iterations,
             );
+            audit.paired_bootstrap_review_required = joint.paired_bootstrap_source;
             audit.joint_survival_manifest_sha256 =
                 (!joint.manifest_sha256.is_empty()).then_some(joint.manifest_sha256);
             audit.joint_survival_draws_sha256 =
@@ -2440,6 +2443,7 @@ pub fn audit_uncertainty_plan_for_plan(
                 &uncertainty,
                 audit.iterations,
             );
+            audit.paired_bootstrap_review_required = joint.paired_bootstrap_source;
             audit.joint_survival_manifest_sha256 =
                 (!joint.manifest_sha256.is_empty()).then_some(joint.manifest_sha256);
             audit.joint_survival_draws_sha256 =
@@ -2501,6 +2505,11 @@ pub fn run_heor_uncertainty(
     let plan_raw = read_workspace_capped(&workspace, ANALYSIS_PLAN_PATH)?;
     let evidence_audit = crate::heor_evidence::audit_plan_bytes(&plan_raw)?;
     let uncertainty_audit = require_uncertainty_plan_approvable(&workspace, &plan_raw)?;
+    crate::heor_paired_survival_bootstrap::require_current_review_for_joint_manifest(
+        &app,
+        &workspace,
+        &project_id,
+    )?;
     let uncertainty_path = workspace.join(UNCERTAINTY_PLAN_PATH);
     let analysis_schema = serde_json::from_slice::<serde_json::Value>(&plan_raw)
         .map_err(|error| format!("analysis plan is invalid: {error}"))?

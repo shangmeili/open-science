@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.4.0",
+  "schema_version": "0.5.0",
   "survival_uncertainty_id": "replace-me",
   "analysis_id": "replace-me",
   "psm_id": "replace-me",
@@ -50,8 +50,22 @@
         "path": "heor/paired-survival-bootstrap-executions/replace-execution-id/joint-survival-draws.candidate.jsonl",
         "content_sha256": "replace-with-lowercase-sha256",
         "role": "Complete noncanonical candidate rows copied without reordering or filtering."
+      },
+      {
+        "path": "heor/paired-survival-bootstrap-reviews/replace-review-record.json",
+        "content_sha256": "replace-with-lowercase-sha256",
+        "role": "App-owned Human method acceptance for the exact audited bootstrap result."
       }
     ],
+    "method_review": {
+      "review_id": "replace-with-32-hex-review-id",
+      "record_path": "heor/paired-survival-bootstrap-reviews/replace-review-record.json",
+      "record_sha256": "replace-with-lowercase-sha256",
+      "action": "accept",
+      "assurance": "app_owned_local_human_assertion",
+      "result_path": "heor/paired-survival-bootstrap-executions/replace-execution-id/result-manifest.json",
+      "result_sha256": "replace-with-lowercase-sha256"
+    },
     "rationale": "Whole-subject rows preserve PFS/OS dependence within each strategy; independently randomized parallel arms are conditionally independent under the declared design."
   },
   "limitations": [

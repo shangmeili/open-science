@@ -489,6 +489,15 @@ pub fn append_heor_approval(
                     path: crate::heor_uncertainty::UNCERTAINTY_PLAN_PATH.into(),
                     sha256: uncertainty.uncertainty_sha256,
                 });
+                if let Some(binding) =
+                    crate::heor_paired_survival_bootstrap::require_current_review_for_joint_manifest(
+                        &app,
+                        &workspace,
+                        &request.project_id,
+                    )?
+                {
+                    related_artifacts.push(binding);
+                }
                 let budget_impact =
                     crate::heor_budget_impact::require_budget_impact_plan_approvable(
                         &workspace, &raw,
@@ -504,14 +513,12 @@ pub fn append_heor_approval(
                 );
                 let partitioned =
                     crate::heor_partitioned_survival::audit_partitioned_survival_for_plan(
-                        &workspace,
-                        &raw,
+                        &workspace, &raw,
                     )?;
                 if partitioned.required {
                     related_artifacts.extend(
                         crate::heor_partitioned_survival::require_partitioned_survival_approvable(
-                            &workspace,
-                            &raw,
+                            &workspace, &raw,
                         )?
                         .artifact_bindings,
                     );
@@ -539,8 +546,7 @@ pub fn append_heor_approval(
                 )?;
                 let partitioned =
                     crate::heor_partitioned_survival::audit_partitioned_survival_for_plan(
-                        &workspace,
-                        &plan_raw,
+                        &workspace, &plan_raw,
                     )?;
                 if partitioned.required {
                     return Err(

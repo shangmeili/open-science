@@ -158,7 +158,7 @@ def joint_inputs(vary: bool = True) -> list:
         rows.append(json.dumps({"draw_index": draw_index, "curves": row_curves}, separators=(",", ":")))
     draws_raw = ("\n".join(rows) + "\n").encode()
     manifest = {
-        "schema_version": "0.4.0",
+        "schema_version": "0.5.0",
         "survival_uncertainty_id": "current-joint-survival",
         "analysis_id": analysis["analysis_id"],
         "psm_id": psm["psm_id"],
@@ -200,6 +200,26 @@ def joint_inputs(vary: bool = True) -> list:
     inputs[2] = uncertainty
     inputs[3] = raw(uncertainty)
     return [*inputs, manifest, manifest_raw, draws_raw]
+
+
+def add_paired_method_review(generation: dict) -> None:
+    result_path = "heor/paired-survival-bootstrap-executions/run-1/result-manifest.json"
+    record_path = "heor/paired-survival-bootstrap-reviews/run-1-review.json"
+    result_sha = "a" * 64
+    record_sha = "b" * 64
+    generation["source_artifact_bindings"].extend([
+        {"path": result_path, "content_sha256": result_sha, "role": "Native-audited paired bootstrap result."},
+        {"path": record_path, "content_sha256": record_sha, "role": "App-owned Human method acceptance."},
+    ])
+    generation["method_review"] = {
+        "review_id": "c" * 32,
+        "record_path": record_path,
+        "record_sha256": record_sha,
+        "action": "accept",
+        "assurance": "app_owned_local_human_assertion",
+        "result_path": result_path,
+        "result_sha256": result_sha,
+    }
 
 
 class ComponentUncertaintyTests(unittest.TestCase):
@@ -273,6 +293,7 @@ class ComponentUncertaintyTests(unittest.TestCase):
         generation["strategy_resampling_design"] = "stratified_independent_parallel_arms"
         generation["between_strategy_assumption"] = "conditional_independence_given_parallel_arm_design"
         generation["dependence_scope"] = ["within_strategy_pfs_os"]
+        add_paired_method_review(generation)
         inputs[17] = raw(inputs[16])
         inputs[2]["joint_survival_inputs"]["manifest"]["content_sha256"] = hashlib.sha256(inputs[17]).hexdigest()
         inputs[3] = raw(inputs[2])
@@ -292,12 +313,39 @@ class ComponentUncertaintyTests(unittest.TestCase):
         )
         self.assertEqual(result["calculation_classification"], "joint_curve_and_component_parameter_uncertainty")
 
+    def test_current_paired_bootstrap_requires_app_owned_method_acceptance(self) -> None:
+        inputs = joint_inputs()
+        generation = inputs[16]["generation"]
+        generation["method"] = "paired_patient_bootstrap"
+        generation["strategy_resampling_design"] = "stratified_independent_parallel_arms"
+        generation["between_strategy_assumption"] = "conditional_independence_given_parallel_arm_design"
+        generation["dependence_scope"] = ["within_strategy_pfs_os"]
+        manifest_raw = raw(inputs[16])
+        inputs[2]["joint_survival_inputs"]["manifest"]["content_sha256"] = hashlib.sha256(manifest_raw).hexdigest()
+        inputs[3] = raw(inputs[2])
+        with self.assertRaisesRegex(ModelValidationError, "generation fields"):
+            run_uncertainty(
+                *inputs[:8],
+                joint_survival_manifest=inputs[16],
+                joint_survival_manifest_raw=manifest_raw,
+                joint_survival_draws_raw=inputs[18],
+                treatment_effect_duration=inputs[8],
+                treatment_effect_duration_raw=inputs[9],
+                cost_input_normalization=inputs[10],
+                cost_input_normalization_raw=inputs[11],
+                utility_inputs=inputs[12],
+                utility_inputs_raw=inputs[13],
+                event_disutilities=inputs[14],
+                event_disutilities_raw=inputs[15],
+            )
+
     def test_current_paired_bootstrap_rejects_a_between_strategy_dependence_claim(self) -> None:
         inputs = joint_inputs()
         generation = inputs[16]["generation"]
         generation["method"] = "paired_patient_bootstrap"
         generation["strategy_resampling_design"] = "stratified_independent_parallel_arms"
         generation["between_strategy_assumption"] = "conditional_independence_given_parallel_arm_design"
+        add_paired_method_review(generation)
         manifest_raw = raw(inputs[16])
         inputs[2]["joint_survival_inputs"]["manifest"]["content_sha256"] = hashlib.sha256(manifest_raw).hexdigest()
         inputs[3] = raw(inputs[2])

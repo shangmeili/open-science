@@ -10,8 +10,8 @@ from typing import Any, Iterator
 from .model import ModelValidationError
 
 
-SCHEMA_VERSION = "0.4.0"
-PRIOR_CURRENT_SCHEMA_VERSION = "0.3.0"
+SCHEMA_VERSION = "0.5.0"
+PRIOR_CURRENT_SCHEMA_VERSIONS = {"0.4.0", "0.3.0"}
 PREVIOUS_SCHEMA_VERSION = "0.2.0"
 LEGACY_SCHEMA_VERSION = "0.1.0"
 MANIFEST_PATH = "heor/joint-survival-uncertainty.json"
@@ -73,7 +73,7 @@ def validate_joint_survival_uncertainty(
         "joint survival uncertainty manifest",
     )
     admitted_schemas = (
-        {SCHEMA_VERSION, PRIOR_CURRENT_SCHEMA_VERSION}
+        {SCHEMA_VERSION, *PRIOR_CURRENT_SCHEMA_VERSIONS}
         if psm_schema == "0.7.0"
         else {PREVIOUS_SCHEMA_VERSION}
         if duration_required
@@ -158,7 +158,12 @@ def validate_joint_survival_uncertainty(
             )
 
     generation = _object(manifest.get("generation"), "generation")
-    current_generation = manifest.get("schema_version") == SCHEMA_VERSION
+    current_generation = manifest.get("schema_version") in {
+        SCHEMA_VERSION,
+        "0.4.0",
+    }
+    reviewed_generation = manifest.get("schema_version") == SCHEMA_VERSION
+    method = generation.get("method")
     generation_fields = {
         "method",
         "sampling_unit",
@@ -171,6 +176,8 @@ def validate_joint_survival_uncertainty(
         generation_fields.update(
             {"strategy_resampling_design", "between_strategy_assumption"}
         )
+    if reviewed_generation and method == "paired_patient_bootstrap":
+        generation_fields.add("method_review")
     _exact_keys(generation, generation_fields, "generation")
     if generation.get("method") not in ALLOWED_GENERATION_METHODS:
         raise ModelValidationError(
@@ -183,7 +190,6 @@ def validate_joint_survival_uncertainty(
     if generation.get("independent_endpoint_sampling") is not False:
         raise ModelValidationError("independent PFS/OS sampling is not admitted")
     if current_generation:
-        method = generation.get("method")
         if method == "paired_patient_bootstrap":
             if (
                 generation.get("strategy_resampling_design")
@@ -216,6 +222,7 @@ def validate_joint_survival_uncertainty(
             "generation.source_artifact_bindings must not be empty"
         )
     seen_paths: set[str] = set()
+    binding_hashes: dict[str, str] = {}
     for index, binding in enumerate(source_bindings):
         binding = _object(binding, f"source_artifact_bindings[{index}]")
         _exact_keys(
@@ -229,11 +236,50 @@ def validate_joint_survival_uncertainty(
         if path in seen_paths:
             raise ModelValidationError("source artifact paths must be unique")
         seen_paths.add(path)
-        _sha256(
+        binding_hashes[path] = _sha256(
             binding.get("content_sha256"),
             f"source_artifact_bindings[{index}].content_sha256",
         )
         _nonempty(binding.get("role"), f"source_artifact_bindings[{index}].role")
+
+    if reviewed_generation and method == "paired_patient_bootstrap":
+        review = _object(generation.get("method_review"), "generation.method_review")
+        _exact_keys(
+            review,
+            {
+                "review_id",
+                "record_path",
+                "record_sha256",
+                "action",
+                "assurance",
+                "result_path",
+                "result_sha256",
+            },
+            "generation.method_review",
+        )
+        review_id = _nonempty(review.get("review_id"), "generation.method_review.review_id")
+        if len(review_id) != 32 or any(character not in "0123456789abcdefABCDEF" for character in review_id):
+            raise ModelValidationError("generation.method_review.review_id must be 32 hexadecimal characters")
+        record_path = _safe_relative_path(
+            review.get("record_path"), "generation.method_review.record_path"
+        )
+        if not record_path.startswith("heor/paired-survival-bootstrap-reviews/"):
+            raise ModelValidationError("generation.method_review.record_path must use the app-owned review directory")
+        record_sha = _sha256(
+            review.get("record_sha256"), "generation.method_review.record_sha256"
+        )
+        result_path = _safe_relative_path(
+            review.get("result_path"), "generation.method_review.result_path"
+        )
+        if "/paired-survival-bootstrap-executions/" not in f"/{result_path}" or not result_path.endswith("/result-manifest.json"):
+            raise ModelValidationError("generation.method_review.result_path must identify a paired bootstrap result manifest")
+        result_sha = _sha256(
+            review.get("result_sha256"), "generation.method_review.result_sha256"
+        )
+        if review.get("action") != "accept" or review.get("assurance") != "app_owned_local_human_assertion":
+            raise ModelValidationError("generation.method_review must record an app-owned Human acceptance")
+        if binding_hashes.get(record_path) != record_sha or binding_hashes.get(result_path) != result_sha:
+            raise ModelValidationError("generation.method_review record and result must match source artifact bindings")
 
     draw_file = _object(manifest.get("draw_file"), "draw_file")
     _exact_keys(

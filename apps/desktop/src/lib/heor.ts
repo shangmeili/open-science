@@ -8,6 +8,7 @@ export const HEOR_BUDGET_IMPACT_PLAN_PATH = "heor/budget-impact-plan.json";
 export const HEOR_PARTITIONED_SURVIVAL_PLAN_PATH = "heor/partitioned-survival-plan.json";
 export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH = "heor/survival-extrapolation-review.json";
 export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH = "heor/survival-extrapolation-reviews.json";
+export const HEOR_PAIRED_BOOTSTRAP_REQUEST_PATH = "heor/paired-survival-bootstrap-request.json";
 export const HEOR_MODEL_VALIDATION_PATH = "heor/model-validation.json";
 export const HEOR_REPORT_PACKAGE_PATH = "heor/report-package.json";
 export const HEOR_REPORT_DOCUMENT_PATH = "heor/report.md";
@@ -362,6 +363,7 @@ export interface HeorUncertaintyAudit {
   thresholdCount: number;
   omittedParameterCount: number;
   jointSurvivalRequired: boolean;
+  pairedBootstrapReviewRequired: boolean;
   jointSurvivalManifestSha256: string | null;
   jointSurvivalDrawsSha256: string | null;
   jointSurvivalDrawCount: number | null;
@@ -470,6 +472,79 @@ export interface HeorSurvivalFitExecutionAudit {
   parameterUncertaintyComplete: boolean;
   packageVersions: Record<string, string>;
   errors: string[];
+}
+
+export interface HeorPairedBootstrapAudit {
+  complete: boolean;
+  reviewable: boolean;
+  status: string;
+  executionId: string;
+  resultPath: string;
+  resultSha256: string | null;
+  requestPath: string;
+  requestSha256: string | null;
+  candidatePath: string | null;
+  candidateSha256: string | null;
+  iterations: number;
+  completedReplicates: number;
+  failedReplicates: number;
+  curveCount: number;
+  strategyCounts: Record<string, number>;
+  packageVersions: Record<string, string>;
+  crossImplementationComplete: boolean;
+  curveCoherenceComplete: boolean;
+  dependencePreserved: boolean;
+  betweenStrategyAssumption: string;
+  limitations: string[];
+  errors: string[];
+}
+
+export interface HeorPairedBootstrapChecklist {
+  resamplingDesignReviewed: boolean;
+  endpointsAndCensoringReviewed: boolean;
+  selectedFamiliesReviewed: boolean;
+  failuresAndConvergenceReviewed: boolean;
+  followUpAndExtrapolationReviewed: boolean;
+  parallelArmAssumptionReviewed: boolean;
+  clinicalPlausibilityReviewed: boolean;
+}
+
+export interface HeorPairedBootstrapReviewRequest {
+  projectId: string;
+  resultPath: string;
+  resultSha256: string;
+  action: "accept" | "reject";
+  checklist: HeorPairedBootstrapChecklist;
+  actorLabel: string;
+  rationale: string;
+}
+
+export interface HeorPairedBootstrapReviewEvent {
+  schemaVersion: number;
+  sequence: number;
+  reviewId: string;
+  projectId: string;
+  executionId: string;
+  action: "accept" | "reject";
+  resultPath: string;
+  resultSha256: string;
+  relatedArtifacts: Array<{ path: string; sha256: string }>;
+  checklist: HeorPairedBootstrapChecklist;
+  actorLabel: string;
+  rationale: string;
+  timestamp: number;
+  recordPath: string;
+  recordSha256: string;
+  assurance: string;
+  previousHash: string | null;
+  eventHash: string;
+}
+
+export interface HeorPairedBootstrapReviewLog {
+  events: HeorPairedBootstrapReviewEvent[];
+  chainHead: string | null;
+  integrity: string;
+  identityAssurance: string;
 }
 
 export function heorSurvivalReviewBindingsCurrent(
@@ -2585,6 +2660,64 @@ export async function auditHeorSurvivalFitExecution(
   });
 }
 
+export async function auditHeorPairedSurvivalBootstrap(): Promise<HeorPairedBootstrapAudit> {
+  if (!isTauri) {
+    return {
+      complete: false,
+      reviewable: false,
+      status: "unavailable",
+      executionId: "",
+      resultPath: "",
+      resultSha256: null,
+      requestPath: HEOR_PAIRED_BOOTSTRAP_REQUEST_PATH,
+      requestSha256: null,
+      candidatePath: null,
+      candidateSha256: null,
+      iterations: 0,
+      completedReplicates: 0,
+      failedReplicates: 0,
+      curveCount: 0,
+      strategyCounts: {},
+      packageVersions: {},
+      crossImplementationComplete: false,
+      curveCoherenceComplete: false,
+      dependencePreserved: false,
+      betweenStrategyAssumption: "",
+      limitations: [],
+      errors: ["Native paired-bootstrap audit requires the desktop runtime."],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorPairedBootstrapAudit>("audit_heor_paired_survival_bootstrap");
+}
+
+export async function appendHeorPairedBootstrapReview(
+  request: HeorPairedBootstrapReviewRequest,
+): Promise<HeorPairedBootstrapReviewEvent> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorPairedBootstrapReviewEvent>("append_heor_paired_bootstrap_review", {
+    request,
+  });
+}
+
+export async function listHeorPairedBootstrapReviews(
+  projectId: string,
+): Promise<HeorPairedBootstrapReviewLog> {
+  if (!isTauri) {
+    return {
+      events: [],
+      chainHead: null,
+      integrity: "verified_unanchored_sha256_chain",
+      identityAssurance: "app_owned_local_human_assertion",
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorPairedBootstrapReviewLog>("list_heor_paired_bootstrap_reviews", {
+    projectId,
+  });
+}
+
 export async function auditHeorModelValidation(): Promise<HeorModelValidationAudit> {
   if (!isTauri) return HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
@@ -2937,6 +3070,7 @@ export const HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT: HeorUncertaintyAudit = {
   thresholdCount: 0,
   omittedParameterCount: 0,
   jointSurvivalRequired: false,
+  pairedBootstrapReviewRequired: false,
   jointSurvivalManifestSha256: null,
   jointSurvivalDrawsSha256: null,
   jointSurvivalDrawCount: null,

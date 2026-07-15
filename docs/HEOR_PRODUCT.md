@@ -565,6 +565,14 @@ is valid and still exposes curve-family selection, extrapolation assumptions,
 treatment-effect duration, clinical validity, and independent validation as
 release blockers.
 
+For a paired-patient bootstrap, the natural-language workflow leaves execution
+at `awaiting_bootstrap_method_review` and the secondary review form presents
+seven explicit Human assertions. The desktop owns the resulting accept/reject
+record and a separate hash-chained local event log; an Agent may bind an accepted
+record but cannot create or edit it. Native Rust regenerates the exact PCG32 plan
+and recalculates every reported curve and PFS/OS relationship. It does not repeat
+the statistical refits, so source-model validity remains a distinct release gate.
+
 For current analysis schema `0.15.0` and PSM `0.7.0`, uncertainty schema `0.13.0`
 hash-binds all six PSM and component artifacts. It targets only allowlisted raw
 annual-cost, health-state utility, and event-loss inputs, then rebuilds every
@@ -577,7 +585,7 @@ every strategy PFS/OS curve is an explicit omission, so the result is not a
 complete PSM PSA or structural uncertainty analysis.
 
 When reviewed joint PFS/OS rows also exist, current uncertainty schema `0.14.0`
-binds manifest `0.4.0` (or readable prior-current `0.3.0`) and the JSONL draw bytes in addition to all six component
+binds manifest `0.5.0` (with prior-current `0.4.0` and `0.3.0` readable) and the JSONL draw bytes in addition to all six component
 artifacts. Every PSA iteration combines exactly one complete curve row with one
 recomputed component draw. Results are labeled
 `joint_curve_and_component_parameter_uncertainty` with scope
@@ -585,6 +593,9 @@ recomputed component draw. Results are labeled
 between the two partial parameter PSAs, but curve selection, extrapolation,
 source-model validity, treatment-duration alternatives, and independent
 validation remain outside the result.
+For paired-bootstrap generation, manifest `0.5.0` also binds the exact app-owned
+accepted review and result; analysis approval and every native uncertainty run
+fail when that review is missing, stale, or superseded by rejection.
 
 ## Implemented budget impact boundary
 

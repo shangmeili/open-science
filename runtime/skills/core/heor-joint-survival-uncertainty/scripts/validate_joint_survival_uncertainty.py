@@ -15,8 +15,8 @@ from pathlib import Path
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
 LEGACY_SCHEMA_VERSION = "0.1.0"
 DURATION_SCHEMA_VERSION = "0.2.0"
-CURRENT_SCHEMA_VERSION = "0.4.0"
-PRIOR_CURRENT_SCHEMA_VERSION = "0.3.0"
+CURRENT_SCHEMA_VERSION = "0.5.0"
+PRIOR_CURRENT_SCHEMA_VERSIONS = {"0.4.0", "0.3.0"}
 DRAW_FORMAT = "ai4heor-joint-survival-draws-jsonl@0.1.0"
 DRAW_PATH = "heor/joint-survival-draws.jsonl"
 MAX_DRAW_BYTES = 128 * 1024 * 1024
@@ -175,7 +175,7 @@ def validate(
 
     expected_fields = MANIFEST_FIELDS | ({"treatment_effect_duration"} if duration_required else set())
     admitted_schemas = (
-        {CURRENT_SCHEMA_VERSION, PRIOR_CURRENT_SCHEMA_VERSION}
+        {CURRENT_SCHEMA_VERSION, *PRIOR_CURRENT_SCHEMA_VERSIONS}
         if psm_schema == "0.7.0"
         else {DURATION_SCHEMA_VERSION}
         if duration_required
@@ -240,10 +240,14 @@ def validate(
         errors.append("time_grid_years does not match the analysis grid")
 
     generation = manifest.get("generation")
-    current_generation = manifest.get("schema_version") == CURRENT_SCHEMA_VERSION
+    current_generation = manifest.get("schema_version") in {CURRENT_SCHEMA_VERSION, "0.4.0"}
+    reviewed_generation = manifest.get("schema_version") == CURRENT_SCHEMA_VERSION
+    method = generation.get("method") if isinstance(generation, dict) else None
     generation_fields = {"method", "sampling_unit", "independent_endpoint_sampling", "dependence_scope", "source_artifact_bindings", "rationale"}
     if current_generation:
         generation_fields |= {"strategy_resampling_design", "between_strategy_assumption"}
+    if reviewed_generation and method == "paired_patient_bootstrap":
+        generation_fields.add("method_review")
     if not isinstance(generation, dict) or set(generation) != generation_fields:
         errors.append("generation fields do not match the contract exactly")
         generation = {}
@@ -277,6 +281,7 @@ def validate(
         errors.append("source_artifact_bindings must not be empty")
     else:
         seen: set[str] = set()
+        binding_hashes: dict[str, str] = {}
         root = workspace_root.resolve()
         for index, binding in enumerate(source_bindings):
             label = f"source_artifact_bindings[{index}]"
@@ -291,6 +296,8 @@ def validate(
             expected_hash = binding.get("content_sha256")
             if not isinstance(expected_hash, str) or not SHA256.fullmatch(expected_hash):
                 errors.append(f"{label}.content_sha256 must be lowercase SHA-256")
+            else:
+                binding_hashes[str(relative)] = expected_hash
             if not text(binding.get("role")):
                 errors.append(f"{label}.role must not be empty")
             candidate = (root / str(relative)).resolve()
@@ -303,6 +310,46 @@ def validate(
                 errors.append(f"{label}.path does not exist")
             elif hashlib.sha256(candidate.read_bytes()).hexdigest() != expected_hash:
                 errors.append(f"{label}.content_sha256 does not match current bytes")
+
+        if reviewed_generation and method == "paired_patient_bootstrap":
+            review = generation.get("method_review")
+            review_fields = {"review_id", "record_path", "record_sha256", "action", "assurance", "result_path", "result_sha256"}
+            if not isinstance(review, dict) or set(review) != review_fields:
+                errors.append("generation.method_review fields are invalid")
+            else:
+                review_id = str(review.get("review_id", ""))
+                record_path = review.get("record_path")
+                result_path = review.get("result_path")
+                record_sha = str(review.get("record_sha256", ""))
+                result_sha = str(review.get("result_sha256", ""))
+                if len(review_id) != 32 or any(character not in "0123456789abcdefABCDEF" for character in review_id):
+                    errors.append("generation.method_review.review_id must be 32 hexadecimal characters")
+                if not safe_relative(record_path) or not str(record_path).startswith("heor/paired-survival-bootstrap-reviews/"):
+                    errors.append("generation.method_review.record_path must use the app-owned review directory")
+                if not safe_relative(result_path) or "/paired-survival-bootstrap-executions/" not in f"/{result_path}" or not str(result_path).endswith("/result-manifest.json"):
+                    errors.append("generation.method_review.result_path must identify a paired bootstrap result manifest")
+                if not SHA256.fullmatch(record_sha) or not SHA256.fullmatch(result_sha):
+                    errors.append("generation.method_review hashes are invalid")
+                if review.get("action") != "accept" or review.get("assurance") != "app_owned_local_human_assertion":
+                    errors.append("generation.method_review must record an app-owned Human acceptance")
+                if binding_hashes.get(str(record_path)) != record_sha or binding_hashes.get(str(result_path)) != result_sha:
+                    errors.append("generation.method_review record and result must match source artifact bindings")
+                record = root / str(record_path)
+                try:
+                    record_value = json.loads(record.read_bytes())
+                except (OSError, UnicodeError, json.JSONDecodeError):
+                    errors.append("generation.method_review record is unreadable or invalid JSON")
+                else:
+                    expected_record_fields = {"schemaVersion", "reviewId", "projectId", "executionId", "action", "status", "resultPath", "resultSha256", "relatedArtifacts", "checklist", "actorLabel", "rationale", "timestamp", "assurance"}
+                    if not isinstance(record_value, dict) or set(record_value) != expected_record_fields:
+                        errors.append("generation.method_review record fields are invalid")
+                    else:
+                        checklist = record_value.get("checklist")
+                        checklist_fields = {"resamplingDesignReviewed", "endpointsAndCensoringReviewed", "selectedFamiliesReviewed", "failuresAndConvergenceReviewed", "followUpAndExtrapolationReviewed", "parallelArmAssumptionReviewed", "clinicalPlausibilityReviewed"}
+                        if record_value.get("schemaVersion") != "0.1.0" or record_value.get("reviewId") != review_id or record_value.get("action") != "accept" or record_value.get("status") != "accepted_for_joint_packaging" or record_value.get("resultPath") != result_path or record_value.get("resultSha256") != result_sha or record_value.get("assurance") != "app_owned_local_human_assertion":
+                            errors.append("generation.method_review record does not match the accepted review declaration")
+                        if not isinstance(checklist, dict) or set(checklist) != checklist_fields or any(value is not True for value in checklist.values()):
+                            errors.append("generation.method_review record checklist is incomplete")
 
     draw_file = manifest.get("draw_file")
     draw_count = 0

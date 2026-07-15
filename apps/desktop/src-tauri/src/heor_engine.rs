@@ -649,6 +649,7 @@ mod tests {
             threshold_count: 5,
             omitted_parameter_count: 0,
             joint_survival_required: false,
+            paired_bootstrap_review_required: false,
             joint_survival_manifest_sha256: None,
             joint_survival_draws_sha256: None,
             joint_survival_draw_count: None,
