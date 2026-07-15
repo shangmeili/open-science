@@ -323,11 +323,15 @@ pub fn audit_joint_survival_for_plan(
             return audit;
         }
     };
-    let duration_required = psm
+    let psm_schema = psm
         .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        == Some("0.4.0");
-    let expected_schema = if duration_required { "0.2.0" } else { "0.1.0" };
+        .and_then(serde_json::Value::as_str);
+    let duration_required = matches!(psm_schema, Some("0.4.0" | "0.7.0"));
+    let expected_schema = match psm_schema {
+        Some("0.7.0") => "0.3.0",
+        Some("0.4.0") => "0.2.0",
+        _ => "0.1.0",
+    };
     if text(manifest.get("schema_version")) != Some(expected_schema)
         || (duration_required && !object_has_exact_keys(&manifest, &duration_fields))
         || (!duration_required && !object_has_exact_keys(&manifest, &legacy_fields))
@@ -736,8 +740,46 @@ mod tests {
         assert!(audit.complete, "{:?}", audit.errors);
         assert_eq!(audit.draw_count, Some(1000));
 
+        let current_psm_raw = serde_json::to_vec(&serde_json::json!({
+            "schema_version": "0.7.0",
+            "analysis_id": "analysis-1",
+            "psm_id": "psm-1"
+        }))
+        .unwrap();
+        let duration_raw = br#"{"schema_version":"0.1.0"}"#;
+        let mut current_manifest = manifest.clone();
+        current_manifest["schema_version"] = serde_json::json!("0.3.0");
+        current_manifest["partitioned_survival_plan"]["content_sha256"] =
+            serde_json::json!(sha256(&current_psm_raw));
+        current_manifest["treatment_effect_duration"] = serde_json::json!({
+            "path": "heor/treatment-effect-duration.json",
+            "content_sha256": sha256(duration_raw)
+        });
+        let current_manifest_raw = serde_json::to_vec(&current_manifest).unwrap();
+        let current_uncertainty = serde_json::json!({
+            "joint_survival_inputs": {
+                "manifest": {"path": MANIFEST_PATH, "content_sha256": sha256(&current_manifest_raw)},
+                "draws": {"path": DRAWS_PATH, "content_sha256": sha256(&draws_raw)}
+            }
+        });
+        std::fs::write(
+            root.join("heor/partitioned-survival-plan.json"),
+            &current_psm_raw,
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("heor/treatment-effect-duration.json"),
+            duration_raw,
+        )
+        .unwrap();
+        std::fs::write(root.join(MANIFEST_PATH), &current_manifest_raw).unwrap();
+        let current =
+            audit_joint_survival_for_plan(&root, &plan_raw, &current_uncertainty, Some(1000));
+        assert!(current.complete, "{:?}", current.errors);
+
         std::fs::write(root.join("heor/fits/joint.json"), b"changed").unwrap();
-        let stale = audit_joint_survival_for_plan(&root, &plan_raw, &uncertainty, Some(1000));
+        let stale =
+            audit_joint_survival_for_plan(&root, &plan_raw, &current_uncertainty, Some(1000));
         assert!(!stale.complete);
         assert!(stale
             .errors

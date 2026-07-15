@@ -186,6 +186,14 @@ describe("AI4HEOR human review pane", () => {
     expect(screen.getByText("Correlated component uncertainty")).toBeInTheDocument();
     expect(screen.getByText(/rebuilds costs, cycle utilities, and event QALY losses/)).toBeInTheDocument();
     expect(screen.getByText("Conditional component EVPI / person")).toBeInTheDocument();
+
+    const composed = structuredClone(result) as unknown as HeorUncertaintyRunResult;
+    composed.calculation.calculation_classification = "joint_curve_and_component_parameter_uncertainty";
+    composed.calculation.uncertainty_scope = "joint_survival_curves_and_cost_utility_event_components";
+    render(<UncertaintyResultCard result={composed} locale="en" />);
+    expect(screen.getByText("Composed PSM parameter uncertainty")).toBeInTheDocument();
+    expect(screen.getByText(/combines one complete joint PFS\/OS row/)).toBeInTheDocument();
+    expect(screen.getByText("Conditional EVPI · joint curves + components")).toBeInTheDocument();
   });
 
   it("shows exact extraction details and records a selected rejection", async () => {

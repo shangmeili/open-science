@@ -10,7 +10,7 @@ Create a backend-neutral survival-draw artifact that one deterministic AI4HEOR P
 ## Workflow
 
 1. Read the exact current bytes of `heor/analysis-plan.json`, `heor/partitioned-survival-plan.json`, `heor/survival-curve-materializations.json`, and `heor/treatment-effect-duration.json`. Use `$heor-partitioned-survival` and `$heor-treatment-effect-duration` first when deterministic curves or duration scenarios are not coherent and review-bound.
-2. Confirm analysis schema `0.12.0`, PSM schema `0.4.0`, treatment-duration schema `0.1.0`, states exactly `progression_free`, `progressed`, `dead`, and one common analysis time grid. Stop on any mismatch. Legacy PSM `0.3.0` and joint manifest `0.1.0` remain readable but are not the creation target.
+2. Confirm current analysis schema `0.15.0`, PSM schema `0.7.0`, treatment-duration schema `0.1.0`, states exactly `progression_free`, `progressed`, `dead`, and one common analysis time grid. Create joint manifest `0.3.0`. Legacy analysis `0.12.0` / PSM `0.3.0` or `0.4.0` with manifest `0.1.0` or `0.2.0` remains readable.
 3. Confirm there is already either a reviewed joint posterior or a paired-patient bootstrap output that jointly covers every strategy PFS and OS endpoint. This Skill audits and packages those draws; it does not fit survival models or reconstruct covariance from marginal intervals.
 4. Reject independent PFS/OS sampling. One draw row must be the sampling unit across all curves and preserve both within-strategy PFS/OS dependence and between-strategy curve dependence.
 5. Copy [assets/joint-survival-uncertainty.template.json](assets/joint-survival-uncertainty.template.json) to `heor/joint-survival-uncertainty.json`. Bind the exact analysis, PSM, source materialization, treatment-duration, draw-file, and source-artifact bytes by lowercase SHA-256.
@@ -29,7 +29,7 @@ python3 runtime/skills/core/heor-joint-survival-uncertainty/scripts/validate_joi
   --workspace-root .
 ```
 
-11. Use `$heor-uncertainty-analysis` to execute schema `0.12.0`. The deterministic base case, DSA, and structural scenarios keep the reviewed base curves; each PSA iteration consumes exactly one joint curve row plus its declared economic-input draws.
+11. Use `$heor-uncertainty-analysis` schema `0.14.0` to combine each joint curve row with recalculated cost, utility, and event components, or legacy schema `0.12.0` with its economic reward-vector inputs. The deterministic base case, DSA, and structural scenarios keep the reviewed base curves.
 
 ## Boundaries
 

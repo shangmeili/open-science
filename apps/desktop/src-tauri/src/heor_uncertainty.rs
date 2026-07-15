@@ -713,6 +713,9 @@ fn audit_component_values(
     uncertainty: &serde_json::Value,
     uncertainty_raw: &[u8],
 ) -> UncertaintyAudit {
+    let schema_version = uncertainty
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str);
     let mut audit = empty_audit(plan_raw);
     audit.uncertainty_sha256 = sha256(uncertainty_raw);
     audit.uncertainty_id = uncertainty
@@ -736,7 +739,7 @@ fn audit_component_values(
     {
         audit
             .errors
-            .push("uncertainty schema 0.13.0 requires analysis schema 0.15.0".into());
+            .push("uncertainty schema 0.13.0 or 0.14.0 requires analysis schema 0.15.0".into());
     }
     if audit.uncertainty_id.is_empty()
         || audit.analysis_id.is_empty()
@@ -1031,12 +1034,36 @@ fn audit_component_values(
             nonempty(item.get("rationale")).then(|| item.get("provenance_path")?.as_str())?
         })
         .collect::<HashSet<_>>();
-    for strategy in strategy_ids(plan) {
-        for endpoint in ["pfs", "os"] {
-            let expected = format!("partitioned_survival.strategies.{strategy}.{endpoint}");
-            if !omitted_paths.contains(expected.as_str()) {
+    if schema_version == Some("0.13.0") {
+        for strategy in strategy_ids(plan) {
+            for endpoint in ["pfs", "os"] {
+                let expected = format!("partitioned_survival.strategies.{strategy}.{endpoint}");
+                if !omitted_paths.contains(expected.as_str()) {
+                    audit.errors.push(format!(
+                        "component uncertainty must omit fixed curve {expected}"
+                    ));
+                }
+            }
+        }
+    } else {
+        for strategy in strategy_ids(plan) {
+            for endpoint in ["pfs", "os"] {
+                let represented = format!("partitioned_survival.strategies.{strategy}.{endpoint}");
+                if omitted_paths.contains(represented.as_str()) {
+                    audit.errors.push(format!(
+                        "joint component uncertainty must not omit represented curve {represented}"
+                    ));
+                }
+            }
+        }
+        for required in [
+            "partitioned_survival.structural.curve_family_selection",
+            "partitioned_survival.structural.extrapolation_assumptions",
+            "partitioned_survival.structural.source_model_validity",
+        ] {
+            if !omitted_paths.contains(required) {
                 audit.errors.push(format!(
-                    "component uncertainty must omit fixed curve {expected}"
+                    "joint component uncertainty must explicitly omit {required}"
                 ));
             }
         }
@@ -1096,7 +1123,7 @@ fn audit_values(
     if uncertainty
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        == Some("0.13.0")
+        .is_some_and(|schema| matches!(schema, "0.13.0" | "0.14.0"))
     {
         return audit_component_values(plan, plan_raw, uncertainty, uncertainty_raw);
     }
@@ -2228,7 +2255,7 @@ pub fn audit_uncertainty_plan_for_plan(
             "incomplete"
         };
     }
-    if schema_version == Some("0.13.0") {
+    if matches!(schema_version, Some("0.13.0" | "0.14.0")) {
         if let Err(error) =
             crate::heor_partitioned_survival::require_partitioned_survival_approvable(
                 workspace, plan_raw,
@@ -2405,6 +2432,27 @@ pub fn audit_uncertainty_plan_for_plan(
         } else {
             "incomplete"
         };
+        if schema_version == Some("0.14.0") {
+            audit.joint_survival_required = true;
+            let joint = crate::heor_joint_survival_uncertainty::audit_joint_survival_for_plan(
+                workspace,
+                plan_raw,
+                &uncertainty,
+                audit.iterations,
+            );
+            audit.joint_survival_manifest_sha256 =
+                (!joint.manifest_sha256.is_empty()).then_some(joint.manifest_sha256);
+            audit.joint_survival_draws_sha256 =
+                (!joint.draws_sha256.is_empty()).then_some(joint.draws_sha256);
+            audit.joint_survival_draw_count = joint.draw_count;
+            audit.errors.extend(joint.errors);
+            audit.complete = audit.errors.is_empty() && audit.invalid_parameters.is_empty();
+            audit.status = if audit.complete {
+                "complete"
+            } else {
+                "incomplete"
+            };
+        }
     }
     Ok(audit)
 }
@@ -2897,6 +2945,29 @@ mod tests {
         assert!(audit.complete, "{:?}", audit.errors);
         assert_eq!(audit.parameter_count, 1);
         assert_eq!(audit.threshold_count, 2);
+
+        let mut joint_component = uncertainty.clone();
+        joint_component["schema_version"] = serde_json::json!("0.14.0");
+        joint_component["probabilistic_analysis"]["omitted_parameters"] = serde_json::json!([
+            {"provenance_path": "partitioned_survival.structural.curve_family_selection", "rationale": "Structural"},
+            {"provenance_path": "partitioned_survival.structural.extrapolation_assumptions", "rationale": "Structural"},
+            {"provenance_path": "partitioned_survival.structural.source_model_validity", "rationale": "Human review"}
+        ]);
+        let joint_raw = serde_json::to_vec(&joint_component).unwrap();
+        let joint_audit = audit_values(&plan, &plan_raw, &joint_component, &joint_raw);
+        assert!(joint_audit.complete, "{:?}", joint_audit.errors);
+
+        joint_component["probabilistic_analysis"]["omitted_parameters"][0] = serde_json::json!({
+            "provenance_path": "partitioned_survival.strategies.standard_care.pfs",
+            "rationale": "Invalid represented curve"
+        });
+        let invalid_raw = serde_json::to_vec(&joint_component).unwrap();
+        let invalid = audit_values(&plan, &plan_raw, &joint_component, &invalid_raw);
+        assert!(!invalid.complete);
+        assert!(invalid
+            .errors
+            .iter()
+            .any(|error| error.contains("represented curve")));
     }
 
     #[test]

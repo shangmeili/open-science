@@ -909,6 +909,21 @@ Uniform and Lognormal members. Shared provenance does not imply correlation.
 The output is `component_parameter_uncertainty` with scope
 `cost_utility_event_components_only`; all PFS/OS curves must remain explicit
 omissions, so it is not a complete PSM PSA.
+
+Uncertainty schema `0.14.0` and engine `0.15.0` retain the same current PSM and
+component bindings, then add exact joint-survival manifest `0.3.0` and JSONL
+draw bindings. After fail-closed validation, every PSA iteration consumes one
+complete cross-strategy PFS/OS row and one component draw, rebuilding every
+affected cost, utility, and event aggregate before curve evaluation. The base
+case, DSA, discount/half-cycle scenarios, and treatment-duration alternatives
+retain reviewed deterministic curves. Output is
+`joint_curve_and_component_parameter_uncertainty` with scope
+`joint_survival_curves_and_cost_utility_event_components`. Curve-family choice,
+extrapolation, source-model validity, probabilistic treatment-duration
+alternatives, and independent validation remain outside the calculation.
+Dependence is preserved within joint curve rows and admitted component groups,
+but not between those two fragments; known cross-domain dependence remains a
+Human-reviewed blocker rather than being silently treated as zero.
 The materializer does not fit data, transform backend coefficients, choose a
 family, infer covariance, support other survival families, or establish clinical/external
 validity. Treatment-effect application is limited to the separate duration contract above.

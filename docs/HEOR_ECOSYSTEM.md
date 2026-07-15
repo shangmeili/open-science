@@ -151,7 +151,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped alpha | `heor-utility-inputs` | Reproduce one evidence-linked health-state utility per strategy/state and its complete cycle schedule, with instrument/version/respondent, value set and license, mapping, adjustment, uncertainty, and overlap metadata | `heor/utility-inputs.json`, analysis schemas `0.14.0` / `0.15.0`, PSM schemas `0.6.0` / `0.7.0` |
 | Shipped alpha | `heor-event-disutilities` | Reproduce evidence-linked one-time, recurrent, or continuous-exposure event QALY losses, with terminology/severity, duration, timing, eligible states, and exact cross-artifact overlap exclusions | `heor/event-disutilities.json`, analysis schema `0.15.0`, PSM schema `0.7.0` |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
-| Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, conditional per-person EVPI, convergence diagnostics, dependence disclosure, and bounded cost/utility/event component recomputation | `heor/uncertainty-plan.json` plus deterministic run output; current component schema `0.13.0` |
+| Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, conditional per-person EVPI, convergence diagnostics, dependence disclosure, bounded cost/utility/event recomputation, and composition with reviewed joint PFS/OS rows | `heor/uncertainty-plan.json` plus deterministic run output; current schemas `0.13.0` and `0.14.0` |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
 | Shipped | `heor-model-validation` | Intended-use validation package covering face, input, external, cross-model, predictive, and TECH-VER checks without a score | `heor/model-validation.json`, local evidence, and app-owned independent-review gate |
 | Shipped | `heor-reporting` | Separate CHEERS 2022 and ISPOR BIA reporting, exact result summaries, disclosures, and release preparation without checklist scoring | `heor/report-package.json`, `heor/report.md`, app-written results, and app-owned release gate |
@@ -159,13 +159,13 @@ Skills stay small and are separated by the artifact they produce or audit.
 `heor-workbench` routes to these skills; it should not absorb their detailed
 methodology. This avoids a single prompt becoming an untestable source of truth.
 
-The next HEOR-specific assets should stay equally narrow. Correlated cost,
-utility, and event-component uncertainty is now shipped inside
-`heor-uncertainty-analysis`: it varies only allowlisted raw components and
-recomputes every dependent reward and loss while keeping survival fixed. The
-next P0 is a composed PSM parameter-uncertainty path that combines those
-components with reviewed joint survival rows without presenting structural
-uncertainty as resolved. P1 is `heor-utility-evidence-review` only if evidence
+The next HEOR-specific assets should stay equally narrow. Schema `0.14.0` now
+combines reviewed joint survival rows with recomputed allowlisted cost, utility,
+and event components, while preserving curve-family choice, extrapolation,
+source-model validity, and treatment-duration alternatives as unresolved
+structural questions. The next P0 is the isolated `survHE` fitting adapter and
+cross-implementation validation needed to produce and challenge eligible joint
+rows; P1 is `heor-utility-evidence-review` only if evidence
 identification and suitability review outgrow the current bounded
 `heor-utility-inputs` workflow; do not pre-emptively split it. No external
 candidate reviewed on 2026-07-15 supplies these fail-closed contracts.
@@ -351,8 +351,9 @@ This is an independent first-party implementation; no reviewed external Skill or
 plugin is an executable dependency. The separately bounded constant-HR route is
 owned by `$heor-hazard-ratio-adapter`. Partitioned survival, explicit treatment-
 effect duration, deterministic annual state-cost normalization, utility inputs,
-event disutilities, and correlated component uncertainty are now shipped
-bounded alphas. Dynamic-cohort BIA, NMA/MAIC, RWE, and advanced VOI follow. Those backlog items are not
+event disutilities, correlated component uncertainty, and composed joint-curve
+plus component PSA are now shipped bounded alphas. Dynamic-cohort BIA, NMA/MAIC,
+RWE, and advanced VOI follow. Those backlog items are not
 shipped capabilities or approval authority.
 
 Schema `0.11.0` adds the first-party `$heor-hazard-ratio-adapter` for one
@@ -461,10 +462,13 @@ The first-party `heor-joint-survival-uncertainty` asset and uncertainty schema
 `0.12.0` now admit already-generated joint posterior or paired-patient-bootstrap
 rows across all strategy PFS/OS curves. The portable/Python/native contracts
 bind every source and draw byte, reject independent endpoint sampling and curve
-crossing, and consume one whole row per PSA iteration. Joint manifest schema `0.2.0`
-binds the duration bytes; non-base duration alternatives remain separate deterministic
-scenario results. Curve-family selection, extrapolation, source-model validity, independent
-validation, and release reporting remain blocked.
+crossing, and consume one whole row per PSA iteration. Current joint manifest
+schema `0.3.0` binds analysis `0.15.0`, PSM `0.7.0`, materializations, and duration
+bytes. Uncertainty schema `0.14.0` combines each row with one recomputed component
+draw and labels the result as composed parameter uncertainty. Non-base duration
+alternatives remain separate deterministic results; curve-family selection,
+extrapolation, source-model validity, independent validation, and release reporting
+remain blocked.
 PSM `0.7.0` retains the PSM `0.6.0` annual state-cost and utility bindings and additionally
 binds first-party schema `0.1.0` event-disutility inputs. Python, standalone Skills,
 and native Rust reproduce every source-utility-times-adjustment value and the
@@ -473,8 +477,9 @@ respondent, value set, mapping, licensing, transferability, and overlap choices
 remain Human-owned. One-time, recurrent, and continuous-exposure event losses are
 reproduced separately and require exact exclusions from affected utility items;
 uncertainty schema `0.13.0` can vary their allowlisted raw components together
-with cost and utility components while recomputing all downstream values. It
-keeps every survival curve fixed. Legacy PSM versions remain readable.
+with cost and utility components while recomputing all downstream values and
+keeping survival fixed. Schema `0.14.0` composes those component draws with the
+reviewed joint-survival rows. Legacy PSM versions remain readable.
 
 PSM `0.5.0` binds the first-party schema `0.1.0` annual state-cost
 normalization artifact and independently recomputes every quantity-times-price

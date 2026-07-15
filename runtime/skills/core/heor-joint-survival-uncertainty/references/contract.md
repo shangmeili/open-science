@@ -4,7 +4,7 @@ The canonical artifacts are `heor/joint-survival-uncertainty.json` and `heor/joi
 
 ## Identity and bindings
 
-The manifest uses schema `0.1.0`, a stable `survival_uncertainty_id`, the current `analysis_id` and `psm_id`, and status `ready_for_human_review`. It binds exact bytes for:
+The current manifest uses schema `0.3.0` with analysis `0.15.0` / PSM `0.7.0`. Legacy `0.1.0` and `0.2.0` pairings remain readable. It carries a stable `survival_uncertainty_id`, the current `analysis_id` and `psm_id`, and status `ready_for_human_review`. It binds exact bytes for:
 
 - `heor/analysis-plan.json`;
 - `heor/partitioned-survival-plan.json`;
@@ -47,6 +47,12 @@ The result classification is `joint_curve_draw_parameter_uncertainty` with scope
 - `partitioned_survival.structural.treatment_effect_duration`.
 
 Conditional CEAC, CEAF, and per-person EVPI cover the represented joint rows and economic inputs under the selected structural assumptions. They are not complete structural uncertainty, population EVPI, EVPPI, or a reimbursement recommendation.
+
+## Integration with current uncertainty schema 0.14.0
+
+For analysis `0.15.0` / PSM `0.7.0`, manifest `0.3.0` also binds treatment-effect-duration bytes. The uncertainty plan binds all six current PSM artifacts plus this manifest and draw file. Engine `0.15.0` combines exactly one complete curve row with recomputed cost, utility, and event components per iteration. It returns `joint_curve_and_component_parameter_uncertainty` / `joint_survival_curves_and_cost_utility_event_components`.
+
+The plan does not omit represented curves. It explicitly omits curve-family selection, extrapolation assumptions, and source-model validity. Treatment-duration alternatives remain separately deterministic. The composed PSA still does not validate the source model, average structures, or establish complete structural uncertainty.
 
 ## Method basis
 

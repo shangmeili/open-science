@@ -52,6 +52,7 @@ HAZARD_RATIO_SCHEMA_VERSION = "0.10.0"
 PARTITIONED_SURVIVAL_SCHEMA_VERSION = "0.11.0"
 JOINT_SURVIVAL_SCHEMA_VERSION = "0.12.0"
 COMPONENT_SCHEMA_VERSION = "0.13.0"
+JOINT_COMPONENT_SCHEMA_VERSION = "0.14.0"
 PARTITIONED_SURVIVAL_SCHEMA_VERSIONS = {
     PARTITIONED_SURVIVAL_SCHEMA_VERSION,
     JOINT_SURVIVAL_SCHEMA_VERSION,
@@ -294,10 +295,12 @@ def validate_component(
     cost_path: Path | None,
     utility_path: Path | None,
     event_path: Path | None,
+    joint_manifest_path: Path | None,
+    joint_draws_path: Path | None,
 ) -> list[str]:
     errors: list[str] = []
     if plan.get("schema_version") != "0.15.0":
-        errors.append("uncertainty schema 0.13.0 requires analysis schema 0.15.0")
+        errors.append("uncertainty schema 0.13.0 or 0.14.0 requires analysis schema 0.15.0")
     if value.get("status") != "ready_for_human_review" or value.get("analysis_id") != plan.get("analysis_id"):
         errors.append("component uncertainty identity or status is invalid")
     base = value.get("base_analysis") or {}
@@ -443,9 +446,39 @@ def validate_component(
             group_ids.add(group["id"])
     omissions = psa.get("omitted_parameters")
     declared = {item.get("provenance_path") for item in omissions if isinstance(item, dict) and text(item.get("rationale"))} if isinstance(omissions, list) else set()
-    required = {f"partitioned_survival.strategies.{strategy}.{endpoint}" for strategy in plan.get("strategy_order", []) for endpoint in ("pfs", "os")}
-    if not required.issubset(declared):
-        errors.append("component uncertainty must explicitly omit every fixed PFS and OS curve")
+    represented = {f"partitioned_survival.strategies.{strategy}.{endpoint}" for strategy in plan.get("strategy_order", []) for endpoint in ("pfs", "os")}
+    if value.get("schema_version") == COMPONENT_SCHEMA_VERSION:
+        if not represented.issubset(declared):
+            errors.append("component uncertainty must explicitly omit every fixed PFS and OS curve")
+        if joint_manifest_path is not None or joint_draws_path is not None or "joint_survival_inputs" in value:
+            errors.append("joint-survival artifacts require uncertainty schema_version 0.14.0")
+    else:
+        if represented & declared:
+            errors.append("joint component uncertainty must not omit represented PFS or OS curves")
+        structural = {
+            "partitioned_survival.structural.curve_family_selection",
+            "partitioned_survival.structural.extrapolation_assumptions",
+            "partitioned_survival.structural.source_model_validity",
+        }
+        if not structural.issubset(declared):
+            errors.append("joint component uncertainty must declare all required structural omissions")
+        if joint_manifest_path is None or joint_draws_path is None:
+            errors.append("uncertainty schema 0.14.0 requires both joint-survival artifacts")
+        else:
+            manifest_raw = joint_manifest_path.read_bytes()
+            draws_raw = joint_draws_path.read_bytes()
+            joint_inputs = value.get("joint_survival_inputs")
+            if not isinstance(joint_inputs, dict) or set(joint_inputs) != {"manifest", "draws"}:
+                errors.append("joint_survival_inputs must contain only manifest and draws")
+            else:
+                expected = {
+                    "manifest": ("heor/joint-survival-uncertainty.json", manifest_raw),
+                    "draws": ("heor/joint-survival-draws.jsonl", draws_raw),
+                }
+                for field, (path, raw) in expected.items():
+                    binding = joint_inputs.get(field)
+                    if binding != {"path": path, "content_sha256": hashlib.sha256(raw).hexdigest()}:
+                        errors.append(f"joint_survival_inputs.{field} does not bind current bytes")
     scenarios = value.get("structural_scenarios")
     allowed_scenarios = {
         "/discount_rates/costs": lambda value: finite_number(value) and value >= 0,
@@ -474,7 +507,7 @@ def validate(
     errors: list[str] = []
     duration_required = False
     schema_version = value.get("schema_version")
-    if schema_version == COMPONENT_SCHEMA_VERSION:
+    if schema_version in {COMPONENT_SCHEMA_VERSION, JOINT_COMPONENT_SCHEMA_VERSION}:
         return validate_component(
             value,
             plan,
@@ -485,6 +518,8 @@ def validate(
             cost_input_normalization_path,
             utility_inputs_path,
             event_disutilities_path,
+            joint_manifest_path,
+            joint_draws_path,
         )
     if schema_version not in {
         LEGACY_SCHEMA_VERSION,

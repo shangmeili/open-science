@@ -838,8 +838,8 @@ export interface HeorUncertaintyCalculation {
   uncertainty_plan_sha256: string;
   prng: { algorithm: string; version: string };
   seed: string;
-  calculation_classification: "calculation_only" | "partial_parameter_uncertainty" | "joint_curve_draw_parameter_uncertainty" | "component_parameter_uncertainty";
-  uncertainty_scope?: "declared_model_parameters" | "economic_inputs_only" | "joint_survival_curves_and_economic_inputs" | "cost_utility_event_components_only";
+  calculation_classification: "calculation_only" | "partial_parameter_uncertainty" | "joint_curve_draw_parameter_uncertainty" | "component_parameter_uncertainty" | "joint_curve_and_component_parameter_uncertainty";
+  uncertainty_scope?: "declared_model_parameters" | "economic_inputs_only" | "joint_survival_curves_and_economic_inputs" | "cost_utility_event_components_only" | "joint_survival_curves_and_cost_utility_event_components";
   partitioned_survival_plan_sha256?: string;
   survival_curve_materializations_sha256?: string;
   joint_survival_uncertainty_sha256?: string;

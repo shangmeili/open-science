@@ -9,12 +9,18 @@ from math import erf, exp, fsum, isfinite, sqrt
 from typing import Any
 
 from .economic_inputs import EconomicSpecification
+from .joint_survival_uncertainty import (
+    iter_joint_survival_curve_plans,
+    validate_joint_survival_uncertainty,
+)
 from .model import ModelValidationError
 from .partitioned_survival import calculate_partitioned_survival, run_partitioned_survival
 
 
 SCHEMA_VERSION = "0.13.0"
+JOINT_SCHEMA_VERSION = "0.14.0"
 ENGINE_VERSION = "0.14.0"
+JOINT_ENGINE_VERSION = "0.15.0"
 ANALYSIS_SCHEMA_VERSION = "0.15.0"
 PSM_SCHEMA_VERSION = "0.7.0"
 MAX_PARAMETERS = 256
@@ -105,6 +111,9 @@ def run_component_uncertainty(
     utility_inputs_raw: bytes,
     event_inputs: dict[str, Any],
     event_inputs_raw: bytes,
+    joint_survival_manifest: dict[str, Any] | None = None,
+    joint_survival_manifest_raw: bytes | None = None,
+    joint_survival_draws_raw: bytes | None = None,
 ) -> dict[str, Any]:
     """Validate fixed bytes once, then recompute every affected component per run."""
 
@@ -141,11 +150,41 @@ def run_component_uncertainty(
         "utility_inputs": utility_inputs_raw,
         "event_disutilities": event_inputs_raw,
     }
+    joint = plan.get("schema_version") == JOINT_SCHEMA_VERSION
     specification = _parse(plan, analysis, analysis_raw, artifacts, raw_inputs)
+    joint_curve_plans = None
+    if joint:
+        if (
+            joint_survival_manifest is None
+            or joint_survival_manifest_raw is None
+            or joint_survival_draws_raw is None
+        ):
+            raise ModelValidationError(
+                "uncertainty schema 0.14.0 requires joint survival manifest and draw bytes"
+            )
+        validate_joint_survival_uncertainty(
+            analysis,
+            analysis_raw,
+            partitioned_plan,
+            partitioned_raw,
+            materializations,
+            materializations_raw,
+            joint_survival_manifest,
+            joint_survival_manifest_raw,
+            joint_survival_draws_raw,
+            specification.iterations,
+            treatment_duration_raw,
+        )
+        joint_curve_plans = iter_joint_survival_curve_plans(
+            joint_survival_draws_raw,
+            analysis["strategy_order"],
+            joint_survival_manifest["time_grid_years"],
+        )
 
     def evaluate(
         values: tuple[tuple[ComponentParameter, float], ...],
         analysis_replacements: tuple[tuple[str, Any], ...] = (),
+        curve_plan: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         sampled_analysis = copy.deepcopy(analysis)
         sampled_artifacts = {key: copy.deepcopy(value) for key, value in artifacts.items()}
@@ -161,7 +200,7 @@ def run_component_uncertainty(
         )
         return calculate_partitioned_survival(
             EconomicSpecification.from_analysis_plan(sampled_analysis),
-            partitioned_plan,
+            partitioned_plan if curve_plan is None else curve_plan,
             utility_schedule,
             event_schedule,
         )
@@ -204,12 +243,14 @@ def run_component_uncertainty(
         }
         for scenario in specification.scenarios
     ]
-    probabilistic = _run_psa(specification, analysis["strategy_order"], evaluate)
+    probabilistic = _run_psa(
+        specification, analysis["strategy_order"], evaluate, joint_curve_plans
+    )
     return {
         "analysis_id": specification.analysis_id,
         "uncertainty_id": specification.uncertainty_id,
-        "schema_version": SCHEMA_VERSION,
-        "engine_version": ENGINE_VERSION,
+        "schema_version": JOINT_SCHEMA_VERSION if joint else SCHEMA_VERSION,
+        "engine_version": JOINT_ENGINE_VERSION if joint else ENGINE_VERSION,
         "base_analysis_sha256": hashlib.sha256(analysis_raw).hexdigest(),
         "uncertainty_plan_sha256": hashlib.sha256(plan_raw).hexdigest(),
         "partitioned_survival_plan_sha256": hashlib.sha256(partitioned_raw).hexdigest(),
@@ -218,10 +259,30 @@ def run_component_uncertainty(
         "cost_input_normalization_sha256": hashlib.sha256(cost_inputs_raw).hexdigest(),
         "utility_inputs_sha256": hashlib.sha256(utility_inputs_raw).hexdigest(),
         "event_disutilities_sha256": hashlib.sha256(event_inputs_raw).hexdigest(),
+        **(
+            {
+                "joint_survival_uncertainty_sha256": hashlib.sha256(
+                    joint_survival_manifest_raw
+                ).hexdigest(),
+                "joint_survival_draws_sha256": hashlib.sha256(
+                    joint_survival_draws_raw
+                ).hexdigest(),
+            }
+            if joint
+            else {}
+        ),
         "prng": {"algorithm": "pcg32-xsh-rr", "version": "1"},
         "seed": str(specification.seed),
-        "calculation_classification": "component_parameter_uncertainty",
-        "uncertainty_scope": "cost_utility_event_components_only",
+        "calculation_classification": (
+            "joint_curve_and_component_parameter_uncertainty"
+            if joint
+            else "component_parameter_uncertainty"
+        ),
+        "uncertainty_scope": (
+            "joint_survival_curves_and_cost_utility_event_components"
+            if joint
+            else "cost_utility_event_components_only"
+        ),
         "economic_basis": base_result["economic_basis"],
         "base_case": _decision_summary(base_result),
         "deterministic_analysis": deterministic,
@@ -229,10 +290,23 @@ def run_component_uncertainty(
         "structural_scenarios": scenarios,
         "treatment_effect_duration_scenarios": base_result["treatment_effect_duration_scenarios"],
         "limitations": [
-            "Only declared cost, health-state utility, and event-disutility components are sampled; survival curves remain fixed.",
+            (
+                "Each PSA iteration combines one complete hash-bound joint survival row with the declared cost, health-state utility, and event-disutility component draws."
+                if joint
+                else "Only declared cost, health-state utility, and event-disutility components are sampled; survival curves remain fixed."
+            ),
+            *(
+                [
+                    "The engine verifies joint-row and component-artifact coherence but does not establish that the source posterior, paired bootstrap, component distributions, or dependence assumptions are statistically or clinically appropriate.",
+                    "Dependence between the joint survival rows and component draws is not represented; the Human must justify cross-domain independence or preserve unsupported dependence as a blocker.",
+                    "Curve-family selection, extrapolation assumptions, source-model validity, and treatment-effect-duration alternatives remain structural uncertainty outside this composed PSA.",
+                ]
+                if joint
+                else []
+            ),
             "Gaussian-copula matrices are Human-supplied latent-standard-normal correlations and are not inferred or converted from observed-scale correlations.",
             "Beta, Gamma, empirical joint draws, perfect correlation, and structural model averaging are not admitted in mixed component correlation groups.",
-            "Per-person EVPI is conditional on represented component uncertainty and selected structural assumptions; it is not population EVPI or EVPPI.",
+            "Per-person EVPI is conditional on represented parameter uncertainty and selected structural assumptions; it is not population EVPI or EVPPI.",
         ],
     }
 
@@ -244,8 +318,13 @@ def _parse(
     artifacts: dict[str, dict[str, Any]],
     raw_inputs: dict[str, bytes],
 ) -> ComponentSpecification:
-    if value.get("schema_version") != SCHEMA_VERSION:
-        raise ModelValidationError("component uncertainty schema_version must be 0.13.0")
+    schema_version = value.get("schema_version")
+    if schema_version not in {SCHEMA_VERSION, JOINT_SCHEMA_VERSION}:
+        raise ModelValidationError("component uncertainty schema_version must be 0.13.0 or 0.14.0")
+    if schema_version == SCHEMA_VERSION and "joint_survival_inputs" in value:
+        raise ModelValidationError(
+            "joint_survival_inputs requires component uncertainty schema 0.14.0"
+        )
     if value.get("status") != "ready_for_human_review":
         raise ModelValidationError("component uncertainty must be ready_for_human_review")
     if value.get("analysis_id") != analysis.get("analysis_id"):
@@ -299,13 +378,24 @@ def _parse(
         }
         for item in _array(psa.get("omitted_parameters"), "omitted_parameters")
     )
-    required_omissions = {
+    omission_paths = {item["provenance_path"] for item in omitted}
+    represented_curves = {
         f"partitioned_survival.strategies.{strategy_id}.{endpoint}"
         for strategy_id in analysis["strategy_order"]
         for endpoint in ("pfs", "os")
     }
-    if not required_omissions.issubset({item["provenance_path"] for item in omitted}):
+    if schema_version == SCHEMA_VERSION and not represented_curves.issubset(omission_paths):
         raise ModelValidationError("component uncertainty must explicitly omit every fixed PFS and OS curve")
+    if schema_version == JOINT_SCHEMA_VERSION:
+        if represented_curves & omission_paths:
+            raise ModelValidationError("joint component uncertainty must not list represented PFS or OS curves as omitted")
+        required_structural = {
+            "partitioned_survival.structural.curve_family_selection",
+            "partitioned_survival.structural.extrapolation_assumptions",
+            "partitioned_survival.structural.source_model_validity",
+        }
+        if not required_structural.issubset(omission_paths):
+            raise ModelValidationError("joint component uncertainty must declare all required structural omissions")
     scenarios = tuple(_scenario(item, index, analysis) for index, item in enumerate(_array(value.get("structural_scenarios"), "structural_scenarios")))
     if not scenarios:
         raise ModelValidationError("at least one structural scenario is required")
@@ -552,7 +642,12 @@ def _recompute(analysis: dict[str, Any], cost: dict[str, Any], utility: dict[str
     )
 
 
-def _run_psa(specification: ComponentSpecification, strategy_order: list[str], evaluate: Any) -> dict[str, Any]:
+def _run_psa(
+    specification: ComponentSpecification,
+    strategy_order: list[str],
+    evaluate: Any,
+    joint_curve_plans: Any = None,
+) -> dict[str, Any]:
     from .uncertainty import Pcg32, _multi_strategy_decision_uncertainty
 
     rng = Pcg32(specification.seed)
@@ -562,7 +657,8 @@ def _run_psa(specification: ComponentSpecification, strategy_order: list[str], e
     nmb = {strategy: [] for strategy in strategy_order}
     checkpoints = []
     for iteration in range(1, specification.iterations + 1):
-        result = evaluate(_sample_values(rng, specification))
+        curve_plan = next(joint_curve_plans) if joint_curve_plans is not None else None
+        result = evaluate(_sample_values(rng, specification), curve_plan=curve_plan)
         costs = [result["strategies"][strategy]["total_cost"] for strategy in strategy_order]
         qalys = [result["strategies"][strategy]["total_qaly"] for strategy in strategy_order]
         values = [specification.primary_threshold * qaly - cost for cost, qaly in zip(costs, qalys)]

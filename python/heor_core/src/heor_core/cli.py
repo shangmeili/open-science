@@ -61,12 +61,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--joint-survival-uncertainty-manifest",
         type=Path,
-        help="Required manifest for uncertainty schema 0.12.0",
+        help="Required manifest for uncertainty schema 0.12.0 or 0.14.0",
     )
     parser.add_argument(
         "--joint-survival-draws",
         type=Path,
-        help="Required JSONL joint PFS/OS draws for uncertainty schema 0.12.0",
+        help="Required JSONL joint PFS/OS draws for uncertainty schema 0.12.0 or 0.14.0",
     )
     return parser
 
@@ -115,9 +115,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         raw = args.input.read_bytes()
         payload = json.loads(raw)
-        if any(item is not None for item in joint_options) and payload.get("schema_version") != "0.12.0":
+        if any(item is not None for item in joint_options) and payload.get("schema_version") not in {"0.12.0", "0.15.0"}:
             raise ModelValidationError(
-                "joint survival artifacts require analysis schema 0.12.0"
+                "joint survival artifacts require analysis schema 0.12.0 or 0.15.0"
             )
         if (
             args.uncertainty_plan is None
@@ -130,7 +130,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.uncertainty_plan is not None:
             uncertainty_raw = args.uncertainty_plan.read_bytes()
             uncertainty_payload = json.loads(uncertainty_raw)
-            if uncertainty_payload.get("schema_version") == "0.13.0":
+            if uncertainty_payload.get("schema_version") in {"0.13.0", "0.14.0"}:
+                joint_components = uncertainty_payload.get("schema_version") == "0.14.0"
                 required = (
                     args.partitioned_survival_plan,
                     args.survival_curve_materializations,
@@ -143,7 +144,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     item is None for item in required
                 ):
                     raise ModelValidationError(
-                        "uncertainty schema 0.13.0 requires analysis schema 0.15.0 and all six current PSM artifact options"
+                        "uncertainty schema 0.13.0 or 0.14.0 requires analysis schema 0.15.0 and all six current PSM artifact options"
+                    )
+                if joint_components != all(item is not None for item in joint_options):
+                    raise ModelValidationError(
+                        "uncertainty schema 0.14.0 requires both joint survival artifact options; schema 0.13.0 forbids them"
                     )
                 partitioned_raw = args.partitioned_survival_plan.read_bytes()
                 partitioned_payload = json.loads(partitioned_raw)
@@ -153,6 +158,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cost_raw = args.cost_input_normalization.read_bytes()
                 utility_raw = args.utility_inputs.read_bytes()
                 event_raw = args.event_disutilities.read_bytes()
+                joint_manifest_raw = (
+                    args.joint_survival_uncertainty_manifest.read_bytes()
+                    if joint_components
+                    else None
+                )
+                joint_draws_raw = (
+                    args.joint_survival_draws.read_bytes() if joint_components else None
+                )
                 result = run_uncertainty(
                     payload,
                     raw,
@@ -170,10 +183,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                     utility_inputs_raw=utility_raw,
                     event_disutilities=json.loads(event_raw),
                     event_disutilities_raw=event_raw,
+                    joint_survival_manifest=(
+                        json.loads(joint_manifest_raw)
+                        if joint_manifest_raw is not None
+                        else None
+                    ),
+                    joint_survival_manifest_raw=joint_manifest_raw,
+                    joint_survival_draws_raw=joint_draws_raw,
                 )
             elif payload.get("schema_version") in {"0.14.0", "0.15.0"}:
                 raise ModelValidationError(
-                    "analysis schema 0.14.0 or 0.15.0 requires component uncertainty schema 0.13.0"
+                    "analysis schema 0.14.0 or 0.15.0 requires component uncertainty schema 0.13.0 or 0.14.0"
                 )
             elif payload.get("schema_version") == "0.12.0":
                 if (

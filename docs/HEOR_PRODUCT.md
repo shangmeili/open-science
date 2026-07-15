@@ -564,6 +564,16 @@ with scope `cost_utility_event_components_only`. Survival remains fixed and
 every strategy PFS/OS curve is an explicit omission, so the result is not a
 complete PSM PSA or structural uncertainty analysis.
 
+When reviewed joint PFS/OS rows also exist, current uncertainty schema `0.14.0`
+binds manifest `0.3.0` and the JSONL draw bytes in addition to all six component
+artifacts. Every PSA iteration combines exactly one complete curve row with one
+recomputed component draw. Results are labeled
+`joint_curve_and_component_parameter_uncertainty` with scope
+`joint_survival_curves_and_cost_utility_event_components`. This closes the split
+between the two partial parameter PSAs, but curve selection, extrapolation,
+source-model validity, treatment-duration alternatives, and independent
+validation remain outside the result.
+
 ## Implemented budget impact boundary
 
 The first-party `$heor-budget-impact` skill creates

@@ -81,6 +81,7 @@ UNCERTAINTY_SCHEMA_VERSION = "0.10.0"
 PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION = "0.11.0"
 JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION = "0.12.0"
 COMPONENT_UNCERTAINTY_SCHEMA_VERSION = "0.13.0"
+JOINT_COMPONENT_UNCERTAINTY_SCHEMA_VERSION = "0.14.0"
 PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS = {
     PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
     JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
@@ -575,7 +576,14 @@ def run_uncertainty(
     event_disutilities: dict[str, Any] | None = None,
     event_disutilities_raw: bytes | None = None,
 ) -> dict[str, Any]:
-    if uncertainty_payload.get("schema_version") == COMPONENT_UNCERTAINTY_SCHEMA_VERSION:
+    if uncertainty_payload.get("schema_version") in {
+        COMPONENT_UNCERTAINTY_SCHEMA_VERSION,
+        JOINT_COMPONENT_UNCERTAINTY_SCHEMA_VERSION,
+    }:
+        joint_components = (
+            uncertainty_payload.get("schema_version")
+            == JOINT_COMPONENT_UNCERTAINTY_SCHEMA_VERSION
+        )
         required = (
             partitioned_plan,
             partitioned_raw,
@@ -593,6 +601,31 @@ def run_uncertainty(
         if any(item is None for item in required):
             raise ModelValidationError(
                 "component uncertainty requires all current partitioned-survival, cost, utility, and event artifacts"
+            )
+        if joint_components:
+            if (
+                joint_survival_manifest is None
+                or joint_survival_manifest_raw is None
+                or joint_survival_draws_raw is None
+            ):
+                raise ModelValidationError(
+                    "joint component uncertainty requires the manifest and JSONL draw artifact"
+                )
+            _validate_joint_survival_uncertainty_bindings(
+                uncertainty_payload,
+                joint_survival_manifest_raw,
+                joint_survival_draws_raw,
+            )
+        elif any(
+            item is not None
+            for item in (
+                joint_survival_manifest,
+                joint_survival_manifest_raw,
+                joint_survival_draws_raw,
+            )
+        ):
+            raise ModelValidationError(
+                "joint survival artifacts require uncertainty schema_version 0.12.0 or 0.14.0"
             )
         from .component_uncertainty import run_component_uncertainty
 
@@ -613,6 +646,9 @@ def run_uncertainty(
             utility_inputs_raw,
             event_disutilities,
             event_disutilities_raw,
+            joint_survival_manifest,
+            joint_survival_manifest_raw,
+            joint_survival_draws_raw,
         )
     base_sha256 = hashlib.sha256(base_raw).hexdigest()
     uncertainty_sha256 = hashlib.sha256(uncertainty_raw).hexdigest()

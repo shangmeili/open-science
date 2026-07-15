@@ -188,11 +188,14 @@ class JointSurvivalTemplateContractTests(unittest.TestCase):
         uncertainty_plan = json.loads((
             ROOT / "runtime/skills/core/heor-uncertainty-analysis/assets/partitioned-survival-joint-uncertainty.template.json"
         ).read_text())
+        current_uncertainty_plan = json.loads((
+            ROOT / "runtime/skills/core/heor-uncertainty-analysis/assets/partitioned-survival-joint-component-uncertainty.template.json"
+        ).read_text())
         example_rows = (
             ROOT / "runtime/skills/core/heor-joint-survival-uncertainty/assets/joint-survival-draws.example.jsonl"
         ).read_text().splitlines()
 
-        self.assertEqual(manifest["schema_version"], "0.2.0")
+        self.assertEqual(manifest["schema_version"], "0.3.0")
         self.assertEqual(
             manifest["treatment_effect_duration"]["path"],
             "heor/treatment-effect-duration.json",
@@ -213,6 +216,20 @@ class JointSurvivalTemplateContractTests(unittest.TestCase):
             for item in uncertainty_plan["probabilistic_analysis"]["omitted_parameters"]
         }
         self.assertEqual(omissions, joint_survival_uncertainty.STRUCTURAL_OMISSIONS)
+        self.assertEqual(current_uncertainty_plan["schema_version"], "0.14.0")
+        self.assertEqual(
+            set(current_uncertainty_plan["joint_survival_inputs"]),
+            {"manifest", "draws"},
+        )
+        current_omissions = {
+            item["provenance_path"]
+            for item in current_uncertainty_plan["probabilistic_analysis"]["omitted_parameters"]
+        }
+        self.assertEqual(current_omissions, {
+            "partitioned_survival.structural.curve_family_selection",
+            "partitioned_survival.structural.extrapolation_assumptions",
+            "partitioned_survival.structural.source_model_validity",
+        })
         self.assertEqual(len(example_rows), 1)
         self.assertEqual(set(json.loads(example_rows[0])), {"draw_index", "curves"})
 

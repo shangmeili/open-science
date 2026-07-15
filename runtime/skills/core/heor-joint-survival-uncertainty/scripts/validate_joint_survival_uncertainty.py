@@ -15,6 +15,7 @@ from pathlib import Path
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
 LEGACY_SCHEMA_VERSION = "0.1.0"
 DURATION_SCHEMA_VERSION = "0.2.0"
+CURRENT_SCHEMA_VERSION = "0.3.0"
 DRAW_FORMAT = "ai4heor-joint-survival-draws-jsonl@0.1.0"
 DRAW_PATH = "heor/joint-survival-draws.jsonl"
 MAX_DRAW_BYTES = 128 * 1024 * 1024
@@ -166,12 +167,13 @@ def validate(
     uncertainty, uncertainty_raw = load_object(uncertainty_path)
     manifest, manifest_raw = load_object(manifest_path)
     draws_raw = draws_path.read_bytes()
-    duration_required = psm.get("schema_version") == "0.4.0"
+    psm_schema = psm.get("schema_version")
+    duration_required = psm_schema in {"0.4.0", "0.7.0"}
     duration_raw = duration_path.read_bytes() if duration_path is not None else None
     errors: list[str] = []
 
     expected_fields = MANIFEST_FIELDS | ({"treatment_effect_duration"} if duration_required else set())
-    expected_schema = DURATION_SCHEMA_VERSION if duration_required else LEGACY_SCHEMA_VERSION
+    expected_schema = CURRENT_SCHEMA_VERSION if psm_schema == "0.7.0" else DURATION_SCHEMA_VERSION if duration_required else LEGACY_SCHEMA_VERSION
     if set(manifest) != expected_fields:
         errors.append(f"manifest fields do not match schema {expected_schema} exactly")
     if manifest.get("schema_version") != expected_schema:
@@ -180,12 +182,15 @@ def validate(
         errors.append("survival_uncertainty_id must not be empty")
     if manifest.get("status") != "ready_for_human_review":
         errors.append("manifest status must be ready_for_human_review")
-    if analysis.get("schema_version") != "0.12.0":
-        errors.append("analysis schema_version must be 0.12.0")
-    if psm.get("schema_version") not in {"0.3.0", "0.4.0"}:
-        errors.append("partitioned-survival schema_version must be 0.3.0 or 0.4.0")
-    if uncertainty.get("schema_version") != "0.12.0":
-        errors.append("uncertainty schema_version must be 0.12.0")
+    expected_pair = (
+        ("0.15.0", "0.7.0", "0.14.0")
+        if psm_schema == "0.7.0"
+        else ("0.12.0", "0.4.0", "0.12.0")
+        if psm_schema == "0.4.0"
+        else ("0.12.0", "0.3.0", "0.12.0")
+    )
+    if (analysis.get("schema_version"), psm_schema, uncertainty.get("schema_version")) != expected_pair:
+        errors.append("analysis, PSM, and uncertainty schemas do not match an admitted joint-survival pairing")
     if manifest.get("analysis_id") != analysis.get("analysis_id") or psm.get("analysis_id") != analysis.get("analysis_id"):
         errors.append("analysis_id must match across analysis, PSM, and manifest")
     if manifest.get("psm_id") != psm.get("psm_id"):
@@ -196,11 +201,11 @@ def validate(
     exact_binding(manifest.get("curve_materializations"), "heor/survival-curve-materializations.json", materializations_raw, "curve_materializations", errors)
     if duration_required:
         if duration_raw is None:
-            errors.append("PSM schema 0.4.0 requires --treatment-effect-duration")
+            errors.append("PSM schema 0.4.0 or 0.7.0 requires --treatment-effect-duration")
         else:
             exact_binding(manifest.get("treatment_effect_duration"), "heor/treatment-effect-duration.json", duration_raw, "treatment_effect_duration", errors)
     elif duration_raw is not None or "treatment_effect_duration" in manifest:
-        errors.append("treatment-effect duration requires PSM schema 0.4.0")
+        errors.append("treatment-effect duration requires PSM schema 0.4.0 or 0.7.0")
 
     order = analysis.get("strategy_order")
     if not string_list(order):
