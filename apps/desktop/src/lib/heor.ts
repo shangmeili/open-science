@@ -814,7 +814,10 @@ export interface HeorUncertaintyCalculation {
   uncertainty_plan_sha256: string;
   prng: { algorithm: string; version: string };
   seed: string;
-  calculation_classification: "calculation_only";
+  calculation_classification: "calculation_only" | "partial_parameter_uncertainty";
+  uncertainty_scope?: "declared_model_parameters" | "economic_inputs_only";
+  partitioned_survival_plan_sha256?: string;
+  survival_curve_materializations_sha256?: string;
   economic_basis: HeorCalculation["economic_basis"];
   base_case: HeorIncrementalResult | {
     strategy_order: string[];

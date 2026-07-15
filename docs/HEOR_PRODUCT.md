@@ -503,7 +503,7 @@ by every member distribution. The current desktop bridge
 limits PSA to 10,000 draws because it returns every draw for audit; larger runs
 require a future streamed, content-addressed result artifact. The app reports
 cost-effectiveness probability and checkpoint Monte Carlo diagnostics.
-Schemas `0.2.0` through `0.7.0` require a declared 2–101 point threshold grid containing
+Schemas `0.2.0` through `0.11.0` require a declared 2–101 point threshold grid containing
 the analysis plan's primary willingness-to-pay value. The grid must come from
 the stated decision context or a human instruction; neither the Agent nor a
 form may invent a jurisdictional threshold.
@@ -526,6 +526,17 @@ singular matrices, known omitted correlations, or invalid scenarios. The engine
 does not infer correlations from shared sources, convert original-scale matrices,
 or implement arbitrary copulas, rank correlation, empirical posterior draws, or
 perfect correlation.
+
+For partitioned-survival analysis schema `0.12.0`, uncertainty schema `0.11.0`
+adds an intentionally partial economic-input analysis. It hash-binds the fixed
+PSM plan and survival-curve materializations; permits only exact state-cost or
+state-utility scalars plus bounded reward/discount/half-cycle scenarios; and
+requires every strategy's PFS and OS curve to be listed as omitted. The engine
+returns `partial_parameter_uncertainty` with scope `economic_inputs_only`, and
+the auxiliary review surface labels conditional EVPI accordingly. Survival
+parameters, covariance, curve selection, extrapolation alternatives, and joint
+PFS/OS uncertainty remain outside the calculation and continue to block a
+release-ready PSM interpretation.
 
 ## Implemented budget impact boundary
 

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import math
@@ -48,6 +49,7 @@ SCENARIO_TARGETS = {
 }
 SUPPORTED_DISTRIBUTIONS = {"beta", "gamma", "lognormal", "uniform", "dirichlet"}
 HAZARD_RATIO_SCHEMA_VERSION = "0.10.0"
+PARTITIONED_SURVIVAL_SCHEMA_VERSION = "0.11.0"
 RELATIVE_EFFECT_SCHEMA_VERSION = "0.9.0"
 BACKGROUND_SCHEMA_VERSION = "0.8.0"
 CURRENT_SCHEMA_VERSION = "0.7.0"
@@ -96,7 +98,7 @@ def positive_number(value: object) -> bool:
 
 
 def allowed_strategy_ids(plan: dict) -> set[str]:
-    if plan.get("schema_version") not in {"0.8.0", "0.9.0", "0.10.0", "0.11.0"}:
+    if plan.get("schema_version") not in {"0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0"}:
         return {"comparator", "intervention"}
     order = plan.get("strategy_order")
     strategies = plan.get("strategies")
@@ -227,7 +229,12 @@ def correlation_matrix_errors(value: object, size: int, label: str) -> list[str]
     return []
 
 
-def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
+def validate(
+    uncertainty_path: Path,
+    plan_path: Path,
+    partitioned_path: Path | None = None,
+    materializations_path: Path | None = None,
+) -> list[str]:
     value, _ = load(uncertainty_path)
     plan, plan_raw = load(plan_path)
     errors: list[str] = []
@@ -243,8 +250,10 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         BACKGROUND_SCHEMA_VERSION,
         RELATIVE_EFFECT_SCHEMA_VERSION,
         HAZARD_RATIO_SCHEMA_VERSION,
+        PARTITIONED_SURVIVAL_SCHEMA_VERSION,
+        PARTITIONED_SURVIVAL_SCHEMA_VERSION,
     }:
-        errors.append("schema_version must be 0.1.0 through 0.10.0")
+        errors.append("schema_version must be 0.1.0 through 0.11.0")
     analysis_schema = plan.get("schema_version")
     if (analysis_schema == "0.8.0") != (schema_version == CURRENT_SCHEMA_VERSION):
         errors.append(
@@ -262,11 +271,15 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         errors.append(
             "analysis schema_version 0.11.0 and uncertainty schema_version 0.10.0 must be used together"
         )
-    multi_strategy_base = analysis_schema in {"0.8.0", "0.9.0", "0.10.0", "0.11.0"}
+    if (analysis_schema == "0.12.0") != (schema_version == PARTITIONED_SURVIVAL_SCHEMA_VERSION):
+        errors.append(
+            "analysis schema_version 0.12.0 and uncertainty schema_version 0.11.0 must be used together"
+        )
+    multi_strategy_base = analysis_schema in {"0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0"}
     strategy_ids = allowed_strategy_ids(plan)
     if multi_strategy_base and not strategy_ids:
         errors.append(
-            "analysis schema 0.8.0 through 0.11.0 strategy_order, strategies, and baseline_strategy_id are invalid"
+            "analysis schema 0.8.0 through 0.12.0 strategy_order, strategies, and baseline_strategy_id are invalid"
         )
     for field in ("uncertainty_id", "analysis_id"):
         if not text(value.get(field)):
@@ -286,6 +299,35 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
     link = plan.get("uncertainty_analysis") or {}
     if link.get("path") != "heor/uncertainty-plan.json":
         errors.append("plan must link heor/uncertainty-plan.json")
+    if schema_version == PARTITIONED_SURVIVAL_SCHEMA_VERSION:
+        if partitioned_path is None or materializations_path is None:
+            errors.append(
+                "schema 0.11.0 requires --partitioned-survival-plan and --survival-curve-materializations"
+            )
+        else:
+            try:
+                partitioned, partitioned_raw = load(partitioned_path)
+                materializations, materializations_raw = load(materializations_path)
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                errors.append(f"partitioned-survival artifact is invalid: {error}")
+            else:
+                inputs = value.get("partitioned_survival_inputs")
+                if not isinstance(inputs, dict) or set(inputs) != {"plan", "curve_materializations"}:
+                    errors.append("partitioned_survival_inputs must contain only plan and curve_materializations")
+                else:
+                    for field, path, raw in (
+                        ("plan", "heor/partitioned-survival-plan.json", partitioned_raw),
+                        ("curve_materializations", "heor/survival-curve-materializations.json", materializations_raw),
+                    ):
+                        binding = inputs.get(field)
+                        if not isinstance(binding, dict) or set(binding) != {"path", "content_sha256"} or binding.get("path") != path or binding.get("content_sha256") != hashlib.sha256(raw).hexdigest():
+                            errors.append(f"partitioned_survival_inputs.{field} does not bind the current artifact bytes")
+                if partitioned.get("schema_version") != "0.3.0" or partitioned.get("analysis_id") != plan.get("analysis_id"):
+                    errors.append("partitioned-survival plan must be schema 0.3.0 for the current analysis")
+                if materializations.get("schema_version") != "0.1.0" or materializations.get("analysis_id") != plan.get("analysis_id"):
+                    errors.append("survival-curve materializations must be schema 0.1.0 for the current analysis")
+    elif partitioned_path is not None or materializations_path is not None or "partitioned_survival_inputs" in value:
+        errors.append("partitioned-survival artifacts require uncertainty schema_version 0.11.0")
     seed = value.get("seed")
     if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed < 2**64:
         errors.append("seed must be an unsigned 64-bit integer")
@@ -345,6 +387,12 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
             target_allowed = True
         if schema_version == HAZARD_RATIO_SCHEMA_VERSION and not hazard_match:
             target_allowed = False
+        if schema_version == PARTITIONED_SURVIVAL_SCHEMA_VERSION:
+            target_allowed = bool(
+                direct_target
+                and direct_strategy_id in strategy_ids
+                and ("/state_costs/" in target or "/state_utilities/" in target)
+            )
         if not text(identifier) or identifier in ids:
             errors.append(f"{label}.id must be non-empty and unique")
         else:
@@ -362,6 +410,10 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
                 errors.append(f"{label}.target does not exist in the plan")
         provenance_path = parameter.get("provenance_path")
         mapping = mappings.get(provenance_path)
+        if schema_version == PARTITIONED_SURVIVAL_SCHEMA_VERSION and text(target):
+            expected_path = target.rsplit("/", 1)[0].removeprefix("/").replace("/", ".")
+            if provenance_path != expected_path:
+                errors.append(f"{label}.provenance_path must exactly match the economic reward-vector path")
         mapping_strategy_id = provenance_strategy_id(provenance_path)
         if mapping_strategy_id is not None and mapping_strategy_id not in strategy_ids:
             errors.append(
@@ -636,6 +688,15 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
             )
         ):
             errors.append(f"{label}.deterministic bounds must bracket the base value")
+        if schema_version == PARTITIONED_SURVIVAL_SCHEMA_VERSION:
+            if "/state_costs/" in str(target) and finite_number(deterministic.get("low")) and deterministic["low"] < 0:
+                errors.append(f"{label}.state-cost deterministic bounds must be non-negative")
+            if "/state_utilities/" in str(target) and not (
+                finite_number(deterministic.get("low"))
+                and finite_number(deterministic.get("high"))
+                and -1 <= deterministic["low"] < deterministic["high"] <= 1
+            ):
+                errors.append(f"{label}.state-utility deterministic bounds must stay within -1 and 1")
         if (
             relative_match
             and relative_measure == "risk_ratio"
@@ -692,6 +753,24 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
             bounded_probability=bool(probability_match),
         ):
             errors.append(f"{label}.probabilistic distribution parameters are invalid")
+        if schema_version == PARTITIONED_SURVIVAL_SCHEMA_VERSION:
+            if "/state_costs/" in str(target):
+                if probabilistic.get("type") not in {"gamma", "lognormal", "uniform"}:
+                    errors.append(f"{label}.state-cost PSA must use Gamma, Lognormal, or Uniform")
+                if probabilistic.get("type") == "uniform" and (
+                    not finite_number(probabilistic.get("low")) or probabilistic["low"] < 0
+                ):
+                    errors.append(f"{label}.state-cost Uniform low must be non-negative")
+            elif "/state_utilities/" in str(target):
+                if probabilistic.get("type") == "uniform":
+                    if not (
+                        finite_number(probabilistic.get("low"))
+                        and finite_number(probabilistic.get("high"))
+                        and -1 <= probabilistic["low"] < probabilistic["high"] <= 1
+                    ):
+                        errors.append(f"{label}.state-utility Uniform bounds must stay within -1 and 1")
+                elif probabilistic.get("type") != "beta":
+                    errors.append(f"{label}.state-utility PSA must use Beta or bounded Uniform")
         if relative_match and relative_measure == "risk_ratio":
             if probabilistic.get("type") != "uniform":
                 errors.append(
@@ -737,6 +816,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         BACKGROUND_SCHEMA_VERSION,
         RELATIVE_EFFECT_SCHEMA_VERSION,
         HAZARD_RATIO_SCHEMA_VERSION,
+        PARTITIONED_SURVIVAL_SCHEMA_VERSION,
     }:
         threshold_config = threshold_config if isinstance(threshold_config, dict) else {}
         thresholds = threshold_config.get("values")
@@ -755,7 +835,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         if not text(threshold_config.get("rationale")):
             errors.append("decision thresholds rationale is required")
     elif threshold_config is not None:
-        errors.append("decision thresholds require schema_version 0.2.0 through 0.10.0")
+        errors.append("decision thresholds require schema_version 0.2.0 through 0.11.0")
     convergence = psa.get("convergence") or {}
     checkpoints = convergence.get("checkpoints")
     if not (
@@ -774,7 +854,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
     correlation = psa.get("correlation_handling") or {}
     if not text(correlation.get("independence_rationale")):
         errors.append("correlation_handling.independence_rationale is required")
-    if schema_version in {CORRELATION_SCHEMA_VERSION, SURVIVAL_SCHEMA_VERSION, PROBABILITY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION, BACKGROUND_SCHEMA_VERSION, RELATIVE_EFFECT_SCHEMA_VERSION, HAZARD_RATIO_SCHEMA_VERSION}:
+    if schema_version in {CORRELATION_SCHEMA_VERSION, SURVIVAL_SCHEMA_VERSION, PROBABILITY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION, BACKGROUND_SCHEMA_VERSION, RELATIVE_EFFECT_SCHEMA_VERSION, HAZARD_RATIO_SCHEMA_VERSION, PARTITIONED_SURVIVAL_SCHEMA_VERSION}:
         groups = correlation.get("groups")
         if not isinstance(groups, list) or len(groups) > MAX_CORRELATION_GROUPS:
             errors.append(
@@ -847,7 +927,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
             if not text(group.get("rationale")):
                 errors.append(f"{label}.rationale is required")
     elif "groups" in correlation:
-        errors.append("correlation groups require schema_version 0.4.0 through 0.10.0")
+        errors.append("correlation groups require schema_version 0.4.0 through 0.11.0")
     if correlation.get("known_omitted_correlations") != []:
         errors.append("known_omitted_correlations must be resolved before review")
     omitted = psa.get("omitted_parameters")
@@ -858,6 +938,15 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
         for item in omitted
     ):
         errors.append("omitted_parameters must contain provenance_path and rationale")
+    elif schema_version == PARTITIONED_SURVIVAL_SCHEMA_VERSION:
+        expected_omissions = {
+            f"partitioned_survival.strategies.{strategy_id}.{endpoint}"
+            for strategy_id in strategy_ids
+            for endpoint in ("pfs", "os")
+        }
+        declared_omissions = {item["provenance_path"] for item in omitted}
+        if not expected_omissions.issubset(declared_omissions):
+            errors.append("schema 0.11.0 must explicitly omit every fixed PFS and OS curve")
 
     scenarios = value.get("structural_scenarios")
     if not isinstance(scenarios, list) or not 1 <= len(scenarios) <= 64:
@@ -905,7 +994,7 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
             ) if text(target) else False
             target_allowed = (
                 background_allowed
-                if schema_version in {BACKGROUND_SCHEMA_VERSION, RELATIVE_EFFECT_SCHEMA_VERSION, HAZARD_RATIO_SCHEMA_VERSION}
+                if schema_version in {BACKGROUND_SCHEMA_VERSION, RELATIVE_EFFECT_SCHEMA_VERSION, HAZARD_RATIO_SCHEMA_VERSION, PARTITIONED_SURVIVAL_SCHEMA_VERSION}
                 else ordinary_allowed
             )
             if not text(target) or not target_allowed or target in replacement_targets:
@@ -925,11 +1014,19 @@ def validate(uncertainty_path: Path, plan_path: Path) -> list[str]:
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print("usage: validate_uncertainty_plan.py UNCERTAINTY.json ANALYSIS_PLAN.json", file=sys.stderr)
-        return 2
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("uncertainty_plan", type=Path)
+    parser.add_argument("analysis_plan", type=Path)
+    parser.add_argument("--partitioned-survival-plan", type=Path)
+    parser.add_argument("--survival-curve-materializations", type=Path)
+    args = parser.parse_args()
     try:
-        errors = validate(Path(sys.argv[1]), Path(sys.argv[2]))
+        errors = validate(
+            args.uncertainty_plan,
+            args.analysis_plan,
+            args.partitioned_survival_plan,
+            args.survival_curve_materializations,
+        )
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"INVALID: {error}", file=sys.stderr)
         return 1

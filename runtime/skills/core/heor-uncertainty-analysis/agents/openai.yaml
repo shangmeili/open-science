@@ -1,4 +1,4 @@
 interface:
   display_name: "HEOR Uncertainty Analysis"
-  short_description: "Audit multi-strategy DSA, PSA, CEAC and EVPI"
-  default_prompt: "Use $heor-uncertainty-analysis to create a hash-bound multi-strategy uncertainty plan with evidence-supported distributions, CEAC, CEAF, and EVPI."
+  short_description: "Audit HEOR DSA, PSA, partial PSM uncertainty and EVPI"
+  default_prompt: "Use $heor-uncertainty-analysis to create a hash-bound uncertainty plan with evidence-supported distributions, explicit omissions, CEAC, CEAF, and EVPI; classify PSM economic-only analysis as partial uncertainty."

@@ -58,6 +58,55 @@ def run_partitioned_survival(
         materializations_raw,
     )
 
+    result = calculate_partitioned_survival(specification, partitioned_plan)
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "partitioned_survival_plan_schema_version": plan_schema,
+        "engine_version": ENGINE_VERSION,
+        "analysis_id": specification.analysis_id,
+        "psm_id": partitioned_plan["psm_id"],
+        "analysis_plan_sha256": hashlib.sha256(analysis_raw).hexdigest(),
+        "partitioned_survival_plan_sha256": hashlib.sha256(
+            partitioned_raw
+        ).hexdigest(),
+        "survival_curve_materializations_sha256": hashlib.sha256(
+            materializations_raw
+        ).hexdigest(),
+        "calculation_classification": "calculation_only",
+        "model_type": "partitioned_survival",
+        "state_order": list(STATE_ORDER),
+        "time_origin": partitioned_plan["time_origin"],
+        **result,
+        "limitations": list(partitioned_plan["limitations"]),
+        "warnings": [
+            "PFS and OS were evaluated as independently supplied curves; "
+            "their extrapolated dependency is not estimated by this calculator.",
+            *(
+                [
+                    "Legacy schema 0.2.0 transition inputs were validated for "
+                    "compatibility but were not used by this calculation."
+                ]
+                if plan_schema == LEGACY_SCHEMA_VERSION
+                else []
+            ),
+            "Workflow authorization, evidence verification, and independent "
+            "validation are app-owned human controls.",
+        ],
+    }
+
+
+def calculate_partitioned_survival(
+    specification: EconomicSpecification,
+    partitioned_plan: dict[str, Any],
+) -> dict[str, Any]:
+    """Evaluate already validated fixed curves against economic inputs.
+
+    This narrow entry point exists so economic-input sensitivity analyses can
+    reuse the deterministic PSM calculation after the fixed curve artifacts
+    have been hash-validated once. Callers must not use it to bypass the
+    public artifact-validation boundary.
+    """
+
     strategy_results: list[tuple[str, StrategyResult]] = []
     curve_values = partitioned_plan["strategies"]
     for strategy_id in specification.strategy_order:
@@ -136,22 +185,6 @@ def run_partitioned_survival(
         if strategy_id != specification.baseline_strategy_id
     }
     return {
-        "schema_version": SCHEMA_VERSION,
-        "partitioned_survival_plan_schema_version": plan_schema,
-        "engine_version": ENGINE_VERSION,
-        "analysis_id": specification.analysis_id,
-        "psm_id": partitioned_plan["psm_id"],
-        "analysis_plan_sha256": hashlib.sha256(analysis_raw).hexdigest(),
-        "partitioned_survival_plan_sha256": hashlib.sha256(
-            partitioned_raw
-        ).hexdigest(),
-        "survival_curve_materializations_sha256": hashlib.sha256(
-            materializations_raw
-        ).hexdigest(),
-        "calculation_classification": "calculation_only",
-        "model_type": "partitioned_survival",
-        "state_order": list(STATE_ORDER),
-        "time_origin": partitioned_plan["time_origin"],
         "economic_basis": {
             "currency": specification.currency,
             "price_year": specification.price_year,
@@ -172,21 +205,6 @@ def run_partitioned_survival(
             result_map,
             specification.willingness_to_pay,
         ),
-        "limitations": list(partitioned_plan["limitations"]),
-        "warnings": [
-            "PFS and OS were evaluated as independently supplied curves; "
-            "their extrapolated dependency is not estimated by this calculator.",
-            *(
-                [
-                    "Legacy schema 0.2.0 transition inputs were validated for "
-                    "compatibility but were not used by this calculation."
-                ]
-                if plan_schema == LEGACY_SCHEMA_VERSION
-                else []
-            ),
-            "Workflow authorization, evidence verification, and independent "
-            "validation are app-owned human controls.",
-        ],
     }
 
 

@@ -260,7 +260,7 @@
     "thresholds": "Decision thresholds",
     "scenarios": "Scenarios",
     "askRepair": "Ask agent to create or repair uncertainty analysis",
-    "repairPrompt": "Use $heor-uncertainty-analysis to create or repair heor/uncertainty-plan.json for the exact current analysis-plan bytes. Pair analysis 0.10.0 only with uncertainty 0.9.0 and preserve valid older pairs. For a relative-effect transformation, target only relative_effect.value and keep baseline risks, measure, review bases, and schedule structure fixed. RR permits only a strictly positive bounded Uniform PSA distribution, with both DSA high and Uniform high strictly below 1/max(positive baseline q); OR permits Lognormal or strictly positive bounded Uniform. Reject rather than defer invalid bounds that could make a PSA draw produce probability 1 or greater. Structural scenarios may change only cost or utility scalars, discount rates, or half-cycle correction. Derive all ranges and distributions only from linked evidence or explicit human instruction, run deterministic validation, and do not create or claim human approval.",
+    "repairPrompt": "Use $heor-uncertainty-analysis to create or repair heor/uncertainty-plan.json for the exact current analysis-plan bytes. For partitioned survival analysis 0.12.0, use uncertainty 0.11.0 with $heor-partitioned-survival and $heor-economic-inputs: vary only exact state-cost or state-utility scalars, hash-bind the fixed PSM plan and curve materializations, and explicitly list every PFS and OS curve as omitted. Label the result economic-input-only partial parameter uncertainty; survival parameter, curve-selection, extrapolation, and joint PFS/OS uncertainty remain release blockers. Preserve valid older pairs, including analysis 0.10.0 with uncertainty 0.9.0 and analysis 0.11.0 with uncertainty 0.10.0. Derive all ranges, distributions, and correlations only from linked evidence or explicit human instruction, run deterministic validation, and do not create or claim human approval.",
     "note": "The app audits and hash-binds this executable specification. Reproducible simulation is not independent validation or a reimbursement recommendation.",
     "noProject": "No active project is available for an uncertainty audit.",
     "missingPlan": "An analysis plan is required before the uncertainty audit."
@@ -398,6 +398,9 @@
     "correlations": "Correlation groups",
     "scenarios": "Structural scenarios",
     "primaryEvpi": "Per-person EVPI · primary threshold",
+    "partialEvpi": "Conditional EVPI · economic inputs only",
+    "partialEconomicOnly": "Partial parameter uncertainty",
+    "partialEconomicOnlyDetail": "Only state costs and utilities vary. Survival curves remain fixed, so this is not a complete partitioned-survival PSA and is not release-ready evidence.",
     "evpiMcse": "EVPI Monte Carlo SE",
     "ceacTitle": "Cost-effectiveness acceptability curve",
     "ceacSubtitle": "Declared threshold grid; probabilities estimated from the same bounded PSA draws.",

@@ -9,12 +9,13 @@ The canonical artifact is `heor/uncertainty-plan.json`. It is an executable spec
 - `base_analysis.content_sha256` is the lowercase SHA-256 of the current plan bytes.
 - The analysis plan contains only the fixed artifact path under `uncertainty_analysis`; the app records the uncertainty artifact hash in the app-owned analysis-plan approval event. This avoids a circular pair of file hashes.
 - A changed plan or uncertainty artifact invalidates the relevant approval binding.
+- Under analysis `0.12.0` with uncertainty `0.11.0`, `partitioned_survival_inputs.plan` and `partitioned_survival_inputs.curve_materializations` additionally bind the exact current PSM plan and curve-materialization bytes. This is a one-way uncertainty-artifact binding and does not change either source artifact.
 
 ## Parameter contract
 
 Each parameter contains a stable `id`, label, JSON Pointer `target`, dot-path `provenance_path`, deterministic bounds and rationale, and a probabilistic distribution with basis IDs and rationale.
 
-Allowed parameter targets use `/strategies/<strategy_id>/...`; analysis schemas `0.8.0` through `0.11.0` IDs come from `strategy_order`, while legacy plans use comparator/intervention roles:
+Allowed parameter targets use `/strategies/<strategy_id>/...`; analysis schemas `0.8.0` through `0.12.0` IDs come from `strategy_order`, while legacy plans use comparator/intervention roles:
 
 - scalar state costs and utilities;
 - a complete static transition-matrix row;
@@ -25,6 +26,9 @@ Allowed parameter targets use `/strategies/<strategy_id>/...`; analysis schemas 
 - only under analysis `0.9.0` with uncertainty `0.8.0`, the exact positive `excess_mortality_rate_per_year.value` of one admitted background-mortality transformation.
 - only under analysis `0.10.0` with uncertainty `0.9.0`, the exact positive `relative_effect.value` of one admitted RR/OR transformation.
 - only under analysis `0.11.0` with uncertainty `0.10.0`, the exact positive `hazard_ratio.value` of one admitted constant-HR transformation.
+- only under analysis `0.12.0` with uncertainty `0.11.0`, exact state-cost or state-utility scalars. No transition or survival-curve target is admitted.
+
+For partitioned survival, `target` is an exact scalar JSON Pointer while `provenance_path` is the corresponding dot-path reward vector without the final index, matching the common evidence-input contract. State costs use non-negative DSA bounds and Gamma, Lognormal, or non-negative bounded Uniform PSA. State utilities use DSA bounds inside `[-1,1]` and Beta or Uniform bounded inside `[-1,1]`. Every strategy's PFS and OS curve must appear in `omitted_parameters`. The engine holds those hash-bound curves fixed and returns `calculation_classification=partial_parameter_uncertainty` plus `uncertainty_scope=economic_inputs_only`. Its CEAC, CEAF, convergence statistics, and per-person EVPI are conditional on fixed survival curves and cannot support a release-ready full-PSM claim.
 
 Probability-row and schedule-change targets do not apply to a schema `0.5.0` transition derived from constant competing rates. Changing only the derived output makes its deterministic transformation snapshot stale, so the engine rejects it. A rate target must use the exact JSON Pointer `/input_provenance/<mapping>/derivation/transformation/phases/<phase>/rows/<row>/events/<event>/rate_per_year`; its `provenance_path` must equal that indexed mapping's transition path, and its sole `basis_id` must equal the event's `source_extraction_id` or `assumption_id`.
 
@@ -55,7 +59,7 @@ The app checks that `provenance_path` exists, is `distribution_available`, appea
 
 ## Correlation and omission
 
-Dirichlet sampling preserves dependence within one probability row. Schemas `0.4.0` through `0.8.0` additionally admit bounded cross-parameter dependence only when all of the following hold. Because uncertainty `0.8.0` permits only one excess-rate parameter, it cannot form a multi-member background-mortality group by itself:
+Dirichlet sampling preserves dependence within one probability row. Schemas `0.4.0` through `0.11.0` additionally admit bounded cross-parameter dependence only when all of the following hold. Schema-specific target restrictions can still make a group impossible; for example, uncertainty `0.8.0`, `0.9.0`, and `0.10.0` each permit only one transformed effect parameter. Schema `0.11.0` may group only evidence-bound Lognormal economic scalars; Beta or Uniform utility inputs cannot enter such a group:
 
 - one group contains 2–32 unique scalar parameters and no parameter appears in another group;
 - every member already uses `lognormal(mu_log, sigma_log)` with positive `sigma_log`;
@@ -77,7 +81,7 @@ For legacy two-strategy output, the convergence check records intervention cost-
 
 ## Decision-threshold and value-of-information contract
 
-Schemas `0.2.0` through `0.10.0` require `probabilistic_analysis.decision_thresholds` with a rationale and 2–101 unique, non-negative, strictly increasing values including the positive primary `willingness_to_pay`. Schema `0.1.0` remains readable and produces one primary-threshold row only. Correlation groups require schema `0.4.0` or later; uncertainty `0.7.0` is reserved for analysis `0.8.0`, uncertainty `0.8.0` for analysis `0.9.0`, uncertainty `0.9.0` for analysis `0.10.0`, and uncertainty `0.10.0` for analysis `0.11.0`.
+Schemas `0.2.0` through `0.11.0` require `probabilistic_analysis.decision_thresholds` with a rationale and 2–101 unique, non-negative, strictly increasing values including the positive primary `willingness_to_pay`. Schema `0.1.0` remains readable and produces one primary-threshold row only. Correlation groups require schema `0.4.0` or later; uncertainty `0.7.0` is reserved for analysis `0.8.0`, uncertainty `0.8.0` for analysis `0.9.0`, uncertainty `0.9.0` for analysis `0.10.0`, uncertainty `0.10.0` for analysis `0.11.0`, and uncertainty `0.11.0` for analysis `0.12.0`.
 
 For each schema `0.7.0` PSA draw and threshold λ, the engine derives every strategy's net monetary benefit `λ × QALY − cost`. It reports:
 

@@ -2567,6 +2567,79 @@ class UncertaintyContractTests(unittest.TestCase):
             errors = uncertainty.validate(uncertainty_path, plan_path)
             self.assertTrue(any("bounded Uniform" in error for error in errors), errors)
 
+    def test_schema_011_partitioned_survival_uncertainty_is_explicitly_partial(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "heor"
+            root.mkdir(parents=True)
+            plan = json.loads((
+                ROOT / "runtime/skills/core/heor-economic-inputs/assets/partitioned-survival-analysis-plan.template.json"
+            ).read_text())
+            plan.update({
+                "analysis_id": "portable-psm-economic-uncertainty",
+                "willingness_to_pay": 100000,
+                "uncertainty_analysis": {"path": "heor/uncertainty-plan.json"},
+                "input_provenance": [{
+                    "path": "strategies.intervention.state_costs",
+                    "uncertainty_status": "distribution_available",
+                    "source_ids": [],
+                    "extraction_ids": [],
+                    "assumption_ids": ["cost-basis"],
+                }],
+                "methodology": {"uncertainty_analysis": {
+                    "deterministic": {"planned": True, "input_paths": ["strategies.intervention.state_costs"]},
+                    "probabilistic": {"planned": True, "input_paths": ["strategies.intervention.state_costs"], "iterations": 1000},
+                    "structural_scenarios": ["cost-discount"],
+                }},
+            })
+            plan["economic_basis"] = {"currency": "CNY", "price_year": 2026}
+            plan["strategies"]["comparator"]["name"] = "Comparator"
+            plan["strategies"]["intervention"]["name"] = "Intervention"
+            plan_path = root / "analysis-plan.json"
+            plan_raw = json.dumps(plan, sort_keys=True).encode()
+            plan_path.write_bytes(plan_raw)
+
+            psm = {"schema_version": "0.3.0", "analysis_id": plan["analysis_id"]}
+            materializations = {"schema_version": "0.1.0", "analysis_id": plan["analysis_id"]}
+            psm_raw = json.dumps(psm, sort_keys=True).encode()
+            materializations_raw = json.dumps(materializations, sort_keys=True).encode()
+            psm_path = root / "partitioned-survival-plan.json"
+            materializations_path = root / "survival-curve-materializations.json"
+            psm_path.write_bytes(psm_raw)
+            materializations_path.write_bytes(materializations_raw)
+
+            value = json.loads((
+                ROOT / "runtime/skills/core/heor-uncertainty-analysis/assets/partitioned-survival-economic-uncertainty.template.json"
+            ).read_text())
+            value.update({
+                "uncertainty_id": "portable-psm-economic-only",
+                "analysis_id": plan["analysis_id"],
+            })
+            value["base_analysis"]["content_sha256"] = hashlib.sha256(plan_raw).hexdigest()
+            value["partitioned_survival_inputs"]["plan"]["content_sha256"] = hashlib.sha256(psm_raw).hexdigest()
+            value["partitioned_survival_inputs"]["curve_materializations"]["content_sha256"] = hashlib.sha256(materializations_raw).hexdigest()
+            value["parameters"][0]["id"] = "intervention-pf-cost"
+            value["parameters"][0]["label"] = "Intervention PF cost"
+            value["parameters"][0]["probabilistic"]["basis_ids"] = ["cost-basis"]
+            value["probabilistic_analysis"]["decision_thresholds"]["values"] = [50000, 100000]
+            value["structural_scenarios"][0].update({
+                "id": "cost-discount", "label": "Cost discount", "rationale": "Reviewable alternative"
+            })
+            uncertainty_path = root / "uncertainty-plan.json"
+            uncertainty_path.write_text(json.dumps(value, indent=2))
+
+            self.assertEqual(
+                uncertainty.validate(
+                    uncertainty_path, plan_path, psm_path, materializations_path
+                ),
+                [],
+            )
+            value["probabilistic_analysis"]["omitted_parameters"].pop()
+            uncertainty_path.write_text(json.dumps(value, indent=2))
+            errors = uncertainty.validate(
+                uncertainty_path, plan_path, psm_path, materializations_path
+            )
+            self.assertTrue(any("explicitly omit every fixed PFS and OS curve" in error for error in errors), errors)
+
     def test_changed_base_hash_and_unlinked_distribution_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             uncertainty_path, plan_path = self.fixture(Path(directory))

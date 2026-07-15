@@ -799,8 +799,8 @@ layer, and provenance/reviewer as the real moat of an open-source Claude Science
 
 ## Partitioned-survival alpha contract (2026-07-15)
 
-`heor/partitioned-survival-plan.json` schema `0.2.0` is an optional, hash-bound
-analysis linked from the base plan. It requires the exact state order
+`heor/partitioned-survival-plan.json` schema `0.3.0` is an optional, hash-bound
+analysis linked from structure-neutral analysis schema `0.12.0`. It requires the exact state order
 `progression_free`, `progressed`, `dead`; a forward-only conceptual basis;
 aligned time-zero and cycle-endpoint PFS/OS values with exact ordered review,
 fit-output, and evaluator basis IDs;
@@ -822,11 +822,21 @@ threshold. It never constructs a transition matrix. Native Rust independently
 reads every bound review byte and binds the PSM assets into analysis-plan
 approval. The current release gate rejects linked PSM analyses until the model-
 validation and report-package schemas are extended to bind the PSM plan and
-result; this prevents an unsupported decision-ready claim. The alpha still
-validates the shared cohort-analysis schema, whose transition inputs are ignored
-by the PSM calculation but remain structurally required. Replacing that coupling
-with a dedicated decision-problem and economic-input contract is a release task.
+result; this prevents an unsupported decision-ready claim. Analysis schema
+`0.12.0` contains only common economic inputs for each strategy; transition
+matrices, schedules, and initial distributions are forbidden rather than
+silently ignored.
+
+Paired uncertainty schema `0.11.0` hash-binds the fixed PSM plan and survival-
+curve materializations and runs DSA, PSA, and bounded economic structural
+scenarios only over exact state-cost and state-utility scalars. The Python core,
+portable validator, native Rust boundary, and browser result surface enforce the
+same `partial_parameter_uncertainty` / `economic_inputs_only` classification.
+Every strategy's PFS and OS curve must be named as an omitted parameter. Survival
+parameter covariance, curve-selection and extrapolation alternatives, and joint
+PFS/OS uncertainty therefore remain explicit release blockers; conditional
+CEAC, CEAF, and per-person EVPI are not presented as complete PSM uncertainty.
 The materializer does not fit data, transform backend coefficients, choose a
 family, infer covariance, apply treatment effects, support other survival
 families, or establish clinical/external validity. Those remain distinct future
-contracts, as do PSM uncertainty and validation/report integration.
+contracts, as do full survival uncertainty and validation/report integration.

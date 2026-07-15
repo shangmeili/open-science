@@ -260,7 +260,7 @@
     "thresholds": "决策阈值",
     "scenarios": "情景数",
     "askRepair": "让 Agent 创建或修复不确定性分析",
-    "repairPrompt": "使用 $heor-uncertainty-analysis，针对当前 heor/analysis-plan.json 的精确字节创建或修复 heor/uncertainty-plan.json。分析 0.10.0 只与不确定性 0.9.0 配对，并保留有效旧配对。对相对效应变换只能以 relative_effect.value 为目标，基线风险、measure、review bases 和时间表结构必须固定。RR 的 PSA 只允许严格正值有界 Uniform，且 DSA high 与 Uniform high 均必须严格小于 1/max(正基线 q)；OR 可用 Lognormal 或严格正值有界 Uniform。会使 PSA 抽样产生大于等于 1 概率的非法上界必须前置拒绝，不得延后到运行时。结构情景只可改变成本或 utility 标量、贴现率或半周期校正。所有范围和分布只能来自已链接证据或明确人工指令，运行确定性校验器，不要创建或声称获得人工批准。",
+    "repairPrompt": "使用 $heor-uncertainty-analysis，针对当前 heor/analysis-plan.json 的精确字节创建或修复 heor/uncertainty-plan.json。对于分区生存分析 0.12.0，配对不确定性 0.11.0，并联合使用 $heor-partitioned-survival 与 $heor-economic-inputs：只能改变精确的状态成本或效用标量，哈希绑定固定的 PSM 计划和曲线物化清单，并将每条 PFS 与 OS 曲线逐一列为遗漏项。结果必须标记为“仅经济输入的部分参数不确定性”；生存参数、曲线选择、外推以及 PFS/OS 联合不确定性继续阻断发布。保留有效旧配对，包括分析 0.10.0/不确定性 0.9.0 与分析 0.11.0/不确定性 0.10.0。所有范围、分布和相关性只能来自已链接证据或明确人工指令，运行确定性校验器，不要创建或声称获得人工批准。",
     "note": "应用会审计并以哈希绑定该可执行规范。模拟可复现不等于独立验证，也不构成医保决策建议。",
     "noProject": "没有可用于不确定性分析审计的当前项目。",
     "missingPlan": "必须先有分析计划，才能审计不确定性分析。"
@@ -398,6 +398,9 @@
     "correlations": "相关参数组",
     "scenarios": "结构情景",
     "primaryEvpi": "主阈值下每人 EVPI",
+    "partialEvpi": "条件 EVPI · 仅经济输入",
+    "partialEconomicOnly": "部分参数不确定性",
+    "partialEconomicOnlyDetail": "仅改变状态成本与效用；生存曲线保持固定，因此这不是完整的分区生存 PSA，也不能作为可发布证据。",
     "evpiMcse": "EVPI 蒙特卡洛标准误",
     "ceacTitle": "成本效果可接受曲线",
     "ceacSubtitle": "使用同一组有界 PSA 抽样，在声明的阈值网格上计算。",

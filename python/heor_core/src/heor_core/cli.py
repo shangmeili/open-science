@@ -28,7 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Optional path to a hash-bound budget impact plan",
     )
-    mode.add_argument(
+    parser.add_argument(
         "--partitioned-survival-plan",
         type=Path,
         help="Optional path to a hash-bound partitioned survival plan",
@@ -44,10 +44,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        if (
-            args.survival_curve_materializations is not None
-            and args.partitioned_survival_plan is None
-        ):
+        if args.partitioned_survival_plan is not None and args.budget_impact_plan is not None:
+            raise ModelValidationError(
+                "--partitioned-survival-plan cannot be combined with --budget-impact-plan"
+            )
+        if args.survival_curve_materializations is not None and args.partitioned_survival_plan is None:
             raise ModelValidationError(
                 "--survival-curve-materializations requires "
                 "--partitioned-survival-plan"
@@ -65,9 +66,36 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.uncertainty_plan is not None:
             uncertainty_raw = args.uncertainty_plan.read_bytes()
             uncertainty_payload = json.loads(uncertainty_raw)
-            result = run_uncertainty(
-                payload, raw, uncertainty_payload, uncertainty_raw
-            )
+            if payload.get("schema_version") == "0.12.0":
+                if (
+                    args.partitioned_survival_plan is None
+                    or args.survival_curve_materializations is None
+                ):
+                    raise ModelValidationError(
+                        "analysis schema 0.12.0 uncertainty requires both partitioned-survival artifact options"
+                    )
+                partitioned_raw = args.partitioned_survival_plan.read_bytes()
+                partitioned_payload = json.loads(partitioned_raw)
+                materializations_raw = args.survival_curve_materializations.read_bytes()
+                materializations_payload = json.loads(materializations_raw)
+                result = run_uncertainty(
+                    payload,
+                    raw,
+                    uncertainty_payload,
+                    uncertainty_raw,
+                    partitioned_payload,
+                    partitioned_raw,
+                    materializations_payload,
+                    materializations_raw,
+                )
+            else:
+                if args.partitioned_survival_plan is not None:
+                    raise ModelValidationError(
+                        "partitioned-survival artifacts with uncertainty require analysis schema 0.12.0"
+                    )
+                result = run_uncertainty(
+                    payload, raw, uncertainty_payload, uncertainty_raw
+                )
         elif args.budget_impact_plan is not None:
             budget_raw = args.budget_impact_plan.read_bytes()
             budget_payload = json.loads(budget_raw)

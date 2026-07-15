@@ -432,7 +432,11 @@ independently re-read review and fit-output bytes, recalculate each admitted
 curve, and fail on parameter drift, unsupported parameterizations, increasing
 curves, time-grid drift, PFS above OS, stale hashes, missing basis IDs, or invalid
 state structure. The analysis-plan Human
-gate binds the PSM plan and reviews. PSM uncertainty and release reporting are
-not yet admitted; the app explicitly blocks release while the PSM link exists.
+gate binds the PSM plan and reviews. Paired uncertainty schema `0.11.0` now
+admits only economic-input DSA/PSA and bounded economic scenarios against the
+fixed hash-bound curves. It requires explicit PFS/OS omissions and returns a
+partial, economic-input-only classification. Survival parameter covariance,
+curve alternatives, joint PFS/OS uncertainty, and release reporting are not yet
+admitted; the app explicitly blocks release while those gaps remain.
 Materialization is not statistical fitting, automatic selection, covariance
 recovery, treatment-effect application, or substantive extrapolation validation.

@@ -3011,6 +3011,9 @@ export function UncertaintyResultCard({
 }) {
   const { t } = useTranslation("heor");
   const calculation = result.calculation;
+  const partialEconomicOnly = calculation.calculation_classification
+    === "partial_parameter_uncertainty"
+    && calculation.uncertainty_scope === "economic_inputs_only";
   const amount = new Intl.NumberFormat(locale, calculation.economic_basis
     ? {
         style: "currency",
@@ -3068,6 +3071,12 @@ export function UncertaintyResultCard({
             : t("uncertaintyResult.notConverged")}
         </span>
       </div>
+      {partialEconomicOnly && (
+        <div className="mt-3 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-[10px] leading-4 text-warning">
+          <div className="font-semibold">{t("uncertaintyResult.partialEconomicOnly")}</div>
+          <div>{t("uncertaintyResult.partialEconomicOnlyDetail")}</div>
+        </div>
+      )}
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Metric
           label={probabilityLabel}
@@ -3106,7 +3115,9 @@ export function UncertaintyResultCard({
       {primary && (
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Metric
-            label={t("uncertaintyResult.primaryEvpi")}
+            label={partialEconomicOnly
+              ? t("uncertaintyResult.partialEvpi")
+              : t("uncertaintyResult.primaryEvpi")}
             value={amount.format(primary.per_person_evpi)}
             accent
           />

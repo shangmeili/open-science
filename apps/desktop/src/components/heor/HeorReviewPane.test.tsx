@@ -116,6 +116,8 @@ describe("AI4HEOR human review pane", () => {
   it("does not present draw-level tie probability as CEAF when expected NMB is tied", () => {
     const result = {
       calculation: {
+        calculation_classification: "partial_parameter_uncertainty",
+        uncertainty_scope: "economic_inputs_only",
         economic_basis: { currency: "USD", price_year: 2026 },
         deterministic_analysis: [],
         probabilistic_analysis: {
@@ -161,6 +163,9 @@ describe("AI4HEOR human review pane", () => {
     render(<UncertaintyResultCard result={result} locale="en" />);
 
     expect(screen.getByText("Expected NMB · standard = treatment")).toBeInTheDocument();
+    expect(screen.getByText("Partial parameter uncertainty")).toBeInTheDocument();
+    expect(screen.getByText(/Only state costs and utilities vary/)).toBeInTheDocument();
+    expect(screen.getByText("Conditional EVPI · economic inputs only")).toBeInTheDocument();
     expect(screen.queryByText("42.0%")).not.toBeInTheDocument();
     expect(screen.getByText("—")).toBeInTheDocument();
   });
