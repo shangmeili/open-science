@@ -2,9 +2,9 @@
 
 ## Scope
 
-Create one review per absolute time-to-first-event curve. The first slice accepts an already-generated local fit bundle and execution manifest; it does not read or fit individual time-to-event data. It compares standard parametric maximum-likelihood model outputs without selecting one automatically.
+Create one review per absolute time-to-first-event curve. The review layer accepts either an eligible `$heor-survival-fit-execution` bundle or an independently generated local fit bundle; it does not itself read or fit individual time-to-event data. It compares standard parametric maximum-likelihood model outputs without selecting one automatically.
 
-Each review uses schema version `0.2.0`. Every ready artifact binds the exact local input, execution record, session information, model outputs, and diagnostic files by lowercase SHA-256.
+Schema `0.2.0` preserves the external local-fit import contract. Schema `0.3.0` binds an AI4HEOR isolated local MLE result manifest and must exactly reproduce its target, candidate order, runtime, normalized model outputs, diagnostics, and hashes after the portable and native execution audits pass. Every ready artifact binds exact local evidence by lowercase SHA-256.
 
 `analysis_target` must contain the current analysis plan's exact `analysis_id` and one exact `input_provenance[].path` whose transformation operation is `parametric_survival_to_transition_schedule`. The Human-selected plan distribution must be a converged, pre-specified candidate in that review.
 
@@ -46,9 +46,9 @@ A ready review binds:
 
 AIC and BIC compare relative in-sample fit only. Do not turn them into a pass threshold or scientific-validity score.
 
-## Imported survHE execution evidence
+## survHE execution evidence
 
-The fit bundle may originate from a Human-controlled, user-installed isolated R environment. This alpha imports the following evidence but does not execute the fit or copy approval state into this agent-authored artifact:
+The fit bundle originates from a Human-controlled, user-installed isolated R environment. Schema `0.2.0` imports the following evidence. Schema `0.3.0` accepts only the corresponding normalized fields from an eligible first-party result manifest and independently re-audits that manifest:
 
 - `R.version.string`;
 - `survHE`, `flexsurv`, and `survival` versions;
@@ -57,7 +57,7 @@ The fit bundle may originate from a Human-controlled, user-installed isolated R 
 - exact fit-bundle manifest path and SHA-256;
 - generated model object, fit table, predictions, and plot hashes.
 
-`survHE::fit.models` can fit multiple named distributions and reports model-fit statistics, but package output is not approval. Keep GPL packages outside the MIT deterministic core and do not auto-install them. Patient-level fitting and a first-party isolated R backend remain unshipped. A missing execution manifest or unverified fit bundle means the review remains draft; it must not be described as a completed fit.
+`survHE::fit.models` can fit multiple named distributions and reports model-fit statistics, but package output is not approval. Keep GPL packages outside the MIT deterministic core and do not auto-install them. The first-party execution slice is limited to authorized, strict two-column local CSV input, intercept-only MLE, and an already-installed isolated library. A missing, ineligible, stale, or mismatched execution manifest means the review remains draft.
 
 ## Human gate
 
@@ -70,7 +70,7 @@ The only admitted gate object is:
 }
 ```
 
-The review may contain an analyst recommendation, but no `approved`, `selected`, `accepted`, reviewer identity, signature, or approval timestamp field. The Human selects each downstream curve by reviewing the complete analysis plan; the app-owned analysis-plan approval chain independently re-audits every schema `0.2.0` review, matches each exact analysis target and selected distribution, verifies local hashes, and binds either the single review or the complete collection.
+The review may contain an analyst recommendation, but no `approved`, `selected`, `accepted`, reviewer identity, signature, or approval timestamp field. The Human selects each downstream curve by reviewing the complete analysis plan; the app-owned analysis-plan approval chain independently re-audits every schema `0.2.0` or `0.3.0` review, matches each exact analysis target and selected distribution, verifies local hashes and any first-party execution bundle, and binds either the single review or the complete collection.
 
 ## Method basis
 

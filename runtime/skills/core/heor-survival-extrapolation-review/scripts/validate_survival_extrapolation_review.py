@@ -8,8 +8,15 @@ import hashlib
 import json
 import math
 import re
+import sys
 from pathlib import Path
 from typing import Any
+
+
+EXECUTION_SCRIPTS = Path(__file__).resolve().parents[2] / "heor-survival-fit-execution" / "scripts"
+if str(EXECUTION_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(EXECUTION_SCRIPTS))
+from survhe_execution_contract import audit_result as audit_survhe_execution  # noqa: E402
 
 
 SAFE_ID = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
@@ -99,13 +106,106 @@ def survival_targets(plan: Any) -> list[tuple[str, str]]:
     return targets
 
 
+def compare_local_execution_bundle(value: dict[str, Any], workspace: Path | None, errors: list[str]) -> dict[str, Any] | None:
+    if workspace is None:
+        errors.append("workspace is required to audit the local survHE execution bundle")
+        return None
+    source = value["source_data"]
+    relative = source.get("path")
+    if not isinstance(relative, str):
+        return None
+    manifest_path = (workspace / relative).resolve()
+    execution_audit = audit_survhe_execution(manifest_path, workspace)
+    if not execution_audit["complete"]:
+        errors.extend(f"local execution: {item}" for item in execution_audit["errors"])
+        return None
+    if not execution_audit["eligible_for_review"]:
+        errors.append("local execution is complete but not eligible for survival extrapolation review")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        request_path = (workspace / manifest["request"]["path"]).resolve()
+        request = json.loads(request_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, KeyError, TypeError, json.JSONDecodeError) as error:
+        errors.append(f"local execution bundle cannot be compared with review: {error}")
+        return None
+
+    if value["analysis_target"] != request["analysis_target"]:
+        errors.append("review analysis_target does not match the local execution request")
+    for review_field, request_field in (
+        ("observed_follow_up", "observed_follow_up"),
+        ("model_horizon", "model_horizon"),
+    ):
+        if value["context"].get(review_field) != request["fit"].get(request_field):
+            errors.append(f"review context.{review_field} does not match the local execution request")
+    if value["source_data"].get("classification") != request["source_data"].get("classification"):
+        errors.append("review source classification does not match the local execution request")
+    if value["source_data"].get("time_variable") != request["source_data"].get("columns", {}).get("time"):
+        errors.append("review time_variable does not match the local execution request")
+    requested_families = [item.get("family") for item in request["fit"].get("candidate_models", [])]
+    reviewed_families = [item.get("family") for item in value["pre_specification"].get("candidate_models", [])]
+    if reviewed_families != requested_families:
+        errors.append("review candidate order does not match the local execution request")
+
+    runtime = manifest["runtime"]
+    execution = value["execution"]
+    expected_execution = {
+        "backend": "survHE",
+        "environment": "ai4heor_isolated_local_mle",
+        "r_version": runtime["r_version"],
+        "package_versions": runtime["package_versions"],
+        "command_path": runtime["adapter_path"],
+        "command_sha256": runtime["adapter_sha256"],
+        "session_info_path": runtime["session_info_path"],
+        "session_info_sha256": runtime["session_info_sha256"],
+    }
+    if execution != expected_execution:
+        errors.append("review execution fields do not exactly match the audited local execution bundle")
+
+    expected_models: list[dict[str, Any]] = []
+    for binding in manifest["models"]:
+        try:
+            model = json.loads((workspace / binding["path"]).read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, KeyError, TypeError, json.JSONDecodeError) as error:
+            errors.append(f"local execution model cannot be compared with review: {error}")
+            continue
+        statistics = model["fit_statistics"]
+        expected_models.append({
+            "family": binding["family"],
+            "status": binding["status"],
+            "aic": statistics["aic"],
+            "bic": statistics["bic"],
+            "log_likelihood": statistics["log_likelihood"],
+            "parameterization": model["parameterization"],
+            "fit_output_path": binding["path"],
+            "fit_output_sha256": binding["sha256"],
+            "landmarks": model["landmarks"],
+            "warnings": model["warnings"],
+        })
+    if value["models"] != expected_models:
+        errors.append("review models do not exactly reproduce the audited local execution outputs")
+
+    expected_diagnostics = {
+        "km_overlay_path": manifest["diagnostics"]["km_overlay_path"],
+        "km_overlay_sha256": manifest["diagnostics"]["km_overlay_sha256"],
+        "log_cumulative_hazard_path": manifest["diagnostics"]["log_cumulative_hazard_path"],
+        "log_cumulative_hazard_sha256": manifest["diagnostics"]["log_cumulative_hazard_sha256"],
+        "hazard_plot_path": manifest["diagnostics"]["hazard_plot_path"],
+        "hazard_plot_sha256": manifest["diagnostics"]["hazard_plot_sha256"],
+    }
+    for field, expected in expected_diagnostics.items():
+        if value["diagnostics"].get(field) != expected:
+            errors.append(f"review diagnostics.{field} does not match the local execution bundle")
+    return execution_audit
+
+
 def audit(value: Any, workspace: Path | None = None, analysis_plan: Any = None) -> dict[str, Any]:
     errors: list[str] = []
     if not exact_object(value, TOP_LEVEL, "review", errors):
         return {"complete": False, "errors": errors, "candidate_models": 0, "converged_models": 0}
 
-    if value["schema_version"] != "0.2.0":
-        errors.append("schema_version must be 0.2.0")
+    schema_version = value["schema_version"]
+    if schema_version not in {"0.2.0", "0.3.0"}:
+        errors.append("schema_version must be 0.2.0 or 0.3.0")
     if not isinstance(value["review_id"], str) or not SAFE_ID.fullmatch(value["review_id"]):
         errors.append("review_id must be a safe lowercase identifier")
     if value["status"] not in {"draft", "ready_for_human_review"}:
@@ -151,7 +251,10 @@ def audit(value: Any, workspace: Path | None = None, analysis_plan: Any = None) 
     }
     source = value["source_data"]
     if exact_object(source, source_fields, "source_data", errors):
-        if source["classification"] not in {"public", "non_sensitive", "restricted", "unknown"}:
+        admitted_classifications = {"public", "non_sensitive", "restricted"}
+        if schema_version == "0.2.0":
+            admitted_classifications.add("unknown")
+        if source["classification"] not in admitted_classifications:
             errors.append("source_data.classification is unsupported")
         if source["execution_boundary"] != "local_only":
             errors.append("source_data.execution_boundary must be local_only")
@@ -195,8 +298,9 @@ def audit(value: Any, workspace: Path | None = None, analysis_plan: Any = None) 
     }
     execution = value["execution"]
     if exact_object(execution, execution_fields, "execution", errors):
-        if execution["backend"] != "survHE" or execution["environment"] != "external_local_fit_import":
-            errors.append("execution must record an imported local survHE fit")
+        expected_environment = "external_local_fit_import" if schema_version == "0.2.0" else "ai4heor_isolated_local_mle"
+        if execution["backend"] != "survHE" or execution["environment"] != expected_environment:
+            errors.append(f"execution.environment must be {expected_environment}")
         if not text(execution["r_version"]):
             errors.append("execution.r_version must be recorded")
         packages = execution["package_versions"]
@@ -264,7 +368,10 @@ def audit(value: Any, workspace: Path | None = None, analysis_plan: Any = None) 
                 continue
             if not number(survival, minimum=0) or float(survival) > 1 or float(survival) > previous_survival + 1e-12:
                 errors.append(f"{landmark_label}.survival must be finite, bounded, and non-increasing")
-            if not number(hazard, minimum=0):
+            if schema_version == "0.3.0" and number(time) and float(time) == 0:
+                if hazard is not None:
+                    errors.append(f"{landmark_label}.hazard must be null at time zero")
+            elif not number(hazard, minimum=0):
                 errors.append(f"{landmark_label}.hazard must be finite and non-negative")
             times.append(float(time))
             previous_time = float(time)
@@ -352,12 +459,17 @@ def audit(value: Any, workspace: Path | None = None, analysis_plan: Any = None) 
         errors.append("review contains a forbidden approval or selection authority field")
     if value.get("status") != "ready_for_human_review":
         errors.append("status must be ready_for_human_review for a complete audit")
+    execution_audit = None
+    if schema_version == "0.3.0":
+        execution_audit = compare_local_execution_bundle(value, workspace, errors)
     return {
         "complete": not errors,
         "errors": errors,
         "candidate_models": len(candidates),
         "converged_models": converged,
         "human_gate": "awaiting_human_selection",
+        "execution_environment": value.get("execution", {}).get("environment"),
+        "cross_implementation_complete": bool(execution_audit and execution_audit["cross_implementation_complete"]),
     }
 
 

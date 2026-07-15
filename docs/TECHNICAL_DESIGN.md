@@ -321,7 +321,8 @@ time-varying excess hazards, competing non-death events, and partitioned surviva
 remain blocked.
 
 Survival fitting review is a separate, non-calculation artifact. The bundled
-`$heor-survival-extrapolation-review` validates schema `0.2.0` files containing
+`$heor-survival-extrapolation-review` validates external-import schema `0.2.0`
+or first-party-execution schema `0.3.0` files containing
 one absolute time-to-first-event curve, 2–8 pre-specified standard parametric
 families, exact local data/command/session/output hashes, visible failed fits,
 common observed and extrapolated survival/hazard landmarks, diagnostic plot
@@ -334,18 +335,22 @@ path. The portable validator and native Rust auditor require the plan-selected
 distribution to be a converged pre-specified candidate. One target uses the
 fixed review path. Plans with 2–32 targets use the schema `0.1.0` fixed collection
 manifest, whose entries must exactly match plan target count and order and bind
-one safely named schema `0.2.0` review per target. The artifact state
+one safely named schema `0.2.0` or `0.3.0` review per target. The artifact state
 remains `awaiting_human_selection`; only the app-owned analysis-plan gate can
 authorize downstream use, and that event binds either the exact single review or
 the manifest plus every referenced review hash. The review pane exposes required/
 not-required, collection coverage, target, selected family, convergence,
 scenarios, recommendation, and blocking errors without turning the recommendation
-into authority. A user-installed isolated
-`survHE` environment is a future optional execution backend and requires a
-separate patient-level data and command-approval contract. The alpha imports
-only an already-generated local fit bundle; it does not access or fit patient-
-level input. The backend is not bundled, linked into the deterministic Python
-core, or claimed as tested on a machine where the package is absent. The collection
+into authority. `$heor-survival-fit-execution` now provides the bounded optional
+backend for one authorized local UTF-8 two-column time/event CSV: it preflights
+classification, hashes, counts, candidates and exact installed package versions;
+runs a fixed intercept-only MLE adapter without installation; preserves every
+attempted fit and diagnostic; and independently recalculates exponential and
+Weibull outputs in Python and native Rust. The review schema `0.3.0` must exactly
+reproduce this eligible bundle. `survHE` remains user-installed and GPL code is
+not bundled or linked into the deterministic core. The local system R lacks the
+required packages, while a temporary network-disabled Linux container validated
+R 4.6.1, survHE 2.0.51 and flexsurv 2.3.2. The collection
 audits independently fitted curves; it does not establish PFS/OS consistency,
 arm alignment, joint covariance, or partitioned-survival validity.
 

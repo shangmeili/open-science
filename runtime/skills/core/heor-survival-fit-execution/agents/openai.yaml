@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Survival Fit Execution"
+  short_description: "Run and audit an isolated local survHE MLE fit."
+  default_prompt: "Use $heor-survival-fit-execution to run a pre-specified local survHE MLE fit, preserve failed models, and verify supported curves independently."

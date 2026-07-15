@@ -815,6 +815,8 @@ describe("AI4HEOR artifact contract", () => {
       failedModels: [],
       scenarioCount: 4,
       recommendedFamily: null,
+      executionEnvironment: null,
+      crossImplementationComplete: false,
       artifactBindings: [
         { path: "heor/survival-extrapolation-reviews.json", sha256: "a".repeat(64) },
         { path: "heor/survival-extrapolation-reviews/control.json", sha256: "b".repeat(64) },

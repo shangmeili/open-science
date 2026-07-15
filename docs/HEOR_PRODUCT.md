@@ -269,14 +269,17 @@ validation. This is parameter propagation for an already-selected curve, not a
 complete survival-analysis workflow.
 
 The first-party `$heor-survival-extrapolation-review` now prepares a separate
-schema `0.2.0` review artifact before curve selection. It requires 2–8
+schema `0.2.0` external-import or schema `0.3.0` first-party-execution review
+artifact before curve selection. It requires 2–8
 pre-specified standard parametric families, exact data/command/session/output
 hashes, visible failed fits and protocol deviations, common observed and
 extrapolated survival/hazard landmarks, AIC/BIC, KM and hazard diagnostics,
 external and clinical plausibility assessments, limitations, and at least two
-structural scenarios. The alpha imports an already-generated local `survHE` fit
-bundle and does not access or fit patient-level data. It neither bundles that
-GPL backend nor silently installs it. The validator rejects post-hoc model-order drift, stale hashes,
+structural scenarios. For an authorized strict two-column local CSV,
+`$heor-survival-fit-execution` can now use an already-installed isolated `survHE`
+library, preserve exact runtime evidence, and independently challenge exponential
+and Weibull predictions before review. It neither bundles that GPL backend nor
+silently installs it. The validator rejects post-hoc model-order drift, stale hashes,
 incomparable or invalid landmarks, hidden approval fields, and fewer than two
 converged alternatives. The only admitted state is
 `awaiting_human_selection`; the selected curve enters the app-owned analysis-
@@ -286,7 +289,7 @@ selected plan distribution to be a converged candidate, independently verifies
 the contract and local hashes, shows the result in the review pane, and binds all
 current review hashes into analysis-plan approval and every analysis authorization
 check. Plans with 2–32 targets use an ordered schema `0.1.0` manifest and one
-schema `0.2.0` review per exact target. This supports separate control/intervention
+schema `0.2.0` or `0.3.0` review per exact target. This supports separate control/intervention
 or PFS/OS reviews without implying joint cross-curve validity.
 
 Automatic curve selection, KM/IPD reconstruction, flexible or cure models,

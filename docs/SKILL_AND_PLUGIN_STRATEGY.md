@@ -74,16 +74,21 @@ version channels remain divergent. mcp-stata is more mature operationally but
 remains an AGPL, licensed-Stata, broad-code-execution connector, not a
 redistributable HEOR method core.
 
-`heor-survival-extrapolation-review` now bundles the alpha schema `0.2.0`
-artifact, validator, template, natural-language action, and Human-selection stop
+`heor-survival-fit-execution` now bundles a first-party schema `0.1.0` request,
+fixed Python/R runner, portable validator, exact runtime evidence and independent
+exponential/Weibull challenge for a Human-authorized strict local CSV.
+`heor-survival-extrapolation-review` bundles schema `0.2.0` external import and
+schema `0.3.0` first-party execution review artifact, validator, template,
+natural-language action, and Human-selection stop
 rule. Its native Rust audit matches every plan target and selected
 distribution, verifies local evidence hashes, drives single or collection review-pane status,
 and binds the exact single review or collection-plus-review hashes into analysis-plan approval and run
-authorization. It does not yet ship an R package environment: `survHE` remains a user-
+authorization. It does not ship an R package environment: `survHE` remains a user-
 installed isolated optional backend whose real fitting path requires execution
-approval and package-specific validation on a machine where it is installed.
-The current alpha imports only an already-generated local fit bundle and never
-reads or fits patient-level input. Plans with 2–32 targets use the ordered schema
+approval and exact package validation on a machine where it is installed. The
+execution slice fits only an authorized local two-column dataset and emits no
+copied source data or serialized model object; the review slice never reads or
+fits the source itself. Plans with 2–32 targets use the ordered schema
 `0.1.0` collection and remain fail-closed unless every independent review is
 current. The review collection alone does not infer cross-curve PFS/OS consistency;
 the separate partitioned-survival contract performs that check only after each
@@ -96,7 +101,8 @@ gate, and packaged cross-platform evidence.
 
 | Priority | First-party Skill asset | Narrow responsibility and stop boundary |
 | --- | --- | --- |
-| Shipped alpha / P1 backend | `heor-survival-extrapolation-review` | Validate and natively audit one or an ordered collection of pre-specified survival-model comparisons, selected plan distributions, observed/extrapolated landmarks, diagnostics, clinical/external plausibility, hashes, alternatives, and awaiting-Human gates; bind every current review hash at plan approval. Automatic selection and cross-curve validity inference are forbidden. The isolated `survHE` backend remains unshipped. |
+| Shipped alpha | `heor-survival-fit-execution` | Preflight and run one Human-authorized intercept-only local survHE MLE job from a strict two-column CSV; bind exact source/runtime/output hashes, preserve failures and independently challenge exponential/Weibull curves. No installation, automatic selection, or scientific-validity claim. |
+| Shipped alpha | `heor-survival-extrapolation-review` | Validate and natively audit one or an ordered collection of schema `0.2.0` external-import or `0.3.0` first-party-execution survival comparisons, selected plan distributions, landmarks, diagnostics, plausibility, hashes, alternatives, and awaiting-Human gates. Automatic selection and cross-curve validity inference are forbidden. |
 | Shipped alpha | `heor-survival-curve-materialization` | Reproduce Human-selected exponential-rate or Weibull AFT shape/scale curves from exact typed fit-output bytes on the analysis cycle grid. The manifest binds review, family, parameterization, fit output, evaluator, values, and exact ordered basis IDs; the standalone validator and native Rust re-read source bytes and independently recalculate every value. It never fits, transforms backend coefficients, selects a family, infers covariance, applies treatment effects, or admits other distributions. |
 | Shipped alpha / release integration pending | `heor-economic-inputs`, `heor-partitioned-survival`, `heor-treatment-effect-duration`, `heor-cost-input-normalization`, `heor-utility-inputs`, `heor-event-disutilities`, `heor-uncertainty-analysis`, `heor-joint-survival-uncertainty` | Analysis `0.15.0` / PSM `0.7.0` binds immutable selected-fit curves, duration, annual-cost ingredients, cycle utilities, and event losses. Uncertainty `0.13.0` varies allowlisted cost/utility/event components with Human-supplied latent Gaussian-copula dependence while survival stays fixed; `0.14.0` composes those recalculations with one complete reviewed joint PFS/OS row per iteration. Legacy `0.11.0` / `0.12.0` remains paired with analysis `0.12.0`. Curve-family selection, extrapolation, source-model validity, validation/report integration, probabilistic duration alternatives, non-annual cost structures, and release remain blocked. |
 | Shipped alpha | `heor-utility-inputs`, `heor-event-disutilities` | Bind state utilities separately from one-time, recurrent, and continuous-exposure event losses. Stop for unlicensed value sets, double counting, incompatible anchors, unsupported long sequelae, arithmetic drift, or unresolved Human method choices. |

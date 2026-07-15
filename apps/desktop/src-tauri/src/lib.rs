@@ -22,6 +22,7 @@ mod heor_partitioned_survival;
 mod heor_reference_case;
 mod heor_reporting;
 mod heor_search;
+mod heor_survival_execution;
 mod heor_survival_materialization;
 mod heor_survival_review;
 mod heor_synthesis;
@@ -142,6 +143,7 @@ pub fn run() {
             heor_library::sync_heor_evidence_library,
             heor_synthesis::audit_heor_evidence_synthesis,
             heor_synthesis::import_heor_search_candidates,
+            heor_survival_execution::audit_heor_survival_fit_execution,
             heor_survival_review::audit_heor_survival_extrapolation,
             heor_evidence::audit_heor_evidence_selection,
             heor_evidence_review::list_heor_evidence_verifications,

@@ -790,6 +790,8 @@ mod tests {
                 failed_models: Vec::new(),
                 scenario_count: 0,
                 recommended_family: None,
+                execution_environment: None,
+                cross_implementation_complete: false,
                 artifact_bindings: Vec::new(),
                 targets: Vec::new(),
                 blocking_gaps: Vec::new(),

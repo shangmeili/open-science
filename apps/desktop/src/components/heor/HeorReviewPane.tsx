@@ -2245,6 +2245,16 @@ function SurvivalReviewAssessment({
           {t("survivalReview.recommendation", { family: audit.recommendedFamily })}
         </p>
       )}
+      {audit?.executionEnvironment && (
+        <p className="mt-2 font-mono text-[10px] leading-4 text-muted">
+          {t("survivalReview.execution", {
+            environment: audit.executionEnvironment,
+            crosscheck: audit.crossImplementationComplete
+              ? t("survivalReview.crosscheckComplete")
+              : t("survivalReview.crosscheckIncomplete"),
+          })}
+        </p>
+      )}
       {audit && audit.targets.length > 1 && (
         <ul className="mt-3 space-y-2">
           {audit.targets.slice(0, 6).map((target) => (

@@ -434,6 +434,8 @@ export interface HeorSurvivalReviewAudit {
   failedModels: string[];
   scenarioCount: number;
   recommendedFamily: string | null;
+  executionEnvironment: string | null;
+  crossImplementationComplete: boolean;
   artifactBindings: Array<{ path: string; sha256: string }>;
   targets: HeorSurvivalTargetSummary[];
   blockingGaps: string[];
@@ -451,6 +453,21 @@ export interface HeorSurvivalTargetSummary {
   failedModels: string[];
   scenarioCount: number;
   recommendedFamily: string | null;
+  executionEnvironment: string | null;
+  crossImplementationComplete: boolean;
+  errors: string[];
+}
+
+export interface HeorSurvivalFitExecutionAudit {
+  complete: boolean;
+  eligibleForReview: boolean;
+  status: string;
+  executionId: string;
+  resultSha256: string | null;
+  candidateModels: number;
+  convergedModels: number;
+  crossImplementationComplete: boolean;
+  packageVersions: Record<string, string>;
   errors: string[];
 }
 
@@ -2543,6 +2560,29 @@ export async function auditHeorSurvivalExtrapolation(): Promise<HeorSurvivalRevi
   return invoke<HeorSurvivalReviewAudit>("audit_heor_survival_extrapolation");
 }
 
+export async function auditHeorSurvivalFitExecution(
+  resultPath: string,
+): Promise<HeorSurvivalFitExecutionAudit> {
+  if (!isTauri) {
+    return {
+      complete: false,
+      eligibleForReview: false,
+      status: "unavailable",
+      executionId: "",
+      resultSha256: null,
+      candidateModels: 0,
+      convergedModels: 0,
+      crossImplementationComplete: false,
+      packageVersions: {},
+      errors: ["Local survival execution audit requires the desktop runtime."],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorSurvivalFitExecutionAudit>("audit_heor_survival_fit_execution", {
+    resultPath,
+  });
+}
+
 export async function auditHeorModelValidation(): Promise<HeorModelValidationAudit> {
   if (!isTauri) return HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
@@ -2967,6 +3007,8 @@ export const HEOR_BROWSER_DEMO_SURVIVAL_REVIEW_AUDIT: HeorSurvivalReviewAudit = 
   failedModels: [],
   scenarioCount: 0,
   recommendedFamily: null,
+  executionEnvironment: null,
+  crossImplementationComplete: false,
   artifactBindings: [],
   targets: [],
   blockingGaps: [],

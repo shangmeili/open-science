@@ -40,6 +40,8 @@ pub struct SurvivalReviewAudit {
     pub failed_models: Vec<String>,
     pub scenario_count: usize,
     pub recommended_family: Option<String>,
+    pub execution_environment: Option<String>,
+    pub cross_implementation_complete: bool,
     pub artifact_bindings: Vec<crate::heor_approval::ArtifactBinding>,
     pub targets: Vec<SurvivalTargetSummary>,
     pub blocking_gaps: Vec<String>,
@@ -59,6 +61,8 @@ pub struct SurvivalTargetSummary {
     pub failed_models: Vec<String>,
     pub scenario_count: usize,
     pub recommended_family: Option<String>,
+    pub execution_environment: Option<String>,
+    pub cross_implementation_complete: bool,
     pub errors: Vec<String>,
 }
 
@@ -213,6 +217,8 @@ fn empty_audit(required: bool, status: &'static str, analysis_id: String) -> Sur
         failed_models: Vec::new(),
         scenario_count: 0,
         recommended_family: None,
+        execution_environment: None,
+        cross_implementation_complete: false,
         artifact_bindings: Vec::new(),
         targets: Vec::new(),
         blocking_gaps: Vec::new(),
@@ -258,12 +264,12 @@ pub(crate) fn audit_survival_review_value(
         audit.blocking_gaps = errors.clone();
         return audit;
     }
-    if review
+    let schema_version = review
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
-        != Some("0.2.0")
-    {
-        errors.push("schema_version must be 0.2.0".into());
+        .unwrap_or_default();
+    if !matches!(schema_version, "0.2.0" | "0.3.0") {
+        errors.push("schema_version must be 0.2.0 or 0.3.0".into());
     }
     if !review
         .get("review_id")
@@ -343,12 +349,14 @@ pub(crate) fn audit_survival_review_value(
     ) {
         errors.push("source_data fields are not the exact supported contract".into());
     } else {
+        let classification = source
+            .get("classification")
+            .and_then(serde_json::Value::as_str);
         if !matches!(
-            source
-                .get("classification")
-                .and_then(serde_json::Value::as_str),
-            Some("public" | "non_sensitive" | "restricted" | "unknown")
-        ) {
+            classification,
+            Some("public" | "non_sensitive" | "restricted")
+        ) && !(schema_version == "0.2.0" && classification == Some("unknown"))
+        {
             errors.push("source_data.classification is unsupported".into());
         }
         if source
@@ -421,6 +429,12 @@ pub(crate) fn audit_survival_review_value(
     audit.candidate_models = candidates.len();
 
     let execution = review.get("execution").unwrap_or(&serde_json::Value::Null);
+    let expected_environment = if schema_version == "0.3.0" {
+        "ai4heor_isolated_local_mle"
+    } else {
+        "external_local_fit_import"
+    };
+    audit.execution_environment = text(execution.get("environment")).map(str::to_owned);
     if !exact_fields(
         execution,
         &[
@@ -437,9 +451,11 @@ pub(crate) fn audit_survival_review_value(
         || execution
             .get("environment")
             .and_then(serde_json::Value::as_str)
-            != Some("external_local_fit_import")
+            != Some(expected_environment)
     {
-        errors.push("execution must record an imported local survHE fit".into());
+        errors.push(format!(
+            "execution.environment must be {expected_environment}"
+        ));
     } else {
         if text(execution.get("r_version")).is_none() {
             errors.push("execution.r_version must be recorded".into());
@@ -469,6 +485,18 @@ pub(crate) fn audit_survival_review_value(
             "session info",
             errors,
         );
+    }
+
+    if schema_version == "0.3.0" {
+        let manifest_path = text(source.get("path")).unwrap_or_default();
+        let (execution_audit, execution_errors) =
+            crate::heor_survival_execution::audit_survival_fit_execution_for_review(
+                workspace,
+                manifest_path,
+                review,
+            );
+        audit.cross_implementation_complete = execution_audit.cross_implementation_complete;
+        errors.extend(execution_errors);
     }
 
     let models = review.get("models").and_then(serde_json::Value::as_array);
@@ -802,6 +830,8 @@ fn target_summary(audit: &SurvivalReviewAudit, review_path: &str) -> SurvivalTar
         failed_models: audit.failed_models.clone(),
         scenario_count: audit.scenario_count,
         recommended_family: audit.recommended_family.clone(),
+        execution_environment: audit.execution_environment.clone(),
+        cross_implementation_complete: audit.cross_implementation_complete,
         errors: audit.errors.clone(),
     }
 }
