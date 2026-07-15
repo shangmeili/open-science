@@ -1,7 +1,7 @@
 name: build
 
 # Builds macOS (.dmg/.app), Windows (NSIS .exe / .msi) and Linux
-# (.deb/.rpm/.AppImage) installers. Each platform's installer can only be
+# (.deb/.rpm) installers. Each platform's installer can only be
 # produced on its own runner — hence the matrix. On a `v*` tag push the
 # installers are also attached to a draft GitHub Release.
 
@@ -38,7 +38,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl \
             wget file libxdo-dev libssl-dev libayatana-appindicator3-dev \
-            librsvg2-dev
+            librsvg2-dev rpm
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4   # version comes from package.json "packageManager"
@@ -66,6 +66,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Validate pinned sidecar archive integrity
+        run: python scripts/dev/test_sidecar_integrity.py -v
 
       - name: Fetch bundled OpenCode sidecar
         shell: bash
@@ -126,6 +129,17 @@ jobs:
 
             <!-- Prepend this release's changelog above this line before publishing. -->
 
+      - name: Verify Linux installer contents and scientific resources
+        if: startsWith(matrix.platform, 'ubuntu')
+        shell: bash
+        run: |
+          bundle_root="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
+          mapfile -t debs < <(find "$bundle_root/deb" -maxdepth 1 -type f -name '*.deb')
+          mapfile -t rpms < <(find "$bundle_root/rpm" -maxdepth 1 -type f -name '*.rpm')
+          test "${#debs[@]}" -eq 1
+          test "${#rpms[@]}" -eq 1
+          python scripts/dev/verify_linux_packages.py --deb "${debs[0]}" --rpm "${rpms[0]}"
+
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
@@ -136,5 +150,4 @@ jobs:
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
-            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
           if-no-files-found: error

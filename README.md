@@ -189,7 +189,7 @@ Builds are not code-signed or notarized yet.
 install it into Applications and run:
 
 ```bash
-xattr -cr "/Applications/Open Science.app"
+xattr -cr "/Applications/AI4HEOR.app"
 ```
 
 **Windows**: if SmartScreen appears, choose **More info -> Run anyway**.
@@ -197,9 +197,9 @@ xattr -cr "/Applications/Open Science.app"
 **Linux**:
 
 ```bash
-sudo apt install ./OpenScience_*.deb
+sudo apt install ./AI4HEOR_*.deb
 # or
-sudo rpm -i OpenScience_*.rpm
+sudo rpm -i AI4HEOR-*.rpm
 ```
 
 ## Build from source
@@ -224,11 +224,15 @@ bash scripts/dev/fetch-skills.sh
 # Run in development or build installers.
 pnpm --filter @ai4s/desktop tauri dev
 pnpm --filter @ai4s/desktop tauri build
+
+# Linux packages (AppImage is intentionally unsupported).
+pnpm --filter @ai4s/desktop tauri build --bundles deb,rpm
 ```
 
 Useful checks:
 
 ```bash
+python scripts/dev/test_sidecar_integrity.py -v
 pnpm test
 pnpm typecheck
 pnpm lint
@@ -270,8 +274,9 @@ live in [`docs/PRD.md`](./docs/PRD.md) and
 target design as well as historical status notes.
 
 Near-term work is focused on signed/notarized releases, broader Windows/Linux
-verification, auto-update, richer connector hardening, and continued reproducibility
-review.
+desktop-session verification, auto-update, richer connector hardening, and continued
+reproducibility review. The current Linux `.deb` and `.rpm` are built and payload-verified
+on Ubuntu 22.04; the `.deb` also passes a clean headless first-start check.
 
 ## Contributing
 

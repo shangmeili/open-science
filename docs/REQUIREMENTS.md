@@ -508,11 +508,15 @@ competitors.
   first launch works without CLI knowledge.
 - **Acceptance.** A non-technical user installs and reaches a working first
   session on both macOS and Windows via a signed installer.
-- **Status.** 🟡 macOS installer shipped; sidecars bundled. Windows CI pipeline in
-  place (matrix produces NSIS `.exe`/`.msi`; both sidecar fetch scripts emit the
-  Windows binaries) and cross-platform paths audited (fixed a Windows-only
-  orphaned-jupyter cleanup gap). Gap (host-bound): producing + code-signing the
-  Windows installer and verifying a real first-run need a Windows machine/CI.
+- **Status.** 🟡 macOS x64 installer and Linux x86_64 `.deb`/`.rpm` shipped locally;
+  pinned sidecars are bundled. Both Linux packages were built on clean Ubuntu 22.04,
+  structurally and byte-for-byte resource verified, and passed all 165 deterministic
+  HEOR tests from their extracted payloads. The `.deb` additionally passed a clean
+  container install and headless first-start check with both the desktop process and
+  bundled OpenCode server ready. Windows CI produces NSIS `.exe`/`.msi`, both sidecar
+  fetchers cover Windows, and cross-platform paths have been audited. Gaps: a real
+  Linux desktop visual session, native RPM installation, and producing, signing, and
+  first-running the Windows installer on a Windows host.
 
 ### P1-5 · Interaction & visualization craft (the app must feel premium) — 🟡 Partial
 
@@ -682,7 +686,7 @@ competitors.
 | P1-1 | Multi-discipline from day one | P1 | 🟡 Partial — pluggable + climate example; non-bio depth pending |
 | P1-2 | Domain + literature connectors | P1 | 🟡 Partial — literature/bio + non-bio across ALL 5 disciplines (materials, economics, physics space-weather, earth Open-Meteo + USGS) shipped, each MCP-handshake verified; astronomy catalogs (no PyPI MCP) + more chem/social DBs pending |
 | P1-3 | Scientific renderers | P1 | 🟡 Partial — base + 3D structure + genome + FITS + DOS + band + phase + qualitative-coding + anomaly map (all 4 disciplines; materials trio complete); ternary/coastlines next |
-| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — macOS done; Windows CI ready (signing/verify host-bound) |
+| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — macOS x64 + Linux x86_64 packages locally verified; Windows CI ready (signing/first-run host-bound) |
 | P1-5 | Interaction & visualization craft | P1 | 🟡 Partial — chart system + palette + command palette + native table→chart surface shipped |
 | **P1-6** | **Social-science analysis integrity** | **P1** | 🟡 **Partial — stats-integrity skill: interpretation/prereg/seed checks + verified .dta→R round-trip** |
 | P2-1 | Notebook + larger-project handling | P2 | ✅ Done — notebook + workspace Files explorer |

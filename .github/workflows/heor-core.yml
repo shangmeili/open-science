@@ -14,6 +14,12 @@ on:
       - "scripts/dev/test_heor_artifact_contracts.py"
       - "scripts/dev/test_heor_local_evidence.py"
       - "scripts/dev/test_tauri_heor_resources.py"
+      - "scripts/dev/fetch-opencode.sh"
+      - "scripts/dev/fetch-uv.sh"
+      - "scripts/dev/sidecar-checksums.sha256"
+      - "scripts/dev/verify-sidecar-checksum.sh"
+      - "scripts/dev/test_sidecar_integrity.py"
+      - "scripts/dev/verify_linux_packages.py"
       - "docs/HEOR_*.md"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -32,6 +38,12 @@ on:
       - "scripts/dev/test_heor_artifact_contracts.py"
       - "scripts/dev/test_heor_local_evidence.py"
       - "scripts/dev/test_tauri_heor_resources.py"
+      - "scripts/dev/fetch-opencode.sh"
+      - "scripts/dev/fetch-uv.sh"
+      - "scripts/dev/sidecar-checksums.sha256"
+      - "scripts/dev/verify-sidecar-checksum.sh"
+      - "scripts/dev/test_sidecar_integrity.py"
+      - "scripts/dev/verify_linux_packages.py"
       - "docs/HEOR_*.md"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -67,6 +79,8 @@ jobs:
         run: python scripts/dev/test_core_skills.py -v
       - name: Validate packaged HEOR Python resources
         run: python scripts/dev/test_tauri_heor_resources.py -v
+      - name: Validate pinned sidecar archive integrity
+        run: python scripts/dev/test_sidecar_integrity.py -v
 
   native:
     name: Native contracts (${{ matrix.os }})

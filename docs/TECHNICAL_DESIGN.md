@@ -1,14 +1,14 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.9, 2026-07-14).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.11, 2026-07-15).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates;
-> deterministic cohort, uncertainty, and budget-impact engines; and macOS packaging.
-> Windows and Linux packaging workflows exist, but the current `0.8.0`/`0.7.0`
-> multi-strategy slice still requires remote runner and clean-machine release evidence.
-> Jupyter, broader MCP integrations, signing/notarization, and advanced HEOR methods remain
-> planned. Sections below distinguish implemented contracts from target design.
+> deterministic cohort, uncertainty, and budget-impact engines; and native macOS and
+> x86_64 Linux packaging. The Linux `.deb` and `.rpm` are built and content-verified on
+> clean Ubuntu 22.04; the `.deb` also passes an isolated install and headless first-start
+> runtime check. Windows remains CI/host-bound, and signing/notarization remains planned.
+> Sections below distinguish implemented contracts from target design.
 
 ## 1. Technical goals
 
@@ -135,6 +135,16 @@ git-ignored and fetched by `scripts/dev/fetch-opencode.sh`). The Rust side
   reply out of the box without a separate login. We only read the user's auth file; we
   never modify it or their sessions.
 - killed on app exit.
+
+OpenCode and uv release archives are admitted through
+`scripts/dev/sidecar-checksums.sha256`. The fetchers require exactly one SHA-256 for
+the pinned product/version/asset key and verify the downloaded bytes before extraction;
+missing, duplicate, or changed digests fail closed. OpenCode values are recorded from
+the [v1.17.13 GitHub release](https://github.com/anomalyco/opencode/releases/tag/v1.17.13)
+asset metadata and uv values from the publisher's
+[0.11.26 release checksums](https://github.com/astral-sh/uv/releases/tag/0.11.26).
+The contract covers every supported macOS, Windows, and Linux archive and runs in both
+build and cross-platform contract CI.
 
 The user's model provider key (entered in Settings) is written into that app-private
 `opencode.json` by the `configure_opencode` Rust command, and the sidecar is restarted
@@ -630,8 +640,24 @@ must say so.
 
 Outputs: `.deb` and `.rpm` for x86_64 Linux. AppImage remains disabled because
 `linuxdeploy` invokes `ldd` on the bundled Bun-built OpenCode sidecar and aborts on
-that valid standalone binary. This is a documented distribution constraint, not a
-claim that Linux installation or first launch has been verified on the current commit.
+that valid standalone binary. RPM payloads use Tauri's supported `zstd` compression at
+level 3; this avoids the substantially slower default gzip packaging path while remaining
+readable by the Ubuntu 22.04 RPM toolchain.
+
+The Linux CI job builds in Ubuntu 22.04 and then runs
+`scripts/dev/verify_linux_packages.py`. The verifier checks `.deb`/`.rpm` metadata and
+x86-64 ELF architecture; extracts RPM through the official `rpm2archive` tool; verifies
+the pinned OpenCode and uv versions; compares all bundled scientific resources byte for
+byte with the source tree; rejects links and generated Python caches; and runs the entire
+deterministic HEOR Python suite independently from each extracted package. It also proves
+that the two packages contain identical sidecars and main-program bytes apart from the
+single expected Tauri bundle-type marker.
+
+Version 0.1.11 was additionally installed into a brand-new Ubuntu 22.04 container. A
+headless X session reached simultaneous `ai4s-workbench` and `opencode serve` process
+readiness and created the initial `~/Documents/OpenScience` workspace. This establishes
+clean installation and runtime startup, but it is not a visual desktop-session acceptance
+test. A real Linux desktop session and a native RPM installation remain release checks.
 
 ### 12.4 Auto update
 

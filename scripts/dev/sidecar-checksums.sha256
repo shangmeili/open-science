@@ -1,0 +1,15 @@
+# AI4HEOR bundled sidecar release archives. Keys are product/version/asset.
+# OpenCode digests come from GitHub release asset metadata; uv digests come
+# from the publisher's per-asset .sha256 files.
+dd016d3e26b347d675ab26c45d1e287545912d5c4c49fa0770b622d4a1367e23  opencode/1.17.13/opencode-darwin-arm64.zip
+0bf3d9d134097ca698b83f64c55db960d6d2d0c409069bf4cfd863e5de503b4a  opencode/1.17.13/opencode-darwin-x64.zip
+bbaccdd374aaab66cd97c7f8ad1c080aa393610fa5f80ee8dfc007f9500afaf9  opencode/1.17.13/opencode-linux-arm64.tar.gz
+157afa289d1a8d9372de0ce19ac726119b937a1f6b201808d46f06e4e59bb348  opencode/1.17.13/opencode-linux-x64.tar.gz
+bafec2dd6b89055910284ba910d59605295866563ccdb3d035c0c4b887dd11e6  opencode/1.17.13/opencode-windows-arm64.zip
+18aa3df701a6eafcca201b5bcc63e086c96c8daa6ae2495cf718e12cb0ce3361  opencode/1.17.13/opencode-windows-x64.zip
+8f7fbf1708399b921857bce71e1d60f0d3ccf52a30caebc1c1a2f175dce13ab6  uv/0.11.26/uv-aarch64-apple-darwin.tar.gz
+922b460202707dd5f4ccacbadbe7f6a546cc46e82a99bf50ca99a7977a78eddd  uv/0.11.26/uv-x86_64-apple-darwin.tar.gz
+98246149741f558e25e45ecf2b0b20f34de0634269f2bf0dcb4012d4b6ba289a  uv/0.11.26/uv-aarch64-pc-windows-msvc.zip
+4e1278ede866be6c0bf32d2f466cc6de7a9fb399ecf20c9ce2d186e52424be47  uv/0.11.26/uv-x86_64-pc-windows-msvc.zip
+befa1a59c91e96eb601b0fd9a97c03dd666f17baba644b2b4db9c59a767e387e  uv/0.11.26/uv-aarch64-unknown-linux-gnu.tar.gz
+6426a73c3837e6e2483ee344cbc00f36394d179afcba6183cb77437e67db4af0  uv/0.11.26/uv-x86_64-unknown-linux-gnu.tar.gz
