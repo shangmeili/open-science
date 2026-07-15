@@ -436,7 +436,13 @@ gate binds the PSM plan and reviews. Paired uncertainty schema `0.11.0` now
 admits only economic-input DSA/PSA and bounded economic scenarios against the
 fixed hash-bound curves. It requires explicit PFS/OS omissions and returns a
 partial, economic-input-only classification. Survival parameter covariance,
-curve alternatives, joint PFS/OS uncertainty, and release reporting are not yet
-admitted; the app explicitly blocks release while those gaps remain.
+curve alternatives, and joint PFS/OS uncertainty remain outside that fallback.
+The first-party `heor-joint-survival-uncertainty` asset and uncertainty schema
+`0.12.0` now admit already-generated joint posterior or paired-patient-bootstrap
+rows across all strategy PFS/OS curves. The portable/Python/native contracts
+bind every source and draw byte, reject independent endpoint sampling and curve
+crossing, and consume one whole row per PSA iteration. Curve-family selection,
+extrapolation, treatment-effect duration, source-model validity, independent
+validation, and release reporting remain blocked.
 Materialization is not statistical fitting, automatic selection, covariance
 recovery, treatment-effect application, or substantive extrapolation validation.

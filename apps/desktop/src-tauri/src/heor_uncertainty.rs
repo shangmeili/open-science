@@ -31,6 +31,10 @@ pub struct UncertaintyAudit {
     pub primary_threshold: Option<f64>,
     pub threshold_count: usize,
     pub omitted_parameter_count: usize,
+    pub joint_survival_required: bool,
+    pub joint_survival_manifest_sha256: Option<String>,
+    pub joint_survival_draws_sha256: Option<String>,
+    pub joint_survival_draw_count: Option<u64>,
     pub invalid_parameters: Vec<String>,
     pub errors: Vec<String>,
 }
@@ -307,6 +311,10 @@ fn empty_audit(plan_raw: &[u8]) -> UncertaintyAudit {
         primary_threshold: None,
         threshold_count: 0,
         omitted_parameter_count: 0,
+        joint_survival_required: false,
+        joint_survival_manifest_sha256: None,
+        joint_survival_draws_sha256: None,
+        joint_survival_draw_count: None,
         invalid_parameters: Vec::new(),
         errors: Vec::new(),
     }
@@ -462,11 +470,11 @@ fn validate_correlation_groups(
 ) -> usize {
     if !matches!(
         schema_version,
-        Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0")
+        Some("0.4.0" | "0.5.0" | "0.6.0" | "0.7.0" | "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0")
     ) {
         if correlation.is_some_and(|value| value.contains_key("groups")) {
             errors.push(
-                "correlation groups require uncertainty schema_version 0.4.0 through 0.11.0".into(),
+                "correlation groups require uncertainty schema_version 0.4.0 through 0.12.0".into(),
             );
         }
         return 0;
@@ -476,7 +484,7 @@ fn validate_correlation_groups(
         .and_then(serde_json::Value::as_array);
     let Some(groups) = groups else {
         errors.push(
-            "correlation groups must be an array for schema_version 0.4.0 through 0.11.0".into(),
+            "correlation groups must be an array for schema_version 0.4.0 through 0.12.0".into(),
         );
         return 0;
     };
@@ -646,11 +654,12 @@ fn audit_values(
                 | "0.9.0"
                 | "0.10.0"
                 | "0.11.0"
+                | "0.12.0"
         )
     ) {
         audit
             .errors
-            .push("uncertainty schema_version must be 0.1.0 through 0.11.0".into());
+            .push("uncertainty schema_version must be 0.1.0 through 0.12.0".into());
     }
     let analysis_schema = plan
         .get("schema_version")
@@ -662,6 +671,7 @@ fn audit_values(
             | (Some("0.10.0"), Some("0.9.0"))
             | (Some("0.11.0"), Some("0.10.0"))
             | (Some("0.12.0"), Some("0.11.0"))
+            | (Some("0.12.0"), Some("0.12.0"))
     );
     let versioned_analysis = matches!(
         analysis_schema,
@@ -669,11 +679,11 @@ fn audit_values(
     );
     let versioned_uncertainty = matches!(
         schema_version,
-        Some("0.7.0" | "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0")
+        Some("0.7.0" | "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0")
     );
     if (versioned_analysis || versioned_uncertainty) && !version_pair {
         audit.errors.push(
-            "analysis schema_version 0.8.0 through 0.12.0 must pair with uncertainty schema_version 0.7.0 through 0.11.0 respectively".into(),
+            "analysis schema_version 0.8.0 through 0.12.0 must use the supported uncertainty schema pairing".into(),
         );
     }
     for field in ["uncertainty_id", "analysis_id"] {
@@ -791,7 +801,7 @@ fn audit_values(
                 .push(format!("parameter {id} target does not exist"));
             continue;
         };
-        let target_allowed = if schema_version == Some("0.11.0") {
+        let target_allowed = if matches!(schema_version, Some("0.11.0" | "0.12.0")) {
             matches!(
                 target.split('/').collect::<Vec<_>>().as_slice(),
                 ["", "strategies", strategy_id, "state_costs" | "state_utilities", index]
@@ -825,7 +835,7 @@ fn audit_values(
             .get("provenance_path")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
-        if schema_version == Some("0.11.0")
+        if matches!(schema_version, Some("0.11.0" | "0.12.0"))
             && provenance_path
                 != target
                     .rsplit_once('/')
@@ -1236,7 +1246,7 @@ fn audit_values(
                 .errors
                 .push(format!("parameter {id} deterministic bounds are invalid"));
         }
-        if schema_version == Some("0.11.0") {
+        if matches!(schema_version, Some("0.11.0" | "0.12.0")) {
             let economic_bounds_valid =
                 finite_number(low)
                     .zip(finite_number(high))
@@ -1267,7 +1277,7 @@ fn audit_values(
             probability_indices.is_some(),
             &mut audit.errors,
         );
-        if schema_version == Some("0.11.0") {
+        if matches!(schema_version, Some("0.11.0" | "0.12.0")) {
             let distribution = parameter
                 .get("probabilistic")
                 .and_then(serde_json::Value::as_object);
@@ -1382,6 +1392,7 @@ fn audit_values(
                 | "0.9.0"
                 | "0.10.0"
                 | "0.11.0"
+                | "0.12.0"
         )
     ) {
         let thresholds = threshold_config
@@ -1415,7 +1426,7 @@ fn audit_values(
         }
     } else if has_threshold_config {
         audit.errors.push(
-            "decision thresholds require uncertainty schema_version 0.2.0 through 0.11.0".into(),
+            "decision thresholds require uncertainty schema_version 0.2.0 through 0.12.0".into(),
         );
     } else if schema_version == Some("0.1.0") {
         audit.threshold_count = usize::from(audit.primary_threshold.is_some());
@@ -1506,6 +1517,35 @@ fn audit_values(
             }
         }
     }
+    if schema_version == Some("0.12.0") {
+        let declared = omitted
+            .into_iter()
+            .flatten()
+            .filter_map(|item| item.get("provenance_path")?.as_str())
+            .collect::<HashSet<_>>();
+        for strategy_id in &allowed_strategy_ids {
+            for endpoint in ["pfs", "os"] {
+                let represented =
+                    format!("partitioned_survival.strategies.{strategy_id}.{endpoint}");
+                if declared.contains(represented.as_str()) {
+                    audit.errors.push(format!(
+                        "schema 0.12.0 must not omit represented curve {represented}"
+                    ));
+                }
+            }
+        }
+        for required in [
+            "partitioned_survival.structural.curve_family_selection",
+            "partitioned_survival.structural.extrapolation_assumptions",
+            "partitioned_survival.structural.treatment_effect_duration",
+        ] {
+            if !declared.contains(required) {
+                audit.errors.push(format!(
+                    "schema 0.12.0 must explicitly omit structural uncertainty {required}"
+                ));
+            }
+        }
+    }
 
     let scenarios = uncertainty
         .get("structural_scenarios")
@@ -1559,7 +1599,7 @@ fn audit_values(
                         &allowed_strategy_ids,
                         matches!(
                             schema_version,
-                            Some("0.8.0" | "0.9.0" | "0.10.0" | "0.11.0")
+                            Some("0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0")
                         ),
                     )
                 })
@@ -1602,11 +1642,10 @@ pub fn audit_uncertainty_plan_for_plan(
     let uncertainty: serde_json::Value = serde_json::from_slice(&uncertainty_raw)
         .map_err(|error| format!("uncertainty plan is invalid: {error}"))?;
     let mut audit = audit_values(&plan, plan_raw, &uncertainty, &uncertainty_raw);
-    if uncertainty
+    let schema_version = uncertainty
         .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        == Some("0.11.0")
-    {
+        .and_then(serde_json::Value::as_str);
+    if matches!(schema_version, Some("0.11.0" | "0.12.0")) {
         if let Err(error) =
             crate::heor_partitioned_survival::require_partitioned_survival_approvable(
                 workspace, plan_raw,
@@ -1645,6 +1684,21 @@ pub fn audit_uncertainty_plan_for_plan(
                 }
                 Err(error) => audit.errors.push(error),
             }
+        }
+        if schema_version == Some("0.12.0") {
+            audit.joint_survival_required = true;
+            let joint = crate::heor_joint_survival_uncertainty::audit_joint_survival_for_plan(
+                workspace,
+                plan_raw,
+                &uncertainty,
+                audit.iterations,
+            );
+            audit.joint_survival_manifest_sha256 =
+                (!joint.manifest_sha256.is_empty()).then_some(joint.manifest_sha256);
+            audit.joint_survival_draws_sha256 =
+                (!joint.draws_sha256.is_empty()).then_some(joint.draws_sha256);
+            audit.joint_survival_draw_count = joint.draw_count;
+            audit.errors.extend(joint.errors);
         }
         audit.complete = audit.errors.is_empty() && audit.invalid_parameters.is_empty();
         audit.status = if audit.complete {
@@ -1739,6 +1793,19 @@ pub fn run_heor_uncertainty(
             .arg(
                 workspace.join(crate::heor_survival_materialization::SURVIVAL_MATERIALIZATION_PATH),
             );
+        if uncertainty_audit.joint_survival_required {
+            command
+                .arg("--joint-survival-uncertainty-manifest")
+                .arg(
+                    workspace.join(
+                        crate::heor_joint_survival_uncertainty::MANIFEST_PATH,
+                    ),
+                )
+                .arg("--joint-survival-draws")
+                .arg(
+                    workspace.join(crate::heor_joint_survival_uncertainty::DRAWS_PATH),
+                );
+        }
     }
     let output = command
         .current_dir(&workspace)
@@ -1786,6 +1853,22 @@ pub fn run_heor_uncertainty(
         {
             return Err(
                 "HEOR uncertainty engine partitioned-survival hashes do not match desktop-audited inputs".into(),
+            );
+        }
+    }
+    if uncertainty_audit.joint_survival_required {
+        if calculation
+            .get("joint_survival_uncertainty_sha256")
+            .and_then(serde_json::Value::as_str)
+            != uncertainty_audit.joint_survival_manifest_sha256.as_deref()
+            || calculation
+                .get("joint_survival_draws_sha256")
+                .and_then(serde_json::Value::as_str)
+                != uncertainty_audit.joint_survival_draws_sha256.as_deref()
+        {
+            return Err(
+                "HEOR uncertainty engine joint-survival hashes do not match desktop-audited inputs"
+                    .into(),
             );
         }
     }
@@ -1949,7 +2032,7 @@ mod tests {
     }
 
     #[test]
-    fn schema_011_admits_only_partial_partitioned_survival_economic_uncertainty() {
+    fn partitioned_survival_schemas_bound_economic_targets_and_visible_omissions() {
         let mut plan = plan();
         plan["schema_version"] = serde_json::json!("0.12.0");
         plan["baseline_strategy_id"] = serde_json::json!("comparator");
@@ -1985,6 +2068,16 @@ mod tests {
 
         let audit = audit_values(&plan, &plan_raw, &uncertainty, &uncertainty_raw);
         assert!(audit.complete, "{:?}", audit.errors);
+
+        uncertainty["schema_version"] = serde_json::json!("0.12.0");
+        uncertainty["probabilistic_analysis"]["omitted_parameters"] = serde_json::json!([
+            {"provenance_path": "partitioned_survival.structural.curve_family_selection", "rationale": "Structural"},
+            {"provenance_path": "partitioned_survival.structural.extrapolation_assumptions", "rationale": "Structural"},
+            {"provenance_path": "partitioned_survival.structural.treatment_effect_duration", "rationale": "Structural"}
+        ]);
+        let joint_raw = serde_json::to_vec(&uncertainty).unwrap();
+        let joint = audit_values(&plan, &plan_raw, &uncertainty, &joint_raw);
+        assert!(joint.complete, "{:?}", joint.errors);
 
         uncertainty["parameters"][0]["target"] = serde_json::json!("/cycles");
         let invalid_raw = serde_json::to_vec(&uncertainty).unwrap();

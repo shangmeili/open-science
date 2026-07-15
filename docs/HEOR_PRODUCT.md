@@ -538,6 +538,21 @@ parameters, covariance, curve selection, extrapolation alternatives, and joint
 PFS/OS uncertainty remain outside the calculation and continue to block a
 release-ready PSM interpretation.
 
+When a reviewed joint posterior or paired-patient bootstrap already exists,
+uncertainty schema `0.12.0` uses the first-party
+`$heor-joint-survival-uncertainty` asset. A manifest binds the exact analysis,
+PSM, deterministic materializations, source artifacts, and JSONL draw file.
+Every PSA iteration consumes one complete row spanning all strategies and both
+PFS/OS endpoints, preserving within-strategy and between-strategy curve
+dependence. Independent endpoint draws, missing rows, increasing or crossing
+curves, stale hashes, and silent repairs fail closed. Economic DSA/PSA rules
+remain unchanged. Results are labeled `joint_curve_draw_parameter_uncertainty`
+with scope `joint_survival_curves_and_economic_inputs`, and EVPI remains
+conditional. The workbench does not infer that the source posterior/bootstrap
+is valid and still exposes curve-family selection, extrapolation assumptions,
+treatment-effect duration, clinical validity, and independent validation as
+release blockers.
+
 ## Implemented budget impact boundary
 
 The first-party `$heor-budget-impact` skill creates

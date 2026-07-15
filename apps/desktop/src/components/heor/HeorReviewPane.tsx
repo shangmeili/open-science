@@ -3014,6 +3014,9 @@ export function UncertaintyResultCard({
   const partialEconomicOnly = calculation.calculation_classification
     === "partial_parameter_uncertainty"
     && calculation.uncertainty_scope === "economic_inputs_only";
+  const jointSurvival = calculation.calculation_classification
+    === "joint_curve_draw_parameter_uncertainty"
+    && calculation.uncertainty_scope === "joint_survival_curves_and_economic_inputs";
   const amount = new Intl.NumberFormat(locale, calculation.economic_basis
     ? {
         style: "currency",
@@ -3077,6 +3080,12 @@ export function UncertaintyResultCard({
           <div>{t("uncertaintyResult.partialEconomicOnlyDetail")}</div>
         </div>
       )}
+      {jointSurvival && (
+        <div className="mt-3 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-[10px] leading-4 text-warning">
+          <div className="font-semibold">{t("uncertaintyResult.jointSurvival")}</div>
+          <div>{t("uncertaintyResult.jointSurvivalDetail")}</div>
+        </div>
+      )}
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Metric
           label={probabilityLabel}
@@ -3117,7 +3126,9 @@ export function UncertaintyResultCard({
           <Metric
             label={partialEconomicOnly
               ? t("uncertaintyResult.partialEvpi")
-              : t("uncertaintyResult.primaryEvpi")}
+              : jointSurvival
+                ? t("uncertaintyResult.jointEvpi")
+                : t("uncertaintyResult.primaryEvpi")}
             value={amount.format(primary.per_person_evpi)}
             accent
           />

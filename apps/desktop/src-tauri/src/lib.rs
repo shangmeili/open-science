@@ -15,6 +15,7 @@ mod heor_economic_inputs;
 mod heor_evidence;
 mod heor_evidence_review;
 mod heor_library;
+mod heor_joint_survival_uncertainty;
 mod heor_partitioned_survival;
 mod heor_reference_case;
 mod heor_reporting;

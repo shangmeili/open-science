@@ -44,6 +44,10 @@ from .partitioned_survival import (
     calculate_partitioned_survival,
     run_partitioned_survival,
 )
+from .joint_survival_uncertainty import (
+    iter_joint_survival_curve_plans,
+    validate_joint_survival_uncertainty,
+)
 from .relative_effect import (
     ANALYSIS_SCHEMA_VERSION as RELATIVE_EFFECT_ANALYSIS_SCHEMA_VERSION,
     TRANSFORMATION_METHOD as RELATIVE_EFFECT_TRANSFORMATION_METHOD,
@@ -75,6 +79,11 @@ from .transition_rates import (
 
 UNCERTAINTY_SCHEMA_VERSION = "0.10.0"
 PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION = "0.11.0"
+JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION = "0.12.0"
+PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS = {
+    PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+    JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+}
 RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION = "0.9.0"
 PREVIOUS_UNCERTAINTY_SCHEMA_VERSION = "0.8.0"
 PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION = "0.7.0"
@@ -86,6 +95,7 @@ PRIOR_UNCERTAINTY_SCHEMA_VERSION = "0.2.0"
 LEGACY_UNCERTAINTY_SCHEMA_VERSION = "0.1.0"
 UNCERTAINTY_ENGINE_VERSION = "0.11.0"
 PARTITIONED_SURVIVAL_UNCERTAINTY_ENGINE_VERSION = "0.12.0"
+JOINT_SURVIVAL_UNCERTAINTY_ENGINE_VERSION = "0.13.0"
 RELATIVE_EFFECT_UNCERTAINTY_ENGINE_VERSION = "0.10.0"
 PREVIOUS_UNCERTAINTY_ENGINE_VERSION = "0.9.0"
 PRIOR_MULTI_STRATEGY_UNCERTAINTY_ENGINE_VERSION = "0.8.0"
@@ -214,10 +224,11 @@ class Scenario:
 def _validate_schema_pairing(analysis_schema: Any, uncertainty_schema: str) -> None:
     if (
         analysis_schema == "0.12.0"
-        and uncertainty_schema != PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION
+        and uncertainty_schema
+        not in PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS
     ):
         raise ModelValidationError(
-            "analysis schema_version 0.12.0 requires uncertainty schema_version 0.11.0"
+            "analysis schema_version 0.12.0 requires uncertainty schema_version 0.11.0 or 0.12.0"
         )
     if (
         analysis_schema == MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION
@@ -248,11 +259,11 @@ def _validate_schema_pairing(analysis_schema: Any, uncertainty_schema: str) -> N
             "analysis schema_version 0.8.0 requires uncertainty schema_version 0.7.0"
         )
     if (
-        uncertainty_schema == PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION
+        uncertainty_schema in PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS
         and analysis_schema != "0.12.0"
     ):
         raise ModelValidationError(
-            "uncertainty schema_version 0.11.0 requires analysis schema_version 0.12.0"
+            "uncertainty schema_version 0.11.0 or 0.12.0 requires analysis schema_version 0.12.0"
         )
     if (
         uncertainty_schema == UNCERTAINTY_SCHEMA_VERSION
@@ -329,9 +340,10 @@ class UncertaintySpecification:
             RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
             UNCERTAINTY_SCHEMA_VERSION,
             PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+            JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
         }:
             raise ModelValidationError(
-                "uncertainty schema_version must be 0.1.0 through 0.11.0"
+                "uncertainty schema_version must be 0.1.0 through 0.12.0"
             )
         _validate_schema_pairing(base_payload.get("schema_version"), schema_version)
         base = _mapping(value.get("base_analysis", {}), "base_analysis")
@@ -352,6 +364,7 @@ class UncertaintySpecification:
             RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
             UNCERTAINTY_SCHEMA_VERSION,
             PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+            JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
         }:
             threshold_config = _mapping(
                 psa.get("decision_thresholds", {}),
@@ -518,6 +531,7 @@ class UncertaintySpecification:
                 RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
                 UNCERTAINTY_SCHEMA_VERSION,
                 PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+                JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
             }
             else (1, 1)
         )
@@ -548,16 +562,22 @@ def run_uncertainty(
     partitioned_raw: bytes | None = None,
     materializations: dict[str, Any] | None = None,
     materializations_raw: bytes | None = None,
+    joint_survival_manifest: dict[str, Any] | None = None,
+    joint_survival_manifest_raw: bytes | None = None,
+    joint_survival_draws_raw: bytes | None = None,
 ) -> dict[str, Any]:
     base_sha256 = hashlib.sha256(base_raw).hexdigest()
     uncertainty_sha256 = hashlib.sha256(uncertainty_raw).hexdigest()
     specification = UncertaintySpecification.from_dict(
         uncertainty_payload, base_payload, base_sha256
     )
-    partitioned = (
-        specification.schema_version
-        == PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION
+    partitioned = specification.schema_version in (
+        PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS
     )
+    joint_survival = (
+        specification.schema_version == JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION
+    )
+    joint_curve_plans = None
     if partitioned:
         if (
             partitioned_plan is None
@@ -575,6 +595,48 @@ def run_uncertainty(
             partitioned_raw,
             materializations_raw,
         )
+        if joint_survival:
+            if (
+                joint_survival_manifest is None
+                or joint_survival_manifest_raw is None
+                or joint_survival_draws_raw is None
+            ):
+                raise ModelValidationError(
+                    "joint survival uncertainty requires the manifest and JSONL draw artifact"
+                )
+            _validate_joint_survival_uncertainty_bindings(
+                uncertainty_payload,
+                joint_survival_manifest_raw,
+                joint_survival_draws_raw,
+            )
+            validate_joint_survival_uncertainty(
+                base_payload,
+                base_raw,
+                partitioned_plan,
+                partitioned_raw,
+                materializations,
+                materializations_raw,
+                joint_survival_manifest,
+                joint_survival_manifest_raw,
+                joint_survival_draws_raw,
+                specification.iterations,
+            )
+            joint_curve_plans = iter_joint_survival_curve_plans(
+                joint_survival_draws_raw,
+                base_payload["strategy_order"],
+                joint_survival_manifest["time_grid_years"],
+            )
+        elif any(
+            item is not None
+            for item in (
+                joint_survival_manifest,
+                joint_survival_manifest_raw,
+                joint_survival_draws_raw,
+            )
+        ):
+            raise ModelValidationError(
+                "joint survival artifacts require uncertainty schema_version 0.12.0"
+            )
         base_result_value = run_partitioned_survival(
             base_payload,
             base_raw,
@@ -584,10 +646,12 @@ def run_uncertainty(
             materializations_raw,
         )
 
-        def evaluate(payload: dict[str, Any]) -> dict[str, Any]:
+        def evaluate(
+            payload: dict[str, Any], curve_plan: dict[str, Any] | None = None
+        ) -> dict[str, Any]:
             return calculate_partitioned_survival(
                 EconomicSpecification.from_analysis_plan(payload),
-                partitioned_plan,
+                partitioned_plan if curve_plan is None else curve_plan,
             )
 
         base_result_dict = base_result_value
@@ -600,10 +664,13 @@ def run_uncertainty(
                 partitioned_raw,
                 materializations,
                 materializations_raw,
+                joint_survival_manifest,
+                joint_survival_manifest_raw,
+                joint_survival_draws_raw,
             )
         ):
             raise ModelValidationError(
-                "partitioned-survival artifacts require uncertainty schema_version 0.11.0"
+                "partitioned-survival artifacts require uncertainty schema_version 0.11.0 or 0.12.0"
             )
         base_result = run_markov(MarkovSpecification.from_dict(base_payload))
         base_result_dict = base_result.to_dict()
@@ -615,6 +682,7 @@ def run_uncertainty(
         RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
         UNCERTAINTY_SCHEMA_VERSION,
         PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+        JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
     }
     if multi_strategy:
         deterministic = [
@@ -626,7 +694,7 @@ def run_uncertainty(
             for item in specification.scenarios
         ]
         probabilistic = _run_multi_strategy_psa(
-            base_payload, specification, evaluate
+            base_payload, specification, evaluate, joint_curve_plans
         )
         base_case = _multi_strategy_decision_summary(base_result_dict)
     else:
@@ -638,7 +706,9 @@ def run_uncertainty(
         "analysis_id": specification.analysis_id,
         "uncertainty_id": specification.uncertainty_id,
         "engine_version": (
-            PARTITIONED_SURVIVAL_UNCERTAINTY_ENGINE_VERSION
+            JOINT_SURVIVAL_UNCERTAINTY_ENGINE_VERSION
+            if joint_survival
+            else PARTITIONED_SURVIVAL_UNCERTAINTY_ENGINE_VERSION
             if partitioned
             else UNCERTAINTY_ENGINE_VERSION
             if specification.schema_version == UNCERTAINTY_SCHEMA_VERSION
@@ -659,10 +729,18 @@ def run_uncertainty(
         # uint64 exactly as a JavaScript number. Preserve the audit value as text.
         "seed": str(specification.seed),
         "calculation_classification": (
-            "partial_parameter_uncertainty" if partitioned else "calculation_only"
+            "joint_curve_draw_parameter_uncertainty"
+            if joint_survival
+            else "partial_parameter_uncertainty"
+            if partitioned
+            else "calculation_only"
         ),
         "uncertainty_scope": (
-            "economic_inputs_only" if partitioned else "declared_model_parameters"
+            "joint_survival_curves_and_economic_inputs"
+            if joint_survival
+            else "economic_inputs_only"
+            if partitioned
+            else "declared_model_parameters"
         ),
         **(
             {
@@ -676,20 +754,43 @@ def run_uncertainty(
             if partitioned
             else {}
         ),
+        **(
+            {
+                "joint_survival_uncertainty_sha256": hashlib.sha256(
+                    joint_survival_manifest_raw
+                ).hexdigest(),
+                "joint_survival_draws_sha256": hashlib.sha256(
+                    joint_survival_draws_raw
+                ).hexdigest(),
+            }
+            if joint_survival
+            else {}
+        ),
         "economic_basis": economic_basis,
         "base_case": base_case,
         "deterministic_analysis": deterministic,
         "probabilistic_analysis": probabilistic,
         "structural_scenarios": scenarios,
         "limitations": [
-            "Only parameter uncertainty represented by the declared distributions is sampled.",
+            (
+                "Only uncertainty represented by the hash-bound joint survival draws and declared economic-input distributions is sampled."
+                if joint_survival
+                else "Only parameter uncertainty represented by the declared distributions is sampled."
+            ),
             *(
                 [
                     "Schema 0.11.0 samples only declared state-cost and state-utility inputs while holding every PFS and OS curve fixed.",
                     "This is partial parameter uncertainty, not a complete partitioned-survival PSA; survival parameter, curve-selection, extrapolation, and joint PFS/OS uncertainty remain outside the calculation and block release-ready interpretation.",
                     "Per-person EVPI is conditional on the fixed survival curves and covers only the represented economic inputs.",
                 ]
-                if partitioned
+                if partitioned and not joint_survival
+                else [
+                    "Schema 0.12.0 propagates one hash-bound joint draw across every strategy PFS/OS curve together with declared economic-input distributions in each PSA iteration.",
+                    "The engine verifies draw completeness and curve coherence but does not establish that the source posterior or paired bootstrap is statistically or clinically appropriate; that remains a Human and independent-validation responsibility.",
+                    "Curve-family selection, extrapolation assumptions, and treatment-effect duration remain structural uncertainty outside the joint draw artifact and block release-ready interpretation.",
+                    "Per-person EVPI is conditional on the selected structural survival assumptions and covers only represented joint curve draws and economic inputs.",
+                ]
+                if joint_survival
                 else [
                     "Declared event-rate parameters are sampled in rate space and deterministically transformed into complete transition inputs for each run.",
                     "Declared exponential or Weibull parameters are sampled on their positive parameter scale and the complete survival-derived transition schedule is recomputed for each run.",
@@ -698,7 +799,9 @@ def run_uncertainty(
                 ]
             ),
             (
-                "Cross-parameter dependence is limited to evidence-bound lognormal correlation groups; the remaining economic-input independence rationale is a human-review item."
+                "Survival-curve dependence is carried by each joint draw row; cross-parameter dependence among economic inputs is limited to evidence-bound lognormal correlation groups, and the remaining independence rationale is a human-review item."
+                if joint_survival
+                else "Cross-parameter dependence is limited to evidence-bound lognormal correlation groups; the remaining economic-input independence rationale is a human-review item."
                 if partitioned
                 else "Cross-parameter dependence is limited to declared Dirichlet simplex rows and evidence-bound lognormal correlation groups; the remaining independence rationale is a human-review item."
             ),
@@ -746,7 +849,7 @@ def _validate_partitioned_survival_uncertainty_bindings(
             raise ModelValidationError(
                 f"partitioned_survival_inputs.{field}.content_sha256 does not match the current bytes"
             )
-    expected_omissions = {
+    fixed_curve_paths = {
         f"partitioned_survival.strategies.{strategy_id}.{endpoint}"
         for strategy_id in _analysis_strategy_ids(base_payload)
         for endpoint in ("pfs", "os")
@@ -754,12 +857,63 @@ def _validate_partitioned_survival_uncertainty_bindings(
     declared_omissions = {
         item["provenance_path"] for item in specification.omitted_parameters
     }
-    missing = sorted(expected_omissions - declared_omissions)
-    if missing:
+    if specification.schema_version == PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION:
+        missing = sorted(fixed_curve_paths - declared_omissions)
+        if missing:
+            raise ModelValidationError(
+                "partitioned-survival economic-only uncertainty must explicitly omit every fixed curve: "
+                + ", ".join(missing)
+            )
+    else:
+        incorrectly_omitted = sorted(fixed_curve_paths & declared_omissions)
+        if incorrectly_omitted:
+            raise ModelValidationError(
+                "joint survival uncertainty must not list represented PFS/OS curves as omitted: "
+                + ", ".join(incorrectly_omitted)
+            )
+        required_structural_omissions = {
+            "partitioned_survival.structural.curve_family_selection",
+            "partitioned_survival.structural.extrapolation_assumptions",
+            "partitioned_survival.structural.treatment_effect_duration",
+        }
+        missing = sorted(required_structural_omissions - declared_omissions)
+        if missing:
+            raise ModelValidationError(
+                "joint survival uncertainty must explicitly omit unresolved structural uncertainty: "
+                + ", ".join(missing)
+            )
+
+
+def _validate_joint_survival_uncertainty_bindings(
+    uncertainty_payload: dict[str, Any],
+    manifest_raw: bytes,
+    draws_raw: bytes,
+) -> None:
+    inputs = _mapping(
+        uncertainty_payload.get("joint_survival_inputs"),
+        "joint_survival_inputs",
+    )
+    if set(inputs) != {"manifest", "draws"}:
         raise ModelValidationError(
-            "partitioned-survival economic-only uncertainty must explicitly omit every fixed curve: "
-            + ", ".join(missing)
+            "joint_survival_inputs must contain only manifest and draws"
         )
+    for field, expected_path, raw in (
+        ("manifest", "heor/joint-survival-uncertainty.json", manifest_raw),
+        ("draws", "heor/joint-survival-draws.jsonl", draws_raw),
+    ):
+        binding = _mapping(inputs.get(field), f"joint_survival_inputs.{field}")
+        if set(binding) != {"path", "content_sha256"}:
+            raise ModelValidationError(
+                f"joint_survival_inputs.{field} must contain only path and content_sha256"
+            )
+        if binding.get("path") != expected_path:
+            raise ModelValidationError(
+                f"joint_survival_inputs.{field}.path must be {expected_path}"
+            )
+        if binding.get("content_sha256") != hashlib.sha256(raw).hexdigest():
+            raise ModelValidationError(
+                f"joint_survival_inputs.{field}.content_sha256 does not match the current bytes"
+            )
 
 
 def _multi_strategy_decision_summary(result: dict[str, Any]) -> dict[str, Any]:
@@ -988,6 +1142,7 @@ def _run_multi_strategy_psa(
     base_payload: dict[str, Any],
     specification: UncertaintySpecification,
     evaluator: Any = None,
+    joint_curve_plans: Any = None,
 ) -> dict[str, Any]:
     strategy_order = tuple(base_payload["strategy_order"])
     rng = Pcg32(specification.seed)
@@ -1008,7 +1163,10 @@ def _run_multi_strategy_psa(
             costs = [result_map[strategy_id].total_cost for strategy_id in strategy_order]
             qalys = [result_map[strategy_id].total_qaly for strategy_id in strategy_order]
         else:
-            result = evaluator(payload)
+            result = evaluator(
+                payload,
+                next(joint_curve_plans) if joint_curve_plans is not None else None,
+            )
             costs = [
                 result["strategies"][strategy_id]["total_cost"]
                 for strategy_id in strategy_order
@@ -1380,10 +1538,11 @@ def _correlation_groups(
         RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
         UNCERTAINTY_SCHEMA_VERSION,
         PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+        JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
     }:
         if "groups" in correlation:
             raise ModelValidationError(
-                "correlation groups require uncertainty schema_version 0.4.0 through 0.11.0"
+                "correlation groups require uncertainty schema_version 0.4.0 through 0.12.0"
             )
         return ()
     raw_groups = _array(
@@ -1557,7 +1716,7 @@ def _parameter(
     background_mortality_mapping_index = _background_mortality_mapping_index(target)
     relative_effect_mapping_index = _relative_effect_mapping_index(target)
     hazard_ratio_mapping_index = _hazard_ratio_mapping_index(target)
-    if schema_version == PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION:
+    if schema_version in PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS:
         tokens = _pointer_tokens(target)
         if not (
             len(tokens) == 4
@@ -1567,7 +1726,7 @@ def _parameter(
             and tokens[3].isdigit()
         ):
             raise ModelValidationError(
-                "uncertainty schema_version 0.11.0 permits only exact state_costs or state_utilities scalar targets"
+                "partitioned-survival uncertainty permits only exact state_costs or state_utilities scalar targets"
             )
     if (
         schema_version == UNCERTAINTY_SCHEMA_VERSION
@@ -1667,7 +1826,7 @@ def _parameter(
     provenance_path = _nonempty(
         value.get("provenance_path"), f"parameters[{index}].provenance_path"
     )
-    if schema_version == PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION:
+    if schema_version in PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS:
         _validate_partitioned_survival_economic_parameter(
             base_payload,
             target,
@@ -2577,6 +2736,7 @@ def _scenario(
                     RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
                     UNCERTAINTY_SCHEMA_VERSION,
                     PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+                    JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
                 }
             ),
         )

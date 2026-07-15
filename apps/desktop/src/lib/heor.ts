@@ -361,6 +361,10 @@ export interface HeorUncertaintyAudit {
   primaryThreshold: number | null;
   thresholdCount: number;
   omittedParameterCount: number;
+  jointSurvivalRequired: boolean;
+  jointSurvivalManifestSha256: string | null;
+  jointSurvivalDrawsSha256: string | null;
+  jointSurvivalDrawCount: number | null;
   invalidParameters: string[];
   errors: string[];
 }
@@ -814,10 +818,12 @@ export interface HeorUncertaintyCalculation {
   uncertainty_plan_sha256: string;
   prng: { algorithm: string; version: string };
   seed: string;
-  calculation_classification: "calculation_only" | "partial_parameter_uncertainty";
-  uncertainty_scope?: "declared_model_parameters" | "economic_inputs_only";
+  calculation_classification: "calculation_only" | "partial_parameter_uncertainty" | "joint_curve_draw_parameter_uncertainty";
+  uncertainty_scope?: "declared_model_parameters" | "economic_inputs_only" | "joint_survival_curves_and_economic_inputs";
   partitioned_survival_plan_sha256?: string;
   survival_curve_materializations_sha256?: string;
+  joint_survival_uncertainty_sha256?: string;
+  joint_survival_draws_sha256?: string;
   economic_basis: HeorCalculation["economic_basis"];
   base_case: HeorIncrementalResult | {
     strategy_order: string[];
@@ -2842,6 +2848,10 @@ export const HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT: HeorUncertaintyAudit = {
   primaryThreshold: null,
   thresholdCount: 0,
   omittedParameterCount: 0,
+  jointSurvivalRequired: false,
+  jointSurvivalManifestSha256: null,
+  jointSurvivalDrawsSha256: null,
+  jointSurvivalDrawCount: null,
   invalidParameters: [],
   errors: ["heor/uncertainty-plan.json is required"],
 };

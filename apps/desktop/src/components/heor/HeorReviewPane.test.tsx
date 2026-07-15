@@ -160,7 +160,7 @@ describe("AI4HEOR human review pane", () => {
       workflow: { classification: "exploratory" },
     } as unknown as HeorUncertaintyRunResult;
 
-    render(<UncertaintyResultCard result={result} locale="en" />);
+    const partialView = render(<UncertaintyResultCard result={result} locale="en" />);
 
     expect(screen.getByText("Expected NMB · standard = treatment")).toBeInTheDocument();
     expect(screen.getByText("Partial parameter uncertainty")).toBeInTheDocument();
@@ -168,6 +168,15 @@ describe("AI4HEOR human review pane", () => {
     expect(screen.getByText("Conditional EVPI · economic inputs only")).toBeInTheDocument();
     expect(screen.queryByText("42.0%")).not.toBeInTheDocument();
     expect(screen.getByText("—")).toBeInTheDocument();
+
+    partialView.unmount();
+    const joint = structuredClone(result) as unknown as HeorUncertaintyRunResult;
+    joint.calculation.calculation_classification = "joint_curve_draw_parameter_uncertainty";
+    joint.calculation.uncertainty_scope = "joint_survival_curves_and_economic_inputs";
+    render(<UncertaintyResultCard result={joint} locale="en" />);
+    expect(screen.getByText("Joint survival-draw uncertainty")).toBeInTheDocument();
+    expect(screen.getByText(/one hash-bound row across all PFS\/OS curves/)).toBeInTheDocument();
+    expect(screen.getByText("Conditional EVPI · joint curves + economic inputs")).toBeInTheDocument();
   });
 
   it("shows exact extraction details and records a selected rejection", async () => {

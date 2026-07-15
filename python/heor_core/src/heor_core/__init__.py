@@ -14,6 +14,7 @@ from .economic_inputs import EconomicSpecification
 from .hazard_ratio import HazardRatioError, derive_hazard_ratio_schedule
 from .relative_effect import RelativeEffectError, derive_relative_effect_schedule
 from .partitioned_survival import run_partitioned_survival
+from .joint_survival_uncertainty import validate_joint_survival_uncertainty
 from .survival_materialization import validate_survival_curve_materializations
 
 __all__ = [
@@ -29,6 +30,7 @@ __all__ = [
     "derive_relative_effect_schedule",
     "run_markov",
     "run_partitioned_survival",
+    "validate_joint_survival_uncertainty",
     "validate_survival_curve_materializations",
 ]
 

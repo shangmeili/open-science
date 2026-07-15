@@ -648,6 +648,10 @@ mod tests {
             primary_threshold: Some(100000.0),
             threshold_count: 5,
             omitted_parameter_count: 0,
+            joint_survival_required: false,
+            joint_survival_manifest_sha256: None,
+            joint_survival_draws_sha256: None,
+            joint_survival_draw_count: None,
             invalid_parameters: Vec::new(),
             errors: Vec::new(),
         }

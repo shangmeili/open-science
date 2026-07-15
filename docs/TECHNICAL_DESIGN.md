@@ -833,10 +833,26 @@ scenarios only over exact state-cost and state-utility scalars. The Python core,
 portable validator, native Rust boundary, and browser result surface enforce the
 same `partial_parameter_uncertainty` / `economic_inputs_only` classification.
 Every strategy's PFS and OS curve must be named as an omitted parameter. Survival
-parameter covariance, curve-selection and extrapolation alternatives, and joint
-PFS/OS uncertainty therefore remain explicit release blockers; conditional
-CEAC, CEAF, and per-person EVPI are not presented as complete PSM uncertainty.
+parameter covariance and joint PFS/OS uncertainty therefore remain explicit
+limitations of this compatibility path.
+
+Uncertainty schema `0.12.0` and engine `0.13.0` add a bounded backend-neutral
+joint-draw path through `heor/joint-survival-uncertainty.json` and
+`heor/joint-survival-draws.jsonl`. One row covers every strategy PFS then OS
+curve on the exact analysis grid and is consumed intact in one PSA iteration,
+together with sampled economic inputs. The admitted source is a reviewed joint
+posterior or paired-patient bootstrap; independent endpoint sampling, marginal-
+interval covariance reconstruction, row filtering, crossing repair, and silent
+draw replacement fail closed. Python, a standalone standard-library validator,
+and native Rust independently verify hashes, source bytes, row count/order,
+finite monotone survival, and PFS no greater than OS. The output classification
+is `joint_curve_draw_parameter_uncertainty` with scope
+`joint_survival_curves_and_economic_inputs`. Curve-family selection,
+extrapolation assumptions, treatment-effect duration, source-model validity,
+and independent validation remain explicit structural or release blockers;
+conditional CEAC, CEAF, and per-person EVPI are not presented as complete PSM
+uncertainty.
 The materializer does not fit data, transform backend coefficients, choose a
 family, infer covariance, apply treatment effects, support other survival
 families, or establish clinical/external validity. Those remain distinct future
-contracts, as do full survival uncertainty and validation/report integration.
+contracts, as do validation/report integration.

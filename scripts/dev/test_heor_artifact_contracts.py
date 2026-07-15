@@ -43,6 +43,10 @@ uncertainty = load(
     "validate_uncertainty_plan",
     "runtime/skills/core/heor-uncertainty-analysis/scripts/validate_uncertainty_plan.py",
 )
+joint_survival_uncertainty = load(
+    "validate_joint_survival_uncertainty",
+    "runtime/skills/core/heor-joint-survival-uncertainty/scripts/validate_joint_survival_uncertainty.py",
+)
 budget_impact = load(
     "validate_budget_impact_plan",
     "runtime/skills/core/heor-budget-impact/scripts/validate_budget_impact_plan.py",
@@ -95,6 +99,39 @@ survival_extrapolation_collection = load(
     "validate_survival_extrapolation_collection",
     "runtime/skills/core/heor-survival-extrapolation-review/scripts/validate_survival_extrapolation_collection.py",
 )
+
+
+class JointSurvivalTemplateContractTests(unittest.TestCase):
+    def test_templates_expose_joint_rows_without_claiming_authority(self):
+        manifest = json.loads((
+            ROOT / "runtime/skills/core/heor-joint-survival-uncertainty/assets/joint-survival-uncertainty.template.json"
+        ).read_text())
+        uncertainty_plan = json.loads((
+            ROOT / "runtime/skills/core/heor-uncertainty-analysis/assets/partitioned-survival-joint-uncertainty.template.json"
+        ).read_text())
+        example_rows = (
+            ROOT / "runtime/skills/core/heor-joint-survival-uncertainty/assets/joint-survival-draws.example.jsonl"
+        ).read_text().splitlines()
+
+        self.assertEqual(manifest["schema_version"], "0.1.0")
+        self.assertEqual(manifest["status"], "draft")
+        self.assertFalse(manifest["generation"]["independent_endpoint_sampling"])
+        self.assertEqual(
+            manifest["generation"]["sampling_unit"],
+            "joint_draw_across_all_curves",
+        )
+        self.assertEqual(uncertainty_plan["schema_version"], "0.12.0")
+        self.assertEqual(
+            set(uncertainty_plan["joint_survival_inputs"]),
+            {"manifest", "draws"},
+        )
+        omissions = {
+            item["provenance_path"]
+            for item in uncertainty_plan["probabilistic_analysis"]["omitted_parameters"]
+        }
+        self.assertEqual(omissions, joint_survival_uncertainty.STRUCTURAL_OMISSIONS)
+        self.assertEqual(len(example_rows), 1)
+        self.assertEqual(set(json.loads(example_rows[0])), {"draw_index", "curves"})
 
 
 class MultiStrategyTemplateContractTests(unittest.TestCase):

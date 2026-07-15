@@ -38,6 +38,16 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Required materialization manifest for partitioned survival",
     )
+    parser.add_argument(
+        "--joint-survival-uncertainty-manifest",
+        type=Path,
+        help="Required manifest for uncertainty schema 0.12.0",
+    )
+    parser.add_argument(
+        "--joint-survival-draws",
+        type=Path,
+        help="Required JSONL joint PFS/OS draws for uncertainty schema 0.12.0",
+    )
     return parser
 
 
@@ -53,8 +63,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "--survival-curve-materializations requires "
                 "--partitioned-survival-plan"
             )
+        joint_options = (
+            args.joint_survival_uncertainty_manifest,
+            args.joint_survival_draws,
+        )
+        if any(item is not None for item in joint_options) and not all(
+            item is not None for item in joint_options
+        ):
+            raise ModelValidationError(
+                "--joint-survival-uncertainty-manifest and --joint-survival-draws must be provided together"
+            )
+        if any(item is not None for item in joint_options) and args.uncertainty_plan is None:
+            raise ModelValidationError(
+                "joint survival artifacts require --uncertainty-plan"
+            )
         raw = args.input.read_bytes()
         payload = json.loads(raw)
+        if any(item is not None for item in joint_options) and payload.get("schema_version") != "0.12.0":
+            raise ModelValidationError(
+                "joint survival artifacts require analysis schema 0.12.0"
+            )
         if (
             args.uncertainty_plan is None
             and args.budget_impact_plan is None
@@ -78,6 +106,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                 partitioned_payload = json.loads(partitioned_raw)
                 materializations_raw = args.survival_curve_materializations.read_bytes()
                 materializations_payload = json.loads(materializations_raw)
+                joint_schema = uncertainty_payload.get("schema_version") == "0.12.0"
+                if joint_schema and not all(item is not None for item in joint_options):
+                    raise ModelValidationError(
+                        "uncertainty schema 0.12.0 requires both joint survival artifact options"
+                    )
+                if not joint_schema and any(item is not None for item in joint_options):
+                    raise ModelValidationError(
+                        "joint survival artifacts require uncertainty schema 0.12.0"
+                    )
+                joint_manifest_raw = (
+                    args.joint_survival_uncertainty_manifest.read_bytes()
+                    if joint_schema
+                    else None
+                )
+                joint_manifest_payload = (
+                    json.loads(joint_manifest_raw) if joint_manifest_raw is not None else None
+                )
+                joint_draws_raw = (
+                    args.joint_survival_draws.read_bytes() if joint_schema else None
+                )
                 result = run_uncertainty(
                     payload,
                     raw,
@@ -87,6 +135,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     partitioned_raw,
                     materializations_payload,
                     materializations_raw,
+                    joint_manifest_payload,
+                    joint_manifest_raw,
+                    joint_draws_raw,
                 )
             else:
                 if args.partitioned_survival_plan is not None:
