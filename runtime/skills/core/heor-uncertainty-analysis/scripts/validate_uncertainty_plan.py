@@ -51,6 +51,7 @@ SUPPORTED_DISTRIBUTIONS = {"beta", "gamma", "lognormal", "uniform", "dirichlet"}
 HAZARD_RATIO_SCHEMA_VERSION = "0.10.0"
 PARTITIONED_SURVIVAL_SCHEMA_VERSION = "0.11.0"
 JOINT_SURVIVAL_SCHEMA_VERSION = "0.12.0"
+COMPONENT_SCHEMA_VERSION = "0.13.0"
 PARTITIONED_SURVIVAL_SCHEMA_VERSIONS = {
     PARTITIONED_SURVIVAL_SCHEMA_VERSION,
     JOINT_SURVIVAL_SCHEMA_VERSION,
@@ -234,6 +235,228 @@ def correlation_matrix_errors(value: object, size: int, label: str) -> list[str]
     return []
 
 
+def component_domain_valid(value: object, domain: str) -> bool:
+    if not finite_number(value):
+        return False
+    return {
+        "nonnegative": value >= 0,
+        "positive": value > 0,
+        "utility": -1 <= value <= 1,
+        "unit_interval": 0 <= value <= 1,
+    }[domain]
+
+
+def component_contract(artifact: str, parts: list[str], value: dict) -> tuple[str, list[str]] | None:
+    if len(parts) < 4 or parts[0] != "" or parts[1] != "items":
+        return None
+    item = (value.get("items") or {}).get(parts[2])
+    if not isinstance(item, dict):
+        return None
+    domain: str | None = None
+    basis: object = None
+    if artifact == "cost_input_normalization":
+        if parts[3:] == ["annual_quantity", "value"]:
+            domain, basis = "nonnegative", (item.get("annual_quantity") or {}).get("basis_ids")
+        elif parts[3:] == ["unit_price", "amount"]:
+            domain, basis = "nonnegative", (item.get("unit_price") or {}).get("basis_ids")
+        elif len(parts) == 6 and parts[3] == "adjustments" and parts[4].isdigit() and parts[5] == "factor":
+            adjustments = item.get("adjustments") or []
+            if int(parts[4]) < len(adjustments):
+                domain, basis = "positive", adjustments[int(parts[4])].get("basis_ids")
+    elif artifact == "utility_inputs":
+        if parts[3:] == ["source_utility", "value"] and item.get("state_id") != "dead":
+            domain, basis = "utility", (item.get("source_utility") or {}).get("basis_ids")
+        elif len(parts) == 7 and parts[3] == "adjustments" and parts[4].isdigit() and parts[5] == "factors" and parts[6].isdigit():
+            adjustments = item.get("adjustments") or []
+            if int(parts[4]) < len(adjustments) and int(parts[6]) < len(adjustments[int(parts[4])].get("factors") or []):
+                domain, basis = "positive", adjustments[int(parts[4])].get("basis_ids")
+    elif artifact == "event_disutilities":
+        mode = (item.get("application") or {}).get("mode")
+        if len(parts) == 6 and parts[3:5] == ["occurrence", "schedule"] and parts[5].isdigit():
+            schedule = (item.get("occurrence") or {}).get("schedule") or []
+            if int(parts[5]) < len(schedule):
+                domain = "unit_interval" if mode in {"one_time", "continuous_exposure"} else "nonnegative"
+                basis = (item.get("occurrence") or {}).get("basis_ids")
+        elif parts[3:] == ["health_impact", "utility_decrement"]:
+            domain, basis = "nonnegative", (item.get("health_impact") or {}).get("basis_ids")
+        elif parts[3:] == ["health_impact", "duration_days"] and mode != "continuous_exposure":
+            domain, basis = "positive", (item.get("health_impact") or {}).get("basis_ids")
+    return (domain, basis) if domain is not None and string_list(basis) else None
+
+
+def validate_component(
+    value: dict,
+    plan: dict,
+    plan_raw: bytes,
+    partitioned_path: Path | None,
+    materializations_path: Path | None,
+    treatment_path: Path | None,
+    cost_path: Path | None,
+    utility_path: Path | None,
+    event_path: Path | None,
+) -> list[str]:
+    errors: list[str] = []
+    if plan.get("schema_version") != "0.15.0":
+        errors.append("uncertainty schema 0.13.0 requires analysis schema 0.15.0")
+    if value.get("status") != "ready_for_human_review" or value.get("analysis_id") != plan.get("analysis_id"):
+        errors.append("component uncertainty identity or status is invalid")
+    base = value.get("base_analysis") or {}
+    if base != {
+        "path": "heor/analysis-plan.json",
+        "content_sha256": hashlib.sha256(plan_raw).hexdigest(),
+    }:
+        errors.append("base_analysis does not bind current analysis bytes")
+    if (plan.get("uncertainty_analysis") or {}).get("path") != "heor/uncertainty-plan.json":
+        errors.append("plan must link heor/uncertainty-plan.json")
+    paths = {
+        "partitioned_survival_plan": (partitioned_path, "heor/partitioned-survival-plan.json"),
+        "curve_materializations": (materializations_path, "heor/survival-curve-materializations.json"),
+        "treatment_effect_duration": (treatment_path, "heor/treatment-effect-duration.json"),
+        "cost_input_normalization": (cost_path, "heor/cost-input-normalization.json"),
+        "utility_inputs": (utility_path, "heor/utility-inputs.json"),
+        "event_disutilities": (event_path, "heor/event-disutilities.json"),
+    }
+    bindings = value.get("partitioned_survival_inputs")
+    artifacts: dict[str, dict] = {}
+    if not isinstance(bindings, dict) or set(bindings) != set(paths):
+        errors.append("partitioned_survival_inputs must bind all six current artifacts")
+        bindings = {}
+    for key, (path, expected_path) in paths.items():
+        if path is None:
+            errors.append(f"{key} artifact is required")
+            continue
+        artifact, raw = load(path)
+        if key in {"cost_input_normalization", "utility_inputs", "event_disutilities"}:
+            artifacts[key] = artifact
+        if bindings.get(key) != {
+            "path": expected_path,
+            "content_sha256": hashlib.sha256(raw).hexdigest(),
+        }:
+            errors.append(f"partitioned_survival_inputs.{key} does not bind current bytes")
+    parameters = value.get("parameters")
+    if not isinstance(parameters, list) or not 1 <= len(parameters) <= 256:
+        errors.append("parameters must contain 1 to 256 entries")
+        parameters = []
+    ids: set[str] = set()
+    targets: set[tuple[str, str]] = set()
+    parameters_by_id: dict[str, dict] = {}
+    for index, parameter in enumerate(parameters):
+        label = f"parameters[{index}]"
+        if not isinstance(parameter, dict):
+            errors.append(f"{label} must be an object")
+            continue
+        identifier = parameter.get("id")
+        artifact = parameter.get("artifact")
+        target = parameter.get("target")
+        if not text(identifier) or identifier in ids:
+            errors.append(f"{label}.id must be non-empty and unique")
+            continue
+        ids.add(identifier)
+        parameters_by_id[identifier] = parameter
+        if artifact not in artifacts or not text(target) or (artifact, target) in targets:
+            errors.append(f"{label} artifact target is invalid")
+            continue
+        targets.add((artifact, target))
+        parts = target.split("/")
+        contract = component_contract(artifact, parts, artifacts[artifact])
+        try:
+            base_value = resolve_pointer(artifacts[artifact], target)
+        except (KeyError, IndexError, TypeError, ValueError):
+            base_value = None
+        expected_provenance = artifact + "." + target.removeprefix("/").replace("/", ".")
+        dsa = parameter.get("deterministic") or {}
+        low, high = dsa.get("low"), dsa.get("high")
+        distribution = parameter.get("probabilistic") or {}
+        kind = distribution.get("type")
+        domain, target_basis = contract if contract is not None else ("positive", [])
+        distribution_valid = (
+            kind == "uniform"
+            and component_domain_valid(distribution.get("low"), domain)
+            and component_domain_valid(distribution.get("high"), domain)
+            and distribution["low"] < distribution["high"]
+            or domain in {"positive", "nonnegative"}
+            and kind == "lognormal"
+            and finite_number(distribution.get("mu_log"))
+            and positive_number(distribution.get("sigma_log"))
+            or domain in {"positive", "nonnegative"}
+            and kind == "gamma"
+            and positive_number(distribution.get("shape"))
+            and positive_number(distribution.get("scale"))
+        )
+        if not (
+            contract is not None
+            and component_domain_valid(base_value, domain)
+            and component_domain_valid(low, domain)
+            and component_domain_valid(high, domain)
+            and low < high
+            and low <= base_value <= high
+            and text(dsa.get("rationale"))
+            and parameter.get("provenance_path") == expected_provenance
+            and distribution_valid
+            and string_list(distribution.get("basis_ids"))
+            and set(distribution["basis_ids"]).issubset(set(target_basis))
+            and text(distribution.get("rationale"))
+        ):
+            errors.append(f"{label} does not bind an allowlisted, bracketed component")
+    psa = value.get("probabilistic_analysis") or {}
+    iterations = psa.get("iterations")
+    if not isinstance(iterations, int) or isinstance(iterations, bool) or not 1000 <= iterations <= 10000:
+        errors.append("iterations must be 1000 to 10000")
+    thresholds = (psa.get("decision_thresholds") or {}).get("values")
+    primary = plan.get("willingness_to_pay")
+    if not isinstance(thresholds, list) or not 2 <= len(thresholds) <= 101 or any(not finite_number(item) or item < 0 for item in thresholds) or thresholds != sorted(set(thresholds)) or primary not in thresholds or not text((psa.get("decision_thresholds") or {}).get("rationale")):
+        errors.append("decision thresholds are invalid")
+    convergence = psa.get("convergence") or {}
+    checkpoints = convergence.get("checkpoints")
+    if not isinstance(checkpoints, list) or len(checkpoints) < 2 or checkpoints != sorted(set(checkpoints)) or checkpoints[-1:] != [iterations] or checkpoints[0] < 100 or not positive_number(convergence.get("max_probability_mcse")) or convergence["max_probability_mcse"] > 0.1 or not positive_number(convergence.get("max_probability_drift")) or convergence["max_probability_drift"] > 0.1:
+        errors.append("convergence contract is invalid")
+    correlation = psa.get("correlation_handling") or {}
+    if not text(correlation.get("independence_rationale")) or correlation.get("known_omitted_correlations") != []:
+        errors.append("dependence handling is incomplete")
+    groups = correlation.get("groups")
+    if not isinstance(groups, list) or len(groups) > 64:
+        errors.append("correlation groups must be an array of at most 64 entries")
+        groups = []
+    grouped: set[str] = set()
+    group_ids: set[str] = set()
+    for index, group in enumerate(groups):
+        label = f"correlation groups[{index}]"
+        member_ids = group.get("parameter_ids") if isinstance(group, dict) else None
+        valid_members = isinstance(member_ids, list) and 2 <= len(member_ids) <= 32 and len(set(member_ids)) == len(member_ids) and all(item in parameters_by_id and item not in grouped and (parameters_by_id[item].get("probabilistic") or {}).get("type") in {"uniform", "lognormal"} for item in member_ids)
+        if valid_members:
+            grouped.update(member_ids)
+        group_basis = group.get("basis_ids") if isinstance(group, dict) else None
+        if not (
+            isinstance(group, dict)
+            and text(group.get("id"))
+            and group["id"] not in group_ids
+            and valid_members
+            and group.get("scale") == "latent_standard_normal"
+            and group.get("method") == "gaussian_copula_cholesky"
+            and not correlation_matrix_errors(group.get("correlation_matrix"), len(member_ids), f"{label}.correlation_matrix")
+            and string_list(group_basis)
+            and all(set(group_basis).issubset(set((parameters_by_id[item].get("probabilistic") or {}).get("basis_ids") or [])) for item in member_ids)
+            and text(group.get("rationale"))
+        ):
+            errors.append(f"{label} is invalid")
+        elif text(group.get("id")):
+            group_ids.add(group["id"])
+    omissions = psa.get("omitted_parameters")
+    declared = {item.get("provenance_path") for item in omissions if isinstance(item, dict) and text(item.get("rationale"))} if isinstance(omissions, list) else set()
+    required = {f"partitioned_survival.strategies.{strategy}.{endpoint}" for strategy in plan.get("strategy_order", []) for endpoint in ("pfs", "os")}
+    if not required.issubset(declared):
+        errors.append("component uncertainty must explicitly omit every fixed PFS and OS curve")
+    scenarios = value.get("structural_scenarios")
+    allowed_scenarios = {
+        "/discount_rates/costs": lambda value: finite_number(value) and value >= 0,
+        "/discount_rates/outcomes": lambda value: finite_number(value) and value >= 0,
+        "/half_cycle_correction": lambda value: isinstance(value, bool),
+    }
+    if not isinstance(scenarios, list) or not 1 <= len(scenarios) <= 64 or any(not isinstance(item, dict) or not text(item.get("id")) or not text(item.get("label")) or not text(item.get("rationale")) or not isinstance(item.get("replacements"), list) or not item["replacements"] or any(not isinstance(replacement, dict) or replacement.get("target") not in allowed_scenarios or not allowed_scenarios[replacement["target"]](replacement.get("value")) for replacement in item["replacements"]) for item in scenarios or []):
+        errors.append("component structural scenarios are invalid")
+    return errors
+
+
 def validate(
     uncertainty_path: Path,
     plan_path: Path,
@@ -242,12 +465,27 @@ def validate(
     joint_manifest_path: Path | None = None,
     joint_draws_path: Path | None = None,
     treatment_effect_duration_path: Path | None = None,
+    cost_input_normalization_path: Path | None = None,
+    utility_inputs_path: Path | None = None,
+    event_disutilities_path: Path | None = None,
 ) -> list[str]:
     value, _ = load(uncertainty_path)
     plan, plan_raw = load(plan_path)
     errors: list[str] = []
     duration_required = False
     schema_version = value.get("schema_version")
+    if schema_version == COMPONENT_SCHEMA_VERSION:
+        return validate_component(
+            value,
+            plan,
+            plan_raw,
+            partitioned_path,
+            materializations_path,
+            treatment_effect_duration_path,
+            cost_input_normalization_path,
+            utility_inputs_path,
+            event_disutilities_path,
+        )
     if schema_version not in {
         LEGACY_SCHEMA_VERSION,
         PRIOR_SCHEMA_VERSION,
@@ -1090,6 +1328,9 @@ def main() -> int:
     parser.add_argument("--joint-survival-uncertainty-manifest", type=Path)
     parser.add_argument("--joint-survival-draws", type=Path)
     parser.add_argument("--treatment-effect-duration", type=Path)
+    parser.add_argument("--cost-input-normalization", type=Path)
+    parser.add_argument("--utility-inputs", type=Path)
+    parser.add_argument("--event-disutilities", type=Path)
     args = parser.parse_args()
     try:
         errors = validate(
@@ -1100,6 +1341,9 @@ def main() -> int:
             args.joint_survival_uncertainty_manifest,
             args.joint_survival_draws,
             args.treatment_effect_duration,
+            args.cost_input_normalization,
+            args.utility_inputs,
+            args.event_disutilities,
         )
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"INVALID: {error}", file=sys.stderr)

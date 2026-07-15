@@ -173,10 +173,19 @@ describe("AI4HEOR human review pane", () => {
     const joint = structuredClone(result) as unknown as HeorUncertaintyRunResult;
     joint.calculation.calculation_classification = "joint_curve_draw_parameter_uncertainty";
     joint.calculation.uncertainty_scope = "joint_survival_curves_and_economic_inputs";
-    render(<UncertaintyResultCard result={joint} locale="en" />);
+    const jointView = render(<UncertaintyResultCard result={joint} locale="en" />);
     expect(screen.getByText("Joint survival-draw uncertainty")).toBeInTheDocument();
     expect(screen.getByText(/one hash-bound row across all PFS\/OS curves/)).toBeInTheDocument();
     expect(screen.getByText("Conditional EVPI · joint curves + economic inputs")).toBeInTheDocument();
+
+    jointView.unmount();
+    const component = structuredClone(result) as unknown as HeorUncertaintyRunResult;
+    component.calculation.calculation_classification = "component_parameter_uncertainty";
+    component.calculation.uncertainty_scope = "cost_utility_event_components_only";
+    render(<UncertaintyResultCard result={component} locale="en" />);
+    expect(screen.getByText("Correlated component uncertainty")).toBeInTheDocument();
+    expect(screen.getByText(/rebuilds costs, cycle utilities, and event QALY losses/)).toBeInTheDocument();
+    expect(screen.getByText("Conditional component EVPI / person")).toBeInTheDocument();
   });
 
   it("shows exact extraction details and records a selected rejection", async () => {

@@ -3028,6 +3028,9 @@ export function UncertaintyResultCard({
   const jointSurvival = calculation.calculation_classification
     === "joint_curve_draw_parameter_uncertainty"
     && calculation.uncertainty_scope === "joint_survival_curves_and_economic_inputs";
+  const componentUncertainty = calculation.calculation_classification
+    === "component_parameter_uncertainty"
+    && calculation.uncertainty_scope === "cost_utility_event_components_only";
   const amount = new Intl.NumberFormat(locale, calculation.economic_basis
     ? {
         style: "currency",
@@ -3097,6 +3100,12 @@ export function UncertaintyResultCard({
           <div>{t("uncertaintyResult.jointSurvivalDetail")}</div>
         </div>
       )}
+      {componentUncertainty && (
+        <div className="mt-3 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-[10px] leading-4 text-warning">
+          <div className="font-semibold">{t("uncertaintyResult.componentUncertainty")}</div>
+          <div>{t("uncertaintyResult.componentUncertaintyDetail")}</div>
+        </div>
+      )}
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Metric
           label={probabilityLabel}
@@ -3139,6 +3148,8 @@ export function UncertaintyResultCard({
               ? t("uncertaintyResult.partialEvpi")
               : jointSurvival
                 ? t("uncertaintyResult.jointEvpi")
+                : componentUncertainty
+                  ? t("uncertaintyResult.componentEvpi")
                 : t("uncertaintyResult.primaryEvpi")}
             value={amount.format(primary.per_person_evpi)}
             accent

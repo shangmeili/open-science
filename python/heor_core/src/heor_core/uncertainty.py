@@ -80,6 +80,7 @@ from .transition_rates import (
 UNCERTAINTY_SCHEMA_VERSION = "0.10.0"
 PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION = "0.11.0"
 JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION = "0.12.0"
+COMPONENT_UNCERTAINTY_SCHEMA_VERSION = "0.13.0"
 PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS = {
     PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
     JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
@@ -567,7 +568,52 @@ def run_uncertainty(
     joint_survival_draws_raw: bytes | None = None,
     treatment_effect_duration: dict[str, Any] | None = None,
     treatment_effect_duration_raw: bytes | None = None,
+    cost_input_normalization: dict[str, Any] | None = None,
+    cost_input_normalization_raw: bytes | None = None,
+    utility_inputs: dict[str, Any] | None = None,
+    utility_inputs_raw: bytes | None = None,
+    event_disutilities: dict[str, Any] | None = None,
+    event_disutilities_raw: bytes | None = None,
 ) -> dict[str, Any]:
+    if uncertainty_payload.get("schema_version") == COMPONENT_UNCERTAINTY_SCHEMA_VERSION:
+        required = (
+            partitioned_plan,
+            partitioned_raw,
+            materializations,
+            materializations_raw,
+            treatment_effect_duration,
+            treatment_effect_duration_raw,
+            cost_input_normalization,
+            cost_input_normalization_raw,
+            utility_inputs,
+            utility_inputs_raw,
+            event_disutilities,
+            event_disutilities_raw,
+        )
+        if any(item is None for item in required):
+            raise ModelValidationError(
+                "component uncertainty requires all current partitioned-survival, cost, utility, and event artifacts"
+            )
+        from .component_uncertainty import run_component_uncertainty
+
+        return run_component_uncertainty(
+            base_payload,
+            base_raw,
+            uncertainty_payload,
+            uncertainty_raw,
+            partitioned_plan,
+            partitioned_raw,
+            materializations,
+            materializations_raw,
+            treatment_effect_duration,
+            treatment_effect_duration_raw,
+            cost_input_normalization,
+            cost_input_normalization_raw,
+            utility_inputs,
+            utility_inputs_raw,
+            event_disutilities,
+            event_disutilities_raw,
+        )
     base_sha256 = hashlib.sha256(base_raw).hexdigest()
     uncertainty_sha256 = hashlib.sha256(uncertainty_raw).hexdigest()
     specification = UncertaintySpecification.from_dict(

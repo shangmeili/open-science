@@ -128,13 +128,54 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = run_markov(specification).to_dict()
             result["input_sha256"] = hashlib.sha256(raw).hexdigest()
         elif args.uncertainty_plan is not None:
-            if payload.get("schema_version") in {"0.14.0", "0.15.0"}:
-                raise ModelValidationError(
-                    "analysis schema 0.14.0 or 0.15.0 utility/event-component uncertainty is not yet implemented"
-                )
             uncertainty_raw = args.uncertainty_plan.read_bytes()
             uncertainty_payload = json.loads(uncertainty_raw)
-            if payload.get("schema_version") == "0.12.0":
+            if uncertainty_payload.get("schema_version") == "0.13.0":
+                required = (
+                    args.partitioned_survival_plan,
+                    args.survival_curve_materializations,
+                    args.treatment_effect_duration,
+                    args.cost_input_normalization,
+                    args.utility_inputs,
+                    args.event_disutilities,
+                )
+                if payload.get("schema_version") != "0.15.0" or any(
+                    item is None for item in required
+                ):
+                    raise ModelValidationError(
+                        "uncertainty schema 0.13.0 requires analysis schema 0.15.0 and all six current PSM artifact options"
+                    )
+                partitioned_raw = args.partitioned_survival_plan.read_bytes()
+                partitioned_payload = json.loads(partitioned_raw)
+                materializations_raw = args.survival_curve_materializations.read_bytes()
+                materializations_payload = json.loads(materializations_raw)
+                duration_raw = args.treatment_effect_duration.read_bytes()
+                cost_raw = args.cost_input_normalization.read_bytes()
+                utility_raw = args.utility_inputs.read_bytes()
+                event_raw = args.event_disutilities.read_bytes()
+                result = run_uncertainty(
+                    payload,
+                    raw,
+                    uncertainty_payload,
+                    uncertainty_raw,
+                    partitioned_payload,
+                    partitioned_raw,
+                    materializations_payload,
+                    materializations_raw,
+                    treatment_effect_duration=json.loads(duration_raw),
+                    treatment_effect_duration_raw=duration_raw,
+                    cost_input_normalization=json.loads(cost_raw),
+                    cost_input_normalization_raw=cost_raw,
+                    utility_inputs=json.loads(utility_raw),
+                    utility_inputs_raw=utility_raw,
+                    event_disutilities=json.loads(event_raw),
+                    event_disutilities_raw=event_raw,
+                )
+            elif payload.get("schema_version") in {"0.14.0", "0.15.0"}:
+                raise ModelValidationError(
+                    "analysis schema 0.14.0 or 0.15.0 requires component uncertainty schema 0.13.0"
+                )
+            elif payload.get("schema_version") == "0.12.0":
                 if (
                     args.partitioned_survival_plan is None
                     or args.survival_curve_materializations is None

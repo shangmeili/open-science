@@ -838,12 +838,15 @@ export interface HeorUncertaintyCalculation {
   uncertainty_plan_sha256: string;
   prng: { algorithm: string; version: string };
   seed: string;
-  calculation_classification: "calculation_only" | "partial_parameter_uncertainty" | "joint_curve_draw_parameter_uncertainty";
-  uncertainty_scope?: "declared_model_parameters" | "economic_inputs_only" | "joint_survival_curves_and_economic_inputs";
+  calculation_classification: "calculation_only" | "partial_parameter_uncertainty" | "joint_curve_draw_parameter_uncertainty" | "component_parameter_uncertainty";
+  uncertainty_scope?: "declared_model_parameters" | "economic_inputs_only" | "joint_survival_curves_and_economic_inputs" | "cost_utility_event_components_only";
   partitioned_survival_plan_sha256?: string;
   survival_curve_materializations_sha256?: string;
   joint_survival_uncertainty_sha256?: string;
   joint_survival_draws_sha256?: string;
+  cost_input_normalization_sha256?: string;
+  utility_inputs_sha256?: string;
+  event_disutilities_sha256?: string;
   economic_basis: HeorCalculation["economic_basis"];
   base_case: HeorIncrementalResult | {
     strategy_order: string[];
@@ -856,8 +859,10 @@ export interface HeorUncertaintyCalculation {
   deterministic_analysis: Array<{
     parameter_id: string;
     label: string;
+    artifact?: "cost_input_normalization" | "utility_inputs" | "event_disutilities";
     target: string;
-    incremental_nmb_span: number;
+    incremental_nmb_span?: number;
+    net_monetary_benefit_span_by_strategy?: Record<string, number>;
   }>;
   probabilistic_analysis: {
     iterations: number;
@@ -878,8 +883,8 @@ export interface HeorUncertaintyCalculation {
     correlation_groups: Array<{
       id: string;
       parameter_ids: string[];
-      scale: "log_standard_normal";
-      method: "cholesky";
+      scale: "log_standard_normal" | "latent_standard_normal";
+      method: "cholesky" | "gaussian_copula_cholesky";
       correlation_matrix: number[][];
       basis_ids: string[];
       rationale: string;

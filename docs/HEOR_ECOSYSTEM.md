@@ -151,7 +151,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped alpha | `heor-utility-inputs` | Reproduce one evidence-linked health-state utility per strategy/state and its complete cycle schedule, with instrument/version/respondent, value set and license, mapping, adjustment, uncertainty, and overlap metadata | `heor/utility-inputs.json`, analysis schemas `0.14.0` / `0.15.0`, PSM schemas `0.6.0` / `0.7.0` |
 | Shipped alpha | `heor-event-disutilities` | Reproduce evidence-linked one-time, recurrent, or continuous-exposure event QALY losses, with terminology/severity, duration, timing, eligible states, and exact cross-artifact overlap exclusions | `heor/event-disutilities.json`, analysis schema `0.15.0`, PSM schema `0.7.0` |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
-| Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, per-person EVPI, convergence diagnostics, dependence disclosure, and structural scenarios | `heor/uncertainty-plan.json` plus deterministic run output |
+| Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, conditional per-person EVPI, convergence diagnostics, dependence disclosure, and bounded cost/utility/event component recomputation | `heor/uncertainty-plan.json` plus deterministic run output; current component schema `0.13.0` |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
 | Shipped | `heor-model-validation` | Intended-use validation package covering face, input, external, cross-model, predictive, and TECH-VER checks without a score | `heor/model-validation.json`, local evidence, and app-owned independent-review gate |
 | Shipped | `heor-reporting` | Separate CHEERS 2022 and ISPOR BIA reporting, exact result summaries, disclosures, and release preparation without checklist scoring | `heor/report-package.json`, `heor/report.md`, app-written results, and app-owned release gate |
@@ -159,12 +159,13 @@ Skills stay small and are separated by the artifact they produce or audit.
 `heor-workbench` routes to these skills; it should not absorb their detailed
 methodology. This avoids a single prompt becoming an untestable source of truth.
 
-The next HEOR-specific assets should stay equally narrow. `heor-event-disutilities`
-is now shipped with explicit incidence, duration, recurrence, timing, captured-
-effect overlap, and state-utility double-count checks. The next P0 is a correlated
-cost, utility, and event-component extension to `heor-uncertainty-analysis` that
-recomputes mapped/value-set/adjustment components rather than varying only the
-aggregate state reward. P1 is `heor-utility-evidence-review` only if evidence
+The next HEOR-specific assets should stay equally narrow. Correlated cost,
+utility, and event-component uncertainty is now shipped inside
+`heor-uncertainty-analysis`: it varies only allowlisted raw components and
+recomputes every dependent reward and loss while keeping survival fixed. The
+next P0 is a composed PSM parameter-uncertainty path that combines those
+components with reviewed joint survival rows without presenting structural
+uncertainty as resolved. P1 is `heor-utility-evidence-review` only if evidence
 identification and suitability review outgrow the current bounded
 `heor-utility-inputs` workflow; do not pre-emptively split it. No external
 candidate reviewed on 2026-07-15 supplies these fail-closed contracts.
@@ -349,9 +350,9 @@ admits Lognormal or strictly positive bounded Uniform PSA.
 This is an independent first-party implementation; no reviewed external Skill or
 plugin is an executable dependency. The separately bounded constant-HR route is
 owned by `$heor-hazard-ratio-adapter`. Partitioned survival, explicit treatment-
-effect duration, and deterministic annual state-cost normalization are now
-shipped bounded alphas. Utility inputs are the next P0 method asset; dynamic-
-cohort BIA, NMA/MAIC, RWE, and advanced VOI follow. Those backlog items are not
+effect duration, deterministic annual state-cost normalization, utility inputs,
+event disutilities, and correlated component uncertainty are now shipped
+bounded alphas. Dynamic-cohort BIA, NMA/MAIC, RWE, and advanced VOI follow. Those backlog items are not
 shipped capabilities or approval authority.
 
 Schema `0.11.0` adds the first-party `$heor-hazard-ratio-adapter` for one
@@ -471,14 +472,18 @@ complete strategy/cycle/state schedule before QALY calculation. Instrument,
 respondent, value set, mapping, licensing, transferability, and overlap choices
 remain Human-owned. One-time, recurrent, and continuous-exposure event losses are
 reproduced separately and require exact exclusions from affected utility items;
-component uncertainty remains unshipped. Legacy PSM versions remain readable.
+uncertainty schema `0.13.0` can vary their allowlisted raw components together
+with cost and utility components while recomputing all downstream values. It
+keeps every survival curve fixed. Legacy PSM versions remain readable.
 
 PSM `0.5.0` binds the first-party schema `0.1.0` annual state-cost
 normalization artifact and independently recomputes every quantity-times-price
 item, adjustment chain, and strategy/state aggregate. This is deterministic
 ingredient costing, not authority to choose indices, exchange rates, tax
 treatment, price concepts, or transferability; component uncertainty and
-non-annual cost structures remain unshipped. Legacy PSM `0.4.0` remains readable.
+treatment, price concepts, or transferability; non-annual cost structures remain
+unshipped, and only the allowlisted annual-cost ingredients enter component
+uncertainty. Legacy PSM `0.4.0` remains readable.
 Materialization is not statistical fitting, automatic selection, covariance
 recovery, or substantive extrapolation validation. Treatment-effect application is
 limited to the explicit first-party duration contract.

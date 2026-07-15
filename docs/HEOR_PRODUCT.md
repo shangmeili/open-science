@@ -553,6 +553,17 @@ is valid and still exposes curve-family selection, extrapolation assumptions,
 treatment-effect duration, clinical validity, and independent validation as
 release blockers.
 
+For current analysis schema `0.15.0` and PSM `0.7.0`, uncertainty schema `0.13.0`
+hash-binds all six PSM and component artifacts. It targets only allowlisted raw
+annual-cost, health-state utility, and event-loss inputs, then rebuilds every
+dependent normalized value and aggregate for each DSA endpoint and PSA draw.
+Mixed Uniform/Lognormal dependence is admitted only through a Human-supplied,
+evidence-linked latent Gaussian-copula matrix; shared sources never create an
+implicit correlation. Results are labeled `component_parameter_uncertainty`
+with scope `cost_utility_event_components_only`. Survival remains fixed and
+every strategy PFS/OS curve is an explicit omission, so the result is not a
+complete PSM PSA or structural uncertainty analysis.
+
 ## Implemented budget impact boundary
 
 The first-party `$heor-budget-impact` skill creates
@@ -791,7 +802,9 @@ exposure QALY losses from explicit decrements, durations, schedules, and eligibl
 states. Every event must be explicitly excluded from each affected health-state
 utility; the engine subtracts the occupancy-weighted loss under the same half-cycle
 and outcome-discount rules. Long sequelae require explicit states. Event selection,
-additivity, and component uncertainty remain Human-owned or blocked.
+additivity, distribution choice, and dependence remain Human-owned. The bounded
+component engine propagates only explicitly reviewed raw component uncertainty;
+long sequelae and fixed survival remain outside that result.
 
 PSM `0.5.0` introduced `heor/cost-input-normalization.json`: natural
 language is the primary way to identify ingredients and resolve missing method

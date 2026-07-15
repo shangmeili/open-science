@@ -845,8 +845,9 @@ hard-code an instrument or value set. Human review retains those choices. PSM
 `0.7.0` also binds schema `0.1.0` `heor/event-disutilities.json`; Python, a
 dependency-free validator, and native Rust reproduce each supported event mode
 and enforce exact utility exclusions. The calculation weights event losses by
-state occupancy and the existing HCC and outcome-discount rules. Event/utility
-component DSA/PSA is not yet executed. The analysis `state_utilities` must equal the first schedule
+state occupancy and the existing HCC and outcome-discount rules. Uncertainty
+schema `0.13.0` executes bounded event/utility/cost component DSA and PSA through
+the separately audited component artifacts. The analysis `state_utilities` must equal the first schedule
 row, and legacy analysis `0.13.0` / PSM `0.5.0` remains readable.
 
 PSM `0.5.0` also binds exact schema `0.1.0`
@@ -862,8 +863,9 @@ required exactly when price years differ; currency conversion is required
 exactly when currencies differ. The contract does not choose an index, exchange
 rate, tax treatment, price concept, or transferability judgment. It currently
 admits deterministic annual state-cost rates only; event, one-time, time-varying,
-capital, dynamic-BIA, and societal-cost structures and component-level
-uncertainty remain blocked. Legacy analysis `0.12.0` / PSM `0.4.0` remains
+capital, dynamic-BIA, and societal-cost structures remain blocked. Component
+uncertainty admits only annual quantity, unit price, and explicit adjustment
+factors from this ledger. Legacy analysis `0.12.0` / PSM `0.4.0` remains
 readable without this binding.
 
 Paired uncertainty schema `0.11.0` hash-binds the fixed PSM plan, source materializations,
@@ -893,6 +895,20 @@ Treatment-effect duration is no longer a silent omission: the base policy is has
 and all three alternatives are returned as separate deterministic cost/QALY scenarios;
 conditional CEAC, CEAF, and per-person EVPI are not presented as complete PSM
 uncertainty.
+
+Uncertainty schema `0.13.0` and engine `0.14.0` pair only with analysis `0.15.0`
+and PSM `0.7.0`. The plan hash-binds the PSM plan, curve materializations,
+treatment-duration, cost-normalization, utility, and event artifacts. Targets
+are restricted to allowlisted raw ingredients rather than aggregate state
+rewards. Every DSA endpoint and PSA draw rebuilds normalized prices, annual
+costs, utility schedules, per-event QALY losses, and strategy/cycle/state
+aggregates before evaluating the fixed survival curves. Uniform, Gamma, and
+Lognormal marginals are admitted independently; an evidence-bound,
+Human-supplied latent-standard-normal Gaussian-copula matrix may combine only
+Uniform and Lognormal members. Shared provenance does not imply correlation.
+The output is `component_parameter_uncertainty` with scope
+`cost_utility_event_components_only`; all PFS/OS curves must remain explicit
+omissions, so it is not a complete PSM PSA.
 The materializer does not fit data, transform backend coefficients, choose a
 family, infer covariance, support other survival families, or establish clinical/external
 validity. Treatment-effect application is limited to the separate duration contract above.

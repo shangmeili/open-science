@@ -86,6 +86,83 @@ fn finite_number(value: Option<&serde_json::Value>) -> Option<f64> {
         .filter(|value| value.is_finite())
 }
 
+fn component_domain_valid(value: f64, domain: &str) -> bool {
+    value.is_finite()
+        && match domain {
+            "nonnegative" => value >= 0.0,
+            "positive" => value > 0.0,
+            "utility" => (-1.0..=1.0).contains(&value),
+            "unit_interval" => (0.0..=1.0).contains(&value),
+            _ => false,
+        }
+}
+
+fn component_target_contract<'a>(
+    artifact: &str,
+    target: &str,
+    artifact_value: &'a serde_json::Value,
+) -> Option<(&'static str, HashSet<&'a str>)> {
+    let parts = target.split('/').collect::<Vec<_>>();
+    let item = artifact_value.get("items")?.get(*parts.get(2)?)?;
+    let (domain, basis) = match (artifact, parts.as_slice()) {
+        ("cost_input_normalization", ["", "items", _, "annual_quantity", "value"]) => {
+            ("nonnegative", item.pointer("/annual_quantity/basis_ids"))
+        }
+        ("cost_input_normalization", ["", "items", _, "unit_price", "amount"]) => {
+            ("nonnegative", item.pointer("/unit_price/basis_ids"))
+        }
+        ("cost_input_normalization", ["", "items", _, "adjustments", index, "factor"]) => (
+            "positive",
+            item.pointer(&format!(
+                "/adjustments/{}/basis_ids",
+                index.parse::<usize>().ok()?
+            )),
+        ),
+        ("utility_inputs", ["", "items", _, "source_utility", "value"])
+            if item.get("state_id").and_then(serde_json::Value::as_str) != Some("dead") =>
+        {
+            ("utility", item.pointer("/source_utility/basis_ids"))
+        }
+        ("utility_inputs", ["", "items", _, "adjustments", adjustment, "factors", cycle]) => {
+            let adjustment = adjustment.parse::<usize>().ok()?;
+            let cycle = cycle.parse::<usize>().ok()?;
+            item.pointer(&format!("/adjustments/{adjustment}/factors/{cycle}"))?;
+            (
+                "positive",
+                item.pointer(&format!("/adjustments/{adjustment}/basis_ids")),
+            )
+        }
+        ("event_disutilities", ["", "items", _, "occurrence", "schedule", cycle]) => {
+            item.pointer(&format!(
+                "/occurrence/schedule/{}",
+                cycle.parse::<usize>().ok()?
+            ))?;
+            let mode = item.pointer("/application/mode")?.as_str()?;
+            (
+                if matches!(mode, "one_time" | "continuous_exposure") {
+                    "unit_interval"
+                } else {
+                    "nonnegative"
+                },
+                item.pointer("/occurrence/basis_ids"),
+            )
+        }
+        ("event_disutilities", ["", "items", _, "health_impact", "utility_decrement"]) => {
+            ("nonnegative", item.pointer("/health_impact/basis_ids"))
+        }
+        ("event_disutilities", ["", "items", _, "health_impact", "duration_days"])
+            if item
+                .pointer("/application/mode")
+                .and_then(serde_json::Value::as_str)
+                != Some("continuous_exposure") =>
+        {
+            ("positive", item.pointer("/health_impact/basis_ids"))
+        }
+        _ => return None,
+    };
+    Some((domain, string_set(basis)?))
+}
+
 fn safe_strategy_id(value: &str) -> bool {
     let mut bytes = value.bytes();
     bytes.next().is_some_and(|byte| byte.is_ascii_lowercase())
@@ -99,7 +176,7 @@ fn strategy_ids(plan: &serde_json::Value) -> HashSet<&str> {
     if matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0")
+        Some("0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0" | "0.13.0" | "0.14.0" | "0.15.0")
     ) {
         return plan
             .get("strategy_order")
@@ -630,12 +707,399 @@ fn validate_correlation_groups(
     groups.len()
 }
 
+fn audit_component_values(
+    plan: &serde_json::Value,
+    plan_raw: &[u8],
+    uncertainty: &serde_json::Value,
+    uncertainty_raw: &[u8],
+) -> UncertaintyAudit {
+    let mut audit = empty_audit(plan_raw);
+    audit.uncertainty_sha256 = sha256(uncertainty_raw);
+    audit.uncertainty_id = uncertainty
+        .get("uncertainty_id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    audit.analysis_id = uncertainty
+        .get("analysis_id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    audit.seed = uncertainty
+        .get("seed")
+        .and_then(serde_json::Value::as_u64)
+        .map(|value| value.to_string());
+    if plan
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        != Some("0.15.0")
+    {
+        audit
+            .errors
+            .push("uncertainty schema 0.13.0 requires analysis schema 0.15.0".into());
+    }
+    if audit.uncertainty_id.is_empty()
+        || audit.analysis_id.is_empty()
+        || uncertainty.get("analysis_id") != plan.get("analysis_id")
+    {
+        audit
+            .errors
+            .push("component uncertainty identity does not match the analysis plan".into());
+    }
+    if uncertainty
+        .get("status")
+        .and_then(serde_json::Value::as_str)
+        != Some("ready_for_human_review")
+    {
+        audit
+            .errors
+            .push("component uncertainty must be ready_for_human_review".into());
+    }
+    if plan
+        .pointer("/uncertainty_analysis/path")
+        .and_then(serde_json::Value::as_str)
+        != Some(UNCERTAINTY_PLAN_PATH)
+    {
+        audit
+            .errors
+            .push(format!("analysis plan must link {UNCERTAINTY_PLAN_PATH}"));
+    }
+    if uncertainty
+        .pointer("/base_analysis/path")
+        .and_then(serde_json::Value::as_str)
+        != Some(ANALYSIS_PLAN_PATH)
+        || uncertainty
+            .pointer("/base_analysis/content_sha256")
+            .and_then(serde_json::Value::as_str)
+            != Some(audit.analysis_plan_sha256.as_str())
+    {
+        audit
+            .errors
+            .push("component uncertainty base_analysis does not bind current bytes".into());
+    }
+    if audit.seed.is_none() {
+        audit
+            .errors
+            .push("component uncertainty seed must be an unsigned 64-bit integer".into());
+    }
+    audit.primary_threshold = plan
+        .get("willingness_to_pay")
+        .and_then(serde_json::Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0);
+    let probabilistic = uncertainty
+        .get("probabilistic_analysis")
+        .and_then(serde_json::Value::as_object);
+    audit.iterations = probabilistic
+        .and_then(|value| value.get("iterations"))
+        .and_then(serde_json::Value::as_u64);
+    if !audit
+        .iterations
+        .is_some_and(|value| (1000..=10_000).contains(&value))
+    {
+        audit
+            .errors
+            .push("component PSA iterations must be 1000 to 10000".into());
+    }
+    let thresholds = probabilistic
+        .and_then(|value| value.get("decision_thresholds"))
+        .and_then(|value| value.get("values"))
+        .and_then(serde_json::Value::as_array);
+    audit.threshold_count = thresholds.map(Vec::len).unwrap_or_default();
+    let threshold_values = thresholds
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_f64)
+        .collect::<Vec<_>>();
+    if !(2..=MAX_DECISION_THRESHOLDS).contains(&threshold_values.len())
+        || threshold_values
+            .iter()
+            .any(|value| !value.is_finite() || *value < 0.0)
+        || threshold_values
+            .windows(2)
+            .any(|values| values[0] >= values[1])
+        || !audit.primary_threshold.is_some_and(|primary| {
+            threshold_values
+                .iter()
+                .any(|value| (*value - primary).abs() <= 1e-9)
+        })
+        || !nonempty(
+            probabilistic
+                .and_then(|value| value.get("decision_thresholds"))
+                .and_then(|value| value.get("rationale")),
+        )
+    {
+        audit
+            .errors
+            .push("component decision thresholds are invalid".into());
+    }
+    let checkpoints = probabilistic
+        .and_then(|value| value.get("convergence"))
+        .and_then(|value| value.get("checkpoints"))
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_u64)
+        .collect::<Vec<_>>();
+    if checkpoints.len() < 2
+        || checkpoints.first().is_none_or(|value| *value < 100)
+        || checkpoints.windows(2).any(|values| values[0] >= values[1])
+        || checkpoints.last().copied() != audit.iterations
+        || !probabilistic
+            .and_then(|value| value.get("convergence"))
+            .and_then(|value| finite_number(value.get("max_probability_mcse")))
+            .is_some_and(|value| value > 0.0 && value <= 0.1)
+        || !probabilistic
+            .and_then(|value| value.get("convergence"))
+            .and_then(|value| finite_number(value.get("max_probability_drift")))
+            .is_some_and(|value| value > 0.0 && value <= 0.1)
+    {
+        audit
+            .errors
+            .push("component convergence contract is invalid".into());
+    }
+    let parameters = uncertainty
+        .get("parameters")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    audit.parameter_count = parameters.len();
+    if parameters.is_empty() || parameters.len() > MAX_PARAMETERS {
+        audit.errors.push(format!(
+            "component parameters must contain 1 to {MAX_PARAMETERS} entries"
+        ));
+    }
+    let mut ids = HashSet::new();
+    let mut targets = HashSet::new();
+    for (index, parameter) in parameters.iter().enumerate() {
+        let id = parameter
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let artifact = parameter
+            .get("artifact")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let target = parameter
+            .get("target")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let exact_fields = object_has_exact_keys(
+            parameter,
+            &[
+                "id",
+                "label",
+                "artifact",
+                "target",
+                "provenance_path",
+                "deterministic",
+                "probabilistic",
+            ],
+        );
+        let distribution = parameter
+            .get("probabilistic")
+            .and_then(serde_json::Value::as_object);
+        let kind = distribution
+            .and_then(|value| value.get("type"))
+            .and_then(serde_json::Value::as_str);
+        let distribution_shape = match kind {
+            Some("uniform") => distribution
+                .and_then(|value| {
+                    finite_number(value.get("low")).zip(finite_number(value.get("high")))
+                })
+                .is_some_and(|(low, high)| low < high),
+            Some("lognormal") => distribution
+                .and_then(|value| {
+                    finite_number(value.get("mu_log")).zip(finite_number(value.get("sigma_log")))
+                })
+                .is_some_and(|(_, sigma)| sigma > 0.0),
+            Some("gamma") => distribution.is_some_and(|value| {
+                positive_number(value.get("shape")) && positive_number(value.get("scale"))
+            }),
+            _ => false,
+        };
+        let dsa = parameter
+            .get("deterministic")
+            .and_then(serde_json::Value::as_object);
+        let dsa_shape = dsa
+            .and_then(|value| finite_number(value.get("low")).zip(finite_number(value.get("high"))))
+            .is_some_and(|(low, high)| low < high)
+            && nonempty(dsa.and_then(|value| value.get("rationale")));
+        let valid = exact_fields
+            && !id.is_empty()
+            && ids.insert(id)
+            && nonempty(parameter.get("label"))
+            && matches!(
+                artifact,
+                "cost_input_normalization" | "utility_inputs" | "event_disutilities"
+            )
+            && target.starts_with("/items/")
+            && targets.insert((artifact, target))
+            && nonempty(parameter.get("provenance_path"))
+            && dsa_shape
+            && distribution_shape
+            && distribution.is_some_and(|value| {
+                nonempty(value.get("rationale"))
+                    && string_set(value.get("basis_ids")).is_some_and(|ids| !ids.is_empty())
+            });
+        if !valid {
+            audit.invalid_parameters.push(if id.is_empty() {
+                format!("parameter-{index}")
+            } else {
+                id.to_string()
+            });
+            audit.errors.push(format!(
+                "component parameter {index} is structurally invalid"
+            ));
+        }
+    }
+    let correlation = probabilistic
+        .and_then(|value| value.get("correlation_handling"))
+        .and_then(serde_json::Value::as_object);
+    if !nonempty(correlation.and_then(|value| value.get("independence_rationale")))
+        || correlation
+            .and_then(|value| value.get("known_omitted_correlations"))
+            .and_then(serde_json::Value::as_array)
+            .is_none_or(|items| !items.is_empty())
+    {
+        audit
+            .errors
+            .push("component dependence handling is incomplete".into());
+    }
+    let groups = correlation
+        .and_then(|value| value.get("groups"))
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    audit.correlation_group_count = groups.len();
+    let by_id = parameters
+        .iter()
+        .filter_map(|parameter| Some((parameter.get("id")?.as_str()?, parameter)))
+        .collect::<HashMap<_, _>>();
+    let mut grouped = HashSet::new();
+    for (index, group) in groups.iter().enumerate() {
+        let member_ids = string_set(group.get("parameter_ids"));
+        let valid = member_ids.as_ref().is_some_and(|members| {
+            (2..=MAX_CORRELATION_GROUP_SIZE).contains(&members.len())
+                && members.iter().all(|id| {
+                    grouped.insert(*id)
+                        && by_id.get(id).is_some_and(|parameter| {
+                            matches!(
+                                parameter
+                                    .pointer("/probabilistic/type")
+                                    .and_then(serde_json::Value::as_str),
+                                Some("uniform" | "lognormal")
+                            )
+                        })
+                })
+                && group.get("scale").and_then(serde_json::Value::as_str)
+                    == Some("latent_standard_normal")
+                && group.get("method").and_then(serde_json::Value::as_str)
+                    == Some("gaussian_copula_cholesky")
+                && correlation_matrix_error(
+                    group
+                        .get("correlation_matrix")
+                        .unwrap_or(&serde_json::Value::Null),
+                    members.len(),
+                )
+                .is_none()
+                && string_set(group.get("basis_ids")).is_some_and(|basis_ids| {
+                    !basis_ids.is_empty()
+                        && members.iter().all(|id| {
+                            by_id.get(id).is_some_and(|parameter| {
+                                string_set(parameter.pointer("/probabilistic/basis_ids"))
+                                    .is_some_and(|member_basis| basis_ids.is_subset(&member_basis))
+                            })
+                        })
+                })
+                && nonempty(group.get("id"))
+                && nonempty(group.get("rationale"))
+        });
+        if !valid {
+            audit
+                .errors
+                .push(format!("component correlation group {index} is invalid"));
+        }
+    }
+    let omitted = probabilistic
+        .and_then(|value| value.get("omitted_parameters"))
+        .and_then(serde_json::Value::as_array);
+    audit.omitted_parameter_count = omitted.map(Vec::len).unwrap_or_default();
+    let omitted_paths = omitted
+        .into_iter()
+        .flatten()
+        .filter_map(|item| {
+            nonempty(item.get("rationale")).then(|| item.get("provenance_path")?.as_str())?
+        })
+        .collect::<HashSet<_>>();
+    for strategy in strategy_ids(plan) {
+        for endpoint in ["pfs", "os"] {
+            let expected = format!("partitioned_survival.strategies.{strategy}.{endpoint}");
+            if !omitted_paths.contains(expected.as_str()) {
+                audit.errors.push(format!(
+                    "component uncertainty must omit fixed curve {expected}"
+                ));
+            }
+        }
+    }
+    let scenarios = uncertainty
+        .get("structural_scenarios")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    audit.scenario_count = scenarios.len();
+    if scenarios.is_empty() || scenarios.len() > MAX_SCENARIOS {
+        audit
+            .errors
+            .push("component structural scenarios are required".into());
+    }
+    for scenario in scenarios {
+        let replacements = scenario
+            .get("replacements")
+            .and_then(serde_json::Value::as_array);
+        if !nonempty(scenario.get("id"))
+            || !nonempty(scenario.get("label"))
+            || !nonempty(scenario.get("rationale"))
+            || replacements.is_none_or(|items| {
+                items.is_empty()
+                    || items.iter().any(|replacement| {
+                        !matches!(
+                            replacement
+                                .get("target")
+                                .and_then(serde_json::Value::as_str),
+                            Some(
+                                "/discount_rates/costs"
+                                    | "/discount_rates/outcomes"
+                                    | "/half_cycle_correction"
+                            )
+                        )
+                    })
+            })
+        {
+            audit
+                .errors
+                .push("component structural scenario is invalid".into());
+        }
+    }
+    audit.complete = audit.errors.is_empty() && audit.invalid_parameters.is_empty();
+    if audit.complete {
+        audit.status = "complete";
+    }
+    audit
+}
+
 fn audit_values(
     plan: &serde_json::Value,
     plan_raw: &[u8],
     uncertainty: &serde_json::Value,
     uncertainty_raw: &[u8],
 ) -> UncertaintyAudit {
+    if uncertainty
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        == Some("0.13.0")
+    {
+        return audit_component_values(plan, plan_raw, uncertainty, uncertainty_raw);
+    }
     let mut audit = empty_audit(plan_raw);
     audit.uncertainty_sha256 = sha256(uncertainty_raw);
     audit.uncertainty_id = uncertainty
@@ -1764,6 +2228,184 @@ pub fn audit_uncertainty_plan_for_plan(
             "incomplete"
         };
     }
+    if schema_version == Some("0.13.0") {
+        if let Err(error) =
+            crate::heor_partitioned_survival::require_partitioned_survival_approvable(
+                workspace, plan_raw,
+            )
+        {
+            audit.errors.push(error);
+        }
+        let bindings = [
+            (
+                "partitioned_survival_plan",
+                crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_PLAN_PATH,
+            ),
+            (
+                "curve_materializations",
+                crate::heor_survival_materialization::SURVIVAL_MATERIALIZATION_PATH,
+            ),
+            (
+                "treatment_effect_duration",
+                crate::heor_treatment_effect_duration::TREATMENT_EFFECT_DURATION_PATH,
+            ),
+            (
+                "cost_input_normalization",
+                crate::heor_cost_input_normalization::COST_INPUT_NORMALIZATION_PATH,
+            ),
+            (
+                "utility_inputs",
+                crate::heor_utility_inputs::UTILITY_INPUTS_PATH,
+            ),
+            (
+                "event_disutilities",
+                crate::heor_event_disutilities::EVENT_DISUTILITIES_PATH,
+            ),
+        ];
+        if uncertainty
+            .get("partitioned_survival_inputs")
+            .is_none_or(|value| {
+                !object_has_exact_keys(
+                    value,
+                    &bindings.iter().map(|(field, _)| *field).collect::<Vec<_>>(),
+                )
+            })
+        {
+            audit
+                .errors
+                .push("component uncertainty must bind all six current PSM artifacts".into());
+        }
+        let mut component_artifacts = HashMap::new();
+        for (field, path) in bindings {
+            match read_workspace_capped(workspace, path) {
+                Ok(raw) => {
+                    let binding =
+                        uncertainty.pointer(&format!("/partitioned_survival_inputs/{field}"));
+                    if binding
+                        .and_then(|value| value.get("path"))
+                        .and_then(serde_json::Value::as_str)
+                        != Some(path)
+                        || binding
+                            .and_then(|value| value.get("content_sha256"))
+                            .and_then(serde_json::Value::as_str)
+                            != Some(sha256(&raw).as_str())
+                    {
+                        audit.errors.push(format!(
+                            "partitioned_survival_inputs.{field} does not bind current bytes"
+                        ));
+                    }
+                    if matches!(
+                        field,
+                        "cost_input_normalization" | "utility_inputs" | "event_disutilities"
+                    ) {
+                        match serde_json::from_slice::<serde_json::Value>(&raw) {
+                            Ok(value) => {
+                                component_artifacts.insert(field, value);
+                            }
+                            Err(error) => audit
+                                .errors
+                                .push(format!("{path} is invalid JSON: {error}")),
+                        }
+                    }
+                }
+                Err(error) => audit.errors.push(error),
+            }
+        }
+        if let Some(parameters) = uncertainty
+            .get("parameters")
+            .and_then(serde_json::Value::as_array)
+        {
+            for parameter in parameters {
+                let id = parameter
+                    .get("id")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("unknown");
+                let artifact = parameter
+                    .get("artifact")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default();
+                let target = parameter
+                    .get("target")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default();
+                let artifact_value = component_artifacts.get(artifact);
+                let contract = artifact_value
+                    .and_then(|value| component_target_contract(artifact, target, value));
+                let base = artifact_value
+                    .and_then(|value| value.pointer(target))
+                    .and_then(serde_json::Value::as_f64)
+                    .filter(|value| value.is_finite());
+                let bounds = parameter
+                    .get("deterministic")
+                    .and_then(serde_json::Value::as_object)
+                    .and_then(|value| {
+                        finite_number(value.get("low")).zip(finite_number(value.get("high")))
+                    });
+                let expected_provenance = if contract.is_some() {
+                    Some(format!(
+                        "{}.{}",
+                        artifact,
+                        target.trim_start_matches('/').replace('/', ".")
+                    ))
+                } else {
+                    None
+                };
+                let probabilistic = parameter.get("probabilistic");
+                let distribution_valid = contract.as_ref().is_some_and(|(domain, target_basis)| {
+                    let kind = probabilistic
+                        .and_then(|value| value.get("type"))
+                        .and_then(serde_json::Value::as_str);
+                    let shape_valid = match kind {
+                        Some("uniform") => probabilistic
+                            .and_then(|value| {
+                                finite_number(value.get("low"))
+                                    .zip(finite_number(value.get("high")))
+                            })
+                            .is_some_and(|(low, high)| {
+                                low < high
+                                    && component_domain_valid(low, domain)
+                                    && component_domain_valid(high, domain)
+                            }),
+                        Some("lognormal" | "gamma") => {
+                            matches!(*domain, "positive" | "nonnegative")
+                        }
+                        _ => false,
+                    };
+                    shape_valid
+                        && string_set(probabilistic.and_then(|value| value.get("basis_ids")))
+                            .is_some_and(|basis| !basis.is_empty() && basis.is_subset(target_basis))
+                });
+                if contract.is_none()
+                    || !base.zip(bounds).is_some_and(|(base, (low, high))| {
+                        contract.as_ref().is_some_and(|(domain, _)| {
+                            low < high
+                                && low <= base
+                                && base <= high
+                                && component_domain_valid(base, domain)
+                                && component_domain_valid(low, domain)
+                                && component_domain_valid(high, domain)
+                        })
+                    })
+                    || !distribution_valid
+                    || parameter
+                        .get("provenance_path")
+                        .and_then(serde_json::Value::as_str)
+                        != expected_provenance.as_deref()
+                {
+                    audit.invalid_parameters.push(id.to_string());
+                    audit.errors.push(format!(
+                        "component parameter {id} does not resolve to an allowlisted, bracketed artifact value"
+                    ));
+                }
+            }
+        }
+        audit.complete = audit.errors.is_empty() && audit.invalid_parameters.is_empty();
+        audit.status = if audit.complete {
+            "complete"
+        } else {
+            "incomplete"
+        };
+    }
     Ok(audit)
 }
 
@@ -1818,7 +2460,7 @@ pub fn run_heor_uncertainty(
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default()
         .to_string();
-    let partitioned_audit = if analysis_schema == "0.12.0" {
+    let partitioned_audit = if matches!(analysis_schema.as_str(), "0.12.0" | "0.15.0") {
         Some(
             crate::heor_partitioned_survival::require_partitioned_survival_approvable(
                 &workspace, &plan_raw,
@@ -1842,7 +2484,7 @@ pub fn run_heor_uncertainty(
         .arg(&plan_path)
         .arg("--uncertainty-plan")
         .arg(&uncertainty_path);
-    if analysis_schema == "0.12.0" {
+    if matches!(analysis_schema.as_str(), "0.12.0" | "0.15.0") {
         command
             .arg("--partitioned-survival-plan")
             .arg(workspace.join(crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_PLAN_PATH))
@@ -1865,6 +2507,18 @@ pub fn run_heor_uncertainty(
                 workspace
                     .join(crate::heor_treatment_effect_duration::TREATMENT_EFFECT_DURATION_PATH),
             );
+        }
+        if analysis_schema == "0.15.0" {
+            command
+                .arg("--cost-input-normalization")
+                .arg(
+                    workspace
+                        .join(crate::heor_cost_input_normalization::COST_INPUT_NORMALIZATION_PATH),
+                )
+                .arg("--utility-inputs")
+                .arg(workspace.join(crate::heor_utility_inputs::UTILITY_INPUTS_PATH))
+                .arg("--event-disutilities")
+                .arg(workspace.join(crate::heor_event_disutilities::EVENT_DISUTILITIES_PATH));
         }
     }
     let output = command
@@ -1921,21 +2575,45 @@ pub fn run_heor_uncertainty(
             );
         }
     }
-    if uncertainty_audit.joint_survival_required {
-        if calculation
+    if analysis_schema == "0.15.0" {
+        for (field, path) in [
+            (
+                "cost_input_normalization_sha256",
+                crate::heor_cost_input_normalization::COST_INPUT_NORMALIZATION_PATH,
+            ),
+            (
+                "utility_inputs_sha256",
+                crate::heor_utility_inputs::UTILITY_INPUTS_PATH,
+            ),
+            (
+                "event_disutilities_sha256",
+                crate::heor_event_disutilities::EVENT_DISUTILITIES_PATH,
+            ),
+        ] {
+            let raw = read_workspace_capped(&workspace, path)?;
+            if calculation.get(field).and_then(serde_json::Value::as_str)
+                != Some(sha256(&raw).as_str())
+            {
+                return Err(format!(
+                    "HEOR uncertainty engine {field} does not match desktop-audited bytes"
+                ));
+            }
+        }
+    }
+    if uncertainty_audit.joint_survival_required
+        && (calculation
             .get("joint_survival_uncertainty_sha256")
             .and_then(serde_json::Value::as_str)
             != uncertainty_audit.joint_survival_manifest_sha256.as_deref()
             || calculation
                 .get("joint_survival_draws_sha256")
                 .and_then(serde_json::Value::as_str)
-                != uncertainty_audit.joint_survival_draws_sha256.as_deref()
-        {
-            return Err(
-                "HEOR uncertainty engine joint-survival hashes do not match desktop-audited inputs"
-                    .into(),
-            );
-        }
+                != uncertainty_audit.joint_survival_draws_sha256.as_deref())
+    {
+        return Err(
+            "HEOR uncertainty engine joint-survival hashes do not match desktop-audited inputs"
+                .into(),
+        );
     }
     crate::heor_reporting::write_result(
         &workspace,
@@ -2152,6 +2830,73 @@ mod tests {
             .errors
             .iter()
             .any(|error| error.contains("not unique and allowlisted")));
+    }
+
+    #[test]
+    fn component_uncertainty_schema_is_machine_reviewable_before_workspace_binding() {
+        let mut plan = plan();
+        plan["schema_version"] = serde_json::json!("0.15.0");
+        let comparator = plan["strategies"]
+            .as_object_mut()
+            .unwrap()
+            .remove("comparator")
+            .unwrap();
+        let intervention = plan["strategies"]
+            .as_object_mut()
+            .unwrap()
+            .remove("intervention")
+            .unwrap();
+        plan["strategies"]["standard_care"] = comparator;
+        plan["strategies"]["new_treatment"] = intervention;
+        plan["strategy_order"] = serde_json::json!(["standard_care", "new_treatment"]);
+        plan["baseline_strategy_id"] = serde_json::json!("standard_care");
+        let plan_raw = serde_json::to_vec(&plan).unwrap();
+        let bindings = serde_json::json!({
+            "partitioned_survival_plan": {"path": "heor/partitioned-survival-plan.json", "content_sha256": "a".repeat(64)},
+            "curve_materializations": {"path": "heor/survival-curve-materializations.json", "content_sha256": "b".repeat(64)},
+            "treatment_effect_duration": {"path": "heor/treatment-effect-duration.json", "content_sha256": "c".repeat(64)},
+            "cost_input_normalization": {"path": "heor/cost-input-normalization.json", "content_sha256": "d".repeat(64)},
+            "utility_inputs": {"path": "heor/utility-inputs.json", "content_sha256": "e".repeat(64)},
+            "event_disutilities": {"path": "heor/event-disutilities.json", "content_sha256": "f".repeat(64)}
+        });
+        let uncertainty = serde_json::json!({
+            "schema_version": "0.13.0",
+            "uncertainty_id": "component-1",
+            "analysis_id": "analysis-1",
+            "status": "ready_for_human_review",
+            "base_analysis": {"path": ANALYSIS_PLAN_PATH, "content_sha256": sha256(&plan_raw)},
+            "partitioned_survival_inputs": bindings,
+            "seed": 42,
+            "parameters": [{
+                "id": "price", "label": "Price",
+                "artifact": "cost_input_normalization",
+                "target": "/items/drug/unit_price/amount",
+                "provenance_path": "cost_input_normalization.items.drug.unit_price.amount",
+                "deterministic": {"low": 80, "high": 120, "rationale": "Evidence interval"},
+                "probabilistic": {"type": "uniform", "low": 80, "high": 120, "basis_ids": ["joint"], "rationale": "Bounded evidence"}
+            }],
+            "probabilistic_analysis": {
+                "iterations": 1000,
+                "decision_thresholds": {"values": [0, 100000], "rationale": "Decision range"},
+                "convergence": {"checkpoints": [500, 1000], "max_probability_mcse": 0.1, "max_probability_drift": 0.1},
+                "correlation_handling": {"groups": [], "independence_rationale": "One component", "known_omitted_correlations": []},
+                "omitted_parameters": [
+                    {"provenance_path": "partitioned_survival.strategies.standard_care.pfs", "rationale": "Fixed"},
+                    {"provenance_path": "partitioned_survival.strategies.standard_care.os", "rationale": "Fixed"},
+                    {"provenance_path": "partitioned_survival.strategies.new_treatment.pfs", "rationale": "Fixed"},
+                    {"provenance_path": "partitioned_survival.strategies.new_treatment.os", "rationale": "Fixed"}
+                ]
+            },
+            "structural_scenarios": [{
+                "id": "discount", "label": "Discount", "rationale": "Alternative",
+                "replacements": [{"target": "/discount_rates/outcomes", "value": 0.03}]
+            }]
+        });
+        let raw = serde_json::to_vec(&uncertainty).unwrap();
+        let audit = audit_values(&plan, &plan_raw, &uncertainty, &raw);
+        assert!(audit.complete, "{:?}", audit.errors);
+        assert_eq!(audit.parameter_count, 1);
+        assert_eq!(audit.threshold_count, 2);
     }
 
     #[test]

@@ -260,7 +260,7 @@
     "thresholds": "决策阈值",
     "scenarios": "情景数",
     "askRepair": "让 Agent 创建或修复不确定性分析",
-    "repairPrompt": "以自然语言交互为主，表单只作辅助。使用 $heor-uncertainty-analysis，针对当前 heor/analysis-plan.json 的精确字节创建或修复 heor/uncertainty-plan.json。对于分区生存分析 0.12.0，联合使用 $heor-partitioned-survival 与 $heor-economic-inputs。若没有经审阅的联合生存抽样，使用不确定性 0.11.0：只能改变精确的状态成本或效用标量，绑定固定 PSM 文件，将每条 PFS/OS 曲线列为遗漏项，并标记为仅经济输入的部分参数不确定性。若已有经审阅的联合后验或配对患者 bootstrap，使用 $heor-joint-survival-uncertainty 与不确定性 0.12.0：绑定 manifest 和 JSONL 抽样，每次 PSA 必须保留覆盖全部终点与策略的一整行，拒绝独立终点抽样，并把曲线族选择、外推假设和治疗效应持续时间保留为结构遗漏项。保留有效旧配对，包括分析 0.10.0/不确定性 0.9.0 与分析 0.11.0/不确定性 0.10.0。所有范围、分布、依赖关系和结构假设只能来自已链接证据或明确人工指令，运行便携式与确定性校验，不要创建或声称人工批准或独立验证。",
+    "repairPrompt": "以自然语言交互为主，表单只作辅助。使用 $heor-uncertainty-analysis，针对当前 heor/analysis-plan.json 的精确字节创建或修复 heor/uncertainty-plan.json。对当前分析 0.15.0 与 PSM 0.7.0，使用不确定性 0.13.0：绑定六个当前 PSM 与组成文件，只指向白名单内的原始成本、效用或事件组成，并在每次 DSA/PSA 后重算全部下游聚合值。只有人工提供且有证据绑定时，才可对 Uniform 或 Lognormal 成员使用潜在高斯 Copula 相关矩阵；不得因共享来源自动推断相关。明确列出所有固定 PFS/OS 曲线，并将结果标为成本-效用-事件组成不确定性，而不是完整 PSM PSA。保留有效旧配对，包括分析 0.10.0 与不确定性 0.9.0、分析 0.11.0 与不确定性 0.10.0，以及 PSM 不确定性 0.11.0/0.12.0。范围、分布、依赖和情景只能来自已链接证据或明确人工指令；运行便携式与确定性校验，不得创建或声称人工批准或独立验证。",
     "note": "应用会审计并以哈希绑定该可执行规范。模拟可复现不等于独立验证，也不构成医保决策建议。",
     "noProject": "没有可用于不确定性分析审计的当前项目。",
     "missingPlan": "必须先有分析计划，才能审计不确定性分析。"
@@ -300,7 +300,7 @@
     "askAgent": "让 Agent 创建或修复分区生存分析",
     "repairPrompt": "以自然语言交互为主，表单只作辅助。使用 $heor-economic-inputs 创建 analysis schema 0.15.0，使用 $heor-cost-input-normalization 处理年化状态成本，使用 $heor-utility-inputs 处理周期状态效用，使用 $heor-event-disutilities 处理已从状态效用明确排除的一次性、复发性或持续暴露事件 QALY 损失。事件纳入、严重度、发生率、减值、持续时间、可加性与重叠必须由人确认。使用 $heor-survival-curve-materialization 和 $heor-treatment-effect-duration 处理经审阅曲线与持续时间情景，再使用 $heor-partitioned-survival 创建 schema 0.7.0 并绑定所有精确工件。算术、单位、哈希、重叠、曲线、占用或溯源漂移必须失败，不得静默修复，也不得声称人工审批。",
     "note": "自然语言依据是主交互，精确参数与曲线行只是辅助结构化输入；应用会独立重算每条已准入曲线。可供审查不等于已获人工批准。",
-    "releaseBoundary": "当前支持确定性本地事件减效用计算和分析计划审批；对 schema 0.15.0 / PSM 0.7.0，成本、效用与事件组成不确定性、报告绑定与独立验证仍是发布阻断项。",
+    "releaseBoundary": "当前支持确定性本地事件减效用计算，以及有边界的成本—效用—事件组成不确定性计算。组成 PSA 中生存曲线仍固定；对 schema 0.15.0 / PSM 0.7.0，组合后的完整参数不确定性、报告绑定与独立验证仍是发布阻断项。",
     "noProject": "当前没有可供分区生存审计的项目。",
     "missingPlan": "必须先有分析计划，才能审计分区生存。"
   },
@@ -412,6 +412,9 @@
     "partialEconomicOnlyDetail": "仅改变状态成本与效用；生存曲线保持固定，因此这不是完整的分区生存 PSA，也不能作为可发布证据。",
     "jointSurvival": "联合生存抽样不确定性",
     "jointSurvivalDetail": "每次 PSA 使用一行覆盖全部 PFS/OS 曲线的哈希绑定抽样，并结合经济输入。源模型有效性、曲线选择、外推、治疗效应持续时间和独立验证仍会阻断发布。",
+    "componentUncertainty": "相关组成不确定性",
+    "componentUncertaintyDetail": "每次运行都从已声明组成重建成本、周期效用与事件 QALY 损失。生存曲线仍固定，潜在高斯 Copula 相关由人工提供而不是系统推断。",
+    "componentEvpi": "条件组成 EVPI / 人",
     "evpiMcse": "EVPI 蒙特卡洛标准误",
     "ceacTitle": "成本效果可接受曲线",
     "ceacSubtitle": "使用同一组有界 PSA 抽样，在声明的阈值网格上计算。",

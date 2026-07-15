@@ -1,6 +1,6 @@
 # AI4S Workbench Desktop — Product Requirements
 
-> **Status (AI4HEOR alpha, 2026-07-14).** The runtime is **OpenCode**, bundled as an isolated
+> **Status (AI4HEOR alpha, 2026-07-15).** The runtime is **OpenCode**, bundled as an isolated
 > sidecar (one-click, auto-started, does not touch a user's own OpenCode). Built: the
 > three-column workbench UI, real multi-session chat with history, a real Skills/Agents
 > view, BYOK key config, a macOS installer, and the first-party HEOR workflow described
@@ -37,7 +37,9 @@ language is the primary interaction; forms, matrices, and charts are secondary
 review and ambiguity-resolution surfaces. Decision calculations remain in
 versioned deterministic engines. The current uncertainty result includes
 declared-threshold CEAC/CEAF and per-person EVPI, but not population EVPI,
-EVPPI, optimal study design, reimbursement, or policy recommendations.
+EVPPI, optimal study design, reimbursement, or policy recommendations. Current
+PSM component uncertainty recomputes reviewed raw cost, utility, and event
+inputs under fixed survival; it is explicitly not a complete structural PSA.
 
 ### 2.1 Phase 1 goal
 
