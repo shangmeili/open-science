@@ -15,7 +15,8 @@ from pathlib import Path
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
 LEGACY_SCHEMA_VERSION = "0.1.0"
 DURATION_SCHEMA_VERSION = "0.2.0"
-CURRENT_SCHEMA_VERSION = "0.3.0"
+CURRENT_SCHEMA_VERSION = "0.4.0"
+PRIOR_CURRENT_SCHEMA_VERSION = "0.3.0"
 DRAW_FORMAT = "ai4heor-joint-survival-draws-jsonl@0.1.0"
 DRAW_PATH = "heor/joint-survival-draws.jsonl"
 MAX_DRAW_BYTES = 128 * 1024 * 1024
@@ -173,11 +174,17 @@ def validate(
     errors: list[str] = []
 
     expected_fields = MANIFEST_FIELDS | ({"treatment_effect_duration"} if duration_required else set())
-    expected_schema = CURRENT_SCHEMA_VERSION if psm_schema == "0.7.0" else DURATION_SCHEMA_VERSION if duration_required else LEGACY_SCHEMA_VERSION
+    admitted_schemas = (
+        {CURRENT_SCHEMA_VERSION, PRIOR_CURRENT_SCHEMA_VERSION}
+        if psm_schema == "0.7.0"
+        else {DURATION_SCHEMA_VERSION}
+        if duration_required
+        else {LEGACY_SCHEMA_VERSION}
+    )
     if set(manifest) != expected_fields:
-        errors.append(f"manifest fields do not match schema {expected_schema} exactly")
-    if manifest.get("schema_version") != expected_schema:
-        errors.append(f"manifest schema_version must be {expected_schema}")
+        errors.append("manifest fields do not match the admitted schema exactly")
+    if manifest.get("schema_version") not in admitted_schemas:
+        errors.append(f"manifest schema_version must be one of {sorted(admitted_schemas)}")
     if not text(manifest.get("survival_uncertainty_id")):
         errors.append("survival_uncertainty_id must not be empty")
     if manifest.get("status") != "ready_for_human_review":
@@ -233,7 +240,10 @@ def validate(
         errors.append("time_grid_years does not match the analysis grid")
 
     generation = manifest.get("generation")
+    current_generation = manifest.get("schema_version") == CURRENT_SCHEMA_VERSION
     generation_fields = {"method", "sampling_unit", "independent_endpoint_sampling", "dependence_scope", "source_artifact_bindings", "rationale"}
+    if current_generation:
+        generation_fields |= {"strategy_resampling_design", "between_strategy_assumption"}
     if not isinstance(generation, dict) or set(generation) != generation_fields:
         errors.append("generation fields do not match the contract exactly")
         generation = {}
@@ -243,8 +253,22 @@ def validate(
         errors.append("sampling_unit must be joint_draw_across_all_curves")
     if generation.get("independent_endpoint_sampling") is not False:
         errors.append("independent PFS/OS sampling is not admitted")
-    if generation.get("dependence_scope") != ["within_strategy_pfs_os", "between_strategy_curves"]:
-        errors.append("dependence_scope must preserve within- and between-strategy curve dependence")
+    if current_generation:
+        if generation.get("method") == "paired_patient_bootstrap":
+            if (
+                generation.get("strategy_resampling_design") != "stratified_independent_parallel_arms"
+                or generation.get("between_strategy_assumption") != "conditional_independence_given_parallel_arm_design"
+                or generation.get("dependence_scope") != ["within_strategy_pfs_os"]
+            ):
+                errors.append("paired bootstrap must preserve within-strategy PFS/OS dependence and declare parallel-arm conditional independence")
+        elif (
+            generation.get("strategy_resampling_design") != "joint_model"
+            or generation.get("between_strategy_assumption") != "represented_by_source_joint_distribution"
+            or generation.get("dependence_scope") != ["within_strategy_pfs_os", "between_strategy_curves"]
+        ):
+            errors.append("joint posterior must declare a joint source model covering within- and between-strategy dependence")
+    elif generation.get("dependence_scope") != ["within_strategy_pfs_os", "between_strategy_curves"]:
+        errors.append("legacy dependence_scope must preserve within- and between-strategy curve dependence")
     if not text(generation.get("rationale")):
         errors.append("generation.rationale must not be empty")
 

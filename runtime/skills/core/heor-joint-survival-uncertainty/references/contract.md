@@ -4,7 +4,7 @@ The canonical artifacts are `heor/joint-survival-uncertainty.json` and `heor/joi
 
 ## Identity and bindings
 
-The current manifest uses schema `0.3.0` with analysis `0.15.0` / PSM `0.7.0`. Legacy `0.1.0` and `0.2.0` pairings remain readable. It carries a stable `survival_uncertainty_id`, the current `analysis_id` and `psm_id`, and status `ready_for_human_review`. It binds exact bytes for:
+The current manifest uses schema `0.4.0` with analysis `0.15.0` / PSM `0.7.0`; prior current schema `0.3.0` remains readable. Legacy `0.1.0` and `0.2.0` pairings also remain readable. It carries a stable `survival_uncertainty_id`, the current `analysis_id` and `psm_id`, and status `ready_for_human_review`. It binds exact bytes for:
 
 - `heor/analysis-plan.json`;
 - `heor/partitioned-survival-plan.json`;
@@ -30,9 +30,12 @@ The row count is 1,000–10,000 and exactly equals uncertainty-plan PSA iteratio
 
 ## Generation contract
 
-Allowed methods are `joint_posterior` and `paired_patient_bootstrap`. `sampling_unit` is exactly `joint_draw_across_all_curves`, `independent_endpoint_sampling` is false, and `dependence_scope` is exactly `within_strategy_pfs_os` plus `between_strategy_curves`.
+Allowed methods are `joint_posterior` and `paired_patient_bootstrap`. `sampling_unit` is exactly `joint_draw_across_all_curves` and `independent_endpoint_sampling` is false. Schema `0.4.0` makes strategy design and between-strategy assumptions explicit:
 
-For a joint posterior, preserve the same posterior iteration across all coefficients and all endpoint/strategy curve evaluations. For a paired-patient bootstrap, resample the declared patient-level unit once and refit every endpoint/strategy model within that same replicate. Failed fits remain visible methodological blockers; do not replace, reorder, or filter replicates merely to meet the requested row count.
+- a `joint_posterior` uses `strategy_resampling_design: joint_model`, `between_strategy_assumption: represented_by_source_joint_distribution`, and declares both `within_strategy_pfs_os` and `between_strategy_curves`;
+- a `paired_patient_bootstrap` for independent parallel arms uses `strategy_resampling_design: stratified_independent_parallel_arms`, `between_strategy_assumption: conditional_independence_given_parallel_arm_design`, and declares only `within_strategy_pfs_os`.
+
+For a joint posterior, preserve the same posterior iteration across all coefficients and all endpoint/strategy curve evaluations. For a paired-patient bootstrap, resample the complete patient row once within each strategy and refit both endpoints within that same replicate. Independently randomized parallel arms are resampled separately; their shared replicate number is not evidence of between-strategy correlation. Failed fits remain visible methodological blockers; do not replace, reorder, or filter replicates merely to meet the requested row count.
 
 The manifest records source artifacts and a rationale, but AI4HEOR does not inspect backend-specific MCMC diagnostics, fitting code, censoring assumptions, bootstrap unit selection, treatment switching adjustments, or covariate models. Those require Human review and independent validation.
 
@@ -50,7 +53,7 @@ Conditional CEAC, CEAF, and per-person EVPI cover the represented joint rows and
 
 ## Integration with current uncertainty schema 0.14.0
 
-For analysis `0.15.0` / PSM `0.7.0`, manifest `0.3.0` also binds treatment-effect-duration bytes. The uncertainty plan binds all six current PSM artifacts plus this manifest and draw file. Engine `0.15.0` combines exactly one complete curve row with recomputed cost, utility, and event components per iteration. It returns `joint_curve_and_component_parameter_uncertainty` / `joint_survival_curves_and_cost_utility_event_components`.
+For analysis `0.15.0` / PSM `0.7.0`, manifest `0.4.0` also binds treatment-effect-duration bytes and records the between-strategy assumption. The uncertainty plan binds all six current PSM artifacts plus this manifest and draw file. Engine `0.15.0` combines exactly one complete curve row with recomputed cost, utility, and event components per iteration. It returns `joint_curve_and_component_parameter_uncertainty` / `joint_survival_curves_and_cost_utility_event_components`.
 
 The plan does not omit represented curves. It explicitly omits curve-family selection, extrapolation assumptions, and source-model validity. Treatment-duration alternatives remain separately deterministic. The composed PSA still does not validate the source model, average structures, or establish complete structural uncertainty.
 
@@ -61,5 +64,7 @@ The plan does not omit represented curves. It explicitly omits curve-family sele
 - [NICE DSU TSD 19, partitioned survival analysis](https://sheffield.ac.uk/media/34205/download?attachment=) identifies independently modelled PFS and OS as a structural assumption and warns that independent endpoint simulation can produce incoherent PFS/OS relationships.
 - [hesim partitioned-survival vignette](https://hesim-dev.github.io/hesim/articles/psm.html) demonstrates PSA by evaluating sampled parameter sets or joint posterior distributions rather than independently mixing endpoint margins.
 - [Bayesian partitioned survival model](https://pmc.ncbi.nlm.nih.gov/articles/PMC8488644/) illustrates how joint posterior sampling can preserve dependence that is difficult to represent through separate marginal curves.
+- [R `boot` documentation](https://stat.ethz.ch/R-manual/R-devel/library/boot/html/boot.html) treats a data-frame row as one multivariate observation and supports nonparametric resampling within strata, which motivates whole-subject rows within parallel arms.
+- [ISPOR paired PFS/OS bootstrap example](https://www.ispor.org/heor-resources/presentations-database/presentation/euro2019-3119/96120) refits PFS and OS within the same trial-data resample; AI4HEOR retains this pairing without interpreting independent arm resamples as observed between-strategy correlation.
 
 AI4HEOR adopts only the bounded interchange and audit contract above. It does not claim to implement every method described by these sources.

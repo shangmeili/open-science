@@ -891,7 +891,12 @@ joint-draw path through schema `0.2.0` `heor/joint-survival-uncertainty.json` an
 `heor/joint-survival-draws.jsonl`. One row covers every strategy PFS then OS
 curve on the exact analysis grid and is consumed intact in one PSA iteration,
 together with sampled economic inputs. The admitted source is a reviewed joint
-posterior or paired-patient bootstrap; independent endpoint sampling, marginal-
+posterior or paired-patient bootstrap; current manifest `0.4.0` additionally
+records the strategy resampling design and between-strategy assumption. A joint
+posterior may declare a source distribution spanning all curves. The shipped
+paired bootstrap resamples whole patient rows within independent parallel arms,
+preserves within-strategy PFS/OS dependence, and explicitly declares conditional
+independence between strategies. Independent endpoint sampling, marginal-
 interval covariance reconstruction, row filtering, crossing repair, and silent
 draw replacement fail closed. Python, a standalone standard-library validator,
 and native Rust independently verify hashes, source bytes, row count/order,
@@ -920,7 +925,7 @@ The output is `component_parameter_uncertainty` with scope
 omissions, so it is not a complete PSM PSA.
 
 Uncertainty schema `0.14.0` and engine `0.15.0` retain the same current PSM and
-component bindings, then add exact joint-survival manifest `0.3.0` and JSONL
+component bindings, then add exact joint-survival manifest `0.4.0` (with prior-current `0.3.0` readable) and JSONL
 draw bindings. After fail-closed validation, every PSA iteration consumes one
 complete cross-strategy PFS/OS row and one component draw, rebuilding every
 affected cost, utility, and event aggregate before curve evaluation. The base

@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.3.0",
+  "schema_version": "0.4.0",
   "survival_uncertainty_id": "replace-me",
   "analysis_id": "replace-me",
   "psm_id": "replace-me",
@@ -32,21 +32,27 @@
   ],
   "time_grid_years": [0.0, 1.0],
   "generation": {
-    "method": "joint_posterior",
+    "method": "paired_patient_bootstrap",
     "sampling_unit": "joint_draw_across_all_curves",
     "independent_endpoint_sampling": false,
+    "strategy_resampling_design": "stratified_independent_parallel_arms",
+    "between_strategy_assumption": "conditional_independence_given_parallel_arm_design",
     "dependence_scope": [
-      "within_strategy_pfs_os",
-      "between_strategy_curves"
+      "within_strategy_pfs_os"
     ],
     "source_artifact_bindings": [
       {
-        "path": "heor/fits/replace-source.json",
+        "path": "heor/paired-survival-bootstrap-executions/replace-execution-id/result-manifest.json",
         "content_sha256": "replace-with-lowercase-sha256",
-        "role": "Describe the reviewed joint posterior or paired-patient bootstrap source."
+        "role": "Audited paired-patient bootstrap execution result."
+      },
+      {
+        "path": "heor/paired-survival-bootstrap-executions/replace-execution-id/joint-survival-draws.candidate.jsonl",
+        "content_sha256": "replace-with-lowercase-sha256",
+        "role": "Complete noncanonical candidate rows copied without reordering or filtering."
       }
     ],
-    "rationale": "Replace with the evidence-based reason this artifact preserves the required joint dependence."
+    "rationale": "Whole-subject rows preserve PFS/OS dependence within each strategy; independently randomized parallel arms are conditionally independent under the declared design."
   },
   "limitations": [
     "Replace with unresolved statistical, clinical, extrapolation, and structural limitations."

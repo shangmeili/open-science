@@ -158,7 +158,7 @@ def joint_inputs(vary: bool = True) -> list:
         rows.append(json.dumps({"draw_index": draw_index, "curves": row_curves}, separators=(",", ":")))
     draws_raw = ("\n".join(rows) + "\n").encode()
     manifest = {
-        "schema_version": "0.3.0",
+        "schema_version": "0.4.0",
         "survival_uncertainty_id": "current-joint-survival",
         "analysis_id": analysis["analysis_id"],
         "psm_id": psm["psm_id"],
@@ -174,6 +174,8 @@ def joint_inputs(vary: bool = True) -> list:
             "method": "joint_posterior",
             "sampling_unit": "joint_draw_across_all_curves",
             "independent_endpoint_sampling": False,
+            "strategy_resampling_design": "joint_model",
+            "between_strategy_assumption": "represented_by_source_joint_distribution",
             "dependence_scope": ["within_strategy_pfs_os", "between_strategy_curves"],
             "source_artifact_bindings": [{"path": "heor/fits/current-joint-posterior.json", "content_sha256": hashlib.sha256(b"current joint posterior").hexdigest(), "role": "Reviewed joint posterior rows."}],
             "rationale": "One reviewed posterior row supplies every strategy PFS and OS curve.",
@@ -263,6 +265,57 @@ class ComponentUncertaintyTests(unittest.TestCase):
         self.assertEqual(result["uncertainty_scope"], "joint_survival_curves_and_cost_utility_event_components")
         self.assertNotEqual(result["probabilistic_analysis"]["samples"], fixed_result["probabilistic_analysis"]["samples"])
         self.assertIn("joint_survival_draws_sha256", result)
+
+    def test_current_paired_bootstrap_declares_parallel_arm_independence(self) -> None:
+        inputs = joint_inputs()
+        generation = inputs[16]["generation"]
+        generation["method"] = "paired_patient_bootstrap"
+        generation["strategy_resampling_design"] = "stratified_independent_parallel_arms"
+        generation["between_strategy_assumption"] = "conditional_independence_given_parallel_arm_design"
+        generation["dependence_scope"] = ["within_strategy_pfs_os"]
+        inputs[17] = raw(inputs[16])
+        inputs[2]["joint_survival_inputs"]["manifest"]["content_sha256"] = hashlib.sha256(inputs[17]).hexdigest()
+        inputs[3] = raw(inputs[2])
+        result = run_uncertainty(
+            *inputs[:8],
+            joint_survival_manifest=inputs[16],
+            joint_survival_manifest_raw=inputs[17],
+            joint_survival_draws_raw=inputs[18],
+            treatment_effect_duration=inputs[8],
+            treatment_effect_duration_raw=inputs[9],
+            cost_input_normalization=inputs[10],
+            cost_input_normalization_raw=inputs[11],
+            utility_inputs=inputs[12],
+            utility_inputs_raw=inputs[13],
+            event_disutilities=inputs[14],
+            event_disutilities_raw=inputs[15],
+        )
+        self.assertEqual(result["calculation_classification"], "joint_curve_and_component_parameter_uncertainty")
+
+    def test_current_paired_bootstrap_rejects_a_between_strategy_dependence_claim(self) -> None:
+        inputs = joint_inputs()
+        generation = inputs[16]["generation"]
+        generation["method"] = "paired_patient_bootstrap"
+        generation["strategy_resampling_design"] = "stratified_independent_parallel_arms"
+        generation["between_strategy_assumption"] = "conditional_independence_given_parallel_arm_design"
+        manifest_raw = raw(inputs[16])
+        inputs[2]["joint_survival_inputs"]["manifest"]["content_sha256"] = hashlib.sha256(manifest_raw).hexdigest()
+        inputs[3] = raw(inputs[2])
+        with self.assertRaisesRegex(ModelValidationError, "parallel-arm conditional independence"):
+            run_uncertainty(
+                *inputs[:8],
+                joint_survival_manifest=inputs[16],
+                joint_survival_manifest_raw=manifest_raw,
+                joint_survival_draws_raw=inputs[18],
+                treatment_effect_duration=inputs[8],
+                treatment_effect_duration_raw=inputs[9],
+                cost_input_normalization=inputs[10],
+                cost_input_normalization_raw=inputs[11],
+                utility_inputs=inputs[12],
+                utility_inputs_raw=inputs[13],
+                event_disutilities=inputs[14],
+                event_disutilities_raw=inputs[15],
+            )
 
     def test_joint_component_uncertainty_rejects_a_represented_curve_omission(self) -> None:
         inputs = joint_inputs()

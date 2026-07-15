@@ -10,7 +10,8 @@ from typing import Any, Iterator
 from .model import ModelValidationError
 
 
-SCHEMA_VERSION = "0.3.0"
+SCHEMA_VERSION = "0.4.0"
+PRIOR_CURRENT_SCHEMA_VERSION = "0.3.0"
 PREVIOUS_SCHEMA_VERSION = "0.2.0"
 LEGACY_SCHEMA_VERSION = "0.1.0"
 MANIFEST_PATH = "heor/joint-survival-uncertainty.json"
@@ -28,6 +29,7 @@ DEPENDENCE_SCOPE = [
     "within_strategy_pfs_os",
     "between_strategy_curves",
 ]
+PARALLEL_ARM_DEPENDENCE_SCOPE = ["within_strategy_pfs_os"]
 
 
 def validate_joint_survival_uncertainty(
@@ -70,16 +72,16 @@ def validate_joint_survival_uncertainty(
         expected_fields,
         "joint survival uncertainty manifest",
     )
-    expected_schema = (
-        SCHEMA_VERSION
+    admitted_schemas = (
+        {SCHEMA_VERSION, PRIOR_CURRENT_SCHEMA_VERSION}
         if psm_schema == "0.7.0"
-        else PREVIOUS_SCHEMA_VERSION
+        else {PREVIOUS_SCHEMA_VERSION}
         if duration_required
-        else LEGACY_SCHEMA_VERSION
+        else {LEGACY_SCHEMA_VERSION}
     )
-    if manifest.get("schema_version") != expected_schema:
+    if manifest.get("schema_version") not in admitted_schemas:
         raise ModelValidationError(
-            f"joint survival uncertainty schema_version must be {expected_schema} for the current PSM schema"
+            f"joint survival uncertainty schema_version must be one of {sorted(admitted_schemas)} for the current PSM schema"
         )
     _nonempty(manifest.get("survival_uncertainty_id"), "survival_uncertainty_id")
     if manifest.get("status") != "ready_for_human_review":
@@ -156,18 +158,20 @@ def validate_joint_survival_uncertainty(
             )
 
     generation = _object(manifest.get("generation"), "generation")
-    _exact_keys(
-        generation,
-        {
-            "method",
-            "sampling_unit",
-            "independent_endpoint_sampling",
-            "dependence_scope",
-            "source_artifact_bindings",
-            "rationale",
-        },
-        "generation",
-    )
+    current_generation = manifest.get("schema_version") == SCHEMA_VERSION
+    generation_fields = {
+        "method",
+        "sampling_unit",
+        "independent_endpoint_sampling",
+        "dependence_scope",
+        "source_artifact_bindings",
+        "rationale",
+    }
+    if current_generation:
+        generation_fields.update(
+            {"strategy_resampling_design", "between_strategy_assumption"}
+        )
+    _exact_keys(generation, generation_fields, "generation")
     if generation.get("method") not in ALLOWED_GENERATION_METHODS:
         raise ModelValidationError(
             "generation.method must be joint_posterior or paired_patient_bootstrap"
@@ -178,9 +182,32 @@ def validate_joint_survival_uncertainty(
         )
     if generation.get("independent_endpoint_sampling") is not False:
         raise ModelValidationError("independent PFS/OS sampling is not admitted")
-    if generation.get("dependence_scope") != DEPENDENCE_SCOPE:
+    if current_generation:
+        method = generation.get("method")
+        if method == "paired_patient_bootstrap":
+            if (
+                generation.get("strategy_resampling_design")
+                != "stratified_independent_parallel_arms"
+                or generation.get("between_strategy_assumption")
+                != "conditional_independence_given_parallel_arm_design"
+                or generation.get("dependence_scope")
+                != PARALLEL_ARM_DEPENDENCE_SCOPE
+            ):
+                raise ModelValidationError(
+                    "paired bootstrap generation must preserve within-strategy PFS/OS dependence and explicitly declare stratified parallel-arm conditional independence"
+                )
+        elif (
+            generation.get("strategy_resampling_design") != "joint_model"
+            or generation.get("between_strategy_assumption")
+            != "represented_by_source_joint_distribution"
+            or generation.get("dependence_scope") != DEPENDENCE_SCOPE
+        ):
+            raise ModelValidationError(
+                "joint posterior generation must declare a source joint model covering within- and between-strategy dependence"
+            )
+    elif generation.get("dependence_scope") != DEPENDENCE_SCOPE:
         raise ModelValidationError(
-            "generation.dependence_scope must preserve within-strategy and between-strategy curve dependence"
+            "legacy generation.dependence_scope must preserve within-strategy and between-strategy curve dependence"
         )
     _nonempty(generation.get("rationale"), "generation.rationale")
     source_bindings = generation.get("source_artifact_bindings")

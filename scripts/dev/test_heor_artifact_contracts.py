@@ -195,7 +195,7 @@ class JointSurvivalTemplateContractTests(unittest.TestCase):
             ROOT / "runtime/skills/core/heor-joint-survival-uncertainty/assets/joint-survival-draws.example.jsonl"
         ).read_text().splitlines()
 
-        self.assertEqual(manifest["schema_version"], "0.3.0")
+        self.assertEqual(manifest["schema_version"], "0.4.0")
         self.assertEqual(
             manifest["treatment_effect_duration"]["path"],
             "heor/treatment-effect-duration.json",
@@ -205,6 +205,18 @@ class JointSurvivalTemplateContractTests(unittest.TestCase):
         self.assertEqual(
             manifest["generation"]["sampling_unit"],
             "joint_draw_across_all_curves",
+        )
+        self.assertEqual(
+            manifest["generation"]["strategy_resampling_design"],
+            "stratified_independent_parallel_arms",
+        )
+        self.assertEqual(
+            manifest["generation"]["between_strategy_assumption"],
+            "conditional_independence_given_parallel_arm_design",
+        )
+        self.assertEqual(
+            manifest["generation"]["dependence_scope"],
+            ["within_strategy_pfs_os"],
         )
         self.assertEqual(uncertainty_plan["schema_version"], "0.12.0")
         self.assertEqual(

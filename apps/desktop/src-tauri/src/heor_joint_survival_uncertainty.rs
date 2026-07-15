@@ -327,17 +327,25 @@ pub fn audit_joint_survival_for_plan(
         .get("schema_version")
         .and_then(serde_json::Value::as_str);
     let duration_required = matches!(psm_schema, Some("0.4.0" | "0.7.0"));
-    let expected_schema = match psm_schema {
-        Some("0.7.0") => "0.3.0",
-        Some("0.4.0") => "0.2.0",
-        _ => "0.1.0",
+    let manifest_schema = text(manifest.get("schema_version"));
+    let schema_supported = match psm_schema {
+        Some("0.7.0") => matches!(manifest_schema, Some("0.4.0" | "0.3.0")),
+        Some("0.4.0") => manifest_schema == Some("0.2.0"),
+        _ => manifest_schema == Some("0.1.0"),
     };
-    if text(manifest.get("schema_version")) != Some(expected_schema)
+    if !schema_supported
         || (duration_required && !object_has_exact_keys(&manifest, &duration_fields))
         || (!duration_required && !object_has_exact_keys(&manifest, &legacy_fields))
     {
+        let expected = if psm_schema == Some("0.7.0") {
+            "0.4.0 or prior current schema 0.3.0"
+        } else if psm_schema == Some("0.4.0") {
+            "0.2.0"
+        } else {
+            "0.1.0"
+        };
         audit.errors.push(format!(
-            "joint survival manifest must use schema {expected_schema} for the current PSM"
+            "joint survival manifest must use schema {expected} for the current PSM"
         ));
     }
     if manifest.get("analysis_id") != plan.get("analysis_id")
@@ -464,19 +472,29 @@ pub fn audit_joint_survival_for_plan(
     }
 
     let generation = manifest.get("generation");
-    if generation.is_none_or(|value| {
-        !object_has_exact_keys(
-            value,
-            &[
-                "method",
-                "sampling_unit",
-                "independent_endpoint_sampling",
-                "dependence_scope",
-                "source_artifact_bindings",
-                "rationale",
-            ],
-        )
-    }) {
+    let current_generation = manifest_schema == Some("0.4.0");
+    let generation_fields = if current_generation {
+        vec![
+            "method",
+            "sampling_unit",
+            "independent_endpoint_sampling",
+            "strategy_resampling_design",
+            "between_strategy_assumption",
+            "dependence_scope",
+            "source_artifact_bindings",
+            "rationale",
+        ]
+    } else {
+        vec![
+            "method",
+            "sampling_unit",
+            "independent_endpoint_sampling",
+            "dependence_scope",
+            "source_artifact_bindings",
+            "rationale",
+        ]
+    };
+    if generation.is_none_or(|value| !object_has_exact_keys(value, &generation_fields)) {
         audit
             .errors
             .push("joint survival generation fields are invalid".into());
@@ -507,10 +525,35 @@ pub fn audit_joint_survival_for_plan(
                 .map(serde_json::Value::as_str)
                 .collect::<Option<Vec<_>>>()
         });
-    if dependence != Some(vec!["within_strategy_pfs_os", "between_strategy_curves"]) {
+    if current_generation {
+        let method = generation.and_then(|value| text(value.get("method")));
+        let design = generation.and_then(|value| text(value.get("strategy_resampling_design")));
+        let between_strategy =
+            generation.and_then(|value| text(value.get("between_strategy_assumption")));
+        let valid = match method {
+            Some("paired_patient_bootstrap") => {
+                design == Some("stratified_independent_parallel_arms")
+                    && between_strategy
+                        == Some("conditional_independence_given_parallel_arm_design")
+                    && dependence == Some(vec!["within_strategy_pfs_os"])
+            }
+            Some("joint_posterior") => {
+                design == Some("joint_model")
+                    && between_strategy == Some("represented_by_source_joint_distribution")
+                    && dependence == Some(vec!["within_strategy_pfs_os", "between_strategy_curves"])
+            }
+            _ => false,
+        };
+        if !valid {
+            audit.errors.push(
+                "current joint survival generation design, between-strategy assumption, or dependence scope is invalid"
+                    .into(),
+            );
+        }
+    } else if dependence != Some(vec!["within_strategy_pfs_os", "between_strategy_curves"]) {
         audit
             .errors
-            .push("joint survival dependence scope is incomplete".into());
+            .push("legacy joint survival dependence scope is incomplete".into());
     }
     let source_bindings = generation
         .and_then(|value| value.get("source_artifact_bindings"))
@@ -777,6 +820,53 @@ mod tests {
             audit_joint_survival_for_plan(&root, &plan_raw, &current_uncertainty, Some(1000));
         assert!(current.complete, "{:?}", current.errors);
 
+        let mut paired_manifest = current_manifest.clone();
+        paired_manifest["schema_version"] = serde_json::json!("0.4.0");
+        paired_manifest["generation"] = serde_json::json!({
+            "method": "paired_patient_bootstrap",
+            "sampling_unit": "joint_draw_across_all_curves",
+            "independent_endpoint_sampling": false,
+            "strategy_resampling_design": "stratified_independent_parallel_arms",
+            "between_strategy_assumption": "conditional_independence_given_parallel_arm_design",
+            "dependence_scope": ["within_strategy_pfs_os"],
+            "source_artifact_bindings": [{
+                "path": "heor/fits/joint.json",
+                "content_sha256": sha256(source_raw),
+                "role": "Audited paired patient bootstrap result"
+            }],
+            "rationale": "Whole-subject rows preserve paired PFS and OS observations within each independently randomized arm."
+        });
+        let paired_manifest_raw = serde_json::to_vec(&paired_manifest).unwrap();
+        let paired_uncertainty = serde_json::json!({
+            "joint_survival_inputs": {
+                "manifest": {"path": MANIFEST_PATH, "content_sha256": sha256(&paired_manifest_raw)},
+                "draws": {"path": DRAWS_PATH, "content_sha256": sha256(&draws_raw)}
+            }
+        });
+        std::fs::write(root.join(MANIFEST_PATH), &paired_manifest_raw).unwrap();
+        let paired =
+            audit_joint_survival_for_plan(&root, &plan_raw, &paired_uncertainty, Some(1000));
+        assert!(paired.complete, "{:?}", paired.errors);
+
+        paired_manifest["generation"]["dependence_scope"] =
+            serde_json::json!(["within_strategy_pfs_os", "between_strategy_curves"]);
+        let false_claim_raw = serde_json::to_vec(&paired_manifest).unwrap();
+        let false_claim_uncertainty = serde_json::json!({
+            "joint_survival_inputs": {
+                "manifest": {"path": MANIFEST_PATH, "content_sha256": sha256(&false_claim_raw)},
+                "draws": {"path": DRAWS_PATH, "content_sha256": sha256(&draws_raw)}
+            }
+        });
+        std::fs::write(root.join(MANIFEST_PATH), &false_claim_raw).unwrap();
+        let false_claim =
+            audit_joint_survival_for_plan(&root, &plan_raw, &false_claim_uncertainty, Some(1000));
+        assert!(!false_claim.complete);
+        assert!(false_claim
+            .errors
+            .iter()
+            .any(|error| error.contains("between-strategy assumption")));
+
+        std::fs::write(root.join(MANIFEST_PATH), &current_manifest_raw).unwrap();
         std::fs::write(root.join("heor/fits/joint.json"), b"changed").unwrap();
         let stale =
             audit_joint_survival_for_plan(&root, &plan_raw, &current_uncertainty, Some(1000));

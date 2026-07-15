@@ -551,8 +551,12 @@ uncertainty schema `0.12.0` uses the first-party
 `$heor-joint-survival-uncertainty` asset. A manifest binds the exact analysis,
 PSM, deterministic materializations, source artifacts, and JSONL draw file.
 Every PSA iteration consumes one complete row spanning all strategies and both
-PFS/OS endpoints, preserving within-strategy and between-strategy curve
-dependence. Independent endpoint draws, missing rows, increasing or crossing
+PFS/OS endpoints. The manifest states what that row represents: a reviewed joint
+posterior may preserve both within- and between-strategy dependence, while a
+whole-subject bootstrap stratified over independent parallel arms preserves
+within-strategy PFS/OS dependence and declares conditional independence between
+strategies. A shared replicate number never upgrades that assumption into observed
+correlation. Independent endpoint draws, missing rows, increasing or crossing
 curves, stale hashes, and silent repairs fail closed. Economic DSA/PSA rules
 remain unchanged. Results are labeled `joint_curve_draw_parameter_uncertainty`
 with scope `joint_survival_curves_and_economic_inputs`, and EVPI remains
@@ -573,7 +577,7 @@ every strategy PFS/OS curve is an explicit omission, so the result is not a
 complete PSM PSA or structural uncertainty analysis.
 
 When reviewed joint PFS/OS rows also exist, current uncertainty schema `0.14.0`
-binds manifest `0.3.0` and the JSONL draw bytes in addition to all six component
+binds manifest `0.4.0` (or readable prior-current `0.3.0`) and the JSONL draw bytes in addition to all six component
 artifacts. Every PSA iteration combines exactly one complete curve row with one
 recomputed component draw. Results are labeled
 `joint_curve_and_component_parameter_uncertainty` with scope

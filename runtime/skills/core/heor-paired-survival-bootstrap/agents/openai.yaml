@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Paired Survival Bootstrap"
+  short_description: "Generate audited paired PFS and OS bootstrap draws"
+  default_prompt: "Use $heor-paired-survival-bootstrap to resample patient rows, refit every selected PFS and OS curve, and produce auditable joint draw candidates."
