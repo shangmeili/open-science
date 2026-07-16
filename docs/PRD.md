@@ -49,6 +49,11 @@ Human method review; it does not claim optimal study design, reimbursement,
 funding, or policy recommendations. Current
 PSM component uncertainty recomputes reviewed raw cost, utility, and event
 inputs under fixed survival; it is explicitly not a complete structural PSA.
+The analysis-review pane consolidates only current app-audited paired-bootstrap,
+NMA, anchored-MAIC, and advanced-VOI results into one method-review queue. Pending
+results open the exact Human form; rejected or blocked results return to the
+natural-language conversation for repair. The queue neither creates authority nor
+turns scientific work into a form-led workflow.
 
 ### 2.1 Phase 1 goal
 

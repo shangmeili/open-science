@@ -19,6 +19,7 @@ import {
   BudgetImpactResultCard,
   EvidenceVerificationDialog,
   HeorReviewPane,
+  MethodReviewQueue,
   NetworkMetaAnalysisAssessment,
   NetworkMetaAnalysisReviewDialog,
   PopulationAdjustedComparisonAssessment,
@@ -130,6 +131,50 @@ describe("AI4HEOR human review pane", () => {
     replaySha256: "7".repeat(64),
     errors: [],
   };
+
+  it("consolidates only current method results without granting Agent approval authority", async () => {
+    const reviewNma = vi.fn();
+    const discussPac = vi.fn();
+    render(
+      <MethodReviewQueue
+        items={[
+          {
+            id: "advancedVoi",
+            path: "heor/results/advanced-voi.json",
+            status: "accepted",
+            onReview: vi.fn(),
+            onPrepare: vi.fn(),
+          },
+          {
+            id: "nma",
+            path: "heor/network-meta-analysis-runs/nma-run-1/manifest.json",
+            status: "awaiting",
+            onReview: reviewNma,
+            onPrepare: vi.fn(),
+          },
+          {
+            id: "pac",
+            path: "heor/population-adjusted-comparison-runs/maic-run-1/manifest.json",
+            status: "rejected",
+            onReview: vi.fn(),
+            onPrepare: discussPac,
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText("Method review queue")).toBeInTheDocument();
+    expect(screen.getByText("1/3 accepted · 1 awaiting Human judgment")).toBeInTheDocument();
+    expect(screen.getByText(/Review forms record Human judgments/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Review Network meta-analysis" }));
+    await userEvent.click(screen.getByRole("button", { name: "Discuss Anchored MAIC in conversation" }));
+    expect(reviewNma).toHaveBeenCalledOnce();
+    expect(discussPac).toHaveBeenCalledOnce();
+  });
+
+  it("does not render an empty method review queue", () => {
+    const { container } = render(<MethodReviewQueue items={[]} />);
+    expect(container).toBeEmptyDOMElement();
+  });
 
   it("keeps advanced VOI acceptance behind all eight Human method checks", async () => {
     const onSubmit = vi.fn();

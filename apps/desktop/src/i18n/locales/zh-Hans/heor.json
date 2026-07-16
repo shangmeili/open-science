@@ -32,6 +32,27 @@
     "identity": "本地人工声明"
   },
   "stage": { "scope": "范围", "model": "模型", "plan": "计划", "compute": "计算", "validate": "验证", "release": "发布" },
+  "methodReviewQueue": {
+    "title": "方法学复核队列",
+    "summary": "已接受 {{accepted}}/{{total}} 项 · {{awaiting}} 项等待人工判断",
+    "boundary": "此队列只汇总已经由应用审计的当前结果。复核表单记录人工判断；准备和修复仍通过自然语言对话完成。",
+    "methods": {
+      "nma": "网状 Meta 分析",
+      "pac": "锚定 MAIC",
+      "pairedBootstrap": "配对 PFS/OS bootstrap",
+      "advancedVoi": "高级信息价值分析"
+    },
+    "status": {
+      "awaiting": "等待复核",
+      "accepted": "已接受",
+      "rejected": "已拒绝",
+      "blocked": "审计受阻"
+    },
+    "open": "打开复核",
+    "discuss": "回到对话讨论",
+    "openFor": "复核{{method}}",
+    "discussFor": "在对话中讨论{{method}}"
+  },
   "gate": {
     "decision_problem": "决策问题",
     "conceptual_model": "概念模型",

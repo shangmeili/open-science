@@ -66,6 +66,12 @@ adversarial tests, and app-owned Human authority as separate admission gates;
 popularity, generic quality scores, or Skill-format conformance cannot substitute
 for them. See [Xu et al., 2026](https://arxiv.org/abs/2605.02709).
 
+The desktop now exposes one compact method-review queue for current app-audited
+paired-bootstrap, NMA, anchored-MAIC, and advanced-VOI results. This is platform
+integration, not another Skill: it preserves each method's exact result binding and
+private event chain, opens Human forms only for reviewable results, and routes rejected
+or blocked work back to the natural-language conversation.
+
 ## First-party capability inventory
 
 The following platform Skills are already implemented and bundled: orchestration,

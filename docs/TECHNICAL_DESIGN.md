@@ -7,7 +7,8 @@
 > including the 13/15-artifact PSM validation/report contract and deterministic release replay;
 > deterministic cohort, uncertainty, bounded advanced-VOI, budget-impact, NMA, and anchored-MAIC engines,
 > including portable full-bootstrap replay, native calibration/point-effect challenge, and a
-> separate app-owned Human method reviews; and native macOS and x86_64 Linux packaging.
+> separate app-owned Human method reviews consolidated in a current-result review queue; and
+> native macOS and x86_64 Linux packaging.
 > The 0.1.17 x64 macOS DMG is content-verified; the 0.1.17 Linux `.deb` and `.rpm` are
 > built and content-verified from an isolated Ubuntu 22.04 builder. The `.deb` also passes
 > a clean Ubuntu 22.04 install and headless first start, while the `.rpm` passes the
@@ -496,7 +497,11 @@ strategy's unique-optimal probability, ties, CEAF, and multi-strategy EVPI;
 legacy results remain
 legacy-shaped. The React review pane is a read-only accessible visualization
 of these app-written values; it has no authority to calculate, choose, or alter
-thresholds.
+thresholds. Its method-review queue admits only current app-audited paired-bootstrap,
+NMA, anchored-MAIC, and advanced-VOI result bindings. It sorts rejected, awaiting,
+blocked, and accepted states without rewriting their separate app-owned event chains;
+pending judgments open the existing exact-result form, while preparation and repair
+return to natural-language interaction.
 
 Uncertainty engine `0.8.0` preserves prior schema draw behavior when no current
 correlation groups exist. For a schema `0.4.0` through `0.8.0` group it draws standard normals in

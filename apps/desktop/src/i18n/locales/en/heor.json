@@ -32,6 +32,27 @@
     "identity": "local human assertion"
   },
   "stage": { "scope": "Scope", "model": "Model", "plan": "Plan", "compute": "Compute", "validate": "Validate", "release": "Release" },
+  "methodReviewQueue": {
+    "title": "Method review queue",
+    "summary": "{{accepted}}/{{total}} accepted · {{awaiting}} awaiting Human judgment",
+    "boundary": "This queue only consolidates current app-audited results. Review forms record Human judgments; preparation and repair stay in the natural-language conversation.",
+    "methods": {
+      "nma": "Network meta-analysis",
+      "pac": "Anchored MAIC",
+      "pairedBootstrap": "Paired PFS/OS bootstrap",
+      "advancedVoi": "Advanced value of information"
+    },
+    "status": {
+      "awaiting": "Awaiting review",
+      "accepted": "Accepted",
+      "rejected": "Rejected",
+      "blocked": "Audit blocked"
+    },
+    "open": "Open review",
+    "discuss": "Discuss in conversation",
+    "openFor": "Review {{method}}",
+    "discussFor": "Discuss {{method}} in conversation"
+  },
   "gate": {
     "decision_problem": "Decision problem",
     "conceptual_model": "Conceptual model",

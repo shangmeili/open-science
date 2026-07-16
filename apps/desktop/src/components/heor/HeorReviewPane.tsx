@@ -46,6 +46,7 @@ import {
   browserDemoRun,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_PLAN,
+  HEOR_ADVANCED_VOI_RESULT_PATH,
   HEOR_CONCEPTUAL_MODEL_PATH,
   HEOR_BUDGET_IMPACT_PLAN_PATH,
   HEOR_PARTITIONED_SURVIVAL_PLAN_PATH,
@@ -722,43 +723,117 @@ export function HeorReviewPane({
     && pairedBootstrap.audit.reviewable
     && uncertainty.kind === "ready"
     && uncertainty.audit.pairedBootstrapReviewRequired;
-  const pairedBootstrapReviewAccepted = pairedBootstrapReviewRequired
-    && currentPairedBootstrapReview?.action === "accept"
+  const pairedBootstrapReviewAction = pairedBootstrap.kind === "ready"
+    && currentPairedBootstrapReview
     && currentPairedBootstrapReview.resultPath === pairedBootstrap.audit.resultPath
-    && currentPairedBootstrapReview.resultSha256 === pairedBootstrap.audit.resultSha256;
+    && currentPairedBootstrapReview.resultSha256 === pairedBootstrap.audit.resultSha256
+    ? currentPairedBootstrapReview.action
+    : null;
+  const pairedBootstrapCurrentResultAccepted = pairedBootstrap.kind === "ready"
+    && pairedBootstrap.audit.reviewable
+    && pairedBootstrapReviewAction === "accept";
+  const pairedBootstrapReviewAccepted = pairedBootstrapReviewRequired
+    && pairedBootstrapCurrentResultAccepted;
   const currentNetworkMetaAnalysisReview = useMemo(() => {
     if (networkMetaAnalysis.kind !== "ready" || !networkMetaAnalysis.audit.resultSha256) return null;
     return [...networkMetaAnalysisReviews.events].reverse().find((event) =>
       event.executionId === networkMetaAnalysis.audit.executionId) ?? null;
   }, [networkMetaAnalysis, networkMetaAnalysisReviews.events]);
+  const networkMetaAnalysisReviewAction = networkMetaAnalysis.kind === "ready"
+    && currentNetworkMetaAnalysisReview
+    && currentNetworkMetaAnalysisReview.resultPath === networkMetaAnalysis.audit.resultPath
+    && currentNetworkMetaAnalysisReview.resultSha256 === networkMetaAnalysis.audit.resultSha256
+    ? currentNetworkMetaAnalysisReview.action
+    : null;
   const networkMetaAnalysisAccepted = networkMetaAnalysis.kind === "ready"
     && networkMetaAnalysis.audit.reviewable
-    && currentNetworkMetaAnalysisReview?.action === "accept"
-    && currentNetworkMetaAnalysisReview.resultPath === networkMetaAnalysis.audit.resultPath
-    && currentNetworkMetaAnalysisReview.resultSha256 === networkMetaAnalysis.audit.resultSha256;
+    && networkMetaAnalysisReviewAction === "accept";
   const currentPopulationAdjustedComparisonReview = useMemo(() => {
     if (populationAdjustedComparison.kind !== "ready"
       || !populationAdjustedComparison.audit.resultSha256) return null;
     return [...populationAdjustedComparisonReviews.events].reverse().find((event) =>
       event.executionId === populationAdjustedComparison.audit.executionId) ?? null;
   }, [populationAdjustedComparison, populationAdjustedComparisonReviews.events]);
-  const populationAdjustedComparisonAccepted = populationAdjustedComparison.kind === "ready"
-    && populationAdjustedComparison.audit.reviewable
-    && currentPopulationAdjustedComparisonReview?.action === "accept"
+  const populationAdjustedComparisonReviewAction = populationAdjustedComparison.kind === "ready"
+    && currentPopulationAdjustedComparisonReview
     && currentPopulationAdjustedComparisonReview.resultPath
       === populationAdjustedComparison.audit.resultPath
     && currentPopulationAdjustedComparisonReview.resultSha256
-      === populationAdjustedComparison.audit.resultSha256;
+      === populationAdjustedComparison.audit.resultSha256
+    ? currentPopulationAdjustedComparisonReview.action
+    : null;
+  const populationAdjustedComparisonAccepted = populationAdjustedComparison.kind === "ready"
+    && populationAdjustedComparison.audit.reviewable
+    && populationAdjustedComparisonReviewAction === "accept";
   const currentAdvancedVoiReview = useMemo(() => {
     if (advancedVoi.kind !== "ready" || !advancedVoi.audit.resultSha256) return null;
     return [...advancedVoiReviews.events].reverse().find((event) =>
       event.voiId === advancedVoi.audit.voiId
       && event.resultSha256 === advancedVoi.audit.resultSha256) ?? null;
   }, [advancedVoi, advancedVoiReviews.events]);
+  const advancedVoiReviewAction = advancedVoi.kind === "ready"
+    && currentAdvancedVoiReview?.replaySha256 === advancedVoi.audit.replaySha256
+    ? currentAdvancedVoiReview.action
+    : null;
   const advancedVoiAccepted = advancedVoi.kind === "ready"
     && advancedVoi.audit.reviewable
-    && currentAdvancedVoiReview?.action === "accept"
-    && currentAdvancedVoiReview.replaySha256 === advancedVoi.audit.replaySha256;
+    && advancedVoiReviewAction === "accept";
+
+  const methodReviewItems: MethodReviewQueueItem[] = [
+    ...(networkMetaAnalysis.kind === "ready" && networkMetaAnalysis.audit.resultSha256
+      ? [{
+          id: "nma" as const,
+          path: networkMetaAnalysis.audit.resultPath,
+          status: methodReviewQueueStatus(
+            networkMetaAnalysis.audit.reviewable,
+            networkMetaAnalysisAccepted,
+            networkMetaAnalysisReviewAction,
+          ),
+          onReview: () => setNetworkMetaAnalysisDialogOpen(true),
+          onPrepare: () => onRequestRevision(t("nma.preparePrompt")),
+        }]
+      : []),
+    ...(populationAdjustedComparison.kind === "ready"
+      && populationAdjustedComparison.audit.resultSha256
+      ? [{
+          id: "pac" as const,
+          path: populationAdjustedComparison.audit.resultPath,
+          status: methodReviewQueueStatus(
+            populationAdjustedComparison.audit.reviewable,
+            populationAdjustedComparisonAccepted,
+            populationAdjustedComparisonReviewAction,
+          ),
+          onReview: () => setPopulationAdjustedComparisonDialogOpen(true),
+          onPrepare: () => onRequestRevision(t("pac.preparePrompt")),
+        }]
+      : []),
+    ...(pairedBootstrap.kind === "ready" && pairedBootstrap.audit.resultSha256
+      ? [{
+          id: "pairedBootstrap" as const,
+          path: pairedBootstrap.audit.resultPath,
+          status: methodReviewQueueStatus(
+            pairedBootstrap.audit.reviewable,
+            pairedBootstrapCurrentResultAccepted,
+            pairedBootstrapReviewAction,
+          ),
+          onReview: () => setPairedBootstrapDialogOpen(true),
+          onPrepare: () => onRequestRevision(t("pairedBootstrap.preparePrompt")),
+        }]
+      : []),
+    ...(advancedVoi.kind === "ready" && advancedVoi.audit.resultSha256
+      ? [{
+          id: "advancedVoi" as const,
+          path: HEOR_ADVANCED_VOI_RESULT_PATH,
+          status: methodReviewQueueStatus(
+            advancedVoi.audit.reviewable,
+            advancedVoiAccepted,
+            advancedVoiReviewAction,
+          ),
+          onReview: () => setAdvancedVoiDialogOpen(true),
+          onPrepare: () => onRequestRevision(t("advancedVoi.preparePrompt")),
+        }]
+      : []),
+  ];
 
   const currentApprovals = useMemo(() => {
     if (artifact.kind !== "ready") return [] as HeorGate[];
@@ -1323,6 +1398,8 @@ export function HeorReviewPane({
             || !!budgetImpactResult || !!partitionedSurvivalResult}
         />
 
+        {project && <MethodReviewQueue items={methodReviewItems} />}
+
         {project && (
           <EvidenceLibraryAssessment
             state={evidenceLibrary}
@@ -1447,7 +1524,7 @@ export function HeorReviewPane({
             <PairedBootstrapAssessment
               state={pairedBootstrap}
               currentReview={currentPairedBootstrapReview}
-              accepted={pairedBootstrapReviewAccepted}
+              accepted={pairedBootstrapCurrentResultAccepted}
               onRequestPreparation={() => onRequestRevision(t("pairedBootstrap.preparePrompt"))}
               onReview={() => setPairedBootstrapDialogOpen(true)}
             />
@@ -1470,7 +1547,7 @@ export function HeorReviewPane({
             <AdvancedVoiAssessment
               state={advancedVoi}
               accepted={advancedVoiAccepted}
-              reviewAction={currentAdvancedVoiReview?.action ?? null}
+              reviewAction={advancedVoiReviewAction}
               onRequestPreparation={() => onRequestRevision(t("advancedVoi.preparePrompt"))}
               onReview={() => setAdvancedVoiDialogOpen(true)}
             />
@@ -2094,6 +2171,110 @@ function StageRail({ currentApprovals, hasResult }: { currentApprovals: HeorGate
         ))}
       </div>
     </div>
+  );
+}
+
+export type MethodReviewQueueStatus = "awaiting" | "accepted" | "rejected" | "blocked";
+
+export interface MethodReviewQueueItem {
+  id: "nma" | "pac" | "pairedBootstrap" | "advancedVoi";
+  path: string;
+  status: MethodReviewQueueStatus;
+  onReview: () => void;
+  onPrepare: () => void;
+}
+
+function methodReviewQueueStatus(
+  reviewable: boolean,
+  accepted: boolean,
+  currentAction: "accept" | "reject" | null,
+): MethodReviewQueueStatus {
+  if (accepted) return "accepted";
+  if (currentAction === "reject") return "rejected";
+  return reviewable ? "awaiting" : "blocked";
+}
+
+const METHOD_REVIEW_STATUS_PRIORITY: Record<MethodReviewQueueStatus, number> = {
+  rejected: 0,
+  awaiting: 1,
+  blocked: 2,
+  accepted: 3,
+};
+
+export function MethodReviewQueue({ items }: { items: MethodReviewQueueItem[] }) {
+  const { t } = useTranslation("heor");
+  if (items.length === 0) return null;
+  const ordered = [...items].sort((left, right) =>
+    METHOD_REVIEW_STATUS_PRIORITY[left.status] - METHOD_REVIEW_STATUS_PRIORITY[right.status]);
+  const acceptedCount = items.filter((item) => item.status === "accepted").length;
+  const awaitingCount = items.filter((item) => item.status === "awaiting").length;
+  return (
+    <section className="border-b border-border px-5 py-4" aria-labelledby="method-review-queue-title">
+      <div className="flex items-start gap-2">
+        <ShieldCheck size={16} className="mt-0.5 text-accent" />
+        <div className="min-w-0 flex-1">
+          <div id="method-review-queue-title" className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("methodReviewQueue.title")}
+          </div>
+          <div className="mt-1 text-[10px] leading-4 text-muted">
+            {t("methodReviewQueue.summary", {
+              accepted: acceptedCount,
+              awaiting: awaitingCount,
+              total: items.length,
+            })}
+          </div>
+        </div>
+      </div>
+      <ul className="mt-3 divide-y divide-border rounded-input border border-border bg-bg">
+        {ordered.map((item) => {
+          const accepted = item.status === "accepted";
+          const awaiting = item.status === "awaiting";
+          const rejected = item.status === "rejected";
+          const method = t(`methodReviewQueue.methods.${item.id}`);
+          return (
+            <li key={item.id} className="flex items-center gap-3 px-3 py-2.5">
+              {accepted ? <Check size={14} className="shrink-0 text-ok" />
+                : rejected ? <X size={14} className="shrink-0 text-danger" />
+                  : awaiting ? <LockKeyhole size={14} className="shrink-0 text-accent" />
+                    : <AlertTriangle size={14} className="shrink-0 text-warning" />}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-medium text-text">{method}</div>
+                <div className="truncate font-mono text-[9px] text-muted">{item.path}</div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className={cn(
+                  "text-[10px] font-semibold",
+                  accepted ? "text-ok" : rejected ? "text-danger"
+                    : awaiting ? "text-accent" : "text-warning",
+                )}>
+                  {t(`methodReviewQueue.status.${item.status}`)}
+                </div>
+                {awaiting ? (
+                  <button
+                    type="button"
+                    onClick={item.onReview}
+                    aria-label={t("methodReviewQueue.openFor", { method })}
+                    className="mt-1 text-[10px] font-medium text-link hover:underline"
+                  >
+                    {t("methodReviewQueue.open")}
+                  </button>
+                ) : !accepted ? (
+                  <button
+                    type="button"
+                    onClick={item.onPrepare}
+                    aria-label={t("methodReviewQueue.discussFor", { method })}
+                    className="mt-1 text-[10px] font-medium text-link hover:underline"
+                  >
+                    {t("methodReviewQueue.discuss")}
+                  </button>
+                ) : null}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("methodReviewQueue.boundary")}</p>
+    </section>
   );
 }
 
