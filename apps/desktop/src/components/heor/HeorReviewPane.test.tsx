@@ -6,6 +6,7 @@ import {
   type HeorBudgetImpactRunResult,
   type HeorPairedBootstrapAudit,
   type HeorNetworkMetaAnalysisAudit,
+  type HeorPopulationAdjustedComparisonAudit,
   type HeorUncertaintyRunResult,
 } from "@/lib/heor";
 import { useUiStore } from "@/lib/store";
@@ -16,6 +17,8 @@ import {
   HeorReviewPane,
   NetworkMetaAnalysisAssessment,
   NetworkMetaAnalysisReviewDialog,
+  PopulationAdjustedComparisonAssessment,
+  PopulationAdjustedComparisonReviewDialog,
   PairedBootstrapAssessment,
   PairedBootstrapReviewDialog,
   UncertaintyResultCard,
@@ -71,6 +74,79 @@ describe("AI4HEOR human review pane", () => {
     limitations: ["Human method review required."],
     errors: [],
   };
+
+  const pacAudit: HeorPopulationAdjustedComparisonAudit = {
+    complete: true,
+    reviewable: true,
+    status: "awaiting_method_review",
+    executionId: "maic-run-1",
+    requestPath: "heor/population-adjusted-comparison-request.json",
+    requestSha256: "f".repeat(64),
+    resultPath: "heor/population-adjusted-comparison-runs/maic-run-1/manifest.json",
+    resultSha256: "1".repeat(64),
+    rowCount: 160,
+    modifierCount: 3,
+    effectMeasure: "log_odds_ratio",
+    essOverall: 112.4,
+    essRatio: 0.7025,
+    maximumWeight: 3.14,
+    maxAbsBalanceError: 2.1e-11,
+    unadjustedEstimate: -0.12,
+    adjustedEstimate: -0.25,
+    indirectEstimate: -0.43,
+    indirectSe: 0.18,
+    bootstrapIterations: 1000,
+    bootstrapFailures: 0,
+    nativeScope: "calibration_and_point_estimate_only",
+    limitations: ["Human method review required."],
+    errors: [],
+  };
+
+  it("keeps anchored MAIC selection eligibility behind all eight Human method checks", async () => {
+    const onSubmit = vi.fn();
+    const card = render(
+      <PopulationAdjustedComparisonAssessment
+        state={{ kind: "ready", audit: pacAudit }}
+        currentReview={null}
+        accepted={false}
+        onRequestPreparation={vi.fn()}
+        onReview={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Complete native audit · awaiting Human method review")).toBeInTheDocument();
+    expect(screen.getByText("160")).toBeInTheDocument();
+    card.unmount();
+
+    render(
+      <PopulationAdjustedComparisonReviewDialog
+        audit={pacAudit}
+        running={false}
+        onCancel={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+    const submit = screen.getByRole("button", { name: "Record acceptance" });
+    expect(submit).toBeDisabled();
+    const checkboxes = screen.getAllByRole("checkbox");
+    expect(checkboxes).toHaveLength(8);
+    for (const checkbox of checkboxes) await userEvent.click(checkbox);
+    await userEvent.type(screen.getByPlaceholderText("Name or local reviewer label"), "MAIC reviewer");
+    await userEvent.type(
+      screen.getByPlaceholderText(/Why this exact question/),
+      "Reviewed the exact target population, modifiers, overlap, weights, uncertainty, and residual bias.",
+    );
+    expect(submit).toBeEnabled();
+    await userEvent.click(submit);
+    expect(onSubmit).toHaveBeenCalledWith(
+      "accept",
+      expect.objectContaining({
+        questionEstimandTargetCommonComparatorReviewed: true,
+        residualBiasTransportabilityDownstreamReviewed: true,
+      }),
+      "MAIC reviewer",
+      "Reviewed the exact target population, modifiers, overlap, weights, uncertainty, and residual bias.",
+    );
+  });
 
   it("keeps NMA selection eligibility behind all eight Human method checks", async () => {
     const onSubmit = vi.fn();

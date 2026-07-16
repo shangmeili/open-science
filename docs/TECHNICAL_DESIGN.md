@@ -1,11 +1,13 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.15, 2026-07-16).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.16, 2026-07-16).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
 > including the 13/15-artifact PSM validation/report contract and deterministic release replay;
-> deterministic cohort, uncertainty, and budget-impact engines; and native macOS and
+> deterministic cohort, uncertainty, budget-impact, NMA, and bounded anchored-MAIC engines,
+> including portable full-bootstrap replay, native calibration/point-effect challenge, and a
+> separate app-owned eight-check Human method review; and native macOS and
 > x86_64 Linux packaging. The Linux `.deb` and `.rpm` are built and content-verified on
 > clean Ubuntu 22.04; the `.deb` also passes an isolated install and headless first-start
 > runtime check. Windows remains CI/host-bound, and signing/notarization remains planned.

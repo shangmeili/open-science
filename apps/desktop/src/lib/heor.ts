@@ -10,6 +10,7 @@ export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH = "heor/survival-extrapolat
 export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH = "heor/survival-extrapolation-reviews.json";
 export const HEOR_PAIRED_BOOTSTRAP_REQUEST_PATH = "heor/paired-survival-bootstrap-request.json";
 export const HEOR_NETWORK_META_ANALYSIS_REQUEST_PATH = "heor/network-meta-analysis-request.json";
+export const HEOR_POPULATION_ADJUSTED_COMPARISON_REQUEST_PATH = "heor/population-adjusted-comparison-request.json";
 export const HEOR_MODEL_VALIDATION_PATH = "heor/model-validation.json";
 export const HEOR_REPORT_PACKAGE_PATH = "heor/report-package.json";
 export const HEOR_REPRODUCIBILITY_PACKAGE_PATH = "heor/reproducibility-package.json";
@@ -616,6 +617,82 @@ export interface HeorNetworkMetaAnalysisReviewEvent {
 
 export interface HeorNetworkMetaAnalysisReviewLog {
   events: HeorNetworkMetaAnalysisReviewEvent[];
+  chainHead: string | null;
+  integrity: string;
+  identityAssurance: string;
+}
+
+export interface HeorPopulationAdjustedComparisonAudit {
+  complete: boolean;
+  reviewable: boolean;
+  status: string;
+  executionId: string;
+  requestPath: string;
+  requestSha256: string | null;
+  resultPath: string;
+  resultSha256: string | null;
+  rowCount: number;
+  modifierCount: number;
+  effectMeasure: string;
+  essOverall: number | null;
+  essRatio: number | null;
+  maximumWeight: number | null;
+  maxAbsBalanceError: number | null;
+  unadjustedEstimate: number | null;
+  adjustedEstimate: number | null;
+  indirectEstimate: number | null;
+  indirectSe: number | null;
+  bootstrapIterations: number;
+  bootstrapFailures: number;
+  nativeScope: string;
+  limitations: string[];
+  errors: string[];
+}
+
+export interface HeorPopulationAdjustedComparisonChecklist {
+  questionEstimandTargetCommonComparatorReviewed: boolean;
+  randomizedConnectedEvidenceProvenanceReviewed: boolean;
+  effectModifierRationaleCompletenessReviewed: boolean;
+  ipdIntegrityPrivacyMissingnessReviewed: boolean;
+  targetMomentsOverlapReviewed: boolean;
+  calibrationBalanceWeightsEssReviewed: boolean;
+  bootstrapPrecisionFailuresReviewed: boolean;
+  residualBiasTransportabilityDownstreamReviewed: boolean;
+}
+
+export interface HeorPopulationAdjustedComparisonReviewRequest {
+  projectId: string;
+  resultPath: string;
+  resultSha256: string;
+  action: "accept" | "reject";
+  checklist: HeorPopulationAdjustedComparisonChecklist;
+  actorLabel: string;
+  rationale: string;
+}
+
+export interface HeorPopulationAdjustedComparisonReviewEvent {
+  schemaVersion: number;
+  sequence: number;
+  reviewId: string;
+  projectId: string;
+  executionId: string;
+  action: "accept" | "reject";
+  resultPath: string;
+  resultSha256: string;
+  relatedArtifacts: Array<{ path: string; sha256: string }>;
+  checklist: HeorPopulationAdjustedComparisonChecklist;
+  actorLabel: string;
+  rationale: string;
+  timestamp: number;
+  recordPath: string;
+  recordSha256: string;
+  assurance: string;
+  previousHash: string | null;
+  eventHash: string;
+}
+
+export interface HeorPopulationAdjustedComparisonReviewLog {
+  events: HeorPopulationAdjustedComparisonReviewEvent[];
   chainHead: string | null;
   integrity: string;
   identityAssurance: string;
@@ -2896,6 +2973,68 @@ export async function listHeorNetworkMetaAnalysisReviews(
   return invoke<HeorNetworkMetaAnalysisReviewLog>("list_heor_network_meta_analysis_reviews", {
     projectId,
   });
+}
+
+export async function auditHeorPopulationAdjustedComparison(): Promise<HeorPopulationAdjustedComparisonAudit> {
+  if (!isTauri) {
+    return {
+      complete: false,
+      reviewable: false,
+      status: "unavailable",
+      executionId: "",
+      requestPath: HEOR_POPULATION_ADJUSTED_COMPARISON_REQUEST_PATH,
+      requestSha256: null,
+      resultPath: "",
+      resultSha256: null,
+      rowCount: 0,
+      modifierCount: 0,
+      effectMeasure: "",
+      essOverall: null,
+      essRatio: null,
+      maximumWeight: null,
+      maxAbsBalanceError: null,
+      unadjustedEstimate: null,
+      adjustedEstimate: null,
+      indirectEstimate: null,
+      indirectSe: null,
+      bootstrapIterations: 0,
+      bootstrapFailures: 0,
+      nativeScope: "calibration_and_point_estimate_only",
+      limitations: [],
+      errors: ["Native population-adjusted comparison audit requires the desktop runtime."],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorPopulationAdjustedComparisonAudit>("audit_heor_population_adjusted_comparison");
+}
+
+export async function appendHeorPopulationAdjustedComparisonReview(
+  request: HeorPopulationAdjustedComparisonReviewRequest,
+): Promise<HeorPopulationAdjustedComparisonReviewEvent> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorPopulationAdjustedComparisonReviewEvent>(
+    "append_heor_population_adjusted_comparison_review",
+    { request },
+  );
+}
+
+export async function listHeorPopulationAdjustedComparisonReviews(
+  projectId: string,
+): Promise<HeorPopulationAdjustedComparisonReviewLog> {
+  if (!isTauri) {
+    return {
+      events: [],
+      chainHead: null,
+      integrity: "verified_unanchored_sha256_chain",
+      identityAssurance: "app_owned_local_human_assertion",
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorPopulationAdjustedComparisonReviewLog>(
+    "list_heor_population_adjusted_comparison_reviews",
+    { projectId },
+  );
 }
 
 export async function auditHeorModelValidation(): Promise<HeorModelValidationAudit> {

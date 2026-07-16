@@ -21,6 +21,7 @@ import { cn } from "@/lib/cn";
 import {
   appendHeorApproval,
   appendHeorNetworkMetaAnalysisReview,
+  appendHeorPopulationAdjustedComparisonReview,
   appendHeorPairedBootstrapReview,
   auditHeorBudgetImpact,
   auditHeorPartitionedSurvival,
@@ -36,6 +37,7 @@ import {
   auditHeorUncertainty,
   auditHeorModelValidation,
   auditHeorNetworkMetaAnalysis,
+  auditHeorPopulationAdjustedComparison,
   auditHeorReporting,
   auditHeorReproducibility,
   addHeorLibraryFiles,
@@ -47,6 +49,7 @@ import {
   HEOR_PARTITIONED_SURVIVAL_PLAN_PATH,
   HEOR_MODEL_VALIDATION_PATH,
   HEOR_NETWORK_META_ANALYSIS_REQUEST_PATH,
+  HEOR_POPULATION_ADJUSTED_COMPARISON_REQUEST_PATH,
   HEOR_REPORT_PACKAGE_PATH,
   HEOR_REPRODUCIBILITY_PACKAGE_PATH,
   HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
@@ -75,6 +78,9 @@ import {
   type HeorNetworkMetaAnalysisAudit,
   type HeorNetworkMetaAnalysisChecklist,
   type HeorNetworkMetaAnalysisReviewLog,
+  type HeorPopulationAdjustedComparisonAudit,
+  type HeorPopulationAdjustedComparisonChecklist,
+  type HeorPopulationAdjustedComparisonReviewLog,
   type HeorReportingAudit,
   type HeorReproducibilityAudit,
   type HeorGate,
@@ -93,6 +99,7 @@ import {
   type HeorUncertaintyRunResult,
   listHeorApprovals,
   listHeorNetworkMetaAnalysisReviews,
+  listHeorPopulationAdjustedComparisonReviews,
   listHeorPairedBootstrapReviews,
   listHeorSearchAuthorizations,
   parseHeorConceptualModel,
@@ -190,6 +197,11 @@ type NetworkMetaAnalysisState =
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorNetworkMetaAnalysisAudit };
 
+type PopulationAdjustedComparisonState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorPopulationAdjustedComparisonAudit };
+
 type ModelValidationState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
@@ -240,6 +252,13 @@ const EMPTY_PAIRED_BOOTSTRAP_REVIEW_LOG: HeorPairedBootstrapReviewLog = {
 };
 
 const EMPTY_NMA_REVIEW_LOG: HeorNetworkMetaAnalysisReviewLog = {
+  events: [],
+  chainHead: null,
+  integrity: "verified_unanchored_sha256_chain",
+  identityAssurance: "app_owned_local_human_assertion",
+};
+
+const EMPTY_PAC_REVIEW_LOG: HeorPopulationAdjustedComparisonReviewLog = {
   events: [],
   chainHead: null,
   integrity: "verified_unanchored_sha256_chain",
@@ -338,6 +357,10 @@ export function HeorReviewPane({
   const [networkMetaAnalysisReviews, setNetworkMetaAnalysisReviews] = useState<HeorNetworkMetaAnalysisReviewLog>(EMPTY_NMA_REVIEW_LOG);
   const [networkMetaAnalysisDialogOpen, setNetworkMetaAnalysisDialogOpen] = useState(false);
   const [networkMetaAnalysisReviewRunning, setNetworkMetaAnalysisReviewRunning] = useState(false);
+  const [populationAdjustedComparison, setPopulationAdjustedComparison] = useState<PopulationAdjustedComparisonState>({ kind: "loading" });
+  const [populationAdjustedComparisonReviews, setPopulationAdjustedComparisonReviews] = useState<HeorPopulationAdjustedComparisonReviewLog>(EMPTY_PAC_REVIEW_LOG);
+  const [populationAdjustedComparisonDialogOpen, setPopulationAdjustedComparisonDialogOpen] = useState(false);
+  const [populationAdjustedComparisonReviewRunning, setPopulationAdjustedComparisonReviewRunning] = useState(false);
   const [modelValidation, setModelValidation] = useState<ModelValidationState>({ kind: "loading" });
   const [reporting, setReporting] = useState<ReportingState>({ kind: "loading" });
   const [reproducibility, setReproducibility] = useState<ReproducibilityState>({ kind: "loading" });
@@ -381,6 +404,8 @@ export function HeorReviewPane({
       setPairedBootstrapReviews(EMPTY_PAIRED_BOOTSTRAP_REVIEW_LOG);
       setNetworkMetaAnalysis({ kind: "invalid", message: t("nma.noProject") });
       setNetworkMetaAnalysisReviews(EMPTY_NMA_REVIEW_LOG);
+      setPopulationAdjustedComparison({ kind: "invalid", message: t("pac.noProject") });
+      setPopulationAdjustedComparisonReviews(EMPTY_PAC_REVIEW_LOG);
       setModelValidation({ kind: "invalid", message: t("validation.noProject") });
       setReporting({ kind: "invalid", message: t("reporting.noProject") });
       setReproducibility({ kind: "invalid", message: t("reproducibility.noProject") });
@@ -401,6 +426,7 @@ export function HeorReviewPane({
     setSurvivalReview({ kind: "loading" });
     setPairedBootstrap({ kind: "loading" });
     setNetworkMetaAnalysis({ kind: "loading" });
+    setPopulationAdjustedComparison({ kind: "loading" });
     setModelValidation({ kind: "loading" });
     setReporting({ kind: "loading" });
     setReproducibility({ kind: "loading" });
@@ -425,6 +451,21 @@ export function HeorReviewPane({
         message: error instanceof Error ? error.message : String(error),
       });
       setNetworkMetaAnalysisReviews(EMPTY_NMA_REVIEW_LOG);
+    }
+    try {
+      setPopulationAdjustedComparison({
+        kind: "ready",
+        audit: await auditHeorPopulationAdjustedComparison(),
+      });
+      setPopulationAdjustedComparisonReviews(
+        await listHeorPopulationAdjustedComparisonReviews(project.id),
+      );
+    } catch (error) {
+      setPopulationAdjustedComparison({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setPopulationAdjustedComparisonReviews(EMPTY_PAC_REVIEW_LOG);
     }
     try {
       setEvidenceSearch({ kind: "ready", audit: await auditHeorEvidenceSearch() });
@@ -650,6 +691,19 @@ export function HeorReviewPane({
     && currentNetworkMetaAnalysisReview?.action === "accept"
     && currentNetworkMetaAnalysisReview.resultPath === networkMetaAnalysis.audit.resultPath
     && currentNetworkMetaAnalysisReview.resultSha256 === networkMetaAnalysis.audit.resultSha256;
+  const currentPopulationAdjustedComparisonReview = useMemo(() => {
+    if (populationAdjustedComparison.kind !== "ready"
+      || !populationAdjustedComparison.audit.resultSha256) return null;
+    return [...populationAdjustedComparisonReviews.events].reverse().find((event) =>
+      event.executionId === populationAdjustedComparison.audit.executionId) ?? null;
+  }, [populationAdjustedComparison, populationAdjustedComparisonReviews.events]);
+  const populationAdjustedComparisonAccepted = populationAdjustedComparison.kind === "ready"
+    && populationAdjustedComparison.audit.reviewable
+    && currentPopulationAdjustedComparisonReview?.action === "accept"
+    && currentPopulationAdjustedComparisonReview.resultPath
+      === populationAdjustedComparison.audit.resultPath
+    && currentPopulationAdjustedComparisonReview.resultSha256
+      === populationAdjustedComparison.audit.resultSha256;
 
   const currentApprovals = useMemo(() => {
     if (artifact.kind !== "ready") return [] as HeorGate[];
@@ -1112,6 +1166,38 @@ export function HeorReviewPane({
     }
   };
 
+  const submitPopulationAdjustedComparisonReview = async (
+    action: "accept" | "reject",
+    checklist: HeorPopulationAdjustedComparisonChecklist,
+    actorLabel: string,
+    rationale: string,
+  ) => {
+    if (!project || populationAdjustedComparison.kind !== "ready"
+      || !populationAdjustedComparison.audit.resultSha256
+      || populationAdjustedComparisonReviewRunning || !isTauri) return;
+    setPopulationAdjustedComparisonReviewRunning(true);
+    try {
+      await appendHeorPopulationAdjustedComparisonReview({
+        projectId: project.id,
+        resultPath: populationAdjustedComparison.audit.resultPath,
+        resultSha256: populationAdjustedComparison.audit.resultSha256,
+        action,
+        checklist,
+        actorLabel,
+        rationale,
+      });
+      setPopulationAdjustedComparisonReviews(
+        await listHeorPopulationAdjustedComparisonReviews(project.id),
+      );
+      setPopulationAdjustedComparisonDialogOpen(false);
+      toast.success(action === "accept" ? t("pac.acceptedToast") : t("pac.rejectedToast"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setPopulationAdjustedComparisonReviewRunning(false);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col border-l border-border bg-surface">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
@@ -1175,6 +1261,16 @@ export function HeorReviewPane({
             accepted={networkMetaAnalysisAccepted}
             onRequestPreparation={() => onRequestRevision(t("nma.preparePrompt"))}
             onReview={() => setNetworkMetaAnalysisDialogOpen(true)}
+          />
+        )}
+
+        {project && (
+          <PopulationAdjustedComparisonAssessment
+            state={populationAdjustedComparison}
+            currentReview={currentPopulationAdjustedComparisonReview}
+            accepted={populationAdjustedComparisonAccepted}
+            onRequestPreparation={() => onRequestRevision(t("pac.preparePrompt"))}
+            onReview={() => setPopulationAdjustedComparisonDialogOpen(true)}
           />
         )}
 
@@ -1594,6 +1690,16 @@ export function HeorReviewPane({
           onCancel={() => setNetworkMetaAnalysisDialogOpen(false)}
           onSubmit={(action, checklist, actor, rationale) =>
             void submitNetworkMetaAnalysisReview(action, checklist, actor, rationale)}
+        />
+      )}
+      {populationAdjustedComparisonDialogOpen
+        && populationAdjustedComparison.kind === "ready" && (
+        <PopulationAdjustedComparisonReviewDialog
+          audit={populationAdjustedComparison.audit}
+          running={populationAdjustedComparisonReviewRunning}
+          onCancel={() => setPopulationAdjustedComparisonDialogOpen(false)}
+          onSubmit={(action, checklist, actor, rationale) =>
+            void submitPopulationAdjustedComparisonReview(action, checklist, actor, rationale)}
         />
       )}
     </div>
@@ -3004,6 +3110,249 @@ export function NetworkMetaAnalysisReviewDialog({
             )}
           >
             {running ? t("nma.recording") : action === "accept" ? t("nma.recordAccept") : t("nma.recordReject")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function PopulationAdjustedComparisonAssessment({
+  state,
+  currentReview,
+  accepted,
+  onRequestPreparation,
+  onReview,
+}: {
+  state: PopulationAdjustedComparisonState;
+  currentReview: HeorPopulationAdjustedComparisonReviewLog["events"][number] | null;
+  accepted: boolean;
+  onRequestPreparation: () => void;
+  onReview: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const issues = audit?.errors ?? (state.kind === "invalid" ? [state.message] : []);
+  const status = state.kind === "loading"
+    ? t("pac.loading")
+    : accepted
+      ? t("pac.accepted")
+      : currentReview?.action === "reject"
+        ? t("pac.rejected")
+        : audit?.reviewable
+          ? t("pac.awaiting")
+          : audit?.executionId
+            ? t("pac.incomplete")
+            : t("pac.notPrepared");
+  const format = (value: number | null, digits = 4) =>
+    value === null ? "—" : value.toPrecision(digits);
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {accepted
+          ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
+          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("pac.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warning")}>
+            {status}
+          </div>
+          <div className="mt-1 break-all font-mono text-[10px] text-muted">
+            {audit?.resultPath || HEOR_POPULATION_ADJUSTED_COMPARISON_REQUEST_PATH}
+          </div>
+        </div>
+      </div>
+      {audit?.executionId && (
+        <>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <Metric label={t("pac.rows")} value={String(audit.rowCount)} />
+            <Metric label={t("pac.modifiers")} value={String(audit.modifierCount)} />
+            <Metric label={t("pac.essRatio")} value={format(audit.essRatio, 3)} />
+          </div>
+          <p className="mt-3 text-[10px] leading-4 text-muted">
+            {t("pac.calibrationSummary", {
+              measure: audit.effectMeasure || "—",
+              ess: format(audit.essOverall),
+              maxWeight: format(audit.maximumWeight),
+              balance: format(audit.maxAbsBalanceError, 3),
+            })}
+          </p>
+          <p className="mt-1 text-[10px] leading-4 text-muted">
+            {t("pac.effectSummary", {
+              unadjusted: format(audit.unadjustedEstimate),
+              adjusted: format(audit.adjustedEstimate),
+              indirect: format(audit.indirectEstimate),
+              se: format(audit.indirectSe),
+            })}
+          </p>
+          <p className="mt-1 text-[10px] leading-4 text-muted">
+            {t("pac.bootstrapSummary", {
+              iterations: audit.bootstrapIterations,
+              failures: audit.bootstrapFailures,
+            })}
+          </p>
+          {audit.resultSha256 && (
+            <div className="mt-2 break-all font-mono text-[9px] text-muted">
+              {t("pac.hash")} {audit.resultSha256}
+            </div>
+          )}
+        </>
+      )}
+      {currentReview && (
+        <div className={cn(
+          "mt-3 rounded-input border p-3 text-[10px] leading-4",
+          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warning/30 bg-warning/5 text-warning",
+        )}>
+          {accepted ? t("pac.currentAccepted") : t("pac.currentRejected")}
+          <div className="mt-1 break-all font-mono text-[9px] text-muted">
+            {currentReview.recordPath} · {currentReview.recordSha256.slice(0, 12)}…
+          </div>
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap gap-3">
+        {audit?.reviewable && isTauri && (
+          <button onClick={onReview} className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
+            <LockKeyhole size={13} /> {t("pac.review")}
+          </button>
+        )}
+        {!accepted && (
+          <button onClick={onRequestPreparation} className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
+            <MessageSquareText size={13} /> {t("pac.askAgent")}
+          </button>
+        )}
+      </div>
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("pac.note")}</p>
+    </section>
+  );
+}
+
+const PAC_CHECKLIST_KEYS: Array<keyof HeorPopulationAdjustedComparisonChecklist> = [
+  "questionEstimandTargetCommonComparatorReviewed",
+  "randomizedConnectedEvidenceProvenanceReviewed",
+  "effectModifierRationaleCompletenessReviewed",
+  "ipdIntegrityPrivacyMissingnessReviewed",
+  "targetMomentsOverlapReviewed",
+  "calibrationBalanceWeightsEssReviewed",
+  "bootstrapPrecisionFailuresReviewed",
+  "residualBiasTransportabilityDownstreamReviewed",
+];
+
+const EMPTY_PAC_CHECKLIST: HeorPopulationAdjustedComparisonChecklist = {
+  questionEstimandTargetCommonComparatorReviewed: false,
+  randomizedConnectedEvidenceProvenanceReviewed: false,
+  effectModifierRationaleCompletenessReviewed: false,
+  ipdIntegrityPrivacyMissingnessReviewed: false,
+  targetMomentsOverlapReviewed: false,
+  calibrationBalanceWeightsEssReviewed: false,
+  bootstrapPrecisionFailuresReviewed: false,
+  residualBiasTransportabilityDownstreamReviewed: false,
+};
+
+export function PopulationAdjustedComparisonReviewDialog({
+  audit,
+  running,
+  onCancel,
+  onSubmit,
+}: {
+  audit: HeorPopulationAdjustedComparisonAudit;
+  running: boolean;
+  onCancel: () => void;
+  onSubmit: (
+    action: "accept" | "reject",
+    checklist: HeorPopulationAdjustedComparisonChecklist,
+    actor: string,
+    rationale: string,
+  ) => void;
+}) {
+  const { t } = useTranslation("heor");
+  const [action, setAction] = useState<"accept" | "reject">("accept");
+  const [checklist, setChecklist] = useState(EMPTY_PAC_CHECKLIST);
+  const [actor, setActor] = useState("");
+  const [rationale, setRationale] = useState("");
+  const acceptedReady = PAC_CHECKLIST_KEYS.every((key) => checklist[key]);
+  const valid = actor.trim().length > 0 && rationale.trim().length > 1
+    && (action === "reject" || acceptedReady) && !running;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && !running && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, running]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => !running && onCancel()} role="presentation">
+      <div role="dialog" aria-modal="true" aria-label={t("pac.dialogTitle")} className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-card border border-border bg-surface p-5 shadow-card" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center gap-2 text-sm font-semibold text-text">
+          <ShieldCheck size={17} className="text-accent" /> {t("pac.dialogTitle")}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          {t("pac.dialogBody", {
+            id: audit.executionId,
+            hash: audit.resultSha256?.slice(0, 12) ?? "—",
+          })}
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label={t("pac.decisionLabel")}>
+          {NMA_REVIEW_ACTIONS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={action === value}
+              onClick={() => setAction(value)}
+              className={cn(
+                "rounded-input border px-3 py-2 text-xs font-medium",
+                action === value
+                  ? value === "accept" ? "border-ok bg-ok/10 text-ok" : "border-danger bg-danger/10 text-danger"
+                  : "border-border text-muted",
+              )}
+            >
+              {t(`pac.${value}`)}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 space-y-2 rounded-input border border-border bg-bg p-3">
+          {PAC_CHECKLIST_KEYS.map((key) => (
+            <label key={key} className="flex cursor-pointer items-start gap-2 text-xs leading-5 text-text">
+              <input
+                type="checkbox"
+                checked={checklist[key]}
+                onChange={(event) => setChecklist((current) => ({ ...current, [key]: event.target.checked }))}
+                className="mt-1 accent-[var(--color-accent)]"
+              />
+              <span>{t(`pac.checklist.${key}`)}</span>
+            </label>
+          ))}
+        </div>
+        <input
+          value={actor}
+          onChange={(event) => setActor(event.target.value)}
+          placeholder={t("dialog.actorPlaceholder")}
+          className="mt-3 w-full rounded-input border border-border bg-bg px-3 py-2 text-xs text-text outline-none focus:border-accent"
+        />
+        <textarea
+          value={rationale}
+          onChange={(event) => setRationale(event.target.value)}
+          placeholder={action === "accept" ? t("pac.acceptRationale") : t("pac.rejectRationale")}
+          rows={3}
+          className="mt-2 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-xs leading-5 text-text outline-none focus:border-accent"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button disabled={running} onClick={onCancel} className="rounded-input border border-border px-3 py-2 text-xs text-muted hover:text-text disabled:opacity-50">
+            {t("dialog.cancel")}
+          </button>
+          <button
+            disabled={!valid}
+            onClick={() => onSubmit(action, checklist, actor.trim(), rationale.trim())}
+            className={cn(
+              "rounded-input px-3 py-2 text-xs font-semibold text-white disabled:opacity-40",
+              action === "accept" ? "bg-ok" : "bg-danger",
+            )}
+          >
+            {running ? t("pac.recording") : action === "accept" ? t("pac.recordAccept") : t("pac.recordReject")}
           </button>
         </div>
       </div>

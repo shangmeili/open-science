@@ -633,6 +633,36 @@ meta-regression/NMR, component or dose-response models, population adjustment,
 automatic node/model/treatment selection, certainty grading, and reimbursement
 claims remain outside this alpha.
 
+## Implemented anchored population-adjusted comparison boundary
+
+The first-party `$heor-population-adjusted-comparison` Skill implements one
+bounded anchored MAIC: two independent randomized parallel two-arm trials share
+a common comparator; local pseudonymous IPD cover B versus A; aggregate evidence
+and target means cover C versus A; and the researcher defines one target
+population, outcome, timepoint, estimand, favorable direction, and every
+scale-specific effect modifier. Only log odds ratios and mean differences are
+admitted. AI4HEOR never selects modifiers or substitutes a different
+population-adjustment method from fit diagnostics.
+
+The dependency-free evaluator uses mean-one exponential-tilting weights to
+balance declared modifier means without trimming or capping. It reports
+unadjusted and adjusted B:A effects, aggregate C:A evidence, the anchored B:C
+indirect effect, calibration coefficients and balance, the complete weight
+distribution, overall and arm-specific ESS, and uncertainty from 1,000–5,000
+deterministic stratified nonparametric bootstrap refits. Every failure is retained
+and blocks review. Complete portable replay verifies every bootstrap draw;
+native Rust independently re-reads current IPD and aggregate bytes and recomputes
+calibration, weights, balance, ESS, and point effects, but explicitly does not
+claim an independent bootstrap implementation.
+
+The result stops at an app-owned eight-item Human method review bound to the
+exact seven-artifact graph. Acceptance makes the result eligible for later
+evidence selection only; it never populates an economic model automatically.
+Unanchored MAIC, STC, ML-NMR, larger or disconnected networks, survival effects,
+RR/HR/SMD, higher moments or interactions, automatic modifier selection,
+weight trimming or capping, missing-data handling, observational or single-arm
+evidence, and reimbursement claims remain outside this alpha.
+
 ## Implemented budget impact boundary
 
 The first-party `$heor-budget-impact` and `$heor-dynamic-budget-impact` skills

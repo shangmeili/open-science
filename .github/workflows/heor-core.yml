@@ -14,6 +14,7 @@ on:
       - "scripts/dev/test_heor_artifact_contracts.py"
       - "scripts/dev/test_heor_local_evidence.py"
       - "scripts/dev/test_network_meta_analysis.py"
+      - "scripts/dev/test_population_adjusted_comparison.py"
       - "scripts/dev/test_tauri_heor_resources.py"
       - "scripts/dev/fetch-opencode.sh"
       - "scripts/dev/fetch-uv.sh"
@@ -39,6 +40,7 @@ on:
       - "scripts/dev/test_heor_artifact_contracts.py"
       - "scripts/dev/test_heor_local_evidence.py"
       - "scripts/dev/test_network_meta_analysis.py"
+      - "scripts/dev/test_population_adjusted_comparison.py"
       - "scripts/dev/test_tauri_heor_resources.py"
       - "scripts/dev/fetch-opencode.sh"
       - "scripts/dev/fetch-uv.sh"
@@ -77,6 +79,8 @@ jobs:
         run: python scripts/dev/test_heor_local_evidence.py -v
       - name: Test bounded network meta-analysis contracts
         run: python scripts/dev/test_network_meta_analysis.py -v
+      - name: Test bounded anchored MAIC contracts
+        run: python scripts/dev/test_population_adjusted_comparison.py -v
       - name: Test third-party asset admission contract
         run: python scripts/dev/test_asset_admission.py -v
       - name: Validate first-party core Skills
