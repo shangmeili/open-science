@@ -874,6 +874,7 @@ pub fn audit_event_disutilities(
 mod tests {
     use super::*;
 
+    #[allow(clippy::too_many_arguments)]
     fn event_item(
         item_id: &str,
         event_id: &str,

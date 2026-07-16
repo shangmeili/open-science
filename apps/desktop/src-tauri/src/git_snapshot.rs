@@ -126,12 +126,12 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         fs::write(root.join("AGENTS.md"), "rules\n").unwrap();
 
-        assert_eq!(commit(&root, "Initialize workspace").unwrap(), true);
+        assert!(commit(&root, "Initialize workspace").unwrap());
         assert!(root.join(".git").is_dir());
-        assert_eq!(commit(&root, "No changes").unwrap(), false);
+        assert!(!commit(&root, "No changes").unwrap());
 
         fs::write(root.join("AGENTS.md"), "rules\nmore\n").unwrap();
-        assert_eq!(commit(&root, "Update workspace").unwrap(), true);
+        assert!(commit(&root, "Update workspace").unwrap());
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -149,7 +149,7 @@ mod tests {
         fs::write(root.join("data.txt"), "user work in progress\n").unwrap();
 
         // We must decline it, leave the tree/index alone, and plant no marker.
-        assert_eq!(commit(&root, "should be skipped").unwrap(), false);
+        assert!(!commit(&root, "should be skipped").unwrap());
         assert!(!super::snapshot_marker(&root).exists());
         let _ = fs::remove_dir_all(&root);
     }

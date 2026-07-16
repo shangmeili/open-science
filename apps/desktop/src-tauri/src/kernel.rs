@@ -821,6 +821,7 @@ mod tests {
         assert!(r3["error"].as_str().unwrap().contains("ZeroDivisionError"));
 
         let _ = child.kill();
+        let _ = child.wait();
     }
 
     // Same round trip against the real R bridge (skipped if R is not installed):
@@ -875,6 +876,7 @@ mod tests {
         assert!(r4["error"].as_str().unwrap().contains("boom"));
 
         let _ = child.kill();
+        let _ = child.wait();
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

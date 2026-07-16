@@ -976,7 +976,7 @@ mod tests {
                 ),
             ),
         ]);
-        for (_, (relative, raw)) in &artifacts {
+        for (relative, raw) in artifacts.values() {
             let target = root.join(relative);
             std::fs::create_dir_all(target.parent().unwrap()).unwrap();
             std::fs::write(target, raw).unwrap();
