@@ -35,6 +35,7 @@ import {
   auditHeorUncertainty,
   auditHeorModelValidation,
   auditHeorReporting,
+  auditHeorReproducibility,
   addHeorLibraryFiles,
   browserDemoRun,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
@@ -44,6 +45,7 @@ import {
   HEOR_PARTITIONED_SURVIVAL_PLAN_PATH,
   HEOR_MODEL_VALIDATION_PATH,
   HEOR_REPORT_PACKAGE_PATH,
+  HEOR_REPRODUCIBILITY_PACKAGE_PATH,
   HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
   HEOR_EVIDENCE_LIBRARY_PATH,
   HEOR_EVIDENCE_SYNTHESIS_PATH,
@@ -68,6 +70,7 @@ import {
   type HeorPairedBootstrapReviewLog,
   type HeorModelValidationAudit,
   type HeorReportingAudit,
+  type HeorReproducibilityAudit,
   type HeorGate,
   type HeorReferenceCaseAudit,
   type HeorSurvivalReviewAudit,
@@ -184,6 +187,11 @@ type ReportingState =
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorReportingAudit };
 
+type ReproducibilityState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorReproducibilityAudit };
+
 type EvidenceSearchState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
@@ -261,6 +269,13 @@ function reportBindingsCurrent(
       eventBinds(event, path, audit.bindingHashes[key] ?? ""));
 }
 
+function reproducibilityBindingCurrent(
+  event: HeorApprovalEvent | undefined,
+  audit: HeorReproducibilityAudit,
+): boolean {
+  return eventBinds(event, HEOR_REPRODUCIBILITY_PACKAGE_PATH, audit.packageSha256);
+}
+
 function eventBinds(event: HeorApprovalEvent | undefined, path: string, sha256: string): boolean {
   return event?.relatedArtifacts?.some(
     (binding) => binding.path === path && binding.sha256 === sha256,
@@ -301,6 +316,7 @@ export function HeorReviewPane({
   const [pairedBootstrapReviewRunning, setPairedBootstrapReviewRunning] = useState(false);
   const [modelValidation, setModelValidation] = useState<ModelValidationState>({ kind: "loading" });
   const [reporting, setReporting] = useState<ReportingState>({ kind: "loading" });
+  const [reproducibility, setReproducibility] = useState<ReproducibilityState>({ kind: "loading" });
   const [evidenceSearch, setEvidenceSearch] = useState<EvidenceSearchState>({ kind: "loading" });
   const [evidenceSynthesis, setEvidenceSynthesis] = useState<EvidenceSynthesisState>({ kind: "loading" });
   const [evidenceSelection, setEvidenceSelection] = useState<EvidenceSelectionState>({ kind: "loading" });
@@ -341,6 +357,7 @@ export function HeorReviewPane({
       setPairedBootstrapReviews(EMPTY_PAIRED_BOOTSTRAP_REVIEW_LOG);
       setModelValidation({ kind: "invalid", message: t("validation.noProject") });
       setReporting({ kind: "invalid", message: t("reporting.noProject") });
+      setReproducibility({ kind: "invalid", message: t("reproducibility.noProject") });
       setEvidenceSearch({ kind: "invalid", message: t("search.noProject") });
       setEvidenceSynthesis({ kind: "invalid", message: t("synthesis.noProject") });
       setEvidenceSelection({ kind: "invalid", message: t("evidence.noProject") });
@@ -359,6 +376,7 @@ export function HeorReviewPane({
     setPairedBootstrap({ kind: "loading" });
     setModelValidation({ kind: "loading" });
     setReporting({ kind: "loading" });
+    setReproducibility({ kind: "loading" });
     setEvidenceSearch({ kind: "loading" });
     setEvidenceSynthesis({ kind: "loading" });
     setEvidenceSelection({ kind: "loading" });
@@ -406,6 +424,7 @@ export function HeorReviewPane({
         setPairedBootstrap({ kind: "invalid", message: t("pairedBootstrap.missingPlan") });
         setModelValidation({ kind: "invalid", message: t("validation.missingPlan") });
         setReporting({ kind: "invalid", message: t("reporting.missingPlan") });
+        setReproducibility({ kind: "invalid", message: t("reproducibility.missingPlan") });
         setEvidenceSelection({ kind: "invalid", message: t("evidence.missingPlan") });
         setApprovals(await listHeorApprovals(project.id));
         return;
@@ -488,6 +507,14 @@ export function HeorReviewPane({
         });
       }
       try {
+        setReproducibility({ kind: "ready", audit: await auditHeorReproducibility() });
+      } catch (error) {
+        setReproducibility({
+          kind: "invalid",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      try {
         const conceptualRaw = isTauri
           ? (await readArtifact(HEOR_CONCEPTUAL_MODEL_PATH))?.data ?? null
           : JSON.stringify(HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL, null, 2);
@@ -544,6 +571,10 @@ export function HeorReviewPane({
         message: error instanceof Error ? error.message : String(error),
       });
       setReporting({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setReproducibility({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
@@ -611,6 +642,8 @@ export function HeorReviewPane({
           || !modelValidation.audit.approvable)) break;
       if (gate === "release"
         && (reporting.kind !== "ready" || !reporting.audit.releasable
+          || reproducibility.kind !== "ready"
+          || !reproducibility.audit.releaseCompanionReady
           || (partitionedSurvival.kind === "ready" && partitionedSurvival.audit.required))) break;
       const event = latest.get(gate);
       if (
@@ -655,6 +688,9 @@ export function HeorReviewPane({
         (gate === "release"
           && reporting.kind === "ready"
           && !reportBindingsCurrent(event, reporting.audit)) ||
+        (gate === "release"
+          && reproducibility.kind === "ready"
+          && !reproducibilityBindingCurrent(event, reproducibility.audit)) ||
         event.sequence <= previousSequence
       ) {
         break;
@@ -678,6 +714,7 @@ export function HeorReviewPane({
     currentPairedBootstrapReview,
     modelValidation,
     reporting,
+    reproducibility,
   ]);
 
   const evidenceAudit = useMemo(
@@ -723,10 +760,17 @@ export function HeorReviewPane({
             sha256: modelValidation.audit.bindingHashes[key],
           }))
         : gate === "release" && reporting.kind === "ready"
-          ? Object.entries(reporting.audit.bindingPaths).map(([key, path]) => ({
-              path,
-              sha256: reporting.audit.bindingHashes[key],
-            }))
+          && reproducibility.kind === "ready"
+          ? [
+              ...Object.entries(reporting.audit.bindingPaths).map(([key, path]) => ({
+                path,
+                sha256: reporting.audit.bindingHashes[key],
+              })),
+              {
+                path: HEOR_REPRODUCIBILITY_PACKAGE_PATH,
+                sha256: reproducibility.audit.packageSha256,
+              },
+            ]
         : undefined;
     const eventHash = await sha256Text(
       JSON.stringify({
@@ -803,6 +847,7 @@ export function HeorReviewPane({
         : browserDemoRun(artifact.sha256, currentApprovals);
       setResult(next);
       setReporting({ kind: "ready", audit: next.workflow.reportingAudit });
+      setReproducibility({ kind: "ready", audit: next.workflow.reproducibilityAudit });
       toast.success(t("toast.runComplete"));
     } catch (error) {
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
@@ -819,6 +864,7 @@ export function HeorReviewPane({
       const next = await runHeorUncertainty(project.id);
       setUncertaintyResult(next);
       setReporting({ kind: "ready", audit: next.workflow.reportingAudit });
+      setReproducibility({ kind: "ready", audit: next.workflow.reproducibilityAudit });
       toast.success(t("toast.uncertaintyRunComplete"));
     } catch (error) {
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
@@ -835,6 +881,7 @@ export function HeorReviewPane({
       const next = await runHeorBudgetImpact(project.id);
       setBudgetImpactResult(next);
       setReporting({ kind: "ready", audit: next.workflow.reportingAudit });
+      setReproducibility({ kind: "ready", audit: next.workflow.reproducibilityAudit });
       toast.success(t("toast.budgetImpactRunComplete"));
     } catch (error) {
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
@@ -851,6 +898,7 @@ export function HeorReviewPane({
       const next = await runHeorPartitionedSurvival(project.id);
       setPartitionedSurvivalResult(next);
       setReporting({ kind: "ready", audit: next.workflow.reportingAudit });
+      setReproducibility({ kind: "ready", audit: next.workflow.reproducibilityAudit });
       toast.success(t("toast.partitionedSurvivalRunComplete"));
     } catch (error) {
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
@@ -1150,6 +1198,10 @@ export function HeorReviewPane({
               state={reporting}
               onRequestPreparation={() => onRequestRevision(t("reporting.repairPrompt"))}
             />
+            <ReproducibilityAssessment
+              state={reproducibility}
+              onRequestPreparation={() => onRequestRevision(t("reproducibility.repairPrompt"))}
+            />
 
             <section className="border-b border-border px-5 py-4">
               <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
@@ -1205,7 +1257,10 @@ export function HeorReviewPane({
                     && !validationBindingsCurrent(gateEvent, modelValidation.audit))
                     || (gate === "release"
                       && reporting.kind === "ready"
-                      && !reportBindingsCurrent(gateEvent, reporting.audit));
+                      && !reportBindingsCurrent(gateEvent, reporting.audit))
+                    || (gate === "release"
+                      && reproducibility.kind === "ready"
+                      && !reproducibilityBindingCurrent(gateEvent, reproducibility.audit));
                   const stale = approvals.effectiveApprovedGates.includes(gate)
                     && gateEvent?.action === "approve"
                     && (gateEvent.artifactSha256 !== artifactSha256 || relatedStale);
@@ -1244,12 +1299,16 @@ export function HeorReviewPane({
                   const reportingBlocked = gate === "release"
                     && gate === nextGate
                     && (reporting.kind !== "ready" || !reporting.audit.releasable);
+                  const reproducibilityBlocked = gate === "release"
+                    && gate === nextGate
+                    && (reproducibility.kind !== "ready"
+                      || !reproducibility.audit.releaseCompanionReady);
                   const waiting = gate === nextGate && !stale && !conceptualBlocked
                     && !evidenceBlocked && !referenceBlocked && !uncertaintyBlocked
                     && !budgetImpactBlocked && !survivalReviewBlocked
                     && !pairedBootstrapBlocked
                     && !partitionedSurvivalBlocked
-                    && !validationBlocked && !reportingBlocked;
+                    && !validationBlocked && !reportingBlocked && !reproducibilityBlocked;
                   return (
                     <div key={gate} className="rounded-input border border-border bg-bg/50 px-3 py-2.5">
                       <div className="flex items-center gap-2">
@@ -1258,7 +1317,8 @@ export function HeorReviewPane({
                         ) : waiting || stale || conceptualBlocked || evidenceBlocked || referenceBlocked
                           || uncertaintyBlocked || budgetImpactBlocked || validationBlocked
                           || survivalReviewBlocked || pairedBootstrapBlocked
-                          || partitionedSurvivalBlocked || reportingBlocked ? (
+                          || partitionedSurvivalBlocked || reportingBlocked
+                          || reproducibilityBlocked ? (
                           <Circle size={12} className={stale ? "text-error" : "text-accent"} />
                         ) : (
                           <LockKeyhole size={13} className="text-muted" />
@@ -1287,6 +1347,8 @@ export function HeorReviewPane({
                                 ? t("status.validationRequired")
                               : reportingBlocked
                                 ? t("status.reportingRequired")
+                              : reproducibilityBlocked
+                                ? t("status.reproducibilityRequired")
                               : waiting
                                 ? t("status.awaiting")
                                 : t("status.locked")}
@@ -3061,6 +3123,82 @@ function ReportingAssessment({
         </button>
       )}
       <p className="mt-3 text-[10px] leading-4 text-muted">{t("reporting.note")}</p>
+    </section>
+  );
+}
+
+function ReproducibilityAssessment({
+  state,
+  onRequestPreparation,
+}: {
+  state: ReproducibilityState;
+  onRequestPreparation: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const ready = audit?.releaseCompanionReady === true;
+  const issues = audit ? [...new Set(audit.errors)] : state.kind === "invalid" ? [state.message] : [];
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {ready ? (
+          <ShieldCheck size={16} className="mt-0.5 text-ok" />
+        ) : (
+          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("reproducibility.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", ready ? "text-ok" : "text-warning")}>
+            {state.kind === "loading"
+              ? t("reproducibility.loading")
+              : ready
+                ? t("reproducibility.ready")
+                : t("reproducibility.incomplete")}
+          </div>
+        </div>
+        {audit && (
+          <span className="rounded-full border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-text">
+            {audit.coveredClaimCount}/{audit.requiredClaimCount}
+          </span>
+        )}
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted">
+        {HEOR_REPRODUCIBILITY_PACKAGE_PATH}
+      </div>
+      {audit && (
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <Metric label={t("reproducibility.artifacts")} value={String(audit.artifactCount)} />
+          <Metric label={t("reproducibility.executions")} value={String(audit.executionCount)} />
+          <Metric
+            label={t("reproducibility.claims")}
+            value={`${audit.coveredClaimCount}/${audit.requiredClaimCount}`}
+          />
+          <Metric label={t("reproducibility.sources")} value={String(audit.sourceCount)} />
+          <Metric
+            label={t("reproducibility.runtime")}
+            value={audit.runtimeMatches
+              ? t("reproducibility.runtimeMatch")
+              : t("reproducibility.runtimeMismatch")}
+          />
+          <Metric label={t("reproducibility.errors")} value={String(audit.errors.length)} />
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      {!ready && state.kind !== "loading" && (
+        <button
+          onClick={onRequestPreparation}
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+        >
+          <MessageSquareText size={13} /> {t("reproducibility.askPrepare")}
+        </button>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("reproducibility.note")}</p>
     </section>
   );
 }

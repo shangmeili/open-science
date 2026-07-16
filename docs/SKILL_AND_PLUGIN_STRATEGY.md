@@ -14,7 +14,7 @@ macOS/Windows/Linux behavior.
 The useful integration pattern is therefore:
 
 ```text
-natural-language request
+researcher-defined question and natural-language instruction
   -> first-party workflow Skill
   -> app-owned review and data-egress gate
   -> deterministic first-party engine or isolated optional package adapter
@@ -26,6 +26,11 @@ A Skill defines when to act, which artifact to produce, and when to stop. It is
 not calculation authority. An MCP server or package adapter exposes a bounded
 tool. It is not scientific approval. The desktop owns permissions, hashes,
 process isolation, version capture, and the visible Human gate.
+
+This is researcher-led assisted work, not Agent-led research. Codex Agent leads
+development of the platform; inside the platform, Skills execute bounded tasks
+under the researcher's question, method choices, evidence judgments, assumptions,
+interpretation, and release authority.
 
 ## Current external candidates
 
@@ -139,7 +144,7 @@ gate, and packaged cross-platform evidence.
 | P1 | `heor-rwe-causal-analysis` | Specify target trial, estimand, confounding control, positivity, missingness, sensitivity analyses, and provenance for real-world evidence. Stata/R/Python may be optional execution backends, never implicit authority. |
 | P1 | `heor-advanced-value-of-information` | Add population EVPI, EVPPI, EVSI, and expected net benefit of sampling only when population, technology lifetime, implementation, study design, and computation methods are explicit. |
 | P1 | `heor-hta-source-connectors` | Expose individually admitted PubMed, ClinicalTrials.gov, NICE, CDA-AMC, PBAC, G-BA/IQWiG, HAS, ICER, and jurisdiction cost-source queries behind source-specific schemas, caching, egress disclosure, and citation snapshots. An optional HEORAgent adapter may implement a connector only after per-tool admission. |
-| P1 | `heor-reproducibility-package` | Assemble a bounded release companion containing the exact run manifest, environment/package lock, input/output hashes, code and command inventory, data-availability statement, source/exhibit register, and claim-evidence ledger. Verify every link and disclose unavailable or restricted inputs; do not copy licensed data, infer reproducibility, or create release approval. |
+| Shipped alpha | `heor-reproducibility-package` | Assemble a bounded release companion containing the exact report graph, three deterministic replay recipes, current first-party runtime boundary, input/output hashes, data-availability statement, source/exhibit register, and seven required claim-evidence links. Portable and native audits verify every link; the existing Human release event binds the package without adding another gate. Restricted content is never copied, and structural traceability is never presented as scientific or external reproducibility. |
 | P2 | `heor-model-calibration` | Define calibration targets, likelihood or loss, parameter bounds, identifiability, multi-start diagnostics, and held-out validation without silently overwriting evidence inputs. |
 | P2 | `heor-semi-markov-microsimulation` | Add tunnel/time-in-state and patient-level history under a distinct model contract, deterministic seeds, trace sampling, and performance limits. Do not stretch the current cohort schedule schema. |
 | P2 | `heor-km-reconstruction` | Digitization and individual-patient-data reconstruction with source-image provenance, extraction error, algorithm/version capture, and mandatory visual/statistical review. |

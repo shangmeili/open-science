@@ -34,7 +34,12 @@ Slogan:
 
 AI4HEOR specializes this platform for pharmacoeconomic and HEOR work. Natural
 language is the primary interaction; forms, matrices, and charts are secondary
-review and ambiguity-resolution surfaces. Decision calculations remain in
+review and ambiguity-resolution surfaces. The human researcher leads the study:
+the AI assists with retrieval, artifact preparation, execution, checking, and
+explanation, but does not own the research question, method choices, evidence
+selection, assumptions, interpretation, or release. Codex Agent leadership applies
+to building and maintaining this product, not to conducting a user's HEOR study.
+Decision calculations remain in
 versioned deterministic engines. The current uncertainty result includes
 declared-threshold CEAC/CEAF and per-person EVPI, but not population EVPI,
 EVPPI, optimal study design, reimbursement, or policy recommendations. Current

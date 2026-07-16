@@ -541,14 +541,15 @@ pub fn append_heor_approval(
             }
             ApprovalGate::Release => {
                 let log = verified_log(&app, &request.project_id)?;
-                let report = crate::heor_reporting::require_report_releasable(
+                let (report, reproducibility) = crate::heor_reporting::require_report_releasable(
                     &app,
                     &workspace,
                     &request.artifact_sha256,
                     &request.actor_label,
                     &log,
                 )?;
-                related_artifacts = crate::heor_reporting::approval_bindings(&report);
+                related_artifacts =
+                    crate::heor_reporting::release_approval_bindings(&report, &reproducibility);
             }
         }
     }

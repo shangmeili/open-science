@@ -9,7 +9,7 @@ Use conversation as the primary interface. Translate the researcher's intent int
 
 ## Operating boundary
 
-- Treat the researcher as the decision owner and human reviewer.
+- Treat the human researcher as the scientific lead, decision owner, and human reviewer. Assist with proposals, preparation, execution, checking, and explanation; never direct the research programme or silently make a decision-relevant methodological choice.
 - Never invent clinical inputs, prices, utilities, transition probabilities, comparators, thresholds, or citations.
 - Never silently combine monetary inputs with different currencies or price years. Declare one calculation basis and preserve every adjustment as a reproducible, sourced transformation.
 - Never copy an extracted value into a model input without an executable derivation. Direct evidence must be strict JSON equal to the model value; unsupported transformations remain blocked.
@@ -34,9 +34,10 @@ Use conversation as the primary interface. Translate the researcher's intent int
 11. Use `$heor-budget-impact` when affordability or payer expenditure is in scope. Create `heor/budget-impact-plan.json` as a separate three-year, undiscounted, two-scenario cost calculator bound to the exact analysis-plan bytes; do not derive it from discounted cost-effectiveness totals.
 12. Use `$heor-model-validation` after the analysis artifacts are stable to prepare or audit `heor/model-validation.json` and local evidence. Never fill the independent reviewer's declaration or recommendation, identify Agent work as independent review, or create validation approval.
 13. After all three app-written result artifacts and a current independent-validation approval exist, use `$heor-reporting` to prepare or audit the separate CHEERS 2022 cost-effectiveness matrix, ISPOR BIA matrix, report, exact result summary, disclosures, and hash-bound release package. Never edit result files, invent the release owner, score reporting quality, or create release approval.
-14. Tell the researcher exactly what changed, which model and BIA inputs, reference-case requirements, uncertainty components, validation checks, and reporting items remain unsupported, and which review gate is ready for human inspection.
-15. Run deterministic base-case, uncertainty, or budget impact calculations only through the workbench review panel or its documented local command. Never recreate approval state in the workspace.
-16. Interpret results in the conversation with the result classification, exact input hashes, Monte Carlo or budget diagnostics, limitations, validation, reporting, and release status. Explain CEAC and CEAF separately and describe EVPI only as a per-person upper bound over uncertainty represented in the current PSA; do not infer population EVPI, EVPPI, research funding, study design, reimbursement, or policy advice.
+14. After the report package is structurally complete, use `$heor-reproducibility-package` to derive the exact release companion: report graph, deterministic replay recipes, current environment, source availability, exhibits, and claim links. Do not copy restricted data, add unrelated attachments, or create a separate approval gate.
+15. Tell the researcher exactly what changed, which model and BIA inputs, reference-case requirements, uncertainty components, validation checks, reporting items, and reproducibility links remain unsupported, and which review gate is ready for human inspection.
+16. Run deterministic base-case, uncertainty, or budget impact calculations only through the workbench review panel or its documented local command. Never recreate approval state in the workspace.
+17. Interpret results in the conversation with the result classification, exact input hashes, Monte Carlo or budget diagnostics, limitations, validation, reporting, reproducibility-companion, and release status. Explain CEAC and CEAF separately and describe EVPI only as a per-person upper bound over uncertainty represented in the current PSA; do not infer population EVPI, EVPPI, research funding, study design, reimbursement, or policy advice.
 
 ## Evidence discipline
 
@@ -49,7 +50,7 @@ Use conversation as the primary interface. Translate the researcher's intent int
 
 ## Analysis-plan handoff
 
-The app watches `heor/evidence-search-request.json`, app-written search runs, `heor/analysis-plan.json`, `heor/conceptual-model.json`, `heor/reference-case-assessment.json`, `heor/partitioned-survival-plan.json`, `heor/survival-curve-materializations.json`, `heor/treatment-effect-duration.json`, `heor/cost-input-normalization.json`, `heor/utility-inputs.json`, `heor/event-disutilities.json`, uncertainty and joint-survival artifacts, budget impact, validation, reporting, and app-written result files. Keep JSON and JSONL valid; changing a hash-bound artifact requires renewed review.
+The app watches `heor/evidence-search-request.json`, app-written search runs, `heor/analysis-plan.json`, `heor/conceptual-model.json`, `heor/reference-case-assessment.json`, `heor/partitioned-survival-plan.json`, `heor/survival-curve-materializations.json`, `heor/treatment-effect-duration.json`, `heor/cost-input-normalization.json`, `heor/utility-inputs.json`, `heor/event-disutilities.json`, uncertainty and joint-survival artifacts, budget impact, validation, reporting, reproducibility, and app-written result files. Keep JSON and JSONL valid; changing a hash-bound artifact requires renewed review.
 
 After writing the plan, report:
 

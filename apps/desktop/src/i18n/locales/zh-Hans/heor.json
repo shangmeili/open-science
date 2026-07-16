@@ -53,6 +53,7 @@
     "pairedBootstrapReviewRequired": "需先完成人工配对 bootstrap 方法复核",
     "validationRequired": "需先获得可批准的独立验证结果",
     "reportingRequired": "需先完成哈希绑定的报告包",
+    "reproducibilityRequired": "需先完成与当前结果一致的可复现伴随包",
     "decisionReady": "已发布 · 可进入决策使用",
     "notDecisionReady": "尚不可用于决策"
   },
@@ -385,6 +386,25 @@
     "note": "应用验证报告结构、哈希、确定性结果复现和本地批准状态；这不等于科学真实性、期刊接收或政策背书。",
     "noProject": "没有可用于报告包审计的当前项目。",
     "missingPlan": "必须先有分析计划，才能审计报告包。"
+  },
+  "reproducibility": {
+    "title": "可复现伴随包",
+    "loading": "正在审计可复现证据……",
+    "ready": "可复现伴随包可进入发布审阅",
+    "incomplete": "可复现伴随包不完整",
+    "artifacts": "精确工件",
+    "executions": "复现配方",
+    "claims": "主张链接",
+    "sources": "来源记录",
+    "runtime": "运行环境",
+    "runtimeMatch": "当前",
+    "runtimeMismatch": "已漂移",
+    "errors": "阻断错误",
+    "askPrepare": "让 Agent 准备或修复可复现证据",
+    "repairPrompt": "使用 $heor-reproducibility-package，针对当前精确报告包准备或修复 heor/reproducibility-package.json。工件清单只包含报告及其已声明绑定；保留三个确定性复现配方；不复制受限原文，仅记录来源可得性与许可；绑定三个展示及全部七项 CHEERS/BIA 主张链接；精确记录当前 AI4HEOR、平台、Python 和引擎版本。不要新增批准关卡，不要声称科学真实性，不要更改来源、结果或报告文件，也不要创建发布批准。",
+    "note": "应用验证精确文件、哈希、复现配方、当前运行环境、来源可得性记录、展示和主张链接；它不证明来源真实、数据权利、科学有效性或外部可复现性。",
+    "noProject": "没有可用于可复现性审计的当前项目。",
+    "missingPlan": "必须先有分析计划，才能审计可复现证据。"
   },
   "action": {
     "approve": "审阅{{gate}}",

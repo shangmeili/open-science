@@ -59,6 +59,10 @@ reporting = load(
     "validate_report_package",
     "runtime/skills/core/heor-reporting/scripts/validate_report_package.py",
 )
+reproducibility = load(
+    "validate_reproducibility_package",
+    "runtime/skills/core/heor-reproducibility-package/scripts/validate_reproducibility_package.py",
+)
 evidence_search = load(
     "validate_evidence_search_request",
     "runtime/skills/core/heor-evidence-search/scripts/validate_evidence_search_request.py",
@@ -3235,10 +3239,10 @@ class ReportingContractTests(unittest.TestCase):
         results = heor / "results"
         results.mkdir(parents=True)
         values = {
-            "analysis_plan": {"analysis_id": analysis_id},
+            "analysis_plan": {"analysis_id": analysis_id, "evidence_sources": []},
             "conceptual_model": {"analysis_id": analysis_id},
             "uncertainty_plan": {"analysis_id": analysis_id},
-            "budget_impact_plan": {"analysis_id": analysis_id},
+            "budget_impact_plan": {"analysis_id": analysis_id, "evidence_sources": []},
             "model_validation": {"analysis_id": analysis_id},
         }
         paths = {
@@ -3253,6 +3257,7 @@ class ReportingContractTests(unittest.TestCase):
         result_values = {
             "base_case_result": {
                 "analysis_id": analysis_id,
+                "engine_version": "0.15.0",
                 "input_sha256": analysis_hash,
                 "economic_basis": {"currency": "CNY", "price_year": 2026},
                 "incremental": {
@@ -3264,6 +3269,7 @@ class ReportingContractTests(unittest.TestCase):
             },
             "uncertainty_result": {
                 "analysis_id": analysis_id,
+                "engine_version": "0.15.0",
                 "base_analysis_sha256": analysis_hash,
                 "uncertainty_plan_sha256": uncertainty_hash,
                 "probabilistic_analysis": {
@@ -3296,6 +3302,7 @@ class ReportingContractTests(unittest.TestCase):
             },
             "budget_impact_result": {
                 "analysis_id": analysis_id,
+                "engine_version": "0.15.0",
                 "analysis_plan_sha256": analysis_hash,
                 "budget_impact_plan_sha256": bia_hash,
                 "base_case": {
@@ -3398,6 +3405,7 @@ class ReportingContractTests(unittest.TestCase):
         }
         psm = {
             "analysis_id": analysis_id,
+            "engine_version": "0.15.0",
             **source_fields,
             "economic_basis": {"currency": "CNY", "price_year": 2026},
             "strategy_order": ["standard", "treatment"],
@@ -3639,6 +3647,205 @@ class ReportingContractTests(unittest.TestCase):
             result = reporting.audit(package_path, root)
             self.assertFalse(result["complete"])
             self.assertTrue(any("reporting_profiles" in error for error in result["errors"]))
+
+
+class ReproducibilityPackageContractTests(unittest.TestCase):
+    def fixture(self, root: Path, *, psm: bool = False):
+        reporting_tests = ReportingContractTests()
+        report_path, report, paths = reporting_tests.fixture(root)
+        if psm:
+            reporting_tests.upgrade_to_psm(root, report_path, report, paths)
+        report_raw = report_path.read_bytes()
+        loaded = {
+            key: json.loads((root / binding["path"]).read_text())
+            for key, binding in report["bindings"].items()
+            if key != "report_document"
+        }
+        analysis = loaded["analysis_plan"]
+        expected = reproducibility.expected_artifacts(
+            report, report_raw, analysis
+        )
+        inventory = [
+            {
+                "artifact_id": key,
+                "path": path,
+                "content_sha256": sha256,
+                "role": role,
+            }
+            for key, (path, sha256, role) in sorted(expected.items())
+        ]
+        claims = []
+        claim_ids_by_scope = {
+            "cost_effectiveness": [], "uncertainty": [], "budget_impact": [],
+        }
+        base_result_id = (
+            "partitioned_survival_result" if psm else "base_case_result"
+        )
+        for index, ((profile_id, item_id), scope) in enumerate(
+            reproducibility.REQUIRED_CLAIMS.items(), start=1
+        ):
+            claim_id = f"claim-{index}"
+            result_id = {
+                "cost_effectiveness": base_result_id,
+                "uncertainty": "uncertainty_result",
+                "budget_impact": "budget_impact_result",
+            }[scope]
+            claim_ids_by_scope[scope].append(claim_id)
+            claims.append({
+                "claim_id": claim_id,
+                "profile_id": profile_id,
+                "item_id": item_id,
+                "claim_type": "limitation" if "limitation" in item_id or item_id.startswith("26-") else "numerical",
+                "statement": "The bound artifacts support this qualified release claim.",
+                "status": "qualified",
+                "artifact_ids": [result_id],
+                "source_ids": [],
+                "qualification": "Structural traceability does not establish scientific validity.",
+            })
+        package = {
+            "schema_version": "0.1.0",
+            "package_id": "repro-1",
+            "analysis_id": report["analysis_id"],
+            "status": "ready_for_reproducibility_review",
+            "prepared_on": "2026-07-16",
+            "report_package": {
+                "path": reproducibility.REPORT_PATH,
+                "content_sha256": hashlib.sha256(report_raw).hexdigest(),
+            },
+            "artifact_inventory": inventory,
+            "execution_manifest": reproducibility.command_specs(report, loaded),
+            "environment": {
+                "ai4heor_version": "0.1.13",
+                "platform": "test-x86_64",
+                "python_version": "Python 3.12.0",
+                "result_engine_versions": ["0.15.0"],
+                "core_dependency_lock": {
+                    "status": "not_applicable_standard_library_only",
+                    "package_count": 0,
+                    "path": None,
+                    "content_sha256": None,
+                },
+            },
+            "source_register": [],
+            "data_availability": [],
+            "exhibit_register": [
+                {
+                    "exhibit_id": "cost_effectiveness",
+                    "label": "Cost-effectiveness results",
+                    "artifact_ids": [base_result_id],
+                    "claim_ids": claim_ids_by_scope["cost_effectiveness"],
+                },
+                {
+                    "exhibit_id": "uncertainty",
+                    "label": "Uncertainty results",
+                    "artifact_ids": ["uncertainty_result"],
+                    "claim_ids": claim_ids_by_scope["uncertainty"],
+                },
+                {
+                    "exhibit_id": "budget_impact",
+                    "label": "Budget-impact results",
+                    "artifact_ids": ["budget_impact_result"],
+                    "claim_ids": claim_ids_by_scope["budget_impact"],
+                },
+            ],
+            "claim_evidence_ledger": claims,
+            "limitations": [
+                "The package verifies structural traceability, not scientific validity."
+            ],
+        }
+        path = root / reproducibility.REPRO_PATH
+        path.write_text(json.dumps(package, indent=2))
+        return path, package
+
+    def test_complete_release_companion_is_portably_auditable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path, _ = self.fixture(root)
+            result = reproducibility.audit(path, root)
+            self.assertTrue(result["complete"], result)
+            self.assertEqual(result["artifact_count"], 10)
+            self.assertEqual(result["execution_count"], 3)
+            self.assertEqual(result["covered_claim_count"], 7)
+
+    def test_complete_psm_release_companion_uses_exact_psm_replay_graph(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path, package = self.fixture(root, psm=True)
+            result = reproducibility.audit(path, root)
+            self.assertTrue(result["complete"], result)
+            self.assertIn(
+                "partitioned_survival_result",
+                {item["artifact_id"] for item in package["artifact_inventory"]},
+            )
+            base_recipe = package["execution_manifest"][0]
+            self.assertEqual(base_recipe["output_artifact_id"], "partitioned_survival_result")
+            self.assertIn("--partitioned-survival-plan", base_recipe["command"])
+
+    def test_report_and_inventory_drift_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path, package = self.fixture(root)
+            package["artifact_inventory"][0]["content_sha256"] = "0" * 64
+            path.write_text(json.dumps(package, indent=2))
+            result = reproducibility.audit(path, root)
+            self.assertFalse(result["complete"])
+            self.assertTrue(any("artifact_inventory" in error for error in result["errors"]), result)
+
+    def test_missing_claim_and_recipe_mutation_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path, package = self.fixture(root)
+            package["claim_evidence_ledger"] = package["claim_evidence_ledger"][:-1]
+            package["execution_manifest"][0]["command"].append("--unexpected")
+            path.write_text(json.dumps(package, indent=2))
+            result = reproducibility.audit(path, root)
+            self.assertFalse(result["complete"])
+            self.assertIn(
+                "execution_manifest does not match the exact current replay recipes",
+                result["errors"],
+            )
+            self.assertIn(
+                "claim_evidence_ledger must contain exactly the seven required reporting items",
+                result["errors"],
+            )
+
+    def test_duplicate_claim_and_missing_source_array_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path, package = self.fixture(root)
+            duplicate = deepcopy(package["claim_evidence_ledger"][0])
+            duplicate["claim_id"] = "claim-duplicate"
+            duplicate.pop("source_ids")
+            package["claim_evidence_ledger"].append(duplicate)
+            path.write_text(json.dumps(package, indent=2))
+            result = reproducibility.audit(path, root)
+            self.assertFalse(result["complete"])
+            self.assertIn(
+                "claim_evidence_ledger must contain exactly the seven required reporting items",
+                result["errors"],
+            )
+            self.assertTrue(any("source_ids must be an explicit string array" in error
+                                for error in result["errors"]), result)
+
+    def test_undeclared_source_injection_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path, package = self.fixture(root)
+            package["source_register"] = [{
+                "source_id": "injected-source",
+                "title": "Not declared by either plan",
+                "source_type": "other",
+                "locator": None,
+                "content_sha256": None,
+                "data_availability_id": "availability-injected-source",
+            }]
+            path.write_text(json.dumps(package, indent=2))
+            result = reproducibility.audit(path, root)
+            self.assertFalse(result["complete"])
+            self.assertIn(
+                "source_register must equal the unique evidence-source union",
+                result["errors"],
+            )
 
 
 if __name__ == "__main__":

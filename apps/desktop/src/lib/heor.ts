@@ -11,6 +11,7 @@ export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH = "heor/survival-extr
 export const HEOR_PAIRED_BOOTSTRAP_REQUEST_PATH = "heor/paired-survival-bootstrap-request.json";
 export const HEOR_MODEL_VALIDATION_PATH = "heor/model-validation.json";
 export const HEOR_REPORT_PACKAGE_PATH = "heor/report-package.json";
+export const HEOR_REPRODUCIBILITY_PACKAGE_PATH = "heor/reproducibility-package.json";
 export const HEOR_REPORT_DOCUMENT_PATH = "heor/report.md";
 export const HEOR_EVIDENCE_SEARCH_REQUEST_PATH = "heor/evidence-search-request.json";
 export const HEOR_EVIDENCE_SYNTHESIS_PATH = "heor/evidence-synthesis.json";
@@ -609,6 +610,26 @@ export interface HeorReportingAudit {
   errors: string[];
 }
 
+export interface HeorReproducibilityAudit {
+  complete: boolean;
+  releaseCompanionReady: boolean;
+  status: "complete" | "incomplete";
+  packageId: string;
+  analysisId: string;
+  packageSha256: string;
+  reportPackageSha256: string;
+  runtimeMatches: boolean;
+  artifactCount: number;
+  executionCount: number;
+  sourceCount: number;
+  availabilityCount: number;
+  exhibitCount: number;
+  claimCount: number;
+  requiredClaimCount: number;
+  coveredClaimCount: number;
+  errors: string[];
+}
+
 export interface HeorEvidenceSearchAudit {
   complete: boolean;
   status: "complete" | "incomplete";
@@ -912,6 +933,7 @@ export interface HeorWorkflowStatus {
     validationAudit: HeorModelValidationAudit;
     releaseMatchesApproval: boolean;
     reportingAudit: HeorReportingAudit;
+    reproducibilityAudit: HeorReproducibilityAudit;
     approvalChainHead: string | null;
     approvalIntegrity: string;
     identityAssurance: string;
@@ -2733,6 +2755,12 @@ export async function auditHeorReporting(): Promise<HeorReportingAudit> {
   return invoke<HeorReportingAudit>("audit_heor_reporting");
 }
 
+export async function auditHeorReproducibility(): Promise<HeorReproducibilityAudit> {
+  if (!isTauri) return HEOR_BROWSER_DEMO_REPRODUCIBILITY_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorReproducibilityAudit>("audit_heor_reproducibility");
+}
+
 export async function auditHeorEvidenceSearch(): Promise<HeorEvidenceSearchAudit> {
   if (!isTauri) return HEOR_BROWSER_DEMO_EVIDENCE_SEARCH_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
@@ -3199,6 +3227,26 @@ export const HEOR_BROWSER_DEMO_REPORTING_AUDIT: HeorReportingAudit = {
   errors: ["heor/report-package.json is required"],
 };
 
+export const HEOR_BROWSER_DEMO_REPRODUCIBILITY_AUDIT: HeorReproducibilityAudit = {
+  complete: false,
+  releaseCompanionReady: false,
+  status: "incomplete",
+  packageId: "",
+  analysisId: HEOR_BROWSER_DEMO_PLAN.analysis_id,
+  packageSha256: "",
+  reportPackageSha256: "",
+  runtimeMatches: false,
+  artifactCount: 0,
+  executionCount: 0,
+  sourceCount: 0,
+  availabilityCount: 0,
+  exhibitCount: 0,
+  claimCount: 0,
+  requiredClaimCount: 7,
+  coveredClaimCount: 0,
+  errors: ["heor/reproducibility-package.json is required"],
+};
+
 export function browserDemoRun(
   inputSha256: string,
   approvedGates: HeorGate[],
@@ -3211,6 +3259,7 @@ export function browserDemoRun(
   const survivalReviewAudit = HEOR_BROWSER_DEMO_SURVIVAL_REVIEW_AUDIT;
   const validationAudit = HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT;
   const reportingAudit = HEOR_BROWSER_DEMO_REPORTING_AUDIT;
+  const reproducibilityAudit = HEOR_BROWSER_DEMO_REPRODUCIBILITY_AUDIT;
   const authorized = approvedGates.includes("analysis_plan")
     && evidenceAudit.complete && referenceCaseAudit.complete && uncertaintyAudit.complete
     && budgetImpactAudit.complete;
@@ -3280,6 +3329,7 @@ export function browserDemoRun(
       validationAudit,
       releaseMatchesApproval: false,
       reportingAudit,
+      reproducibilityAudit,
       approvalChainHead: null,
       approvalIntegrity: "verified_unanchored_sha256_chain",
       identityAssurance: "local_human_assertion",

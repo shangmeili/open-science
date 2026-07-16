@@ -17,6 +17,7 @@ use crate::heor_partitioned_survival::{
 };
 use crate::heor_reference_case::{audit_reference_case_for_plan, ReferenceCaseAudit};
 use crate::heor_reporting::{audit_report_package, ReportingAudit};
+use crate::heor_reproducibility::{audit_reproducibility_package, ReproducibilityAudit};
 use crate::heor_survival_review::{audit_survival_review_for_plan, SurvivalReviewAudit};
 use crate::heor_uncertainty::{audit_uncertainty_plan_for_plan, UncertaintyAudit};
 use crate::heor_validation::{audit_model_validation_for_plan, ModelValidationAudit};
@@ -47,6 +48,7 @@ pub struct HeorWorkflowStatus {
     validation_audit: ModelValidationAudit,
     release_matches_approval: bool,
     reporting_audit: ReportingAudit,
+    reproducibility_audit: ReproducibilityAudit,
     approval_chain_head: Option<String>,
     approval_integrity: &'static str,
     identity_assurance: &'static str,
@@ -72,6 +74,7 @@ pub(crate) struct HeorWorkflowAudits {
     pub survival_review: SurvivalReviewAudit,
     pub validation: ModelValidationAudit,
     pub reporting: ReportingAudit,
+    pub reproducibility: ReproducibilityAudit,
 }
 
 fn resolve_workspace_input(root: &Path, value: &str) -> Result<PathBuf, String> {
@@ -193,6 +196,7 @@ pub(crate) fn workflow_status(
         survival_review: survival_review_audit,
         validation: validation_audit,
         reporting: reporting_audit,
+        reproducibility: reproducibility_audit,
     } = audits;
     let plan_matches =
         analysis_plan_event(&log).is_some_and(|event| event.artifact_sha256 == input_sha256);
@@ -277,7 +281,11 @@ pub(crate) fn workflow_status(
                         })
             });
     let release_matches_approval = independent_validation_matches_approval
-        && crate::heor_reporting::release_matches_approval(&log, &reporting_audit);
+        && crate::heor_reporting::release_matches_approval(
+            &log,
+            &reporting_audit,
+            &reproducibility_audit,
+        );
     let locally_authorized = plan_matches
         && conceptual_model_matches_artifact
         && evidence_audit.complete
@@ -331,7 +339,8 @@ pub(crate) fn workflow_status(
     let decision_ready = locally_authorized
         && independent_validation_matches_approval
         && release_matches_approval
-        && reporting_audit.releasable;
+        && reporting_audit.releasable
+        && reproducibility_audit.release_companion_ready;
     HeorWorkflowStatus {
         classification: if decision_ready {
             "decision_ready_local_release_assertion"
@@ -359,6 +368,7 @@ pub(crate) fn workflow_status(
         validation_audit,
         release_matches_approval,
         reporting_audit,
+        reproducibility_audit,
         approval_chain_head: log.chain_head,
         approval_integrity: log.integrity,
         identity_assurance: log.identity_assurance,
@@ -470,6 +480,7 @@ pub fn run_heor_markov(
     let survival_review_audit = audit_survival_review_for_plan(&root, &raw);
     let validation_audit = audit_model_validation_for_plan(&root, &raw)?;
     let reporting_audit = audit_report_package(&root)?;
+    let reproducibility_audit = audit_reproducibility_package(&app, &root)?;
     // Evaluate authorization after calculation so a revocation made while the
     // engine is running cannot leave the returned status stale.
     let approval_log = {
@@ -497,6 +508,7 @@ pub fn run_heor_markov(
                 survival_review: survival_review_audit,
                 validation: validation_audit,
                 reporting: reporting_audit,
+                reproducibility: reproducibility_audit,
             },
         ),
         calculation,
@@ -778,6 +790,28 @@ mod tests {
         }
     }
 
+    fn complete_reproducibility_audit() -> ReproducibilityAudit {
+        ReproducibilityAudit {
+            complete: true,
+            release_companion_ready: true,
+            status: "complete",
+            package_id: "repro-1".into(),
+            analysis_id: "analysis-1".into(),
+            package_sha256: "6".repeat(64),
+            report_package_sha256: "7".repeat(64),
+            runtime_matches: true,
+            artifact_count: 10,
+            execution_count: 3,
+            source_count: 1,
+            availability_count: 1,
+            exhibit_count: 3,
+            claim_count: 7,
+            required_claim_count: 7,
+            covered_claim_count: 7,
+            errors: Vec::new(),
+        }
+    }
+
     fn complete_workflow_audits() -> HeorWorkflowAudits {
         HeorWorkflowAudits {
             evidence: complete_audit(),
@@ -839,6 +873,7 @@ mod tests {
             },
             validation: complete_validation_audit(),
             reporting: complete_reporting_audit(),
+            reproducibility: complete_reproducibility_audit(),
         }
     }
 

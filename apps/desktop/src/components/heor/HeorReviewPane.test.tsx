@@ -474,6 +474,15 @@ describe("AI4HEOR human review pane", () => {
     expect(onRequestRevision).toHaveBeenCalledWith(
       expect.stringContaining("$heor-reporting"),
     );
+    await userEvent.click(screen.getByRole("button", {
+      name: "Ask Agent to prepare or repair reproducibility evidence",
+    }));
+    const reproducibilityPrompt = onRequestRevision.mock.calls[
+      onRequestRevision.mock.calls.length - 1
+    ]?.[0];
+    expect(reproducibilityPrompt).toContain("$heor-reproducibility-package");
+    expect(reproducibilityPrompt).toContain("exact current report package");
+    expect(reproducibilityPrompt).toContain("Do not create a new approval gate");
   });
 
   it("runs the browser fixture as an explicitly exploratory calculation", async () => {

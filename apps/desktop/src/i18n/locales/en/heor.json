@@ -53,6 +53,7 @@
     "pairedBootstrapReviewRequired": "Paired bootstrap Human method review required",
     "validationRequired": "Approvable independent validation required",
     "reportingRequired": "A complete hash-bound report package is required",
+    "reproducibilityRequired": "A current reproducibility companion is required",
     "decisionReady": "Released · decision-ready",
     "notDecisionReady": "Not decision-ready"
   },
@@ -385,6 +386,25 @@
     "note": "The app verifies reporting structure, hashes, deterministic result reproduction, and local approval state. This is not scientific truth, journal acceptance, or policy endorsement.",
     "noProject": "There is no current project for report-package audit.",
     "missingPlan": "An analysis plan is required before the report package can be audited."
+  },
+  "reproducibility": {
+    "title": "Reproducibility companion",
+    "loading": "Auditing reproducibility evidence…",
+    "ready": "Reproducibility companion is ready for release review",
+    "incomplete": "Reproducibility companion is incomplete",
+    "artifacts": "Exact artifacts",
+    "executions": "Replay recipes",
+    "claims": "Claim links",
+    "sources": "Source records",
+    "runtime": "Runtime",
+    "runtimeMatch": "current",
+    "runtimeMismatch": "drifted",
+    "errors": "Blocking errors",
+    "askPrepare": "Ask Agent to prepare or repair reproducibility evidence",
+    "repairPrompt": "Use $heor-reproducibility-package to prepare or repair heor/reproducibility-package.json for the exact current report package. Inventory only the report and its declared bindings, preserve the three deterministic replay recipes, record source availability and licences without copying restricted source content, bind three exhibits and all seven required CHEERS/BIA claim links, and describe the current AI4HEOR, platform, Python and engine versions exactly. Do not create a new approval gate, claim scientific truth, change source/result/report files, or create a release approval.",
+    "note": "The app verifies exact files, hashes, replay recipes, current runtime, source availability records, exhibits and claim links. It does not prove source truth, data rights, scientific validity or external reproducibility.",
+    "noProject": "There is no current project for reproducibility audit.",
+    "missingPlan": "An analysis plan is required before reproducibility evidence can be audited."
   },
   "action": {
     "approve": "Review {{gate}}",

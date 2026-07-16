@@ -793,6 +793,7 @@ fn reexecute_result_hashes(
 pub fn release_matches_approval(
     log: &crate::heor_approval::ApprovalLog,
     audit: &ReportingAudit,
+    reproducibility: &crate::heor_reproducibility::ReproducibilityAudit,
 ) -> bool {
     log.effective_approved_gates
         .contains(&crate::heor_approval::ApprovalGate::Release)
@@ -806,6 +807,13 @@ pub fn release_matches_approval(
                     && event.artifact_sha256 == audit.report_package_sha256
                     && event.actor_label == audit.release_owner_label
                     && audit.releasable
+                    && reproducibility.release_companion_ready
+                    && reproducibility.report_package_sha256 == audit.report_package_sha256
+                    && crate::heor_approval::event_binds_artifact(
+                        event,
+                        crate::heor_reproducibility::REPRODUCIBILITY_PACKAGE_PATH,
+                        &reproducibility.package_sha256,
+                    )
                     && approval_bindings(audit).iter().all(|binding| {
                         crate::heor_approval::event_binds_artifact(
                             event,
@@ -814,6 +822,18 @@ pub fn release_matches_approval(
                         )
                     })
             })
+}
+
+pub fn release_approval_bindings(
+    audit: &ReportingAudit,
+    reproducibility: &crate::heor_reproducibility::ReproducibilityAudit,
+) -> Vec<crate::heor_approval::ArtifactBinding> {
+    let mut bindings = approval_bindings(audit);
+    bindings.push(crate::heor_reproducibility::approval_binding(
+        reproducibility,
+    ));
+    bindings.sort_by(|left, right| left.path.cmp(&right.path));
+    bindings
 }
 
 pub fn approval_bindings(audit: &ReportingAudit) -> Vec<crate::heor_approval::ArtifactBinding> {
@@ -840,13 +860,27 @@ pub fn require_report_releasable(
     expected_hash: &str,
     actor: &str,
     log: &crate::heor_approval::ApprovalLog,
-) -> Result<ReportingAudit, String> {
+) -> Result<
+    (
+        ReportingAudit,
+        crate::heor_reproducibility::ReproducibilityAudit,
+    ),
+    String,
+> {
     let audit = audit_report_package(workspace)?;
     if !audit.releasable || audit.report_package_sha256 != expected_hash {
         return Err("release approval must target the current complete report package".into());
     }
     if actor != audit.release_owner_label {
         return Err("release actorLabel must exactly match release_owner_label".into());
+    }
+    let reproducibility =
+        crate::heor_reproducibility::audit_reproducibility_package(app, workspace)?;
+    if !reproducibility.release_companion_ready
+        || reproducibility.analysis_id != audit.analysis_id
+        || reproducibility.report_package_sha256 != audit.report_package_sha256
+    {
+        return Err("release requires a complete current reproducibility companion".into());
     }
     let plan_raw =
         crate::heor_uncertainty::read_workspace_capped(workspace, "heor/analysis-plan.json")?;
@@ -916,16 +950,21 @@ pub fn require_report_releasable(
         }
     }
     let refreshed = audit_report_package(workspace)?;
+    let refreshed_reproducibility =
+        crate::heor_reproducibility::audit_reproducibility_package(app, workspace)?;
     if !refreshed.releasable
         || refreshed.report_package_sha256 != expected_hash
         || refreshed.release_owner_label != actor
         || refreshed.binding_hashes != audit.binding_hashes
+        || !refreshed_reproducibility.release_companion_ready
+        || refreshed_reproducibility.package_sha256 != reproducibility.package_sha256
+        || refreshed_reproducibility.report_package_sha256 != refreshed.report_package_sha256
     {
         return Err(
             "report package or a bound artifact changed during release verification".into(),
         );
     }
-    Ok(refreshed)
+    Ok((refreshed, refreshed_reproducibility))
 }
 
 #[tauri::command(async)]
@@ -1305,6 +1344,25 @@ mod tests {
     #[test]
     fn release_match_requires_effective_gate_actor_and_all_bindings() {
         let audit = complete_audit();
+        let reproducibility = crate::heor_reproducibility::ReproducibilityAudit {
+            complete: true,
+            release_companion_ready: true,
+            status: "complete",
+            package_id: "repro-1".into(),
+            analysis_id: audit.analysis_id.clone(),
+            package_sha256: "6".repeat(64),
+            report_package_sha256: audit.report_package_sha256.clone(),
+            runtime_matches: true,
+            artifact_count: 10,
+            execution_count: 3,
+            source_count: 1,
+            availability_count: 1,
+            exhibit_count: 3,
+            claim_count: 7,
+            required_claim_count: 7,
+            covered_claim_count: 7,
+            errors: Vec::new(),
+        };
         let event = crate::heor_approval::ApprovalEvent {
             schema_version: 2,
             sequence: 5,
@@ -1313,7 +1371,7 @@ mod tests {
             gate: crate::heor_approval::ApprovalGate::Release,
             action: crate::heor_approval::ApprovalAction::Approve,
             artifact_sha256: audit.report_package_sha256.clone(),
-            related_artifacts: approval_bindings(&audit),
+            related_artifacts: release_approval_bindings(&audit, &reproducibility),
             actor_label: audit.release_owner_label.clone(),
             rationale: "Reviewed complete report".into(),
             timestamp: 1,
@@ -1328,12 +1386,17 @@ mod tests {
             integrity: "verified_unanchored_sha256_chain",
             identity_assurance: "local_human_assertion",
         };
-        assert!(release_matches_approval(&log, &audit));
+        assert!(release_matches_approval(&log, &audit, &reproducibility));
         log.effective_approved_gates.clear();
-        assert!(!release_matches_approval(&log, &audit));
+        assert!(!release_matches_approval(&log, &audit, &reproducibility));
         log.effective_approved_gates
             .push(crate::heor_approval::ApprovalGate::Release);
         log.events[0].actor_label = "Another owner".into();
-        assert!(!release_matches_approval(&log, &audit));
+        assert!(!release_matches_approval(&log, &audit, &reproducibility));
+        log.events[0].actor_label = audit.release_owner_label.clone();
+        log.events[0].related_artifacts.retain(|binding| {
+            binding.path != crate::heor_reproducibility::REPRODUCIBILITY_PACKAGE_PATH
+        });
+        assert!(!release_matches_approval(&log, &audit, &reproducibility));
     }
 }

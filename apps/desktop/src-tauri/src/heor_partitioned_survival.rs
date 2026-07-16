@@ -907,6 +907,9 @@ pub fn run_heor_partitioned_survival(
                 &workspace, &plan_raw,
             )?,
             reporting: crate::heor_reporting::audit_report_package(&workspace)?,
+            reproducibility: crate::heor_reproducibility::audit_reproducibility_package(
+                &app, &workspace,
+            )?,
         },
     );
     Ok(PartitionedSurvivalRunResult {

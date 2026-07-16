@@ -40,7 +40,9 @@ For a linked partitioned-survival analysis, schema `0.2.0` instead requires the 
 The desktop writes result files after deterministic execution. The release gate
 re-executes all three calculations and compares exact output hashes, so a
 workspace-authored substitute cannot become authoritative merely by matching a
-schema.
+schema. A structurally complete report must also have a current
+`heor/reproducibility-package.json` derived through `$heor-reproducibility-package`.
+The existing release event binds that companion; it does not create another gate.
 
 ## Reporting matrices
 
@@ -92,7 +94,8 @@ statements. Empty or inferred disclosures are invalid.
 `release_owner_label` is copied only from an explicit human instruction and
 must exactly match the actor in the app-owned release approval. Release also
 requires a current independent-validation approval and current bindings for all
-upstream approvals. Identity remains a local human assertion until an
+upstream approvals, including the exact current reproducibility companion.
+Identity remains a local human assertion until an
 OS-backed signature and external anchor are implemented.
 
 ## Primary sources

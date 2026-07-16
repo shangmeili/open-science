@@ -998,6 +998,8 @@ pub fn run_heor_budget_impact(
     let validation_audit =
         crate::heor_validation::audit_model_validation_for_plan(&workspace, &plan_raw)?;
     let reporting_audit = crate::heor_reporting::audit_report_package(&workspace)?;
+    let reproducibility_audit =
+        crate::heor_reproducibility::audit_reproducibility_package(&app, &workspace)?;
     let evidence_selection = crate::heor_evidence::audit_evidence_selection_for_plan(
         &app,
         &workspace,
@@ -1035,6 +1037,7 @@ pub fn run_heor_budget_impact(
             ),
             validation: validation_audit,
             reporting: reporting_audit,
+            reproducibility: reproducibility_audit,
         },
     );
     Ok(BudgetImpactRunResult {

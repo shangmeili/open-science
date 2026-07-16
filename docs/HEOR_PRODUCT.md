@@ -8,7 +8,11 @@ but keeps decision calculations in a deterministic, testable engine rather than
 in a language model.
 
 Natural-language conversation is the primary research interface. The agent
-turns research intent into reviewable files, evidence records, code, and runs.
+assists the researcher by turning researcher-defined intent into reviewable files,
+evidence records, code, and runs. The human researcher leads the scientific work:
+they frame the question, select methods and evidence, resolve assumptions, interpret
+results, and own every decision-relevant judgment. The agent may propose, execute,
+check, and explain, but it does not direct the research programme.
 Structured controls are secondary surfaces for inspecting parameters, resolving
 ambiguity, and recording human decisions; they must not turn the workbench into
 a form-led modeling application.
@@ -16,8 +20,10 @@ a form-led modeling application.
 ## Accountabilities
 
 - The product owner sets scope and accepts product behavior.
-- Codex performs most research synthesis, architecture, implementation, tests,
-  documentation, and cross-platform build work.
+- Codex leads AI4HEOR product construction: repository research, architecture,
+  implementation, tests, documentation, and cross-platform build work.
+- In the shipped workbench, the human researcher leads the HEOR study; the model
+  and runtime are assistants operating under the researcher's scope and choices.
 - A qualified human reviewer approves decision-relevant research choices.
 - An independent reviewer validates decision models. Codex self-review is not
   independent validation.
@@ -676,12 +682,24 @@ including the complete decision-uncertainty object when present, explicit
 disclosures, limitations, a named release owner, and current hashes. Legacy
 uncertainty results retain their legacy summary shape rather than receiving
 manufactured CEAC, CEAF, or value-of-information values.
+The first-party `$heor-reproducibility-package` Skill then derives
+`heor/reproducibility-package.json` from the complete current report. Its bounded
+schema inventories the exact report graph, three deterministic replay recipes,
+current AI4HEOR/platform/Python/engine versions, the standard-library-only core
+dependency boundary, the exact union of declared evidence sources and their
+availability/licence states, three result exhibits, and seven CHEERS/BIA
+claim-to-artifact links. Portable and native audits fail closed on extra or missing
+files, stale bytes, recipe or runtime drift, undeclared sources, incomplete
+availability, or broken claim links. The package does not copy restricted data,
+prove scientific validity, or claim successful reproduction on another machine.
 At release, the desktop requires current analysis and independent-validation
 approvals, re-executes the applicable base case or PSM plus uncertainty and
 budget-impact calculations with the exact current inputs, compares their output
-hashes with the bound result files, and records the report package plus all 9 or
-15 schema-selected bindings in the app-owned approval chain. The Agent can
-prepare the package but cannot invent its owner or create approval.
+hashes with the bound result files, and records the report package, all 9 or 15
+schema-selected bindings, and the exact current reproducibility companion in the
+app-owned approval chain. This is still one Human-owned release gate. The assistant
+can prepare both packages under researcher direction but cannot invent the owner,
+choose what may be shared, or create approval.
 
 `decision_ready_local_release_assertion` means these local structural,
 reproduction, validation, reporting, and human gates are current. It does not

@@ -22,7 +22,8 @@ description: Prepare, audit, and revise a release-reviewable HEOR report package
 13. Disclose funding, conflicts, Agent contributions, model providers, data/model availability, and patient/public involvement. Never infer a missing disclosure.
 14. Copy `release_owner_label` only from an explicit human instruction. Do not invent an owner, create an approval event, or call a package released.
 15. Run `python3 scripts/validate_report_package.py WORKSPACE/heor/report-package.json WORKSPACE`. Treat `valid` as structural reporting readiness, not methodological quality, policy endorsement, or release.
-16. Ask the named human release owner to inspect the report and use the desktop release control.
+16. Use `$heor-reproducibility-package` to derive and audit the current release companion after the report package is complete. Do not copy restricted source content, add unrelated files, claim external reproducibility, or create another approval gate.
+17. Ask the named human release owner to inspect both packages and use the desktop release control.
 
 ## Boundaries
 
@@ -37,4 +38,4 @@ description: Prepare, audit, and revise a release-reviewable HEOR report package
 
 ## Handoff
 
-Report the package ID and hash, report-document hash, all model/result bindings, matrix gaps, CEAC/CEAF threshold coverage, primary-threshold per-person EVPI and Monte Carlo error, disclosures, limitations, release owner, and exact next human action. State that the app verifies structure, hashes, deterministic result reproduction, reporting coverage, and local approval state—not scientific truth, population value of information, journal acceptance, or policy suitability.
+Report the package ID and hash, report-document hash, all model/result bindings, matrix gaps, CEAC/CEAF threshold coverage, primary-threshold per-person EVPI and Monte Carlo error, disclosures, limitations, release owner, reproducibility-companion status, and exact next human action. State that the app verifies structure, hashes, deterministic result reproduction, reporting coverage, and local approval state—not scientific truth, population value of information, journal acceptance, external reproducibility, or policy suitability.

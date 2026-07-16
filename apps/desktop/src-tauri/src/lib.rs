@@ -23,6 +23,7 @@ mod heor_parametric_survival;
 mod heor_partitioned_survival;
 mod heor_reference_case;
 mod heor_reporting;
+mod heor_reproducibility;
 mod heor_search;
 mod heor_survival_execution;
 mod heor_survival_materialization;
@@ -139,6 +140,7 @@ pub fn run() {
             heor_paired_survival_bootstrap::append_heor_paired_bootstrap_review,
             heor_paired_survival_bootstrap::list_heor_paired_bootstrap_reviews,
             heor_reference_case::audit_heor_reference_case,
+            heor_reproducibility::audit_heor_reproducibility,
             heor_reporting::audit_heor_reporting,
             heor_search::audit_heor_evidence_search,
             heor_search::execute_heor_evidence_search,

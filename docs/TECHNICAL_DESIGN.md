@@ -1,6 +1,6 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.12, 2026-07-16).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.13, 2026-07-16).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
@@ -10,6 +10,12 @@
 > clean Ubuntu 22.04; the `.deb` also passes an isolated install and headless first-start
 > runtime check. Windows remains CI/host-bound, and signing/notarization remains planned.
 > Sections below distinguish implemented contracts from target design.
+
+> **Role boundary.** Codex leads construction and verification of the AI4HEOR
+> software. Within AI4HEOR, the human researcher leads the scientific work and
+> the configured model/runtime provides bounded assistance. Human-in-the-loop is
+> therefore research ownership and method judgment, not merely a final approval
+> appended to agent-directed research.
 
 ## 1. Technical goals
 
@@ -979,4 +985,10 @@ family, infer covariance, support other survival families, or establish clinical
 validity. Treatment-effect application is limited to the separate duration contract above.
 Those remain distinct contracts. Validation/report schema `0.2.0` now binds the
 current PSM plan, five input artifacts, deterministic PSM and uncertainty results,
-and BIA result; the release gate replays all three calculations and compares hashes.
+and BIA result. `heor_reproducibility.rs` independently audits the derived schema
+`0.1.0` release companion: exact report inventory, three replay commands, current
+AI4HEOR/platform/Python/result-engine identity, source availability, three exhibits,
+and seven required claim links. The release gate replays all three calculations,
+compares hashes, re-audits the companion, and appends one event binding the report
+graph plus the companion. Runtime or artifact drift fails closed; no second approval
+gate is introduced.
