@@ -277,8 +277,8 @@ Near-term work is focused on signed/notarized releases, Windows host verificatio
 Linux desktop-session verification, auto-update, richer connector hardening, and
 continued reproducibility review. The AI4HEOR 0.1.18 x64 macOS DMG is locally built and
 payload-verified, including all 177 deterministic HEOR tests against its packaged core.
-The AI4HEOR 0.1.17 Linux `.deb` and `.rpm` are also payload-verified, including all 177
-deterministic HEOR tests and 252 configured resources from each extracted package. The
+The AI4HEOR 0.1.18 Linux `.deb` and `.rpm` are also payload-verified, including all 177
+deterministic HEOR tests and 260 configured resources from each extracted package. The
 `.deb` passes a clean Ubuntu 22.04 install and headless first-start check; the `.rpm`
 passes the equivalent native check on Fedora 42. A real visual Linux desktop-session
 acceptance remains outstanding.
