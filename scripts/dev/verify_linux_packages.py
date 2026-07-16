@@ -145,7 +145,7 @@ def verify_resources(extracted: Path, source_root: Path) -> tuple[Path, int]:
     return resource_root, count
 
 
-def verify_binaries(extracted: Path) -> dict[str, Path]:
+def verify_binaries(extracted: Path) -> tuple[dict[str, Path], dict[str, str]]:
     binaries = {
         BINARY_NAME: unique_file(extracted, BINARY_NAME),
         "opencode": unique_file(extracted, "opencode"),
@@ -165,7 +165,7 @@ def verify_binaries(extracted: Path) -> dict[str, Path]:
         raise AssertionError(f"unexpected OpenCode version: {versions['opencode'].strip()}")
     if "0.11.26" not in versions["uv"]:
         raise AssertionError(f"unexpected uv version: {versions['uv'].strip()}")
-    return binaries
+    return binaries, {name: output.strip() for name, output in versions.items()}
 
 
 def normalized_main_binary(path: Path, bundle_type: str) -> bytes:
@@ -199,6 +199,7 @@ def main() -> None:
     parser.add_argument("--deb", type=Path, required=True)
     parser.add_argument("--rpm", type=Path, required=True)
     parser.add_argument("--source-root", type=Path, default=ROOT)
+    parser.add_argument("--verification-json", type=Path)
     arguments = parser.parse_args()
     deb = arguments.deb.resolve()
     rpm = arguments.rpm.resolve()
@@ -221,13 +222,13 @@ def main() -> None:
         extract_deb(deb, extracted["deb"])
         extract_rpm(rpm, extracted["rpm"])
 
-        verified: dict[str, tuple[dict[str, Path], int]] = {}
+        verified: dict[str, tuple[dict[str, Path], dict[str, str], int]] = {}
         for kind, root in extracted.items():
             assert_no_links(root)
-            binaries = verify_binaries(root)
+            binaries, versions = verify_binaries(root)
             resources, count = verify_resources(root, source_root)
             run_packaged_heor_tests(resources, source_root)
-            verified[kind] = (binaries, count)
+            verified[kind] = (binaries, versions, count)
 
         if normalized_main_binary(
             verified["deb"][0][BINARY_NAME], "DEB"
@@ -236,13 +237,37 @@ def main() -> None:
         for binary in ("opencode", "uv"):
             if sha256(verified["deb"][0][binary]) != sha256(verified["rpm"][0][binary]):
                 raise AssertionError(f"deb and rpm package different {binary} bytes")
-        if verified["deb"][1] != verified["rpm"][1]:
+        if verified["deb"][2] != verified["rpm"][2]:
             raise AssertionError("deb and rpm verified different resource counts")
+
+    if arguments.verification_json is not None:
+        verification = {
+            "bundles": {
+                "deb": {"filename": deb.name, "sha256": sha256(deb)},
+                "rpm": {"filename": rpm.name, "sha256": sha256(rpm)},
+            },
+            "metadata": {
+                "architecture": "x86_64",
+                "package_name": PACKAGE_NAME,
+                "version": config["version"],
+            },
+            "payload": {
+                "deb_rpm_main_binary_parity": True,
+                "deb_rpm_sidecar_parity": True,
+                "opencode_version": verified["deb"][1]["opencode"],
+                "resource_files": verified["deb"][2],
+                "uv_version": verified["deb"][1]["uv"],
+            },
+        }
+        arguments.verification_json.parent.mkdir(parents=True, exist_ok=True)
+        arguments.verification_json.write_text(
+            json.dumps(verification, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
 
     print(
         "Verified AI4HEOR Linux packages: "
         f"deb_sha256={sha256(deb)}, rpm_sha256={sha256(rpm)}, "
-        f"resource_files={verified['deb'][1]}"
+        f"resource_files={verified['deb'][2]}"
     )
 
 

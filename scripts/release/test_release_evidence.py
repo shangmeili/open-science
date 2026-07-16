@@ -26,6 +26,18 @@ class ReleaseEvidenceTests(unittest.TestCase):
             {"name": "uv", "path": "uv", "size": 1, "sha256": "b" * 64, "version_output": "1"},
         ]
 
+    @staticmethod
+    def runner(platform: str) -> dict[str, str]:
+        runner_os = {"macos": "macOS", "windows": "Windows", "linux": "Linux"}[platform]
+        return {
+            "GITHUB_RUN_ATTEMPT": "1",
+            "GITHUB_RUN_ID": "123",
+            "GITHUB_WORKFLOW_REF": "ai4heor/build.yml@refs/heads/test",
+            "ImageOS": f"test-{platform}",
+            "ImageVersion": "1",
+            "RUNNER_OS": runner_os,
+        }
+
     def test_resource_inventory_is_stable_and_byte_bound(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -99,7 +111,9 @@ class ReleaseEvidenceTests(unittest.TestCase):
                 "target": "x86_64-pc-windows-msvc",
                 "artifacts": [release_evidence.artifact_record("msi", artifact)],
                 "checks": ["msi-payload"],
+                "runner": self.runner("windows"),
                 "sidecars": self.sidecars(),
+                "verification": {"payload": "passed"},
                 "resources": {
                     "aggregate_sha256": release_evidence.canonical_sha256(files),
                     "file_count": 0,
@@ -112,13 +126,36 @@ class ReleaseEvidenceTests(unittest.TestCase):
             with self.assertRaisesRegex(AssertionError, "bytes changed"):
                 release_evidence.validate_evidence(value, root)
 
+    def test_validation_rejects_platform_target_mismatch(self) -> None:
+        files: list[dict[str, object]] = []
+        value = {
+            "schema": release_evidence.EVIDENCE_SCHEMA,
+            "source": {"commit": "a" * 40, "version": "0.1.0"},
+            "platform": "windows",
+            "target": "x86_64-apple-darwin",
+            "artifacts": [
+                {"kind": "msi", "filename": "AI4HEOR.msi", "size": 1, "sha256": "a" * 64}
+            ],
+            "checks": ["payload"],
+            "sidecars": self.sidecars(),
+            "verification": {"payload": "passed"},
+            "resources": {
+                "aggregate_sha256": release_evidence.canonical_sha256(files),
+                "file_count": 0,
+                "files": files,
+                "total_bytes": 0,
+            },
+        }
+        with self.assertRaisesRegex(AssertionError, "platform/target"):
+            release_evidence.validate_evidence(value)
+
     def test_manifest_rejects_mixed_source(self) -> None:
         base = {
             "schema": release_evidence.EVIDENCE_SCHEMA,
-            "target": "x86_64",
             "artifacts": [{"kind": "package", "filename": "a", "size": 1, "sha256": "a" * 64}],
             "checks": ["payload"],
             "sidecars": self.sidecars(),
+            "verification": {"payload": "passed"},
             "resources": {
                 "aggregate_sha256": release_evidence.canonical_sha256([]),
                 "file_count": 0,
@@ -129,15 +166,31 @@ class ReleaseEvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             values = []
-            for platform, commit in (("windows", "a" * 40), ("linux", "b" * 40)):
-                value = dict(base, platform=platform, source={"commit": commit, "version": "1"})
+            inputs = (
+                ("windows", "x86_64-pc-windows-msvc", "a" * 40),
+                ("linux", "x86_64-unknown-linux-gnu", "b" * 40),
+            )
+            for platform, target, commit in inputs:
+                value = dict(
+                    base,
+                    platform=platform,
+                    runner=self.runner(platform),
+                    target=target,
+                    source={"commit": commit, "version": "1"},
+                )
                 path = root / f"{platform}.json"
                 release_evidence.write_json(path, value)
                 values.append(path)
             arguments = type(
                 "Arguments",
                 (),
-                {"evidence": values, "require_platform": [], "output": root / "manifest.json"},
+                {
+                    "evidence": values,
+                    "require_platform": [],
+                    "require_target": [],
+                    "artifact_root": None,
+                    "output": root / "manifest.json",
+                },
             )()
             with self.assertRaisesRegex(AssertionError, "one source"):
                 release_evidence.assemble(arguments)
@@ -147,17 +200,27 @@ class ReleaseEvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             paths = []
-            for platform in ("windows", "linux"):
+            inputs = (
+                ("macos", "aarch64-apple-darwin"),
+                ("macos", "x86_64-apple-darwin"),
+                ("windows", "x86_64-pc-windows-msvc"),
+                ("linux", "x86_64-unknown-linux-gnu"),
+            )
+            for platform, target in inputs:
+                filename = f"{target}.pkg"
+                (root / filename).write_bytes(b"a")
                 value = {
                     "schema": release_evidence.EVIDENCE_SCHEMA,
                     "source": {"commit": "a" * 40, "version": "1"},
                     "platform": platform,
-                    "target": "x86_64",
+                    "target": target,
                     "artifacts": [
-                        {"kind": "package", "filename": f"{platform}.pkg", "size": 1, "sha256": "a" * 64}
+                        {"kind": "package", "filename": filename, "size": 1, "sha256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"}
                     ],
                     "checks": ["payload"],
+                    "runner": self.runner(platform),
                     "sidecars": self.sidecars(),
+                    "verification": {"payload": "passed"},
                     "resources": {
                         "aggregate_sha256": release_evidence.canonical_sha256(files),
                         "file_count": 0,
@@ -165,19 +228,40 @@ class ReleaseEvidenceTests(unittest.TestCase):
                         "total_bytes": 0,
                     },
                 }
-                path = root / f"{platform}.json"
+                path = root / f"{target}.json"
                 release_evidence.write_json(path, value)
                 paths.append(path)
             output = root / "manifest.json"
             arguments = type(
                 "Arguments",
                 (),
-                {"evidence": paths, "require_platform": ["windows"], "output": output},
+                {
+                    "evidence": paths,
+                    "require_platform": ["macos", "windows", "linux"],
+                    "require_target": [target for _, target in inputs],
+                    "artifact_root": root,
+                    "output": output,
+                },
             )()
             release_evidence.assemble(arguments)
             manifest = release_evidence.read_json(output)
             self.assertEqual(manifest["schema"], release_evidence.MANIFEST_SCHEMA)
-            self.assertEqual([item["platform"] for item in manifest["evidence"]], ["linux", "windows"])
+            self.assertEqual(
+                [item["target"] for item in manifest["evidence"]],
+                sorted(target for _, target in inputs),
+            )
+            self.assertTrue(all(item["artifacts"] for item in manifest["evidence"]))
+
+            (root / "x86_64-unknown-linux-gnu.pkg").write_bytes(b"changed")
+            with self.assertRaisesRegex(AssertionError, "downloaded artifact bytes changed"):
+                release_evidence.assemble(arguments)
+
+            (root / "x86_64-unknown-linux-gnu.pkg").write_bytes(b"a")
+            changed_run = release_evidence.read_json(paths[0])
+            changed_run["runner"]["GITHUB_RUN_ID"] = "different"
+            release_evidence.write_json(paths[0], changed_run)
+            with self.assertRaisesRegex(AssertionError, "one complete workflow run"):
+                release_evidence.assemble(arguments)
 
 
 if __name__ == "__main__":

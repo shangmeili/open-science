@@ -20,9 +20,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
+          - platform: macos-15
             target: aarch64-apple-darwin
-          - platform: macos-latest
+          - platform: macos-15-intel
             target: x86_64-apple-darwin
           - platform: windows-2022
             target: x86_64-pc-windows-msvc
@@ -69,6 +69,9 @@ jobs:
 
       - name: Validate pinned sidecar archive integrity
         run: python scripts/dev/test_sidecar_integrity.py -v
+
+      - name: Test release evidence contracts
+        run: python scripts/release/test_release_evidence.py -v
 
       - name: Fetch bundled OpenCode sidecar
         shell: bash
@@ -144,7 +147,48 @@ jobs:
           mapfile -t rpms < <(find "$bundle_root/rpm" -maxdepth 1 -type f -name '*.rpm')
           test "${#debs[@]}" -eq 1
           test "${#rpms[@]}" -eq 1
-          python scripts/dev/verify_linux_packages.py --deb "${debs[0]}" --rpm "${rpms[0]}"
+          verification="$bundle_root/linux-x64-verification.json"
+          python scripts/dev/verify_linux_packages.py \
+            --deb "${debs[0]}" \
+            --rpm "${rpms[0]}" \
+            --verification-json "$verification"
+          python scripts/release/release_evidence.py record \
+            --platform linux \
+            --target "${{ matrix.target }}" \
+            --bundle "deb=${debs[0]}" \
+            --bundle "rpm=${rpms[0]}" \
+            --check package-metadata \
+            --check deb-rpm-payload-parity \
+            --check scientific-resources \
+            --check packaged-heor-tests \
+            --check bundled-sidecars \
+            --verification-json "$verification" \
+            --output "$bundle_root/linux-x64-release-evidence.json"
+
+      - name: Verify macOS DMG contents and scientific resources
+        if: startsWith(matrix.platform, 'macos')
+        shell: bash
+        run: |
+          bundle_root="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
+          shopt -s nullglob
+          dmgs=("$bundle_root"/dmg/*.dmg)
+          test "${#dmgs[@]}" -eq 1
+          verification="$bundle_root/macos-${{ matrix.target }}-verification.json"
+          python scripts/release/verify_macos_package.py \
+            --dmg "${dmgs[0]}" \
+            --target "${{ matrix.target }}" \
+            --verification-json "$verification"
+          python scripts/release/release_evidence.py record \
+            --platform macos \
+            --target "${{ matrix.target }}" \
+            --bundle "dmg=${dmgs[0]}" \
+            --check bundle-metadata \
+            --check macho-architecture \
+            --check scientific-resources \
+            --check packaged-heor-tests \
+            --check bundled-sidecars \
+            --verification-json "$verification" \
+            --output "$bundle_root/macos-${{ matrix.target }}-release-evidence.json"
 
       - name: Verify Windows installers, scientific resources, and first launch
         if: startsWith(matrix.platform, 'windows')
@@ -172,3 +216,50 @@ jobs:
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*-release-evidence.json
           if-no-files-found: error
+
+  release-manifest:
+    name: Assemble cross-platform release manifest
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download verified platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ai4s-workbench-*
+          path: release-artifacts
+      - name: Verify artifacts and assemble one source-bound manifest
+        shell: bash
+        run: |
+          mapfile -t evidence < <(find release-artifacts -type f -name '*-release-evidence.json' | sort)
+          test "${#evidence[@]}" -eq 4
+          python scripts/release/release_evidence.py assemble "${evidence[@]}" \
+            --artifact-root release-artifacts \
+            --require-platform macos \
+            --require-platform windows \
+            --require-platform linux \
+            --require-target aarch64-apple-darwin \
+            --require-target x86_64-apple-darwin \
+            --require-target x86_64-pc-windows-msvc \
+            --require-target x86_64-unknown-linux-gnu \
+            --output ai4heor-release-manifest.json
+      - name: Upload cross-platform release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai4heor-release-manifest-${{ github.sha }}
+          path: |
+            ai4heor-release-manifest.json
+            release-artifacts/**/*-release-evidence.json
+          if-no-files-found: error
+      - name: Attach manifest and evidence to draft release
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mapfile -t evidence < <(find release-artifacts -type f -name '*-release-evidence.json' | sort)
+          gh release upload "$GITHUB_REF_NAME" ai4heor-release-manifest.json "${evidence[@]}" --clobber

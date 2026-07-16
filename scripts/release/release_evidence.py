@@ -16,6 +16,13 @@ from typing import Any, Iterable
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE_SCHEMA = "ai4heor-release-evidence/v1"
 MANIFEST_SCHEMA = "ai4heor-release-manifest/v1"
+SUPPORTED_TARGETS = {
+    "aarch64-apple-darwin": "macos",
+    "x86_64-apple-darwin": "macos",
+    "x86_64-pc-windows-msvc": "windows",
+    "x86_64-unknown-linux-gnu": "linux",
+}
+RUNNER_OS_BY_PLATFORM = {"macos": "macOS", "windows": "Windows", "linux": "Linux"}
 
 
 def sha256(path: Path) -> str:
@@ -184,6 +191,7 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
         "checks",
         "resources",
         "sidecars",
+        "verification",
     ):
         if not value.get(field):
             raise AssertionError(f"release evidence is missing {field}")
@@ -192,6 +200,8 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
         "version"
     ):
         raise AssertionError("release evidence has an invalid source identity")
+    if SUPPORTED_TARGETS.get(value["target"]) != value["platform"]:
+        raise AssertionError("release evidence has an unsupported platform/target pair")
     if value["checks"] != sorted(set(value["checks"])):
         raise AssertionError("release checks must be unique and sorted")
     files = value["resources"].get("files", [])
@@ -212,6 +222,8 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
             raise AssertionError("release evidence contains an invalid byte record")
     if {item.get("name") for item in value["sidecars"]} != {"opencode", "uv"}:
         raise AssertionError("release evidence must bind exactly OpenCode and uv")
+    if any(not item.get("version_output") for item in value["sidecars"]):
+        raise AssertionError("release evidence has a sidecar without version output")
     if artifact_root is not None:
         for item in value["artifacts"]:
             path = artifact_root / item["filename"]
@@ -219,6 +231,22 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
                 raise AssertionError(f"recorded artifact is missing: {path}")
             if path.stat().st_size != item["size"] or sha256(path) != item["sha256"]:
                 raise AssertionError(f"recorded artifact bytes changed: {path}")
+
+
+def validate_downloaded_artifacts(value: dict[str, Any], artifact_root: Path) -> None:
+    for item in value["artifacts"]:
+        matches = [
+            path
+            for path in artifact_root.rglob(item["filename"])
+            if path.is_file() and not path.is_symlink()
+        ]
+        if len(matches) != 1:
+            raise AssertionError(
+                f"expected one downloaded {item['filename']}, found {len(matches)}"
+            )
+        path = matches[0]
+        if path.stat().st_size != item["size"] or sha256(path) != item["sha256"]:
+            raise AssertionError(f"downloaded artifact bytes changed: {path}")
 
 
 def record(arguments: argparse.Namespace) -> None:
@@ -230,7 +258,7 @@ def record(arguments: argparse.Namespace) -> None:
     )
     if len(artifacts) != len({item["kind"] for item in artifacts}):
         raise AssertionError("each release artifact kind must be unique")
-    verification = read_json(arguments.verification_json) if arguments.verification_json else None
+    verification = read_json(arguments.verification_json)
     value = {
         "artifacts": artifacts,
         "checks": sorted(set(arguments.check)),
@@ -257,20 +285,44 @@ def assemble(arguments: argparse.Namespace) -> None:
     values = [read_json(path) for path in evidence_files]
     for value in values:
         validate_evidence(value)
+    targets = [value["target"] for value in values]
     platforms = [value["platform"] for value in values]
-    if len(platforms) != len(set(platforms)):
-        raise AssertionError("release manifest requires unique platform evidence")
+    if len(targets) != len(set(targets)):
+        raise AssertionError("release manifest requires unique target evidence")
     sources = {json.dumps(value["source"], sort_keys=True) for value in values}
     resources = {value["resources"]["aggregate_sha256"] for value in values}
     if len(sources) != 1 or len(resources) != 1:
         raise AssertionError("release evidence does not bind one source and resource inventory")
+    run_keys = ("GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "GITHUB_WORKFLOW_REF")
+    run_identities = {
+        tuple(value.get("runner", {}).get(key) for key in run_keys) for value in values
+    }
+    if len(run_identities) != 1 or None in next(iter(run_identities)):
+        raise AssertionError("release evidence does not bind one complete workflow run")
+    for value in values:
+        runner = value.get("runner", {})
+        if runner.get("RUNNER_OS") != RUNNER_OS_BY_PLATFORM[value["platform"]]:
+            raise AssertionError("release evidence platform does not match its runner OS")
+        if not runner.get("ImageOS") or not runner.get("ImageVersion"):
+            raise AssertionError("release evidence is missing runner image identity")
     missing = sorted(set(arguments.require_platform) - set(platforms))
     if missing:
         raise AssertionError(f"required platform evidence is missing: {missing}")
+    missing_targets = sorted(set(arguments.require_target) - set(targets))
+    if missing_targets:
+        raise AssertionError(f"required target evidence is missing: {missing_targets}")
+    if arguments.artifact_root is not None:
+        artifact_root = arguments.artifact_root.resolve()
+        if not artifact_root.is_dir():
+            raise AssertionError(f"artifact root is missing: {artifact_root}")
+        for value in values:
+            validate_downloaded_artifacts(value, artifact_root)
     records = []
-    for path, value in sorted(zip(evidence_files, values), key=lambda pair: pair[1]["platform"]):
+    for path, value in sorted(zip(evidence_files, values), key=lambda pair: pair[1]["target"]):
         records.append(
             {
+                "artifacts": value["artifacts"],
+                "checks": value["checks"],
                 "evidence_filename": path.name,
                 "evidence_sha256": sha256(path),
                 "platform": value["platform"],
@@ -295,7 +347,7 @@ def parser() -> argparse.ArgumentParser:
     record_parser.add_argument("--target", required=True)
     record_parser.add_argument("--bundle", type=parse_bundle, action="append", required=True)
     record_parser.add_argument("--check", action="append", required=True)
-    record_parser.add_argument("--verification-json", type=Path)
+    record_parser.add_argument("--verification-json", type=Path, required=True)
     record_parser.add_argument("--source-root", type=Path, default=ROOT)
     record_parser.add_argument("--output", type=Path, required=True)
     record_parser.set_defaults(handler=record)
@@ -308,6 +360,8 @@ def parser() -> argparse.ArgumentParser:
     assemble_parser = subparsers.add_parser("assemble")
     assemble_parser.add_argument("evidence", type=Path, nargs="+")
     assemble_parser.add_argument("--require-platform", action="append", default=[])
+    assemble_parser.add_argument("--require-target", action="append", default=[])
+    assemble_parser.add_argument("--artifact-root", type=Path)
     assemble_parser.add_argument("--output", type=Path, required=True)
     assemble_parser.set_defaults(handler=assemble)
     return result

@@ -13,9 +13,10 @@
 > The 0.1.18 x64 macOS DMG is content-verified; the 0.1.18 Linux `.deb` and `.rpm` are
 > built and content-verified from an isolated Ubuntu 22.04 builder. The `.deb` also passes
 > a clean Ubuntu 22.04 install and headless first start, while the `.rpm` passes the
-> equivalent native check on Fedora 42. A fail-closed Windows-host package and
-> first-start verifier is wired into CI but has not yet produced current-commit
-> execution evidence; signing/notarization remains planned.
+> equivalent native check on Fedora 42. Fail-closed native package evidence is wired
+> for macOS arm64/x64, Windows x64, and Linux x64, with a four-target manifest gate;
+> that current-commit CI manifest and Windows first-start evidence have not yet been
+> produced, and signing/notarization remains planned.
 > Sections below distinguish implemented contracts from target design.
 
 > **Role boundary.** Codex leads construction and verification of the AI4HEOR
@@ -705,6 +706,16 @@ Code signing / notarization needs an Apple
 Developer account; a free account cannot notarize, so users may still see an
 "unverified" prompt.
 
+Native CI uses an explicit macOS 15 Apple Silicon runner for `aarch64` and an
+explicit macOS 15 Intel runner for `x86_64`. After each build,
+`scripts/release/verify_macos_package.py` mounts the DMG read-only; checks the exact
+bundle name, identifier, version and executable; requires single-architecture Mach-O
+main and sidecar binaries for the declared target; verifies pinned sidecar versions;
+compares all configured scientific resources byte for byte; rejects resource links and
+generated Python caches; and runs the deterministic HEOR suite against the mounted core.
+It does not install the app into `/Applications`, clear Gatekeeper, launch a visual
+session, verify a signature, or establish notarization.
+
 ### 12.2 Windows
 
 Outputs: `AI4HEOR_*_x64-setup.exe` and `AI4HEOR_*_x64_en-US.msi`. Prefer the NSIS
@@ -724,14 +735,6 @@ and requires exactly one installed desktop process, one bundled OpenCode process
 new local workspace before cleanup. This is an automated host-level gate, not a visual or
 non-technical-user acceptance test.
 
-On success, `scripts/release/release_evidence.py` writes schema
-`ai4heor-release-evidence/v1`. The record binds the clean tracked source commit, app
-version, target, exact installer hashes, source scientific-resource inventory, bundled
-sidecar hashes/version outputs, runner identity, named checks, and first-start details.
-The same tool verifies evidence and can assemble only records that share one source and
-resource inventory. The verifier and schema are locally unit-tested; the Windows claims
-remain configured, not executed, until a Windows artifact contains this evidence file.
-
 ### 12.3 Linux
 
 Outputs: `.deb` and `.rpm` for x86_64 Linux. AppImage remains disabled because
@@ -748,6 +751,8 @@ byte with the source tree; rejects links and generated Python caches; and runs t
 deterministic HEOR Python suite independently from each extracted package. It also proves
 that the two packages contain identical sidecars and main-program bytes apart from the
 single expected Tauri bundle-type marker.
+The job writes the same release-evidence schema as macOS and Windows, including both
+package hashes and the deb/rpm parity result.
 
 Version 0.1.18 was additionally installed into brand-new native package environments. A
 headless X session on Ubuntu 22.04 after `.deb` installation and on Fedora 42 after `.rpm`
@@ -769,8 +774,9 @@ auto-update; v0.2 adds a GitHub Releases updater; v0.3 adds in-app update prompt
 GitHub Actions build matrix:
 
 ```yaml
-macos-latest:
+macos-15:
   - aarch64-apple-darwin
+macos-15-intel:
   - x86_64-apple-darwin
 windows-2022:
   - x86_64-pc-windows-msvc
@@ -779,8 +785,22 @@ ubuntu-22.04:
 ```
 
 The official Tauri GitHub Action builds native binaries for macOS / Linux / Windows.
-Workflow artifacts retain the installers, and the Windows artifact additionally retains
-its hash-bound release-evidence JSON after all Windows gates pass.
+Every target emits `ai4heor-release-evidence/v1`, binding the clean tracked source
+commit, app version, target, exact package hashes, all source scientific-resource
+records, bundled sidecar hashes/version outputs, runner identity, named checks, and
+platform-verifier details. `scripts/release/release_evidence.py` rejects malformed
+platform/target pairs, tampered packages, duplicate targets, mixed source commits, and
+different resource inventories.
+
+Only after all four build jobs pass does a separate Ubuntu job download the actual
+workflow artifacts, re-hash every DMG/MSI/NSIS/deb/rpm, require all four explicit
+targets from the same workflow run and attempt, and write
+`ai4heor-release-manifest/v1`. Workflow artifacts retain the four
+evidence files and manifest; tag builds also attach them to the draft release. This is a
+workflow-produced source/package association, not a reproducible-build proof, signed
+provenance attestation, visual acceptance, or scientific-validity claim. The schema and
+macOS/Linux verifier changes are locally tested, but the four-target current-commit
+manifest remains configured rather than executed until CI produces it.
 
 ## 13. Process model
 
