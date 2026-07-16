@@ -24,7 +24,7 @@ jobs:
             target: aarch64-apple-darwin
           - platform: macos-latest
             target: x86_64-apple-darwin
-          - platform: windows-latest
+          - platform: windows-2022
             target: x86_64-pc-windows-msvc
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
@@ -146,6 +146,20 @@ jobs:
           test "${#rpms[@]}" -eq 1
           python scripts/dev/verify_linux_packages.py --deb "${debs[0]}" --rpm "${rpms[0]}"
 
+      - name: Verify Windows installers, scientific resources, and first launch
+        if: startsWith(matrix.platform, 'windows')
+        shell: pwsh
+        run: |
+          $bundleRoot = "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
+          $msis = @(Get-ChildItem -LiteralPath $bundleRoot -Recurse -File -Filter '*.msi')
+          $installers = @(Get-ChildItem -LiteralPath $bundleRoot -Recurse -File -Filter '*-setup.exe')
+          if ($msis.Count -ne 1) { throw "Expected one MSI; found $($msis.Count)." }
+          if ($installers.Count -ne 1) { throw "Expected one NSIS installer; found $($installers.Count)." }
+          ./scripts/release/verify-windows-package.ps1 `
+            -MsiPath $msis[0].FullName `
+            -NsisPath $installers[0].FullName `
+            -EvidenceOut (Join-Path $bundleRoot 'windows-x64-release-evidence.json')
+
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
@@ -156,4 +170,5 @@ jobs:
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*-release-evidence.json
           if-no-files-found: error

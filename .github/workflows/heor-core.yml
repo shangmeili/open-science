@@ -23,10 +23,12 @@ on:
       - "scripts/dev/verify-sidecar-checksum.sh"
       - "scripts/dev/test_sidecar_integrity.py"
       - "scripts/dev/verify_linux_packages.py"
+      - "scripts/release/**"
       - "docs/HEOR_*.md"
       - "package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/heor-core.yml"
+      - ".github/workflows/build.yml"
   push:
     branches: [master]
     paths:
@@ -50,10 +52,12 @@ on:
       - "scripts/dev/verify-sidecar-checksum.sh"
       - "scripts/dev/test_sidecar_integrity.py"
       - "scripts/dev/verify_linux_packages.py"
+      - "scripts/release/**"
       - "docs/HEOR_*.md"
       - "package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/heor-core.yml"
+      - ".github/workflows/build.yml"
   workflow_dispatch:
 
 permissions:
@@ -64,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-22.04]
+        os: [macos-latest, windows-2022, ubuntu-22.04]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -93,13 +97,15 @@ jobs:
         run: python scripts/dev/test_tauri_heor_resources.py -v
       - name: Validate pinned sidecar archive integrity
         run: python scripts/dev/test_sidecar_integrity.py -v
+      - name: Test release evidence contracts
+        run: python scripts/release/test_release_evidence.py -v
 
   native:
     name: Native contracts (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-22.04]
+        os: [macos-latest, windows-2022, ubuntu-22.04]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

@@ -273,8 +273,9 @@ live in [`docs/PRD.md`](./docs/PRD.md) and
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md), but those documents include
 target design as well as historical status notes.
 
-Near-term work is focused on signed/notarized releases, Windows host verification, real
-Linux desktop-session verification, auto-update, richer connector hardening, and
+Near-term work is focused on executing the configured hash-bound Windows package and
+first-start gate, signed/notarized releases, physical Linux desktop-session verification,
+auto-update, richer connector hardening, and
 continued reproducibility review. The AI4HEOR 0.1.18 x64 macOS DMG is locally built and
 payload-verified, including all 177 deterministic HEOR tests against its packaged core.
 The AI4HEOR 0.1.18 Linux `.deb` and `.rpm` are also payload-verified, including all 177

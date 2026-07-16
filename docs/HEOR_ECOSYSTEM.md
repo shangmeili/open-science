@@ -176,8 +176,9 @@ joint-row consumption is independently audited by Python and native Rust. The
 0.1.18 now has native `.deb`/Ubuntu and `.rpm`/Fedora headless first-start evidence; the
 app now consolidates current paired-bootstrap, NMA, anchored-MAIC, RWE-causal, and advanced-VOI
 Human method-review states without merging their authority records. The next release
-work is Windows-host package validation and a real Linux visual session rather than
-another broad method prompt. The next RWE increments must be separately admitted
+work is executing and inspecting the hash-bound Windows-host package/first-start gate,
+plus a physical Linux desktop visual session, rather than another broad method prompt.
+The next RWE increments must be separately admitted
 contracts for missingness/censoring, time-to-event outcomes, doubly robust estimation,
 time-varying confounding, negative controls, and quantitative bias analysis; the
 current alpha must not be stretched to imply them. P1 is

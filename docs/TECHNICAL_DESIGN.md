@@ -13,8 +13,9 @@
 > The 0.1.18 x64 macOS DMG is content-verified; the 0.1.18 Linux `.deb` and `.rpm` are
 > built and content-verified from an isolated Ubuntu 22.04 builder. The `.deb` also passes
 > a clean Ubuntu 22.04 install and headless first start, while the `.rpm` passes the
-> equivalent native check on Fedora 42. Windows remains CI/host-bound, and
-> signing/notarization remains planned.
+> equivalent native check on Fedora 42. A fail-closed Windows-host package and
+> first-start verifier is wired into CI but has not yet produced current-commit
+> execution evidence; signing/notarization remains planned.
 > Sections below distinguish implemented contracts from target design.
 
 > **Role boundary.** Codex leads construction and verification of the AI4HEOR
@@ -712,6 +713,25 @@ SmartScreen; formal release needs a code-signing certificate (EV certs earn Smar
 reputation faster). Early GitHub Release preview builds may be unsigned, but the README
 must say so.
 
+The Windows 2022 CI runner builds both formats and then runs
+`scripts/release/verify-windows-package.ps1`. The verifier reads ProductName,
+ProductVersion, and ProductCode from the MSI; administratively extracts it; rejects
+reparse points and generated Python caches; requires x86-64 PE binaries; verifies the
+pinned OpenCode and uv versions; compares every configured scientific resource with the
+source tree; and runs the deterministic HEOR suite against the extracted core. It then
+silently installs the NSIS package into a clean runner, starts the installed application,
+and requires exactly one installed desktop process, one bundled OpenCode process, and a
+new local workspace before cleanup. This is an automated host-level gate, not a visual or
+non-technical-user acceptance test.
+
+On success, `scripts/release/release_evidence.py` writes schema
+`ai4heor-release-evidence/v1`. The record binds the clean tracked source commit, app
+version, target, exact installer hashes, source scientific-resource inventory, bundled
+sidecar hashes/version outputs, runner identity, named checks, and first-start details.
+The same tool verifies evidence and can assemble only records that share one source and
+resource inventory. The verifier and schema are locally unit-tested; the Windows claims
+remain configured, not executed, until a Windows artifact contains this evidence file.
+
 ### 12.3 Linux
 
 Outputs: `.deb` and `.rpm` for x86_64 Linux. AppImage remains disabled because
@@ -752,14 +772,15 @@ GitHub Actions build matrix:
 macos-latest:
   - aarch64-apple-darwin
   - x86_64-apple-darwin
-windows-latest:
+windows-2022:
   - x86_64-pc-windows-msvc
 ubuntu-22.04:
   - x86_64-unknown-linux-gnu
 ```
 
-The official Tauri GitHub Action builds native binaries for macOS / Linux / Windows and
-uploads to a GitHub Release.
+The official Tauri GitHub Action builds native binaries for macOS / Linux / Windows.
+Workflow artifacts retain the installers, and the Windows artifact additionally retains
+its hash-bound release-evidence JSON after all Windows gates pass.
 
 ## 13. Process model
 

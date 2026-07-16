@@ -516,11 +516,15 @@ competitors.
   macOS package independently passes all 177 deterministic HEOR tests. The Linux `.deb`
   additionally passed a clean Ubuntu 22.04 container install and headless first-start
   check with both the desktop process and bundled OpenCode server ready; the `.rpm`
-  passed the equivalent native install and first-start check on Fedora 42. Windows CI
-  produces NSIS `.exe`/`.msi`, both sidecar
-  fetchers cover Windows, and cross-platform paths have been audited. Gaps: a real
-  Linux desktop visual session and producing, signing, and first-running the Windows
-  installer on a Windows host.
+  passed the equivalent native install and first-start check on Fedora 42. Windows CI is
+  configured on an explicit Windows 2022 host to produce NSIS `.exe`/`.msi`, inspect MSI
+  metadata and extracted payload bytes, run the packaged HEOR suite, silently install
+  NSIS, and require one desktop process, one bundled OpenCode process, and a new workspace.
+  A hash-bound evidence JSON ties those checks to the exact installers, source commit,
+  configured resources, sidecars, and runner. This verifier is locally contract-tested
+  but has not yet run for the current commit on Windows. Gaps: a physical Linux desktop
+  visual session; actual current-commit Windows build/verification evidence; Windows
+  visual/non-technical-user acceptance; and signed installers.
 
 ### P1-5 · Interaction & visualization craft (the app must feel premium) — 🟡 Partial
 
@@ -690,7 +694,7 @@ competitors.
 | P1-1 | Multi-discipline from day one | P1 | 🟡 Partial — pluggable + climate example; non-bio depth pending |
 | P1-2 | Domain + literature connectors | P1 | 🟡 Partial — literature/bio + non-bio across ALL 5 disciplines (materials, economics, physics space-weather, earth Open-Meteo + USGS) shipped, each MCP-handshake verified; astronomy catalogs (no PyPI MCP) + more chem/social DBs pending |
 | P1-3 | Scientific renderers | P1 | 🟡 Partial — base + 3D structure + genome + FITS + DOS + band + phase + qualitative-coding + anomaly map (all 4 disciplines; materials trio complete); ternary/coastlines next |
-| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — macOS x64 + Linux x86_64 packages locally verified; Windows CI ready (signing/first-run host-bound) |
+| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — macOS x64 + Linux x86_64 packages locally verified; fail-closed Windows package/first-run evidence job configured but not yet executed for the current commit; signing remains open |
 | P1-5 | Interaction & visualization craft | P1 | 🟡 Partial — chart system + palette + command palette + native table→chart surface shipped |
 | **P1-6** | **Social-science analysis integrity** | **P1** | 🟡 **Partial — stats-integrity skill: interpretation/prereg/seed checks + verified .dta→R round-trip** |
 | P2-1 | Notebook + larger-project handling | P2 | ✅ Done — notebook + workspace Files explorer |
