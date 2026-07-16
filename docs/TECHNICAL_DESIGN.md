@@ -1,9 +1,10 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.11, 2026-07-15).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.12, 2026-07-16).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
-> hash-bound evidence, reference-case, analysis, validation, reporting, and release gates;
+> hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
+> including the 13/15-artifact PSM validation/report contract and deterministic release replay;
 > deterministic cohort, uncertainty, and budget-impact engines; and native macOS and
 > x86_64 Linux packaging. The Linux `.deb` and `.rpm` are built and content-verified on
 > clean Ubuntu 22.04; the `.deb` also passes an isolated install and headless first-start
@@ -937,8 +938,9 @@ approval and again before each uncertainty execution, so a later rejection for
 the same execution invalidates an earlier acceptance. The output classification
 is `joint_curve_draw_parameter_uncertainty` with scope
 `joint_survival_curves_and_economic_inputs`. Curve-family selection,
-extrapolation assumptions, source-model validity, probabilistic integration across
-duration alternatives, and independent validation remain explicit structural or release blockers.
+extrapolation assumptions, source-model validity, and probabilistic integration across
+duration alternatives remain explicit structural limitations. Independent validation is
+Human-owned and must bind the exact current PSM methods, inputs, and results before release.
 Treatment-effect duration is no longer a silent omission: the base policy is hash-bound
 and all three alternatives are returned as separate deterministic cost/QALY scenarios;
 conditional CEAC, CEAF, and per-person EVPI are not presented as complete PSM
@@ -975,5 +977,6 @@ Human-reviewed blocker rather than being silently treated as zero.
 The materializer does not fit data, transform backend coefficients, choose a
 family, infer covariance, support other survival families, or establish clinical/external
 validity. Treatment-effect application is limited to the separate duration contract above.
-Those remain distinct future
-contracts, as do validation/report integration.
+Those remain distinct contracts. Validation/report schema `0.2.0` now binds the
+current PSM plan, five input artifacts, deterministic PSM and uncertainty results,
+and BIA result; the release gate replays all three calculations and compares hashes.

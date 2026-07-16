@@ -13,11 +13,23 @@ from pathlib import Path, PurePosixPath
 CAP_BYTES = 5 * 1024 * 1024
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-BINDINGS = {
+LEGACY_BINDINGS = {
     "analysis_plan": "heor/analysis-plan.json",
     "conceptual_model": "heor/conceptual-model.json",
     "uncertainty_plan": "heor/uncertainty-plan.json",
     "budget_impact_plan": "heor/budget-impact-plan.json",
+}
+BINDINGS = LEGACY_BINDINGS
+PARTITIONED_BINDINGS = {
+    "partitioned_survival_plan": "heor/partitioned-survival-plan.json",
+    "survival_curve_materializations": "heor/survival-curve-materializations.json",
+    "treatment_effect_duration": "heor/treatment-effect-duration.json",
+    "cost_input_normalization": "heor/cost-input-normalization.json",
+    "utility_inputs": "heor/utility-inputs.json",
+    "event_disutilities": "heor/event-disutilities.json",
+    "partitioned_survival_result": "heor/results/partitioned-survival.json",
+    "uncertainty_result": "heor/results/uncertainty.json",
+    "budget_impact_result": "heor/results/budget-impact.json",
 }
 SCOPES = {"cost_effectiveness", "budget_impact", "shared"}
 DOMAINS = {
@@ -155,22 +167,82 @@ def required_coverage() -> list[tuple[str, str, str, str | None, set[str]]]:
     return result
 
 
+def binding_contract(report: dict, analysis: dict, errors: list[str]) -> dict[str, str]:
+    schema = report.get("schema_version")
+    partitioned = analysis.get("partitioned_survival_analysis") == {
+        "path": "heor/partitioned-survival-plan.json"
+    }
+    if partitioned:
+        if schema != "0.2.0":
+            errors.append("partitioned-survival validation requires schema_version 0.2.0")
+        return {**LEGACY_BINDINGS, **PARTITIONED_BINDINGS}
+    if schema != "0.1.0":
+        errors.append("non-partitioned validation requires schema_version 0.1.0")
+    return dict(LEGACY_BINDINGS)
+
+
+def validate_partitioned_consistency(
+    loaded: dict[str, dict], binding_hashes: dict[str, str], errors: list[str]
+) -> None:
+    if "partitioned_survival_plan" not in loaded:
+        return
+    expected_inputs = {
+        "analysis_plan_sha256": "analysis_plan",
+        "partitioned_survival_plan_sha256": "partitioned_survival_plan",
+        "survival_curve_materializations_sha256": "survival_curve_materializations",
+        "treatment_effect_duration_sha256": "treatment_effect_duration",
+        "cost_input_normalization_sha256": "cost_input_normalization",
+        "utility_inputs_sha256": "utility_inputs",
+        "event_disutilities_sha256": "event_disutilities",
+    }
+    partitioned_result = loaded.get("partitioned_survival_result", {})
+    uncertainty_result = loaded.get("uncertainty_result", {})
+    for field, key in expected_inputs.items():
+        expected = binding_hashes.get(key)
+        if partitioned_result.get(field) != expected:
+            errors.append(f"partitioned-survival result {field} does not match bound bytes")
+        uncertainty_field = (
+            "base_analysis_sha256" if field == "analysis_plan_sha256" else field
+        )
+        if uncertainty_result.get(uncertainty_field) != expected:
+            errors.append(f"uncertainty result {uncertainty_field} does not match bound bytes")
+    if uncertainty_result.get("uncertainty_plan_sha256") != binding_hashes.get(
+        "uncertainty_plan"
+    ):
+        errors.append("uncertainty result uncertainty_plan_sha256 does not match bound bytes")
+    budget_result = loaded.get("budget_impact_result", {})
+    if budget_result.get("analysis_plan_sha256") != binding_hashes.get("analysis_plan"):
+        errors.append("budget-impact result analysis_plan_sha256 does not match bound bytes")
+    if budget_result.get("budget_impact_plan_sha256") != binding_hashes.get(
+        "budget_impact_plan"
+    ):
+        errors.append("budget-impact result budget_impact_plan_sha256 does not match bound bytes")
+
+
 def audit(report_path: Path, workspace: Path) -> dict:
     report, report_raw = load_object(report_path)
     errors: list[str] = []
     invalid_evidence: list[str] = []
 
-    if report.get("schema_version") != "0.1.0":
-        errors.append("schema_version must be 0.1.0")
     for field in ("validation_id", "analysis_id", "intended_use", "developer_label"):
         if not text(report.get(field)):
             errors.append(f"{field} is required")
     if report.get("status") != "ready_for_independent_review":
         errors.append("status must be ready_for_independent_review")
 
+    try:
+        analysis, _ = load_object(workspace_file(workspace, LEGACY_BINDINGS["analysis_plan"]))
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        analysis = {}
+        errors.append(str(error))
+    expected_bindings = binding_contract(report, analysis, errors)
     bindings = report.get("model_bindings") or {}
+    if not isinstance(bindings, dict) or set(bindings) != set(expected_bindings):
+        errors.append("model_bindings fields do not match the validation schema")
+        bindings = bindings if isinstance(bindings, dict) else {}
+    loaded: dict[str, dict] = {}
     binding_hashes: dict[str, str] = {}
-    for key, expected_path in BINDINGS.items():
+    for key, expected_path in expected_bindings.items():
         binding = bindings.get(key) or {}
         if binding.get("path") != expected_path:
             errors.append(f"model_bindings.{key}.path must be {expected_path}")
@@ -181,11 +253,13 @@ def audit(report_path: Path, workspace: Path) -> dict:
             errors.append(str(error))
             continue
         expected_hash = hashlib.sha256(raw).hexdigest()
+        loaded[key] = value
         binding_hashes[key] = expected_hash
         if binding.get("content_sha256") != expected_hash or not SHA256.fullmatch(str(binding.get("content_sha256", ""))):
             errors.append(f"model_bindings.{key}.content_sha256 does not match current bytes")
         if value.get("analysis_id") != report.get("analysis_id"):
             errors.append(f"{expected_path} analysis_id does not match the validation report")
+    validate_partitioned_consistency(loaded, binding_hashes, errors)
 
     reviewer = report.get("reviewer") or {}
     for field in ("label", "organization", "independence_statement", "conflict_statement"):

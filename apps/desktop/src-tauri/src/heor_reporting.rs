@@ -23,6 +23,44 @@ const BINDINGS: [(&str, &str); 9] = [
     ("uncertainty_result", UNCERTAINTY_RESULT_PATH),
     ("budget_impact_result", BUDGET_IMPACT_RESULT_PATH),
 ];
+const PARTITIONED_BINDINGS: [(&str, &str); 15] = [
+    ("report_document", REPORT_DOCUMENT_PATH),
+    ("analysis_plan", "heor/analysis-plan.json"),
+    ("conceptual_model", "heor/conceptual-model.json"),
+    ("uncertainty_plan", "heor/uncertainty-plan.json"),
+    ("budget_impact_plan", "heor/budget-impact-plan.json"),
+    ("model_validation", "heor/model-validation.json"),
+    (
+        "partitioned_survival_plan",
+        crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_PLAN_PATH,
+    ),
+    (
+        "survival_curve_materializations",
+        crate::heor_survival_materialization::SURVIVAL_MATERIALIZATION_PATH,
+    ),
+    (
+        "treatment_effect_duration",
+        crate::heor_treatment_effect_duration::TREATMENT_EFFECT_DURATION_PATH,
+    ),
+    (
+        "cost_input_normalization",
+        crate::heor_cost_input_normalization::COST_INPUT_NORMALIZATION_PATH,
+    ),
+    (
+        "utility_inputs",
+        crate::heor_utility_inputs::UTILITY_INPUTS_PATH,
+    ),
+    (
+        "event_disutilities",
+        crate::heor_event_disutilities::EVENT_DISUTILITIES_PATH,
+    ),
+    (
+        "partitioned_survival_result",
+        crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_RESULT_PATH,
+    ),
+    ("uncertainty_result", UNCERTAINTY_RESULT_PATH),
+    ("budget_impact_result", BUDGET_IMPACT_RESULT_PATH),
+];
 const ITEMS: [(&str, &str); 40] = [
     ("CHEERS-2022", "1-title"),
     ("CHEERS-2022", "2-abstract"),
@@ -80,6 +118,7 @@ pub struct ReportingAudit {
     pub report_package_sha256: String,
     pub release_owner_label: String,
     pub binding_hashes: HashMap<String, String>,
+    pub binding_paths: HashMap<String, String>,
     pub reporting_item_count: usize,
     pub required_item_count: usize,
     pub covered_item_count: usize,
@@ -131,6 +170,7 @@ fn empty(error: String) -> ReportingAudit {
         report_package_sha256: String::new(),
         release_owner_label: String::new(),
         binding_hashes: HashMap::new(),
+        binding_paths: HashMap::new(),
         reporting_item_count: 0,
         required_item_count: ITEMS.len(),
         covered_item_count: 0,
@@ -184,7 +224,9 @@ fn expected_result_summary(loaded: &HashMap<&str, serde_json::Value>) -> serde_j
             }
         }
     }
-    let base_case = loaded.get("base_case_result");
+    let base_case = loaded
+        .get("partitioned_survival_result")
+        .or_else(|| loaded.get("base_case_result"));
     let cost_effectiveness = if base_case
         .and_then(|value| value.get("fully_incremental_analysis"))
         .is_some()
@@ -256,15 +298,29 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
         .unwrap_or_default()
         .to_string();
     audit.report_package_sha256 = digest(&package_raw);
-    if package
-        .get("schema_version")
+    let analysis = read_json(workspace, "heor/analysis-plan.json")
+        .map(|(value, _)| value)
+        .unwrap_or(serde_json::Value::Null);
+    let partitioned = analysis
+        .pointer("/partitioned_survival_analysis/path")
         .and_then(serde_json::Value::as_str)
-        != Some("0.1.0")
-    {
-        audit
-            .errors
-            .push("report package schema_version must be 0.1.0".into());
+        == Some(crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_PLAN_PATH);
+    let expected_schema = if partitioned { "0.2.0" } else { "0.1.0" };
+    if text(package.get("schema_version")) != Some(expected_schema) {
+        audit.errors.push(format!(
+            "{} reporting requires schema_version {expected_schema}",
+            if partitioned {
+                "partitioned-survival"
+            } else {
+                "non-partitioned"
+            }
+        ));
     }
+    let expected_bindings = if partitioned {
+        PARTITIONED_BINDINGS.as_slice()
+    } else {
+        BINDINGS.as_slice()
+    };
     for field in [
         "package_id",
         "analysis_id",
@@ -300,7 +356,25 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
 
     let mut loaded = HashMap::<&str, serde_json::Value>::new();
     let mut report = String::new();
-    for (key, relative) in BINDINGS {
+    let expected_keys = expected_bindings
+        .iter()
+        .map(|(key, _)| *key)
+        .collect::<HashSet<_>>();
+    if package
+        .get("bindings")
+        .and_then(serde_json::Value::as_object)
+        .is_none_or(|value| {
+            value.len() != expected_keys.len()
+                || value
+                    .keys()
+                    .any(|key| !expected_keys.contains(key.as_str()))
+        })
+    {
+        audit
+            .errors
+            .push("bindings fields do not match the report schema".into());
+    }
+    for &(key, relative) in expected_bindings {
         let binding = package.pointer(&format!("/bindings/{key}"));
         if binding.and_then(|v| text(v.get("path"))) != Some(relative) {
             audit
@@ -317,6 +391,7 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
         };
         let hash = digest(&raw);
         audit.binding_hashes.insert(key.into(), hash.clone());
+        audit.binding_paths.insert(key.into(), relative.into());
         if binding.and_then(|v| text(v.get("content_sha256"))) != Some(hash.as_str()) {
             audit.errors.push(format!(
                 "bindings.{key}.content_sha256 does not match current bytes"
@@ -343,15 +418,20 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
         if text(value.get("analysis_id")) != Some(audit.analysis_id.as_str()) {
             audit.errors.push(format!(
                 "{} analysis_id does not match the report package",
-                BINDINGS.iter().find(|(k, _)| k == key).unwrap().1
+                audit
+                    .binding_paths
+                    .get(*key)
+                    .map(String::as_str)
+                    .unwrap_or("bound artifact")
             ));
         }
     }
     let hash = |key: &str| audit.binding_hashes.get(key).map(String::as_str);
-    if loaded
-        .get("base_case_result")
-        .and_then(|v| text(v.get("input_sha256")))
-        != hash("analysis_plan")
+    if loaded.get("base_case_result").is_some()
+        && loaded
+            .get("base_case_result")
+            .and_then(|v| text(v.get("input_sha256")))
+            != hash("analysis_plan")
     {
         audit.errors.push("base-case result is stale".into());
     }
@@ -377,11 +457,59 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
     {
         audit.errors.push("budget-impact result is stale".into());
     }
+    if partitioned {
+        for (field, key) in [
+            ("analysis_plan_sha256", "analysis_plan"),
+            (
+                "partitioned_survival_plan_sha256",
+                "partitioned_survival_plan",
+            ),
+            (
+                "survival_curve_materializations_sha256",
+                "survival_curve_materializations",
+            ),
+            (
+                "treatment_effect_duration_sha256",
+                "treatment_effect_duration",
+            ),
+            (
+                "cost_input_normalization_sha256",
+                "cost_input_normalization",
+            ),
+            ("utility_inputs_sha256", "utility_inputs"),
+            ("event_disutilities_sha256", "event_disutilities"),
+        ] {
+            let expected = hash(key);
+            if loaded
+                .get("partitioned_survival_result")
+                .and_then(|value| text(value.get(field)))
+                != expected
+            {
+                audit.errors.push(format!(
+                    "partitioned-survival result {field} does not match bound bytes"
+                ));
+            }
+            let uncertainty_field = if field == "analysis_plan_sha256" {
+                "base_analysis_sha256"
+            } else {
+                field
+            };
+            if loaded
+                .get("uncertainty_result")
+                .and_then(|value| text(value.get(uncertainty_field)))
+                != expected
+            {
+                audit.errors.push(format!(
+                    "uncertainty result {uncertainty_field} does not match bound bytes"
+                ));
+            }
+        }
+    }
 
     let expected = ITEMS.iter().copied().collect::<HashSet<_>>();
     let mut seen = HashSet::<(String, String)>::new();
     let mut sections = HashSet::<String>::new();
-    let allowed_paths = BINDINGS
+    let allowed_paths = expected_bindings
         .iter()
         .map(|(_, path)| *path)
         .collect::<HashSet<_>>();
@@ -495,7 +623,10 @@ pub fn write_result(workspace: &Path, relative: &str, raw: &[u8]) -> Result<(), 
     if raw.len() > OUTPUT_CAP_BYTES
         || !matches!(
             relative,
-            BASE_CASE_RESULT_PATH | UNCERTAINTY_RESULT_PATH | BUDGET_IMPACT_RESULT_PATH
+            BASE_CASE_RESULT_PATH
+                | UNCERTAINTY_RESULT_PATH
+                | BUDGET_IMPACT_RESULT_PATH
+                | crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_RESULT_PATH
         )
     {
         return Err("HEOR result is not a bounded first-party result artifact".into());
@@ -523,7 +654,11 @@ pub fn write_result(workspace: &Path, relative: &str, raw: &[u8]) -> Result<(), 
     })
 }
 
-fn run_engine(app: &AppHandle, workspace: &Path, extra: &[&Path]) -> Result<Vec<u8>, String> {
+fn run_engine(
+    app: &AppHandle,
+    workspace: &Path,
+    extra: &[(&str, &str)],
+) -> Result<Vec<u8>, String> {
     let package_src = app
         .path()
         .resolve("heor-core/src", BaseDirectory::Resource)
@@ -533,8 +668,8 @@ fn run_engine(app: &AppHandle, workspace: &Path, extra: &[&Path]) -> Result<Vec<
     command
         .args(["-m", "heor_core"])
         .arg(workspace.join("heor/analysis-plan.json"));
-    if extra.len() == 2 {
-        command.arg(extra[0]).arg(extra[1]);
+    for (flag, relative) in extra {
+        command.arg(flag).arg(workspace.join(relative));
     }
     let output = command
         .current_dir(workspace)
@@ -558,28 +693,101 @@ fn reexecute_result_hashes(
     app: &AppHandle,
     workspace: &Path,
 ) -> Result<HashMap<&'static str, String>, String> {
-    let base = run_engine(app, workspace, &[])?;
-    let uncertainty = run_engine(
-        app,
-        workspace,
-        &[
-            Path::new("--uncertainty-plan"),
-            &workspace.join("heor/uncertainty-plan.json"),
-        ],
+    let plan_raw =
+        crate::heor_uncertainty::read_workspace_capped(workspace, "heor/analysis-plan.json")?;
+    let partitioned = crate::heor_partitioned_survival::audit_partitioned_survival_for_plan(
+        workspace, &plan_raw,
     )?;
+    let mut model_args = Vec::new();
+    if partitioned.required {
+        if !partitioned.complete {
+            return Err(
+                "release verification requires a complete partitioned-survival audit".into(),
+            );
+        }
+        model_args.extend([
+            (
+                "--partitioned-survival-plan",
+                crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_PLAN_PATH,
+            ),
+            (
+                "--survival-curve-materializations",
+                crate::heor_survival_materialization::SURVIVAL_MATERIALIZATION_PATH,
+            ),
+        ]);
+        if partitioned.treatment_effect_duration_required {
+            model_args.push((
+                "--treatment-effect-duration",
+                crate::heor_treatment_effect_duration::TREATMENT_EFFECT_DURATION_PATH,
+            ));
+        }
+        if partitioned.cost_input_normalization_required {
+            model_args.push((
+                "--cost-input-normalization",
+                crate::heor_cost_input_normalization::COST_INPUT_NORMALIZATION_PATH,
+            ));
+        }
+        if partitioned.utility_inputs_required {
+            model_args.push((
+                "--utility-inputs",
+                crate::heor_utility_inputs::UTILITY_INPUTS_PATH,
+            ));
+        }
+        if partitioned.event_disutilities_required {
+            model_args.push((
+                "--event-disutilities",
+                crate::heor_event_disutilities::EVENT_DISUTILITIES_PATH,
+            ));
+        }
+    }
+    let base = run_engine(app, workspace, &model_args)?;
+
+    let mut uncertainty_args = vec![(
+        "--uncertainty-plan",
+        crate::heor_uncertainty::UNCERTAINTY_PLAN_PATH,
+    )];
+    uncertainty_args.extend(model_args.iter().copied());
+    if partitioned.required {
+        let uncertainty_audit =
+            crate::heor_uncertainty::audit_uncertainty_plan_for_plan(workspace, &plan_raw)?;
+        if !uncertainty_audit.complete {
+            return Err("release verification requires a complete uncertainty audit".into());
+        }
+        if uncertainty_audit.joint_survival_required {
+            uncertainty_args.extend([
+                (
+                    "--joint-survival-uncertainty-manifest",
+                    crate::heor_joint_survival_uncertainty::MANIFEST_PATH,
+                ),
+                (
+                    "--joint-survival-draws",
+                    crate::heor_joint_survival_uncertainty::DRAWS_PATH,
+                ),
+            ]);
+        }
+    }
+    let uncertainty = run_engine(app, workspace, &uncertainty_args)?;
     let budget = run_engine(
         app,
         workspace,
-        &[
-            Path::new("--budget-impact-plan"),
-            &workspace.join("heor/budget-impact-plan.json"),
-        ],
+        &[(
+            "--budget-impact-plan",
+            crate::heor_budget_impact::BUDGET_IMPACT_PLAN_PATH,
+        )],
     )?;
-    Ok(HashMap::from([
-        ("base_case_result", digest(&base)),
+    let mut hashes = HashMap::from([
         ("uncertainty_result", digest(&uncertainty)),
         ("budget_impact_result", digest(&budget)),
-    ]))
+    ]);
+    hashes.insert(
+        if partitioned.required {
+            "partitioned_survival_result"
+        } else {
+            "base_case_result"
+        },
+        digest(&base),
+    );
+    Ok(hashes)
 }
 
 pub fn release_matches_approval(
@@ -609,18 +817,21 @@ pub fn release_matches_approval(
 }
 
 pub fn approval_bindings(audit: &ReportingAudit) -> Vec<crate::heor_approval::ArtifactBinding> {
-    BINDINGS
+    let mut bindings = audit
+        .binding_paths
         .iter()
         .filter_map(|(key, path)| {
             audit
                 .binding_hashes
-                .get(*key)
+                .get(key)
                 .map(|sha256| crate::heor_approval::ArtifactBinding {
-                    path: (*path).into(),
+                    path: path.clone(),
                     sha256: sha256.clone(),
                 })
         })
-        .collect()
+        .collect::<Vec<_>>();
+    bindings.sort_by(|left, right| left.path.cmp(&right.path));
+    bindings
 }
 
 pub fn require_report_releasable(
@@ -639,6 +850,38 @@ pub fn require_report_releasable(
     }
     let plan_raw =
         crate::heor_uncertainty::read_workspace_capped(workspace, "heor/analysis-plan.json")?;
+    let partitioned = crate::heor_partitioned_survival::audit_partitioned_survival_for_plan(
+        workspace, &plan_raw,
+    )?;
+    if partitioned.required {
+        if !partitioned.complete {
+            return Err("release requires a complete partitioned-survival audit".into());
+        }
+        let analysis_current = log
+            .effective_approved_gates
+            .contains(&crate::heor_approval::ApprovalGate::AnalysisPlan)
+            && log
+                .events
+                .iter()
+                .rev()
+                .find(|event| event.gate == crate::heor_approval::ApprovalGate::AnalysisPlan)
+                .is_some_and(|event| {
+                    event.action == crate::heor_approval::ApprovalAction::Approve
+                        && event.artifact_sha256 == partitioned.analysis_plan_sha256
+                        && partitioned.artifact_bindings.iter().all(|binding| {
+                            crate::heor_approval::event_binds_artifact(
+                                event,
+                                &binding.path,
+                                &binding.sha256,
+                            )
+                        })
+                });
+        if !analysis_current {
+            return Err(
+                "release requires a current analysis-plan approval binding every PSM input".into(),
+            );
+        }
+    }
     let validation = crate::heor_validation::audit_model_validation_for_plan(workspace, &plan_raw)?;
     let validation_current = log
         .effective_approved_gates
@@ -706,6 +949,10 @@ mod tests {
             binding_hashes: BINDINGS
                 .iter()
                 .map(|(key, _)| ((*key).into(), "b".repeat(64)))
+                .collect(),
+            binding_paths: BINDINGS
+                .iter()
+                .map(|(key, path)| ((*key).into(), (*path).into()))
                 .collect(),
             reporting_item_count: 40,
             required_item_count: 40,
@@ -1012,6 +1259,47 @@ mod tests {
             br#"{"value":2}"#
         );
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn result_writer_accepts_partitioned_survival_result() {
+        let root = std::env::temp_dir().join(format!(
+            "heor-report-writer-partitioned-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        write_result(
+            &root,
+            crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_RESULT_PATH,
+            br#"{"analysis_id":"analysis-1"}"#,
+        )
+        .unwrap();
+        assert!(root
+            .join(crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_RESULT_PATH)
+            .is_file());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn approval_bindings_follow_the_schema_selected_paths() {
+        let mut audit = complete_audit();
+        audit.binding_paths = PARTITIONED_BINDINGS
+            .iter()
+            .map(|(key, path)| ((*key).into(), (*path).into()))
+            .collect();
+        audit.binding_hashes = PARTITIONED_BINDINGS
+            .iter()
+            .map(|(key, _)| ((*key).into(), "c".repeat(64)))
+            .collect();
+
+        let bindings = approval_bindings(&audit);
+
+        assert_eq!(bindings.len(), PARTITIONED_BINDINGS.len());
+        assert!(bindings.iter().any(|binding| {
+            binding.path == crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_RESULT_PATH
+        }));
+        assert!(bindings.windows(2).all(|pair| pair[0].path <= pair[1].path));
     }
 
     #[test]

@@ -3077,6 +3077,82 @@ class ModelValidationContractTests(unittest.TestCase):
         report_path.write_text(json.dumps(report, indent=2))
         return report_path, report, evidence_path
 
+    def upgrade_to_psm(self, root: Path, report_path: Path, report: dict) -> dict[str, Path]:
+        analysis_id = report["analysis_id"]
+        analysis_path = root / model_validation.LEGACY_BINDINGS["analysis_plan"]
+        analysis = json.loads(analysis_path.read_text())
+        analysis["partitioned_survival_analysis"] = {
+            "path": "heor/partitioned-survival-plan.json"
+        }
+        analysis_path.write_text(json.dumps(analysis, indent=2))
+
+        input_keys = [
+            "partitioned_survival_plan",
+            "survival_curve_materializations",
+            "treatment_effect_duration",
+            "cost_input_normalization",
+            "utility_inputs",
+            "event_disutilities",
+        ]
+        paths = {
+            key: root / relative
+            for key, relative in {
+                **model_validation.LEGACY_BINDINGS,
+                **model_validation.PARTITIONED_BINDINGS,
+            }.items()
+        }
+        for key in input_keys:
+            paths[key].parent.mkdir(parents=True, exist_ok=True)
+            paths[key].write_text(json.dumps({
+                "analysis_id": analysis_id,
+                "artifact": key,
+            }, indent=2))
+        hashes = {
+            key: hashlib.sha256(path.read_bytes()).hexdigest()
+            for key, path in paths.items()
+            if path.exists()
+        }
+        source_fields = {
+            "analysis_plan_sha256": hashes["analysis_plan"],
+            "partitioned_survival_plan_sha256": hashes["partitioned_survival_plan"],
+            "survival_curve_materializations_sha256": hashes["survival_curve_materializations"],
+            "treatment_effect_duration_sha256": hashes["treatment_effect_duration"],
+            "cost_input_normalization_sha256": hashes["cost_input_normalization"],
+            "utility_inputs_sha256": hashes["utility_inputs"],
+            "event_disutilities_sha256": hashes["event_disutilities"],
+        }
+        paths["partitioned_survival_result"].parent.mkdir(parents=True, exist_ok=True)
+        paths["partitioned_survival_result"].write_text(json.dumps({
+            "analysis_id": analysis_id,
+            **source_fields,
+        }, indent=2))
+        paths["uncertainty_result"].write_text(json.dumps({
+            "analysis_id": analysis_id,
+            "base_analysis_sha256": hashes["analysis_plan"],
+            "uncertainty_plan_sha256": hashes["uncertainty_plan"],
+            **{key: value for key, value in source_fields.items()
+               if key != "analysis_plan_sha256"},
+        }, indent=2))
+        paths["budget_impact_result"].write_text(json.dumps({
+            "analysis_id": analysis_id,
+            "analysis_plan_sha256": hashes["analysis_plan"],
+            "budget_impact_plan_sha256": hashes["budget_impact_plan"],
+        }, indent=2))
+        expected = {
+            **model_validation.LEGACY_BINDINGS,
+            **model_validation.PARTITIONED_BINDINGS,
+        }
+        report["schema_version"] = "0.2.0"
+        report["model_bindings"] = {
+            key: {
+                "path": relative,
+                "content_sha256": hashlib.sha256((root / relative).read_bytes()).hexdigest(),
+            }
+            for key, relative in expected.items()
+        }
+        report_path.write_text(json.dumps(report, indent=2))
+        return paths
+
     def test_complete_hash_bound_validation_package_is_approvable(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -3085,6 +3161,25 @@ class ModelValidationContractTests(unittest.TestCase):
             self.assertTrue(result["complete"])
             self.assertTrue(result["approvable"])
             self.assertEqual(result["covered_requirement_count"], 18)
+
+    def test_complete_psm_validation_binds_inputs_and_results(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report_path, report, _ = self.fixture(root)
+            self.upgrade_to_psm(root, report_path, report)
+            result = model_validation.audit(report_path, root)
+            self.assertTrue(result["complete"], result)
+            self.assertTrue(result["approvable"], result)
+
+    def test_psm_validation_fails_closed_on_input_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report_path, report, _ = self.fixture(root)
+            paths = self.upgrade_to_psm(root, report_path, report)
+            paths["utility_inputs"].write_text('{"analysis_id":"nsclc-analysis","changed":true}')
+            result = model_validation.audit(report_path, root)
+            self.assertFalse(result["complete"])
+            self.assertTrue(any("utility_inputs" in error for error in result["errors"]), result)
 
     def test_stale_evidence_hash_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -3269,6 +3364,89 @@ class ReportingContractTests(unittest.TestCase):
         package_path.write_text(json.dumps(package, indent=2))
         return package_path, package, paths
 
+    def upgrade_to_psm(self, root: Path, package_path: Path, package: dict, paths: dict) -> None:
+        analysis_id = package["analysis_id"]
+        analysis = json.loads(paths["analysis_plan"].read_text())
+        analysis["partitioned_survival_analysis"] = {
+            "path": "heor/partitioned-survival-plan.json"
+        }
+        paths["analysis_plan"].write_text(json.dumps(analysis, indent=2))
+        for key in (
+            "partitioned_survival_plan",
+            "survival_curve_materializations",
+            "treatment_effect_duration",
+            "cost_input_normalization",
+            "utility_inputs",
+            "event_disutilities",
+        ):
+            path = root / reporting.PARTITIONED_BINDINGS[key]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({"analysis_id": analysis_id, "artifact": key}, indent=2))
+            paths[key] = path
+        hashes = {
+            key: hashlib.sha256(path.read_bytes()).hexdigest()
+            for key, path in paths.items()
+        }
+        source_fields = {
+            "analysis_plan_sha256": hashes["analysis_plan"],
+            "partitioned_survival_plan_sha256": hashes["partitioned_survival_plan"],
+            "survival_curve_materializations_sha256": hashes["survival_curve_materializations"],
+            "treatment_effect_duration_sha256": hashes["treatment_effect_duration"],
+            "cost_input_normalization_sha256": hashes["cost_input_normalization"],
+            "utility_inputs_sha256": hashes["utility_inputs"],
+            "event_disutilities_sha256": hashes["event_disutilities"],
+        }
+        psm = {
+            "analysis_id": analysis_id,
+            **source_fields,
+            "economic_basis": {"currency": "CNY", "price_year": 2026},
+            "strategy_order": ["standard", "treatment"],
+            "baseline_strategy_id": "standard",
+            "strategies": {
+                "standard": {"name": "Standard", "total_cost": 100.0, "total_qaly": 1.0,
+                             "net_monetary_benefit": 99900.0, "occupancy": [[1.0]]},
+                "treatment": {"name": "Treatment", "total_cost": 200.0, "total_qaly": 1.1,
+                              "net_monetary_benefit": 109800.0, "occupancy": [[1.0]]},
+            },
+            "pairwise_vs_baseline": {"treatment": {"delta_cost": 100.0, "delta_qaly": 0.1}},
+            "fully_incremental_analysis": [
+                {"strategy_id": "standard", "status": "frontier", "icer": None},
+                {"strategy_id": "treatment", "status": "frontier", "icer": 1000.0},
+            ],
+            "optimal_at_primary_threshold": {"strategy_id": "treatment"},
+        }
+        psm_path = root / reporting.PARTITIONED_BINDINGS["partitioned_survival_result"]
+        psm_path.write_text(json.dumps(psm, indent=2))
+        paths["partitioned_survival_result"] = psm_path
+
+        uncertainty = json.loads(paths["uncertainty_result"].read_text())
+        uncertainty.update({
+            "base_analysis_sha256": hashes["analysis_plan"],
+            "uncertainty_plan_sha256": hashes["uncertainty_plan"],
+            **{key: value for key, value in source_fields.items()
+               if key != "analysis_plan_sha256"},
+        })
+        paths["uncertainty_result"].write_text(json.dumps(uncertainty, indent=2))
+        budget = json.loads(paths["budget_impact_result"].read_text())
+        budget["analysis_plan_sha256"] = hashes["analysis_plan"]
+        paths["budget_impact_result"].write_text(json.dumps(budget, indent=2))
+
+        package["schema_version"] = "0.2.0"
+        package["bindings"] = {
+            key: {
+                "path": relative,
+                "content_sha256": hashlib.sha256((root / relative).read_bytes()).hexdigest(),
+            }
+            for key, relative in reporting.PARTITIONED_BINDINGS.items()
+        }
+        loaded = {
+            key: json.loads((root / relative).read_text())
+            for key, relative in reporting.PARTITIONED_BINDINGS.items()
+            if key != "report_document"
+        }
+        package["result_summary"] = reporting.expected_result_summary(loaded)
+        package_path.write_text(json.dumps(package, indent=2))
+
     def test_complete_bound_report_package_is_releasable(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -3277,6 +3455,36 @@ class ReportingContractTests(unittest.TestCase):
             self.assertTrue(result["complete"])
             self.assertTrue(result["releasable"])
             self.assertEqual(result["covered_item_count"], 40)
+
+    def test_complete_psm_report_package_is_releasable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, package, paths = self.fixture(root)
+            self.upgrade_to_psm(root, package_path, package, paths)
+            result = reporting.audit(package_path, root)
+            self.assertTrue(result["complete"], result)
+            self.assertTrue(result["releasable"], result)
+            self.assertEqual(
+                package["result_summary"]["cost_effectiveness"]["baseline_strategy_id"],
+                "standard",
+            )
+
+    def test_psm_report_fails_closed_on_result_source_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, package, paths = self.fixture(root)
+            self.upgrade_to_psm(root, package_path, package, paths)
+            result_path = root / reporting.PARTITIONED_BINDINGS["partitioned_survival_result"]
+            result = json.loads(result_path.read_text())
+            result["utility_inputs_sha256"] = "0" * 64
+            result_path.write_text(json.dumps(result, indent=2))
+            package["bindings"]["partitioned_survival_result"]["content_sha256"] = hashlib.sha256(
+                result_path.read_bytes()
+            ).hexdigest()
+            package_path.write_text(json.dumps(package, indent=2))
+            audited = reporting.audit(package_path, root)
+            self.assertFalse(audited["complete"])
+            self.assertTrue(any("utility_inputs_sha256" in error for error in audited["errors"]), audited)
 
     def test_multi_strategy_summary_preserves_frontier_without_occupancy(self):
         with tempfile.TemporaryDirectory() as directory:

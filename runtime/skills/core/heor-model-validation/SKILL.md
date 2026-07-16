@@ -8,8 +8,8 @@ description: Prepare, audit, and explain a hash-bound independent-validation rep
 ## Workflow
 
 1. Read `references/model-validation-contract.md` before changing the report.
-2. Read the current analysis plan, conceptual model, uncertainty plan, and budget-impact plan as exact bytes. Record their SHA-256 values in `model_bindings`.
-3. Copy `assets/model-validation.template.json` to `heor/model-validation.json` when no report exists. Keep it `draft` while evidence or independent-review fields are incomplete.
+2. Read the current bound artifacts as exact bytes. For non-PSM work, schema `0.1.0` binds the analysis plan, conceptual model, uncertainty plan, and budget-impact plan. For linked PSM work, schema `0.2.0` binds those four artifacts plus the PSM plan, five current PSM inputs, and the PSM, uncertainty, and budget-impact results.
+3. Copy `assets/model-validation.template.json` to `heor/model-validation.json` when no report exists. For linked PSM work, replace its schema and `model_bindings` with `assets/psm-model-bindings.template.json`. Keep it `draft` while evidence or independent-review fields are incomplete.
 4. Put stable evidence snapshots under `heor/validation-evidence/`. Hash every snapshot; do not link mutable or unbounded paths.
 5. Help design reproducible face, input, technical, cross, external, and predictive checks. Technical verification must cover the applicable TECH-VER calculation domains for both cost effectiveness and budget impact.
 6. Run automated tests, replications, and comparisons when authorized. Record their raw evidence honestly as `automated_test` or `developer`; never relabel Codex work as `independent_reviewer`.
@@ -32,4 +32,4 @@ description: Prepare, audit, and explain a hash-bound independent-validation rep
 
 ## Handoff
 
-Report the validation ID and hash; all four bound artifact hashes; reviewer and local identity-assurance boundary; coverage by validation domain; evidence and issue counts; unresolved defects; external/cross/predictive status; recommendation; limitations; and exact next human action. State that the app's validator verifies structure, hashes, coverage, and local declarations—not scientific truth or identity.
+Report the validation ID and hash; every bound artifact hash; reviewer and local identity-assurance boundary; coverage by validation domain; evidence and issue counts; unresolved defects; external/cross/predictive status; recommendation; limitations; and exact next human action. State that the app's validator verifies structure, hashes, coverage, and local declarations—not scientific truth or identity.

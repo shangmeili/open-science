@@ -540,20 +540,6 @@ pub fn append_heor_approval(
                 related_artifacts = crate::heor_validation::approval_bindings(&validation);
             }
             ApprovalGate::Release => {
-                let plan_raw = crate::heor_uncertainty::read_workspace_capped(
-                    &workspace,
-                    "heor/analysis-plan.json",
-                )?;
-                let partitioned =
-                    crate::heor_partitioned_survival::audit_partitioned_survival_for_plan(
-                        &workspace, &plan_raw,
-                    )?;
-                if partitioned.required {
-                    return Err(
-                        "release is blocked while partitioned survival is linked: the release package contract does not yet bind its plan and result"
-                            .into(),
-                    );
-                }
                 let log = verified_log(&app, &request.project_id)?;
                 let report = crate::heor_reporting::require_report_releasable(
                     &app,

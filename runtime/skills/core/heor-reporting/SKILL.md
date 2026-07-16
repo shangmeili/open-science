@@ -8,9 +8,9 @@ description: Prepare, audit, and revise a release-reviewable HEOR report package
 ## Workflow
 
 1. Read `references/report-package-contract.md` before creating or changing a package.
-2. Require all three app-owned result files under `heor/results/`. If any is missing, ask the researcher to run the corresponding deterministic analysis in the review panel; never recreate numerical results in prose or code.
-3. Copy `assets/report-package.template.json` to `heor/report-package.json` and `assets/report.template.md` to `heor/report.md` when absent.
-4. Bind the exact current bytes of the five method artifacts, three deterministic result artifacts, and report document. Preserve the fixed paths and lowercase SHA-256 values.
+2. Require the three app-owned results for the current model: base case or PSM, uncertainty, and budget impact. If any is missing, ask the researcher to run the corresponding deterministic analysis in the review panel; never recreate numerical results in prose or code.
+3. Copy `assets/report-package.template.json` to `heor/report-package.json` and `assets/report.template.md` to `heor/report.md` when absent. For linked PSM work, replace the package schema and `bindings` with `assets/psm-report-bindings.template.json`.
+4. For non-PSM schema `0.1.0`, bind the report, five method artifacts, and three results. For linked PSM schema `0.2.0`, bind the report, six method artifacts, five current PSM inputs, and three results. Preserve the fixed paths and lowercase SHA-256 values.
 5. Complete the 28 CHEERS 2022 reporting entries for cost effectiveness. Treat `not_applicable` as an explained reporting state, never as a silent omission or a positive score.
 6. Complete the separate 12-item ISPOR BIA reporting matrix. CHEERS 2022 explicitly excludes budget-impact analysis; do not claim CHEERS coverage for BIA.
 7. Put a unique `<!-- report-section:SECTION_ID -->` marker in `heor/report.md` for every matrix entry and link each entry to the exact artifact paths supporting it.

@@ -571,6 +571,8 @@ export interface HeorModelValidationAudit {
   conceptualModelSha256: string;
   uncertaintyPlanSha256: string;
   budgetImpactPlanSha256: string;
+  bindingHashes: Record<string, string>;
+  bindingPaths: Record<string, string>;
   reviewerLabel: string;
   recommendation:
     | "pending"
@@ -598,6 +600,7 @@ export interface HeorReportingAudit {
   reportPackageSha256: string;
   releaseOwnerLabel: string;
   bindingHashes: Record<string, string>;
+  bindingPaths: Record<string, string>;
   reportingItemCount: number;
   requiredItemCount: number;
   coveredItemCount: number;
@@ -3162,6 +3165,8 @@ export const HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT: HeorModelValidationAudit 
   conceptualModelSha256: "",
   uncertaintyPlanSha256: "",
   budgetImpactPlanSha256: "",
+  bindingHashes: {},
+  bindingPaths: {},
   reviewerLabel: "",
   recommendation: "pending",
   evidenceCount: 0,
@@ -3185,6 +3190,7 @@ export const HEOR_BROWSER_DEMO_REPORTING_AUDIT: HeorReportingAudit = {
   reportPackageSha256: "",
   releaseOwnerLabel: "",
   bindingHashes: {},
+  bindingPaths: {},
   reportingItemCount: 0,
   requiredItemCount: 40,
   coveredItemCount: 0,

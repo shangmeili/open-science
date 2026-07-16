@@ -277,7 +277,6 @@ pub(crate) fn workflow_status(
                         })
             });
     let release_matches_approval = independent_validation_matches_approval
-        && !partitioned_survival_audit.required
         && crate::heor_reporting::release_matches_approval(&log, &reporting_audit);
     let locally_authorized = plan_matches
         && conceptual_model_matches_artifact
@@ -691,6 +690,31 @@ mod tests {
             conceptual_model_sha256: "b".repeat(64),
             uncertainty_plan_sha256: "f".repeat(64),
             budget_impact_plan_sha256: "9".repeat(64),
+            binding_hashes: [
+                ("analysis_plan".into(), "c".repeat(64)),
+                ("conceptual_model".into(), "b".repeat(64)),
+                ("uncertainty_plan".into(), "f".repeat(64)),
+                ("budget_impact_plan".into(), "9".repeat(64)),
+            ]
+            .into_iter()
+            .collect(),
+            binding_paths: [
+                ("analysis_plan".into(), "heor/analysis-plan.json".into()),
+                (
+                    "conceptual_model".into(),
+                    "heor/conceptual-model.json".into(),
+                ),
+                (
+                    "uncertainty_plan".into(),
+                    "heor/uncertainty-plan.json".into(),
+                ),
+                (
+                    "budget_impact_plan".into(),
+                    "heor/budget-impact-plan.json".into(),
+                ),
+            ]
+            .into_iter()
+            .collect(),
             reviewer_label: "Independent reviewer".into(),
             recommendation: "approve_for_intended_use".into(),
             evidence_count: 1,
@@ -721,6 +745,20 @@ mod tests {
         .into_iter()
         .map(|(key, marker)| (key.into(), marker.repeat(64)))
         .collect();
+        let binding_paths = [
+            ("report_document", "heor/report.md"),
+            ("analysis_plan", "heor/analysis-plan.json"),
+            ("conceptual_model", "heor/conceptual-model.json"),
+            ("uncertainty_plan", "heor/uncertainty-plan.json"),
+            ("budget_impact_plan", "heor/budget-impact-plan.json"),
+            ("model_validation", "heor/model-validation.json"),
+            ("base_case_result", "heor/results/base-case.json"),
+            ("uncertainty_result", "heor/results/uncertainty.json"),
+            ("budget_impact_result", "heor/results/budget-impact.json"),
+        ]
+        .into_iter()
+        .map(|(key, path)| (key.into(), path.into()))
+        .collect();
         ReportingAudit {
             complete: true,
             releasable: true,
@@ -730,6 +768,7 @@ mod tests {
             report_package_sha256: "7".repeat(64),
             release_owner_label: "Release owner".into(),
             binding_hashes,
+            binding_paths,
             reporting_item_count: 40,
             required_item_count: 40,
             covered_item_count: 40,

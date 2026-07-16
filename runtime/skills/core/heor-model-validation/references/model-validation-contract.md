@@ -13,14 +13,16 @@ The published 2012 ISPOR-SMDM report remains the current baseline. A Validation 
 
 ## Required binding
 
-The report binds the exact current bytes of:
+Schema `0.1.0` remains the non-PSM contract. The report binds the exact current bytes of:
 
 - `heor/analysis-plan.json`
 - `heor/conceptual-model.json`
 - `heor/uncertainty-plan.json`
 - `heor/budget-impact-plan.json`
 
-Every evidence item must be a bounded local file under `heor/validation-evidence/` with a matching SHA-256. The independent-validation approval event binds the report and the same four upstream artifacts. Any changed byte makes the approval stale.
+For a linked partitioned-survival analysis, schema `0.2.0` instead requires the exact 13-key set in `assets/psm-model-bindings.template.json`: the four artifacts above; `heor/partitioned-survival-plan.json`; the five current materialization, duration, cost, utility, and event inputs; and the PSM, uncertainty, and budget-impact results. The PSM and uncertainty results must reproduce the same source hashes, and the budget-impact result must bind the current analysis and BIA plan. The exact uncertainty-plan bytes transitively bind any joint-survival manifest and draws; those potentially large files are not duplicated in this bounded validation manifest.
+
+Every evidence item must be a bounded local file under `heor/validation-evidence/` with a matching SHA-256. The independent-validation approval event binds the report and every schema-selected artifact. Any changed byte makes the approval stale.
 
 ## Required coverage
 

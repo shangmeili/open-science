@@ -23,7 +23,7 @@ labelled draft and cannot replace current requirements or release authority.
 
 ## Required files and bindings
 
-The package binds the exact current bytes of:
+Schema `0.1.0` remains the non-PSM contract. Its package binds the exact current bytes of:
 
 - `heor/report.md`
 - `heor/analysis-plan.json`
@@ -34,6 +34,8 @@ The package binds the exact current bytes of:
 - `heor/results/base-case.json`
 - `heor/results/uncertainty.json`
 - `heor/results/budget-impact.json`
+
+For a linked partitioned-survival analysis, schema `0.2.0` instead requires the exact 15-key set in `assets/psm-report-bindings.template.json`: the report; the five non-report method artifacts above; the PSM plan; the five current materialization, duration, cost, utility, and event inputs; and the PSM, uncertainty, and budget-impact results. The PSM and uncertainty results must reproduce the same source hashes. The exact uncertainty-plan bytes transitively bind any joint-survival manifest and draws; those potentially large files are not duplicated in this bounded report manifest.
 
 The desktop writes result files after deterministic execution. The release gate
 re-executes all three calculations and compares exact output hashes, so a

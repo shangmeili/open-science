@@ -347,7 +347,7 @@
     "askAgent": "让 Agent 创建或修复分区生存分析",
     "repairPrompt": "以自然语言交互为主，表单只作辅助。使用 $heor-economic-inputs 创建 analysis schema 0.15.0，使用 $heor-cost-input-normalization 处理年化状态成本，使用 $heor-utility-inputs 处理周期状态效用，使用 $heor-event-disutilities 处理已从状态效用明确排除的一次性、复发性或持续暴露事件 QALY 损失。事件纳入、严重度、发生率、减值、持续时间、可加性与重叠必须由人确认。使用 $heor-survival-curve-materialization 和 $heor-treatment-effect-duration 处理经审阅曲线与持续时间情景，再使用 $heor-partitioned-survival 创建 schema 0.7.0 并绑定所有精确工件。算术、单位、哈希、重叠、曲线、占用或溯源漂移必须失败，不得静默修复，也不得声称人工审批。",
     "note": "自然语言依据是主交互，精确参数与曲线行只是辅助结构化输入；应用会独立重算每条已准入曲线。可供审查不等于已获人工批准。",
-    "releaseBoundary": "当前支持确定性本地事件减效用计算，以及有边界的成本—效用—事件组成不确定性计算。组成 PSA 中生存曲线仍固定；对 schema 0.15.0 / PSM 0.7.0，组合后的完整参数不确定性、报告绑定与独立验证仍是发布阻断项。",
+    "releaseBoundary": "当前支持 schema 0.15.0 / PSM 0.7.0 的确定性结果、0.2 报告与验证绑定及 Human 审批后发布。组成 PSA 中生存曲线仍固定；这项结构不确定性必须作为局限披露，平台不会据此自动判断科学有效性。",
     "noProject": "当前没有可供分区生存审计的项目。",
     "missingPlan": "必须先有分析计划，才能审计分区生存。"
   },
@@ -366,7 +366,7 @@
     "approve_with_limitations": "建议附限制批准",
     "do_not_approve": "建议不批准",
     "askPrepare": "让 Agent 准备验证证据",
-    "repairPrompt": "使用 $heor-model-validation，针对当前 analysis-plan、conceptual-model、uncertainty-plan 和 budget-impact-plan 的精确字节，准备或审计 heor/model-validation.json 及 heor/validation-evidence/ 下的本地证据。无评分地报告表面、内部、外部、交叉模型、预测和 TECH-VER 检查，保留所有失败与局限。不要声称审查人独立，不要填写人工声明或建议，也不要创建批准事件。",
+    "repairPrompt": "使用 $heor-model-validation，针对当前精确工件准备或审计 heor/model-validation.json 及 heor/validation-evidence/ 下的本地证据。非 PSM 项目保留 schema 0.1.0 的四项方法绑定；analysis 0.15.0 / PSM 0.7.0 使用 schema 0.2.0，绑定四项方法工件、PSM 计划、五项当前 PSM 输入及 PSM、不确定性和预算影响结果。无评分地报告表面、内部、外部、交叉模型、预测和 TECH-VER 检查，保留所有失败与局限。不要声称审查人独立，不要填写人工声明或建议，也不要创建批准事件。",
     "note": "应用只验证结构、哈希、本地证据、覆盖范围与声明的审查人边界；它无法证明证据真实，也无法证明审查人确实独立。",
     "noProject": "没有可用于模型验证审计的当前项目。",
     "missingPlan": "必须先有分析计划，才能审计模型验证。"
@@ -381,7 +381,7 @@
     "bindings": "绑定文件",
     "errors": "阻断错误",
     "askPrepare": "让 Agent 准备或修复报告包",
-    "repairPrompt": "使用 $heor-reporting 准备或修复 heor/report-package.json 与 heor/report.md。绑定当前方法学文件和三份由应用写入的确定性结果文件；CHEERS 2022 仅用于成本效果报告，预算影响单独使用 ISPOR BIA 矩阵；结果摘要必须精确复制；明确披露资助、利益冲突、Agent 与模型提供方参与、数据和模型可得性以及患者/公众参与。不要给 CHEERS 打分，不要编辑结果文件，不要编造发布责任人，也不要创建或声称获得发布批准。",
+    "repairPrompt": "使用 $heor-reporting 准备或修复 heor/report-package.json 与 heor/report.md。非 PSM 项目保留 schema 0.1.0；analysis 0.15.0 / PSM 0.7.0 使用 schema 0.2.0，精确绑定报告、五项基础方法工件、PSM 计划、五项当前 PSM 输入及 PSM、不确定性和预算影响结果。CHEERS 2022 仅用于成本效果报告，预算影响单独使用 ISPOR BIA 矩阵；结果摘要必须精确复制；明确披露资助、利益冲突、Agent 与模型提供方参与、数据和模型可得性以及患者/公众参与。不要给 CHEERS 打分，不要编辑结果文件，不要编造发布责任人，也不要创建或声称获得发布批准。",
     "note": "应用验证报告结构、哈希、确定性结果复现和本地批准状态；这不等于科学真实性、期刊接收或政策背书。",
     "noProject": "没有可用于报告包审计的当前项目。",
     "missingPlan": "必须先有分析计划，才能审计报告包。"

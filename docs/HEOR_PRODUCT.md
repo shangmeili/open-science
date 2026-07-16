@@ -638,8 +638,11 @@ predictive, and technical-verification coverage across the cost-effectiveness
 and budget-impact models. Cross-model and predictive checks may be documented
 as not feasible only when the report supplies evidence and rationale. Every
 evidence file must remain under the project, pass a size and path boundary, and
-match its recorded SHA-256. The report binds the exact current bytes of the
-analysis plan, conceptual model, uncertainty plan, and budget-impact plan.
+match its recorded SHA-256. For non-PSM work, schema `0.1.0` binds the exact
+current bytes of the analysis plan, conceptual model, uncertainty plan, and
+budget-impact plan. For linked PSM work, schema `0.2.0` additionally binds the
+PSM plan, survival materializations, duration, cost, utility, and event
+artifacts plus the PSM, uncertainty, and budget-impact results.
 
 Codex may run tests, prepare evidence, and preserve findings, but it may not
 fill the reviewer independence declaration or recommendation, identify its own
@@ -659,10 +662,11 @@ necessary before public release.
 ## Implemented reporting and release boundary
 
 The first-party `$heor-reporting` skill prepares `heor/report-package.json` and
-`heor/report.md`. The package binds the exact current bytes of the report,
-analysis plan, conceptual model, uncertainty plan, budget-impact plan,
-independent-validation report, and three app-written deterministic result
-artifacts. CHEERS 2022 supplies 28 cost-effectiveness reporting items and is
+`heor/report.md`. Non-PSM schema `0.1.0` binds the exact current bytes of the
+report, five method artifacts, and three app-written deterministic results.
+Linked-PSM schema `0.2.0` instead binds the report, the five base method
+artifacts, PSM plan, five current PSM inputs, and PSM, uncertainty, and
+budget-impact results. CHEERS 2022 supplies 28 cost-effectiveness reporting items and is
 never scored or applied to BIA. A separate 12-item ISPOR BIA matrix covers the
 budget-impact report. All 40 entries require a rationale, bound evidence paths,
 and exactly one report section marker.
@@ -672,11 +676,12 @@ including the complete decision-uncertainty object when present, explicit
 disclosures, limitations, a named release owner, and current hashes. Legacy
 uncertainty results retain their legacy summary shape rather than receiving
 manufactured CEAC, CEAF, or value-of-information values.
-At release, the desktop requires the current independent-validation approval,
-re-executes base-case, uncertainty, and budget-impact calculations, compares
-their exact output hashes with the bound result files, and records the report
-package plus all nine related bindings in the app-owned approval chain. The
-Agent can prepare the package but cannot invent its owner or create approval.
+At release, the desktop requires current analysis and independent-validation
+approvals, re-executes the applicable base case or PSM plus uncertainty and
+budget-impact calculations with the exact current inputs, compares their output
+hashes with the bound result files, and records the report package plus all 9 or
+15 schema-selected bindings in the app-owned approval chain. The Agent can
+prepare the package but cannot invent its owner or create approval.
 
 `decision_ready_local_release_assertion` means these local structural,
 reproduction, validation, reporting, and human gates are current. It does not
@@ -702,7 +707,8 @@ approval, reimbursement suitability, or external tamper-proofing.
 - The BIA golden fixture matches an independent annual hand calculation,
   reports all category subtotals, applies zero discounting, and fails closed on
   changed plan bytes or missing population, uptake, and cost provenance.
-- Independent validation requires exact four-artifact and evidence hashes,
+- Independent validation requires the exact schema-selected 4 or 13 artifact
+  bindings and evidence hashes,
   declared reviewer/developer separation, complete required coverage, and zero
   open blocker or major issues. Invalid evidence, stale bytes, or actor mismatch
   fails closed.

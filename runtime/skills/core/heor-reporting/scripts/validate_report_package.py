@@ -13,7 +13,7 @@ from pathlib import Path, PurePosixPath
 CAP_BYTES = 5 * 1024 * 1024
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-BINDINGS = {
+LEGACY_BINDINGS = {
     "report_document": "heor/report.md",
     "analysis_plan": "heor/analysis-plan.json",
     "conceptual_model": "heor/conceptual-model.json",
@@ -21,6 +21,24 @@ BINDINGS = {
     "budget_impact_plan": "heor/budget-impact-plan.json",
     "model_validation": "heor/model-validation.json",
     "base_case_result": "heor/results/base-case.json",
+    "uncertainty_result": "heor/results/uncertainty.json",
+    "budget_impact_result": "heor/results/budget-impact.json",
+}
+BINDINGS = LEGACY_BINDINGS
+PARTITIONED_BINDINGS = {
+    "report_document": "heor/report.md",
+    "analysis_plan": "heor/analysis-plan.json",
+    "conceptual_model": "heor/conceptual-model.json",
+    "uncertainty_plan": "heor/uncertainty-plan.json",
+    "budget_impact_plan": "heor/budget-impact-plan.json",
+    "model_validation": "heor/model-validation.json",
+    "partitioned_survival_plan": "heor/partitioned-survival-plan.json",
+    "survival_curve_materializations": "heor/survival-curve-materializations.json",
+    "treatment_effect_duration": "heor/treatment-effect-duration.json",
+    "cost_input_normalization": "heor/cost-input-normalization.json",
+    "utility_inputs": "heor/utility-inputs.json",
+    "event_disutilities": "heor/event-disutilities.json",
+    "partitioned_survival_result": "heor/results/partitioned-survival.json",
     "uncertainty_result": "heor/results/uncertainty.json",
     "budget_impact_result": "heor/results/budget-impact.json",
 }
@@ -107,7 +125,7 @@ def nested(value: dict, *parts: str) -> object:
 
 def expected_result_summary(loaded: dict[str, dict]) -> dict:
     """Return the exact bounded summary for legacy or multi-strategy results."""
-    base_case = loaded.get("base_case_result", {})
+    base_case = loaded.get("partitioned_survival_result", loaded.get("base_case_result", {}))
     uncertainty_result = loaded.get("uncertainty_result", {})
     probabilistic = uncertainty_result.get("probabilistic_analysis", {})
     if not isinstance(probabilistic, dict):
@@ -189,14 +207,50 @@ def expected_result_summary(loaded: dict[str, dict]) -> dict:
     }
 
 
+def binding_contract(package: dict, analysis: dict, errors: list[str]) -> dict[str, str]:
+    partitioned = analysis.get("partitioned_survival_analysis") == {
+        "path": "heor/partitioned-survival-plan.json"
+    }
+    if partitioned:
+        if package.get("schema_version") != "0.2.0":
+            errors.append("partitioned-survival reporting requires schema_version 0.2.0")
+        return dict(PARTITIONED_BINDINGS)
+    if package.get("schema_version") != "0.1.0":
+        errors.append("non-partitioned reporting requires schema_version 0.1.0")
+    return dict(LEGACY_BINDINGS)
+
+
+def validate_partitioned_consistency(
+    loaded: dict[str, dict], binding_hashes: dict[str, str], errors: list[str]
+) -> None:
+    if "partitioned_survival_plan" not in loaded:
+        return
+    expected_inputs = {
+        "analysis_plan_sha256": "analysis_plan",
+        "partitioned_survival_plan_sha256": "partitioned_survival_plan",
+        "survival_curve_materializations_sha256": "survival_curve_materializations",
+        "treatment_effect_duration_sha256": "treatment_effect_duration",
+        "cost_input_normalization_sha256": "cost_input_normalization",
+        "utility_inputs_sha256": "utility_inputs",
+        "event_disutilities_sha256": "event_disutilities",
+    }
+    base = loaded.get("partitioned_survival_result", {})
+    uncertainty = loaded.get("uncertainty_result", {})
+    for field, key in expected_inputs.items():
+        expected = binding_hashes.get(key)
+        if base.get(field) != expected:
+            errors.append(f"partitioned-survival result {field} does not match bound bytes")
+        uncertainty_field = "base_analysis_sha256" if field == "analysis_plan_sha256" else field
+        if uncertainty.get(uncertainty_field) != expected:
+            errors.append(f"uncertainty result {uncertainty_field} does not match bound bytes")
+
+
 def audit(package_path: Path, workspace: Path) -> dict:
     package, package_raw = load_object(package_path)
     errors: list[str] = []
     missing_items: list[str] = []
     invalid_items: list[str] = []
 
-    if package.get("schema_version") != "0.1.0":
-        errors.append("schema_version must be 0.1.0")
     for field in ("package_id", "analysis_id", "version", "intended_audience", "release_owner_label"):
         if not text(package.get(field)):
             errors.append(f"{field} is required")
@@ -207,11 +261,19 @@ def audit(package_path: Path, workspace: Path) -> dict:
     if package.get("reporting_profiles") != PROFILES:
         errors.append("reporting_profiles must contain the scoped CHEERS 2022 and ISPOR BIA profiles")
 
+    try:
+        analysis, _ = load_object(workspace_file(workspace, "heor/analysis-plan.json"))
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        analysis = {}
+        errors.append(str(error))
+    expected_bindings = binding_contract(package, analysis, errors)
     bindings = package.get("bindings") if isinstance(package.get("bindings"), dict) else {}
+    if set(bindings) != set(expected_bindings):
+        errors.append("bindings fields do not match the report schema")
     loaded: dict[str, dict] = {}
     binding_hashes: dict[str, str] = {}
     report_text = ""
-    for key, expected_path in BINDINGS.items():
+    for key, expected_path in expected_bindings.items():
         binding = bindings.get(key) if isinstance(bindings.get(key), dict) else {}
         if binding.get("path") != expected_path:
             errors.append(f"bindings.{key}.path must be {expected_path}")
@@ -236,12 +298,12 @@ def audit(package_path: Path, workspace: Path) -> dict:
 
     for key, value in loaded.items():
         if value.get("analysis_id") != package.get("analysis_id"):
-            errors.append(f"{BINDINGS[key]} analysis_id does not match the report package")
+            errors.append(f"{expected_bindings[key]} analysis_id does not match the report package")
 
     analysis_hash = binding_hashes.get("analysis_plan")
     uncertainty_plan_hash = binding_hashes.get("uncertainty_plan")
     bia_plan_hash = binding_hashes.get("budget_impact_plan")
-    if loaded.get("base_case_result", {}).get("input_sha256") != analysis_hash:
+    if "base_case_result" in loaded and loaded["base_case_result"].get("input_sha256") != analysis_hash:
         errors.append("base-case result is not bound to the current analysis plan")
     uncertainty_result = loaded.get("uncertainty_result", {})
     if uncertainty_result.get("base_analysis_sha256") != analysis_hash:
@@ -253,6 +315,7 @@ def audit(package_path: Path, workspace: Path) -> dict:
         errors.append("budget-impact result is not bound to the current analysis plan")
     if bia_result.get("budget_impact_plan_sha256") != bia_plan_hash:
         errors.append("budget-impact result is not bound to the current budget-impact plan")
+    validate_partitioned_consistency(loaded, binding_hashes, errors)
 
     raw_items = package.get("items")
     items = raw_items if isinstance(raw_items, list) and all(isinstance(item, dict) for item in raw_items) else []
@@ -260,7 +323,7 @@ def audit(package_path: Path, workspace: Path) -> dict:
         errors.append(f"items must contain exactly {len(REQUIRED_ITEMS)} reporting items")
     seen: set[tuple[str, str]] = set()
     sections: set[str] = set()
-    allowed_paths = set(BINDINGS.values())
+    allowed_paths = set(expected_bindings.values())
     for index, item in enumerate(items):
         key = (str(item.get("profile_id", "")), str(item.get("item_id", "")))
         if key in seen:

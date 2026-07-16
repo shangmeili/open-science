@@ -44,10 +44,6 @@ import {
   HEOR_PARTITIONED_SURVIVAL_PLAN_PATH,
   HEOR_MODEL_VALIDATION_PATH,
   HEOR_REPORT_PACKAGE_PATH,
-  HEOR_REPORT_DOCUMENT_PATH,
-  HEOR_BASE_CASE_RESULT_PATH,
-  HEOR_UNCERTAINTY_RESULT_PATH,
-  HEOR_BUDGET_IMPACT_RESULT_PATH,
   HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
   HEOR_EVIDENCE_LIBRARY_PATH,
   HEOR_EVIDENCE_SYNTHESIS_PATH,
@@ -255,24 +251,13 @@ function gateArtifactHash(
   return planArtifact.sha256;
 }
 
-const REPORT_BINDING_PATHS: Record<string, string> = {
-  report_document: HEOR_REPORT_DOCUMENT_PATH,
-  analysis_plan: HEOR_PLAN_PATH,
-  conceptual_model: HEOR_CONCEPTUAL_MODEL_PATH,
-  uncertainty_plan: HEOR_UNCERTAINTY_PLAN_PATH,
-  budget_impact_plan: HEOR_BUDGET_IMPACT_PLAN_PATH,
-  model_validation: HEOR_MODEL_VALIDATION_PATH,
-  base_case_result: HEOR_BASE_CASE_RESULT_PATH,
-  uncertainty_result: HEOR_UNCERTAINTY_RESULT_PATH,
-  budget_impact_result: HEOR_BUDGET_IMPACT_RESULT_PATH,
-};
-
 function reportBindingsCurrent(
   event: HeorApprovalEvent | undefined,
   audit: HeorReportingAudit,
 ): boolean {
   return event?.actorLabel === audit.releaseOwnerLabel
-    && Object.entries(REPORT_BINDING_PATHS).every(([key, path]) =>
+    && Object.entries(audit.bindingPaths).length > 0
+    && Object.entries(audit.bindingPaths).every(([key, path]) =>
       eventBinds(event, path, audit.bindingHashes[key] ?? ""));
 }
 
@@ -286,10 +271,9 @@ function validationBindingsCurrent(
   event: HeorApprovalEvent | undefined,
   audit: HeorModelValidationAudit,
 ): boolean {
-  return eventBinds(event, HEOR_PLAN_PATH, audit.analysisPlanSha256)
-    && eventBinds(event, HEOR_CONCEPTUAL_MODEL_PATH, audit.conceptualModelSha256)
-    && eventBinds(event, HEOR_UNCERTAINTY_PLAN_PATH, audit.uncertaintyPlanSha256)
-    && eventBinds(event, HEOR_BUDGET_IMPACT_PLAN_PATH, audit.budgetImpactPlanSha256);
+  return Object.entries(audit.bindingPaths).length > 0
+    && Object.entries(audit.bindingPaths).every(([key, path]) =>
+      eventBinds(event, path, audit.bindingHashes[key] ?? ""));
 }
 
 export function HeorReviewPane({
@@ -734,23 +718,12 @@ export function HeorReviewPane({
             : []),
         ]
       : gate === "independent_validation" && modelValidation.kind === "ready"
-        ? [
-            { path: HEOR_PLAN_PATH, sha256: modelValidation.audit.analysisPlanSha256 },
-            {
-              path: HEOR_CONCEPTUAL_MODEL_PATH,
-              sha256: modelValidation.audit.conceptualModelSha256,
-            },
-            {
-              path: HEOR_UNCERTAINTY_PLAN_PATH,
-              sha256: modelValidation.audit.uncertaintyPlanSha256,
-            },
-            {
-              path: HEOR_BUDGET_IMPACT_PLAN_PATH,
-              sha256: modelValidation.audit.budgetImpactPlanSha256,
-            },
-          ]
+        ? Object.entries(modelValidation.audit.bindingPaths).map(([key, path]) => ({
+            path,
+            sha256: modelValidation.audit.bindingHashes[key],
+          }))
         : gate === "release" && reporting.kind === "ready"
-          ? Object.entries(REPORT_BINDING_PATHS).map(([key, path]) => ({
+          ? Object.entries(reporting.audit.bindingPaths).map(([key, path]) => ({
               path,
               sha256: reporting.audit.bindingHashes[key],
             }))
@@ -1270,8 +1243,7 @@ export function HeorReviewPane({
                       || !modelValidation.audit.approvable);
                   const reportingBlocked = gate === "release"
                     && gate === nextGate
-                    && (reporting.kind !== "ready" || !reporting.audit.releasable
-                      || (partitionedSurvival.kind === "ready" && partitionedSurvival.audit.required));
+                    && (reporting.kind !== "ready" || !reporting.audit.releasable);
                   const waiting = gate === nextGate && !stale && !conceptualBlocked
                     && !evidenceBlocked && !referenceBlocked && !uncertaintyBlocked
                     && !budgetImpactBlocked && !survivalReviewBlocked
