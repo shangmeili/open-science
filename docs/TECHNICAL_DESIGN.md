@@ -698,9 +698,11 @@ deterministic HEOR Python suite independently from each extracted package. It al
 that the two packages contain identical sidecars and main-program bytes apart from the
 single expected Tauri bundle-type marker.
 
-Version 0.1.11 was additionally installed into a brand-new Ubuntu 22.04 container. A
+Version 0.1.16 was additionally installed into two brand-new Ubuntu 22.04 containers. A
 headless X session reached simultaneous `ai4s-workbench` and `opencode serve` process
-readiness and created the initial `~/Documents/OpenScience` workspace. This establishes
+readiness and created the initial `~/Documents/OpenScience` workspace. The independently
+extracted `.deb` and `.rpm` payloads each passed all 170 deterministic HEOR tests and 246
+configured scientific resources matched the source bytes. This establishes current-version
 clean installation and runtime startup, but it is not a visual desktop-session acceptance
 test. A real Linux desktop session and a native RPM installation remain release checks.
 

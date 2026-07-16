@@ -82,6 +82,12 @@ def unique_file(root: Path, name: str) -> Path:
     return matches[0]
 
 
+def assert_no_links(root: Path) -> None:
+    links = [path for path in root.rglob("*") if path.is_symlink()]
+    if links:
+        raise AssertionError(f"package payload contains links: {links}")
+
+
 def clean_files(root: Path) -> dict[Path, Path]:
     files: dict[Path, Path] = {}
     for path in root.rglob("*"):
@@ -173,6 +179,7 @@ def normalized_main_binary(path: Path, bundle_type: str) -> bytes:
 def run_packaged_heor_tests(resource_root: Path, source_root: Path) -> None:
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(resource_root / "heor-core/src")
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
     run(
         [
             "python3",
@@ -216,6 +223,7 @@ def main() -> None:
 
         verified: dict[str, tuple[dict[str, Path], int]] = {}
         for kind, root in extracted.items():
+            assert_no_links(root)
             binaries = verify_binaries(root)
             resources, count = verify_resources(root, source_root)
             run_packaged_heor_tests(resources, source_root)

@@ -273,10 +273,11 @@ live in [`docs/PRD.md`](./docs/PRD.md) and
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md), but those documents include
 target design as well as historical status notes.
 
-Near-term work is focused on signed/notarized releases, broader Windows/Linux
-desktop-session verification, auto-update, richer connector hardening, and continued
-reproducibility review. The current Linux `.deb` and `.rpm` are built and payload-verified
-on Ubuntu 22.04; the `.deb` also passes a clean headless first-start check.
+Near-term work is focused on signed/notarized releases, Windows host verification, real
+Linux desktop-session verification, auto-update, richer connector hardening, and
+continued reproducibility review. AI4HEOR 0.1.16 Linux `.deb` and `.rpm` are built and
+payload-verified on Ubuntu 22.04; the `.deb` also passes a clean headless first-start
+check.
 
 ## Contributing
 

@@ -508,12 +508,13 @@ competitors.
   first launch works without CLI knowledge.
 - **Acceptance.** A non-technical user installs and reaches a working first
   session on both macOS and Windows via a signed installer.
-- **Status.** 🟡 macOS x64 installer and Linux x86_64 `.deb`/`.rpm` shipped locally;
-  pinned sidecars are bundled. Both Linux packages were built on clean Ubuntu 22.04,
-  structurally and byte-for-byte resource verified, and passed all 165 deterministic
-  HEOR tests from their extracted payloads. The `.deb` additionally passed a clean
-  container install and headless first-start check with both the desktop process and
-  bundled OpenCode server ready. Windows CI produces NSIS `.exe`/`.msi`, both sidecar
+- **Status.** 🟡 AI4HEOR 0.1.16 macOS x64 installer and Linux x86_64 `.deb`/`.rpm`
+  shipped locally; pinned sidecars are bundled. Both current Linux packages were built
+  in an isolated Ubuntu 22.04 builder, structurally and byte-for-byte resource verified,
+  and passed all 170 deterministic HEOR tests from their extracted payloads. The `.deb`
+  additionally passed a clean Ubuntu 22.04 container install and headless first-start
+  check with both the desktop process and bundled OpenCode server ready. Windows CI
+  produces NSIS `.exe`/`.msi`, both sidecar
   fetchers cover Windows, and cross-platform paths have been audited. Gaps: a real
   Linux desktop visual session, native RPM installation, and producing, signing, and
   first-running the Windows installer on a Windows host.
