@@ -47,6 +47,7 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
     workspace,
     panes,
     commands,
+    defaultModel,
     connect,
     openSession,
     startDraft,
@@ -92,8 +93,13 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
   const afterTurn = (id: string | null) => {
     if (id && !sessionId) navigate(`${heorMode ? "/heor" : "/live"}/${id}`);
   };
-  const onSend = async (text: string) =>
+  const onSend = async (text: string) => {
+    if (heorMode && !defaultModel) {
+      useUiStore.getState().setComposerDraft(text);
+      return;
+    }
     afterTurn(await sendPrompt(heorMode ? buildHeorPrompt(text) : text));
+  };
   const onRunShell = async (command: string) => afterTurn(await runShell(command));
   const onRunCommand = async (name: string, args: string) => {
     const localClear = name === "new" || name === "clear";
@@ -359,11 +365,7 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
           <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-8 py-6">
             {isEmpty && !sessionId && heorMode && (
               <HeorStarters
-                onPick={(prompt) =>
-                  connected
-                    ? void onSend(prompt)
-                    : useUiStore.getState().setComposerDraft(prompt)
-                }
+                onPick={(prompt) => useUiStore.getState().setComposerDraft(prompt)}
               />
             )}
             {/* Deliberate workspace switches don't render anything at all (they're
@@ -427,6 +429,24 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
 
         <div className="px-8 pb-5 pt-2">
           <div className="mx-auto max-w-[760px] space-y-3">
+            {heorMode && connected && !defaultModel && (
+              <div
+                role="status"
+                className="flex items-center justify-between gap-4 rounded-card border border-warn/30 bg-warn/10 px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-text">{t("heor:modelRequired.title")}</div>
+                  <p className="mt-0.5 text-xs leading-5 text-muted">{t("heor:modelRequired.body")}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate("/settings")}
+                  className="shrink-0 rounded-input border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text hover:bg-surface-2"
+                >
+                  {t("heor:modelRequired.action")}
+                </button>
+              </div>
+            )}
             {activeRequest && (
               <InteractionPrompt
                 question={activeQuestion}
@@ -442,12 +462,14 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
               onRunShell={(c) => void onRunShell(c)}
               onRunCommand={(n, a) => void onRunCommand(n, a)}
               commands={composerCommands}
-              disabled={!connected || working}
+              disabled={!connected || working || (heorMode && !defaultModel)}
               working={running}
               onStop={() => void interrupt()}
               placeholder={
                 working
                   ? t("live.placeholder.waiting")
+                  : heorMode && connected && !defaultModel
+                    ? t("heor:modelRequired.placeholder")
                   : connected
                     ? heorMode
                       ? t("heor:placeholder")

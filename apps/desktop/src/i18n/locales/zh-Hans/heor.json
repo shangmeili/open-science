@@ -4,6 +4,12 @@
   "review": "审阅分析",
   "closeReview": "关闭分析审阅",
   "placeholder": "描述你想研究的决策问题、证据缺口、模型修改或结果解释……",
+  "modelRequired": {
+    "title": "请先选择模型再发送",
+    "body": "AI4HEOR 会把研究请求保留为你的草稿；只有在你明确选择模型后，才会启动 Agent 回合。",
+    "action": "打开模型设置",
+    "placeholder": "选择模型后再发送这项研究请求……"
+  },
   "starter": {
     "eyebrow": "自然语言优先的药物经济学科研工作区",
     "title": "先说清楚研究问题",

@@ -23,6 +23,7 @@ export function HeorStarters({ onPick }: { onPick: (prompt: string) => void }) {
         {items.map(({ key, icon: Icon }) => (
           <button
             key={key}
+            type="button"
             onClick={() => onPick(t(`starter.${key}.prompt`))}
             className="group rounded-card border border-border bg-surface p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-card"
           >

@@ -4,6 +4,12 @@
   "review": "Review analysis",
   "closeReview": "Close analysis review",
   "placeholder": "Describe the decision problem, evidence gap, model change, or result you want to investigate…",
+  "modelRequired": {
+    "title": "Choose a model before sending",
+    "body": "AI4HEOR keeps the research request as your draft and will not start an agent turn until you explicitly select a model.",
+    "action": "Open model settings",
+    "placeholder": "Choose a model to send this research request…"
+  },
   "starter": {
     "eyebrow": "Natural-language pharmacoeconomics workspace",
     "title": "Start with the research question",
