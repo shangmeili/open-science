@@ -10,7 +10,7 @@
 > native point/diagnostic challenge, and
 > separate app-owned Human method reviews consolidated in a current-result review queue; and
 > native macOS and x86_64 Linux packaging.
-> The 0.1.22 x64 macOS DMG is content-verified; the 0.1.18 Linux `.deb` and `.rpm` are
+> The 0.1.22 x64 macOS DMG is content-verified; the 0.1.22 Linux `.deb` and `.rpm` are
 > built and content-verified from an isolated Ubuntu 22.04 builder. The `.deb` also passes
 > a clean Ubuntu 22.04 install and headless first start, while the `.rpm` passes the
 > equivalent native check on Fedora 42. Fail-closed native package evidence is wired
@@ -795,11 +795,11 @@ single expected Tauri bundle-type marker.
 The job writes the same release-evidence schema as macOS and Windows, including both
 package hashes and the deb/rpm parity result.
 
-Version 0.1.18 was additionally installed into brand-new native package environments. A
+Version 0.1.22 was additionally installed into brand-new native package environments. A
 headless X session on Ubuntu 22.04 after `.deb` installation and on Fedora 42 after `.rpm`
 installation reached simultaneous `ai4s-workbench` and `opencode serve` process readiness
 and created the initial `~/Documents/OpenScience` workspace. The independently extracted
-`.deb` and `.rpm` payloads each passed all 177 deterministic HEOR tests and all 260
+`.deb` and `.rpm` payloads each passed all 177 deterministic HEOR tests and all 265
 configured scientific resources matched the source bytes. This establishes clean native
 installation and headless runtime startup for both package formats, but it is not a visual
 desktop-session acceptance test. A real Linux desktop session remains a release check.

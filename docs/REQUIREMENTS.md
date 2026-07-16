@@ -508,11 +508,11 @@ competitors.
   first launch works without CLI knowledge.
 - **Acceptance.** A non-technical user installs and reaches a working first
   session on both macOS and Windows via a signed installer.
-- **Status.** 🟡 AI4HEOR 0.1.18 macOS x64 installer and Linux x86_64 `.deb`/`.rpm`
+- **Status.** 🟡 AI4HEOR 0.1.22 macOS x64 installer and Linux x86_64 `.deb`/`.rpm`
   shipped locally; pinned sidecars are bundled. Both Linux packages were built
   in an isolated Ubuntu 22.04 builder, structurally and byte-for-byte resource verified,
-  and passed all 177 deterministic HEOR tests from their extracted payloads, with all 260
-  configured resources matching source bytes. The 0.1.18
+  and passed all 177 deterministic HEOR tests from their extracted payloads, with all 265
+  configured resources matching source bytes. The 0.1.22
   macOS package independently passes all 177 deterministic HEOR tests. The Linux `.deb`
   additionally passed a clean Ubuntu 22.04 container install and headless first-start
   check with both the desktop process and bundled OpenCode server ready; the `.rpm`

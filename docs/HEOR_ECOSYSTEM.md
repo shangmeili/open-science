@@ -174,7 +174,7 @@ source-model validity, and treatment-duration alternatives as unresolved
 structural questions. The paired-bootstrap P0 now supplies a bounded source of
 candidate joint rows; detailed execution replay is portable while canonical
 joint-row consumption is independently audited by Python and native Rust. The
-0.1.18 now has native `.deb`/Ubuntu and `.rpm`/Fedora headless first-start evidence; the
+0.1.22 now has native `.deb`/Ubuntu and `.rpm`/Fedora headless first-start evidence; the
 app now consolidates current paired-bootstrap, NMA, anchored-MAIC, RWE-causal, and advanced-VOI
 Human method-review states without merging their authority records. The next release
 work is executing and inspecting the unified four-target package manifest, including the
