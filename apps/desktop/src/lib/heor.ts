@@ -19,6 +19,7 @@ export const HEOR_REPORT_DOCUMENT_PATH = "heor/report.md";
 export const HEOR_EVIDENCE_SEARCH_REQUEST_PATH = "heor/evidence-search-request.json";
 export const HEOR_EVIDENCE_SYNTHESIS_PATH = "heor/evidence-synthesis.json";
 export const HEOR_EVIDENCE_LIBRARY_PATH = "heor/evidence-library.json";
+export const HEOR_METHODS_WATCHLIST_PATH = "heor/methods-watchlist.json";
 export const HEOR_BASE_CASE_RESULT_PATH = "heor/results/base-case.json";
 export const HEOR_UNCERTAINTY_RESULT_PATH = "heor/results/uncertainty.json";
 export const HEOR_ADVANCED_VOI_PLAN_PATH = "heor/advanced-voi-plan.json";
@@ -1118,6 +1119,26 @@ export interface HeorEvidenceLibraryAudit {
   requiresOcrCount: number;
   failedCount: number;
   totalBytes: number;
+  errors: string[];
+}
+
+export interface HeorMethodsWatchlistAudit {
+  exists: boolean;
+  complete: boolean;
+  status: "missing" | "invalid" | "draft" | "ready_for_human_review";
+  watchlistId: string;
+  asOfDate: string;
+  watchlistSha256: string | null;
+  sourceCount: number;
+  currentCount: number;
+  draftCount: number;
+  unknownCount: number;
+  overdueCount: number;
+  changeCount: number;
+  unresolvedChangeCount: number;
+  affectedContractCount: number;
+  overdueSources: string[];
+  unresolvedChanges: string[];
   errors: string[];
 }
 
@@ -3420,6 +3441,12 @@ export async function auditHeorEvidenceLibrary(): Promise<HeorEvidenceLibraryAud
   return invoke<HeorEvidenceLibraryAudit>("audit_heor_evidence_library");
 }
 
+export async function auditHeorMethodsWatchlist(): Promise<HeorMethodsWatchlistAudit> {
+  if (!isTauri) return HEOR_BROWSER_DEMO_METHODS_WATCHLIST_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorMethodsWatchlistAudit>("audit_heor_methods_watchlist");
+}
+
 export async function addHeorLibraryFiles(): Promise<string[]> {
   if (!isTauri) return [];
   const { invoke } = await import("@tauri-apps/api/core");
@@ -3590,6 +3617,26 @@ export const HEOR_BROWSER_DEMO_EVIDENCE_LIBRARY_AUDIT: HeorEvidenceLibraryAudit 
   requiresOcrCount: 0,
   failedCount: 0,
   totalBytes: 1_280_000,
+  errors: [],
+};
+
+export const HEOR_BROWSER_DEMO_METHODS_WATCHLIST_AUDIT: HeorMethodsWatchlistAudit = {
+  exists: false,
+  complete: false,
+  status: "missing",
+  watchlistId: "",
+  asOfDate: "",
+  watchlistSha256: null,
+  sourceCount: 0,
+  currentCount: 0,
+  draftCount: 0,
+  unknownCount: 0,
+  overdueCount: 0,
+  changeCount: 0,
+  unresolvedChangeCount: 0,
+  affectedContractCount: 0,
+  overdueSources: [],
+  unresolvedChanges: [],
   errors: [],
 };
 

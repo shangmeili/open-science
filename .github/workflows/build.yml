@@ -86,6 +86,9 @@ jobs:
       - name: Validate researcher-led AI4HEOR harness
         run: python scripts/dev/test_heor_harness.py -v
 
+      - name: Test methods watchlist contract
+        run: python scripts/dev/test_heor_methods_watchlist.py -v
+
       - name: Validate packaged HEOR Python resources
         run: python scripts/dev/test_tauri_heor_resources.py -v
       - name: Test bounded network meta-analysis contracts

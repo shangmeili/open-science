@@ -17,6 +17,15 @@ Structured controls are secondary surfaces for inspecting parameters, resolving
 ambiguity, and recording human decisions; they must not turn the workbench into
 a form-led modeling application.
 
+Method currency follows the same boundary. The first-party
+`$heor-methods-watchlist` records official canonical links, observed revisions,
+dated Human checks, reuse status, affected platform contracts, and revalidation
+work in `heor/methods-watchlist.json`. Its native and portable audits can expose
+an overdue check or unresolved change, but cannot decide scientific relevance,
+grant content rights, rewrite downstream research artifacts, or approve a method.
+Restricted sources remain link-only unless the researcher supplies a lawful
+local snapshot and explicit rights basis.
+
 ## Accountabilities
 
 - The product owner sets scope and accepts product behavior.

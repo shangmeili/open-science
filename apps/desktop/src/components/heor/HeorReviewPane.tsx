@@ -32,6 +32,7 @@ import {
   auditHeorConceptualModel,
   auditHeorEvidence,
   auditHeorEvidenceLibrary,
+  auditHeorMethodsWatchlist,
   auditHeorEvidenceSelection,
   auditHeorEvidenceSearch,
   auditHeorEvidenceSynthesis,
@@ -62,6 +63,7 @@ import {
   HEOR_REPRODUCIBILITY_PACKAGE_PATH,
   HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
   HEOR_EVIDENCE_LIBRARY_PATH,
+  HEOR_METHODS_WATCHLIST_PATH,
   HEOR_EVIDENCE_SYNTHESIS_PATH,
   HEOR_PLAN_PATH,
   HEOR_REFERENCE_CASE_ASSESSMENT_PATH,
@@ -104,6 +106,7 @@ import {
   type HeorRunResult,
   type HeorEvidenceSearchAudit,
   type HeorEvidenceLibraryAudit,
+  type HeorMethodsWatchlistAudit,
   type HeorEvidenceSelectionAudit,
   type HeorEvidenceSynthesisAudit,
   type HeorImportCandidatesResponse,
@@ -273,6 +276,11 @@ type EvidenceLibraryState =
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorEvidenceLibraryAudit };
 
+export type MethodsWatchlistState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorMethodsWatchlistAudit };
+
 const EMPTY_SEARCH_LOG: HeorSearchAuthorizationLog = {
   events: [],
   chainHead: null,
@@ -426,6 +434,7 @@ export function HeorReviewPane({
   const [evidenceSynthesis, setEvidenceSynthesis] = useState<EvidenceSynthesisState>({ kind: "loading" });
   const [evidenceSelection, setEvidenceSelection] = useState<EvidenceSelectionState>({ kind: "loading" });
   const [evidenceLibrary, setEvidenceLibrary] = useState<EvidenceLibraryState>({ kind: "loading" });
+  const [methodsWatchlist, setMethodsWatchlist] = useState<MethodsWatchlistState>({ kind: "loading" });
   const [searchAuthorizations, setSearchAuthorizations] = useState(EMPTY_SEARCH_LOG);
   const [searchResult, setSearchResult] = useState<HeorSearchExecutionResponse | null>(null);
   const [importResult, setImportResult] = useState<HeorImportCandidatesResponse | null>(null);
@@ -477,6 +486,7 @@ export function HeorReviewPane({
       setEvidenceSynthesis({ kind: "invalid", message: t("synthesis.noProject") });
       setEvidenceSelection({ kind: "invalid", message: t("evidence.noProject") });
       setEvidenceLibrary({ kind: "invalid", message: t("library.noProject") });
+      setMethodsWatchlist({ kind: "invalid", message: t("methodsWatchlist.noProject") });
       setSearchAuthorizations(EMPTY_SEARCH_LOG);
       setApprovals(EMPTY_LOG);
       return;
@@ -500,6 +510,15 @@ export function HeorReviewPane({
     setEvidenceSynthesis({ kind: "loading" });
     setEvidenceSelection({ kind: "loading" });
     setEvidenceLibrary({ kind: "loading" });
+    setMethodsWatchlist({ kind: "loading" });
+    try {
+      setMethodsWatchlist({ kind: "ready", audit: await auditHeorMethodsWatchlist() });
+    } catch (error) {
+      setMethodsWatchlist({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
     try {
       setEvidenceLibrary({ kind: "ready", audit: await auditHeorEvidenceLibrary() });
     } catch (error) {
@@ -1523,6 +1542,13 @@ export function HeorReviewPane({
         )}
 
         {project && (
+          <MethodsWatchlistAssessment
+            state={methodsWatchlist}
+            onPrepare={() => onRequestRevision(t("methodsWatchlist.preparePrompt"))}
+          />
+        )}
+
+        {project && (
           <EvidenceSearchAssessment
             state={evidenceSearch}
             result={searchResult}
@@ -2405,6 +2431,68 @@ export function MethodReviewQueue({ items }: { items: MethodReviewQueueItem[] })
         })}
       </ul>
       <p className="mt-3 text-[10px] leading-4 text-muted">{t("methodReviewQueue.boundary")}</p>
+    </section>
+  );
+}
+
+export function MethodsWatchlistAssessment({
+  state,
+  onPrepare,
+}: {
+  state: MethodsWatchlistState;
+  onPrepare: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const issues = [
+    ...(audit?.overdueSources.map((source) => t("methodsWatchlist.overdueSource", { source })) ?? []),
+    ...(audit?.unresolvedChanges.map((change) => t("methodsWatchlist.unresolvedChange", { change })) ?? []),
+    ...(audit?.errors ?? []),
+    ...(state.kind === "invalid" ? [state.message] : []),
+  ];
+  const complete = Boolean(audit?.complete);
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        <RefreshCw size={16} className={complete ? "mt-0.5 text-ok" : "mt-0.5 text-warning"} />
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("methodsWatchlist.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+            {state.kind === "loading"
+              ? t("methodsWatchlist.loading")
+              : !audit?.exists
+                ? t("methodsWatchlist.missing")
+                : complete
+                  ? t("methodsWatchlist.complete", { date: audit.asOfDate })
+                  : t("methodsWatchlist.incomplete", { date: audit?.asOfDate || t("methodsWatchlist.unknownDate") })}
+          </div>
+        </div>
+      </div>
+      <div className="mt-1 font-mono text-[10px] text-muted">{HEOR_METHODS_WATCHLIST_PATH}</div>
+      {audit?.exists && (
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <Metric label={t("methodsWatchlist.sources")} value={String(audit.sourceCount)} />
+          <Metric label={t("methodsWatchlist.current")} value={String(audit.currentCount)} />
+          <Metric label={t("methodsWatchlist.changes")} value={String(audit.unresolvedChangeCount)} />
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      {!complete && state.kind !== "loading" && (
+        <button
+          type="button"
+          onClick={onPrepare}
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+        >
+          <MessageSquareText size={13} /> {t("methodsWatchlist.ask")}
+        </button>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("methodsWatchlist.note")}</p>
     </section>
   );
 }

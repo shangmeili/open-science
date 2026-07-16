@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Methods Watchlist"
+  short_description: "Track guidance currency and required HEOR revalidation"
+  default_prompt: "Use $heor-methods-watchlist to audit current HEOR method sources, changes, affected contracts, and revalidation work."

@@ -15,6 +15,7 @@ on:
       - "scripts/dev/test_heor_harness.py"
       - "scripts/dev/test_heor_artifact_contracts.py"
       - "scripts/dev/test_heor_local_evidence.py"
+      - "scripts/dev/test_heor_methods_watchlist.py"
       - "scripts/dev/test_network_meta_analysis.py"
       - "scripts/dev/test_population_adjusted_comparison.py"
       - "scripts/dev/test_rwe_causal_analysis.py"
@@ -46,6 +47,7 @@ on:
       - "scripts/dev/test_heor_harness.py"
       - "scripts/dev/test_heor_artifact_contracts.py"
       - "scripts/dev/test_heor_local_evidence.py"
+      - "scripts/dev/test_heor_methods_watchlist.py"
       - "scripts/dev/test_network_meta_analysis.py"
       - "scripts/dev/test_population_adjusted_comparison.py"
       - "scripts/dev/test_rwe_causal_analysis.py"
@@ -87,6 +89,8 @@ jobs:
         run: python scripts/dev/test_heor_artifact_contracts.py -v
       - name: Test local evidence search contract
         run: python scripts/dev/test_heor_local_evidence.py -v
+      - name: Test methods watchlist contract
+        run: python scripts/dev/test_heor_methods_watchlist.py -v
       - name: Test bounded network meta-analysis contracts
         run: python scripts/dev/test_network_meta_analysis.py -v
       - name: Test bounded anchored MAIC contracts

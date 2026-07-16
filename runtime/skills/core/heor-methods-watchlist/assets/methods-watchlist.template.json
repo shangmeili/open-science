@@ -1,0 +1,39 @@
+{
+  "schema_version": "0.1.0",
+  "watchlist_id": "replace-with-watchlist-id",
+  "status": "draft",
+  "as_of_date": "2026-07-17",
+  "source_order": [
+    "replace-with-source-id"
+  ],
+  "sources": {
+    "replace-with-source-id": {
+      "source_id": "replace-with-source-id",
+      "title": "Official method source title",
+      "organization": "Publishing organization",
+      "jurisdiction": "Applicable jurisdiction or international",
+      "source_type": "method_guideline",
+      "publication_status": "unknown",
+      "canonical_url": "https://example.org/official-method-source",
+      "access_mode": "link_only",
+      "rights_status": "link_only",
+      "rights_note": "Link only; no source content is redistributed.",
+      "revision": {
+        "label": "Revision label",
+        "published_on": null,
+        "last_checked_on": "2026-07-17",
+        "next_check_due": "2026-10-17"
+      },
+      "snapshot": null,
+      "affected_contracts": [
+        "replace-with-platform-contract"
+      ],
+      "monitoring_notes": "Describe how a Human will check the official source."
+    }
+  },
+  "change_order": [],
+  "changes": {},
+  "limitations": [
+    "Currency status records a dated Human check, not methodological or regulatory approval."
+  ]
+}

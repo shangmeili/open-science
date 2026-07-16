@@ -1,6 +1,6 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.20, 2026-07-16).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.21, 2026-07-17).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
@@ -10,7 +10,7 @@
 > native point/diagnostic challenge, and
 > separate app-owned Human method reviews consolidated in a current-result review queue; and
 > native macOS and x86_64 Linux packaging.
-> The 0.1.20 x64 macOS DMG is content-verified; the 0.1.18 Linux `.deb` and `.rpm` are
+> The 0.1.21 x64 macOS DMG is content-verified; the 0.1.18 Linux `.deb` and `.rpm` are
 > built and content-verified from an isolated Ubuntu 22.04 builder. The `.deb` also passes
 > a clean Ubuntu 22.04 install and headless first start, while the `.rpm` passes the
 > equivalent native check on Fedora 42. Fail-closed native package evidence is wired
@@ -223,6 +223,16 @@ fixed endpoints, bounded time/response sizes, JSON content checks, immutable
 run files, response hashes, and a separate hash-linked authorization log. No
 URL, header, credential, output path, or arbitrary upstream tool is supplied by
 the Agent.
+
+The first-party `heor-methods-watchlist` is deliberately a local control
+artifact rather than an unlicensed HTA scraper. A dependency-free validator and
+an independent Rust command audit strict schema `0.1.0`, source/change ordering,
+ISO dates, HTTPS canonical links, overdue checks, unresolved Human dispositions,
+safe `heor/method-sources/` paths, non-symlink files, reuse status, media types,
+and exact SHA-256 values. Completion is relative to the artifact's reproducible
+`as_of_date`; it does not imply that the file is current today. The review pane
+is read-only apart from routing preparation back to natural-language work, and
+the watchlist creates no approval gate.
 
 Candidate import is a second native trust boundary. It accepts only the latest
 explicit run path/hash supplied by the UI, verifies that pair against the

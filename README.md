@@ -73,6 +73,10 @@ in one continuous, auditable session.
 - **Local HEOR knowledge bases** — explicitly selected folders retain their hierarchy,
   are hash-bound and indexed locally, and can ground researcher-initiated learning
   without an automatic network call.
+- **Researcher-owned methods currency** — a dated local watchlist records official
+  links, revisions, rights status, affected contracts, and revalidation work;
+  AI4HEOR flags overdue or unresolved items without scraping restricted content or
+  approving scientific choices.
 - **Everything traces back** — figures, tables, reports, notebooks, and run outputs
   link to the exact code, inputs, environment, model output, and conversation that
   produced them.
@@ -285,7 +289,7 @@ target design as well as historical status notes.
 Near-term work is focused on executing the configured four-target hash-bound package
 manifest and Windows first-start gate, signed/notarized releases, physical Linux
 desktop-session verification, auto-update, richer connector hardening, and
-continued reproducibility review. The AI4HEOR 0.1.20 x64 macOS DMG is locally built and
+continued reproducibility review. The AI4HEOR 0.1.21 x64 macOS DMG is locally built and
 payload-verified, including all 177 deterministic HEOR tests against its packaged core.
 The AI4HEOR 0.1.18 Linux `.deb` and `.rpm` are also payload-verified, including all 177
 deterministic HEOR tests and 260 configured resources from each extracted package. The

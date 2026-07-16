@@ -119,6 +119,23 @@
     "repairPrompt": "Use $heor-model-design to create or repair heor/conceptual-model.json for the current decision problem. Preserve structural alternatives and uncertainty, run the deterministic validator, and do not create or claim human approval.",
     "note": "The app audits this independent artifact. Structural completeness permits human review; it does not establish model validity."
   },
+  "methodsWatchlist": {
+    "title": "Methods currency watchlist",
+    "loading": "Auditing the dated methods snapshot…",
+    "missing": "No methods watchlist has been prepared",
+    "complete": "Checks are current as of {{date}}",
+    "incomplete": "Human review is required for the snapshot as of {{date}}",
+    "unknownDate": "an unknown date",
+    "sources": "Sources",
+    "current": "Current",
+    "changes": "Open changes",
+    "overdueSource": "Overdue source check: {{source}}",
+    "unresolvedChange": "Unresolved method change: {{change}}",
+    "ask": "Ask Agent to prepare or update the watchlist",
+    "preparePrompt": "Use $heor-methods-watchlist to prepare or update heor/methods-watchlist.json for the method sources relevant to my current research question. Work through natural-language discussion first. Use official canonical links, record the exact as-of and next-check dates, and identify affected AI4HEOR contracts. Do not fetch or redistribute restricted content, infer reuse rights, change downstream artifacts, or make methodological approval decisions. Leave every change disposition and revalidation decision to me.",
+    "note": "This is a reproducible currency snapshot, not an approval. AI4HEOR does not fetch or redistribute source content; the Human researcher owns relevance, rights, change disposition, and revalidation decisions.",
+    "noProject": "There is no current project for a methods watchlist."
+  },
   "library": {
     "title": "Local evidence library",
     "loading": "Auditing the local library…",

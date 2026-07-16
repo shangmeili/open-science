@@ -119,6 +119,23 @@
     "repairPrompt": "使用 $heor-model-design，为当前决策问题创建或修复 heor/conceptual-model.json。保留结构备选和结构不确定性，运行确定性校验器，不要创建或声称获得人工批准。",
     "note": "应用会独立审计该文件。结构完整仅允许进入人工审阅，不代表模型已经有效。"
   },
+  "methodsWatchlist": {
+    "title": "方法学时效性清单",
+    "loading": "正在审计带日期的方法学快照…",
+    "missing": "尚未建立方法学时效性清单",
+    "complete": "截至 {{date}}，所有检查均在有效期内",
+    "incomplete": "截至 {{date}} 的快照需要研究者处理",
+    "unknownDate": "未知日期",
+    "sources": "来源",
+    "current": "现行",
+    "changes": "待处理变更",
+    "overdueSource": "来源检查已过期：{{source}}",
+    "unresolvedChange": "方法学变更尚未处理：{{change}}",
+    "ask": "让 Agent 准备或更新清单",
+    "preparePrompt": "使用 $heor-methods-watchlist，为我当前的研究问题准备或更新 heor/methods-watchlist.json。先通过自然语言讨论研究范围；使用官方规范链接，记录准确的快照日期和下次检查日期，并识别受影响的 AI4HEOR 契约。不得抓取或再分发受限内容，不得推定内容使用权，不得擅自修改下游产物，也不得作出方法学审批决定。所有变更处置和重新验证决定均由我完成。",
+    "note": "这里记录的是可复现的时效性快照，不是审批。AI4HEOR 不抓取或再分发来源正文；研究者决定相关性、权利依据、变更处置和重新验证。",
+    "noProject": "当前没有可建立方法学清单的项目。"
+  },
   "library": {
     "title": "本地证据库",
     "loading": "正在审计本地证据库……",

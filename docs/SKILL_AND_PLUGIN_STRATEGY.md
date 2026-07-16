@@ -1,6 +1,6 @@
 # AI4HEOR Skill and Plugin Strategy
 
-Status: evidence and registry refresh completed 2026-07-15.
+Status: evidence and registry refresh completed 2026-07-17.
 
 ## Decision
 
@@ -71,6 +71,17 @@ adversarial tests, and app-owned Human authority as separate admission gates;
 popularity, generic quality scores, or Skill-format conformance cannot substitute
 for them. See [Xu et al., 2026](https://arxiv.org/abs/2605.02709).
 
+A 2026-07-17 primary-source licensing check also narrowed the HTA connector
+backlog. NICE's syndication API requires an approved application, licence, and
+API key, with AI use declared in the application; [CDA-AMC's terms of use](https://www.cda-amc.ca/terms-use)
+restrict electronic copying/storage outside stated personal research conditions;
+and the [Australian Department of Health copyright terms](https://www.health.gov.au/using-our-websites/copyright)
+limit unlicensed reuse to own/internal non-commercial use. AI4HEOR therefore
+ships a link-only methods watchlist first and does not infer that public web
+access grants scraping, caching, AI-processing, or redistribution rights. See
+the [NICE API key guide](https://www.nice.org.uk/corporate/ecd10/chapter/using-your-api-key-to-explore-nice-content)
+and [NICE application form](https://www.nice.org.uk/reusing-our-content/nice-syndication-api/nice-syndication-api-application-form).
+
 The desktop now exposes one compact method-review queue for current app-audited
 paired-bootstrap, NMA, anchored-MAIC, and advanced-VOI results. This is platform
 integration, not another Skill: it preserves each method's exact result binding and
@@ -81,7 +92,7 @@ or blocked work back to the natural-language conversation.
 
 The following platform Skills are already implemented and bundled: orchestration,
 input provenance, evidence search, local evidence, evidence synthesis, reference
-case assessment, conceptual model design, cohort state transition, constant event
+case assessment, methods currency watchlist, conceptual model design, cohort state transition, constant event
 rates, selected absolute survival curves, probability time conversion,
 background-plus-excess mortality, RR/OR relative effects, constant HR application,
 survival extrapolation review, deterministic survival-curve materialization,
@@ -143,6 +154,7 @@ gate, and packaged cross-platform evidence.
 
 | Priority | First-party Skill asset | Narrow responsibility and stop boundary |
 | --- | --- | --- |
+| Shipped alpha | `heor-methods-watchlist` | Maintain strict schema `0.1.0` dated source/change records with official HTTPS links, reuse status, optional lawful local snapshot hashes, affected platform contracts, and Human-owned change disposition/revalidation. Portable and native audits expose overdue or unresolved work; they never fetch restricted content, infer rights, rewrite downstream artifacts, or approve a method. |
 | Shipped alpha | `heor-survival-fit-execution` | Preflight and run one Human-authorized intercept-only local survHE MLE job from a strict two-column CSV; bind exact source/runtime/output hashes, preserve failures, independently challenge every converged admitted family, and export auditable within-curve estimation-scale covariance. No installation, automatic selection, cross-curve dependence claim, or scientific-validity claim. |
 | Shipped alpha | `heor-survival-extrapolation-review` | Validate and natively audit one or an ordered collection of schema `0.2.0` external-import or `0.3.0` first-party-execution survival comparisons, selected plan distributions, landmarks, diagnostics, plausibility, hashes, alternatives, and awaiting-Human gates. Automatic selection and cross-curve validity inference are forbidden. |
 | Shipped alpha | `heor-survival-curve-materialization` | Reproduce Human-selected exponential, Weibull, Gompertz, gamma, generalized-gamma, generalized-F, lognormal, or loglogistic curves from exact typed fit-output bytes on the analysis cycle grid. The manifest binds review, family, parameterization, fit output, evaluator, values, and exact ordered basis IDs; the standalone validator and native Rust re-read source bytes and independently recalculate every value. It never fits, transforms backend coefficients, selects a family, infers covariance, or applies treatment effects. |
@@ -154,7 +166,7 @@ gate, and packaged cross-platform evidence.
 | Shipped alpha | `heor-population-adjusted-comparison` | Schema `0.1.0` admits one anchored connected two-trial comparison: local pseudonymous IPD for B versus A, aggregate C versus A evidence and target means, independent randomized parallel two-arm trials, and 1–8 Human-selected scale-specific effect modifiers. A dependency-free exponential-tilting engine balances means, reports weights and ESS, estimates log OR or MD effects, and refits every deterministic stratified bootstrap replicate. Portable replay covers calibration, point estimates, and all draws; native Rust independently recomputes calibration and point effects only. The exact seven-artifact graph stops at an app-owned eight-item Human method review. Unanchored MAIC, STC, ML-NMR, larger or disconnected networks, survival, automatic modifier selection, trimming, missing data, and automatic economic-model use remain unshipped. |
 | Shipped alpha | `heor-rwe-causal-analysis` | Schema `0.1.0` admits one Human-specified active-comparator new-user target trial over a strict local pseudonymous one-row-per-person cohort, two baseline strategies, fixed complete follow-up, one binary outcome, a source-cohort ATE risk difference, and 1–12 Human-selected baseline confounders. A dependency-free unpenalized Logistic model produces untrimmed stabilized ATE-IPTW, overlap, weight, ESS and pre/post-SMD diagnostics; every deterministic arm-stratified bootstrap replicate refits the complete point analysis. Portable replay covers every draw; native Rust independently challenges the point model and diagnostics. The exact six-artifact graph stops at an app-owned eight-item Human method review. Automatic design/confounder selection, missingness, censoring, time-varying treatment/confounding, survival, matching, trimming, doubly robust estimators, causal-validity claims, and automatic economic-model use remain unshipped. |
 | Shipped alpha | `heor-advanced-value-of-information` | Schema `0.1.0` binds a converged uncertainty result, explicit annual affected population/lifetime/discounting, correlation-closed nested-Monte-Carlo EVPPI groups, and one independent Lognormal target with a Human-specified Normal sample-mean study model, delay, candidate sizes, and costs. Python calculates population EVPI, EVPPI, EVSI, and ENBS; portable and native checks bind exact input/replay/result hashes and independently reproduce summaries; an app-owned eight-item Human method review gates research-prioritization use. The standard route is limited to OR/Lognormal uncertainty `0.9.0`, the current fixed-survival component route to `0.13.0`; joint survival, HR/Uniform EVSI, correlated or multi-parameter learning, optimal-design claims, and funding/reimbursement authority remain rejected. |
-| P1 | `heor-hta-source-connectors` | Expose individually admitted PubMed, ClinicalTrials.gov, NICE, CDA-AMC, PBAC, G-BA/IQWiG, HAS, ICER, and jurisdiction cost-source queries behind source-specific schemas, caching, egress disclosure, and citation snapshots. An optional HEORAgent adapter may implement a connector only after per-tool admission. |
+| P1 | `heor-hta-source-connectors` | Extend the already admitted PubMed/ClinicalTrials.gov route one source at a time. NICE API use requires an approved licence and key; CDA-AMC and PBAC content reuse must follow their source-specific terms. Until a connector has compatible rights, typed egress/cache contracts, and per-tool admission evidence, `heor-methods-watchlist` stores only canonical links and Human checks. An optional HEORAgent adapter may implement a connector only after per-tool admission. |
 | Shipped alpha | `heor-reproducibility-package` | Assemble a bounded release companion containing the exact report graph, three deterministic replay recipes, current first-party runtime boundary, input/output hashes, data-availability statement, source/exhibit register, and seven required claim-evidence links. Portable and native audits verify every link; the existing Human release event binds the package without adding another gate. Restricted content is never copied, and structural traceability is never presented as scientific or external reproducibility. |
 | P2 | `heor-model-calibration` | Define calibration targets, likelihood or loss, parameter bounds, identifiability, multi-start diagnostics, and held-out validation without silently overwriting evidence inputs. |
 | P2 | `heor-semi-markov-microsimulation` | Add tunnel/time-in-state and patient-level history under a distinct model contract, deterministic seeds, trace sampling, and performance limits. Do not stretch the current cohort schedule schema. |
@@ -174,8 +186,8 @@ also needs these first-class assets:
   credentials, executable commands, timeouts, response caps, and kill switches;
 - golden HEOR cases, adversarial cases, cross-engine parity fixtures, and method
   review checklists for every admitted capability;
-- a methods watchlist that records current primary guidance, review date, changed
-  sections, affected contracts, and required revalidation;
+- the shipped methods watchlist plus a future licensed update workflow that
+  preserves prior revisions and triggers explicit Human revalidation;
 - immutable run manifests containing source hashes, model/provider identity,
   tool/package versions, seeds, exact commands, outputs, limitations, and Human
   decisions.

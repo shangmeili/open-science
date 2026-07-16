@@ -19,6 +19,7 @@ mod heor_evidence;
 mod heor_evidence_review;
 mod heor_joint_survival_uncertainty;
 mod heor_library;
+mod heor_methods_watchlist;
 mod heor_network_meta_analysis;
 mod heor_paired_survival_bootstrap;
 mod heor_parametric_survival;
@@ -173,6 +174,7 @@ pub fn run() {
             heor_library::audit_heor_evidence_library,
             heor_library::search_heor_evidence_library,
             heor_library::sync_heor_evidence_library,
+            heor_methods_watchlist::audit_heor_methods_watchlist,
             heor_synthesis::audit_heor_evidence_synthesis,
             heor_synthesis::import_heor_search_candidates,
             heor_survival_execution::audit_heor_survival_fit_execution,

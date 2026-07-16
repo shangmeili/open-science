@@ -21,6 +21,7 @@ import {
   EvidenceVerificationDialog,
   HeorReviewPane,
   MethodReviewQueue,
+  MethodsWatchlistAssessment,
   NetworkMetaAnalysisAssessment,
   NetworkMetaAnalysisReviewDialog,
   PopulationAdjustedComparisonAssessment,
@@ -35,6 +36,44 @@ import {
 afterEach(() => useUiStore.getState().setLocale("en"));
 
 describe("AI4HEOR human review pane", () => {
+  it("keeps methods currency review researcher-led and natural-language first", async () => {
+    const onPrepare = vi.fn();
+    render(
+      <MethodsWatchlistAssessment
+        state={{
+          kind: "ready",
+          audit: {
+            exists: true,
+            complete: false,
+            status: "ready_for_human_review",
+            watchlistId: "methods-2026-07",
+            asOfDate: "2026-07-17",
+            watchlistSha256: "a".repeat(64),
+            sourceCount: 2,
+            currentCount: 1,
+            draftCount: 0,
+            unknownCount: 0,
+            overdueCount: 1,
+            changeCount: 1,
+            unresolvedChangeCount: 1,
+            affectedContractCount: 2,
+            overdueSources: ["nice"],
+            unresolvedChanges: ["nice-update"],
+            errors: [],
+          },
+        }}
+        onPrepare={onPrepare}
+      />,
+    );
+    expect(screen.getByText(/Overdue source check: nice/)).toBeInTheDocument();
+    expect(screen.getByText(/Unresolved method change: nice-update/)).toBeInTheDocument();
+    expect(screen.getByText(/Human researcher owns relevance/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", {
+      name: "Ask Agent to prepare or update the watchlist",
+    }));
+    expect(onPrepare).toHaveBeenCalledOnce();
+  });
+
   const pairedAudit: HeorPairedBootstrapAudit = {
     complete: true,
     reviewable: true,
