@@ -5,6 +5,7 @@ import {
   BookOpen,
   Check,
   Circle,
+  FilePlus2,
   FileJson,
   FolderPlus,
   Loader2,
@@ -44,6 +45,7 @@ import {
   auditHeorRweCausalAnalysis,
   auditHeorReporting,
   auditHeorReproducibility,
+  addHeorLibraryDirectory,
   addHeorLibraryFiles,
   browserDemoRun,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
@@ -147,6 +149,13 @@ const EVIDENCE_REVIEW_DECISIONS = ["confirmed", "rejected"] as const;
 const PAIRED_BOOTSTRAP_REVIEW_ACTIONS = ["accept", "reject"] as const;
 const NMA_REVIEW_ACTIONS = ["accept", "reject"] as const;
 const ADVANCED_VOI_REVIEW_ACTIONS = ["accept", "reject"] as const;
+const LIBRARY_SYNC_SOURCE = {
+  none: "none",
+  files: "files",
+  folder: "folder",
+} as const;
+
+type LibrarySyncSource = typeof LIBRARY_SYNC_SOURCE[keyof typeof LIBRARY_SYNC_SOURCE];
 
 const EMPTY_LOG: HeorApprovalLog = {
   events: [],
@@ -1331,14 +1340,24 @@ export function HeorReviewPane({
     }
   };
 
-  const syncLibrary = async (pickFiles: boolean) => {
+  const syncLibrary = async (source: LibrarySyncSource) => {
     if (!project || librarySyncing || !isTauri) return;
     setLibrarySyncing(true);
     try {
-      if (pickFiles) await addHeorLibraryFiles();
+      if (source === LIBRARY_SYNC_SOURCE.files) await addHeorLibraryFiles();
+      const directoryImport = source === LIBRARY_SYNC_SOURCE.folder
+        ? await addHeorLibraryDirectory()
+        : null;
+      if (directoryImport && directoryImport.added.length === 0
+        && directoryImport.skipped.length === 0) return;
       const audit = await syncHeorEvidenceLibrary(project.id);
       setEvidenceLibrary({ kind: "ready", audit });
-      toast.success(t("toast.librarySynced"));
+      toast.success(directoryImport
+        ? t("toast.libraryFolderSynced", {
+          added: directoryImport.added.length,
+          skipped: directoryImport.skipped.length,
+        })
+        : t("toast.librarySynced"));
     } catch (error) {
       toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -1496,8 +1515,9 @@ export function HeorReviewPane({
           <EvidenceLibraryAssessment
             state={evidenceLibrary}
             syncing={librarySyncing}
-            onAdd={() => void syncLibrary(true)}
-            onSync={() => void syncLibrary(false)}
+            onAddFiles={() => void syncLibrary(LIBRARY_SYNC_SOURCE.files)}
+            onAddFolder={() => void syncLibrary(LIBRARY_SYNC_SOURCE.folder)}
+            onSync={() => void syncLibrary(LIBRARY_SYNC_SOURCE.none)}
             onAsk={() => onRequestRevision(t("library.searchPrompt"))}
           />
         )}
@@ -2392,13 +2412,15 @@ export function MethodReviewQueue({ items }: { items: MethodReviewQueueItem[] })
 function EvidenceLibraryAssessment({
   state,
   syncing,
-  onAdd,
+  onAddFiles,
+  onAddFolder,
   onSync,
   onAsk,
 }: {
   state: EvidenceLibraryState;
   syncing: boolean;
-  onAdd: () => void;
+  onAddFiles: () => void;
+  onAddFolder: () => void;
   onSync: () => void;
   onAsk: () => void;
 }) {
@@ -2456,13 +2478,23 @@ function EvidenceLibraryAssessment({
         {isTauri && (
           <button
             disabled={syncing}
-            onClick={onAdd}
+            onClick={onAddFolder}
             className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline disabled:opacity-50"
           >
             {syncing
               ? <Loader2 size={13} className="animate-spin" />
               : <FolderPlus size={13} />}
-            {t("library.add")}
+            {t("library.addFolder")}
+          </button>
+        )}
+        {isTauri && (
+          <button
+            disabled={syncing}
+            onClick={onAddFiles}
+            className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline disabled:opacity-50"
+          >
+            <FilePlus2 size={13} />
+            {t("library.addFiles")}
           </button>
         )}
         {isTauri && (

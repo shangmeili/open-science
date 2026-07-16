@@ -1,9 +1,10 @@
-import { BookOpenCheck, FileSearch, Route, Search } from "lucide-react";
+import { BookOpenCheck, FileSearch, GraduationCap, Route, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export function HeorStarters({ onPick }: { onPick: (prompt: string) => void }) {
   const { t } = useTranslation("heor");
   const items = [
+    { key: "learn" as const, icon: GraduationCap },
     { key: "scope" as const, icon: Route },
     { key: "search" as const, icon: Search },
     { key: "inputs" as const, icon: FileSearch },

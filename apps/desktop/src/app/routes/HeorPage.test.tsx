@@ -30,7 +30,8 @@ describe("AI4HEOR conversation route", () => {
     expect(
       await screen.findByRole("heading", { name: "Start with the research question" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/forms stay secondary/i)).toBeInTheDocument();
+    expect(screen.getByText(/You frame the question and make scientific choices/i))
+      .toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Describe the decision problem/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review analysis" })).toBeInTheDocument();
   });
@@ -54,6 +55,27 @@ describe("AI4HEOR conversation route", () => {
     );
     expect(sendPrompt).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
+  });
+
+  it("starts local-library learning as a Human-reviewed natural-language draft", async () => {
+    const sendPrompt = vi.fn().mockResolvedValue("session-1");
+    useRuntimeStore.setState({
+      status: "ready",
+      currentId: null,
+      defaultModel: "openai/gpt-5.2",
+      sendPrompt,
+    });
+    renderAt("/heor");
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Learn from my local HEOR library/i }),
+    );
+
+    const draft = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
+    expect(draft).toContain("$heor-local-evidence");
+    expect(draft).toContain("First ask what I want to learn and my current level");
+    expect(draft).toContain("Do not use the network");
+    expect(sendPrompt).not.toHaveBeenCalled();
   });
 
   it("blocks agent turns until a model is explicitly selected", async () => {

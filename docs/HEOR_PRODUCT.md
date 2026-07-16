@@ -452,17 +452,26 @@ engine-returned currency instead of a hard-coded jurisdiction.
 ## Local evidence library
 
 The shipped alpha accepts PDF, plain text, Markdown, CSV, and JSON sources under
-`heor/library`. Native sync rejects symlinks, caps file count, source bytes, and
-total extracted text, hashes the exact source and derived index, extracts
-searchable text without a model or network call, and writes a reviewable
-`heor/evidence-library.json`. The SQLite index stays under `.openscience`, is
-serialized against concurrent access, and is rebuildable.
+`heor/library`. A researcher can explicitly select either individual files or a
+knowledge-base folder. Folder import preserves its relative hierarchy under a
+new library root, reports hidden and unsupported entries, rejects symbolic links
+and any directory that contains or sits inside the active workspace, and never
+auto-scans a parent or sibling directory. Native sync caps file count, source
+bytes, and total extracted text, hashes the exact source and derived index,
+extracts searchable text without a model or network call, and writes a
+reviewable `heor/evidence-library.json`. The SQLite index stays under
+`.openscience`, is serialized against concurrent access, and is rebuildable.
 
 Natural-language retrieval routes through `$heor-local-evidence`. Its portable
 search script re-verifies every indexed source hash and every returned page-text
 hash, then emits compact snippets with exact local path, page, and source
 SHA-256. Changed bytes invalidate search until a native rescan. Searchable
 results are extracted evidence, not appraisal or an automatic model input.
+The natural-language learning starter remains a researcher-authored draft: it
+first asks for the researcher's learning goal and current level, then uses the
+same deterministic local retrieval contract. It does not start a turn, select a
+model, use the network, or turn a generated learning path into scientific
+authority without explicit researcher action.
 Image-only PDFs are `requires_ocr`; encrypted, malformed, unsupported, or
 oversized documents remain explicit issues. OCR, layout/table reconstruction,
 semantic embeddings, and licensed corpus connectors are not silently inferred

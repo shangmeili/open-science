@@ -1,14 +1,14 @@
 <div align="center">
 
-[![Open Science Desktop — 本地优先 AI 科研桌面工作台](./docs/assets/banner.webp)](https://github.com/ai4s-research/open-science)
+[![AI4HEOR — 本地优先的药物经济学与 HEOR 工作台](./docs/assets/banner.webp)](https://github.com/ai4s-research/open-science)
 
-# Open Science Desktop
+# AI4HEOR
 
-**本地优先、模型无关的 macOS、Windows & Linux AI 科研桌面工作台。**
+**本地优先、模型无关的 macOS、Windows & Linux 药物经济学与 HEOR 工作台。**
 
-原名 Open Science。它是 Claude Science 及同类 AI-for-science 工作台的开源桌面替代：
-基于 Tauri、MCP、agent skills 和可复现工件构建。它把智能体、笔记本、文件、图表、
-报告、运行记录和审查连接成一条可审计的桌面工作流。
+AI4HEOR 基于开源项目 Open Science Desktop 开发，使用 Tauri、MCP、
+Skills 和可复现工件。自然语言是主交互，表单只辅助检查与人工复核。
+人类研究者主导科学工作；配置的模型/运行时协助整理证据、执行、检查与解释。
 
 <p>
   <a href="./README.md">English</a> ·
@@ -36,7 +36,9 @@
 
 ---
 
-🎉 **认可：** Open Science Desktop 在面向自主科研智能体的端到端基准 [ResearchClawBench](https://internscience.github.io/ResearchClawBench-Home/) 上，按已评分任务平均分排名第 1（Pass@1 榜单，2026 年 7 月 9 日）。
+🎉 **平台源流：** 上游 Open Science Desktop 在 [ResearchClawBench](https://internscience.github.io/ResearchClawBench-Home/)
+的已评分任务平均分排名第 1（Pass@1，2026 年 7 月 9 日）。这一上游
+Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不能证明产出有效。
 
 ---
 
@@ -57,9 +59,13 @@
 
 ## 它能做什么
 
-**跑完整个科研闭环**——从一个宽泛的方向到一篇成稿论文：探索、文献综述、假设、实验代码、分析、绘图、写作，全部在一次连续、可审计的会话里完成。
+**支持人类主导的 HEOR 工作流**——从研究者界定的问题出发，形成可复核的
+证据、确定性分析、验证与报告工件，全程保持可审计。
 
-- **自主科研智能体**：内置的 `ai4s-agent` 端到端串起各专项技能(探索 → 综述 → 实验 → 写作)，每一步都把一个真实、可检查的工件落到你的工作区里,而不只是一条聊天回复。
+- **自然语言优先的辅助**：研究者发起并控制工作；模型/运行时在有界限的步骤中
+  提出建议或执行，留下真实可检查的工件，但不取得科学判断权。
+- **本地 HEOR 知识库**：明确选定的文件夹保留层级，在本地绑定哈希并建立索引，
+  用于研究者发起的学习，不会自动联网。
 - **一切都可回溯**：图、表、报告、笔记本和运行输出都连回生成它们的确切代码、输入、环境、模型输出和对话。
 - **本地优先，数据归你**：会话、数据、溯源、笔记本和运行记录都在本机的本地文件夹里,默认不外流。
 - **模型无关运行时**：UI 通过 `packages/sdk` 调用内置固定版本的 OpenCode sidecar——自带模型即可;模型提供方、技能和 MCP 服务器保持可插拔。
@@ -68,7 +74,8 @@
 
 ## 效果演示
 
-**一句提示 -> 一份完整、可追溯的分析。**
+**研究者的请求 -> 可复核、可追溯的工作。** 以下是继承的桌面工作台界面示例；
+AI4HEOR 在此基础上增加确定性 HEOR 引擎和由人持有的科学关口。
 
 ![端到端剂量-响应分析：智能体运行代码，产出拟合图与报告](./docs/assets/showcase-workflow.webp)
 
@@ -95,7 +102,8 @@
 
 ## 当前能力
 
-**把科研闭环做成技能。** 一个元技能跑完整条流水线;每个阶段都是一个自足的技能,产出真实、可评审的工件——在 OpenCode 支持的任意模型上都能跑:
+**把科研辅助收敛为有界限的 Skills。** AI4HEOR 的第一方 Skill 只路由研究者
+界定的任务，不取得批准权或方法选择权。以下上游模式仅作为停用的改造候选：
 
 | 技能 | 职责 | 主要产出 |
 | --- | --- | --- |
@@ -239,7 +247,10 @@ pnpm lint
 产品和架构说明位于 [`docs/PRD.md`](./docs/PRD.md) 和
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
-近期工作集中在签名/notarize 发布、更广的 Windows/Linux 验证、自动更新、连接器加固，以及继续强化可复现性审查。
+近期工作集中在四目标哈希绑定验包、Windows 首次启动关口、签名/notarize
+发布、真实 Linux 桌面会话验证、自动更新和连接器加固。AI4HEOR `0.1.19` x64
+macOS DMG 已完成本地内容验证；`0.1.18` Linux `.deb`/`.rpm` 仍是当前已验证的
+Linux 包。这些工程证据不代表科学有效性。
 
 ## 参与贡献
 

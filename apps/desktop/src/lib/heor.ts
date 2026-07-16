@@ -1135,6 +1135,11 @@ export interface HeorEvidenceLibrarySearchResponse {
   hits: HeorEvidenceLibrarySearchHit[];
 }
 
+export interface HeorLibraryDirectoryImport {
+  added: string[];
+  skipped: string[];
+}
+
 export interface HeorImportCandidatesRequest {
   projectId: string;
   outputPath: string;
@@ -3419,6 +3424,12 @@ export async function addHeorLibraryFiles(): Promise<string[]> {
   if (!isTauri) return [];
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<string[]>("add_heor_library_files");
+}
+
+export async function addHeorLibraryDirectory(): Promise<HeorLibraryDirectoryImport> {
+  if (!isTauri) return { added: [], skipped: [] };
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorLibraryDirectoryImport>("add_heor_library_directory");
 }
 
 export async function syncHeorEvidenceLibrary(projectId: string): Promise<HeorEvidenceLibraryAudit> {

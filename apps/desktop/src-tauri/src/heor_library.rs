@@ -90,6 +90,13 @@ pub struct LibrarySearchResponse {
     pub hits: Vec<LibrarySearchHit>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryDirectoryImport {
+    pub added: Vec<String>,
+    pub skipped: Vec<String>,
+}
+
 #[derive(Debug)]
 struct SourceFile {
     path: String,
@@ -266,6 +273,157 @@ fn validate_import_sources(workspace: &Path, selected: &[PathBuf]) -> Result<Vec
         sizes.push(metadata.len());
     }
     Ok(sizes)
+}
+
+fn copy_checked(source: &Path, destination: &Path, expected_bytes: u64) -> Result<(), String> {
+    let mut input = std::fs::File::open(source)
+        .map_err(|error| format!("could not open selected evidence: {error}"))?;
+    let mut output = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(destination)
+        .map_err(|error| format!("could not create evidence destination: {error}"))?;
+    let copied = std::io::copy(&mut input, &mut output)
+        .map_err(|error| format!("could not copy evidence: {error}"))?;
+    if copied != expected_bytes || copied > MAX_FILE_BYTES {
+        return Err("selected evidence changed during import".into());
+    }
+    output
+        .sync_all()
+        .map_err(|error| format!("could not sync imported evidence: {error}"))?;
+    Ok(())
+}
+
+fn import_library_directory(
+    workspace: &Path,
+    selected_directory: &Path,
+) -> Result<LibraryDirectoryImport, String> {
+    let workspace = workspace
+        .canonicalize()
+        .map_err(|error| format!("workspace unavailable: {error}"))?;
+    let selected_metadata = std::fs::symlink_metadata(selected_directory)
+        .map_err(|error| format!("could not inspect selected directory: {error}"))?;
+    if selected_metadata.file_type().is_symlink() || !selected_metadata.is_dir() {
+        return Err(
+            "selected knowledge base must be a regular directory, not a symbolic link".into(),
+        );
+    }
+    let selected = selected_directory
+        .canonicalize()
+        .map_err(|error| format!("selected knowledge base unavailable: {error}"))?;
+    if selected.starts_with(&workspace) || workspace.starts_with(&selected) {
+        return Err(
+            "selected knowledge base must not contain, or be contained by, the current workspace"
+                .into(),
+        );
+    }
+
+    let mut directories = vec![selected.clone()];
+    let mut sources = Vec::<(PathBuf, PathBuf)>::new();
+    let mut skipped = Vec::new();
+    while let Some(directory) = directories.pop() {
+        let mut entries = std::fs::read_dir(&directory)
+            .map_err(|error| format!("could not read selected knowledge base: {error}"))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| format!("could not read selected knowledge-base entry: {error}"))?;
+        entries.sort_by_key(|entry| entry.file_name());
+        for entry in entries {
+            let path = entry.path();
+            let relative = path
+                .strip_prefix(&selected)
+                .map_err(|_| "selected knowledge-base entry escaped its directory")?
+                .to_path_buf();
+            let relative_label = relative
+                .components()
+                .map(|part| part.as_os_str().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/");
+            let file_type = entry.file_type().map_err(|error| {
+                format!("could not inspect selected entry {relative_label}: {error}")
+            })?;
+            if file_type.is_symlink() {
+                return Err(format!(
+                    "selected knowledge base contains a symbolic link: {relative_label}"
+                ));
+            }
+            let hidden = entry.file_name().to_string_lossy().starts_with('.');
+            if hidden {
+                skipped.push(if file_type.is_dir() {
+                    format!("{relative_label}/")
+                } else {
+                    relative_label
+                });
+                continue;
+            }
+            if file_type.is_dir() {
+                directories.push(path);
+            } else if file_type.is_file() {
+                if media_type(&path).is_some() {
+                    sources.push((path, relative));
+                } else {
+                    skipped.push(relative_label);
+                }
+            } else {
+                return Err(format!(
+                    "selected knowledge base contains a non-regular entry: {relative_label}"
+                ));
+            }
+        }
+    }
+    sources.sort_by(|left, right| left.1.cmp(&right.1));
+    skipped.sort();
+    if sources.is_empty() {
+        return Err(
+            "selected knowledge base contains no supported PDF, TXT, Markdown, CSV, or JSON files"
+                .into(),
+        );
+    }
+
+    let selected_files = sources
+        .iter()
+        .map(|(source, _)| source.clone())
+        .collect::<Vec<_>>();
+    let sizes = validate_import_sources(&workspace, &selected_files)?;
+    let library = ensure_library(&workspace)?;
+    let source_name = selected
+        .file_name()
+        .ok_or("selected knowledge base has no directory name")?
+        .to_string_lossy()
+        .to_string();
+    let destination_root = (0..10_000)
+        .map(|number| {
+            if number == 0 {
+                library.join(&source_name)
+            } else {
+                library.join(format!("{source_name}-{number}"))
+            }
+        })
+        .find(|candidate| std::fs::symlink_metadata(candidate).is_err())
+        .ok_or("could not allocate a unique knowledge-base directory name")?;
+    std::fs::create_dir(&destination_root)
+        .map_err(|error| format!("could not create knowledge-base destination: {error}"))?;
+
+    let import_result = (|| -> Result<Vec<String>, String> {
+        let mut added = Vec::with_capacity(sources.len());
+        for ((source, relative), expected_bytes) in sources.iter().zip(sizes) {
+            let destination = destination_root.join(relative);
+            let parent = destination
+                .parent()
+                .ok_or("invalid knowledge-base destination")?;
+            std::fs::create_dir_all(parent)
+                .map_err(|error| format!("could not create knowledge-base hierarchy: {error}"))?;
+            copy_checked(source, &destination, expected_bytes)?;
+            added.push(relative_slash(&destination, &workspace)?);
+        }
+        Ok(added)
+    })();
+    match import_result {
+        Ok(added) => Ok(LibraryDirectoryImport { added, skipped }),
+        Err(error) => {
+            let _ = std::fs::remove_dir_all(&destination_root);
+            Err(error)
+        }
+    }
 }
 
 fn extract_pages(source: &SourceFile) -> Result<Vec<String>, String> {
@@ -822,24 +980,7 @@ pub fn add_heor_library_files(
         } else {
             library.join(&name)
         };
-        let copy_result = (|| -> Result<(), String> {
-            let mut input = std::fs::File::open(&source)
-                .map_err(|error| format!("could not open selected evidence: {error}"))?;
-            let mut output = std::fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&destination)
-                .map_err(|error| format!("could not create evidence destination: {error}"))?;
-            let copied = std::io::copy(&mut input, &mut output)
-                .map_err(|error| format!("could not copy evidence: {error}"))?;
-            if copied != expected_bytes || copied > MAX_FILE_BYTES {
-                return Err("selected evidence changed during import".into());
-            }
-            output
-                .sync_all()
-                .map_err(|error| format!("could not sync imported evidence: {error}"))?;
-            Ok(())
-        })();
+        let copy_result = copy_checked(&source, &destination, expected_bytes);
         if let Err(error) = copy_result {
             let _ = std::fs::remove_file(&destination);
             return Err(error);
@@ -850,6 +991,24 @@ pub fn add_heor_library_files(
         )?);
     }
     Ok(added)
+}
+
+#[tauri::command]
+pub fn add_heor_library_directory(
+    app: AppHandle,
+    state: tauri::State<HeorLibraryState>,
+) -> Result<LibraryDirectoryImport, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let _guard = state.0.lock().map_err(|_| "HEOR library lock poisoned")?;
+    let Some(picked) = app.dialog().file().blocking_pick_folder() else {
+        return Ok(LibraryDirectoryImport {
+            added: Vec::new(),
+            skipped: Vec::new(),
+        });
+    };
+    let selected = picked.into_path().map_err(|error| error.to_string())?;
+    let workspace = crate::runtime::workspace_dir(&app)?;
+    import_library_directory(&workspace, &selected)
 }
 
 #[cfg(test)]
@@ -957,6 +1116,76 @@ mod tests {
         assert!(error.contains("symbolic link"));
         let _ = std::fs::remove_file(selected);
         let _ = std::fs::remove_file(outside);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn directory_import_preserves_hierarchy_and_reports_skipped_entries() {
+        let root = workspace("directory-import");
+        let source = root
+            .parent()
+            .unwrap()
+            .join(format!("ai4heor-kb-source-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&source);
+        std::fs::create_dir_all(source.join("00-navigation")).unwrap();
+        std::fs::create_dir_all(source.join("02-methods")).unwrap();
+        std::fs::create_dir_all(source.join(".private")).unwrap();
+        std::fs::write(source.join("00-navigation/map.md"), "Knowledge map").unwrap();
+        std::fs::write(source.join("02-methods/cea.txt"), "Cost effectiveness").unwrap();
+        std::fs::write(source.join("cover.png"), b"not imported").unwrap();
+        std::fs::write(source.join(".DS_Store"), b"hidden").unwrap();
+        std::fs::write(source.join(".private/notes.md"), "hidden subtree").unwrap();
+
+        let imported = import_library_directory(&root, &source).unwrap();
+        let source_name = source.file_name().unwrap().to_string_lossy();
+        assert_eq!(
+            imported.added,
+            vec![
+                format!("heor/library/{source_name}/00-navigation/map.md"),
+                format!("heor/library/{source_name}/02-methods/cea.txt"),
+            ]
+        );
+        assert_eq!(
+            imported.skipped,
+            vec![".DS_Store", ".private/", "cover.png"]
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.join(&imported.added[1])).unwrap(),
+            "Cost effectiveness"
+        );
+        let second = import_library_directory(&root, &source).unwrap();
+        assert!(second.added[0].contains(&format!("{source_name}-1/")));
+
+        let _ = std::fs::remove_dir_all(source);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn directory_import_rejects_workspace_overlap() {
+        let root = workspace("directory-overlap");
+        let error = import_library_directory(&root, &root.join("heor")).unwrap_err();
+        assert!(error.contains("must not contain, or be contained by"));
+        let error = import_library_directory(&root, root.parent().unwrap()).unwrap_err();
+        assert!(error.contains("must not contain, or be contained by"));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn directory_import_rejects_nested_symlinks() {
+        use std::os::unix::fs::symlink;
+        let root = workspace("directory-symlink");
+        let source = root
+            .parent()
+            .unwrap()
+            .join(format!("ai4heor-kb-symlink-source-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&source);
+        std::fs::create_dir_all(&source).unwrap();
+        std::fs::write(source.join("source.md"), "evidence").unwrap();
+        symlink(source.join("source.md"), source.join("link.md")).unwrap();
+        let error = import_library_directory(&root, &source).unwrap_err();
+        assert!(error.contains("contains a symbolic link"));
+        let _ = std::fs::remove_dir_all(source);
         let _ = std::fs::remove_dir_all(root);
     }
 }

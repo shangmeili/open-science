@@ -13,7 +13,8 @@
   "starter": {
     "eyebrow": "自然语言优先的药物经济学科研工作区",
     "title": "先说清楚研究问题",
-    "body": "Agent 负责结构化分析、检索证据并维护可审计文件；你审阅假设和批准关口，表单只作为辅助。",
+    "body": "你界定研究问题并作出科学判断；Agent 协助整理证据和维护可审计文件，表单只记录复核决定。",
+    "learn": { "title": "基于本地 HEOR 知识库学习", "body": "从你选定的知识库中构建有来源依据的学习路径。", "prompt": "帮我基于当前本地 HEOR 知识库学习药物经济学。如果 heor/evidence-library.json 缺失或已过期，请提示我在 AI4HEOR 审阅面板中添加或重新扫描文件夹，然后停止。否则使用 $heor-local-evidence 和确定性本地检索。先询问我想学什么及当前水平，再提出简短学习路径。每项事实主张都引用本地路径、页码和 SHA-256，区分原文、解释与有日期的进展。不要联网，也不要把摘要当作一级指导依据。" },
     "scope": { "title": "界定成本效果研究", "body": "明确人群、干预、对照、视角、时间范围和结局。", "prompt": "帮我界定一项成本效果研究。先识别决策问题，只询问会实质改变分析的问题。" },
     "search": { "title": "起草证据检索", "body": "为人工授权的公共数据源检索准备精确请求。", "prompt": "使用 $heor-evidence-search，针对当前证据缺口起草 heor/evidence-search-request.json。不要自行联网；只可选择 PubMed 与 ClinicalTrials.gov，披露精确外发字段并校验请求，执行留给我在 AI4HEOR 审阅面板中明确授权。" },
     "inputs": { "title": "研究模型参数", "body": "寻找最新证据、提取数值，并将来源与假设严格分开。", "prompt": "帮我研究药物经济学模型参数。先识别决策问题和证据缺口，将有来源数值与分析假设严格分开。" },
@@ -128,7 +129,8 @@
     "indexed": "已索引",
     "ocr": "需 OCR",
     "hash": "清单 SHA-256",
-    "add": "添加本地资料",
+    "addFolder": "添加知识库文件夹",
+    "addFiles": "添加单个资料",
     "sync": "重新扫描精确源文件",
     "ask": "让 Agent 检索本地证据库",
     "searchPrompt": "使用 $heor-local-evidence，针对我的研究问题检索当前本地 HEOR 证据库。先核验 heor/evidence-library.json 与源文件哈希，使用确定性本地检索工具；每项主张均引用源路径、SHA-256 和页码，并区分原文证据与解释。不要联网，也不要声称已审阅需要 OCR 或提取失败的资料。",
@@ -747,6 +749,7 @@
     "searchComplete": "人工授权的证据检索已完成",
     "candidatesImported": "已导入授权候选记录，未改变研究判断",
     "librarySynced": "本地证据库已同步并绑定精确文件哈希",
+    "libraryFolderSynced": "已导入 {{added}} 个支持的文件，跳过 {{skipped}} 个隐藏或不支持的条目；知识库已同步并绑定精确哈希。",
     "loadFailed": "无法读取 AI4HEOR 工作流",
     "actionFailed": "AI4HEOR 操作失败"
   }

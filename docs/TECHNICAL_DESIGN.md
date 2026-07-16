@@ -1,6 +1,6 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.18, 2026-07-16).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.19, 2026-07-16).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
@@ -10,7 +10,7 @@
 > native point/diagnostic challenge, and
 > separate app-owned Human method reviews consolidated in a current-result review queue; and
 > native macOS and x86_64 Linux packaging.
-> The 0.1.18 x64 macOS DMG is content-verified; the 0.1.18 Linux `.deb` and `.rpm` are
+> The 0.1.19 x64 macOS DMG is content-verified; the 0.1.18 Linux `.deb` and `.rpm` are
 > built and content-verified from an isolated Ubuntu 22.04 builder. The `.deb` also passes
 > a clean Ubuntu 22.04 install and headless first start, while the `.rpm` passes the
 > equivalent native check on Fedora 42. Fail-closed native package evidence is wired
@@ -609,6 +609,14 @@ workspace/
   figures/  reports/  artifacts/  reviews/
   provenance.jsonl  manifest.json
 ```
+
+The local evidence import boundary is researcher-triggered. The native folder
+picker copies supported files into a unique `heor/library/<selected-folder>/`
+root while preserving relative paths. It does not follow links or auto-discover
+outside the selected directory; hidden and unsupported entries are returned to
+the UI as skipped, and source/workspace overlap fails closed before copying.
+Directory creation is transactional at the imported-root level, so a failed
+copy removes the incomplete root before any index rescan.
 
 ### 9.2 SQLite
 

@@ -1,15 +1,17 @@
 <div align="center">
 
-[![Open Science Desktop — Local-first AI research workbench](./docs/assets/banner.webp)](https://github.com/ai4s-research/open-science)
+[![AI4HEOR — Local-first pharmacoeconomics and HEOR workbench](./docs/assets/banner.webp)](https://github.com/ai4s-research/open-science)
 
-# Open Science Desktop
+# AI4HEOR
 
-**Local-first, model-agnostic AI research workbench for macOS, Windows & Linux.**
+**Local-first, model-agnostic pharmacoeconomics and HEOR workbench for macOS,
+Windows & Linux.**
 
-Formerly Open Science. An open-source desktop alternative to Claude Science and
-similar AI-for-science workbenches — built with Tauri, MCP, agent skills, and
-reproducible artifacts. It connects agents, notebooks, files, figures, reports,
-runs, and review into one auditable desktop workflow.
+AI4HEOR is developed from the open-source Open Science Desktop platform using
+Tauri, MCP, skills, and reproducible artifacts. Natural-language interaction is
+primary, while forms only support inspection and Human review. The Human
+researcher leads the scientific work; the configured model/runtime assists with
+evidence organization, execution, checking, and explanation.
 
 <p>
   <b>English</b> ·
@@ -37,7 +39,10 @@ runs, and review into one auditable desktop workflow.
 
 ---
 
-🎉 **Recognition:** Open Science Desktop ranks #1 by scored-task average on [ResearchClawBench](https://internscience.github.io/ResearchClawBench-Home/), an end-to-end benchmark for autonomous scientific research agents (Pass@1 leaderboard, July 9, 2026).
+🎉 **Platform lineage:** The upstream Open Science Desktop project ranks #1 by
+scored-task average on [ResearchClawBench](https://internscience.github.io/ResearchClawBench-Home/)
+(Pass@1 leaderboard, July 9, 2026). This upstream agent benchmark is not evidence
+that AI4HEOR scientific work should be agent-led or that its outputs are valid.
 
 ---
 
@@ -58,13 +63,16 @@ runs, and review into one auditable desktop workflow.
 
 ## What it does
 
-**Runs the whole research loop** — from a broad direction to a finished paper:
-exploration, literature survey, hypothesis, experiment code, analysis, figures, and
-write-up, in one continuous, auditable session.
+**Supports a Human-led HEOR workflow** — from a researcher-defined question to
+reviewable evidence, deterministic analysis, validation, and reporting artifacts
+in one continuous, auditable session.
 
-- **Autonomous research agents** — the bundled `ai4s-agent` chains specialist skills
-  end to end (explore → survey → experiment → write), and each stage drops a real,
-  inspectable artifact into your workspace, not just a chat reply.
+- **Natural-language-first assistance** — the researcher initiates and controls the
+  work; the model/runtime proposes or executes bounded steps and leaves real,
+  inspectable artifacts rather than claiming scientific authority.
+- **Local HEOR knowledge bases** — explicitly selected folders retain their hierarchy,
+  are hash-bound and indexed locally, and can ground researcher-initiated learning
+  without an automatic network call.
 - **Everything traces back** — figures, tables, reports, notebooks, and run outputs
   link to the exact code, inputs, environment, model output, and conversation that
   produced them.
@@ -80,8 +88,9 @@ write-up, in one continuous, auditable session.
 
 ## See it in action
 
-**One prompt -> a complete, traceable analysis.** Simulate data, fit a model, save a
-publication-grade figure, and write a report where every number traces to the code.
+**A researcher request -> reviewable, traceable work.** The inherited desktop
+surfaces can run code, save figures, and bind outputs to their inputs; AI4HEOR
+adds deterministic HEOR engines and Human-owned scientific gates.
 
 ![End-to-end dose-response analysis: the agent runs code and produces a fitted figure and a report](./docs/assets/showcase-workflow.webp)
 
@@ -109,9 +118,9 @@ PDF, and audit citations, unsourced numbers, and figure/code consistency.
 
 ## Current capabilities
 
-**The research loop, as skills.** One meta-skill runs the full pipeline; each stage
-is a self-contained skill that produces a real, gradeable artifact — runnable on any
-model OpenCode supports:
+**Research assistance, as bounded skills.** AI4HEOR's admitted first-party skills
+route researcher-defined tasks without acquiring approval or method-selection
+authority. The following upstream patterns remain inactive adaptation candidates:
 
 | Skill | Role | Primary output |
 | --- | --- | --- |
@@ -276,7 +285,7 @@ target design as well as historical status notes.
 Near-term work is focused on executing the configured four-target hash-bound package
 manifest and Windows first-start gate, signed/notarized releases, physical Linux
 desktop-session verification, auto-update, richer connector hardening, and
-continued reproducibility review. The AI4HEOR 0.1.18 x64 macOS DMG is locally built and
+continued reproducibility review. The AI4HEOR 0.1.19 x64 macOS DMG is locally built and
 payload-verified, including all 177 deterministic HEOR tests against its packaged core.
 The AI4HEOR 0.1.18 Linux `.deb` and `.rpm` are also payload-verified, including all 177
 deterministic HEOR tests and 260 configured resources from each extracted package. The
