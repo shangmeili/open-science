@@ -176,16 +176,240 @@ def verify_info(app: Path, expected_version: str) -> dict[str, str]:
     return expected
 
 
+def combined_text(completed: Any) -> str:
+    parts = []
+    for value in (completed.stdout, completed.stderr):
+        if isinstance(value, bytes):
+            parts.append(value.decode("utf-8", errors="replace"))
+        elif isinstance(value, str):
+            parts.append(value)
+    return "\n".join(parts)
+
+
+def run_checked(
+    command: list[str], label: str, **kwargs: Any
+) -> subprocess.CompletedProcess[Any]:
+    try:
+        return run(command, **kwargs)
+    except subprocess.CalledProcessError as error:
+        detail = combined_text(error).strip()
+        suffix = f": {detail}" if detail else ""
+        raise AssertionError(f"{label} failed{suffix}") from error
+
+
+def parse_codesign_details(output: str) -> dict[str, Any]:
+    details: dict[str, Any] = {"Authority": []}
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if line.startswith("CodeDirectory "):
+            details["CodeDirectory"] = line
+            continue
+        if line.startswith("Sealed Resources "):
+            details["Sealed Resources"] = line
+            continue
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key == "Authority":
+            details["Authority"].append(value)
+        else:
+            details[key] = value
+    return details
+
+
+def validate_signature_details(
+    details: dict[str, Any],
+    label: str,
+    *,
+    require_runtime: bool,
+    require_resources: bool,
+) -> tuple[str, str]:
+    authorities = details.get("Authority")
+    if (
+        not isinstance(authorities, list)
+        or not authorities
+        or not authorities[0].startswith("Developer ID Application:")
+        or "Developer ID Certification Authority" not in authorities
+        or "Apple Root CA" not in authorities
+    ):
+        raise AssertionError(f"{label} is not signed by a Developer ID Application chain")
+    team = details.get("TeamIdentifier")
+    if not isinstance(team, str) or re.fullmatch(r"[A-Z0-9]{10}", team) is None:
+        raise AssertionError(f"{label} has no valid TeamIdentifier")
+    if not authorities[0].endswith(f"({team})"):
+        raise AssertionError(f"{label} Developer ID authority does not match TeamIdentifier")
+    if (
+        details.get("Signature") == "adhoc"
+        or not details.get("Signature size")
+        or not details.get("Timestamp")
+    ):
+        raise AssertionError(f"{label} lacks a non-ad-hoc signature with secure timestamp")
+    code_directory = details.get("CodeDirectory", "")
+    if require_runtime and "runtime" not in code_directory:
+        raise AssertionError(f"{label} does not enable hardened runtime")
+    if require_resources and not details.get("Sealed Resources"):
+        raise AssertionError(f"{label} has no sealed resources")
+    return team, authorities[0]
+
+
+def validate_entitlements(payload: bytes, label: str) -> dict[str, Any]:
+    xml_start = payload.find(b"<?xml")
+    binary_start = payload.find(b"bplist00")
+    starts = [offset for offset in (xml_start, binary_start) if offset >= 0]
+    if not starts:
+        return {}
+    start = min(starts)
+    candidate = payload[start:]
+    if start == xml_start:
+        closing = candidate.find(b"</plist>")
+        if closing < 0:
+            raise AssertionError(f"{label} has unterminated XML entitlements")
+        candidate = candidate[: closing + len(b"</plist>")]
+    try:
+        entitlements = plistlib.loads(candidate)
+    except Exception as error:
+        raise AssertionError(f"{label} has malformed entitlements: {error}") from error
+    if not isinstance(entitlements, dict):
+        raise AssertionError(f"{label} entitlements are not a dictionary")
+    if entitlements.get("com.apple.security.get-task-allow") is True:
+        raise AssertionError(f"{label} enables forbidden get-task-allow entitlement")
+    return entitlements
+
+
+def codesign_details(path: Path) -> dict[str, Any]:
+    completed = run_checked(
+        ["codesign", "-dv", "--verbose=4", str(path)],
+        f"codesign details for {path}",
+        capture_output=True,
+        text=True,
+    )
+    return parse_codesign_details(combined_text(completed))
+
+
+def codesign_entitlements(path: Path, label: str) -> dict[str, Any]:
+    completed = run_checked(
+        ["codesign", "-d", "--entitlements", ":-", str(path)],
+        f"entitlement inspection for {label}",
+        capture_output=True,
+    )
+    payload = b""
+    for value in (completed.stdout, completed.stderr):
+        if isinstance(value, bytes):
+            payload += value + b"\n"
+        elif isinstance(value, str):
+            payload += value.encode("utf-8") + b"\n"
+    return validate_entitlements(payload, label)
+
+
+def verify_distribution_trust(app: Path, expected_team_id: str) -> dict[str, Any]:
+    run_checked(
+        ["codesign", "--verify", "--deep", "--strict", "--verbose=4", str(app)],
+        f"strict app signature verification for {app.name}",
+        capture_output=True,
+        text=True,
+    )
+    app_details = codesign_details(app)
+    team, authority = validate_signature_details(
+        app_details,
+        app.name,
+        require_runtime=True,
+        require_resources=True,
+    )
+    if team != expected_team_id:
+        raise AssertionError(
+            f"{app.name} TeamIdentifier {team} does not match expected Apple team"
+        )
+    codesign_entitlements(app, app.name)
+
+    macho_files: list[tuple[Path, str]] = []
+    for path in sorted(app.rglob("*")):
+        if not path.is_file() or path.is_symlink():
+            continue
+        classification = run_checked(
+            ["file", "-b", str(path)],
+            f"file classification for {path}",
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        if classification.startswith("Mach-O"):
+            macho_files.append((path, classification))
+    required = {
+        (app / "Contents/MacOS" / name).resolve()
+        for name in ("ai4s-workbench", "opencode", "uv")
+    }
+    present = {path.resolve() for path, _ in macho_files}
+    if not required.issubset(present):
+        raise AssertionError("signed app is missing one or more required Mach-O payloads")
+
+    for path, classification in macho_files:
+        label = str(path.relative_to(app))
+        run_checked(
+            ["codesign", "--verify", "--strict", "--verbose=4", str(path)],
+            f"strict nested signature verification for {label}",
+            capture_output=True,
+            text=True,
+        )
+        details = codesign_details(path)
+        nested_team, nested_authority = validate_signature_details(
+            details,
+            label,
+            require_runtime="executable" in classification,
+            require_resources=False,
+        )
+        if nested_team != team or nested_authority != authority:
+            raise AssertionError(f"{label} does not share the app Developer ID identity")
+        codesign_entitlements(path, label)
+
+    run_checked(
+        ["xcrun", "stapler", "validate", str(app)],
+        "stapled notarization ticket validation",
+        capture_output=True,
+        text=True,
+    )
+    gatekeeper = run_checked(
+        ["spctl", "--assess", "--type", "execute", "--verbose=4", str(app)],
+        "Gatekeeper assessment",
+        capture_output=True,
+        text=True,
+    )
+    gatekeeper_output = combined_text(gatekeeper)
+    if "source=Notarized Developer ID" not in gatekeeper_output:
+        raise AssertionError(
+            "Gatekeeper did not report acceptance from Notarized Developer ID"
+        )
+    return {
+        "developer_id": authority,
+        "gatekeeper": "accepted",
+        "hardened_runtime": True,
+        "mach_o_files": len(macho_files),
+        "notarization_ticket": "stapled",
+        "sealed_resources": True,
+        "secure_timestamp": True,
+        "team_identifier": team,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dmg", type=Path, required=True)
     parser.add_argument("--target", choices=tuple(TARGET_ARCH), required=True)
     parser.add_argument("--source-root", type=Path, default=ROOT)
     parser.add_argument("--verification-json", type=Path, required=True)
+    parser.add_argument("--require-distribution-trust", action="store_true")
+    parser.add_argument("--expected-team-id")
     arguments = parser.parse_args()
     if sys.platform != "darwin":
         raise AssertionError("macOS package verification must run on macOS")
-    for tool in ("hdiutil", "lipo"):
+    tools = ["hdiutil", "lipo"]
+    if arguments.require_distribution_trust:
+        if re.fullmatch(r"[A-Z0-9]{10}", arguments.expected_team_id or "") is None:
+            raise AssertionError(
+                "--require-distribution-trust also requires a valid --expected-team-id"
+            )
+        tools.extend(("codesign", "file", "spctl", "xcrun"))
+    elif arguments.expected_team_id is not None:
+        raise AssertionError("--expected-team-id is only valid for distribution trust")
+    for tool in tools:
         require_tool(tool)
     dmg = arguments.dmg.resolve()
     source_root = arguments.source_root.resolve()
@@ -208,6 +432,11 @@ def main() -> None:
         versions = verify_binaries(app, expected_arch)
         resource_root, resource_count = verify_resources(app, source_root)
         run_packaged_heor_tests(resource_root, source_root)
+        distribution = (
+            verify_distribution_trust(app, arguments.expected_team_id)
+            if arguments.require_distribution_trust
+            else None
+        )
         verification = {
             "bundle": {
                 "dmg_sha256": sha256(dmg),
@@ -222,6 +451,8 @@ def main() -> None:
                 "uv_version": versions["uv"],
             },
         }
+        if distribution is not None:
+            verification["distribution"] = distribution
         arguments.verification_json.parent.mkdir(parents=True, exist_ok=True)
         arguments.verification_json.write_text(
             json.dumps(verification, indent=2, sort_keys=True) + "\n", encoding="utf-8"

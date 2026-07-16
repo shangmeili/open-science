@@ -22,8 +22,9 @@
 > for macOS arm64/x64, Windows x64, and Linux x64, with a four-target manifest gate;
 > that current-commit CI manifest and native Windows/Apple-Silicon first-start evidence
 > have not yet been produced. The inspected arm64 app has only an ad-hoc linker signature,
-> no sealed resources, and fails Gatekeeper; Developer ID signing/notarization remains
-> planned.
+> no sealed resources, and fails Gatekeeper. A tag-only Developer ID/notarization gate is
+> now implemented and locally fail-closed, but no credentialed tag run or signed artifact
+> has yet proved it; Windows signing also remains open.
 > Sections below distinguish implemented contracts from target design.
 
 > **Role boundary.** Codex leads construction and verification of the AI4HEOR
@@ -750,9 +751,10 @@ secrets). Never enter provenance, logs, crash reports, git, or exported projects
 ### 12.1 macOS
 
 Outputs: `AI4HEOR_*_aarch64.dmg`, `AI4HEOR_*_x64.dmg`, and a universal build later.
-Code signing / notarization needs an Apple
-Developer account; a free account cannot notarize, so users may still see an
-"unverified" prompt.
+Code signing / notarization needs an Apple Developer account; a free account cannot
+notarize. The implementation follows the current
+[Tauri macOS signing contract](https://v2.tauri.app/distribute/sign/macos/) and Apple's
+[notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
 
 Native CI uses an explicit macOS 15 Apple Silicon runner for `aarch64` and an
 explicit macOS 15 Intel runner for `x86_64`. After each build,
@@ -761,8 +763,18 @@ bundle name, identifier, version and executable; requires single-architecture Ma
 main and sidecar binaries for the declared target; verifies pinned sidecar versions;
 compares all configured scientific resources byte for byte; rejects resource links and
 generated Python caches; and runs the deterministic HEOR suite against the mounted core.
-It does not install the app into `/Applications`, clear Gatekeeper, launch a visual
-session, verify a signature, or establish notarization.
+Manual workflow runs stop there and remain explicitly unsigned. A `v*` tag adds a separate
+fail-closed distribution mode. Before Tauri runs, it requires non-empty certificate,
+certificate-password, Developer ID identity, Apple ID app-password, and Team ID secrets;
+the values are never logged. Tauri receives those secrets only on tagged macOS jobs and
+builds with explicit hardened runtime. The verifier then requires strict deep bundle and
+per-Mach-O signatures, a shared Developer ID Application chain whose Team ID exactly
+matches the credentialed notarization account, secure
+timestamps, sealed resources, hardened runtime on every executable, no true
+`com.apple.security.get-task-allow`, a valid stapled ticket, and Gatekeeper output from
+`Notarized Developer ID`. The tag evidence schema requires the same named checks and proof
+fields, so a missing workflow flag cannot be recorded as a trusted macOS release. It does
+not install the app into `/Applications` or establish visual/first-start acceptance.
 
 The 0.1.22 arm64 DMG was additionally cross-built on an Intel Mac. Cross-host inspection
 can prove bundle metadata, thin Mach-O architectures, exact sidecar/source bytes, exact
@@ -852,13 +864,18 @@ Only after all four build jobs pass does a separate Ubuntu job download the actu
 workflow artifacts, re-hash every DMG/MSI/NSIS/deb/rpm, require all four explicit
 targets from the same workflow run and attempt, and write
 `ai4heor-release-manifest/v1`. Workflow artifacts retain the four
-evidence files and manifest; tag builds also attach them to the draft release. This is a
+evidence files and manifest. Matrix builds never create or populate a GitHub Release.
+Only after the final job validates the manifest and finds exactly four evidence files and
+six installers may it create a new draft release and attach that exact set; an existing
+release for the tag makes the step fail instead of merging stale assets. This is a
 workflow-produced source/package association, not a reproducible-build proof, signed
 provenance attestation, visual acceptance, or scientific-validity claim. The schema and
 macOS/Linux verifier changes are locally tested, and the current commit now has bounded
 cross-host arm64 package inspection in addition to native x64 macOS/Linux evidence. The
 four-target current-commit manifest remains configured rather than executed until native
-CI produces every target-eligible evidence file.
+CI produces every target-eligible evidence file. On a tag, macOS evidence additionally
+requires the complete distribution-trust proof above; no credentialed run has yet supplied
+it, so the pipeline configuration is not itself a signed/notarized release claim.
 
 ## 13. Process model
 

@@ -196,7 +196,11 @@ Download the latest installer from the
 - **Windows**: NSIS `.exe` and `.msi`, Windows 10/11 x64.
 - **Linux**: `.deb` and `.rpm` on x86_64 Linux.
 
-Builds are not code-signed or notarized yet.
+The currently verified 0.1.22/local artifacts are not code-signed or notarized. The
+`v*` tag pipeline now fails closed unless both macOS targets receive Developer ID and
+Apple notarization credentials and subsequently pass signature, hardened-runtime,
+stapled-ticket, and Gatekeeper checks. No credentialed tag run has produced that evidence
+yet, and Windows Authenticode signing remains open.
 
 **macOS**: if Gatekeeper says the app is damaged or from an unidentified developer,
 install it into Applications and run:
@@ -287,7 +291,8 @@ live in [`docs/PRD.md`](./docs/PRD.md) and
 target design as well as historical status notes.
 
 Near-term work is focused on executing the configured four-target hash-bound package
-manifest and native Windows/Apple-Silicon first-start gates, signed/notarized releases,
+manifest and native Windows/Apple-Silicon first-start gates, the first credentialed
+Developer-ID/notarized macOS tag release, Windows signing,
 physical Linux desktop-session verification, auto-update, richer connector hardening, and
 continued reproducibility review. The AI4HEOR 0.1.22 x64 macOS DMG is locally built and
 payload-verified. Its Apple Silicon DMG has also been cross-built from clean commit
@@ -298,6 +303,17 @@ cross-host package evidence, not native Apple Silicon execution: the strict veri
 correctly stops when the Intel host cannot execute the arm64 sidecar, so no formal arm64
 release-evidence JSON or first-start claim was produced. The package is also not
 Developer-ID signed or notarized and is rejected by Gatekeeper.
+The tag-only release path now requires all Apple credential names before building and
+will record macOS release evidence only after every nested Mach-O shares one Developer ID
+whose Team ID matches the notarization account,
+hardened runtime and secure timestamps are present, resources are sealed, no executable
+enables `get-task-allow`, the notarization ticket is stapled, and Gatekeeper reports
+`Notarized Developer ID`. Manual workflow previews remain explicitly unsigned and cannot
+silently acquire those claims. Tagged matrix jobs no longer create or populate a release;
+only the final job may create a draft after all four evidence files and the cross-platform
+manifest validate, and it uploads exactly those verified installers and records. This gate
+is locally contract-tested and rejects the
+current unsigned x64 DMG, but it has not been exercised with real Apple credentials.
 The AI4HEOR 0.1.22 Linux `.deb` and `.rpm` are also payload-verified, including all 177
 deterministic HEOR tests and 265 configured resources from each extracted package. The
 `.deb` passes a clean Ubuntu 22.04 install and headless first-start check; the `.rpm`

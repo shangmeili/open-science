@@ -181,8 +181,9 @@ formal native evidence or first-start claim from the Intel build host; the
 app now consolidates current paired-bootstrap, NMA, anchored-MAIC, RWE-causal, and advanced-VOI
 Human method-review states without merging their authority records. The next release
 work is executing and inspecting the unified four-target package manifest on native
-hosts, including the Windows and Apple-Silicon first-start gates, plus signing/notarization
-and a physical Linux desktop visual session, rather than
+hosts, including the Windows and Apple-Silicon first-start gates, the now fail-closed but
+not-yet-credentialed macOS Developer-ID/notarization path, Windows signing, and a physical
+Linux desktop visual session, rather than
 another broad method prompt.
 The next RWE increments must be separately admitted
 contracts for missingness/censoring, time-to-event outcomes, doubly robust estimation,

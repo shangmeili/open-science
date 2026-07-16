@@ -520,7 +520,17 @@ competitors.
   resources byte-identical to source. It is not native-run evidence: the strict verifier
   fails closed when the Intel host cannot execute the arm64 sidecar and emits no formal
   release-evidence JSON. Separate inspection found only an ad-hoc linker signature with
-  unsealed resources, and Gatekeeper rejects the app. The Linux `.deb`
+  unsealed resources, and Gatekeeper rejects the app. The `v*` tag workflow now fails
+  before building when any required Apple secret is absent and injects those secrets only
+  into tagged macOS jobs. Its strict post-build mode requires a common Developer ID chain
+  across every Mach-O with the exact credentialed Apple Team ID, hardened runtime, secure
+  timestamps, sealed resources, safe
+  entitlements, a stapled ticket, and Gatekeeper `Notarized Developer ID`; tag release
+  evidence rejects missing trust checks or incomplete proof. Unit contracts and the
+  current unsigned x64 DMG prove the failure path, but no credentialed tag run proves the
+  success path yet. Matrix jobs also cannot create a draft release; only the final
+  four-target manifest job can create a new draft containing exactly six verified
+  installers, four evidence files, and the manifest. The Linux `.deb`
   additionally passed a clean Ubuntu 22.04 container install and headless first-start
   check with both the desktop process and bundled OpenCode server ready; the `.rpm`
   passed the equivalent native install and first-start check on Fedora 42. Windows CI is
@@ -535,7 +545,7 @@ competitors.
   current commit. Gaps: a physical Linux desktop visual session; actual current-commit
   four-target manifest and Windows host/first-run evidence; native Apple Silicon package
   verification and first start; Windows and Apple Silicon visual/non-technical-user
-  acceptance; and signed/notarized installers.
+  acceptance; the first credentialed macOS tag execution; and Windows Authenticode signing.
 
 ### P1-5 · Interaction & visualization craft (the app must feel premium) — 🟡 Partial
 

@@ -32,7 +32,8 @@
     "targets": "all",
     "externalBin": ["binaries/opencode", "binaries/uv"],
     "macOS": {
-      "minimumSystemVersion": "13.0"
+      "minimumSystemVersion": "13.0",
+      "hardenedRuntime": true
     },
     "resources": {
       "../../../runtime/skills/core": "skills-core/",

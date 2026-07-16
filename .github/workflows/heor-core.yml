@@ -109,6 +109,8 @@ jobs:
         run: python scripts/dev/test_sidecar_integrity.py -v
       - name: Test release evidence contracts
         run: python scripts/release/test_release_evidence.py -v
+      - name: Test macOS distribution contracts
+        run: python scripts/release/test_macos_distribution.py -v
 
   native:
     name: Native contracts (${{ matrix.os }})

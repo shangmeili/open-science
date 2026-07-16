@@ -10,7 +10,7 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
-# tauri-action needs to create the draft release and upload assets.
+# The final manifest job creates the draft release only after every package gate passes.
 permissions:
   contents: write
 
@@ -73,6 +73,20 @@ jobs:
       - name: Test release evidence contracts
         run: python scripts/release/test_release_evidence.py -v
 
+      - name: Test macOS distribution contracts
+        run: python scripts/release/test_macos_distribution.py -v
+
+      - name: Require macOS distribution credentials for tagged releases
+        if: startsWith(matrix.platform, 'macos') && github.ref_type == 'tag'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: python scripts/release/check_macos_release_credentials.py
+
       - name: Fetch bundled OpenCode sidecar
         shell: bash
         run: bash scripts/dev/fetch-opencode.sh ${{ matrix.target }}
@@ -106,43 +120,18 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ startsWith(matrix.platform, 'macos') && github.ref_type == 'tag' && secrets.APPLE_CERTIFICATE || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ startsWith(matrix.platform, 'macos') && github.ref_type == 'tag' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ startsWith(matrix.platform, 'macos') && github.ref_type == 'tag' && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_ID: ${{ startsWith(matrix.platform, 'macos') && github.ref_type == 'tag' && secrets.APPLE_ID || '' }}
+          APPLE_PASSWORD: ${{ startsWith(matrix.platform, 'macos') && github.ref_type == 'tag' && secrets.APPLE_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ startsWith(matrix.platform, 'macos') && github.ref_type == 'tag' && secrets.APPLE_TEAM_ID || '' }}
         with:
           projectPath: apps/desktop
           # Linux: deb+rpm only. AppImage is off because linuxdeploy runs ldd
           # on every bundled ELF and ldd exits 1 on the Bun-built opencode
           # sidecar, aborting the whole bundle (tauri-apps/tauri#8929).
           args: --target ${{ matrix.target }} ${{ startsWith(matrix.platform, 'ubuntu') && '--bundles deb,rpm' || '' }}
-          # On a v* tag push, attach installers to a draft GitHub Release.
-          # Empty tagName (workflow_dispatch) skips release creation.
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          releaseName: ${{ github.ref_type == 'tag' && format('AI4HEOR {0}', github.ref_name) || '' }}
-          releaseDraft: true
-          # Standing install/first-launch notes — every draft is born with these
-          # (the builds are unsigned/un-notarized, so users must clear Gatekeeper /
-          # SmartScreen once). Prepend the per-version changelog before publishing.
-          releaseBody: |
-            ## ⚠️ Install & first launch — unsigned builds
-
-            These installers are **not code-signed or notarized**, so your OS warns on first launch. This is expected; clear it once:
-
-            **macOS** — Apple Silicon: `…_aarch64.dmg` · Intel: `…_x64.dmg` (requires macOS 13+)
-            1. Open the DMG and drag **AI4HEOR** into Applications.
-            2. If you see *"… is damaged and can't be opened"* or *"unidentified developer"*, clear the quarantine attribute in Terminal, then open normally:
-               ```
-               xattr -cr "/Applications/AI4HEOR.app"
-               ```
-
-            **Windows** — `…_x64-setup.exe` or `…_x64_en-US.msi`
-            - SmartScreen shows *"Windows protected your PC"* → **More info** → **Run anyway**.
-
-            **Linux** — `.deb` / `.rpm`
-            - `sudo apt install ./…_amd64.deb`  or  `sudo rpm -i …x86_64.rpm`
-
-            > **No in-app auto-update** — download new versions from this Releases page. (The `.app.tar.gz` assets are build artifacts, not an update channel.)
-
-            ---
-
-            <!-- Prepend this release's changelog above this line before publishing. -->
 
       - name: Verify Linux installer contents and scientific resources
         if: startsWith(matrix.platform, 'ubuntu')
@@ -180,10 +169,25 @@ jobs:
           dmgs=("$bundle_root"/dmg/*.dmg)
           test "${#dmgs[@]}" -eq 1
           verification="$bundle_root/macos-${{ matrix.target }}-verification.json"
+          trust_args=()
+          trust_checks=()
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            trust_args+=(
+              --require-distribution-trust
+              --expected-team-id "$APPLE_TEAM_ID"
+            )
+            trust_checks+=(
+              --check developer-id-signature
+              --check gatekeeper-assessment
+              --check hardened-runtime
+              --check notarization-ticket
+            )
+          fi
           python scripts/release/verify_macos_package.py \
             --dmg "${dmgs[0]}" \
             --target "${{ matrix.target }}" \
-            --verification-json "$verification"
+            --verification-json "$verification" \
+            "${trust_args[@]}"
           python scripts/release/release_evidence.py record \
             --platform macos \
             --target "${{ matrix.target }}" \
@@ -193,6 +197,7 @@ jobs:
             --check scientific-resources \
             --check packaged-heor-tests \
             --check bundled-sidecars \
+            "${trust_checks[@]}" \
             --verification-json "$verification" \
             --output "$bundle_root/macos-${{ matrix.target }}-release-evidence.json"
 
@@ -261,11 +266,40 @@ jobs:
             ai4heor-release-manifest.json
             release-artifacts/**/*-release-evidence.json
           if-no-files-found: error
-      - name: Attach manifest and evidence to draft release
+      - name: Create draft release from verified installers and evidence
         if: github.ref_type == 'tag'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES: |
+            ## Install & first launch
+
+            **macOS** — Apple Silicon: `…_aarch64.dmg` · Intel: `…_x64.dmg` (requires macOS 13+)
+            - Both apps passed Developer ID, hardened-runtime, stapled notarization-ticket, and Gatekeeper checks before this draft was created.
+            - Open the DMG and drag **AI4HEOR** into Applications.
+
+            **Windows** — `…_x64-setup.exe` or `…_x64_en-US.msi`
+            - Windows installers are not yet Authenticode-signed. SmartScreen may show *"Windows protected your PC"* → **More info** → **Run anyway**.
+
+            **Linux** — `.deb` / `.rpm`
+            - `sudo apt install ./…_amd64.deb` or `sudo rpm -i …x86_64.rpm`
+
+            The attached manifest and four platform-evidence files bind these installers to one source commit, workflow run, and scientific-resource inventory. This is not scientific validation or a reproducible-build attestation.
         run: |
           mapfile -t evidence < <(find release-artifacts -type f -name '*-release-evidence.json' | sort)
-          gh release upload "$GITHUB_REF_NAME" ai4heor-release-manifest.json "${evidence[@]}" --clobber
+          mapfile -t installers < <(
+            find release-artifacts -type f \( \
+              -name '*.dmg' -o -name '*.exe' -o -name '*.msi' -o \
+              -name '*.deb' -o -name '*.rpm' \
+            \) | sort
+          )
+          test "${#evidence[@]}" -eq 4
+          test "${#installers[@]}" -eq 6
+          gh release create "$GITHUB_REF_NAME" \
+            "${installers[@]}" \
+            ai4heor-release-manifest.json \
+            "${evidence[@]}" \
+            --draft \
+            --verify-tag \
+            --title "AI4HEOR $GITHUB_REF_NAME" \
+            --notes "$RELEASE_NOTES"

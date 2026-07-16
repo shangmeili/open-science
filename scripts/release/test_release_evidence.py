@@ -149,6 +149,56 @@ class ReleaseEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "platform/target"):
             release_evidence.validate_evidence(value)
 
+    def test_tagged_macos_evidence_requires_distribution_trust(self) -> None:
+        files: list[dict[str, object]] = []
+        value = {
+            "schema": release_evidence.EVIDENCE_SCHEMA,
+            "source": {"commit": "a" * 40, "version": "0.1.0"},
+            "platform": "macos",
+            "target": "aarch64-apple-darwin",
+            "artifacts": [
+                {"kind": "dmg", "filename": "AI4HEOR.dmg", "size": 1, "sha256": "a" * 64}
+            ],
+            "checks": ["bundle-metadata"],
+            "runner": dict(self.runner("macos"), GITHUB_REF_TYPE="tag"),
+            "sidecars": self.sidecars(),
+            "verification": {"payload": "passed"},
+            "resources": {
+                "aggregate_sha256": release_evidence.canonical_sha256(files),
+                "file_count": 0,
+                "files": files,
+                "total_bytes": 0,
+            },
+        }
+        with self.assertRaisesRegex(AssertionError, "missing trust checks"):
+            release_evidence.validate_evidence(value)
+
+        value["checks"] = sorted(
+            {"bundle-metadata", *release_evidence.MACOS_DISTRIBUTION_CHECKS}
+        )
+        value["verification"]["distribution"] = {
+            "developer_id": "Developer ID Application: Test (A1B2C3D4E5)",
+            "gatekeeper": "accepted",
+            "hardened_runtime": True,
+            "mach_o_files": 3,
+            "notarization_ticket": "stapled",
+            "sealed_resources": True,
+            "secure_timestamp": True,
+            "team_identifier": "A1B2C3D4E5",
+        }
+        release_evidence.validate_evidence(value)
+
+        value["verification"]["distribution"]["secure_timestamp"] = False
+        with self.assertRaisesRegex(AssertionError, "incomplete"):
+            release_evidence.validate_evidence(value)
+
+        value["verification"]["distribution"]["secure_timestamp"] = True
+        value["verification"]["distribution"]["developer_id"] = (
+            "Developer ID Application: Other (Z9Y8X7W6V5)"
+        )
+        with self.assertRaisesRegex(AssertionError, "does not match"):
+            release_evidence.validate_evidence(value)
+
     def test_manifest_rejects_mixed_source(self) -> None:
         base = {
             "schema": release_evidence.EVIDENCE_SCHEMA,

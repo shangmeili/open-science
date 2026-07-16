@@ -23,6 +23,12 @@ SUPPORTED_TARGETS = {
     "x86_64-unknown-linux-gnu": "linux",
 }
 RUNNER_OS_BY_PLATFORM = {"macos": "macOS", "windows": "Windows", "linux": "Linux"}
+MACOS_DISTRIBUTION_CHECKS = {
+    "developer-id-signature",
+    "gatekeeper-assessment",
+    "hardened-runtime",
+    "notarization-ticket",
+}
 
 
 def sha256(path: Path) -> str:
@@ -164,6 +170,7 @@ def runner_identity() -> dict[str, str]:
         "GITHUB_RUN_ID",
         "GITHUB_RUN_ATTEMPT",
         "GITHUB_WORKFLOW_REF",
+        "GITHUB_REF_TYPE",
     )
     return {name: os.environ[name] for name in names if os.environ.get(name)}
 
@@ -224,6 +231,41 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
         raise AssertionError("release evidence must bind exactly OpenCode and uv")
     if any(not item.get("version_output") for item in value["sidecars"]):
         raise AssertionError("release evidence has a sidecar without version output")
+    if (
+        value["platform"] == "macos"
+        and value.get("runner", {}).get("GITHUB_REF_TYPE") == "tag"
+    ):
+        missing_checks = sorted(MACOS_DISTRIBUTION_CHECKS - set(value["checks"]))
+        if missing_checks:
+            raise AssertionError(
+                f"tagged macOS release evidence is missing trust checks: {missing_checks}"
+            )
+        distribution = value["verification"].get("distribution")
+        if not isinstance(distribution, dict):
+            raise AssertionError("tagged macOS release evidence has no distribution proof")
+        if (
+            not str(distribution.get("developer_id", "")).startswith(
+                "Developer ID Application:"
+            )
+            or re.fullmatch(
+                r"[A-Z0-9]{10}", str(distribution.get("team_identifier", ""))
+            )
+            is None
+            or distribution.get("gatekeeper") != "accepted"
+            or distribution.get("hardened_runtime") is not True
+            or distribution.get("notarization_ticket") != "stapled"
+            or distribution.get("sealed_resources") is not True
+            or distribution.get("secure_timestamp") is not True
+            or not isinstance(distribution.get("mach_o_files"), int)
+            or distribution["mach_o_files"] < 3
+        ):
+            raise AssertionError("tagged macOS distribution proof is incomplete")
+        if not distribution["developer_id"].endswith(
+            f"({distribution['team_identifier']})"
+        ):
+            raise AssertionError(
+                "tagged macOS Developer ID does not match its TeamIdentifier"
+            )
     if artifact_root is not None:
         for item in value["artifacts"]:
             path = artifact_root / item["filename"]
