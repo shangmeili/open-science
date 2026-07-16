@@ -174,11 +174,15 @@ source-model validity, and treatment-duration alternatives as unresolved
 structural questions. The paired-bootstrap P0 now supplies a bounded source of
 candidate joint rows; detailed execution replay is portable while canonical
 joint-row consumption is independently audited by Python and native Rust. The
-0.1.22 now has native `.deb`/Ubuntu and `.rpm`/Fedora headless first-start evidence; the
+0.1.22 now has native `.deb`/Ubuntu and `.rpm`/Fedora headless first-start evidence plus
+bounded Apple Silicon cross-build inspection: the arm64 DMG has pure-arm64 payloads,
+byte-identical resources, and a passing mounted-core HEOR suite, but deliberately has no
+formal native evidence or first-start claim from the Intel build host; the
 app now consolidates current paired-bootstrap, NMA, anchored-MAIC, RWE-causal, and advanced-VOI
 Human method-review states without merging their authority records. The next release
-work is executing and inspecting the unified four-target package manifest, including the
-Windows-host first-start gate, plus a physical Linux desktop visual session, rather than
+work is executing and inspecting the unified four-target package manifest on native
+hosts, including the Windows and Apple-Silicon first-start gates, plus signing/notarization
+and a physical Linux desktop visual session, rather than
 another broad method prompt.
 The next RWE increments must be separately admitted
 contracts for missingness/censoring, time-to-event outcomes, doubly robust estimation,

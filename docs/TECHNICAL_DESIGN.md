@@ -10,13 +10,20 @@
 > native point/diagnostic challenge, and
 > separate app-owned Human method reviews consolidated in a current-result review queue; and
 > native macOS and x86_64 Linux packaging.
-> The 0.1.22 x64 macOS DMG is content-verified; the 0.1.22 Linux `.deb` and `.rpm` are
+> The 0.1.22 x64 macOS DMG is content-verified. A 0.1.22 Apple Silicon DMG was also
+> cross-built from clean commit `d2363138449566137c8374386acdf1f8774faad3` on an Intel
+> Mac; read-only inspection verified pure-arm64 payloads, all 265 resources byte-for-byte,
+> and all 177 mounted-core HEOR tests. Native sidecar execution and first start remain
+> unverified because the strict verifier correctly rejects arm64 execution on that host.
+> The 0.1.22 Linux `.deb` and `.rpm` are
 > built and content-verified from an isolated Ubuntu 22.04 builder. The `.deb` also passes
 > a clean Ubuntu 22.04 install and headless first start, while the `.rpm` passes the
 > equivalent native check on Fedora 42. Fail-closed native package evidence is wired
 > for macOS arm64/x64, Windows x64, and Linux x64, with a four-target manifest gate;
-> that current-commit CI manifest and Windows first-start evidence have not yet been
-> produced, and signing/notarization remains planned.
+> that current-commit CI manifest and native Windows/Apple-Silicon first-start evidence
+> have not yet been produced. The inspected arm64 app has only an ad-hoc linker signature,
+> no sealed resources, and fails Gatekeeper; Developer ID signing/notarization remains
+> planned.
 > Sections below distinguish implemented contracts from target design.
 
 > **Role boundary.** Codex leads construction and verification of the AI4HEOR
@@ -757,6 +764,14 @@ generated Python caches; and runs the deterministic HEOR suite against the mount
 It does not install the app into `/Applications`, clear Gatekeeper, launch a visual
 session, verify a signature, or establish notarization.
 
+The 0.1.22 arm64 DMG was additionally cross-built on an Intel Mac. Cross-host inspection
+can prove bundle metadata, thin Mach-O architectures, exact sidecar/source bytes, exact
+resource bytes, and the platform-independent HEOR suite. It cannot execute the arm64
+sidecars or desktop binary. The native verifier therefore fails closed with `Bad CPU type`
+and emits no formal evidence JSON; an Apple Silicon runner is still required. Separate
+`codesign`/`spctl` inspection found only an ad-hoc linker signature with no sealed
+resources, so this artifact is neither Developer-ID signed nor Gatekeeper-acceptable.
+
 ### 12.2 Windows
 
 Outputs: `AI4HEOR_*_x64-setup.exe` and `AI4HEOR_*_x64_en-US.msi`. Prefer the NSIS
@@ -840,8 +855,10 @@ targets from the same workflow run and attempt, and write
 evidence files and manifest; tag builds also attach them to the draft release. This is a
 workflow-produced source/package association, not a reproducible-build proof, signed
 provenance attestation, visual acceptance, or scientific-validity claim. The schema and
-macOS/Linux verifier changes are locally tested, but the four-target current-commit
-manifest remains configured rather than executed until CI produces it.
+macOS/Linux verifier changes are locally tested, and the current commit now has bounded
+cross-host arm64 package inspection in addition to native x64 macOS/Linux evidence. The
+four-target current-commit manifest remains configured rather than executed until native
+CI produces every target-eligible evidence file.
 
 ## 13. Process model
 

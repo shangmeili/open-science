@@ -287,10 +287,17 @@ live in [`docs/PRD.md`](./docs/PRD.md) and
 target design as well as historical status notes.
 
 Near-term work is focused on executing the configured four-target hash-bound package
-manifest and Windows first-start gate, signed/notarized releases, physical Linux
-desktop-session verification, auto-update, richer connector hardening, and
+manifest and native Windows/Apple-Silicon first-start gates, signed/notarized releases,
+physical Linux desktop-session verification, auto-update, richer connector hardening, and
 continued reproducibility review. The AI4HEOR 0.1.22 x64 macOS DMG is locally built and
-payload-verified, including all 177 deterministic HEOR tests against its packaged core.
+payload-verified. Its Apple Silicon DMG has also been cross-built from clean commit
+`d2363138449566137c8374386acdf1f8774faad3` on an Intel Mac: read-only inspection proved
+pure-arm64 main/OpenCode/uv payloads, all 265 configured resources byte-identical to
+source, and all 177 deterministic HEOR tests against the mounted core. That is bounded
+cross-host package evidence, not native Apple Silicon execution: the strict verifier
+correctly stops when the Intel host cannot execute the arm64 sidecar, so no formal arm64
+release-evidence JSON or first-start claim was produced. The package is also not
+Developer-ID signed or notarized and is rejected by Gatekeeper.
 The AI4HEOR 0.1.22 Linux `.deb` and `.rpm` are also payload-verified, including all 177
 deterministic HEOR tests and 265 configured resources from each extracted package. The
 `.deb` passes a clean Ubuntu 22.04 install and headless first-start check; the `.rpm`
