@@ -1,6 +1,6 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.19, 2026-07-16).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.20, 2026-07-16).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
@@ -10,7 +10,7 @@
 > native point/diagnostic challenge, and
 > separate app-owned Human method reviews consolidated in a current-result review queue; and
 > native macOS and x86_64 Linux packaging.
-> The 0.1.19 x64 macOS DMG is content-verified; the 0.1.18 Linux `.deb` and `.rpm` are
+> The 0.1.20 x64 macOS DMG is content-verified; the 0.1.18 Linux `.deb` and `.rpm` are
 > built and content-verified from an isolated Ubuntu 22.04 builder. The `.deb` also passes
 > a clean Ubuntu 22.04 install and headless first start, while the `.rpm` passes the
 > equivalent native check on Fedora 42. Fail-closed native package evidence is wired
@@ -107,7 +107,23 @@ an open-source coding/agent runtime in the spirit of Claude Code.
 OpenCode exposes an HTTP + SSE server (`opencode serve`) that a GUI can drive directly —
 sessions, prompts, streaming assistant/tool output, skills, and agents.
 
-### 5.2 Desktop ↔ OpenCode communication
+### 5.2 Researcher-led runtime harness
+
+`runtime/harness/` is an app-owned operating contract bundled as a Tauri resource
+and copied into every new project. Its `AGENTS.md` makes the Human researcher the
+scientific lead and limits the runtime to delegated assistance. The runtime may
+inspect local state, run deterministic checks, draft labelled alternatives, and
+complete a researcher-selected plan. It must stop for unresolved choices about
+the question, population, strategies, comparators, perspective, jurisdiction,
+methods, evidence, model structure, assumptions, interpretation, or permitted use.
+
+The harness cannot edit its own operating policy, manufacture approvals, or turn
+self-review into independent validation. Seeding uses `copy_missing`, so new
+projects receive the current contract while existing or user-edited project files
+are not silently overwritten. Cross-platform contract tests bind both the semantic
+boundary and the exact packaged-resource mapping.
+
+### 5.3 Desktop ↔ OpenCode communication
 
 The app talks to OpenCode over its HTTP + SSE API, wrapped by `packages/sdk`
 (`OpenCodeClient`). Key endpoints:
@@ -134,7 +150,7 @@ SSE streams message.part.updated / session.idle → folded into thread blocks by
 Frontend renders streaming messages, tool cards, and per-session history
 ```
 
-### 5.3 Bundling & isolation (no interference)
+### 5.4 Bundling & isolation (no interference)
 
 OpenCode is bundled as a Tauri **sidecar** (`externalBin`, one binary per target triple,
 git-ignored and fetched by `scripts/dev/fetch-opencode.sh`). The Rust side

@@ -1,34 +1,40 @@
-# HEOR research-agent harness
+# AI4HEOR researcher-led assistant harness
 
-A single research execution agent supervised through explicit human approval
-gates. It delivers work, reviews itself, and revises itself, while humans retain
-decision authority and independent validation remains external to the agent.
+This scaffold is seeded into each new project so the runtime assists a Human-led
+HEOR workflow instead of defining or directing the research programme. The
+assistant can perform bounded, reversible execution work; the researcher owns
+the question, methods, evidence choices, interpretation, and permitted use.
 
-## Core Idea
+## Core idea
 
-After each work cycle, ask: what could be better? Save reusable lessons into
-memory and promote repeatedly verified lessons into principles. Self-improvement
-may change working tactics, but it cannot weaken data boundaries, approval gates,
-or evidence requirements.
+Natural-language conversation is primary. Deterministic calculations and
+reviewable files support that conversation. Human-in-the-loop is continuous
+scientific ownership, not a final approval attached to Agent-led work.
 
-## Repository Layout
+The assistant may record evidence-backed project facts and task-local lessons.
+It cannot rewrite `AGENTS.md`, weaken data or approval boundaries, promote its
+own working preference into policy, or treat self-checking as independent review.
+
+## Repository layout
 
 | Path | Purpose |
 | --- | --- |
-| `AGENTS.md` | Rule core: identity, mission, principles, and self-evolution loop. |
-| `KNOWLEDGE.md` | Knowledge index. |
-| `knowledge/` | Current facts: `system.md` covers the system model, and `current-state.md` covers goals and progress. |
-| `notes/` | Daily logs appended by date. Old entries are not edited after their day ends. |
+| `AGENTS.md` | Product-owned identity, autonomy, safety, and Human-governance contract. |
+| `KNOWLEDGE.md` | Index of current project facts. |
+| `knowledge/` | Current system and project state, separated from policy. |
+| `notes/` | Dated task logs; prior dates remain append-only history. |
 
-## Startup Order
+## Startup order
 
-1. Read `AGENTS.md`.
-2. Read `KNOWLEDGE.md`.
-3. Read the latest 2-3 files in `notes/`.
-4. Check the goal, worktree, code, data, and logs.
+1. Read `AGENTS.md` and `KNOWLEDGE.md`.
+2. Read the latest two or three notes when present.
+3. Inspect the researcher-defined question, delegated task, state, artifacts,
+   worktree, data classification, and logs.
+4. If no researcher-defined task exists, ask for one and stop.
 
-## Memory Rules
+## Memory rules
 
-- `knowledge/` stores current facts only; update it when facts change.
-- `notes/` stores daily logs; append during the day and do not edit old entries.
-- Principle changes go directly into `AGENTS.md`.
+- Update `knowledge/` only with evidence-backed current facts.
+- Keep task-local observations in today's note.
+- Do not infer durable preferences from one interaction.
+- Do not edit `AGENTS.md`; propose governance changes for Human review.

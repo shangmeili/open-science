@@ -1,13 +1,15 @@
-# Current State
+# Current state
 
-- Goal: undefined — waiting for the first instruction.
+- Research lead: human researcher.
+- Research question: undefined — waiting for the researcher.
 - Intended use: undefined.
 - Decision jurisdiction: undefined.
 - Reference case: undefined.
 - Data classification: unknown.
-- Stage: not started.
-- Current task: none.
-- Next action: wait for the first instruction.
+- Project stage: not started.
+- Delegated assistant task: undefined.
+- Next action: ask the researcher what they want to investigate; do not begin
+  searching or modeling without a researcher-defined task.
 
 ## Human gates
 
@@ -17,6 +19,6 @@
 - independent_validation: pending
 - release: pending
 
-The agent may update factual project fields and task status. It must not change
-gate status; canonical gate evidence is app-owned and available only through the
-desktop approval service.
+The assistant may update evidence-backed project facts and delegated task status.
+It must not change gate status; canonical gate evidence is app-owned and available
+only through the desktop approval service.

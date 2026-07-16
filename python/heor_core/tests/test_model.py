@@ -2251,16 +2251,17 @@ class BudgetImpactAnalysisTests(unittest.TestCase):
 
 
 class HarnessContractTests(unittest.TestCase):
-    def test_seeded_agent_cannot_self_approve_or_claim_independent_validation(
+    def test_seeded_assistant_is_researcher_led_and_cannot_self_approve(
         self,
     ) -> None:
         rules = (REPOSITORY_ROOT / "runtime" / "harness" / "AGENTS.md").read_text()
 
-        self.assertIn("Humans retain decision authority", rules)
-        self.assertIn("self-review is\n  never independent model validation", rules)
+        self.assertIn("The human researcher leads the scientific work", rules)
+        self.assertIn("Self-checking is quality control, never independent", rules)
         self.assertIn("may not approve a gate", rules)
-        self.assertIn("Never create or modify approval records", rules)
-        self.assertIn("app-owned canonical log", rules)
+        self.assertIn("Never create or modify an app-owned approval", rules)
+        self.assertIn("Canonical gate evidence is app-owned", rules)
+        self.assertIn("Do not edit `AGENTS.md`", rules)
         self.assertNotIn("serve your own goals independently", rules)
 
     def test_seeded_state_exposes_required_gates_and_data_classification(self) -> None:

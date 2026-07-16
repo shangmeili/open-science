@@ -268,7 +268,7 @@ pnpm lint
 | `packages/ui/` | Shared UI package. |
 | `runtime/skills/core/` | First-party scientific skills. |
 | `runtime/skills/external/` | Build-fetched external skills. |
-| `runtime/harness/` | Runtime harness knowledge and operator context. |
+| `runtime/harness/` | Product-owned, researcher-led assistant contract seeded into new projects. |
 | `runtime/mcp/` | MCP runtime notes/configuration. |
 | `examples/` | Built-in example workspaces. |
 | `scripts/dev/` | Sidecar, `uv`, skill fetchers, and focused regression probes. |
@@ -285,7 +285,7 @@ target design as well as historical status notes.
 Near-term work is focused on executing the configured four-target hash-bound package
 manifest and Windows first-start gate, signed/notarized releases, physical Linux
 desktop-session verification, auto-update, richer connector hardening, and
-continued reproducibility review. The AI4HEOR 0.1.19 x64 macOS DMG is locally built and
+continued reproducibility review. The AI4HEOR 0.1.20 x64 macOS DMG is locally built and
 payload-verified, including all 177 deterministic HEOR tests against its packaged core.
 The AI4HEOR 0.1.18 Linux `.deb` and `.rpm` are also payload-verified, including all 177
 deterministic HEOR tests and 260 configured resources from each extracted package. The

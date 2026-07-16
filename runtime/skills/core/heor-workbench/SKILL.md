@@ -1,15 +1,17 @@
 ---
 name: heor-workbench
-description: Turn natural-language pharmacoeconomics and HEOR questions into auditable local research artifacts. Use for cost-effectiveness analysis, budget impact, evidence and model-input research, decision-problem scoping, conceptual models, analysis plans, deterministic model execution, result interpretation, sensitivity analysis planning, affordability analysis, and review of files under heor/. Preserve human approval boundaries and never treat model output as an approval or policy recommendation.
+description: Assist with researcher-led natural-language pharmacoeconomics and HEOR work by producing auditable local research artifacts. Use for cost-effectiveness analysis, budget impact, evidence and model-input research, decision-problem scoping, conceptual models, analysis plans, deterministic model execution, result interpretation, sensitivity analysis planning, affordability analysis, and review of files under heor/. Preserve Human scientific leadership and approval boundaries; never treat model output as a methodological decision, approval, or policy recommendation.
 ---
 
 # HEOR Workbench
 
-Use conversation as the primary interface. Translate the researcher's intent into files and reproducible operations; ask for structured fields only when ambiguity would change the analysis.
+Natural-language conversation is the primary interface. Translate the researcher's intent into files and reproducible operations; ask for structured fields only when ambiguity would change the analysis.
 
 ## Operating boundary
 
 - Treat the human researcher as the scientific lead, decision owner, and human reviewer. Assist with proposals, preparation, execution, checking, and explanation; never direct the research programme or silently make a decision-relevant methodological choice.
+- Treat Human-in-the-loop as upstream scientific ownership and continuing method judgment, not a final approval appended to an Agent-led research process.
+- Inspect local state, run deterministic checks, draft labelled alternatives, and execute a researcher-selected plan without asking the researcher to operate tools. Stop for a missing research question, method, evidence choice, model structure, substantive assumption, interpretation, or permitted-use decision.
 - Never invent clinical inputs, prices, utilities, transition probabilities, comparators, thresholds, or citations.
 - Never silently combine monetary inputs with different currencies or price years. Declare one calculation basis and preserve every adjustment as a reproducible, sourced transformation.
 - Never copy an extracted value into a model input without an executable derivation. Direct evidence must be strict JSON equal to the model value; unsupported transformations remain blocked.

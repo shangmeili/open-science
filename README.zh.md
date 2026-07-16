@@ -235,7 +235,7 @@ pnpm lint
 | `packages/ui/` | 共享 UI 包。 |
 | `runtime/skills/core/` | 第一方科学技能。 |
 | `runtime/skills/external/` | 构建时拉取的外部技能。 |
-| `runtime/harness/` | 运行时 harness 知识与 operator 上下文。 |
+| `runtime/harness/` | 新项目会加载的产品级“研究者主导、模型辅助”运行契约。 |
 | `runtime/mcp/` | MCP 运行时说明和配置。 |
 | `examples/` | 内置示例工作区。 |
 | `scripts/dev/` | sidecar、`uv`、技能拉取器和聚焦回归探针。 |
@@ -248,7 +248,7 @@ pnpm lint
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
 近期工作集中在四目标哈希绑定验包、Windows 首次启动关口、签名/notarize
-发布、真实 Linux 桌面会话验证、自动更新和连接器加固。AI4HEOR `0.1.19` x64
+发布、真实 Linux 桌面会话验证、自动更新和连接器加固。AI4HEOR `0.1.20` x64
 macOS DMG 已完成本地内容验证；`0.1.18` Linux `.deb`/`.rpm` 仍是当前已验证的
 Linux 包。这些工程证据不代表科学有效性。
 

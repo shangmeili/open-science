@@ -77,6 +77,17 @@ class CoreSkillContractTests(unittest.TestCase):
                     )
                     self.assertTrue(resolved.exists(), f"missing linked resource: {target}")
 
+    def test_heor_workbench_keeps_scientific_leadership_human(self):
+        text = (SKILLS_ROOT / "heor-workbench" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("Treat the human researcher as the scientific lead", text)
+        self.assertIn("Natural-language conversation is the primary interface", text)
+        self.assertIn(
+            "not a final approval appended to an Agent-led research process",
+            text,
+        )
+        self.assertIn("researcher-selected plan", text)
+        self.assertNotIn("Complete the current goal.", text)
+
 
 if __name__ == "__main__":
     unittest.main()

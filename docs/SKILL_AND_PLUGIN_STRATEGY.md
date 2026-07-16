@@ -32,6 +32,11 @@ development of the platform; inside the platform, Skills execute bounded tasks
 under the researcher's question, method choices, evidence judgments, assumptions,
 interpretation, and release authority.
 
+This distinction is also enforced below the Skill layer. Each new project is
+seeded with a product-owned researcher-led harness: Skills may help carry out a
+researcher-selected plan, but neither a Skill nor the configured runtime may
+define the study, silently resolve a scientific choice, or rewrite that policy.
+
 ## Current external candidates
 
 | Candidate | Evidence observed | Decision for AI4HEOR |

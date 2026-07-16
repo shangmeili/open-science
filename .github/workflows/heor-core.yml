@@ -5,12 +5,14 @@ on:
     paths:
       - "python/heor_core/**"
       - "runtime/skills/core/**"
+      - "runtime/harness/**"
       - "apps/desktop/src-tauri/**"
       - "apps/desktop/src/**"
       - "runtime/assets/asset-admission-registry.json"
       - "scripts/dev/validate_asset_admission.py"
       - "scripts/dev/test_asset_admission.py"
       - "scripts/dev/test_core_skills.py"
+      - "scripts/dev/test_heor_harness.py"
       - "scripts/dev/test_heor_artifact_contracts.py"
       - "scripts/dev/test_heor_local_evidence.py"
       - "scripts/dev/test_network_meta_analysis.py"
@@ -34,12 +36,14 @@ on:
     paths:
       - "python/heor_core/**"
       - "runtime/skills/core/**"
+      - "runtime/harness/**"
       - "apps/desktop/src-tauri/**"
       - "apps/desktop/src/**"
       - "runtime/assets/asset-admission-registry.json"
       - "scripts/dev/validate_asset_admission.py"
       - "scripts/dev/test_asset_admission.py"
       - "scripts/dev/test_core_skills.py"
+      - "scripts/dev/test_heor_harness.py"
       - "scripts/dev/test_heor_artifact_contracts.py"
       - "scripts/dev/test_heor_local_evidence.py"
       - "scripts/dev/test_network_meta_analysis.py"
@@ -93,6 +97,8 @@ jobs:
         run: python scripts/dev/test_asset_admission.py -v
       - name: Validate first-party core Skills
         run: python scripts/dev/test_core_skills.py -v
+      - name: Validate researcher-led AI4HEOR harness
+        run: python scripts/dev/test_heor_harness.py -v
       - name: Validate packaged HEOR Python resources
         run: python scripts/dev/test_tauri_heor_resources.py -v
       - name: Validate pinned sidecar archive integrity

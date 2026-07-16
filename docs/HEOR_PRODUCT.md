@@ -28,6 +28,22 @@ a form-led modeling application.
 - An independent reviewer validates decision models. Codex self-review is not
   independent validation.
 
+## Seeded research-assistant contract
+
+Every newly created AI4HEOR project receives a product-owned runtime harness.
+That harness defines a research assistant, not a research director: it starts
+from the researcher's question and delegated task, continues reversible execution
+when the required choices are explicit, and stops when a scientific or method
+choice is missing. It cannot invent a research programme, approve a gate, treat
+self-checking as independent review, rewrite its own operating policy, or promote
+task-local observations into policy.
+
+Natural-language conversation remains the control surface for delegation and
+scientific judgment. Forms record app-owned Human decisions or inspect exact
+artifacts; they do not transfer scientific leadership to the runtime. To protect
+user-authored project instructions, harness seeding is deliberately non-clobbering.
+An existing project is never silently rewritten when the bundled contract changes.
+
 ## MVP decision problem
 
 The current complete cost-effectiveness workflow compares 2–16 explicitly

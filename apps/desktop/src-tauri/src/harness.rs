@@ -1,6 +1,6 @@
-// Agent harness: the "how to run" scaffold (AGENTS.md, KNOWLEDGE.md, knowledge/,
-// notes/) seeded into every NEW dated session folder so the agent starts with its
-// operating rules instead of an empty directory. Bundled as a Tauri resource
+// AI4HEOR assistant harness: the researcher-led operating scaffold (AGENTS.md,
+// KNOWLEDGE.md, knowledge/, notes/) seeded into every NEW dated session folder.
+// It keeps scientific leadership and approval authority Human-owned. Bundled as a Tauri resource
 // (`runtime/harness/` → `harness/`) so it ships in the one-click installer.
 use std::path::Path;
 use tauri::{path::BaseDirectory, AppHandle, Manager};
