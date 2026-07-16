@@ -172,9 +172,9 @@ source-model validity, and treatment-duration alternatives as unresolved
 structural questions. The paired-bootstrap P0 now supplies a bounded source of
 candidate joint rows; detailed execution replay is portable while canonical
 joint-row consumption is independently audited by Python and native Rust. The
-next release work is Windows-host package validation, a real Linux visual session,
-native RPM installation, and in-app method review integration rather than another
-broad method prompt. P1 is
+0.1.17 now has native `.deb`/Ubuntu and `.rpm`/Fedora headless first-start evidence; the
+next release work is Windows-host package validation, a real Linux visual session, and
+in-app method review integration rather than another broad method prompt. P1 is
 `heor-utility-evidence-review` only if evidence
 identification and suitability review outgrow the current bounded
 `heor-utility-inputs` workflow; do not pre-emptively split it. No external

@@ -8,9 +8,11 @@
 > deterministic cohort, uncertainty, bounded advanced-VOI, budget-impact, NMA, and anchored-MAIC engines,
 > including portable full-bootstrap replay, native calibration/point-effect challenge, and a
 > separate app-owned Human method reviews; and native macOS and x86_64 Linux packaging.
-> The 0.1.17 x64 macOS DMG is content-verified; the 0.1.16 Linux `.deb` and `.rpm` are built and content-verified on
-> clean Ubuntu 22.04; the `.deb` also passes an isolated install and headless first-start
-> runtime check. Windows remains CI/host-bound, and signing/notarization remains planned.
+> The 0.1.17 x64 macOS DMG is content-verified; the 0.1.17 Linux `.deb` and `.rpm` are
+> built and content-verified from an isolated Ubuntu 22.04 builder. The `.deb` also passes
+> a clean Ubuntu 22.04 install and headless first start, while the `.rpm` passes the
+> equivalent native check on Fedora 42. Windows remains CI/host-bound, and
+> signing/notarization remains planned.
 > Sections below distinguish implemented contracts from target design.
 
 > **Role boundary.** Codex leads construction and verification of the AI4HEOR
@@ -698,13 +700,14 @@ deterministic HEOR Python suite independently from each extracted package. It al
 that the two packages contain identical sidecars and main-program bytes apart from the
 single expected Tauri bundle-type marker.
 
-Version 0.1.16 was additionally installed into two brand-new Ubuntu 22.04 containers. A
-headless X session reached simultaneous `ai4s-workbench` and `opencode serve` process
-readiness and created the initial `~/Documents/OpenScience` workspace. The independently
-extracted `.deb` and `.rpm` payloads each passed all 170 deterministic HEOR tests and 246
-configured scientific resources matched the source bytes. This establishes current-version
-clean installation and runtime startup, but it is not a visual desktop-session acceptance
-test. A real Linux desktop session and a native RPM installation remain release checks.
+Version 0.1.17 was additionally installed into brand-new native package environments. A
+headless X session on Ubuntu 22.04 after `.deb` installation and on Fedora 42 after `.rpm`
+installation reached simultaneous `ai4s-workbench` and `opencode serve` process readiness
+and created the initial `~/Documents/OpenScience` workspace. The independently extracted
+`.deb` and `.rpm` payloads each passed all 177 deterministic HEOR tests and all 252
+configured scientific resources matched the source bytes. This establishes clean native
+installation and headless runtime startup for both package formats, but it is not a visual
+desktop-session acceptance test. A real Linux desktop session remains a release check.
 
 ### 12.4 Auto update
 

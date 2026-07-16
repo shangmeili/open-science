@@ -655,6 +655,7 @@ fn system_proxy_url() -> Option<String> {
 }
 
 /// Parse `scutil --proxy` output (`  Key : value` lines) into a proxy URL.
+#[cfg(any(target_os = "macos", test))]
 fn parse_scutil_proxy(text: &str) -> Option<String> {
     let get = |key: &str| -> Option<String> {
         let prefix = format!("{key} : ");
