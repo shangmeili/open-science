@@ -324,7 +324,7 @@
     "sensitivity": "单因素参数",
     "scenarios": "替代情景",
     "askRepair": "让 Agent 创建或修复预算影响分析",
-    "repairPrompt": "使用 $heor-budget-impact，针对当前 heor/analysis-plan.json 的精确字节创建或修复 heor/budget-impact-plan.json。对分析 schema 0.8.0 或 0.9.0，必须从 strategy_order 中精确选择两个不同 ID，分别作为被替代的比较策略和新干预；不得把这个有边界的双份额计算器伪装成多治疗市场模型。采用三年、预算持有者视角、不贴现的准入前/准入后透明成本计算器；逐年记录目标人群、市场份额、治疗与疾病相关成本、实施成本、证据溯源、单因素范围和替代情景。运行确定性校验器，不要创建或声称获得人工批准。",
+    "repairPrompt": "先判断研究问题需要静态目标人群计算器，还是动态年度队列模型。静态 schema 0.1.0 使用 $heor-budget-impact；当存量与新发队列、治疗替代、持续治疗、死亡或启动容量会实质影响问题时，动态 schema 0.2.0 使用 $heor-dynamic-budget-impact。针对当前 heor/analysis-plan.json 的精确字节创建或修复 heor/budget-impact-plan.json；多策略分析必须从 strategy_order 中明确选择两个已声明 ID，保留完整溯源和局限，运行匹配的确定性校验器，不得创建或声称获得人工批准。",
     "note": "应用会独立审计并把该文件哈希绑定到分析计划批准。预算影响反映支付方财务变化，不等于成本效果或医保准入结论。",
     "noProject": "没有可用于预算影响分析审计的当前项目。",
     "missingPlan": "必须先有分析计划，才能审计预算影响分析。"
@@ -496,6 +496,8 @@
   },
   "budgetImpactResult": {
     "title": "预算影响分析结果",
+    "staticCalculator": "静态计算器",
+    "dynamicCohort": "动态年度队列",
     "year": "年度",
     "population": "目标人群",
     "uptake": "新干预份额",
@@ -503,6 +505,12 @@
     "cumulative": "三年累计影响",
     "leadingDriver": "首要敏感性驱动",
     "scenarios": "替代情景",
+    "dynamicFlowLedger": "准入后动态流量账本",
+    "yearLabel": "第 {{year}} 年在治人群",
+    "starts": "实际启动",
+    "unmetStarts": "未满足启动",
+    "deathsAndExits": "死亡 + 对照退出",
+    "dynamicOrderNote": "引擎先加入新发队列，在启动容量内先分配新发患者、再处理对照替代，然后计入全年成本，最后依次应用死亡、持续治疗和年度边界停药去向。",
     "limitations": "范围与局限"
   },
   "partitionedSurvivalResult": {

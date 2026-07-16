@@ -109,7 +109,7 @@ fn annual_numbers(value: Option<&serde_json::Value>, shares: bool) -> Option<Vec
 
 fn target_allowed(target: &str) -> bool {
     let parts = target.split('/').collect::<Vec<_>>();
-    matches!(
+    let static_target = matches!(
         parts.as_slice(),
         ["", "population", "annual_eligible", year]
             if year.parse::<usize>().is_ok_and(|year| year < HORIZON)
@@ -127,7 +127,38 @@ fn target_allowed(target: &str) -> bool {
         ["", "non_patient_costs", item, "annual_total", "without_new_intervention" | "with_new_intervention", year]
             if item.parse::<usize>().is_ok()
                 && year.parse::<usize>().is_ok_and(|year| year < HORIZON)
-    )
+    );
+    let dynamic_target = matches!(parts.as_slice(), ["", "population", "initial_prevalent"])
+        || matches!(
+            parts.as_slice(),
+            ["", "population", "incident_by_year", year]
+                if year.parse::<usize>().is_ok_and(|year| year < HORIZON)
+        )
+        || matches!(
+            parts.as_slice(),
+            ["", "annual_mortality_probability", year]
+                if year.parse::<usize>().is_ok_and(|year| year < HORIZON)
+        )
+        || matches!(
+            parts.as_slice(),
+            ["", "persistence", "comparator_continuation_probability_by_year" | "intervention_continuation_probability_by_year", year]
+                if year.parse::<usize>().is_ok_and(|year| year < HORIZON)
+        )
+        || matches!(
+            parts.as_slice(),
+            [
+                "",
+                "market_scenarios",
+                "with_new_intervention",
+                "initial_intervention_share"
+            ]
+        )
+        || matches!(
+            parts.as_slice(),
+            ["", "market_scenarios", "with_new_intervention", "incident_intervention_share_by_year" | "comparator_displacement_share_by_year" | "intervention_start_capacity_by_year", year]
+                if year.parse::<usize>().is_ok_and(|year| year < HORIZON)
+        );
+    static_target || dynamic_target
 }
 
 fn pointer_value<'a>(value: &'a serde_json::Value, pointer: &str) -> Option<&'a serde_json::Value> {
@@ -137,18 +168,51 @@ fn pointer_value<'a>(value: &'a serde_json::Value, pointer: &str) -> Option<&'a 
 }
 
 fn target_number_valid(target: &str, value: f64) -> bool {
-    value.is_finite()
-        && value >= 0.0
-        && (!target.contains("intervention_share_by_year") || value <= 1.0)
+    let probability_target = target.starts_with("/annual_mortality_probability/")
+        || target.starts_with("/persistence/")
+        || (target.starts_with("/market_scenarios/")
+            && !target.contains("intervention_start_capacity_by_year"));
+    value.is_finite() && value >= 0.0 && (!probability_target || value <= 1.0)
 }
 
 fn required_paths(value: &serde_json::Value) -> HashSet<String> {
     let mut paths = HashSet::new();
-    for year in 0..HORIZON {
-        paths.insert(format!("/population/annual_eligible/{year}"));
-        paths.insert(format!(
-            "/market_scenarios/with_new_intervention/intervention_share_by_year/{year}"
-        ));
+    if value
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        == Some("0.2.0")
+    {
+        paths.insert("/population/initial_prevalent".into());
+        for year in 0..HORIZON {
+            paths.insert(format!("/population/incident_by_year/{year}"));
+            paths.insert(format!("/annual_mortality_probability/{year}"));
+            for scenario in ["without_new_intervention", "with_new_intervention"] {
+                for field in [
+                    "incident_intervention_share_by_year",
+                    "comparator_displacement_share_by_year",
+                    "intervention_start_capacity_by_year",
+                ] {
+                    paths.insert(format!("/market_scenarios/{scenario}/{field}/{year}"));
+                }
+            }
+            for role in ["comparator", "intervention"] {
+                paths.insert(format!(
+                    "/persistence/{role}_continuation_probability_by_year/{year}"
+                ));
+            }
+        }
+        for scenario in ["without_new_intervention", "with_new_intervention"] {
+            paths.insert(format!(
+                "/market_scenarios/{scenario}/initial_intervention_share"
+            ));
+        }
+    } else {
+        for year in 0..HORIZON {
+            paths.insert(format!("/population/annual_eligible/{year}"));
+            paths.insert(format!(
+                "/market_scenarios/with_new_intervention/intervention_share_by_year/{year}"
+            ));
+        }
     }
     for category in 0..value
         .get("cost_categories")
@@ -200,6 +264,136 @@ fn empty_audit(plan_raw: &[u8]) -> BudgetImpactAudit {
     }
 }
 
+fn audit_static_market(budget: &serde_json::Value, audit: &mut BudgetImpactAudit) {
+    for scenario in ["without_new_intervention", "with_new_intervention"] {
+        if !nonempty(budget.pointer(&format!("/market_scenarios/{scenario}/label"))) {
+            audit
+                .errors
+                .push(format!("BIA market scenario {scenario} needs a label"));
+        }
+        if annual_numbers(
+            budget.pointer(&format!(
+                "/market_scenarios/{scenario}/intervention_share_by_year"
+            )),
+            true,
+        )
+        .is_none()
+        {
+            audit
+                .errors
+                .push(format!("BIA {scenario} shares are invalid"));
+        }
+    }
+    if annual_numbers(
+        budget.pointer("/market_scenarios/without_new_intervention/intervention_share_by_year"),
+        true,
+    )
+    .is_some_and(|values| values.iter().any(|value| value.abs() > 1e-9))
+    {
+        audit
+            .errors
+            .push("without-new-intervention shares must be zero".into());
+    }
+}
+
+fn audit_dynamic_market_and_persistence(budget: &serde_json::Value, audit: &mut BudgetImpactAudit) {
+    for scenario in ["without_new_intervention", "with_new_intervention"] {
+        if !nonempty(budget.pointer(&format!("/market_scenarios/{scenario}/label"))) {
+            audit
+                .errors
+                .push(format!("BIA market scenario {scenario} needs a label"));
+        }
+        if !finite(budget.pointer(&format!(
+            "/market_scenarios/{scenario}/initial_intervention_share"
+        )))
+        .is_some_and(|value| (0.0..=1.0).contains(&value))
+        {
+            audit.errors.push(format!(
+                "BIA {scenario} initial intervention share is invalid"
+            ));
+        }
+        for field in [
+            "incident_intervention_share_by_year",
+            "comparator_displacement_share_by_year",
+        ] {
+            if annual_numbers(
+                budget.pointer(&format!("/market_scenarios/{scenario}/{field}")),
+                true,
+            )
+            .is_none()
+            {
+                audit
+                    .errors
+                    .push(format!("BIA {scenario} {field} is invalid"));
+            }
+        }
+        if annual_numbers(
+            budget.pointer(&format!(
+                "/market_scenarios/{scenario}/intervention_start_capacity_by_year"
+            )),
+            false,
+        )
+        .is_none()
+        {
+            audit
+                .errors
+                .push(format!("BIA {scenario} intervention capacity is invalid"));
+        }
+    }
+
+    let without = "/market_scenarios/without_new_intervention";
+    let nonzero_initial = finite(budget.pointer(&format!("{without}/initial_intervention_share")))
+        .is_some_and(|value| value.abs() > 1e-9);
+    let nonzero_annual = [
+        "incident_intervention_share_by_year",
+        "comparator_displacement_share_by_year",
+        "intervention_start_capacity_by_year",
+    ]
+    .iter()
+    .any(|field| {
+        annual_numbers(budget.pointer(&format!("{without}/{field}")), false)
+            .is_some_and(|values| values.iter().any(|value| value.abs() > 1e-9))
+    });
+    if nonzero_initial || nonzero_annual {
+        audit
+            .errors
+            .push("without-new-intervention dynamic flow inputs must be zero".into());
+    }
+
+    for role in ["comparator", "intervention"] {
+        if annual_numbers(
+            budget.pointer(&format!(
+                "/persistence/{role}_continuation_probability_by_year"
+            )),
+            true,
+        )
+        .is_none()
+        {
+            audit
+                .errors
+                .push(format!("BIA {role} persistence is invalid"));
+        }
+    }
+    if budget
+        .pointer("/persistence/comparator_discontinuation_destination")
+        .and_then(serde_json::Value::as_str)
+        != Some("exit_treated_market")
+    {
+        audit
+            .errors
+            .push("BIA comparator discontinuation must exit the treated market".into());
+    }
+    if budget
+        .pointer("/persistence/intervention_discontinuation_destination")
+        .and_then(serde_json::Value::as_str)
+        != Some("comparator")
+    {
+        audit
+            .errors
+            .push("BIA intervention discontinuation must move to comparator".into());
+    }
+}
+
 fn audit_values(
     workspace: &Path,
     plan: &serde_json::Value,
@@ -223,14 +417,13 @@ fn audit_values(
         .get("horizon_years")
         .and_then(serde_json::Value::as_u64);
 
-    if budget
+    let schema_version = budget
         .get("schema_version")
-        .and_then(serde_json::Value::as_str)
-        != Some("0.1.0")
-    {
+        .and_then(serde_json::Value::as_str);
+    if !matches!(schema_version, Some("0.1.0" | "0.2.0")) {
         audit
             .errors
-            .push("budget impact schema_version must be 0.1.0".into());
+            .push("budget impact schema_version must be 0.1.0 or 0.2.0".into());
     }
     for field in ["bia_id", "analysis_id"] {
         if !nonempty(budget.get(field)) {
@@ -329,20 +522,44 @@ fn audit_values(
             .errors
             .push("BIA population requires label and derivation".into());
     }
-    audit.population_year_count = budget
-        .pointer("/population/annual_eligible")
-        .and_then(serde_json::Value::as_array)
-        .map_or(0, Vec::len);
-    if annual_numbers(budget.pointer("/population/annual_eligible"), false).is_none() {
-        audit
-            .errors
-            .push("BIA annual eligible population must contain three non-negative values".into());
+    if schema_version == Some("0.2.0") {
+        audit.population_year_count = budget
+            .pointer("/population/incident_by_year")
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len);
+        if !finite(budget.pointer("/population/initial_prevalent"))
+            .is_some_and(|value| value >= 0.0)
+        {
+            audit
+                .errors
+                .push("BIA initial prevalent population must be non-negative".into());
+        }
+        if annual_numbers(budget.pointer("/population/incident_by_year"), false).is_none() {
+            audit
+                .errors
+                .push("BIA incident population must contain three non-negative values".into());
+        }
+        if annual_numbers(budget.get("annual_mortality_probability"), true).is_none() {
+            audit
+                .errors
+                .push("BIA annual mortality must contain three probabilities".into());
+        }
+    } else {
+        audit.population_year_count = budget
+            .pointer("/population/annual_eligible")
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len);
+        if annual_numbers(budget.pointer("/population/annual_eligible"), false).is_none() {
+            audit.errors.push(
+                "BIA annual eligible population must contain three non-negative values".into(),
+            );
+        }
     }
 
     let multi_strategy_ids = if matches!(
         plan.get("schema_version")
             .and_then(serde_json::Value::as_str),
-        Some("0.8.0" | "0.9.0")
+        Some("0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0" | "0.13.0" | "0.14.0" | "0.15.0")
     ) {
         string_set(plan.get("strategy_order")).filter(|ids| {
             ids.len() >= 2 && ids.iter().all(|strategy_id| safe_strategy_id(strategy_id))
@@ -376,7 +593,9 @@ fn audit_values(
         } else if matches!(
             plan.get("schema_version")
                 .and_then(serde_json::Value::as_str),
-            Some("0.8.0" | "0.9.0")
+            Some(
+                "0.8.0" | "0.9.0" | "0.10.0" | "0.11.0" | "0.12.0" | "0.13.0" | "0.14.0" | "0.15.0"
+            )
         ) {
             false
         } else {
@@ -396,34 +615,10 @@ fn audit_values(
             .push("BIA strategy ids must be different".into());
     }
 
-    for scenario in ["without_new_intervention", "with_new_intervention"] {
-        if !nonempty(budget.pointer(&format!("/market_scenarios/{scenario}/label"))) {
-            audit
-                .errors
-                .push(format!("BIA market scenario {scenario} needs a label"));
-        }
-        if annual_numbers(
-            budget.pointer(&format!(
-                "/market_scenarios/{scenario}/intervention_share_by_year"
-            )),
-            true,
-        )
-        .is_none()
-        {
-            audit
-                .errors
-                .push(format!("BIA {scenario} shares are invalid"));
-        }
-    }
-    if annual_numbers(
-        budget.pointer("/market_scenarios/without_new_intervention/intervention_share_by_year"),
-        true,
-    )
-    .is_some_and(|values| values.iter().any(|value| value.abs() > 1e-9))
-    {
-        audit
-            .errors
-            .push("without-new-intervention shares must be zero".into());
+    if schema_version == Some("0.2.0") {
+        audit_dynamic_market_and_persistence(budget, &mut audit);
+    } else {
+        audit_static_market(budget, &mut audit);
     }
 
     let categories = budget
@@ -1028,12 +1223,10 @@ pub fn run_heor_budget_impact(
             budget_impact: budget_audit,
             partitioned_survival:
                 crate::heor_partitioned_survival::audit_partitioned_survival_for_plan(
-                    &workspace,
-                    &plan_raw,
+                    &workspace, &plan_raw,
                 )?,
             survival_review: crate::heor_survival_review::audit_survival_review_for_plan(
-                &workspace,
-                &plan_raw,
+                &workspace, &plan_raw,
             ),
             validation: validation_audit,
             reporting: reporting_audit,
@@ -1075,6 +1268,86 @@ mod tests {
         )
     }
 
+    fn dynamic_fixture() -> (serde_json::Value, Vec<u8>, serde_json::Value, Vec<u8>) {
+        let (plan, plan_raw, mut budget, _) = fixture();
+        budget["schema_version"] = serde_json::json!("0.2.0");
+        budget["bia_id"] = serde_json::json!("golden-dynamic-budget-impact");
+        budget["population"] = serde_json::json!({
+            "label": "Treated prevalent and incident population",
+            "initial_prevalent": 100.0,
+            "incident_by_year": [20.0, 20.0, 20.0],
+            "derivation": "Synthetic annual-boundary dynamic-cohort fixture."
+        });
+        budget["annual_mortality_probability"] = serde_json::json!([0.1, 0.1, 0.1]);
+        budget["market_scenarios"] = serde_json::json!({
+            "without_new_intervention": {
+                "label": "Without access",
+                "initial_intervention_share": 0.0,
+                "incident_intervention_share_by_year": [0.0, 0.0, 0.0],
+                "comparator_displacement_share_by_year": [0.0, 0.0, 0.0],
+                "intervention_start_capacity_by_year": [0.0, 0.0, 0.0]
+            },
+            "with_new_intervention": {
+                "label": "With access",
+                "initial_intervention_share": 0.2,
+                "incident_intervention_share_by_year": [0.5, 0.5, 0.5],
+                "comparator_displacement_share_by_year": [0.1, 0.1, 0.1],
+                "intervention_start_capacity_by_year": [30.0, 30.0, 30.0]
+            }
+        });
+        budget["persistence"] = serde_json::json!({
+            "comparator_continuation_probability_by_year": [0.9, 0.9, 0.9],
+            "intervention_continuation_probability_by_year": [0.8, 0.8, 0.8],
+            "comparator_discontinuation_destination": "exit_treated_market",
+            "intervention_discontinuation_destination": "comparator"
+        });
+        budget["non_patient_costs"] = serde_json::json!([]);
+        budget["sensitivity_parameters"] = serde_json::json!([{
+            "id": "initial-prevalence",
+            "label": "Initial prevalent population",
+            "target": "/population/initial_prevalent",
+            "low": 90.0,
+            "high": 110.0,
+            "basis_ids": ["golden-synthetic"]
+        }]);
+        budget["alternative_scenarios"] = serde_json::json!([{
+            "scenario_id": "lower-capacity",
+            "label": "Lower start capacity",
+            "rationale": "Synthetic capacity constraint.",
+            "overrides": [{
+                "target": "/market_scenarios/with_new_intervention/intervention_start_capacity_by_year/0",
+                "value": 5.0
+            }],
+            "basis_ids": ["golden-synthetic"]
+        }]);
+        let provenance = required_paths(&budget)
+            .into_iter()
+            .map(|path| {
+                let mut mapping = serde_json::json!({
+                    "path": path,
+                    "assumption_ids": ["golden-synthetic"],
+                    "unit": "synthetic input",
+                    "jurisdiction": "China",
+                    "selection_rationale": "Synthetic fixture.",
+                    "uncertainty_status": "fixed"
+                });
+                if mapping["path"]
+                    .as_str()
+                    .is_some_and(|path| path.starts_with("/cost_categories/"))
+                {
+                    mapping["price_year"] = serde_json::json!(2026);
+                }
+                mapping
+            })
+            .collect::<Vec<_>>();
+        budget["input_provenance"] = serde_json::json!(provenance);
+        budget["limitations"] = serde_json::json!([
+            "Synthetic annual-boundary cohort fixture; not patient-level simulation."
+        ]);
+        let budget_raw = serde_json::to_vec(&budget).unwrap();
+        (plan, plan_raw, budget, budget_raw)
+    }
+
     #[test]
     fn complete_budget_impact_plan_is_machine_reviewable() {
         let root = temp_workspace("complete");
@@ -1086,6 +1359,40 @@ mod tests {
         assert_eq!(audit.covered_input_count, 24);
         assert_eq!(audit.cost_category_count, 2);
         assert_eq!(audit.sensitivity_parameter_count, 2);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn complete_dynamic_budget_impact_plan_is_machine_reviewable() {
+        let root = temp_workspace("dynamic-complete");
+        let (plan, plan_raw, budget, budget_raw) = dynamic_fixture();
+        let audit = audit_values(&root, &plan, &plan_raw, &budget, &budget_raw);
+
+        assert!(
+            audit.complete,
+            "{:?} {:?}",
+            audit.errors, audit.invalid_inputs
+        );
+        assert_eq!(audit.population_year_count, 3);
+        assert_eq!(audit.required_input_count, 45);
+        assert_eq!(audit.covered_input_count, 45);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn dynamic_without_access_intervention_flow_fails_closed() {
+        let root = temp_workspace("dynamic-without-flow");
+        let (plan, plan_raw, mut budget, _) = dynamic_fixture();
+        budget["market_scenarios"]["without_new_intervention"]
+            ["incident_intervention_share_by_year"][1] = serde_json::json!(0.1);
+        let budget_raw = serde_json::to_vec(&budget).unwrap();
+        let audit = audit_values(&root, &plan, &plan_raw, &budget, &budget_raw);
+
+        assert!(!audit.complete);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("dynamic flow inputs must be zero")));
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -1182,6 +1489,12 @@ mod tests {
         assert!(target_allowed("/population/annual_eligible/0"));
         assert!(target_allowed(
             "/cost_categories/0/annual_per_patient/intervention/2"
+        ));
+        assert!(target_allowed(
+            "/market_scenarios/with_new_intervention/intervention_start_capacity_by_year/0"
+        ));
+        assert!(!target_allowed(
+            "/market_scenarios/without_new_intervention/incident_intervention_share_by_year/0"
         ));
         assert!(!target_allowed("/perspective/price_year"));
         assert!(!target_allowed("/base_analysis/content_sha256"));

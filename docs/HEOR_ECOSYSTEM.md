@@ -155,6 +155,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, conditional per-person EVPI, convergence diagnostics, dependence disclosure, bounded cost/utility/event recomputation, and composition with reviewed joint PFS/OS rows | `heor/uncertainty-plan.json` plus deterministic run output; current schemas `0.13.0` and `0.14.0` |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
+| Shipped alpha | `heor-dynamic-budget-impact` | Three-year annual-boundary prevalent/incident cohorts, uptake, comparator displacement, persistence, discontinuation, common mortality, start capacity, and full flow ledger | Budget-impact schema `0.2.0` plus the existing analysis-plan and release gates |
 | Shipped | `heor-model-validation` | Intended-use validation package covering face, input, external, cross-model, predictive, and TECH-VER checks without a score | `heor/model-validation.json`, local evidence, and app-owned independent-review gate |
 | Shipped | `heor-reporting` | Separate CHEERS 2022 and ISPOR BIA reporting, exact result summaries, disclosures, and release preparation without checklist scoring | `heor/report-package.json`, `heor/report.md`, app-written results, and app-owned release gate |
 
@@ -236,9 +237,10 @@ subdistribution quantities, calendar improvement, age/sex mixtures, time-varying
 excess hazards, competing non-death events, and partitioned survival remain
 outside admission.
 
-The BIA slice also rejects method creep:
-it stops rather than pretending a two-strategy cost calculator can represent
-induced demand, dynamic cohorts, or multi-treatment markets. Optional BCEA,
+The BIA slices also reject method creep: static schema `0.1.0` routes material
+annual entry/exit questions to dynamic schema `0.2.0`, while the dynamic alpha
+still stops for partial-cycle events, re-initiation, treatment-specific mortality,
+induced demand, disease-state migration, or multi-treatment markets. Optional BCEA,
 `hesim`, `heemod`, and `survHE` integrations remain candidates until their
 adapters pass the same pipeline; their maturity does not bypass platform
 admission.
@@ -369,8 +371,8 @@ plugin is an executable dependency. The separately bounded constant-HR route is
 owned by `$heor-hazard-ratio-adapter`. Partitioned survival, explicit treatment-
 effect duration, deterministic annual state-cost normalization, utility inputs,
 event disutilities, correlated component uncertainty, and composed joint-curve
-plus component PSA are now shipped bounded alphas. Dynamic-cohort BIA, NMA/MAIC,
-RWE, and advanced VOI follow. Those backlog items are not
+plus component PSA and dynamic-cohort BIA are now shipped bounded alphas.
+NMA/MAIC, RWE, and advanced VOI follow. Those backlog items are not
 shipped capabilities or approval authority.
 
 Schema `0.11.0` adds the first-party `$heor-hazard-ratio-adapter` for one

@@ -4,7 +4,7 @@
 
 The first-party alpha implements a transparent three-year budget-holder cost calculator for exactly two mutually exclusive strategies. It compares `without_new_intervention` and `with_new_intervention`, derives comparator share as one minus intervention share, reports each budget year separately, and applies no discounting.
 
-Use a future cohort or patient-level adapter when target-population entry and exit, disease-severity mix, induced demand, combination treatment, more than two active treatments, or time-dependent clinical events cannot be represented credibly by explicit annual population and cost inputs.
+Use `$heor-dynamic-budget-impact` when annual prevalent/incident entry, exit, displacement, persistence, common mortality, or start capacity is material. Use a future separately admitted cohort or patient-level adapter when disease-severity mix, induced demand, combination treatment, more than two active treatments, partial-cycle events, treatment-specific mortality, or patient history cannot be represented credibly.
 
 ## Required artifact
 

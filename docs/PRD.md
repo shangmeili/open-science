@@ -1,6 +1,6 @@
 # AI4S Workbench Desktop — Product Requirements
 
-> **Status (AI4HEOR alpha, 2026-07-15).** The runtime is **OpenCode**, bundled as an isolated
+> **Status (AI4HEOR alpha, 2026-07-16).** The runtime is **OpenCode**, bundled as an isolated
 > sidecar (one-click, auto-started, does not touch a user's own OpenCode). Built: the
 > three-column workbench UI, real multi-session chat with history, a real Skills/Agents
 > view, BYOK key config, a macOS installer, and the first-party HEOR workflow described

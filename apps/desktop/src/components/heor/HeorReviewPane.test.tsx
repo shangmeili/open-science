@@ -3,12 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT,
+  type HeorBudgetImpactRunResult,
   type HeorPairedBootstrapAudit,
   type HeorUncertaintyRunResult,
 } from "@/lib/heor";
 import { useUiStore } from "@/lib/store";
 import {
   CeacChart,
+  BudgetImpactResultCard,
   EvidenceVerificationDialog,
   HeorReviewPane,
   PairedBootstrapAssessment,
@@ -143,6 +145,82 @@ describe("AI4HEOR human review pane", () => {
     const paths = [...container.querySelectorAll("path")];
     expect(paths).toHaveLength(2);
     expect(paths.some((path) => path.getAttribute("stroke-dasharray"))).toBe(true);
+  });
+
+  it("shows the bounded dynamic budget flow ledger without implying observed patients", async () => {
+    const flow = {
+      opening_comparator: 80,
+      opening_intervention: 20,
+      incident_population: 20,
+      requested_incident_intervention_starts: 10,
+      incident_intervention_starts: 5,
+      requested_comparator_displacement_starts: 9.5,
+      comparator_displacement_starts: 0,
+      capacity: 5,
+      capacity_unmet_starts: 14.5,
+      comparator_treated: 95,
+      intervention_treated: 25,
+      treated_population: 120,
+      intervention_share: 25 / 120,
+      deaths: 12,
+      intervention_discontinuers_to_comparator: 4.5,
+      comparator_discontinuers_exiting: 8.55,
+      closing_comparator: 81.45,
+      closing_intervention: 18,
+      total_cost: 14500,
+    };
+    const result = {
+      workflow: { classification: "exploratory" },
+      calculation: {
+        analysis_id: "analysis-1",
+        bia_id: "bia-1",
+        engine_version: "0.3.0",
+        schema_version: "0.2.0",
+        analysis_plan_sha256: "a".repeat(64),
+        budget_impact_plan_sha256: "b".repeat(64),
+        calculation_classification: "calculation_only",
+        horizon_years: 3,
+        discount_rate: 0,
+        currency: "CNY",
+        price_year: 2026,
+        base_case: {
+          model_type: "dynamic_annual_cohort",
+          event_order: ["open_stock"],
+          annual_results: [1, 2, 3].map((year) => ({
+            year,
+            eligible_population: 120,
+            without_new_intervention_share: 0,
+            with_new_intervention_share: 25 / 120,
+            without_new_intervention_cost: 12000,
+            with_new_intervention_cost: 14500,
+            net_budget_impact: 2500,
+            without_new_intervention_flow: flow,
+            with_new_intervention_flow: flow,
+          })),
+          annual_net_budget_impact: [2500, 2500, 2500],
+          cumulative_net_budget_impact: 7500,
+        },
+        one_way_sensitivity: [{
+          parameter_id: "capacity",
+          label: "Start capacity",
+          target: "/market_scenarios/with_new_intervention/intervention_start_capacity_by_year/0",
+          cumulative_span: 1000,
+        }],
+        alternative_scenarios: [{
+          scenario_id: "lower-capacity",
+          label: "Lower capacity",
+          cumulative_net_budget_impact: 6000,
+        }],
+        limitations: ["Annual expected counts; not observed patient flow."],
+        warnings: [],
+      },
+    } as unknown as HeorBudgetImpactRunResult;
+
+    render(<BudgetImpactResultCard result={result} locale="en" />);
+    expect(screen.getByText(/Dynamic annual cohort/)).toBeInTheDocument();
+    await userEvent.click(screen.getByText("Dynamic with-access flow ledger"));
+    expect(screen.getAllByText("15")).toHaveLength(3);
+    expect(screen.getByText(/allocates incident starts before displacement/)).toBeInTheDocument();
   });
 
   it("renders one CEAC series per declared strategy", () => {
@@ -461,6 +539,7 @@ describe("AI4HEOR human review pane", () => {
     expect(onRequestRevision).toHaveBeenCalledWith(
       expect.stringContaining("$heor-budget-impact"),
     );
+    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("$heor-dynamic-budget-impact");
     expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("strategy_order");
     await userEvent.click(screen.getByRole("button", {
       name: "Ask Agent to prepare validation evidence",

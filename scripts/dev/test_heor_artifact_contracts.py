@@ -51,6 +51,10 @@ budget_impact = load(
     "validate_budget_impact_plan",
     "runtime/skills/core/heor-budget-impact/scripts/validate_budget_impact_plan.py",
 )
+dynamic_budget_impact = load(
+    "validate_dynamic_budget_impact_plan",
+    "runtime/skills/core/heor-dynamic-budget-impact/scripts/validate_dynamic_budget_impact_plan.py",
+)
 model_validation = load(
     "validate_model_validation",
     "runtime/skills/core/heor-model-validation/scripts/validate_model_validation.py",
@@ -2990,6 +2994,136 @@ class BudgetImpactContractTests(unittest.TestCase):
             self.assertTrue(any("target is invalid" in error for error in errors))
 
 
+class DynamicBudgetImpactContractTests(unittest.TestCase):
+    def fixture(self, root: Path):
+        heor = root / "heor"
+        heor.mkdir(parents=True)
+        plan_path = heor / "analysis-plan.json"
+        plan_path.write_bytes(
+            (ROOT / "python/heor_core/golden_cases/two_strategy_budget_base.json").read_bytes()
+        )
+        plan_raw = plan_path.read_bytes()
+        value = json.loads(
+            (ROOT / "python/heor_core/golden_cases/two_strategy_budget_impact.json").read_text()
+        )
+        value.update({
+            "schema_version": "0.2.0",
+            "bia_id": "golden-dynamic-budget-impact",
+            "base_analysis": {
+                "path": "heor/analysis-plan.json",
+                "content_sha256": hashlib.sha256(plan_raw).hexdigest(),
+            },
+            "population": {
+                "label": "Treated prevalent and incident population",
+                "initial_prevalent": 100.0,
+                "incident_by_year": [20.0, 20.0, 20.0],
+                "derivation": "Synthetic annual-boundary fixture.",
+            },
+            "annual_mortality_probability": [0.1, 0.1, 0.1],
+            "market_scenarios": {
+                "without_new_intervention": {
+                    "label": "Without access",
+                    "initial_intervention_share": 0.0,
+                    "incident_intervention_share_by_year": [0.0, 0.0, 0.0],
+                    "comparator_displacement_share_by_year": [0.0, 0.0, 0.0],
+                    "intervention_start_capacity_by_year": [0.0, 0.0, 0.0],
+                },
+                "with_new_intervention": {
+                    "label": "With access",
+                    "initial_intervention_share": 0.2,
+                    "incident_intervention_share_by_year": [0.5, 0.5, 0.5],
+                    "comparator_displacement_share_by_year": [0.1, 0.1, 0.1],
+                    "intervention_start_capacity_by_year": [30.0, 30.0, 30.0],
+                },
+            },
+            "persistence": {
+                "comparator_continuation_probability_by_year": [0.9, 0.9, 0.9],
+                "intervention_continuation_probability_by_year": [0.8, 0.8, 0.8],
+                "comparator_discontinuation_destination": "exit_treated_market",
+                "intervention_discontinuation_destination": "comparator",
+            },
+            "non_patient_costs": [],
+            "sensitivity_parameters": [{
+                "id": "initial-prevalence",
+                "label": "Initial prevalent population",
+                "target": "/population/initial_prevalent",
+                "low": 90.0,
+                "high": 110.0,
+                "basis_ids": ["golden-synthetic"],
+            }],
+            "alternative_scenarios": [{
+                "scenario_id": "lower-capacity",
+                "label": "Lower capacity",
+                "rationale": "Synthetic capacity constraint.",
+                "overrides": [{
+                    "target": "/market_scenarios/with_new_intervention/intervention_start_capacity_by_year/0",
+                    "value": 5.0,
+                }],
+                "basis_ids": ["golden-synthetic"],
+            }],
+            "limitations": ["Synthetic annual-boundary fixture."],
+        })
+        value["input_provenance"] = []
+        for path in sorted(dynamic_budget_impact.required_paths(value)):
+            item = {
+                "path": path,
+                "assumption_ids": ["golden-synthetic"],
+                "unit": "synthetic input",
+                "jurisdiction": "China",
+                "selection_rationale": "Synthetic fixture.",
+                "uncertainty_status": "fixed",
+            }
+            if path.startswith("/cost_categories/"):
+                item["price_year"] = 2026
+            value["input_provenance"].append(item)
+        budget_path = heor / "budget-impact-plan.json"
+        budget_path.write_text(json.dumps(value, indent=2))
+        return budget_path, plan_path
+
+    def test_complete_dynamic_budget_impact_plan_passes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = self.fixture(Path(directory))
+            self.assertEqual(dynamic_budget_impact.validate(*paths), [])
+
+    def test_dynamic_provenance_and_without_access_flow_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            budget_path, plan_path = self.fixture(Path(directory))
+            value = json.loads(budget_path.read_text())
+            value["input_provenance"] = value["input_provenance"][:-1]
+            value["market_scenarios"]["without_new_intervention"][
+                "comparator_displacement_share_by_year"
+            ][0] = 0.1
+            budget_path.write_text(json.dumps(value, indent=2))
+
+            errors = dynamic_budget_impact.validate(budget_path, plan_path)
+            self.assertTrue(any("coverage is incomplete" in error for error in errors), errors)
+            self.assertIn("without-new-intervention flow inputs must be zero", errors)
+
+    def test_dynamic_capacity_is_not_treated_as_probability(self):
+        with tempfile.TemporaryDirectory() as directory:
+            budget_path, plan_path = self.fixture(Path(directory))
+            value = json.loads(budget_path.read_text())
+            value["market_scenarios"]["with_new_intervention"][
+                "intervention_start_capacity_by_year"
+            ][0] = 5000.0
+            budget_path.write_text(json.dumps(value, indent=2))
+
+            self.assertEqual(dynamic_budget_impact.validate(budget_path, plan_path), [])
+
+    def test_dynamic_scenario_cannot_create_without_access_intervention_flow(self):
+        with tempfile.TemporaryDirectory() as directory:
+            budget_path, plan_path = self.fixture(Path(directory))
+            value = json.loads(budget_path.read_text())
+            value["alternative_scenarios"][0]["overrides"][0] = {
+                "target": "/market_scenarios/without_new_intervention/incident_intervention_share_by_year/0",
+                "value": 0.1,
+            }
+            budget_path.write_text(json.dumps(value, indent=2))
+
+            errors = dynamic_budget_impact.validate(budget_path, plan_path)
+            self.assertTrue(any("override is invalid" in error for error in errors), errors)
+
+
 class ModelValidationContractTests(unittest.TestCase):
     @staticmethod
     def method(domain: str) -> str:
@@ -3165,6 +3299,46 @@ class ModelValidationContractTests(unittest.TestCase):
             self.assertTrue(result["complete"])
             self.assertTrue(result["approvable"])
             self.assertEqual(result["covered_requirement_count"], 18)
+
+    def test_dynamic_budget_impact_requires_independent_flow_verification(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report_path, report, _ = self.fixture(root)
+            budget_path = root / model_validation.LEGACY_BINDINGS["budget_impact_plan"]
+            budget = json.loads(budget_path.read_text())
+            budget["schema_version"] = "0.2.0"
+            budget_path.write_text(json.dumps(budget, indent=2))
+            report["model_bindings"]["budget_impact_plan"][
+                "content_sha256"
+            ] = hashlib.sha256(budget_path.read_bytes()).hexdigest()
+            report_path.write_text(json.dumps(report, indent=2))
+
+            incomplete = model_validation.audit(report_path, root)
+            self.assertIn(
+                "budget-impact technical event_state_calculations",
+                incomplete["missing_coverage"],
+            )
+            self.assertEqual(incomplete["required_coverage_count"], 19)
+
+            report["checks"].append({
+                "id": "dynamic-bia-flow",
+                "scope": "budget_impact",
+                "domain": "technical_verification",
+                "component": "event_state_calculations",
+                "method": "replication",
+                "status": "passed",
+                "performed_by": "independent_reviewer",
+                "description": "Reproduce every dynamic annual flow and mass balance.",
+                "expected": "Opening, incident, treatment, exit, and closing stocks reconcile.",
+                "observed": "Independent fixture and boundary cases reconciled.",
+                "rationale": "Dynamic BIA requires event/state arithmetic verification.",
+                "evidence_ids": ["review-evidence"],
+                "issue_ids": [],
+            })
+            report_path.write_text(json.dumps(report, indent=2))
+            complete = model_validation.audit(report_path, root)
+            self.assertTrue(complete["complete"], complete)
+            self.assertEqual(complete["covered_requirement_count"], 19)
 
     def test_complete_psm_validation_binds_inputs_and_results(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -3715,7 +3889,7 @@ class ReproducibilityPackageContractTests(unittest.TestCase):
             "artifact_inventory": inventory,
             "execution_manifest": reproducibility.command_specs(report, loaded),
             "environment": {
-                "ai4heor_version": "0.1.13",
+                "ai4heor_version": "0.1.14",
                 "platform": "test-x86_64",
                 "python_version": "Python 3.12.0",
                 "result_engine_versions": ["0.15.0"],

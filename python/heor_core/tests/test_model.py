@@ -8,7 +8,7 @@ from math import exp, log, sqrt
 from pathlib import Path
 from types import SimpleNamespace
 
-from heor_core.budget_impact import run_budget_impact
+from heor_core.budget_impact import _required_provenance_paths, run_budget_impact
 from heor_core.model import (
     MarkovSpecification,
     ModelValidationError,
@@ -377,6 +377,85 @@ def budget_base_payload() -> dict:
 
 def budget_impact_payload() -> dict:
     return json.loads(BUDGET_IMPACT_PATH.read_text())
+
+
+def dynamic_budget_impact_payload() -> dict:
+    value = budget_impact_payload()
+    value["schema_version"] = "0.2.0"
+    value["bia_id"] = "golden-dynamic-budget-impact"
+    value["population"] = {
+        "label": "Treated prevalent and incident population",
+        "initial_prevalent": 100.0,
+        "incident_by_year": [20.0, 20.0, 20.0],
+        "derivation": "Synthetic annual-boundary dynamic-cohort fixture.",
+    }
+    value["annual_mortality_probability"] = [0.1, 0.1, 0.1]
+    value["market_scenarios"] = {
+        "without_new_intervention": {
+            "label": "Without access",
+            "initial_intervention_share": 0.0,
+            "incident_intervention_share_by_year": [0.0, 0.0, 0.0],
+            "comparator_displacement_share_by_year": [0.0, 0.0, 0.0],
+            "intervention_start_capacity_by_year": [0.0, 0.0, 0.0],
+        },
+        "with_new_intervention": {
+            "label": "With access",
+            "initial_intervention_share": 0.2,
+            "incident_intervention_share_by_year": [0.5, 0.5, 0.5],
+            "comparator_displacement_share_by_year": [0.1, 0.1, 0.1],
+            "intervention_start_capacity_by_year": [30.0, 30.0, 30.0],
+        },
+    }
+    value["persistence"] = {
+        "comparator_continuation_probability_by_year": [0.9, 0.9, 0.9],
+        "intervention_continuation_probability_by_year": [0.8, 0.8, 0.8],
+        "comparator_discontinuation_destination": "exit_treated_market",
+        "intervention_discontinuation_destination": "comparator",
+    }
+    value["cost_categories"][0]["annual_per_patient"] = {
+        "comparator": [100.0, 100.0, 100.0],
+        "intervention": [200.0, 200.0, 200.0],
+    }
+    value["cost_categories"][1]["annual_per_patient"] = {
+        "comparator": [0.0, 0.0, 0.0],
+        "intervention": [0.0, 0.0, 0.0],
+    }
+    value["non_patient_costs"] = []
+    value["sensitivity_parameters"] = [{
+        "id": "initial-prevalence",
+        "label": "Initial prevalent population",
+        "target": "/population/initial_prevalent",
+        "low": 90.0,
+        "high": 110.0,
+        "basis_ids": ["golden-synthetic"],
+    }]
+    value["alternative_scenarios"] = [{
+        "scenario_id": "lower-capacity",
+        "label": "Lower start capacity",
+        "rationale": "Synthetic capacity constraint.",
+        "overrides": [{
+            "target": "/market_scenarios/with_new_intervention/intervention_start_capacity_by_year/0",
+            "value": 5.0,
+        }],
+        "basis_ids": ["golden-synthetic"],
+    }]
+    value["input_provenance"] = []
+    for path in sorted(_required_provenance_paths(value)):
+        mapping = {
+            "path": path,
+            "assumption_ids": ["golden-synthetic"],
+            "unit": "synthetic input",
+            "jurisdiction": "China",
+            "selection_rationale": "Synthetic dynamic-cohort fixture.",
+            "uncertainty_status": "fixed",
+        }
+        if path.startswith("/cost_categories/") or path.startswith("/non_patient_costs/"):
+            mapping["price_year"] = 2026
+        value["input_provenance"].append(mapping)
+    value["limitations"] = [
+        "Synthetic annual-boundary cohort fixture; it is not patient-level simulation."
+    ]
+    return value
 
 
 def multi_strategy_payload() -> dict:
@@ -1939,6 +2018,114 @@ class BudgetImpactAnalysisTests(unittest.TestCase):
             4305000.0,
         )
         self.assertEqual(result["discount_rate"], 0)
+
+    def test_dynamic_cohort_budget_impact_matches_hand_calculation(self) -> None:
+        plan = budget_base_payload()
+        plan_raw = BUDGET_BASE_PATH.read_bytes()
+        budget = dynamic_budget_impact_payload()
+        budget_raw = json.dumps(budget, separators=(",", ":"), sort_keys=True).encode()
+
+        result = run_budget_impact(plan, plan_raw, budget, budget_raw)
+
+        self.assertEqual(result["schema_version"], "0.2.0")
+        self.assertEqual(result["engine_version"], "0.3.0")
+        self.assertEqual(result["base_case"]["model_type"], "dynamic_annual_cohort")
+        for actual, expected in zip(
+            result["base_case"]["annual_net_budget_impact"],
+            [3900.0, 4985.3, 5823.8831],
+            strict=True,
+        ):
+            self.assertAlmostEqual(actual, expected)
+        self.assertAlmostEqual(
+            result["base_case"]["cumulative_net_budget_impact"], 14709.1831
+        )
+        year_one = result["base_case"]["annual_results"][0]
+        self.assertEqual(
+            year_one["with_new_intervention_flow"]["incident_intervention_starts"],
+            10.0,
+        )
+        self.assertEqual(
+            year_one["with_new_intervention_flow"]["comparator_displacement_starts"],
+            9.0,
+        )
+        self.assertAlmostEqual(
+            year_one["with_new_intervention_flow"][
+                "intervention_discontinuers_to_comparator"
+            ],
+            7.02,
+        )
+
+    def test_dynamic_capacity_prioritizes_incident_starts_and_preserves_unmet_demand(self) -> None:
+        plan = budget_base_payload()
+        budget = dynamic_budget_impact_payload()
+        budget["market_scenarios"]["with_new_intervention"][
+            "intervention_start_capacity_by_year"
+        ][0] = 5.0
+        budget["sensitivity_parameters"][0]["low"] = 90.0
+        result = run_budget_impact(
+            plan,
+            BUDGET_BASE_PATH.read_bytes(),
+            budget,
+            json.dumps(budget, separators=(",", ":"), sort_keys=True).encode(),
+        )
+
+        flow = result["base_case"]["annual_results"][0][
+            "with_new_intervention_flow"
+        ]
+        self.assertEqual(flow["incident_intervention_starts"], 5.0)
+        self.assertEqual(flow["comparator_displacement_starts"], 0.0)
+        self.assertEqual(flow["capacity_unmet_starts"], 14.5)
+
+    def test_dynamic_without_access_cannot_contain_intervention_flow(self) -> None:
+        plan = budget_base_payload()
+        budget = dynamic_budget_impact_payload()
+        budget["market_scenarios"]["without_new_intervention"][
+            "incident_intervention_share_by_year"
+        ][1] = 0.1
+
+        with self.assertRaisesRegex(ModelValidationError, "must contain only zeroes"):
+            run_budget_impact(
+                plan,
+                BUDGET_BASE_PATH.read_bytes(),
+                budget,
+                json.dumps(budget).encode(),
+            )
+
+    def test_dynamic_scenario_cannot_mutate_without_access_intervention_flow(self) -> None:
+        plan = budget_base_payload()
+        budget = dynamic_budget_impact_payload()
+        budget["alternative_scenarios"][0]["overrides"][0] = {
+            "target": "/market_scenarios/without_new_intervention/incident_intervention_share_by_year/0",
+            "value": 0.1,
+        }
+
+        with self.assertRaisesRegex(ModelValidationError, "unsupported budget impact target"):
+            run_budget_impact(
+                plan,
+                BUDGET_BASE_PATH.read_bytes(),
+                budget,
+                json.dumps(budget).encode(),
+            )
+
+    def test_dynamic_probability_target_fails_outside_unit_interval(self) -> None:
+        plan = budget_base_payload()
+        budget = dynamic_budget_impact_payload()
+        budget["sensitivity_parameters"][0] = {
+            "id": "mortality",
+            "label": "Year one mortality",
+            "target": "/annual_mortality_probability/0",
+            "low": 0.05,
+            "high": 1.1,
+            "basis_ids": ["golden-synthetic"],
+        }
+
+        with self.assertRaisesRegex(ModelValidationError, "probability target"):
+            run_budget_impact(
+                plan,
+                BUDGET_BASE_PATH.read_bytes(),
+                budget,
+                json.dumps(budget).encode(),
+            )
 
     def test_multi_strategy_plan_can_bind_an_explicit_budget_pair(self) -> None:
         base = multi_strategy_budget_base_payload()

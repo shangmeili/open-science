@@ -16,7 +16,7 @@ Create a transparent local cost calculator; do not reuse the discounted cost-eff
 5. Itemize included intervention and condition-related annual per-patient costs for both strategies. Add scenario-level implementation costs separately; do not hide them inside per-patient values.
 6. Map every annual population, with-access uptake, included per-patient cost, and implementation total to evidence or a `proposed` assumption through `input_provenance`. Costs require currency units and price years.
 7. Add evidence-bound one-way ranges that bracket base values and at least one plausible alternative scenario. Vary only allowlisted numeric inputs; never target identifiers, status, evidence, hashes, perspective, or authority fields.
-8. Plan face, internal, and external validation without claiming that any validation occurred. Record limitations, including unsupported induced demand, multiple treatments, or dynamic cohort entry/exit when material.
+8. Plan face, internal, and external validation without claiming that any validation occurred. Record limitations, including unsupported induced demand or multiple treatments, and route material dynamic cohort entry/exit to `$heor-dynamic-budget-impact`.
 9. Set `status` to `ready_for_human_review`, bind `base_analysis.content_sha256` to the final exact analysis-plan bytes, and write `heor/budget-impact-plan.json` from the bundled template.
 10. Run `scripts/validate_budget_impact_plan.py heor/budget-impact-plan.json heor/analysis-plan.json`. The desktop repeats and extends this audit before approval or execution.
 
@@ -27,7 +27,7 @@ Create a transparent local cost calculator; do not reuse the discounted cost-eff
 - Never invent population, uptake, price, utilization, or cost-offset inputs.
 - Never create approval events, accept analyst assumptions, or claim independent validation.
 - Keep confidential prices local and out of logs, exports, screenshots, and public reports unless the researcher explicitly authorizes their handling.
-- Stop at the two-share cost-calculator boundary when induced demand, population churn, severity mix, combination therapy, or more than two active market shares materially affect the question; a multi-strategy CEA does not make this pairwise BIA a multi-treatment market model.
+- Use `$heor-dynamic-budget-impact` schema `0.2.0` when prevalent and incident cohorts, annual entry or exit, comparator displacement, persistence, common mortality, or intervention-start capacity materially affect the question. Continue to stop for induced diagnosis, severity mix, combination therapy, more than two active treatments, partial-cycle events, treatment-specific mortality, or patient-level history.
 
 ## Handoff
 

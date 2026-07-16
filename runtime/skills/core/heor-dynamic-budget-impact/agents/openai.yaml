@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Dynamic Budget Impact"
+  short_description: "Build auditable dynamic-cohort budget impact models"
+  default_prompt: "Use $heor-dynamic-budget-impact to create and validate a dynamic three-year budget impact plan."

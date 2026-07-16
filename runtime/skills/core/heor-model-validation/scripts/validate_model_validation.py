@@ -133,7 +133,9 @@ def method_matches(domain: str, method: str) -> bool:
     return method in expected.get(domain, set())
 
 
-def required_coverage() -> list[tuple[str, str, str, str | None, set[str]]]:
+def required_coverage(
+    dynamic_budget_impact: bool = False,
+) -> list[tuple[str, str, str, str | None, set[str]]]:
     passed = {"passed"}
     documented = {"passed", "not_feasible"}
     result = [
@@ -154,6 +156,7 @@ def required_coverage() -> list[tuple[str, str, str, str | None, set[str]]]:
         result.append((f"cost-effectiveness technical {component}", "cost_effectiveness", "technical_verification", component, passed))
     for component in (
         "input_calculations",
+        *(["event_state_calculations"] if dynamic_budget_impact else []),
         "result_calculations",
         "uncertainty_calculations",
         "overall_checks",
@@ -339,8 +342,11 @@ def audit(report_path: Path, workspace: Path) -> dict:
         if check.get("status") == "not_feasible" and check.get("domain") not in {"cross_validity", "predictive_validity"}:
             errors.append(f"checks[{index}] not_feasible is allowed only for cross or predictive validity")
 
+    coverage = required_coverage(
+        loaded.get("budget_impact_plan", {}).get("schema_version") == "0.2.0"
+    )
     missing_coverage: list[str] = []
-    for label, scope, domain, component, statuses in required_coverage():
+    for label, scope, domain, component, statuses in coverage:
         covered = any(
             check.get("performed_by") == "independent_reviewer"
             and check.get("scope") in {scope, "shared"}
@@ -390,8 +396,8 @@ def audit(report_path: Path, workspace: Path) -> dict:
         "recommendation": str(recommendation or "pending"),
         "evidence_count": len(evidence),
         "check_count": len(checks),
-        "required_coverage_count": len(required_coverage()),
-        "covered_requirement_count": len(required_coverage()) - len(missing_coverage),
+        "required_coverage_count": len(coverage),
+        "covered_requirement_count": len(coverage) - len(missing_coverage),
         "issue_count": len(issues),
         "open_blocking_issue_count": open_blocking,
         "open_minor_issue_count": open_minor,

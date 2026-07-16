@@ -3674,7 +3674,7 @@ export function UncertaintyResultCard({
   );
 }
 
-function BudgetImpactResultCard({
+export function BudgetImpactResultCard({
   result,
   locale,
 }: {
@@ -3694,6 +3694,8 @@ function BudgetImpactResultCard({
     maximumFractionDigits: 1,
   });
   const authorized = result.workflow.classification !== "exploratory";
+  const dynamic = calculation.schema_version === "0.2.0"
+    && calculation.base_case.model_type === "dynamic_annual_cohort";
   const leadingDriver = [...calculation.one_way_sensitivity]
     .sort((left, right) => right.cumulative_span - left.cumulative_span)[0];
   return (
@@ -3710,7 +3712,7 @@ function BudgetImpactResultCard({
           </div>
         </div>
         <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[9px] font-semibold uppercase text-muted">
-          {calculation.price_year} {calculation.currency} · {t("budgetImpact.noDiscount")}
+          {dynamic ? t("budgetImpactResult.dynamicCohort") : t("budgetImpactResult.staticCalculator")} · {calculation.price_year} {calculation.currency} · {t("budgetImpact.noDiscount")}
         </span>
       </div>
       <div className="mt-4 overflow-hidden rounded-input border border-border">
@@ -3741,6 +3743,28 @@ function BudgetImpactResultCard({
           </tbody>
         </table>
       </div>
+      {dynamic && (
+        <details className="mt-3 rounded-input border border-border bg-bg/40 px-3 py-2 text-[10px] text-muted">
+          <summary className="cursor-pointer font-medium text-text">
+            {t("budgetImpactResult.dynamicFlowLedger")}
+          </summary>
+          <div className="mt-2 space-y-2">
+            {calculation.base_case.annual_results.map((row) => {
+              const flow = row.with_new_intervention_flow;
+              if (!flow) return null;
+              return (
+                <div key={row.year} className="grid grid-cols-4 gap-2 rounded border border-border px-2 py-2">
+                  <Metric label={t("budgetImpactResult.yearLabel", { year: row.year })} value={number.format(flow.treated_population)} />
+                  <Metric label={t("budgetImpactResult.starts")} value={number.format(flow.incident_intervention_starts + flow.comparator_displacement_starts)} />
+                  <Metric label={t("budgetImpactResult.unmetStarts")} value={number.format(flow.capacity_unmet_starts)} />
+                  <Metric label={t("budgetImpactResult.deathsAndExits")} value={number.format(flow.deaths + flow.comparator_discontinuers_exiting)} />
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-2 leading-4">{t("budgetImpactResult.dynamicOrderNote")}</p>
+        </details>
+      )}
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Metric
           label={t("budgetImpactResult.cumulative")}

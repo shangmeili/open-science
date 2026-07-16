@@ -226,6 +226,14 @@ const REQUIREMENTS: [Requirement; 18] = [
     },
 ];
 
+const DYNAMIC_BIA_EVENT_STATE_REQUIREMENT: Requirement = Requirement {
+    label: "budget-impact technical event_state_calculations",
+    scope: "budget_impact",
+    domain: "technical_verification",
+    component: Some("event_state_calculations"),
+    allow_not_feasible: false,
+};
+
 fn sha256(raw: &[u8]) -> String {
     format!("{:x}", Sha256::digest(raw))
 }
@@ -807,8 +815,18 @@ fn audit_values(
         }
     }
 
+    let dynamic_budget_impact = loaded
+        .get("budget_impact_plan")
+        .and_then(|value| text(value.get("schema_version")))
+        == Some("0.2.0");
+    let requirements = REQUIREMENTS
+        .iter()
+        .copied()
+        .chain(dynamic_budget_impact.then_some(DYNAMIC_BIA_EVENT_STATE_REQUIREMENT))
+        .collect::<Vec<_>>();
+    audit.required_coverage_count = requirements.len();
     let check_values = checks.map_or(&[][..], Vec::as_slice);
-    audit.missing_coverage = REQUIREMENTS
+    audit.missing_coverage = requirements
         .iter()
         .filter(|requirement| {
             !check_values
@@ -817,7 +835,7 @@ fn audit_values(
         })
         .map(|requirement| requirement.label.to_string())
         .collect();
-    audit.covered_requirement_count = REQUIREMENTS.len() - audit.missing_coverage.len();
+    audit.covered_requirement_count = requirements.len() - audit.missing_coverage.len();
 
     if strings(report.get("limitations"), true).is_none() {
         audit
@@ -1169,6 +1187,49 @@ mod tests {
         assert!(audit.complete);
         assert!(audit.approvable);
         assert_eq!(audit.covered_requirement_count, REQUIREMENTS.len());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn dynamic_budget_impact_requires_event_state_verification() {
+        let root = temp_root("dynamic-bia");
+        let (plan_raw, mut report) = fixture(&root);
+        let budget_raw = serde_json::to_vec(&json!({
+            "analysis_id": "analysis-1",
+            "kind": "budget_impact_plan",
+            "schema_version": "0.2.0"
+        }))
+        .unwrap();
+        std::fs::write(root.join(BUDGET_IMPACT_PLAN_PATH), &budget_raw).unwrap();
+        report["model_bindings"]["budget_impact_plan"]["content_sha256"] =
+            json!(sha256(&budget_raw));
+
+        let raw = serde_json::to_vec(&report).unwrap();
+        let incomplete = audit_values(&root, &plan_raw, &report, &raw);
+        assert_eq!(incomplete.required_coverage_count, REQUIREMENTS.len() + 1);
+        assert!(incomplete
+            .missing_coverage
+            .contains(&DYNAMIC_BIA_EVENT_STATE_REQUIREMENT.label.into()));
+
+        report["checks"].as_array_mut().unwrap().push(json!({
+            "id": "dynamic-bia-flow",
+            "scope": DYNAMIC_BIA_EVENT_STATE_REQUIREMENT.scope,
+            "domain": DYNAMIC_BIA_EVENT_STATE_REQUIREMENT.domain,
+            "component": DYNAMIC_BIA_EVENT_STATE_REQUIREMENT.component,
+            "method": "replication",
+            "status": "passed",
+            "performed_by": "independent_reviewer",
+            "description": DYNAMIC_BIA_EVENT_STATE_REQUIREMENT.label,
+            "expected": "Every annual stock and flow reconciles",
+            "observed": "Independent reproduction passed",
+            "rationale": "Dynamic BIA adds event and state arithmetic",
+            "evidence_ids": ["review-evidence"],
+            "issue_ids": []
+        }));
+        let raw = serde_json::to_vec(&report).unwrap();
+        let complete = audit_values(&root, &plan_raw, &report, &raw);
+        assert!(complete.complete, "{:?}", complete.errors);
+        assert_eq!(complete.covered_requirement_count, REQUIREMENTS.len() + 1);
         let _ = std::fs::remove_dir_all(root);
     }
 

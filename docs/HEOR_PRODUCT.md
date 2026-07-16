@@ -605,15 +605,14 @@ fail when that review is missing, stale, or superseded by rejection.
 
 ## Implemented budget impact boundary
 
-The first-party `$heor-budget-impact` skill creates
-`heor/budget-impact-plan.json`. It binds to the exact analysis-plan bytes and
-records the budget holder, jurisdiction, currency, price year, three annual
-eligible populations, without/with-access intervention shares, itemized
-treatment and condition-related per-patient costs, scenario-level
-implementation costs, exclusions, provenance, one-way ranges, alternative
-scenarios, validation plans, and limitations. Analysis-plan approval binds the
-exact BIA hash alongside the uncertainty artifact; changing any bound artifact
-invalidates local authorization.
+The first-party `$heor-budget-impact` and `$heor-dynamic-budget-impact` skills
+create alternate versioned forms of `heor/budget-impact-plan.json`. Both bind to
+the exact analysis-plan bytes and record the budget holder, jurisdiction,
+currency, price year, itemized treatment and condition-related per-patient
+costs, scenario-level implementation costs, exclusions, provenance, one-way
+ranges, alternative scenarios, validation plans, and limitations. Analysis-plan
+approval binds the exact BIA hash alongside the uncertainty artifact; changing
+any bound artifact invalidates local authorization.
 
 The dependency-free engine implements the transparent cost-calculator form
 recommended for a simple BIA. It derives comparator share as one minus new-
@@ -624,11 +623,25 @@ and the portable skill validator reject discounting, unsafe targets, missing
 provenance, non-finite values, invalid shares, stale hashes, incomplete cost
 scope, or unresolved assumptions.
 
-This first slice deliberately excludes induced demand, population entry and
-exit, combination therapy, severity-mix changes, and more than two treatments.
-When those materially affect the decision question, the workbench must stop at
-an explicit limitation and use a future cohort or patient-level BIA adapter; it
-must not force the question into this calculator.
+Dynamic schema `0.2.0` adds an annual-boundary cohort ledger. It starts from an
+explicit prevalent treated population, adds three incident cohorts, and records
+separate without/with-access initial shares, incident uptake, comparator
+displacement, and intervention-start capacity. Within each annual cycle it
+allocates incident starts before displacement, charges full-year costs, applies
+a common mortality probability, then applies treatment-specific continuation.
+Surviving intervention discontinuers move to comparator at the next annual
+boundary; comparator discontinuers leave the treated market. Results preserve
+requested, delivered and unmet starts, opening/closing stocks, deaths,
+discontinuations, category costs, and annual/cumulative impacts as fractional
+expected counts. The native review pane exposes that flow ledger before the
+existing Human gate.
+
+Both schemas remain pairwise. The dynamic alpha deliberately excludes partial-
+cycle entry or costs, re-initiation, treatment-specific mortality, capacity
+queues, induced diagnosis, combination therapy, severity or disease-state
+migration, more than two active treatments, and patient-level history. When
+those materially affect the question, the workbench must stop and use a future
+separately admitted cohort or patient-level adapter.
 
 ## Implemented independent-validation boundary
 

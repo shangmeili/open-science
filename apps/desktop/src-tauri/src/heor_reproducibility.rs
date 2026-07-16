@@ -1093,7 +1093,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let identity = RuntimeIdentity {
-            ai4heor_version: "0.1.13".into(),
+            ai4heor_version: "0.1.14".into(),
             platform: "test-x86_64".into(),
             python_version: "Python 3.12.0".into(),
         };
@@ -1160,7 +1160,7 @@ mod tests {
         let audit = audit_reproducibility_package_for_identity(
             &root,
             &RuntimeIdentity {
-                ai4heor_version: "0.1.13".into(),
+                ai4heor_version: "0.1.14".into(),
                 platform: "test-x86_64".into(),
                 python_version: "Python 3.12.0".into(),
             },

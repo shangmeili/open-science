@@ -23,7 +23,8 @@ description: Prepare, audit, and revise a release-reviewable HEOR report package
 14. Copy `release_owner_label` only from an explicit human instruction. Do not invent an owner, create an approval event, or call a package released.
 15. Run `python3 scripts/validate_report_package.py WORKSPACE/heor/report-package.json WORKSPACE`. Treat `valid` as structural reporting readiness, not methodological quality, policy endorsement, or release.
 16. Use `$heor-reproducibility-package` to derive and audit the current release companion after the report package is complete. Do not copy restricted source content, add unrelated files, claim external reproducibility, or create another approval gate.
-17. Ask the named human release owner to inspect both packages and use the desktop release control.
+17. For dynamic BIA schema `0.2.0`, report the declared annual event order plus delivered and unmet starts, deaths, discontinuation destinations, opening/closing stocks, and the full-year costing limitation from the app-written flow ledger. Never reinterpret those expected counts as observed patient flow.
+18. Ask the named human release owner to inspect both packages and use the desktop release control.
 
 ## Boundaries
 

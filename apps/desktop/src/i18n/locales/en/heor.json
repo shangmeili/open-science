@@ -324,7 +324,7 @@
     "sensitivity": "One-way inputs",
     "scenarios": "Scenarios",
     "askRepair": "Ask the Agent to build or repair budget impact",
-    "repairPrompt": "Use $heor-budget-impact to create or repair heor/budget-impact-plan.json against the exact current bytes of heor/analysis-plan.json. For analysis schema 0.8.0 or 0.9.0, explicitly select exactly two distinct IDs from strategy_order as the displaced comparator and new intervention; do not pretend this bounded two-share calculator is a multi-treatment market model. Use a three-year, budget-holder, undiscounted without-access/with-access transparent cost calculator. Record annual eligible population, market shares, treatment and condition-related costs, implementation costs, provenance, one-way ranges, and alternative scenarios. Run the deterministic validator and do not create or claim human approval.",
+    "repairPrompt": "Assess whether the research question needs a static eligible-population calculator or a dynamic annual-cohort model. Use $heor-budget-impact for static schema 0.1.0, or $heor-dynamic-budget-impact for schema 0.2.0 when prevalent and incident cohorts, displacement, persistence, mortality, or start capacity materially affect the question. Create or repair heor/budget-impact-plan.json against the exact current heor/analysis-plan.json bytes, explicitly select two declared IDs from strategy_order for a multi-strategy analysis, preserve complete provenance and limitations, run the matching deterministic validator, and never create or claim human approval.",
     "note": "The app independently audits and binds this artifact hash to analysis-plan approval. Budget impact describes payer financial change, not cost-effectiveness or a coverage conclusion.",
     "noProject": "There is no current project for budget impact audit.",
     "missingPlan": "An analysis plan is required before budget impact can be audited."
@@ -496,6 +496,8 @@
   },
   "budgetImpactResult": {
     "title": "Budget impact results",
+    "staticCalculator": "Static calculator",
+    "dynamicCohort": "Dynamic annual cohort",
     "year": "Year",
     "population": "Eligible population",
     "uptake": "New intervention share",
@@ -503,6 +505,12 @@
     "cumulative": "Three-year cumulative",
     "leadingDriver": "Leading sensitivity driver",
     "scenarios": "Alternative scenarios",
+    "dynamicFlowLedger": "Dynamic with-access flow ledger",
+    "yearLabel": "Year {{year}} treated",
+    "starts": "Delivered starts",
+    "unmetStarts": "Unmet starts",
+    "deathsAndExits": "Deaths + comparator exits",
+    "dynamicOrderNote": "The engine adds incident cohorts, allocates incident starts before displacement within capacity, charges full-year costs, then applies mortality, persistence, and boundary discontinuation.",
     "limitations": "Scope and limitations"
   },
   "partitionedSurvivalResult": {

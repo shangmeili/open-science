@@ -1,10 +1,10 @@
-"""Deterministic three-year budget impact cost calculator.
+"""Deterministic three-year budget impact calculators.
 
 The first-party engine intentionally implements a narrow, inspectable budget
-holder model: one comparator, one new intervention, explicit annual eligible
-population, without/with-access uptake, itemized per-patient costs, and optional
-scenario-level costs. It has no network, model-provider, or third-party runtime
-dependency.
+holder models: the legacy static eligible-population calculator and a bounded
+dynamic annual-cohort calculator. Both retain one comparator, one new
+intervention, itemized per-patient costs, and optional scenario-level costs.
+They have no network, model-provider, or third-party runtime dependency.
 """
 
 from __future__ import annotations
@@ -18,8 +18,10 @@ from typing import Any
 from .model import MarkovSpecification, ModelValidationError
 
 
-SCHEMA_VERSION = "0.1.0"
-ENGINE_VERSION = "0.2.0"
+STATIC_SCHEMA_VERSION = "0.1.0"
+DYNAMIC_SCHEMA_VERSION = "0.2.0"
+SCHEMA_VERSIONS = {STATIC_SCHEMA_VERSION, DYNAMIC_SCHEMA_VERSION}
+ENGINE_VERSION = "0.3.0"
 HORIZON_YEARS = 3
 MAX_COST_CATEGORIES = 64
 MAX_NON_PATIENT_COSTS = 32
@@ -115,7 +117,7 @@ def run_budget_impact(
         )
 
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": value["schema_version"],
         "engine_version": ENGINE_VERSION,
         "analysis_id": value["analysis_id"],
         "bia_id": value["bia_id"],
@@ -141,9 +143,10 @@ def _validate(
     value: dict[str, Any], analysis_plan: dict[str, Any], analysis_raw: bytes
 ) -> None:
     validated_analysis = MarkovSpecification.from_dict(analysis_plan)
-    if value.get("schema_version") != SCHEMA_VERSION:
+    schema_version = value.get("schema_version")
+    if schema_version not in SCHEMA_VERSIONS:
         raise ModelValidationError(
-            f"budget impact schema_version must be {SCHEMA_VERSION}"
+            "budget impact schema_version must be 0.1.0 or 0.2.0"
         )
     for field in ("bia_id", "analysis_id"):
         _nonempty(value.get(field), field)
@@ -196,12 +199,34 @@ def _validate(
     population = _mapping(value.get("population"), "population")
     _nonempty(population.get("label"), "population.label")
     _nonempty(population.get("derivation"), "population.derivation")
-    annual_population = _number_array(
-        population.get("annual_eligible"), "population.annual_eligible"
-    )
-    _horizon_array(annual_population, "population.annual_eligible")
-    if any(number < 0 for number in annual_population):
-        raise ModelValidationError("annual eligible population must be non-negative")
+    if schema_version == STATIC_SCHEMA_VERSION:
+        annual_population = _number_array(
+            population.get("annual_eligible"), "population.annual_eligible"
+        )
+        _horizon_array(annual_population, "population.annual_eligible")
+        if any(number < 0 for number in annual_population):
+            raise ModelValidationError("annual eligible population must be non-negative")
+    else:
+        initial_prevalent = _strict_float(
+            population.get("initial_prevalent"), "population.initial_prevalent"
+        )
+        if initial_prevalent < 0:
+            raise ModelValidationError("initial prevalent population must be non-negative")
+        incident = _number_array(
+            population.get("incident_by_year"), "population.incident_by_year"
+        )
+        _horizon_array(incident, "population.incident_by_year")
+        if any(number < 0 for number in incident):
+            raise ModelValidationError("incident population must be non-negative")
+        mortality = _number_array(
+            value.get("annual_mortality_probability"),
+            "annual_mortality_probability",
+        )
+        _horizon_array(mortality, "annual_mortality_probability")
+        if any(number < 0 or number > 1 for number in mortality):
+            raise ModelValidationError(
+                "annual mortality probabilities must be from 0 to 1"
+            )
 
     strategies = _mapping(value.get("strategies"), "strategies")
     plan_strategies = validated_analysis.strategy_map
@@ -209,6 +234,11 @@ def _validate(
         "0.8.0",
         "0.9.0",
         "0.10.0",
+        "0.11.0",
+        "0.12.0",
+        "0.13.0",
+        "0.14.0",
+        "0.15.0",
     }
     strategy_ids: list[str] = []
     for role in ("comparator", "intervention"):
@@ -231,23 +261,27 @@ def _validate(
         raise ModelValidationError("budget impact strategy ids must be different")
 
     market_scenarios = _mapping(value.get("market_scenarios"), "market_scenarios")
-    for name in ("without_new_intervention", "with_new_intervention"):
-        scenario = _mapping(market_scenarios.get(name), f"market_scenarios.{name}")
-        _nonempty(scenario.get("label"), f"market_scenarios.{name}.label")
-        shares = _number_array(
-            scenario.get("intervention_share_by_year"),
-            f"market_scenarios.{name}.intervention_share_by_year",
-        )
-        _horizon_array(shares, f"market_scenarios.{name}.intervention_share_by_year")
-        if any(share < 0 or share > 1 for share in shares):
-            raise ModelValidationError("market shares must be from 0 to 1")
-    without_shares = market_scenarios["without_new_intervention"][
-        "intervention_share_by_year"
-    ]
-    if any(abs(float(share)) > TOLERANCE for share in without_shares):
-        raise ModelValidationError(
-            "without_new_intervention shares must be zero in the two-strategy MVP"
-        )
+    if schema_version == STATIC_SCHEMA_VERSION:
+        _validate_static_market_scenarios(market_scenarios)
+    else:
+        _validate_dynamic_market_scenarios(market_scenarios)
+        persistence = _mapping(value.get("persistence"), "persistence")
+        if persistence.get("intervention_discontinuation_destination") != "comparator":
+            raise ModelValidationError(
+                "intervention discontinuation destination must be comparator"
+            )
+        if persistence.get("comparator_discontinuation_destination") != "exit_treated_market":
+            raise ModelValidationError(
+                "comparator discontinuation destination must be exit_treated_market"
+            )
+        for role in ("comparator", "intervention"):
+            field = f"{role}_continuation_probability_by_year"
+            probabilities = _number_array(persistence.get(field), f"persistence.{field}")
+            _horizon_array(probabilities, f"persistence.{field}")
+            if any(number < 0 or number > 1 for number in probabilities):
+                raise ModelValidationError(
+                    f"persistence.{field} must contain probabilities"
+                )
 
     categories = _array(value.get("cost_categories"), "cost_categories")
     if not 2 <= len(categories) <= MAX_COST_CATEGORIES:
@@ -378,12 +412,114 @@ def _validate_evidence_metadata(
     return source_ids, assumption_status
 
 
+def _validate_static_market_scenarios(
+    market_scenarios: dict[str, Any],
+) -> None:
+    for name in ("without_new_intervention", "with_new_intervention"):
+        scenario = _mapping(market_scenarios.get(name), f"market_scenarios.{name}")
+        _nonempty(scenario.get("label"), f"market_scenarios.{name}.label")
+        shares = _number_array(
+            scenario.get("intervention_share_by_year"),
+            f"market_scenarios.{name}.intervention_share_by_year",
+        )
+        _horizon_array(shares, f"market_scenarios.{name}.intervention_share_by_year")
+        if any(share < 0 or share > 1 for share in shares):
+            raise ModelValidationError("market shares must be from 0 to 1")
+    without_shares = market_scenarios["without_new_intervention"][
+        "intervention_share_by_year"
+    ]
+    if any(abs(float(share)) > TOLERANCE for share in without_shares):
+        raise ModelValidationError(
+            "without_new_intervention shares must be zero in the two-strategy MVP"
+        )
+
+
+def _validate_dynamic_market_scenarios(
+    market_scenarios: dict[str, Any],
+) -> None:
+    for name in ("without_new_intervention", "with_new_intervention"):
+        scenario = _mapping(market_scenarios.get(name), f"market_scenarios.{name}")
+        _nonempty(scenario.get("label"), f"market_scenarios.{name}.label")
+        initial_share = _strict_float(
+            scenario.get("initial_intervention_share"),
+            f"market_scenarios.{name}.initial_intervention_share",
+        )
+        if initial_share < 0 or initial_share > 1:
+            raise ModelValidationError("initial intervention shares must be from 0 to 1")
+        for field in (
+            "incident_intervention_share_by_year",
+            "comparator_displacement_share_by_year",
+        ):
+            probabilities = _number_array(
+                scenario.get(field), f"market_scenarios.{name}.{field}"
+            )
+            _horizon_array(probabilities, f"market_scenarios.{name}.{field}")
+            if any(number < 0 or number > 1 for number in probabilities):
+                raise ModelValidationError(
+                    f"market_scenarios.{name}.{field} must contain probabilities"
+                )
+        capacity = _number_array(
+            scenario.get("intervention_start_capacity_by_year"),
+            f"market_scenarios.{name}.intervention_start_capacity_by_year",
+        )
+        _horizon_array(
+            capacity,
+            f"market_scenarios.{name}.intervention_start_capacity_by_year",
+        )
+        if any(number < 0 for number in capacity):
+            raise ModelValidationError("intervention start capacity must be non-negative")
+
+    without = market_scenarios["without_new_intervention"]
+    if abs(float(without["initial_intervention_share"])) > TOLERANCE:
+        raise ModelValidationError(
+            "without-new-intervention initial intervention share must be zero"
+        )
+    for field in (
+        "incident_intervention_share_by_year",
+        "comparator_displacement_share_by_year",
+        "intervention_start_capacity_by_year",
+    ):
+        if any(abs(float(number)) > TOLERANCE for number in without[field]):
+            raise ModelValidationError(
+                f"without-new-intervention {field} must contain only zeroes"
+            )
+
+
 def _required_provenance_paths(value: dict[str, Any]) -> set[str]:
-    paths = {f"/population/annual_eligible/{year}" for year in range(HORIZON_YEARS)}
-    paths.update(
-        f"/market_scenarios/with_new_intervention/intervention_share_by_year/{year}"
-        for year in range(HORIZON_YEARS)
-    )
+    if value["schema_version"] == STATIC_SCHEMA_VERSION:
+        paths = {
+            f"/population/annual_eligible/{year}" for year in range(HORIZON_YEARS)
+        }
+        paths.update(
+            f"/market_scenarios/with_new_intervention/intervention_share_by_year/{year}"
+            for year in range(HORIZON_YEARS)
+        )
+    else:
+        paths = {"/population/initial_prevalent"}
+        paths.update(
+            f"/population/incident_by_year/{year}" for year in range(HORIZON_YEARS)
+        )
+        paths.update(
+            f"/annual_mortality_probability/{year}" for year in range(HORIZON_YEARS)
+        )
+        for scenario in ("without_new_intervention", "with_new_intervention"):
+            paths.add(
+                f"/market_scenarios/{scenario}/initial_intervention_share"
+            )
+            for field in (
+                "incident_intervention_share_by_year",
+                "comparator_displacement_share_by_year",
+                "intervention_start_capacity_by_year",
+            ):
+                paths.update(
+                    f"/market_scenarios/{scenario}/{field}/{year}"
+                    for year in range(HORIZON_YEARS)
+                )
+        for role in ("comparator", "intervention"):
+            paths.update(
+                f"/persistence/{role}_continuation_probability_by_year/{year}"
+                for year in range(HORIZON_YEARS)
+            )
     for category_index, _ in enumerate(value["cost_categories"]):
         for role in ("comparator", "intervention"):
             paths.update(
@@ -548,6 +684,9 @@ def _validate_basis_ids(
 
 
 def _calculate(value: dict[str, Any]) -> dict[str, Any]:
+    if value["schema_version"] == DYNAMIC_SCHEMA_VERSION:
+        return _calculate_dynamic(value)
+
     populations = value["population"]["annual_eligible"]
     market = value["market_scenarios"]
     annual_results: list[dict[str, Any]] = []
@@ -627,6 +766,190 @@ def _calculate(value: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _calculate_dynamic(value: dict[str, Any]) -> dict[str, Any]:
+    scenario_results = {
+        name: _calculate_dynamic_scenario(value, name)
+        for name in ("without_new_intervention", "with_new_intervention")
+    }
+    annual_results: list[dict[str, Any]] = []
+    cumulative = 0.0
+    for year_index in range(HORIZON_YEARS):
+        without = scenario_results["without_new_intervention"][year_index]
+        with_access = scenario_results["with_new_intervention"][year_index]
+        net = with_access["total_cost"] - without["total_cost"]
+        cumulative += net
+        _finite_result(cumulative, "dynamic cumulative net budget impact")
+        annual_results.append(
+            {
+                "year": year_index + 1,
+                "eligible_population": with_access["treated_population"],
+                "without_new_intervention_share": without["intervention_share"],
+                "with_new_intervention_share": with_access["intervention_share"],
+                "without_new_intervention_cost": without["total_cost"],
+                "with_new_intervention_cost": with_access["total_cost"],
+                "net_budget_impact": net,
+                "without_new_intervention_flow": without,
+                "with_new_intervention_flow": with_access,
+                "category_breakdown": _dynamic_category_breakdown(
+                    without, with_access
+                ),
+            }
+        )
+    return {
+        "model_type": "dynamic_annual_cohort",
+        "event_order": [
+            "open_stock",
+            "add_incident_cohort",
+            "allocate_incident_intervention_starts_before_displacement_within_capacity",
+            "apply_full_year_costs",
+            "apply_mortality",
+            "apply_persistence_and_boundary_discontinuation",
+        ],
+        "annual_results": annual_results,
+        "annual_net_budget_impact": [row["net_budget_impact"] for row in annual_results],
+        "cumulative_net_budget_impact": cumulative,
+    }
+
+
+def _calculate_dynamic_scenario(
+    value: dict[str, Any], scenario_name: str
+) -> list[dict[str, Any]]:
+    scenario = value["market_scenarios"][scenario_name]
+    population = value["population"]
+    persistence = value["persistence"]
+    initial = float(population["initial_prevalent"])
+    intervention_open = initial * float(scenario["initial_intervention_share"])
+    comparator_open = initial - intervention_open
+    rows: list[dict[str, Any]] = []
+
+    for year_index in range(HORIZON_YEARS):
+        incident = float(population["incident_by_year"][year_index])
+        requested_incident_starts = incident * float(
+            scenario["incident_intervention_share_by_year"][year_index]
+        )
+        capacity = float(
+            scenario["intervention_start_capacity_by_year"][year_index]
+        )
+        incident_starts = min(requested_incident_starts, capacity)
+        incident_to_comparator = incident - incident_starts
+        comparator_before_displacement = comparator_open + incident_to_comparator
+        requested_displacement = comparator_before_displacement * float(
+            scenario["comparator_displacement_share_by_year"][year_index]
+        )
+        displacement_starts = min(
+            requested_displacement, max(0.0, capacity - incident_starts)
+        )
+        intervention_treated = intervention_open + incident_starts + displacement_starts
+        comparator_treated = comparator_before_displacement - displacement_starts
+        treated_population = intervention_treated + comparator_treated
+        total_cost, category_costs = _dynamic_scenario_costs(
+            value,
+            scenario_name,
+            year_index,
+            comparator_treated,
+            intervention_treated,
+        )
+
+        mortality = float(value["annual_mortality_probability"][year_index])
+        comparator_alive = comparator_treated * (1.0 - mortality)
+        intervention_alive = intervention_treated * (1.0 - mortality)
+        comparator_continuers = comparator_alive * float(
+            persistence["comparator_continuation_probability_by_year"][year_index]
+        )
+        intervention_continuers = intervention_alive * float(
+            persistence["intervention_continuation_probability_by_year"][year_index]
+        )
+        intervention_discontinuers = intervention_alive - intervention_continuers
+        comparator_discontinuers = comparator_alive - comparator_continuers
+        comparator_close = comparator_continuers + intervention_discontinuers
+        intervention_close = intervention_continuers
+        deaths = treated_population * mortality
+
+        row = {
+            "opening_comparator": comparator_open,
+            "opening_intervention": intervention_open,
+            "incident_population": incident,
+            "requested_incident_intervention_starts": requested_incident_starts,
+            "incident_intervention_starts": incident_starts,
+            "requested_comparator_displacement_starts": requested_displacement,
+            "comparator_displacement_starts": displacement_starts,
+            "capacity": capacity,
+            "capacity_unmet_starts": (
+                requested_incident_starts + requested_displacement
+                - incident_starts
+                - displacement_starts
+            ),
+            "comparator_treated": comparator_treated,
+            "intervention_treated": intervention_treated,
+            "treated_population": treated_population,
+            "intervention_share": (
+                intervention_treated / treated_population
+                if treated_population > 0
+                else 0.0
+            ),
+            "deaths": deaths,
+            "intervention_discontinuers_to_comparator": intervention_discontinuers,
+            "comparator_discontinuers_exiting": comparator_discontinuers,
+            "closing_comparator": comparator_close,
+            "closing_intervention": intervention_close,
+            "total_cost": total_cost,
+            "category_costs": category_costs,
+        }
+        for key, number in row.items():
+            if isinstance(number, float):
+                _finite_result(number, f"dynamic flow {key}")
+                if number < -TOLERANCE:
+                    raise ModelValidationError(f"dynamic flow {key} became negative")
+        rows.append(row)
+        comparator_open = comparator_close
+        intervention_open = intervention_close
+    return rows
+
+
+def _dynamic_scenario_costs(
+    value: dict[str, Any],
+    scenario_name: str,
+    year_index: int,
+    comparator_treated: float,
+    intervention_treated: float,
+) -> tuple[float, dict[str, float]]:
+    category_costs: dict[str, float] = {}
+    total = 0.0
+    for category in value["cost_categories"]:
+        cost = (
+            comparator_treated
+            * float(category["annual_per_patient"]["comparator"][year_index])
+            + intervention_treated
+            * float(category["annual_per_patient"]["intervention"][year_index])
+        )
+        _finite_result(cost, "dynamic category cost")
+        category_costs[category["id"]] = cost
+        total += cost
+    for item in value["non_patient_costs"]:
+        cost = float(item["annual_total"][scenario_name][year_index])
+        category_costs[item["id"]] = cost
+        total += cost
+    _finite_result(total, "dynamic scenario total")
+    return total, category_costs
+
+
+def _dynamic_category_breakdown(
+    without: dict[str, Any], with_access: dict[str, Any]
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "category_id": category_id,
+            "without_new_intervention": without["category_costs"][category_id],
+            "with_new_intervention": with_access["category_costs"][category_id],
+            "net_budget_impact": (
+                with_access["category_costs"][category_id]
+                - without["category_costs"][category_id]
+            ),
+        }
+        for category_id in without["category_costs"]
+    ]
+
+
 def _target_value(value: dict[str, Any], target: str) -> float:
     if not _target_allowed(target):
         raise ModelValidationError(f"unsupported budget impact target: {target}")
@@ -663,6 +986,38 @@ def _set_target(value: dict[str, Any], target: str, replacement: Any) -> None:
 
 def _target_allowed(target: str) -> bool:
     tokens = target.lstrip("/").split("/")
+    if tokens == ["population", "initial_prevalent"]:
+        return True
+    if (
+        len(tokens) == 3
+        and tokens[:2] in (
+            ["population", "incident_by_year"],
+            ["persistence", "comparator_continuation_probability_by_year"],
+            ["persistence", "intervention_continuation_probability_by_year"],
+        )
+    ):
+        return tokens[2].isdigit() and int(tokens[2]) < HORIZON_YEARS
+    if len(tokens) == 2 and tokens[0] == "annual_mortality_probability":
+        return tokens[1].isdigit() and int(tokens[1]) < HORIZON_YEARS
+    if (
+        len(tokens) == 4
+        and tokens[0] == "market_scenarios"
+        and tokens[1] == "with_new_intervention"
+        and tokens[2]
+        in {
+            "incident_intervention_share_by_year",
+            "comparator_displacement_share_by_year",
+            "intervention_start_capacity_by_year",
+        }
+    ):
+        return tokens[3].isdigit() and int(tokens[3]) < HORIZON_YEARS
+    if (
+        len(tokens) == 3
+        and tokens[0] == "market_scenarios"
+        and tokens[1] == "with_new_intervention"
+        and tokens[2] == "initial_intervention_share"
+    ):
+        return True
     if len(tokens) == 3 and tokens[:2] == ["population", "annual_eligible"]:
         return tokens[2].isdigit() and int(tokens[2]) < HORIZON_YEARS
     if (
@@ -693,9 +1048,17 @@ def _target_allowed(target: str) -> bool:
 
 
 def _validate_target_number(target: str, number: float) -> None:
-    if target.startswith("/market_scenarios/"):
+    probability_target = (
+        target.startswith("/annual_mortality_probability/")
+        or target.startswith("/persistence/")
+        or (
+            target.startswith("/market_scenarios/")
+            and "intervention_start_capacity_by_year" not in target
+        )
+    )
+    if probability_target:
         if number < 0 or number > 1:
-            raise ModelValidationError("market-share target values must be from 0 to 1")
+            raise ModelValidationError("probability target values must be from 0 to 1")
     elif number < 0:
         raise ModelValidationError("budget impact target values must be non-negative")
 

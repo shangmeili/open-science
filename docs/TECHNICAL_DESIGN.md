@@ -1,6 +1,6 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.13, 2026-07-16).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.14, 2026-07-16).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
@@ -420,6 +420,21 @@ alongside uncertainty and budget-impact artifacts. This avoids a second
 workspace artifact and circular hashes while ensuring a plan approval covers
 the exact evidence-to-input choices. The engine, uncertainty runner, and budget
 impact runner repeat the audit and invalidate stale approval bindings.
+
+Budget-impact plan schema `0.2.0` is an alternate dynamic contract rather than
+an in-place reinterpretation of static `0.1.0`. Python calculates one annual-
+boundary stock ledger per without/with-access scenario using an exact event
+order: opening stocks, incident cohort, incident-first capacity allocation,
+comparator displacement, full-year costs, common mortality, treatment-specific
+persistence, and fixed discontinuation destinations. The result records every
+requested, delivered and unmet start plus opening/closing stocks, deaths, exits,
+category costs and impact. The dependency-free Skill validator and native Rust
+audit independently enforce the schema, exact input provenance, safe sensitivity
+targets and zero intervention flow in the without-access scenario; native
+execution still invokes the bundled deterministic Python core and verifies both
+input hashes before writing the result. Static `0.1.0` remains byte- and result-
+compatible. The same analysis-plan, validation, report and release graph binds
+either schema; no new Agent-authored approval surface is introduced.
 
 Analysis-plan schema `0.2.0` introduced a root `economic_basis`; schemas
 `0.3.0` through `0.13.0` retain it and executable extraction-to-model derivations. Schema

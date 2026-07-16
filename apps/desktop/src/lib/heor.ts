@@ -1058,6 +1058,8 @@ export interface HeorBudgetImpactCalculation {
   currency: string;
   price_year: number;
   base_case: {
+    model_type?: "dynamic_annual_cohort";
+    event_order?: string[];
     annual_results: Array<{
       year: number;
       eligible_population: number;
@@ -1066,6 +1068,8 @@ export interface HeorBudgetImpactCalculation {
       without_new_intervention_cost: number;
       with_new_intervention_cost: number;
       net_budget_impact: number;
+      without_new_intervention_flow?: HeorDynamicBudgetImpactFlow;
+      with_new_intervention_flow?: HeorDynamicBudgetImpactFlow;
     }>;
     annual_net_budget_impact: number[];
     cumulative_net_budget_impact: number;
@@ -1083,6 +1087,28 @@ export interface HeorBudgetImpactCalculation {
   }>;
   limitations: string[];
   warnings: string[];
+}
+
+export interface HeorDynamicBudgetImpactFlow {
+  opening_comparator: number;
+  opening_intervention: number;
+  incident_population: number;
+  requested_incident_intervention_starts: number;
+  incident_intervention_starts: number;
+  requested_comparator_displacement_starts: number;
+  comparator_displacement_starts: number;
+  capacity: number;
+  capacity_unmet_starts: number;
+  comparator_treated: number;
+  intervention_treated: number;
+  treated_population: number;
+  intervention_share: number;
+  deaths: number;
+  intervention_discontinuers_to_comparator: number;
+  comparator_discontinuers_exiting: number;
+  closing_comparator: number;
+  closing_intervention: number;
+  total_cost: number;
 }
 
 export interface HeorBudgetImpactRunResult {
