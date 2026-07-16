@@ -156,6 +156,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped alpha | `heor-event-disutilities` | Reproduce evidence-linked one-time, recurrent, or continuous-exposure event QALY losses, with terminology/severity, duration, timing, eligible states, and exact cross-artifact overlap exclusions | `heor/event-disutilities.json`, analysis schema `0.15.0`, PSM schema `0.7.0` |
 | Shipped | `heor-reference-case` | Versioned jurisdiction requirements, exact profile/assessment hashes, and fail-closed gap assessment | `heor/reference-case-assessment.json` plus app-owned approval/run audit |
 | Shipped | `heor-uncertainty-analysis` | Hash-bound DSA, seeded PSA, CEAC/CEAF, conditional per-person EVPI, convergence diagnostics, dependence disclosure, bounded cost/utility/event recomputation, and composition with reviewed joint PFS/OS rows | `heor/uncertainty-plan.json` plus deterministic run output; current schemas `0.13.0` and `0.14.0` |
+| Shipped alpha | `heor-advanced-value-of-information` | Human-specified population EVPI, correlation-closed nested-Monte-Carlo EVPPI, and one-parameter EVSI/ENBS over a converged uncertainty result | Separate plan/result/replay schema `0.1.0`, standard OR/Lognormal uncertainty `0.9.0` or fixed-survival component uncertainty `0.13.0`, and an app-owned eight-item Human method review |
 | Shipped | `heor-budget-impact` | Three-year payer population, uptake, itemized cost, one-way sensitivity, and alternative-scenario analysis | `heor/budget-impact-plan.json` plus deterministic run output |
 | Shipped alpha | `heor-dynamic-budget-impact` | Three-year annual-boundary prevalent/incident cohorts, uptake, comparator displacement, persistence, discontinuation, common mortality, start capacity, and full flow ledger | Budget-impact schema `0.2.0` plus the existing analysis-plan and release gates |
 | Shipped | `heor-model-validation` | Intended-use validation package covering face, input, external, cross-model, predictive, and TECH-VER checks without a score | `heor/model-validation.json`, local evidence, and app-owned independent-review gate |
@@ -209,7 +210,12 @@ bindings, and natural-language repair. The uncertainty slice now internalizes
 the useful CEAC/EVPI concepts identified in BCEA and methods guidance without
 embedding BCEA, R, or an upstream prompt: the first-party engine derives CEAC,
 CEAF, and per-person EVPI from its own seeded PSA, exposes Monte
-Carlo error, and leaves population EVPI and EVPPI uncalculated. This derivative
+Carlo error, and leaves population EVPI and EVPPI uncalculated in the base
+uncertainty artifact. The separate first-party advanced-VOI schema `0.1.0`
+requires explicit affected population, lifetime/discounting, correlation-closed
+groups, a supported study likelihood, delay, candidate sizes, and costs; it
+calculates population EVPI, EVPPI, EVSI, and ENBS and stops at an app-owned
+eight-item Human method review. This derivative
 passes the same schema, portable/native audit, regression, adversarial,
 report-binding, UI, and packaging gates as other first-party assets. BCEA
 remains an optional future adapter for broader validated analyses, not a hidden

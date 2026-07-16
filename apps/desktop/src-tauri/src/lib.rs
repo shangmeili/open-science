@@ -7,6 +7,7 @@ mod debug_log;
 mod examples;
 mod git_snapshot;
 mod harness;
+mod heor_advanced_voi;
 mod heor_approval;
 mod heor_artifacts;
 mod heor_budget_impact;
@@ -79,6 +80,7 @@ pub fn run() {
         .manage(PreviewState::default())
         .manage(ProvenanceState::default())
         .manage(heor_approval::HeorApprovalState::default())
+        .manage(heor_advanced_voi::AdvancedVoiReviewState::default())
         .manage(heor_search::HeorSearchState::default())
         .manage(heor_synthesis::HeorSynthesisState::default())
         .manage(heor_library::HeorLibraryState::default())
@@ -138,6 +140,10 @@ pub fn run() {
             provenance::read_env_lockfile,
             heor_approval::append_heor_approval,
             heor_approval::list_heor_approvals,
+            heor_advanced_voi::audit_heor_advanced_voi,
+            heor_advanced_voi::run_heor_advanced_voi,
+            heor_advanced_voi::append_heor_advanced_voi_review,
+            heor_advanced_voi::list_heor_advanced_voi_reviews,
             heor_budget_impact::audit_heor_budget_impact,
             heor_budget_impact::run_heor_budget_impact,
             heor_partitioned_survival::audit_heor_partitioned_survival,

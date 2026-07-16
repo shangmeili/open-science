@@ -147,8 +147,8 @@ skills implement the admitted research workflow.
 
 Only first-party core skills in `runtime/skills/core/` are bundled by default,
 including the AI4HEOR human-authorized PubMed/ClinicalTrials.gov evidence
-search, evidence synthesis, model-design, reference-case, uncertainty,
-budget-impact, validation, and reporting workflows. Third-party Skills and MCP
+search, evidence synthesis, model-design, reference-case, uncertainty, advanced
+value-of-information, budget-impact, validation, and reporting workflows. Third-party Skills and MCP
 servers are governed by a packaged admission registry: discovery candidates are
 inactive, and only a compatible, reviewed, cross-platform, hash-locked
 `validated-adapter` may enter the app-managed runtime.
@@ -275,9 +275,10 @@ target design as well as historical status notes.
 
 Near-term work is focused on signed/notarized releases, Windows host verification, real
 Linux desktop-session verification, auto-update, richer connector hardening, and
-continued reproducibility review. AI4HEOR 0.1.16 Linux `.deb` and `.rpm` are built and
-payload-verified on Ubuntu 22.04; the `.deb` also passes a clean headless first-start
-check.
+continued reproducibility review. The AI4HEOR 0.1.17 x64 macOS DMG is locally built and
+payload-verified, including all 177 deterministic HEOR tests against its packaged core.
+AI4HEOR 0.1.16 remains the latest Linux proof: its `.deb` and `.rpm` are payload-verified
+on Ubuntu 22.04, and the `.deb` also passes a clean headless first-start check.
 
 ## Contributing
 

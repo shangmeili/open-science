@@ -20,6 +20,9 @@ export const HEOR_EVIDENCE_SYNTHESIS_PATH = "heor/evidence-synthesis.json";
 export const HEOR_EVIDENCE_LIBRARY_PATH = "heor/evidence-library.json";
 export const HEOR_BASE_CASE_RESULT_PATH = "heor/results/base-case.json";
 export const HEOR_UNCERTAINTY_RESULT_PATH = "heor/results/uncertainty.json";
+export const HEOR_ADVANCED_VOI_PLAN_PATH = "heor/advanced-voi-plan.json";
+export const HEOR_ADVANCED_VOI_RESULT_PATH = "heor/results/advanced-voi.json";
+export const HEOR_ADVANCED_VOI_REPLAY_PATH = "heor/results/advanced-voi-replay.json";
 export const HEOR_BUDGET_IMPACT_RESULT_PATH = "heor/results/budget-impact.json";
 export const HEOR_PARTITIONED_SURVIVAL_RESULT_PATH = "heor/results/partitioned-survival.json";
 
@@ -372,6 +375,125 @@ export interface HeorUncertaintyAudit {
   jointSurvivalDrawCount: number | null;
   invalidParameters: string[];
   errors: string[];
+}
+
+export interface HeorAdvancedVoiAudit {
+  complete: boolean;
+  reviewable: boolean;
+  status: "complete" | "incomplete";
+  voiId: string;
+  analysisId: string;
+  uncertaintyId: string;
+  advancedVoiPlanSha256: string;
+  analysisPlanSha256: string;
+  uncertaintyPlanSha256: string;
+  uncertaintyResultSha256: string;
+  uncertaintySchemaVersion: string;
+  decisionThreshold: number | null;
+  populationYearCount: number;
+  effectivePopulation: number | null;
+  evppiGroupCount: number;
+  evppiEvaluationCount: number | null;
+  evsiDesignCount: number;
+  evsiEvaluationCount: number | null;
+  evsiTargetParameterId: string;
+  resultSha256: string | null;
+  replaySha256: string | null;
+  errors: string[];
+}
+
+export interface HeorAdvancedVoiCalculation {
+  schema_version: "0.1.0";
+  engine_version: "0.1.0";
+  voi_id: string;
+  decision_threshold: number;
+  population: {
+    annual_affected_population: number[];
+    discount_rate: number;
+    effective_population: number;
+  };
+  population_evpi: {
+    per_person_evpi: number;
+    per_person_evpi_mcse: number;
+    population_evpi: number;
+    population_evpi_mcse: number;
+  };
+  evppi: Array<{
+    group_id: string;
+    label: string;
+    parameter_ids: string[];
+    per_person_evppi: number;
+    per_person_evppi_mcse: number;
+    population_evppi: number;
+  }>;
+  evsi: {
+    target_group_id: string;
+    target_parameter_id: string;
+    study_delay_years: number;
+    study_cost_basis: { currency: string; price_year: number };
+    designs: Array<{
+      sample_size: number;
+      per_person_evsi: number;
+      per_person_evsi_mcse: number;
+      research_effective_population: number;
+      population_evsi: number;
+      study_cost: number;
+      expected_net_benefit_of_sampling: number;
+    }>;
+  };
+  replay_sha256: string;
+  classification: "research_priority_calculation_for_human_review";
+  limitations: string[];
+}
+
+export interface HeorAdvancedVoiRunResult {
+  audit: HeorAdvancedVoiAudit;
+  calculation: HeorAdvancedVoiCalculation;
+  resultSha256: string;
+  replaySha256: string;
+  reviewStatus: "awaiting_human_review";
+}
+
+export interface HeorAdvancedVoiChecklist {
+  decisionScopeThresholdReviewed: boolean;
+  populationLifetimeImplementationReviewed: boolean;
+  representedOmittedUncertaintyReviewed: boolean;
+  evppiGroupingCorrelationReviewed: boolean;
+  nestedMonteCarloPrecisionBiasReviewed: boolean;
+  evsiPriorLikelihoodDataModelReviewed: boolean;
+  researchDelayCostOpportunityCostReviewed: boolean;
+  limitationsNoDecisionAuthorityReviewed: boolean;
+}
+
+export interface HeorAdvancedVoiReviewRequest {
+  projectId: string;
+  action: "accept" | "reject";
+  resultSha256: string;
+  replaySha256: string;
+  checklist: HeorAdvancedVoiChecklist;
+  actorLabel: string;
+  rationale: string;
+}
+
+export interface HeorAdvancedVoiReviewEvent extends HeorAdvancedVoiReviewRequest {
+  schemaVersion: number;
+  sequence: number;
+  reviewId: string;
+  voiId: string;
+  planSha256: string;
+  timestamp: number;
+  recordPath: string;
+  recordSha256: string;
+  assurance: string;
+  previousHash: string | null;
+  eventHash: string;
+}
+
+export interface HeorAdvancedVoiReviewLog {
+  events: HeorAdvancedVoiReviewEvent[];
+  chainHead: string | null;
+  integrity: string;
+  identityAssurance: string;
 }
 
 export interface HeorBudgetImpactAudit {
@@ -2817,6 +2939,66 @@ export async function auditHeorUncertainty(): Promise<HeorUncertaintyAudit> {
   if (!isTauri) return HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<HeorUncertaintyAudit>("audit_heor_uncertainty");
+}
+
+export async function auditHeorAdvancedVoi(): Promise<HeorAdvancedVoiAudit> {
+  if (!isTauri) {
+    return {
+      complete: false,
+      reviewable: false,
+      status: "incomplete",
+      voiId: "",
+      analysisId: "",
+      uncertaintyId: "",
+      advancedVoiPlanSha256: "",
+      analysisPlanSha256: "",
+      uncertaintyPlanSha256: "",
+      uncertaintyResultSha256: "",
+      uncertaintySchemaVersion: "",
+      decisionThreshold: null,
+      populationYearCount: 0,
+      effectivePopulation: null,
+      evppiGroupCount: 0,
+      evppiEvaluationCount: null,
+      evsiDesignCount: 0,
+      evsiEvaluationCount: null,
+      evsiTargetParameterId: "",
+      resultSha256: null,
+      replaySha256: null,
+      errors: ["Advanced VOI requires the desktop runtime."],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorAdvancedVoiAudit>("audit_heor_advanced_voi");
+}
+
+export async function runHeorAdvancedVoi(projectId: string): Promise<HeorAdvancedVoiRunResult> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorAdvancedVoiRunResult>("run_heor_advanced_voi", { projectId });
+}
+
+export async function appendHeorAdvancedVoiReview(
+  request: HeorAdvancedVoiReviewRequest,
+): Promise<HeorAdvancedVoiReviewEvent> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorAdvancedVoiReviewEvent>("append_heor_advanced_voi_review", { request });
+}
+
+export async function listHeorAdvancedVoiReviews(
+  projectId: string,
+): Promise<HeorAdvancedVoiReviewLog> {
+  if (!isTauri) {
+    return {
+      events: [],
+      chainHead: null,
+      integrity: "verified_unanchored_sha256_chain",
+      identityAssurance: "app_owned_local_human_assertion",
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorAdvancedVoiReviewLog>("list_heor_advanced_voi_reviews", { projectId });
 }
 
 export async function auditHeorBudgetImpact(): Promise<HeorBudgetImpactAudit> {

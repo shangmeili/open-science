@@ -530,10 +530,14 @@ cost/QALY arrays per draw to keep the bounded artifact compact. Legacy schemas
 retain their original incremental output. The review pane renders each CEAC and
 the CEAF as distinct accessible line series and retains exact values in
 the result artifact. This is a secondary evidence surface in the
-natural-language workflow, not a new form-led modeling path. The result reports
-Monte Carlo error and keeps population EVPI and EVPPI explicitly null; it does
-not infer affected population, research priority, study design, funding value,
-reimbursement, or policy advice. Rust, Python, and the portable skill validator each
+natural-language workflow, not a new form-led modeling path. The base
+uncertainty result reports Monte Carlo error and keeps population EVPI and
+EVPPI explicitly null. A separate advanced-VOI result may calculate population
+EVPI, EVPPI, EVSI, and ENBS only from explicit Human-owned population and study-
+design inputs, exact hash bindings, and its own replay; it remains conditional
+research-prioritization output behind a separate Human method review. Neither
+artifact infers funding, reimbursement, or policy advice. Rust, Python, and the
+portable skill validator each
 fail closed on unsafe targets, changed hashes, unsupported distributions,
 unlinked distribution or correlation bases, reused group members, invalid or
 singular matrices, known omitted correlations, or invalid scenarios. The engine

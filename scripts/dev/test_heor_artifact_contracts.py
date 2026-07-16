@@ -43,6 +43,10 @@ uncertainty = load(
     "validate_uncertainty_plan",
     "runtime/skills/core/heor-uncertainty-analysis/scripts/validate_uncertainty_plan.py",
 )
+advanced_voi = load(
+    "validate_advanced_voi",
+    "runtime/skills/core/heor-advanced-value-of-information/scripts/validate_advanced_voi.py",
+)
 joint_survival_uncertainty = load(
     "validate_joint_survival_uncertainty",
     "runtime/skills/core/heor-joint-survival-uncertainty/scripts/validate_joint_survival_uncertainty.py",
@@ -111,6 +115,36 @@ survival_extrapolation_collection = load(
     "validate_survival_extrapolation_collection",
     "runtime/skills/core/heor-survival-extrapolation-review/scripts/validate_survival_extrapolation_collection.py",
 )
+
+
+class AdvancedVoiPortableContractTests(unittest.TestCase):
+    TEMPLATE = ROOT / (
+        "runtime/skills/core/heor-advanced-value-of-information/assets/"
+        "advanced-voi-plan.template.json"
+    )
+
+    def test_template_is_non_authoritative_and_exposes_all_method_boundaries(self):
+        plan = json.loads(self.TEMPLATE.read_text())
+        self.assertEqual(plan["schema_version"], "0.1.0")
+        self.assertEqual(plan["status"], "draft")
+        self.assertEqual(set(plan["bindings"]), {
+            "analysis_plan", "uncertainty_plan", "uncertainty_result",
+        })
+        self.assertEqual(set(plan["limitations"]), {
+            "model_and_parameter_scope",
+            "population_and_implementation_scope",
+            "evppi_nested_monte_carlo_error",
+            "evsi_normal_normal_study_model",
+            "decision_authority_remains_human",
+        })
+        self.assertFalse(any("approv" in key.lower() for key in plan))
+
+    def test_portable_validator_uses_the_same_deterministic_context_contract(self):
+        core = advanced_voi.load_core()
+        self.assertEqual(core.SCHEMA_VERSION, "0.1.0")
+        self.assertTrue(callable(core.validate_context))
+        self.assertEqual(core.SUPPORTED_STANDARD_UNCERTAINTY_SCHEMA, "0.9.0")
+        self.assertEqual(core.SUPPORTED_COMPONENT_UNCERTAINTY_SCHEMA, "0.13.0")
 
 
 class CostInputNormalizationContractTests(unittest.TestCase):

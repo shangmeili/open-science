@@ -9,6 +9,12 @@ from pathlib import Path
 from typing import Sequence
 
 from .budget_impact import run_budget_impact
+from .advanced_voi import (
+    component_context,
+    json_bytes,
+    run_advanced_voi,
+    standard_context,
+)
 from .model import MarkovSpecification, ModelValidationError, run_markov
 from .partitioned_survival import run_partitioned_survival
 from .uncertainty import run_uncertainty
@@ -27,6 +33,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--budget-impact-plan",
         type=Path,
         help="Optional path to a hash-bound budget impact plan",
+    )
+    parser.add_argument(
+        "--advanced-voi-plan",
+        type=Path,
+        help="Optional advanced VOI plan; requires --uncertainty-plan and --uncertainty-result",
+    )
+    parser.add_argument(
+        "--uncertainty-result",
+        type=Path,
+        help="Current converged uncertainty result bound by an advanced VOI plan",
     )
     parser.add_argument(
         "--partitioned-survival-plan",
@@ -71,12 +87,109 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _run_advanced_voi_from_args(
+    args: argparse.Namespace,
+    payload: dict,
+    raw: bytes,
+) -> dict:
+    if args.uncertainty_plan is None or args.uncertainty_result is None:
+        raise ModelValidationError(
+            "--advanced-voi-plan requires --uncertainty-plan and --uncertainty-result"
+        )
+    if args.joint_survival_uncertainty_manifest is not None:
+        raise ModelValidationError(
+            "advanced VOI schema 0.1.0 does not support joint survival uncertainty"
+        )
+    uncertainty_raw = args.uncertainty_plan.read_bytes()
+    uncertainty = json.loads(uncertainty_raw)
+    result_raw = args.uncertainty_result.read_bytes()
+    uncertainty_result = json.loads(result_raw)
+    voi_raw = args.advanced_voi_plan.read_bytes()
+    voi = json.loads(voi_raw)
+    if uncertainty.get("schema_version") == "0.9.0":
+        if any(
+            item is not None
+            for item in (
+                args.partitioned_survival_plan,
+                args.survival_curve_materializations,
+                args.treatment_effect_duration,
+                args.cost_input_normalization,
+                args.utility_inputs,
+                args.event_disutilities,
+            )
+        ):
+            raise ModelValidationError(
+                "advanced VOI over uncertainty schema 0.9.0 forbids PSM artifact options"
+            )
+        context = standard_context(payload, raw, uncertainty, uncertainty_raw)
+    elif uncertainty.get("schema_version") == "0.13.0":
+        required = (
+            args.partitioned_survival_plan,
+            args.survival_curve_materializations,
+            args.treatment_effect_duration,
+            args.cost_input_normalization,
+            args.utility_inputs,
+            args.event_disutilities,
+        )
+        if any(item is None for item in required):
+            raise ModelValidationError(
+                "advanced VOI over uncertainty schema 0.13.0 requires all six current PSM artifact options"
+            )
+        partitioned_raw = args.partitioned_survival_plan.read_bytes()
+        materializations_raw = args.survival_curve_materializations.read_bytes()
+        duration_raw = args.treatment_effect_duration.read_bytes()
+        cost_raw = args.cost_input_normalization.read_bytes()
+        utility_raw = args.utility_inputs.read_bytes()
+        event_raw = args.event_disutilities.read_bytes()
+        context = component_context(
+            payload,
+            raw,
+            uncertainty,
+            uncertainty_raw,
+            json.loads(partitioned_raw),
+            partitioned_raw,
+            json.loads(materializations_raw),
+            materializations_raw,
+            json.loads(duration_raw),
+            duration_raw,
+            json.loads(cost_raw),
+            cost_raw,
+            json.loads(utility_raw),
+            utility_raw,
+            json.loads(event_raw),
+            event_raw,
+        )
+    else:
+        raise ModelValidationError(
+            "advanced VOI schema 0.1.0 supports odds-ratio uncertainty schema 0.9.0 or fixed-survival component schema 0.13.0"
+        )
+    output = run_advanced_voi(
+        voi,
+        voi_raw,
+        payload,
+        raw,
+        uncertainty,
+        uncertainty_raw,
+        uncertainty_result,
+        result_raw,
+        context,
+    )
+    return {
+        "replay_json": json_bytes(output["replay"]).decode("utf-8"),
+        "result": output["result"],
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.partitioned_survival_plan is not None and args.budget_impact_plan is not None:
             raise ModelValidationError(
                 "--partitioned-survival-plan cannot be combined with --budget-impact-plan"
+            )
+        if (args.advanced_voi_plan is None) != (args.uncertainty_result is None):
+            raise ModelValidationError(
+                "--advanced-voi-plan and --uncertainty-result must be provided together"
             )
         if args.survival_curve_materializations is not None and args.partitioned_survival_plan is None:
             raise ModelValidationError(
@@ -119,7 +232,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ModelValidationError(
                 "joint survival artifacts require analysis schema 0.12.0 or 0.15.0"
             )
-        if (
+        if args.advanced_voi_plan is not None:
+            result = _run_advanced_voi_from_args(args, payload, raw)
+        elif (
             args.uncertainty_plan is None
             and args.budget_impact_plan is None
             and args.partitioned_survival_plan is None

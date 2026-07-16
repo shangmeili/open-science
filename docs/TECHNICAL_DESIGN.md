@@ -1,14 +1,14 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.16, 2026-07-16).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.17, 2026-07-16).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
 > including the 13/15-artifact PSM validation/report contract and deterministic release replay;
-> deterministic cohort, uncertainty, budget-impact, NMA, and bounded anchored-MAIC engines,
+> deterministic cohort, uncertainty, bounded advanced-VOI, budget-impact, NMA, and anchored-MAIC engines,
 > including portable full-bootstrap replay, native calibration/point-effect challenge, and a
-> separate app-owned eight-check Human method review; and native macOS and
-> x86_64 Linux packaging. The Linux `.deb` and `.rpm` are built and content-verified on
+> separate app-owned Human method reviews; and native macOS and x86_64 Linux packaging.
+> The 0.1.17 x64 macOS DMG is content-verified; the 0.1.16 Linux `.deb` and `.rpm` are built and content-verified on
 > clean Ubuntu 22.04; the `.deb` also passes an isolated install and headless first-start
 > runtime check. Windows remains CI/host-bound, and signing/notarization remains planned.
 > Sections below distinguish implemented contracts from target design.
@@ -1020,6 +1020,22 @@ alternatives, and independent validation remain outside the calculation.
 Dependence is preserved within joint curve rows and admitted component groups,
 but not between those two fragments; known cross-domain dependence remains a
 Human-reviewed blocker rather than being silently treated as zero.
+
+Advanced value-of-information schema `0.1.0` is a separate research-
+prioritization graph. It binds the exact analysis plan, uncertainty plan, and
+converged uncertainty result. The standard route admits odds-ratio uncertainty
+`0.9.0` only when its EVSI target is an independent Lognormal parameter; the
+current fixed-survival PSM route admits component uncertainty `0.13.0`. HR
+uncertainty `0.10.0` is Uniform and therefore fails the declared log-scale
+Normal-Normal EVSI contract rather than being approximated. Population EVPI
+uses explicit annual affected populations and discounting. EVPPI and EVSI use
+bounded nested Monte Carlo with reported MCSE; EVSI supports one Human-specified
+Normal sample-mean likelihood and a finite candidate sample-size set. Python
+emits an exact compact replay, native Rust verifies current model-input hashes
+and independently recomputes population, EVPPI, EVSI, study-cost, and ENBS
+summaries, and the desktop binds plan/result/replay into an app-owned eight-
+check Human review chain. The release report graph does not absorb this result
+implicitly.
 The materializer does not fit data, transform backend coefficients, choose a
 family, infer covariance, support other survival families, or establish clinical/external
 validity. Treatment-effect application is limited to the separate duration contract above.

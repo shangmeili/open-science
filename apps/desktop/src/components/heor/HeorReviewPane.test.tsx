@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT,
+  type HeorAdvancedVoiAudit,
+  type HeorAdvancedVoiRunResult,
   type HeorBudgetImpactRunResult,
   type HeorPairedBootstrapAudit,
   type HeorNetworkMetaAnalysisAudit,
@@ -12,6 +14,8 @@ import {
 import { useUiStore } from "@/lib/store";
 import {
   CeacChart,
+  AdvancedVoiResultCard,
+  AdvancedVoiReviewDialog,
   BudgetImpactResultCard,
   EvidenceVerificationDialog,
   HeorReviewPane,
@@ -101,6 +105,121 @@ describe("AI4HEOR human review pane", () => {
     limitations: ["Human method review required."],
     errors: [],
   };
+
+  const advancedVoiAudit: HeorAdvancedVoiAudit = {
+    complete: true,
+    reviewable: true,
+    status: "complete",
+    voiId: "voi-1",
+    analysisId: "analysis-1",
+    uncertaintyId: "uncertainty-1",
+    advancedVoiPlanSha256: "2".repeat(64),
+    analysisPlanSha256: "3".repeat(64),
+    uncertaintyPlanSha256: "4".repeat(64),
+    uncertaintyResultSha256: "5".repeat(64),
+    uncertaintySchemaVersion: "0.9.0",
+    decisionThreshold: 100000,
+    populationYearCount: 3,
+    effectivePopulation: 2350,
+    evppiGroupCount: 1,
+    evppiEvaluationCount: 2000,
+    evsiDesignCount: 1,
+    evsiEvaluationCount: 2000,
+    evsiTargetParameterId: "effect",
+    resultSha256: "6".repeat(64),
+    replaySha256: "7".repeat(64),
+    errors: [],
+  };
+
+  it("keeps advanced VOI acceptance behind all eight Human method checks", async () => {
+    const onSubmit = vi.fn();
+    render(
+      <AdvancedVoiReviewDialog
+        audit={advancedVoiAudit}
+        running={false}
+        onCancel={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+    const submit = screen.getByRole("button", { name: "Record Human review" });
+    expect(submit).toBeDisabled();
+    const checkboxes = screen.getAllByRole("checkbox");
+    expect(checkboxes).toHaveLength(8);
+    for (const checkbox of checkboxes) await userEvent.click(checkbox);
+    await userEvent.type(screen.getByLabelText("Human reviewer"), "VOI reviewer");
+    await userEvent.type(
+      screen.getByLabelText("Review rationale"),
+      "Reviewed population, grouping, sampling model, costs, uncertainty, and limitations.",
+    );
+    expect(submit).toBeEnabled();
+    await userEvent.click(submit);
+    expect(onSubmit).toHaveBeenCalledWith(
+      "accept",
+      expect.objectContaining({
+        decisionScopeThresholdReviewed: true,
+        limitationsNoDecisionAuthorityReviewed: true,
+      }),
+      "VOI reviewer",
+      "Reviewed population, grouping, sampling model, costs, uncertainty, and limitations.",
+    );
+  });
+
+  it("renders population EVPI, EVPPI and EVSI/ENBS as review-only output", () => {
+    const result = {
+      audit: advancedVoiAudit,
+      resultSha256: "6".repeat(64),
+      replaySha256: "7".repeat(64),
+      reviewStatus: "awaiting_human_review",
+      calculation: {
+        schema_version: "0.1.0",
+        engine_version: "0.1.0",
+        voi_id: "voi-1",
+        decision_threshold: 100000,
+        population: {
+          annual_affected_population: [1000, 800, 600],
+          discount_rate: 0.03,
+          effective_population: 2350,
+        },
+        population_evpi: {
+          per_person_evpi: 500,
+          per_person_evpi_mcse: 20,
+          population_evpi: 1175000,
+          population_evpi_mcse: 47000,
+        },
+        evppi: [{
+          group_id: "effect-group",
+          label: "Treatment effect",
+          parameter_ids: ["effect"],
+          per_person_evppi: 300,
+          per_person_evppi_mcse: 15,
+          population_evppi: 705000,
+        }],
+        evsi: {
+          target_group_id: "effect-group",
+          target_parameter_id: "effect",
+          study_delay_years: 1,
+          study_cost_basis: { currency: "USD", price_year: 2026 },
+          designs: [{
+            sample_size: 200,
+            per_person_evsi: 150,
+            per_person_evsi_mcse: 10,
+            research_effective_population: 1350,
+            population_evsi: 202500,
+            study_cost: 100000,
+            expected_net_benefit_of_sampling: 102500,
+          }],
+        },
+        replay_sha256: "7".repeat(64),
+        classification: "research_priority_calculation_for_human_review",
+        limitations: ["Human review required."],
+      },
+    } as HeorAdvancedVoiRunResult;
+    render(<AdvancedVoiResultCard result={result} locale="en" />);
+    expect(screen.getByText("Advanced value-of-information result")).toBeInTheDocument();
+    expect(screen.getByText("Treatment effect")).toBeInTheDocument();
+    expect(screen.getByText("ENBS")).toBeInTheDocument();
+    expect(screen.getByText(/not reimbursement, funding, or optimal-study decisions/)).toBeInTheDocument();
+  });
 
   it("keeps anchored MAIC selection eligibility behind all eight Human method checks", async () => {
     const onSubmit = vi.fn();

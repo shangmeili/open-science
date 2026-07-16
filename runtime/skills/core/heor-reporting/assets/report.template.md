@@ -76,8 +76,9 @@
 
 Report the declared threshold grid, intervention CEAC and CEAF separately, and
 the primary-threshold per-person EVPI with Monte Carlo error. State that
-population EVPI and EVPPI were not calculated unless separately supported by a
-validated method and explicit inputs. Do not convert these results into a
+population EVPI and EVPPI were not calculated in the base uncertainty result
+unless separately supported by an exact advanced-VOI result/replay pair,
+explicit inputs, and Human method review. Do not convert these results into a
 reimbursement or research-funding recommendation.
 
 <!-- report-section:results.engagement-effects -->

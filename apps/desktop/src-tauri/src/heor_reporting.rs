@@ -427,7 +427,7 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
         }
     }
     let hash = |key: &str| audit.binding_hashes.get(key).map(String::as_str);
-    if loaded.get("base_case_result").is_some()
+    if loaded.contains_key("base_case_result")
         && loaded
             .get("base_case_result")
             .and_then(|v| text(v.get("input_sha256")))
@@ -627,6 +627,8 @@ pub fn write_result(workspace: &Path, relative: &str, raw: &[u8]) -> Result<(), 
                 | UNCERTAINTY_RESULT_PATH
                 | BUDGET_IMPACT_RESULT_PATH
                 | crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_RESULT_PATH
+                | crate::heor_advanced_voi::ADVANCED_VOI_RESULT_PATH
+                | crate::heor_advanced_voi::ADVANCED_VOI_REPLAY_PATH
         )
     {
         return Err("HEOR result is not a bounded first-party result artifact".into());

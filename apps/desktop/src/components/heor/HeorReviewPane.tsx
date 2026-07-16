@@ -20,10 +20,12 @@ import { readArtifact } from "@/lib/artifactFile";
 import { cn } from "@/lib/cn";
 import {
   appendHeorApproval,
+  appendHeorAdvancedVoiReview,
   appendHeorNetworkMetaAnalysisReview,
   appendHeorPopulationAdjustedComparisonReview,
   appendHeorPairedBootstrapReview,
   auditHeorBudgetImpact,
+  auditHeorAdvancedVoi,
   auditHeorPartitionedSurvival,
   auditHeorConceptualModel,
   auditHeorEvidence,
@@ -62,6 +64,10 @@ import {
   HEOR_PAIRED_BOOTSTRAP_REQUEST_PATH,
   HEOR_UNCERTAINTY_PLAN_PATH,
   type HeorAnalysisPlan,
+  type HeorAdvancedVoiAudit,
+  type HeorAdvancedVoiChecklist,
+  type HeorAdvancedVoiReviewLog,
+  type HeorAdvancedVoiRunResult,
   type HeorApprovalAction,
   type HeorApprovalEvent,
   type HeorApprovalLog,
@@ -98,6 +104,7 @@ import {
   type HeorUncertaintyAudit,
   type HeorUncertaintyRunResult,
   listHeorApprovals,
+  listHeorAdvancedVoiReviews,
   listHeorNetworkMetaAnalysisReviews,
   listHeorPopulationAdjustedComparisonReviews,
   listHeorPairedBootstrapReviews,
@@ -105,6 +112,7 @@ import {
   parseHeorConceptualModel,
   parseHeorPlan,
   runHeorMarkov,
+  runHeorAdvancedVoi,
   runHeorBudgetImpact,
   runHeorPartitionedSurvival,
   syncHeorEvidenceLibrary,
@@ -130,6 +138,7 @@ const ALL_GATES: HeorGate[] = REVIEW_GATES;
 const EVIDENCE_REVIEW_DECISIONS = ["confirmed", "rejected"] as const;
 const PAIRED_BOOTSTRAP_REVIEW_ACTIONS = ["accept", "reject"] as const;
 const NMA_REVIEW_ACTIONS = ["accept", "reject"] as const;
+const ADVANCED_VOI_REVIEW_ACTIONS = ["accept", "reject"] as const;
 
 const EMPTY_LOG: HeorApprovalLog = {
   events: [],
@@ -171,6 +180,11 @@ type UncertaintyState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorUncertaintyAudit };
+
+type AdvancedVoiState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorAdvancedVoiAudit };
 
 type BudgetImpactState =
   | { kind: "loading" }
@@ -265,6 +279,13 @@ const EMPTY_PAC_REVIEW_LOG: HeorPopulationAdjustedComparisonReviewLog = {
   identityAssurance: "app_owned_local_human_assertion",
 };
 
+const EMPTY_ADVANCED_VOI_REVIEW_LOG: HeorAdvancedVoiReviewLog = {
+  events: [],
+  chainHead: null,
+  integrity: "verified_unanchored_sha256_chain",
+  identityAssurance: "app_owned_local_human_assertion",
+};
+
 function latestSearchAuthorization(
   log: HeorSearchAuthorizationLog,
 ): HeorSearchAuthorizationEvent | null {
@@ -346,6 +367,10 @@ export function HeorReviewPane({
   });
   const [referenceCase, setReferenceCase] = useState<ReferenceCaseState>({ kind: "loading" });
   const [uncertainty, setUncertainty] = useState<UncertaintyState>({ kind: "loading" });
+  const [advancedVoi, setAdvancedVoi] = useState<AdvancedVoiState>({ kind: "loading" });
+  const [advancedVoiReviews, setAdvancedVoiReviews] = useState<HeorAdvancedVoiReviewLog>(EMPTY_ADVANCED_VOI_REVIEW_LOG);
+  const [advancedVoiDialogOpen, setAdvancedVoiDialogOpen] = useState(false);
+  const [advancedVoiReviewRunning, setAdvancedVoiReviewRunning] = useState(false);
   const [budgetImpact, setBudgetImpact] = useState<BudgetImpactState>({ kind: "loading" });
   const [partitionedSurvival, setPartitionedSurvival] = useState<PartitionedSurvivalState>({ kind: "loading" });
   const [survivalReview, setSurvivalReview] = useState<SurvivalReviewState>({ kind: "loading" });
@@ -380,6 +405,7 @@ export function HeorReviewPane({
   const [approvals, setApprovals] = useState<HeorApprovalLog>(EMPTY_LOG);
   const [result, setResult] = useState<HeorRunResult | null>(null);
   const [uncertaintyResult, setUncertaintyResult] = useState<HeorUncertaintyRunResult | null>(null);
+  const [advancedVoiResult, setAdvancedVoiResult] = useState<HeorAdvancedVoiRunResult | null>(null);
   const [budgetImpactResult, setBudgetImpactResult] = useState<HeorBudgetImpactRunResult | null>(null);
   const [partitionedSurvivalResult, setPartitionedSurvivalResult] = useState<HeorPartitionedSurvivalRunResult | null>(null);
   const [running, setRunning] = useState(false);
@@ -388,6 +414,7 @@ export function HeorReviewPane({
   const refresh = useCallback(async () => {
     setResult(null);
     setUncertaintyResult(null);
+    setAdvancedVoiResult(null);
     setBudgetImpactResult(null);
     setPartitionedSurvivalResult(null);
     setSearchResult(null);
@@ -397,6 +424,8 @@ export function HeorReviewPane({
       setConceptualArtifact({ kind: "missing" });
       setReferenceCase({ kind: "invalid", message: t("reference.noProject") });
       setUncertainty({ kind: "invalid", message: t("uncertainty.noProject") });
+      setAdvancedVoi({ kind: "invalid", message: t("advancedVoi.noProject") });
+      setAdvancedVoiReviews(EMPTY_ADVANCED_VOI_REVIEW_LOG);
       setBudgetImpact({ kind: "invalid", message: t("budgetImpact.noProject") });
       setPartitionedSurvival({ kind: "invalid", message: t("partitionedSurvival.noProject") });
       setSurvivalReview({ kind: "invalid", message: t("survivalReview.noProject") });
@@ -421,6 +450,7 @@ export function HeorReviewPane({
     setConceptualArtifact({ kind: "loading" });
     setReferenceCase({ kind: "loading" });
     setUncertainty({ kind: "loading" });
+    setAdvancedVoi({ kind: "loading" });
     setBudgetImpact({ kind: "loading" });
     setPartitionedSurvival({ kind: "loading" });
     setSurvivalReview({ kind: "loading" });
@@ -496,6 +526,7 @@ export function HeorReviewPane({
         setArtifact({ kind: "missing" });
         setReferenceCase({ kind: "invalid", message: t("reference.missingPlan") });
         setUncertainty({ kind: "invalid", message: t("uncertainty.missingPlan") });
+        setAdvancedVoi({ kind: "invalid", message: t("advancedVoi.missingPlan") });
         setBudgetImpact({ kind: "invalid", message: t("budgetImpact.missingPlan") });
         setPartitionedSurvival({ kind: "invalid", message: t("partitionedSurvival.missingPlan") });
         setSurvivalReview({ kind: "invalid", message: t("survivalReview.missingPlan") });
@@ -533,6 +564,16 @@ export function HeorReviewPane({
           kind: "invalid",
           message: error instanceof Error ? error.message : String(error),
         });
+      }
+      try {
+        setAdvancedVoi({ kind: "ready", audit: await auditHeorAdvancedVoi() });
+        setAdvancedVoiReviews(await listHeorAdvancedVoiReviews(project.id));
+      } catch (error) {
+        setAdvancedVoi({
+          kind: "invalid",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        setAdvancedVoiReviews(EMPTY_ADVANCED_VOI_REVIEW_LOG);
       }
       try {
         setBudgetImpact({ kind: "ready", audit: await auditHeorBudgetImpact() });
@@ -628,6 +669,10 @@ export function HeorReviewPane({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
+      setAdvancedVoi({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
       setBudgetImpact({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
@@ -704,6 +749,16 @@ export function HeorReviewPane({
       === populationAdjustedComparison.audit.resultPath
     && currentPopulationAdjustedComparisonReview.resultSha256
       === populationAdjustedComparison.audit.resultSha256;
+  const currentAdvancedVoiReview = useMemo(() => {
+    if (advancedVoi.kind !== "ready" || !advancedVoi.audit.resultSha256) return null;
+    return [...advancedVoiReviews.events].reverse().find((event) =>
+      event.voiId === advancedVoi.audit.voiId
+      && event.resultSha256 === advancedVoi.audit.resultSha256) ?? null;
+  }, [advancedVoi, advancedVoiReviews.events]);
+  const advancedVoiAccepted = advancedVoi.kind === "ready"
+    && advancedVoi.audit.reviewable
+    && currentAdvancedVoiReview?.action === "accept"
+    && currentAdvancedVoiReview.replaySha256 === advancedVoi.audit.replaySha256;
 
   const currentApprovals = useMemo(() => {
     if (artifact.kind !== "ready") return [] as HeorGate[];
@@ -974,6 +1029,53 @@ export function HeorReviewPane({
     }
   };
 
+  const runAdvancedVoi = async () => {
+    if (!project || !isTauri || advancedVoi.kind !== "ready"
+      || !advancedVoi.audit.complete || running) return;
+    setRunning(true);
+    try {
+      const next = await runHeorAdvancedVoi(project.id);
+      setAdvancedVoiResult(next);
+      setAdvancedVoi({ kind: "ready", audit: await auditHeorAdvancedVoi() });
+      toast.success(t("toast.advancedVoiRunComplete"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const submitAdvancedVoiReview = async (
+    action: "accept" | "reject",
+    checklist: HeorAdvancedVoiChecklist,
+    actor: string,
+    rationale: string,
+  ) => {
+    if (!project || advancedVoi.kind !== "ready" || advancedVoiReviewRunning) return;
+    const resultSha256 = advancedVoiResult?.resultSha256 ?? advancedVoi.audit.resultSha256;
+    const replaySha256 = advancedVoiResult?.replaySha256 ?? advancedVoi.audit.replaySha256;
+    if (!resultSha256 || !replaySha256) return;
+    setAdvancedVoiReviewRunning(true);
+    try {
+      await appendHeorAdvancedVoiReview({
+        projectId: project.id,
+        action,
+        resultSha256,
+        replaySha256,
+        checklist,
+        actorLabel: actor,
+        rationale,
+      });
+      setAdvancedVoiReviews(await listHeorAdvancedVoiReviews(project.id));
+      setAdvancedVoiDialogOpen(false);
+      toast.success(t("toast.advancedVoiReviewRecorded"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setAdvancedVoiReviewRunning(false);
+    }
+  };
+
   const runBudgetImpact = async () => {
     if (!project || !isTauri || budgetImpact.kind !== "ready"
       || !budgetImpact.audit.complete || running) return;
@@ -1217,7 +1319,8 @@ export function HeorReviewPane({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <StageRail
           currentApprovals={currentApprovals}
-          hasResult={!!result || !!uncertaintyResult || !!budgetImpactResult || !!partitionedSurvivalResult}
+          hasResult={!!result || !!uncertaintyResult || !!advancedVoiResult
+            || !!budgetImpactResult || !!partitionedSurvivalResult}
         />
 
         {project && (
@@ -1363,6 +1466,13 @@ export function HeorReviewPane({
             <UncertaintyAssessment
               state={uncertainty}
               onRequestRepair={() => onRequestRevision(t("uncertainty.repairPrompt"))}
+            />
+            <AdvancedVoiAssessment
+              state={advancedVoi}
+              accepted={advancedVoiAccepted}
+              reviewAction={currentAdvancedVoiReview?.action ?? null}
+              onRequestPreparation={() => onRequestRevision(t("advancedVoi.preparePrompt"))}
+              onReview={() => setAdvancedVoiDialogOpen(true)}
             />
             <BudgetImpactAssessment
               state={budgetImpact}
@@ -1597,6 +1707,16 @@ export function HeorReviewPane({
                   {running ? t("action.running") : t("action.runUncertainty")}
                 </button>
               )}
+              {isTauri && advancedVoi.kind === "ready" && advancedVoi.audit.complete && (
+                <button
+                  onClick={() => void runAdvancedVoi()}
+                  disabled={running}
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-input border border-accent px-3 py-2 text-xs font-semibold text-accent hover:bg-accent/5 disabled:opacity-60"
+                >
+                  {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={13} />}
+                  {running ? t("action.running") : t("action.runAdvancedVoi")}
+                </button>
+              )}
               {isTauri && budgetImpact.kind === "ready" && budgetImpact.audit.complete && (
                 <button
                   onClick={() => void runBudgetImpact()}
@@ -1623,6 +1743,9 @@ export function HeorReviewPane({
             {result && <ResultCard result={result} locale={i18n.language} />}
             {uncertaintyResult && (
               <UncertaintyResultCard result={uncertaintyResult} locale={i18n.language} />
+            )}
+            {advancedVoiResult && (
+              <AdvancedVoiResultCard result={advancedVoiResult} locale={i18n.language} />
             )}
             {budgetImpactResult && (
               <BudgetImpactResultCard result={budgetImpactResult} locale={i18n.language} />
@@ -1702,6 +1825,111 @@ export function HeorReviewPane({
             void submitPopulationAdjustedComparisonReview(action, checklist, actor, rationale)}
         />
       )}
+      {advancedVoiDialogOpen && advancedVoi.kind === "ready"
+        && advancedVoi.audit.resultSha256 && advancedVoi.audit.replaySha256 && (
+        <AdvancedVoiReviewDialog
+          audit={advancedVoi.audit}
+          running={advancedVoiReviewRunning}
+          onCancel={() => setAdvancedVoiDialogOpen(false)}
+          onSubmit={(action, checklist, actor, rationale) =>
+            void submitAdvancedVoiReview(action, checklist, actor, rationale)}
+        />
+      )}
+    </div>
+  );
+}
+
+export function AdvancedVoiReviewDialog({
+  audit,
+  running,
+  onCancel,
+  onSubmit,
+}: {
+  audit: HeorAdvancedVoiAudit;
+  running: boolean;
+  onCancel: () => void;
+  onSubmit: (
+    action: "accept" | "reject",
+    checklist: HeorAdvancedVoiChecklist,
+    actor: string,
+    rationale: string,
+  ) => void;
+}) {
+  const { t } = useTranslation("heor");
+  const [action, setAction] = useState<"accept" | "reject">("accept");
+  const [actor, setActor] = useState("");
+  const [rationale, setRationale] = useState("");
+  const [checklist, setChecklist] = useState<HeorAdvancedVoiChecklist>({
+    decisionScopeThresholdReviewed: false,
+    populationLifetimeImplementationReviewed: false,
+    representedOmittedUncertaintyReviewed: false,
+    evppiGroupingCorrelationReviewed: false,
+    nestedMonteCarloPrecisionBiasReviewed: false,
+    evsiPriorLikelihoodDataModelReviewed: false,
+    researchDelayCostOpportunityCostReviewed: false,
+    limitationsNoDecisionAuthorityReviewed: false,
+  });
+  const checks = Object.entries(checklist) as Array<[
+    keyof HeorAdvancedVoiChecklist,
+    boolean,
+  ]>;
+  const allConfirmed = checks.every(([, checked]) => checked);
+  const valid = !running && actor.trim().length > 0 && rationale.trim().length > 0
+    && (action === "reject" || allConfirmed);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+      <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-card border border-border bg-surface p-5 shadow-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-text">{t("advancedVoiReview.title")}</div>
+            <div className="mt-1 font-mono text-[10px] text-muted">{audit.voiId}</div>
+          </div>
+          <button onClick={onCancel} disabled={running} aria-label={t("dialog.cancel")} className="rounded p-1 text-muted hover:text-text">
+            <X size={16} />
+          </button>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-muted">{t("advancedVoiReview.boundary")}</p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {ADVANCED_VOI_REVIEW_ACTIONS.map((value) => (
+            <button key={value} onClick={() => setAction(value)} className={cn(
+              "rounded-input border px-3 py-2 text-xs font-semibold",
+              action === value ? "border-accent bg-accent/10 text-accent" : "border-border text-muted",
+            )}>
+              {t(`advancedVoiReview.${value}`)}
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 space-y-2">
+          {checks.map(([key, checked]) => (
+            <label key={key} className="flex cursor-pointer items-start gap-2 rounded-input border border-border px-3 py-2 text-xs leading-5 text-text">
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={(event) => setChecklist((current) => ({ ...current, [key]: event.target.checked }))}
+                className="mt-1"
+              />
+              <span>{t(`advancedVoiReview.checks.${key}`)}</span>
+            </label>
+          ))}
+        </div>
+        <label className="mt-4 block text-xs font-medium text-text">
+          {t("advancedVoiReview.actor")}
+          <input value={actor} onChange={(event) => setActor(event.target.value)} className="mt-2 w-full rounded-input border border-border bg-bg px-3 py-2 text-xs outline-none focus:border-accent" />
+        </label>
+        <label className="mt-3 block text-xs font-medium text-text">
+          {t("advancedVoiReview.rationale")}
+          <textarea value={rationale} onChange={(event) => setRationale(event.target.value)} rows={3} className="mt-2 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-xs leading-5 outline-none focus:border-accent" />
+        </label>
+        <div className="mt-4 flex justify-end gap-2">
+          <button disabled={running} onClick={onCancel} className="rounded-input border border-border px-3 py-2 text-xs text-muted disabled:opacity-50">{t("dialog.cancel")}</button>
+          <button disabled={!valid} onClick={() => onSubmit(action, checklist, actor.trim(), rationale.trim())} className={cn(
+            "rounded-input px-3 py-2 text-xs font-semibold text-white disabled:opacity-40",
+            action === "accept" ? "bg-ok" : "bg-danger",
+          )}>
+            {running ? t("advancedVoiReview.recording") : t("advancedVoiReview.record")}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -3502,6 +3730,72 @@ function UncertaintyAssessment({
   );
 }
 
+function AdvancedVoiAssessment({
+  state,
+  accepted,
+  reviewAction,
+  onRequestPreparation,
+  onReview,
+}: {
+  state: AdvancedVoiState;
+  accepted: boolean;
+  reviewAction: "accept" | "reject" | null;
+  onRequestPreparation: () => void;
+  onReview: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const complete = audit?.complete === true;
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {complete ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
+          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("advancedVoi.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+            {state.kind === "loading" ? t("advancedVoi.loading")
+              : complete ? t("advancedVoi.complete") : t("advancedVoi.incomplete")}
+          </div>
+          {audit?.reviewable && (
+            <div className={cn("mt-1 text-[10px]", accepted ? "text-ok" : "text-muted")}>
+              {accepted ? t("advancedVoi.accepted")
+                : reviewAction === "reject" ? t("advancedVoi.rejected")
+                  : t("advancedVoi.awaitingReview")}
+            </div>
+          )}
+        </div>
+      </div>
+      {audit && (
+        <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+          <Metric label={t("advancedVoi.populationYears")} value={String(audit.populationYearCount)} />
+          <Metric label={t("advancedVoi.effectivePopulation")} value={audit.effectivePopulation?.toLocaleString() ?? "—"} />
+          <Metric label={t("advancedVoi.evppiGroups")} value={String(audit.evppiGroupCount)} />
+          <Metric label={t("advancedVoi.evsiDesigns")} value={String(audit.evsiDesignCount)} />
+        </div>
+      )}
+      {audit?.errors.length ? (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
+          {audit.errors.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      ) : null}
+      {!complete && state.kind !== "loading" && (
+        <button onClick={onRequestPreparation} className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
+          <MessageSquareText size={13} /> {t("advancedVoi.askPrepare")}
+        </button>
+      )}
+      {audit?.reviewable && (
+        <button onClick={onReview} className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
+          <ShieldCheck size={13} /> {t("advancedVoi.review")}
+        </button>
+      )}
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("advancedVoi.note")}</p>
+    </section>
+  );
+}
+
 function BudgetImpactAssessment({
   state,
   onRequestRepair,
@@ -4342,6 +4636,74 @@ export function UncertaintyResultCard({
           {calculation.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}
         </ul>
       </details>
+    </section>
+  );
+}
+
+export function AdvancedVoiResultCard({
+  result,
+  locale,
+}: {
+  result: HeorAdvancedVoiRunResult;
+  locale: string;
+}) {
+  const { t } = useTranslation("heor");
+  const calculation = result.calculation;
+  const basis = calculation.evsi.study_cost_basis;
+  const amount = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: basis.currency,
+    maximumFractionDigits: 0,
+  });
+  const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        <ShieldCheck size={16} className="mt-0.5 text-accent" />
+        <div>
+          <div className="text-sm font-semibold text-text">{t("advancedVoiResult.title")}</div>
+          <div className="mt-1 text-[10px] text-muted">{t("advancedVoiResult.awaitingHuman")}</div>
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Metric label={t("advancedVoiResult.populationEvpi")} value={amount.format(calculation.population_evpi.population_evpi)} accent />
+        <Metric label={t("advancedVoiResult.effectivePopulation")} value={number.format(calculation.population.effective_population)} />
+      </div>
+      <div className="mt-3 overflow-x-auto rounded-md border border-border">
+        <table className="w-full min-w-[440px] text-left text-[10px]">
+          <thead className="bg-surface-2 text-muted"><tr>
+            <th className="px-2 py-1.5">{t("advancedVoiResult.parameterGroup")}</th>
+            <th className="px-2 py-1.5">{t("advancedVoiResult.perPerson")}</th>
+            <th className="px-2 py-1.5">{t("advancedVoiResult.populationValue")}</th>
+            <th className="px-2 py-1.5">MCSE</th>
+          </tr></thead>
+          <tbody>{calculation.evppi.map((row) => <tr key={row.group_id} className="border-t border-border">
+            <td className="px-2 py-1.5 text-text">{row.label}</td>
+            <td className="px-2 py-1.5">{amount.format(row.per_person_evppi)}</td>
+            <td className="px-2 py-1.5">{amount.format(row.population_evppi)}</td>
+            <td className="px-2 py-1.5">{amount.format(row.per_person_evppi_mcse)}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <div className="mt-3 overflow-x-auto rounded-md border border-border">
+        <table className="w-full min-w-[480px] text-left text-[10px]">
+          <thead className="bg-surface-2 text-muted"><tr>
+            <th className="px-2 py-1.5">{t("advancedVoiResult.sampleSize")}</th>
+            <th className="px-2 py-1.5">EVSI</th>
+            <th className="px-2 py-1.5">{t("advancedVoiResult.studyCost")}</th>
+            <th className="px-2 py-1.5">ENBS</th>
+          </tr></thead>
+          <tbody>{calculation.evsi.designs.map((row) => <tr key={row.sample_size} className="border-t border-border">
+            <td className="px-2 py-1.5 text-text">{row.sample_size.toLocaleString(locale)}</td>
+            <td className="px-2 py-1.5">{amount.format(row.population_evsi)}</td>
+            <td className="px-2 py-1.5">{amount.format(row.study_cost)}</td>
+            <td className={cn("px-2 py-1.5 font-medium", row.expected_net_benefit_of_sampling >= 0 ? "text-ok" : "text-warning")}>
+              {amount.format(row.expected_net_benefit_of_sampling)}
+            </td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("advancedVoiResult.note")}</p>
     </section>
   );
 }

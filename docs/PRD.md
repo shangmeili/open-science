@@ -40,9 +40,13 @@ explanation, but does not own the research question, method choices, evidence
 selection, assumptions, interpretation, or release. Codex Agent leadership applies
 to building and maintaining this product, not to conducting a user's HEOR study.
 Decision calculations remain in
-versioned deterministic engines. The current uncertainty result includes
-declared-threshold CEAC/CEAF and per-person EVPI, but not population EVPI,
-EVPPI, optimal study design, reimbursement, or policy recommendations. Current
+versioned deterministic engines. The base uncertainty result includes declared-
+threshold CEAC/CEAF and per-person EVPI, with population EVPI and EVPPI
+explicitly null. The optional advanced-VOI workflow separately produces
+population EVPI, EVPPI, one-parameter EVSI, and ENBS only from explicit Human-
+owned population and study-design inputs, deterministic replay, and an app-owned
+Human method review; it does not claim optimal study design, reimbursement,
+funding, or policy recommendations. Current
 PSM component uncertainty recomputes reviewed raw cost, utility, and event
 inputs under fixed survival; it is explicitly not a complete structural PSA.
 
