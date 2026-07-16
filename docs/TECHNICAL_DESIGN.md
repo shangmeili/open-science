@@ -1,15 +1,16 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.17, 2026-07-16).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.18, 2026-07-16).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
 > including the 13/15-artifact PSM validation/report contract and deterministic release replay;
-> deterministic cohort, uncertainty, bounded advanced-VOI, budget-impact, NMA, and anchored-MAIC engines,
-> including portable full-bootstrap replay, native calibration/point-effect challenge, and a
+> deterministic cohort, uncertainty, bounded advanced-VOI, budget-impact, NMA, anchored-MAIC,
+> and bounded target-trial RWE-IPTW engines, including portable full-bootstrap replay,
+> native point/diagnostic challenge, and
 > separate app-owned Human method reviews consolidated in a current-result review queue; and
 > native macOS and x86_64 Linux packaging.
-> The 0.1.17 x64 macOS DMG is content-verified; the 0.1.17 Linux `.deb` and `.rpm` are
+> The 0.1.18 x64 macOS DMG is content-verified; the 0.1.17 Linux `.deb` and `.rpm` are
 > built and content-verified from an isolated Ubuntu 22.04 builder. The `.deb` also passes
 > a clean Ubuntu 22.04 install and headless first start, while the `.rpm` passes the
 > equivalent native check on Fedora 42. Windows remains CI/host-bound, and
@@ -401,6 +402,29 @@ Human checks and only makes the result eligible for later evidence selection;
 it does not auto-populate a model or establish transitivity, evidence certainty,
 clinical validity, transportability, ranking superiority, or reimbursement.
 
+RWE causal analysis is a separate observational-design execution and review
+boundary. `$heor-rwe-causal-analysis` schema `0.1.0` accepts only a Human-defined
+active-comparator new-user target trial already represented as one pseudonymous
+baseline row per eligible person. Exactly two strategies share time zero and
+fixed complete follow-up; the outcome is binary; the estimand is the source-cohort
+ATE risk difference; and 1–12 baseline common causes are selected and justified
+by the researcher before analysis. Upstream cohort construction remains outside
+the evaluator and must be reviewed rather than inferred from the CSV.
+
+The standard-library Python evaluator fits an unpenalized main-effects Logistic
+propensity model, applies uncapped/untrimmed stabilized ATE-IPTW, and reports
+unadjusted and weighted risks, overlap, weight distributions, ESS, and pre/post
+SMD without automatic scientific acceptance thresholds. A fixed PCG32 stream
+resamples rows within treatment arms and repeats the complete fit in every
+bootstrap replicate; any failure is retained and blocks review. Portable replay
+repeats all bootstrap work. Native Rust independently refits the point model and
+checks coefficients, standardization, balance, overlap, weights, ESS, and effects
+against current bytes, with a shared synthetic golden case; its declared scope
+excludes uncertainty replay. The desktop binds an immutable Human accept/reject
+snapshot and private event chain to the exact six-artifact graph. Neither numeric
+agreement nor Human acceptance creates a causal-validity, regulatory, treatment,
+economic-model, reimbursement, or policy claim.
+
 Analysis-plan schema `0.10.0` admits only
 `relative_effect_to_transition_schedule` for a complete two-state schedule with
 one absorbing event. The exact transformation declares cycle and effect
@@ -498,7 +522,7 @@ legacy results remain
 legacy-shaped. The React review pane is a read-only accessible visualization
 of these app-written values; it has no authority to calculate, choose, or alter
 thresholds. Its method-review queue admits only current app-audited paired-bootstrap,
-NMA, anchored-MAIC, and advanced-VOI result bindings. It sorts rejected, awaiting,
+NMA, anchored-MAIC, RWE-causal, and advanced-VOI result bindings. It sorts rejected, awaiting,
 blocked, and accepted states without rewriting their separate app-owned event chains;
 pending judgments open the existing exact-result form, while preparation and repair
 return to natural-language interaction.

@@ -275,7 +275,7 @@ target design as well as historical status notes.
 
 Near-term work is focused on signed/notarized releases, Windows host verification, real
 Linux desktop-session verification, auto-update, richer connector hardening, and
-continued reproducibility review. The AI4HEOR 0.1.17 x64 macOS DMG is locally built and
+continued reproducibility review. The AI4HEOR 0.1.18 x64 macOS DMG is locally built and
 payload-verified, including all 177 deterministic HEOR tests against its packaged core.
 The AI4HEOR 0.1.17 Linux `.deb` and `.rpm` are also payload-verified, including all 177
 deterministic HEOR tests and 252 configured resources from each extracted package. The

@@ -1,0 +1,121 @@
+{
+  "schema_version": "0.1.0",
+  "execution_id": "rwe-example-001",
+  "status": "ready_for_execution",
+  "target_trial": {
+    "design": "active_comparator_new_user_observational_cohort",
+    "population": "Human-defined source population",
+    "eligibility_criteria": ["Human-defined criterion"],
+    "treatment_strategy": {"id": "treatment", "label": "New use of treatment"},
+    "comparator_strategy": {"id": "comparator", "label": "New use of active comparator"},
+    "assignment": "observational_at_baseline",
+    "time_zero": "Shared eligible treatment-initiation index",
+    "follow_up": "Fixed complete 180-day follow-up",
+    "outcome": "Binary outcome by day 180",
+    "causal_contrast": "intention_to_treat_analog"
+  },
+  "estimand": {
+    "population": "analyzed_source_cohort",
+    "treatment_contrast": "treatment_vs_comparator",
+    "measure": "risk_difference",
+    "favorable_direction": "lower"
+  },
+  "evidence_synthesis": {
+    "path": "heor/evidence-synthesis.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "included_record_ids": ["rwe-source-record", "confounder-rationale-record"]
+  },
+  "source_data": {
+    "classification": "restricted",
+    "execution_boundary": "local_only",
+    "format": "one_row_per_person_csv",
+    "path": "heor/rwe-causal-data/cohort.csv",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "columns": ["subject_id", "treatment", "outcome", "age", "baseline_risk"],
+    "row_count": 200,
+    "contains_direct_identifiers": false,
+    "missing_policy": "reject",
+    "one_row_per_person": true,
+    "baseline_covariates_only": true,
+    "fixed_complete_follow_up": true,
+    "treatment_assignment": "observational_active_comparator_new_user"
+  },
+  "confounders": [
+    {
+      "id": "age",
+      "column": "age",
+      "label": "Age at treatment initiation",
+      "type": "continuous",
+      "timing": "baseline_pre_treatment",
+      "role": "human_prespecified_common_cause",
+      "rationale": "Human-authored causal rationale with cited evidence.",
+      "evidence_record_ids": ["confounder-rationale-record"]
+    },
+    {
+      "id": "baseline-risk",
+      "column": "baseline_risk",
+      "label": "Baseline risk factor",
+      "type": "binary",
+      "timing": "baseline_pre_treatment",
+      "role": "human_prespecified_common_cause",
+      "rationale": "Human-authored causal rationale with cited evidence.",
+      "evidence_record_ids": ["confounder-rationale-record"]
+    }
+  ],
+  "propensity_score": {
+    "model": "logistic_regression_main_effects",
+    "treatment_encoding": "treatment_strategy_id_is_one",
+    "intercept": true,
+    "continuous_standardization": "sample_mean_standard_deviation",
+    "nonlinear_terms": "none",
+    "interactions": "none",
+    "penalty": "none",
+    "convergence_tolerance": 1e-10,
+    "max_iterations": 100
+  },
+  "weighting": {
+    "estimand": "source_cohort_ate",
+    "method": "stabilized_inverse_probability_of_treatment_weighting",
+    "numerator": "marginal_treatment_probability",
+    "trimming": "none",
+    "weight_cap": "none",
+    "renormalization": "none"
+  },
+  "diagnostics": {
+    "balance_metric": "standardized_mean_difference",
+    "balance_denominator": "state_specific_two_arm_pooled_standard_deviation",
+    "overlap": "empirical_propensity_range_intersection",
+    "automatic_acceptance_thresholds": "none"
+  },
+  "uncertainty": {
+    "method": "arm_stratified_nonparametric_bootstrap_refit",
+    "iterations": 1000,
+    "seed": 20260716,
+    "prng": {"algorithm": "pcg32-xsh-rr", "version": "1"},
+    "interval": "normal_bootstrap_95_percent",
+    "failure_policy": "retain_and_block_review"
+  },
+  "output": {"directory": "heor/rwe-causal-analysis-runs/rwe-example-001"},
+  "human_authorization": {
+    "actor": "researcher-label",
+    "authorized_at": "2026-07-16T00:00:00Z",
+    "scope": "execute_local_rwe_causal_analysis"
+  },
+  "limitations": [
+    "Measured-confounder weighting cannot remove unmeasured or mismeasured confounding.",
+    "This bounded alpha does not model censoring, treatment changes, missingness, clustering, or time-varying confounding."
+  ],
+  "human_gate": {
+    "status": "awaiting_method_review",
+    "required_checks": [
+      "target_trial_estimand_time_zero",
+      "data_provenance_eligibility_new_user_active_comparator",
+      "confounder_causal_rationale_measurement",
+      "missingness_follow_up_outcome_integrity",
+      "propensity_overlap_weights_positivity",
+      "balance_model_diagnostics",
+      "bootstrap_precision_failures",
+      "residual_bias_transportability_downstream"
+    ]
+  }
+}

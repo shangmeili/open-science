@@ -11,6 +11,7 @@ export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH = "heor/survival-extr
 export const HEOR_PAIRED_BOOTSTRAP_REQUEST_PATH = "heor/paired-survival-bootstrap-request.json";
 export const HEOR_NETWORK_META_ANALYSIS_REQUEST_PATH = "heor/network-meta-analysis-request.json";
 export const HEOR_POPULATION_ADJUSTED_COMPARISON_REQUEST_PATH = "heor/population-adjusted-comparison-request.json";
+export const HEOR_RWE_CAUSAL_ANALYSIS_REQUEST_PATH = "heor/rwe-causal-analysis-request.json";
 export const HEOR_MODEL_VALIDATION_PATH = "heor/model-validation.json";
 export const HEOR_REPORT_PACKAGE_PATH = "heor/report-package.json";
 export const HEOR_REPRODUCIBILITY_PACKAGE_PATH = "heor/reproducibility-package.json";
@@ -815,6 +816,86 @@ export interface HeorPopulationAdjustedComparisonReviewEvent {
 
 export interface HeorPopulationAdjustedComparisonReviewLog {
   events: HeorPopulationAdjustedComparisonReviewEvent[];
+  chainHead: string | null;
+  integrity: string;
+  identityAssurance: string;
+}
+
+export interface HeorRweCausalAnalysisAudit {
+  complete: boolean;
+  reviewable: boolean;
+  status: string;
+  executionId: string;
+  requestPath: string;
+  requestSha256: string | null;
+  resultPath: string;
+  resultSha256: string | null;
+  rowCount: number;
+  confounderCount: number;
+  estimand: string;
+  essOverall: number | null;
+  essRatio: number | null;
+  maximumWeight: number | null;
+  maxAbsPreSmd: number | null;
+  maxAbsPostSmd: number | null;
+  unadjustedRiskDifference: number | null;
+  weightedRiskDifference: number | null;
+  weightedStandardError: number | null;
+  weightedLower: number | null;
+  weightedUpper: number | null;
+  overlapLower: number | null;
+  overlapUpper: number | null;
+  bootstrapIterations: number;
+  bootstrapFailures: number;
+  nativeScope: string;
+  limitations: string[];
+  errors: string[];
+}
+
+export interface HeorRweCausalAnalysisChecklist {
+  targetTrialEstimandTimeZeroReviewed: boolean;
+  dataProvenanceEligibilityNewUserActiveComparatorReviewed: boolean;
+  confounderCausalRationaleMeasurementReviewed: boolean;
+  missingnessFollowUpOutcomeIntegrityReviewed: boolean;
+  propensityOverlapWeightsPositivityReviewed: boolean;
+  balanceModelDiagnosticsReviewed: boolean;
+  bootstrapPrecisionFailuresReviewed: boolean;
+  residualBiasTransportabilityDownstreamReviewed: boolean;
+}
+
+export interface HeorRweCausalAnalysisReviewRequest {
+  projectId: string;
+  resultPath: string;
+  resultSha256: string;
+  action: "accept" | "reject";
+  checklist: HeorRweCausalAnalysisChecklist;
+  actorLabel: string;
+  rationale: string;
+}
+
+export interface HeorRweCausalAnalysisReviewEvent {
+  schemaVersion: number;
+  sequence: number;
+  reviewId: string;
+  projectId: string;
+  executionId: string;
+  action: "accept" | "reject";
+  resultPath: string;
+  resultSha256: string;
+  relatedArtifacts: Array<{ path: string; sha256: string }>;
+  checklist: HeorRweCausalAnalysisChecklist;
+  actorLabel: string;
+  rationale: string;
+  timestamp: number;
+  recordPath: string;
+  recordSha256: string;
+  assurance: string;
+  previousHash: string | null;
+  eventHash: string;
+}
+
+export interface HeorRweCausalAnalysisReviewLog {
+  events: HeorRweCausalAnalysisReviewEvent[];
   chainHead: string | null;
   integrity: string;
   identityAssurance: string;
@@ -3217,6 +3298,71 @@ export async function listHeorPopulationAdjustedComparisonReviews(
     "list_heor_population_adjusted_comparison_reviews",
     { projectId },
   );
+}
+
+export async function auditHeorRweCausalAnalysis(): Promise<HeorRweCausalAnalysisAudit> {
+  if (!isTauri) {
+    return {
+      complete: false,
+      reviewable: false,
+      status: "unavailable",
+      executionId: "",
+      requestPath: HEOR_RWE_CAUSAL_ANALYSIS_REQUEST_PATH,
+      requestSha256: null,
+      resultPath: "",
+      resultSha256: null,
+      rowCount: 0,
+      confounderCount: 0,
+      estimand: "source_cohort_ate_risk_difference",
+      essOverall: null,
+      essRatio: null,
+      maximumWeight: null,
+      maxAbsPreSmd: null,
+      maxAbsPostSmd: null,
+      unadjustedRiskDifference: null,
+      weightedRiskDifference: null,
+      weightedStandardError: null,
+      weightedLower: null,
+      weightedUpper: null,
+      overlapLower: null,
+      overlapUpper: null,
+      bootstrapIterations: 0,
+      bootstrapFailures: 0,
+      nativeScope: "point_estimate_and_diagnostics_only",
+      limitations: [],
+      errors: ["Native RWE causal-analysis audit requires the desktop runtime."],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorRweCausalAnalysisAudit>("audit_heor_rwe_causal_analysis");
+}
+
+export async function appendHeorRweCausalAnalysisReview(
+  request: HeorRweCausalAnalysisReviewRequest,
+): Promise<HeorRweCausalAnalysisReviewEvent> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorRweCausalAnalysisReviewEvent>(
+    "append_heor_rwe_causal_analysis_review",
+    { request },
+  );
+}
+
+export async function listHeorRweCausalAnalysisReviews(
+  projectId: string,
+): Promise<HeorRweCausalAnalysisReviewLog> {
+  if (!isTauri) {
+    return {
+      events: [],
+      chainHead: null,
+      integrity: "verified_unanchored_sha256_chain",
+      identityAssurance: "app_owned_local_human_assertion",
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorRweCausalAnalysisReviewLog>("list_heor_rwe_causal_analysis_reviews", {
+    projectId,
+  });
 }
 
 export async function auditHeorModelValidation(): Promise<HeorModelValidationAudit> {

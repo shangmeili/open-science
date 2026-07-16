@@ -27,6 +27,7 @@ mod heor_population_adjusted_comparison;
 mod heor_reference_case;
 mod heor_reporting;
 mod heor_reproducibility;
+mod heor_rwe_causal_analysis;
 mod heor_search;
 mod heor_survival_execution;
 mod heor_survival_materialization;
@@ -89,6 +90,7 @@ pub fn run() {
         .manage(
             heor_population_adjusted_comparison::PopulationAdjustedComparisonReviewState::default(),
         )
+        .manage(heor_rwe_causal_analysis::RweCausalAnalysisReviewState::default())
         .manage(heor_evidence_review::HeorEvidenceReviewState::default())
         .manage(runs::RunState::default())
         .invoke_handler(tauri::generate_handler![
@@ -157,6 +159,9 @@ pub fn run() {
             heor_population_adjusted_comparison::audit_heor_population_adjusted_comparison,
             heor_population_adjusted_comparison::append_heor_population_adjusted_comparison_review,
             heor_population_adjusted_comparison::list_heor_population_adjusted_comparison_reviews,
+            heor_rwe_causal_analysis::audit_heor_rwe_causal_analysis,
+            heor_rwe_causal_analysis::append_heor_rwe_causal_analysis_review,
+            heor_rwe_causal_analysis::list_heor_rwe_causal_analysis_reviews,
             heor_reference_case::audit_heor_reference_case,
             heor_reproducibility::audit_heor_reproducibility,
             heor_reporting::audit_heor_reporting,

@@ -23,6 +23,7 @@ import {
   appendHeorAdvancedVoiReview,
   appendHeorNetworkMetaAnalysisReview,
   appendHeorPopulationAdjustedComparisonReview,
+  appendHeorRweCausalAnalysisReview,
   appendHeorPairedBootstrapReview,
   auditHeorBudgetImpact,
   auditHeorAdvancedVoi,
@@ -40,6 +41,7 @@ import {
   auditHeorModelValidation,
   auditHeorNetworkMetaAnalysis,
   auditHeorPopulationAdjustedComparison,
+  auditHeorRweCausalAnalysis,
   auditHeorReporting,
   auditHeorReproducibility,
   addHeorLibraryFiles,
@@ -53,6 +55,7 @@ import {
   HEOR_MODEL_VALIDATION_PATH,
   HEOR_NETWORK_META_ANALYSIS_REQUEST_PATH,
   HEOR_POPULATION_ADJUSTED_COMPARISON_REQUEST_PATH,
+  HEOR_RWE_CAUSAL_ANALYSIS_REQUEST_PATH,
   HEOR_REPORT_PACKAGE_PATH,
   HEOR_REPRODUCIBILITY_PACKAGE_PATH,
   HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
@@ -88,6 +91,9 @@ import {
   type HeorPopulationAdjustedComparisonAudit,
   type HeorPopulationAdjustedComparisonChecklist,
   type HeorPopulationAdjustedComparisonReviewLog,
+  type HeorRweCausalAnalysisAudit,
+  type HeorRweCausalAnalysisChecklist,
+  type HeorRweCausalAnalysisReviewLog,
   type HeorReportingAudit,
   type HeorReproducibilityAudit,
   type HeorGate,
@@ -108,6 +114,7 @@ import {
   listHeorAdvancedVoiReviews,
   listHeorNetworkMetaAnalysisReviews,
   listHeorPopulationAdjustedComparisonReviews,
+  listHeorRweCausalAnalysisReviews,
   listHeorPairedBootstrapReviews,
   listHeorSearchAuthorizations,
   parseHeorConceptualModel,
@@ -217,6 +224,11 @@ type PopulationAdjustedComparisonState =
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorPopulationAdjustedComparisonAudit };
 
+type RweCausalAnalysisState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorRweCausalAnalysisAudit };
+
 type ModelValidationState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
@@ -274,6 +286,13 @@ const EMPTY_NMA_REVIEW_LOG: HeorNetworkMetaAnalysisReviewLog = {
 };
 
 const EMPTY_PAC_REVIEW_LOG: HeorPopulationAdjustedComparisonReviewLog = {
+  events: [],
+  chainHead: null,
+  integrity: "verified_unanchored_sha256_chain",
+  identityAssurance: "app_owned_local_human_assertion",
+};
+
+const EMPTY_RWE_CAUSAL_REVIEW_LOG: HeorRweCausalAnalysisReviewLog = {
   events: [],
   chainHead: null,
   integrity: "verified_unanchored_sha256_chain",
@@ -387,6 +406,10 @@ export function HeorReviewPane({
   const [populationAdjustedComparisonReviews, setPopulationAdjustedComparisonReviews] = useState<HeorPopulationAdjustedComparisonReviewLog>(EMPTY_PAC_REVIEW_LOG);
   const [populationAdjustedComparisonDialogOpen, setPopulationAdjustedComparisonDialogOpen] = useState(false);
   const [populationAdjustedComparisonReviewRunning, setPopulationAdjustedComparisonReviewRunning] = useState(false);
+  const [rweCausalAnalysis, setRweCausalAnalysis] = useState<RweCausalAnalysisState>({ kind: "loading" });
+  const [rweCausalAnalysisReviews, setRweCausalAnalysisReviews] = useState<HeorRweCausalAnalysisReviewLog>(EMPTY_RWE_CAUSAL_REVIEW_LOG);
+  const [rweCausalAnalysisDialogOpen, setRweCausalAnalysisDialogOpen] = useState(false);
+  const [rweCausalAnalysisReviewRunning, setRweCausalAnalysisReviewRunning] = useState(false);
   const [modelValidation, setModelValidation] = useState<ModelValidationState>({ kind: "loading" });
   const [reporting, setReporting] = useState<ReportingState>({ kind: "loading" });
   const [reproducibility, setReproducibility] = useState<ReproducibilityState>({ kind: "loading" });
@@ -436,6 +459,8 @@ export function HeorReviewPane({
       setNetworkMetaAnalysisReviews(EMPTY_NMA_REVIEW_LOG);
       setPopulationAdjustedComparison({ kind: "invalid", message: t("pac.noProject") });
       setPopulationAdjustedComparisonReviews(EMPTY_PAC_REVIEW_LOG);
+      setRweCausalAnalysis({ kind: "invalid", message: t("rweCausal.noProject") });
+      setRweCausalAnalysisReviews(EMPTY_RWE_CAUSAL_REVIEW_LOG);
       setModelValidation({ kind: "invalid", message: t("validation.noProject") });
       setReporting({ kind: "invalid", message: t("reporting.noProject") });
       setReproducibility({ kind: "invalid", message: t("reproducibility.noProject") });
@@ -458,6 +483,7 @@ export function HeorReviewPane({
     setPairedBootstrap({ kind: "loading" });
     setNetworkMetaAnalysis({ kind: "loading" });
     setPopulationAdjustedComparison({ kind: "loading" });
+    setRweCausalAnalysis({ kind: "loading" });
     setModelValidation({ kind: "loading" });
     setReporting({ kind: "loading" });
     setReproducibility({ kind: "loading" });
@@ -497,6 +523,16 @@ export function HeorReviewPane({
         message: error instanceof Error ? error.message : String(error),
       });
       setPopulationAdjustedComparisonReviews(EMPTY_PAC_REVIEW_LOG);
+    }
+    try {
+      setRweCausalAnalysis({ kind: "ready", audit: await auditHeorRweCausalAnalysis() });
+      setRweCausalAnalysisReviews(await listHeorRweCausalAnalysisReviews(project.id));
+    } catch (error) {
+      setRweCausalAnalysis({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setRweCausalAnalysisReviews(EMPTY_RWE_CAUSAL_REVIEW_LOG);
     }
     try {
       setEvidenceSearch({ kind: "ready", audit: await auditHeorEvidenceSearch() });
@@ -765,6 +801,20 @@ export function HeorReviewPane({
   const populationAdjustedComparisonAccepted = populationAdjustedComparison.kind === "ready"
     && populationAdjustedComparison.audit.reviewable
     && populationAdjustedComparisonReviewAction === "accept";
+  const currentRweCausalAnalysisReview = useMemo(() => {
+    if (rweCausalAnalysis.kind !== "ready" || !rweCausalAnalysis.audit.resultSha256) return null;
+    return [...rweCausalAnalysisReviews.events].reverse().find((event) =>
+      event.executionId === rweCausalAnalysis.audit.executionId) ?? null;
+  }, [rweCausalAnalysis, rweCausalAnalysisReviews.events]);
+  const rweCausalAnalysisReviewAction = rweCausalAnalysis.kind === "ready"
+    && currentRweCausalAnalysisReview
+    && currentRweCausalAnalysisReview.resultPath === rweCausalAnalysis.audit.resultPath
+    && currentRweCausalAnalysisReview.resultSha256 === rweCausalAnalysis.audit.resultSha256
+    ? currentRweCausalAnalysisReview.action
+    : null;
+  const rweCausalAnalysisAccepted = rweCausalAnalysis.kind === "ready"
+    && rweCausalAnalysis.audit.reviewable
+    && rweCausalAnalysisReviewAction === "accept";
   const currentAdvancedVoiReview = useMemo(() => {
     if (advancedVoi.kind !== "ready" || !advancedVoi.audit.resultSha256) return null;
     return [...advancedVoiReviews.events].reverse().find((event) =>
@@ -805,6 +855,19 @@ export function HeorReviewPane({
           ),
           onReview: () => setPopulationAdjustedComparisonDialogOpen(true),
           onPrepare: () => onRequestRevision(t("pac.preparePrompt")),
+        }]
+      : []),
+    ...(rweCausalAnalysis.kind === "ready" && rweCausalAnalysis.audit.resultSha256
+      ? [{
+          id: "rweCausal" as const,
+          path: rweCausalAnalysis.audit.resultPath,
+          status: methodReviewQueueStatus(
+            rweCausalAnalysis.audit.reviewable,
+            rweCausalAnalysisAccepted,
+            rweCausalAnalysisReviewAction,
+          ),
+          onReview: () => setRweCausalAnalysisDialogOpen(true),
+          onPrepare: () => onRequestRevision(t("rweCausal.preparePrompt")),
         }]
       : []),
     ...(pairedBootstrap.kind === "ready" && pairedBootstrap.audit.resultSha256
@@ -1375,6 +1438,35 @@ export function HeorReviewPane({
     }
   };
 
+  const submitRweCausalAnalysisReview = async (
+    action: "accept" | "reject",
+    checklist: HeorRweCausalAnalysisChecklist,
+    actorLabel: string,
+    rationale: string,
+  ) => {
+    if (!project || rweCausalAnalysis.kind !== "ready" || !rweCausalAnalysis.audit.resultSha256
+      || rweCausalAnalysisReviewRunning || !isTauri) return;
+    setRweCausalAnalysisReviewRunning(true);
+    try {
+      await appendHeorRweCausalAnalysisReview({
+        projectId: project.id,
+        resultPath: rweCausalAnalysis.audit.resultPath,
+        resultSha256: rweCausalAnalysis.audit.resultSha256,
+        action,
+        checklist,
+        actorLabel,
+        rationale,
+      });
+      setRweCausalAnalysisReviews(await listHeorRweCausalAnalysisReviews(project.id));
+      setRweCausalAnalysisDialogOpen(false);
+      toast.success(action === "accept" ? t("rweCausal.acceptedToast") : t("rweCausal.rejectedToast"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setRweCausalAnalysisReviewRunning(false);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col border-l border-border bg-surface">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
@@ -1451,6 +1543,16 @@ export function HeorReviewPane({
             accepted={populationAdjustedComparisonAccepted}
             onRequestPreparation={() => onRequestRevision(t("pac.preparePrompt"))}
             onReview={() => setPopulationAdjustedComparisonDialogOpen(true)}
+          />
+        )}
+
+        {project && (
+          <RweCausalAnalysisAssessment
+            state={rweCausalAnalysis}
+            currentReview={currentRweCausalAnalysisReview}
+            accepted={rweCausalAnalysisAccepted}
+            onRequestPreparation={() => onRequestRevision(t("rweCausal.preparePrompt"))}
+            onReview={() => setRweCausalAnalysisDialogOpen(true)}
           />
         )}
 
@@ -1902,6 +2004,15 @@ export function HeorReviewPane({
             void submitPopulationAdjustedComparisonReview(action, checklist, actor, rationale)}
         />
       )}
+      {rweCausalAnalysisDialogOpen && rweCausalAnalysis.kind === "ready" && (
+        <RweCausalAnalysisReviewDialog
+          audit={rweCausalAnalysis.audit}
+          running={rweCausalAnalysisReviewRunning}
+          onCancel={() => setRweCausalAnalysisDialogOpen(false)}
+          onSubmit={(action, checklist, actor, rationale) =>
+            void submitRweCausalAnalysisReview(action, checklist, actor, rationale)}
+        />
+      )}
       {advancedVoiDialogOpen && advancedVoi.kind === "ready"
         && advancedVoi.audit.resultSha256 && advancedVoi.audit.replaySha256 && (
         <AdvancedVoiReviewDialog
@@ -2177,7 +2288,7 @@ function StageRail({ currentApprovals, hasResult }: { currentApprovals: HeorGate
 export type MethodReviewQueueStatus = "awaiting" | "accepted" | "rejected" | "blocked";
 
 export interface MethodReviewQueueItem {
-  id: "nma" | "pac" | "pairedBootstrap" | "advancedVoi";
+  id: "nma" | "pac" | "rweCausal" | "pairedBootstrap" | "advancedVoi";
   path: string;
   status: MethodReviewQueueStatus;
   onReview: () => void;
@@ -3762,6 +3873,252 @@ export function PopulationAdjustedComparisonReviewDialog({
             )}
           >
             {running ? t("pac.recording") : action === "accept" ? t("pac.recordAccept") : t("pac.recordReject")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function RweCausalAnalysisAssessment({
+  state,
+  currentReview,
+  accepted,
+  onRequestPreparation,
+  onReview,
+}: {
+  state: RweCausalAnalysisState;
+  currentReview: HeorRweCausalAnalysisReviewLog["events"][number] | null;
+  accepted: boolean;
+  onRequestPreparation: () => void;
+  onReview: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const issues = audit?.errors ?? (state.kind === "invalid" ? [state.message] : []);
+  const status = state.kind === "loading"
+    ? t("rweCausal.loading")
+    : accepted
+      ? t("rweCausal.accepted")
+      : currentReview?.action === "reject"
+        ? t("rweCausal.rejected")
+        : audit?.reviewable
+          ? t("rweCausal.awaiting")
+          : audit?.executionId
+            ? t("rweCausal.incomplete")
+            : t("rweCausal.notPrepared");
+  const format = (value: number | null, digits = 4) =>
+    value === null ? "—" : value.toPrecision(digits);
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {accepted
+          ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
+          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("rweCausal.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warning")}>
+            {status}
+          </div>
+          <div className="mt-1 break-all font-mono text-[10px] text-muted">
+            {audit?.resultPath || HEOR_RWE_CAUSAL_ANALYSIS_REQUEST_PATH}
+          </div>
+        </div>
+      </div>
+      {audit?.executionId && (
+        <>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <Metric label={t("rweCausal.rows")} value={String(audit.rowCount)} />
+            <Metric label={t("rweCausal.confounders")} value={String(audit.confounderCount)} />
+            <Metric label={t("rweCausal.essRatio")} value={format(audit.essRatio, 3)} />
+          </div>
+          <p className="mt-3 text-[10px] leading-4 text-muted">
+            {t("rweCausal.diagnosticSummary", {
+              ess: format(audit.essOverall),
+              maxWeight: format(audit.maximumWeight),
+              pre: format(audit.maxAbsPreSmd, 3),
+              post: format(audit.maxAbsPostSmd, 3),
+            })}
+          </p>
+          <p className="mt-1 text-[10px] leading-4 text-muted">
+            {t("rweCausal.effectSummary", {
+              unadjusted: format(audit.unadjustedRiskDifference),
+              weighted: format(audit.weightedRiskDifference),
+              se: format(audit.weightedStandardError),
+              lower: format(audit.weightedLower),
+              upper: format(audit.weightedUpper),
+            })}
+          </p>
+          <p className="mt-1 text-[10px] leading-4 text-muted">
+            {t("rweCausal.overlapSummary", {
+              lower: format(audit.overlapLower, 3),
+              upper: format(audit.overlapUpper, 3),
+              iterations: audit.bootstrapIterations,
+              failures: audit.bootstrapFailures,
+            })}
+          </p>
+          {audit.resultSha256 && (
+            <div className="mt-2 break-all font-mono text-[9px] text-muted">
+              {t("rweCausal.hash")} {audit.resultSha256}
+            </div>
+          )}
+        </>
+      )}
+      {currentReview && (
+        <div className={cn(
+          "mt-3 rounded-input border p-3 text-[10px] leading-4",
+          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warning/30 bg-warning/5 text-warning",
+        )}>
+          {accepted ? t("rweCausal.currentAccepted") : t("rweCausal.currentRejected")}
+          <div className="mt-1 break-all font-mono text-[9px] text-muted">
+            {currentReview.recordPath} · {currentReview.recordSha256.slice(0, 12)}…
+          </div>
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap gap-3">
+        {audit?.reviewable && isTauri && (
+          <button onClick={onReview} className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
+            <LockKeyhole size={13} /> {t("rweCausal.review")}
+          </button>
+        )}
+        {!accepted && (
+          <button onClick={onRequestPreparation} className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
+            <MessageSquareText size={13} /> {t("rweCausal.askAgent")}
+          </button>
+        )}
+      </div>
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("rweCausal.note")}</p>
+    </section>
+  );
+}
+
+const RWE_CAUSAL_CHECKLIST_KEYS: Array<keyof HeorRweCausalAnalysisChecklist> = [
+  "targetTrialEstimandTimeZeroReviewed",
+  "dataProvenanceEligibilityNewUserActiveComparatorReviewed",
+  "confounderCausalRationaleMeasurementReviewed",
+  "missingnessFollowUpOutcomeIntegrityReviewed",
+  "propensityOverlapWeightsPositivityReviewed",
+  "balanceModelDiagnosticsReviewed",
+  "bootstrapPrecisionFailuresReviewed",
+  "residualBiasTransportabilityDownstreamReviewed",
+];
+
+const EMPTY_RWE_CAUSAL_CHECKLIST: HeorRweCausalAnalysisChecklist = {
+  targetTrialEstimandTimeZeroReviewed: false,
+  dataProvenanceEligibilityNewUserActiveComparatorReviewed: false,
+  confounderCausalRationaleMeasurementReviewed: false,
+  missingnessFollowUpOutcomeIntegrityReviewed: false,
+  propensityOverlapWeightsPositivityReviewed: false,
+  balanceModelDiagnosticsReviewed: false,
+  bootstrapPrecisionFailuresReviewed: false,
+  residualBiasTransportabilityDownstreamReviewed: false,
+};
+
+export function RweCausalAnalysisReviewDialog({
+  audit,
+  running,
+  onCancel,
+  onSubmit,
+}: {
+  audit: HeorRweCausalAnalysisAudit;
+  running: boolean;
+  onCancel: () => void;
+  onSubmit: (
+    action: "accept" | "reject",
+    checklist: HeorRweCausalAnalysisChecklist,
+    actor: string,
+    rationale: string,
+  ) => void;
+}) {
+  const { t } = useTranslation("heor");
+  const [action, setAction] = useState<"accept" | "reject">("accept");
+  const [checklist, setChecklist] = useState(EMPTY_RWE_CAUSAL_CHECKLIST);
+  const [actor, setActor] = useState("");
+  const [rationale, setRationale] = useState("");
+  const acceptedReady = RWE_CAUSAL_CHECKLIST_KEYS.every((key) => checklist[key]);
+  const valid = actor.trim().length > 0 && rationale.trim().length > 1
+    && (action === "reject" || acceptedReady) && !running;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && !running && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, running]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => !running && onCancel()} role="presentation">
+      <div role="dialog" aria-modal="true" aria-label={t("rweCausal.dialogTitle")} className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-card border border-border bg-surface p-5 shadow-card" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center gap-2 text-sm font-semibold text-text">
+          <ShieldCheck size={17} className="text-accent" /> {t("rweCausal.dialogTitle")}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          {t("rweCausal.dialogBody", {
+            id: audit.executionId,
+            hash: audit.resultSha256?.slice(0, 12) ?? "—",
+          })}
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label={t("rweCausal.decisionLabel")}>
+          {NMA_REVIEW_ACTIONS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={action === value}
+              onClick={() => setAction(value)}
+              className={cn(
+                "rounded-input border px-3 py-2 text-xs font-medium",
+                action === value
+                  ? value === "accept" ? "border-ok bg-ok/10 text-ok" : "border-danger bg-danger/10 text-danger"
+                  : "border-border text-muted",
+              )}
+            >
+              {t(`rweCausal.${value}`)}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 space-y-2 rounded-input border border-border bg-bg p-3">
+          {RWE_CAUSAL_CHECKLIST_KEYS.map((key) => (
+            <label key={key} className="flex cursor-pointer items-start gap-2 text-xs leading-5 text-text">
+              <input
+                type="checkbox"
+                checked={checklist[key]}
+                onChange={(event) => setChecklist((current) => ({ ...current, [key]: event.target.checked }))}
+                className="mt-1 accent-[var(--color-accent)]"
+              />
+              <span>{t(`rweCausal.checklist.${key}`)}</span>
+            </label>
+          ))}
+        </div>
+        <input
+          value={actor}
+          onChange={(event) => setActor(event.target.value)}
+          placeholder={t("dialog.actorPlaceholder")}
+          className="mt-3 w-full rounded-input border border-border bg-bg px-3 py-2 text-xs text-text outline-none focus:border-accent"
+        />
+        <textarea
+          value={rationale}
+          onChange={(event) => setRationale(event.target.value)}
+          placeholder={action === "accept" ? t("rweCausal.acceptRationale") : t("rweCausal.rejectRationale")}
+          rows={3}
+          className="mt-2 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-xs leading-5 text-text outline-none focus:border-accent"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button disabled={running} onClick={onCancel} className="rounded-input border border-border px-3 py-2 text-xs text-muted hover:text-text disabled:opacity-50">
+            {t("dialog.cancel")}
+          </button>
+          <button
+            disabled={!valid}
+            onClick={() => onSubmit(action, checklist, actor.trim(), rationale.trim())}
+            className={cn(
+              "rounded-input px-3 py-2 text-xs font-semibold text-white disabled:opacity-40",
+              action === "accept" ? "bg-ok" : "bg-danger",
+            )}
+          >
+            {running ? t("rweCausal.recording") : action === "accept" ? t("rweCausal.recordAccept") : t("rweCausal.recordReject")}
           </button>
         </div>
       </div>

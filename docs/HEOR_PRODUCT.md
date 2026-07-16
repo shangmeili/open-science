@@ -667,6 +667,45 @@ RR/HR/SMD, higher moments or interactions, automatic modifier selection,
 weight trimming or capping, missing-data handling, observational or single-arm
 evidence, and reimbursement claims remain outside this alpha.
 
+## Implemented RWE target-trial causal-analysis boundary
+
+The first-party `$heor-rwe-causal-analysis` Skill implements one deliberately
+bounded observational comparative-effect workflow. The Human researcher defines
+an active-comparator new-user target trial, including population, eligibility,
+treatment strategies, assignment, shared time zero, fixed complete follow-up,
+binary outcome, causal contrast, and source-cohort ATE risk-difference estimand.
+The local input is already reduced to one pseudonymous baseline row per eligible
+person. AI4HEOR does not derive eligibility or index dates, select a comparator,
+choose confounders from associations, or infer that the upstream cohort construction
+emulates a valid target trial.
+
+The dependency-free evaluator fits one unpenalized main-effects Logistic
+propensity model using only Human-prespecified baseline common causes. It applies
+untrimmed, uncapped stabilized ATE-IPTW and reports unadjusted and weighted arm
+risks, risk difference, descriptive risk/odds ratios, propensity overlap, weight
+distributions, arm and overall ESS, and pre/post standardized mean differences.
+There are no automatic scientific balance, overlap, or ESS acceptance thresholds.
+Uncertainty uses 1,000–5,000 deterministic arm-stratified nonparametric bootstrap
+replicates that repeat standardization, model fitting, weighting, diagnostics, and
+the risk difference. Every failed refit is retained and blocks review.
+
+Complete portable replay verifies the exact request, cohort, evidence, evaluator,
+draw stream, point analysis, and every bootstrap refit. Native Rust independently
+re-reads the cohort and refits the point model, with Python-derived golden parity
+for coefficients, ESS, overlap, SMD, weights, and risk differences; it explicitly
+does not claim a second bootstrap implementation. The result stops at an
+app-owned eight-item Human method review bound to the six-artifact graph.
+Acceptance only makes the exact result eligible for later evidence selection; it
+does not establish causal validity, regulatory fitness, treatment value, or
+automatic economic-model suitability.
+
+Missing data, censoring, variable follow-up, treatment switching, time-varying
+exposure or confounding, survival or competing-risk outcomes, clustering,
+matching, trimming, overlap weighting, ATT/ATC, outcome regression, AIPW/TMLE,
+g-methods, instrumental variables, difference-in-differences, negative controls,
+quantitative bias analysis, and automatic causal interpretation remain outside
+this alpha and require separate contracts.
+
 ## Implemented budget impact boundary
 
 The first-party `$heor-budget-impact` and `$heor-dynamic-budget-impact` skills

@@ -9,6 +9,7 @@ import {
   type HeorPairedBootstrapAudit,
   type HeorNetworkMetaAnalysisAudit,
   type HeorPopulationAdjustedComparisonAudit,
+  type HeorRweCausalAnalysisAudit,
   type HeorUncertaintyRunResult,
 } from "@/lib/heor";
 import { useUiStore } from "@/lib/store";
@@ -24,6 +25,8 @@ import {
   NetworkMetaAnalysisReviewDialog,
   PopulationAdjustedComparisonAssessment,
   PopulationAdjustedComparisonReviewDialog,
+  RweCausalAnalysisAssessment,
+  RweCausalAnalysisReviewDialog,
   PairedBootstrapAssessment,
   PairedBootstrapReviewDialog,
   UncertaintyResultCard,
@@ -103,6 +106,37 @@ describe("AI4HEOR human review pane", () => {
     bootstrapIterations: 1000,
     bootstrapFailures: 0,
     nativeScope: "calibration_and_point_estimate_only",
+    limitations: ["Human method review required."],
+    errors: [],
+  };
+
+  const rweCausalAudit: HeorRweCausalAnalysisAudit = {
+    complete: true,
+    reviewable: true,
+    status: "awaiting_method_review",
+    executionId: "rwe-run-1",
+    requestPath: "heor/rwe-causal-analysis-request.json",
+    requestSha256: "8".repeat(64),
+    resultPath: "heor/rwe-causal-analysis-runs/rwe-run-1/manifest.json",
+    resultSha256: "9".repeat(64),
+    rowCount: 320,
+    confounderCount: 6,
+    estimand: "source_cohort_ate_risk_difference",
+    essOverall: 278.4,
+    essRatio: 0.87,
+    maximumWeight: 2.91,
+    maxAbsPreSmd: 0.34,
+    maxAbsPostSmd: 0.025,
+    unadjustedRiskDifference: -0.018,
+    weightedRiskDifference: -0.031,
+    weightedStandardError: 0.012,
+    weightedLower: -0.0545,
+    weightedUpper: -0.0075,
+    overlapLower: 0.21,
+    overlapUpper: 0.78,
+    bootstrapIterations: 1000,
+    bootstrapFailures: 0,
+    nativeScope: "point_estimate_and_diagnostics_only",
     limitations: ["Human method review required."],
     errors: [],
   };
@@ -309,6 +343,53 @@ describe("AI4HEOR human review pane", () => {
       }),
       "MAIC reviewer",
       "Reviewed the exact target population, modifiers, overlap, weights, uncertainty, and residual bias.",
+    );
+  });
+
+  it("keeps RWE causal selection eligibility behind all eight Human method checks", async () => {
+    const onSubmit = vi.fn();
+    const card = render(
+      <RweCausalAnalysisAssessment
+        state={{ kind: "ready", audit: rweCausalAudit }}
+        currentReview={null}
+        accepted={false}
+        onRequestPreparation={vi.fn()}
+        onReview={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Complete native point audit · awaiting Human method review")).toBeInTheDocument();
+    expect(screen.getByText("320")).toBeInTheDocument();
+    expect(screen.getByText(/maximum \|SMD\| 0.340 → 0.0250/)).toBeInTheDocument();
+    card.unmount();
+
+    render(
+      <RweCausalAnalysisReviewDialog
+        audit={rweCausalAudit}
+        running={false}
+        onCancel={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+    const submit = screen.getByRole("button", { name: "Record acceptance" });
+    expect(submit).toBeDisabled();
+    const checkboxes = screen.getAllByRole("checkbox");
+    expect(checkboxes).toHaveLength(8);
+    for (const checkbox of checkboxes) await userEvent.click(checkbox);
+    await userEvent.type(screen.getByPlaceholderText("Name or local reviewer label"), "RWE reviewer");
+    await userEvent.type(
+      screen.getByPlaceholderText(/Why this exact target trial/),
+      "Reviewed target-trial alignment, cohort provenance, confounders, overlap, balance, uncertainty, and residual bias.",
+    );
+    expect(submit).toBeEnabled();
+    await userEvent.click(submit);
+    expect(onSubmit).toHaveBeenCalledWith(
+      "accept",
+      expect.objectContaining({
+        targetTrialEstimandTimeZeroReviewed: true,
+        residualBiasTransportabilityDownstreamReviewed: true,
+      }),
+      "RWE reviewer",
+      "Reviewed target-trial alignment, cohort provenance, confounders, overlap, balance, uncertainty, and residual bias.",
     );
   });
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR RWE Causal Analysis"
+  short_description: "Run a bounded local target-trial IPTW analysis"
+  default_prompt: "Use $heor-rwe-causal-analysis to prepare and audit a researcher-led local RWE target-trial analysis."
