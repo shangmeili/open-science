@@ -82,6 +82,8 @@ jobs:
 
       - name: Validate packaged HEOR Python resources
         run: python scripts/dev/test_tauri_heor_resources.py -v
+      - name: Test bounded network meta-analysis contracts
+        run: python scripts/dev/test_network_meta_analysis.py -v
 
       - name: Fetch bundled uv sidecar
         shell: bash

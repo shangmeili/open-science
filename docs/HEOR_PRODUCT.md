@@ -603,6 +603,36 @@ For paired-bootstrap generation, manifest `0.5.0` also binds the exact app-owned
 accepted review and result; analysis approval and every native uncertainty run
 fail when that review is missing, stale, or superseded by rejection.
 
+## Implemented network meta-analysis boundary
+
+The first-party `$heor-network-meta-analysis` Skill implements one deliberately
+bounded contrast-level frequentist NMA for one researcher-defined outcome and
+timepoint. It accepts 3–32 treatment nodes and one independent two-arm randomized
+study contrast per row on log OR, log RR, log HR, MD, or SMD scales. The Human
+researcher defines the nodes, estimand, reference treatment, favorable direction,
+effect modifiers, transitivity rationale, and either a common-effect model or a
+common-heterogeneity REML random-effects model. AI4HEOR never chooses those items
+from fit statistics or ranking.
+
+Execution uses a fixed no-install adapter against an existing isolated
+user-supplied `netmeta` R library. The result binds the exact request, contrast
+CSV, evidence synthesis, adapter, and five raw backend outputs. Portable Python
+and native Rust independently reconstruct the treatment design and weighted
+least-squares network; random-effects parity is explicitly conditional on the
+backend-reported tau and is not an independent REML implementation. The review
+pane reports network geometry, heterogeneity, prediction intervals, global
+design-decomposition status, local direct-versus-indirect diagnostics, optional
+descriptive P-scores, hashes, and limitations.
+
+The result stops at an eight-item app-owned Human method review over the exact
+ten-artifact execution graph. An Agent can prepare, execute, audit, and explain,
+but cannot create an acceptance record, declare a top-ranked treatment best, or
+populate an economic model automatically. Multi-arm studies, arm-level
+likelihoods, disconnected networks, zero-cell handling, Bayesian NMA,
+meta-regression/NMR, component or dose-response models, population adjustment,
+automatic node/model/treatment selection, certainty grading, and reimbursement
+claims remain outside this alpha.
+
 ## Implemented budget impact boundary
 
 The first-party `$heor-budget-impact` and `$heor-dynamic-budget-impact` skills

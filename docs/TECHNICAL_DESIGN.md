@@ -1,6 +1,6 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.14, 2026-07-16).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.15, 2026-07-16).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
@@ -374,6 +374,27 @@ required packages, while a temporary network-disabled Linux container validated
 R 4.6.1, survHE 2.0.51 and flexsurv 2.3.2. The collection
 audits independently fitted curves; it does not establish PFS/OS consistency,
 arm alignment, joint covariance, or partitioned-survival validity.
+
+Network meta-analysis is a separate evidence-synthesis execution and review
+boundary. `$heor-network-meta-analysis` schema `0.1.0` accepts one outcome and
+timepoint, a connected 3–32-node network, and one independent two-arm randomized
+contrast per study. A fixed `Rscript --vanilla` adapter runs only against a
+Human-supplied existing isolated library containing `netmeta`, `meta`, and
+`metafor`; environment profiles, package installation, network requests,
+arbitrary R, and serialized model objects are excluded. The request binds the
+exact effect scale, reference, favorable direction, common or common-tau REML
+random-effects model, transitivity/effect-modifier assessment, evidence and
+study provenance, adapter hash, and package versions.
+
+The result preserves five raw backend outputs and normalizes the complete
+ordered league table. Dependency-free Python and native Rust independently
+rebuild the contrast design and WLS estimates; for random effects this check is
+conditional on backend tau rather than a second REML estimator. The desktop
+stores an immutable workspace review record plus a private unanchored SHA-256
+event chain over the exact ten-artifact graph. Acceptance requires all eight
+Human checks and only makes the result eligible for later evidence selection;
+it does not auto-populate a model or establish transitivity, evidence certainty,
+clinical validity, transportability, ranking superiority, or reimbursement.
 
 Analysis-plan schema `0.10.0` admits only
 `relative_effect_to_transition_schedule` for a complete two-state schedule with

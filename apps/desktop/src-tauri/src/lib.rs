@@ -18,6 +18,7 @@ mod heor_evidence;
 mod heor_evidence_review;
 mod heor_joint_survival_uncertainty;
 mod heor_library;
+mod heor_network_meta_analysis;
 mod heor_paired_survival_bootstrap;
 mod heor_parametric_survival;
 mod heor_partitioned_survival;
@@ -81,6 +82,7 @@ pub fn run() {
         .manage(heor_synthesis::HeorSynthesisState::default())
         .manage(heor_library::HeorLibraryState::default())
         .manage(heor_paired_survival_bootstrap::PairedBootstrapReviewState::default())
+        .manage(heor_network_meta_analysis::NetworkMetaAnalysisReviewState::default())
         .manage(heor_evidence_review::HeorEvidenceReviewState::default())
         .manage(runs::RunState::default())
         .invoke_handler(tauri::generate_handler![
@@ -139,6 +141,9 @@ pub fn run() {
             heor_paired_survival_bootstrap::audit_heor_paired_survival_bootstrap,
             heor_paired_survival_bootstrap::append_heor_paired_bootstrap_review,
             heor_paired_survival_bootstrap::list_heor_paired_bootstrap_reviews,
+            heor_network_meta_analysis::audit_heor_network_meta_analysis,
+            heor_network_meta_analysis::append_heor_network_meta_analysis_review,
+            heor_network_meta_analysis::list_heor_network_meta_analysis_reviews,
             heor_reference_case::audit_heor_reference_case,
             heor_reproducibility::audit_heor_reproducibility,
             heor_reporting::audit_heor_reporting,

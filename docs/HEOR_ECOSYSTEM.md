@@ -144,6 +144,7 @@ Skills stay small and are separated by the artifact they produce or audit.
 | Shipped alpha | `heor-survival-fit-execution` | Human-authorized strict local two-column survival MLE against a user-installed isolated `survHE` library, with fixed adapter, exact versions/hashes, preserved failures, diagnostics, independent all-family challenge, and audited within-curve covariance export | Request/model schema `0.1.0`, current result schema `0.2.0`, legacy result `0.1.0`; no installation, model selection, cross-curve dependence, GPL package bundling, or scientific-validity claim |
 | Shipped alpha | `heor-survival-extrapolation-review` | One or more independently reviewed pre-specified standard parametric fit comparisons, exact plan-target/selected-family match, observed/extrapolated diagnostics, local execution hashes, structural alternatives, native audit, and an awaiting-Human selection boundary | Schema `0.2.0` external import or `0.3.0` first-party execution review, optionally under the ordered schema `0.1.0` collection; cross-curve PFS/OS consistency remains unshipped |
 | Shipped alpha | `heor-paired-survival-bootstrap` | Human-authorized whole-subject resampling and repeated refitting of already-selected PFS/OS families from one strict local paired-row CSV | Request/result schema `0.1.0`; deterministic PCG32 plan, fixed R adapter, preserved failed replicates, portable plus native plan/curve challenge, conditional independence between parallel arms, and app-owned seven-item Human method review |
+| Shipped alpha | `heor-network-meta-analysis` | Researcher-specified contrast-level frequentist NMA for one outcome/timepoint over a connected network of independent two-arm randomized studies | Request/result schema `0.1.0`; isolated user-installed `netmeta` adapter, common or common-tau REML random effects, exact source/evidence/backend hashes, portable plus native WLS challenge, heterogeneity/inconsistency diagnostics, optional descriptive P-scores, and app-owned eight-item Human method review |
 | Shipped | `heor-probability-time-adapter` | Single-event probability time conversion under an explicit constant-hazard assumption | Schema `0.7.0` transition derivation |
 | Shipped | `heor-background-mortality` | Age-aligned annual life-table mortality plus one constant additive excess rate, with explicit exchangeability and double-counting bases | Schema `0.9.0` transition schedule derivation |
 | Shipped | `heor-relative-effect-adapter` | Apply one aligned RR or OR to cycle-specific baseline risks with exact review bases and full schedule recomputation | Schema `0.10.0` transition schedule derivation |
@@ -372,7 +373,7 @@ owned by `$heor-hazard-ratio-adapter`. Partitioned survival, explicit treatment-
 effect duration, deterministic annual state-cost normalization, utility inputs,
 event disutilities, correlated component uncertainty, and composed joint-curve
 plus component PSA and dynamic-cohort BIA are now shipped bounded alphas.
-NMA/MAIC, RWE, and advanced VOI follow. Those backlog items are not
+MAIC, RWE, and advanced VOI follow. Those backlog items are not
 shipped capabilities or approval authority.
 
 Schema `0.11.0` adds the first-party `$heor-hazard-ratio-adapter` for one

@@ -5,6 +5,7 @@ import {
   HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT,
   type HeorBudgetImpactRunResult,
   type HeorPairedBootstrapAudit,
+  type HeorNetworkMetaAnalysisAudit,
   type HeorUncertaintyRunResult,
 } from "@/lib/heor";
 import { useUiStore } from "@/lib/store";
@@ -13,6 +14,8 @@ import {
   BudgetImpactResultCard,
   EvidenceVerificationDialog,
   HeorReviewPane,
+  NetworkMetaAnalysisAssessment,
+  NetworkMetaAnalysisReviewDialog,
   PairedBootstrapAssessment,
   PairedBootstrapReviewDialog,
   UncertaintyResultCard,
@@ -45,6 +48,75 @@ describe("AI4HEOR human review pane", () => {
     limitations: ["Human method review required."],
     errors: [],
   };
+
+  const nmaAudit: HeorNetworkMetaAnalysisAudit = {
+    complete: true,
+    reviewable: true,
+    status: "awaiting_model_review",
+    executionId: "nma-run-1",
+    requestPath: "heor/network-meta-analysis-request.json",
+    requestSha256: "d".repeat(64),
+    resultPath: "heor/network-meta-analysis-runs/nma-run-1/manifest.json",
+    resultSha256: "e".repeat(64),
+    studyCount: 9,
+    treatmentCount: 3,
+    directComparisonCount: 3,
+    cycleRank: 1,
+    modelType: "random",
+    tau: 0.218,
+    crossImplementationScope: "conditional_on_backend_tau",
+    globalInconsistencyStatus: "estimable",
+    localInconsistencyCount: 3,
+    rankingMethod: "none",
+    limitations: ["Human method review required."],
+    errors: [],
+  };
+
+  it("keeps NMA selection eligibility behind all eight Human method checks", async () => {
+    const onSubmit = vi.fn();
+    const card = render(
+      <NetworkMetaAnalysisAssessment
+        state={{ kind: "ready", audit: nmaAudit }}
+        currentReview={null}
+        accepted={false}
+        onRequestPreparation={vi.fn()}
+        onReview={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Complete native audit · awaiting Human method review")).toBeInTheDocument();
+    expect(screen.getByText("9")).toBeInTheDocument();
+    card.unmount();
+
+    render(
+      <NetworkMetaAnalysisReviewDialog
+        audit={nmaAudit}
+        running={false}
+        onCancel={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+    const submit = screen.getByRole("button", { name: "Record acceptance" });
+    expect(submit).toBeDisabled();
+    const checkboxes = screen.getAllByRole("checkbox");
+    expect(checkboxes).toHaveLength(8);
+    for (const checkbox of checkboxes) await userEvent.click(checkbox);
+    await userEvent.type(screen.getByPlaceholderText("Name or local reviewer label"), "NMA reviewer");
+    await userEvent.type(
+      screen.getByPlaceholderText(/Why this exact question/),
+      "Reviewed the exact network, transitivity basis, model, diagnostics, uncertainty, and limitations.",
+    );
+    expect(submit).toBeEnabled();
+    await userEvent.click(submit);
+    expect(onSubmit).toHaveBeenCalledWith(
+      "accept",
+      expect.objectContaining({
+        questionOutcomeEstimandReviewed: true,
+        rankingTransportabilityLimitationsReviewed: true,
+      }),
+      "NMA reviewer",
+      "Reviewed the exact network, transitivity basis, model, diagnostics, uncertainty, and limitations.",
+    );
+  });
 
   it("keeps paired-bootstrap acceptance behind every Human method check", async () => {
     const onSubmit = vi.fn();

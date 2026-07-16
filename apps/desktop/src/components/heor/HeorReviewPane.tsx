@@ -20,6 +20,7 @@ import { readArtifact } from "@/lib/artifactFile";
 import { cn } from "@/lib/cn";
 import {
   appendHeorApproval,
+  appendHeorNetworkMetaAnalysisReview,
   appendHeorPairedBootstrapReview,
   auditHeorBudgetImpact,
   auditHeorPartitionedSurvival,
@@ -34,6 +35,7 @@ import {
   auditHeorPairedSurvivalBootstrap,
   auditHeorUncertainty,
   auditHeorModelValidation,
+  auditHeorNetworkMetaAnalysis,
   auditHeorReporting,
   auditHeorReproducibility,
   addHeorLibraryFiles,
@@ -44,6 +46,7 @@ import {
   HEOR_BUDGET_IMPACT_PLAN_PATH,
   HEOR_PARTITIONED_SURVIVAL_PLAN_PATH,
   HEOR_MODEL_VALIDATION_PATH,
+  HEOR_NETWORK_META_ANALYSIS_REQUEST_PATH,
   HEOR_REPORT_PACKAGE_PATH,
   HEOR_REPRODUCIBILITY_PACKAGE_PATH,
   HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
@@ -69,6 +72,9 @@ import {
   type HeorPairedBootstrapChecklist,
   type HeorPairedBootstrapReviewLog,
   type HeorModelValidationAudit,
+  type HeorNetworkMetaAnalysisAudit,
+  type HeorNetworkMetaAnalysisChecklist,
+  type HeorNetworkMetaAnalysisReviewLog,
   type HeorReportingAudit,
   type HeorReproducibilityAudit,
   type HeorGate,
@@ -86,6 +92,7 @@ import {
   type HeorUncertaintyAudit,
   type HeorUncertaintyRunResult,
   listHeorApprovals,
+  listHeorNetworkMetaAnalysisReviews,
   listHeorPairedBootstrapReviews,
   listHeorSearchAuthorizations,
   parseHeorConceptualModel,
@@ -115,6 +122,7 @@ const REVIEW_GATES: HeorGate[] = [
 const ALL_GATES: HeorGate[] = REVIEW_GATES;
 const EVIDENCE_REVIEW_DECISIONS = ["confirmed", "rejected"] as const;
 const PAIRED_BOOTSTRAP_REVIEW_ACTIONS = ["accept", "reject"] as const;
+const NMA_REVIEW_ACTIONS = ["accept", "reject"] as const;
 
 const EMPTY_LOG: HeorApprovalLog = {
   events: [],
@@ -177,6 +185,11 @@ type PairedBootstrapState =
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorPairedBootstrapAudit };
 
+type NetworkMetaAnalysisState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorNetworkMetaAnalysisAudit };
+
 type ModelValidationState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
@@ -220,6 +233,13 @@ const EMPTY_SEARCH_LOG: HeorSearchAuthorizationLog = {
 };
 
 const EMPTY_PAIRED_BOOTSTRAP_REVIEW_LOG: HeorPairedBootstrapReviewLog = {
+  events: [],
+  chainHead: null,
+  integrity: "verified_unanchored_sha256_chain",
+  identityAssurance: "app_owned_local_human_assertion",
+};
+
+const EMPTY_NMA_REVIEW_LOG: HeorNetworkMetaAnalysisReviewLog = {
   events: [],
   chainHead: null,
   integrity: "verified_unanchored_sha256_chain",
@@ -314,6 +334,10 @@ export function HeorReviewPane({
   const [pairedBootstrapReviews, setPairedBootstrapReviews] = useState<HeorPairedBootstrapReviewLog>(EMPTY_PAIRED_BOOTSTRAP_REVIEW_LOG);
   const [pairedBootstrapDialogOpen, setPairedBootstrapDialogOpen] = useState(false);
   const [pairedBootstrapReviewRunning, setPairedBootstrapReviewRunning] = useState(false);
+  const [networkMetaAnalysis, setNetworkMetaAnalysis] = useState<NetworkMetaAnalysisState>({ kind: "loading" });
+  const [networkMetaAnalysisReviews, setNetworkMetaAnalysisReviews] = useState<HeorNetworkMetaAnalysisReviewLog>(EMPTY_NMA_REVIEW_LOG);
+  const [networkMetaAnalysisDialogOpen, setNetworkMetaAnalysisDialogOpen] = useState(false);
+  const [networkMetaAnalysisReviewRunning, setNetworkMetaAnalysisReviewRunning] = useState(false);
   const [modelValidation, setModelValidation] = useState<ModelValidationState>({ kind: "loading" });
   const [reporting, setReporting] = useState<ReportingState>({ kind: "loading" });
   const [reproducibility, setReproducibility] = useState<ReproducibilityState>({ kind: "loading" });
@@ -355,6 +379,8 @@ export function HeorReviewPane({
       setSurvivalReview({ kind: "invalid", message: t("survivalReview.noProject") });
       setPairedBootstrap({ kind: "invalid", message: t("pairedBootstrap.noProject") });
       setPairedBootstrapReviews(EMPTY_PAIRED_BOOTSTRAP_REVIEW_LOG);
+      setNetworkMetaAnalysis({ kind: "invalid", message: t("nma.noProject") });
+      setNetworkMetaAnalysisReviews(EMPTY_NMA_REVIEW_LOG);
       setModelValidation({ kind: "invalid", message: t("validation.noProject") });
       setReporting({ kind: "invalid", message: t("reporting.noProject") });
       setReproducibility({ kind: "invalid", message: t("reproducibility.noProject") });
@@ -374,6 +400,7 @@ export function HeorReviewPane({
     setPartitionedSurvival({ kind: "loading" });
     setSurvivalReview({ kind: "loading" });
     setPairedBootstrap({ kind: "loading" });
+    setNetworkMetaAnalysis({ kind: "loading" });
     setModelValidation({ kind: "loading" });
     setReporting({ kind: "loading" });
     setReproducibility({ kind: "loading" });
@@ -388,6 +415,16 @@ export function HeorReviewPane({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
+    }
+    try {
+      setNetworkMetaAnalysis({ kind: "ready", audit: await auditHeorNetworkMetaAnalysis() });
+      setNetworkMetaAnalysisReviews(await listHeorNetworkMetaAnalysisReviews(project.id));
+    } catch (error) {
+      setNetworkMetaAnalysis({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setNetworkMetaAnalysisReviews(EMPTY_NMA_REVIEW_LOG);
     }
     try {
       setEvidenceSearch({ kind: "ready", audit: await auditHeorEvidenceSearch() });
@@ -603,6 +640,16 @@ export function HeorReviewPane({
     && currentPairedBootstrapReview?.action === "accept"
     && currentPairedBootstrapReview.resultPath === pairedBootstrap.audit.resultPath
     && currentPairedBootstrapReview.resultSha256 === pairedBootstrap.audit.resultSha256;
+  const currentNetworkMetaAnalysisReview = useMemo(() => {
+    if (networkMetaAnalysis.kind !== "ready" || !networkMetaAnalysis.audit.resultSha256) return null;
+    return [...networkMetaAnalysisReviews.events].reverse().find((event) =>
+      event.executionId === networkMetaAnalysis.audit.executionId) ?? null;
+  }, [networkMetaAnalysis, networkMetaAnalysisReviews.events]);
+  const networkMetaAnalysisAccepted = networkMetaAnalysis.kind === "ready"
+    && networkMetaAnalysis.audit.reviewable
+    && currentNetworkMetaAnalysisReview?.action === "accept"
+    && currentNetworkMetaAnalysisReview.resultPath === networkMetaAnalysis.audit.resultPath
+    && currentNetworkMetaAnalysisReview.resultSha256 === networkMetaAnalysis.audit.resultSha256;
 
   const currentApprovals = useMemo(() => {
     if (artifact.kind !== "ready") return [] as HeorGate[];
@@ -1036,6 +1083,35 @@ export function HeorReviewPane({
     }
   };
 
+  const submitNetworkMetaAnalysisReview = async (
+    action: "accept" | "reject",
+    checklist: HeorNetworkMetaAnalysisChecklist,
+    actorLabel: string,
+    rationale: string,
+  ) => {
+    if (!project || networkMetaAnalysis.kind !== "ready" || !networkMetaAnalysis.audit.resultSha256
+      || networkMetaAnalysisReviewRunning || !isTauri) return;
+    setNetworkMetaAnalysisReviewRunning(true);
+    try {
+      await appendHeorNetworkMetaAnalysisReview({
+        projectId: project.id,
+        resultPath: networkMetaAnalysis.audit.resultPath,
+        resultSha256: networkMetaAnalysis.audit.resultSha256,
+        action,
+        checklist,
+        actorLabel,
+        rationale,
+      });
+      setNetworkMetaAnalysisReviews(await listHeorNetworkMetaAnalysisReviews(project.id));
+      setNetworkMetaAnalysisDialogOpen(false);
+      toast.success(action === "accept" ? t("nma.acceptedToast") : t("nma.rejectedToast"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setNetworkMetaAnalysisReviewRunning(false);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col border-l border-border bg-surface">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
@@ -1089,6 +1165,16 @@ export function HeorReviewPane({
             onImport={() => void importSearchCandidates()}
             onContinue={() => onRequestRevision(t("synthesis.continuePrompt"))}
             onVerify={() => setVerificationDialogOpen(true)}
+          />
+        )}
+
+        {project && (
+          <NetworkMetaAnalysisAssessment
+            state={networkMetaAnalysis}
+            currentReview={currentNetworkMetaAnalysisReview}
+            accepted={networkMetaAnalysisAccepted}
+            onRequestPreparation={() => onRequestRevision(t("nma.preparePrompt"))}
+            onReview={() => setNetworkMetaAnalysisDialogOpen(true)}
           />
         )}
 
@@ -1499,6 +1585,15 @@ export function HeorReviewPane({
           onCancel={() => setPairedBootstrapDialogOpen(false)}
           onSubmit={(action, checklist, actor, rationale) =>
             void submitPairedBootstrapReview(action, checklist, actor, rationale)}
+        />
+      )}
+      {networkMetaAnalysisDialogOpen && networkMetaAnalysis.kind === "ready" && (
+        <NetworkMetaAnalysisReviewDialog
+          audit={networkMetaAnalysis.audit}
+          running={networkMetaAnalysisReviewRunning}
+          onCancel={() => setNetworkMetaAnalysisDialogOpen(false)}
+          onSubmit={(action, checklist, actor, rationale) =>
+            void submitNetworkMetaAnalysisReview(action, checklist, actor, rationale)}
         />
       )}
     </div>
@@ -2681,6 +2776,234 @@ export function PairedBootstrapReviewDialog({
             )}
           >
             {running ? t("pairedBootstrap.recording") : action === "accept" ? t("pairedBootstrap.recordAccept") : t("pairedBootstrap.recordReject")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function NetworkMetaAnalysisAssessment({
+  state,
+  currentReview,
+  accepted,
+  onRequestPreparation,
+  onReview,
+}: {
+  state: NetworkMetaAnalysisState;
+  currentReview: HeorNetworkMetaAnalysisReviewLog["events"][number] | null;
+  accepted: boolean;
+  onRequestPreparation: () => void;
+  onReview: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const issues = audit?.errors ?? (state.kind === "invalid" ? [state.message] : []);
+  const status = state.kind === "loading"
+    ? t("nma.loading")
+    : accepted
+      ? t("nma.accepted")
+      : currentReview?.action === "reject"
+        ? t("nma.rejected")
+        : audit?.reviewable
+          ? t("nma.awaiting")
+          : audit?.executionId
+            ? t("nma.incomplete")
+            : t("nma.notPrepared");
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {accepted
+          ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
+          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("nma.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warning")}>
+            {status}
+          </div>
+          <div className="mt-1 break-all font-mono text-[10px] text-muted">
+            {audit?.resultPath || HEOR_NETWORK_META_ANALYSIS_REQUEST_PATH}
+          </div>
+        </div>
+      </div>
+      {audit?.executionId && (
+        <>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <Metric label={t("nma.studies")} value={String(audit.studyCount)} />
+            <Metric label={t("nma.treatments")} value={String(audit.treatmentCount)} />
+            <Metric label={t("nma.cycles")} value={String(audit.cycleRank)} />
+          </div>
+          <p className="mt-3 text-[10px] leading-4 text-muted">
+            {t("nma.modelSummary", {
+              model: audit.modelType || "—",
+              tau: audit.tau === null ? "—" : audit.tau.toPrecision(4),
+              global: audit.globalInconsistencyStatus || "—",
+              local: audit.localInconsistencyCount,
+              ranking: audit.rankingMethod || "none",
+            })}
+          </p>
+          {audit.resultSha256 && (
+            <div className="mt-2 break-all font-mono text-[9px] text-muted">
+              {t("nma.hash")} {audit.resultSha256}
+            </div>
+          )}
+        </>
+      )}
+      {currentReview && (
+        <div className={cn(
+          "mt-3 rounded-input border p-3 text-[10px] leading-4",
+          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warning/30 bg-warning/5 text-warning",
+        )}>
+          {accepted ? t("nma.currentAccepted") : t("nma.currentRejected")}
+          <div className="mt-1 break-all font-mono text-[9px] text-muted">
+            {currentReview.recordPath} · {currentReview.recordSha256.slice(0, 12)}…
+          </div>
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap gap-3">
+        {audit?.reviewable && isTauri && (
+          <button onClick={onReview} className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
+            <LockKeyhole size={13} /> {t("nma.review")}
+          </button>
+        )}
+        {!accepted && (
+          <button onClick={onRequestPreparation} className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
+            <MessageSquareText size={13} /> {t("nma.askAgent")}
+          </button>
+        )}
+      </div>
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("nma.note")}</p>
+    </section>
+  );
+}
+
+const NMA_CHECKLIST_KEYS: Array<keyof HeorNetworkMetaAnalysisChecklist> = [
+  "questionOutcomeEstimandReviewed",
+  "nodesConnectivityTwoArmBoundaryReviewed",
+  "studyContrastsProvenanceRiskOfBiasReviewed",
+  "transitivityEffectModifiersReviewed",
+  "modelTauMethodReviewed",
+  "heterogeneityPredictionReviewed",
+  "globalLocalInconsistencyReviewed",
+  "rankingTransportabilityLimitationsReviewed",
+];
+
+const EMPTY_NMA_CHECKLIST: HeorNetworkMetaAnalysisChecklist = {
+  questionOutcomeEstimandReviewed: false,
+  nodesConnectivityTwoArmBoundaryReviewed: false,
+  studyContrastsProvenanceRiskOfBiasReviewed: false,
+  transitivityEffectModifiersReviewed: false,
+  modelTauMethodReviewed: false,
+  heterogeneityPredictionReviewed: false,
+  globalLocalInconsistencyReviewed: false,
+  rankingTransportabilityLimitationsReviewed: false,
+};
+
+export function NetworkMetaAnalysisReviewDialog({
+  audit,
+  running,
+  onCancel,
+  onSubmit,
+}: {
+  audit: HeorNetworkMetaAnalysisAudit;
+  running: boolean;
+  onCancel: () => void;
+  onSubmit: (
+    action: "accept" | "reject",
+    checklist: HeorNetworkMetaAnalysisChecklist,
+    actor: string,
+    rationale: string,
+  ) => void;
+}) {
+  const { t } = useTranslation("heor");
+  const [action, setAction] = useState<"accept" | "reject">("accept");
+  const [checklist, setChecklist] = useState(EMPTY_NMA_CHECKLIST);
+  const [actor, setActor] = useState("");
+  const [rationale, setRationale] = useState("");
+  const acceptedReady = NMA_CHECKLIST_KEYS.every((key) => checklist[key]);
+  const valid = actor.trim().length > 0 && rationale.trim().length > 1
+    && (action === "reject" || acceptedReady) && !running;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && !running && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, running]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => !running && onCancel()} role="presentation">
+      <div role="dialog" aria-modal="true" aria-label={t("nma.dialogTitle")} className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-card border border-border bg-surface p-5 shadow-card" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center gap-2 text-sm font-semibold text-text">
+          <ShieldCheck size={17} className="text-accent" /> {t("nma.dialogTitle")}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          {t("nma.dialogBody", {
+            id: audit.executionId,
+            hash: audit.resultSha256?.slice(0, 12) ?? "—",
+          })}
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label={t("nma.decisionLabel")}>
+          {NMA_REVIEW_ACTIONS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={action === value}
+              onClick={() => setAction(value)}
+              className={cn(
+                "rounded-input border px-3 py-2 text-xs font-medium",
+                action === value
+                  ? value === "accept" ? "border-ok bg-ok/10 text-ok" : "border-danger bg-danger/10 text-danger"
+                  : "border-border text-muted",
+              )}
+            >
+              {t(`nma.${value}`)}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 space-y-2 rounded-input border border-border bg-bg p-3">
+          {NMA_CHECKLIST_KEYS.map((key) => (
+            <label key={key} className="flex cursor-pointer items-start gap-2 text-xs leading-5 text-text">
+              <input
+                type="checkbox"
+                checked={checklist[key]}
+                onChange={(event) => setChecklist((current) => ({ ...current, [key]: event.target.checked }))}
+                className="mt-1 accent-[var(--color-accent)]"
+              />
+              <span>{t(`nma.checklist.${key}`)}</span>
+            </label>
+          ))}
+        </div>
+        <input
+          value={actor}
+          onChange={(event) => setActor(event.target.value)}
+          placeholder={t("dialog.actorPlaceholder")}
+          className="mt-3 w-full rounded-input border border-border bg-bg px-3 py-2 text-xs text-text outline-none focus:border-accent"
+        />
+        <textarea
+          value={rationale}
+          onChange={(event) => setRationale(event.target.value)}
+          placeholder={action === "accept" ? t("nma.acceptRationale") : t("nma.rejectRationale")}
+          rows={3}
+          className="mt-2 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-xs leading-5 text-text outline-none focus:border-accent"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button disabled={running} onClick={onCancel} className="rounded-input border border-border px-3 py-2 text-xs text-muted hover:text-text disabled:opacity-50">
+            {t("dialog.cancel")}
+          </button>
+          <button
+            disabled={!valid}
+            onClick={() => onSubmit(action, checklist, actor.trim(), rationale.trim())}
+            className={cn(
+              "rounded-input px-3 py-2 text-xs font-semibold text-white disabled:opacity-40",
+              action === "accept" ? "bg-ok" : "bg-danger",
+            )}
+          >
+            {running ? t("nma.recording") : action === "accept" ? t("nma.recordAccept") : t("nma.recordReject")}
           </button>
         </div>
       </div>

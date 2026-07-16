@@ -3889,7 +3889,7 @@ class ReproducibilityPackageContractTests(unittest.TestCase):
             "artifact_inventory": inventory,
             "execution_manifest": reproducibility.command_specs(report, loaded),
             "environment": {
-                "ai4heor_version": "0.1.14",
+                "ai4heor_version": "0.1.15",
                 "platform": "test-x86_64",
                 "python_version": "Python 3.12.0",
                 "result_engine_versions": ["0.15.0"],

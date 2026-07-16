@@ -9,6 +9,7 @@ export const HEOR_PARTITIONED_SURVIVAL_PLAN_PATH = "heor/partitioned-survival-pl
 export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH = "heor/survival-extrapolation-review.json";
 export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH = "heor/survival-extrapolation-reviews.json";
 export const HEOR_PAIRED_BOOTSTRAP_REQUEST_PATH = "heor/paired-survival-bootstrap-request.json";
+export const HEOR_NETWORK_META_ANALYSIS_REQUEST_PATH = "heor/network-meta-analysis-request.json";
 export const HEOR_MODEL_VALIDATION_PATH = "heor/model-validation.json";
 export const HEOR_REPORT_PACKAGE_PATH = "heor/report-package.json";
 export const HEOR_REPRODUCIBILITY_PACKAGE_PATH = "heor/reproducibility-package.json";
@@ -543,6 +544,78 @@ export interface HeorPairedBootstrapReviewEvent {
 
 export interface HeorPairedBootstrapReviewLog {
   events: HeorPairedBootstrapReviewEvent[];
+  chainHead: string | null;
+  integrity: string;
+  identityAssurance: string;
+}
+
+export interface HeorNetworkMetaAnalysisAudit {
+  complete: boolean;
+  reviewable: boolean;
+  status: string;
+  executionId: string;
+  requestPath: string;
+  requestSha256: string | null;
+  resultPath: string;
+  resultSha256: string | null;
+  studyCount: number;
+  treatmentCount: number;
+  directComparisonCount: number;
+  cycleRank: number;
+  modelType: string;
+  tau: number | null;
+  crossImplementationScope: string;
+  globalInconsistencyStatus: string;
+  localInconsistencyCount: number;
+  rankingMethod: string;
+  limitations: string[];
+  errors: string[];
+}
+
+export interface HeorNetworkMetaAnalysisChecklist {
+  questionOutcomeEstimandReviewed: boolean;
+  nodesConnectivityTwoArmBoundaryReviewed: boolean;
+  studyContrastsProvenanceRiskOfBiasReviewed: boolean;
+  transitivityEffectModifiersReviewed: boolean;
+  modelTauMethodReviewed: boolean;
+  heterogeneityPredictionReviewed: boolean;
+  globalLocalInconsistencyReviewed: boolean;
+  rankingTransportabilityLimitationsReviewed: boolean;
+}
+
+export interface HeorNetworkMetaAnalysisReviewRequest {
+  projectId: string;
+  resultPath: string;
+  resultSha256: string;
+  action: "accept" | "reject";
+  checklist: HeorNetworkMetaAnalysisChecklist;
+  actorLabel: string;
+  rationale: string;
+}
+
+export interface HeorNetworkMetaAnalysisReviewEvent {
+  schemaVersion: number;
+  sequence: number;
+  reviewId: string;
+  projectId: string;
+  executionId: string;
+  action: "accept" | "reject";
+  resultPath: string;
+  resultSha256: string;
+  relatedArtifacts: Array<{ path: string; sha256: string }>;
+  checklist: HeorNetworkMetaAnalysisChecklist;
+  actorLabel: string;
+  rationale: string;
+  timestamp: number;
+  recordPath: string;
+  recordSha256: string;
+  assurance: string;
+  previousHash: string | null;
+  eventHash: string;
+}
+
+export interface HeorNetworkMetaAnalysisReviewLog {
+  events: HeorNetworkMetaAnalysisReviewEvent[];
   chainHead: string | null;
   integrity: string;
   identityAssurance: string;
@@ -2765,6 +2838,62 @@ export async function listHeorPairedBootstrapReviews(
   }
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<HeorPairedBootstrapReviewLog>("list_heor_paired_bootstrap_reviews", {
+    projectId,
+  });
+}
+
+export async function auditHeorNetworkMetaAnalysis(): Promise<HeorNetworkMetaAnalysisAudit> {
+  if (!isTauri) {
+    return {
+      complete: false,
+      reviewable: false,
+      status: "unavailable",
+      executionId: "",
+      requestPath: HEOR_NETWORK_META_ANALYSIS_REQUEST_PATH,
+      requestSha256: null,
+      resultPath: "",
+      resultSha256: null,
+      studyCount: 0,
+      treatmentCount: 0,
+      directComparisonCount: 0,
+      cycleRank: 0,
+      modelType: "",
+      tau: null,
+      crossImplementationScope: "",
+      globalInconsistencyStatus: "",
+      localInconsistencyCount: 0,
+      rankingMethod: "",
+      limitations: [],
+      errors: ["Native network meta-analysis audit requires the desktop runtime."],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorNetworkMetaAnalysisAudit>("audit_heor_network_meta_analysis");
+}
+
+export async function appendHeorNetworkMetaAnalysisReview(
+  request: HeorNetworkMetaAnalysisReviewRequest,
+): Promise<HeorNetworkMetaAnalysisReviewEvent> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorNetworkMetaAnalysisReviewEvent>("append_heor_network_meta_analysis_review", {
+    request,
+  });
+}
+
+export async function listHeorNetworkMetaAnalysisReviews(
+  projectId: string,
+): Promise<HeorNetworkMetaAnalysisReviewLog> {
+  if (!isTauri) {
+    return {
+      events: [],
+      chainHead: null,
+      integrity: "verified_unanchored_sha256_chain",
+      identityAssurance: "app_owned_local_human_assertion",
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorNetworkMetaAnalysisReviewLog>("list_heor_network_meta_analysis_reviews", {
     projectId,
   });
 }
