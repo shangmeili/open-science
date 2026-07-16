@@ -19,12 +19,17 @@ a form-led modeling application.
 
 Method currency follows the same boundary. The first-party
 `$heor-methods-watchlist` records official canonical links, observed revisions,
-dated Human checks, reuse status, affected platform contracts, and revalidation
+dated checks, reuse status, affected platform contracts, and Agent preparation
 work in `heor/methods-watchlist.json`. Its native and portable audits can expose
-an overdue check or unresolved change, but cannot decide scientific relevance,
-grant content rights, rewrite downstream research artifacts, or approve a method.
-Restricted sources remain link-only unless the researcher supplies a lawful
-local snapshot and explicit rights basis.
+an overdue check or unresolved change, but the Agent-writable artifact cannot
+store a Human disposition. The auxiliary desktop control records the researcher's
+`accept_revalidation` or `dismiss_change` decision in an app-private hash-linked
+event chain bound to the exact watchlist SHA-256 and exports an immutable review
+snapshot. Any watchlist-byte change invalidates the effective disposition.
+Neither route can decide scientific relevance, grant content rights, rewrite
+downstream research artifacts, or approve a method. Restricted sources remain
+link-only unless the researcher supplies a lawful local snapshot and explicit
+rights basis.
 
 ## Accountabilities
 

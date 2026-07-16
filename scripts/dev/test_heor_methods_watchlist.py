@@ -28,7 +28,7 @@ def load_validator():
 
 def fixture() -> dict:
     return {
-        "schema_version": "0.1.0",
+        "schema_version": "0.2.0",
         "watchlist_id": "core-methods-2026-07",
         "status": "ready_for_human_review",
         "as_of_date": "2026-07-17",
@@ -111,8 +111,7 @@ class MethodsWatchlistContractTests(unittest.TestCase):
                 "summary": "The source changed; impact has not yet been resolved.",
                 "affected_contracts": ["heor-reference-case"],
                 "required_actions": ["Review the reference-case contract."],
-                "revalidation_status": "not_started",
-                "human_disposition": "pending",
+                "revalidation_status": "ready_for_human_review",
                 "evidence_paths": [],
             }
         }
@@ -140,6 +139,26 @@ class MethodsWatchlistContractTests(unittest.TestCase):
             "media_type": "application/pdf",
         }
         mutations.append(escaped)
+        forged_human = fixture()
+        forged_human["change_order"] = ["forged"]
+        forged_human["changes"] = {
+            "forged": {
+                "change_id": "forged",
+                "source_id": "nice-reference-case",
+                "detected_on": "2026-07-17",
+                "change_status": "confirmed",
+                "previous_revision": "PMG36",
+                "current_revision": "PMG36 update",
+                "changed_sections": ["methods"],
+                "summary": "Agent-authored Human status must be rejected.",
+                "affected_contracts": ["heor-reference-case"],
+                "required_actions": ["Review the changed method."],
+                "revalidation_status": "ready_for_human_review",
+                "human_disposition": "accepted",
+                "evidence_paths": [],
+            }
+        }
+        mutations.append(forged_human)
         with tempfile.TemporaryDirectory() as directory:
             for artifact in mutations:
                 with self.subTest(artifact=artifact):
@@ -152,9 +171,10 @@ class MethodsWatchlistContractTests(unittest.TestCase):
             ROOT / "runtime/skills/core/heor-methods-watchlist/assets/"
             "methods-watchlist.template.json"
         ).read_text())
-        self.assertEqual(template["schema_version"], "0.1.0")
+        self.assertEqual(template["schema_version"], "0.2.0")
         self.assertEqual(template["status"], "draft")
         self.assertFalse(any("approv" in key.lower() for key in template))
+        self.assertNotIn("human_disposition", json.dumps(template))
 
 
 if __name__ == "__main__":

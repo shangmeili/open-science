@@ -22,6 +22,7 @@ import {
   HeorReviewPane,
   MethodReviewQueue,
   MethodsWatchlistAssessment,
+  MethodsWatchlistReviewDialog,
   NetworkMetaAnalysisAssessment,
   NetworkMetaAnalysisReviewDialog,
   PopulationAdjustedComparisonAssessment,
@@ -38,6 +39,7 @@ afterEach(() => useUiStore.getState().setLocale("en"));
 describe("AI4HEOR human review pane", () => {
   it("keeps methods currency review researcher-led and natural-language first", async () => {
     const onPrepare = vi.fn();
+    const onReview = vi.fn();
     render(
       <MethodsWatchlistAssessment
         state={{
@@ -45,6 +47,7 @@ describe("AI4HEOR human review pane", () => {
           audit: {
             exists: true,
             complete: false,
+            reviewable: true,
             status: "ready_for_human_review",
             watchlistId: "methods-2026-07",
             asOfDate: "2026-07-17",
@@ -55,23 +58,76 @@ describe("AI4HEOR human review pane", () => {
             unknownCount: 0,
             overdueCount: 1,
             changeCount: 1,
+            reviewedChangeCount: 0,
             unresolvedChangeCount: 1,
             affectedContractCount: 2,
             overdueSources: ["nice"],
             unresolvedChanges: ["nice-update"],
+            acceptanceEligibleChanges: ["nice-update"],
             errors: [],
           },
         }}
         onPrepare={onPrepare}
+        onReview={onReview}
       />,
     );
     expect(screen.getByText(/Overdue source check: nice/)).toBeInTheDocument();
     expect(screen.getByText(/Unresolved method change: nice-update/)).toBeInTheDocument();
-    expect(screen.getByText(/Human researcher owns relevance/)).toBeInTheDocument();
+    expect(screen.getByText(/auxiliary form records only the Human researcher's/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", {
       name: "Ask Agent to prepare or update the watchlist",
     }));
     expect(onPrepare).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole("button", { name: "Record researcher decision" }));
+    expect(onReview).toHaveBeenCalledOnce();
+  });
+
+  it("binds the auxiliary methods form to the exact snapshot and Human input", async () => {
+    const onSubmit = vi.fn();
+    render(
+      <MethodsWatchlistReviewDialog
+        audit={{
+          exists: true,
+          complete: false,
+          reviewable: true,
+          status: "ready_for_human_review",
+          watchlistId: "methods-2026-07",
+          asOfDate: "2026-07-17",
+          watchlistSha256: "b".repeat(64),
+          sourceCount: 2,
+          currentCount: 2,
+          draftCount: 0,
+          unknownCount: 0,
+          overdueCount: 0,
+          changeCount: 1,
+          reviewedChangeCount: 0,
+          unresolvedChangeCount: 1,
+          affectedContractCount: 2,
+          overdueSources: [],
+          unresolvedChanges: ["nice-update"],
+          acceptanceEligibleChanges: ["nice-update"],
+          errors: [],
+        }}
+        running={false}
+        onCancel={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+    expect(screen.getByText("b".repeat(64), { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(/Agent may prepare evidence in conversation/)).toBeInTheDocument();
+    await userEvent.type(screen.getByPlaceholderText("Name or local reviewer label"), "Researcher");
+    await userEvent.type(
+      screen.getByPlaceholderText(/Explain why this change is accepted/),
+      "The affected discounting contract was independently revalidated.",
+    );
+    await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("button", { name: "Record Human decision" }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      "nice-update",
+      "accept_revalidation",
+      "Researcher",
+      "The affected discounting contract was independently revalidated.",
+    );
   });
 
   const pairedAudit: HeorPairedBootstrapAudit = {

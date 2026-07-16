@@ -12,7 +12,7 @@ from datetime import date
 from pathlib import Path
 from urllib.parse import urlparse
 
-SCHEMA_VERSION = "0.1.0"
+SCHEMA_VERSION = "0.2.0"
 MAX_ARTIFACT_BYTES = 5 * 1024 * 1024
 SAFE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -32,7 +32,7 @@ CHANGE_KEYS = {
     "change_id", "source_id", "detected_on", "change_status",
     "previous_revision", "current_revision", "changed_sections", "summary",
     "affected_contracts", "required_actions", "revalidation_status",
-    "human_disposition", "evidence_paths",
+    "evidence_paths",
 }
 SOURCE_TYPES = {
     "reference_case", "reporting_standard", "method_guideline", "regulation",
@@ -241,19 +241,14 @@ def audit(artifact: object, workspace: Path) -> dict:
                 safe_local_path(evidence_path, workspace, f"{label}.evidence_paths[{index}]", errors)
             change_status = change["change_status"]
             revalidation = change["revalidation_status"]
-            disposition = change["human_disposition"]
-            if change_status not in {"suspected", "confirmed", "dismissed"}:
+            if change_status not in {"suspected", "confirmed"}:
                 errors.append(f"{label}.change_status is unsupported")
-            if revalidation not in {"not_started", "in_progress", "complete", "not_required"}:
+            if revalidation not in {"not_started", "in_progress", "ready_for_human_review"}:
                 errors.append(f"{label}.revalidation_status is unsupported")
-            if disposition not in {"pending", "accepted", "rejected"}:
-                errors.append(f"{label}.human_disposition is unsupported")
-            if change_status == "dismissed" and (disposition != "rejected" or revalidation != "not_required"):
-                errors.append(f"{label} dismissed changes require rejected/not_required")
-            if change_status in {"suspected", "confirmed"} and (
-                disposition == "pending" or revalidation not in {"complete", "not_required"}
-            ):
-                unresolved.append(change_id)
+            # Portable artifacts cannot manufacture Human authority. Every change
+            # remains unresolved until the native app binds an app-owned review
+            # event to the exact watchlist bytes.
+            unresolved.append(change_id)
 
     string_list(root.get("limitations"), "limitations", errors, required=True)
     complete = (

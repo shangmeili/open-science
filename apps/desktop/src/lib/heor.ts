@@ -1125,6 +1125,7 @@ export interface HeorEvidenceLibraryAudit {
 export interface HeorMethodsWatchlistAudit {
   exists: boolean;
   complete: boolean;
+  reviewable: boolean;
   status: "missing" | "invalid" | "draft" | "ready_for_human_review";
   watchlistId: string;
   asOfDate: string;
@@ -1135,11 +1136,50 @@ export interface HeorMethodsWatchlistAudit {
   unknownCount: number;
   overdueCount: number;
   changeCount: number;
+  reviewedChangeCount: number;
   unresolvedChangeCount: number;
   affectedContractCount: number;
   overdueSources: string[];
   unresolvedChanges: string[];
+  acceptanceEligibleChanges: string[];
   errors: string[];
+}
+
+export type HeorMethodsWatchlistReviewAction = "accept_revalidation" | "dismiss_change";
+
+export interface HeorMethodsWatchlistReviewRequest {
+  projectId: string;
+  watchlistSha256: string;
+  changeId: string;
+  action: HeorMethodsWatchlistReviewAction;
+  actorLabel: string;
+  rationale: string;
+}
+
+export interface HeorMethodsWatchlistReviewEvent {
+  schemaVersion: number;
+  sequence: number;
+  reviewId: string;
+  projectId: string;
+  watchlistId: string;
+  watchlistSha256: string;
+  changeId: string;
+  action: HeorMethodsWatchlistReviewAction;
+  actorLabel: string;
+  rationale: string;
+  timestamp: number;
+  recordPath: string;
+  recordSha256: string;
+  assurance: string;
+  previousHash: string | null;
+  eventHash: string;
+}
+
+export interface HeorMethodsWatchlistReviewLog {
+  events: HeorMethodsWatchlistReviewEvent[];
+  chainHead: string | null;
+  integrity: "verified_unanchored_sha256_chain";
+  identityAssurance: "app_owned_local_human_assertion";
 }
 
 export interface HeorEvidenceLibrarySearchHit {
@@ -3447,6 +3487,33 @@ export async function auditHeorMethodsWatchlist(): Promise<HeorMethodsWatchlistA
   return invoke<HeorMethodsWatchlistAudit>("audit_heor_methods_watchlist");
 }
 
+export async function appendHeorMethodsWatchlistReview(
+  request: HeorMethodsWatchlistReviewRequest,
+): Promise<HeorMethodsWatchlistReviewEvent> {
+  if (!isTauri) throw new Error("methods watchlist review is available only in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorMethodsWatchlistReviewEvent>("append_heor_methods_watchlist_review", {
+    request,
+  });
+}
+
+export async function listHeorMethodsWatchlistReviews(
+  projectId: string,
+): Promise<HeorMethodsWatchlistReviewLog> {
+  if (!isTauri) {
+    return {
+      events: [],
+      chainHead: null,
+      integrity: "verified_unanchored_sha256_chain",
+      identityAssurance: "app_owned_local_human_assertion",
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorMethodsWatchlistReviewLog>("list_heor_methods_watchlist_reviews", {
+    projectId,
+  });
+}
+
 export async function addHeorLibraryFiles(): Promise<string[]> {
   if (!isTauri) return [];
   const { invoke } = await import("@tauri-apps/api/core");
@@ -3623,6 +3690,7 @@ export const HEOR_BROWSER_DEMO_EVIDENCE_LIBRARY_AUDIT: HeorEvidenceLibraryAudit 
 export const HEOR_BROWSER_DEMO_METHODS_WATCHLIST_AUDIT: HeorMethodsWatchlistAudit = {
   exists: false,
   complete: false,
+  reviewable: false,
   status: "missing",
   watchlistId: "",
   asOfDate: "",
@@ -3633,10 +3701,12 @@ export const HEOR_BROWSER_DEMO_METHODS_WATCHLIST_AUDIT: HeorMethodsWatchlistAudi
   unknownCount: 0,
   overdueCount: 0,
   changeCount: 0,
+  reviewedChangeCount: 0,
   unresolvedChangeCount: 0,
   affectedContractCount: 0,
   overdueSources: [],
   unresolvedChanges: [],
+  acceptanceEligibleChanges: [],
   errors: [],
 };
 

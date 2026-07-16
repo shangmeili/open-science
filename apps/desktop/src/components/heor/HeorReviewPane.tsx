@@ -23,6 +23,7 @@ import {
   appendHeorApproval,
   appendHeorAdvancedVoiReview,
   appendHeorNetworkMetaAnalysisReview,
+  appendHeorMethodsWatchlistReview,
   appendHeorPopulationAdjustedComparisonReview,
   appendHeorRweCausalAnalysisReview,
   appendHeorPairedBootstrapReview,
@@ -107,6 +108,7 @@ import {
   type HeorEvidenceSearchAudit,
   type HeorEvidenceLibraryAudit,
   type HeorMethodsWatchlistAudit,
+  type HeorMethodsWatchlistReviewAction,
   type HeorEvidenceSelectionAudit,
   type HeorEvidenceSynthesisAudit,
   type HeorImportCandidatesResponse,
@@ -435,6 +437,8 @@ export function HeorReviewPane({
   const [evidenceSelection, setEvidenceSelection] = useState<EvidenceSelectionState>({ kind: "loading" });
   const [evidenceLibrary, setEvidenceLibrary] = useState<EvidenceLibraryState>({ kind: "loading" });
   const [methodsWatchlist, setMethodsWatchlist] = useState<MethodsWatchlistState>({ kind: "loading" });
+  const [methodsWatchlistDialogOpen, setMethodsWatchlistDialogOpen] = useState(false);
+  const [methodsWatchlistReviewRunning, setMethodsWatchlistReviewRunning] = useState(false);
   const [searchAuthorizations, setSearchAuthorizations] = useState(EMPTY_SEARCH_LOG);
   const [searchResult, setSearchResult] = useState<HeorSearchExecutionResponse | null>(null);
   const [importResult, setImportResult] = useState<HeorImportCandidatesResponse | null>(null);
@@ -1242,6 +1246,35 @@ export function HeorReviewPane({
     }
   };
 
+  const submitMethodsWatchlistReview = async (
+    changeId: string,
+    action: HeorMethodsWatchlistReviewAction,
+    actorLabel: string,
+    rationale: string,
+  ) => {
+    if (!project || methodsWatchlist.kind !== "ready"
+      || !methodsWatchlist.audit.watchlistSha256
+      || methodsWatchlistReviewRunning || !isTauri) return;
+    setMethodsWatchlistReviewRunning(true);
+    try {
+      await appendHeorMethodsWatchlistReview({
+        projectId: project.id,
+        watchlistSha256: methodsWatchlist.audit.watchlistSha256,
+        changeId,
+        action,
+        actorLabel,
+        rationale,
+      });
+      setMethodsWatchlist({ kind: "ready", audit: await auditHeorMethodsWatchlist() });
+      setMethodsWatchlistDialogOpen(false);
+      toast.success(t("methodsWatchlist.reviewRecorded"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setMethodsWatchlistReviewRunning(false);
+    }
+  };
+
   const runBudgetImpact = async () => {
     if (!project || !isTauri || budgetImpact.kind !== "ready"
       || !budgetImpact.audit.complete || running) return;
@@ -1545,6 +1578,7 @@ export function HeorReviewPane({
           <MethodsWatchlistAssessment
             state={methodsWatchlist}
             onPrepare={() => onRequestRevision(t("methodsWatchlist.preparePrompt"))}
+            onReview={isTauri ? () => setMethodsWatchlistDialogOpen(true) : undefined}
           />
         )}
 
@@ -2022,6 +2056,16 @@ export function HeorReviewPane({
             void verifyEvidenceExtractions(actor, rationale, decision, extractionIds)}
         />
       )}
+      {methodsWatchlistDialogOpen && methodsWatchlist.kind === "ready"
+        && methodsWatchlist.audit.watchlistSha256 && (
+        <MethodsWatchlistReviewDialog
+          audit={methodsWatchlist.audit}
+          running={methodsWatchlistReviewRunning}
+          onCancel={() => setMethodsWatchlistDialogOpen(false)}
+          onSubmit={(changeId, action, actor, rationale) =>
+            void submitMethodsWatchlistReview(changeId, action, actor, rationale)}
+        />
+      )}
       {pairedBootstrapDialogOpen && pairedBootstrap.kind === "ready" && (
         <PairedBootstrapReviewDialog
           audit={pairedBootstrap.audit}
@@ -2438,9 +2482,11 @@ export function MethodReviewQueue({ items }: { items: MethodReviewQueueItem[] })
 export function MethodsWatchlistAssessment({
   state,
   onPrepare,
+  onReview,
 }: {
   state: MethodsWatchlistState;
   onPrepare: () => void;
+  onReview?: () => void;
 }) {
   const { t } = useTranslation("heor");
   const audit = state.kind === "ready" ? state.audit : null;
@@ -2475,7 +2521,10 @@ export function MethodsWatchlistAssessment({
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
           <Metric label={t("methodsWatchlist.sources")} value={String(audit.sourceCount)} />
           <Metric label={t("methodsWatchlist.current")} value={String(audit.currentCount)} />
-          <Metric label={t("methodsWatchlist.changes")} value={String(audit.unresolvedChangeCount)} />
+          <Metric
+            label={t("methodsWatchlist.changes")}
+            value={`${audit.unresolvedChangeCount}/${audit.changeCount}`}
+          />
         </div>
       )}
       {issues.length > 0 && (
@@ -2484,16 +2533,185 @@ export function MethodsWatchlistAssessment({
         </ul>
       )}
       {!complete && state.kind !== "loading" && (
-        <button
-          type="button"
-          onClick={onPrepare}
-          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
-        >
-          <MessageSquareText size={13} /> {t("methodsWatchlist.ask")}
-        </button>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={onPrepare}
+            className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+          >
+            <MessageSquareText size={13} /> {t("methodsWatchlist.ask")}
+          </button>
+          {onReview && audit?.reviewable && audit.watchlistSha256
+            && audit.unresolvedChangeCount > 0 && (
+            <button
+              type="button"
+              onClick={onReview}
+              className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline"
+            >
+              <ShieldCheck size={13} /> {t("methodsWatchlist.review")}
+            </button>
+          )}
+        </div>
       )}
       <p className="mt-3 text-[10px] leading-4 text-muted">{t("methodsWatchlist.note")}</p>
     </section>
+  );
+}
+
+export function MethodsWatchlistReviewDialog({
+  audit,
+  running,
+  onCancel,
+  onSubmit,
+}: {
+  audit: HeorMethodsWatchlistAudit;
+  running: boolean;
+  onCancel: () => void;
+  onSubmit: (
+    changeId: string,
+    action: HeorMethodsWatchlistReviewAction,
+    actor: string,
+    rationale: string,
+  ) => void;
+}) {
+  const { t } = useTranslation("heor");
+  const firstChange = audit.unresolvedChanges[0] ?? "";
+  const [changeId, setChangeId] = useState(firstChange);
+  const acceptanceEligible = audit.acceptanceEligibleChanges.includes(changeId);
+  const [action, setAction] = useState<HeorMethodsWatchlistReviewAction>(
+    audit.acceptanceEligibleChanges.includes(firstChange)
+      ? "accept_revalidation"
+      : "dismiss_change",
+  );
+  const [actor, setActor] = useState("");
+  const [rationale, setRationale] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const valid = Boolean(changeId && audit.watchlistSha256)
+    && (action !== "accept_revalidation" || acceptanceEligible)
+    && actor.trim().length > 0 && rationale.trim().length > 1 && confirmed && !running;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && !running && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, running]);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+      onClick={() => !running && onCancel()}
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("methodsWatchlist.reviewTitle")}
+        className="w-full max-w-md rounded-card border border-border bg-surface p-5 shadow-card"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 text-sm font-semibold text-text">
+          <ShieldCheck size={17} className="text-accent" /> {t("methodsWatchlist.reviewTitle")}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted">{t("methodsWatchlist.reviewBoundary")}</p>
+        <label className="mt-4 block text-xs font-medium text-text">
+          {t("methodsWatchlist.changeLabel")}
+          <select
+            value={changeId}
+            onChange={(event) => {
+              const next = event.target.value;
+              setChangeId(next);
+              if (!audit.acceptanceEligibleChanges.includes(next)) setAction("dismiss_change");
+              setConfirmed(false);
+            }}
+            className="mt-1.5 w-full rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-accent"
+          >
+            {audit.unresolvedChanges.map((change) => <option key={change}>{change}</option>)}
+          </select>
+        </label>
+        <div className="mt-3 break-all rounded-input border border-border bg-bg p-3 font-mono text-[10px] leading-4 text-muted">
+          {t("methodsWatchlist.hashLabel")}: {audit.watchlistSha256}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label={t("methodsWatchlist.actionLabel")}>
+          <button
+            type="button"
+            disabled={!acceptanceEligible}
+            aria-pressed={action === "accept_revalidation"}
+            onClick={() => { setAction("accept_revalidation"); setConfirmed(false); }}
+            className={cn(
+              "rounded-input border px-3 py-2 text-xs font-medium disabled:opacity-35",
+              action === "accept_revalidation"
+                ? "border-ok bg-ok/10 text-ok"
+                : "border-border text-muted",
+            )}
+          >
+            {t("methodsWatchlist.acceptRevalidation")}
+          </button>
+          <button
+            type="button"
+            aria-pressed={action === "dismiss_change"}
+            onClick={() => { setAction("dismiss_change"); setConfirmed(false); }}
+            className={cn(
+              "rounded-input border px-3 py-2 text-xs font-medium",
+              action === "dismiss_change"
+                ? "border-warning bg-warning/10 text-warning"
+                : "border-border text-muted",
+            )}
+          >
+            {t("methodsWatchlist.dismissChange")}
+          </button>
+        </div>
+        {!acceptanceEligible && (
+          <p className="mt-2 text-[10px] leading-4 text-warning">
+            {t("methodsWatchlist.acceptanceUnavailable")}
+          </p>
+        )}
+        <label className="mt-4 block text-xs font-medium text-text">
+          {t("dialog.actor")}
+          <input
+            value={actor}
+            onChange={(event) => setActor(event.target.value)}
+            autoFocus
+            placeholder={t("dialog.actorPlaceholder")}
+            className="mt-1.5 w-full rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent"
+          />
+        </label>
+        <label className="mt-3 block text-xs font-medium text-text">
+          {t("dialog.rationale")}
+          <textarea
+            value={rationale}
+            onChange={(event) => setRationale(event.target.value)}
+            placeholder={t("methodsWatchlist.rationalePlaceholder")}
+            rows={3}
+            className="mt-1.5 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent"
+          />
+        </label>
+        <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-text">
+          <input
+            type="checkbox"
+            checked={confirmed}
+            onChange={(event) => setConfirmed(event.target.checked)}
+            className="mt-1 accent-[var(--color-accent)]"
+          />
+          <span>{t("methodsWatchlist.confirmExactHash")}</span>
+        </label>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={running}
+            onClick={onCancel}
+            className="rounded-input border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-surface-2 disabled:opacity-40"
+          >
+            {t("dialog.cancel")}
+          </button>
+          <button
+            type="button"
+            disabled={!valid}
+            onClick={() => onSubmit(changeId, action, actor.trim(), rationale.trim())}
+            className="rounded-input bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+          >
+            {running ? t("methodsWatchlist.recording") : t("methodsWatchlist.recordDecision")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
