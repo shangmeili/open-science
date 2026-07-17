@@ -175,7 +175,7 @@ AI4HEOR 会将旧默认目录 `~/Documents/OpenScience` 原子重命名并保留
 如果两个目录都已存在，则不自动合并或删除其中任何一个。在 Settings 中明确选择的
 基础目录始终优先。
 
-当前构建尚未代码签名或 notarize。
+当前验证的 0.1.27 本地 x64 macOS 构建尚未代码签名或 notarize。
 
 **macOS**：如果 Gatekeeper 提示应用已损坏或来自未知开发者，把应用安装到 Applications 后运行：
 
@@ -253,10 +253,11 @@ pnpm lint
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
 近期工作集中在四目标哈希绑定验包、Windows 首次启动关口、签名/notarize
-发布、真实 Linux 桌面会话验证、自动更新和连接器加固。AI4HEOR `0.1.26` x64
-macOS DMG 已从干净提交 `d864d47cf19eec51d18b07d5ccb9742162c1bafa` 构建，验证了 282 个
-受控资源、177 项包内 HEOR 测试，以及隔离环境中的应用复制、LaunchServices 首启、
-内置 OpenCode 子进程、工作区创建与清理。它仍未经 Developer ID 签名或 notarize；
+发布、真实 Linux 桌面会话验证、自动更新和连接器加固。AI4HEOR `0.1.27` x64
+macOS DMG 已从干净提交 `fc7657d109728bff89bd647387e5381e26d77fc7` 构建，验证了 282 个
+受控资源、177 项包内 HEOR 测试，以及两次隔离 LaunchServices 运行：全新创建
+`Documents/AI4HEOR`，以及保留内容地将 `Documents/OpenScience` 迁移为 AI4HEOR；
+两次均证明应用复制、单一应用进程、单一内置 OpenCode 子进程与完整清理。它仍未经 Developer ID 签名或 notarize；
 这些工程证据不代表科学有效性。
 
 ## 参与贡献

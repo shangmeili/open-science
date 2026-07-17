@@ -201,7 +201,7 @@ does not yet exist, AI4HEOR atomically renames the prior default
 exist, it does not merge or delete either one; a base folder explicitly chosen in
 Settings always wins.
 
-The currently verified 0.1.26 local x64 macOS artifact is not code-signed or notarized. The
+The currently verified 0.1.27 local x64 macOS artifact is not code-signed or notarized. The
 `v*` tag pipeline now fails closed unless both macOS targets receive Developer ID and
 Apple notarization credentials and subsequently pass signature, hardened-runtime,
 stapled-ticket, and Gatekeeper checks. No credentialed tag run has produced that evidence
@@ -299,11 +299,13 @@ Near-term work is focused on executing the configured four-target hash-bound pac
 manifest and native Windows/Apple-Silicon first-start gates, the first credentialed
 Developer-ID/notarized macOS tag release, Windows signing,
 physical Linux desktop-session verification, auto-update, richer connector hardening, and
-continued reproducibility review. The AI4HEOR 0.1.26 x64 macOS DMG is locally built from
-clean commit `d864d47cf19eec51d18b07d5ccb9742162c1bafa` and payload-verified: all 282
+continued reproducibility review. The AI4HEOR 0.1.27 x64 macOS DMG is locally built from
+clean commit `fc7657d109728bff89bd647387e5381e26d77fc7` and payload-verified: all 282
 configured resources match source bytes, all 177 deterministic HEOR tests pass
-against the mounted core, and an isolated LaunchServices first start proves the copied app,
-bundled OpenCode child, workspace creation, and cleanup. The 0.1.22 Apple Silicon DMG was separately cross-built from clean commit
+against the mounted core, and two isolated LaunchServices runs prove fresh
+`Documents/AI4HEOR` creation plus content-preserving `Documents/OpenScience` migration,
+with one copied app process, one bundled OpenCode child, and verified cleanup in each run.
+The 0.1.22 Apple Silicon DMG was separately cross-built from clean commit
 `d2363138449566137c8374386acdf1f8774faad3` on an Intel Mac: read-only inspection proved
 pure-arm64 main/OpenCode/uv payloads, all 265 configured resources byte-identical to
 source, and all 177 deterministic HEOR tests against the mounted core. That is bounded
