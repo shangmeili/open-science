@@ -508,12 +508,13 @@ competitors.
   first launch works without CLI knowledge.
 - **Acceptance.** A non-technical user installs and reaches a working first
   session on both macOS and Windows via a signed installer.
-- **Status.** 🟡 AI4HEOR 0.1.23 macOS x64 installer plus 0.1.22 cross-built macOS arm64
-  DMG and Linux x86_64 `.deb`/`.rpm` shipped locally; pinned sidecars are bundled. The
+- **Status.** 🟡 AI4HEOR 0.1.23 macOS x64 installer and Linux x86_64 `.deb`/`.rpm`, plus
+  the 0.1.22 cross-built macOS arm64 DMG, shipped locally; pinned sidecars are bundled. The
   x64 DMG is bound to clean commit `892de95e1f5c1b270febd91a2c05bad1a1aa294e`, has all
   265 configured resources byte-identical to source, and passes all 177 deterministic
-  HEOR tests against its mounted core. Both Linux packages were built
-  in an isolated Ubuntu 22.04 builder, structurally and byte-for-byte resource verified,
+  HEOR tests against its mounted core. Both 0.1.23 Linux packages are bound to clean
+  commit `98daee8c0279c00f4c41791e52489915191e9b4f`, were built in an isolated Ubuntu 22.04
+  builder, structurally and byte-for-byte resource verified,
   and passed all 177 deterministic HEOR tests from their extracted payloads, with all 265
   configured resources matching source bytes. The 0.1.22 arm64 DMG is
   bound to clean commit `d2363138449566137c8374386acdf1f8774faad3`; read-only inspection

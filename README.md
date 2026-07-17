@@ -316,7 +316,8 @@ only the final job may create a draft after all four evidence files and the cros
 manifest validate, and it uploads exactly those verified installers and records. This gate
 is locally contract-tested and rejects the
 current unsigned 0.1.23 x64 DMG, but it has not been exercised with real Apple credentials.
-The AI4HEOR 0.1.22 Linux `.deb` and `.rpm` are also payload-verified, including all 177
+The AI4HEOR 0.1.23 Linux `.deb` and `.rpm` were built from clean commit
+`98daee8c0279c00f4c41791e52489915191e9b4f` and are payload-verified, including all 177
 deterministic HEOR tests and 265 configured resources from each extracted package. The
 `.deb` passes a clean Ubuntu 22.04 install and headless first-start check; the `.rpm`
 passes the equivalent native check on Fedora 42. A real visual Linux desktop-session

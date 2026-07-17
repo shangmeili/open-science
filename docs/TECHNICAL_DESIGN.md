@@ -17,8 +17,8 @@
 > Mac; read-only inspection verified pure-arm64 payloads, all 265 resources byte-for-byte,
 > and all 177 mounted-core HEOR tests. Native sidecar execution and first start remain
 > unverified because the strict verifier correctly rejects arm64 execution on that host.
-> The 0.1.22 Linux `.deb` and `.rpm` are
-> built and content-verified from an isolated Ubuntu 22.04 builder. The `.deb` also passes
+> The 0.1.23 Linux `.deb` and `.rpm` are built and content-verified from clean commit
+> `98daee8c0279c00f4c41791e52489915191e9b4f` in an isolated Ubuntu 22.04 builder. The `.deb` also passes
 > a clean Ubuntu 22.04 install and headless first start, while the `.rpm` passes the
 > equivalent native check on Fedora 42. Fail-closed native package evidence is wired
 > for macOS arm64/x64, Windows x64, and Linux x64, with a four-target manifest gate;
