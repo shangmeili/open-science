@@ -352,7 +352,7 @@ If you use AI4HEOR in your research, please cite it:
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.29},
+  version = {0.1.30},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

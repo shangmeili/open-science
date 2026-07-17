@@ -1,9 +1,10 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.29 source, 2026-07-17).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.30 source, 2026-07-17).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; a HEOR-default root route, typed HEOR project creation,
-> localized unsent project-intake drafts, HEOR-preserving project session routes;
+> localized unsent project-intake drafts, a seven-language non-blocking first-use
+> control boundary, HEOR-preserving project session routes;
 > first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
 > including the 13/15-artifact PSM validation/report contract and deterministic release replay;

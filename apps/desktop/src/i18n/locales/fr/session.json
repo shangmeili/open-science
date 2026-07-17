@@ -60,6 +60,18 @@
     "clearDescription": "Identique à /new ; les fichiers restent dans ce dossier",
     "cleared": "Contexte du chat effacé. Les fichiers restent dans le même dossier."
   },
+  "firstRun": {
+    "title": "Commencez en gardant le contrôle",
+    "body": "AI4HEOR assiste votre recherche ; il ne dirige pas l’étude et ne prend pas de décisions scientifiques à votre place.",
+    "points": {
+      "local": { "title": "Local par défaut", "body": "Les projets et fichiers restent sur cet appareil, sauf utilisation explicite d’un service externe." },
+      "provider": { "title": "Vous choisissez le modèle", "body": "Choisissez un fournisseur compatible ou un point d’accès local. Rien n’est envoyé avant l’envoi d’une demande de recherche." },
+      "approval": { "title": "Actions toujours révisables", "body": "Le mode par défaut demande confirmation avant suppression, installation, accès réseau ou distant, et élévation de privilèges." },
+      "human": { "title": "Autorité scientifique humaine", "body": "La sortie du modèle est un brouillon. Méthodes, preuves, hypothèses, interprétation, validation et diffusion restent des décisions humaines." }
+    },
+    "continue": "Accéder à l’espace HEOR",
+    "settings": "Vérifier le modèle et la confidentialité"
+  },
   "starters": {
     "newSession": "Nouvelle session",
     "heading": "Quelle question HEOR devons-nous traiter ?",

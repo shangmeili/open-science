@@ -156,8 +156,15 @@ After downloading and first opening, the user enters onboarding:
 6. Create the first research project.
 
 First launch must clearly tell the user: data is stored locally by default; the agent
-requests authorization before running commands; the user must supply their own model
-API key; research results need human verification and are not final conclusions.
+requests authorization before sensitive actions; the user must explicitly select a
+model and configure credentials when its provider requires them; research results need
+human verification and are not final conclusions.
+
+The implemented first-use guide is deliberately not a setup wizard or scientific
+form. It appears once above the still-visible natural-language HEOR entry, explains
+local storage, provider choice, default approval boundaries, and Human scientific
+authority, and links to model/privacy settings without selecting anything. Completion
+is a local UI preference only and cannot authorize research, data transfer, or release.
 
 #### 5.1.2 Default HEOR entry
 

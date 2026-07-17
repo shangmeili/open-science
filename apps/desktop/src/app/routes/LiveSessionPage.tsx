@@ -14,6 +14,7 @@ import { Composer } from "@/components/thread/Composer";
 import { baseName } from "@/components/thread/WorkspaceChip";
 import { WorkflowStarters } from "@/components/thread/WorkflowStarters";
 import { HeorStarters } from "@/components/heor/HeorStarters";
+import { FirstRunGuide } from "@/components/heor/FirstRunGuide";
 import { HeorReviewPane } from "@/components/heor/HeorReviewPane";
 import { InteractionPrompt } from "@/components/thread/InteractionPrompt";
 import { InspectorShell } from "@/components/inspector/InspectorShell";
@@ -363,9 +364,12 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
         <div ref={chatRef} onScroll={onChatScroll} className="flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-8 py-6">
             {isEmpty && !sessionId && heorMode && (
-              <HeorStarters
-                onPick={(prompt) => useUiStore.getState().setComposerDraft(prompt)}
-              />
+              <>
+                <FirstRunGuide onOpenSettings={() => navigate("/settings")} />
+                <HeorStarters
+                  onPick={(prompt) => useUiStore.getState().setComposerDraft(prompt)}
+                />
+              </>
             )}
             {/* Deliberate workspace switches don't render anything at all (they're
                 masked as connected); a genuine boot/reconnect shows only the

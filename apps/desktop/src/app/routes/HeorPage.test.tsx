@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { renderAt } from "@/test/render";
 import { useRuntimeStore } from "@/lib/runtime";
 import { useUiStore } from "@/lib/store";
+import { AI4HEOR_FIRST_RUN_KEY } from "@/components/heor/FirstRunGuide";
 
 const defaults = {
   status: useRuntimeStore.getState().status,
@@ -16,9 +17,36 @@ afterEach(() => {
   useRuntimeStore.setState(defaults);
   useUiStore.getState().setComposerDraft(null);
   useUiStore.getState().setLocale("en");
+  window.localStorage.removeItem(AI4HEOR_FIRST_RUN_KEY);
 });
 
 describe("AI4HEOR conversation route", () => {
+  it("explains the first-run local, model, approval, and Human boundaries without a form", async () => {
+    useRuntimeStore.setState({
+      status: "ready",
+      currentId: null,
+      defaultModel: null,
+    });
+    renderAt("/heor");
+
+    expect(await screen.findByRole("heading", { name: "Begin with you in control" }))
+      .toBeInTheDocument();
+    expect(screen.getByText("Local by default")).toBeInTheDocument();
+    expect(screen.getByText("Your choice of model")).toBeInTheDocument();
+    expect(screen.getByText("Actions remain reviewable")).toBeInTheDocument();
+    expect(screen.getByText("Human scientific authority")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /provider|api key|workspace/i }))
+      .not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Enter the HEOR workspace" }));
+
+    expect(screen.queryByRole("heading", { name: "Begin with you in control" }))
+      .not.toBeInTheDocument();
+    expect(window.localStorage.getItem(AI4HEOR_FIRST_RUN_KEY)).toBe("complete");
+    expect(screen.getByRole("heading", { name: "Start with the research question" }))
+      .toBeInTheDocument();
+  });
+
   it("makes natural-language research the primary empty state", async () => {
     useRuntimeStore.setState({
       status: "ready",

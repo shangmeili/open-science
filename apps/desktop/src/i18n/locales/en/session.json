@@ -60,6 +60,18 @@
     "clearDescription": "Same as /new; files stay in this folder",
     "cleared": "Chat context cleared. Files stay in the same folder."
   },
+  "firstRun": {
+    "title": "Begin with you in control",
+    "body": "AI4HEOR assists your research; it does not lead the study or make scientific decisions for you.",
+    "points": {
+      "local": { "title": "Local by default", "body": "Projects and research files stay on this device unless you explicitly use an external service." },
+      "provider": { "title": "Your choice of model", "body": "Choose any supported provider or local endpoint. Nothing is sent until you send a research request." },
+      "approval": { "title": "Actions remain reviewable", "body": "The default approval mode asks before deletion, installation, network, remote, or privileged actions." },
+      "human": { "title": "Human scientific authority", "body": "Model output is a draft. Methods, evidence, assumptions, interpretation, validation, and release remain Human decisions." }
+    },
+    "continue": "Enter the HEOR workspace",
+    "settings": "Review model and privacy settings"
+  },
   "starters": {
     "newSession": "New session",
     "heading": "What HEOR question should we work on?",

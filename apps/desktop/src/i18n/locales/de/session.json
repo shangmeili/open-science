@@ -60,6 +60,18 @@
     "clearDescription": "Wie /new; Dateien bleiben in diesem Ordner",
     "cleared": "Chat-Kontext geleert. Dateien bleiben im selben Ordner."
   },
+  "firstRun": {
+    "title": "Starten Sie mit voller Kontrolle",
+    "body": "AI4HEOR unterstützt Ihre Forschung; es leitet die Studie nicht und trifft keine wissenschaftlichen Entscheidungen für Sie.",
+    "points": {
+      "local": { "title": "Standardmäßig lokal", "body": "Projekte und Forschungsdateien bleiben auf diesem Gerät, sofern Sie nicht ausdrücklich einen externen Dienst nutzen." },
+      "provider": { "title": "Sie wählen das Modell", "body": "Wählen Sie einen unterstützten Anbieter oder lokalen Endpunkt. Erst beim Senden eines Forschungsauftrags werden Inhalte übertragen." },
+      "approval": { "title": "Aktionen bleiben prüfbar", "body": "Der Standardmodus fragt vor Löschen, Installation, Netzwerkzugriff, Remotezugriff oder Rechteerweiterung nach." },
+      "human": { "title": "Wissenschaftliche Hoheit beim Menschen", "body": "Modellausgaben sind Entwürfe. Methoden, Evidenz, Annahmen, Interpretation, Validierung und Freigabe bleiben menschliche Entscheidungen." }
+    },
+    "continue": "HEOR-Arbeitsbereich öffnen",
+    "settings": "Modell- und Datenschutzeinstellungen prüfen"
+  },
   "starters": {
     "newSession": "Neue Sitzung",
     "heading": "Welche HEOR-Frage sollen wir bearbeiten?",

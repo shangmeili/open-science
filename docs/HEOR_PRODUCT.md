@@ -123,6 +123,23 @@ artifacts; they do not transfer scientific leadership to the runtime. To protect
 user-authored project instructions, harness seeding is deliberately non-clobbering.
 An existing project is never silently rewritten when the bundled contract changes.
 
+## First-use control boundary
+
+A fresh local app profile presents one concise, non-blocking guide above the HEOR
+conversation. It states four boundaries before the researcher begins: project files
+stay local unless an external service is explicitly used; the researcher chooses the
+model provider or local endpoint and content is sent only with a research request;
+the default approval mode asks before destructive, installation, network, remote, or
+privileged actions; and every model output remains a draft until Human scientific
+review. The same guide is shipped in English, Simplified Chinese, Japanese, Spanish,
+German, French, and Korean.
+
+This guide contains no scientific intake form, does not select a provider, method,
+evidence source, assumption, or approval, and does not hide the natural-language
+research starters. Its local completion marker is only a UI preference; it is not a
+consent record, research approval, authenticated identity, or release event. Opening
+model and privacy settings does not mark the guide complete.
+
 ## HEOR project initiation contract
 
 AI4HEOR opens on the HEOR natural-language workspace, not the inherited generic
