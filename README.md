@@ -312,9 +312,9 @@ engine as the AI assistant; the OpenCode implementation name and local endpoint 
 only in Settings → Advanced diagnostics. The default Settings surface contains governed
 first-party HEOR evidence access, managed Jupyter, and explicitly unmanaged user-added
 MCP servers; it no longer provisions the inherited generic Open Science connector catalog.
-The 0.1.22 Apple Silicon DMG was separately cross-built from clean commit
-`d2363138449566137c8374386acdf1f8774faad3` on an Intel Mac: read-only inspection proved
-pure-arm64 main/OpenCode/uv payloads, all 265 configured resources byte-identical to
+The current 0.1.30 Apple Silicon DMG was separately cross-built from the same clean commit
+`0beb7b2bcb04a796f256bd8f8528bb787aa77319` on an Intel Mac: read-only inspection proved
+pure-arm64 main/OpenCode/uv payloads, all 282 configured resources byte-identical to
 source, and all 177 deterministic HEOR tests against the mounted core. That is bounded
 cross-host package evidence, not native Apple Silicon execution: the strict verifier
 correctly stops when the Intel host cannot execute the arm64 sidecar, so no formal arm64

@@ -19,9 +19,9 @@
 > all 177 mounted-core HEOR tests pass, and isolated fresh plus legacy-migration starts
 > were verified. Its ordinary research and closed-Settings surfaces identify only the AI
 > assistant; the OpenCode engine name and local endpoint are confined to an explicitly
-> opened Advanced diagnostics section. A 0.1.22 Apple Silicon DMG was separately
-> cross-built from clean commit `d2363138449566137c8374386acdf1f8774faad3` on an Intel
-> Mac; read-only inspection verified pure-arm64 payloads, all 265 resources byte-for-byte,
+> opened Advanced diagnostics section. The current 0.1.30 Apple Silicon DMG was separately
+> cross-built from the same clean commit `0beb7b2bcb04a796f256bd8f8528bb787aa77319` on an Intel
+> Mac; read-only inspection verified pure-arm64 payloads, all 282 resources byte-for-byte,
 > and all 177 mounted-core HEOR tests. Native sidecar execution and first start remain
 > unverified because the strict verifier correctly rejects arm64 execution on that host.
 > The 0.1.23 Linux `.deb` and `.rpm` are built and content-verified from clean commit
@@ -867,7 +867,8 @@ timestamps, sealed resources, hardened runtime on every executable, no true
 fields, so a missing workflow flag cannot be recorded as a trusted macOS release. It does
 not install the app into `/Applications` or establish visual/first-start acceptance.
 
-The 0.1.22 arm64 DMG was additionally cross-built on an Intel Mac. Cross-host inspection
+The current 0.1.30 arm64 DMG was additionally cross-built from clean source commit
+`0beb7b2bcb04a796f256bd8f8528bb787aa77319` on an Intel Mac. Cross-host inspection
 can prove bundle metadata, thin Mach-O architectures, exact sidecar/source bytes, exact
 resource bytes, and the platform-independent HEOR suite. It cannot execute the arm64
 sidecars or desktop binary. The native verifier therefore fails closed with `Bad CPU type`
