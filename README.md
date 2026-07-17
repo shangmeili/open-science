@@ -200,7 +200,7 @@ does not yet exist, AI4HEOR atomically renames the prior default
 exist, it does not merge or delete either one; a base folder explicitly chosen in
 Settings always wins.
 
-The currently verified 0.1.29 local x64 macOS artifact is not code-signed or notarized. The
+The currently verified 0.1.30 local x64 macOS artifact is not code-signed or notarized. The
 `v*` tag pipeline now fails closed unless both macOS targets receive Developer ID and
 Apple notarization credentials and subsequently pass signature, hardened-runtime,
 stapled-ticket, and Gatekeeper checks. No credentialed tag run has produced that evidence
@@ -298,16 +298,18 @@ Near-term work is focused on executing the configured four-target hash-bound pac
 manifest and native Windows/Apple-Silicon first-start gates, the first credentialed
 Developer-ID/notarized macOS tag release, Windows signing,
 physical Linux desktop-session verification, auto-update, richer connector hardening, and
-continued reproducibility review. The AI4HEOR 0.1.29 x64 macOS DMG is locally built from
-clean commit `b1a177a26d0d1c2f0d51a637e2a9c511faa9784e` and payload-verified: all 282
+continued reproducibility review. The AI4HEOR 0.1.30 x64 macOS DMG is locally built from
+clean commit `0beb7b2bcb04a796f256bd8f8528bb787aa77319` and payload-verified: all 282
 configured resources match source bytes, all 177 deterministic HEOR tests pass
 against the mounted core, and two isolated LaunchServices runs prove fresh
 `Documents/AI4HEOR` creation plus content-preserving `Documents/OpenScience` migration,
 with one copied app process, one bundled OpenCode child, and verified cleanup in each run.
-The default entry now creates a typed HEOR project and prepares a localized, unsent
-natural-language research intake. The research surface describes the engine as the AI
-assistant; the OpenCode implementation name and local endpoint are visible only in
-Settings → Advanced diagnostics. The default Settings surface contains governed
+The default entry creates a typed HEOR project and prepares a localized, unsent
+natural-language research intake. A seven-language first-use guide explains local storage,
+model choice, approval boundaries, and Human scientific authority without collecting a
+scientific form or hiding the research conversation. The research surface describes the
+engine as the AI assistant; the OpenCode implementation name and local endpoint are visible
+only in Settings → Advanced diagnostics. The default Settings surface contains governed
 first-party HEOR evidence access, managed Jupyter, and explicitly unmanaged user-added
 MCP servers; it no longer provisions the inherited generic Open Science connector catalog.
 The 0.1.22 Apple Silicon DMG was separately cross-built from clean commit
@@ -328,7 +330,7 @@ silently acquire those claims. Tagged matrix jobs no longer create or populate a
 only the final job may create a draft after all four evidence files and the cross-platform
 manifest validate, and it uploads exactly those verified installers and records. This gate
 is locally contract-tested and rejects the
-current unsigned 0.1.29 x64 DMG, but it has not been exercised with real Apple credentials.
+current unsigned 0.1.30 x64 DMG, but it has not been exercised with real Apple credentials.
 The AI4HEOR 0.1.23 Linux `.deb` and `.rpm` were built from clean commit
 `98daee8c0279c00f4c41791e52489915191e9b4f` and are payload-verified, including all 177
 deterministic HEOR tests and 265 configured resources from each extracted package. The
