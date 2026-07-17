@@ -302,9 +302,9 @@ export async function setPythonPath(path: string): Promise<void> {
   await invoke("set_python_path", { path });
 }
 
-/** One live output line from a uv provisioning run (jupyter / science MCP). */
+/** One live output line from the Jupyter uv provisioning run. */
 export interface SetupProgress {
-  task: "jupyter" | "science";
+  task: "jupyter";
   line: string;
 }
 
@@ -315,22 +315,6 @@ export async function watchSetupProgress(
   if (!isTauri) return () => {};
   const { listen } = await import("@tauri-apps/api/event");
   return listen<SetupProgress>("setup-progress", (e) => cb(e.payload));
-}
-
-/** Managed interpreter path for the shared science-MCP env, or null if not yet
- *  provisioned (desktop only). */
-export async function scienceMcpPython(): Promise<string | null> {
-  if (!isTauri) return null;
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<string | null>("science_mcp_python");
-}
-
-/** Provision one open-source MCP pip package into the shared isolated env and
- *  return the managed Python path to launch it with (desktop only). */
-export async function setupScienceMcp(pkg: string): Promise<string> {
-  if (!isTauri) throw new Error("not running in the desktop app");
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<string>("setup_science_mcp", { package: pkg });
 }
 
 /** Auto-start Jupyter on launch when it was enabled before. Silent no-op otherwise. */

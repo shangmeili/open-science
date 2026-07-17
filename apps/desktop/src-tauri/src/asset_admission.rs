@@ -527,9 +527,9 @@ mod tests {
         let (audit, deployments) = validate_registry(REGISTRY);
         assert!(audit.complete, "{:?}", audit.errors);
         assert!(!audit.fail_closed);
-        assert_eq!(audit.total_count, 12);
+        assert_eq!(audit.total_count, 14);
         assert_eq!(audit.admitted_count, 0);
-        assert_eq!(audit.quarantined_count, 8);
+        assert_eq!(audit.quarantined_count, 10);
         assert_eq!(audit.rejected_count, 4);
         assert!(deployments.is_empty());
     }

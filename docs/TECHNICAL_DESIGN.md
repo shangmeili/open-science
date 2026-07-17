@@ -120,7 +120,7 @@ AI4HEOR Desktop
 ├── Agent Runtime: OpenCode (bundled single-binary sidecar)
 ├── Agent Protocol: OpenCode HTTP + SSE API (opencode serve)
 ├── Skills Layer: OpenCode skills/agents + optional third-party scientific skills
-├── MCP Layer: filesystem / paper-search / BioMCP / Zotero / GitHub / custom
+├── Capability Layer: governed HEOR evidence / managed Jupyter / user-managed MCP
 ├── Execution Layer: OpenCode agents/tools + optional Jupyter Kernel Gateway
 ├── Storage: Local workspace + SQLite + JSONL provenance
 └── Packaging: Tauri DMG / APP / NSIS / MSI / DEB / RPM
@@ -652,10 +652,20 @@ assumption. This is not a matrix-estimation or repair service.
 
 ### 6.4 MCP servers
 
-First batch: `filesystem` (project files), `paper-search-mcp` (literature), `BioMCP`
-(biomedical databases), `Zotero MCP` (library), `GitHub MCP` (repos/issues/releases),
-`local runtime MCP` (execution status). v1 ships filesystem + paper search first;
-BioMCP and Zotero follow.
+AI4HEOR separates product-owned capabilities from arbitrary MCP processes:
+
+1. `$heor-evidence-search` is a native fixed-endpoint PubMed and
+   ClinicalTrials.gov metadata route with request-hash binding and Human network
+   authorization. It is not MCP passthrough.
+2. Jupyter is the only one-click managed local computation server.
+3. Local or remote MCP servers manually added by a researcher remain compatible
+   but unmanaged. Existing configured legacy servers are preserved on upgrade.
+
+No third-party MCP is a default until a pinned, per-tool adapter passes license,
+egress, rights, methods, adversarial, cross-platform, and kill-switch admission.
+Paper Search MCP and BioMCP are registered as quarantined candidates; the
+generic Materials Project, FRED, space-weather, Open-Meteo, and USGS entries are
+retired from the AI4HEOR default catalog.
 
 ## 7. Execution layer
 

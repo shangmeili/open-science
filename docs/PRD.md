@@ -415,8 +415,10 @@ reimbursement, or policy conclusions.
   Markdown report export, workflow template library, fuller review panel.
 - **v0.3 Notebook Runtime** — Jupyter Kernel Gateway, persistent Python kernel, notebook
   preview, R support, Quarto / PDF / DOCX export.
-- **v0.4 Advanced Science** — BioMCP; PubMed / GEO / ChEMBL / UniProt connectors;
-  RDKit / py3Dmol; single-cell and molecular-screening templates; HPC / SSH / Modal runner.
+- **v0.4 Advanced HEOR** — individually admitted HEOR source adapters, survival
+  and evidence-synthesis execution, advanced uncertainty/VOI, dynamic BIA,
+  reproducibility packages, and optional isolated R/Stata/HPC runners. No broad
+  biomedical server becomes method or approval authority.
 
 ## 10. Non-functional requirements
 

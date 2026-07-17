@@ -31,7 +31,7 @@
     "mirrorPython": "Python download",
     "mirrorPypiPlaceholder": "https://pypi.tuna.tsinghua.edu.cn/simple",
     "mirrorPythonPlaceholder": "https://mirror.example.com/python-build-standalone",
-    "mirrorHint": "Optional mirrors, used only when setting up Python tools (Jupyter, science databases) on networks where pypi.org / github.com are slow. Leave blank for defaults."
+    "mirrorHint": "Optional mirrors, used only when setting up local Python tools such as Jupyter on networks where pypi.org / github.com are slow. Leave blank for defaults."
   },
   "updates": {
     "title": "App updates",
@@ -111,15 +111,17 @@
     "importLogin": "Already use the OpenCode CLI? Import its login"
   },
   "mcp": {
-    "title": "MCP servers",
-    "hint": "Extra tools for the agent (Model Context Protocol) — e.g. a Jupyter or browser MCP",
+    "title": "Evidence and MCP tools",
+    "hint": "Built-in HEOR evidence access plus optional researcher-managed MCP servers",
     "connectPrompt": "Connect the runtime to configure MCP servers.",
-    "openSource": "open source",
-    "enterKeyFirstTitle": "Enter the API key first",
+    "builtIn": "built in",
+    "humanAuthorization": "Human authorization",
+    "heorEvidenceLabel": "HEOR evidence search",
+    "heorEvidenceDescription": "Fixed-endpoint PubMed and ClinicalTrials.gov metadata retrieval. The agent prepares a hash-bound request; only the Human can authorize network access.",
+    "heorEvidenceSources": "{{sources}} · ${{id}}",
+    "externalBoundary": "Servers you add are unmanaged external capabilities. Review their code, license, data egress, and credentials; they gain no scientific or approval authority.",
     "settingUp": "Setting up…",
     "enable": "Enable",
-    "freeKeySuffix": "(free key)",
-    "getFreeKey": "Get a free key",
     "jupyterLabel": "Jupyter",
     "jupyterDescription": "lets the agent drive real notebooks · isolated env w/ numpy·pandas·matplotlib, ~500 MB on first run · once set up, the app's Run button uses it too, so you and the agent share one Python",
     "setUpAndEnable": "Set up & enable",

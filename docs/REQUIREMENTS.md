@@ -1,5 +1,13 @@
 # Open Science Desktop — Prioritized Requirements (Community-Informed)
 
+> **Historical upstream baseline.** This file records the inherited
+> multi-discipline Open Science product requirements. It is not the current
+> AI4HEOR delivery contract. `docs/PRD.md`, `docs/HEOR_PRODUCT.md`, and
+> `docs/HEOR_ECOSYSTEM.md` govern the HEOR product. In particular, inherited
+> generic one-click MCP claims below were superseded on 2026-07-17: AI4HEOR
+> ships governed first-party HEOR evidence access, managed Jupyter, and an
+> explicitly unmanaged bring-your-own MCP path.
+
 > **Purpose.** This document turns real community evidence into concrete,
 > prioritized requirements for **Open Science Desktop**, our open-source, local-first,
 > reproducible AI research workbench. It complements `PRD.md`: the PRD says
@@ -301,8 +309,8 @@ competitors.
     `external_directory`, but bash (default `allow`, real `$HOME`) escapes
     freely. Covered by the permission fix above (in "Approve for me" mode;
     "Full access" is an explicit user opt-out).
-  - [ ] **API keys are plaintext on disk** — provider keys, connector keys
-    (MP/FRED), and the Jupyter token all land in `opencode.json` (not only the
+  - [ ] **API keys are plaintext on disk** — provider keys, user-managed MCP
+    credentials, and the Jupyter token can land in `opencode.json` (not only the
     mode-600 `auth.json` P2-3 describes). The keychain revert (P2-3) was a
     deliberate call for signed-release reasons; revisit for signed releases.
     **Both interim minimums are now met (2026-07-06):** the `/global/config`
@@ -400,50 +408,25 @@ competitors.
   biology/chemistry). Gap: deeper per-field coverage (astronomy catalogs, a
   social-science correctness gate) continues under P1-2 / P1-3 / P1-6.
 
-### P1-2 · Domain connectors (databases + literature) — 🟡 Partial
+### P1-2 · Domain connectors (historical upstream requirement) — superseded
 
-- **Evidence.** Connectors are a genuine highlight but *"strong for life sciences,
-  weak elsewhere."* Agents hallucinate dataset names and mismatch coverage when
-  no grounded catalog exists: *"failed to autonomously locate authoritative
-  datasets, instead hallucinating dataset names."* The biggest whitespace is
-  discipline-specific databases outside biology.
-- **Requirement.** Curated one-click MCP connectors, plus a documented
-  bring-your-own path. Provide **executable access paths / catalog metadata** (not
-  just keyword search) so the agent stops inventing datasets. Coverage targets by
-  discipline:
+The inherited requirement prioritized broad multi-discipline one-click MCP
+coverage. That is not the AI4HEOR acceptance boundary. Current behavior is:
 
-  | Discipline | Connectors | Status |
-  |---|---|---|
-  | Literature (all) | arXiv, PubMed, Crossref, Semantic Scholar; OpenAlex | ✅ shipped (paper-search-mcp) |
-  | Biology | PubMed, trials, variants (biomcp); PDB/UniProt/ChEMBL/ClinVar | 🟡 partial |
-  | Physics/astro | Space weather (`spaceweather-mcp` — NOAA SWPC/NASA DONKI/USGS) ✅ shipped; NASA ADS, SIMBAD, VizieR, MAST/IRSA, Gaia, SDSS/DESI, GWOSC/LIGO next | 🟡 partial |
-  | Chemistry/materials | Materials Project (`mcp-materials-project`) ✅ shipped; PubChem, ChEMBL, ICSD, COD, NIST next | 🟡 partial |
-  | Earth/climate | Open-Meteo weather/climate (`mcp-weather-server`) ✅ + USGS water (`usgs-mcp`) ✅ shipped; NASA Earthdata, Copernicus/Sentinel, CDS/ERA5, NOAA CDO, GEE, ESGF/CMIP6 next | 🟡 partial |
-  | Social science | FRED (`fred-mcp`) ✅ shipped; IPUMS API, ICPSR, OSF, GSS, World Bank next | 🟡 partial |
+- first-party `$heor-evidence-search` for fixed-endpoint PubMed and
+  ClinicalTrials.gov metadata, with an exact request hash and Human network
+  authorization;
+- one-click managed Jupyter for local computation;
+- researcher-managed local or remote MCP servers, explicitly outside product
+  admission; and
+- no third-party default MCP until a per-tool, hash-locked adapter passes
+  license, egress, rights, methods, adversarial, cross-platform, and kill-switch
+  review.
 
-- **Acceptance.** From chat, query literature (PubMed/arXiv/Crossref) auditable by
-  the reviewer, plus **at least one non-bio domain database per targeted
-  discipline**; the BYO-MCP path is documented and works.
-- **Status.** 🟡 Literature + bio + **five non-bio** connectors ship with
-  one-click Enable (isolated env via bundled uv) + `docs/CONNECT_YOUR_TOOLS.md`,
-  now spanning **all five targeted disciplines** — the acceptance's "≥1 non-bio
-  domain database per targeted discipline" is met: **Materials Project**
-  (`mcp-materials-project`, materials), **FRED** (`fred-mcp`, economics),
-  **Space weather** (`spaceweather-mcp` — NOAA SWPC/NASA DONKI/USGS, physics),
-  **Open-Meteo weather/climate** (`mcp-weather-server`, earth), and **USGS water**
-  (`usgs-mcp`, earth). The catalog carries a discipline chip, a per-connector
-  free-API-key field (passed via the MCP `environment`, never into
-  provenance/logs), and console-script *or* `-m module` launch (resolved next to
-  the managed interpreter, cross-platform). **Every connector is verified by a
-  real MCP `initialize`/`tools/list` stdio handshake in the bundled-uv env
-  before shipping** (spaceweather → 15 tools, open-meteo → 8, usgs → 10; the
-  three no-key ones need no credentials at all) — the discipline that caught two
-  false friends earlier (`astro-mcp` is Airflow, not astronomy; earlier
-  usgs/open-meteo doubts were an inadequate check, now disproven by the real
-  handshake). We integrate existing open-source servers, not reimplement them.
-  Gap: the classic astronomy catalogs (NASA ADS, SIMBAD, Gaia, MAST) have no
-  pip-installable stdio MCP yet — GitHub-only, would need vendoring; and more
-  chem/social DBs (see the table).
+Paper Search MCP and BioMCP are quarantined candidates. Materials Project, FRED,
+space-weather, Open-Meteo, and USGS are no longer offered as AI4HEOR defaults.
+The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
+`docs/HEOR_ECOSYSTEM.md`.
 
 ### P1-3 · Scientific renderers (native viewers) — 🟡 Partial
 
@@ -716,7 +699,7 @@ competitors.
 | P0-6 | Large files: reference, don't load | P0 | ✅ Done — memory-pointer probe (table/parquet/hdf5/fits/netcdf/log + genomics FASTQ/FASTA/VCF/BAM, GRIB, ROOT) + one-click "Inspect without loading" in the too-large-preview card |
 | **P0-7** | **Safety-defaults compliance + audit debt** | **P0** | 🟡 **Partial — ALL critical items addressed (approval modes, sidecar/preview auth, kernel deadlock, Windows injection, owner-only key files); keychain-at-rest deferred to signed releases (P2-3); moderate/cleanup backlog remains** |
 | P1-1 | Multi-discipline platform lineage | P1 | 🟡 Pluggable, but generic examples are not part of the AI4HEOR delivery |
-| P1-2 | Domain + literature connectors | P1 | 🟡 Partial — literature/bio + non-bio across ALL 5 disciplines (materials, economics, physics space-weather, earth Open-Meteo + USGS) shipped, each MCP-handshake verified; astronomy catalogs (no PyPI MCP) + more chem/social DBs pending |
+| P1-2 | Domain + literature connectors | P1 | Superseded for AI4HEOR — governed HEOR evidence + Jupyter + unmanaged BYO MCP; no generic one-click catalog |
 | P1-3 | Scientific renderers | P1 | 🟡 Partial — base + 3D structure + genome + FITS + DOS + band + phase + qualitative-coding + anomaly map (all 4 disciplines; materials trio complete); ternary/coastlines next |
 | P1-4 | Windows + macOS installers | P1 | 🟡 Partial — existing macOS x64 + Linux x64 packages locally verified; fail-closed four-target package/evidence manifest configured but not yet executed for the current commit; signing remains open |
 | P1-5 | Interaction & visualization craft | P1 | 🟡 Partial — chart system + palette + command palette + native table→chart surface shipped |
@@ -734,10 +717,9 @@ discipline-specific 20% and the one cross-cutting gap this revision adds:
    ships with five gates (physics/earth/biology/chemistry/social science); next
    is the remaining library round-trip (POSCAR→pymatgen validity — SMILES→RDKit
    now ships).
-2. **P1-2 / P1-3 non-bio connectors + viewers** — connectors now span all five
-   targeted disciplines (materials, economics, physics space-weather, earth
-   Open-Meteo/USGS); next is astronomy catalogs (no PyPI MCP yet) and richer
-   viewers.
+2. **AI4HEOR connectors + viewers** — admit HEOR evidence sources one bounded
+   adapter at a time; retain useful inherited viewers without reintroducing a
+   generic Open Science connector catalog.
 3. **Deepen the shipped gates** — P0-5 (library round-trip + social science),
    P1-6 (in-app prereg artifact + Stata/SPSS UI). **P0-6 is now ✅ Done** — the
    probe covers genomics/GRIB/ROOT and the UI exposes it as one-click "Inspect

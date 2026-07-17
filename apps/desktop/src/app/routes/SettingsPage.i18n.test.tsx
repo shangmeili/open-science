@@ -30,7 +30,7 @@ describe("Settings page strings (i18n)", () => {
       screen.getByText("Everything here configures the bundled OpenCode runtime — one config, no copies."),
     ).toBeInTheDocument();
     expect(screen.getByText("Agent runtime")).toBeInTheDocument();
-    expect(screen.getByText("MCP servers")).toBeInTheDocument();
+    expect(screen.getByText("Evidence and MCP tools")).toBeInTheDocument();
     expect(screen.getByText("Workspace")).toBeInTheDocument();
   });
 
@@ -52,6 +52,10 @@ describe("Settings page strings (i18n)", () => {
       expect(await screen.findByText("Loading the model catalog…")).toBeInTheDocument();
       expect(screen.getByRole("heading", { level: 2, name: "Providers" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Manage" })).toHaveAttribute("aria-expanded", "false");
+      expect(screen.getByText("HEOR evidence search")).toBeInTheDocument();
+      expect(screen.getByText(/PubMed · ClinicalTrials\.gov · \$heor-evidence-search/)).toBeInTheDocument();
+      expect(screen.queryByText("Materials Project")).not.toBeInTheDocument();
+      expect(screen.queryByText("FRED economic data")).not.toBeInTheDocument();
     } finally {
       view?.unmount();
       useRuntimeStore.setState({ status: original.status, defaultModel: original.defaultModel });

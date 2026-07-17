@@ -87,7 +87,7 @@ in one continuous, auditable session.
   stay pluggable.
 - **Reproducible by construction** — local, SSH/Slurm, Modal, and notebook-batch runs
   are captured as reproducible run records, not loose terminal scrollback.
-- **Extensible** — agent skills, MCP servers and one-click science connectors,
+- **Extensible** — governed first-party HEOR skills, researcher-managed MCP servers,
   `/` commands, `!` shell mode, and a model-agnostic SDK.
 
 ## See it in action
@@ -170,17 +170,13 @@ adaptation. Anthropic's source-available `docx`, `pdf`, `pptx`, and `xlsx` Skill
 are rejected because their per-directory license prohibits copying, derivatives,
 and redistribution; AI4HEOR does not fetch or bundle them.
 
-One-click science MCP connectors currently include:
-
-- Literature search: arXiv, PubMed, Crossref, Semantic Scholar, bioRxiv/medRxiv.
-- Biomedical databases: PubMed, ClinicalTrials.gov, MyVariant/ClinVar.
-- Materials Project.
-- FRED economic data.
-- Space weather.
-- Open-Meteo weather and climate.
-- USGS water data.
-
-You can also add any local or remote MCP server from Settings. See
+The default connector surface contains no unreviewed third-party one-click MCP
+process. Built-in `$heor-evidence-search` performs fixed-endpoint,
+Human-authorized PubMed and ClinicalTrials.gov metadata retrieval; Jupyter is
+the sole one-click managed local computation tool. Researchers can still add
+local or remote MCP servers from Settings, where they are explicitly labelled
+as unmanaged external capabilities. Inherited Paper Search MCP and BioMCP
+definitions are quarantined candidates, not bundled AI4HEOR defaults. See
 [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md).
 
 For a neutral positioning note, see

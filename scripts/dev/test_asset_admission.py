@@ -29,10 +29,19 @@ class AssetAdmissionTests(unittest.TestCase):
     def test_registry_is_valid_and_has_no_external_release_asset(self) -> None:
         self.assertEqual(validate_registry(self.registry), [])
         statuses = [asset["status"] for asset in self.registry["assets"]]
-        self.assertEqual(len(statuses), 12)
+        self.assertEqual(len(statuses), 14)
         self.assertEqual(statuses.count("validated-adapter"), 0)
-        self.assertEqual(statuses.count("quarantined"), 8)
+        self.assertEqual(statuses.count("quarantined"), 10)
         self.assertEqual(statuses.count("rejected"), 4)
+
+    def test_inherited_generic_mcp_candidates_remain_quarantined(self) -> None:
+        by_id = {asset["asset_id"]: asset for asset in self.registry["assets"]}
+        for asset_id in ("paper-search-mcp", "biomcp"):
+            asset = by_id[asset_id]
+            self.assertEqual(asset["status"], "quarantined")
+            self.assertFalse(asset["release_eligible"])
+            self.assertIsNone(asset["distribution"])
+            self.assertTrue(asset["blockers"])
 
     def test_status_edit_cannot_promote_an_unfinished_asset(self) -> None:
         registry = self.changed()

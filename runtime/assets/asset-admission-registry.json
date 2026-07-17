@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "policy_revision": "2026-07-14",
+  "policy_revision": "2026-07-17",
   "release_statuses": [
     "validated-adapter"
   ],
@@ -463,6 +463,90 @@
         "Telemetry and direct network sources require an app-owned capability and consent boundary",
         "Economic calculations and self-reported validation states must be excluded from authority",
         "No newer upstream revision is available; the audited dependency and authority blockers remain"
+      ]
+    },
+    {
+      "asset_id": "paper-search-mcp",
+      "display_name": "Paper Search MCP",
+      "kind": "mcp",
+      "status": "quarantined",
+      "release_eligible": false,
+      "source": {
+        "repository": "https://github.com/openags/paper-search-mcp",
+        "revision": "c8b642183bb725f0a7faec89e58b558df09079d1",
+        "license_spdx": "MIT",
+        "license_evidence_url": "https://github.com/openags/paper-search-mcp/blob/c8b642183bb725f0a7faec89e58b558df09079d1/LICENSE",
+        "license_compatible": true
+      },
+      "capability_boundary": {
+        "workspace_access": "download-target-and-local-config-access",
+        "network_egress": "direct-many-source-search-and-download",
+        "execution": "third-party-python-mcp-process",
+        "authority": "no-approval-or-decision-authority"
+      },
+      "industrialization": {
+        "adaptation_mode": "per-source-isolated-adapter-required",
+        "delta_record": "docs/HEOR_ECOSYSTEM.md",
+        "contract_tests": [],
+        "adversarial_tests": [],
+        "platforms": [],
+        "security_review": "pending",
+        "methods_review": "pending",
+        "kill_switch": false,
+        "upstream_evidence": [
+          "Git revision c8b642183bb725f0a7faec89e58b558df09079d1 and MIT license reviewed on 2026-07-17",
+          "Upstream advertises broad multi-source literature search, full-text and download capabilities",
+          "Upstream package metadata reports paper-search-mcp 0.1.4 and documents an optional Sci-Hub path"
+        ]
+      },
+      "distribution": null,
+      "blockers": [
+        "Direct multi-host network and download actions are not app-authorized or request-hash-bound",
+        "Optional Sci-Hub routing requires a separate rights and compliance decision and is outside the AI4HEOR evidence boundary",
+        "Mutable package installation has no pinned dependency tree, cross-platform evidence, or app-owned kill switch",
+        "Broad literature retrieval duplicates the narrower first-party governed PubMed and ClinicalTrials.gov route"
+      ]
+    },
+    {
+      "asset_id": "biomcp",
+      "display_name": "BioMCP",
+      "kind": "mcp",
+      "status": "quarantined",
+      "release_eligible": false,
+      "source": {
+        "repository": "https://github.com/genomoncology/biomcp",
+        "revision": "b586085ac032f079671ede0c08cbf17816183bd3",
+        "license_spdx": "MIT",
+        "license_evidence_url": "https://github.com/genomoncology/biomcp/blob/b586085ac032f079671ede0c08cbf17816183bd3/LICENSE",
+        "license_compatible": true
+      },
+      "capability_boundary": {
+        "workspace_access": "local-study-root-and-cache-access",
+        "network_egress": "direct-multiple-biomedical-and-regulatory-apis",
+        "execution": "third-party-rust-binary-mcp-process",
+        "authority": "no-approval-or-decision-authority"
+      },
+      "industrialization": {
+        "adaptation_mode": "per-tool-isolated-adapter-required",
+        "delta_record": "docs/HEOR_ECOSYSTEM.md",
+        "contract_tests": [],
+        "adversarial_tests": [],
+        "platforms": [],
+        "security_review": "pending",
+        "methods_review": "pending",
+        "kill_switch": false,
+        "upstream_evidence": [
+          "Git revision b586085ac032f079671ede0c08cbf17816183bd3 and MIT license reviewed on 2026-07-17",
+          "Current upstream package is biomcp-cli 0.8.25 with biomcp serve as its documented server launch",
+          "Upstream exposes a broad biomedical entity, trial, literature, variant, drug, credential, and source surface"
+        ]
+      },
+      "distribution": null,
+      "blockers": [
+        "The inherited one-click definition used stale biomcp-python and biomcp run package and launch metadata",
+        "Broad source, credential, and data-rights boundaries are not independently admitted per tool",
+        "Direct external access is not governed by AI4HEOR request hashes and Human network authorization",
+        "No cross-platform isolated adapter, adversarial contract suite, or app-owned kill switch exists"
       ]
     }
   ]

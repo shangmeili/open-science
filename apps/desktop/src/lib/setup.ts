@@ -1,5 +1,5 @@
 // App-lifetime owner of the long-running uv provisioning flows (isolated
-// Jupyter env, science-MCP connectors). This state lived inside SettingsPage
+// Jupyter env). This state lived inside SettingsPage
 // before, so navigating away — clicking a chat or a history session —
 // unmounted the page, discarded the "setting up…" flags, and (worse) severed
 // the setup-progress listener, making a still-running download look frozen and
@@ -7,26 +7,21 @@
 // means the download is unaffected by which page is open.
 import { create } from "zustand";
 import { getClient, useRuntimeStore } from "./runtime";
-import { setupJupyter, startJupyter, setupScienceMcp, watchSetupProgress } from "./tauri";
-import { SCIENCE_CONNECTORS, connectorConfig } from "./scienceConnectors";
+import { setupJupyter, startJupyter, watchSetupProgress } from "./tauri";
 import { toast } from "./toast";
 
 interface SetupState {
   /** True while the isolated Jupyter env is being provisioned. */
   jupyterBusy: boolean;
-  /** The science connector currently provisioning, by id (null = none). */
-  connectorId: string | null;
   /** Latest live uv output line — reassurance during a hundreds-of-MB download. */
   line: string | null;
   /** Bumped when any provisioning run finishes, so open pages re-read status. */
   generation: number;
   enableJupyter: () => Promise<void>;
-  enableConnector: (id: string, apiKey?: string) => Promise<void>;
 }
 
 export const useSetupStore = create<SetupState>((set, get) => ({
   jupyterBusy: false,
-  connectorId: null,
   line: null,
   generation: 0,
 
@@ -55,23 +50,6 @@ export const useSetupStore = create<SetupState>((set, get) => ({
     }
   },
 
-  enableConnector: async (id, apiKey) => {
-    if (get().connectorId) return; // one connector provisioning at a time
-    const c = SCIENCE_CONNECTORS.find((x) => x.id === id);
-    if (!c) return;
-    set({ connectorId: id, line: null });
-    try {
-      toast.success(`Setting up ${c.label} — first run downloads a managed Python, please wait…`);
-      const python = await setupScienceMcp(c.pkg);
-      await getClient()!.addMcpServer(c.id, connectorConfig(c, python, apiKey));
-      toast.success(`${c.label} enabled — the agent can now use it from chat.`);
-      await useRuntimeStore.getState().loadCatalog();
-    } catch (e) {
-      toast.error(`${c.label} setup failed: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      set((st) => ({ connectorId: null, line: null, generation: st.generation + 1 }));
-    }
-  },
 }));
 
 // A SINGLE app-lifetime uv-progress listener. Registered once from AppShell so

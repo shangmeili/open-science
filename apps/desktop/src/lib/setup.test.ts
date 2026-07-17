@@ -10,7 +10,6 @@ const mocks = vi.hoisted(() => ({
   /** Resolver for the in-flight setupJupyter promise, so tests hold it open. */
   resolveSetup: (() => {}) as () => void,
   setupJupyter: vi.fn(),
-  setupScienceMcp: vi.fn(async () => "/env/bin/python"),
 }));
 
 mocks.setupJupyter.mockImplementation(
@@ -28,14 +27,7 @@ vi.mock("./tauri", () => ({
     token: "tok",
     mcp_command: "/env/bin/jupyter-mcp-server",
   }),
-  setupScienceMcp: mocks.setupScienceMcp,
   watchSetupProgress: async () => () => {},
-}));
-vi.mock("./scienceConnectors", () => ({
-  SCIENCE_CONNECTORS: [
-    { id: "papers", label: "Papers", pkg: "paper-search-mcp" },
-  ],
-  connectorConfig: () => ({ type: "local", command: ["/env/bin/python"], enabled: true }),
 }));
 vi.mock("./toast", () => ({ toast: { success: () => {}, error: () => {} } }));
 
@@ -46,7 +38,7 @@ beforeEach(() => {
   mocks.setupJupyter.mockImplementation(
     () => new Promise<void>((r) => (mocks.resolveSetup = () => r())),
   );
-  useSetupStore.setState({ jupyterBusy: false, connectorId: null, line: null, generation: 0 });
+  useSetupStore.setState({ jupyterBusy: false, line: null, generation: 0 });
 });
 
 describe("setup store", () => {
@@ -74,13 +66,5 @@ describe("setup store", () => {
     mocks.resolveSetup();
     await p1;
     expect(mocks.setupJupyter).toHaveBeenCalledTimes(1);
-  });
-
-  it("tracks the connector being provisioned and clears it when done", async () => {
-    const run = useSetupStore.getState().enableConnector("papers", "key123");
-    expect(useSetupStore.getState().connectorId).toBe("papers");
-    await run;
-    expect(useSetupStore.getState().connectorId).toBeNull();
-    expect(mocks.addMcpServer).toHaveBeenCalledWith("papers", expect.anything());
   });
 });
