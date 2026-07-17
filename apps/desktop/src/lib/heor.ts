@@ -832,11 +832,14 @@ export interface HeorRweCausalAnalysisAudit {
   resultPath: string;
   resultSha256: string | null;
   rowCount: number;
+  observedOutcomeCount: number;
+  followUpRate: number | null;
   confounderCount: number;
   estimand: string;
   essOverall: number | null;
   essRatio: number | null;
   maximumWeight: number | null;
+  maximumObservationWeight: number | null;
   maxAbsPreSmd: number | null;
   maxAbsPostSmd: number | null;
   unadjustedRiskDifference: number | null;
@@ -3378,11 +3381,14 @@ export async function auditHeorRweCausalAnalysis(): Promise<HeorRweCausalAnalysi
       resultPath: "",
       resultSha256: null,
       rowCount: 0,
+      observedOutcomeCount: 0,
+      followUpRate: null,
       confounderCount: 0,
-      estimand: "source_cohort_ate_risk_difference",
+      estimand: "source_cohort_ate_risk_difference_if_no_outcome_loss",
       essOverall: null,
       essRatio: null,
       maximumWeight: null,
+      maximumObservationWeight: null,
       maxAbsPreSmd: null,
       maxAbsPostSmd: null,
       unadjustedRiskDifference: null,

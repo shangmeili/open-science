@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "execution_id": "rwe-example-001",
   "status": "ready_for_execution",
   "target_trial": {
@@ -10,7 +10,7 @@
     "comparator_strategy": {"id": "comparator", "label": "New use of active comparator"},
     "assignment": "observational_at_baseline",
     "time_zero": "Shared eligible treatment-initiation index",
-    "follow_up": "Fixed complete 180-day follow-up",
+    "follow_up": "Fixed 180-day outcome horizon with possible loss to follow-up",
     "outcome": "Binary outcome by day 180",
     "causal_contrast": "intention_to_treat_analog"
   },
@@ -31,13 +31,18 @@
     "format": "one_row_per_person_csv",
     "path": "heor/rwe-causal-data/cohort.csv",
     "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-    "columns": ["subject_id", "treatment", "outcome", "age", "baseline_risk"],
+    "columns": ["subject_id", "treatment", "outcome_observed", "outcome", "age", "baseline_risk"],
     "row_count": 200,
     "contains_direct_identifiers": false,
-    "missing_policy": "reject",
+    "missing_policy": "outcome_blank_only_when_not_observed",
     "one_row_per_person": true,
     "baseline_covariates_only": true,
-    "fixed_complete_follow_up": true,
+    "fixed_horizon_outcome": true,
+    "outcome_observation": {
+      "indicator_column": "outcome_observed",
+      "observed_value": 1,
+      "not_observed_value": 0
+    },
     "treatment_assignment": "observational_active_comparator_new_user"
   },
   "confounders": [
@@ -47,7 +52,7 @@
       "label": "Age at treatment initiation",
       "type": "continuous",
       "timing": "baseline_pre_treatment",
-      "role": "human_prespecified_common_cause",
+      "roles": ["treatment_outcome_common_cause", "observation_outcome_common_cause"],
       "rationale": "Human-authored causal rationale with cited evidence.",
       "evidence_record_ids": ["confounder-rationale-record"]
     },
@@ -57,7 +62,7 @@
       "label": "Baseline risk factor",
       "type": "binary",
       "timing": "baseline_pre_treatment",
-      "role": "human_prespecified_common_cause",
+      "roles": ["treatment_outcome_common_cause", "observation_outcome_common_cause"],
       "rationale": "Human-authored causal rationale with cited evidence.",
       "evidence_record_ids": ["confounder-rationale-record"]
     }
@@ -73,10 +78,25 @@
     "convergence_tolerance": 1e-10,
     "max_iterations": 100
   },
+  "observation_model": {
+    "model": "logistic_regression_main_effects",
+    "response_encoding": "outcome_observed_is_one",
+    "predictor_ids": ["age", "baseline-risk"],
+    "includes_treatment": true,
+    "intercept": true,
+    "continuous_standardization": "sample_mean_standard_deviation",
+    "nonlinear_terms": "none",
+    "interactions": "none",
+    "penalty": "none",
+    "convergence_tolerance": 1e-10,
+    "max_iterations": 100
+  },
   "weighting": {
     "estimand": "source_cohort_ate",
-    "method": "stabilized_inverse_probability_of_treatment_weighting",
-    "numerator": "marginal_treatment_probability",
+    "method": "stabilized_inverse_probability_of_treatment_and_observation_weighting",
+    "treatment_numerator": "marginal_treatment_probability",
+    "observation_numerator": "treatment_arm_observation_probability",
+    "outcome_rows": "observed_only",
     "trimming": "none",
     "weight_cap": "none",
     "renormalization": "none"
@@ -103,7 +123,8 @@
   },
   "limitations": [
     "Measured-confounder weighting cannot remove unmeasured or mismeasured confounding.",
-    "This bounded alpha does not model censoring, treatment changes, missingness, clustering, or time-varying confounding."
+    "IP observation weighting assumes outcome observation is conditionally independent of the counterfactual outcome given treatment and the prespecified measured baseline predictors.",
+    "This bounded alpha does not model time-varying censoring, treatment changes, survival outcomes, competing risks, clustering, missing baseline covariates, or missing-not-at-random mechanisms."
   ],
   "human_gate": {
     "status": "awaiting_method_review",

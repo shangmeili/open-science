@@ -24,7 +24,7 @@ const MAX_RESPONSE_BYTES: u64 = 5 * 1024 * 1024;
 const MAX_EVENT_LOG_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_EVENTS: usize = 2_000;
 const USER_AGENT: &str =
-    "AI4HEOR/0.1.22 (local research desktop; https://github.com/ai4s-research/open-science)";
+    "AI4HEOR/0.1.23 (local research desktop; https://github.com/ai4s-research/open-science)";
 const PUBMED_SEARCH: &str = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi";
 const PUBMED_SUMMARY: &str = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi";
 const CLINICAL_TRIALS_SEARCH: &str = "https://clinicaltrials.gov/api/v2/studies";

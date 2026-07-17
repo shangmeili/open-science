@@ -1,6 +1,6 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.22, 2026-07-17).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.23, 2026-07-17).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
@@ -446,21 +446,24 @@ it does not auto-populate a model or establish transitivity, evidence certainty,
 clinical validity, transportability, ranking superiority, or reimbursement.
 
 RWE causal analysis is a separate observational-design execution and review
-boundary. `$heor-rwe-causal-analysis` schema `0.1.0` accepts only a Human-defined
+boundary. `$heor-rwe-causal-analysis` schema `0.2.0` accepts only a Human-defined
 active-comparator new-user target trial already represented as one pseudonymous
-baseline row per eligible person. Exactly two strategies share time zero and
-fixed complete follow-up; the outcome is binary; the estimand is the source-cohort
-ATE risk difference; and 1–12 baseline common causes are selected and justified
-by the researcher before analysis. Upstream cohort construction remains outside
-the evaluator and must be reviewed rather than inferred from the CSV.
+baseline row per eligible person. Exactly two strategies share time zero; the
+fixed-horizon binary outcome has an explicit observation indicator; the estimand
+is the source-cohort ATE risk difference if nobody's outcome were lost; and 1–12
+baseline treatment-outcome common causes plus a prespecified observation-predictor
+subset are selected and justified by the researcher before analysis. Upstream
+cohort construction remains outside the evaluator and must be reviewed rather
+than inferred from the CSV.
 
-The standard-library Python evaluator fits an unpenalized main-effects Logistic
-propensity model, applies uncapped/untrimmed stabilized ATE-IPTW, and reports
-unadjusted and weighted risks, overlap, weight distributions, ESS, and pre/post
-SMD without automatic scientific acceptance thresholds. A fixed PCG32 stream
+The standard-library Python evaluator fits unpenalized main-effects Logistic
+treatment and observation models, applies uncapped/untrimmed stabilized
+ATE-IPTW×IPOW to observed outcomes, and reports complete-case and weighted risks,
+follow-up, overlap, separate/combined weight distributions, observed-row ESS, and
+pre/treatment/combined SMD without automatic scientific acceptance thresholds. A fixed PCG32 stream
 resamples rows within treatment arms and repeats the complete fit in every
 bootstrap replicate; any failure is retained and blocks review. Portable replay
-repeats all bootstrap work. Native Rust independently refits the point model and
+repeats all bootstrap work. Native Rust independently refits both point models and
 checks coefficients, standardization, balance, overlap, weights, ESS, and effects
 against current bytes, with a shared synthetic golden case; its declared scope
 excludes uncertainty replay. The desktop binds an immutable Human accept/reject

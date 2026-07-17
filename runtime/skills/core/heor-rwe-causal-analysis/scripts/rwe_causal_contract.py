@@ -15,9 +15,9 @@ from pathlib import Path
 from typing import Any, Iterator
 
 
-REQUEST_SCHEMA_VERSION = "0.1.0"
-RESULT_SCHEMA_VERSION = "0.1.0"
-EVALUATOR = "ai4heor-rwe-causal@0.1.0"
+REQUEST_SCHEMA_VERSION = "0.2.0"
+RESULT_SCHEMA_VERSION = "0.2.0"
+EVALUATOR = "ai4heor-rwe-causal@0.2.0"
 RNG_ALGORITHM = "pcg32-xsh-rr"
 RNG_VERSION = "1"
 Z_95 = 1.959963984540054
@@ -64,6 +64,7 @@ REQUEST_FIELDS = {
     "source_data",
     "confounders",
     "propensity_score",
+    "observation_model",
     "weighting",
     "diagnostics",
     "uncertainty",
@@ -83,6 +84,7 @@ RESULT_FIELDS = {
     "target_trial",
     "estimand",
     "propensity_score",
+    "observation_model",
     "weighting",
     "diagnostics",
     "effects",
@@ -98,7 +100,8 @@ RESULT_FIELDS = {
 class SourceRow:
     subject_id: str
     treatment: str
-    outcome: int
+    outcome_observed: bool
+    outcome: int | None
     confounders: tuple[float, ...]
 
 
@@ -372,6 +375,106 @@ def fit_propensity(
     }
 
 
+def fit_observation_model(
+    rows: list[SourceRow],
+    treatment_id: str,
+    confounder_types: list[str],
+    predictor_indices: list[int],
+    tolerance: float,
+    max_iterations: int,
+) -> dict[str, Any]:
+    design = [[1.0, 1.0 if row.treatment == treatment_id else 0.0] for row in rows]
+    standardization: list[dict[str, float | str]] = []
+    for index in predictor_indices:
+        values = [row.confounders[index] for row in rows]
+        kind = confounder_types[index]
+        if kind == "continuous":
+            mean = _mean(values)
+            variance = _sample_variance(values)
+            if not math.isfinite(variance) or variance <= 1e-14:
+                raise ValueError(f"observation-model continuous predictor {index} has no usable variation")
+            scale = math.sqrt(variance)
+            transformed = [(value - mean) / scale for value in values]
+            standardization.append({"type": kind, "mean": mean, "scale": scale})
+        elif kind == "binary":
+            if any(value not in {0.0, 1.0} for value in values) or len(set(values)) < 2:
+                raise ValueError(f"observation-model binary predictor {index} has invalid variation")
+            transformed = values
+            standardization.append({"type": kind, "mean": 0.0, "scale": 1.0})
+        else:  # pragma: no cover
+            raise ValueError(f"unsupported observation predictor type: {kind}")
+        for row_design, value in zip(design, transformed):
+            row_design.append(value)
+
+    observed = [1 if row.outcome_observed else 0 for row in rows]
+    marginal = math.fsum(observed) / len(observed)
+    if not 0 < marginal < 1:
+        raise ValueError("observation model requires observed and not-observed outcomes")
+    beta = [math.log(marginal / (1 - marginal))] + [0.0] * (len(design[0]) - 1)
+    converged_at: int | None = None
+    for iteration in range(max_iterations + 1):
+        eta = [math.fsum(coefficient * value for coefficient, value in zip(beta, row)) for row in design]
+        probabilities = [_sigmoid(value) for value in eta]
+        gradient = [
+            math.fsum(row[column] * (outcome - probability) for row, outcome, probability in zip(design, observed, probabilities))
+            for column in range(len(beta))
+        ]
+        if max(abs(value) for value in gradient) / len(rows) <= tolerance:
+            converged_at = iteration
+            break
+        if iteration == max_iterations:
+            raise ValueError("observation model did not converge within max_iterations")
+        information = [
+            [
+                math.fsum(
+                    row[left] * row[right] * probability * (1 - probability)
+                    for row, probability in zip(design, probabilities)
+                )
+                for right in range(len(beta))
+            ]
+            for left in range(len(beta))
+        ]
+        delta = _solve(information, gradient)
+        current_likelihood = _log_likelihood(design, observed, beta)
+        accepted = False
+        step = 1.0
+        for _ in range(50):
+            candidate = [value + step * change for value, change in zip(beta, delta)]
+            candidate_likelihood = _log_likelihood(design, observed, candidate)
+            if math.isfinite(candidate_likelihood) and candidate_likelihood >= current_likelihood - 1e-12:
+                beta = candidate
+                accepted = True
+                break
+            step *= 0.5
+        if not accepted:
+            raise ValueError("observation-model line search could not improve the likelihood")
+    if converged_at is None:  # pragma: no cover
+        raise ValueError("observation model failed")
+    eta = [math.fsum(coefficient * value for coefficient, value in zip(beta, row)) for row in design]
+    probabilities = [_sigmoid(value) for value in eta]
+    if any(
+        not math.isfinite(value) or value <= PROPENSITY_BOUNDARY or value >= 1 - PROPENSITY_BOUNDARY
+        for value in probabilities
+    ):
+        raise ValueError("fitted observation probability reached the computational positivity boundary")
+    arm_marginals: dict[str, float] = {}
+    for treatment in {row.treatment for row in rows}:
+        arm_values = [1 if row.outcome_observed else 0 for row in rows if row.treatment == treatment]
+        arm_marginal = math.fsum(arm_values) / len(arm_values)
+        if not 0 < arm_marginal < 1:
+            raise ValueError(f"treatment arm {treatment} requires observed and not-observed outcomes")
+        arm_marginals[treatment] = arm_marginal
+    return {
+        "coefficients": beta,
+        "probabilities": probabilities,
+        "iterations": converged_at,
+        "standardization": standardization,
+        "marginal_observation_probability": marginal,
+        "treatment_arm_observation_probabilities": arm_marginals,
+        "log_likelihood": _log_likelihood(design, observed, beta),
+    }
+
+
 def stabilized_ate_weights(
     rows: list[SourceRow],
     treatment_id: str,
@@ -386,6 +489,22 @@ def stabilized_ate_weights(
     ]
     if any(not math.isfinite(value) or value <= 0 for value in weights):
         raise ValueError("stabilized IPTW weights must be finite and positive")
+    return weights
+
+
+def stabilized_observation_weights(
+    rows: list[SourceRow],
+    probabilities: list[float],
+    arm_marginals: dict[str, float],
+) -> list[float]:
+    weights = [
+        arm_marginals[row.treatment] / probability if row.outcome_observed else 0.0
+        for row, probability in zip(rows, probabilities)
+    ]
+    if any(not math.isfinite(value) or value < 0 for value in weights):
+        raise ValueError("stabilized observation weights must be finite and non-negative")
+    if any(row.outcome_observed and weight <= 0 for row, weight in zip(rows, weights)):
+        raise ValueError("observed outcomes require positive observation weights")
     return weights
 
 
@@ -462,10 +581,20 @@ def effect_summary(
     treatment_id: str,
     comparator_id: str,
 ) -> dict[str, Any]:
-    treatment_outcomes = [float(row.outcome) for row in rows if row.treatment == treatment_id]
-    comparator_outcomes = [float(row.outcome) for row in rows if row.treatment == comparator_id]
-    treatment_weights = [weight for row, weight in zip(rows, weights) if row.treatment == treatment_id]
-    comparator_weights = [weight for row, weight in zip(rows, weights) if row.treatment == comparator_id]
+    treatment_pairs = [
+        (float(row.outcome), weight)
+        for row, weight in zip(rows, weights)
+        if row.treatment == treatment_id and row.outcome is not None and weight > 0
+    ]
+    comparator_pairs = [
+        (float(row.outcome), weight)
+        for row, weight in zip(rows, weights)
+        if row.treatment == comparator_id and row.outcome is not None and weight > 0
+    ]
+    treatment_outcomes = [value for value, _ in treatment_pairs]
+    comparator_outcomes = [value for value, _ in comparator_pairs]
+    treatment_weights = [weight for _, weight in treatment_pairs]
+    comparator_weights = [weight for _, weight in comparator_pairs]
     treatment_risk = _weighted_mean(treatment_outcomes, treatment_weights)
     comparator_risk = _weighted_mean(comparator_outcomes, comparator_weights)
     risk_difference = treatment_risk - comparator_risk
@@ -502,9 +631,25 @@ def point_analysis(request: dict[str, Any], facts: dict[str, Any], rows: list[So
         propensity["probabilities"],
         propensity["marginal_treatment_probability"],
     )
+    observation = fit_observation_model(
+        analysis_rows,
+        treatment_id,
+        confounder_types,
+        facts["observation_predictor_indices"],
+        float(request["observation_model"]["convergence_tolerance"]),
+        int(request["observation_model"]["max_iterations"]),
+    )
+    observation_weights = stabilized_observation_weights(
+        analysis_rows,
+        observation["probabilities"],
+        observation["treatment_arm_observation_probabilities"],
+    )
+    combined_weights = [treatment * observed for treatment, observed in zip(weights, observation_weights)]
+    observed_unit_weights = [1.0 if row.outcome_observed else 0.0 for row in analysis_rows]
     unit_weights = [1.0] * len(analysis_rows)
     pre_balance = _balance_state(analysis_rows, unit_weights, treatment_id, comparator_id, confounder_ids)
-    post_balance = _balance_state(analysis_rows, weights, treatment_id, comparator_id, confounder_ids)
+    treatment_weight_balance = _balance_state(analysis_rows, weights, treatment_id, comparator_id, confounder_ids)
+    combined_weight_balance = _balance_state(analysis_rows, combined_weights, treatment_id, comparator_id, confounder_ids)
     treatment_propensities = [
         probability
         for row, probability in zip(analysis_rows, propensity["probabilities"])
@@ -517,11 +662,24 @@ def point_analysis(request: dict[str, Any], facts: dict[str, Any], rows: list[So
     ]
     treatment_weights = [weight for row, weight in zip(analysis_rows, weights) if row.treatment == treatment_id]
     comparator_weights = [weight for row, weight in zip(analysis_rows, weights) if row.treatment == comparator_id]
+    positive_observation_weights = [weight for weight in observation_weights if weight > 0]
+    positive_combined_weights = [weight for weight in combined_weights if weight > 0]
+    combined_treatment_weights = [
+        weight for row, weight in zip(analysis_rows, combined_weights)
+        if row.treatment == treatment_id and weight > 0
+    ]
+    combined_comparator_weights = [
+        weight for row, weight in zip(analysis_rows, combined_weights)
+        if row.treatment == comparator_id and weight > 0
+    ]
     overlap_lower = max(min(treatment_propensities), min(comparator_propensities))
     overlap_upper = min(max(treatment_propensities), max(comparator_propensities))
     return {
         "propensity": propensity,
+        "observation_model": observation,
         "weights": weights,
+        "observation_weights": observation_weights,
+        "combined_weights": combined_weights,
         "propensity_summary": {
             "treatment": _distribution(treatment_propensities),
             "comparator": _distribution(comparator_propensities),
@@ -533,21 +691,43 @@ def point_analysis(request: dict[str, Any], facts: dict[str, Any], rows: list[So
             },
         },
         "weight_summary": {
-            "overall": _distribution(weights),
-            "treatment": _distribution(treatment_weights),
-            "comparator": _distribution(comparator_weights),
-            "effective_sample_size": {
+            "treatment": {
+                "overall": _distribution(weights),
+                "treatment": _distribution(treatment_weights),
+                "comparator": _distribution(comparator_weights),
+            },
+            "observation_observed_rows": _distribution(positive_observation_weights),
+            "combined_observed_rows": {
+                "overall": _distribution(positive_combined_weights),
+                "treatment": _distribution(combined_treatment_weights),
+                "comparator": _distribution(combined_comparator_weights),
+            },
+            "effective_sample_size_observed": {
+                "overall": _ess(positive_combined_weights),
+                "treatment": _ess(combined_treatment_weights),
+                "comparator": _ess(combined_comparator_weights),
+            },
+            "effective_sample_size_treatment": {
                 "overall": _ess(weights),
                 "treatment": _ess(treatment_weights),
                 "comparator": _ess(comparator_weights),
             },
         },
+        "observation_summary": {
+            "observed": sum(row.outcome_observed for row in analysis_rows),
+            "not_observed": sum(not row.outcome_observed for row in analysis_rows),
+            "rates": observation["treatment_arm_observation_probabilities"],
+            "probabilities": _distribution(observation["probabilities"]),
+        },
         "pre_balance": pre_balance,
-        "post_balance": post_balance,
+        "treatment_weight_balance": treatment_weight_balance,
+        "combined_weight_balance": combined_weight_balance,
         "max_abs_pre_smd": max(float(item["absolute_standardized_mean_difference"]) for item in pre_balance),
-        "max_abs_post_smd": max(float(item["absolute_standardized_mean_difference"]) for item in post_balance),
-        "unadjusted_effects": effect_summary(analysis_rows, unit_weights, treatment_id, comparator_id),
-        "weighted_effects": effect_summary(analysis_rows, weights, treatment_id, comparator_id),
+        "max_abs_treatment_weight_smd": max(float(item["absolute_standardized_mean_difference"]) for item in treatment_weight_balance),
+        "max_abs_combined_weight_smd": max(float(item["absolute_standardized_mean_difference"]) for item in combined_weight_balance),
+        "unadjusted_effects": effect_summary(analysis_rows, observed_unit_weights, treatment_id, comparator_id),
+        "treatment_weighted_effects": effect_summary(analysis_rows, [weight if row.outcome_observed else 0.0 for row, weight in zip(analysis_rows, weights)], treatment_id, comparator_id),
+        "combined_weighted_effects": effect_summary(analysis_rows, combined_weights, treatment_id, comparator_id),
     }
 
 
@@ -588,17 +768,17 @@ def execute_bootstrap(request: dict[str, Any], facts: dict[str, Any]) -> tuple[l
     ):
         try:
             analysis = point_analysis(request, facts, sample)
-            effect = float(analysis["weighted_effects"]["risk_difference"])
+            effect = float(analysis["combined_weighted_effects"]["risk_difference"])
             successful.append(effect)
             draws.append(
                 {
                     "iteration": iteration,
                     "status": "ok",
                     "risk_difference": effect,
-                    "treatment_risk": analysis["weighted_effects"]["treatment_risk"],
-                    "comparator_risk": analysis["weighted_effects"]["comparator_risk"],
-                    "maximum_weight": analysis["weight_summary"]["overall"]["maximum"],
-                    "max_abs_post_smd": analysis["max_abs_post_smd"],
+                    "treatment_risk": analysis["combined_weighted_effects"]["treatment_risk"],
+                    "comparator_risk": analysis["combined_weighted_effects"]["comparator_risk"],
+                    "maximum_weight": analysis["weight_summary"]["combined_observed_rows"]["overall"]["maximum"],
+                    "max_abs_post_smd": analysis["max_abs_combined_weight_smd"],
                     "error": "",
                 }
             )
@@ -661,6 +841,10 @@ def inspect_source(
     subjects: set[str] = set()
     counts = {treatment_id: 0, comparator_id: 0}
     outcomes = {treatment_id: {0: 0, 1: 0}, comparator_id: {0: 0, 1: 0}}
+    observation = {
+        treatment_id: {False: 0, True: 0},
+        comparator_id: {False: 0, True: 0},
+    }
     try:
         with path.open("r", encoding="utf-8", newline="") as handle:
             reader = csv.reader(handle, strict=True)
@@ -671,10 +855,13 @@ def inspect_source(
             if header != expected_columns:
                 return rows, {}, ["source_data CSV columns do not exactly match source_data.columns"]
             for line_number, raw in enumerate(reader, start=2):
-                if len(raw) != len(expected_columns) or any(not value or value != value.strip() for value in raw):
-                    errors.append(f"source_data row {line_number} contains an invalid, blank, or padded value")
+                if len(raw) != len(expected_columns) or any(
+                    value != value.strip() or (index != 3 and not value)
+                    for index, value in enumerate(raw)
+                ):
+                    errors.append(f"source_data row {line_number} contains an invalid, disallowed blank, or padded value")
                     continue
-                subject_id, treatment, outcome_raw, *confounder_raw = raw
+                subject_id, treatment, observed_raw, outcome_raw, *confounder_raw = raw
                 if SAFE_SUBJECT.fullmatch(subject_id) is None:
                     errors.append(f"source_data row {line_number} subject_id is not a safe pseudonym")
                 elif subject_id in subjects:
@@ -684,14 +871,30 @@ def inspect_source(
                     errors.append(f"source_data row {line_number} treatment is outside the two declared strategies")
                     continue
                 try:
-                    outcome_value = float(outcome_raw)
+                    observed_value = float(observed_raw)
                     values = tuple(float(value) for value in confounder_raw)
                 except ValueError:
-                    errors.append(f"source_data row {line_number} outcome and confounders must be numeric")
+                    errors.append(f"source_data row {line_number} observation indicator and confounders must be numeric")
                     continue
-                if outcome_value not in {0.0, 1.0}:
-                    errors.append(f"source_data row {line_number} outcome must be exactly 0 or 1")
+                if observed_value not in {0.0, 1.0}:
+                    errors.append(f"source_data row {line_number} outcome_observed must be exactly 0 or 1")
                     continue
+                outcome_observed = observed_value == 1.0
+                if outcome_observed:
+                    try:
+                        outcome_value = float(outcome_raw)
+                    except ValueError:
+                        errors.append(f"source_data row {line_number} outcome must be 0 or 1 when observed")
+                        continue
+                    if outcome_value not in {0.0, 1.0}:
+                        errors.append(f"source_data row {line_number} outcome must be exactly 0 or 1 when observed")
+                        continue
+                    outcome: int | None = int(outcome_value)
+                else:
+                    if outcome_raw:
+                        errors.append(f"source_data row {line_number} outcome must be blank when outcome_observed is 0")
+                        continue
+                    outcome = None
                 if len(values) != len(confounder_types) or any(
                     not math.isfinite(value) or abs(value) > 1e12 for value in values
                 ):
@@ -700,9 +903,11 @@ def inspect_source(
                 for index, (value, kind) in enumerate(zip(values, confounder_types)):
                     if kind == "binary" and value not in {0.0, 1.0}:
                         errors.append(f"source_data row {line_number} binary confounder {index} must be 0 or 1")
-                rows.append(SourceRow(subject_id, treatment, int(outcome_value), values))
+                rows.append(SourceRow(subject_id, treatment, outcome_observed, outcome, values))
                 counts[treatment] += 1
-                outcomes[treatment][int(outcome_value)] += 1
+                observation[treatment][outcome_observed] += 1
+                if outcome is not None:
+                    outcomes[treatment][outcome] += 1
                 if len(rows) > MAX_SOURCE_ROWS:
                     errors.append(f"source_data exceeds {MAX_SOURCE_ROWS} rows")
                     break
@@ -711,11 +916,18 @@ def inspect_source(
     for arm, count in counts.items():
         if count < 20:
             errors.append(f"source_data treatment arm {arm} must contain at least 20 rows")
+        if observation[arm][True] < 2 or observation[arm][False] < 2:
+            errors.append(f"source_data treatment arm {arm} must contain at least two observed and two not-observed outcomes")
         if outcomes[arm][0] < 2 or outcomes[arm][1] < 2:
-            errors.append(f"source_data treatment arm {arm} must contain at least two events and two non-events")
+            errors.append(f"source_data treatment arm {arm} must contain at least two observed events and two observed non-events")
     if len(rows) != len(subjects):
         errors.append("source_data subject identifiers must be unique")
-    return rows, {"row_count": len(rows), "arm_counts": counts, "outcome_counts": outcomes}, errors
+    return rows, {
+        "row_count": len(rows),
+        "arm_counts": counts,
+        "outcome_counts": outcomes,
+        "observation_counts": observation,
+    }, errors
 
 
 def _safe_text_list(value: Any, maximum_items: int = 100) -> bool:
@@ -729,9 +941,9 @@ def _safe_text_list(value: Any, maximum_items: int = 100) -> bool:
 def validate_request(request: dict[str, Any], workspace: Path) -> tuple[list[str], dict[str, Any]]:
     errors: list[str] = []
     if not exact(request, REQUEST_FIELDS):
-        return ["request fields do not match RWE causal schema 0.1.0"], {}
+        return ["request fields do not match RWE causal schema 0.2.0"], {}
     if request.get("schema_version") != REQUEST_SCHEMA_VERSION:
-        errors.append("schema_version must be 0.1.0")
+        errors.append("schema_version must be 0.2.0")
     execution_id = request.get("execution_id")
     if not safe_id(execution_id):
         errors.append("execution_id must be a safe stable identifier")
@@ -818,7 +1030,7 @@ def validate_request(request: dict[str, Any], workspace: Path) -> tuple[list[str
     else:
         included_records = set(evidence.get("included_record_ids", []))
         for index, item in enumerate(confounders):
-            if not exact(item, {"id", "column", "label", "type", "timing", "role", "rationale", "evidence_record_ids"}):
+            if not exact(item, {"id", "column", "label", "type", "timing", "roles", "rationale", "evidence_record_ids"}):
                 errors.append(f"confounders[{index}] fields are invalid")
                 continue
             record_ids = item.get("evidence_record_ids")
@@ -826,8 +1038,17 @@ def validate_request(request: dict[str, Any], workspace: Path) -> tuple[list[str
                 errors.append(f"confounders[{index}] identity is invalid")
             if item.get("type") not in {"binary", "continuous"}:
                 errors.append(f"confounders[{index}] type must be binary or continuous")
-            if item.get("timing") != "baseline_pre_treatment" or item.get("role") != "human_prespecified_common_cause":
-                errors.append(f"confounders[{index}] must be a Human-prespecified baseline common cause")
+            roles = item.get("roles")
+            if (
+                item.get("timing") != "baseline_pre_treatment"
+                or not isinstance(roles, list)
+                or not roles
+                or len(set(roles)) != len(roles)
+                or any(role not in {"treatment_outcome_common_cause", "observation_outcome_common_cause"} for role in roles)
+            ):
+                errors.append(f"confounders[{index}] must declare Human-prespecified baseline common cause roles")
+            elif "treatment_outcome_common_cause" not in roles:
+                errors.append(f"confounders[{index}] must be a Human-prespecified treatment-outcome baseline common cause")
             if not text(item.get("rationale")):
                 errors.append(f"confounders[{index}] requires a Human-authored causal rationale")
             if (
@@ -856,7 +1077,8 @@ def validate_request(request: dict[str, Any], workspace: Path) -> tuple[list[str
         "missing_policy",
         "one_row_per_person",
         "baseline_covariates_only",
-        "fixed_complete_follow_up",
+        "fixed_horizon_outcome",
+        "outcome_observation",
         "treatment_assignment",
     }
     source_path: Path | None = None
@@ -866,23 +1088,28 @@ def validate_request(request: dict[str, Any], workspace: Path) -> tuple[list[str
         errors.append("source_data fields are invalid")
         source = {}
     else:
-        expected_columns = ["subject_id", "treatment", "outcome", *confounder_columns]
+        expected_columns = ["subject_id", "treatment", "outcome_observed", "outcome", *confounder_columns]
         if source.get("classification") not in {"restricted", "confidential"}:
             errors.append("source_data classification must be restricted or confidential")
         if source.get("execution_boundary") != "local_only" or source.get("format") != "one_row_per_person_csv":
             errors.append("source_data must be a local-only one-row-per-person CSV")
         if source.get("columns") != expected_columns or any(not safe_column(value) for value in source.get("columns", [])):
-            errors.append("source_data columns must exactly match subject_id,treatment,outcome and ordered confounders")
+            errors.append("source_data columns must exactly match subject_id,treatment,outcome_observed,outcome and ordered confounders")
         if source.get("contains_direct_identifiers") is not False:
             errors.append("source_data must declare no direct identifiers")
         if (
-            source.get("missing_policy") != "reject"
+            source.get("missing_policy") != "outcome_blank_only_when_not_observed"
             or source.get("one_row_per_person") is not True
             or source.get("baseline_covariates_only") is not True
-            or source.get("fixed_complete_follow_up") is not True
+            or source.get("fixed_horizon_outcome") is not True
+            or source.get("outcome_observation") != {
+                "indicator_column": "outcome_observed",
+                "observed_value": 1,
+                "not_observed_value": 0,
+            }
             or source.get("treatment_assignment") != "observational_active_comparator_new_user"
         ):
-            errors.append("source_data must bind the fixed complete-case active-comparator new-user cohort contract")
+            errors.append("source_data must bind the fixed-horizon observed-outcome active-comparator new-user cohort contract")
         if isinstance(source.get("row_count"), bool) or not isinstance(source.get("row_count"), int) or not 40 <= source.get("row_count", 0) <= MAX_SOURCE_ROWS:
             errors.append("source_data row_count is outside the supported range")
         source_path = resolve_file(workspace, source.get("path"))
@@ -924,16 +1151,59 @@ def validate_request(request: dict[str, Any], workspace: Path) -> tuple[list[str
         if isinstance(iterations, bool) or not isinstance(iterations, int) or not 20 <= iterations <= 500:
             errors.append("propensity_score max_iterations must be between 20 and 500")
 
+    observation_model = request.get("observation_model")
+    predictor_ids = observation_model.get("predictor_ids") if isinstance(observation_model, dict) else None
+    observation_fixed = {
+        "model": "logistic_regression_main_effects",
+        "response_encoding": "outcome_observed_is_one",
+        "predictor_ids": predictor_ids,
+        "includes_treatment": True,
+        "intercept": True,
+        "continuous_standardization": "sample_mean_standard_deviation",
+        "nonlinear_terms": "none",
+        "interactions": "none",
+        "penalty": "none",
+        "convergence_tolerance": observation_model.get("convergence_tolerance") if isinstance(observation_model, dict) else None,
+        "max_iterations": observation_model.get("max_iterations") if isinstance(observation_model, dict) else None,
+    }
+    observation_predictor_indices: list[int] = []
+    if observation_model != observation_fixed:
+        errors.append("observation_model must use the fixed Human-prespecified treatment-plus-baseline logistic model")
+    else:
+        if (
+            not isinstance(predictor_ids, list)
+            or not predictor_ids
+            or len(set(predictor_ids)) != len(predictor_ids)
+            or any(value not in confounder_ids for value in predictor_ids)
+        ):
+            errors.append("observation_model predictor_ids must be a unique non-empty subset of confounders")
+        else:
+            observation_predictor_indices = [confounder_ids.index(value) for value in predictor_ids]
+            for predictor_id, index in zip(predictor_ids, observation_predictor_indices):
+                roles = request["confounders"][index].get("roles", [])
+                if "observation_outcome_common_cause" not in roles:
+                    errors.append(
+                        f"observation_model predictor {predictor_id} lacks a Human-prespecified observation-outcome causal role"
+                    )
+        tolerance = observation_model.get("convergence_tolerance")
+        iterations = observation_model.get("max_iterations")
+        if not finite(tolerance) or not 1e-12 <= float(tolerance) <= 1e-8:
+            errors.append("observation_model convergence_tolerance must be between 1e-12 and 1e-8")
+        if isinstance(iterations, bool) or not isinstance(iterations, int) or not 20 <= iterations <= 500:
+            errors.append("observation_model max_iterations must be between 20 and 500")
+
     weighting = request.get("weighting")
     if weighting != {
         "estimand": "source_cohort_ate",
-        "method": "stabilized_inverse_probability_of_treatment_weighting",
-        "numerator": "marginal_treatment_probability",
+        "method": "stabilized_inverse_probability_of_treatment_and_observation_weighting",
+        "treatment_numerator": "marginal_treatment_probability",
+        "observation_numerator": "treatment_arm_observation_probability",
+        "outcome_rows": "observed_only",
         "trimming": "none",
         "weight_cap": "none",
         "renormalization": "none",
     }:
-        errors.append("weighting must use untrimmed, uncapped stabilized source-cohort ATE IPTW")
+        errors.append("weighting must use untrimmed, uncapped stabilized source-cohort ATE treatment-and-observation weighting")
     diagnostics = request.get("diagnostics")
     if diagnostics != {
         "balance_metric": "standardized_mean_difference",
@@ -988,6 +1258,7 @@ def validate_request(request: dict[str, Any], workspace: Path) -> tuple[list[str
                     "rows": rows,
                     "confounder_types": confounder_types,
                     "confounder_ids": confounder_ids,
+                    "observation_predictor_indices": observation_predictor_indices,
                 },
             )
         except ValueError as error:
@@ -1000,6 +1271,7 @@ def validate_request(request: dict[str, Any], workspace: Path) -> tuple[list[str
         "confounder_ids": confounder_ids,
         "confounder_columns": confounder_columns,
         "confounder_types": confounder_types,
+        "observation_predictor_indices": observation_predictor_indices,
         "preflight": preflight,
     }
     return errors, facts
@@ -1026,6 +1298,28 @@ def propensity_result(request: dict[str, Any], facts: dict[str, Any], analysis: 
     }
 
 
+def observation_model_result(request: dict[str, Any], facts: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
+    model = analysis["observation_model"]
+    predictor_ids = request["observation_model"]["predictor_ids"]
+    return {
+        "model": "logistic_regression_main_effects",
+        "response": "outcome_observed",
+        "converged": True,
+        "iterations": model["iterations"],
+        "log_likelihood": model["log_likelihood"],
+        "marginal_observation_probability": model["marginal_observation_probability"],
+        "treatment_arm_observation_probabilities": model["treatment_arm_observation_probabilities"],
+        "coefficients": [
+            {"id": name, "value": value}
+            for name, value in zip(["intercept", "treatment", *predictor_ids], model["coefficients"])
+        ],
+        "standardization": [
+            {"id": predictor_id, **standardization}
+            for predictor_id, standardization in zip(predictor_ids, model["standardization"])
+        ],
+    }
+
+
 def expected_analysis(
     request: dict[str, Any],
     facts: dict[str, Any],
@@ -1033,7 +1327,7 @@ def expected_analysis(
     successful: list[float],
 ) -> dict[str, Any]:
     point = facts["preflight"]
-    adjusted = dict(point["weighted_effects"])
+    adjusted = dict(point["combined_weighted_effects"])
     if len(successful) < 2:
         standard_error = None
         lower = None
@@ -1048,21 +1342,34 @@ def expected_analysis(
     failed = len(draws) - len(successful)
     return {
         "propensity_score": propensity_result(request, facts, point),
+        "observation_model": observation_model_result(request, facts, point),
         "weighting": point["weight_summary"],
         "diagnostics": {
             "propensity": point["propensity_summary"],
+            "observation": point["observation_summary"],
             "balance": [
-                {"id": pre["id"], "pre_weight": pre, "post_weight": post}
-                for pre, post in zip(point["pre_balance"], point["post_balance"])
+                {
+                    "id": pre["id"],
+                    "pre_weight": pre,
+                    "treatment_weight": treatment,
+                    "combined_observed_weight": combined,
+                }
+                for pre, treatment, combined in zip(
+                    point["pre_balance"],
+                    point["treatment_weight_balance"],
+                    point["combined_weight_balance"],
+                )
             ],
             "max_abs_pre_smd": point["max_abs_pre_smd"],
-            "max_abs_post_smd": point["max_abs_post_smd"],
+            "max_abs_treatment_weight_smd": point["max_abs_treatment_weight_smd"],
+            "max_abs_combined_observed_weight_smd": point["max_abs_combined_weight_smd"],
             "automatic_acceptance_thresholds": False,
         },
         "effects": {
-            "primary_estimand": "source_cohort_ate_risk_difference",
-            "unadjusted": point["unadjusted_effects"],
-            "stabilized_ate_iptw": adjusted,
+            "primary_estimand": "source_cohort_ate_risk_difference_if_no_outcome_loss",
+            "observed_complete_case_unadjusted": point["unadjusted_effects"],
+            "observed_complete_case_stabilized_ate_iptw": point["treatment_weighted_effects"],
+            "stabilized_ate_iptw_ipow": adjusted,
             "causal_validity_determined": False,
         },
         "bootstrap": {
@@ -1135,7 +1442,7 @@ def audit_result(result_path: Path, workspace: Path) -> dict[str, Any]:
     except (OSError, ValueError, json.JSONDecodeError) as error:
         return {"complete": False, "reviewable": False, "errors": [f"result cannot be read: {error}"]}
     if not exact(result, RESULT_FIELDS):
-        return {"complete": False, "reviewable": False, "errors": ["result fields do not match schema 0.1.0"]}
+        return {"complete": False, "reviewable": False, "errors": ["result fields do not match schema 0.2.0"]}
     if result.get("schema_version") != RESULT_SCHEMA_VERSION or not safe_id(result.get("execution_id")):
         errors.append("result schema_version or execution_id is invalid")
     request_binding = result.get("request")
@@ -1209,6 +1516,7 @@ def audit_result(result_path: Path, workspace: Path) -> dict[str, Any]:
             errors.append("bootstrap draw bytes do not reproduce the complete fixed PCG32 replay")
         expected = expected_analysis(request, facts, draws, successful)
         _deep_close(result.get("propensity_score"), expected["propensity_score"], "propensity_score", errors)
+        _deep_close(result.get("observation_model"), expected["observation_model"], "observation_model", errors)
         _deep_close(result.get("weighting"), expected["weighting"], "weighting", errors)
         _deep_close(result.get("diagnostics"), expected["diagnostics"], "diagnostics", errors)
         _deep_close(result.get("effects"), expected["effects"], "effects", errors)

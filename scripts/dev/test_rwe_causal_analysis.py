@@ -46,7 +46,7 @@ def build_workspace(root: Path, row_count: int = 160) -> dict[str, Any]:
         root / "heor/evidence-synthesis.json",
         {"records": ["rwe-source-record", "confounder-record"]},
     )
-    csv_rows = ["subject_id,treatment,outcome,age,baseline_risk"]
+    csv_rows = ["subject_id,treatment,outcome_observed,outcome,age,baseline_risk"]
     for index in range(row_count):
         age = 35 + (index * 7) % 45
         baseline_risk = 1 if index % 5 in {0, 1} else 0
@@ -54,10 +54,15 @@ def build_workspace(root: Path, row_count: int = 160) -> dict[str, Any]:
         treatment = "treatment" if (index * 37 + 11) % 100 < treatment_threshold else "comparator"
         outcome_threshold = 13 + int((age - 35) * 0.28) + 18 * baseline_risk - (5 if treatment == "treatment" else 0)
         outcome = 1 if (index * 53 + 7) % 100 < outcome_threshold else 0
-        csv_rows.append(f"p{index + 1:04d},{treatment},{outcome},{age},{baseline_risk}")
+        observation_threshold = 82 - 12 * baseline_risk - (6 if treatment == "treatment" else 0)
+        observed = 1 if (index * 29 + 17) % 100 < observation_threshold else 0
+        outcome_cell = str(outcome) if observed else ""
+        csv_rows.append(
+            f"p{index + 1:04d},{treatment},{observed},{outcome_cell},{age},{baseline_risk}"
+        )
     source_sha = write_bytes(root / "heor/rwe-causal-data/cohort.csv", ("\n".join(csv_rows) + "\n").encode())
     request = {
-        "schema_version": "0.1.0",
+        "schema_version": "0.2.0",
         "execution_id": "rwe-test-001",
         "status": "ready_for_execution",
         "target_trial": {
@@ -68,7 +73,7 @@ def build_workspace(root: Path, row_count: int = 160) -> dict[str, Any]:
             "comparator_strategy": {"id": "comparator", "label": "Active-comparator initiators"},
             "assignment": "observational_at_baseline",
             "time_zero": "Eligible treatment initiation",
-            "follow_up": "Fixed complete 180-day follow-up",
+            "follow_up": "Fixed 180-day outcome horizon with possible loss to follow-up",
             "outcome": "Binary synthetic event by day 180",
             "causal_contrast": "intention_to_treat_analog",
         },
@@ -89,13 +94,18 @@ def build_workspace(root: Path, row_count: int = 160) -> dict[str, Any]:
             "format": "one_row_per_person_csv",
             "path": "heor/rwe-causal-data/cohort.csv",
             "sha256": source_sha,
-            "columns": ["subject_id", "treatment", "outcome", "age", "baseline_risk"],
+            "columns": ["subject_id", "treatment", "outcome_observed", "outcome", "age", "baseline_risk"],
             "row_count": row_count,
             "contains_direct_identifiers": False,
-            "missing_policy": "reject",
+            "missing_policy": "outcome_blank_only_when_not_observed",
             "one_row_per_person": True,
             "baseline_covariates_only": True,
-            "fixed_complete_follow_up": True,
+            "fixed_horizon_outcome": True,
+            "outcome_observation": {
+                "indicator_column": "outcome_observed",
+                "observed_value": 1,
+                "not_observed_value": 0,
+            },
             "treatment_assignment": "observational_active_comparator_new_user",
         },
         "confounders": [
@@ -105,7 +115,7 @@ def build_workspace(root: Path, row_count: int = 160) -> dict[str, Any]:
                 "label": "Age at initiation",
                 "type": "continuous",
                 "timing": "baseline_pre_treatment",
-                "role": "human_prespecified_common_cause",
+                "roles": ["treatment_outcome_common_cause", "observation_outcome_common_cause"],
                 "rationale": "Synthetic baseline common cause chosen before analysis.",
                 "evidence_record_ids": ["confounder-record"],
             },
@@ -115,7 +125,7 @@ def build_workspace(root: Path, row_count: int = 160) -> dict[str, Any]:
                 "label": "Baseline risk",
                 "type": "binary",
                 "timing": "baseline_pre_treatment",
-                "role": "human_prespecified_common_cause",
+                "roles": ["treatment_outcome_common_cause", "observation_outcome_common_cause"],
                 "rationale": "Synthetic baseline common cause chosen before analysis.",
                 "evidence_record_ids": ["confounder-record"],
             },
@@ -131,10 +141,25 @@ def build_workspace(root: Path, row_count: int = 160) -> dict[str, Any]:
             "convergence_tolerance": 1e-10,
             "max_iterations": 100,
         },
+        "observation_model": {
+            "model": "logistic_regression_main_effects",
+            "response_encoding": "outcome_observed_is_one",
+            "predictor_ids": ["age", "baseline-risk"],
+            "includes_treatment": True,
+            "intercept": True,
+            "continuous_standardization": "sample_mean_standard_deviation",
+            "nonlinear_terms": "none",
+            "interactions": "none",
+            "penalty": "none",
+            "convergence_tolerance": 1e-10,
+            "max_iterations": 100,
+        },
         "weighting": {
             "estimand": "source_cohort_ate",
-            "method": "stabilized_inverse_probability_of_treatment_weighting",
-            "numerator": "marginal_treatment_probability",
+            "method": "stabilized_inverse_probability_of_treatment_and_observation_weighting",
+            "treatment_numerator": "marginal_treatment_probability",
+            "observation_numerator": "treatment_arm_observation_probability",
+            "outcome_rows": "observed_only",
             "trimming": "none",
             "weight_cap": "none",
             "renormalization": "none",
@@ -174,9 +199,10 @@ class RweCausalAnalysisTests(unittest.TestCase):
             errors, facts = validate_request(request, root)
             self.assertEqual(errors, [])
             analysis = point_analysis(request, facts)
-            self.assertLess(analysis["max_abs_post_smd"], analysis["max_abs_pre_smd"])
-            self.assertAlmostEqual(analysis["weight_summary"]["overall"]["mean"], 1.0, delta=0.05)
-            self.assertTrue(-1 <= analysis["weighted_effects"]["risk_difference"] <= 1)
+            self.assertLess(analysis["max_abs_treatment_weight_smd"], analysis["max_abs_pre_smd"])
+            self.assertGreater(analysis["observation_summary"]["not_observed"], 0)
+            self.assertTrue(all(row.outcome is None for row in facts["rows"] if not row.outcome_observed))
+            self.assertTrue(-1 <= analysis["combined_weighted_effects"]["risk_difference"] <= 1)
 
     def test_runner_and_portable_audit_bind_complete_replay(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -221,14 +247,14 @@ class RweCausalAnalysisTests(unittest.TestCase):
             request["source_data"]["missing_policy"] = "complete_case"
             errors, _ = validate_request(request, root)
             self.assertTrue(any("baseline common cause" in error for error in errors))
-            self.assertTrue(any("complete-case active-comparator" in error for error in errors))
+            self.assertTrue(any("fixed-horizon observed-outcome" in error for error in errors))
 
     def test_stale_source_and_duplicate_subjects_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             request = build_workspace(root)
             path = root / request["source_data"]["path"]
-            path.write_bytes(path.read_bytes() + b"p0001,treatment,0,50,0\n")
+            path.write_bytes(path.read_bytes() + b"p0001,treatment,1,0,50,0\n")
             errors, _ = validate_request(request, root)
             self.assertTrue(any("sha256" in error for error in errors))
             request["source_data"]["sha256"] = digest(path.read_bytes())
@@ -264,7 +290,7 @@ class RweCausalAnalysisTests(unittest.TestCase):
             )
             result = root / "heor/rwe-causal-analysis-runs/rwe-test-001/manifest.json"
             manifest = json.loads(result.read_text())
-            manifest["effects"]["stabilized_ate_iptw"]["risk_difference"] += 0.01
+            manifest["effects"]["stabilized_ate_iptw_ipow"]["risk_difference"] += 0.01
             write_json(result, manifest)
             audit = audit_result(result, root)
             self.assertFalse(audit["complete"])
@@ -288,6 +314,28 @@ class RweCausalAnalysisTests(unittest.TestCase):
             draws, successful = execute_bootstrap(request, facts)
             self.assertLess(len(successful), len(draws))
             self.assertTrue(any(draw["status"] == "failed" for draw in draws))
+
+    def test_observation_contract_rejects_inconsistent_outcome_cells(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request = build_workspace(root)
+            path = root / request["source_data"]["path"]
+            rows = path.read_text().splitlines()
+            cells = rows[1].split(",")
+            cells[2] = "0"
+            cells[3] = "1"
+            rows[1] = ",".join(cells)
+            request["source_data"]["sha256"] = write_bytes(path, ("\n".join(rows) + "\n").encode())
+            errors, _ = validate_request(request, root)
+            self.assertTrue(any("blank when outcome_observed is 0" in error for error in errors))
+
+    def test_observation_predictors_require_human_prespecified_role(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request = build_workspace(root)
+            request["confounders"][0]["roles"] = ["treatment_outcome_common_cause"]
+            errors, _ = validate_request(request, root)
+            self.assertTrue(any("observation-outcome" in error for error in errors))
 
     def test_pcg32_stream_is_version_stable(self) -> None:
         rng = Pcg32(42)

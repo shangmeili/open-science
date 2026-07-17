@@ -79,6 +79,7 @@ def build_result(
         "target_trial": request["target_trial"],
         "estimand": request["estimand"],
         "propensity_score": analysis["propensity_score"],
+        "observation_model": analysis["observation_model"],
         "weighting": analysis["weighting"],
         "diagnostics": analysis["diagnostics"],
         "effects": analysis["effects"],

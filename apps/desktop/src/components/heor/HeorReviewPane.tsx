@@ -4267,15 +4267,18 @@ export function RweCausalAnalysisAssessment({
       </div>
       {audit?.executionId && (
         <>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <div className="mt-3 grid grid-cols-4 gap-2 text-center">
             <Metric label={t("rweCausal.rows")} value={String(audit.rowCount)} />
             <Metric label={t("rweCausal.confounders")} value={String(audit.confounderCount)} />
-            <Metric label={t("rweCausal.essRatio")} value={format(audit.essRatio, 3)} />
+            <Metric label={t("rweCausal.observedOutcomes")} value={String(audit.observedOutcomeCount)} />
+            <Metric label={t("rweCausal.followUpRate")} value={format(audit.followUpRate, 3)} />
           </div>
           <p className="mt-3 text-[10px] leading-4 text-muted">
             {t("rweCausal.diagnosticSummary", {
               ess: format(audit.essOverall),
+              essRatio: format(audit.essRatio, 3),
               maxWeight: format(audit.maximumWeight),
+              maxObservationWeight: format(audit.maximumObservationWeight),
               pre: format(audit.maxAbsPreSmd, 3),
               post: format(audit.maxAbsPostSmd, 3),
             })}
