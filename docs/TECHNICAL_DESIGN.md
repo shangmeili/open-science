@@ -13,10 +13,12 @@
 > native point/diagnostic challenge, and
 > separate app-owned Human method reviews consolidated in a current-result review queue; and
 > native macOS and x86_64 Linux packaging.
-> The 0.1.28 x64 macOS DMG is content-verified from clean commit
-> `5b4afb3077c8754ecba40c1ca9820ea41c7139f8`; all 282 resources match source bytes,
+> The 0.1.29 x64 macOS DMG is content-verified from clean commit
+> `b1a177a26d0d1c2f0d51a637e2a9c511faa9784e`; all 282 resources match source bytes,
 > all 177 mounted-core HEOR tests pass, and isolated fresh plus legacy-migration starts
-> were verified. A 0.1.22 Apple Silicon DMG was separately
+> were verified. Its ordinary research and closed-Settings surfaces identify only the AI
+> assistant; the OpenCode engine name and local endpoint are confined to an explicitly
+> opened Advanced diagnostics section. A 0.1.22 Apple Silicon DMG was separately
 > cross-built from clean commit `d2363138449566137c8374386acdf1f8774faad3` on an Intel
 > Mac; read-only inspection verified pure-arm64 payloads, all 265 resources byte-for-byte,
 > and all 177 mounted-core HEOR tests. Native sidecar execution and first start remain
