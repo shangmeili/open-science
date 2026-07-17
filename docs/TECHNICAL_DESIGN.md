@@ -142,7 +142,7 @@ small, fast, secure cross-platform apps built from a single codebase.
 
 If later needs arise — complex browser capabilities, a more mature desktop ecosystem,
 identical embedded Chromium behavior, or many native Node.js modules — Electron could be
-reconsidered. But AI4S Workbench's core is the workbench, files, agent, runtime, and
+reconsidered. But AI4HEOR's core is the workbench, files, agent, runtime, and
 artifacts, which do not need Chromium-level capabilities, so Tauri fits better.
 
 ## 4. Frontend
@@ -707,7 +707,10 @@ the OpenCode server; start an optional Jupyter Gateway; monitor runtime health.
   workspaces/  logs/  cache/  secrets/
 ```
 
-Windows: `%APPDATA%/AI4S Workbench/` · macOS: `~/Library/Application Support/AI4S Workbench/`
+The compatibility identifier remains `com.ai4s.workbench`, so existing app-private
+provider settings and review records stay in place across upgrades. The researcher-visible
+default workspace is `~/Documents/AI4HEOR`. Hidden `.openscience` metadata paths remain a
+storage-schema compatibility boundary; they are not the public product or workspace name.
 
 ## 9. Storage
 
@@ -897,7 +900,10 @@ package hashes and the deb/rpm parity result.
 Version 0.1.22 was additionally installed into brand-new native package environments. A
 headless X session on Ubuntu 22.04 after `.deb` installation and on Fedora 42 after `.rpm`
 installation reached simultaneous `ai4s-workbench` and `opencode serve` process readiness
-and created the initial `~/Documents/OpenScience` workspace. The independently extracted
+and created the then-current `~/Documents/OpenScience` workspace. From 0.1.27, a fresh
+installation creates `~/Documents/AI4HEOR`; an existing default `OpenScience` root is
+renamed atomically, while a rename failure reuses the legacy root rather than splitting data.
+The independently extracted
 `.deb` and `.rpm` payloads each passed all 177 deterministic HEOR tests and all 265
 configured scientific resources matched the source bytes. This establishes clean native
 installation and headless runtime startup for both package formats, but it is not a visual
@@ -1026,7 +1032,7 @@ ai4s-workbench/
 - `apps/desktop` — Tauri + React desktop app; `src-tauri/src/runtime.rs` supervises the
   bundled OpenCode sidecar (`OpenCodeClient` lives in `packages/sdk`).
 - `runtime/manager` — local runtime manager (detect deps, workspace, provenance, logs).
-- `runtime/opencode-profile` — the AI4S Workbench OpenCode config/skills bundle.
+- `runtime/opencode-profile` — the AI4HEOR OpenCode config/skills bundle.
 - `runtime/skills` — self-authored scientific skills.
 - `examples` — the complete demo project.
 

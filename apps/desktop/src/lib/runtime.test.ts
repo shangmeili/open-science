@@ -31,13 +31,18 @@ const foldAll = (events: OpenCodeEvent[], from: FoldState = empty): FoldState =>
 
 describe("tidyToolTitle", () => {
   it("shows workspace files by their relative path", () => {
-    expect(tidyToolTitle("/Users/asq/Documents/OpenScience/demo/analyze.py")).toBe("demo/analyze.py");
-    expect(tidyToolTitle("mkdir -p /Users/asq/Documents/OpenScience/demo_analysis")).toBe(
+    expect(tidyToolTitle("/Users/asq/Documents/AI4HEOR/demo/analyze.py")).toBe("demo/analyze.py");
+    expect(tidyToolTitle("mkdir -p /Users/asq/Documents/AI4HEOR/demo_analysis")).toBe(
       "mkdir -p demo_analysis",
     );
     // OpenCode's write-tool titles drop the leading slash — must still relativize.
-    expect(tidyToolTitle("Users/asq/Documents/OpenScience/demo_analysis/analyze.py")).toBe(
+    expect(tidyToolTitle("Users/asq/Documents/AI4HEOR/demo_analysis/analyze.py")).toBe(
       "demo_analysis/analyze.py",
+    );
+  });
+  it("keeps legacy OpenScience session logs relative after migration", () => {
+    expect(tidyToolTitle("Users/asq/Documents/OpenScience/legacy/report.md")).toBe(
+      "legacy/report.md",
     );
   });
   it("leaves non-workspace titles unchanged", () => {
@@ -80,7 +85,7 @@ describe("toolPresentation", () => {
   });
   it("file tools: verb + relative path", () => {
     expect(
-      toolPresentation("write", "", { filePath: "/Users/asq/Documents/OpenScience/demo/train.py" }),
+      toolPresentation("write", "", { filePath: "/Users/asq/Documents/AI4HEOR/demo/train.py" }),
     ).toEqual({ verb: "Created", title: "demo/train.py" });
     expect(toolPresentation("edit", "", { filePath: "config.yaml" })).toEqual({
       verb: "Edited",
@@ -152,7 +157,7 @@ describe("foldEvent", () => {
     // OpenCode only sets a write/edit tool's title on completion — while the
     // tool runs, the file path in its input is the only thing worth showing.
     const s = foldAll([
-      { type: "tool.updated", sessionId: S, callId: "c1", tool: "write", status: "running", input: { filePath: "/Users/asq/Documents/OpenScience/2026-07-04/index.html", content: "<!doctype html>" } },
+      { type: "tool.updated", sessionId: S, callId: "c1", tool: "write", status: "running", input: { filePath: "/Users/asq/Documents/AI4HEOR/2026-07-04/index.html", content: "<!doctype html>" } },
     ]);
     expect(s.blocks[0]).toMatchObject({
       kind: "tool-call",

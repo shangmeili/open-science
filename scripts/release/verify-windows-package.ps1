@@ -119,7 +119,7 @@ Assert-True ((Split-Path $NsisPath -Leaf) -match '^AI4HEOR_.+_x64-setup\.exe$') 
 $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) ("ai4heor-windows-verification-" + [guid]::NewGuid())
 $extractRoot = Join-Path $temporaryRoot 'msi'
 $verificationPath = Join-Path $temporaryRoot 'windows-verification.json'
-$workspace = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'OpenScience'
+$workspace = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'AI4HEOR'
 $createdWorkspace = $false
 $installRoot = $null
 $startedProcess = $null

@@ -195,6 +195,12 @@ Download the latest installer from the
 - **Windows**: NSIS `.exe` and `.msi`, Windows 10/11 x64.
 - **Linux**: `.deb` and `.rpm` on x86_64 Linux.
 
+From 0.1.27, a fresh installation uses `~/Documents/AI4HEOR`. When the new root
+does not yet exist, AI4HEOR atomically renames the prior default
+`~/Documents/OpenScience` root and preserves its contents. If both roots already
+exist, it does not merge or delete either one; a base folder explicitly chosen in
+Settings always wins.
+
 The currently verified 0.1.26 local x64 macOS artifact is not code-signed or notarized. The
 `v*` tag pipeline now fails closed unless both macOS targets receive Developer ID and
 Apple notarization credentials and subsequently pass signature, hardened-runtime,
@@ -332,14 +338,14 @@ join the [Open Science Discord](https://discord.gg/fWNMDKcd5P) or the
 
 ## Citation
 
-If you use Open Science Desktop in your research, please cite it:
+If you use AI4HEOR in your research, please cite it:
 
 ```bibtex
-@software{open_science_desktop,
-  author  = {{The Open Science Desktop Contributors}},
-  title   = {Open Science Desktop: a local-first, model-agnostic AI research workbench},
+@software{ai4heor,
+  author  = {{The AI4HEOR Contributors}},
+  title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.9},
+  version = {0.1.27},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }
@@ -352,5 +358,5 @@ GitHub's **"Cite this repository"** button (top of the repo page, generated from
 
 [MIT](./LICENSE). Bundled third-party skills and connectors keep their own licenses.
 
-> Open Science Desktop is beta research tooling. Treat outputs as drafts: verify numbers,
-> citations, code, and conclusions before publication or decision-making.
+> AI4HEOR is beta research tooling. Human researchers lead the science and remain
+> accountable for methods and decisions; verify numbers, citations, code, and conclusions.

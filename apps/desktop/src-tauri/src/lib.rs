@@ -1,4 +1,4 @@
-// AI4S Workbench — Tauri 2 entry. Hosts the React frontend and supervises the
+// AI4HEOR — Tauri 2 entry. Hosts the React frontend and supervises the
 // bundled OpenCode sidecar (isolated config/data + dedicated port; killed on exit).
 mod artifact_file;
 mod asset_admission;
@@ -222,7 +222,7 @@ pub fn run() {
             debug_log::log_debug
         ])
         .build(tauri::generate_context!())
-        .expect("error while building AI4S Workbench")
+        .expect("error while building AI4HEOR")
         .run(|app, event| {
             // Clean up on exit. macOS Cmd+Q / Quit terminates via RunEvent::Exit
             // (ExitRequested is not always delivered), so handle BOTH — otherwise

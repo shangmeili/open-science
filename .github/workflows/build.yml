@@ -206,6 +206,7 @@ jobs:
             --check dmg-app-copy \
             --check first-launch-process \
             --check workspace-created \
+            --check workspace-migrated \
             "${trust_checks[@]}" \
             --verification-json "$verification" \
             --output "$bundle_root/macos-${{ matrix.target }}-release-evidence.json"

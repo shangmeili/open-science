@@ -221,6 +221,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("--verify-first-launch", workflow)
         self.assertIn("--check first-launch-process", workflow)
         self.assertIn("--check workspace-created", workflow)
+        self.assertIn("--check workspace-migrated", workflow)
         self.assertIn("APPLE_SIGNING_IDENTITY", workflow)
         self.assertIn("developer-id-signature", workflow)
         self.assertIn("notarization-ticket", workflow)

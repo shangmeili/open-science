@@ -4,11 +4,11 @@ import { DataFlowCard } from "./DataFlowCard";
 
 describe("DataFlowCard", () => {
   it("states both sides of the data flow with the active model", () => {
-    render(<DataFlowCard model="anthropic/claude" workspace="/Users/x/OpenScience" />);
+    render(<DataFlowCard model="anthropic/claude" workspace="/Users/x/AI4HEOR" />);
     expect(screen.getByText("Stays on this machine")).toBeInTheDocument();
     expect(screen.getByText(/Sent to your model provider/)).toBeInTheDocument();
     expect(screen.getByText("anthropic/claude")).toBeInTheDocument();
-    expect(screen.getByText(/\/Users\/x\/OpenScience/)).toBeInTheDocument();
+    expect(screen.getByText(/\/Users\/x\/AI4HEOR/)).toBeInTheDocument();
     // The copy must never promise perfection — it states scope, not guarantees.
     expect(screen.queryByText(/no errors|zero hallucination/i)).not.toBeInTheDocument();
   });

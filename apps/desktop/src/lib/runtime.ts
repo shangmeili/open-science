@@ -342,7 +342,7 @@ async function performTurn(
     if (!id) {
       // Lazy-create the session on the first message (#3). Unless the user
       // pinned a folder via the workspace switcher, a new session gets its
-      // own fresh dated folder (~/Documents/OpenScience/<date-time>) first,
+      // own fresh dated folder (~/Documents/AI4HEOR/<date-time>) first,
       // so its files never pile up in the bare base folder.
       if (isTauri && !get().workspacePinned) {
         set({ switching: true });
@@ -1314,14 +1314,14 @@ export interface FoldState {
 /** Pure reducer: fold one normalized OpenCode event into a thread's blocks. */
 /**
  * Tidy a tool-call title for the conversation: show workspace files by their
- * relative path (`demo/analyze.py`), not the full `/Users/.../OpenScience/...`
+ * relative path (`demo/analyze.py`), not the full `/Users/.../AI4HEOR/...`
  * absolute path, so the thread reads like a researcher's log, not a shell trace.
  * The workspace path never contains spaces (by design), so a space-free run
- * ending in `OpenScience/` matches it whether or not it has a leading slash
- * (OpenCode's write-tool titles drop it).
+ * ending in the current `AI4HEOR/` or legacy `OpenScience/` root matches it
+ * whether or not it has a leading slash (OpenCode's write-tool titles drop it).
  */
 export function tidyToolTitle(title: string): string {
-  return title.replace(/[^\s]*OpenScience\//g, "").trim() || title;
+  return title.replace(/[^\s]*(?:AI4HEOR|OpenScience)\//g, "").trim() || title;
 }
 
 /**

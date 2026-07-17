@@ -178,7 +178,21 @@ class ReleaseEvidenceTests(unittest.TestCase):
             "app_executable": "/tmp/AI4HEOR.app/Contents/MacOS/ai4s-workbench",
             "opencode_process_id": 102,
             "opencode_executable": "/tmp/AI4HEOR.app/Contents/MacOS/opencode",
-            "workspace": "/tmp/home/Documents/OpenScience",
+            "workspace": "/tmp/home/Documents/AI4HEOR",
+        }
+        release_evidence.validate_evidence(value)
+
+        value["checks"] = sorted([*value["checks"], "workspace-migrated"])
+        with self.assertRaisesRegex(AssertionError, "migration proof is incomplete"):
+            release_evidence.validate_evidence(value)
+        value["verification"]["first_launch"]["workspace_migration"] = {
+            "app_process_id": 201,
+            "opencode_process_id": 202,
+            "workspace": "/tmp/migration-home/Documents/AI4HEOR",
+            "legacy_workspace": "/tmp/migration-home/Documents/OpenScience",
+            "legacy_workspace_removed": True,
+            "marker_preserved": "2026-07-17-legacy/marker.txt",
+            "cleanup_verified": True,
         }
         release_evidence.validate_evidence(value)
 

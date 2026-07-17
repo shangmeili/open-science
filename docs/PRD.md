@@ -445,7 +445,7 @@ complete example results; clear license; separate note for third-party skill lic
 
 ## 11. One-liner
 
-**AI4S Workbench Desktop is an open-source research agent workbench with macOS and
+**AI4HEOR is an open-source pharmacoeconomics and HEOR research workbench with macOS and
 Windows installers that uses OpenCode, MCP, scientific skills, and a reproducible
 artifact system to weave literature, code, figures, reports, and review into one
 local-first scientific workflow.**

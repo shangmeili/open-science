@@ -17,7 +17,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -263,6 +263,115 @@ def terminate_packaged_processes(
     raise AssertionError(f"first-launch cleanup left packaged processes running: {remaining}")
 
 
+def launch_isolated_app(
+    installed_app: Path,
+    main_executable: Path,
+    opencode_executable: Path,
+    expected_arch: str,
+    home: Path,
+    workspace: Path,
+    readiness: Callable[[], bool],
+    label: str,
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    temporary_dir = home / "tmp"
+    for directory in (
+        home / "Documents",
+        home / "Library/Application Support",
+        home / "Library/Caches",
+        temporary_dir,
+    ):
+        directory.mkdir(parents=True, exist_ok=True)
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "HOME": str(home),
+            "TMPDIR": str(temporary_dir),
+            "XDG_CACHE_HOME": str(home / ".cache"),
+            "XDG_CONFIG_HOME": str(home / ".config"),
+            "XDG_DATA_HOME": str(home / ".local/share"),
+            "XDG_STATE_HOME": str(home / ".local/state"),
+        }
+    )
+    stdout_path = home.parent / f"{label}.stdout.log"
+    stderr_path = home.parent / f"{label}.stderr.log"
+    proof: dict[str, Any] | None = None
+    executables = {str(main_executable), str(opencode_executable)}
+    try:
+        launch = [
+            "open",
+            "-F",
+            "-n",
+            "-g",
+            "--arch",
+            expected_arch,
+            "--stdout",
+            str(stdout_path),
+            "--stderr",
+            str(stderr_path),
+        ]
+        for name in (
+            "HOME",
+            "TMPDIR",
+            "XDG_CACHE_HOME",
+            "XDG_CONFIG_HOME",
+            "XDG_DATA_HOME",
+            "XDG_STATE_HOME",
+        ):
+            launch.extend(("--env", f"{name}={environment[name]}"))
+        launch.append(str(installed_app))
+        run(launch, cwd=home, env=environment, capture_output=True, text=True)
+        deadline = time.monotonic() + timeout_seconds
+        seen_main = False
+        while time.monotonic() < deadline:
+            processes = current_processes()
+            main_rows = matching_processes(processes, {str(main_executable)})
+            seen_main = seen_main or bool(main_rows)
+            proof = classify_first_launch_processes(
+                processes, main_executable, opencode_executable, None
+            )
+            if proof is not None and readiness():
+                break
+            if seen_main and not main_rows:
+                stderr = (
+                    stderr_path.read_text(encoding="utf-8", errors="replace")
+                    if stderr_path.is_file()
+                    else ""
+                )
+                raise AssertionError(
+                    f"installed app exited before {label} readiness: {stderr[-2000:]}"
+                )
+            time.sleep(0.5)
+        else:
+            raise AssertionError(
+                f"{label} did not reach one installed app process, one bundled "
+                "OpenCode process, and the required workspace state before timeout"
+            )
+    except Exception as error:
+        detail = "\n".join(
+            path.read_text(encoding="utf-8", errors="replace")
+            for path in (stdout_path, stderr_path)
+            if path.is_file()
+        )[-4000:]
+        suffix = f"; app log tail: {detail}" if detail else ""
+        raise AssertionError(f"{error}{suffix}") from error
+    finally:
+        terminate_packaged_processes(executables)
+
+    if proof is None:
+        raise AssertionError(f"{label} process proof was not captured")
+    proof.update(
+        {
+            "cleanup_verified": True,
+            "install_mode": "temporary-app-copy",
+            "installed_app": str(installed_app),
+            "launch_mode": "launch-services",
+            "workspace": str(workspace),
+        }
+    )
+    return proof
+
+
 def verify_first_launch(
     source_app: Path, expected_arch: str, timeout_seconds: float = 60.0
 ) -> dict[str, Any]:
@@ -294,107 +403,55 @@ def verify_first_launch(
         if not main_executable.is_file() or not opencode_executable.is_file():
             raise AssertionError("temporary app copy is missing required executables")
 
-        home = root / "home"
-        workspace = home / "Documents/OpenScience"
-        temporary_dir = home / "tmp"
-        for directory in (
-            home / "Documents",
-            home / "Library/Application Support",
-            home / "Library/Caches",
-            temporary_dir,
-        ):
-            directory.mkdir(parents=True)
-        if workspace.exists():
-            raise AssertionError(f"isolated first-launch workspace already exists: {workspace}")
+        fresh_home = root / "fresh-home"
+        fresh_workspace = fresh_home / "Documents/AI4HEOR"
+        if fresh_workspace.exists():
+            raise AssertionError(
+                f"isolated first-launch workspace already exists: {fresh_workspace}"
+            )
+        proof = launch_isolated_app(
+            installed_app,
+            main_executable,
+            opencode_executable,
+            expected_arch,
+            fresh_home,
+            fresh_workspace,
+            fresh_workspace.is_dir,
+            "first-launch",
+            timeout_seconds,
+        )
 
-        environment = os.environ.copy()
-        environment.update(
+        migration_home = root / "migration-home"
+        legacy_workspace = migration_home / "Documents/OpenScience"
+        migrated_workspace = migration_home / "Documents/AI4HEOR"
+        marker = Path("2026-07-17-legacy/marker.txt")
+        (legacy_workspace / marker).parent.mkdir(parents=True)
+        (legacy_workspace / marker).write_text("preserve-me\n", encoding="utf-8")
+        migration = launch_isolated_app(
+            installed_app,
+            main_executable,
+            opencode_executable,
+            expected_arch,
+            migration_home,
+            migrated_workspace,
+            lambda: (
+                (migrated_workspace / marker).read_text(encoding="utf-8")
+                == "preserve-me\n"
+                and not legacy_workspace.exists()
+            )
+            if (migrated_workspace / marker).is_file()
+            else False,
+            "workspace-migration",
+            timeout_seconds,
+        )
+        migration.update(
             {
-                "HOME": str(home),
-                "TMPDIR": str(temporary_dir),
-                "XDG_CACHE_HOME": str(home / ".cache"),
-                "XDG_CONFIG_HOME": str(home / ".config"),
-                "XDG_DATA_HOME": str(home / ".local/share"),
-                "XDG_STATE_HOME": str(home / ".local/state"),
+                "legacy_workspace": str(legacy_workspace),
+                "legacy_workspace_removed": True,
+                "marker_preserved": str(marker),
             }
         )
-        stdout_path = root / "first-launch.stdout.log"
-        stderr_path = root / "first-launch.stderr.log"
-        proof: dict[str, Any] | None = None
-        executables = {str(main_executable), str(opencode_executable)}
-        try:
-            launch = [
-                "open",
-                "-F",
-                "-n",
-                "-g",
-                "--arch",
-                expected_arch,
-                "--stdout",
-                str(stdout_path),
-                "--stderr",
-                str(stderr_path),
-            ]
-            for name in (
-                "HOME",
-                "TMPDIR",
-                "XDG_CACHE_HOME",
-                "XDG_CONFIG_HOME",
-                "XDG_DATA_HOME",
-                "XDG_STATE_HOME",
-            ):
-                launch.extend(("--env", f"{name}={environment[name]}"))
-            launch.append(str(installed_app))
-            run(launch, cwd=home, env=environment, capture_output=True, text=True)
-            deadline = time.monotonic() + timeout_seconds
-            seen_main = False
-            while time.monotonic() < deadline:
-                main_rows = matching_processes(
-                    current_processes(), {str(main_executable)}
-                )
-                seen_main = seen_main or bool(main_rows)
-                proof = classify_first_launch_processes(
-                    current_processes(), main_executable, opencode_executable, None
-                )
-                if proof is not None and workspace.is_dir():
-                    break
-                if seen_main and not main_rows:
-                    stderr = (
-                        stderr_path.read_text(encoding="utf-8", errors="replace")
-                        if stderr_path.is_file()
-                        else ""
-                    )
-                    raise AssertionError(
-                        f"installed app exited before first-launch readiness: {stderr[-2000:]}"
-                    )
-                time.sleep(0.5)
-            else:
-                raise AssertionError(
-                    "first launch did not reach one installed app process, one bundled "
-                    "OpenCode process, and a new isolated workspace before timeout"
-                )
-        except Exception as error:
-            detail = "\n".join(
-                path.read_text(encoding="utf-8", errors="replace")
-                for path in (stdout_path, stderr_path)
-                if path.is_file()
-            )[-4000:]
-            suffix = f"; app log tail: {detail}" if detail else ""
-            raise AssertionError(f"{error}{suffix}") from error
-        finally:
-            terminate_packaged_processes(executables)
-
-        if proof is None:
-            raise AssertionError("first-launch process proof was not captured")
-        proof.update(
-            {
-                "cleanup_verified": True,
-                "install_mode": "temporary-app-copy",
-                "installed_app": str(installed_app),
-                "launch_mode": "launch-services",
-                "workspace": str(workspace),
-            }
-        )
+        proof["workspace_migration"] = migration
         return proof
 
 

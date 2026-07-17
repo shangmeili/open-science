@@ -25,7 +25,7 @@ describe("provenanceInputFromEvent", () => {
 
   it("replaces path-only or empty titles with a compact tool → path log", () => {
     // OpenCode write titles are usually just the file path — redundant.
-    const paths = provenanceInputFromEvent(write({ title: "Users/x/OpenScience/fig/plot.py" }));
+    const paths = provenanceInputFromEvent(write({ title: "Users/x/AI4HEOR/fig/plot.py" }));
     expect(paths?.log).toBe("write → fig/plot.py");
     const empty = provenanceInputFromEvent(write({ title: "" }));
     expect(empty?.log).toBe("write → fig/plot.py");

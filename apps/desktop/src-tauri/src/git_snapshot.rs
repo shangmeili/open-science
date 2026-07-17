@@ -15,8 +15,8 @@ fn git_lock() -> &'static Mutex<()> {
     LOCK.get_or_init(|| Mutex::new(()))
 }
 
-const AUTHOR_NAME: &str = "Open Science Desktop";
-const AUTHOR_EMAIL: &str = "open-science-desktop@local";
+const AUTHOR_NAME: &str = "AI4HEOR Desktop";
+const AUTHOR_EMAIL: &str = "ai4heor@local";
 
 fn git(root: &Path) -> std::process::Command {
     let mut cmd = quiet_command("git");

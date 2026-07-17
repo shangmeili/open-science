@@ -170,12 +170,17 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 - **Windows**：NSIS `.exe` 和 `.msi`，Windows 10/11 x64。
 - **Linux**：x86_64 Linux 的 `.deb` 和 `.rpm`。
 
+从 0.1.27 起，全新安装默认使用 `~/Documents/AI4HEOR`。如果新目录尚不存在，
+AI4HEOR 会将旧默认目录 `~/Documents/OpenScience` 原子重命名并保留全部内容；
+如果两个目录都已存在，则不自动合并或删除其中任何一个。在 Settings 中明确选择的
+基础目录始终优先。
+
 当前构建尚未代码签名或 notarize。
 
 **macOS**：如果 Gatekeeper 提示应用已损坏或来自未知开发者，把应用安装到 Applications 后运行：
 
 ```bash
-xattr -cr "/Applications/Open Science.app"
+xattr -cr "/Applications/AI4HEOR.app"
 ```
 
 **Windows**：如果出现 SmartScreen，选择 **更多信息 -> 仍要运行**。
@@ -183,9 +188,9 @@ xattr -cr "/Applications/Open Science.app"
 **Linux**：
 
 ```bash
-sudo apt install ./OpenScience_*.deb
+sudo apt install ./AI4HEOR_*.deb
 # 或
-sudo rpm -i OpenScience_*.rpm
+sudo rpm -i AI4HEOR-*.rpm
 ```
 
 ## 从源码构建
@@ -261,14 +266,14 @@ macOS DMG 已从干净提交 `d864d47cf19eec51d18b07d5ccb9742162c1bafa` 构建�
 
 ## 引用
 
-如果 Open Science Desktop 对你的研究有帮助,请如下引用:
+如果 AI4HEOR 对你的研究有帮助，请如下引用：
 
 ```bibtex
-@software{open_science_desktop,
-  author  = {{The Open Science Desktop Contributors}},
-  title   = {Open Science Desktop: a local-first, model-agnostic AI research workbench},
+@software{ai4heor,
+  author  = {{The AI4HEOR Contributors}},
+  title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.9},
+  version = {0.1.27},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }
@@ -280,4 +285,4 @@ macOS DMG 已从干净提交 `d864d47cf19eec51d18b07d5ccb9742162c1bafa` 构建�
 
 [MIT](./LICENSE)。随附的第三方技能和连接器保留各自许可证。
 
-> Open Science Desktop 仍是 beta 阶段科研工具。产出应视为草稿：发表或决策前请核对数字、引用、代码和结论。
+> AI4HEOR 仍是 beta 阶段科研工具。人类研究者主导科研并承担方法与决策责任；发表或决策前必须核对数字、引用、代码和结论。
