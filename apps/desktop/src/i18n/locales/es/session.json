@@ -62,23 +62,27 @@
   },
   "starters": {
     "newSession": "Nueva sesión",
-    "heading": "¿Qué deberíamos investigar?",
-    "subheading": "Describe tu análisis a continuación, o empieza con una de estas opciones.",
-    "demo": {
-      "title": "Ejecutar un análisis de demostración de principio a fin",
-      "description": "Simula un conjunto de datos, ajusta un modelo y produce una figura y un informe trazable."
+    "heading": "¿Qué pregunta de HEOR debemos abordar?",
+    "subheading": "Describe tu pregunta farmacoeconómica o comienza con un flujo dirigido por la persona investigadora.",
+    "design": {
+      "title": "Iniciar un estudio farmacoeconómico",
+      "description": "Definir el problema de decisión, el modelo conceptual, la evidencia y los puntos de revisión humana.",
+      "prompt": "Ayúdame a iniciar un estudio farmacoeconómico o de HEOR dirigido por la persona investigadora. Usa $heor-workbench y $heor-model-design. Primero aclara población, intervención, comparadores, resultados, perspectiva, jurisdicción, horizonte, contexto de decisión, evidencia y uso previsto. Después prepara artefactos locales revisables y un plan explícito. No elijas métodos, supuestos, evidencia, umbrales ni aprobaciones por la persona investigadora."
     },
     "analyze": {
-      "title": "Analizar mis datos",
-      "description": "Indica al agente un archivo que hayas añadido; obtén figuras y un informe."
+      "title": "Analizar mi evidencia o datos de HEOR",
+      "description": "Inventariar la evidencia local, aclarar el estimando y proponer un análisis auditable.",
+      "prompt": "Ayúdame a analizar la evidencia o los datos de HEOR del proyecto. Usa $heor-workbench para inventariar primero los archivos locales y confirma conmigo la pregunta de decisión, el estimando, la población, el comparador, los resultados y el método antes de ejecutar. Conserva la procedencia y el cálculo determinista, y detente en las decisiones Human-in-the-loop de método e interpretación."
     },
     "audit": {
-      "title": "Auditar un informe para verificar su trazabilidad",
-      "description": "Comprueba citas, cifras sin fuente y la coherencia entre figuras y código."
+      "title": "Auditar un modelo o informe de HEOR",
+      "description": "Revisar métodos, entradas, vínculos modelo-resultado, informes, limitaciones y reproducibilidad.",
+      "prompt": "Audita el modelo, análisis o informe de HEOR actual con las Skills de AI4HEOR pertinentes para validación, informes, reproducibilidad y trazabilidad. Si hay ambigüedad, pregúntame qué grafo de artefactos revisar. Separa los defectos deterministas de los juicios científicos y no crees aprobación humana."
     },
-    "example-climate": {
-      "title": "Explorar un ejemplo: tendencias climáticas",
-      "description": "Datos reales de NASA GISTEMP — tendencia, comparación decenal, figura e informe."
+    "example-cea": {
+      "title": "Explorar un ejemplo: análisis de coste-efectividad",
+      "description": "Entradas sintéticas de cohorte con dos estrategias para un flujo auditable de coste-utilidad.",
+      "prompt": "Usa $heor-workbench para explorar los archivos sintéticos de demostración en heor-cost-effectiveness/. Trata cada cifra como un supuesto didáctico, no como evidencia. Explica el problema de decisión, revisa la estructura de cohorte de tres estados, reproduce costes y QALY con código determinista, ejecuta una sensibilidad transparente y prepara un informe con limitaciones y puntos de revisión humana. No crees aprobaciones ni conclusiones de reembolso."
     },
     "error": {
       "setup": "No se pudo configurar el ejemplo: {{message}}"

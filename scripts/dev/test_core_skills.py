@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import re
 import unittest
 from pathlib import Path
@@ -11,6 +12,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SKILLS_ROOT = ROOT / "runtime" / "skills" / "core"
+LOCALES_ROOT = ROOT / "apps" / "desktop" / "src" / "i18n" / "locales"
+SHIPPED_LOCALES = ("en", "zh-Hans", "ja", "ko", "de", "es", "fr")
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
@@ -76,6 +79,30 @@ class CoreSkillContractTests(unittest.TestCase):
                         f"relative link escapes skill directory: {target}",
                     )
                     self.assertTrue(resolved.exists(), f"missing linked resource: {target}")
+
+    def test_every_core_skill_has_complete_shipped_locale_metadata(self):
+        skill_names = {path.parent.name for path in SKILLS_ROOT.glob("*/SKILL.md")}
+        self.assertTrue(skill_names)
+        english: dict[str, dict[str, str]] | None = None
+        for locale in SHIPPED_LOCALES:
+            with self.subTest(locale=locale):
+                path = LOCALES_ROOT / locale / "skills.json"
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                self.assertEqual(set(payload), {"catalog"})
+                catalog = payload["catalog"]
+                self.assertEqual(set(catalog), skill_names)
+                for name, entry in catalog.items():
+                    self.assertEqual(set(entry), {"displayName", "description"})
+                    self.assertTrue(entry["displayName"].strip(), name)
+                    self.assertGreaterEqual(len(entry["description"].strip()), 12, name)
+                if locale == "en":
+                    english = catalog
+                else:
+                    assert english is not None
+                    self.assertTrue(
+                        any(catalog[name]["description"] != english[name]["description"] for name in skill_names),
+                        f"{locale} catalog is an untranslated English copy",
+                    )
 
     def test_heor_workbench_keeps_scientific_leadership_human(self):
         text = (SKILLS_ROOT / "heor-workbench" / "SKILL.md").read_text(encoding="utf-8")

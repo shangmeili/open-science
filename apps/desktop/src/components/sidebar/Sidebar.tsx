@@ -15,7 +15,6 @@ import {
   Settings,
   Trash2,
 } from "lucide-react";
-import type { Project } from "@ai4s/shared";
 import { cn } from "@/lib/cn";
 import { useRuntimeStore } from "@/lib/runtime";
 import { renameProject, type ProjectInfo } from "@/lib/tauri";
@@ -34,7 +33,6 @@ interface Row {
   id: string;
   title: string;
   to: string;
-  kind: "session" | "example";
 }
 
 /** Dragging the divider below this pointer x collapses the sidebar; dragging
@@ -53,7 +51,7 @@ function initialCollapsedProjects(): string[] {
   }
 }
 
-export function Sidebar({ project }: { project: Project }) {
+export function Sidebar() {
   const { t } = useTranslation("nav");
   const navigate = useNavigate();
   const location = useLocation();
@@ -61,13 +59,11 @@ export function Sidebar({ project }: { project: Project }) {
     sessions,
     projects,
     workspace,
-    hiddenExamples,
     startDraft,
     startDraftInWorkspace,
     createProject,
     refreshProjects,
     deleteSession,
-    hideExample,
   } = useRuntimeStore();
   const showUpdateBadge = useUpdateStore((s) => s.showBadge);
   const {
@@ -172,29 +168,18 @@ export function Sidebar({ project }: { project: Project }) {
       id: s.id,
       title: s.title,
       to: `/live/${s.id}`,
-      kind: "session",
     };
     const owner = s.directory ? projectByPath.get(s.directory) : undefined;
     if (owner) sessionsByProject.get(owner.id)!.push(row);
     else looseRows.push(row);
   }
-  const exampleRows: Row[] = project.sessions
-    .filter((e) => !hiddenExamples.includes(e.id))
-    .map((e) => ({
-      id: e.id,
-      title: e.title,
-      to: `/example/${e.id}`,
-      kind: "example" as const,
-    }));
-
   const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
 
   const confirmDelete = () => {
     const row = pendingDelete;
     setPendingDelete(null);
     if (!row) return;
-    if (row.kind === "session") void deleteSession(row.id);
-    else hideExample(row.id);
+    void deleteSession(row.id);
     if (location.pathname === row.to) navigate("/live");
   };
 
@@ -219,15 +204,10 @@ export function Sidebar({ project }: { project: Project }) {
         <span
           className={cn(
             "h-1.5 w-1.5 shrink-0 rounded-full",
-            row.kind === "example" ? "bg-muted" : "bg-ok",
+            "bg-ok",
           )}
         />
         <span className="flex-1 truncate">{row.title}</span>
-        {row.kind === "example" && (
-          <span className="shrink-0 rounded-full bg-surface-2 px-1.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
-            {t("history.exampleTag")}
-          </span>
-        )}
       </NavLink>
       <button
         onClick={() => setPendingDelete(row)}
@@ -461,13 +441,12 @@ export function Sidebar({ project }: { project: Project }) {
           <div className="mt-3 px-2 py-1 text-xs font-medium uppercase tracking-wider text-muted">
             {t("history.heading")}
           </div>
-          {looseRows.length === 0 && exampleRows.length === 0 && (
+          {looseRows.length === 0 && (
             <div className="px-2 py-2 text-xs text-muted">
               {t("history.empty")}
             </div>
           )}
           {looseRows.map(sessionRow)}
-          {exampleRows.map(sessionRow)}
         </div>
 
         <div className="border-t border-border px-3 py-3">
@@ -491,19 +470,13 @@ export function Sidebar({ project }: { project: Project }) {
         {pendingDelete && (
           <ConfirmDialog
             title={
-              pendingDelete.kind === "session"
-                ? t("confirmDelete.sessionTitle")
-                : t("confirmDelete.exampleTitle")
+              t("confirmDelete.sessionTitle")
             }
             body={
-              pendingDelete.kind === "session"
-                ? t("confirmDelete.sessionBody", { title: pendingDelete.title })
-                : t("confirmDelete.exampleBody", { title: pendingDelete.title })
+              t("confirmDelete.sessionBody", { title: pendingDelete.title })
             }
             confirmLabel={
-              pendingDelete.kind === "session"
-                ? t("confirmDelete.deleteAction")
-                : t("confirmDelete.hideAction")
+              t("confirmDelete.deleteAction")
             }
             onConfirm={confirmDelete}
             onCancel={() => setPendingDelete(null)}

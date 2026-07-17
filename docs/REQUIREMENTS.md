@@ -68,11 +68,11 @@ competitors.
 - **Acceptance.** From a single natural-language request, produce at least one
   figure **and** one report artifact, each linked to the code that made them,
   without the user leaving the app.
-- **Status.** ✅ The empty session offers one-click workflow starters (demo
-  end-to-end analysis, analyze-my-data, audit-a-report, and the climate-trends
-  example on real bundled data); the demo starter verifiably produces code →
-  figure → report → stats in one turn, all files surfaced as artifacts with
-  provenance. Minor gap: bci-trends is still repo-only.
+- **Status.** ✅ AI4HEOR's empty session offers only HEOR-focused starters:
+  pharmacoeconomic study design, HEOR evidence/data analysis, model/report audit,
+  and a synthetic cost-effectiveness example. The researcher remains the
+  scientific lead; each prompt requires reviewable local artifacts and explicit
+  Human method or interpretation gates.
 
 ### P0-2 · Local data + local compute (restricted-environment friendly) — ✅ Done
 
@@ -392,8 +392,9 @@ competitors.
   fields at a time; make extensibility visible so non-bio users see a path in.
 - **Acceptance.** At least one non-bio example project ships alongside the bio
   demo; a new field's connector needs no core change.
-- **Status.** 🟡 Skills + MCP management shipped and pluggable; non-bio showcase
-  shipped (`examples/climate-trends/`, real NASA GISTEMP v4, bundled, one-click).
+- **Status.** 🟡 Skills + MCP management remains pluggable as platform lineage,
+  but AI4HEOR no longer bundles a climate showcase. Its sole delivery example is
+  the synthetic `examples/heor-cost-effectiveness/` project.
   Non-bio depth now spans all five targeted disciplines via connectors
   (P1-2), domain viewers (P1-3), and correctness gates (P0-5: physics/earth/
   biology/chemistry). Gap: deeper per-field coverage (astronomy catalogs, a
@@ -707,14 +708,14 @@ competitors.
 
 | # | Requirement | Tier | Status |
 |---|---|---|---|
-| P0-1 | Full workflow end to end (not chat) | P0 | ✅ Done — starters + real-data example |
+| P0-1 | Full workflow end to end (not chat) | P0 | ✅ Done — HEOR starters + synthetic CEA example |
 | P0-2 | Local data + local compute | P0 | ✅ Done — local Python **and** R + data-flow card |
 | P0-3 | Artifact provenance / reproducibility | P0 | ✅ Done — versioned records + env/package lockfile + Reproduce |
 | P0-4 | Reviewer: traceable claims (3 checks) | P0 | 🟡 Partial — 3 checks + PDF-manuscript extractor shipped; weak-model robustness pending |
 | **P0-5** | **Domain-correctness gates ("runs" ≠ "right")** | **P0** | 🟡 **Partial — 5 gates ship (physics/earth/biology/chemistry/social science), deterministic + pluggable; chemistry now uses real RDKit round-trip when installed; only POSCAR→pymatgen round-trip pending** |
 | P0-6 | Large files: reference, don't load | P0 | ✅ Done — memory-pointer probe (table/parquet/hdf5/fits/netcdf/log + genomics FASTQ/FASTA/VCF/BAM, GRIB, ROOT) + one-click "Inspect without loading" in the too-large-preview card |
 | **P0-7** | **Safety-defaults compliance + audit debt** | **P0** | 🟡 **Partial — ALL critical items addressed (approval modes, sidecar/preview auth, kernel deadlock, Windows injection, owner-only key files); keychain-at-rest deferred to signed releases (P2-3); moderate/cleanup backlog remains** |
-| P1-1 | Multi-discipline from day one | P1 | 🟡 Partial — pluggable + climate example; non-bio depth pending |
+| P1-1 | Multi-discipline platform lineage | P1 | 🟡 Pluggable, but generic examples are not part of the AI4HEOR delivery |
 | P1-2 | Domain + literature connectors | P1 | 🟡 Partial — literature/bio + non-bio across ALL 5 disciplines (materials, economics, physics space-weather, earth Open-Meteo + USGS) shipped, each MCP-handshake verified; astronomy catalogs (no PyPI MCP) + more chem/social DBs pending |
 | P1-3 | Scientific renderers | P1 | 🟡 Partial — base + 3D structure + genome + FITS + DOS + band + phase + qualitative-coding + anomaly map (all 4 disciplines; materials trio complete); ternary/coastlines next |
 | P1-4 | Windows + macOS installers | P1 | 🟡 Partial — existing macOS x64 + Linux x64 packages locally verified; fail-closed four-target package/evidence manifest configured but not yet executed for the current commit; signing remains open |

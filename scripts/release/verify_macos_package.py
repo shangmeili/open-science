@@ -7,11 +7,15 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 import plistlib
 import re
 import shutil
+import signal
 import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -158,6 +162,240 @@ def mount_dmg(dmg: Path) -> tuple[str, Path]:
     if not isinstance(device, str) or not device:
         raise AssertionError("mounted DMG did not report a device")
     return device, Path(mounts[0]["mount-point"])
+
+
+def parse_process_table(output: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for raw_line in output.splitlines():
+        parts = raw_line.strip().split(maxsplit=2)
+        if len(parts) != 3:
+            continue
+        try:
+            pid = int(parts[0])
+            parent_pid = int(parts[1])
+        except ValueError:
+            continue
+        rows.append({"pid": pid, "parent_pid": parent_pid, "command": parts[2]})
+    return rows
+
+
+def current_processes() -> list[dict[str, Any]]:
+    completed = run(
+        ["ps", "-axo", "pid=,ppid=,command="], capture_output=True, text=True
+    )
+    return parse_process_table(completed.stdout)
+
+
+def command_executable(command: str) -> str:
+    return command.split(maxsplit=1)[0] if command else ""
+
+
+def classify_first_launch_processes(
+    rows: list[dict[str, Any]],
+    main_executable: Path,
+    opencode_executable: Path,
+    launched_pid: int | None,
+) -> dict[str, Any] | None:
+    main = [
+        row
+        for row in rows
+        if command_executable(str(row["command"])) == str(main_executable)
+    ]
+    opencode = [
+        row
+        for row in rows
+        if command_executable(str(row["command"])) == str(opencode_executable)
+    ]
+    if (
+        len(main) != 1
+        or len(opencode) != 1
+        or (launched_pid is not None and main[0]["pid"] != launched_pid)
+    ):
+        return None
+    return {
+        "app_executable": str(main_executable),
+        "app_process_id": main[0]["pid"],
+        "opencode_executable": str(opencode_executable),
+        "opencode_parent_process_id": opencode[0]["parent_pid"],
+        "opencode_process_id": opencode[0]["pid"],
+    }
+
+
+def matching_processes(rows: list[dict[str, Any]], executables: set[str]) -> list[dict[str, Any]]:
+    return [
+        row
+        for row in rows
+        if command_executable(str(row["command"])) in executables
+    ]
+
+
+def terminate_packaged_processes(
+    executables: set[str], timeout_seconds: float = 10.0
+) -> None:
+    rows = matching_processes(current_processes(), executables)
+    for row in rows:
+        try:
+            os.kill(row["pid"], signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    graceful_deadline = time.monotonic() + min(5.0, timeout_seconds)
+    while time.monotonic() < graceful_deadline:
+        if not matching_processes(current_processes(), executables):
+            return
+        time.sleep(0.2)
+    for row in matching_processes(current_processes(), executables):
+        try:
+            os.kill(row["pid"], signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if not matching_processes(current_processes(), executables):
+            return
+        time.sleep(0.2)
+    remaining = matching_processes(current_processes(), executables)
+    if remaining:
+        for row in remaining:
+            try:
+                os.kill(row["pid"], signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+    raise AssertionError(f"first-launch cleanup left packaged processes running: {remaining}")
+
+
+def verify_first_launch(
+    source_app: Path, expected_arch: str, timeout_seconds: float = 60.0
+) -> dict[str, Any]:
+    host_arch = platform.machine()
+    if host_arch != expected_arch:
+        raise AssertionError(
+            f"first-launch verification requires native {expected_arch} macOS; host is {host_arch}"
+        )
+    active_apps = [
+        row
+        for row in current_processes()
+        if Path(command_executable(str(row["command"]))).name == "ai4s-workbench"
+    ]
+    if active_apps:
+        raise AssertionError(
+            f"first-launch verification requires no existing AI4HEOR process: {active_apps}"
+        )
+
+    with tempfile.TemporaryDirectory(prefix="ai4heor-macos-first-launch-") as temporary:
+        # LaunchServices reports canonical executable paths (`/private/var/...` on
+        # macOS) even when tempfile returned the `/var/...` alias. Resolve once so
+        # readiness and cleanup compare the same exact path the process table uses.
+        root = Path(temporary).resolve()
+        installed_app = root / "Applications/AI4HEOR.app"
+        installed_app.parent.mkdir(parents=True)
+        run(["ditto", "--rsrc", "--extattr", str(source_app), str(installed_app)])
+        main_executable = installed_app / "Contents/MacOS/ai4s-workbench"
+        opencode_executable = installed_app / "Contents/MacOS/opencode"
+        if not main_executable.is_file() or not opencode_executable.is_file():
+            raise AssertionError("temporary app copy is missing required executables")
+
+        home = root / "home"
+        workspace = home / "Documents/OpenScience"
+        temporary_dir = home / "tmp"
+        for directory in (
+            home / "Documents",
+            home / "Library/Application Support",
+            home / "Library/Caches",
+            temporary_dir,
+        ):
+            directory.mkdir(parents=True)
+        if workspace.exists():
+            raise AssertionError(f"isolated first-launch workspace already exists: {workspace}")
+
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "HOME": str(home),
+                "TMPDIR": str(temporary_dir),
+                "XDG_CACHE_HOME": str(home / ".cache"),
+                "XDG_CONFIG_HOME": str(home / ".config"),
+                "XDG_DATA_HOME": str(home / ".local/share"),
+                "XDG_STATE_HOME": str(home / ".local/state"),
+            }
+        )
+        stdout_path = root / "first-launch.stdout.log"
+        stderr_path = root / "first-launch.stderr.log"
+        proof: dict[str, Any] | None = None
+        executables = {str(main_executable), str(opencode_executable)}
+        try:
+            launch = [
+                "open",
+                "-F",
+                "-n",
+                "-g",
+                "--arch",
+                expected_arch,
+                "--stdout",
+                str(stdout_path),
+                "--stderr",
+                str(stderr_path),
+            ]
+            for name in (
+                "HOME",
+                "TMPDIR",
+                "XDG_CACHE_HOME",
+                "XDG_CONFIG_HOME",
+                "XDG_DATA_HOME",
+                "XDG_STATE_HOME",
+            ):
+                launch.extend(("--env", f"{name}={environment[name]}"))
+            launch.append(str(installed_app))
+            run(launch, cwd=home, env=environment, capture_output=True, text=True)
+            deadline = time.monotonic() + timeout_seconds
+            seen_main = False
+            while time.monotonic() < deadline:
+                main_rows = matching_processes(
+                    current_processes(), {str(main_executable)}
+                )
+                seen_main = seen_main or bool(main_rows)
+                proof = classify_first_launch_processes(
+                    current_processes(), main_executable, opencode_executable, None
+                )
+                if proof is not None and workspace.is_dir():
+                    break
+                if seen_main and not main_rows:
+                    stderr = (
+                        stderr_path.read_text(encoding="utf-8", errors="replace")
+                        if stderr_path.is_file()
+                        else ""
+                    )
+                    raise AssertionError(
+                        f"installed app exited before first-launch readiness: {stderr[-2000:]}"
+                    )
+                time.sleep(0.5)
+            else:
+                raise AssertionError(
+                    "first launch did not reach one installed app process, one bundled "
+                    "OpenCode process, and a new isolated workspace before timeout"
+                )
+        except Exception as error:
+            detail = "\n".join(
+                path.read_text(encoding="utf-8", errors="replace")
+                for path in (stdout_path, stderr_path)
+                if path.is_file()
+            )[-4000:]
+            suffix = f"; app log tail: {detail}" if detail else ""
+            raise AssertionError(f"{error}{suffix}") from error
+        finally:
+            terminate_packaged_processes(executables)
+
+        if proof is None:
+            raise AssertionError("first-launch process proof was not captured")
+        proof.update(
+            {
+                "cleanup_verified": True,
+                "install_mode": "temporary-app-copy",
+                "installed_app": str(installed_app),
+                "launch_mode": "launch-services",
+                "workspace": str(workspace),
+            }
+        )
+        return proof
 
 
 def verify_info(app: Path, expected_version: str) -> dict[str, str]:
@@ -395,12 +633,15 @@ def main() -> None:
     parser.add_argument("--target", choices=tuple(TARGET_ARCH), required=True)
     parser.add_argument("--source-root", type=Path, default=ROOT)
     parser.add_argument("--verification-json", type=Path, required=True)
+    parser.add_argument("--verify-first-launch", action="store_true")
     parser.add_argument("--require-distribution-trust", action="store_true")
     parser.add_argument("--expected-team-id")
     arguments = parser.parse_args()
     if sys.platform != "darwin":
         raise AssertionError("macOS package verification must run on macOS")
     tools = ["hdiutil", "lipo"]
+    if arguments.verify_first_launch:
+        tools.extend(("ditto", "ps"))
     if arguments.require_distribution_trust:
         if re.fullmatch(r"[A-Z0-9]{10}", arguments.expected_team_id or "") is None:
             raise AssertionError(
@@ -432,6 +673,11 @@ def main() -> None:
         versions = verify_binaries(app, expected_arch)
         resource_root, resource_count = verify_resources(app, source_root)
         run_packaged_heor_tests(resource_root, source_root)
+        first_launch = (
+            verify_first_launch(app, expected_arch)
+            if arguments.verify_first_launch
+            else None
+        )
         distribution = (
             verify_distribution_trust(app, arguments.expected_team_id)
             if arguments.require_distribution_trust
@@ -453,6 +699,8 @@ def main() -> None:
         }
         if distribution is not None:
             verification["distribution"] = distribution
+        if first_launch is not None:
+            verification["first_launch"] = first_launch
         arguments.verification_json.parent.mkdir(parents=True, exist_ok=True)
         arguments.verification_json.write_text(
             json.dumps(verification, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -460,7 +708,7 @@ def main() -> None:
         print(
             "Verified AI4HEOR macOS package: "
             f"dmg_sha256={sha256(dmg)}, target={arguments.target}, "
-            f"resource_files={resource_count}"
+            f"resource_files={resource_count}, first_launch={first_launch is not None}"
         )
     finally:
         if device is not None:

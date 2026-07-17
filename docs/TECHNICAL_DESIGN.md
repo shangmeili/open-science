@@ -1042,7 +1042,7 @@ ai4s-workbench/
 6. Bundle + auto-start OpenCode; connect via `OpenCodeClient` (HTTP + SSE).
 7. Ship the OpenCode config/skills bundle.
 8. Write the 3 core skills.
-9. Build static artifacts for the BCI demo.
+9. Build static artifacts for the synthetic HEOR cost-effectiveness example.
 10. Draft the GitHub Actions build.
 
 ### 17.2 v0.1 must deliver

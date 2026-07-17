@@ -54,8 +54,8 @@
     "noResults": "No results.",
     "actions": {
       "newSession": "New session",
-      "analyzeData": "Analyze my data (new workflow)",
-      "auditReport": "Audit a report (traceability review)",
+      "analyzeData": "Analyze my HEOR evidence or data",
+      "auditReport": "Audit an HEOR model or report",
       "openNotebooks": "Open notebooks",
       "manageSkills": "Manage skills",
       "openSettings": "Open settings",

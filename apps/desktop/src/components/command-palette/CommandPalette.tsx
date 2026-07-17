@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { useUiStore } from "@/lib/store";
 import { useRuntimeStore } from "@/lib/runtime";
-import { WORKFLOW_STARTERS } from "@/components/thread/WorkflowStarters";
 
 interface Action {
   id: string;
@@ -22,11 +21,8 @@ interface Action {
   run: () => void;
 }
 
-/** Prompt for a starter workflow by id, so ⌘K and the empty-session cards stay in sync. */
-const starterPrompt = (id: string) => WORKFLOW_STARTERS.find((s) => s.id === id)?.prompt ?? "";
-
 export function CommandPalette() {
-  const { t } = useTranslation("nav");
+  const { t } = useTranslation(["nav", "session"]);
   const open = useUiStore((s) => s.paletteOpen);
   const setOpen = useUiStore((s) => s.setPaletteOpen);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
@@ -55,7 +51,11 @@ export function CommandPalette() {
   const runWorkflow = async (starterId: string) => {
     close();
     useRuntimeStore.getState().startDraft();
-    const id = await useRuntimeStore.getState().sendPrompt(starterPrompt(starterId));
+    const prompt =
+      starterId === "analyze"
+        ? t("starters.analyze.prompt", { ns: "session" })
+        : t("starters.audit.prompt", { ns: "session" });
+    const id = await useRuntimeStore.getState().sendPrompt(prompt);
     if (id) navigate(`/live/${id}`);
   };
 

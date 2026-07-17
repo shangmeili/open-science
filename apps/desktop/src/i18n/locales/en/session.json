@@ -62,23 +62,27 @@
   },
   "starters": {
     "newSession": "New session",
-    "heading": "What should we look into?",
-    "subheading": "Describe your analysis below — or start from one of these.",
-    "demo": {
-      "title": "Run a demo analysis, end to end",
-      "description": "Simulate a dataset, fit a model, and produce a figure and a traceable report."
+    "heading": "What HEOR question should we work on?",
+    "subheading": "Describe your pharmacoeconomic question — or begin with a researcher-led workflow.",
+    "design": {
+      "title": "Start a pharmacoeconomic study",
+      "description": "Define the decision problem, conceptual model, evidence needs, and Human review points.",
+      "prompt": "Help me start a researcher-led pharmacoeconomic or HEOR study. Use $heor-workbench and $heor-model-design. First ask concise questions about the population, intervention, comparators, outcomes, perspective, jurisdiction, time horizon, decision context, available evidence, and intended use. Then prepare reviewable local artifacts and an explicit plan. Do not choose scientific methods, assumptions, evidence, thresholds, or approvals for the human researcher."
     },
     "analyze": {
-      "title": "Analyze my data",
-      "description": "Point the agent at a file you added; get figures and a report back."
+      "title": "Analyze my HEOR evidence or data",
+      "description": "Inventory local evidence and data, clarify the estimand, then propose an auditable analysis.",
+      "prompt": "Help me analyze the HEOR evidence or data in this project. Use $heor-workbench to inventory relevant local files first, identify what each file can and cannot support, and ask me to confirm the decision question, estimand, population, comparator, outcomes, and method before execution. Keep computation deterministic where supported, preserve provenance, and stop at Human-in-the-loop method and interpretation decisions."
     },
     "audit": {
-      "title": "Audit a report for traceability",
-      "description": "Check citations, unsourced numbers, and figure-versus-code consistency."
+      "title": "Audit an HEOR model or report",
+      "description": "Check methods, inputs, model-result bindings, reporting, limitations, and reproducibility.",
+      "prompt": "Audit the current HEOR model, analysis, or report using the relevant AI4HEOR validation, reporting, reproducibility, and traceability Skills. Ask me which artifact graph to review if it is ambiguous. Separate deterministic defects from scientific judgments, bind every finding to exact local evidence, and never create Human approval or claim methodological validity."
     },
-    "example-climate": {
-      "title": "Explore an example: climate trends",
-      "description": "Real NASA GISTEMP data — trend, decadal comparison, figure, and report."
+    "example-cea": {
+      "title": "Explore an example: cost-effectiveness analysis",
+      "description": "Synthetic two-strategy cohort inputs for an auditable cost-utility workflow.",
+      "prompt": "Use $heor-workbench to explore the synthetic demonstration files under heor-cost-effectiveness/. Treat every number as a proposed teaching assumption, not clinical or economic evidence. Explain the decision problem, review the three-state cohort structure, reproduce the base-case cost and QALY calculation with deterministic code, run one transparent sensitivity check, and prepare a local report with limitations and Human review points. Do not create approvals or reimbursement conclusions."
     },
     "error": {
       "setup": "Could not set up the example: {{message}}"

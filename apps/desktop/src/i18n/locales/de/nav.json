@@ -54,8 +54,8 @@
     "noResults": "Keine Ergebnisse.",
     "actions": {
       "newSession": "Neue Sitzung",
-      "analyzeData": "Meine Daten analysieren (neuer Workflow)",
-      "auditReport": "Bericht prüfen (Nachvollziehbarkeitsprüfung)",
+      "analyzeData": "Meine HEOR-Evidenz oder -Daten analysieren",
+      "auditReport": "Ein HEOR-Modell oder einen Bericht prüfen",
       "openNotebooks": "Notebooks öffnen",
       "manageSkills": "Skills verwalten",
       "openSettings": "Einstellungen öffnen",

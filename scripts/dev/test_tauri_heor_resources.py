@@ -35,6 +35,17 @@ class TauriHeorResourceTests(unittest.TestCase):
             if destination.startswith(("heor-core/", "reference-cases/", "skills-core/")):
                 self.assertTrue((TAURI_DIR / source).resolve().exists(), source)
 
+    def test_bundled_delivery_examples_are_heor_specific(self):
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        resources = config["bundle"]["resources"]
+        example_destinations = {
+            destination
+            for destination in resources.values()
+            if destination.startswith("examples/")
+        }
+        self.assertEqual(example_destinations, {"examples/heor-cost-effectiveness/"})
+        self.assertNotIn("../../../examples/climate-trends", resources)
+
 
 if __name__ == "__main__":
     unittest.main()

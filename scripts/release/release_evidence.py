@@ -29,6 +29,7 @@ MACOS_DISTRIBUTION_CHECKS = {
     "hardened-runtime",
     "notarization-ticket",
 }
+FIRST_LAUNCH_CHECKS = {"first-launch-process", "workspace-created"}
 
 
 def sha256(path: Path) -> str:
@@ -231,6 +232,25 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
         raise AssertionError("release evidence must bind exactly OpenCode and uv")
     if any(not item.get("version_output") for item in value["sidecars"]):
         raise AssertionError("release evidence has a sidecar without version output")
+    declared_first_launch = FIRST_LAUNCH_CHECKS & set(value["checks"])
+    if declared_first_launch:
+        missing_checks = sorted(FIRST_LAUNCH_CHECKS - set(value["checks"]))
+        if missing_checks:
+            raise AssertionError(
+                f"first-launch evidence is missing paired checks: {missing_checks}"
+            )
+        first_launch = value["verification"].get("first_launch")
+        if (
+            not isinstance(first_launch, dict)
+            or not isinstance(first_launch.get("app_process_id"), int)
+            or first_launch["app_process_id"] < 1
+            or not first_launch.get("app_executable")
+            or not isinstance(first_launch.get("opencode_process_id"), int)
+            or first_launch["opencode_process_id"] < 1
+            or not first_launch.get("opencode_executable")
+            or not first_launch.get("workspace")
+        ):
+            raise AssertionError("first-launch process/workspace proof is incomplete")
     if (
         value["platform"] == "macos"
         and value.get("runner", {}).get("GITHUB_REF_TYPE") == "tag"

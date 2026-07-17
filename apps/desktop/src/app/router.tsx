@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate, type RouteObject } from "react-router-dom";
 import { AppShell } from "./layout/AppShell";
-import { SessionPage } from "./routes/SessionPage";
 import { LiveSessionPage } from "./routes/LiveSessionPage";
 import { SkillsPage } from "./routes/SkillsPage";
 import { NotebooksPage } from "./routes/NotebooksPage";
@@ -19,7 +18,6 @@ export const routes: RouteObject[] = [
       { path: "live/:sessionId", element: <LiveSessionPage /> },
       { path: "heor", element: <LiveSessionPage heorMode /> },
       { path: "heor/:sessionId", element: <LiveSessionPage heorMode /> },
-      { path: "example/:sessionId", element: <SessionPage /> },
       { path: "skills", element: <SkillsPage /> },
       { path: "notebooks", element: <NotebooksPage /> },
       { path: "files", element: <FilesPage /> },

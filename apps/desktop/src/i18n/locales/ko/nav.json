@@ -54,8 +54,8 @@
     "noResults": "결과가 없습니다.",
     "actions": {
       "newSession": "새 세션",
-      "analyzeData": "내 데이터 분석 (새 워크플로)",
-      "auditReport": "리포트 감사 (추적성 검토)",
+      "analyzeData": "HEOR 근거 또는 데이터 분석",
+      "auditReport": "HEOR 모델 또는 보고서 감사",
       "openNotebooks": "노트북 열기",
       "manageSkills": "스킬 관리",
       "openSettings": "설정 열기",

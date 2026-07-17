@@ -84,6 +84,26 @@ class CredentialPreflightTests(unittest.TestCase):
 
 
 class DistributionVerifierTests(unittest.TestCase):
+    def test_first_launch_classifier_requires_exact_packaged_processes(self) -> None:
+        main = Path("/tmp/install/AI4HEOR.app/Contents/MacOS/ai4s-workbench")
+        opencode = Path("/tmp/install/AI4HEOR.app/Contents/MacOS/opencode")
+        rows = verifier.parse_process_table(
+            """
+              101 1 /tmp/install/AI4HEOR.app/Contents/MacOS/ai4s-workbench
+              102 101 /tmp/install/AI4HEOR.app/Contents/MacOS/opencode serve --port 43123
+              103 1 /other/AI4HEOR.app/Contents/MacOS/opencode serve --port 9999
+            """
+        )
+        proof = verifier.classify_first_launch_processes(rows, main, opencode, 101)
+        self.assertIsNotNone(proof)
+        assert proof is not None
+        self.assertEqual(proof["app_process_id"], 101)
+        self.assertEqual(proof["opencode_process_id"], 102)
+        self.assertEqual(proof["opencode_parent_process_id"], 101)
+        self.assertIsNone(
+            verifier.classify_first_launch_processes(rows, main, opencode, 999)
+        )
+
     def test_signature_parser_and_validator_require_distribution_properties(self) -> None:
         details = verifier.parse_codesign_details(SIGNED_DETAILS)
         team, authority = verifier.validate_signature_details(
@@ -198,6 +218,9 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("check_macos_release_credentials.py", workflow)
         self.assertIn("--require-distribution-trust", workflow)
         self.assertIn("--expected-team-id", workflow)
+        self.assertIn("--verify-first-launch", workflow)
+        self.assertIn("--check first-launch-process", workflow)
+        self.assertIn("--check workspace-created", workflow)
         self.assertIn("APPLE_SIGNING_IDENTITY", workflow)
         self.assertIn("developer-id-signature", workflow)
         self.assertIn("notarization-ticket", workflow)

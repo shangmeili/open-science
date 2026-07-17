@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Bot, Boxes, Check, Package, Puzzle, ShieldCheck, X } from "lucide-react";
 import { useRuntimeStore } from "@/lib/runtime";
 import { cn } from "@/lib/cn";
+import { localizeSkill } from "@/i18n/skillLocalization";
 import { auditAssetAdmission, type AssetAdmissionAudit, type AssetAdmissionRecord } from "@/lib/tauri";
 
 /**
@@ -12,7 +13,7 @@ import { auditAssetAdmission, type AssetAdmissionAudit, type AssetAdmissionRecor
  * is the secondary, deterministic release control.
  */
 export function SkillsPage() {
-  const { t } = useTranslation(["pages", "common"]);
+  const { t, i18n } = useTranslation(["pages", "common", "skills"]);
   const navigate = useNavigate();
   const { skills, agents, tools, status, loadCatalog, detectTools, reviewAssetCandidate } = useRuntimeStore();
   const connected = status === "ready";
@@ -140,6 +141,7 @@ export function SkillsPage() {
             <Section title={t("skills.skillsListSection.sectionTitle", { count: skills.length })} icon={<Puzzle size={15} />}>
               {skills.length === 0 && <Empty>{t("skills.skillsListSection.empty")}</Empty>}
               {skills.map((s) => {
+                const copy = localizeSkill(s.name, s.description, i18n.resolvedLanguage);
                 const source = sourceOf(s.location);
                 const sourceLabel =
                   source === "builtin"
@@ -149,7 +151,15 @@ export function SkillsPage() {
                       : source === "bundled"
                         ? t("skills.skillsListSection.source.bundled")
                         : undefined;
-                return <RowItem key={s.name} name={s.name} desc={s.description} tag={sourceLabel} />;
+                return (
+                  <RowItem
+                    key={s.name}
+                    name={copy.displayName}
+                    code={copy.localized ? `$${s.name}` : undefined}
+                    desc={copy.description}
+                    tag={sourceLabel}
+                  />
+                );
               })}
             </Section>
           </>
@@ -196,12 +206,15 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
   );
 }
 
-function RowItem({ name, desc, tag }: { name: string; desc: string; tag?: string }) {
+function RowItem({ name, desc, tag, code }: { name: string; desc: string; tag?: string; code?: string }) {
   return (
     <div className="flex items-start gap-3 px-4 py-3">
       <Package size={16} className="mt-0.5 shrink-0 text-muted" />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-text">{name}</div>
+        <div className="flex min-w-0 items-baseline gap-2">
+          <div className="truncate text-sm font-medium text-text">{name}</div>
+          {code && <span className="truncate font-mono text-[10.5px] text-muted">{code}</span>}
+        </div>
         <div className={cn("text-xs text-muted", "line-clamp-2")}>{desc}</div>
       </div>
       {tag && (

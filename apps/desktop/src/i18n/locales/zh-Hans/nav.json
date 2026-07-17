@@ -54,8 +54,8 @@
     "noResults": "无结果。",
     "actions": {
       "newSession": "新建会话",
-      "analyzeData": "分析我的数据（新建工作流）",
-      "auditReport": "审查报告（溯源性审查）",
+      "analyzeData": "分析我的 HEOR 证据或数据",
+      "auditReport": "审计 HEOR 模型或报告",
       "openNotebooks": "打开笔记本",
       "manageSkills": "管理技能",
       "openSettings": "打开设置",

@@ -54,8 +54,8 @@
     "noResults": "結果がありません。",
     "actions": {
       "newSession": "新規セッション",
-      "analyzeData": "データを分析する（新しいワークフロー）",
-      "auditReport": "レポートを検証する（トレーサビリティレビュー）",
+      "analyzeData": "HEOR のエビデンスまたはデータを分析",
+      "auditReport": "HEOR モデルまたはレポートを監査",
       "openNotebooks": "ノートブックを開く",
       "manageSkills": "スキルを管理",
       "openSettings": "設定を開く",

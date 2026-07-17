@@ -1,13 +1,13 @@
-// Built-in example projects (P0-1 / P1-1): real, small datasets bundled as
-// Tauri resources and copied into the workspace on demand, so the agent runs a
-// genuine analysis on genuine data — including a non-bio one (climate-trends).
+// Built-in AI4HEOR example projects: bounded, explicitly synthetic teaching
+// inputs copied into the workspace on demand. They demonstrate researcher-led
+// HEOR workflows and must never be presented as clinical or economic evidence.
 use std::path::Path;
 use tauri::{path::BaseDirectory, AppHandle, Manager};
 
 use crate::runtime::workspace_dir;
 
 /// Bundled example projects; the command rejects anything else.
-const EXAMPLES: &[&str] = &["climate-trends"];
+const EXAMPLES: &[&str] = &["heor-cost-effectiveness"];
 
 /// Copy `src` into `dst` recursively WITHOUT overwriting existing files — a
 /// re-installed example must never clobber the user's edited copy.
@@ -46,7 +46,12 @@ pub fn install_example(app: AppHandle, name: String) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::copy_missing;
+    use super::{copy_missing, EXAMPLES};
+
+    #[test]
+    fn bundled_examples_are_heor_specific() {
+        assert_eq!(EXAMPLES, &["heor-cost-effectiveness"]);
+    }
 
     #[test]
     fn copies_recursively_but_never_overwrites() {
@@ -58,12 +63,18 @@ mod tests {
         std::fs::write(src.join("data/x.csv"), "a,b\n1,2\n").unwrap();
 
         copy_missing(&src, &dst).unwrap();
-        assert_eq!(std::fs::read_to_string(dst.join("data/x.csv")).unwrap(), "a,b\n1,2\n");
+        assert_eq!(
+            std::fs::read_to_string(dst.join("data/x.csv")).unwrap(),
+            "a,b\n1,2\n"
+        );
 
         // The user edits a file; re-installing must keep the edit.
         std::fs::write(dst.join("README.md"), "user edited").unwrap();
         copy_missing(&src, &dst).unwrap();
-        assert_eq!(std::fs::read_to_string(dst.join("README.md")).unwrap(), "user edited");
+        assert_eq!(
+            std::fs::read_to_string(dst.join("README.md")).unwrap(),
+            "user edited"
+        );
 
         let _ = std::fs::remove_dir_all(base);
     }

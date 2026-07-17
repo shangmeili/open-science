@@ -5,9 +5,9 @@ import { renderAt } from "@/test/render";
 
 const PROJECT = {
   id: "p1",
-  name: "BCI Trends",
+  name: "Cost Effectiveness Study",
   createdAt: 1,
-  path: "/base/BCI-Trends",
+  path: "/base/Cost-Effectiveness-Study",
 };
 
 afterEach(() =>
@@ -27,14 +27,14 @@ describe("Sidebar projects", () => {
     });
     renderAt("/files");
 
-    expect(await screen.findByText("BCI Trends")).toBeInTheDocument();
+    expect(await screen.findByText("Cost Effectiveness Study")).toBeInTheDocument();
     // Both groups render their sessions; the child session does not appear.
     expect(screen.getByText("paper search")).toBeInTheDocument();
     expect(screen.getByText("quick question")).toBeInTheDocument();
     expect(screen.queryByText("subtask")).not.toBeInTheDocument();
     // The project offers its own "new session" entry point.
     expect(
-      screen.getByRole("button", { name: "New session in BCI Trends" }),
+      screen.getByRole("button", { name: "New session in Cost Effectiveness Study" }),
     ).toBeInTheDocument();
   });
 
@@ -42,5 +42,7 @@ describe("Sidebar projects", () => {
     renderAt("/files");
     // Header [+] plus the ghost row — both open the inline name input.
     expect((await screen.findAllByRole("button", { name: "New project" })).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Cross-species atlas figure")).not.toBeInTheDocument();
+    expect(screen.queryByText("SCVI Hyperparameter Screen")).not.toBeInTheDocument();
   });
 });

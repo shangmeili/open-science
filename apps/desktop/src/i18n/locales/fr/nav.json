@@ -54,8 +54,8 @@
     "noResults": "Aucun résultat.",
     "actions": {
       "newSession": "Nouvelle session",
-      "analyzeData": "Analyser mes données (nouveau flux de travail)",
-      "auditReport": "Auditer un rapport (revue de traçabilité)",
+      "analyzeData": "Analyser mes preuves ou données HEOR",
+      "auditReport": "Auditer un modèle ou rapport HEOR",
       "openNotebooks": "Ouvrir les notebooks",
       "manageSkills": "Gérer les compétences",
       "openSettings": "Ouvrir les paramètres",

@@ -92,25 +92,24 @@ in one continuous, auditable session.
 
 ## See it in action
 
-**A researcher request -> reviewable, traceable work.** The inherited desktop
-surfaces can run code, save figures, and bind outputs to their inputs; AI4HEOR
-adds deterministic HEOR engines and Human-owned scientific gates.
+**A Human-led HEOR request -> reviewable, traceable local work.** A new session
+starts with pharmacoeconomic study design, HEOR evidence/data analysis,
+model/report audit, or a synthetic cost-effectiveness example. The bundled
+`examples/heor-cost-effectiveness/` project demonstrates a two-strategy,
+three-state cohort workflow; its numbers are teaching assumptions, not clinical
+or economic evidence, and it cannot create approval or reimbursement conclusions.
 
-![End-to-end dose-response analysis: the agent runs code and produces a fitted figure and a report](./docs/assets/showcase-workflow.webp)
+<details>
+<summary><b>Inherited platform surfaces</b></summary>
 
-**Every artifact traces back to its code, inputs, and conversation.**
+<br>
+
+These images demonstrate the underlying local artifact, notebook, and review
+surfaces. They are not the default AI4HEOR example or a claim of HEOR validity.
 
 ![Artifact inspector showing a figure's generating code, inputs, and provenance](./docs/assets/showcase-provenance.webp)
 
-**Literature -> verifiable report.** Search papers, draft a manuscript rendered as a
-PDF, and audit citations, unsourced numbers, and figure/code consistency.
-
 ![Literature survey producing a rendered PDF manuscript with a traceability review](./docs/assets/showcase-literature.webp)
-
-<details>
-<summary><b>More screenshots</b></summary>
-
-<br>
 
 ![The agent driving a Jupyter notebook with a live matplotlib figure](./docs/assets/showcase-notebook.webp)
 
@@ -154,7 +153,7 @@ skills implement the admitted research workflow.
 | Review | Traceability, statistics-integrity, domain-check, large-file, publication-figure, remote-compute, and Modal run skills are bundled as first-party skills. |
 | Viewers | PDF, image, video, HTML, Markdown, code, CSV/TSV tables with charts, DOCX, XLSX, PPTX, molecules, 3D meshes, genome tracks, FITS, DOS/DOSCAR, EIGENVAL bands, qcode, anomaly maps, and phase files. |
 | Models | OpenCode provider catalog, OAuth/API-key provider flows, custom OpenAI-compatible endpoints, and local/provider-specific options supported by OpenCode. |
-| Interface languages | English, Simplified Chinese, Japanese, Spanish, German, French, and Korean. Portuguese (Brazil) and Arabic are registered but not selectable yet. |
+| Interface languages | English, Simplified Chinese, Japanese, Spanish, German, French, and Korean. First-party Skill names and descriptions ship in all seven languages while exact `$skill-id` values remain visible; external Skills retain their supplied metadata. Portuguese (Brazil) and Arabic are registered but not selectable yet. |
 
 ## Skills and connectors
 

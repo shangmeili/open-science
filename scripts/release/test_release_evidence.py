@@ -149,6 +149,43 @@ class ReleaseEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "platform/target"):
             release_evidence.validate_evidence(value)
 
+    def test_first_launch_checks_require_process_and_workspace_proof(self) -> None:
+        files: list[dict[str, object]] = []
+        value = {
+            "schema": release_evidence.EVIDENCE_SCHEMA,
+            "source": {"commit": "a" * 40, "version": "0.1.0"},
+            "platform": "macos",
+            "target": "x86_64-apple-darwin",
+            "artifacts": [
+                {"kind": "dmg", "filename": "AI4HEOR.dmg", "size": 1, "sha256": "a" * 64}
+            ],
+            "checks": ["first-launch-process", "workspace-created"],
+            "runner": self.runner("macos"),
+            "sidecars": self.sidecars(),
+            "verification": {"payload": "passed"},
+            "resources": {
+                "aggregate_sha256": release_evidence.canonical_sha256(files),
+                "file_count": 0,
+                "files": files,
+                "total_bytes": 0,
+            },
+        }
+        with self.assertRaisesRegex(AssertionError, "proof is incomplete"):
+            release_evidence.validate_evidence(value)
+
+        value["verification"]["first_launch"] = {
+            "app_process_id": 101,
+            "app_executable": "/tmp/AI4HEOR.app/Contents/MacOS/ai4s-workbench",
+            "opencode_process_id": 102,
+            "opencode_executable": "/tmp/AI4HEOR.app/Contents/MacOS/opencode",
+            "workspace": "/tmp/home/Documents/OpenScience",
+        }
+        release_evidence.validate_evidence(value)
+
+        value["checks"] = ["first-launch-process"]
+        with self.assertRaisesRegex(AssertionError, "paired checks"):
+            release_evidence.validate_evidence(value)
+
     def test_tagged_macos_evidence_requires_distribution_trust(self) -> None:
         files: list[dict[str, object]] = []
         value = {

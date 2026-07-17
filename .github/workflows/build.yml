@@ -192,6 +192,7 @@ jobs:
             --dmg "${dmgs[0]}" \
             --target "${{ matrix.target }}" \
             --verification-json "$verification" \
+            --verify-first-launch \
             "${trust_args[@]}"
           python scripts/release/release_evidence.py record \
             --platform macos \
@@ -202,6 +203,9 @@ jobs:
             --check scientific-resources \
             --check packaged-heor-tests \
             --check bundled-sidecars \
+            --check dmg-app-copy \
+            --check first-launch-process \
+            --check workspace-created \
             "${trust_checks[@]}" \
             --verification-json "$verification" \
             --output "$bundle_root/macos-${{ matrix.target }}-release-evidence.json"

@@ -74,23 +74,23 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 
 ## 效果演示
 
-**研究者的请求 -> 可复核、可追溯的工作。** 以下是继承的桌面工作台界面示例；
-AI4HEOR 在此基础上增加确定性 HEOR 引擎和由人持有的科学关口。
+**由人主导的 HEOR 请求 -> 可复核、可追溯的本地工作。**
+新会话只提供药物经济学研究设计、HEOR 证据/数据分析、模型/报告
+审计和合成成本效果分析示例。`examples/heor-cost-effectiveness/`
+中的双策略、三状态队列输入只是教学假设，不是临床或经济学证据，
+也不能生成批准、报销或政策结论。
 
-![端到端剂量-响应分析：智能体运行代码，产出拟合图与报告](./docs/assets/showcase-workflow.webp)
+<details>
+<summary><b>继承的平台界面</b></summary>
 
-**每个工件都能回到它的代码、输入和对话。**
+<br>
+
+以下图片只展示底层的本地工件、笔记本和复核界面，不是 AI4HEOR
+默认示例，也不构成 HEOR 有效性声明。
 
 ![工件检查器展示某张图的生成代码、输入与溯源信息](./docs/assets/showcase-provenance.webp)
 
-**文献 -> 可验证报告。**
-
 ![文献综述产出渲染后的 PDF 稿件，并附带可追溯性评审](./docs/assets/showcase-literature.webp)
-
-<details>
-<summary><b>更多截图</b></summary>
-
-<br>
 
 ![智能体驱动 Jupyter 笔记本并实时绘制 matplotlib 图](./docs/assets/showcase-notebook.webp)
 
@@ -132,7 +132,7 @@ AI4HEOR 在此基础上增加确定性 HEOR 引擎和由人持有的科学关口
 | 审查 | 内置 traceability、stats-integrity、domain-check、large-file、publication-figure、remote-compute、Modal run 等第一方技能。 |
 | 查看器 | PDF、图片、视频、HTML、Markdown、代码、CSV/TSV 表格与图表、DOCX、XLSX、PPTX、分子、3D mesh、基因组轨道、FITS、DOS/DOSCAR、EIGENVAL bands、qcode、异常图和 phase 文件。 |
 | 模型 | OpenCode 提供方目录、OAuth/API key 连接、自定义 OpenAI-compatible endpoint，以及 OpenCode 支持的本地/云模型选项。 |
-| 界面语言 | English、简体中文、日本語、Español、Deutsch、Français、한국어。Portuguese (Brazil) 和 Arabic 已注册，但还不可选。 |
+| 界面语言 | English、简体中文、日本語、Español、Deutsch、Français、한국어。第一方 Skill 名称与说明在 7 种语言中发布，同时保留精确 `$skill-id`；外部 Skill 保留其原始元数据。Portuguese (Brazil) 和 Arabic 已注册，但还不可选。 |
 
 ## 技能与连接器
 

@@ -1,4 +1,4 @@
-# AI4S Workbench Desktop — Product Requirements
+# AI4HEOR Desktop — Product Requirements
 
 > **Status (AI4HEOR alpha, 2026-07-17).** The runtime is **OpenCode**, bundled as an isolated
 > sidecar (one-click, auto-started, does not touch a user's own OpenCode). Built: the
@@ -9,9 +9,11 @@
 
 ## 1. Positioning
 
-**AI4S Workbench Desktop** is an open-source AI research workbench with macOS /
-Windows installers, positioned as an **open-source alternative to Claude Science
-style products**.
+**AI4HEOR** is a natural-language-first, local-first, model-agnostic desktop
+workbench for pharmacoeconomics and HEOR on macOS, Windows, and Linux. Codex
+Agent builds and verifies the product; inside the product, the Human researcher
+leads the scientific work and the configured model/runtime assists under
+explicit Human-in-the-loop gates.
 
 It is not an ordinary paper-summarization tool. It is a local-first, model-agnostic,
 reproducible, auditable research agent workbench that helps researchers do:
@@ -26,9 +28,11 @@ reproducible, auditable research agent workbench that helps researchers do:
 - Artifact provenance
 - Reusable research workflows
 
-Slogan:
+Product definition:
 
-> Open-source AI research workbench for reproducible science.
+> AI4HEOR is developed by Codex Agent for Human-led pharmacoeconomic and HEOR
+> research: natural-language first, local first, model agnostic, and
+> Human-in-the-loop.
 
 ## 2. Goals
 
@@ -74,25 +78,26 @@ and `msi` targets; Windows can ship as `.msi` or an NSIS `setup.exe`.
 
 ### 2.2 Differentiation
 
-Versus ordinary AI paper tools, AI4S Workbench is different because it is:
+Versus ordinary AI paper tools, AI4HEOR is different because it is:
 
 1. A research workbench, not a chat box.
 2. A generator of traceable artifacts, not just text.
 3. Model-agnostic (BYOK / OpenRouter / OpenAI-compatible / local), not tied to one model.
 4. Transparent — it keeps code, data, figures, reports, logs, and provenance — not a black box.
-5. Multi-domain — expanding from biology to AI4S, materials, chemistry, biology,
-   medicine, engineering, and industry.
+5. HEOR-specific by default — starters, examples, Skills, artifacts, and review
+   boundaries use pharmacoeconomic methods and terminology rather than exposing
+   the generic Open Science platform base.
 
 ## 3. Target users
 
 ### 3.1 Core users
 
-1. **Researchers** — fast literature reviews; organizing papers, data, figures,
-   reports; reproducibility and citation accuracy.
-2. **AI4S / AI-for-Science developers** — integrating scientific skills, MCP, and
-   database connectors into one workbench; an open-source Claude Science alternative.
-3. **Grad / PhD / postdoc students** — topic surveys, paper reading, experiment data
-   analysis, submission material prep.
+1. **Pharmacoeconomics and HEOR researchers** — model design, evidence review,
+   economic evaluation, uncertainty analysis, validation, and reporting.
+2. **HTA and reimbursement analysts** — prepare auditable local work products
+   while retaining Human ownership of jurisdictional interpretation and decisions.
+3. **Students and methodologists** — learn or inspect HEOR methods through
+   synthetic examples, deterministic calculations, provenance, and explicit limits.
 4. **Open-source AI agent users** — already using OpenCode, Codex, Claude Code, Cursor,
    MCP, Agent Skills; want a research-focused desktop product.
 
@@ -387,21 +392,25 @@ literature, run reviewer, open settings, switch model, install skill, export rep
 
 ## 8. MVP example workflow
 
-v1 must ship one complete demo:
+v1 must ship one bounded, synthetic HEOR example:
 
 ```text
-2023–2026 brain-computer interface literature trends
+Two-strategy, three-state cohort cost-effectiveness analysis
 ```
 
-Outputs: `plan.md`, `data/corpus.csv`, `scripts/analyze.py`, `figures/year_trend.png`,
-`figures/topic_clusters.png`, `figures/top_keywords.png`, `report.md`, `review.md`,
-`provenance.jsonl`. Used for README, website, screenshots, video, and launch.
+The bundled `examples/heor-cost-effectiveness/` inputs are teaching assumptions,
+not clinical or economic evidence. The natural-language workflow must explain
+the decision problem, reproduce costs and QALYs with deterministic code, run a
+transparent sensitivity check, and prepare a local report with limitations and
+Human review points. It must not create scientific approval, cost-effectiveness,
+reimbursement, or policy conclusions.
 
 ## 9. Roadmap
 
 - **v0.1 Desktop MVP** — macOS / Windows installers, local workspace, bundled OpenCode runtime,
-  model config, agent chat, plan approval, literature search, Python analysis, artifact
-  panel, `provenance.jsonl`, basic reviewer, BCI demo.
+  model config, natural-language HEOR assistance, Human review, literature search,
+  deterministic HEOR analysis, artifact panel, `provenance.jsonl`, and the synthetic
+  cost-effectiveness example.
 - **v0.2 Research Workflows** — K-Dense skills installer, PDF parsing, citation checker,
   Markdown report export, workflow template library, fuller review panel.
 - **v0.3 Notebook Runtime** — Jupyter Kernel Gateway, persistent Python kernel, notebook

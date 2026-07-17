@@ -51,7 +51,7 @@ dependencies = [
 
 [[package]]
 name = "ai4s-workbench"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "getrandom 0.4.3",
  "opener",
