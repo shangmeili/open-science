@@ -1,13 +1,19 @@
-// Projects: a named workspace folder under the base dir, marked by
-// `<folder>/.openscience/project.json`. The folder IS the workspace — sessions
-// group under a project by their `directory`, so no registry or database
-// exists to drift out of sync. Folders without the marker stay plain dated
-// session workspaces.
+// AI4HEOR projects: named HEOR workspace folders under the base dir, marked by
+// the historical compatibility path `<folder>/.openscience/project.json`.
+// The folder IS the workspace — sessions group under a project by their
+// `directory`, so no registry or database exists to drift out of sync. Folders
+// without the marker stay plain dated session workspaces.
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 
 use crate::runtime::{base_workspace_dir, random_hex};
+
+const HEOR_PROJECT_KIND: &str = "heor";
+
+fn default_project_kind() -> String {
+    HEOR_PROJECT_KIND.into()
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ProjectMeta {
@@ -17,6 +23,8 @@ pub struct ProjectMeta {
     pub description: Option<String>,
     #[serde(rename = "createdAt")]
     pub created_at: u64,
+    #[serde(default = "default_project_kind")]
+    pub kind: String,
     pub version: u32,
 }
 
@@ -29,6 +37,7 @@ pub struct ProjectInfo {
     pub description: Option<String>,
     #[serde(rename = "createdAt")]
     pub created_at: u64,
+    pub kind: String,
     /// Absolute workspace folder (canonical, matches session `directory`).
     pub path: String,
 }
@@ -55,8 +64,9 @@ fn read_meta(dir: &Path) -> Option<ProjectMeta> {
 /// state must bind to this marker instead of accepting a caller-selected id.
 pub(crate) fn require_project_id(dir: &Path) -> Result<String, String> {
     read_meta(dir)
+        .filter(|meta| meta.kind == HEOR_PROJECT_KIND)
         .map(|meta| meta.id)
-        .ok_or_else(|| "HEOR work requires the current workspace to be a project".into())
+        .ok_or_else(|| "HEOR work requires the current workspace to be an AI4HEOR project".into())
 }
 
 fn write_meta(dir: &Path, meta: &ProjectMeta) -> Result<(), String> {
@@ -101,6 +111,7 @@ fn info_of(meta: ProjectMeta, dir: &Path) -> ProjectInfo {
         name: meta.name,
         description: meta.description,
         created_at: meta.created_at,
+        kind: meta.kind,
         path: canon.to_string_lossy().to_string(),
     }
 }
@@ -128,16 +139,16 @@ fn create_in(base: &Path, name: &str) -> Result<(PathBuf, ProjectMeta), String> 
         name: name.to_string(),
         description: None,
         created_at: now_ms(),
-        version: 1,
+        kind: HEOR_PROJECT_KIND.into(),
+        version: 2,
     };
     write_meta(&dir, &meta)?;
     Ok((dir, meta))
 }
 
-/// Create a project: a fresh folder under the base dir with project metadata,
-/// the agent harness, and an initial git snapshot — the same scaffold a dated
-/// session workspace gets. Does NOT switch the active workspace; the frontend
-/// decides when to move into it.
+/// Create an AI4HEOR project: a fresh folder under the base dir with typed HEOR
+/// metadata, the researcher-led assistant harness, and an initial git snapshot.
+/// Does NOT switch the active workspace; the frontend decides when to move into it.
 #[tauri::command(async)]
 pub fn create_project(app: AppHandle, name: String) -> Result<ProjectInfo, String> {
     let base = base_workspace_dir(&app)?;
@@ -164,7 +175,7 @@ pub fn list_projects(app: AppHandle) -> Result<Vec<ProjectInfo>, String> {
             }
         }
     }
-    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    out.sort_by_key(|project| project.name.to_lowercase());
     Ok(out)
 }
 
@@ -184,7 +195,7 @@ pub fn rename_project(path: String, name: String) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{create_in, folder_slug, read_meta, require_project_id};
+    use super::{create_in, folder_slug, read_meta, require_project_id, HEOR_PROJECT_KIND};
     use std::fs;
 
     #[test]
@@ -208,7 +219,8 @@ mod tests {
         assert_eq!(meta1.name, "My Study");
         let read = read_meta(&dir1).unwrap();
         assert_eq!(read.id, meta1.id);
-        assert_eq!(read.version, 1);
+        assert_eq!(read.kind, HEOR_PROJECT_KIND);
+        assert_eq!(read.version, 2);
         assert_eq!(require_project_id(&dir1).unwrap(), meta1.id);
 
         // Same name again → a distinct folder, its own identity.
@@ -229,6 +241,25 @@ mod tests {
         fs::write(dir.join(".openscience").join("project.json"), "{not json").unwrap();
         assert!(read_meta(&dir).is_none());
         assert!(require_project_id(&dir).is_err());
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn legacy_project_meta_defaults_to_heor_kind() {
+        let base =
+            std::env::temp_dir().join(format!("ai4heor-project-legacy-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let dir = base.join("legacy");
+        fs::create_dir_all(dir.join(".openscience")).unwrap();
+        fs::write(
+            dir.join(".openscience").join("project.json"),
+            r#"{"id":"legacy-id","name":"Legacy HEOR","createdAt":1,"version":1}"#,
+        )
+        .unwrap();
+
+        let meta = read_meta(&dir).unwrap();
+        assert_eq!(meta.kind, HEOR_PROJECT_KIND);
+        assert_eq!(require_project_id(&dir).unwrap(), "legacy-id");
         let _ = fs::remove_dir_all(&base);
     }
 }

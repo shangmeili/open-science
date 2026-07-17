@@ -151,21 +151,29 @@ After downloading and first opening, the user enters onboarding:
 1. Choose a model provider.
 2. Enter an API key.
 3. Choose a workspace directory.
-4. Detect the local runtime environment.
-5. Use the bundled OpenCode runtime (auto-started; no separate install).
+4. Verify that the AI assistant environment is ready.
+5. Use the bundled assistant environment (auto-started; no separate install).
 6. Create the first research project.
 
 First launch must clearly tell the user: data is stored locally by default; the agent
 requests authorization before running commands; the user must supply their own model
 API key; research results need human verification and are not final conclusions.
 
-#### 5.1.2 Home
+#### 5.1.2 Default HEOR entry
 
-Shows: recent projects, new project, example workflows, current runtime status, model
-connection status, local workspace status.
+The application opens directly in the AI4HEOR natural-language workspace. The
+first action is “New HEOR project”, not an inherited generic Open Science example.
+The empty state offers pharmacoeconomics and HEOR tasks: local-knowledge-base
+learning, decision-problem scoping, Human-authorized evidence search, model-input
+research, and analysis-plan audit. Runtime, model, workspace, project, and session
+state remain visible without displacing the research conversation. The main surface
+labels this only as the “AI assistant” state. OpenCode is an implementation detail:
+its engine name and local endpoint appear only in collapsed advanced diagnostics,
+and its command or port is not exposed in the HEOR workspace.
 
-Recommended default examples: Literature Review, Bibliometric Analysis,
-Paper-to-Report, Dataset Analysis, Citation Review, Reproducibility Audit.
+Creating a project asks only for its local display name, then pre-fills an unsent,
+localized natural-language intake request. Scientific scope, methods, evidence,
+assumptions, and approvals are not collected or chosen by the creation form.
 
 #### 5.1.3 Research agent workspace
 
@@ -343,7 +351,7 @@ Dark theme:
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
-│ Top Bar: Project / Model / Runtime / Sync / Settings    │
+│ Top Bar: Project / Model / AI status / Sync / Settings  │
 ├──────────────┬──────────────────────────┬───────────────┤
 │ Sidebar      │ Main Agent Workspace      │ Artifact Dock │
 │ Projects     │ Chat / Plan / Execution   │ Files         │
@@ -356,14 +364,14 @@ Dark theme:
 
 ### 6.4 Core pages
 
-- **Home** — welcome card, new project, recent projects, example workflows, runtime status, model status.
+- **HEOR Start** — HEOR question framing, new project, recent projects, researcher-led starters, AI assistant status, model status.
 - **Project Workspace** — agent chat, execution timeline, plan approval card, tool-call cards, artifact dock, review warnings.
 - **Literature** — search, filter, list, abstract preview, PDF status, citation info, add to corpus, export BibTeX / CSV.
 - **Data & Code** — file tree, Python scripts, notebook preview, CSV preview, run history, environment dependencies.
 - **Artifacts** — figure gallery, report preview, table preview, provenance chain, download / export.
 - **Review** — citation check, figure provenance check, data source check, reproducibility check, risk warnings, limitations.
 - **Skills** — installed skills, recommended scientific skills, install from GitHub, enable / disable, view `SKILL.md`, check license, check dependencies.
-- **Settings** — model provider, API keys, workspace path, runtime backend, security approvals, update settings, appearance theme, data cleanup.
+- **Settings** — model provider, API keys, workspace path, AI assistant status, collapsed advanced runtime diagnostics, security approvals, update settings, appearance theme, data cleanup.
 
 ## 7. Key interactions
 

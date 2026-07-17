@@ -90,9 +90,8 @@
   },
   "live": {
     "runtime": {
-      "title": "Runtime OpenCode",
-      "bodyPrefix": "L'application de bureau exécute automatiquement un OpenCode intégré. Dans le navigateur, démarrez-en un avec",
-      "bodySuffix": " puis connectez-vous."
+      "title": "Assistant IA indisponible",
+      "body": "Reconnectez-vous ou vérifiez le runtime de l’assistant IA dans les paramètres. Vos fichiers de projet locaux restent disponibles."
     },
     "connect": "Connecter",
     "subagentFallback": "un sous-agent",
@@ -112,7 +111,7 @@
       "openTitle": "Ouvrir {{path}} — l'agent travaille sur ce notebook dans cette session"
     },
     "connBadge": {
-      "title": "OpenCode · {{status}}",
+      "title": "Assistant IA · {{status}}",
       "status": {
         "ready": "prêt",
         "connecting": "connexion…",

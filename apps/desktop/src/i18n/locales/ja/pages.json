@@ -56,7 +56,7 @@
   "skills": {
     "title": "スキル & エージェント",
     "description": {
-      "prefix": "OpenCode ランタイムからライブで読み込まれます — 承認済みの AI4HEOR 機能と、ワークスペース内の ",
+      "prefix": "AI アシスタント実行環境からライブで読み込まれます — 承認済みの AI4HEOR 機能と、ワークスペース内の ",
       "suffix": " にあるものすべて。"
     },
     "install": {
@@ -89,7 +89,7 @@
       "detectionUnavailable": "環境検出はデスクトップアプリで実行されます。",
       "found": "検出済み",
       "notFound": "未検出",
-      "note": "OpenCode はここにインストールされているものを使ってコードを実行します（例: シェルツール経由の Python）。Python/R/Jupyter はバンドルされていません。分析を有効にするには、それらまたは Science Pack をインストールしてください。"
+      "note": "AI アシスタントはここにインストールされたツールでコードを実行します（例: シェルツール経由の Python）。Python/R/Jupyter はバンドルされていません。分析を有効にするには、それらまたは Science Pack をインストールしてください。"
     },
     "agentsSection": {
       "sectionTitle": "エージェント ({{count}})",

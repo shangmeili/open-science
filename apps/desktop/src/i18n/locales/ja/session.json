@@ -90,9 +90,8 @@
   },
   "live": {
     "runtime": {
-      "title": "OpenCode ランタイム",
-      "bodyPrefix": "デスクトップアプリはバンドルされた OpenCode を自動的に実行します。ブラウザでは、",
-      "bodySuffix": " で起動して接続してください。"
+      "title": "AI アシスタントを利用できません",
+      "body": "再接続するか、設定で AI アシスタントの実行環境を確認してください。ローカルのプロジェクトファイルは引き続き利用できます。"
     },
     "connect": "接続",
     "subagentFallback": "サブエージェント",
@@ -112,7 +111,7 @@
       "openTitle": "{{path}} を開く — エージェントはこのセッションでこのノートブックを操作します"
     },
     "connBadge": {
-      "title": "OpenCode · {{status}}",
+      "title": "AI アシスタント · {{status}}",
       "status": {
         "ready": "準備完了",
         "connecting": "接続中",

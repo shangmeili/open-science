@@ -27,11 +27,24 @@ describe("Settings page strings (i18n)", () => {
     renderAt("/settings");
     expect(await screen.findByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
     expect(
-      screen.getByText("Everything here configures the bundled OpenCode runtime — one config, no copies."),
+      screen.getByText(
+        "Configure the AI assistant, models, evidence tools, workspace, and local analysis environment.",
+      ),
     ).toBeInTheDocument();
-    expect(screen.getByText("Agent runtime")).toBeInTheDocument();
+    expect(screen.getByText("AI assistant runtime")).toBeInTheDocument();
     expect(screen.getByText("Evidence and MCP tools")).toBeInTheDocument();
     expect(screen.getByText("Workspace")).toBeInTheDocument();
+  });
+
+  it("keeps the OpenCode engine and local endpoint inside closed advanced diagnostics", async () => {
+    renderAt("/settings");
+    const summary = await screen.findByText("Advanced diagnostics");
+    const details = summary.closest("details");
+    expect(details).not.toHaveAttribute("open");
+    expect(within(details as HTMLElement).getByText("OpenCode")).toBeInTheDocument();
+    expect(within(details as HTMLElement).getByLabelText("Local endpoint")).toBeInTheDocument();
+    await userEvent.click(summary);
+    expect(details).toHaveAttribute("open");
   });
 
   it("renders the disconnected-runtime prompts and the Workspace fallback text", async () => {

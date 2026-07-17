@@ -531,15 +531,24 @@ export function SettingsPage() {
         <h1 className="font-serif text-xl text-text">{t("page.title")}</h1>
         <p className="mt-0.5 text-xs text-muted">{t("page.subtitle")}</p>
 
-        {/* ---- Agent runtime ---- */}
+        {/* ---- AI assistant runtime ---- */}
         <Card title={t("runtime.title")} hint={t("runtime.hint")}>
           <div className="flex items-center gap-2">
-            <input
-              value={serverUrl}
-              onChange={(e) => setServerUrl(e.target.value)}
-              placeholder={t("runtime.serverUrlPlaceholder")}
-              className={inputCls("flex-1 font-mono")}
-            />
+            <div className="flex flex-1 items-center gap-1.5 text-xs text-muted">
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  connected ? "bg-ok" : status === "error" ? "bg-error" : "bg-muted",
+                )}
+              />
+              <span>{t(`runtime.status.${status}`)}</span>
+              {connected && defaultModel && (
+                <>
+                  <span className="text-border">·</span>
+                  <span className="font-mono">{defaultModel}</span>
+                </>
+              )}
+            </div>
             {connected ? (
               <button onClick={disconnect} className={btnGhost()}>
                 {t("runtime.disconnect")}
@@ -550,21 +559,25 @@ export function SettingsPage() {
               </button>
             )}
           </div>
-          <div className="mt-2.5 flex items-center gap-1.5 text-xs text-muted">
-            <span
-              className={cn(
-                "h-1.5 w-1.5 rounded-full",
-                connected ? "bg-ok" : status === "error" ? "bg-error" : "bg-muted",
-              )}
-            />
-            <span className="capitalize">{status}</span>
-            {connected && defaultModel && (
-              <>
-                <span className="text-border">·</span>
-                <span className="font-mono">{defaultModel}</span>
-              </>
-            )}
-          </div>
+
+          <details className="group mt-3 border-t border-border pt-3 text-xs text-muted">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none hover:text-text">
+              <ChevronRight size={13} className="transition-transform group-open:rotate-90" />
+              {t("runtime.advanced.title")}
+            </summary>
+            <p className="mt-2 leading-relaxed">{t("runtime.advanced.description")}</p>
+            <div className="mt-3 grid grid-cols-[7rem_1fr] items-center gap-2">
+              <span>{t("runtime.advanced.engineLabel")}</span>
+              <span className="font-mono text-text">{t("runtime.advanced.engineValue")}</span>
+              <label htmlFor="runtime-server-url">{t("runtime.advanced.endpointLabel")}</label>
+              <input
+                id="runtime-server-url"
+                value={serverUrl}
+                onChange={(e) => setServerUrl(e.target.value)}
+                placeholder={t("runtime.serverUrlPlaceholder")}
+                className={inputCls("font-mono")}
+              />
+            </div>
 
           {/* Network proxy: follow system / custom / direct. system and none
               apply on select; custom applies on Save (needs a URL first). */}
@@ -647,6 +660,7 @@ export function SettingsPage() {
               </p>
             </div>
           )}
+          </details>
         </Card>
 
         {/* ---- Models ---- */}

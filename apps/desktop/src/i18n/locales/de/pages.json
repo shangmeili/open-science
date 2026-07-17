@@ -56,7 +56,7 @@
   "skills": {
     "title": "Skills & Agenten",
     "description": {
-      "prefix": "Live aus der OpenCode-Runtime geladen — zugelassene AI4HEOR-Fähigkeiten plus alles unter ",
+      "prefix": "Live aus der Laufzeit des KI-Assistenten geladen — zugelassene AI4HEOR-Fähigkeiten plus alles unter ",
       "suffix": " in Ihrem Arbeitsbereich."
     },
     "install": {
@@ -89,7 +89,7 @@
       "detectionUnavailable": "Die Umgebungserkennung läuft in der Desktop-App.",
       "found": "gefunden",
       "notFound": "nicht gefunden",
-      "note": "OpenCode führt Code mit dem aus, was hier installiert ist (z. B. Python über sein Shell-Tool). Python/R/Jupyter sind nicht gebündelt; installieren Sie sie oder ein Science Pack, um Analysen zu ermöglichen."
+      "note": "Der KI-Assistent führt Code mit den hier installierten Werkzeugen aus (z. B. Python über das Shell-Tool). Python/R/Jupyter sind nicht gebündelt; installieren Sie sie oder ein Science Pack, um Analysen zu ermöglichen."
     },
     "agentsSection": {
       "sectionTitle": "Agenten ({{count}})",

@@ -8,7 +8,7 @@
     "settings": "Paramètres"
   },
   "items": {
-    "new": "Nouveau",
+    "new": "Nouveau projet HEOR",
     "notebooks": "Notebooks",
     "files": "Fichiers",
     "runs": "Exécutions",
@@ -19,6 +19,7 @@
     "heading": "Projets",
     "new": "Nouveau projet",
     "namePlaceholder": "Nom du projet",
+    "intakePrompt": "Aide-moi à démarrer ce projet HEOR. Demande d’abord quelle question de décision, de recherche, d’évaluation ou d’apprentissage je veux traiter et quel en est l’usage prévu. Identifie ensuite uniquement les informations manquantes qui modifieraient réellement le travail. Je conserve la direction scientifique ; ne lance aucune recherche, ne choisis aucune méthode, ne suppose aucune donnée d’entrée et ne crée aucun enregistrement d’approbation avant que j’aie défini la tâche.",
     "newSessionAria": "Nouvelle session dans « {{name}} »",
     "noSessions": "Aucune session pour l’instant.",
     "renameHint": "Double-cliquez pour renommer"

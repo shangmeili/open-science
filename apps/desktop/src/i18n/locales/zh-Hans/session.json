@@ -90,9 +90,8 @@
   },
   "live": {
     "runtime": {
-      "title": "OpenCode 运行时",
-      "bodyPrefix": "桌面应用会自动运行一个内置的 OpenCode。在浏览器中，请使用以下命令启动一个",
-      "bodySuffix": "并连接。"
+      "title": "AI 助手暂时不可用",
+      "body": "请重新连接，或在设置中检查 AI 助手运行环境。您的本地项目文件不受影响。"
     },
     "connect": "连接",
     "subagentFallback": "一个子代理",
@@ -112,7 +111,7 @@
       "openTitle": "打开 {{path}} — 代理在此会话中处理此笔记本"
     },
     "connBadge": {
-      "title": "OpenCode · {{status}}",
+      "title": "AI 助手 · {{status}}",
       "status": {
         "ready": "就绪",
         "connecting": "连接中",

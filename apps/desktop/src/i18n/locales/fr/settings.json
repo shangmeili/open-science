@@ -11,13 +11,26 @@
   },
   "page": {
     "title": "Paramètres",
-    "subtitle": "Tout ici configure le runtime OpenCode intégré — une seule configuration, aucune copie."
+    "subtitle": "Configurez l’assistant IA, les modèles, les outils de preuve, l’espace de travail et l’environnement d’analyse local."
   },
   "runtime": {
-    "title": "Runtime de l'agent",
-    "hint": "opencode serve, piloté via son API HTTP + SSE",
+    "title": "Runtime de l’assistant IA",
+    "hint": "Démarré et géré automatiquement par l’application de bureau",
     "connect": "Connecter",
     "disconnect": "Déconnecter",
+    "status": {
+      "ready": "Prêt",
+      "connecting": "Connexion…",
+      "error": "Intervention requise",
+      "offline": "Hors ligne"
+    },
+    "advanced": {
+      "title": "Diagnostic avancé",
+      "description": "Détails techniques pour le dépannage ou la connexion à un runtime de développement. La plupart des utilisateurs n’ont pas besoin de modifier ces valeurs.",
+      "engineLabel": "Moteur d’exécution",
+      "engineValue": "OpenCode",
+      "endpointLabel": "Point d’accès local"
+    },
     "serverUrlPlaceholder": "http://127.0.0.1:4096",
     "proxyLabel": "Proxy réseau",
     "proxySystem": "Suivre le système",
@@ -83,7 +96,7 @@
   },
   "providers": {
     "title": "Fournisseurs",
-    "hint": "Authentification, points de terminaison personnalisés et connexions OpenCode importées",
+    "hint": "Authentification, points de terminaison personnalisés et identifiants CLI existants",
     "connectPrompt": "Connectez le runtime pour gérer les fournisseurs.",
     "manage": "Gérer",
     "collapse": "Réduire",
@@ -108,7 +121,7 @@
     "customKeyPlaceholder": "Clé API — facultative, Ollama n'en a besoin d'aucune",
     "customModelsPlaceholder": "Identifiants de modèles, séparés par des virgules",
     "addEndpoint": "Ajouter un point de terminaison",
-    "importLogin": "Vous utilisez déjà le CLI OpenCode ? Importez sa connexion"
+    "importLogin": "Importer les identifiants d’une CLI locale compatible"
   },
   "mcp": {
     "title": "Preuves et outils MCP",
@@ -174,8 +187,8 @@
     "couldNotRemoveMcp": "Impossible de supprimer le serveur MCP",
     "mcpRemoved": "Serveur MCP {{name}} supprimé",
     "importFailed": "Échec de l'importation",
-    "noOpenCodeLoginFound": "Aucune connexion CLI OpenCode trouvée sur cette machine.",
-    "importedLogin": "Votre connexion CLI OpenCode a été importée.",
+    "noOpenCodeLoginFound": "Aucun identifiant CLI local compatible n’a été trouvé sur cette machine.",
+    "importedLogin": "Les identifiants CLI locaux compatibles ont été importés.",
     "couldNotSetProxy": "Impossible d’appliquer le réglage du proxy",
     "proxyApplied": "Réglage du proxy appliqué",
     "mirrorSaved": "Réglages de miroir enregistrés",

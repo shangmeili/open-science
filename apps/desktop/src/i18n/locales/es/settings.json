@@ -11,13 +11,26 @@
   },
   "page": {
     "title": "Configuración",
-    "subtitle": "Todo aquí configura el entorno de ejecución de OpenCode incluido — una sola configuración, sin copias."
+    "subtitle": "Configura el asistente de IA, los modelos, las herramientas de evidencia, el espacio de trabajo y el entorno de análisis local."
   },
   "runtime": {
-    "title": "Entorno de ejecución del agente",
-    "hint": "opencode serve, controlado mediante su API HTTP + SSE",
+    "title": "Entorno del asistente de IA",
+    "hint": "La aplicación de escritorio lo inicia y gestiona automáticamente",
     "connect": "Conectar",
     "disconnect": "Desconectar",
+    "status": {
+      "ready": "Listo",
+      "connecting": "Conectando…",
+      "error": "Requiere atención",
+      "offline": "Sin conexión"
+    },
+    "advanced": {
+      "title": "Diagnóstico avanzado",
+      "description": "Detalles técnicos para solucionar problemas o conectar un entorno de desarrollo. La mayoría de usuarios no necesita cambiar estos valores.",
+      "engineLabel": "Motor de ejecución",
+      "engineValue": "OpenCode",
+      "endpointLabel": "Endpoint local"
+    },
     "serverUrlPlaceholder": "http://127.0.0.1:4096",
     "proxyLabel": "Proxy de red",
     "proxySystem": "Seguir el sistema",
@@ -83,7 +96,7 @@
   },
   "providers": {
     "title": "Proveedores",
-    "hint": "Autenticación, endpoints personalizados e inicios de sesión de OpenCode importados",
+    "hint": "Autenticación, endpoints personalizados y credenciales existentes de CLI",
     "connectPrompt": "Conecta el runtime para gestionar proveedores.",
     "manage": "Administrar",
     "collapse": "Contraer",
@@ -108,7 +121,7 @@
     "customKeyPlaceholder": "Clave de API — opcional, Ollama no necesita ninguna",
     "customModelsPlaceholder": "ID de modelos, separados por comas",
     "addEndpoint": "Añadir endpoint",
-    "importLogin": "¿Ya usas la CLI de OpenCode? Importa su inicio de sesión"
+    "importLogin": "Importar credenciales desde una CLI local compatible"
   },
   "mcp": {
     "title": "Evidencia y herramientas MCP",
@@ -174,8 +187,8 @@
     "couldNotRemoveMcp": "No se pudo quitar el servidor MCP",
     "mcpRemoved": "Servidor MCP {{name}} eliminado",
     "importFailed": "Error al importar",
-    "noOpenCodeLoginFound": "No se encontró ningún inicio de sesión de la CLI de OpenCode en esta máquina.",
-    "importedLogin": "Se importó tu inicio de sesión de la CLI de OpenCode.",
+    "noOpenCodeLoginFound": "No se encontraron credenciales de CLI local compatibles en este equipo.",
+    "importedLogin": "Se importaron credenciales de CLI local compatibles.",
     "couldNotSetProxy": "No se pudo aplicar la configuración del proxy",
     "proxyApplied": "Configuración del proxy aplicada",
     "mirrorSaved": "Configuración de espejo guardada",

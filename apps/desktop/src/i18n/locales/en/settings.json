@@ -11,13 +11,26 @@
   },
   "page": {
     "title": "Settings",
-    "subtitle": "Everything here configures the bundled OpenCode runtime — one config, no copies."
+    "subtitle": "Configure the AI assistant, models, evidence tools, workspace, and local analysis environment."
   },
   "runtime": {
-    "title": "Agent runtime",
-    "hint": "opencode serve, driven over its HTTP + SSE API",
+    "title": "AI assistant runtime",
+    "hint": "Started and managed automatically by the desktop app",
     "connect": "Connect",
     "disconnect": "Disconnect",
+    "status": {
+      "ready": "Ready",
+      "connecting": "Connecting…",
+      "error": "Needs attention",
+      "offline": "Offline"
+    },
+    "advanced": {
+      "title": "Advanced diagnostics",
+      "description": "Technical details for troubleshooting or connecting a development runtime. Most users do not need to change these values.",
+      "engineLabel": "Runtime engine",
+      "engineValue": "OpenCode",
+      "endpointLabel": "Local endpoint"
+    },
     "serverUrlPlaceholder": "http://127.0.0.1:4096",
     "proxyLabel": "Network proxy",
     "proxySystem": "Follow system",
@@ -83,7 +96,7 @@
   },
   "providers": {
     "title": "Providers",
-    "hint": "Authentication, custom endpoints, and imported OpenCode logins",
+    "hint": "Authentication, custom endpoints, and existing CLI credentials",
     "connectPrompt": "Connect the runtime to manage providers.",
     "manage": "Manage",
     "collapse": "Collapse",
@@ -108,7 +121,7 @@
     "customKeyPlaceholder": "API key — optional, Ollama needs none",
     "customModelsPlaceholder": "Model ids, comma-separated",
     "addEndpoint": "Add endpoint",
-    "importLogin": "Already use the OpenCode CLI? Import its login"
+    "importLogin": "Import credentials from a compatible local CLI"
   },
   "mcp": {
     "title": "Evidence and MCP tools",
@@ -174,8 +187,8 @@
     "couldNotRemoveMcp": "Could not remove the MCP server",
     "mcpRemoved": "MCP server {{name}} removed",
     "importFailed": "Import failed",
-    "noOpenCodeLoginFound": "No OpenCode CLI login found on this machine.",
-    "importedLogin": "Imported your OpenCode CLI login.",
+    "noOpenCodeLoginFound": "No compatible local CLI credentials were found on this machine.",
+    "importedLogin": "Imported compatible local CLI credentials.",
     "couldNotSetProxy": "Could not apply the proxy setting",
     "proxyApplied": "Proxy setting applied",
     "mirrorSaved": "Mirror settings saved",

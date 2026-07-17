@@ -70,6 +70,9 @@ in one continuous, auditable session.
 - **Natural-language-first assistance** — the researcher initiates and controls the
   work; the model/runtime proposes or executes bounded steps and leaves real,
   inspectable artifacts rather than claiming scientific authority.
+- **HEOR projects from the first click** — the app opens in the AI4HEOR workspace;
+  new work creates a typed local HEOR project, keeps every project session in the
+  HEOR route, and pre-fills a researcher-reviewable intake request without sending it.
 - **Local HEOR knowledge bases** — explicitly selected folders retain their hierarchy,
   are hash-bound and indexed locally, and can ground researcher-initiated learning
   without an automatic network call.
@@ -145,7 +148,7 @@ skills implement the admitted research workflow.
 | --- | --- |
 | Desktop shell | Tauri 2 + React + TypeScript + Vite, with macOS, Windows, and Linux desktop builds. |
 | Runtime | Bundled OpenCode sidecar, auto-started by the app, isolated from the user's own OpenCode config/data. |
-| Sessions | Multi-session chat/history, dated workspace folders, global history across workspaces, `/` commands, and `!` shell mode. |
+| Projects and sessions | New work creates a typed local HEOR project with the researcher-led harness; project sessions stay in the AI4HEOR route, while legacy loose sessions remain readable. Multi-session history, `/` commands, and `!` shell mode remain available. |
 | Files | Global and per-session file browsing, context menu actions, external open/reveal, copy path, and local preview server. |
 | Notebooks | Real `.ipynb` files, Python and R notebook creation, local kernel execution, managed Jupyter environment via bundled `uv`, and an Open JupyterLab action. |
 | Runs | Append-only run logs, global SQLite run index, search/facets/pagination, local/remote surfaces, output links, logs, and reproduce prompts. |

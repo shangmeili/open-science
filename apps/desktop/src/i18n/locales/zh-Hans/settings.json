@@ -11,13 +11,26 @@
   },
   "page": {
     "title": "设置",
-    "subtitle": "此处的所有设置都配置内置的 OpenCode 运行时——一份配置，无需重复。"
+    "subtitle": "配置 AI 助手、模型、证据工具、工作区与本地分析环境。"
   },
   "runtime": {
-    "title": "代理运行时",
-    "hint": "opencode serve，通过其 HTTP + SSE API 驱动",
+    "title": "AI 助手运行环境",
+    "hint": "由桌面应用自动启动和管理",
     "connect": "连接",
     "disconnect": "断开连接",
+    "status": {
+      "ready": "就绪",
+      "connecting": "连接中…",
+      "error": "需要处理",
+      "offline": "离线"
+    },
+    "advanced": {
+      "title": "高级诊断",
+      "description": "仅用于故障排查或连接开发运行环境。多数用户无需修改这些值。",
+      "engineLabel": "运行引擎",
+      "engineValue": "OpenCode",
+      "endpointLabel": "本地端点"
+    },
     "serverUrlPlaceholder": "http://127.0.0.1:4096",
     "proxyLabel": "网络代理",
     "proxySystem": "跟随系统",
@@ -83,7 +96,7 @@
   },
   "providers": {
     "title": "供应商",
-    "hint": "登录认证、自定义端点和导入的 OpenCode 登录信息",
+    "hint": "登录认证、自定义端点和现有 CLI 凭据",
     "connectPrompt": "连接运行时以管理提供商。",
     "manage": "管理",
     "collapse": "收起",
@@ -107,7 +120,7 @@
     "customKeyPlaceholder": "API 密钥 — 可选，Ollama 不需要",
     "customModelsPlaceholder": "模型 ID，以逗号分隔",
     "addEndpoint": "添加端点",
-    "importLogin": "已经在使用 OpenCode CLI？导入其登录信息"
+    "importLogin": "从兼容的本地 CLI 导入凭据"
   },
   "mcp": {
     "title": "证据与 MCP 工具",
@@ -173,8 +186,8 @@
     "couldNotRemoveMcp": "无法移除 MCP 服务器",
     "mcpRemoved": "MCP 服务器 {{name}} 已移除",
     "importFailed": "导入失败",
-    "noOpenCodeLoginFound": "在此计算机上未找到 OpenCode CLI 登录信息。",
-    "importedLogin": "已导入您的 OpenCode CLI 登录信息。",
+    "noOpenCodeLoginFound": "在此计算机上未找到兼容的本地 CLI 凭据。",
+    "importedLogin": "已导入兼容的本地 CLI 凭据。",
     "couldNotSetProxy": "无法应用代理设置",
     "proxyApplied": "代理设置已生效",
     "mirrorSaved": "镜像设置已保存",

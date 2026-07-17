@@ -11,13 +11,26 @@
   },
   "page": {
     "title": "Einstellungen",
-    "subtitle": "Hier wird ausschließlich die gebündelte OpenCode-Runtime konfiguriert — eine Konfiguration, keine Kopien."
+    "subtitle": "KI-Assistent, Modelle, Evidenzwerkzeuge, Arbeitsbereich und lokale Analyseumgebung konfigurieren."
   },
   "runtime": {
-    "title": "Agent-Runtime",
-    "hint": "opencode serve, gesteuert über dessen HTTP- + SSE-API",
+    "title": "Laufzeit des KI-Assistenten",
+    "hint": "Wird von der Desktop-App automatisch gestartet und verwaltet",
     "connect": "Verbinden",
     "disconnect": "Trennen",
+    "status": {
+      "ready": "Bereit",
+      "connecting": "Verbindung wird hergestellt…",
+      "error": "Eingriff erforderlich",
+      "offline": "Offline"
+    },
+    "advanced": {
+      "title": "Erweiterte Diagnose",
+      "description": "Technische Details zur Fehlerbehebung oder zum Verbinden einer Entwicklungsumgebung. Die meisten Nutzer müssen diese Werte nicht ändern.",
+      "engineLabel": "Laufzeit-Engine",
+      "engineValue": "OpenCode",
+      "endpointLabel": "Lokaler Endpunkt"
+    },
     "serverUrlPlaceholder": "http://127.0.0.1:4096",
     "proxyLabel": "Netzwerk-Proxy",
     "proxySystem": "System folgen",
@@ -83,7 +96,7 @@
   },
   "providers": {
     "title": "Anbieter",
-    "hint": "Authentifizierung, benutzerdefinierte Endpunkte und importierte OpenCode-Anmeldungen",
+    "hint": "Authentifizierung, benutzerdefinierte Endpunkte und vorhandene CLI-Zugangsdaten",
     "connectPrompt": "Verbinde die Laufzeit, um Anbieter zu verwalten.",
     "manage": "Verwalten",
     "collapse": "Einklappen",
@@ -108,7 +121,7 @@
     "customKeyPlaceholder": "API-Schlüssel — optional, für Ollama nicht erforderlich",
     "customModelsPlaceholder": "Modell-IDs, durch Kommas getrennt",
     "addEndpoint": "Endpunkt hinzufügen",
-    "importLogin": "Nutzen Sie bereits die OpenCode-CLI? Deren Anmeldung importieren"
+    "importLogin": "Zugangsdaten aus einer kompatiblen lokalen CLI importieren"
   },
   "mcp": {
     "title": "Evidenz- und MCP-Werkzeuge",
@@ -174,8 +187,8 @@
     "couldNotRemoveMcp": "Der MCP-Server konnte nicht entfernt werden",
     "mcpRemoved": "MCP-Server {{name}} entfernt",
     "importFailed": "Import fehlgeschlagen",
-    "noOpenCodeLoginFound": "Auf diesem Rechner wurde keine OpenCode-CLI-Anmeldung gefunden.",
-    "importedLogin": "Ihre OpenCode-CLI-Anmeldung wurde importiert.",
+    "noOpenCodeLoginFound": "Auf diesem Rechner wurden keine kompatiblen lokalen CLI-Zugangsdaten gefunden.",
+    "importedLogin": "Kompatible lokale CLI-Zugangsdaten wurden importiert.",
     "couldNotSetProxy": "Proxy-Einstellung konnte nicht übernommen werden",
     "proxyApplied": "Proxy-Einstellung übernommen",
     "mirrorSaved": "Spiegel-Einstellungen gespeichert",

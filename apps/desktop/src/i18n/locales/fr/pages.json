@@ -56,7 +56,7 @@
   "skills": {
     "title": "Compétences et agents",
     "description": {
-      "prefix": "Chargé en direct depuis OpenCode — les capacités AI4HEOR admises, plus tout ce qui se trouve sous ",
+      "prefix": "Chargé en direct depuis le runtime de l’assistant IA — les capacités AI4HEOR admises, plus tout ce qui se trouve sous ",
       "suffix": " dans votre espace de travail."
     },
     "install": {
@@ -89,7 +89,7 @@
       "detectionUnavailable": "La détection de l'environnement s'exécute dans l'application de bureau.",
       "found": "trouvé",
       "notFound": "introuvable",
-      "note": "OpenCode exécute le code avec ce qui est installé ici (p. ex. Python via son outil shell). Python/R/Jupyter ne sont pas intégrés ; installez-les, ou un Science Pack, pour activer l'analyse."
+      "note": "L’assistant IA exécute le code avec les outils installés ici (p. ex. Python via l’outil shell). Python/R/Jupyter ne sont pas intégrés ; installez-les, ou un Science Pack, pour activer l’analyse."
     },
     "agentsSection": {
       "sectionTitle": "Agents ({{count}})",

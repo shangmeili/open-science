@@ -35,7 +35,6 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
     switching,
     sending,
     runningSessions,
-    serverUrl,
     sessions,
     projects,
     currentId,
@@ -376,15 +375,7 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
             {!connected && !connecting && (
               <div className="rounded-card border border-border bg-surface p-5 shadow-card">
                 <div className="text-sm font-medium text-text">{t("live.runtime.title")}</div>
-                <p className="mt-1 text-sm text-muted">
-                  {t("live.runtime.bodyPrefix")}{" "}
-                  {/* eslint-disable-next-line i18next/no-literal-string -- literal shell command, not prose */}
-                  <span className="font-mono">opencode serve</span>
-                  {t("live.runtime.bodySuffix")}
-                </p>
-                <div className="mt-3 rounded-input bg-surface-2 px-3 py-2 font-mono text-xs text-text">
-                  {serverUrl}
-                </div>
+                <p className="mt-1 text-sm text-muted">{t("live.runtime.body")}</p>
               </div>
             )}
             {error && (
@@ -562,7 +553,7 @@ function ConnBadge({ status }: { status: RuntimeStatus }) {
       />
       {/* Ready is the norm — a green dot says it all (hover for detail). Text
           appears only for states that need attention. */}
-      {status !== "ready" && t("live.connBadge.title", { status: t(`live.connBadge.status.${status}`) })}
+      {status !== "ready" && t(`live.connBadge.status.${status}`)}
     </span>
   );
 }

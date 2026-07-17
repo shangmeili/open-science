@@ -90,9 +90,8 @@
   },
   "live": {
     "runtime": {
-      "title": "Entorno de ejecución de OpenCode",
-      "bodyPrefix": "La app de escritorio ejecuta automáticamente una instancia de OpenCode incluida. En el navegador, inicia una con",
-      "bodySuffix": " y conéctate."
+      "title": "Asistente de IA no disponible",
+      "body": "Vuelve a conectarte o comprueba el entorno del asistente de IA en Configuración. Tus archivos locales del proyecto siguen disponibles."
     },
     "connect": "Conectar",
     "subagentFallback": "un subagente",
@@ -112,7 +111,7 @@
       "openTitle": "Abrir {{path}} — el agente trabaja en este cuaderno dentro de esta sesión"
     },
     "connBadge": {
-      "title": "OpenCode · {{status}}",
+      "title": "Asistente de IA · {{status}}",
       "status": {
         "ready": "listo",
         "connecting": "conectando",

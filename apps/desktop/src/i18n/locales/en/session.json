@@ -90,9 +90,8 @@
   },
   "live": {
     "runtime": {
-      "title": "OpenCode runtime",
-      "bodyPrefix": "The desktop app runs a bundled OpenCode automatically. In the browser, start one with",
-      "bodySuffix": " and connect."
+      "title": "AI assistant unavailable",
+      "body": "Reconnect, or check the AI assistant runtime in Settings. Your local project files remain available."
     },
     "connect": "Connect",
     "subagentFallback": "a subagent",
@@ -112,7 +111,7 @@
       "openTitle": "Open {{path}} — the agent works on this notebook in this session"
     },
     "connBadge": {
-      "title": "OpenCode · {{status}}",
+      "title": "AI assistant · {{status}}",
       "status": {
         "ready": "ready",
         "connecting": "connecting",

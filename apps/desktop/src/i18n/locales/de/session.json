@@ -90,9 +90,8 @@
   },
   "live": {
     "runtime": {
-      "title": "OpenCode-Runtime",
-      "bodyPrefix": "Die Desktop-App führt automatisch eine gebündelte OpenCode-Instanz aus. Starten Sie im Browser eine mit",
-      "bodySuffix": " und verbinden Sie sich."
+      "title": "KI-Assistent nicht verfügbar",
+      "body": "Stellen Sie die Verbindung erneut her oder prüfen Sie die Laufzeit des KI-Assistenten in den Einstellungen. Ihre lokalen Projektdateien bleiben verfügbar."
     },
     "connect": "Verbinden",
     "subagentFallback": "ein Subagent",
@@ -112,7 +111,7 @@
       "openTitle": "{{path}} öffnen — der Agent arbeitet in dieser Sitzung an diesem Notebook"
     },
     "connBadge": {
-      "title": "OpenCode · {{status}}",
+      "title": "KI-Assistent · {{status}}",
       "status": {
         "ready": "bereit",
         "connecting": "verbindet …",

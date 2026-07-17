@@ -59,7 +59,6 @@ export function Sidebar() {
     sessions,
     projects,
     workspace,
-    startDraft,
     startDraftInWorkspace,
     createProject,
     refreshProjects,
@@ -69,6 +68,7 @@ export function Sidebar() {
   const {
     sidebarCollapsed,
     sidebarWidth,
+    setComposerDraft,
     setSidebarCollapsed,
     setSidebarWidth,
     toggleSidebar,
@@ -103,8 +103,7 @@ export function Sidebar() {
   };
 
   const startNew = () => {
-    startDraft();
-    navigate("/live");
+    setCreatingProject(true);
   };
 
   // ---- Projects: sessions group under a project by workspace folder ----
@@ -135,12 +134,15 @@ export function Sidebar() {
     const created = await createProject(trimmed);
     setCreateBusy(false);
     setCreatingProject(false);
-    if (created) navigate("/live");
+    if (created) {
+      setComposerDraft(t("projects.intakePrompt"));
+      if (!location.pathname.startsWith("/heor")) navigate("/heor");
+    }
   };
 
   const newSessionIn = async (p: ProjectInfo) => {
     await startDraftInWorkspace(p.path);
-    navigate("/live");
+    navigate("/heor");
   };
 
   const submitRename = async (p: ProjectInfo, name: string) => {
@@ -170,7 +172,9 @@ export function Sidebar() {
       to: `/live/${s.id}`,
     };
     const owner = s.directory ? projectByPath.get(s.directory) : undefined;
-    if (owner) sessionsByProject.get(owner.id)!.push(row);
+    if (owner) {
+      sessionsByProject.get(owner.id)!.push({ ...row, to: `/heor/${s.id}` });
+    }
     else looseRows.push(row);
   }
   const [pendingDelete, setPendingDelete] = useState<Row | null>(null);

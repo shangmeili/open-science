@@ -123,6 +123,34 @@ artifacts; they do not transfer scientific leadership to the runtime. To protect
 user-authored project instructions, harness seeding is deliberately non-clobbering.
 An existing project is never silently rewritten when the bundled contract changes.
 
+## HEOR project initiation contract
+
+AI4HEOR opens on the HEOR natural-language workspace, not the inherited generic
+session surface. “New HEOR project” asks only for a local project name, creates a
+typed `kind: "heor"` project marker, seeds the researcher-led harness, switches the
+workspace, and opens `/heor`. The project name is storage metadata, not a scientific
+form and not a decision problem.
+
+The bundled agent engine is platform implementation, not an AI4HEOR research
+feature or product identity. Research surfaces therefore show only a localized
+“AI assistant” readiness state and recovery action. Engine name and local endpoint
+are available only inside collapsed advanced diagnostics in Settings; implementation
+commands and ports never displace the HEOR conversation. This presentation boundary
+does not suppress real errors: user-facing recovery remains visible, while exact
+technical evidence stays available for troubleshooting.
+
+After creation, the composer contains a localized, unsent intake draft. It asks the
+researcher to define the decision, research, evaluation, or learning question and
+intended use before the assistant searches, selects a method, assumes an input, or
+creates a review artifact. The Human may edit or discard the draft. No model turn is
+started by project creation.
+
+Every session owned by a project opens under `/heor/:sessionId`; only older loose
+session folders retain `/live/:sessionId` compatibility. Project metadata version 2
+adds the HEOR kind. Version-1 project markers without the field load as HEOR projects,
+so upgrading does not strand existing work. A marker that explicitly declares a
+different kind is not eligible for app-owned HEOR approval or execution commands.
+
 ## MVP decision problem
 
 The current complete cost-effectiveness workflow compares 2–16 explicitly

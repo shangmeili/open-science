@@ -437,13 +437,15 @@ export async function newDatedWorkspace(name: string): Promise<string> {
   return invoke<string>("new_dated_workspace", { name });
 }
 
-/** A project: a named workspace folder under the base dir, marked by its
- *  `.openscience/project.json`. Sessions group under it by `directory`. */
+/** An AI4HEOR project: a named workspace folder under the base dir, marked by
+ *  the historical `.openscience/project.json` compatibility path. Sessions
+ *  group under it by `directory`. */
 export interface ProjectInfo {
   id: string;
   name: string;
   description?: string;
   createdAt: number;
+  kind: "heor";
   /** Absolute workspace folder (canonical, matches session `directory`). */
   path: string;
 }

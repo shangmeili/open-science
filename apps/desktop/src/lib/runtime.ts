@@ -132,11 +132,11 @@ interface RuntimeState {
   refreshSessions: () => Promise<void>;
   startDraft: () => void;
   startDraftInCurrentWorkspace: () => void;
-  /** Projects: named shared-workspace folders under the base dir. Sessions
-   *  group under a project by `directory`; multiple sessions share the folder. */
+  /** AI4HEOR projects: typed HEOR workspace folders under the base dir.
+   *  Sessions group under a project by `directory`; multiple sessions share the folder. */
   projects: ProjectInfo[];
   refreshProjects: () => Promise<void>;
-  /** Create a project folder and move into it with a fresh pinned draft. */
+  /** Create an AI4HEOR project and move into it with a fresh pinned draft. */
   createProject: (name: string) => Promise<ProjectInfo | null>;
   /** Fresh draft pinned inside `path` (a project folder), so the next new
    *  session lands there. Skips the reconnect when the folder is already active. */
@@ -322,7 +322,7 @@ async function performTurn(
   shell = false,
 ): Promise<string | null> {
   if (!client) {
-    set({ error: "Not connected to the OpenCode runtime." });
+    set({ error: "Not connected to the AI assistant runtime." });
     return null;
   }
   if (get().sending) return null; // one send at a time
@@ -626,7 +626,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   },
 
   setDefaultModel: async (model) => {
-    if (!client) throw new Error("Not connected to the OpenCode runtime.");
+    if (!client) throw new Error("Not connected to the AI assistant runtime.");
     // Applying the model PATCHes OpenCode's global config, which closes the
     // event stream server-side. EventSource's own reconnect does not reliably
     // recover from that — it strands the app in "connecting"/disconnected until

@@ -13,7 +13,7 @@ export const routes: RouteObject[] = [
     path: "/",
     element: <AppShell />,
     children: [
-      { index: true, element: <Navigate to="/live" replace /> },
+      { index: true, element: <Navigate to="/heor" replace /> },
       { path: "live", element: <LiveSessionPage /> },
       { path: "live/:sessionId", element: <LiveSessionPage /> },
       { path: "heor", element: <LiveSessionPage heorMode /> },

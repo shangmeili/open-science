@@ -8,7 +8,7 @@
     "settings": "Einstellungen"
   },
   "items": {
-    "new": "Neu",
+    "new": "Neues HEOR-Projekt",
     "notebooks": "Notebooks",
     "files": "Dateien",
     "runs": "Durchläufe",
@@ -19,6 +19,7 @@
     "heading": "Projekte",
     "new": "Neues Projekt",
     "namePlaceholder": "Projektname",
+    "intakePrompt": "Hilf mir, dieses HEOR-Projekt zu beginnen. Frage zuerst, welche Entscheidungs-, Forschungs-, Bewertungs- oder Lernfrage ich bearbeiten möchte und wofür die Ergebnisse bestimmt sind. Ermittle danach nur fehlende Angaben, die die Arbeit wesentlich verändern würden. Ich behalte die wissenschaftliche Leitung; suche nicht, wähle keine Methoden, nimm keine Eingaben an und erstelle keine Freigaben, bevor ich die Aufgabe definiert habe.",
     "newSessionAria": "Neue Sitzung in „{{name}}“",
     "noSessions": "Noch keine Sitzungen.",
     "renameHint": "Zum Umbenennen doppelklicken"

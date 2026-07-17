@@ -8,7 +8,7 @@
     "settings": "设置"
   },
   "items": {
-    "new": "新建",
+    "new": "新建 HEOR 项目",
     "notebooks": "笔记本",
     "files": "文件",
     "runs": "运行",
@@ -19,6 +19,7 @@
     "heading": "项目",
     "new": "新建项目",
     "namePlaceholder": "项目名称",
+    "intakePrompt": "帮我启动这个 HEOR 项目。先询问我希望解决的决策、研究、评价或学习问题及预期用途，再只识别会实质改变工作的缺失信息。科研工作由我主导；在我界定任务前，不要检索、选择方法、假定参数或创建任何批准记录。",
     "newSessionAria": "在“{{name}}”中新建会话",
     "noSessions": "暂无会话。",
     "renameHint": "双击重命名"

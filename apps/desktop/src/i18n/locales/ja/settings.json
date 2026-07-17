@@ -11,13 +11,26 @@
   },
   "page": {
     "title": "設定",
-    "subtitle": "ここでの設定はすべて、バンドルされた OpenCode ランタイムに対するものです — 設定は一つだけで、コピーはありません。"
+    "subtitle": "AI アシスタント、モデル、エビデンスツール、ワークスペース、ローカル分析環境を設定します。"
   },
   "runtime": {
-    "title": "エージェントランタイム",
-    "hint": "opencode serve を、その HTTP + SSE API 経由で操作します",
+    "title": "AI アシスタント実行環境",
+    "hint": "デスクトップアプリが自動的に起動・管理します",
     "connect": "接続",
     "disconnect": "切断",
+    "status": {
+      "ready": "準備完了",
+      "connecting": "接続中…",
+      "error": "確認が必要",
+      "offline": "オフライン"
+    },
+    "advanced": {
+      "title": "高度な診断",
+      "description": "トラブルシューティングや開発用実行環境への接続に使う技術情報です。通常は変更する必要はありません。",
+      "engineLabel": "実行エンジン",
+      "engineValue": "OpenCode",
+      "endpointLabel": "ローカルエンドポイント"
+    },
     "serverUrlPlaceholder": "http://127.0.0.1:4096",
     "proxyLabel": "ネットワークプロキシ",
     "proxySystem": "システムに従う",
@@ -83,7 +96,7 @@
   },
   "providers": {
     "title": "プロバイダー",
-    "hint": "認証、カスタムエンドポイント、インポートした OpenCode ログイン",
+    "hint": "認証、カスタムエンドポイント、既存の CLI 認証情報",
     "connectPrompt": "プロバイダーを管理するにはランタイムに接続してください。",
     "manage": "管理",
     "collapse": "折りたたむ",
@@ -107,7 +120,7 @@
     "customKeyPlaceholder": "API キー — 任意、Ollama では不要です",
     "customModelsPlaceholder": "モデル ID（カンマ区切り）",
     "addEndpoint": "エンドポイントを追加",
-    "importLogin": "すでに OpenCode CLI を使っていますか？ そのログインをインポート"
+    "importLogin": "互換性のあるローカル CLI から認証情報をインポート"
   },
   "mcp": {
     "title": "エビデンスと MCP ツール",
@@ -173,8 +186,8 @@
     "couldNotRemoveMcp": "MCP サーバーを削除できませんでした",
     "mcpRemoved": "MCP サーバー {{name}} を削除しました",
     "importFailed": "インポートに失敗しました",
-    "noOpenCodeLoginFound": "このマシンで OpenCode CLI のログインが見つかりませんでした。",
-    "importedLogin": "OpenCode CLI のログインをインポートしました。",
+    "noOpenCodeLoginFound": "このマシンに互換性のあるローカル CLI 認証情報が見つかりませんでした。",
+    "importedLogin": "互換性のあるローカル CLI 認証情報をインポートしました。",
     "couldNotSetProxy": "プロキシ設定を適用できませんでした",
     "proxyApplied": "プロキシ設定を適用しました",
     "mirrorSaved": "ミラー設定を保存しました",

@@ -8,7 +8,7 @@
     "settings": "Settings"
   },
   "items": {
-    "new": "New",
+    "new": "New HEOR project",
     "notebooks": "Notebooks",
     "files": "Files",
     "runs": "Runs",
@@ -19,6 +19,7 @@
     "heading": "Projects",
     "new": "New project",
     "namePlaceholder": "Project name",
+    "intakePrompt": "Help me start this HEOR project. First ask what decision, research, evaluation, or learning question I want to address and its intended use. Then identify only missing information that would materially change the work. Keep me as the scientific lead; do not search, select methods, assume inputs, or create approval records before I define the task.",
     "newSessionAria": "New session in {{name}}",
     "noSessions": "No sessions yet.",
     "renameHint": "Double-click to rename"

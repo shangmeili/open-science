@@ -56,7 +56,7 @@
   "skills": {
     "title": "技能与代理",
     "description": {
-      "prefix": "从 OpenCode 运行时实时加载——已准入的 AI4HEOR 能力，以及您工作区中位于 ",
+      "prefix": "从 AI 助手运行环境实时加载——已准入的 AI4HEOR 能力，以及您工作区中位于 ",
       "suffix": " 下的所有内容。"
     },
     "install": {
@@ -89,7 +89,7 @@
       "detectionUnavailable": "环境检测功能在桌面应用中运行。",
       "found": "已找到",
       "notFound": "未找到",
-      "note": "OpenCode 使用此处已安装的组件运行代码（例如通过其 shell 工具调用 Python）。Python/R/Jupyter 并未内置；请安装它们或安装 Science Pack 以启用分析功能。"
+      "note": "AI 助手使用此处已安装的工具运行代码（例如通过 shell 工具调用 Python）。Python/R/Jupyter 并未内置；请安装它们或安装 Science Pack 以启用分析功能。"
     },
     "agentsSection": {
       "sectionTitle": "代理（{{count}}）",

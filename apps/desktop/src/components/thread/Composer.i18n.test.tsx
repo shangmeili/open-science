@@ -29,13 +29,14 @@ describe("WorkflowStarters strings (i18n)", () => {
 });
 
 describe("LiveSessionPage strings (i18n)", () => {
-  it("renders the disconnected-runtime card in English (no Tauri sidecar in tests)", async () => {
-    renderAt("/live");
-    expect(await screen.findByText("OpenCode runtime")).toBeInTheDocument();
+  it("keeps runtime implementation details out of the disconnected research surface", async () => {
+    const view = renderAt("/live");
+    expect(await screen.findByText("AI assistant unavailable")).toBeInTheDocument();
     expect(
-      screen.getByText((_, node) =>
-        node?.textContent === "The desktop app runs a bundled OpenCode automatically. In the browser, start one with opencode serve and connect.",
+      screen.getByText(
+        "Reconnect, or check the AI assistant runtime in Settings. Your local project files remain available.",
       ),
     ).toBeInTheDocument();
+    expect(view.container).not.toHaveTextContent(/OpenCode|opencode serve/i);
   });
 });

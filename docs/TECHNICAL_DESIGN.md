@@ -1,8 +1,10 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.25, 2026-07-17).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.29 source, 2026-07-17).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
-> natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
+> natural-language sessions; a HEOR-default root route, typed HEOR project creation,
+> localized unsent project-intake drafts, HEOR-preserving project session routes;
+> first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
 > including the 13/15-artifact PSM validation/report contract and deterministic release replay;
 > deterministic cohort, uncertainty, bounded advanced-VOI, budget-impact, NMA, anchored-MAIC,
@@ -11,9 +13,10 @@
 > native point/diagnostic challenge, and
 > separate app-owned Human method reviews consolidated in a current-result review queue; and
 > native macOS and x86_64 Linux packaging.
-> The 0.1.24 x64 macOS DMG is content-verified from clean commit
-> `2036174b92c7091650b802cea5123455453891f9`; all 273 resources match source bytes and
-> all 177 mounted-core HEOR tests pass. A 0.1.22 Apple Silicon DMG was separately
+> The 0.1.28 x64 macOS DMG is content-verified from clean commit
+> `5b4afb3077c8754ecba40c1ca9820ea41c7139f8`; all 282 resources match source bytes,
+> all 177 mounted-core HEOR tests pass, and isolated fresh plus legacy-migration starts
+> were verified. A 0.1.22 Apple Silicon DMG was separately
 > cross-built from clean commit `d2363138449566137c8374386acdf1f8774faad3` on an Intel
 > Mac; read-only inspection verified pure-arm64 payloads, all 265 resources byte-for-byte,
 > and all 177 mounted-core HEOR tests. Native sidecar execution and first start remain

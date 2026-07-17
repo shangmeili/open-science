@@ -90,9 +90,8 @@
   },
   "live": {
     "runtime": {
-      "title": "OpenCode 런타임",
-      "bodyPrefix": "데스크톱 앱은 내장된 OpenCode를 자동으로 실행합니다. 브라우저에서는 다음으로 시작하세요",
-      "bodySuffix": " 그리고 연결하세요."
+      "title": "AI 도우미를 사용할 수 없음",
+      "body": "다시 연결하거나 설정에서 AI 도우미 실행 환경을 확인하세요. 로컬 프로젝트 파일은 계속 사용할 수 있습니다."
     },
     "connect": "연결",
     "subagentFallback": "서브 에이전트",
@@ -112,7 +111,7 @@
       "openTitle": "{{path}} 열기 — 에이전트가 이 세션에서 이 노트북을 작업합니다"
     },
     "connBadge": {
-      "title": "OpenCode · {{status}}",
+      "title": "AI 도우미 · {{status}}",
       "status": {
         "ready": "준비됨",
         "connecting": "연결 중",
