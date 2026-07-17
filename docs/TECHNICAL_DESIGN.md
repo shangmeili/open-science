@@ -24,10 +24,12 @@
 > Mac; read-only inspection verified pure-arm64 payloads, all 282 resources byte-for-byte,
 > and all 177 mounted-core HEOR tests. Native sidecar execution and first start remain
 > unverified because the strict verifier correctly rejects arm64 execution on that host.
-> The 0.1.23 Linux `.deb` and `.rpm` are built and content-verified from clean commit
-> `98daee8c0279c00f4c41791e52489915191e9b4f` in an isolated Ubuntu 22.04 builder. The `.deb` also passes
-> a clean Ubuntu 22.04 install and headless first start, while the `.rpm` passes the
-> equivalent native check on Fedora 42. Fail-closed native package evidence is wired
+> The 0.1.30 Linux `.deb` and `.rpm` are built and content-verified from the same clean
+> commit `0beb7b2bcb04a796f256bd8f8528bb787aa77319` in an isolated Ubuntu 22.04 builder.
+> Both extracted packages independently pass all 177 HEOR tests and contain the same 282
+> controlled resources as source. The `.deb` also passes a brand-new Ubuntu 22.04 non-root
+> headless first start; the `.rpm` passes a Fedora 42 start with content-preserving legacy
+> `OpenScience` to `AI4HEOR` workspace migration. Fail-closed native package evidence is wired
 > for macOS arm64/x64, Windows x64, and Linux x64, with a four-target manifest gate;
 > that current-commit CI manifest and native Windows/Apple-Silicon first-start evidence
 > have not yet been produced. The inspected arm64 app has only an ad-hoc linker signature,
@@ -914,17 +916,19 @@ single expected Tauri bundle-type marker.
 The job writes the same release-evidence schema as macOS and Windows, including both
 package hashes and the deb/rpm parity result.
 
-Version 0.1.22 was additionally installed into brand-new native package environments. A
-headless X session on Ubuntu 22.04 after `.deb` installation and on Fedora 42 after `.rpm`
-installation reached simultaneous `ai4s-workbench` and `opencode serve` process readiness
-and created the then-current `~/Documents/OpenScience` workspace. From 0.1.27, a fresh
-installation creates `~/Documents/AI4HEOR`; an existing default `OpenScience` root is
-renamed atomically, while a rename failure reuses the legacy root rather than splitting data.
-The independently extracted
-`.deb` and `.rpm` payloads each passed all 177 deterministic HEOR tests and all 265
-configured scientific resources matched the source bytes. This establishes clean native
-installation and headless runtime startup for both package formats, but it is not a visual
-desktop-session acceptance test. A real Linux desktop session remains a release check.
+Version 0.1.30 was installed into brand-new native package environments. A non-root
+headless X session on Ubuntu 22.04 after `.deb` installation reached exactly one
+`ai4s-workbench` process and one bundled `opencode` process and created
+`~/Documents/AI4HEOR`. A separate Fedora 42 RPM run started with a seeded
+`~/Documents/OpenScience/legacy-fixture/marker.txt`, preserved its exact contents under
+`~/Documents/AI4HEOR`, removed the legacy root, and reached the same single-process
+boundary. A rename failure still reuses the legacy root rather than splitting data. The
+independently extracted `.deb` and `.rpm` payloads each passed all 177 deterministic HEOR
+tests and all 282 configured scientific resources matched the source bytes with aggregate
+SHA-256 `94c80aa04d6f18661b1444c87396a9619b98a02952dde17929654f600ce13bad`.
+This establishes clean native installation, migration and headless runtime startup for
+both package formats, but it is not a visual desktop-session acceptance test. A real Linux
+desktop session remains a release check.
 
 ### 12.4 Auto update
 

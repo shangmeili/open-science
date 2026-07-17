@@ -492,17 +492,13 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
   first launch works without CLI knowledge.
 - **Acceptance.** A non-technical user installs and reaches a working first
   session on both macOS and Windows via a signed installer.
-- **Status.** 🟡 AI4HEOR 0.1.24 macOS x64 installer, 0.1.23 Linux x86_64 `.deb`/`.rpm`, plus
-  the 0.1.22 cross-built macOS arm64 DMG, shipped locally; pinned sidecars are bundled. The
-  x64 DMG is bound to clean commit `2036174b92c7091650b802cea5123455453891f9`, has all
-  273 configured resources byte-identical to source, and passes all 177 deterministic
-  HEOR tests against its mounted core. Both 0.1.23 Linux packages are bound to clean
-  commit `98daee8c0279c00f4c41791e52489915191e9b4f`, were built in an isolated Ubuntu 22.04
-  builder, structurally and byte-for-byte resource verified,
-  and passed all 177 deterministic HEOR tests from their extracted payloads, with all 265
-  configured resources matching source bytes. The 0.1.22 arm64 DMG is
-  bound to clean commit `d2363138449566137c8374386acdf1f8774faad3`; read-only inspection
-  on an Intel Mac verified pure-arm64 main/OpenCode/uv binaries and all 265 configured
+- **Status.** 🟡 AI4HEOR 0.1.30 macOS x64, Linux x86_64 `.deb`/`.rpm`, and cross-built
+  macOS arm64 installers are available locally with pinned sidecars. All four artifacts
+  are bound to clean commit `0beb7b2bcb04a796f256bd8f8528bb787aa77319`, contain all 282
+  configured resources byte-identical to source, and pass all 177 deterministic HEOR tests
+  against mounted or extracted package cores. Both Linux packages were built in an isolated
+  Ubuntu 22.04 builder and are structurally and byte-for-byte verified. The arm64 DMG's
+  read-only inspection on an Intel Mac verified pure-arm64 main/OpenCode/uv binaries and all 282
   resources byte-identical to source. It is not native-run evidence: the strict verifier
   fails closed when the Intel host cannot execute the arm64 sidecar and emits no formal
   release-evidence JSON. Separate inspection found only an ad-hoc linker signature with
@@ -516,17 +512,18 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
   current unsigned x64 DMG prove the failure path, but no credentialed tag run proves the
   success path yet. Matrix jobs also cannot create a draft release; only the final
   four-target manifest job can create a new draft containing exactly six verified
-  installers, four evidence files, and the manifest. The Linux `.deb`
-  additionally passed a clean Ubuntu 22.04 container install and headless first-start
-  check with both the desktop process and bundled OpenCode server ready; the `.rpm`
-  passed the equivalent native install and first-start check on Fedora 42. Windows CI is
+  installers, four evidence files, and the manifest. The Linux `.deb` additionally passed
+  a brand-new Ubuntu 22.04 non-root headless first-start check with one desktop process,
+  one bundled OpenCode process and a fresh `~/Documents/AI4HEOR`; the `.rpm` passed a
+  Fedora 42 start that preserved an exact marker while migrating the legacy
+  `~/Documents/OpenScience` root. Windows CI is
   configured on an explicit Windows 2022 host to produce NSIS `.exe`/`.msi`, inspect MSI
   metadata and extracted payload bytes, run the packaged HEOR suite, silently install
   NSIS, and require one desktop process, one bundled OpenCode process, and a new workspace.
   Each of the four explicit native targets now has a fail-closed package verifier and
   hash-bound evidence JSON. A final CI job downloads and re-hashes every installer, then
   accepts only one source/resource inventory covering macOS arm64, macOS x64, Windows
-  x64, and Linux x64. The portable manifest contracts and existing macOS x64/Linux
+  x64, and Linux x64. The portable manifest contracts and current macOS x64/Linux
   packages have been locally exercised, but the four-target job has not yet run for the
   current commit. Gaps: a physical Linux desktop visual session; actual current-commit
   four-target manifest and Windows host/first-run evidence; native Apple Silicon package
@@ -701,7 +698,7 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
 | P1-1 | Multi-discipline platform lineage | P1 | 🟡 Pluggable, but generic examples are not part of the AI4HEOR delivery |
 | P1-2 | Domain + literature connectors | P1 | Superseded for AI4HEOR — governed HEOR evidence + Jupyter + unmanaged BYO MCP; no generic one-click catalog |
 | P1-3 | Scientific renderers | P1 | 🟡 Partial — base + 3D structure + genome + FITS + DOS + band + phase + qualitative-coding + anomaly map (all 4 disciplines; materials trio complete); ternary/coastlines next |
-| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — existing macOS x64 + Linux x64 packages locally verified; fail-closed four-target package/evidence manifest configured but not yet executed for the current commit; signing remains open |
+| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — current 0.1.30 macOS x64 + Linux x64 packages locally verified and arm64 content-inspected; fail-closed four-target package/evidence manifest configured but not yet executed; Windows/native-arm execution and signing remain open |
 | P1-5 | Interaction & visualization craft | P1 | 🟡 Partial — chart system + palette + command palette + native table→chart surface shipped |
 | **P1-6** | **Social-science analysis integrity** | **P1** | 🟡 **Partial — stats-integrity skill: interpretation/prereg/seed checks + verified .dta→R round-trip** |
 | P2-1 | Notebook + larger-project handling | P2 | ✅ Done — notebook + workspace Files explorer |

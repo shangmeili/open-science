@@ -294,11 +294,11 @@ live in [`docs/PRD.md`](./docs/PRD.md) and
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md), but those documents include
 target design as well as historical status notes.
 
-Near-term work is focused on executing the configured four-target hash-bound package
-manifest and native Windows/Apple-Silicon first-start gates, the first credentialed
-Developer-ID/notarized macOS tag release, Windows signing,
-physical Linux desktop-session verification, auto-update, richer connector hardening, and
-continued reproducibility review. The AI4HEOR 0.1.30 x64 macOS DMG is locally built from
+Near-term work is focused on native Windows and Apple-Silicon package/first-start gates,
+executing the configured four-target hash-bound package manifest, the first credentialed
+Developer-ID/notarized macOS tag release, Windows signing, physical Linux desktop-session
+verification, auto-update, richer connector hardening, and continued reproducibility
+review. The AI4HEOR 0.1.30 x64 macOS DMG is locally built from
 clean commit `0beb7b2bcb04a796f256bd8f8528bb787aa77319` and payload-verified: all 282
 configured resources match source bytes, all 177 deterministic HEOR tests pass
 against the mounted core, and two isolated LaunchServices runs prove fresh
@@ -331,12 +331,14 @@ only the final job may create a draft after all four evidence files and the cros
 manifest validate, and it uploads exactly those verified installers and records. This gate
 is locally contract-tested and rejects the
 current unsigned 0.1.30 x64 DMG, but it has not been exercised with real Apple credentials.
-The AI4HEOR 0.1.23 Linux `.deb` and `.rpm` were built from clean commit
-`98daee8c0279c00f4c41791e52489915191e9b4f` and are payload-verified, including all 177
-deterministic HEOR tests and 265 configured resources from each extracted package. The
-`.deb` passes a clean Ubuntu 22.04 install and headless first-start check; the `.rpm`
-passes the equivalent native check on Fedora 42. A real visual Linux desktop-session
-acceptance remains outstanding.
+The AI4HEOR 0.1.30 Linux `.deb` and `.rpm` were built from the same clean commit
+`0beb7b2bcb04a796f256bd8f8528bb787aa77319`. Both packages are payload-verified with all
+282 configured resources matching source bytes and all 177 deterministic HEOR tests
+passing independently from each extracted package. The `.deb` passes a brand-new Ubuntu
+22.04 non-root headless first start with a fresh `Documents/AI4HEOR`; the `.rpm` passes a
+Fedora 42 headless start that preserves an exact marker while migrating the legacy
+`Documents/OpenScience` root. Each run observed exactly one desktop process and one bundled
+OpenCode child. A real visual Linux desktop-session acceptance remains outstanding.
 
 ## Contributing
 
