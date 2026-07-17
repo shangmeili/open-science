@@ -11,6 +11,7 @@ export const HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH = "heor/survival-extr
 export const HEOR_PAIRED_BOOTSTRAP_REQUEST_PATH = "heor/paired-survival-bootstrap-request.json";
 export const HEOR_NETWORK_META_ANALYSIS_REQUEST_PATH = "heor/network-meta-analysis-request.json";
 export const HEOR_POPULATION_ADJUSTED_COMPARISON_REQUEST_PATH = "heor/population-adjusted-comparison-request.json";
+export const HEOR_MODEL_CALIBRATION_REQUEST_PATH = "heor/model-calibration-request.json";
 export const HEOR_RWE_CAUSAL_ANALYSIS_REQUEST_PATH = "heor/rwe-causal-analysis-request.json";
 export const HEOR_MODEL_VALIDATION_PATH = "heor/model-validation.json";
 export const HEOR_REPORT_PACKAGE_PATH = "heor/report-package.json";
@@ -817,6 +818,78 @@ export interface HeorPopulationAdjustedComparisonReviewEvent {
 
 export interface HeorPopulationAdjustedComparisonReviewLog {
   events: HeorPopulationAdjustedComparisonReviewEvent[];
+  chainHead: string | null;
+  integrity: string;
+  identityAssurance: string;
+}
+
+export interface HeorModelCalibrationAudit {
+  complete: boolean;
+  reviewable: boolean;
+  status: string;
+  calibrationId: string;
+  requestPath: string;
+  requestSha256: string | null;
+  resultPath: string;
+  resultSha256: string | null;
+  stateCount: number;
+  parameterCount: number;
+  trainingTargetCount: number;
+  validationTargetCount: number;
+  bestObjective: number | null;
+  numericalRank: number | null;
+  fullRank: boolean | null;
+  heldOutRmse: number | null;
+  searchEvaluations: number;
+  nativeScope: string;
+  limitations: string[];
+  errors: string[];
+}
+
+export interface HeorModelCalibrationChecklist {
+  questionModelPurposeTimeOriginReviewed: boolean;
+  targetProvenancePopulationAlignmentRolesReviewed: boolean;
+  parameterMeaningBoundsEvidenceReviewed: boolean;
+  goodnessOfFitScalingCovarianceOmissionReviewed: boolean;
+  searchConvergenceMultistartDiagnosticsReviewed: boolean;
+  localIdentifiabilityAlternativeFitsReviewed: boolean;
+  heldOutPredictiveValidationReviewed: boolean;
+  uncertaintyStructureDownstreamLimitationsReviewed: boolean;
+}
+
+export interface HeorModelCalibrationReviewRequest {
+  projectId: string;
+  resultPath: string;
+  resultSha256: string;
+  action: "accept" | "reject";
+  checklist: HeorModelCalibrationChecklist;
+  actorLabel: string;
+  rationale: string;
+}
+
+export interface HeorModelCalibrationReviewEvent {
+  schemaVersion: number;
+  sequence: number;
+  reviewId: string;
+  projectId: string;
+  calibrationId: string;
+  action: "accept" | "reject";
+  resultPath: string;
+  resultSha256: string;
+  relatedArtifacts: Array<{ path: string; sha256: string }>;
+  checklist: HeorModelCalibrationChecklist;
+  actorLabel: string;
+  rationale: string;
+  timestamp: number;
+  recordPath: string;
+  recordSha256: string;
+  assurance: string;
+  previousHash: string | null;
+  eventHash: string;
+}
+
+export interface HeorModelCalibrationReviewLog {
+  events: HeorModelCalibrationReviewEvent[];
   chainHead: string | null;
   integrity: string;
   identityAssurance: string;
@@ -3367,6 +3440,62 @@ export async function listHeorPopulationAdjustedComparisonReviews(
     "list_heor_population_adjusted_comparison_reviews",
     { projectId },
   );
+}
+
+export async function auditHeorModelCalibration(): Promise<HeorModelCalibrationAudit> {
+  if (!isTauri) {
+    return {
+      complete: false,
+      reviewable: false,
+      status: "unavailable",
+      calibrationId: "",
+      requestPath: HEOR_MODEL_CALIBRATION_REQUEST_PATH,
+      requestSha256: null,
+      resultPath: "",
+      resultSha256: null,
+      stateCount: 0,
+      parameterCount: 0,
+      trainingTargetCount: 0,
+      validationTargetCount: 0,
+      bestObjective: null,
+      numericalRank: null,
+      fullRank: null,
+      heldOutRmse: null,
+      searchEvaluations: 0,
+      nativeScope: "selected_point_model_and_local_identifiability_only",
+      limitations: [],
+      errors: ["Native model calibration audit requires the desktop runtime."],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorModelCalibrationAudit>("audit_heor_model_calibration");
+}
+
+export async function appendHeorModelCalibrationReview(
+  request: HeorModelCalibrationReviewRequest,
+): Promise<HeorModelCalibrationReviewEvent> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorModelCalibrationReviewEvent>("append_heor_model_calibration_review", {
+    request,
+  });
+}
+
+export async function listHeorModelCalibrationReviews(
+  projectId: string,
+): Promise<HeorModelCalibrationReviewLog> {
+  if (!isTauri) {
+    return {
+      events: [],
+      chainHead: null,
+      integrity: "verified_unanchored_sha256_chain",
+      identityAssurance: "app_owned_local_human_assertion",
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorModelCalibrationReviewLog>("list_heor_model_calibration_reviews", {
+    projectId,
+  });
 }
 
 export async function auditHeorRweCausalAnalysis(): Promise<HeorRweCausalAnalysisAudit> {

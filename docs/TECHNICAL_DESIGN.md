@@ -1,12 +1,12 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.23, 2026-07-17).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.24, 2026-07-17).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
 > including the 13/15-artifact PSM validation/report contract and deterministic release replay;
 > deterministic cohort, uncertainty, bounded advanced-VOI, budget-impact, NMA, anchored-MAIC,
-> and bounded target-trial RWE-IPTW×IPOW engines, including portable full-bootstrap replay,
+> bounded natural-history point calibration, and bounded target-trial RWE-IPTW×IPOW engines, including portable full replay,
 > native point/diagnostic challenge, and
 > separate app-owned Human method reviews consolidated in a current-result review queue; and
 > native macOS and x86_64 Linux packaging.
@@ -34,6 +34,37 @@
 > the configured model/runtime provides bounded assistance. Human-in-the-loop is
 > therefore research ownership and method judgment, not merely a final approval
 > appended to agent-directed research.
+
+## Bounded model-calibration execution
+
+`runtime/skills/core/heor-model-calibration` owns request/result schema `0.1.0`.
+The request fixes a 2–6-state homogeneous continuous-time generator, initial
+distribution, cycle grid, fixed directed rates, 1–4 calibrated rates with linear
+or log bounds, aggregate state-occupancy targets, target roles, loss definition,
+search settings, local-identifiability settings, exact evidence bytes, execution
+authorization, limitations, and output directory. Unknown fields, unbound evidence
+IDs, duplicate transitions, unsafe paths, excessive uniformization intensity,
+missing held-out targets, or automatic threshold/covariance claims fail closed.
+
+The Python standard-library runner creates a transition matrix through
+uniformization at tail tolerance `1e-14`, evaluates a seven-level parameter grid,
+refines the best eight points by normalized coordinate pattern search, and writes
+an atomic immutable manifest plus canonical `search.csv`. The portable auditor
+rebinds the current request, evidence, evaluator source, Python identity and trace,
+then reruns the complete search, target predictions, validation summaries and
+finite-difference Jacobian diagnostics. Rust embeds the exact evaluator bytes and
+independently recomputes bounded-scale parameter values, the selected transition
+matrix, occupancy predictions, scaled training objective, held-out RMSE, and
+Jacobian cross-product eigenvalues. It explicitly labels its scope as selected-
+point and local-identifiability replay rather than a second optimizer.
+
+The React review pane provides a natural-language preparation action and a
+secondary eight-checkbox form. The Rust command accepts or rejects only a current
+native-reviewable result, binds the five-artifact graph, writes a new immutable
+workspace snapshot, and appends an app-private hash-linked event. All eight checks
+are mandatory for acceptance; rejection does not require false confirmations.
+The record is a local Human assertion and only makes the candidate eligible for
+later input selection. It cannot update an analysis plan or model input.
 
 ## 1. Technical goals
 

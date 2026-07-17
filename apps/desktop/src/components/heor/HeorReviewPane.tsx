@@ -24,6 +24,7 @@ import {
   appendHeorAdvancedVoiReview,
   appendHeorNetworkMetaAnalysisReview,
   appendHeorMethodsWatchlistReview,
+  appendHeorModelCalibrationReview,
   appendHeorPopulationAdjustedComparisonReview,
   appendHeorRweCausalAnalysisReview,
   appendHeorPairedBootstrapReview,
@@ -42,6 +43,7 @@ import {
   auditHeorPairedSurvivalBootstrap,
   auditHeorUncertainty,
   auditHeorModelValidation,
+  auditHeorModelCalibration,
   auditHeorNetworkMetaAnalysis,
   auditHeorPopulationAdjustedComparison,
   auditHeorRweCausalAnalysis,
@@ -57,6 +59,7 @@ import {
   HEOR_BUDGET_IMPACT_PLAN_PATH,
   HEOR_PARTITIONED_SURVIVAL_PLAN_PATH,
   HEOR_MODEL_VALIDATION_PATH,
+  HEOR_MODEL_CALIBRATION_REQUEST_PATH,
   HEOR_NETWORK_META_ANALYSIS_REQUEST_PATH,
   HEOR_POPULATION_ADJUSTED_COMPARISON_REQUEST_PATH,
   HEOR_RWE_CAUSAL_ANALYSIS_REQUEST_PATH,
@@ -90,6 +93,9 @@ import {
   type HeorPairedBootstrapChecklist,
   type HeorPairedBootstrapReviewLog,
   type HeorModelValidationAudit,
+  type HeorModelCalibrationAudit,
+  type HeorModelCalibrationChecklist,
+  type HeorModelCalibrationReviewLog,
   type HeorNetworkMetaAnalysisAudit,
   type HeorNetworkMetaAnalysisChecklist,
   type HeorNetworkMetaAnalysisReviewLog,
@@ -120,6 +126,7 @@ import {
   listHeorApprovals,
   listHeorAdvancedVoiReviews,
   listHeorNetworkMetaAnalysisReviews,
+  listHeorModelCalibrationReviews,
   listHeorPopulationAdjustedComparisonReviews,
   listHeorRweCausalAnalysisReviews,
   listHeorPairedBootstrapReviews,
@@ -238,6 +245,11 @@ type PopulationAdjustedComparisonState =
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorPopulationAdjustedComparisonAudit };
 
+type ModelCalibrationState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorModelCalibrationAudit };
+
 type RweCausalAnalysisState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
@@ -305,6 +317,13 @@ const EMPTY_NMA_REVIEW_LOG: HeorNetworkMetaAnalysisReviewLog = {
 };
 
 const EMPTY_PAC_REVIEW_LOG: HeorPopulationAdjustedComparisonReviewLog = {
+  events: [],
+  chainHead: null,
+  integrity: "verified_unanchored_sha256_chain",
+  identityAssurance: "app_owned_local_human_assertion",
+};
+
+const EMPTY_MODEL_CALIBRATION_REVIEW_LOG: HeorModelCalibrationReviewLog = {
   events: [],
   chainHead: null,
   integrity: "verified_unanchored_sha256_chain",
@@ -425,6 +444,10 @@ export function HeorReviewPane({
   const [populationAdjustedComparisonReviews, setPopulationAdjustedComparisonReviews] = useState<HeorPopulationAdjustedComparisonReviewLog>(EMPTY_PAC_REVIEW_LOG);
   const [populationAdjustedComparisonDialogOpen, setPopulationAdjustedComparisonDialogOpen] = useState(false);
   const [populationAdjustedComparisonReviewRunning, setPopulationAdjustedComparisonReviewRunning] = useState(false);
+  const [modelCalibration, setModelCalibration] = useState<ModelCalibrationState>({ kind: "loading" });
+  const [modelCalibrationReviews, setModelCalibrationReviews] = useState<HeorModelCalibrationReviewLog>(EMPTY_MODEL_CALIBRATION_REVIEW_LOG);
+  const [modelCalibrationDialogOpen, setModelCalibrationDialogOpen] = useState(false);
+  const [modelCalibrationReviewRunning, setModelCalibrationReviewRunning] = useState(false);
   const [rweCausalAnalysis, setRweCausalAnalysis] = useState<RweCausalAnalysisState>({ kind: "loading" });
   const [rweCausalAnalysisReviews, setRweCausalAnalysisReviews] = useState<HeorRweCausalAnalysisReviewLog>(EMPTY_RWE_CAUSAL_REVIEW_LOG);
   const [rweCausalAnalysisDialogOpen, setRweCausalAnalysisDialogOpen] = useState(false);
@@ -481,6 +504,8 @@ export function HeorReviewPane({
       setNetworkMetaAnalysisReviews(EMPTY_NMA_REVIEW_LOG);
       setPopulationAdjustedComparison({ kind: "invalid", message: t("pac.noProject") });
       setPopulationAdjustedComparisonReviews(EMPTY_PAC_REVIEW_LOG);
+      setModelCalibration({ kind: "invalid", message: t("modelCalibration.noProject") });
+      setModelCalibrationReviews(EMPTY_MODEL_CALIBRATION_REVIEW_LOG);
       setRweCausalAnalysis({ kind: "invalid", message: t("rweCausal.noProject") });
       setRweCausalAnalysisReviews(EMPTY_RWE_CAUSAL_REVIEW_LOG);
       setModelValidation({ kind: "invalid", message: t("validation.noProject") });
@@ -506,6 +531,7 @@ export function HeorReviewPane({
     setPairedBootstrap({ kind: "loading" });
     setNetworkMetaAnalysis({ kind: "loading" });
     setPopulationAdjustedComparison({ kind: "loading" });
+    setModelCalibration({ kind: "loading" });
     setRweCausalAnalysis({ kind: "loading" });
     setModelValidation({ kind: "loading" });
     setReporting({ kind: "loading" });
@@ -555,6 +581,16 @@ export function HeorReviewPane({
         message: error instanceof Error ? error.message : String(error),
       });
       setPopulationAdjustedComparisonReviews(EMPTY_PAC_REVIEW_LOG);
+    }
+    try {
+      setModelCalibration({ kind: "ready", audit: await auditHeorModelCalibration() });
+      setModelCalibrationReviews(await listHeorModelCalibrationReviews(project.id));
+    } catch (error) {
+      setModelCalibration({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setModelCalibrationReviews(EMPTY_MODEL_CALIBRATION_REVIEW_LOG);
     }
     try {
       setRweCausalAnalysis({ kind: "ready", audit: await auditHeorRweCausalAnalysis() });
@@ -833,6 +869,20 @@ export function HeorReviewPane({
   const populationAdjustedComparisonAccepted = populationAdjustedComparison.kind === "ready"
     && populationAdjustedComparison.audit.reviewable
     && populationAdjustedComparisonReviewAction === "accept";
+  const currentModelCalibrationReview = useMemo(() => {
+    if (modelCalibration.kind !== "ready" || !modelCalibration.audit.resultSha256) return null;
+    return [...modelCalibrationReviews.events].reverse().find((event) =>
+      event.calibrationId === modelCalibration.audit.calibrationId) ?? null;
+  }, [modelCalibration, modelCalibrationReviews.events]);
+  const modelCalibrationReviewAction = modelCalibration.kind === "ready"
+    && currentModelCalibrationReview
+    && currentModelCalibrationReview.resultPath === modelCalibration.audit.resultPath
+    && currentModelCalibrationReview.resultSha256 === modelCalibration.audit.resultSha256
+    ? currentModelCalibrationReview.action
+    : null;
+  const modelCalibrationAccepted = modelCalibration.kind === "ready"
+    && modelCalibration.audit.reviewable
+    && modelCalibrationReviewAction === "accept";
   const currentRweCausalAnalysisReview = useMemo(() => {
     if (rweCausalAnalysis.kind !== "ready" || !rweCausalAnalysis.audit.resultSha256) return null;
     return [...rweCausalAnalysisReviews.events].reverse().find((event) =>
@@ -887,6 +937,19 @@ export function HeorReviewPane({
           ),
           onReview: () => setPopulationAdjustedComparisonDialogOpen(true),
           onPrepare: () => onRequestRevision(t("pac.preparePrompt")),
+        }]
+      : []),
+    ...(modelCalibration.kind === "ready" && modelCalibration.audit.resultSha256
+      ? [{
+          id: "modelCalibration" as const,
+          path: modelCalibration.audit.resultPath,
+          status: methodReviewQueueStatus(
+            modelCalibration.audit.reviewable,
+            modelCalibrationAccepted,
+            modelCalibrationReviewAction,
+          ),
+          onReview: () => setModelCalibrationDialogOpen(true),
+          onPrepare: () => onRequestRevision(t("modelCalibration.preparePrompt")),
         }]
       : []),
     ...(rweCausalAnalysis.kind === "ready" && rweCausalAnalysis.audit.resultSha256
@@ -1509,6 +1572,36 @@ export function HeorReviewPane({
     }
   };
 
+  const submitModelCalibrationReview = async (
+    action: "accept" | "reject",
+    checklist: HeorModelCalibrationChecklist,
+    actorLabel: string,
+    rationale: string,
+  ) => {
+    if (!project || modelCalibration.kind !== "ready" || !modelCalibration.audit.resultSha256
+      || modelCalibrationReviewRunning || !isTauri) return;
+    setModelCalibrationReviewRunning(true);
+    try {
+      await appendHeorModelCalibrationReview({
+        projectId: project.id,
+        resultPath: modelCalibration.audit.resultPath,
+        resultSha256: modelCalibration.audit.resultSha256,
+        action,
+        checklist,
+        actorLabel,
+        rationale,
+      });
+      setModelCalibrationReviews(await listHeorModelCalibrationReviews(project.id));
+      setModelCalibrationDialogOpen(false);
+      toast.success(action === "accept"
+        ? t("modelCalibration.acceptedToast") : t("modelCalibration.rejectedToast"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setModelCalibrationReviewRunning(false);
+    }
+  };
+
   const submitRweCausalAnalysisReview = async (
     action: "accept" | "reject",
     checklist: HeorRweCausalAnalysisChecklist,
@@ -1623,6 +1716,16 @@ export function HeorReviewPane({
             accepted={populationAdjustedComparisonAccepted}
             onRequestPreparation={() => onRequestRevision(t("pac.preparePrompt"))}
             onReview={() => setPopulationAdjustedComparisonDialogOpen(true)}
+          />
+        )}
+
+        {project && (
+          <ModelCalibrationAssessment
+            state={modelCalibration}
+            currentReview={currentModelCalibrationReview}
+            accepted={modelCalibrationAccepted}
+            onRequestPreparation={() => onRequestRevision(t("modelCalibration.preparePrompt"))}
+            onReview={() => setModelCalibrationDialogOpen(true)}
           />
         )}
 
@@ -2094,6 +2197,15 @@ export function HeorReviewPane({
             void submitPopulationAdjustedComparisonReview(action, checklist, actor, rationale)}
         />
       )}
+      {modelCalibrationDialogOpen && modelCalibration.kind === "ready" && (
+        <ModelCalibrationReviewDialog
+          audit={modelCalibration.audit}
+          running={modelCalibrationReviewRunning}
+          onCancel={() => setModelCalibrationDialogOpen(false)}
+          onSubmit={(action, checklist, actor, rationale) =>
+            void submitModelCalibrationReview(action, checklist, actor, rationale)}
+        />
+      )}
       {rweCausalAnalysisDialogOpen && rweCausalAnalysis.kind === "ready" && (
         <RweCausalAnalysisReviewDialog
           audit={rweCausalAnalysis.audit}
@@ -2378,7 +2490,7 @@ function StageRail({ currentApprovals, hasResult }: { currentApprovals: HeorGate
 export type MethodReviewQueueStatus = "awaiting" | "accepted" | "rejected" | "blocked";
 
 export interface MethodReviewQueueItem {
-  id: "nma" | "pac" | "rweCausal" | "pairedBootstrap" | "advancedVoi";
+  id: "nma" | "pac" | "modelCalibration" | "rweCausal" | "pairedBootstrap" | "advancedVoi";
   path: string;
   status: MethodReviewQueueStatus;
   onReview: () => void;
@@ -4211,6 +4323,241 @@ export function PopulationAdjustedComparisonReviewDialog({
             )}
           >
             {running ? t("pac.recording") : action === "accept" ? t("pac.recordAccept") : t("pac.recordReject")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ModelCalibrationAssessment({
+  state,
+  currentReview,
+  accepted,
+  onRequestPreparation,
+  onReview,
+}: {
+  state: ModelCalibrationState;
+  currentReview: HeorModelCalibrationReviewLog["events"][number] | null;
+  accepted: boolean;
+  onRequestPreparation: () => void;
+  onReview: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const issues = audit?.errors ?? (state.kind === "invalid" ? [state.message] : []);
+  const status = state.kind === "loading"
+    ? t("modelCalibration.loading")
+    : accepted
+      ? t("modelCalibration.accepted")
+      : currentReview?.action === "reject"
+        ? t("modelCalibration.rejected")
+        : audit?.reviewable
+          ? t("modelCalibration.awaiting")
+          : audit?.calibrationId
+            ? t("modelCalibration.incomplete")
+            : t("modelCalibration.notPrepared");
+  const format = (value: number | null, digits = 4) =>
+    value === null ? "—" : value.toPrecision(digits);
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {accepted
+          ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
+          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("modelCalibration.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warning")}>
+            {status}
+          </div>
+          <div className="mt-1 break-all font-mono text-[10px] text-muted">
+            {audit?.resultPath || HEOR_MODEL_CALIBRATION_REQUEST_PATH}
+          </div>
+        </div>
+      </div>
+      {audit?.calibrationId && (
+        <>
+          <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+            <Metric label={t("modelCalibration.states")} value={String(audit.stateCount)} />
+            <Metric label={t("modelCalibration.parameters")} value={String(audit.parameterCount)} />
+            <Metric label={t("modelCalibration.trainingTargets")} value={String(audit.trainingTargetCount)} />
+            <Metric label={t("modelCalibration.validationTargets")} value={String(audit.validationTargetCount)} />
+          </div>
+          <p className="mt-3 text-[10px] leading-4 text-muted">
+            {t("modelCalibration.fitSummary", {
+              objective: format(audit.bestObjective),
+              rmse: format(audit.heldOutRmse),
+              rank: audit.numericalRank ?? "—",
+              parameters: audit.parameterCount,
+            })}
+          </p>
+          <p className="mt-1 text-[10px] leading-4 text-muted">
+            {t("modelCalibration.searchSummary", { evaluations: audit.searchEvaluations })}
+          </p>
+          {audit.resultSha256 && (
+            <div className="mt-2 break-all font-mono text-[9px] text-muted">
+              {t("modelCalibration.hash")} {audit.resultSha256}
+            </div>
+          )}
+        </>
+      )}
+      {currentReview && (
+        <div className={cn(
+          "mt-3 rounded-input border p-3 text-[10px] leading-4",
+          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warning/30 bg-warning/5 text-warning",
+        )}>
+          {accepted ? t("modelCalibration.currentAccepted") : t("modelCalibration.currentRejected")}
+          <div className="mt-1 break-all font-mono text-[9px] text-muted">
+            {currentReview.recordPath} · {currentReview.recordSha256.slice(0, 12)}…
+          </div>
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap gap-3">
+        {audit?.reviewable && isTauri && (
+          <button onClick={onReview} className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
+            <LockKeyhole size={13} /> {t("modelCalibration.review")}
+          </button>
+        )}
+        {!accepted && (
+          <button onClick={onRequestPreparation} className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
+            <MessageSquareText size={13} /> {t("modelCalibration.askAgent")}
+          </button>
+        )}
+      </div>
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("modelCalibration.note")}</p>
+    </section>
+  );
+}
+
+const MODEL_CALIBRATION_CHECKLIST_KEYS: Array<keyof HeorModelCalibrationChecklist> = [
+  "questionModelPurposeTimeOriginReviewed",
+  "targetProvenancePopulationAlignmentRolesReviewed",
+  "parameterMeaningBoundsEvidenceReviewed",
+  "goodnessOfFitScalingCovarianceOmissionReviewed",
+  "searchConvergenceMultistartDiagnosticsReviewed",
+  "localIdentifiabilityAlternativeFitsReviewed",
+  "heldOutPredictiveValidationReviewed",
+  "uncertaintyStructureDownstreamLimitationsReviewed",
+];
+
+const EMPTY_MODEL_CALIBRATION_CHECKLIST: HeorModelCalibrationChecklist = {
+  questionModelPurposeTimeOriginReviewed: false,
+  targetProvenancePopulationAlignmentRolesReviewed: false,
+  parameterMeaningBoundsEvidenceReviewed: false,
+  goodnessOfFitScalingCovarianceOmissionReviewed: false,
+  searchConvergenceMultistartDiagnosticsReviewed: false,
+  localIdentifiabilityAlternativeFitsReviewed: false,
+  heldOutPredictiveValidationReviewed: false,
+  uncertaintyStructureDownstreamLimitationsReviewed: false,
+};
+
+export function ModelCalibrationReviewDialog({
+  audit,
+  running,
+  onCancel,
+  onSubmit,
+}: {
+  audit: HeorModelCalibrationAudit;
+  running: boolean;
+  onCancel: () => void;
+  onSubmit: (
+    action: "accept" | "reject",
+    checklist: HeorModelCalibrationChecklist,
+    actor: string,
+    rationale: string,
+  ) => void;
+}) {
+  const { t } = useTranslation("heor");
+  const [action, setAction] = useState<"accept" | "reject">("accept");
+  const [checklist, setChecklist] = useState(EMPTY_MODEL_CALIBRATION_CHECKLIST);
+  const [actor, setActor] = useState("");
+  const [rationale, setRationale] = useState("");
+  const acceptedReady = MODEL_CALIBRATION_CHECKLIST_KEYS.every((key) => checklist[key]);
+  const valid = actor.trim().length > 0 && rationale.trim().length > 1
+    && (action === "reject" || acceptedReady) && !running;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && !running && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, running]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => !running && onCancel()} role="presentation">
+      <div role="dialog" aria-modal="true" aria-label={t("modelCalibration.dialogTitle")} className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-card border border-border bg-surface p-5 shadow-card" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center gap-2 text-sm font-semibold text-text">
+          <ShieldCheck size={17} className="text-accent" /> {t("modelCalibration.dialogTitle")}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          {t("modelCalibration.dialogBody", {
+            id: audit.calibrationId,
+            hash: audit.resultSha256?.slice(0, 12) ?? "—",
+          })}
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label={t("modelCalibration.decisionLabel")}>
+          {NMA_REVIEW_ACTIONS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={action === value}
+              onClick={() => setAction(value)}
+              className={cn(
+                "rounded-input border px-3 py-2 text-xs font-medium",
+                action === value
+                  ? value === "accept" ? "border-ok bg-ok/10 text-ok" : "border-danger bg-danger/10 text-danger"
+                  : "border-border text-muted",
+              )}
+            >
+              {t(`modelCalibration.${value}`)}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 space-y-2 rounded-input border border-border bg-bg p-3">
+          {MODEL_CALIBRATION_CHECKLIST_KEYS.map((key) => (
+            <label key={key} className="flex cursor-pointer items-start gap-2 text-xs leading-5 text-text">
+              <input
+                type="checkbox"
+                checked={checklist[key]}
+                onChange={(event) => setChecklist((current) => ({ ...current, [key]: event.target.checked }))}
+                className="mt-1 accent-[var(--color-accent)]"
+              />
+              <span>{t(`modelCalibration.checklist.${key}`)}</span>
+            </label>
+          ))}
+        </div>
+        <input
+          value={actor}
+          onChange={(event) => setActor(event.target.value)}
+          placeholder={t("dialog.actorPlaceholder")}
+          className="mt-3 w-full rounded-input border border-border bg-bg px-3 py-2 text-xs text-text outline-none focus:border-accent"
+        />
+        <textarea
+          value={rationale}
+          onChange={(event) => setRationale(event.target.value)}
+          placeholder={action === "accept" ? t("modelCalibration.acceptRationale") : t("modelCalibration.rejectRationale")}
+          rows={3}
+          className="mt-2 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-xs leading-5 text-text outline-none focus:border-accent"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button disabled={running} onClick={onCancel} className="rounded-input border border-border px-3 py-2 text-xs text-muted hover:text-text disabled:opacity-50">
+            {t("dialog.cancel")}
+          </button>
+          <button
+            disabled={!valid}
+            onClick={() => onSubmit(action, checklist, actor.trim(), rationale.trim())}
+            className={cn(
+              "rounded-input px-3 py-2 text-xs font-semibold text-white disabled:opacity-40",
+              action === "accept" ? "bg-ok" : "bg-danger",
+            )}
+          >
+            {running
+              ? t("modelCalibration.recording")
+              : action === "accept" ? t("modelCalibration.recordAccept") : t("modelCalibration.recordReject")}
           </button>
         </div>
       </div>

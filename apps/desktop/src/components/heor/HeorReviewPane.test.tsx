@@ -9,6 +9,7 @@ import {
   type HeorPairedBootstrapAudit,
   type HeorNetworkMetaAnalysisAudit,
   type HeorPopulationAdjustedComparisonAudit,
+  type HeorModelCalibrationAudit,
   type HeorRweCausalAnalysisAudit,
   type HeorUncertaintyRunResult,
 } from "@/lib/heor";
@@ -27,6 +28,8 @@ import {
   NetworkMetaAnalysisReviewDialog,
   PopulationAdjustedComparisonAssessment,
   PopulationAdjustedComparisonReviewDialog,
+  ModelCalibrationAssessment,
+  ModelCalibrationReviewDialog,
   RweCausalAnalysisAssessment,
   RweCausalAnalysisReviewDialog,
   PairedBootstrapAssessment,
@@ -202,6 +205,29 @@ describe("AI4HEOR human review pane", () => {
     bootstrapFailures: 0,
     nativeScope: "calibration_and_point_estimate_only",
     limitations: ["Human method review required."],
+    errors: [],
+  };
+
+  const modelCalibrationAudit: HeorModelCalibrationAudit = {
+    complete: true,
+    reviewable: true,
+    status: "awaiting_method_review",
+    calibrationId: "calibration-run-1",
+    requestPath: "heor/model-calibration-request.json",
+    requestSha256: "2".repeat(64),
+    resultPath: "heor/model-calibration-runs/calibration-run-1/manifest.json",
+    resultSha256: "3".repeat(64),
+    stateCount: 3,
+    parameterCount: 2,
+    trainingTargetCount: 4,
+    validationTargetCount: 1,
+    bestObjective: 0.0012,
+    numericalRank: 2,
+    fullRank: true,
+    heldOutRmse: 0.0034,
+    searchEvaluations: 624,
+    nativeScope: "selected_point_model_and_local_identifiability_only",
+    limitations: ["Point calibration only.", "Human method review required."],
     errors: [],
   };
 
@@ -441,6 +467,53 @@ describe("AI4HEOR human review pane", () => {
       }),
       "MAIC reviewer",
       "Reviewed the exact target population, modifiers, overlap, weights, uncertainty, and residual bias.",
+    );
+  });
+
+  it("keeps model calibration candidate use behind all eight Human method checks", async () => {
+    const onSubmit = vi.fn();
+    const card = render(
+      <ModelCalibrationAssessment
+        state={{ kind: "ready", audit: modelCalibrationAudit }}
+        currentReview={null}
+        accepted={false}
+        onRequestPreparation={vi.fn()}
+        onReview={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Complete native selected-point audit · awaiting Human method review")).toBeInTheDocument();
+    expect(screen.getByText(/local rank 2 \/ 2/)).toBeInTheDocument();
+    expect(screen.getByText(/does not prove global identifiability/)).toBeInTheDocument();
+    card.unmount();
+
+    render(
+      <ModelCalibrationReviewDialog
+        audit={modelCalibrationAudit}
+        running={false}
+        onCancel={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+    const submit = screen.getByRole("button", { name: "Record acceptance" });
+    expect(submit).toBeDisabled();
+    const checkboxes = screen.getAllByRole("checkbox");
+    expect(checkboxes).toHaveLength(8);
+    for (const checkbox of checkboxes) await userEvent.click(checkbox);
+    await userEvent.type(screen.getByPlaceholderText("Name or local reviewer label"), "Calibration reviewer");
+    await userEvent.type(
+      screen.getByPlaceholderText(/Why this exact question/),
+      "Reviewed targets, bounds, search, local identifiability, held-out performance, and omitted uncertainty.",
+    );
+    expect(submit).toBeEnabled();
+    await userEvent.click(submit);
+    expect(onSubmit).toHaveBeenCalledWith(
+      "accept",
+      expect.objectContaining({
+        questionModelPurposeTimeOriginReviewed: true,
+        uncertaintyStructureDownstreamLimitationsReviewed: true,
+      }),
+      "Calibration reviewer",
+      "Reviewed targets, bounds, search, local identifiability, held-out performance, and omitted uncertainty.",
     );
   });
 

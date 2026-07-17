@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Model Calibration"
+  short_description: "Calibrate bounded cohort natural-history models"
+  default_prompt: "Use $heor-model-calibration to prepare and audit a researcher-led cohort natural-history calibration."

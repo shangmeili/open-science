@@ -1,0 +1,140 @@
+{
+  "schema_version": "0.1.0",
+  "calibration_id": "replace-with-safe-id",
+  "status": "ready_for_execution",
+  "question": {
+    "population": "Replace with the target natural-history population",
+    "purpose": "Replace with why these unobservable transition rates require calibration",
+    "time_origin": "Replace with the cohort time origin",
+    "intended_use": "Candidate natural-history parameters for later Human review"
+  },
+  "evidence_synthesis": {
+    "path": "heor/evidence-synthesis.json",
+    "sha256": "replace-with-current-sha256",
+    "included_record_ids": ["replace-with-record-id"]
+  },
+  "model": {
+    "type": "homogeneous_continuous_time_cohort_state_transition",
+    "states": ["state-a", "state-b", "dead"],
+    "initial_distribution": [1.0, 0.0, 0.0],
+    "cycle_length_years": 1.0,
+    "cycles": 20,
+    "matrix_exponential": {
+      "method": "uniformization",
+      "tail_tolerance": 1e-14,
+      "maximum_terms": 512
+    },
+    "transitions": [
+      {
+        "id": "state-a-to-state-b",
+        "from_state": "state-a",
+        "to_state": "state-b",
+        "source": "calibrated_parameter",
+        "parameter_id": "progression-rate"
+      },
+      {
+        "id": "state-a-to-dead",
+        "from_state": "state-a",
+        "to_state": "dead",
+        "source": "fixed_rate",
+        "rate_per_year": 0.02,
+        "rationale": "Replace with prespecified evidence-based rationale",
+        "evidence_record_ids": ["replace-with-record-id"]
+      }
+    ]
+  },
+  "parameters": [
+    {
+      "id": "progression-rate",
+      "label": "Annual progression rate",
+      "transition_id": "state-a-to-state-b",
+      "unit": "per_year",
+      "lower": 0.01,
+      "upper": 0.5,
+      "search_scale": "log",
+      "status": "unobservable_natural_history_parameter",
+      "rationale": "Replace with why this parameter and these bounds were prespecified",
+      "evidence_record_ids": ["replace-with-record-id"]
+    }
+  ],
+  "targets": [
+    {
+      "id": "training-target-1",
+      "role": "calibration",
+      "cycle": 5,
+      "state": "state-b",
+      "measure": "state_occupancy_proportion",
+      "observed": 0.2,
+      "standard_error": 0.03,
+      "population_alignment": "Replace with alignment assessment",
+      "evidence_record_ids": ["replace-with-record-id"]
+    },
+    {
+      "id": "training-target-2",
+      "role": "calibration",
+      "cycle": 10,
+      "state": "state-b",
+      "measure": "state_occupancy_proportion",
+      "observed": 0.3,
+      "standard_error": 0.04,
+      "population_alignment": "Replace with alignment assessment",
+      "evidence_record_ids": ["replace-with-record-id"]
+    },
+    {
+      "id": "held-out-target-1",
+      "role": "validation",
+      "cycle": 15,
+      "state": "state-b",
+      "measure": "state_occupancy_proportion",
+      "observed": 0.35,
+      "standard_error": 0.05,
+      "population_alignment": "Replace with alignment assessment",
+      "evidence_record_ids": ["replace-with-record-id"]
+    }
+  ],
+  "goodness_of_fit": {
+    "training_loss": "sum_squared_standardized_residuals",
+    "standard_error_use": "target_specific_scaling_only",
+    "target_covariance": "not_modeled",
+    "automatic_fit_thresholds": "none"
+  },
+  "search": {
+    "method": "deterministic_grid_multistart_pattern_search",
+    "grid_levels_per_parameter": 7,
+    "local_start_count": 8,
+    "minimum_normalized_step": 1e-7,
+    "maximum_iterations_per_start": 500,
+    "tie_break": "objective_then_lexicographic_normalized_parameters"
+  },
+  "identifiability": {
+    "method": "finite_difference_scaled_target_jacobian",
+    "normalized_derivative_step": 1e-5,
+    "relative_rank_tolerance": 1e-8,
+    "automatic_acceptance_thresholds": "none"
+  },
+  "output": {
+    "directory": "heor/model-calibration-runs/replace-with-safe-id"
+  },
+  "human_authorization": {
+    "actor": "replace-with-researcher-label",
+    "authorized_at": "2026-01-01T00:00:00Z",
+    "scope": "execute_local_model_calibration"
+  },
+  "limitations": [
+    "Point calibration only; target dependence and calibrated-parameter uncertainty are not modeled.",
+    "Candidate parameters require separate Human method review and are not written into an economic model automatically."
+  ],
+  "human_gate": {
+    "status": "awaiting_method_review",
+    "required_checks": [
+      "question_model_purpose_time_origin",
+      "target_provenance_population_alignment_roles",
+      "parameter_meaning_bounds_evidence",
+      "goodness_of_fit_scaling_covariance_omission",
+      "search_convergence_multistart_diagnostics",
+      "local_identifiability_alternative_fits",
+      "held_out_predictive_validation",
+      "uncertainty_structure_and_downstream_limitations"
+    ]
+  }
+}

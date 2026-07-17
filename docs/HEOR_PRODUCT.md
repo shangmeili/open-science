@@ -31,6 +31,36 @@ downstream research artifacts, or approve a method. Restricted sources remain
 link-only unless the researcher supplies a lawful local snapshot and explicit
 rights basis.
 
+## Bounded natural-history model calibration
+
+The first-party `$heor-model-calibration` Skill supports one deliberately narrow
+point-calibration question: a researcher has already defined a homogeneous
+continuous-time cohort natural-history model, its 2–6 states and time origin,
+fixed transition rates, 1–4 unobservable transition rates with evidence-based
+bounds, and compatible aggregate state-occupancy targets. At least one target is
+assigned to held-out validation before fitting, and the number of calibration
+targets must exceed the number of unknown rates.
+
+The local dependency-free engine evaluates the generator with uniformization,
+uses target standard errors only to scale squared residuals, and runs one fixed
+seven-level grid plus eight-start bounded pattern search. It preserves every
+evaluation, every local solution, the selected candidate, training and held-out
+residuals, and a finite-difference local rank/conditioning diagnostic. The
+portable auditor regenerates the complete search; native Rust independently
+recalculates the selected point, occupancy predictions, held-out RMSE, and local
+identifiability. Neither implementation turns the loss into a likelihood claim,
+uses an automatic fit threshold, or treats a local full-rank result as proof of
+global identifiability.
+
+The result stops at an app-owned eight-check Human method review bound to the
+exact request, evidence, evaluator, search trace, and manifest. Acceptance makes
+that exact candidate eligible only for a later, separately governed input-
+selection workflow. It never edits an economic model automatically. Bayesian or
+probabilistic calibration, target covariance, calibrated-parameter uncertainty
+propagation, treatment-effect fitting, individual simulation, time-varying rates,
+structural calibration, automatic target/bound/model selection, and scientific-
+validity claims remain outside this alpha.
+
 ## Accountabilities
 
 - The product owner sets scope and accepts product behavior.
