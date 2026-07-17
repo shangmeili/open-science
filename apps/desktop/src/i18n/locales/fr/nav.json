@@ -1,4 +1,7 @@
 {
+  "accessibility": {
+    "skipToMain": "Aller à l’espace de travail HEOR"
+  },
   "sidebar": {
     "collapse": "Réduire la barre latérale",
     "collapseTitle": "Réduire la barre latérale ({{shortcut}})",

@@ -81,8 +81,14 @@ export function AppShell() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg text-text">
+      <a
+        href="#ai4heor-main"
+        className="fixed left-3 top-3 z-[100] -translate-y-24 rounded-input bg-text px-3 py-2 text-sm font-medium text-bg shadow-card transition-transform focus:translate-y-0"
+      >
+        {t("accessibility.skipToMain")}
+      </a>
       <Sidebar />
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main id="ai4heor-main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col">
         {sidebarCollapsed && !pageOwnsTitlebar && (
           <div
             data-tauri-drag-region={overlayTitlebar || undefined}

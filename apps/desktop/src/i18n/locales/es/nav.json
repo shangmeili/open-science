@@ -1,4 +1,7 @@
 {
+  "accessibility": {
+    "skipToMain": "Ir al espacio de trabajo HEOR"
+  },
   "sidebar": {
     "collapse": "Contraer barra lateral",
     "collapseTitle": "Contraer barra lateral ({{shortcut}})",

@@ -298,7 +298,10 @@ Near-term work is focused on native Windows and Apple-Silicon package/first-star
 executing the configured four-target hash-bound package manifest, the first credentialed
 Developer-ID/notarized macOS tag release, Windows signing, physical Linux desktop-session
 verification, auto-update, richer connector hardening, and continued reproducibility
-review. The AI4HEOR 0.1.30 x64 macOS DMG is locally built from
+review. Current source is 0.1.31 and adds a seven-language main-content skip link,
+product-wide visible keyboard focus, and automated light-theme contrast gates; native
+package evidence remains at 0.1.30 until that source is packaged. The AI4HEOR 0.1.30 x64
+macOS DMG is locally built from
 clean commit `0beb7b2bcb04a796f256bd8f8528bb787aa77319` and payload-verified: all 282
 configured resources match source bytes, all 177 deterministic HEOR tests pass
 against the mounted core, and two isolated LaunchServices runs prove fresh
@@ -356,7 +359,7 @@ If you use AI4HEOR in your research, please cite it:
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.30},
+  version = {0.1.31},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

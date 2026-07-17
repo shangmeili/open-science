@@ -1,6 +1,6 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.30 source, 2026-07-17).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.31 source, 2026-07-17).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; a HEOR-default root route, typed HEOR project creation,
 > localized unsent project-intake drafts, a seven-language non-blocking first-use
@@ -14,6 +14,10 @@
 > native point/diagnostic challenge, and
 > separate app-owned Human method reviews consolidated in a current-result review queue; and
 > native macOS and x86_64 Linux packaging.
+> The desktop shell also provides a seven-language main-content skip link, a product-wide
+> visible keyboard-focus indicator, and light-theme normal-text contrast at or above 4.5:1
+> on its supported paper and card surfaces. These are source/browser checks, not an
+> assistive-technology or full WCAG conformance claim.
 > The 0.1.30 x64 macOS DMG is content-verified from clean commit
 > `0beb7b2bcb04a796f256bd8f8528bb787aa77319`; all 282 resources match source bytes,
 > all 177 mounted-core HEOR tests pass, and isolated fresh plus legacy-migration starts

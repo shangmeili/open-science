@@ -1,4 +1,7 @@
 {
+  "accessibility": {
+    "skipToMain": "跳到 HEOR 工作区"
+  },
   "sidebar": {
     "collapse": "收起侧边栏",
     "collapseTitle": "收起侧边栏（{{shortcut}}）",

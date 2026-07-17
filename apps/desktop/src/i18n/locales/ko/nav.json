@@ -1,4 +1,7 @@
 {
+  "accessibility": {
+    "skipToMain": "HEOR 작업 공간으로 건너뛰기"
+  },
   "sidebar": {
     "collapse": "사이드바 접기",
     "collapseTitle": "사이드바 접기 ({{shortcut}})",

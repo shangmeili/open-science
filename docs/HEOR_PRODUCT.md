@@ -17,6 +17,13 @@ Structured controls are secondary surfaces for inspecting parameters, resolving
 ambiguity, and recording human decisions; they must not turn the workbench into
 a form-led modeling application.
 
+The natural-language work surface must remain operable without pointer input. Every
+interactive control receives a visible product-level keyboard focus indicator; the shell
+provides a localized skip link to bypass navigation and place focus on the HEOR workspace;
+and normal-sized supporting text in the light theme maintains at least 4.5:1 contrast on
+the product's paper and card backgrounds. These are minimum implementation contracts, not
+a claim of full WCAG conformance or assistive-technology acceptance.
+
 Method currency follows the same boundary. The first-party
 `$heor-methods-watchlist` records official canonical links, observed revisions,
 dated checks, reuse status, affected platform contracts, and Agent preparation

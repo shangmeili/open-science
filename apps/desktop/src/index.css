@@ -18,8 +18,10 @@
   --border: #e7e3da;
   --border-faint: #efece5;
   --text: #2a2723;
-  --muted: #8c877d;
-  --accent: #c15f3c;
+  /* Small supporting copy must remain readable on both the paper background
+     and white cards. These pairs clear WCAG AA normal-text contrast. */
+  --muted: #746f67;
+  --accent: #ad5335;
   --accent-fg: #ffffff;
   --link: #2a6fdb;
   --warn: #c98a2b;
@@ -80,6 +82,14 @@ body {
   font-family: Inter, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+/* Product-wide keyboard affordance. Individual controls may change their
+   border on focus, but no interactive element may rely on that subtle shift
+   as its only focus indicator. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Thin, calm scrollbars to match the paper aesthetic. */

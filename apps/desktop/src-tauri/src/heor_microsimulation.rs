@@ -2354,7 +2354,7 @@ mod tests {
     fn splitmix64_counter_matches_portable_reference_vectors() {
         let vectors = [
             ((0, 0, 0, 0, 0), 0.14496552426123632),
-            ((20_260_717, 0, 0, 1, 1), 0.51127505946552265),
+            ((20_260_717, 0, 0, 1, 1), 0.511_275_059_465_522_7),
             ((20_260_717, 2, 99, 8, 1), 0.28400037087347296),
         ];
         for ((seed, replicate, patient, cycle, stream), expected) in vectors {

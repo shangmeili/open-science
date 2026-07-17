@@ -1,4 +1,7 @@
 {
+  "accessibility": {
+    "skipToMain": "Skip to HEOR workspace"
+  },
   "sidebar": {
     "collapse": "Collapse sidebar",
     "collapseTitle": "Collapse sidebar ({{shortcut}})",

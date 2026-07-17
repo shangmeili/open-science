@@ -41,4 +41,11 @@ describe("locale key parity (base keys)", () => {
       expect(i18n.exists("model.catalogUnavailable", { lng: code, ns: "settings" })).toBe(true);
     },
   );
+
+  it.each(shippedLocales().map((locale) => locale.code))(
+    "%s includes the HEOR main-content skip link",
+    (code) => {
+      expect(i18n.exists("accessibility.skipToMain", { lng: code, ns: "nav" })).toBe(true);
+    },
+  );
 });

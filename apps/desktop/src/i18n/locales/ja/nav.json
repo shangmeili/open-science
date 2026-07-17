@@ -1,4 +1,7 @@
 {
+  "accessibility": {
+    "skipToMain": "HEORワークスペースへ移動"
+  },
   "sidebar": {
     "collapse": "サイドバーを折りたたむ",
     "collapseTitle": "サイドバーを折りたたむ ({{shortcut}})",

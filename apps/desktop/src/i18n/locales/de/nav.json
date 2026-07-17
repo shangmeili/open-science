@@ -1,4 +1,7 @@
 {
+  "accessibility": {
+    "skipToMain": "Zum HEOR-Arbeitsbereich springen"
+  },
   "sidebar": {
     "collapse": "Seitenleiste einklappen",
     "collapseTitle": "Seitenleiste einklappen ({{shortcut}})",
