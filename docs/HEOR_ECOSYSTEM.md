@@ -175,7 +175,7 @@ source-model validity, and treatment-duration alternatives as unresolved
 structural questions. The paired-bootstrap P0 now supplies a bounded source of
 candidate joint rows; detailed execution replay is portable while canonical
 joint-row consumption is independently audited by Python and native Rust. The
-0.1.23 now has a current-source x64 macOS DMG plus native `.deb`/Ubuntu and `.rpm`/Fedora
+0.1.24 now has a current-source x64 macOS DMG; 0.1.23 retains native `.deb`/Ubuntu and `.rpm`/Fedora
 headless first-start evidence, with byte-identical resources and passing packaged-core
 HEOR suites. The 0.1.22 release separately has bounded Apple Silicon cross-build
 inspection: the arm64 DMG has pure-arm64 payloads,

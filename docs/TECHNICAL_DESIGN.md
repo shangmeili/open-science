@@ -10,8 +10,8 @@
 > native point/diagnostic challenge, and
 > separate app-owned Human method reviews consolidated in a current-result review queue; and
 > native macOS and x86_64 Linux packaging.
-> The 0.1.23 x64 macOS DMG is content-verified from clean commit
-> `892de95e1f5c1b270febd91a2c05bad1a1aa294e`; all 265 resources match source bytes and
+> The 0.1.24 x64 macOS DMG is content-verified from clean commit
+> `2036174b92c7091650b802cea5123455453891f9`; all 273 resources match source bytes and
 > all 177 mounted-core HEOR tests pass. A 0.1.22 Apple Silicon DMG was separately
 > cross-built from clean commit `d2363138449566137c8374386acdf1f8774faad3` on an Intel
 > Mac; read-only inspection verified pure-arm64 payloads, all 265 resources byte-for-byte,
