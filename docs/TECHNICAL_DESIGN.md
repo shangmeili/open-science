@@ -18,8 +18,8 @@
 > visible keyboard-focus indicator, and light-theme normal-text contrast at or above 4.5:1
 > on its supported paper and card surfaces. These are source/browser checks, not an
 > assistive-technology or full WCAG conformance claim.
-> The 0.1.30 x64 macOS DMG is content-verified from clean commit
-> `0beb7b2bcb04a796f256bd8f8528bb787aa77319`; all 282 resources match source bytes,
+> The 0.1.31 x64 macOS DMG is content-verified from clean commit
+> `2834785e057ac54477a9633f07390bc173251644`; all 282 resources match source bytes,
 > all 177 mounted-core HEOR tests pass, and isolated fresh plus legacy-migration starts
 > were verified. Its ordinary research and closed-Settings surfaces identify only the AI
 > assistant; the OpenCode engine name and local endpoint are confined to an explicitly
