@@ -25,6 +25,7 @@ import {
   appendHeorNetworkMetaAnalysisReview,
   appendHeorMethodsWatchlistReview,
   appendHeorModelCalibrationReview,
+  appendHeorMicrosimulationReview,
   appendHeorPopulationAdjustedComparisonReview,
   appendHeorRweCausalAnalysisReview,
   appendHeorPairedBootstrapReview,
@@ -44,6 +45,7 @@ import {
   auditHeorUncertainty,
   auditHeorModelValidation,
   auditHeorModelCalibration,
+  auditHeorMicrosimulation,
   auditHeorNetworkMetaAnalysis,
   auditHeorPopulationAdjustedComparison,
   auditHeorRweCausalAnalysis,
@@ -60,6 +62,7 @@ import {
   HEOR_PARTITIONED_SURVIVAL_PLAN_PATH,
   HEOR_MODEL_VALIDATION_PATH,
   HEOR_MODEL_CALIBRATION_REQUEST_PATH,
+  HEOR_SEMI_MARKOV_MICROSIMULATION_REQUEST_PATH,
   HEOR_NETWORK_META_ANALYSIS_REQUEST_PATH,
   HEOR_POPULATION_ADJUSTED_COMPARISON_REQUEST_PATH,
   HEOR_RWE_CAUSAL_ANALYSIS_REQUEST_PATH,
@@ -96,6 +99,9 @@ import {
   type HeorModelCalibrationAudit,
   type HeorModelCalibrationChecklist,
   type HeorModelCalibrationReviewLog,
+  type HeorMicrosimulationAudit,
+  type HeorMicrosimulationChecklist,
+  type HeorMicrosimulationReviewLog,
   type HeorNetworkMetaAnalysisAudit,
   type HeorNetworkMetaAnalysisChecklist,
   type HeorNetworkMetaAnalysisReviewLog,
@@ -127,6 +133,7 @@ import {
   listHeorAdvancedVoiReviews,
   listHeorNetworkMetaAnalysisReviews,
   listHeorModelCalibrationReviews,
+  listHeorMicrosimulationReviews,
   listHeorPopulationAdjustedComparisonReviews,
   listHeorRweCausalAnalysisReviews,
   listHeorPairedBootstrapReviews,
@@ -250,6 +257,11 @@ type ModelCalibrationState =
   | { kind: "invalid"; message: string }
   | { kind: "ready"; audit: HeorModelCalibrationAudit };
 
+type MicrosimulationState =
+  | { kind: "loading" }
+  | { kind: "invalid"; message: string }
+  | { kind: "ready"; audit: HeorMicrosimulationAudit };
+
 type RweCausalAnalysisState =
   | { kind: "loading" }
   | { kind: "invalid"; message: string }
@@ -324,6 +336,13 @@ const EMPTY_PAC_REVIEW_LOG: HeorPopulationAdjustedComparisonReviewLog = {
 };
 
 const EMPTY_MODEL_CALIBRATION_REVIEW_LOG: HeorModelCalibrationReviewLog = {
+  events: [],
+  chainHead: null,
+  integrity: "verified_unanchored_sha256_chain",
+  identityAssurance: "app_owned_local_human_assertion",
+};
+
+const EMPTY_MICROSIMULATION_REVIEW_LOG: HeorMicrosimulationReviewLog = {
   events: [],
   chainHead: null,
   integrity: "verified_unanchored_sha256_chain",
@@ -448,6 +467,10 @@ export function HeorReviewPane({
   const [modelCalibrationReviews, setModelCalibrationReviews] = useState<HeorModelCalibrationReviewLog>(EMPTY_MODEL_CALIBRATION_REVIEW_LOG);
   const [modelCalibrationDialogOpen, setModelCalibrationDialogOpen] = useState(false);
   const [modelCalibrationReviewRunning, setModelCalibrationReviewRunning] = useState(false);
+  const [microsimulation, setMicrosimulation] = useState<MicrosimulationState>({ kind: "loading" });
+  const [microsimulationReviews, setMicrosimulationReviews] = useState<HeorMicrosimulationReviewLog>(EMPTY_MICROSIMULATION_REVIEW_LOG);
+  const [microsimulationDialogOpen, setMicrosimulationDialogOpen] = useState(false);
+  const [microsimulationReviewRunning, setMicrosimulationReviewRunning] = useState(false);
   const [rweCausalAnalysis, setRweCausalAnalysis] = useState<RweCausalAnalysisState>({ kind: "loading" });
   const [rweCausalAnalysisReviews, setRweCausalAnalysisReviews] = useState<HeorRweCausalAnalysisReviewLog>(EMPTY_RWE_CAUSAL_REVIEW_LOG);
   const [rweCausalAnalysisDialogOpen, setRweCausalAnalysisDialogOpen] = useState(false);
@@ -506,6 +529,8 @@ export function HeorReviewPane({
       setPopulationAdjustedComparisonReviews(EMPTY_PAC_REVIEW_LOG);
       setModelCalibration({ kind: "invalid", message: t("modelCalibration.noProject") });
       setModelCalibrationReviews(EMPTY_MODEL_CALIBRATION_REVIEW_LOG);
+      setMicrosimulation({ kind: "invalid", message: t("microsimulation.noProject") });
+      setMicrosimulationReviews(EMPTY_MICROSIMULATION_REVIEW_LOG);
       setRweCausalAnalysis({ kind: "invalid", message: t("rweCausal.noProject") });
       setRweCausalAnalysisReviews(EMPTY_RWE_CAUSAL_REVIEW_LOG);
       setModelValidation({ kind: "invalid", message: t("validation.noProject") });
@@ -532,6 +557,7 @@ export function HeorReviewPane({
     setNetworkMetaAnalysis({ kind: "loading" });
     setPopulationAdjustedComparison({ kind: "loading" });
     setModelCalibration({ kind: "loading" });
+    setMicrosimulation({ kind: "loading" });
     setRweCausalAnalysis({ kind: "loading" });
     setModelValidation({ kind: "loading" });
     setReporting({ kind: "loading" });
@@ -591,6 +617,16 @@ export function HeorReviewPane({
         message: error instanceof Error ? error.message : String(error),
       });
       setModelCalibrationReviews(EMPTY_MODEL_CALIBRATION_REVIEW_LOG);
+    }
+    try {
+      setMicrosimulation({ kind: "ready", audit: await auditHeorMicrosimulation() });
+      setMicrosimulationReviews(await listHeorMicrosimulationReviews(project.id));
+    } catch (error) {
+      setMicrosimulation({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setMicrosimulationReviews(EMPTY_MICROSIMULATION_REVIEW_LOG);
     }
     try {
       setRweCausalAnalysis({ kind: "ready", audit: await auditHeorRweCausalAnalysis() });
@@ -883,6 +919,20 @@ export function HeorReviewPane({
   const modelCalibrationAccepted = modelCalibration.kind === "ready"
     && modelCalibration.audit.reviewable
     && modelCalibrationReviewAction === "accept";
+  const currentMicrosimulationReview = useMemo(() => {
+    if (microsimulation.kind !== "ready" || !microsimulation.audit.resultSha256) return null;
+    return [...microsimulationReviews.events].reverse().find((event) =>
+      event.simulationId === microsimulation.audit.simulationId) ?? null;
+  }, [microsimulation, microsimulationReviews.events]);
+  const microsimulationReviewAction = microsimulation.kind === "ready"
+    && currentMicrosimulationReview
+    && currentMicrosimulationReview.resultPath === microsimulation.audit.resultPath
+    && currentMicrosimulationReview.resultSha256 === microsimulation.audit.resultSha256
+    ? currentMicrosimulationReview.action
+    : null;
+  const microsimulationAccepted = microsimulation.kind === "ready"
+    && microsimulation.audit.reviewable
+    && microsimulationReviewAction === "accept";
   const currentRweCausalAnalysisReview = useMemo(() => {
     if (rweCausalAnalysis.kind !== "ready" || !rweCausalAnalysis.audit.resultSha256) return null;
     return [...rweCausalAnalysisReviews.events].reverse().find((event) =>
@@ -950,6 +1000,19 @@ export function HeorReviewPane({
           ),
           onReview: () => setModelCalibrationDialogOpen(true),
           onPrepare: () => onRequestRevision(t("modelCalibration.preparePrompt")),
+        }]
+      : []),
+    ...(microsimulation.kind === "ready" && microsimulation.audit.resultSha256
+      ? [{
+          id: "microsimulation" as const,
+          path: microsimulation.audit.resultPath,
+          status: methodReviewQueueStatus(
+            microsimulation.audit.reviewable,
+            microsimulationAccepted,
+            microsimulationReviewAction,
+          ),
+          onReview: () => setMicrosimulationDialogOpen(true),
+          onPrepare: () => onRequestRevision(t("microsimulation.preparePrompt")),
         }]
       : []),
     ...(rweCausalAnalysis.kind === "ready" && rweCausalAnalysis.audit.resultSha256
@@ -1602,6 +1665,36 @@ export function HeorReviewPane({
     }
   };
 
+  const submitMicrosimulationReview = async (
+    action: "accept" | "reject",
+    checklist: HeorMicrosimulationChecklist,
+    actorLabel: string,
+    rationale: string,
+  ) => {
+    if (!project || microsimulation.kind !== "ready" || !microsimulation.audit.resultSha256
+      || microsimulationReviewRunning || !isTauri) return;
+    setMicrosimulationReviewRunning(true);
+    try {
+      await appendHeorMicrosimulationReview({
+        projectId: project.id,
+        resultPath: microsimulation.audit.resultPath,
+        resultSha256: microsimulation.audit.resultSha256,
+        action,
+        checklist,
+        actorLabel,
+        rationale,
+      });
+      setMicrosimulationReviews(await listHeorMicrosimulationReviews(project.id));
+      setMicrosimulationDialogOpen(false);
+      toast.success(action === "accept"
+        ? t("microsimulation.acceptedToast") : t("microsimulation.rejectedToast"));
+    } catch (error) {
+      toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setMicrosimulationReviewRunning(false);
+    }
+  };
+
   const submitRweCausalAnalysisReview = async (
     action: "accept" | "reject",
     checklist: HeorRweCausalAnalysisChecklist,
@@ -1726,6 +1819,16 @@ export function HeorReviewPane({
             accepted={modelCalibrationAccepted}
             onRequestPreparation={() => onRequestRevision(t("modelCalibration.preparePrompt"))}
             onReview={() => setModelCalibrationDialogOpen(true)}
+          />
+        )}
+
+        {project && (
+          <MicrosimulationAssessment
+            state={microsimulation}
+            currentReview={currentMicrosimulationReview}
+            accepted={microsimulationAccepted}
+            onRequestPreparation={() => onRequestRevision(t("microsimulation.preparePrompt"))}
+            onReview={() => setMicrosimulationDialogOpen(true)}
           />
         )}
 
@@ -2206,6 +2309,15 @@ export function HeorReviewPane({
             void submitModelCalibrationReview(action, checklist, actor, rationale)}
         />
       )}
+      {microsimulationDialogOpen && microsimulation.kind === "ready" && (
+        <MicrosimulationReviewDialog
+          audit={microsimulation.audit}
+          running={microsimulationReviewRunning}
+          onCancel={() => setMicrosimulationDialogOpen(false)}
+          onSubmit={(action, checklist, actor, rationale) =>
+            void submitMicrosimulationReview(action, checklist, actor, rationale)}
+        />
+      )}
       {rweCausalAnalysisDialogOpen && rweCausalAnalysis.kind === "ready" && (
         <RweCausalAnalysisReviewDialog
           audit={rweCausalAnalysis.audit}
@@ -2490,7 +2602,7 @@ function StageRail({ currentApprovals, hasResult }: { currentApprovals: HeorGate
 export type MethodReviewQueueStatus = "awaiting" | "accepted" | "rejected" | "blocked";
 
 export interface MethodReviewQueueItem {
-  id: "nma" | "pac" | "modelCalibration" | "rweCausal" | "pairedBootstrap" | "advancedVoi";
+  id: "nma" | "pac" | "modelCalibration" | "microsimulation" | "rweCausal" | "pairedBootstrap" | "advancedVoi";
   path: string;
   status: MethodReviewQueueStatus;
   onReview: () => void;
@@ -4558,6 +4670,248 @@ export function ModelCalibrationReviewDialog({
             {running
               ? t("modelCalibration.recording")
               : action === "accept" ? t("modelCalibration.recordAccept") : t("modelCalibration.recordReject")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function MicrosimulationAssessment({
+  state,
+  currentReview,
+  accepted,
+  onRequestPreparation,
+  onReview,
+}: {
+  state: MicrosimulationState;
+  currentReview: HeorMicrosimulationReviewLog["events"][number] | null;
+  accepted: boolean;
+  onRequestPreparation: () => void;
+  onReview: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  const audit = state.kind === "ready" ? state.audit : null;
+  const issues = audit?.errors ?? (state.kind === "invalid" ? [state.message] : []);
+  const status = state.kind === "loading"
+    ? t("microsimulation.loading")
+    : accepted
+      ? t("microsimulation.accepted")
+      : currentReview?.action === "reject"
+        ? t("microsimulation.rejected")
+        : audit?.reviewable
+          ? t("microsimulation.awaiting")
+          : audit?.simulationId
+            ? t("microsimulation.incomplete")
+            : t("microsimulation.notPrepared");
+  const comparison = audit?.comparisons[0];
+  return (
+    <section className="border-b border-border px-5 py-4">
+      <div className="flex items-start gap-2">
+        {accepted
+          ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
+          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            {t("microsimulation.title")}
+          </div>
+          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warning")}>
+            {status}
+          </div>
+          <div className="mt-1 break-all font-mono text-[10px] text-muted">
+            {audit?.resultPath || HEOR_SEMI_MARKOV_MICROSIMULATION_REQUEST_PATH}
+          </div>
+        </div>
+      </div>
+      {audit?.simulationId && (
+        <>
+          <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+            <Metric label={t("microsimulation.states")} value={String(audit.stateCount)} />
+            <Metric label={t("microsimulation.strategies")} value={String(audit.strategyCount)} />
+            <Metric label={t("microsimulation.trackers")} value={String(audit.trackerCount)} />
+            <Metric label={t("microsimulation.steps")} value={String(audit.simulationSteps)} />
+          </div>
+          <p className="mt-3 text-[10px] leading-4 text-muted">
+            {t("microsimulation.runSummary", {
+              patients: audit.patientsPerReplicate,
+              replicates: audit.replicates,
+              cycles: audit.cycles,
+              traces: audit.traceRows,
+            })}
+          </p>
+          {comparison && (
+            <p className="mt-1 text-[10px] leading-4 text-muted">
+              {t("microsimulation.comparisonSummary", {
+                strategy: comparison.strategyId,
+                cost: comparison.incrementalCost.toPrecision(5),
+                qaly: comparison.incrementalQaly.toPrecision(5),
+                nmb: comparison.incrementalNetMonetaryBenefit.toPrecision(5),
+                se: comparison.standardErrorIncrementalNetMonetaryBenefit.toPrecision(4),
+              })}
+            </p>
+          )}
+          {audit.resultSha256 && (
+            <div className="mt-2 break-all font-mono text-[9px] text-muted">
+              {t("microsimulation.hash")} {audit.resultSha256}
+            </div>
+          )}
+        </>
+      )}
+      {currentReview && (
+        <div className={cn(
+          "mt-3 rounded-input border p-3 text-[10px] leading-4",
+          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warning/30 bg-warning/5 text-warning",
+        )}>
+          {accepted ? t("microsimulation.currentAccepted") : t("microsimulation.currentRejected")}
+          <div className="mt-1 break-all font-mono text-[9px] text-muted">
+            {currentReview.recordPath} · {currentReview.recordSha256.slice(0, 12)}…
+          </div>
+        </div>
+      )}
+      {issues.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
+          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap gap-3">
+        {audit?.reviewable && isTauri && (
+          <button onClick={onReview} className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
+            <LockKeyhole size={13} /> {t("microsimulation.review")}
+          </button>
+        )}
+        {!accepted && (
+          <button onClick={onRequestPreparation} className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
+            <MessageSquareText size={13} /> {t("microsimulation.askAgent")}
+          </button>
+        )}
+      </div>
+      <p className="mt-3 text-[10px] leading-4 text-muted">{t("microsimulation.note")}</p>
+    </section>
+  );
+}
+
+const MICROSIMULATION_CHECKLIST_KEYS: Array<keyof HeorMicrosimulationChecklist> = [
+  "decisionProblemIndividualModelJustificationReviewed",
+  "statesHorizonTimingAbsorbingDeathReviewed",
+  "inputProvenancePopulationAlignmentReviewed",
+  "timeInStateRulesStateRewardsReviewed",
+  "historyTrackersTransitionEventCostsReviewed",
+  "prngSeedsCommonRandomNumbersTracesReviewed",
+  "monteCarloErrorReplicatesPerformanceReviewed",
+  "structuralParameterUncertaintyDownstreamLimitsReviewed",
+];
+
+const EMPTY_MICROSIMULATION_CHECKLIST: HeorMicrosimulationChecklist = {
+  decisionProblemIndividualModelJustificationReviewed: false,
+  statesHorizonTimingAbsorbingDeathReviewed: false,
+  inputProvenancePopulationAlignmentReviewed: false,
+  timeInStateRulesStateRewardsReviewed: false,
+  historyTrackersTransitionEventCostsReviewed: false,
+  prngSeedsCommonRandomNumbersTracesReviewed: false,
+  monteCarloErrorReplicatesPerformanceReviewed: false,
+  structuralParameterUncertaintyDownstreamLimitsReviewed: false,
+};
+
+export function MicrosimulationReviewDialog({
+  audit,
+  running,
+  onCancel,
+  onSubmit,
+}: {
+  audit: HeorMicrosimulationAudit;
+  running: boolean;
+  onCancel: () => void;
+  onSubmit: (
+    action: "accept" | "reject",
+    checklist: HeorMicrosimulationChecklist,
+    actor: string,
+    rationale: string,
+  ) => void;
+}) {
+  const { t } = useTranslation("heor");
+  const [action, setAction] = useState<"accept" | "reject">("accept");
+  const [checklist, setChecklist] = useState(EMPTY_MICROSIMULATION_CHECKLIST);
+  const [actor, setActor] = useState("");
+  const [rationale, setRationale] = useState("");
+  const acceptedReady = MICROSIMULATION_CHECKLIST_KEYS.every((key) => checklist[key]);
+  const valid = actor.trim().length > 0 && rationale.trim().length > 1
+    && (action === "reject" || acceptedReady) && !running;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && !running && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, running]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => !running && onCancel()} role="presentation">
+      <div role="dialog" aria-modal="true" aria-label={t("microsimulation.dialogTitle")} className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-card border border-border bg-surface p-5 shadow-card" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center gap-2 text-sm font-semibold text-text">
+          <ShieldCheck size={17} className="text-accent" /> {t("microsimulation.dialogTitle")}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          {t("microsimulation.dialogBody", {
+            id: audit.simulationId,
+            hash: audit.resultSha256?.slice(0, 12) ?? "—",
+          })}
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label={t("microsimulation.decisionLabel")}>
+          {NMA_REVIEW_ACTIONS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={action === value}
+              onClick={() => setAction(value)}
+              className={cn(
+                "rounded-input border px-3 py-2 text-xs font-medium",
+                action === value
+                  ? value === "accept" ? "border-ok bg-ok/10 text-ok" : "border-danger bg-danger/10 text-danger"
+                  : "border-border text-muted",
+              )}
+            >
+              {t(`microsimulation.${value}`)}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 space-y-2 rounded-input border border-border bg-bg p-3">
+          {MICROSIMULATION_CHECKLIST_KEYS.map((key) => (
+            <label key={key} className="flex cursor-pointer items-start gap-2 text-xs leading-5 text-text">
+              <input
+                type="checkbox"
+                checked={checklist[key]}
+                onChange={(event) => setChecklist((current) => ({ ...current, [key]: event.target.checked }))}
+                className="mt-1 accent-[var(--color-accent)]"
+              />
+              <span>{t(`microsimulation.checklist.${key}`)}</span>
+            </label>
+          ))}
+        </div>
+        <input
+          value={actor}
+          onChange={(event) => setActor(event.target.value)}
+          placeholder={t("dialog.actorPlaceholder")}
+          className="mt-3 w-full rounded-input border border-border bg-bg px-3 py-2 text-xs text-text outline-none focus:border-accent"
+        />
+        <textarea
+          value={rationale}
+          onChange={(event) => setRationale(event.target.value)}
+          placeholder={action === "accept" ? t("microsimulation.acceptRationale") : t("microsimulation.rejectRationale")}
+          rows={3}
+          className="mt-2 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-xs leading-5 text-text outline-none focus:border-accent"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button disabled={running} onClick={onCancel} className="rounded-input border border-border px-3 py-2 text-xs text-muted hover:text-text disabled:opacity-50">
+            {t("dialog.cancel")}
+          </button>
+          <button
+            disabled={!valid}
+            onClick={() => onSubmit(action, checklist, actor.trim(), rationale.trim())}
+            className={cn(
+              "rounded-input px-3 py-2 text-xs font-semibold text-white disabled:opacity-40",
+              action === "accept" ? "bg-ok" : "bg-danger",
+            )}
+          >
+            {running
+              ? t("microsimulation.recording")
+              : action === "accept" ? t("microsimulation.recordAccept") : t("microsimulation.recordReject")}
           </button>
         </div>
       </div>

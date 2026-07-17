@@ -10,6 +10,7 @@ import {
   type HeorNetworkMetaAnalysisAudit,
   type HeorPopulationAdjustedComparisonAudit,
   type HeorModelCalibrationAudit,
+  type HeorMicrosimulationAudit,
   type HeorRweCausalAnalysisAudit,
   type HeorUncertaintyRunResult,
 } from "@/lib/heor";
@@ -30,6 +31,8 @@ import {
   PopulationAdjustedComparisonReviewDialog,
   ModelCalibrationAssessment,
   ModelCalibrationReviewDialog,
+  MicrosimulationAssessment,
+  MicrosimulationReviewDialog,
   RweCausalAnalysisAssessment,
   RweCausalAnalysisReviewDialog,
   PairedBootstrapAssessment,
@@ -228,6 +231,36 @@ describe("AI4HEOR human review pane", () => {
     searchEvaluations: 624,
     nativeScope: "selected_point_model_and_local_identifiability_only",
     limitations: ["Point calibration only.", "Human method review required."],
+    errors: [],
+  };
+
+  const microsimulationAudit: HeorMicrosimulationAudit = {
+    complete: true,
+    reviewable: true,
+    status: "awaiting_method_review",
+    simulationId: "microsim-run-1",
+    requestPath: "heor/semi-markov-microsimulation-request.json",
+    requestSha256: "4".repeat(64),
+    resultPath: "heor/semi-markov-microsimulation-runs/microsim-run-1/manifest.json",
+    resultSha256: "5".repeat(64),
+    stateCount: 3,
+    strategyCount: 2,
+    trackerCount: 1,
+    patientsPerReplicate: 1000,
+    replicates: 5,
+    cycles: 20,
+    simulationSteps: 200000,
+    traceRows: 400,
+    comparisons: [{
+      baselineStrategyId: "comparator",
+      strategyId: "intervention",
+      incrementalCost: 1200,
+      incrementalQaly: 0.12,
+      incrementalNetMonetaryBenefit: 10800,
+      standardErrorIncrementalNetMonetaryBenefit: 640,
+    }],
+    nativeScope: "complete_patient_cycle_summary_and_sampled_trace_replay",
+    limitations: ["Parameter uncertainty is not modeled.", "Human method review required."],
     errors: [],
   };
 
@@ -514,6 +547,53 @@ describe("AI4HEOR human review pane", () => {
       }),
       "Calibration reviewer",
       "Reviewed targets, bounds, search, local identifiability, held-out performance, and omitted uncertainty.",
+    );
+  });
+
+  it("keeps semi-Markov microsimulation use behind full native replay and eight Human checks", async () => {
+    const onSubmit = vi.fn();
+    const card = render(
+      <MicrosimulationAssessment
+        state={{ kind: "ready", audit: microsimulationAudit }}
+        currentReview={null}
+        accepted={false}
+        onRequestPreparation={vi.fn()}
+        onReview={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Complete native replay · awaiting Human method review")).toBeInTheDocument();
+    expect(screen.getByText(/1000 patients × 5 replicates × 20 cycles/)).toBeInTheDocument();
+    expect(screen.getByText(/does not establish substantive evidence validity/)).toBeInTheDocument();
+    card.unmount();
+
+    render(
+      <MicrosimulationReviewDialog
+        audit={microsimulationAudit}
+        running={false}
+        onCancel={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+    const submit = screen.getByRole("button", { name: "Record acceptance" });
+    expect(submit).toBeDisabled();
+    const checkboxes = screen.getAllByRole("checkbox");
+    expect(checkboxes).toHaveLength(8);
+    for (const checkbox of checkboxes) await userEvent.click(checkbox);
+    await userEvent.type(screen.getByPlaceholderText("Name or local reviewer label"), "Microsimulation reviewer");
+    await userEvent.type(
+      screen.getByPlaceholderText(/Why this exact decision problem/),
+      "Reviewed model structure, evidence, history rules, random numbers, precision, traces, and omitted uncertainty.",
+    );
+    expect(submit).toBeEnabled();
+    await userEvent.click(submit);
+    expect(onSubmit).toHaveBeenCalledWith(
+      "accept",
+      expect.objectContaining({
+        decisionProblemIndividualModelJustificationReviewed: true,
+        structuralParameterUncertaintyDownstreamLimitsReviewed: true,
+      }),
+      "Microsimulation reviewer",
+      "Reviewed model structure, evidence, history rules, random numbers, precision, traces, and omitted uncertainty.",
     );
   });
 

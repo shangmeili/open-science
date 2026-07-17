@@ -1,0 +1,192 @@
+{
+  "schema_version": "0.1.0",
+  "simulation_id": "replace-with-safe-id",
+  "status": "draft",
+  "question": {
+    "population": "Researcher-defined population",
+    "purpose": "Compare researcher-defined strategies when time in state and event history materially affect outcomes",
+    "time_origin": "Researcher-defined index date",
+    "perspective": "Researcher-defined economic perspective",
+    "intended_use": "Researcher-defined exploratory or decision-model use",
+    "individual_model_justification": "Explain why a manageable cohort state expansion is not adequate"
+  },
+  "evidence_synthesis": {
+    "path": "heor/evidence-synthesis.json",
+    "sha256": "replace-with-current-sha256",
+    "included_record_ids": ["replace-with-bound-record-id"]
+  },
+  "model": {
+    "type": "discrete_time_individual_state_transition",
+    "states": [
+      {"id": "stable", "label": "Stable", "absorbing": false, "death": false},
+      {"id": "event", "label": "Event", "absorbing": false, "death": false},
+      {"id": "dead", "label": "Dead", "absorbing": true, "death": true}
+    ],
+    "initial_distribution": [1.0, 0.0, 0.0],
+    "cycle_length_years": 1.0,
+    "cycles": 20,
+    "transition_timing": "one_transition_at_cycle_end",
+    "reward_timing": "trapezoidal_state_rewards_transition_costs_at_cycle_end",
+    "interactions": "none_closed_independent_cohort",
+    "event_trackers": [
+      {
+        "id": "event-count",
+        "label": "Number of entries to event state",
+        "from_states": ["stable"],
+        "to_state": "event",
+        "maximum_count": 5,
+        "rationale": "Researcher-defined recurrent-event memory needed by the model",
+        "evidence_record_ids": ["replace-with-bound-record-id"]
+      }
+    ]
+  },
+  "strategies": [
+    {
+      "id": "comparator",
+      "label": "Comparator",
+      "rationale": "Researcher-defined comparator",
+      "evidence_record_ids": ["replace-with-bound-record-id"],
+      "state_rules": [
+        {
+          "state_id": "stable",
+          "rules": [
+            {
+              "id": "comparator-stable-after-event",
+              "condition": {
+                "kind": "when",
+                "time_in_state_cycles": {"minimum": 0, "maximum": null},
+                "tracker_counts": [{"tracker_id": "event-count", "minimum": 1, "maximum": null}]
+              },
+              "probabilities": [0.70, 0.22, 0.08],
+              "annual_cost": 800.0,
+              "utility": 0.78,
+              "rationale": "Example post-event recurrence-risk rule; replace with evidence-bound values",
+              "evidence_record_ids": ["replace-with-bound-record-id"]
+            },
+            {
+              "id": "comparator-stable-default",
+              "condition": {"kind": "otherwise"},
+              "probabilities": [0.78, 0.16, 0.06],
+              "annual_cost": 700.0,
+              "utility": 0.82,
+              "rationale": "Example default stable-state rule; replace with evidence-bound values",
+              "evidence_record_ids": ["replace-with-bound-record-id"]
+            }
+          ]
+        },
+        {
+          "state_id": "event",
+          "rules": [
+            {
+              "id": "comparator-event-early",
+              "condition": {
+                "kind": "when",
+                "time_in_state_cycles": {"minimum": 0, "maximum": 1},
+                "tracker_counts": []
+              },
+              "probabilities": [0.40, 0.42, 0.18],
+              "annual_cost": 6000.0,
+              "utility": 0.48,
+              "rationale": "Example early time-in-event rule; replace with evidence-bound values",
+              "evidence_record_ids": ["replace-with-bound-record-id"]
+            },
+            {
+              "id": "comparator-event-late",
+              "condition": {
+                "kind": "when",
+                "time_in_state_cycles": {"minimum": 2, "maximum": null},
+                "tracker_counts": []
+              },
+              "probabilities": [0.25, 0.62, 0.13],
+              "annual_cost": 3500.0,
+              "utility": 0.58,
+              "rationale": "Example later time-in-event rule; replace with evidence-bound values",
+              "evidence_record_ids": ["replace-with-bound-record-id"]
+            },
+            {
+              "id": "comparator-event-fallback",
+              "condition": {"kind": "otherwise"},
+              "probabilities": [0.40, 0.42, 0.18],
+              "annual_cost": 6000.0,
+              "utility": 0.48,
+              "rationale": "Explicit fallback for auditability",
+              "evidence_record_ids": ["replace-with-bound-record-id"]
+            }
+          ]
+        },
+        {
+          "state_id": "dead",
+          "rules": [
+            {
+              "id": "comparator-dead",
+              "condition": {"kind": "otherwise"},
+              "probabilities": [0.0, 0.0, 1.0],
+              "annual_cost": 0.0,
+              "utility": 0.0,
+              "rationale": "Absorbing death state",
+              "evidence_record_ids": ["replace-with-bound-record-id"]
+            }
+          ]
+        }
+      ],
+      "transition_costs": [
+        {
+          "id": "comparator-event-entry-cost",
+          "from_state": "stable",
+          "to_state": "event",
+          "cost": 2500.0,
+          "rationale": "Example event-entry cost; replace with evidence-bound value",
+          "evidence_record_ids": ["replace-with-bound-record-id"]
+        }
+      ]
+    },
+    {
+      "id": "intervention",
+      "label": "Intervention",
+      "rationale": "Researcher-defined intervention",
+      "evidence_record_ids": ["replace-with-bound-record-id"],
+      "state_rules": [],
+      "transition_costs": []
+    }
+  ],
+  "economics": {
+    "currency": "CNY",
+    "price_year": 2026,
+    "discount_rate_costs": 0.05,
+    "discount_rate_outcomes": 0.05,
+    "willingness_to_pay": 100000.0
+  },
+  "simulation": {
+    "patients_per_replicate": 10000,
+    "replicates": 5,
+    "base_seed": 20260717,
+    "random_number_generator": "splitmix64_counter_top53_v1",
+    "common_random_numbers": "synchronized_initial_and_cycle_transition_uniforms",
+    "trace_replicate": 0,
+    "trace_patient_indices": [0, 1, 2],
+    "maximum_simulation_steps": 5000000
+  },
+  "output": {"directory": "heor/semi-markov-microsimulation-runs/replace-with-safe-id"},
+  "human_authorization": {
+    "actor": "replace-with-human-actor",
+    "authorized_at": "2026-07-17T00:00:00Z",
+    "scope": "execute_local_semi_markov_microsimulation"
+  },
+  "limitations": [
+    "Replace this template limitation with study-specific structural and evidence limitations.",
+    "Parameter uncertainty is not modeled by schema 0.1.0."
+  ],
+  "human_gate": {
+    "status": "awaiting_method_review",
+    "required_checks": [
+      "decision_problem_and_individual_model_justification",
+      "states_horizon_timing_and_absorbing_death",
+      "input_provenance_and_population_alignment",
+      "time_in_state_rules_and_state_rewards",
+      "history_trackers_and_transition_event_costs",
+      "prng_seeds_common_random_numbers_and_traces",
+      "monte_carlo_error_replicates_and_performance",
+      "structural_parameter_uncertainty_and_downstream_limits"
+    ]
+  }
+}

@@ -12,6 +12,7 @@ export const HEOR_PAIRED_BOOTSTRAP_REQUEST_PATH = "heor/paired-survival-bootstra
 export const HEOR_NETWORK_META_ANALYSIS_REQUEST_PATH = "heor/network-meta-analysis-request.json";
 export const HEOR_POPULATION_ADJUSTED_COMPARISON_REQUEST_PATH = "heor/population-adjusted-comparison-request.json";
 export const HEOR_MODEL_CALIBRATION_REQUEST_PATH = "heor/model-calibration-request.json";
+export const HEOR_SEMI_MARKOV_MICROSIMULATION_REQUEST_PATH = "heor/semi-markov-microsimulation-request.json";
 export const HEOR_RWE_CAUSAL_ANALYSIS_REQUEST_PATH = "heor/rwe-causal-analysis-request.json";
 export const HEOR_MODEL_VALIDATION_PATH = "heor/model-validation.json";
 export const HEOR_REPORT_PACKAGE_PATH = "heor/report-package.json";
@@ -890,6 +891,87 @@ export interface HeorModelCalibrationReviewEvent {
 
 export interface HeorModelCalibrationReviewLog {
   events: HeorModelCalibrationReviewEvent[];
+  chainHead: string | null;
+  integrity: string;
+  identityAssurance: string;
+}
+
+export interface HeorMicrosimulationComparisonAudit {
+  baselineStrategyId: string;
+  strategyId: string;
+  incrementalCost: number;
+  incrementalQaly: number;
+  incrementalNetMonetaryBenefit: number;
+  standardErrorIncrementalNetMonetaryBenefit: number;
+}
+
+export interface HeorMicrosimulationAudit {
+  complete: boolean;
+  reviewable: boolean;
+  status: string;
+  simulationId: string;
+  requestPath: string;
+  requestSha256: string | null;
+  resultPath: string;
+  resultSha256: string | null;
+  stateCount: number;
+  strategyCount: number;
+  trackerCount: number;
+  patientsPerReplicate: number;
+  replicates: number;
+  cycles: number;
+  simulationSteps: number;
+  traceRows: number;
+  comparisons: HeorMicrosimulationComparisonAudit[];
+  nativeScope: string;
+  limitations: string[];
+  errors: string[];
+}
+
+export interface HeorMicrosimulationChecklist {
+  decisionProblemIndividualModelJustificationReviewed: boolean;
+  statesHorizonTimingAbsorbingDeathReviewed: boolean;
+  inputProvenancePopulationAlignmentReviewed: boolean;
+  timeInStateRulesStateRewardsReviewed: boolean;
+  historyTrackersTransitionEventCostsReviewed: boolean;
+  prngSeedsCommonRandomNumbersTracesReviewed: boolean;
+  monteCarloErrorReplicatesPerformanceReviewed: boolean;
+  structuralParameterUncertaintyDownstreamLimitsReviewed: boolean;
+}
+
+export interface HeorMicrosimulationReviewRequest {
+  projectId: string;
+  resultPath: string;
+  resultSha256: string;
+  action: "accept" | "reject";
+  checklist: HeorMicrosimulationChecklist;
+  actorLabel: string;
+  rationale: string;
+}
+
+export interface HeorMicrosimulationReviewEvent {
+  schemaVersion: number;
+  sequence: number;
+  reviewId: string;
+  projectId: string;
+  simulationId: string;
+  action: "accept" | "reject";
+  resultPath: string;
+  resultSha256: string;
+  relatedArtifacts: Array<{ path: string; sha256: string }>;
+  checklist: HeorMicrosimulationChecklist;
+  actorLabel: string;
+  rationale: string;
+  timestamp: number;
+  recordPath: string;
+  recordSha256: string;
+  assurance: string;
+  previousHash: string | null;
+  eventHash: string;
+}
+
+export interface HeorMicrosimulationReviewLog {
+  events: HeorMicrosimulationReviewEvent[];
   chainHead: string | null;
   integrity: string;
   identityAssurance: string;
@@ -3494,6 +3576,62 @@ export async function listHeorModelCalibrationReviews(
   }
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<HeorModelCalibrationReviewLog>("list_heor_model_calibration_reviews", {
+    projectId,
+  });
+}
+
+export async function auditHeorMicrosimulation(): Promise<HeorMicrosimulationAudit> {
+  if (!isTauri) {
+    return {
+      complete: false,
+      reviewable: false,
+      status: "unavailable",
+      simulationId: "",
+      requestPath: HEOR_SEMI_MARKOV_MICROSIMULATION_REQUEST_PATH,
+      requestSha256: null,
+      resultPath: "",
+      resultSha256: null,
+      stateCount: 0,
+      strategyCount: 0,
+      trackerCount: 0,
+      patientsPerReplicate: 0,
+      replicates: 0,
+      cycles: 0,
+      simulationSteps: 0,
+      traceRows: 0,
+      comparisons: [],
+      nativeScope: "complete_patient_cycle_summary_and_sampled_trace_replay",
+      limitations: [],
+      errors: ["Native microsimulation audit requires the desktop runtime."],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorMicrosimulationAudit>("audit_heor_microsimulation");
+}
+
+export async function appendHeorMicrosimulationReview(
+  request: HeorMicrosimulationReviewRequest,
+): Promise<HeorMicrosimulationReviewEvent> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorMicrosimulationReviewEvent>("append_heor_microsimulation_review", {
+    request,
+  });
+}
+
+export async function listHeorMicrosimulationReviews(
+  projectId: string,
+): Promise<HeorMicrosimulationReviewLog> {
+  if (!isTauri) {
+    return {
+      events: [],
+      chainHead: null,
+      integrity: "verified_unanchored_sha256_chain",
+      identityAssurance: "app_owned_local_human_assertion",
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorMicrosimulationReviewLog>("list_heor_microsimulation_reviews", {
     projectId,
   });
 }

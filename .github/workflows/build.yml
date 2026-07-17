@@ -112,6 +112,11 @@ jobs:
       - name: Test bounded RWE causal-analysis contracts
         run: python scripts/dev/test_rwe_causal_analysis.py -v
 
+      - name: Test bounded semi-Markov microsimulation contracts
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python scripts/dev/test_semi_markov_microsimulation.py -v
+
       - name: Fetch bundled uv sidecar
         shell: bash
         run: bash scripts/dev/fetch-uv.sh ${{ matrix.target }}

@@ -20,6 +20,7 @@ mod heor_evidence_review;
 mod heor_joint_survival_uncertainty;
 mod heor_library;
 mod heor_methods_watchlist;
+mod heor_microsimulation;
 mod heor_model_calibration;
 mod heor_network_meta_analysis;
 mod heor_paired_survival_bootstrap;
@@ -89,6 +90,7 @@ pub fn run() {
         .manage(heor_library::HeorLibraryState::default())
         .manage(heor_methods_watchlist::MethodsWatchlistReviewState::default())
         .manage(heor_model_calibration::ModelCalibrationReviewState::default())
+        .manage(heor_microsimulation::MicrosimulationReviewState::default())
         .manage(heor_paired_survival_bootstrap::PairedBootstrapReviewState::default())
         .manage(heor_network_meta_analysis::NetworkMetaAnalysisReviewState::default())
         .manage(
@@ -183,6 +185,9 @@ pub fn run() {
             heor_model_calibration::audit_heor_model_calibration,
             heor_model_calibration::append_heor_model_calibration_review,
             heor_model_calibration::list_heor_model_calibration_reviews,
+            heor_microsimulation::audit_heor_microsimulation,
+            heor_microsimulation::append_heor_microsimulation_review,
+            heor_microsimulation::list_heor_microsimulation_reviews,
             heor_synthesis::audit_heor_evidence_synthesis,
             heor_synthesis::import_heor_search_candidates,
             heor_survival_execution::audit_heor_survival_fit_execution,

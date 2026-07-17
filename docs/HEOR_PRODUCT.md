@@ -61,6 +61,41 @@ propagation, treatment-effect fitting, individual simulation, time-varying rates
 structural calibration, automatic target/bound/model selection, and scientific-
 validity claims remain outside this alpha.
 
+## Bounded semi-Markov individual-level microsimulation
+
+The first-party `$heor-semi-markov-microsimulation` Skill supports one closed,
+non-interacting individual state-transition model when the researcher has already
+justified that time in state or capped prior-event history materially changes
+transitions or rewards and transparent cohort-state expansion is unmanageable.
+Schema `0.1.0` admits 2–8 states with exactly one absorbing death state, 2–4
+researcher-defined strategies, 1–3 capped event-entry trackers, complete conditional
+probability rows, annual state costs and utilities, transition-event costs, separate
+cost and outcome discounting, and prespecified sampled patient traces.
+
+The dependency-free engine uses a counter-based SplitMix64 top-53-bit generator.
+Every strategy receives the same initialization and patient-cycle uniforms for a
+given seed, replicate, patient, cycle, and stream, so paired comparisons use common
+random numbers without path-dependent stream drift. Three to twenty independent
+replicates, 100–50,000 patients per replicate, and a five-million patient-strategy-
+cycle cap make the execution boundary explicit. The result reports disaggregated
+costs, QALYs, life-years, occupancy, tracker summaries, paired increments, patient-
+level standard errors, between-replicate variation, and sampled traces; it never
+uses an automatic precision or strategy-selection threshold.
+
+Portable audit reruns every patient cycle. Native Rust separately parses the current
+request and evidence, embeds and binds the evaluator source, regenerates every
+counter draw, transition, reward, aggregate, comparison, and sampled trace, and
+fails closed on any drift. The app-owned eight-check Human method review binds the
+exact request, evidence, evaluator, trace, and manifest. Acceptance is only a local
+assertion that the exact simulation may be considered for later model use; neither
+the Agent nor the Skill can create that record or replace a downstream model input.
+
+Interactions, transmission, queues, resource constraints, open populations,
+continuous-time discrete-event simulation, continuous or changing covariates,
+dynamic treatment policies, parameter uncertainty, calibration, structural
+averaging, automatic sample-size/stability/model selection, cost-effectiveness or
+reimbursement conclusions, and automatic downstream use remain outside this alpha.
+
 ## Accountabilities
 
 - The product owner sets scope and accepts product behavior.

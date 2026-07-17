@@ -1,12 +1,13 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.24, 2026-07-17).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.25, 2026-07-17).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; first-party scientific and HEOR Skills; Human-in-the-loop,
 > hash-bound evidence, reference-case, analysis, validation, reporting, and release gates,
 > including the 13/15-artifact PSM validation/report contract and deterministic release replay;
 > deterministic cohort, uncertainty, bounded advanced-VOI, budget-impact, NMA, anchored-MAIC,
-> bounded natural-history point calibration, and bounded target-trial RWE-IPTW×IPOW engines, including portable full replay,
+> bounded natural-history point calibration, bounded semi-Markov individual-level
+> microsimulation, and bounded target-trial RWE-IPTW×IPOW engines, including portable full replay,
 > native point/diagnostic challenge, and
 > separate app-owned Human method reviews consolidated in a current-result review queue; and
 > native macOS and x86_64 Linux packaging.
@@ -65,6 +66,41 @@ workspace snapshot, and appends an app-private hash-linked event. All eight chec
 are mandatory for acceptance; rejection does not require false confirmations.
 The record is a local Human assertion and only makes the candidate eligible for
 later input selection. It cannot update an analysis plan or model input.
+
+## Bounded semi-Markov microsimulation execution
+
+`runtime/skills/core/heor-semi-markov-microsimulation` owns request/result schema
+`0.1.0`. The request fixes the closed-cohort decision problem, 2–8 ordered states,
+one absorbing death state, initial distribution, cycle timing, horizon, 2–4
+strategies, 1–3 capped event-entry trackers, non-overlapping time-in-state and
+tracker-count conditions, one final fallback rule per state, complete transition
+rows, state rewards, transition-event costs, economics, evidence bytes, deterministic
+simulation settings, trace sample, execution authorization, and limitations.
+Unknown authority fields, unbound evidence, overlapping rules, incomplete rows,
+unsafe paths, or more than five million patient-strategy-cycles fail closed.
+
+The standard-library Python runner uses SplitMix64 in counter mode and converts the
+top 53 bits to IEEE-754 uniforms. Its counter key is `(seed, replicate, patient,
+cycle, stream)`, shared across strategies to provide common random numbers without
+consuming a mutable stream. It writes an atomic immutable manifest, evaluator copy,
+and canonical `traces.jsonl`. The portable auditor rebinds all current bytes and
+reruns every patient cycle, aggregate, paired comparison, and sampled trace.
+
+`heor_microsimulation.rs` is a separate implementation of the complete replay. It
+revalidates the bounded request, independently regenerates initialization and
+transition draws, applies the state-memory rules, trapezoidal state rewards,
+end-cycle event costs and separate discount rates, and challenges the complete
+manifest and trace with bounded numeric tolerance. Cross-language golden vectors
+bind the PRNG and a Python-created 4,800-step fixture with 160 trace rows.
+
+The React review pane keeps preparation and repair in natural-language conversation.
+Its auxiliary form records eight Human judgments covering individual-model need,
+structure and timing, provenance, state memory and rewards, history/event costs,
+random numbers and traces, Monte Carlo error and performance, and omitted structural
+and parameter uncertainty. Rust accepts only a current full-replay-clean result,
+binds the five-artifact graph, writes an immutable workspace snapshot, and appends
+an app-private unanchored SHA-256 event. Acceptance cannot select a strategy,
+authorize a policy conclusion, or update another model.
 
 ## 1. Technical goals
 
