@@ -492,9 +492,10 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
   first launch works without CLI knowledge.
 - **Acceptance.** A non-technical user installs and reaches a working first
   session on both macOS and Windows via a signed installer.
-- **Status.** 🟡 AI4HEOR 0.1.30 macOS x64, Linux x86_64 `.deb`/`.rpm`, and cross-built
-  macOS arm64 installers are available locally with pinned sidecars. All four artifacts
-  are bound to clean commit `0beb7b2bcb04a796f256bd8f8528bb787aa77319`, contain all 282
+- **Status.** 🟡 AI4HEOR 0.1.31 macOS x64 and cross-built macOS arm64 DMGs are available
+  locally with pinned sidecars from clean commit `2834785e057ac54477a9633f07390bc173251644`;
+  the Linux x86_64 `.deb`/`.rpm` remain at 0.1.30 from clean commit
+  `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. All four current artifacts contain all 282
   configured resources byte-identical to source, and pass all 177 deterministic HEOR tests
   against mounted or extracted package cores. Both Linux packages were built in an isolated
   Ubuntu 22.04 builder and are structurally and byte-for-byte verified. The arm64 DMG's
@@ -509,7 +510,7 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
   timestamps, sealed resources, safe
   entitlements, a stapled ticket, and Gatekeeper `Notarized Developer ID`; tag release
   evidence rejects missing trust checks or incomplete proof. Unit contracts and the
-  current unsigned x64 DMG prove the failure path, but no credentialed tag run proves the
+  current unsigned x64 and arm64 DMGs prove the failure path, but no credentialed tag run proves the
   success path yet. Matrix jobs also cannot create a draft release; only the final
   four-target manifest job can create a new draft containing exactly six verified
   installers, four evidence files, and the manifest. The Linux `.deb` additionally passed
@@ -698,7 +699,7 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
 | P1-1 | Multi-discipline platform lineage | P1 | 🟡 Pluggable, but generic examples are not part of the AI4HEOR delivery |
 | P1-2 | Domain + literature connectors | P1 | Superseded for AI4HEOR — governed HEOR evidence + Jupyter + unmanaged BYO MCP; no generic one-click catalog |
 | P1-3 | Scientific renderers | P1 | 🟡 Partial — base + 3D structure + genome + FITS + DOS + band + phase + qualitative-coding + anomaly map (all 4 disciplines; materials trio complete); ternary/coastlines next |
-| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — current 0.1.30 macOS x64 + Linux x64 packages locally verified and arm64 content-inspected; fail-closed four-target package/evidence manifest configured but not yet executed; Windows/native-arm execution and signing remain open |
+| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — current 0.1.31 macOS x64 is locally verified, 0.1.31 arm64 is cross-host content-inspected, and Linux x64 remains verified at 0.1.30; fail-closed four-target package/evidence manifest configured but not yet executed; Windows/native-arm execution and signing remain open |
 | P1-5 | Interaction & visualization craft | P1 | 🟡 Partial — chart system + palette + command palette + native table→chart surface shipped |
 | **P1-6** | **Social-science analysis integrity** | **P1** | 🟡 **Partial — stats-integrity skill: interpretation/prereg/seed checks + verified .dta→R round-trip** |
 | P2-1 | Notebook + larger-project handling | P2 | ✅ Done — notebook + workspace Files explorer |

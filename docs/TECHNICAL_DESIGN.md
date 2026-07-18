@@ -23,12 +23,12 @@
 > all 177 mounted-core HEOR tests pass, and isolated fresh plus legacy-migration starts
 > were verified. Its ordinary research and closed-Settings surfaces identify only the AI
 > assistant; the OpenCode engine name and local endpoint are confined to an explicitly
-> opened Advanced diagnostics section. The current 0.1.30 Apple Silicon DMG was separately
-> cross-built from the same clean commit `0beb7b2bcb04a796f256bd8f8528bb787aa77319` on an Intel
+> opened Advanced diagnostics section. The current 0.1.31 Apple Silicon DMG was separately
+> cross-built from the same clean commit `2834785e057ac54477a9633f07390bc173251644` on an Intel
 > Mac; read-only inspection verified pure-arm64 payloads, all 282 resources byte-for-byte,
 > and all 177 mounted-core HEOR tests. Native sidecar execution and first start remain
 > unverified because the strict verifier correctly rejects arm64 execution on that host.
-> The 0.1.30 Linux `.deb` and `.rpm` are built and content-verified from the same clean
+> The 0.1.30 Linux `.deb` and `.rpm` are built and content-verified from clean
 > commit `0beb7b2bcb04a796f256bd8f8528bb787aa77319` in an isolated Ubuntu 22.04 builder.
 > Both extracted packages independently pass all 177 HEOR tests and contain the same 282
 > controlled resources as source. The `.deb` also passes a brand-new Ubuntu 22.04 non-root
@@ -873,14 +873,16 @@ timestamps, sealed resources, hardened runtime on every executable, no true
 fields, so a missing workflow flag cannot be recorded as a trusted macOS release. It does
 not install the app into `/Applications` or establish visual/first-start acceptance.
 
-The current 0.1.30 arm64 DMG was additionally cross-built from clean source commit
-`0beb7b2bcb04a796f256bd8f8528bb787aa77319` on an Intel Mac. Cross-host inspection
+The current 0.1.31 arm64 DMG was additionally cross-built from clean source commit
+`2834785e057ac54477a9633f07390bc173251644` on an Intel Mac. The 76,095,510-byte artifact
+has SHA-256 `86b0583e36480affb90ec08b84d8c4276ec702b92e69ef90894f58c2888da42e`. Cross-host inspection
 can prove bundle metadata, thin Mach-O architectures, exact sidecar/source bytes, exact
 resource bytes, and the platform-independent HEOR suite. It cannot execute the arm64
 sidecars or desktop binary. The native verifier therefore fails closed with `Bad CPU type`
 and emits no formal evidence JSON; an Apple Silicon runner is still required. Separate
-`codesign`/`spctl` inspection found only an ad-hoc linker signature with no sealed
-resources, so this artifact is neither Developer-ID signed nor Gatekeeper-acceptable.
+`codesign`/`spctl` inspection found only an ad-hoc linker signature with no Team ID,
+sealed resources or stapled ticket, so strict signature verification and Gatekeeper both
+reject it; this artifact is neither Developer-ID signed nor notarized.
 
 ### 12.2 Windows
 

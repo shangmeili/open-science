@@ -300,8 +300,10 @@ Developer-ID/notarized macOS tag release, Windows signing, physical Linux deskto
 verification, auto-update, richer connector hardening, and continued reproducibility
 review. Current source and the current x64 macOS package are 0.1.31; the release adds a
 seven-language main-content skip link, product-wide visible keyboard focus, and automated
-light-theme contrast gates. Native Apple-Silicon and Linux package evidence remains at
-0.1.30. The AI4HEOR 0.1.31 x64 macOS DMG is locally built from clean commit
+light-theme contrast gates. The Apple-Silicon package has current-version bounded
+cross-host content evidence, while native Apple-Silicon execution remains open and Linux
+package evidence remains at 0.1.30. The AI4HEOR 0.1.31 x64 macOS DMG is locally built
+from clean commit
 `2834785e057ac54477a9633f07390bc173251644` and payload-verified: all 282
 configured resources match source bytes, all 177 deterministic HEOR tests pass
 against the mounted core, and two isolated LaunchServices runs prove fresh
@@ -315,14 +317,17 @@ engine as the AI assistant; the OpenCode implementation name and local endpoint 
 only in Settings → Advanced diagnostics. The default Settings surface contains governed
 first-party HEOR evidence access, managed Jupyter, and explicitly unmanaged user-added
 MCP servers; it no longer provisions the inherited generic Open Science connector catalog.
-The current 0.1.30 Apple Silicon DMG was separately cross-built from the same clean commit
-`0beb7b2bcb04a796f256bd8f8528bb787aa77319` on an Intel Mac: read-only inspection proved
+The current 0.1.31 Apple Silicon DMG was separately cross-built from clean commit
+`2834785e057ac54477a9633f07390bc173251644` on an Intel Mac. Its 76,095,510 bytes have
+SHA-256 `86b0583e36480affb90ec08b84d8c4276ec702b92e69ef90894f58c2888da42e`;
+read-only inspection proved
 pure-arm64 main/OpenCode/uv payloads, all 282 configured resources byte-identical to
 source, and all 177 deterministic HEOR tests against the mounted core. That is bounded
 cross-host package evidence, not native Apple Silicon execution: the strict verifier
 correctly stops when the Intel host cannot execute the arm64 sidecar, so no formal arm64
 release-evidence JSON or first-start claim was produced. The package is also not
-Developer-ID signed or notarized and is rejected by Gatekeeper.
+Developer-ID signed or notarized: it has only an ad-hoc linker signature, no Team ID,
+sealed resources, or stapled ticket, and is rejected by strict codesign and Gatekeeper.
 The tag-only release path now requires all Apple credential names before building and
 will record macOS release evidence only after every nested Mach-O shares one Developer ID
 whose Team ID matches the notarization account,

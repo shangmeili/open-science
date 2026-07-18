@@ -260,6 +260,14 @@ macOS DMG 已从干净提交 `2834785e057ac54477a9633f07390bc173251644` 构建�
 两次均证明应用复制、单一应用进程、单一内置 OpenCode 子进程与完整清理。它仍未经 Developer ID 签名或 notarize；
 这些工程证据不代表科学有效性。
 
+同一干净提交还交叉构建了 76,095,510 字节的 `AI4HEOR_0.1.31_aarch64.dmg`
+（SHA-256 `86b0583e36480affb90ec08b84d8c4276ec702b92e69ef90894f58c2888da42e`）。
+Intel 主机上的只读检查确认主程序、OpenCode 和 uv 均为纯 arm64，固定 sidecar
+字节一致、282 个资源与源码一致，且包内 HEOR 核心通过全部 177 项测试。严格验证器
+在执行 arm64 OpenCode 时按预期以 `Bad CPU type` 失败关闭，未生成正式发布证据；
+因此这不是 Apple Silicon 原生启动证明。该包只有 ad-hoc linker 签名，无 Team ID、
+sealed resources 或 stapled ticket，严格 codesign 与 Gatekeeper 均拒绝。
+
 ## 参与贡献
 
 欢迎 Issue 和 PR。请保持改动最小且可验证，遵循 [`AGENTS.md`](./AGENTS.md)，并在提交 PR 前运行检查。讨论和交流可以加入
