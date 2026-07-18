@@ -102,45 +102,32 @@ model/report audit, or a synthetic cost-effectiveness example. The bundled
 three-state cohort workflow; its numbers are teaching assumptions, not clinical
 or economic evidence, and it cannot create approval or reimbursement conclusions.
 
-<details>
-<summary><b>Inherited platform surfaces</b></summary>
+![AI4HEOR first-use guide with local, model, approval, and Human-authority boundaries](./docs/audits/2026-07-17-first-use/06-skip-link-stable.png)
 
-<br>
+![AI4HEOR HEOR-specific natural-language starter surface](./docs/audits/2026-07-17-first-use/07-heor-workspace-final.png)
 
-These images demonstrate the underlying local artifact, notebook, and review
-surfaces. They are not the default AI4HEOR example or a claim of HEOR validity.
-
-![Artifact inspector showing a figure's generating code, inputs, and provenance](./docs/assets/showcase-provenance.webp)
-
-![Literature survey producing a rendered PDF manuscript with a traceability review](./docs/assets/showcase-literature.webp)
-
-![The agent driving a Jupyter notebook with a live matplotlib figure](./docs/assets/showcase-notebook.webp)
-
-![An experiment sweep table alongside a live analysis notebook](./docs/assets/showcase-experiment.webp)
-
-![The skills library listing bundled scientific skills](./docs/assets/showcase-skills.webp)
-
-</details>
+![AI4HEOR editable cost-effectiveness request before any model turn](./docs/audits/2026-07-17-first-use/08-natural-language-draft-final.png)
 
 ## Current capabilities
 
-**Research assistance, as bounded skills.** AI4HEOR's admitted first-party skills
+**Research assistance, as bounded HEOR skills.** AI4HEOR's 45 first-party skills
 route researcher-defined tasks without acquiring approval or method-selection
-authority. The following upstream patterns remain inactive adaptation candidates:
+authority. Representative admitted workflows are:
 
 | Skill | Role | Primary output |
 | --- | --- | --- |
-| `ai4s-agent` | Runs the four skills below, in order | The full research package |
-| `research-explorer` | Turn a broad direction into concrete topics | `research_exploration.md`, `topic_matrix.md`, `literature_pre_survey.md` |
-| `literature-survey` | Write a literature survey | 6–20 pp PDF, 60+ real citations, LaTeX source, taxonomy figures |
-| `experiment-suite` | Build an experiment package | Design doc, runnable code, `results.json` with provenance, figures, report |
-| `paper-writer` | Write a research paper | 8–14 pp PDF, 200+ citations, 4–8 figures, tables |
-| `mindmap-render` | Render a mindmap | Image generated from a `topic_matrix.md` |
-| `integrity-auditor` | Audit a paper's integrity | Image / numerical / logical findings, 4-level evidence grading, `audit_report.md` |
+| `$heor-workbench` | Coordinate researcher-led HEOR work without taking scientific authority | Reviewable local plan, artifacts, and stop points |
+| `$heor-local-evidence` | Inventory an explicitly selected local knowledge base without automatic networking | Hash-bound local evidence inventory |
+| `$heor-evidence-search` | Draft an auditable PubMed/ClinicalTrials.gov request for Human network authorization | Exact request hash and imported metadata candidates |
+| `$heor-model-design` | Structure the Human-defined decision problem and conceptual model | Decision-problem and conceptual-model artifacts |
+| `$heor-cohort-state-transition` / `$heor-partitioned-survival` | Execute bounded deterministic economic models | Reproducible costs, QALYs, increments, and checks |
+| `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | Execute declared uncertainty and bounded VOI workflows | DSA/PSA/CEAC/CEAF/EVPI and separately reviewed advanced VOI |
+| `$heor-budget-impact` / `$heor-dynamic-budget-impact` | Execute bounded static or dynamic budget-impact analysis | Disaggregated budget results and audit artifacts |
+| `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | Validate, report, and package exact current artifacts | Independent-review package, report, and replay bundle |
 
-These upstream `ai4s-skills` patterns are registered as inactive adaptation
-candidates; they do not ship as runtime capabilities. AI4HEOR's first-party
-skills implement the admitted research workflow.
+Every first-party Skill name and description ships in all seven interface
+languages while the exact `$skill-id` remains visible. External assets keep
+their supplied metadata and remain inactive until separately admitted.
 
 ### Platform
 
@@ -240,7 +227,6 @@ pnpm install
 # Fetch pinned sidecars and bundled skills. These are git-ignored.
 bash scripts/dev/fetch-opencode.sh
 bash scripts/dev/fetch-uv.sh
-bash scripts/dev/fetch-skills.sh
 
 # Run in development or build installers.
 pnpm --filter @ai4s/desktop tauri dev
@@ -279,7 +265,7 @@ pnpm lint
 | `packages/shared/` | Shared domain types and chart palette. |
 | `packages/ui/` | Shared UI package. |
 | `runtime/skills/core/` | First-party scientific skills. |
-| `runtime/skills/external/` | Build-fetched external skills. |
+| `runtime/skills/external/` | Optional review cache for external candidates; not bundled by default. |
 | `runtime/harness/` | Product-owned, researcher-led assistant contract seeded into new projects. |
 | `runtime/mcp/` | MCP runtime notes/configuration. |
 | `examples/` | Built-in example workspaces. |

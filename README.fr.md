@@ -33,12 +33,13 @@ Formerly Open Science. Une alternative desktop open source à Claude Science et 
 ---
 
 🎉 **Reconnaissance :** Open Science Desktop est n° 1 au score moyen des tâches évaluées sur [ResearchClawBench](https://internscience.github.io/ResearchClawBench-Home/), un benchmark de bout en bout pour agents autonomes de recherche scientifique (classement Pass@1, 9 juillet 2026).
+Ce benchmark de la plateforme amont ne prouve ni que la recherche dans AI4HEOR doit être dirigée par un agent, ni la validité de ses résultats.
 
 ---
 
 ## Sommaire
 
-- [✨ Ce que fait Open Science](#ce-que-fait-open-science)
+- [✨ Ce que fait AI4HEOR](#ce-que-fait-ai4heor)
 - [🎬 Captures](#captures)
 - [🧪 Fonctionnalités actuelles](#fonctionnalités-actuelles)
 - [🔌 Skills et connecteurs](#skills-et-connecteurs)
@@ -48,53 +49,41 @@ Formerly Open Science. Une alternative desktop open source à Claude Science et 
 - [🗂️ Structure du dépôt](#structure-du-dépôt)
 - [📌 État](#état)
 
-## Ce que fait Open Science
+## Ce que fait AI4HEOR
 
-**Déroule toute la boucle de recherche** — d'une direction large à un article terminé : exploration, revue de littérature, hypothèse, code d'expérience, analyse, figures et rédaction, en une seule session continue et auditable.
+**Assiste un workflow HEOR dirigé par le chercheur humain** — depuis la question définie par le chercheur jusqu'aux données probantes révisables, analyses déterministes, validations et artefacts de rapport dans une session auditable.
 
-- **Agents de recherche autonomes** : le `ai4s-agent` intégré enchaîne des skills spécialisés de bout en bout (explorer → revue → expérience → rédaction), et chaque étape dépose un artefact réel et inspectable dans votre workspace, pas seulement une réponse de chat.
+- **Assistance natural-language-first** : le chercheur démarre et contrôle le travail ; le modèle/runtime propose ou exécute des étapes bornées sans acquérir d'autorité scientifique.
 - **Tout est traçable** : figures, tables, rapports, notebooks et sorties d'exécution renvoient au code, aux entrées, à l'environnement, à la sortie du modèle et à la conversation exacts qui les ont produits.
 - **Local-first et à vous** : sessions, données, provenance, notebooks et run records vivent dans des dossiers locaux sur votre machine. Rien ne sort par défaut.
 - **Runtime agnostique au modèle** : l'UI passe par `packages/sdk` vers un sidecar OpenCode épinglé et intégré. Apportez votre propre modèle ; fournisseurs, skills et serveurs MCP restent remplaçables.
 - **Reproductible par conception** : les exécutions locales, SSH/Slurm, Modal et notebook-batch sont enregistrées comme run records reproductibles, pas comme sortie de terminal éparse.
-- **Extensible** : skills d'agent, serveurs MCP et connecteurs scientifiques en un clic, commandes `/`, mode shell `!` et un SDK agnostique au modèle.
+- **Extensible sous gouvernance** : skills HEOR internes, serveurs MCP gérés par le chercheur, commandes `/`, mode shell `!` et SDK agnostique au modèle.
 
 ## Captures
 
-![End-to-end dose-response analysis](./docs/assets/showcase-workflow.webp)
+![Guide initial explicitant stockage local, modèle, autorisations et autorité Human](./docs/audits/2026-07-17-first-use/06-skip-link-stable.png)
 
-![Artifact inspector showing provenance](./docs/assets/showcase-provenance.webp)
+![Entrée en langage naturel propre au HEOR](./docs/audits/2026-07-17-first-use/07-heor-workspace-final.png)
 
-![Literature survey producing a rendered PDF manuscript](./docs/assets/showcase-literature.webp)
-
-<details>
-<summary><b>Autres captures</b></summary>
-
-<br>
-
-![Jupyter notebook](./docs/assets/showcase-notebook.webp)
-
-![Experiment sweep](./docs/assets/showcase-experiment.webp)
-
-![Skills library](./docs/assets/showcase-skills.webp)
-
-</details>
+![Demande coût-efficacité modifiable avant tout appel au modèle](./docs/audits/2026-07-17-first-use/08-natural-language-draft-final.png)
 
 ## Fonctionnalités actuelles
 
-**La boucle de recherche, sous forme de skills.** Un méta-skill déroule tout le pipeline ; chaque étape est un skill autonome qui produit un artefact réel et évaluable — exécutable sur n'importe quel modèle pris en charge par OpenCode :
+**Assistance HEOR sous forme de skills bornés.** Les 45 skills internes routent les tâches définies par le chercheur sans acquérir d'autorité d'approbation ou de choix méthodologique. Workflows représentatifs :
 
 | Skill | Rôle | Sortie principale |
 | --- | --- | --- |
-| `ai4s-agent` | Exécute les quatre skills ci-dessous, dans l'ordre | Le package de recherche complet |
-| `research-explorer` | Transformer une direction large en sujets concrets | `research_exploration.md`, `topic_matrix.md`, `literature_pre_survey.md` |
-| `literature-survey` | Rédiger une revue de littérature | PDF de 6–20 p, 60+ citations réelles, source LaTeX, figures de taxonomie |
-| `experiment-suite` | Construire un package d'expérience | Document de conception, code exécutable, `results.json` avec provenance, figures, rapport |
-| `paper-writer` | Rédiger un article de recherche | PDF de 8–14 p, 200+ citations, 4–8 figures, tables |
-| `mindmap-render` | Rendre une carte mentale | Image générée à partir d'un `topic_matrix.md` |
-| `integrity-auditor` | Auditer l'intégrité d'un article | Constats image/numériques/logiques, évaluation en 4 niveaux, `audit_report.md` |
+| `$heor-workbench` | Coordonner un travail HEOR dirigé par le chercheur | Plan local, artefacts et points d'arrêt révisables |
+| `$heor-local-evidence` | Inventorier une base locale sélectionnée sans accès réseau automatique | Inventaire local lié par hash |
+| `$heor-evidence-search` | Préparer une recherche PubMed/ClinicalTrials.gov soumise à autorisation Human | Hash exact de requête et candidats de métadonnées |
+| `$heor-model-design` | Structurer le problème décisionnel et le modèle conceptuel définis par l'humain | Artefacts de décision et de modèle conceptuel |
+| `$heor-cohort-state-transition` / `$heor-partitioned-survival` | Exécuter des modèles économiques déterministes bornés | Coûts, QALY, incréments et contrôles reproductibles |
+| `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | Exécuter l'incertitude déclarée et une VOI bornée | DSA/PSA/CEAC/CEAF/EVPI et VOI avancée revue séparément |
+| `$heor-budget-impact` / `$heor-dynamic-budget-impact` | Exécuter une analyse d'impact budgétaire statique ou dynamique | Résultats ventilés et artefacts d'audit |
+| `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | Valider, rapporter et empaqueter les artefacts courants exacts | Package de revue indépendante, rapport et bundle de rejeu |
 
-Ces modèles `ai4s-skills` sont enregistrés comme candidats d'adaptation inactifs et ne sont pas distribués comme capacités du runtime. Les skills internes d'AI4HEOR implémentent le flux admis.
+Les noms et descriptions des 45 skills internes sont fournis dans les sept langues de l'interface avec le `$skill-id` exact visible. Les actifs externes restent inactifs jusqu'à leur admission individuelle.
 
 ### Plateforme
 
@@ -114,7 +103,7 @@ Ces modèles `ai4s-skills` sont enregistrés comme candidats d'adaptation inacti
 
 Par défaut, seuls les skills internes de `runtime/skills/core/` sont distribués. Les actifs tiers restent inactifs jusqu'aux preuves de licence, limites, tests, revues, plateformes et hash exact. Les skills documentaires d'Anthropic sont rejetés car leur licence interdit la redistribution.
 
-Connecteurs MCP scientifiques en un clic : recherche bibliographique, bases biomédicales, Materials Project, FRED, Space weather, Open-Meteo et USGS water data. Tout serveur MCP local ou distant peut aussi être ajouté depuis Settings.
+La surface par défaut ne démarre aucun MCP tiers non évalué. `$heor-evidence-search` accède uniquement aux métadonnées PubMed et ClinicalTrials.gov après autorisation Human explicite ; Jupyter est le seul outil local géré en un clic. Les MCP ajoutés dans Settings sont étiquetés comme capacités externes non gérées, sans autorité scientifique ni d'approbation. Voir [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md).
 
 ## Installation
 
@@ -127,7 +116,7 @@ Téléchargez la dernière version depuis [Releases](https://github.com/ai4s-res
 Les builds ne sont pas encore signés. Si macOS bloque l'app :
 
 ```bash
-xattr -cr "/Applications/Open Science.app"
+xattr -cr "/Applications/AI4HEOR.app"
 ```
 
 Sous Windows, choisissez **More info -> Run anyway** dans SmartScreen.
@@ -140,7 +129,6 @@ cd open-science
 pnpm install
 bash scripts/dev/fetch-opencode.sh
 bash scripts/dev/fetch-uv.sh
-bash scripts/dev/fetch-skills.sh
 pnpm --filter @ai4s/desktop tauri dev
 pnpm --filter @ai4s/desktop tauri build
 ```
@@ -165,7 +153,7 @@ Les fichiers du workspace, données brutes, historique, provenance, notebooks et
 | `packages/sdk/` | `OpenCodeClient`, couche qui évite les appels directs UI -> OpenCode. |
 | `packages/shared/` | Types partagés et palette de graphiques. |
 | `runtime/skills/core/` | Skills scientifiques internes. |
-| `runtime/skills/external/` | Skills externes récupérés au build. |
+| `runtime/skills/external/` | Cache de revue facultatif pour candidats externes ; non inclus par défaut. |
 | `examples/` | Workspaces d'exemple inclus. |
 | `scripts/dev/` | Fetchers sidecar, `uv`, skills et tests ciblés. |
 | `docs/` | Notes produit, technique, operator, connecteurs et recherche. |

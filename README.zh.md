@@ -80,43 +80,30 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 中的双策略、三状态队列输入只是教学假设，不是临床或经济学证据，
 也不能生成批准、报销或政策结论。
 
-<details>
-<summary><b>继承的平台界面</b></summary>
+![AI4HEOR 首次使用界面明确本地、模型、授权与 Human 科学权责边界](./docs/audits/2026-07-17-first-use/06-skip-link-stable.png)
 
-<br>
+![AI4HEOR 的 HEOR 专属自然语言任务入口](./docs/audits/2026-07-17-first-use/07-heor-workspace-final.png)
 
-以下图片只展示底层的本地工件、笔记本和复核界面，不是 AI4HEOR
-默认示例，也不构成 HEOR 有效性声明。
-
-![工件检查器展示某张图的生成代码、输入与溯源信息](./docs/assets/showcase-provenance.webp)
-
-![文献综述产出渲染后的 PDF 稿件，并附带可追溯性评审](./docs/assets/showcase-literature.webp)
-
-![智能体驱动 Jupyter 笔记本并实时绘制 matplotlib 图](./docs/assets/showcase-notebook.webp)
-
-![实验扫描表格与实时分析笔记本并列](./docs/assets/showcase-experiment.webp)
-
-![技能库列出内置的科学技能](./docs/assets/showcase-skills.webp)
-
-</details>
+![模型执行前可编辑的成本效果分析自然语言请求](./docs/audits/2026-07-17-first-use/08-natural-language-draft-final.png)
 
 ## 当前能力
 
-**把科研辅助收敛为有界限的 Skills。** AI4HEOR 的第一方 Skill 只路由研究者
-界定的任务，不取得批准权或方法选择权。以下上游模式仅作为停用的改造候选：
+**把科研辅助收敛为有边界的 HEOR Skills。** AI4HEOR 的 45 个第一方 Skill
+只路由研究者界定的任务，不取得批准权或方法选择权。代表性已准入工作流包括：
 
 | 技能 | 职责 | 主要产出 |
 | --- | --- | --- |
-| `ai4s-agent` | 按顺序运行下面四个技能 | 完整的研究包 |
-| `research-explorer` | 把宽泛方向收敛成具体课题 | `research_exploration.md`、`topic_matrix.md`、`literature_pre_survey.md` |
-| `literature-survey` | 撰写文献综述 | 6–20 页 PDF、60+ 条真实引用、LaTeX 源码、分类学图 |
-| `experiment-suite` | 构建实验包 | 设计文档、可运行代码、带溯源的 `results.json`、图、报告 |
-| `paper-writer` | 撰写研究论文 | 8–14 页 PDF、200+ 引用、4–8 张图、表格 |
-| `mindmap-render` | 渲染思维导图 | 由 `topic_matrix.md` 生成的图片 |
-| `integrity-auditor` | 审计论文完整性 | 图像/数值/逻辑问题、四级证据分级、`audit_report.md` |
+| `$heor-workbench` | 协调由研究者主导的 HEOR 工作，不取得科学决策权 | 可复核的本地计划、工件和停止点 |
+| `$heor-local-evidence` | 盘点研究者明确选择的本地知识库，不自动联网 | 哈希绑定的本地证据目录 |
+| `$heor-evidence-search` | 起草需 Human 联网授权的 PubMed/ClinicalTrials.gov 检索 | 精确请求哈希和导入的元数据候选 |
+| `$heor-model-design` | 结构化人类界定的决策问题与概念模型 | 决策问题和概念模型工件 |
+| `$heor-cohort-state-transition` / `$heor-partitioned-survival` | 执行有边界的确定性经济学模型 | 可复现的成本、QALY、增量结果和检查 |
+| `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | 执行已声明的不确定性与有界 VOI 工作流 | DSA/PSA/CEAC/CEAF/EVPI 与单独复核的高级 VOI |
+| `$heor-budget-impact` / `$heor-dynamic-budget-impact` | 执行静态或动态预算影响分析 | 分项预算结果和审计工件 |
+| `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | 验证、报告并封装当前精确工件 | 独立复核包、报告和重放包 |
 
-这些上游 `ai4s-skills` 模式目前只作为停用的改造候选登记，不会作为运行时
-能力发布；AI4HEOR 由第一方技能实现已准入的科研工作流。
+全部第一方 Skill 的名称与说明均随七种界面语言发布，同时保留精确
+`$skill-id`；外部资产保留原始元数据，未经单独准入不会启用。
 
 ### 平台
 
@@ -146,17 +133,10 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 的 `docx`、`pdf`、`pptx`、`xlsx` 是 source-available，而非可再分发的
 开源资产；其目录许可证禁止复制、衍生和分发，因此 AI4HEOR 不再获取或打包。
 
-当前一键科学 MCP 连接器包括：
-
-- 文献检索：arXiv、PubMed、Crossref、Semantic Scholar、bioRxiv/medRxiv。
-- 生物医学数据库：PubMed、ClinicalTrials.gov、MyVariant/ClinVar。
-- Materials Project。
-- FRED 经济数据。
-- Space weather。
-- Open-Meteo 天气与气候。
-- USGS water data。
-
-你也可以在 Settings 中添加任意本地或远程 MCP 服务器。参见
+默认界面不启动未经审查的第三方一键 MCP。第一方 `$heor-evidence-search`
+只在 Human 明确授权后访问固定的 PubMed 与 ClinicalTrials.gov 元数据端点；
+Jupyter 是唯一的一键托管本地计算工具。研究者仍可在 Settings 添加本地或远程
+MCP，但它们会明确标为不受托管的外部能力，不获得科学判断或批准权。参见
 [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md)。
 
 中立定位对比见
@@ -209,7 +189,6 @@ pnpm install
 
 bash scripts/dev/fetch-opencode.sh
 bash scripts/dev/fetch-uv.sh
-bash scripts/dev/fetch-skills.sh
 
 pnpm --filter @ai4s/desktop tauri dev
 pnpm --filter @ai4s/desktop tauri build
@@ -239,7 +218,7 @@ pnpm lint
 | `packages/shared/` | 共享领域类型和图表色板。 |
 | `packages/ui/` | 共享 UI 包。 |
 | `runtime/skills/core/` | 第一方科学技能。 |
-| `runtime/skills/external/` | 构建时拉取的外部技能。 |
+| `runtime/skills/external/` | 外部候选的可选审查缓存；默认不打包。 |
 | `runtime/harness/` | 新项目会加载的产品级“研究者主导、模型辅助”运行契约。 |
 | `runtime/mcp/` | MCP 运行时说明和配置。 |
 | `examples/` | 内置示例工作区。 |

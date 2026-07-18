@@ -33,6 +33,7 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 ---
 
 🎉 **評価:** Open Science Desktop は、自律型科学研究エージェント向けのエンドツーエンドベンチマーク [ResearchClawBench](https://internscience.github.io/ResearchClawBench-Home/) で、採点済みタスク平均スコア第 1 位です（Pass@1 リーダーボード、2026 年 7 月 9 日）。
+この上流 Agent ベンチマークは、AI4HEOR の科学研究を Agent が主導すべきことや、その出力の有効性を証明するものではありません。
 
 ---
 
@@ -50,51 +51,39 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 
 ## できること
 
-**研究ループをまるごと回す**——広い方向性から完成論文まで:探索、文献調査、仮説、実験コード、分析、作図、執筆を、1 回の連続した監査可能なセッションで。
+**人間の研究者が主導する HEOR ワークフローを支援します**——研究者が定義した問いから、レビュー可能なエビデンス、決定論的分析、検証、報告成果物までを、監査可能な一連のセッションで扱います。
 
-- **自律型リサーチエージェント**: バンドルされた `ai4s-agent` が専門スキルをエンドツーエンドで連結し(探索 → 調査 → 実験 → 執筆)、各ステップが単なるチャット返信ではなく、実在する検査可能な成果物をワークスペースに残します。
+- **自然言語を優先した支援**: 研究者が作業を開始して制御し、モデル/ランタイムは権限を限定された手順を提案または実行します。科学的判断権は取得しません。
 - **すべてが辿れる**: 図、表、レポート、ノートブック、実行出力は、それらを生成した正確なコード、入力、環境、モデル出力、会話へリンクします。
 - **ローカルファースト、あなたのもの**: セッション、データ、来歴、ノートブック、実行記録はすべて手元のローカルフォルダに保存され、既定では外部に出ません。
 - **モデル非依存ランタイム**: UI は `packages/sdk` 経由でバンドル済み OpenCode sidecar と通信します——好きなモデルを持ち込めます。プロバイダ、スキル、MCP サーバーは差し替え可能です。
 - **設計から再現可能**: ローカル、SSH/Slurm、Modal、notebook-batch の実行を、散らばった端末ログではなく再現可能な run record として記録します。
-- **拡張可能**: エージェントスキル、MCP サーバーとワンクリックの科学コネクタ、`/` コマンド、`!` shell モード、そしてモデル非依存の SDK。
+- **統制された拡張性**: ファーストパーティ HEOR Skill、研究者が管理する MCP サーバー、`/` コマンド、`!` shell モード、モデル非依存 SDK。
 
 ## スクリーンショット
 
-![End-to-end dose-response analysis](./docs/assets/showcase-workflow.webp)
+![ローカル保存、モデル選択、承認、Human の科学的権限を示す初回ガイド](./docs/audits/2026-07-17-first-use/06-skip-link-stable.png)
 
-![Artifact inspector showing provenance](./docs/assets/showcase-provenance.webp)
+![HEOR 専用の自然言語スターター](./docs/audits/2026-07-17-first-use/07-heor-workspace-final.png)
 
-![Literature survey producing a rendered PDF manuscript](./docs/assets/showcase-literature.webp)
-
-<details>
-<summary><b>その他のスクリーンショット</b></summary>
-
-<br>
-
-![Jupyter notebook](./docs/assets/showcase-notebook.webp)
-
-![Experiment sweep](./docs/assets/showcase-experiment.webp)
-
-![Skills library](./docs/assets/showcase-skills.webp)
-
-</details>
+![モデル実行前に編集できる費用対効果分析リクエスト](./docs/audits/2026-07-17-first-use/08-natural-language-draft-final.png)
 
 ## 現在の機能
 
-**研究ループをスキルとして。** 1 つのメタスキルがパイプライン全体を実行し、各ステージは自己完結したスキルとして、実在する評価可能な成果物を生成します——OpenCode が対応する任意のモデルで動きます:
+**境界を持つ HEOR Skill による研究支援。** 45 個のファーストパーティ Skill は研究者が定義した作業を支援しますが、承認権や手法選択権を取得しません。代表的なワークフローは次のとおりです。
 
 | スキル | 役割 | 主な成果物 |
 | --- | --- | --- |
-| `ai4s-agent` | 下の 4 スキルを順に実行 | 研究パッケージ一式 |
-| `research-explorer` | 広い方向性を具体的なテーマへ収束 | `research_exploration.md`、`topic_matrix.md`、`literature_pre_survey.md` |
-| `literature-survey` | 文献調査を執筆 | 6–20 頁 PDF、60+ の実引用、LaTeX ソース、分類図 |
-| `experiment-suite` | 実験パッケージを構築 | 設計文書、実行可能コード、来歴付き `results.json`、図、レポート |
-| `paper-writer` | 研究論文を執筆 | 8–14 頁 PDF、200+ 引用、4–8 図、表 |
-| `mindmap-render` | マインドマップを描画 | `topic_matrix.md` から生成した画像 |
-| `integrity-auditor` | 論文の整合性を監査 | 画像/数値/論理の指摘、4 段階の証拠グレーディング、`audit_report.md` |
+| `$heor-workbench` | 研究者主導の HEOR 作業を調整 | レビュー可能なローカル計画、成果物、停止点 |
+| `$heor-local-evidence` | 自動通信せず、選択されたローカル知識ベースを棚卸し | ハッシュで結び付けたローカルエビデンス一覧 |
+| `$heor-evidence-search` | Human の通信承認を要する PubMed/ClinicalTrials.gov 検索を作成 | 正確なリクエストハッシュとメタデータ候補 |
+| `$heor-model-design` | 人間が定義した意思決定問題と概念モデルを構造化 | 意思決定問題・概念モデル成果物 |
+| `$heor-cohort-state-transition` / `$heor-partitioned-survival` | 境界付き決定論的経済モデルを実行 | 再現可能な費用、QALY、増分結果、検査 |
+| `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | 宣言済み不確実性分析と限定 VOI を実行 | DSA/PSA/CEAC/CEAF/EVPI と個別レビュー対象の高度 VOI |
+| `$heor-budget-impact` / `$heor-dynamic-budget-impact` | 静的・動的予算影響分析を実行 | 内訳付き予算結果と監査成果物 |
+| `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | 現在の正確な成果物を検証・報告・梱包 | 独立レビュー用パッケージ、報告書、再実行バンドル |
 
-これらの上流 `ai4s-skills` パターンは無効な適応候補として登録され、ランタイム機能としては配布されません。承認済みの研究ワークフローは AI4HEOR のファーストパーティ Skill が実装します。
+全ファーストパーティ Skill の名称と説明は 7 言語で提供され、正確な `$skill-id` も表示されます。外部資産は個別に承認されるまで無効です。
 
 ### プラットフォーム
 
@@ -114,7 +103,7 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 
 デフォルトで配布されるのは `runtime/skills/core/` のファーストパーティ Skill のみです。第三者資産はライセンス、境界、テスト、レビュー、クロスプラットフォーム証拠、正確なハッシュを満たすまで無効です。Anthropic の文書 Skill は再配布不可のため拒否されています。
 
-ワンクリック科学 MCP コネクタ: 文献検索、Biomedical databases、Materials Project、FRED、Space weather、Open-Meteo、USGS water data。任意のローカル/リモート MCP サーバーも Settings から追加できます。
+既定画面は未審査の第三者 MCP をワンクリック起動しません。`$heor-evidence-search` は Human の明示的承認後に固定された PubMed/ClinicalTrials.gov メタデータ端点だけへ接続し、Jupyter だけが管理対象のワンクリックローカル計算ツールです。Settings で追加する MCP は管理外の外部機能として明示され、科学的判断権や承認権を持ちません。詳細は [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md) を参照してください。
 
 ## インストール
 
@@ -127,7 +116,7 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 まだコード署名/Notarization はありません。macOS でブロックされた場合:
 
 ```bash
-xattr -cr "/Applications/Open Science.app"
+xattr -cr "/Applications/AI4HEOR.app"
 ```
 
 Windows では SmartScreen の **More info -> Run anyway** を選択します。
@@ -140,7 +129,6 @@ cd open-science
 pnpm install
 bash scripts/dev/fetch-opencode.sh
 bash scripts/dev/fetch-uv.sh
-bash scripts/dev/fetch-skills.sh
 pnpm --filter @ai4s/desktop tauri dev
 pnpm --filter @ai4s/desktop tauri build
 ```
@@ -165,7 +153,7 @@ pnpm lint
 | `packages/sdk/` | `OpenCodeClient`。UI が OpenCode を直接呼ばないための層。 |
 | `packages/shared/` | 共有型とチャートパレット。 |
 | `runtime/skills/core/` | 第一者科学スキル。 |
-| `runtime/skills/external/` | ビルド時取得の外部スキル。 |
+| `runtime/skills/external/` | 外部候補用の任意レビューキャッシュ。既定ではバンドルされません。 |
 | `examples/` | 内蔵サンプルワークスペース。 |
 | `scripts/dev/` | sidecar、`uv`、スキル取得、回帰プローブ。 |
 | `docs/` | 製品、技術、operator、コネクタ、研究メモ。 |

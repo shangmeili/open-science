@@ -97,6 +97,9 @@ jobs:
       - name: Validate first-party core Skills
         run: python scripts/dev/test_core_skills.py -v
 
+      - name: Validate localized AI4HEOR product documentation
+        run: python scripts/dev/test_ai4heor_product_docs.py -v
+
       - name: Validate researcher-led AI4HEOR harness
         run: python scripts/dev/test_heor_harness.py -v
 
