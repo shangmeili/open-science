@@ -134,35 +134,17 @@
       }
     },
     "assetAdmission": {
-      "sectionTitle": "Admission des actifs tiers",
-      "loading": "Lecture du registre d'admission embarqué…",
-      "unavailable": "Le registre d'admission est indisponible. Les actifs externes restent désactivés.",
+      "sectionTitle": "Adaptateurs externes",
+      "loading": "Vérification des adaptateurs externes fournis…",
+      "unavailable": "Les adaptateurs externes ne peuvent pas être vérifiés et restent désactivés.",
       "firstPartyTitle": "48 Skills AI4HEOR internes sont intégrées",
-      "firstPartyBoundary": "Les chiffres ci-dessous concernent uniquement les actifs tiers, pas les capacités intégrées de recherche et de pharmacoéconomie.",
-      "thirdPartyAdmitted": "tiers admis",
-      "thirdPartyQuarantined": "tiers en quarantaine",
-      "thirdPartyRejected": "tiers rejetés",
+      "firstPartyBoundary": "Seuls les adaptateurs externes ayant réussi les contrôles de licence, de sécurité, de méthode et de paquet, puis réellement distribués avec AI4HEOR, apparaissent ici. Les sources à réécrire ou exclues ne restent pas des options utilisateur.",
       "groupAdmitted": "Actifs admis ({{count}})",
-      "groupQuarantined": "Candidats en quarantaine ({{count}})",
-      "groupRejected": "Actifs rejetés ({{count}})",
-      "why": "Afficher les motifs",
-      "proposedAction": "Traitement proposé :",
-      "actionFirstPartyRewrite": "Ne pas charger directement la Skill amont ; la réimplémenter selon les contrats AI4HEOR avant examen.",
-      "actionPerToolAdapter": "Ne pas admettre le MCP en bloc ; examiner séparément chaque outil utile au HEOR.",
-      "actionCleanRoom": "Ne pas modifier, compiler ni redistribuer le code amont ; implémenter indépendamment la capacité requise.",
-      "actionPptxReplacement": "Ne pas admettre la Skill PPTX amont ; utiliser la capacité interne research-presentation.",
       "admitted": "admis",
-      "quarantined": "en quarantaine",
-      "rejected": "rejetés",
-      "noneAdmitted": "Aucun actif tiers de production n'est admis. Les candidats en quarantaine ou rejetés restent visibles pour examen, mais ne sont pas chargés dans le runtime.",
-      "registryValid": "Le registre est valide et {{count}} actif tiers est admis par hash exact.",
-      "failClosed": "La validation du registre a échoué. Tous les actifs tiers restent désactivés.",
-      "noBlockers": "Aucun blocage non résolu",
-      "status": {
-        "admitted": "admis",
-        "quarantined": "quarantaine",
-        "rejected": "rejeté"
-      }
+      "adapterBoundary": "Cet adaptateur ne peut fonctionner que dans les limites déclarées d’espace de travail, de réseau, d’autorisations et de Human-in-the-loop.",
+      "noneAdmitted": "Aucun outil tiers n’est actuellement distribué avec AI4HEOR. Les fonctions nécessaires sont assurées par des Skills internes ; les réécritures inachevées et les sources exclues ne sont pas affichées ici.",
+      "registryValid": "Le registre des adaptateurs externes est valide et {{count}} adaptateur est disponible.",
+      "failClosed": "La validation du registre a échoué. Toutes les capacités externes restent désactivées."
     },
     "environment": {
       "sectionTitle": "Environnement scientifique",

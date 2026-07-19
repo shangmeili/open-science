@@ -115,6 +115,79 @@ class AI4HEORProductDocsTests(unittest.TestCase):
                 for retired in RETIRED_PUBLIC_DEFAULTS:
                     self.assertNotIn(retired, text)
 
+    def test_external_release_inventory_has_no_unfinished_or_excluded_options(self):
+        registry = json.loads(
+            (ROOT / "runtime/assets/asset-admission-registry.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(registry["schema_version"], "1.1.0")
+        self.assertEqual(
+            registry["purpose"], "release-eligible-external-adapters-only"
+        )
+        self.assertEqual(registry["assets"], [])
+        self.assertFalse((ROOT / "runtime/skills/external").exists())
+
+        surface = (ROOT / "apps/desktop/src/app/routes/SkillsPage.tsx").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("quarantinedCount", surface)
+        self.assertNotIn("rejectedCount", surface)
+        for locale in README_BY_LOCALE:
+            pages = json.loads(
+                (LOCALES_ROOT / locale / "pages.json").read_text(encoding="utf-8")
+            )
+            admission = pages["skills"]["assetAdmission"]
+            for retired_key in (
+                "quarantined",
+                "rejected",
+                "thirdPartyQuarantined",
+                "thirdPartyRejected",
+                "groupQuarantined",
+                "groupRejected",
+                "actionCleanRoom",
+            ):
+                self.assertNotIn(retired_key, admission, (locale, retired_key))
+            self.assertTrue(admission["adapterBoundary"])
+
+        trail = (
+            ROOT / "docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md"
+        ).read_text(encoding="utf-8")
+        for source in (
+            "AI4S Agent",
+            "AI4S Experiment Suite",
+            "AI4S Integrity Auditor",
+            "AI4S Literature Survey",
+            "AI4S Mindmap Renderer",
+            "AI4S Paper Writer",
+            "AI4S Research Explorer",
+            "HEORAgent MCP",
+            "Paper Search MCP",
+            "BioMCP",
+            "DOCX",
+            "PDF",
+            "PPTX",
+            "XLSX",
+        ):
+            self.assertIn(source, trail)
+
+    def test_general_research_foundation_has_an_explicit_acceptance_matrix(self):
+        relative = "docs/RESEARCH_FOUNDATION_CAPABILITIES.zh-CN.md"
+        matrix = (ROOT / relative).read_text(encoding="utf-8")
+        chinese_readme = (ROOT / "README.zh.md").read_text(encoding="utf-8")
+        self.assertIn(relative, chinese_readme)
+        for required in (
+            "已交付",
+            "部分交付",
+            "待建设",
+            "研究汇报幻灯",
+            "RIS/BibTeX/CSL",
+            "DOCX/PDF",
+            "XLSX",
+            "不能因为“会写报告”或“会生成表格”",
+        ):
+            self.assertIn(required, matrix)
+
     def test_upstream_benchmark_never_implies_agent_scientific_authority(self):
         for locale, relative in README_BY_LOCALE.items():
             with self.subTest(locale=locale):

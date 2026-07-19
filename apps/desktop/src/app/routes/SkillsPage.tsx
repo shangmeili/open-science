@@ -17,14 +17,10 @@ import {
   type SkillCandidateSummary,
 } from "@/lib/tauri";
 
-// Registry schema identifiers, not user-facing copy.
-// eslint-disable-next-line i18next/no-literal-string
-const ADMISSION_STATUS_ORDER = ["validated-adapter", "quarantined", "rejected"] as const;
-
 /**
- * Runtime capabilities plus the app-owned third-party admission registry.
- * Natural-language review is the primary external-asset workflow; the registry
- * is the secondary, deterministic release control.
+ * Runtime capabilities plus the app-owned external-adapter release registry.
+ * Unresolved and excluded sources are internal engineering records, not user
+ * choices. Only fully validated adapters may appear here.
  */
 export function SkillsPage() {
   const { t, i18n } = useTranslation(["pages", "common", "skills"]);
@@ -208,11 +204,6 @@ export function SkillsPage() {
                 <p className="text-sm font-medium text-text">{t("skills.assetAdmission.firstPartyTitle")}</p>
                 <p className="mt-1 text-xs leading-5 text-muted">{t("skills.assetAdmission.firstPartyBoundary")}</p>
               </div>
-              <div className="grid grid-cols-3 gap-px bg-border">
-                <AdmissionCount value={admission.admittedCount} label={t("skills.assetAdmission.thirdPartyAdmitted")} />
-                <AdmissionCount value={admission.quarantinedCount} label={t("skills.assetAdmission.thirdPartyQuarantined")} />
-                <AdmissionCount value={admission.rejectedCount} label={t("skills.assetAdmission.thirdPartyRejected")} />
-              </div>
               <p className={cn("px-4 py-3 text-xs", admission.complete ? "text-muted" : "text-danger") }>
                 {admission.complete
                   ? admission.admittedCount === 0
@@ -223,22 +214,14 @@ export function SkillsPage() {
               {admission.errors.map((error) => (
                 <div key={error} className="px-4 py-2 text-xs text-danger">{error}</div>
               ))}
-              {ADMISSION_STATUS_ORDER.map((status) => {
-                const assets = admission.assets.filter((asset) => asset.status === status);
-                if (assets.length === 0) return null;
-                const label =
-                  status === "validated-adapter"
-                    ? t("skills.assetAdmission.groupAdmitted", { count: assets.length })
-                    : status === "quarantined"
-                      ? t("skills.assetAdmission.groupQuarantined", { count: assets.length })
-                      : t("skills.assetAdmission.groupRejected", { count: assets.length });
-                return (
-                  <div key={status}>
-                    <div className="bg-surface-2 px-4 py-2 text-xs font-medium text-text">{label}</div>
-                    {assets.map((asset) => <AdmissionRow key={asset.assetId} asset={asset} />)}
+              {admission.assets.length > 0 && (
+                <div>
+                  <div className="bg-surface-2 px-4 py-2 text-xs font-medium text-text">
+                    {t("skills.assetAdmission.groupAdmitted", { count: admission.assets.length })}
                   </div>
-                );
-              })}
+                  {admission.assets.map((asset) => <AdmissionRow key={asset.assetId} asset={asset} />)}
+                </div>
+              )}
             </>
           )}
         </Section>
@@ -623,65 +606,23 @@ function RowItem({ name, desc, tag, code }: { name: string; desc: string; tag?: 
   );
 }
 
-function AdmissionCount({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="bg-surface px-4 py-3 text-center">
-      <div className="font-mono text-lg font-semibold text-text">{value}</div>
-      <div className="text-xs text-muted">{label}</div>
-    </div>
-  );
-}
-
 function AdmissionRow({ asset }: { asset: AssetAdmissionRecord }) {
   const { t } = useTranslation("pages");
-  const status = admissionStatus(asset.status);
-  const label = status ? t(`skills.assetAdmission.status.${status}`) : asset.status;
   return (
     <div className="flex items-start gap-3 px-4 py-3">
-      {asset.status === "validated-adapter" ? (
-        <Check size={16} className="mt-0.5 shrink-0 text-ok" />
-      ) : (
-        <X size={16} className={cn("mt-0.5 shrink-0", asset.status === "rejected" ? "text-danger" : "text-muted")} />
-      )}
+      <Check size={16} className="mt-0.5 shrink-0 text-ok" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-text">{asset.displayName}</span>
-          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted ring-1 ring-border">{label}</span>
+          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted ring-1 ring-border">
+            {t("skills.assetAdmission.admitted")}
+          </span>
           <span className="font-mono text-[11px] text-muted">{asset.licenseSpdx}</span>
         </div>
-        <details className="mt-2 text-xs text-muted">
-          <summary className="cursor-pointer select-none font-medium text-text">
-            {t("skills.assetAdmission.why")}
-          </summary>
-          {asset.blockers.length > 0 ? (
-            <ul className="mt-2 list-disc space-y-1 pl-5 leading-5">
-              {asset.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
-            </ul>
-          ) : (
-            <p className="mt-2">{t("skills.assetAdmission.noBlockers")}</p>
-          )}
-        </details>
-        <p className="mt-2 text-xs leading-5 text-muted">
-          <span className="font-medium text-text">{t("skills.assetAdmission.proposedAction")}</span>{" "}
-          {asset.assetId === "anthropic-skills/pptx"
-            ? t("skills.assetAdmission.actionPptxReplacement")
-            : asset.status === "rejected"
-              ? t("skills.assetAdmission.actionCleanRoom")
-              : asset.kind === "mcp"
-                ? t("skills.assetAdmission.actionPerToolAdapter")
-                : t("skills.assetAdmission.actionFirstPartyRewrite")}
-        </p>
+        <p className="mt-2 text-xs leading-5 text-muted">{t("skills.assetAdmission.adapterBoundary")}</p>
       </div>
     </div>
   );
-}
-
-type AdmissionStatus = "admitted" | "quarantined" | "rejected";
-
-function admissionStatus(status: string): AdmissionStatus | undefined {
-  if (status === "validated-adapter") return "admitted";
-  if (status === "quarantined" || status === "rejected") return status;
-  return undefined;
 }
 
 function Empty({ children }: { children: React.ReactNode }) {

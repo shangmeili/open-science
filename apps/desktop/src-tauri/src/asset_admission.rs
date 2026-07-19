@@ -1,8 +1,9 @@
 //! Fail-closed admission registry for third-party platform assets.
 //!
-//! Discovery is not deployment. Only a hash-locked `validated-adapter` entry
-//! with complete license, boundary, test, security, methods, platform, and kill
-//! switch evidence may be copied into the app-managed runtime.
+//! The registry is a release inventory, not a candidate backlog. Only a
+//! hash-locked `validated-adapter` entry with complete license, boundary, test,
+//! security, methods, platform, and kill-switch evidence may be copied into the
+//! app-managed runtime. Unfinished and excluded sources are not registry rows.
 
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -40,8 +41,6 @@ pub struct AssetAdmissionAudit {
     pub policy_revision: String,
     pub total_count: usize,
     pub admitted_count: usize,
-    pub quarantined_count: usize,
-    pub rejected_count: usize,
     pub assets: Vec<AssetAdmissionRecord>,
     pub errors: Vec<String>,
 }
@@ -112,8 +111,6 @@ fn empty(error: impl Into<String>) -> AssetAdmissionAudit {
         policy_revision: String::new(),
         total_count: 0,
         admitted_count: 0,
-        quarantined_count: 0,
-        rejected_count: 0,
         assets: Vec::new(),
         errors: vec![error.into()],
     }
@@ -138,8 +135,8 @@ pub(crate) fn validate_registry(raw: &[u8]) -> (AssetAdmissionAudit, Vec<SkillDe
     audit.policy_revision = text(registry.get("policy_revision"))
         .unwrap_or_default()
         .to_string();
-    if audit.schema_version != "1.0.0" {
-        audit.errors.push("schema_version must be 1.0.0".into());
+    if audit.schema_version != "1.1.0" {
+        audit.errors.push("schema_version must be 1.1.0".into());
     }
     if audit.policy_revision.len() != 10
         || audit.policy_revision.as_bytes().get(4) != Some(&b'-')
@@ -154,14 +151,16 @@ pub(crate) fn validate_registry(raw: &[u8]) -> (AssetAdmissionAudit, Vec<SkillDe
             .errors
             .push("release_statuses must contain only validated-adapter".into());
     }
+    if text(registry.get("purpose")) != Some("release-eligible-external-adapters-only") {
+        audit.errors.push(
+            "purpose must be release-eligible-external-adapters-only".into(),
+        );
+    }
 
     let Some(assets) = registry.get("assets").and_then(Value::as_array) else {
-        audit.errors.push("assets must be a non-empty array".into());
+        audit.errors.push("assets must be an array".into());
         return (audit, Vec::new());
     };
-    if assets.is_empty() {
-        audit.errors.push("assets must be a non-empty array".into());
-    }
     audit.total_count = assets.len();
     let mut ids = HashSet::new();
     let mut deployment_keys = HashSet::new();
@@ -193,8 +192,10 @@ pub(crate) fn validate_registry(raw: &[u8]) -> (AssetAdmissionAudit, Vec<SkillDe
         if !matches!(kind, Some("skill" | "mcp" | "package")) {
             audit.errors.push(format!("{prefix}.kind is invalid"));
         }
-        if !matches!(status, Some(RELEASE_STATUS | "quarantined" | "rejected")) {
-            audit.errors.push(format!("{prefix}.status is invalid"));
+        if status != Some(RELEASE_STATUS) {
+            audit.errors.push(format!(
+                "{prefix}.status must be validated-adapter; unresolved or excluded sources do not belong in the release registry"
+            ));
         }
         if release_eligible != Some(status == Some(RELEASE_STATUS)) {
             audit.errors.push(format!(
@@ -342,30 +343,6 @@ pub(crate) fn validate_registry(raw: &[u8]) -> (AssetAdmissionAudit, Vec<SkillDe
                         entry: entry.to_string(),
                         content_sha256: content_sha256.to_string(),
                     });
-                }
-            }
-            Some("quarantined") => {
-                audit.quarantined_count += 1;
-                if asset
-                    .get("distribution")
-                    .is_some_and(|value| !value.is_null())
-                    || blockers.as_ref().is_none_or(Vec::is_empty)
-                {
-                    audit.errors.push(format!(
-                        "{prefix} quarantined assets must be non-distributed and blocked"
-                    ));
-                }
-            }
-            Some("rejected") => {
-                audit.rejected_count += 1;
-                if asset
-                    .get("distribution")
-                    .is_some_and(|value| !value.is_null())
-                    || blockers.as_ref().is_none_or(Vec::is_empty)
-                {
-                    audit.errors.push(format!(
-                        "{prefix} rejected assets must be non-distributed and blocked"
-                    ));
                 }
             }
             _ => {}
@@ -522,23 +499,69 @@ mod tests {
     const REGISTRY: &[u8] =
         include_bytes!("../../../../runtime/assets/asset-admission-registry.json");
 
+    fn unfinished_asset(status: &str) -> Value {
+        serde_json::json!({
+            "asset_id": "example/tool",
+            "display_name": "Example Tool",
+            "kind": "skill",
+            "status": status,
+            "release_eligible": status == "validated-adapter",
+            "source": {
+                "repository": "https://example.test/tool",
+                "revision": "0123456789abcdef0123456789abcdef01234567",
+                "license_spdx": "MIT",
+                "license_evidence_url": "https://example.test/tool/LICENSE",
+                "license_compatible": true
+            },
+            "capability_boundary": {
+                "workspace_access": "current-workspace-required",
+                "network_egress": "none-by-default",
+                "execution": "human-approved",
+                "authority": "no-approval-or-decision-authority"
+            },
+            "industrialization": {
+                "adaptation_mode": "rewrite-required",
+                "delta_record": "docs/audit.md",
+                "contract_tests": [],
+                "adversarial_tests": [],
+                "platforms": [],
+                "security_review": "pending",
+                "methods_review": "pending",
+                "kill_switch": false,
+                "upstream_evidence": ["Pinned source"]
+            },
+            "distribution": null,
+            "blockers": ["Not production ready"]
+        })
+    }
+
     #[test]
-    fn production_registry_is_valid_but_admits_no_third_party_code() {
+    fn production_registry_is_valid_and_contains_no_external_candidate_rows() {
         let (audit, deployments) = validate_registry(REGISTRY);
         assert!(audit.complete, "{:?}", audit.errors);
         assert!(!audit.fail_closed);
-        assert_eq!(audit.total_count, 14);
+        assert_eq!(audit.total_count, 0);
         assert_eq!(audit.admitted_count, 0);
-        assert_eq!(audit.quarantined_count, 10);
-        assert_eq!(audit.rejected_count, 4);
         assert!(deployments.is_empty());
     }
 
     #[test]
-    fn status_change_cannot_promote_an_unfinished_candidate() {
+    fn unresolved_or_excluded_source_cannot_enter_release_registry() {
         let mut value: Value = serde_json::from_slice(REGISTRY).unwrap();
-        value["assets"][0]["status"] = Value::String("validated-adapter".into());
-        value["assets"][0]["release_eligible"] = Value::Bool(true);
+        value["assets"] = serde_json::json!([unfinished_asset("quarantined")]);
+        let (audit, deployments) = validate_registry(&serde_json::to_vec(&value).unwrap());
+        assert!(!audit.complete);
+        assert!(deployments.is_empty());
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("do not belong in the release registry")));
+    }
+
+    #[test]
+    fn status_edit_cannot_promote_an_unfinished_asset() {
+        let mut value: Value = serde_json::from_slice(REGISTRY).unwrap();
+        value["assets"] = serde_json::json!([unfinished_asset("validated-adapter")]);
         let (audit, deployments) = validate_registry(&serde_json::to_vec(&value).unwrap());
         assert!(!audit.complete);
         assert!(deployments.is_empty());
@@ -551,7 +574,8 @@ mod tests {
     #[test]
     fn duplicate_ids_fail_closed() {
         let mut value: Value = serde_json::from_slice(REGISTRY).unwrap();
-        value["assets"][1]["asset_id"] = value["assets"][0]["asset_id"].clone();
+        let asset = unfinished_asset("validated-adapter");
+        value["assets"] = serde_json::json!([asset.clone(), asset]);
         let (audit, deployments) = validate_registry(&serde_json::to_vec(&value).unwrap());
         assert!(!audit.complete);
         assert!(deployments.is_empty());

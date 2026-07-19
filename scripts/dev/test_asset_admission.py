@@ -26,64 +26,87 @@ class AssetAdmissionTests(unittest.TestCase):
     def changed(self) -> dict:
         return copy.deepcopy(self.registry)
 
-    def test_registry_is_valid_and_has_no_external_release_asset(self) -> None:
-        self.assertEqual(validate_registry(self.registry), [])
-        statuses = [asset["status"] for asset in self.registry["assets"]]
-        self.assertEqual(len(statuses), 14)
-        self.assertEqual(statuses.count("validated-adapter"), 0)
-        self.assertEqual(statuses.count("quarantined"), 10)
-        self.assertEqual(statuses.count("rejected"), 4)
+    @staticmethod
+    def unfinished_asset(status: str = "validated-adapter") -> dict:
+        return {
+            "asset_id": "example/tool",
+            "display_name": "Example Tool",
+            "kind": "skill",
+            "status": status,
+            "release_eligible": status == "validated-adapter",
+            "source": {
+                "repository": "https://example.test/tool",
+                "revision": "0123456789abcdef0123456789abcdef01234567",
+                "license_spdx": "MIT",
+                "license_evidence_url": "https://example.test/tool/LICENSE",
+                "license_compatible": True,
+            },
+            "capability_boundary": {
+                "workspace_access": "current-workspace-required",
+                "network_egress": "none-by-default",
+                "execution": "human-approved",
+                "authority": "no-approval-or-decision-authority",
+            },
+            "industrialization": {
+                "adaptation_mode": "rewrite-required",
+                "delta_record": "docs/audit.md",
+                "contract_tests": [],
+                "adversarial_tests": [],
+                "platforms": [],
+                "security_review": "pending",
+                "methods_review": "pending",
+                "kill_switch": False,
+                "upstream_evidence": ["Pinned source"],
+            },
+            "distribution": None,
+            "blockers": ["Not production ready"],
+        }
 
-    def test_inherited_generic_mcp_candidates_remain_quarantined(self) -> None:
-        by_id = {asset["asset_id"]: asset for asset in self.registry["assets"]}
-        for asset_id in ("paper-search-mcp", "biomcp"):
-            asset = by_id[asset_id]
-            self.assertEqual(asset["status"], "quarantined")
-            self.assertFalse(asset["release_eligible"])
-            self.assertIsNone(asset["distribution"])
-            self.assertTrue(asset["blockers"])
+    def test_registry_is_valid_and_has_no_external_candidate_rows(self) -> None:
+        self.assertEqual(validate_registry(self.registry), [])
+        self.assertEqual(self.registry["assets"], [])
+
+    def test_unresolved_or_excluded_source_cannot_enter_release_registry(self) -> None:
+        registry = self.changed()
+        registry["assets"] = [self.unfinished_asset("quarantined")]
+        errors = validate_registry(registry)
+        self.assertTrue(any("do not belong in the release registry" in error for error in errors))
 
     def test_status_edit_cannot_promote_an_unfinished_asset(self) -> None:
         registry = self.changed()
-        registry["assets"][0]["status"] = "validated-adapter"
-        registry["assets"][0]["release_eligible"] = True
+        registry["assets"] = [self.unfinished_asset()]
         errors = validate_registry(registry)
         self.assertTrue(any("industrially complete" in error for error in errors))
         self.assertTrue(any("distribution" in error for error in errors))
 
     def test_compatible_license_flag_is_required_for_release(self) -> None:
         registry = self.changed()
-        asset = registry["assets"][7]
-        asset["status"] = "validated-adapter"
-        asset["release_eligible"] = True
+        asset = self.unfinished_asset()
+        asset["source"]["license_compatible"] = False
+        registry["assets"] = [asset]
         errors = validate_registry(registry)
         self.assertTrue(any("industrially complete" in error for error in errors))
 
-    def test_non_admitted_asset_cannot_have_a_distribution(self) -> None:
-        registry = self.changed()
-        registry["assets"][0]["distribution"] = {
-            "resource_pack": "skills-admitted-test",
-            "entry": "candidate",
-            "content_sha256": "0" * 64,
-        }
-        errors = validate_registry(registry)
-        self.assertTrue(any("non-distributed" in error for error in errors))
-
     def test_duplicate_identity_fails_closed(self) -> None:
         registry = self.changed()
-        registry["assets"][1]["asset_id"] = registry["assets"][0]["asset_id"]
+        asset = self.unfinished_asset()
+        registry["assets"] = [asset, copy.deepcopy(asset)]
         errors = validate_registry(registry)
         self.assertTrue(any("duplicated" in error for error in errors))
 
     def test_mutable_branch_is_not_a_source_revision(self) -> None:
         registry = self.changed()
-        registry["assets"][0]["source"]["revision"] = "main"
+        asset = self.unfinished_asset()
+        asset["source"]["revision"] = "main"
+        registry["assets"] = [asset]
         errors = validate_registry(registry)
         self.assertTrue(any("full commit" in error for error in errors))
 
     def test_authority_cannot_be_delegated_to_an_asset(self) -> None:
         registry = self.changed()
-        registry["assets"][0]["capability_boundary"]["authority"] = "may-approve"
+        asset = self.unfinished_asset()
+        asset["capability_boundary"]["authority"] = "may-approve"
+        registry["assets"] = [asset]
         errors = validate_registry(registry)
         self.assertTrue(any("authority" in error for error in errors))
 

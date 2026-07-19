@@ -212,35 +212,17 @@
       }
     },
     "assetAdmission": {
-      "sectionTitle": "Tool admission status",
-      "loading": "Reading the packaged admission registry…",
-      "unavailable": "The admission registry is unavailable. External assets remain disabled.",
+      "sectionTitle": "External adapters",
+      "loading": "Checking external adapters shipped with the app…",
+      "unavailable": "External adapters cannot be verified and remain disabled.",
       "firstPartyTitle": "48 first-party AI4HEOR Skills are built in",
-      "firstPartyBoundary": "The counts below cover third-party assets only. They do not include the first-party pharmacoeconomics and general research capabilities shipped with the workbench.",
+      "firstPartyBoundary": "Only external adapters that passed license, security, methods, and package checks and actually ship with AI4HEOR appear here. Sources awaiting a rewrite or excluded from the product are not retained as user options.",
       "admitted": "admitted",
-      "quarantined": "quarantined",
-      "rejected": "rejected",
-      "thirdPartyAdmitted": "third-party admitted",
-      "thirdPartyQuarantined": "third-party quarantined",
-      "thirdPartyRejected": "third-party rejected",
       "groupAdmitted": "Admitted third-party assets ({{count}})",
-      "groupQuarantined": "Quarantined candidates ({{count}})",
-      "groupRejected": "Rejected assets ({{count}})",
-      "why": "Show reasons for non-admission",
-      "proposedAction": "Proposed treatment:",
-      "actionFirstPartyRewrite": "Do not load the upstream Skill directly. Rebuild it around AI4HEOR authority, artifact, and test contracts, then ship it as a first-party capability after review.",
-      "actionPerToolAdapter": "Do not admit the MCP wholesale. Isolate only HEOR-relevant tools and admit each one after dependency, network, permission, method, and kill-switch gates pass.",
-      "actionCleanRoom": "Do not modify, compile, or redistribute the upstream code. If the capability is needed, implement it independently from requirements without using its source or assets.",
-      "actionPptxReplacement": "Do not admit the upstream PPTX Skill. AI4HEOR already replaces it with the first-party, macro-free, source-bound research-presentation capability.",
-      "noneAdmitted": "No third-party production asset is admitted. Quarantined and rejected candidates are visible for review but are not loaded into the runtime.",
-      "registryValid": "The registry is valid and {{count}} third-party asset is admitted by exact hash.",
-      "failClosed": "The registry failed validation. All third-party assets remain disabled.",
-      "noBlockers": "No unresolved blocker",
-      "status": {
-        "admitted": "admitted",
-        "quarantined": "quarantined",
-        "rejected": "rejected"
-      }
+      "adapterBoundary": "This adapter can run only inside its declared workspace, network, permission, and Human-in-the-loop boundary.",
+      "noneAdmitted": "No third-party tool currently ships with AI4HEOR. Required capabilities are first-party Skills; unfinished rewrites and excluded sources are not shown here.",
+      "registryValid": "The external-adapter registry is valid and {{count}} adapter is available.",
+      "failClosed": "The external-adapter registry failed validation. All external capabilities remain disabled."
     },
     "environment": {
       "sectionTitle": "Scientific environment",

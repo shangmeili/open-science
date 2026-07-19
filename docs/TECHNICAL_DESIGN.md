@@ -313,13 +313,13 @@ workspace/
 
 ### 6.3 Third-party skills
 
-Third-party Skills are discovery candidates, not runtime capabilities. The packaged
-asset-admission registry requires a compatible license, pinned revision, declared
-capability boundary, adaptation delta, tests, cross-platform evidence, reviews, kill
-switch, and exact content hash before a `validated-adapter` can be copied into the
-app-managed OpenCode profile. The Skills page shows both the native registry audit and
-the real skills OpenCode loaded. Workspace `.opencode/skills/` content is visibly
-unmanaged and never becomes a bundled product asset automatically.
+The packaged external-adapter registry is release-only. It contains no discovery,
+unfinished, or excluded source rows. A completed adapter requires a compatible
+license, pinned revision, declared capability boundary, adaptation delta, tests,
+cross-platform evidence, reviews, kill switch, and exact content hash before it can
+be copied into the app-managed OpenCode profile. The Skills page shows only adapters
+that actually ship and the real Skills OpenCode loaded; workspace `.opencode/skills/`
+content is visibly unmanaged and never becomes a bundled product asset automatically.
 
 #### 6.3.1 Capability-growth harness
 
@@ -735,9 +735,9 @@ AI4HEOR separates product-owned capabilities from arbitrary MCP processes:
 
 No third-party MCP is a default until a pinned, per-tool adapter passes license,
 egress, rights, methods, adversarial, cross-platform, and kill-switch admission.
-Paper Search MCP and BioMCP are registered as quarantined candidates; the
-generic Materials Project, FRED, space-weather, Open-Meteo, and USGS entries are
-retired from the AI4HEOR default catalog.
+Paper Search MCP and BioMCP are absent from the release registry and user-facing
+candidate surface. The generic Materials Project, FRED, space-weather,
+Open-Meteo, and USGS entries are retired from the AI4HEOR default catalog.
 
 ## 7. Execution layer
 

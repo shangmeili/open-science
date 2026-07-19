@@ -134,35 +134,17 @@
       }
     },
     "assetAdmission": {
-      "sectionTitle": "Admisión de activos externos",
-      "loading": "Leyendo el registro de admisión empaquetado…",
-      "unavailable": "El registro de admisión no está disponible. Los activos externos permanecen desactivados.",
+      "sectionTitle": "Adaptadores externos",
+      "loading": "Comprobando los adaptadores externos incluidos…",
+      "unavailable": "No se pueden verificar los adaptadores externos y permanecen desactivados.",
       "firstPartyTitle": "48 Skills propias de AI4HEOR están integradas",
-      "firstPartyBoundary": "Las cifras siguientes solo cuentan activos externos, no las capacidades integradas de investigación y farmacoeconomía.",
-      "thirdPartyAdmitted": "externos admitidos",
-      "thirdPartyQuarantined": "externos en cuarentena",
-      "thirdPartyRejected": "externos rechazados",
+      "firstPartyBoundary": "Aquí solo aparecen adaptadores externos que superaron las revisiones de licencia, seguridad, método y paquete y que realmente se distribuyen con AI4HEOR. Las fuentes pendientes de reescritura o excluidas no se conservan como opciones.",
       "groupAdmitted": "Activos admitidos ({{count}})",
-      "groupQuarantined": "Candidatos en cuarentena ({{count}})",
-      "groupRejected": "Activos rechazados ({{count}})",
-      "why": "Mostrar motivos",
-      "proposedAction": "Tratamiento propuesto:",
-      "actionFirstPartyRewrite": "No cargar la Skill original; reimplementarla conforme a los contratos de AI4HEOR antes de revisarla.",
-      "actionPerToolAdapter": "No admitir el MCP completo; revisar por separado cada herramienta relevante para HEOR.",
-      "actionCleanRoom": "No modificar, compilar ni redistribuir el código original; implementar la capacidad de forma independiente.",
-      "actionPptxReplacement": "No admitir la Skill PPTX original; usar la capacidad propia research-presentation.",
       "admitted": "admitidos",
-      "quarantined": "en cuarentena",
-      "rejected": "rechazados",
-      "noneAdmitted": "No hay activos externos de producción admitidos. Los candidatos en cuarentena o rechazados son visibles para revisión, pero no se cargan en el runtime.",
-      "registryValid": "El registro es válido y {{count}} activo externo está admitido por hash exacto.",
-      "failClosed": "La validación del registro falló. Todos los activos externos permanecen desactivados.",
-      "noBlockers": "Sin bloqueos pendientes",
-      "status": {
-        "admitted": "admitido",
-        "quarantined": "cuarentena",
-        "rejected": "rechazado"
-      }
+      "adapterBoundary": "Este adaptador solo puede ejecutarse dentro de los límites declarados de espacio de trabajo, red, permisos y Human-in-the-loop.",
+      "noneAdmitted": "Actualmente no se distribuye ninguna herramienta de terceros con AI4HEOR. Las funciones necesarias son Skills propias; las reescrituras incompletas y las fuentes excluidas no se muestran aquí.",
+      "registryValid": "El registro de adaptadores externos es válido y hay {{count}} disponible.",
+      "failClosed": "Falló la validación del registro. Todas las capacidades externas permanecen desactivadas."
     },
     "environment": {
       "sectionTitle": "Entorno científico",

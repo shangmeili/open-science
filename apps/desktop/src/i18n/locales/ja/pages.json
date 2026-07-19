@@ -134,35 +134,17 @@
       }
     },
     "assetAdmission": {
-      "sectionTitle": "第三者アセットの承認",
-      "loading": "パッケージ化された承認レジストリを読み込んでいます…",
-      "unavailable": "承認レジストリを利用できません。外部アセットは無効のままです。",
+      "sectionTitle": "外部アダプター",
+      "loading": "アプリに同梱された外部アダプターを確認しています…",
+      "unavailable": "外部アダプターを確認できないため、すべて無効のままです。",
       "firstPartyTitle": "AI4HEOR のファーストパーティ Skill 48 件を内蔵",
-      "firstPartyBoundary": "以下の件数はサードパーティ資産のみで、内蔵の薬剤経済学・研究基盤機能は含みません。",
-      "thirdPartyAdmitted": "サードパーティ承認済み",
-      "thirdPartyQuarantined": "サードパーティ隔離中",
-      "thirdPartyRejected": "サードパーティ却下",
+      "firstPartyBoundary": "ライセンス、セキュリティ、方法、パッケージの確認を完了し、実際に同梱された外部アダプターだけを表示します。改修中または除外済みの提供元は選択肢として残しません。",
       "groupAdmitted": "承認済み（{{count}}）",
-      "groupQuarantined": "隔離候補（{{count}}）",
-      "groupRejected": "却下済み（{{count}}）",
-      "why": "未承認の理由を表示",
-      "proposedAction": "推奨対応:",
-      "actionFirstPartyRewrite": "上流 Skill を直接読み込まず、AI4HEOR の契約に合わせて独立再実装します。",
-      "actionPerToolAdapter": "MCP 全体は導入せず、HEOR に必要なツールを個別審査します。",
-      "actionCleanRoom": "上流コードの修正・ビルド・再配布は行わず、必要な場合は要件から独立実装します。",
-      "actionPptxReplacement": "上流 PPTX Skill は導入せず、ファーストパーティの research-presentation で代替します。",
       "admitted": "承認済み",
-      "quarantined": "隔離中",
-      "rejected": "拒否",
-      "noneAdmitted": "第三者の本番アセットは承認されていません。隔離・拒否された候補はレビュー用に表示されますが、ランタイムには読み込まれません。",
-      "registryValid": "レジストリは有効で、{{count}} 件の第三者アセットが正確なハッシュで承認されています。",
-      "failClosed": "レジストリの検証に失敗しました。すべての第三者アセットは無効のままです。",
-      "noBlockers": "未解決の阻害要因なし",
-      "status": {
-        "admitted": "承認済み",
-        "quarantined": "隔離",
-        "rejected": "拒否"
-      }
+      "adapterBoundary": "宣言済みのワークスペース、ネットワーク、権限、Human-in-the-loop の範囲内でのみ実行できます。",
+      "noneAdmitted": "現在、AI4HEOR に第三者ツールは同梱されていません。必要な機能はファーストパーティ Skill が提供し、改修中または除外済みの提供元は表示しません。",
+      "registryValid": "外部アダプター台帳は有効で、{{count}} 件を利用できます。",
+      "failClosed": "外部アダプター台帳の検証に失敗しました。すべての外部機能は無効のままです。"
     },
     "environment": {
       "sectionTitle": "科学計算環境",

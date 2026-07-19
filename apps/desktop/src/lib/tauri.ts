@@ -65,7 +65,7 @@ export interface AssetAdmissionRecord {
   assetId: string;
   displayName: string;
   kind: "skill" | "mcp" | "package" | string;
-  status: "validated-adapter" | "quarantined" | "rejected" | string;
+  status: "validated-adapter" | string;
   releaseEligible: boolean;
   repository: string;
   revision: string;
@@ -83,8 +83,6 @@ export interface AssetAdmissionAudit {
   policyRevision: string;
   totalCount: number;
   admittedCount: number;
-  quarantinedCount: number;
-  rejectedCount: number;
   assets: AssetAdmissionRecord[];
   errors: string[];
 }

@@ -423,8 +423,9 @@ coverage. That is not the AI4HEOR acceptance boundary. Current behavior is:
   license, egress, rights, methods, adversarial, cross-platform, and kill-switch
   review.
 
-Paper Search MCP and BioMCP are quarantined candidates. Materials Project, FRED,
-space-weather, Open-Meteo, and USGS are no longer offered as AI4HEOR defaults.
+Paper Search MCP and BioMCP have been removed rather than retained as product
+candidates. Materials Project, FRED, space-weather, Open-Meteo, and USGS are no
+longer offered as AI4HEOR defaults.
 The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
 `docs/HEOR_ECOSYSTEM.md`.
 

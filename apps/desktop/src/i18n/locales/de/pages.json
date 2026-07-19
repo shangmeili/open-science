@@ -134,35 +134,17 @@
       }
     },
     "assetAdmission": {
-      "sectionTitle": "Zulassung von Drittanbieter-Assets",
-      "loading": "Das paketierte Zulassungsregister wird gelesen…",
-      "unavailable": "Das Zulassungsregister ist nicht verfügbar. Externe Assets bleiben deaktiviert.",
+      "sectionTitle": "Externe Adapter",
+      "loading": "Mitgelieferte externe Adapter werden geprüft…",
+      "unavailable": "Externe Adapter können nicht geprüft werden und bleiben deaktiviert.",
       "firstPartyTitle": "48 AI4HEOR-Skills aus erster Hand sind integriert",
-      "firstPartyBoundary": "Die Zahlen unten betreffen nur Drittanbieter-Assets, nicht die integrierten Forschungs- und Pharmakoökonomie-Fähigkeiten.",
-      "thirdPartyAdmitted": "Drittanbieter zugelassen",
-      "thirdPartyQuarantined": "Drittanbieter in Quarantäne",
-      "thirdPartyRejected": "Drittanbieter abgelehnt",
+      "firstPartyBoundary": "Hier erscheinen nur externe Adapter, die Lizenz-, Sicherheits-, Methoden- und Paketprüfungen bestanden haben und tatsächlich mit AI4HEOR ausgeliefert werden. Noch umzuschreibende oder ausgeschlossene Quellen bleiben keine Benutzeroptionen.",
       "groupAdmitted": "Zugelassene Assets ({{count}})",
-      "groupQuarantined": "Quarantäne-Kandidaten ({{count}})",
-      "groupRejected": "Abgelehnte Assets ({{count}})",
-      "why": "Gründe anzeigen",
-      "proposedAction": "Vorgeschlagene Behandlung:",
-      "actionFirstPartyRewrite": "Das Upstream-Skill nicht direkt laden, sondern nach AI4HEOR-Verträgen unabhängig neu implementieren.",
-      "actionPerToolAdapter": "Den MCP nicht vollständig zulassen; nur HEOR-relevante Werkzeuge einzeln prüfen.",
-      "actionCleanRoom": "Upstream-Code nicht ändern, bauen oder verteilen; benötigte Funktionen unabhängig aus Anforderungen implementieren.",
-      "actionPptxReplacement": "Das Upstream-PPTX-Skill nicht zulassen; die ersteigene Funktion research-presentation verwenden.",
       "admitted": "zugelassen",
-      "quarantined": "Quarantäne",
-      "rejected": "abgelehnt",
-      "noneAdmitted": "Kein Drittanbieter-Produktionsasset ist zugelassen. Quarantäne- und abgelehnte Kandidaten sind zur Prüfung sichtbar, werden aber nicht in die Runtime geladen.",
-      "registryValid": "Das Register ist gültig und {{count}} Drittanbieter-Asset ist per exaktem Hash zugelassen.",
-      "failClosed": "Die Registerprüfung ist fehlgeschlagen. Alle Drittanbieter-Assets bleiben deaktiviert.",
-      "noBlockers": "Keine ungelösten Blocker",
-      "status": {
-        "admitted": "zugelassen",
-        "quarantined": "Quarantäne",
-        "rejected": "abgelehnt"
-      }
+      "adapterBoundary": "Dieser Adapter darf nur innerhalb der festgelegten Arbeitsbereichs-, Netzwerk-, Berechtigungs- und Human-in-the-loop-Grenzen ausgeführt werden.",
+      "noneAdmitted": "Derzeit wird kein Drittanbieter-Werkzeug mit AI4HEOR ausgeliefert. Benötigte Funktionen stammen aus First-Party-Skills; unfertige Umschreibungen und ausgeschlossene Quellen werden hier nicht angezeigt.",
+      "registryValid": "Das Register externer Adapter ist gültig; {{count}} Adapter ist verfügbar.",
+      "failClosed": "Die Prüfung des Adapterregisters ist fehlgeschlagen. Alle externen Funktionen bleiben deaktiviert."
     },
     "environment": {
       "sectionTitle": "Wissenschaftliche Umgebung",

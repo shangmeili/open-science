@@ -45,16 +45,16 @@ surface. Existing configured servers remain visible, runnable, and removable so
 upgrades do not destroy researcher configuration; new installations do not
 re-offer those entries.
 
-- [Paper Search MCP](https://github.com/openags/paper-search-mcp) remains a
-  quarantined candidate. Its broad multi-host search/full-text/download surface,
-  optional Sci-Hub route, and mutable Python installation are not equivalent to
-  AI4HEOR's bounded, Human-authorized evidence contract.
-- [BioMCP](https://github.com/genomoncology/biomcp) remains a quarantined
-  candidate. The inherited package/launch definition was stale, while the
-  current upstream still spans many biomedical sources, credentials, and tool
-  authorities that require separate admission.
+- [Paper Search MCP](https://github.com/openags/paper-search-mcp) was removed
+  from the product list. Its useful official-source metadata pattern is handled
+  by the bounded, Human-authorized first-party evidence route; its broad
+  multi-host download and optional Sci-Hub surfaces are not retained.
+- [BioMCP](https://github.com/genomoncology/biomcp) was removed from the product
+  list. Trial and literature needs are handled by first-party HEOR evidence
+  capabilities; any future source-specific need must be implemented and reviewed
+  independently rather than reactivating the broad upstream package.
 
-Neither package is bundled, provisioned, or described as an AI4HEOR default.
+Neither package is bundled, provisioned, or offered as an AI4HEOR candidate.
 
 ### Minimal local MCP server (Python)
 

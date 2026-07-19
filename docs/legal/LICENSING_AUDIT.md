@@ -6,8 +6,8 @@ Decision: **internal testing allowed; public redistribution blocked**
 
 ## Scope and decision rule
 
-The audit covers tracked source, packaged first-party Skills, local external
-Skill caches, plugin/MCP candidates, npm and Cargo dependencies, bundled
+The audit covers tracked source, packaged first-party Skills, reviewed external
+source decisions, npm and Cargo dependencies, bundled
 OpenCode and uv executables, fonts, the HEOR knowledge base, examples, screenshots,
 and the supplied AI4HEOR logo. A public URL or open repository is treated as a
 locator only. Distribution requires an applicable license or rights record for
@@ -21,10 +21,10 @@ the exact bytes and preservation of all required notices.
 | First-party core Skills | 48 active Skill directories after this change; project-authored under root MIT | Yes | Allowed; embedded third-party notices preserved |
 | Research-presentation renderer | Project-authored Rust OOXML/ZIP renderer and portable Python validator under root MIT; no Anthropic presentation code or asset is included | Yes | Allowed; macro-free first-party output path |
 | HEORAgent-informed evidence Skill | First-party rewrite; pinned upstream revision and MIT notice retained | Yes | Allowed; upstream package itself is not shipped |
-| External Skill cache | Git-ignored `runtime/skills/external/`; zero tracked files and no Tauri resource mapping | No | Discovery only |
-| Third-party admission registry | 14 entries: 10 quarantined, 4 rejected, 0 release-eligible | Registry only | No external code loaded |
+| External Skill cache | Removed after the source review; no `runtime/skills/external/` tree remains | No | External source is not retained |
+| External-adapter release registry | Schema 1.1.0, release-only, empty | Registry only | No external code loaded; unfinished and excluded sources are not user options |
 | MCP servers | No third-party MCP config, binary, source tree, or dependency is mapped as a resource | No | Native bounded connectors only |
-| Anthropic document Skills | Source-available terms for docx/pdf/pptx/xlsx candidates | No | Rejected |
+| Anthropic document Skills | Incompatible source-available terms recorded in the read-only decision trail; local source cache removed | No | Permanently excluded; first-party replacements only |
 | npm production dependency universe | 266 packages: 227 MIT, 15 ISC, 6 BSD-3-Clause, 6 Apache-2.0, 3 OFL-1.1, 8 other compatible/multi-license expressions, 1 unresolved | Compiled/bundled as applicable | Internal test only until full notices and unresolved item are closed |
 | `buffers@0.1.1` | Package metadata contains no license field or license file; pulled through `exceljs > unzipper > binary` | Potentially | Public-release blocker |
 | Cargo locked dependency universe | 564 third-party packages plus the workspace crate; declared expressions recorded in inventory | Compiled as target requires | Internal test only until exact shipped-target notice corpus is bundled |

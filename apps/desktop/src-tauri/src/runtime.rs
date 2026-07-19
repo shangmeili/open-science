@@ -229,8 +229,9 @@ pub fn import_opencode_login(
 }
 
 /// Deploy first-party skills and only hash-locked third-party adapters admitted
-/// by the packaged registry. Discovery candidates and rejected assets are never
-/// copied into OpenCode's active global skill directory. The workspace's own
+/// by the release-only packaged registry. Unfinished and excluded external
+/// sources are not registry rows and are never copied into OpenCode's active
+/// global skill directory. The workspace's own
 /// `.opencode/skills/` remains user-controlled and is not a platform admission.
 fn deploy_bundled_skills(app: &AppHandle) {
     let dst = match xdg_config_home(app) {

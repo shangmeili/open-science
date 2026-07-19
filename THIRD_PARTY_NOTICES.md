@@ -36,10 +36,11 @@ license expressions recorded in the inventories.
 
 - `runtime/skills/external/` is an ignored local discovery cache and is not a
   packaged resource.
-- All third-party Skill, plugin, MCP, and package entries in the admission
-  registry are quarantined or rejected. None is release-eligible or loaded.
-- The Anthropic document Skills examined locally use source-available terms for
-  the relevant directories and are rejected from AI4HEOR distribution.
+- The release-only external-adapter registry is empty. No third-party Skill,
+  plugin, MCP, or package is release-eligible or loaded through that registry.
+- The Anthropic document Skills examined during design review use incompatible
+  source-available terms and are permanently absent from AI4HEOR source,
+  package, runtime, and candidate UI.
 
 ## Open release blockers
 

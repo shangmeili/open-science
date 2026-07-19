@@ -136,8 +136,8 @@ authority. Representative admitted workflows are:
 | `$research-presentation` | Prepare source-bound research presentation content and render it locally | Reviewable macro-free PPTX plus generation audit |
 
 Every first-party Skill name and description ships in all seven interface
-languages while the exact `$skill-id` remains visible. External assets keep
-their supplied metadata and remain inactive until separately admitted.
+languages while the exact `$skill-id` remains visible. Unfinished rewrites and
+excluded external sources are internal engineering records, not user choices.
 
 ### Platform
 
@@ -153,7 +153,7 @@ their supplied metadata and remain inactive until separately admitted.
 | Review | Traceability, statistics-integrity, domain-check, large-file, publication-figure, remote-compute, and Modal run skills are bundled as first-party skills. |
 | Viewers | PDF, image, video, HTML, Markdown, code, CSV/TSV tables with charts, DOCX, XLSX, PPTX, molecules, 3D meshes, genome tracks, FITS, DOS/DOSCAR, EIGENVAL bands, qcode, anomaly maps, and phase files. |
 | Models | OpenCode provider catalog, OAuth/API-key provider flows, custom OpenAI-compatible endpoints, and local/provider-specific options supported by OpenCode. |
-| Interface languages | English, Simplified Chinese, Japanese, Spanish, German, French, and Korean. First-party Skill names and descriptions ship in all seven languages while exact `$skill-id` values remain visible; external Skills retain their supplied metadata. Portuguese (Brazil) and Arabic are registered but not selectable yet. |
+| Interface languages | English, Simplified Chinese, Japanese, Spanish, German, French, and Korean. First-party Skill names and descriptions ship in all seven languages while exact `$skill-id` values remain visible. Portuguese (Brazil) and Arabic are registered but not selectable yet. |
 
 ## Skills and connectors
 
@@ -161,14 +161,17 @@ Only first-party core skills in `runtime/skills/core/` are bundled by default,
 including the AI4HEOR human-authorized PubMed/ClinicalTrials.gov evidence
 search, evidence synthesis, model-design, reference-case, uncertainty, advanced
 value-of-information, budget-impact, validation, and reporting workflows. Third-party Skills and MCP
-servers are governed by a packaged admission registry: discovery candidates are
-inactive, and only a compatible, reviewed, cross-platform, hash-locked
-`validated-adapter` may enter the app-managed runtime.
+servers are governed by a release-only packaged registry. It contains only
+compatible, reviewed, cross-platform, hash-locked `validated-adapter` assets
+that actually ship with the app; it does not retain unfinished or excluded
+sources. The current registry is empty, so no third-party tool is bundled.
 
-The seven `ai4s-research/ai4s-skills` entries are currently quarantined for
-adaptation. Anthropic's source-available `docx`, `pdf`, `pptx`, and `xlsx` Skills
-are rejected because their per-directory license prohibits copying, derivatives,
-and redistribution; AI4HEOR does not fetch or bundle them.
+Useful behavior identified in earlier external reviews is rebuilt as bounded
+first-party AI4HEOR capabilities. License-incompatible document sources are
+permanently absent from the runtime and candidate UI; PPTX is already replaced
+by `research-presentation`, while DOCX, PDF, and XLSX generation are independent
+first-party build tasks. The read-only decision trail is in
+[`docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md`](./docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md).
 
 The default connector surface contains no unreviewed third-party one-click MCP
 process. Built-in `$heor-evidence-search` performs fixed-endpoint,
@@ -176,7 +179,7 @@ Human-authorized PubMed and ClinicalTrials.gov metadata retrieval; Jupyter is
 the sole one-click managed local computation tool. Researchers can still add
 local or remote MCP servers from Settings, where they are explicitly labelled
 as unmanaged external capabilities. Inherited Paper Search MCP and BioMCP
-definitions are quarantined candidates, not bundled AI4HEOR defaults. See
+definitions are removed rather than retained as product candidates. See
 [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md).
 
 For a neutral positioning note, see

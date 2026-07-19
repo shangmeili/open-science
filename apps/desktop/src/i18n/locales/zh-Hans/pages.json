@@ -212,35 +212,17 @@
       }
     },
     "assetAdmission": {
-      "sectionTitle": "工具准入状态",
-      "loading": "正在读取第三方工具清单…",
-      "unavailable": "无法读取第三方工具清单，所有外部工具保持停用。",
+      "sectionTitle": "外部适配器",
+      "loading": "正在核对随平台发布的外部适配器…",
+      "unavailable": "无法核对外部适配器，所有外部能力保持停用。",
       "firstPartyTitle": "48 个 AI4HEOR 第一方 Skill 已内置",
-      "firstPartyBoundary": "下方数字只统计第三方资产，不包括已随平台发布的第一方药物经济学和科研基础能力。",
+      "firstPartyBoundary": "这里仅显示已经通过授权、安全、方法和打包检查，并实际随平台发布的外部适配器。待改写或已排除的来源不会作为用户选项保留。",
       "admitted": "已准入",
-      "quarantined": "隔离候选",
-      "rejected": "已拒绝",
-      "thirdPartyAdmitted": "第三方已准入",
-      "thirdPartyQuarantined": "第三方隔离候选",
-      "thirdPartyRejected": "第三方已拒绝",
       "groupAdmitted": "已准入第三方资产（{{count}}）",
-      "groupQuarantined": "隔离候选（{{count}}）",
-      "groupRejected": "已拒绝（{{count}}）",
-      "why": "查看未准入原因",
-      "proposedAction": "建议处理：",
-      "actionFirstPartyRewrite": "不直接加载上游 Skill；按 AI4HEOR 权责、工件和测试合约独立改写，通过复核后作为第一方能力交付。",
-      "actionPerToolAdapter": "不整体纳入 MCP；只拆分 HEOR 必需工具，逐项锁定依赖、网络、权限、方法和停止开关，逐项准入。",
-      "actionCleanRoom": "不得修改、编译或分发上游代码；若平台需要该能力，只能根据需求独立实现，不使用其源码和素材。",
-      "actionPptxReplacement": "上游 PPTX Skill 不纳入；已由 AI4HEOR 第一方、无宏、有来源绑定的 research-presentation 能力替代。",
-      "noneAdmitted": "当前没有已启用的第三方工具。待检查或已拒绝的工具不会运行。",
-      "registryValid": "第三方工具清单校验通过，已有 {{count}} 个工具可以使用。",
-      "failClosed": "第三方工具清单校验失败，所有外部工具保持停用。",
-      "noBlockers": "没有未解决阻断项",
-      "status": {
-        "admitted": "已准入",
-        "quarantined": "隔离",
-        "rejected": "拒绝"
-      }
+      "adapterBoundary": "该适配器只能在已声明的工作区、网络、权限和人工复核边界内运行。",
+      "noneAdmitted": "当前没有随 AI4HEOR 发布的第三方工具。所需能力由第一方 Skill 提供；未完成改写或已排除的来源不在这里展示。",
+      "registryValid": "外部适配器清单校验通过，已有 {{count}} 个适配器可以使用。",
+      "failClosed": "外部适配器清单校验失败，所有外部能力保持停用。"
     },
     "environment": {
       "sectionTitle": "科学计算环境",

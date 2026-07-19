@@ -38,7 +38,7 @@ describe("SkillsPage strings (i18n)", () => {
     expect(screen.getByText("Environment detection runs in the desktop app.")).toBeInTheDocument();
     expect(
       await screen.findByText(
-        "The admission registry is unavailable. External assets remain disabled.",
+        "External adapters cannot be verified and remain disabled.",
       ),
     ).toBeInTheDocument();
     expect(

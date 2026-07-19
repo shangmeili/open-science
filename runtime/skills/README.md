@@ -6,7 +6,6 @@ Scientific skills, layered:
 skills/
   core/      # self-authored skills specific to this app (traceability-review;
              # other dirs are roadmap placeholders until they get a SKILL.md)
-  external/  # third-party review cache, fetched by script — git-ignored/inactive
   user/      # user-installed / custom skills (live in the runtime workspace)
 ```
 
@@ -17,41 +16,25 @@ trees are not bundled merely because they were fetched. On every sidecar start,
 tree hash whose status is `validated-adapter`. Invalid or missing registry data
 fails closed and stale external skills are removed from the app-managed profile.
 
-## Candidate pack: ai4s-skills (not bundled)
+The registry is release-only: unfinished rewrites and excluded sources are not
+stored in it or shown as user choices. Useful external ideas are re-specified
+against AI4HEOR's Human authority, artifact, localization, and test contracts,
+then implemented under `core/` as first-party work. External code is admitted
+only as a completed, hash-locked adapter with all release evidence present.
 
-The default scientific skills come from
-[ai4s-research/ai4s-skills](https://github.com/ai4s-research/ai4s-skills)
-(research-explorer, literature-survey, experiment-suite, paper-writer,
-integrity-auditor, mindmap-render, ai4s-agent).
+## Excluded document sources
 
-How they are evaluated:
+The previously reviewed external `docx`, `pdf`, `pptx`, and `xlsx` Skill sources
+are not retained, fetched, or bundled. AI4HEOR uses its first-party
+`research-presentation` implementation for PPTX and builds any DOCX, PDF, or
+XLSX generation independently from product requirements.
 
-1. `scripts/dev/fetch-skills.sh` downloads a pinned revision into the ignored
-   `external/ai4s-skills/` review cache.
-2. Each Skill has its own quarantined entry in
-   `runtime/assets/asset-admission-registry.json` with license, boundary,
-   adaptation, test, review, platform, and blocker fields.
-3. A code-reviewed update may add a first-party derivative or an isolated
-   `skills-admitted-*` resource only after all release evidence is complete and
-   its deterministic tree hash is locked.
+## Project-created skills
 
-Fetching or bumping the review cache never changes the released capability set.
-
-## Rejected source-available document skills
-
-The `docx`, `pdf`, `pptx`, and `xlsx` directories in
-[anthropics/skills](https://github.com/anthropics/skills) are source-available,
-not Apache-2.0. Their per-skill license prohibits retaining, copying, deriving,
-and distributing the materials. AI4HEOR therefore neither fetches nor bundles
-them. Their registry records are `rejected`; only independently written,
-compatibly licensed document capabilities may replace the product need.
-
-## Third-party skills
-
-Do **not** enable third-party collections by default. Discovery and a passing
-upstream test are evidence, not admission. The Skills page starts a
-natural-language industrialization review and keeps the candidate inactive;
-only the native registry controls the bundled production inventory.
+The Skills page may draft a narrow, instruction-only project Skill from a
+researcher's natural-language request. It remains inactive until the app-owned
+Human review validates the exact bytes and records the decision. Project-created
+content never becomes a bundled first-party or external release asset implicitly.
 
 Each skill directory must contain a `SKILL.md`.
 

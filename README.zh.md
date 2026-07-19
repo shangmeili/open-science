@@ -109,7 +109,8 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 | `$research-presentation` | 准备有来源绑定的研究汇报内容并在本地生成 | 可逐页核对的无宏 PPTX 和生成审计记录 |
 
 全部第一方 Skill 的名称与说明均随七种界面语言发布，同时保留精确
-`$skill-id`；外部资产保留原始元数据，未经单独准入不会启用。
+`$skill-id`；尚未完成的改写和已排除的外部来源只作为内部工程记录，不再
+作为用户选项。
 
 ### 平台
 
@@ -125,19 +126,23 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 | 审查 | 内置 traceability、stats-integrity、domain-check、large-file、publication-figure、remote-compute、Modal run 等第一方技能。 |
 | 查看器 | PDF、图片、视频、HTML、Markdown、代码、CSV/TSV 表格与图表、DOCX、XLSX、PPTX、分子、3D mesh、基因组轨道、FITS、DOS/DOSCAR、EIGENVAL bands、qcode、异常图和 phase 文件。 |
 | 模型 | OpenCode 提供方目录、OAuth/API key 连接、自定义 OpenAI-compatible endpoint，以及 OpenCode 支持的本地/云模型选项。 |
-| 界面语言 | English、简体中文、日本語、Español、Deutsch、Français、한국어。第一方 Skill 名称与说明在 7 种语言中发布，同时保留精确 `$skill-id`；外部 Skill 保留其原始元数据。Portuguese (Brazil) 和 Arabic 已注册，但还不可选。 |
+| 界面语言 | English、简体中文、日本語、Español、Deutsch、Français、한국어。第一方 Skill 名称与说明在 7 种语言中发布，同时保留精确 `$skill-id`。Portuguese (Brazil) 和 Arabic 已注册，但还不可选。 |
 
 ## 技能与连接器
 
 默认只打包 `runtime/skills/core/` 中的第一方技能，包括 AI4HEOR 的证据、
 模型设计、参考案例、不确定性、预算影响、验证和报告工作流。第三方 Skill
-与 MCP 由安装包内的准入注册表控制：发现候选保持停用，只有许可证兼容、
-经过审查、完成跨平台验证并锁定精确哈希的 `validated-adapter` 才能进入
-应用托管的运行时。
+与 MCP 由仅面向发布的包内登记表控制：登记表只包含授权兼容、完成审查、
+通过跨平台检查、锁定精确哈希并实际随包发布的 `validated-adapter`，不保留
+未完成或已排除的来源。当前登记表为空，因此没有第三方工具随 AI4HEOR 打包。
 
-`ai4s-research/ai4s-skills` 的 7 个条目当前处于隔离改造状态。Anthropic
-的 `docx`、`pdf`、`pptx`、`xlsx` 是 source-available，而非可再分发的
-开源资产；其目录许可证禁止复制、衍生和分发，因此 AI4HEOR 不再获取或打包。
+此前外部审查中有价值的能力意图改写为有边界的 AI4HEOR 第一方能力。许可证
+不兼容的文档来源已从运行时和候选界面永久移除；PPTX 已由
+`research-presentation` 替代，DOCX、PDF 和 XLSX 生成则作为第一方能力独立建设。
+只读处置记录见
+[`docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md`](./docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md)。
+科研基础能力的已交付、部分交付与待建设边界见
+[`docs/RESEARCH_FOUNDATION_CAPABILITIES.zh-CN.md`](./docs/RESEARCH_FOUNDATION_CAPABILITIES.zh-CN.md)。
 
 默认界面不启动未经审查的第三方一键 MCP。第一方 `$heor-evidence-search`
 只在 Human 明确授权后访问固定的 PubMed 与 ClinicalTrials.gov 元数据端点；

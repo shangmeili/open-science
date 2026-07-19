@@ -1,11 +1,12 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderAt } from "@/test/render";
 import { useUiStore } from "@/lib/store";
 import i18n from "@/i18n";
 
 const mocks = vi.hoisted(() => ({
+  auditAssetAdmission: vi.fn(),
   auditSkillCandidates: vi.fn(),
   appendSkillCandidateReview: vi.fn(),
 }));
@@ -14,9 +15,23 @@ vi.mock("@/lib/tauri", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/tauri")>();
   return {
     ...actual,
+    auditAssetAdmission: mocks.auditAssetAdmission,
     auditSkillCandidates: mocks.auditSkillCandidates,
     appendSkillCandidateReview: mocks.appendSkillCandidateReview,
   };
+});
+
+beforeEach(() => {
+  mocks.auditAssetAdmission.mockResolvedValue({
+    complete: true,
+    failClosed: false,
+    schemaVersion: "1.1.0",
+    policyRevision: "2026-07-20",
+    totalCount: 0,
+    admittedCount: 0,
+    assets: [],
+    errors: [],
+  });
 });
 
 afterEach(async () => {
@@ -26,6 +41,23 @@ afterEach(async () => {
 });
 
 describe("SkillsPage project capability review", () => {
+  it("shows only completed external adapters and no retired source options", async () => {
+    mocks.auditSkillCandidates.mockResolvedValue({
+      projectAvailable: false,
+      complete: true,
+      candidates: [],
+      integrity: "not_applicable",
+      identityAssurance: "app_owned_local_human_assertion",
+      errors: [],
+    });
+
+    renderAt("/skills");
+    expect(await screen.findByText("External adapters")).toBeInTheDocument();
+    expect(screen.getByText(/No third-party tool currently ships with AI4HEOR/)).toBeInTheDocument();
+    expect(screen.queryByText(/Quarantined candidates/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Rejected assets/)).not.toBeInTheDocument();
+  });
+
   it("requires an explicit Human assertion before activating exact candidate bytes", async () => {
     mocks.auditSkillCandidates.mockResolvedValue({
       projectAvailable: true,

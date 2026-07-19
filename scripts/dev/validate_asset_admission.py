@@ -13,7 +13,6 @@ from typing import Any
 sys.dont_write_bytecode = True
 
 RELEASE_STATUS = "validated-adapter"
-VALID_STATUSES = {RELEASE_STATUS, "quarantined", "rejected"}
 VALID_KINDS = {"skill", "mcp", "package"}
 SAFE_ID = re.compile(r"^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*$")
 SAFE_SEGMENT = re.compile(r"^[A-Za-z0-9_-]+$")
@@ -33,15 +32,17 @@ def validate_registry(registry: Any) -> list[str]:
     errors: list[str] = []
     if not isinstance(registry, dict):
         return ["asset registry must be a JSON object"]
-    if registry.get("schema_version") != "1.0.0":
-        errors.append("schema_version must be 1.0.0")
+    if registry.get("schema_version") != "1.1.0":
+        errors.append("schema_version must be 1.1.0")
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(registry.get("policy_revision", ""))):
         errors.append("policy_revision must be YYYY-MM-DD")
     if registry.get("release_statuses") != [RELEASE_STATUS]:
         errors.append("release_statuses must contain only validated-adapter")
+    if registry.get("purpose") != "release-eligible-external-adapters-only":
+        errors.append("purpose must be release-eligible-external-adapters-only")
     assets = registry.get("assets")
-    if not isinstance(assets, list) or not assets:
-        return errors + ["assets must be a non-empty array"]
+    if not isinstance(assets, list):
+        return errors + ["assets must be an array"]
 
     seen: set[str] = set()
     deployments: set[tuple[str, str]] = set()
@@ -63,8 +64,11 @@ def validate_registry(registry: Any) -> list[str]:
             errors.append(f"{prefix}.display_name is required")
         if kind not in VALID_KINDS:
             errors.append(f"{prefix}.kind is invalid")
-        if status not in VALID_STATUSES:
-            errors.append(f"{prefix}.status is invalid")
+        if status != RELEASE_STATUS:
+            errors.append(
+                f"{prefix}.status must be validated-adapter; unresolved or excluded "
+                "sources do not belong in the release registry"
+            )
         if asset.get("release_eligible") is not (status == RELEASE_STATUS):
             errors.append(
                 f"{prefix}.release_eligible must exactly match validated-adapter status"
@@ -153,8 +157,6 @@ def validate_registry(registry: Any) -> list[str]:
                 errors.append(f"{prefix}.distribution duplicates an admitted resource")
             else:
                 deployments.add((pack, entry))
-        elif distribution is not None or not blockers:
-            errors.append(f"{prefix} non-admitted assets must be non-distributed and blocked")
     return errors
 
 
@@ -179,12 +181,7 @@ def main() -> int:
         return 1
     assets = registry["assets"]
     admitted = sum(asset["status"] == RELEASE_STATUS for asset in assets)
-    quarantined = sum(asset["status"] == "quarantined" for asset in assets)
-    rejected = sum(asset["status"] == "rejected" for asset in assets)
-    print(
-        f"asset admission valid: {len(assets)} reviewed, {admitted} admitted, "
-        f"{quarantined} quarantined, {rejected} rejected"
-    )
+    print(f"asset admission valid: {admitted} release-eligible external adapters")
     return 0
 
 

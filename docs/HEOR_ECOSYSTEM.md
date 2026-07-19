@@ -36,14 +36,14 @@ Assets that fail a remediable criterion are forked or wrapped and improved.
 Assets with incompatible licensing, unverifiable behavior, or an authority
 model that cannot be isolated contribute only ideas and test cases.
 
-“Improved” is not a subjective label. A candidate reaches industrially
+“Improved” is not a subjective label. An external adapter reaches industrially
 deliverable status only when its admission record identifies the upstream
 revision and license, retained capability and removed authority, exact
 adaptation delta, executable positive and adversarial tests, cross-platform
 evidence, security and methods review results, rollback or kill switch,
 packaged notices and dependencies, and zero unresolved blockers. Until all
-evidence exists, it remains `candidate` or `quarantined`; an upstream demo,
-benchmark, or passing test suite cannot promote it. If reuse rights prohibit
+evidence exists, it stays outside the release registry and user interface; an
+upstream demo, benchmark, or passing test suite cannot promote it. If reuse rights prohibit
 modification or redistribution, AI4HEOR may independently implement the method
 from public specifications and use the upstream only as research evidence and
 a source of black-box test ideas.
@@ -56,8 +56,8 @@ isolated adapter that has passed every criterion above. The untouched upstream
 snapshot remains evidence for review, not an AI4HEOR production capability.
 
 This rule is now executable. `runtime/assets/asset-admission-registry.json`
-records each reviewed third-party Skill or MCP asset. The native runtime accepts
-only `validated-adapter`, requires compatible license evidence, a pinned commit,
+records only completed external assets that actually ship. The native runtime
+accepts only `validated-adapter`, requires compatible license evidence, a pinned commit,
 explicit capability boundaries, adaptation delta, contract and adversarial
 tests, macOS/Windows/Linux evidence, passed security and methods reviews, a kill
 switch, zero blockers, and an exact tree hash. Invalid registry data, a changed
@@ -65,15 +65,15 @@ tree, or a missing resource fails closed and removes any stale external copy
 from the app-managed OpenCode profile. Workspace-installed user skills remain
 unmanaged project content; they never become bundled AI4HEOR assets implicitly.
 
-## Candidate decisions
+## Source review outcomes (not product options)
 
 | Asset | Value | Current decision | Required adaptation |
 | --- | --- | --- | --- |
-| [ai4s-research/ai4s-skills](https://github.com/ai4s-research/ai4s-skills) | Useful general research decomposition, integrity cases, and rendering patterns | Seven individually registered, quarantined candidates; no longer bundled | Reuse only verified ideas/tests; rewrite around HEOR artifacts, source controls, deterministic authority, and app-owned gates; independently admit each derivative |
-| Anthropic `docx` / `pdf` / `pptx` / `xlsx` Skills | Sophisticated document-workflow reference | Rejected and removed from fetch, package, and deployment paths | Their per-directory source-available license prohibits copying, derivatives, and redistribution; implement independent document capabilities without retaining protected material |
-| [HEORAgent MCP](https://github.com/neptun2000/heor-agent-mcp) | Broad HEOR research, literature, screening, evidence-network, HTA, BIA, and dossier tools | Upstream package remains quarantined; bounded search pattern rewritten first-party | Do not run or bundle its 48-tool Node process. AI4HEOR independently implements only PubMed and ClinicalTrials.gov metadata retrieval behind fixed endpoints, exact request hashes, non-sensitive egress declarations, app-owned human authorization, immutable run files, and candidate-only import semantics |
-| [Paper Search MCP](https://github.com/openags/paper-search-mcp) | Broad cross-source literature search, full text, and downloads | Quarantined; removed from the inherited one-click catalog | Revision `c8b642183bb725f0a7faec89e58b558df09079d1` advertises direct multi-host access and an optional Sci-Hub route. Admit only source-specific adapters with explicit rights, fixed egress, request hashes, Human authorization, pinned dependencies, and cross-platform tests; do not duplicate the bounded first-party PubMed route |
-| [BioMCP](https://github.com/genomoncology/biomcp) | Broad biomedical entity, trial, literature, variant, and drug access | Quarantined; removed from the inherited one-click catalog | Revision `b586085ac032f079671ede0c08cbf17816183bd3` currently packages as `biomcp-cli` and launches with `biomcp serve`, unlike the stale inherited definition. Admit one tool/source at a time with credential, rights, egress, provenance, adversarial, and cross-platform boundaries |
+| [ai4s-research/ai4s-skills](https://github.com/ai4s-research/ai4s-skills) | Useful general research decomposition, integrity cases, and rendering patterns | Removed from the product inventory; useful intent is mapped to first-party HEOR Skills | Reuse only verified ideas/tests; rewrite around HEOR artifacts, source controls, deterministic authority, and app-owned gates |
+| Anthropic `docx` / `pdf` / `pptx` / `xlsx` Skills | Document-workflow research evidence | Permanently absent from source, package, runtime, and candidate UI | Their per-directory source-available license prohibits copying, derivatives, and redistribution; implement independent document capabilities without retaining protected material |
+| [HEORAgent MCP](https://github.com/neptun2000/heor-agent-mcp) | Broad HEOR research, literature, screening, evidence-network, HTA, BIA, and dossier tools | Removed from the product inventory; bounded HEOR workflows are first-party | Do not run or bundle its 48-tool Node process. AI4HEOR independently implements PubMed and ClinicalTrials.gov metadata retrieval behind fixed endpoints, exact request hashes, non-sensitive egress declarations, app-owned human authorization, immutable run files, and candidate-only import semantics |
+| [Paper Search MCP](https://github.com/openags/paper-search-mcp) | Broad cross-source literature search, full text, and downloads | Removed from the product inventory | Revision `c8b642183bb725f0a7faec89e58b558df09079d1` advertises direct multi-host access and an optional Sci-Hub route. Implement only source-specific first-party adapters with explicit rights, fixed egress, request hashes, Human authorization, pinned dependencies, and cross-platform tests |
+| [BioMCP](https://github.com/genomoncology/biomcp) | Broad biomedical entity, trial, literature, variant, and drug access | Removed from the HEOR product inventory | Trial and literature needs use first-party evidence capabilities. Any future HEOR-specific source is independently implemented with credential, rights, egress, provenance, adversarial, and cross-platform boundaries |
 | [`pdf-extract` 0.12.0](https://docs.rs/pdf-extract/0.12.0/pdf_extract/) | Pure-Rust, cross-platform page-level text extraction for searchable PDFs | Admitted as a pinned native parser dependency, not as research authority | MIT metadata is recorded in the upstream Cargo manifest and its notice is packaged with `heor-local-evidence`; AI4HEOR wraps only the in-memory per-page API with file/count/text caps, source hashes, symlink rejection, explicit OCR/encryption/failure states, deterministic local search, and adversarial tests. Its `lopdf` chain is locked to the RustSec-fixed 0.42.0 baseline and the complete Rust lockfile is audited weekly and whenever dependencies change. It cannot establish layout fidelity, appraisal, or evidence validity |
 | [CaseMark health-economics skill](https://agentskills.med/skills/conducting-health-economics-research) | Useful task decomposition and terminology | Rewrite as first-party skills; do not bundle verbatim | Remove hard-coded jurisdiction rules and universal claims; split by artifact; attach current primary methods sources; add tests and app-owned HITL boundary |
 | [awesome-rosetta health-economics-eval](https://github.com/xjtulyc/awesome-rosetta-skills/tree/main/skills/17-public-health/health-economics-eval) | Compact educational outline | Extract scenarios and negative test cases only | Remove generic GDP threshold and free-form Python authority; replace with versioned reference-case profiles and deterministic engines |
@@ -85,11 +85,12 @@ unmanaged project content; they never become bundled AI4HEOR assets implicitly.
 | [heemod](https://pierucci.org/heemod/) | Mature Markov modeling and sensitivity analysis | Reference and optional independent cross-check | GPL isolation; golden cases against the AI4HEOR core; document semantic differences rather than forcing parity |
 | External relative-effect Skills/plugins | No reviewed candidate supplies a bounded, provenance-complete RR/OR- or HR-to-absolute-risk contract | Do not integrate an external executable asset; implement first-party | Preserve only method/test ideas; require exact measure, baseline input, aligned interval/estimand, full recomputation, and app-owned review |
 
-The admission registry contains 14 reviewed external Skill/MCP entries: seven
-`ai4s-skills` candidates, HEORAgent, Paper Search MCP, and BioMCP are quarantined, while four Anthropic
-document Skills are rejected. None is release eligible or a relative-effect
-execution asset. CaseMark, awesome-rosetta, medical-research-skills, and the R
-packages above are discovery or cross-check references, not registered adapters.
+The release registry is empty: none of the reviewed external Skill/MCP sources
+is a shipped adapter or a user option. Their authorization and first-party
+replacement trail is preserved only in
+[`THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md`](THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md).
+CaseMark, awesome-rosetta, medical-research-skills, and the R packages above are
+research or cross-check references, not registered adapters.
 
 The HEORAgent audit used revision
 `19f5f0eea5764d7a2695c372f3ec8f3aa0f53dd8` (`1.27.0`). A 2026-07-14
@@ -100,14 +101,14 @@ knowledge root, optional PostHog telemetry, direct multi-source egress, and 48
 mixed-authority tools are broader than the product boundary. AI4HEOR therefore
 does not wrap the package and call it production-ready. It preserves the MIT
 notice and independently rewrites the useful bounded-search concept as
-`heor-evidence-search`; the upstream asset remains quarantined.
+`heor-evidence-search`; the upstream asset remains outside the product inventory.
 
 A 2026-07-15 refresh still found HEORAgent Git HEAD at its audited revision, but
 the release channels no longer supplied one coherent identity: the repository
 described v1.23.0 with 45 tools and 44 sources while npm reported v1.35.0,
-modified 2026-07-04. The registry therefore remains intentionally pinned and
-quarantined; the latest npm package requires a fresh package, dependency,
-telemetry, methods, and adversarial audit before any narrower idea can advance.
+modified 2026-07-04. The upstream package remains outside the product inventory;
+any narrower source-specific idea requires fresh dependency, telemetry, methods,
+and adversarial review before an independent implementation can advance.
 The `ai4s-skills` upstream had advanced by 27 mostly non-HEOR files and supplied
 no new HEOR-specific Skill or contract.
 
@@ -124,7 +125,7 @@ isolated adapters. The evidence and complete first-party backlog are recorded in
 The earlier desktop baseline also fetched four Anthropic document Skills under
 an incorrect Apache-2.0 assumption. The copied `LICENSE.txt` is authoritative:
 it prohibits retaining, reproducing, deriving, and distributing those
-materials. AI4HEOR now rejects them in the registry and no longer fetches or
+materials. AI4HEOR keeps them out of the registry and no longer fetches or
 packages them. A public GitHub repository is not evidence of an open-source
 license.
 
