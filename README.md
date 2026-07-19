@@ -298,19 +298,21 @@ target design as well as historical status notes.
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
 accepted. Current source is 0.1.44; the fully first-launch-verified x64 macOS
-handoff remains 0.1.41. The current 81,654,020-byte
-`AI4HEOR_0.1.43_x64.dmg` candidate built from `9ff815a` has SHA-256
-`6524e6bb1cdd4d1e04438e021307b0d48bafaba4c626979dc3d4d69762022bf9`.
-Independent read-only verification confirms its x86-64 payload, 0.1.43
-identity, OpenCode 1.17.13, uv 0.11.26, all 342 controlled resources, and all
-177 packaged HEOR tests. It supersedes the 0.1.42 candidate. Exact isolated
+handoff remains 0.1.41. The current 89,752,369-byte
+`AI4HEOR_0.1.44_x64.dmg` candidate built from `7f29e4a` has SHA-256
+`d55ba19e964330396970b39a2f10998b1e5da58a98fcfeb99bce24343028ab5a`.
+Independent read-only verification confirms its x86-64 payload, 0.1.44
+identity, OpenCode 1.17.13, uv 0.11.26, all 346 controlled resources, and all
+177 packaged HEOR tests. It supersedes the 0.1.43 candidate. Exact isolated
 first launch remains pending because the installed app is still running; this
 candidate does not replace the fully accepted 0.1.41 handoff yet.
 Version 0.1.44 adds first-party, source-bound DOCX/PDF generation to
 `heor-reporting`: the native app re-audits the current report package and report,
 embeds an admitted Chinese font in both formats, records output hashes, and
-keeps both files awaiting Human review. The 0.1.44 Intel macOS package is not
-yet built or independently verified.
+keeps both files awaiting Human review. The release inventory retains no
+quarantined or rejected options: completed rewrites ship as first-party
+implementations, while unfinished or licence-incompatible third-party sources
+do not enter the product list.
 Version 0.1.43 adds the first-party, local-only `literature-review` Skill: it
 imports, deduplicates, validates, and deterministically exports source-bound RIS,
 bounded BibTeX, and CSL-JSON metadata while preserving conflicts for Human review.
