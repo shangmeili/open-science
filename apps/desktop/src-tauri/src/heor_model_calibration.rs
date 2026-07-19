@@ -2047,6 +2047,7 @@ mod tests {
         std::fs::create_dir_all(&root).expect("fixture root");
         let prepare = std::process::Command::new("python3")
             .current_dir(&repo)
+            .env("PYTHONDONTWRITEBYTECODE", "1")
             .args([
                 "-c",
                 "import sys; from pathlib import Path; from scripts.dev.test_model_calibration import build_workspace; build_workspace(Path(sys.argv[1]))",
@@ -2061,6 +2062,7 @@ mod tests {
         let runner = repo
             .join("runtime/skills/core/heor-model-calibration/scripts/run_model_calibration.py");
         let run = std::process::Command::new("python3")
+            .env("PYTHONDONTWRITEBYTECODE", "1")
             .args([
                 runner.to_str().expect("UTF-8 runner path"),
                 "--workspace",

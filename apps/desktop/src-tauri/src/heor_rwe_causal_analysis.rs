@@ -2784,6 +2784,7 @@ mod tests {
             "../../../runtime/skills/core/heor-rwe-causal-analysis/scripts/run_rwe_causal_analysis.py",
         );
         let output = Command::new("python3")
+            .env("PYTHONDONTWRITEBYTECODE", "1")
             .arg(runner)
             .arg("--workspace")
             .arg(&root)
