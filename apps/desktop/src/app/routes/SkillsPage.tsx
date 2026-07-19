@@ -17,6 +17,10 @@ import {
   type SkillCandidateSummary,
 } from "@/lib/tauri";
 
+// Registry schema identifiers, not user-facing copy.
+// eslint-disable-next-line i18next/no-literal-string
+const ADMISSION_STATUS_ORDER = ["validated-adapter", "quarantined", "rejected"] as const;
+
 /**
  * Runtime capabilities plus the app-owned third-party admission registry.
  * Natural-language review is the primary external-asset workflow; the registry
@@ -200,10 +204,14 @@ export function SkillsPage() {
           {!admission && !admissionError && <Empty>{t("skills.assetAdmission.loading")}</Empty>}
           {admission && (
             <>
+              <div className="bg-surface-2 px-4 py-3">
+                <p className="text-sm font-medium text-text">{t("skills.assetAdmission.firstPartyTitle")}</p>
+                <p className="mt-1 text-xs leading-5 text-muted">{t("skills.assetAdmission.firstPartyBoundary")}</p>
+              </div>
               <div className="grid grid-cols-3 gap-px bg-border">
-                <AdmissionCount value={admission.admittedCount} label={t("skills.assetAdmission.admitted")} />
-                <AdmissionCount value={admission.quarantinedCount} label={t("skills.assetAdmission.quarantined")} />
-                <AdmissionCount value={admission.rejectedCount} label={t("skills.assetAdmission.rejected")} />
+                <AdmissionCount value={admission.admittedCount} label={t("skills.assetAdmission.thirdPartyAdmitted")} />
+                <AdmissionCount value={admission.quarantinedCount} label={t("skills.assetAdmission.thirdPartyQuarantined")} />
+                <AdmissionCount value={admission.rejectedCount} label={t("skills.assetAdmission.thirdPartyRejected")} />
               </div>
               <p className={cn("px-4 py-3 text-xs", admission.complete ? "text-muted" : "text-danger") }>
                 {admission.complete
@@ -215,7 +223,22 @@ export function SkillsPage() {
               {admission.errors.map((error) => (
                 <div key={error} className="px-4 py-2 text-xs text-danger">{error}</div>
               ))}
-              {admission.assets.map((asset) => <AdmissionRow key={asset.assetId} asset={asset} />)}
+              {ADMISSION_STATUS_ORDER.map((status) => {
+                const assets = admission.assets.filter((asset) => asset.status === status);
+                if (assets.length === 0) return null;
+                const label =
+                  status === "validated-adapter"
+                    ? t("skills.assetAdmission.groupAdmitted", { count: assets.length })
+                    : status === "quarantined"
+                      ? t("skills.assetAdmission.groupQuarantined", { count: assets.length })
+                      : t("skills.assetAdmission.groupRejected", { count: assets.length });
+                return (
+                  <div key={status}>
+                    <div className="bg-surface-2 px-4 py-2 text-xs font-medium text-text">{label}</div>
+                    {assets.map((asset) => <AdmissionRow key={asset.assetId} asset={asset} />)}
+                  </div>
+                );
+              })}
             </>
           )}
         </Section>
@@ -626,9 +649,28 @@ function AdmissionRow({ asset }: { asset: AssetAdmissionRecord }) {
           <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted ring-1 ring-border">{label}</span>
           <span className="font-mono text-[11px] text-muted">{asset.licenseSpdx}</span>
         </div>
-        <div className="mt-1 line-clamp-2 text-xs text-muted">
-          {asset.blockers[0] ?? t("skills.assetAdmission.noBlockers")}
-        </div>
+        <details className="mt-2 text-xs text-muted">
+          <summary className="cursor-pointer select-none font-medium text-text">
+            {t("skills.assetAdmission.why")}
+          </summary>
+          {asset.blockers.length > 0 ? (
+            <ul className="mt-2 list-disc space-y-1 pl-5 leading-5">
+              {asset.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
+            </ul>
+          ) : (
+            <p className="mt-2">{t("skills.assetAdmission.noBlockers")}</p>
+          )}
+        </details>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          <span className="font-medium text-text">{t("skills.assetAdmission.proposedAction")}</span>{" "}
+          {asset.assetId === "anthropic-skills/pptx"
+            ? t("skills.assetAdmission.actionPptxReplacement")
+            : asset.status === "rejected"
+              ? t("skills.assetAdmission.actionCleanRoom")
+              : asset.kind === "mcp"
+                ? t("skills.assetAdmission.actionPerToolAdapter")
+                : t("skills.assetAdmission.actionFirstPartyRewrite")}
+        </p>
       </div>
     </div>
   );

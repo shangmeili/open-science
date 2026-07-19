@@ -38,7 +38,7 @@ describe("SkillsPage strings (i18n)", () => {
     expect(screen.getByText("Environment detection runs in the desktop app.")).toBeInTheDocument();
     expect(
       await screen.findByText(
-        "No third-party production asset is admitted. Quarantined and rejected candidates are visible for review but are not loaded into the runtime.",
+        "The admission registry is unavailable. External assets remain disabled.",
       ),
     ).toBeInTheDocument();
     expect(
