@@ -196,7 +196,7 @@ does not yet exist, AI4HEOR atomically renames the prior default
 exist, it does not merge or delete either one; a base folder explicitly chosen in
 Settings always wins.
 
-The currently verified 0.1.35 local x64 macOS artifact is not code-signed or notarized. The
+The currently verified 0.1.37 local x64 macOS artifact is not code-signed or notarized. The
 `v*` tag pipeline now fails closed unless both macOS targets receive Developer ID and
 Apple notarization credentials and subsequently pass signature, hardened-runtime,
 stapled-ticket, and Gatekeeper checks. No credentialed tag run has produced that evidence
@@ -291,9 +291,11 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.37; the current verified x64 macOS package remains
-0.1.35 while the new Intel package is built and checked. Version 0.1.37 adds a
-fail-closed capability-growth harness: natural-language requests can produce bilingual,
+accepted. Current source is 0.1.38; the current verified x64 macOS package is 0.1.37.
+Version 0.1.38 makes both capability-growth Skills resolve their validators from the
+Skill installation directory reported by the runtime rather than assuming a source
+checkout. Version 0.1.37 adds a fail-closed capability-growth harness: natural-language
+requests can produce bilingual,
 hash-bound, instruction-only Skill candidates, and repeated non-sensitive working
 patterns can produce local preference proposals. Neither becomes active without a
 separate researcher decision, and neither can modify governance, core Skills,
@@ -310,24 +312,59 @@ and all 47 bundled Skill
 descriptions in direct pharmacoeconomics language, and moves previously hard-coded
 download, file-manager, Jupyter, notebook, and generated-assistant prompts into the seven
 shipped locale resources. It retains the 0.1.32 fail-closed new-project harness and its
-machine-readable Human scientific-authority contract. The 80,139,562-byte
-AI4HEOR 0.1.35 x64 macOS DMG has SHA-256
-`11d1e4eb8924d1834003a78042b78e4befdce4b25ee2ecc1ca0253e449654003` and was locally built
-from clean tracked source commit `ad9f139975cef9be943cb23b702fd79bdcfe0592`. All 286
-configured resources match source bytes, all 177 deterministic HEOR tests pass
-against the mounted core, and isolated first-launch and legacy-migration checks prove fresh
-`Documents/AI4HEOR` creation plus content-preserving `Documents/OpenScience` migration.
-An additional isolated native UI run completed the model-free base case and two declared
-sensitivity calculations, created one successful Run and three Provenance entries, and
-rejected a subsequently changed governed input without altering any result bytes.
-The default entry creates a typed HEOR project and prepares a localized, unsent
-natural-language research intake. A seven-language first-use guide explains local storage,
-model choice, approval boundaries, and Human scientific authority without collecting a
-scientific form or hiding the research conversation. The research surface describes the
-engine as the AI assistant; the OpenCode implementation name and local endpoint are visible
-only in Settings → Advanced diagnostics. The default Settings surface contains governed
-first-party HEOR evidence access, managed Jupyter, and explicitly unmanaged user-added
-MCP servers; it no longer provisions the inherited generic Open Science connector catalog.
+machine-readable Human scientific-authority contract. The default entry creates a typed
+HEOR project and prepares a localized, unsent natural-language research intake. The
+model-free teaching case preserves one successful Run and three Provenance entries and
+rejects a subsequently changed governed input without altering prior result bytes. A
+seven-language first-use guide explains local storage, model choice, approval boundaries,
+and Human scientific authority without collecting a scientific form or hiding the research
+conversation. OpenCode implementation details remain under Settings → Advanced diagnostics;
+the default Settings surface contains governed first-party HEOR evidence access, managed
+Jupyter, and explicitly unmanaged user-added MCP servers rather than the inherited generic
+Open Science connector catalog.
+The 81,288,283-byte AI4HEOR 0.1.37 x64 macOS DMG has SHA-256
+`702c9ae95f7099c2af87d7433bbe3ada53b06ce0959d858502b9a911d8b9c826` and was locally
+built from tracked source commit `f1858c912d5f6edbe9630274ee72e9d2e1e926a5`. All 334
+configured resources match source bytes, all 177 deterministic HEOR tests pass against
+the mounted core, and isolated first-launch and legacy-migration checks pass. A separate
+native UI run confirmed the AI4HEOR logo, the Simplified-Chinese HEOR entry, localized
+capability-growth Skills, and complete harness-v2 creation in a new project. This package
+is unsigned and unnotarized and is for internal product-owner testing only.
+
+### Intel macOS product-owner acceptance
+
+Use `AI4HEOR_0.1.37_x64.dmg` only on an Intel Mac. Before opening it, verify the exact
+SHA-256 above. Because this internal build is unsigned, macOS may require Control-click →
+Open; that exception is not evidence of distribution readiness.
+
+1. Confirm that the application name and icon are AI4HEOR and that the initial workspace
+   starts from a pharmacoeconomic research question with six HEOR-specific starters.
+2. Create a disposable project. Confirm that `AGENTS.md`, `policy.json`,
+   `capabilities/candidates/`, `capabilities/reviews/`, `learning/proposals/`, and
+   `learning/preferences.json` are present.
+3. Install the bundled pharmacoeconomics learning library, search for `机会成本`, and
+   repeat the install. The search must remain local and the installed source, manifest,
+   and index bytes must not change on the identical reinstall.
+4. Run the bundled cost-effectiveness teaching example through its separate local-run
+   confirmation. The request must remain editable and unsent; the deterministic result
+   must not claim cost-effectiveness, reimbursement, or policy authority.
+5. If testing a model, connect only a product-owner-selected provider in Settings. No
+   credential is bundled. A provider failure must remain visible and must not trigger a
+   silent fallback.
+6. In Methods & Tools, ask AI4HEOR to create a narrow presentation-only Skill candidate.
+   The result must be bilingual, hash-bound, instruction-only, and remain under
+   `capabilities/candidates/`; it must not appear as an active Skill.
+7. Confirm that Runs and Provenance distinguish model-backed drafts from local
+   deterministic calculations and that no credential appears in the project, records,
+   logs, or exports.
+
+Current acceptance limits: no app-owned candidate activation screen, no admitted external
+Skill or third-party MCP, no Developer-ID signature or notarization, no Apple-Silicon,
+Windows, or current Linux acceptance, and no claim of scientific or methodological
+validity. Credentials entered in the current unsigned build are stored in an owner-only
+app-private OpenCode configuration, not the macOS Keychain; revisit keychain-backed
+storage for a signed release.
+
 The current 0.1.31 Apple Silicon DMG was separately cross-built from clean commit
 `2834785e057ac54477a9633f07390bc173251644` on an Intel Mac. Its 76,095,510 bytes have
 SHA-256 `86b0583e36480affb90ec08b84d8c4276ec702b92e69ef90894f58c2888da42e`;
@@ -349,7 +386,7 @@ silently acquire those claims. Tagged matrix jobs no longer create or populate a
 only the final job may create a draft after all four evidence files and the cross-platform
 manifest validate, and it uploads exactly those verified installers and records. This gate
 is locally contract-tested and rejects the
-current unsigned 0.1.35 x64 DMG, but it has not been exercised with real Apple credentials.
+current unsigned 0.1.37 x64 DMG, but it has not been exercised with real Apple credentials.
 The AI4HEOR 0.1.30 Linux `.deb` and `.rpm` were built from the same clean commit
 `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. Both packages are payload-verified with all
 282 configured resources matching source bytes and all 177 deterministic HEOR tests
@@ -375,7 +412,7 @@ If you use AI4HEOR in your research, please cite it:
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.37},
+  version = {0.1.38},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

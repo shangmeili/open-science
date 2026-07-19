@@ -208,6 +208,27 @@ class AI4HEORProductDocsTests(unittest.TestCase):
         self.assertIn("install_bundled_heor_knowledge_base", native)
         self.assertIn("installBundledHeorKnowledgeBase", surface)
 
+    def test_intel_macos_acceptance_handoff_is_current_and_explicit(self):
+        version = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
+        english = (ROOT / "README.md").read_text(encoding="utf-8")
+        chinese = (ROOT / "README.zh.md").read_text(encoding="utf-8")
+        self.assertIn(f"Current source is {version}", english)
+        self.assertIn(f"当前源码为 `{version}`", chinese)
+        self.assertIn("Intel macOS product-owner acceptance", english)
+        self.assertIn("Intel macOS 产品负责人验收", chinese)
+        for text in (english, chinese):
+            self.assertIn("AI4HEOR_0.1.37_x64.dmg", text)
+            self.assertIn(
+                "702c9ae95f7099c2af87d7433bbe3ada53b06ce0959d858502b9a911d8b9c826",
+                text,
+            )
+            self.assertIn("capabilities/candidates/", text)
+            self.assertIn("learning/preferences.json", text)
+        self.assertIn("not the macOS Keychain", english)
+        self.assertIn("不是 macOS 钥匙串", chinese)
+        self.assertNotIn("current verified x64 macOS package remains\n0.1.35", english)
+        self.assertNotIn("当前已验证的 x64 macOS 安装包仍为 `0.1.35`", chinese)
+
 
 if __name__ == "__main__":
     unittest.main()

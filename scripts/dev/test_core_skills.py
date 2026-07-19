@@ -115,6 +115,15 @@ class CoreSkillContractTests(unittest.TestCase):
         self.assertIn("researcher-selected plan", text)
         self.assertNotIn("Complete the current goal.", text)
 
+    def test_capability_growth_skills_use_the_loaded_install_directory(self):
+        for name in ("ai4heor-skill-authoring", "ai4heor-preference-learning"):
+            with self.subTest(skill=name):
+                text = (SKILLS_ROOT / name / "SKILL.md").read_text(encoding="utf-8")
+                self.assertIn("Base directory for this skill", text)
+                self.assertIn("<skill-base-directory>/scripts/", text)
+                self.assertIn("source checkout", text)
+                self.assertNotIn(f"runtime/skills/core/{name}/scripts/", text)
+
 
 if __name__ == "__main__":
     unittest.main()

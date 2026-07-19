@@ -27,8 +27,10 @@ Create a reviewable candidate, not an installed capability. Read
    permit the exact proposed use.
 7. List every candidate file with its byte size and SHA-256. Do not list
    `validation.json`, which is generated after the content is frozen.
-8. Run
-   `python3 runtime/skills/core/ai4heor-skill-authoring/scripts/validate_candidate.py capabilities/candidates/<skill-id>`.
+8. Use the `Base directory for this skill` reported when the Skill was loaded,
+   then run `python3 "<skill-base-directory>/scripts/validate_candidate.py"
+   capabilities/candidates/<skill-id>`. Do not assume the application was
+   launched from a source checkout.
 9. Report the candidate path, decision hash, validation findings, unresolved
    rights or method questions, and what the researcher must inspect. State that
    the candidate remains inactive.

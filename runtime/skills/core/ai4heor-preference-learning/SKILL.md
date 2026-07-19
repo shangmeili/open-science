@@ -21,7 +21,10 @@ Read `references/preference-contract.md` before creating a proposal.
    evidence references, counterexamples, and expiry or review conditions.
 4. Explain what would change if accepted and what remains governed by the
    current task and product harness.
-5. Run `python3 runtime/skills/core/ai4heor-preference-learning/scripts/validate_preference_proposal.py learning/proposals/<proposal-id>.json`.
+5. Use the `Base directory for this skill` reported when the Skill was loaded,
+   then run `python3 "<skill-base-directory>/scripts/validate_preference_proposal.py"
+   learning/proposals/<proposal-id>.json`. Do not assume the application was
+   launched from a source checkout.
 6. Ask the researcher to accept, edit, or reject the proposal through the
    app-owned review. Do not edit `learning/preferences.json` yourself.
 
