@@ -28,14 +28,26 @@ class CandidateValidationTests(unittest.TestCase):
         raw = body.encode()
         (skill / "SKILL.md").write_bytes(raw)
         manifest = {
-            "schema": "ai4heor-skill-candidate/v1",
+            "schema": "ai4heor-skill-candidate/v2",
             "id": "local-review-helper",
             "status": "candidate",
             "created_at": "2026-07-19T00:00:00Z",
             "request": "Create a reusable local review checklist.",
             "localized": {
-                "en": {"display_name": "Local review helper", "description": "Prepare a local checklist."},
-                "zh-Hans": {"display_name": "本地复核清单", "description": "整理可复核的本地检查清单。"},
+                "en": {
+                    "display_name": "Local review helper",
+                    "description": "Prepare a local checklist.",
+                    "license_note": "Test fixture only.",
+                    "limitations": ["Instruction-only test fixture."],
+                    "acceptance_checks": ["Researcher can inspect the checklist."],
+                },
+                "zh-Hans": {
+                    "display_name": "本地复核清单",
+                    "description": "整理可复核的本地检查清单。",
+                    "license_note": "仅用于本地测试。",
+                    "limitations": ["仅用于测试指令型 Skill。"],
+                    "acceptance_checks": ["研究者可以查看完整检查清单。"],
+                },
             },
             "authoring": {"provider": "local-test", "model": "fixture", "session_ref": "test-session"},
             "source": {
@@ -47,8 +59,6 @@ class CandidateValidationTests(unittest.TestCase):
             },
             "permissions": {"network": False, "secrets": False, "commands": False, "outside_workspace": False},
             "files": [{"path": "skill/SKILL.md", "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}],
-            "limitations": ["Instruction-only test fixture."],
-            "acceptance_checks": ["Researcher can inspect the checklist."],
         }
         (candidate / "candidate.json").write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
         return candidate
@@ -67,6 +77,25 @@ class CandidateValidationTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertFalse(report["valid"])
         self.assertIn("possible secret detected in skill/SKILL.md", report["errors"])
+
+    def test_v1_candidate_without_localized_review_material_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = self.candidate(Path(directory))
+            manifest_path = candidate / "candidate.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["schema"] = "ai4heor-skill-candidate/v1"
+            for entry in manifest["localized"].values():
+                entry.pop("limitations")
+                entry.pop("acceptance_checks")
+                entry.pop("license_note")
+            manifest["limitations"] = ["English-only legacy limitation."]
+            manifest["acceptance_checks"] = ["English-only legacy check."]
+            manifest_path.write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+            report, code = validate(candidate)
+        self.assertEqual(code, 1)
+        self.assertFalse(report["valid"])
+        self.assertTrue(any("candidate fields" in error for error in report["errors"]))
+        self.assertIn("schema must be ai4heor-skill-candidate/v2", report["errors"])
 
 
 if __name__ == "__main__":

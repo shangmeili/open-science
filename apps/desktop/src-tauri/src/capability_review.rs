@@ -15,8 +15,8 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::AppHandle;
 
-const CANDIDATE_SCHEMA: &str = "ai4heor-skill-candidate/v1";
-const VALIDATION_SCHEMA: &str = "ai4heor-skill-validation/v1";
+const CANDIDATE_SCHEMA: &str = "ai4heor-skill-candidate/v2";
+const VALIDATION_SCHEMA: &str = "ai4heor-skill-validation/v2";
 const EVENT_SCHEMA: u32 = 1;
 const REVIEW_ASSURANCE: &str = "app_owned_local_human_assertion";
 const MAX_CANDIDATES: usize = 100;
@@ -76,6 +76,9 @@ pub struct SkillCandidateReviewEvent {
 pub struct LocalizedCandidateCopy {
     pub display_name: String,
     pub description: String,
+    pub license_note: String,
+    pub limitations: Vec<String>,
+    pub acceptance_checks: Vec<String>,
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
@@ -89,8 +92,6 @@ pub struct SkillCandidateSummary {
     pub model: String,
     pub license_spdx: String,
     pub license_note: String,
-    pub limitations: Vec<String>,
-    pub acceptance_checks: Vec<String>,
     pub acceptance_checks_sha256: String,
     pub decision_sha256: String,
     pub active_tree_sha256: String,
@@ -129,8 +130,6 @@ struct ValidatedCandidate {
     model: String,
     license_spdx: String,
     license_note: String,
-    limitations: Vec<String>,
-    acceptance_checks: Vec<String>,
     acceptance_checks_sha256: String,
     decision_sha256: String,
     active_tree_sha256: String,
@@ -379,11 +378,9 @@ fn validate_candidate(root: &Path) -> Result<ValidatedCandidate, String> {
             "source",
             "permissions",
             "files",
-            "limitations",
-            "acceptance_checks",
         ],
     ) {
-        return Err("candidate.json fields do not match the v1 contract".into());
+        return Err("candidate.json fields do not match the v2 contract".into());
     }
     if manifest.get("schema").and_then(Value::as_str) != Some(CANDIDATE_SCHEMA)
         || manifest.get("status").and_then(Value::as_str) != Some("candidate")
@@ -411,7 +408,16 @@ fn validate_candidate(root: &Path) -> Result<ValidatedCandidate, String> {
     for (locale, value) in localized_value {
         if locale.is_empty()
             || locale.len() > 32
-            || !exact_keys(value, &["display_name", "description"])
+            || !exact_keys(
+                value,
+                &[
+                    "display_name",
+                    "description",
+                    "license_note",
+                    "limitations",
+                    "acceptance_checks",
+                ],
+            )
         {
             return Err("candidate localized metadata is invalid".into());
         }
@@ -419,11 +425,20 @@ fn validate_candidate(root: &Path) -> Result<ValidatedCandidate, String> {
             .ok_or("candidate localized display name is invalid")?;
         let description = bounded_text(value.get("description"), 600)
             .ok_or("candidate localized description is invalid")?;
+        let localized_license_note = bounded_text(value.get("license_note"), 1_000)
+            .ok_or("candidate localized license note is invalid")?;
+        let limitations = string_array(value.get("limitations"), 1_000)
+            .ok_or("candidate localized limitations are missing or invalid")?;
+        let acceptance_checks = string_array(value.get("acceptance_checks"), 1_000)
+            .ok_or("candidate localized acceptance checks are missing or invalid")?;
         localized.insert(
             locale.clone(),
             LocalizedCandidateCopy {
                 display_name,
                 description,
+                license_note: localized_license_note,
+                limitations,
+                acceptance_checks,
             },
         );
     }
@@ -513,12 +528,12 @@ fn validate_candidate(root: &Path) -> Result<ValidatedCandidate, String> {
         return Err("candidate files list does not exactly cover the Skill content".into());
     }
 
-    let limitations = string_array(manifest.get("limitations"), 1_000)
-        .ok_or("candidate limitations are missing or invalid")?;
-    let acceptance_checks = string_array(manifest.get("acceptance_checks"), 1_000)
-        .ok_or("candidate acceptance checks are missing or invalid")?;
+    let localized_checks = localized
+        .iter()
+        .map(|(locale, copy)| (locale.clone(), copy.acceptance_checks.clone()))
+        .collect::<BTreeMap<_, _>>();
     let acceptance_checks_raw =
-        serde_json::to_vec(&acceptance_checks).map_err(|error| error.to_string())?;
+        serde_json::to_vec(&localized_checks).map_err(|error| error.to_string())?;
     let acceptance_checks_sha256 = sha256(&acceptance_checks_raw);
 
     let skill_raw = files
@@ -591,8 +606,6 @@ fn validate_candidate(root: &Path) -> Result<ValidatedCandidate, String> {
         model,
         license_spdx,
         license_note,
-        limitations,
-        acceptance_checks,
         acceptance_checks_sha256,
         decision_sha256,
         active_tree_sha256,
@@ -1018,12 +1031,6 @@ fn audit_workspace(
             license_note: candidate
                 .map(|item| item.license_note.clone())
                 .unwrap_or_default(),
-            limitations: candidate
-                .map(|item| item.limitations.clone())
-                .unwrap_or_default(),
-            acceptance_checks: candidate
-                .map(|item| item.acceptance_checks.clone())
-                .unwrap_or_default(),
             acceptance_checks_sha256: if can_revoke {
                 last.map(|event| event.acceptance_checks_sha256.clone())
             } else {
@@ -1334,8 +1341,20 @@ mod tests {
             "created_at": "2026-07-19T13:00:00Z",
             "request": "Keep a reusable Chinese HEOR table note style.",
             "localized": {
-                "en": {"display_name": "HEOR table notes", "description": "Format reviewed table notes."},
-                "zh-Hans": {"display_name": "药物经济学表注", "description": "整理已经复核的表注。"}
+                "en": {
+                    "display_name": "HEOR table notes",
+                    "description": "Format reviewed table notes.",
+                    "license_note": "Local project use only.",
+                    "limitations": ["Presentation only"],
+                    "acceptance_checks": ["Values remain unchanged", "Limitations remain visible"]
+                },
+                "zh-Hans": {
+                    "display_name": "药物经济学表注",
+                    "description": "整理已经复核的表注。",
+                    "license_note": "仅限当前本地项目使用。",
+                    "limitations": ["仅调整呈现方式"],
+                    "acceptance_checks": ["数值保持不变", "限制说明保持可见"]
+                }
             },
             "authoring": {"provider": "test-provider", "model": "test-model", "session_ref": "local-test"},
             "source": {
@@ -1346,9 +1365,7 @@ mod tests {
                 "license_note": "Local project use only"
             },
             "permissions": {"network": false, "secrets": false, "commands": false, "outside_workspace": false},
-            "files": records,
-            "limitations": ["Presentation only"],
-            "acceptance_checks": ["Values remain unchanged", "Limitations remain visible"]
+            "files": records
         });
         let manifest_raw = serde_json::to_vec_pretty(&manifest).unwrap();
         std::fs::write(root.join("candidate.json"), &manifest_raw).unwrap();

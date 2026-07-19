@@ -1151,7 +1151,8 @@ as a self-governing research system. A researcher's natural-language request can
 produce a bilingual, hash-bound, instruction-only Skill candidate under
 `capabilities/candidates/`. The candidate remains outside active Skill discovery;
 deterministic validation checks its exact files, permissions, provenance, license
-basis, secret patterns, limitations, and acceptance checks. The current release
+basis, secret patterns, and complete English and Simplified Chinese license
+notes, limitations, and acceptance checks. The current release
 does not activate candidates automatically. A separate desktop review lets a Human
 activate, reject, or revoke the exact instruction-only candidate for the current
 project. The native control revalidates every byte, requires a reviewer label,

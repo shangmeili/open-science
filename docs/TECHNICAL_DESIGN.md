@@ -348,9 +348,11 @@ entries fail closed. Each successful action writes an immutable snapshot under
 may edit, pause, resume, or delete a preference through the desktop surface. The event
 chain is a local integrity assertion, not authenticated identity or external attestation.
 
-The desktop review control independently revalidates the candidate manifest,
+The desktop review control independently revalidates the v2 candidate manifest,
 `validation.json`, every listed byte, the bilingual metadata, deny-by-default
-permissions, license note, limitations, acceptance checks, and Skill tree hash.
+permissions, localized license notes, limitations and acceptance checks, and Skill
+tree hash. Candidate schema v2 requires complete English and Simplified Chinese
+review material; incomplete v1 candidates remain inactive until regenerated.
 Activation requires a Human reviewer label, rationale, exact-hash confirmation, and
 confirmation of all acceptance checks. The app then atomically copies only the reviewed
 instruction files to the current project's `.opencode/skills/<id>/`; it never writes to

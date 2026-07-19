@@ -1,8 +1,9 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAt } from "@/test/render";
 import { useUiStore } from "@/lib/store";
+import i18n from "@/i18n";
 
 const mocks = vi.hoisted(() => ({
   auditSkillCandidates: vi.fn(),
@@ -18,8 +19,9 @@ vi.mock("@/lib/tauri", async (importOriginal) => {
   };
 });
 
-afterEach(() => {
+afterEach(async () => {
   useUiStore.getState().setLocale("en");
+  await act(async () => i18n.changeLanguage("en"));
   vi.clearAllMocks();
 });
 
@@ -34,15 +36,25 @@ describe("SkillsPage project capability review", () => {
         createdAt: "2026-07-19T13:00:00Z",
         request: "Preserve our reviewed table-note format.",
         localized: {
-          en: { displayName: "HEOR table notes", description: "Format reviewed HEOR table notes." },
-          "zh-Hans": { displayName: "药物经济学表注", description: "整理已经复核的药物经济学表注。" },
+          en: {
+            displayName: "HEOR table notes",
+            description: "Format reviewed HEOR table notes.",
+            licenseNote: "Local project use only.",
+            limitations: ["Presentation only"],
+            acceptanceChecks: ["Values remain unchanged"],
+          },
+          "zh-Hans": {
+            displayName: "药物经济学表注",
+            description: "整理已经复核的药物经济学表注。",
+            licenseNote: "仅限当前本地项目使用。",
+            limitations: ["仅调整呈现方式"],
+            acceptanceChecks: ["数值保持不变"],
+          },
         },
         provider: "minimax-cn",
         model: "MiniMax-M2.7",
         licenseSpdx: "LicenseRef-Project-Private",
         licenseNote: "Local project use only.",
-        limitations: ["Presentation only"],
-        acceptanceChecks: ["Values remain unchanged"],
         acceptanceChecksSha256: "a".repeat(64),
         decisionSha256: "b".repeat(64),
         activeTreeSha256: "c".repeat(64),
@@ -85,5 +97,62 @@ describe("SkillsPage project capability review", () => {
       actorLabel: "Methods reviewer",
       rationale: "Exact instructions and limitations reviewed.",
     }));
+  });
+
+  it("shows localized acceptance checks and limitations in the review dialog", async () => {
+    mocks.auditSkillCandidates.mockResolvedValue({
+      projectAvailable: true,
+      projectId: "0123456789abcdef",
+      complete: true,
+      candidates: [{
+        candidateId: "heor-table-notes",
+        createdAt: "2026-07-19T13:00:00Z",
+        request: "Preserve our reviewed table-note format.",
+        localized: {
+          en: {
+            displayName: "HEOR table notes",
+            description: "Format reviewed HEOR table notes.",
+            licenseNote: "Local project use only.",
+            limitations: ["Presentation only"],
+            acceptanceChecks: ["Values remain unchanged"],
+          },
+          "zh-Hans": {
+            displayName: "药物经济学表注",
+            description: "整理已经复核的药物经济学表注。",
+            licenseNote: "仅限当前本地项目使用。",
+            limitations: ["仅调整呈现方式"],
+            acceptanceChecks: ["数值保持不变"],
+          },
+        },
+        provider: "local-test",
+        model: "fixture",
+        licenseSpdx: "MIT",
+        licenseNote: "仅限本地项目测试。",
+        acceptanceChecksSha256: "a".repeat(64),
+        decisionSha256: "b".repeat(64),
+        activeTreeSha256: "c".repeat(64),
+        valid: true,
+        validationErrors: [],
+        status: "inactive",
+        canActivate: true,
+        canReject: true,
+        canRevoke: false,
+      }],
+      integrity: "verified_unanchored_sha256_chain",
+      identityAssurance: "app_owned_local_human_assertion",
+      errors: [],
+    });
+
+    renderAt("/skills");
+    await act(async () => {
+      useUiStore.getState().setLocale("zh-Hans");
+      await i18n.changeLanguage("zh-Hans");
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "复核并启用" }));
+    expect(screen.getByText("数值保持不变")).toBeInTheDocument();
+    expect(screen.getByText("仅调整呈现方式")).toBeInTheDocument();
+    expect(screen.getByText("仅限当前本地项目使用。")).toBeInTheDocument();
+    expect(screen.queryByText("Values remain unchanged")).not.toBeInTheDocument();
+    expect(screen.queryByText("Local project use only.")).not.toBeInTheDocument();
   });
 });

@@ -56,6 +56,9 @@ export type SkillCandidateReviewAction = "activate" | "reject" | "revoke";
 export interface LocalizedCandidateCopy {
   displayName: string;
   description: string;
+  licenseNote: string;
+  limitations: string[];
+  acceptanceChecks: string[];
 }
 
 export interface SkillCandidateSummary {
@@ -67,8 +70,6 @@ export interface SkillCandidateSummary {
   model: string;
   licenseSpdx: string;
   licenseNote: string;
-  limitations: string[];
-  acceptanceChecks: string[];
   acceptanceChecksSha256: string;
   decisionSha256: string;
   activeTreeSha256: string;

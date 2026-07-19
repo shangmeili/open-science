@@ -279,6 +279,7 @@ export function SkillsPage() {
       {reviewTarget && (
         <CandidateReviewDialog
           candidate={reviewTarget}
+          locale={i18n.resolvedLanguage}
           action={reviewAction}
           running={reviewRunning}
           onCancel={() => !reviewRunning && setReviewTarget(null)}
@@ -289,7 +290,13 @@ export function SkillsPage() {
   );
 }
 
-function candidateCopy(candidate: SkillCandidateSummary, locale?: string): { name: string; description: string } {
+function candidateCopy(candidate: SkillCandidateSummary, locale?: string): {
+  name: string;
+  description: string;
+  licenseNote: string;
+  limitations: string[];
+  acceptanceChecks: string[];
+} {
   const normalized = locale?.toLowerCase();
   const exact = locale ? candidate.localized[locale] : undefined;
   const language = Object.entries(candidate.localized).find(([key]) =>
@@ -299,6 +306,9 @@ function candidateCopy(candidate: SkillCandidateSummary, locale?: string): { nam
   return {
     name: copy?.displayName ?? candidate.candidateId,
     description: copy?.description ?? candidate.request,
+    licenseNote: copy?.licenseNote ?? candidate.licenseNote,
+    limitations: copy?.limitations ?? [],
+    acceptanceChecks: copy?.acceptanceChecks ?? [],
   };
 }
 
@@ -407,18 +417,21 @@ function candidateStatus(status: string): CandidateStatus {
 
 function CandidateReviewDialog({
   candidate,
+  locale,
   action,
   running,
   onCancel,
   onSubmit,
 }: {
   candidate: SkillCandidateSummary;
+  locale?: string;
   action: SkillCandidateReviewAction;
   running: boolean;
   onCancel: () => void;
   onSubmit: (actor: string, rationale: string) => void;
 }) {
   const { t } = useTranslation("pages");
+  const copy = candidateCopy(candidate, locale);
   const [actor, setActor] = useState("");
   const [rationale, setRationale] = useState("");
   const [confirmed, setConfirmed] = useState(false);
@@ -456,13 +469,13 @@ function CandidateReviewDialog({
           <>
             <div className="mt-4 text-xs font-medium text-text">{t("skills.candidates.dialog.acceptanceTitle")}</div>
             <ul className="mt-1 list-disc space-y-1 pl-5 text-xs leading-5 text-muted">
-              {candidate.acceptanceChecks.map((check) => <li key={check}>{check}</li>)}
+              {copy.acceptanceChecks.map((check) => <li key={check}>{check}</li>)}
             </ul>
             <div className="mt-4 text-xs font-medium text-text">{t("skills.candidates.dialog.limitationsTitle")}</div>
             <ul className="mt-1 list-disc space-y-1 pl-5 text-xs leading-5 text-muted">
-              {candidate.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}
+              {copy.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}
             </ul>
-            <p className="mt-3 text-[10px] leading-4 text-muted">{candidate.licenseNote}</p>
+            <p className="mt-3 text-[10px] leading-4 text-muted">{copy.licenseNote}</p>
           </>
         )}
         <label className="mt-4 block text-xs font-medium text-text">

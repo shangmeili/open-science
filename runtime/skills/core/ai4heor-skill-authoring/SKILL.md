@@ -18,11 +18,12 @@ Create a reviewable candidate, not an installed capability. Read
    `assets/candidate.template.json`. Use a lowercase hyphenated ID.
 4. Write a concise `skill/SKILL.md`. Keep detailed method contracts in
    `skill/references/*.md`; load them only when needed.
-5. Provide both `en` and `zh-Hans` display names and descriptions in
-   `candidate.json`. Add other supported locales when their wording has been
-   reviewed; never label machine-placeholder text as a finished translation.
+5. Provide complete `en` and `zh-Hans` display names, descriptions, plain-language
+   license notes, limitations, and acceptance checks in `candidate.json`. Add
+   other supported locales only when all five parts have been reviewed; never label
+   machine-placeholder text as a finished translation.
 6. Record the exact natural-language request, authoring model provenance,
-   copyright/license basis, limitations, acceptance checks, and declared
+   copyright/license basis, localized review material, and declared
    permissions. Do not copy third-party text unless its license and provenance
    permit the exact proposed use.
 7. List every candidate file with its byte size and SHA-256. Do not list

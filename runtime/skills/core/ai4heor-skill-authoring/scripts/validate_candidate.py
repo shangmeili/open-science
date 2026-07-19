@@ -21,8 +21,7 @@ SECRET_PATTERNS = (
 )
 ROOT_KEYS = {
     "schema", "id", "status", "created_at", "request", "localized",
-    "authoring", "source", "permissions", "files", "limitations",
-    "acceptance_checks",
+    "authoring", "source", "permissions", "files",
 }
 
 
@@ -95,8 +94,8 @@ def validate(root: Path) -> tuple[dict, int]:
         errors.append("id must be a lowercase hyphenated identifier of at most 64 characters")
     elif root.name != skill_id:
         errors.append("candidate directory name must equal id")
-    if manifest.get("schema") != "ai4heor-skill-candidate/v1":
-        errors.append("schema must be ai4heor-skill-candidate/v1")
+    if manifest.get("schema") != "ai4heor-skill-candidate/v2":
+        errors.append("schema must be ai4heor-skill-candidate/v2")
     if manifest.get("status") != "candidate":
         errors.append("status must remain candidate")
     if not nonempty(manifest.get("created_at"), 64) or not str(manifest.get("created_at")).endswith("Z"):
@@ -111,9 +110,20 @@ def validate(root: Path) -> tuple[dict, int]:
         errors.append("localized locale identifiers must be non-empty strings")
     else:
         for locale, entry in localized.items():
-            entry = exact_keys(entry, {"display_name", "description"}, f"localized.{locale}", errors)
+            entry = exact_keys(
+                entry,
+                {"display_name", "description", "license_note", "limitations", "acceptance_checks"},
+                f"localized.{locale}",
+                errors,
+            )
             if not nonempty(entry.get("display_name"), 120) or not nonempty(entry.get("description"), 600):
                 errors.append(f"localized.{locale} requires bounded display_name and description")
+            if not nonempty(entry.get("license_note"), 1000):
+                errors.append(f"localized.{locale}.license_note is required")
+            for field in ("limitations", "acceptance_checks"):
+                values = entry.get(field)
+                if not isinstance(values, list) or not values or any(not nonempty(value, 1000) for value in values):
+                    errors.append(f"localized.{locale}.{field} must be a non-empty array of bounded text values")
 
     authoring = exact_keys(manifest.get("authoring"), {"provider", "model", "session_ref"}, "authoring", errors)
     for field in ("provider", "model", "session_ref"):
@@ -169,11 +179,6 @@ def validate(root: Path) -> tuple[dict, int]:
         if expected_paths != actual_paths:
             errors.append("files must list every and only Skill content file")
 
-    for field in ("limitations", "acceptance_checks"):
-        values = manifest.get(field)
-        if not isinstance(values, list) or not values or any(not nonempty(value, 1000) for value in values):
-            errors.append(f"{field} must be a non-empty array of bounded text values")
-
     skill_raw = files.get("skill/SKILL.md", b"")
     try:
         skill_text = skill_raw.decode("utf-8")
@@ -192,7 +197,7 @@ def validate(root: Path) -> tuple[dict, int]:
     decision_inputs.extend(files[path] for path in sorted(expected_paths) if path in files)
     decision_hash = sha256(b"\0".join(decision_inputs))
     report = {
-        "schema": "ai4heor-skill-validation/v1",
+        "schema": "ai4heor-skill-validation/v2",
         "candidate_id": skill_id if isinstance(skill_id, str) else "",
         "validated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "valid": not errors,

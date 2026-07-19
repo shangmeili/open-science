@@ -5,21 +5,22 @@ optional Markdown files under `skill/references/`, and the generated
 `validation.json`. No other file type is admitted in the instruction-only
 release.
 
-`candidate.json` uses schema `ai4heor-skill-candidate/v1` and status
+`candidate.json` uses schema `ai4heor-skill-candidate/v2` and status
 `candidate`. The directory name, manifest `id`, and SKILL.md frontmatter `name`
 must match. The manifest includes:
 
 - the exact natural-language request;
-- localized display names and descriptions, including `en` and `zh-Hans`;
+- localized display names, descriptions, plain-language license notes,
+  limitations, and concrete Human acceptance checks, including complete `en`
+  and `zh-Hans` entries;
 - authoring provider, model, and local session reference;
 - source kind, copyright holder, rights basis, SPDX identifier or explicit
   LicenseRef, and a plain-language license note;
 - a deny-by-default permission declaration;
-- exact file paths, byte sizes, and SHA-256 values;
-- limitations and concrete Human acceptance checks.
+- exact file paths, byte sizes, and SHA-256 values.
 
 The deterministic validator rejects traversal, symlinks, hidden content,
-unexpected files, oversized files, hash drift, missing bilingual metadata,
+unexpected files, oversized files, hash drift, incomplete bilingual review material,
 active permissions, executable content, and common secret patterns. The output
 contains a decision hash over the exact candidate manifest and Skill files.
 
