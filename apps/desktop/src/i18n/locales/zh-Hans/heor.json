@@ -767,6 +767,24 @@
     "openXlsx": "打开 XLSX",
     "noProject": "没有可用于生成报告的当前项目。"
   },
+  "citationFormatting": {
+    "title": "正文引用与参考文献",
+    "loading": "正在检查文献库和引用计划……",
+    "current": "引用与参考文献和当前文献库一致",
+    "ready": "引用计划已就绪，可以生成",
+    "missing": "尚未准备引用计划",
+    "note": "应用只使用已校验的本地文献库，按 AI4HEOR 内置规则生成正文引用和参考文献表。它不会补写缺失数据，也不代表目标期刊已经验收；投稿前须由研究者逐条核对期刊要求。",
+    "citations": "引用位置",
+    "references": "参考文献",
+    "reviewItems": "待核对数据",
+    "askPrepare": "与助手一起整理引用",
+    "repairPrompt": "使用 $citation-formatting。先在对话中确认文稿用途、语言和需要引用的段落，再根据 references/library.json 当前 SHA-256 创建或修复 references/citation-plan.json。只能选择 ai4heor-cn-medical-numeric-v1、ai4heor-vancouver-numeric-v1 或 ai4heor-author-date-v1；引用必须使用文献库中已有 ID，页码等定位信息不得猜测。不要下载或补写元数据，不要声称符合某一目标期刊，human_review_status 保持 awaiting_human_review。",
+    "generate": "生成引用与参考文献",
+    "generating": "正在生成……",
+    "generated": "引用与参考文献已生成，请逐条核对后再使用。",
+    "open": "打开参考文献",
+    "noProject": "没有可用于整理引用的当前项目。"
+  },
   "reproducibility": {
     "title": "可重复性材料包",
     "loading": "正在检查可重复性材料……",

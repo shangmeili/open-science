@@ -43,6 +43,7 @@
     "heor-workbench": { "displayName": "Banco de trabajo AI4HEOR", "description": "Ayuda al trabajo farmacoeconómico y HEOR auditable dirigido por investigadores." },
     "large-file": { "displayName": "Archivo grande", "description": "Inspecciona archivos grandes con muestreo acotado y seguro." },
     "literature-review": { "displayName": "Biblioteca de referencias", "description": "Importa, deduplica y exporta metadatos RIS, BibTeX y CSL-JSON vinculados a sus fuentes de forma local." },
+    "citation-formatting": { "displayName": "Citas y referencias", "description": "Genera citas verificables en formato médico chino, Vancouver numérico o autor-fecha desde la biblioteca local validada." },
     "modal-run": { "displayName": "Ejecución Modal", "description": "Ejecuta cálculo pesado autorizado en la cuenta Modal del usuario." },
     "publication-figures": { "displayName": "Figuras para publicación", "description": "Crea figuras científicas coherentes y listas para publicación." },
     "remote-compute": { "displayName": "Cálculo remoto", "description": "Ejecuta y sigue trabajos autorizados en SSH o Slurm." },

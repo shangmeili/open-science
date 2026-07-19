@@ -119,7 +119,7 @@ approval, cost-effectiveness, or reimbursement conclusions.
 
 ## Current capabilities
 
-**Research assistance, as bounded HEOR skills.** AI4HEOR's 49 first-party skills
+**Research assistance, as bounded HEOR skills.** AI4HEOR's 50 first-party skills
 route researcher-defined tasks without acquiring approval or method-selection
 authority. Representative admitted workflows are:
 
@@ -129,6 +129,7 @@ authority. Representative admitted workflows are:
 | `$heor-local-evidence` | Inventory an explicitly selected local knowledge base without automatic networking | Hash-bound local evidence inventory |
 | `$heor-evidence-search` | Draft an auditable PubMed/ClinicalTrials.gov request for Human network authorization | Exact request hash and imported metadata candidates |
 | `$literature-review` | Import, deduplicate, validate, and export project-local citation metadata | Source-bound reference library plus RIS, BibTeX, or CSL-JSON exchange file |
+| `$citation-formatting` | Prepare source-bound in-text citations and bibliography output from the validated local library | Deterministic reviewable Markdown in three AI4HEOR-owned profiles plus generation audit |
 | `$heor-model-design` | Structure the Human-defined decision problem and conceptual model | Decision-problem artifact plus source-bound SVG and editable GraphML review views |
 | `$heor-cohort-state-transition` / `$heor-partitioned-survival` | Execute bounded deterministic economic models | Reproducible costs, QALYs, increments, and checks |
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | Execute declared uncertainty and bounded VOI workflows | DSA/PSA/CEAC/CEAF/EVPI and separately reviewed advanced VOI |
@@ -297,7 +298,7 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.46; the fully first-launch-verified x64 macOS
+accepted. Current source is 0.1.47; the fully first-launch-verified x64 macOS
 handoff remains 0.1.41. The current 89,903,352-byte
 `AI4HEOR_0.1.46_x64.dmg` candidate built from `e44339f` has SHA-256
 `1e17461b0482004fc6f929f8a519e744cb34ac96d5e4e987e7006bb11577184a`.
@@ -322,10 +323,15 @@ do not enter the product list.
 Version 0.1.46 adds the first-party conceptual-model layout editor and native,
 deterministic SVG/GraphML export. Diagram files are bound to the exact current
 conceptual-model bytes, never alter model semantics, and remain awaiting Human review.
+Version 0.1.47 adds first-party, source-bound citation formatting. The native
+app renders named in-text citation clusters and a bibliography from the exact
+validated local reference library using three bounded AI4HEOR-owned profiles,
+reports missing metadata, preserves Human edits, and does not bundle third-party
+CSL styles or claim target-journal compliance.
 Version 0.1.43 adds the first-party, local-only `literature-review` Skill: it
 imports, deduplicates, validates, and deterministically exports source-bound RIS,
 bounded BibTeX, and CSL-JSON metadata while preserving conflicts for Human review.
-It does not claim CSL style rendering or bibliographic correctness.
+It does not claim generic CSL style processing or bibliographic correctness.
 Version 0.1.42 adds a local startup-readiness check for the project folder, first-party Skills,
 HEOR calculation resources, project harness, and bundled assistant runtime. A failed runtime can
 now be replaced and reconnected from Settings without restarting the app; models, Python, and

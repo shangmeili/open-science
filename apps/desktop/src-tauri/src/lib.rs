@@ -3,6 +3,7 @@
 mod artifact_file;
 mod asset_admission;
 mod capability_review;
+mod citation_formatting;
 mod compute;
 mod conceptual_model_diagram;
 mod debug_log;
@@ -151,6 +152,8 @@ pub fn run() {
             artifact_file::write_workspace_file,
             conceptual_model_diagram::audit_conceptual_model_diagram,
             conceptual_model_diagram::generate_conceptual_model_diagram,
+            citation_formatting::audit_citation_formatting,
+            citation_formatting::generate_citation_formatting,
             research_presentation::audit_research_presentation,
             research_presentation::generate_research_presentation,
             research_report::audit_research_report,

@@ -34,6 +34,7 @@ import {
   auditHeorPartitionedSurvival,
   auditHeorConceptualModel,
   auditConceptualModelDiagram,
+  auditCitationFormatting,
   auditHeorEvidence,
   auditHeorEvidenceLibrary,
   auditHeorMethodsWatchlist,
@@ -75,6 +76,7 @@ import {
   generateResearchPresentation,
   generateResearchReport,
   generateConceptualModelDiagram,
+  generateCitationFormatting,
   HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
   HEOR_EVIDENCE_LIBRARY_PATH,
   HEOR_METHODS_WATCHLIST_PATH,
@@ -175,6 +177,10 @@ import {
   ConceptualModelDiagramAssessment,
   type ConceptualModelDiagramState,
 } from "./ConceptualModelDiagramAssessment";
+import {
+  CitationFormattingAssessment,
+  type CitationFormattingState,
+} from "./CitationFormattingAssessment";
 
 const REVIEW_GATES: HeorGate[] = [
   "decision_problem",
@@ -506,6 +512,8 @@ export function HeorReviewPane({
   const [presentationGenerating, setPresentationGenerating] = useState(false);
   const [researchReport, setResearchReport] = useState<ResearchReportState>({ kind: "loading" });
   const [reportGenerating, setReportGenerating] = useState(false);
+  const [citationFormatting, setCitationFormatting] = useState<CitationFormattingState>({ kind: "loading" });
+  const [citationFormattingGenerating, setCitationFormattingGenerating] = useState(false);
   const [evidenceSearch, setEvidenceSearch] = useState<EvidenceSearchState>({ kind: "loading" });
   const [evidenceSynthesis, setEvidenceSynthesis] = useState<EvidenceSynthesisState>({ kind: "loading" });
   const [evidenceSelection, setEvidenceSelection] = useState<EvidenceSelectionState>({ kind: "loading" });
@@ -567,6 +575,7 @@ export function HeorReviewPane({
       setReproducibility({ kind: "invalid", message: t("reproducibility.noProject") });
       setResearchPresentation({ kind: "invalid", message: t("presentation.noProject") });
       setResearchReport({ kind: "invalid", message: t("reportExport.noProject") });
+      setCitationFormatting({ kind: "invalid", message: t("citationFormatting.noProject") });
       setEvidenceSearch({ kind: "invalid", message: t("search.noProject") });
       setEvidenceSynthesis({ kind: "invalid", message: t("synthesis.noProject") });
       setEvidenceSelection({ kind: "invalid", message: t("evidence.noProject") });
@@ -596,6 +605,7 @@ export function HeorReviewPane({
     setReproducibility({ kind: "loading" });
     setResearchPresentation({ kind: "loading" });
     setResearchReport({ kind: "loading" });
+    setCitationFormatting({ kind: "loading" });
     setEvidenceSearch({ kind: "loading" });
     setEvidenceSynthesis({ kind: "loading" });
     setEvidenceSelection({ kind: "loading" });
@@ -629,6 +639,14 @@ export function HeorReviewPane({
       setResearchReport({ kind: "ready", audit: await auditResearchReport() });
     } catch (error) {
       setResearchReport({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    try {
+      setCitationFormatting({ kind: "ready", audit: await auditCitationFormatting() });
+    } catch (error) {
+      setCitationFormatting({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
@@ -1414,6 +1432,22 @@ export function HeorReviewPane({
     }
   };
 
+  const renderCitationFormatting = async () => {
+    if (!project || citationFormattingGenerating || !isTauri) return;
+    setCitationFormattingGenerating(true);
+    try {
+      const audit = await generateCitationFormatting();
+      setCitationFormatting({ kind: "ready", audit });
+      toast.success(t("citationFormatting.generated"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setCitationFormatting({ kind: "invalid", message });
+      toast.error(`${t("toast.actionFailed")}: ${message}`);
+    } finally {
+      setCitationFormattingGenerating(false);
+    }
+  };
+
   const runUncertainty = async () => {
     if (!project || !isTauri || uncertainty.kind !== "ready"
       || !uncertainty.audit.complete || running) return;
@@ -1922,6 +1956,15 @@ export function HeorReviewPane({
             onImport={() => void importSearchCandidates()}
             onContinue={() => onRequestRevision(t("synthesis.continuePrompt"))}
             onVerify={() => setVerificationDialogOpen(true)}
+          />
+        )}
+
+        {project && (
+          <CitationFormattingAssessment
+            state={citationFormatting}
+            generating={citationFormattingGenerating}
+            onRequestPreparation={() => onRequestRevision(t("citationFormatting.repairPrompt"))}
+            onGenerate={() => void renderCitationFormatting()}
           />
         )}
 

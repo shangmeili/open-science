@@ -290,7 +290,7 @@ to pick it up. Keys never enter the user's global OpenCode config, logs, or git.
 
 ```text
 skills/
-  core/      # 48 first-party HEOR, evidence, validation, reporting, and harness Skills
+  core/      # 50 first-party HEOR, evidence, validation, reporting, and harness Skills
   external/  # inactive third-party review cache; never loaded directly
 
 workspace/

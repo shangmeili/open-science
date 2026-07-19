@@ -43,6 +43,7 @@
     "heor-workbench": { "displayName": "AI4HEOR 研究ワークベンチ", "description": "研究者主導で監査可能な薬剤経済・HEOR 作業を支援します。" },
     "large-file": { "displayName": "大規模ファイル", "description": "制限付きサンプリングで大規模研究ファイルを安全に調べます。" },
     "literature-review": { "displayName": "参考文献ライブラリ", "description": "出典を記録した RIS、BibTeX、CSL-JSON の書誌情報をローカルで取り込み、重複整理、書き出しします。" },
+    "citation-formatting": { "displayName": "引用と参考文献", "description": "検証済みローカル文献庫から、中国医学系の番号順、Vancouver 番号順、または著者年方式の確認可能な引用を生成します。" },
     "modal-run": { "displayName": "Modal 実行", "description": "ユーザーの Modal アカウントで承認済みの重い計算を実行します。" },
     "publication-figures": { "displayName": "出版品質の図", "description": "一貫した出版品質の科学図を作成します。" },
     "remote-compute": { "displayName": "リモート計算", "description": "SSH または Slurm 上の承認済みジョブを実行・追跡します。" },

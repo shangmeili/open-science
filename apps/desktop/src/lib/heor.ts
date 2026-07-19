@@ -38,6 +38,9 @@ export const RESEARCH_REPORT_XLSX_PATH = "deliverables/heor-report.xlsx";
 export const CONCEPTUAL_MODEL_LAYOUT_PATH = "deliverables/conceptual-model-layout.json";
 export const CONCEPTUAL_MODEL_SVG_PATH = "deliverables/conceptual-model.svg";
 export const CONCEPTUAL_MODEL_GRAPHML_PATH = "deliverables/conceptual-model.graphml";
+export const CITATION_PLAN_PATH = "references/citation-plan.json";
+export const CITATION_LIBRARY_PATH = "references/library.json";
+export const CITATION_OUTPUT_PATH = "deliverables/references.md";
 
 function transitionPath(path: string): boolean {
   return /^strategies\.[a-z][a-z0-9_-]{0,63}\.(transition_matrix|transition_schedule)$/.test(path);
@@ -370,6 +373,29 @@ export interface ConceptualModelDiagramAudit {
   stateCount: number;
   transitionCount: number;
   positions: ConceptualModelNodePosition[];
+  humanReviewStatus: string;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface CitationFormattingAudit {
+  complete: boolean;
+  readyToGenerate: boolean;
+  outputCurrent: boolean;
+  status: "missing" | "invalid" | "ready_to_generate" | "generated_current";
+  documentId: string;
+  title: string;
+  styleId: string;
+  planPath: string;
+  libraryPath: string;
+  outputPath: string;
+  auditPath: string;
+  planSha256: string;
+  librarySha256: string;
+  outputSha256: string | null;
+  citationCount: number;
+  bibliographyCount: number;
+  metadataWarningCount: number;
   humanReviewStatus: string;
   errors: string[];
   warnings: string[];
@@ -3859,6 +3885,18 @@ export async function generateConceptualModelDiagram(
   return invoke<ConceptualModelDiagramAudit>("generate_conceptual_model_diagram", { positions });
 }
 
+export async function auditCitationFormatting(): Promise<CitationFormattingAudit> {
+  if (!isTauri) return CITATION_FORMATTING_BROWSER_DEMO_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<CitationFormattingAudit>("audit_citation_formatting");
+}
+
+export async function generateCitationFormatting(): Promise<CitationFormattingAudit> {
+  if (!isTauri) throw new Error("reference formatting is available only in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<CitationFormattingAudit>("generate_citation_formatting");
+}
+
 export async function auditHeorEvidenceSearch(): Promise<HeorEvidenceSearchAudit> {
   if (!isTauri) return HEOR_BROWSER_DEMO_EVIDENCE_SEARCH_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
@@ -4255,6 +4293,29 @@ export const CONCEPTUAL_MODEL_DIAGRAM_BROWSER_DEMO_AUDIT: ConceptualModelDiagram
   positions: [],
   humanReviewStatus: "awaiting_human_review",
   errors: [],
+  warnings: [],
+};
+
+export const CITATION_FORMATTING_BROWSER_DEMO_AUDIT: CitationFormattingAudit = {
+  complete: false,
+  readyToGenerate: false,
+  outputCurrent: false,
+  status: "missing",
+  documentId: "",
+  title: "",
+  styleId: "",
+  planPath: CITATION_PLAN_PATH,
+  libraryPath: CITATION_LIBRARY_PATH,
+  outputPath: CITATION_OUTPUT_PATH,
+  auditPath: "deliverables/references.audit.json",
+  planSha256: "",
+  librarySha256: "",
+  outputSha256: null,
+  citationCount: 0,
+  bibliographyCount: 0,
+  metadataWarningCount: 0,
+  humanReviewStatus: "awaiting_human_review",
+  errors: ["references/citation-plan.json is required"],
   warnings: [],
 };
 

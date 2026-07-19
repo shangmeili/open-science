@@ -767,6 +767,24 @@
     "openXlsx": "Open XLSX",
     "noProject": "There is no current project for report generation."
   },
+  "citationFormatting": {
+    "title": "In-text citations and references",
+    "loading": "Checking the reference library and citation plan…",
+    "current": "Citations and references match the current library",
+    "ready": "The citation plan is ready to generate",
+    "missing": "A citation plan has not been prepared",
+    "note": "The app formats in-text citations and references only from the validated local library using AI4HEOR-owned profiles. It does not invent missing metadata or certify a target journal's requirements; the researcher must check every entry before submission.",
+    "citations": "Citation locations",
+    "references": "References",
+    "reviewItems": "Metadata to review",
+    "askPrepare": "Organise citations with the Agent",
+    "repairPrompt": "Use $citation-formatting. First confirm the document purpose, language, and passages requiring citations with me, then create or repair references/citation-plan.json against the exact current SHA-256 of references/library.json. Select only ai4heor-cn-medical-numeric-v1, ai4heor-vancouver-numeric-v1, or ai4heor-author-date-v1. Use existing library IDs and never guess locators such as page numbers. Do not fetch or invent metadata, claim target-journal compliance, or change human_review_status from awaiting_human_review.",
+    "generate": "Generate citations and references",
+    "generating": "Generating…",
+    "generated": "Citations and references were generated. Review every entry before use.",
+    "open": "Open references",
+    "noProject": "There is no current project for citation formatting."
+  },
   "reproducibility": {
     "title": "Reproducibility companion",
     "loading": "Auditing reproducibility evidence…",

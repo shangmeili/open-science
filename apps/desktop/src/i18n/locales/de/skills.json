@@ -43,6 +43,7 @@
     "heor-workbench": { "displayName": "AI4HEOR-Forschungswerkbank", "description": "Unterstützt forschungsgeleitete, prüfbare Pharmakoökonomie und HEOR." },
     "large-file": { "displayName": "Große Datei", "description": "Untersucht große Forschungsdateien sicher durch begrenzte Stichproben." },
     "literature-review": { "displayName": "Literaturverzeichnis", "description": "Importiert, dedupliziert und exportiert quellengebundene RIS-, BibTeX- und CSL-JSON-Metadaten lokal." },
+    "citation-formatting": { "displayName": "Zitate und Literatur", "description": "Erzeugt prüfbare chinesisch-medizinische, Vancouver- oder Autor-Jahr-Zitate aus der validierten lokalen Bibliothek." },
     "modal-run": { "displayName": "Modal-Ausführung", "description": "Führt autorisierte Schwerlastberechnung im Modal-Konto des Nutzers aus." },
     "publication-figures": { "displayName": "Publikationsabbildungen", "description": "Erstellt konsistente wissenschaftliche Abbildungen in Publikationsqualität." },
     "remote-compute": { "displayName": "Remote-Berechnung", "description": "Führt autorisierte SSH- oder Slurm-Jobs aus und verfolgt sie." },
