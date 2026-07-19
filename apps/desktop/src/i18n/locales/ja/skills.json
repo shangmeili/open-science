@@ -48,6 +48,7 @@
     "publication-figures": { "displayName": "出版品質の図", "description": "一貫した出版品質の科学図を作成します。" },
     "remote-compute": { "displayName": "リモート計算", "description": "SSH または Slurm 上の承認済みジョブを実行・追跡します。" },
     "research-presentation": { "displayName": "研究発表スライド", "description": "出典に結び付いたローカル研究資料から確認可能な PPTX を生成します。" },
+    "research-tables": { "displayName": "研究用表", "description": "出典に結び付いたローカル研究資料から型と単位を備えた確認可能な XLSX と CSV を生成します。" },
     "stats-integrity": { "displayName": "統計的完全性", "description": "統計実行、事前登録、再現性のリスクを確認します。" },
     "traceability-review": { "displayName": "トレーサビリティレビュー", "description": "主張、引用、数値、図、データ、コードの連結を監査します。" }
   }

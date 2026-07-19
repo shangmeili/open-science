@@ -785,6 +785,26 @@
     "open": "打开参考文献",
     "noProject": "没有可用于整理引用的当前项目。"
   },
+  "researchTables": {
+    "title": "科研表格",
+    "loading": "正在核对表格计划……",
+    "current": "表格文件与当前来源一致",
+    "ready": "表格计划已核对，可以生成",
+    "missing": "尚未准备科研表格",
+    "note": "应用只把清单中已注明类型、单位和来源位置的内容写入 XLSX 与 CSV，不在表格中推导或重算结果。生成后仍需由研究者逐表核对。",
+    "tables": "表格",
+    "rows": "数据行",
+    "sources": "本地来源",
+    "csvFiles": "CSV 文件",
+    "askPrepare": "与助手一起整理表格",
+    "generating": "正在生成……",
+    "generate": "生成 XLSX 和 CSV",
+    "openXlsx": "打开 XLSX",
+    "openCsvFolder": "打开 CSV 文件夹",
+    "noProject": "请先创建或选择项目。",
+    "generated": "科研表格已生成，等待研究者核对。",
+    "repairPrompt": "使用 $research-tables。先在对话中确认这些表格的用途、使用对象、每张表的列、单位和需要呈现的行，再根据当前项目文件创建或修复 deliverables/research-tables.json。每个 evidence 或 analysis_output 行必须引用已有项目文件及其准确 SHA-256，并写明定位；assumption 行必须单独标记并说明。不得猜测数值、单位、来源或审阅状态，human_review.status 保持 awaiting_human_review。"
+  },
   "reproducibility": {
     "title": "可重复性材料包",
     "loading": "正在检查可重复性材料……",

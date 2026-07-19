@@ -70,7 +70,7 @@ Ce benchmark de la plateforme amont ne prouve ni que la recherche dans AI4HEOR d
 
 ## Fonctionnalités actuelles
 
-**Assistance HEOR sous forme de skills bornés.** Les 50 skills internes routent les tâches définies par le chercheur sans acquérir d'autorité d'approbation ou de choix méthodologique. Workflows représentatifs :
+**Assistance HEOR sous forme de skills bornés.** Les 51 skills internes routent les tâches définies par le chercheur sans acquérir d'autorité d'approbation ou de choix méthodologique. Workflows représentatifs :
 
 | Skill | Rôle | Sortie principale |
 | --- | --- | --- |
@@ -84,8 +84,9 @@ Ce benchmark de la plateforme amont ne prouve ni que la recherche dans AI4HEOR d
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | Exécuter une analyse d'impact budgétaire statique ou dynamique | Résultats ventilés et artefacts d'audit |
 | `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | Valider, rapporter et empaqueter les artefacts courants exacts | Package de revue indépendante, rapport et bundle de rejeu |
 | `$research-presentation` | Préparer un contenu lié aux sources et le produire localement | PPTX sans macro vérifiable et audit de génération |
+| `$research-tables` | Préparer des tableaux typés avec unités et sources explicites | XLSX sans formule vérifiable, un CSV par tableau et audit de génération |
 
-Les noms et descriptions des 50 skills internes sont fournis dans les sept langues de l'interface avec le `$skill-id` exact visible. Les actifs externes restent inactifs jusqu'à leur admission individuelle.
+Les noms et descriptions des 51 skills internes sont fournis dans les sept langues de l'interface avec le `$skill-id` exact visible. Les actifs externes restent inactifs jusqu'à leur admission individuelle.
 
 ### Plateforme
 

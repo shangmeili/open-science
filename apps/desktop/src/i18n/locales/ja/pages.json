@@ -137,7 +137,7 @@
       "sectionTitle": "外部アダプター",
       "loading": "アプリに同梱された外部アダプターを確認しています…",
       "unavailable": "外部アダプターを確認できないため、すべて無効のままです。",
-      "firstPartyTitle": "AI4HEOR のファーストパーティ Skill 50 件を内蔵",
+      "firstPartyTitle": "AI4HEOR のファーストパーティ Skill 51 件を内蔵",
       "firstPartyBoundary": "ライセンス、セキュリティ、方法、パッケージの確認を完了し、実際に同梱された外部アダプターだけを表示します。改修中または除外済みの提供元は選択肢として残しません。",
       "groupAdmitted": "承認済み（{{count}}）",
       "admitted": "承認済み",

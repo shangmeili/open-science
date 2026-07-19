@@ -35,6 +35,9 @@ export const RESEARCH_REPORT_MANIFEST_PATH = "deliverables/heor-report-export.js
 export const RESEARCH_REPORT_DOCX_PATH = "deliverables/heor-report.docx";
 export const RESEARCH_REPORT_PDF_PATH = "deliverables/heor-report.pdf";
 export const RESEARCH_REPORT_XLSX_PATH = "deliverables/heor-report.xlsx";
+export const RESEARCH_TABLES_MANIFEST_PATH = "deliverables/research-tables.json";
+export const RESEARCH_TABLES_XLSX_PATH = "deliverables/research-tables.xlsx";
+export const RESEARCH_TABLES_CSV_DIRECTORY = "deliverables/research-tables";
 export const CONCEPTUAL_MODEL_LAYOUT_PATH = "deliverables/conceptual-model-layout.json";
 export const CONCEPTUAL_MODEL_SVG_PATH = "deliverables/conceptual-model.svg";
 export const CONCEPTUAL_MODEL_GRAPHML_PATH = "deliverables/conceptual-model.graphml";
@@ -1253,6 +1256,29 @@ export interface ResearchReportAudit {
   fontLicense: string;
   fontSha256: string;
   errors: string[];
+}
+
+export interface ResearchTablesAudit {
+  complete: boolean;
+  readyToGenerate: boolean;
+  outputsCurrent: boolean;
+  status: "missing" | "invalid" | "ready" | "current";
+  workbookId: string;
+  title: string;
+  manifestPath: string;
+  xlsxPath: string;
+  csvDirectory: string;
+  auditPath: string;
+  manifestSha256: string;
+  sourceCount: number;
+  tableCount: number;
+  rowCount: number;
+  csvFileCount: number;
+  xlsxSha256: string | null;
+  humanReviewStatus: string;
+  neutralizedTextCount: number;
+  errors: string[];
+  warnings: string[];
 }
 
 export interface HeorEvidenceSearchAudit {
@@ -3871,6 +3897,18 @@ export async function generateResearchReport(): Promise<ResearchReportAudit> {
   return invoke<ResearchReportAudit>("generate_research_report");
 }
 
+export async function auditResearchTables(): Promise<ResearchTablesAudit> {
+  if (!isTauri) return RESEARCH_TABLES_BROWSER_DEMO_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<ResearchTablesAudit>("audit_research_tables");
+}
+
+export async function generateResearchTables(): Promise<ResearchTablesAudit> {
+  if (!isTauri) throw new Error("research table generation is available only in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<ResearchTablesAudit>("generate_research_tables");
+}
+
 export async function auditConceptualModelDiagram(): Promise<ConceptualModelDiagramAudit> {
   if (!isTauri) return CONCEPTUAL_MODEL_DIAGRAM_BROWSER_DEMO_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
@@ -4548,6 +4586,29 @@ export const RESEARCH_REPORT_BROWSER_DEMO_AUDIT: ResearchReportAudit = {
   fontLicense: "OFL-1.1",
   fontSha256: "e2bc8a2e7f37474b774fff8db758681ece40bb6947a90d571bce9dd60671a8e4",
   errors: [`${RESEARCH_REPORT_MANIFEST_PATH} is required`],
+};
+
+export const RESEARCH_TABLES_BROWSER_DEMO_AUDIT: ResearchTablesAudit = {
+  complete: false,
+  readyToGenerate: false,
+  outputsCurrent: false,
+  status: "missing",
+  workbookId: "",
+  title: "",
+  manifestPath: RESEARCH_TABLES_MANIFEST_PATH,
+  xlsxPath: RESEARCH_TABLES_XLSX_PATH,
+  csvDirectory: RESEARCH_TABLES_CSV_DIRECTORY,
+  auditPath: "deliverables/research-tables.audit.json",
+  manifestSha256: "",
+  sourceCount: 0,
+  tableCount: 0,
+  rowCount: 0,
+  csvFileCount: 0,
+  xlsxSha256: null,
+  humanReviewStatus: "awaiting_human_review",
+  neutralizedTextCount: 0,
+  errors: [`${RESEARCH_TABLES_MANIFEST_PATH} is required`],
+  warnings: [],
 };
 
 export function browserDemoRun(

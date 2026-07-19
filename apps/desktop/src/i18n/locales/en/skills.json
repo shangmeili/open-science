@@ -48,6 +48,7 @@
     "publication-figures": { "displayName": "Publication Figures", "description": "Create consistent, publication-grade scientific figures." },
     "remote-compute": { "displayName": "Remote Compute", "description": "Run and track authorized jobs on SSH or Slurm systems." },
     "research-presentation": { "displayName": "Research Presentation", "description": "Generate a reviewable PPTX from source-bound local research material." },
+    "research-tables": { "displayName": "Research Tables", "description": "Generate reviewable typed XLSX and CSV tables from source-bound local research material." },
     "stats-integrity": { "displayName": "Statistical Integrity", "description": "Check statistical execution, preregistration, and reproducibility risks." },
     "traceability-review": { "displayName": "Traceability Review", "description": "Audit claims, citations, numbers, figures, data, and code links." }
   }

@@ -70,7 +70,7 @@ Formerly Open Science. Claude Science 및 유사한 AI-for-science 워크벤치�
 
 ## 현재 기능
 
-**범위가 명확한 HEOR Skill 기반 지원.** 50개 자체 Skill은 연구자가 정의한 작업을 라우팅하지만 승인 권한이나 방법 선택 권한을 갖지 않습니다. 대표 워크플로:
+**범위가 명확한 HEOR Skill 기반 지원.** 51개 자체 Skill은 연구자가 정의한 작업을 라우팅하지만 승인 권한이나 방법 선택 권한을 갖지 않습니다. 대표 워크플로:
 
 | 스킬 | 역할 | 주요 산출물 |
 | --- | --- | --- |
@@ -84,8 +84,9 @@ Formerly Open Science. Claude Science 및 유사한 AI-for-science 워크벤치�
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | 정적 또는 동적 예산영향 분석 실행 | 세분화된 예산 결과와 감사 산출물 |
 | `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | 현재의 정확한 산출물 검증·보고·패키징 | 독립 검토 패키지, 보고서, 재실행 번들 |
 | `$research-presentation` | 출처에 연결된 발표 내용을 준비하고 로컬에서 생성 | 검토 가능한 매크로 없는 PPTX와 생성 감사 기록 |
+| `$research-tables` | 형식, 단위, 출처가 명시된 연구 표 준비 | 검토 가능한 수식 없는 XLSX, 표별 CSV, 생성 감사 기록 |
 
-50개 자체 Skill의 이름과 설명은 정확한 `$skill-id`를 유지한 채 7개 UI 언어로 제공됩니다. 외부 자산은 개별 승인 전까지 비활성입니다.
+51개 자체 Skill의 이름과 설명은 정확한 `$skill-id`를 유지한 채 7개 UI 언어로 제공됩니다. 외부 자산은 개별 승인 전까지 비활성입니다.
 
 ### 플랫폼
 

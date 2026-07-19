@@ -785,6 +785,26 @@
     "open": "Open references",
     "noProject": "There is no current project for citation formatting."
   },
+  "researchTables": {
+    "title": "Research tables",
+    "loading": "Checking the table plan…",
+    "current": "The table files match the current sources",
+    "ready": "The table plan has been checked and is ready to generate",
+    "missing": "Research tables have not been prepared",
+    "note": "The app writes only typed, unit-labelled, source-bound content from the plan into XLSX and CSV. It does not derive or recalculate results in the workbook. The researcher must review every table before use.",
+    "tables": "Tables",
+    "rows": "Data rows",
+    "sources": "Local sources",
+    "csvFiles": "CSV files",
+    "askPrepare": "Prepare the tables with the assistant",
+    "generating": "Generating…",
+    "generate": "Generate XLSX and CSV",
+    "openXlsx": "Open XLSX",
+    "openCsvFolder": "Open CSV folder",
+    "noProject": "Create or select a project first.",
+    "generated": "The research tables were generated and are awaiting researcher review.",
+    "repairPrompt": "Use $research-tables. First confirm the purpose, intended readers, columns, units, and rows for each table with me in the conversation, then create or repair deliverables/research-tables.json from current project files. Every evidence or analysis_output row must reference an existing project file at its exact SHA-256 and include a locator; every assumption row must be identified and explained separately. Do not guess values, units, sources, or review status, and keep human_review.status as awaiting_human_review."
+  },
   "reproducibility": {
     "title": "Reproducibility companion",
     "loading": "Auditing reproducibility evidence…",

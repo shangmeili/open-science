@@ -50,6 +50,18 @@
 > therefore research ownership and method judgment, not merely a final approval
 > appended to agent-directed research.
 
+## Deterministic research-table export
+
+`runtime/skills/core/research-tables` owns manifest schema
+`ai4heor-research-tables/v1`. Natural-language conversation establishes purpose,
+audience, columns, types, units and rows; the Skill prepares the bounded manifest,
+while native Rust independently validates all fields, exact workspace-relative
+source hashes, row basis and source locators. The renderer emits one formula-free,
+macro-free XLSX with a provenance sheet, one injection-neutralised CSV per table,
+and a hash-bound audit record. Stale inputs, symlinks, missing or extra CSV files,
+unknown fields and externally modified outputs fail closed. Generation never
+recalculates the economic model and leaves every table `awaiting_human_review`.
+
 ## Bounded model-calibration execution
 
 `runtime/skills/core/heor-model-calibration` owns request/result schema `0.1.0`.
@@ -290,7 +302,7 @@ to pick it up. Keys never enter the user's global OpenCode config, logs, or git.
 
 ```text
 skills/
-  core/      # 50 first-party HEOR, evidence, validation, reporting, and harness Skills
+  core/      # 51 first-party HEOR, evidence, validation, reporting, and harness Skills
   external/  # inactive third-party review cache; never loaded directly
 
 workspace/

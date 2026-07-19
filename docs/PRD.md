@@ -274,7 +274,7 @@ shows the native third-party admission audit. Its natural-language action create
 evaluates a candidate but never installs it directly. Skill sources are layered:
 
 1. **OpenCode built-in** skills/agents (shipped with the runtime).
-2. **AI4HEOR first-party Skills** — 50 pharmacoeconomics, evidence, analysis,
+2. **AI4HEOR first-party Skills** — 51 pharmacoeconomics, evidence, analysis,
    validation, reporting, execution, capability-authoring, and preference-proposal
    Skills under `runtime/skills/core`, deployed only into the app-private profile.
 3. **Third-party scientific skills** — inactive until a machine-validated,
@@ -310,8 +310,8 @@ and expands later.
 
 #### 5.1.8 Artifact panel
 
-All outputs land here. Types: Markdown reports, CSV tables, PNG / SVG figures, PDFs,
-Python scripts, notebooks, JSONL provenance, review reports.
+All outputs land here. Types: Markdown reports, source-bound XLSX/CSV research tables,
+PNG / SVG figures, PDFs, Python scripts, notebooks, JSONL provenance, review reports.
 
 Each artifact shows: filename, type, created time, generating step, input data,
 generating code, review status, and export / copy / open actions.

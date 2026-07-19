@@ -48,6 +48,7 @@
     "publication-figures": { "displayName": "Figures de publication", "description": "Crée des figures scientifiques cohérentes prêtes à publier." },
     "remote-compute": { "displayName": "Calcul distant", "description": "Exécute et suit des tâches autorisées sur SSH ou Slurm." },
     "research-presentation": { "displayName": "Présentation de recherche", "description": "Génère un PPTX vérifiable à partir de documents locaux liés aux sources." },
+    "research-tables": { "displayName": "Tableaux de recherche", "description": "Génère des tableaux XLSX et CSV typés et vérifiables à partir de documents locaux liés aux sources." },
     "stats-integrity": { "displayName": "Intégrité statistique", "description": "Contrôle exécution statistique, préenregistrement et reproductibilité." },
     "traceability-review": { "displayName": "Revue de traçabilité", "description": "Audite les liens entre affirmations, citations, chiffres, données et code." }
   }

@@ -1,0 +1,41 @@
+{
+  "schema_version": "ai4heor-research-tables/v1",
+  "workbook_id": "base-case-tables",
+  "title": "成本效果分析表",
+  "language": "zh-CN",
+  "prepared_on": "2026-07-20",
+  "audience": "项目研究团队",
+  "purpose": "整理已审计结果，供研究团队核对和后续报告使用。",
+  "sources": [
+    {
+      "id": "base-case",
+      "path": "heor/results/base-case.json",
+      "sha256": "REPLACE_WITH_CURRENT_LOWERCASE_SHA256"
+    }
+  ],
+  "tables": [
+    {
+      "id": "base_case",
+      "title": "基线分析",
+      "sheet_name": "基线分析",
+      "purpose": "按策略呈现已审计的成本和健康产出。",
+      "columns": [
+        { "id": "strategy", "label": "策略", "value_type": "text", "width": 20 },
+        { "id": "cost", "label": "总成本", "value_type": "currency", "unit": "CNY 2026" },
+        { "id": "qaly", "label": "QALY", "value_type": "number", "unit": "QALY" }
+      ],
+      "rows": [
+        {
+          "row_id": "comparator",
+          "values": { "strategy": "对照", "cost": 0, "qaly": 0 },
+          "basis": "analysis_output",
+          "source_refs": [
+            { "source_id": "base-case", "locator": "REPLACE_WITH_EXACT_RESULT_LOCATOR" }
+          ],
+          "note": ""
+        }
+      ]
+    }
+  ],
+  "human_review": { "status": "awaiting_human_review" }
+}

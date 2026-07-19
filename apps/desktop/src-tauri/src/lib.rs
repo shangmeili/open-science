@@ -54,6 +54,7 @@ mod project;
 mod provenance;
 mod research_presentation;
 mod research_report;
+mod research_tables;
 mod runs;
 mod runs_index;
 mod runtime;
@@ -158,6 +159,8 @@ pub fn run() {
             research_presentation::generate_research_presentation,
             research_report::audit_research_report,
             research_report::generate_research_report,
+            research_tables::audit_research_tables,
+            research_tables::generate_research_tables,
             startup_audit::audit_startup_environment,
             asset_admission::audit_asset_admission,
             capability_review::audit_skill_candidates,

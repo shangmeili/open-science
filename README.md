@@ -119,7 +119,7 @@ approval, cost-effectiveness, or reimbursement conclusions.
 
 ## Current capabilities
 
-**Research assistance, as bounded HEOR skills.** AI4HEOR's 50 first-party skills
+**Research assistance, as bounded HEOR skills.** AI4HEOR's 51 first-party skills
 route researcher-defined tasks without acquiring approval or method-selection
 authority. Representative admitted workflows are:
 
@@ -136,6 +136,7 @@ authority. Representative admitted workflows are:
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | Execute bounded static or dynamic budget-impact analysis | Disaggregated budget results and audit artifacts |
 | `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | Validate, report, and package exact current artifacts | Independent-review package, source-bound DOCX/PDF/XLSX report, and replay bundle |
 | `$research-presentation` | Prepare source-bound research presentation content and render it locally | Reviewable macro-free PPTX plus generation audit |
+| `$research-tables` | Structure typed, unit-labelled rows from exact local evidence and analysis outputs | Reviewable formula-free XLSX, one CSV per table, and generation audit |
 
 Every first-party Skill name and description ships in all seven interface
 languages while the exact `$skill-id` remains visible. Unfinished rewrites and
@@ -172,7 +173,9 @@ Useful behavior identified in earlier external reviews is rebuilt as bounded
 first-party AI4HEOR capabilities. License-incompatible document sources are
 permanently absent from the runtime and candidate UI. PPTX is replaced by
 `research-presentation`; DOCX/PDF/XLSX report export is replaced by the first-party
-`heor-reporting` native renderer. XLSX copies audited results without hidden
+`heor-reporting` native renderer. Configurable research tables are supplied by
+`research-tables`, which binds typed rows to exact source hashes and generates a
+formula-free XLSX plus one CSV per table. Neither XLSX path performs hidden
 spreadsheet model recalculation. The read-only decision trail is in
 [`docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md`](./docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md).
 
@@ -298,7 +301,7 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.47; the fully first-launch-verified x64 macOS
+accepted. Current source is 0.1.48; the fully first-launch-verified x64 macOS
 handoff remains 0.1.41. The current 89,990,766-byte
 `AI4HEOR_0.1.47_x64.dmg` candidate built from `263512e` has SHA-256
 `7f2353af4bb973a2afc84e4b1d26b1f1f071970b14d5385f325c78c35de74907`.
@@ -307,6 +310,12 @@ identity, OpenCode 1.17.13, uv 0.11.26, all 349 controlled resources, and all
 177 packaged HEOR tests. It supersedes the 0.1.46 candidate. Exact isolated
 first launch remains pending because the installed app is still running; this
 candidate does not replace the fully accepted 0.1.41 handoff yet.
+Version 0.1.48 adds first-party configurable research tables. A bounded manifest
+defines typed, unit-labelled rows, their evidence, analysis-output or assumption
+basis, and exact local source hashes; the native renderer produces a deterministic,
+macro-free and formula-free XLSX plus one injection-neutralised CSV per table. It
+never recalculates the economic model, preserves changed outputs, and leaves every
+table awaiting Human review.
 Version 0.1.45 extends the same first-party, source-bound report path with a
 deterministic, macro-free and formula-free XLSX workbook. Its five bilingual
 worksheets copy typed values, tables, reporting coverage, disclosures,

@@ -48,6 +48,7 @@
     "publication-figures": { "displayName": "Publikationsabbildungen", "description": "Erstellt konsistente wissenschaftliche Abbildungen in Publikationsqualität." },
     "remote-compute": { "displayName": "Remote-Berechnung", "description": "Führt autorisierte SSH- oder Slurm-Jobs aus und verfolgt sie." },
     "research-presentation": { "displayName": "Forschungspräsentation", "description": "Erzeugt eine prüfbare PPTX aus lokalen, quellengebundenen Forschungsmaterialien." },
+    "research-tables": { "displayName": "Forschungstabellen", "description": "Erzeugt prüfbare typisierte XLSX- und CSV-Tabellen aus lokalen, quellengebundenen Forschungsmaterialien." },
     "stats-integrity": { "displayName": "Statistische Integrität", "description": "Prüft statistische Ausführung, Präregistrierung und Reproduzierbarkeit." },
     "traceability-review": { "displayName": "Nachvollziehbarkeitsprüfung", "description": "Prüft Verknüpfungen von Aussagen, Zitaten, Zahlen, Daten und Code." }
   }

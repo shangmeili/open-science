@@ -187,6 +187,36 @@ class CoreSkillContractTests(unittest.TestCase):
         ):
             self.assertIn(required, contract)
 
+    def test_research_tables_owns_typed_source_bound_xlsx_and_csv_contract(self):
+        skill_dir = SKILLS_ROOT / "research-tables"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        contract = (skill_dir / "references" / "research-tables-contract.md").read_text(
+            encoding="utf-8"
+        )
+        template = json.loads(
+            (skill_dir / "assets" / "research-tables.template.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertIn("references/research-tables-contract.md", skill)
+        self.assertIn("deliverables/research-tables.json", skill)
+        self.assertEqual(template["schema_version"], "ai4heor-research-tables/v1")
+        self.assertEqual(
+            template["human_review"], {"status": "awaiting_human_review"}
+        )
+        self.assertEqual(
+            set(template["tables"][0]["columns"][1]),
+            {"id", "label", "value_type", "unit"},
+        )
+        for required in (
+            "deliverables/research-tables.xlsx",
+            "deliverables/research-tables/<table-id>.csv",
+            "source reference",
+            "Formula-like text",
+            "does not establish",
+        ):
+            self.assertIn(required, contract)
+
 
 if __name__ == "__main__":
     unittest.main()

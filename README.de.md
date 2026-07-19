@@ -70,7 +70,7 @@ Dieser Benchmark der Upstream-Plattform belegt weder, dass Forschung in AI4HEOR 
 
 ## Aktuelle Funktionen
 
-**HEOR-Unterstützung als begrenzte Skills.** Die 50 First-Party-Skills routen Aufgaben, die Forschende definiert haben, ohne Freigabe- oder Methodenwahl-Autorität zu übernehmen. Repräsentative Workflows:
+**HEOR-Unterstützung als begrenzte Skills.** Die 51 First-Party-Skills routen Aufgaben, die Forschende definiert haben, ohne Freigabe- oder Methodenwahl-Autorität zu übernehmen. Repräsentative Workflows:
 
 | Skill | Rolle | Hauptausgabe |
 | --- | --- | --- |
@@ -84,8 +84,9 @@ Dieser Benchmark der Upstream-Plattform belegt weder, dass Forschung in AI4HEOR 
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | Statische oder dynamische Budgetwirkung ausführen | Aufgeschlüsselte Budgetergebnisse und Audit-Artefakte |
 | `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | Exakte aktuelle Artefakte validieren, berichten und paketieren | Unabhängiges Review-Paket, Bericht und Replay-Bundle |
 | `$research-presentation` | Quellengebundene Präsentationsinhalte vorbereiten und lokal erzeugen | Prüfbare makrofreie PPTX mit Generierungsnachweis |
+| `$research-tables` | Typisierte, einheiten- und quellengebundene Forschungstabellen vorbereiten | Prüfbare formelfreie XLSX, CSV je Tabelle und Generierungsnachweis |
 
-Namen und Beschreibungen aller 50 First-Party-Skills werden in sieben UI-Sprachen ausgeliefert; die exakte `$skill-id` bleibt sichtbar. Externe Assets bleiben bis zur Einzelzulassung inaktiv.
+Namen und Beschreibungen aller 51 First-Party-Skills werden in sieben UI-Sprachen ausgeliefert; die exakte `$skill-id` bleibt sichtbar. Externe Assets bleiben bis zur Einzelzulassung inaktiv.
 
 ### Plattform
 

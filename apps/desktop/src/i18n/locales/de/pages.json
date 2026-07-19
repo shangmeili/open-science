@@ -137,7 +137,7 @@
       "sectionTitle": "Externe Adapter",
       "loading": "Mitgelieferte externe Adapter werden geprüft…",
       "unavailable": "Externe Adapter können nicht geprüft werden und bleiben deaktiviert.",
-      "firstPartyTitle": "50 AI4HEOR-Skills aus erster Hand sind integriert",
+      "firstPartyTitle": "51 AI4HEOR-Skills aus erster Hand sind integriert",
       "firstPartyBoundary": "Hier erscheinen nur externe Adapter, die Lizenz-, Sicherheits-, Methoden- und Paketprüfungen bestanden haben und tatsächlich mit AI4HEOR ausgeliefert werden. Noch umzuschreibende oder ausgeschlossene Quellen bleiben keine Benutzeroptionen.",
       "groupAdmitted": "Zugelassene Assets ({{count}})",
       "admitted": "zugelassen",

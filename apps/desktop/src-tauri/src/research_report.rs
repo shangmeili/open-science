@@ -1075,27 +1075,27 @@ enum XlsxValue {
 }
 
 #[derive(Clone, Debug)]
-struct XlsxCell {
+pub(crate) struct XlsxCell {
     value: XlsxValue,
     style: u8,
 }
 
 impl XlsxCell {
-    fn empty() -> Self {
+    pub(crate) fn empty() -> Self {
         Self {
             value: XlsxValue::Empty,
             style: 0,
         }
     }
 
-    fn text(value: impl Into<String>, style: u8) -> Self {
+    pub(crate) fn text(value: impl Into<String>, style: u8) -> Self {
         Self {
             value: XlsxValue::Text(value.into()),
             style,
         }
     }
 
-    fn number(value: impl Into<String>) -> Self {
+    pub(crate) fn number(value: impl Into<String>) -> Self {
         let value = value.into();
         let style = if value
             .chars()
@@ -1111,21 +1111,28 @@ impl XlsxCell {
         }
     }
 
-    fn boolean(value: bool) -> Self {
+    pub(crate) fn boolean(value: bool) -> Self {
         Self {
             value: XlsxValue::Boolean(value),
             style: 4,
         }
     }
+
+    pub(crate) fn number_with_style(value: impl Into<String>, style: u8) -> Self {
+        Self {
+            value: XlsxValue::Number(value.into()),
+            style,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
-struct XlsxSheet {
-    name: String,
-    rows: Vec<Vec<XlsxCell>>,
-    widths: Vec<f32>,
-    freeze_rows: usize,
-    auto_filter: Option<(usize, usize)>,
+pub(crate) struct XlsxSheet {
+    pub(crate) name: String,
+    pub(crate) rows: Vec<Vec<XlsxCell>>,
+    pub(crate) widths: Vec<f32>,
+    pub(crate) freeze_rows: usize,
+    pub(crate) auto_filter: Option<(usize, usize)>,
 }
 
 fn xlsx_text(value: &str) -> Result<String, String> {
@@ -1242,6 +1249,89 @@ fn xlsx_sheet_xml(sheet: &XlsxSheet) -> Result<Vec<u8>, String> {
         "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><dimension ref=\"A1:{last_column}{last_row}\"/><sheetViews><sheetView showGridLines=\"0\" workbookViewId=\"0\">{pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight=\"18\"/><cols>{columns}</cols><sheetData>{rows}</sheetData>{filter}<pageMargins left=\"0.35\" right=\"0.35\" top=\"0.5\" bottom=\"0.5\" header=\"0.2\" footer=\"0.2\"/><pageSetup orientation=\"landscape\" fitToWidth=\"1\" fitToHeight=\"0\"/></worksheet>"
     )
     .into_bytes())
+}
+
+pub(crate) fn build_xlsx_workbook(
+    title: &str,
+    purpose: &str,
+    prepared_on: &str,
+    sheets: &[XlsxSheet],
+) -> Result<Vec<u8>, String> {
+    if sheets.is_empty() || sheets.len() > 17 {
+        return Err("XLSX workbook must contain between 1 and 17 sheets".into());
+    }
+    let mut names = std::collections::BTreeSet::new();
+    for sheet in sheets {
+        let name = sheet.name.trim();
+        if name.is_empty()
+            || name.chars().count() > 31
+            || name.chars().any(|character| "[]:*?/\\".contains(character))
+            || !names.insert(name.to_lowercase())
+        {
+            return Err(format!(
+                "invalid or duplicate XLSX sheet name: {}",
+                sheet.name
+            ));
+        }
+    }
+    let sheet_entries = sheets
+        .iter()
+        .enumerate()
+        .map(|(index, sheet)| {
+            Ok((
+                format!("xl/worksheets/sheet{}.xml", index + 1),
+                xlsx_sheet_xml(sheet)?,
+            ))
+        })
+        .collect::<Result<Vec<(String, Vec<u8>)>, String>>()?;
+    let sheet_nodes = sheets
+        .iter()
+        .enumerate()
+        .map(|(index, sheet)| {
+            format!(
+                "<sheet name=\"{}\" sheetId=\"{}\" r:id=\"rId{}\"/>",
+                xml_escape(&sheet.name),
+                index + 1,
+                index + 1
+            )
+        })
+        .collect::<String>();
+    let workbook = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><fileVersion appName=\"AI4HEOR\"/><workbookPr date1904=\"0\"/><bookViews><workbookView xWindow=\"0\" yWindow=\"0\" windowWidth=\"24000\" windowHeight=\"14000\"/></bookViews><sheets>{sheet_nodes}</sheets><calcPr calcId=\"0\" calcMode=\"manual\"/></workbook>"
+    );
+    let workbook_relationships = sheets
+        .iter()
+        .enumerate()
+        .map(|(index, _)| format!("<Relationship Id=\"rId{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet{}.xml\"/>", index + 1, index + 1))
+        .chain([format!("<Relationship Id=\"rId{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>", sheets.len() + 1)])
+        .collect::<String>();
+    let workbook_relationships = format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">{workbook_relationships}</Relationships>");
+    let content_overrides = (1..=sheets.len())
+        .map(|index| format!("<Override PartName=\"/xl/worksheets/sheet{index}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"))
+        .collect::<String>();
+    let content_types = format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>{content_overrides}<Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/><Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/></Types>");
+    let root_relationships = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/><Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties\" Target=\"docProps/core.xml\"/><Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties\" Target=\"docProps/app.xml\"/></Relationships>";
+    let core = format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><dc:title>{}</dc:title><dc:subject>{}</dc:subject><dc:creator>AI4HEOR</dc:creator><cp:lastModifiedBy>AI4HEOR</cp:lastModifiedBy><dcterms:created xsi:type=\"dcterms:W3CDTF\">{}T00:00:00Z</dcterms:created><dcterms:modified xsi:type=\"dcterms:W3CDTF\">{}T00:00:00Z</dcterms:modified></cp:coreProperties>", xml_escape(title), xml_escape(purpose), prepared_on, prepared_on);
+    let sheet_titles = sheets
+        .iter()
+        .map(|sheet| format!("<vt:lpstr>{}</vt:lpstr>", xml_escape(&sheet.name)))
+        .collect::<String>();
+    let app = format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\" xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\"><Application>AI4HEOR</Application><AppVersion>0.3</AppVersion><HeadingPairs><vt:vector size=\"2\" baseType=\"variant\"><vt:variant><vt:lpstr>Worksheets</vt:lpstr></vt:variant><vt:variant><vt:i4>{}</vt:i4></vt:variant></vt:vector></HeadingPairs><TitlesOfParts><vt:vector size=\"{}\" baseType=\"lpstr\">{sheet_titles}</vt:vector></TitlesOfParts></Properties>", sheets.len(), sheets.len());
+    let styles = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><numFmts count=\"5\"><numFmt numFmtId=\"164\" formatCode=\"#,##0\"/><numFmt numFmtId=\"165\" formatCode=\"#,##0.##########\"/><numFmt numFmtId=\"166\" formatCode=\"0.00%\"/><numFmt numFmtId=\"167\" formatCode=\"#,##0.00\"/><numFmt numFmtId=\"168\" formatCode=\"yyyy-mm-dd\"/></numFmts><fonts count=\"6\"><font><sz val=\"10\"/><name val=\"Arial\"/><color rgb=\"FF172033\"/></font><font><b/><sz val=\"18\"/><name val=\"Arial\"/><color rgb=\"FF172033\"/></font><font><b/><sz val=\"11\"/><name val=\"Arial\"/><color rgb=\"FFFFFFFF\"/></font><font><b/><sz val=\"10\"/><name val=\"Arial\"/><color rgb=\"FF172033\"/></font><font><i/><sz val=\"10\"/><name val=\"Arial\"/><color rgb=\"FF7A4B00\"/></font><font><sz val=\"9\"/><name val=\"Menlo\"/><color rgb=\"FF4E5968\"/></font></fonts><fills count=\"5\"><fill><patternFill patternType=\"none\"/></fill><fill><patternFill patternType=\"gray125\"/></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FF2E5D7B\"/><bgColor indexed=\"64\"/></patternFill></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFE8EEF5\"/><bgColor indexed=\"64\"/></patternFill></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFFFF4CC\"/><bgColor indexed=\"64\"/></patternFill></fill></fills><borders count=\"2\"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style=\"thin\"><color rgb=\"FFD7DCE2\"/></bottom><diagonal/></border></borders><cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs><cellXfs count=\"13\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/><xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyAlignment=\"1\"><alignment vertical=\"center\"/></xf><xf numFmtId=\"0\" fontId=\"2\" fillId=\"2\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyAlignment=\"1\"><alignment vertical=\"center\"/></xf><xf numFmtId=\"0\" fontId=\"3\" fillId=\"3\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"center\" wrapText=\"1\"/></xf><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf><xf numFmtId=\"164\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyNumberFormat=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"right\" vertical=\"top\"/></xf><xf numFmtId=\"0\" fontId=\"4\" fillId=\"4\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf><xf numFmtId=\"0\" fontId=\"5\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf><xf numFmtId=\"0\" fontId=\"3\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf><xf numFmtId=\"165\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyNumberFormat=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"right\" vertical=\"top\"/></xf><xf numFmtId=\"166\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyNumberFormat=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"right\" vertical=\"top\"/></xf><xf numFmtId=\"167\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyNumberFormat=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"right\" vertical=\"top\"/></xf><xf numFmtId=\"168\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyNumberFormat=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"right\" vertical=\"top\"/></xf></cellXfs><cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles></styleSheet>";
+    let mut entries = vec![
+        ("[Content_Types].xml".into(), content_types.into_bytes()),
+        ("_rels/.rels".into(), root_relationships.as_bytes().to_vec()),
+        ("docProps/app.xml".into(), app.into_bytes()),
+        ("docProps/core.xml".into(), core.into_bytes()),
+        (
+            "xl/_rels/workbook.xml.rels".into(),
+            workbook_relationships.into_bytes(),
+        ),
+        ("xl/styles.xml".into(), styles.as_bytes().to_vec()),
+        ("xl/workbook.xml".into(), workbook.into_bytes()),
+    ];
+    entries.extend(sheet_entries);
+    build_stored_zip(&entries)
 }
 
 fn flatten_json(
@@ -1540,64 +1630,12 @@ fn build_xlsx(loaded: &LoadedReport) -> Result<Vec<u8>, String> {
     };
 
     let sheets = vec![summary, results, report_tables, matrix, sources];
-    let sheet_entries = sheets
-        .iter()
-        .enumerate()
-        .map(|(index, sheet)| {
-            Ok((
-                format!("xl/worksheets/sheet{}.xml", index + 1),
-                xlsx_sheet_xml(sheet)?,
-            ))
-        })
-        .collect::<Result<Vec<(String, Vec<u8>)>, String>>()?;
-    let sheet_nodes = sheets
-        .iter()
-        .enumerate()
-        .map(|(index, sheet)| {
-            format!(
-                "<sheet name=\"{}\" sheetId=\"{}\" r:id=\"rId{}\"/>",
-                xml_escape(&sheet.name),
-                index + 1,
-                index + 1
-            )
-        })
-        .collect::<String>();
-    let workbook = format!(
-        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><fileVersion appName=\"AI4HEOR\"/><workbookPr date1904=\"0\"/><bookViews><workbookView xWindow=\"0\" yWindow=\"0\" windowWidth=\"24000\" windowHeight=\"14000\"/></bookViews><sheets>{sheet_nodes}</sheets><calcPr calcId=\"0\" calcMode=\"manual\"/></workbook>"
-    );
-    let workbook_relationships = sheets
-        .iter()
-        .enumerate()
-        .map(|(index, _)| format!("<Relationship Id=\"rId{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet{}.xml\"/>", index + 1, index + 1))
-        .chain([format!("<Relationship Id=\"rId{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>", sheets.len() + 1)])
-        .collect::<String>();
-    let workbook_relationships = format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">{workbook_relationships}</Relationships>");
-    let content_overrides = (1..=sheets.len())
-        .map(|index| format!("<Override PartName=\"/xl/worksheets/sheet{index}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"))
-        .collect::<String>();
-    let content_types = format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>{content_overrides}<Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/><Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/></Types>");
-    let root_relationships = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/><Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties\" Target=\"docProps/core.xml\"/><Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties\" Target=\"docProps/app.xml\"/></Relationships>";
-    let core = format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><dc:title>{}</dc:title><dc:subject>{}</dc:subject><dc:creator>AI4HEOR</dc:creator><cp:lastModifiedBy>AI4HEOR</cp:lastModifiedBy><dcterms:created xsi:type=\"dcterms:W3CDTF\">{}T00:00:00Z</dcterms:created><dcterms:modified xsi:type=\"dcterms:W3CDTF\">{}T00:00:00Z</dcterms:modified></cp:coreProperties>", xml_escape(&loaded.manifest.title), xml_escape(&loaded.manifest.purpose), loaded.manifest.prepared_on, loaded.manifest.prepared_on);
-    let sheet_titles = sheets
-        .iter()
-        .map(|sheet| format!("<vt:lpstr>{}</vt:lpstr>", xml_escape(&sheet.name)))
-        .collect::<String>();
-    let app = format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\" xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\"><Application>AI4HEOR</Application><AppVersion>0.2</AppVersion><HeadingPairs><vt:vector size=\"2\" baseType=\"variant\"><vt:variant><vt:lpstr>Worksheets</vt:lpstr></vt:variant><vt:variant><vt:i4>{}</vt:i4></vt:variant></vt:vector></HeadingPairs><TitlesOfParts><vt:vector size=\"{}\" baseType=\"lpstr\">{sheet_titles}</vt:vector></TitlesOfParts></Properties>", sheets.len(), sheets.len());
-    let styles = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><numFmts count=\"2\"><numFmt numFmtId=\"164\" formatCode=\"#,##0\"/><numFmt numFmtId=\"165\" formatCode=\"#,##0.##########\"/></numFmts><fonts count=\"6\"><font><sz val=\"10\"/><name val=\"Arial\"/><color rgb=\"FF172033\"/></font><font><b/><sz val=\"18\"/><name val=\"Arial\"/><color rgb=\"FF172033\"/></font><font><b/><sz val=\"11\"/><name val=\"Arial\"/><color rgb=\"FFFFFFFF\"/></font><font><b/><sz val=\"10\"/><name val=\"Arial\"/><color rgb=\"FF172033\"/></font><font><i/><sz val=\"10\"/><name val=\"Arial\"/><color rgb=\"FF7A4B00\"/></font><font><sz val=\"9\"/><name val=\"Menlo\"/><color rgb=\"FF4E5968\"/></font></fonts><fills count=\"5\"><fill><patternFill patternType=\"none\"/></fill><fill><patternFill patternType=\"gray125\"/></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FF2E5D7B\"/><bgColor indexed=\"64\"/></patternFill></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFE8EEF5\"/><bgColor indexed=\"64\"/></patternFill></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFFFF4CC\"/><bgColor indexed=\"64\"/></patternFill></fill></fills><borders count=\"2\"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style=\"thin\"><color rgb=\"FFD7DCE2\"/></bottom><diagonal/></border></borders><cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs><cellXfs count=\"10\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/><xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyAlignment=\"1\"><alignment vertical=\"center\"/></xf><xf numFmtId=\"0\" fontId=\"2\" fillId=\"2\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyAlignment=\"1\"><alignment vertical=\"center\"/></xf><xf numFmtId=\"0\" fontId=\"3\" fillId=\"3\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"center\" wrapText=\"1\"/></xf><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf><xf numFmtId=\"164\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyNumberFormat=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"right\" vertical=\"top\"/></xf><xf numFmtId=\"0\" fontId=\"4\" fillId=\"4\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf><xf numFmtId=\"0\" fontId=\"5\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf><xf numFmtId=\"0\" fontId=\"3\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf><xf numFmtId=\"165\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyNumberFormat=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"right\" vertical=\"top\"/></xf></cellXfs><cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles></styleSheet>";
-    let mut entries = vec![
-        ("[Content_Types].xml".into(), content_types.into_bytes()),
-        ("_rels/.rels".into(), root_relationships.as_bytes().to_vec()),
-        ("docProps/app.xml".into(), app.into_bytes()),
-        ("docProps/core.xml".into(), core.into_bytes()),
-        (
-            "xl/_rels/workbook.xml.rels".into(),
-            workbook_relationships.into_bytes(),
-        ),
-        ("xl/styles.xml".into(), styles.as_bytes().to_vec()),
-        ("xl/workbook.xml".into(), workbook.into_bytes()),
-    ];
-    entries.extend(sheet_entries);
-    build_stored_zip(&entries)
+    build_xlsx_workbook(
+        &loaded.manifest.title,
+        &loaded.manifest.purpose,
+        &loaded.manifest.prepared_on,
+        &sheets,
+    )
 }
 
 fn rgb(hex: &str) -> Color {
