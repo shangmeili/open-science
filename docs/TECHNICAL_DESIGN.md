@@ -18,8 +18,8 @@
 > visible keyboard-focus indicator, and light-theme normal-text contrast at or above 4.5:1
 > on its supported paper and card surfaces. These are source/browser checks, not an
 > assistive-technology or full WCAG conformance claim.
-> The 0.1.31 x64 macOS DMG is content-verified from clean commit
-> `2834785e057ac54477a9633f07390bc173251644`; all 282 resources match source bytes,
+> The 0.1.32 x64 macOS DMG is content-verified from clean commit
+> `2bd1bea0de2fb151c8f11a57b28600223eee34ce`; all 283 resources match source bytes,
 > all 177 mounted-core HEOR tests pass, and isolated fresh plus legacy-migration starts
 > were verified. Its ordinary research and closed-Settings surfaces identify only the AI
 > assistant; the OpenCode engine name and local endpoint are confined to an explicitly
@@ -40,6 +40,8 @@
 > no sealed resources, and fails Gatekeeper. A tag-only Developer ID/notarization gate is
 > now implemented and locally fail-closed, but no credentialed tag run or signed artifact
 > has yet proved it; Windows signing also remains open.
+> Active delivery work is deliberately limited to Intel macOS product acceptance;
+> Windows, Linux, Apple-Silicon, and cross-platform release work are paused until then.
 > Sections below distinguish implemented contracts from target design.
 
 > **Role boundary.** Codex leads construction and verification of the AI4HEOR

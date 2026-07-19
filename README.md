@@ -187,7 +187,7 @@ does not yet exist, AI4HEOR atomically renames the prior default
 exist, it does not merge or delete either one; a base folder explicitly chosen in
 Settings always wins.
 
-The currently verified 0.1.31 local x64 macOS artifact is not code-signed or notarized. The
+The currently verified 0.1.32 local x64 macOS artifact is not code-signed or notarized. The
 `v*` tag pipeline now fails closed unless both macOS targets receive Developer ID and
 Apple notarization credentials and subsequently pass signature, hardened-runtime,
 stapled-ticket, and Gatekeeper checks. No credentialed tag run has produced that evidence
@@ -282,14 +282,14 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.32, while the currently verified x64 macOS package remains
-0.1.31. The 0.1.32 source makes new-project harness installation fail closed and adds an
+accepted. Current source and the current verified x64 macOS package are 0.1.32. This
+version makes new-project harness installation fail closed and adds an
 exact machine-readable contract for Human scientific authority, provider selection without
 silent fallback, deterministic calculation authority, app-owned approvals, and external
-content as untrusted data rather than instructions. The AI4HEOR 0.1.31 x64 macOS DMG is
-locally built
-from clean commit
-`2834785e057ac54477a9633f07390bc173251644` and payload-verified: all 282
+content as untrusted data rather than instructions. The 80,106,479-byte
+AI4HEOR 0.1.32 x64 macOS DMG has SHA-256
+`2bbac3379a826be022a0467255707187ac1182dbc0e0bfed177e70b2203d83c2` and was locally built
+from clean commit `2bd1bea0de2fb151c8f11a57b28600223eee34ce`. All 283
 configured resources match source bytes, all 177 deterministic HEOR tests pass
 against the mounted core, and two isolated LaunchServices runs prove fresh
 `Documents/AI4HEOR` creation plus content-preserving `Documents/OpenScience` migration,
@@ -323,7 +323,7 @@ silently acquire those claims. Tagged matrix jobs no longer create or populate a
 only the final job may create a draft after all four evidence files and the cross-platform
 manifest validate, and it uploads exactly those verified installers and records. This gate
 is locally contract-tested and rejects the
-current unsigned 0.1.31 x64 DMG, but it has not been exercised with real Apple credentials.
+current unsigned 0.1.32 x64 DMG, but it has not been exercised with real Apple credentials.
 The AI4HEOR 0.1.30 Linux `.deb` and `.rpm` were built from the same clean commit
 `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. Both packages are payload-verified with all
 282 configured resources matching source bytes and all 177 deterministic HEOR tests

@@ -155,7 +155,7 @@ AI4HEOR 会将旧默认目录 `~/Documents/OpenScience` 原子重命名并保留
 如果两个目录都已存在，则不自动合并或删除其中任何一个。在 Settings 中明确选择的
 基础目录始终优先。
 
-当前验证的 0.1.31 本地 x64 macOS 构建尚未代码签名或 notarize。
+当前验证的 0.1.32 本地 x64 macOS 构建尚未代码签名或 notarize。
 
 **macOS**：如果 Gatekeeper 提示应用已损坏或来自未知开发者，把应用安装到 Applications 后运行：
 
@@ -232,11 +232,13 @@ pnpm lint
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
 当前开发刻意收敛为先在 Intel macOS 上跑通产品；Windows、Linux、Apple Silicon
-与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.32`，当前已验证的
-x64 macOS 安装包仍为 `0.1.31`。`0.1.32` 源码将新项目 harness 初始化改为失败关闭，
+与跨平台发布暂停，直到 macOS 路径通过验收。当前源码和已验证的 x64 macOS 安装包均为
+`0.1.32`。该版本将新项目 harness 初始化改为失败关闭，
 并新增精确的机器可读契约：人类掌握科学权威、不允许模型提供商静默降级、确定性计算是计算权威、
-审批由应用持有，外部内容是不可信数据而非操作指令。AI4HEOR `0.1.31` x64 macOS DMG
-已从干净提交 `2834785e057ac54477a9633f07390bc173251644` 构建，验证了 282 个
+审批由应用持有，外部内容是不可信数据而非操作指令。80,106,479 字节的
+`AI4HEOR_0.1.32_x64.dmg` 的 SHA-256 为
+`2bbac3379a826be022a0467255707187ac1182dbc0e0bfed177e70b2203d83c2`，已从干净提交
+`2bd1bea0de2fb151c8f11a57b28600223eee34ce` 构建，验证了 283 个
 受控资源、177 项包内 HEOR 测试，以及两次隔离 LaunchServices 运行：全新创建
 `Documents/AI4HEOR`，以及保留内容地将 `Documents/OpenScience` 迁移为 AI4HEOR；
 两次均证明应用复制、单一应用进程、单一内置 OpenCode 子进程与完整清理。它仍未经 Developer ID 签名或 notarize；
