@@ -494,13 +494,13 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
 - **Acceptance.** A non-technical user installs and reaches a working first
   session on both macOS and Windows via a signed installer.
 - **Status.** 🟡 AI4HEOR 0.1.41 macOS x64 is locally verified from tracked commit
-  `38e061708e56ee82d53ea3d68a79b95dd25ea5dc`. The current 0.1.47 x64 candidate from
-  `263512e3bce0e0900ccf88484859183653c8771e` is structurally and byte-for-byte verified with all 177 packaged HEOR
+  `38e061708e56ee82d53ea3d68a79b95dd25ea5dc`. The current 0.1.48 x64 candidate from
+  `a4f08f1db724649d882ae5195872dfbd70fcd9fd` is structurally and byte-for-byte verified with all 177 packaged HEOR
   tests, but its exact isolated first launch is pending while the installed app
   remains open; the cross-built macOS arm64 DMG remains
   at 0.1.31 from clean commit `2834785e057ac54477a9633f07390bc173251644`,
   the Linux x86_64 `.deb`/`.rpm` remain at 0.1.30 from clean commit
-  `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. The x64 DMG contains all 349 current
+  `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. The x64 DMG contains all 354 current
   configured resources byte-identical to source; the earlier arm64/Linux artifacts each
   contain their source commit's complete 282-resource set. All four pass all 177 deterministic
   HEOR tests against mounted or extracted package cores. Both Linux packages were built in an isolated
@@ -705,7 +705,7 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
 | P1-1 | Multi-discipline platform lineage | P1 | 🟡 Pluggable, but generic examples are not part of the AI4HEOR delivery |
 | P1-2 | Domain + literature connectors | P1 | Superseded for AI4HEOR — governed HEOR evidence + Jupyter + unmanaged BYO MCP; no generic one-click catalog |
 | P1-3 | Scientific renderers | P1 | 🟡 Partial — base + 3D structure + genome + FITS + DOS + band + phase + qualitative-coding + anomaly map (all 4 disciplines; materials trio complete); ternary/coastlines next |
-| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — 0.1.41 macOS x64 is fully locally verified; the 0.1.47 x64 candidate is structurally verified with exact first launch pending while the installed app remains open; 0.1.31 arm64 is cross-host content-inspected, and Linux x64 remains verified at 0.1.30; cross-platform work is paused for Intel macOS product acceptance; Windows/native-arm execution and signing remain open |
+| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — 0.1.41 macOS x64 is fully locally verified; the 0.1.48 x64 candidate is structurally verified with exact first launch pending while the installed app remains open; 0.1.31 arm64 is cross-host content-inspected, and Linux x64 remains verified at 0.1.30; cross-platform work is paused for Intel macOS product acceptance; Windows/native-arm execution and signing remain open |
 | P1-5 | Interaction & visualization craft | P1 | 🟡 Partial — chart system + palette + command palette + native table→chart surface shipped |
 | **P1-6** | **Social-science analysis integrity** | **P1** | 🟡 **Partial — stats-integrity skill: interpretation/prereg/seed checks + verified .dta→R round-trip** |
 | P2-1 | Notebook + larger-project handling | P2 | ✅ Done — notebook + workspace Files explorer |
