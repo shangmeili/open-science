@@ -292,8 +292,13 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.41; the verified x64 macOS package is also 0.1.41.
-Version 0.1.41 adds source-bound, deterministic, macro-free research-presentation generation and keeps every rendered slide awaiting Human review. Version 0.1.40 makes every capability-review
+accepted. Current source is 0.1.42; the verified x64 macOS package remains 0.1.41.
+Version 0.1.42 adds a local startup-readiness check for the project folder, first-party Skills,
+HEOR calculation resources, project harness, and bundled assistant runtime. A failed runtime can
+now be replaced and reconnected from Settings without restarting the app; models, Python, and
+Jupyter remain optional and the check makes no scientific-validity claim. Version 0.1.41 adds
+source-bound, deterministic, macro-free research-presentation generation and keeps every rendered
+slide awaiting Human review. Version 0.1.40 makes every capability-review
 dialog explain what the proposed Skill does, which project request produced it, and that it
 is not a pharmacoeconomic analysis or a substitute for researcher judgment. Version 0.1.39
 adds the app-owned Human review path for project capability candidates:

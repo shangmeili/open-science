@@ -54,6 +54,7 @@ mod research_presentation;
 mod runs;
 mod runs_index;
 mod runtime;
+mod startup_audit;
 mod tools;
 mod updates;
 mod uv;
@@ -105,6 +106,7 @@ pub fn run() {
         .manage(runs::RunState::default())
         .invoke_handler(tauri::generate_handler![
             runtime::start_runtime,
+            runtime::restart_runtime,
             runtime::runtime_password,
             runtime::stop_runtime,
             runtime::workspace_path,
@@ -148,6 +150,7 @@ pub fn run() {
             artifact_file::write_workspace_file,
             research_presentation::audit_research_presentation,
             research_presentation::generate_research_presentation,
+            startup_audit::audit_startup_environment,
             asset_admission::audit_asset_admission,
             capability_review::audit_skill_candidates,
             capability_review::append_skill_candidate_review,

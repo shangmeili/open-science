@@ -50,6 +50,7 @@ import { DataFlowCard } from "@/components/settings/DataFlowCard";
 import { ModelBrowser } from "@/components/settings/ModelBrowser";
 import { ProviderManagerCard } from "@/components/settings/ProviderManagerCard";
 import { inputCls } from "@/components/settings/inputCls";
+import { StartupReadiness } from "@/components/settings/StartupReadiness";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 import { FIRST_PARTY_HEOR_CONNECTOR } from "@/lib/heorConnectorPolicy";
@@ -530,6 +531,8 @@ export function SettingsPage() {
       <div className="mx-auto max-w-2xl px-8 pb-16 pt-8">
         <h1 className="font-serif text-xl text-text">{t("page.title")}</h1>
         <p className="mt-0.5 text-xs text-muted">{t("page.subtitle")}</p>
+
+        <StartupReadiness />
 
         {/* ---- AI assistant runtime ---- */}
         <Card title={t("runtime.title")} hint={t("runtime.hint")}>

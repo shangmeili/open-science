@@ -1,6 +1,7 @@
 import { HardDrive, KeyRound, ShieldCheck, UserCheck } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { StartupReadiness } from "@/components/settings/StartupReadiness";
 
 export const AI4HEOR_FIRST_RUN_KEY = "ai4heor.onboarding.v1";
 
@@ -52,6 +53,8 @@ export function FirstRunGuide({ onOpenSettings }: { onOpenSettings: () => void }
           </div>
         ))}
       </div>
+
+      <StartupReadiness compact onOpenSettings={onOpenSettings} />
 
       <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border pt-4">
         <button

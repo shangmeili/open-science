@@ -46,6 +46,7 @@ const mocks = vi.hoisted(() => ({
     return "http://127.0.0.1:1";
   }),
   startRuntime: vi.fn(async () => "http://127.0.0.1:1"),
+  restartRuntime: vi.fn(async () => "http://127.0.0.1:1"),
   /** Constructor options every OpenCodeClient was created with. */
   clientOpts: [] as Record<string, unknown>[],
 }));
@@ -55,6 +56,7 @@ vi.mock("./tauri", () => ({
   logDebug: async () => {},
   detectTools: async () => [],
   startRuntime: mocks.startRuntime,
+  restartRuntime: mocks.restartRuntime,
   workspacePath: async () => "/ws/base",
   setWorkspace: mocks.setWorkspace,
   newDatedWorkspace: mocks.newDatedWorkspace,
@@ -222,6 +224,21 @@ describe("runtime authentication", () => {
     await useRuntimeStore.getState().connect();
     expect(mocks.clientOpts[mocks.clientOpts.length - 1]).toMatchObject({
       password: "pw-test",
+    });
+  });
+
+  it("replaces the local runtime process before reconnecting during recovery", async () => {
+    useRuntimeStore.setState({ status: "error", error: "runtime stopped" });
+
+    const recovered = await useRuntimeStore.getState().restartLocalRuntime();
+
+    expect(recovered).toBe(true);
+    expect(mocks.restartRuntime).toHaveBeenCalledTimes(1);
+    expect(useRuntimeStore.getState()).toMatchObject({
+      status: "ready",
+      error: null,
+      switching: false,
+      serverUrl: "http://127.0.0.1:1",
     });
   });
 });

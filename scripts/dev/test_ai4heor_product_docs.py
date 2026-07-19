@@ -300,6 +300,56 @@ class AI4HEORProductDocsTests(unittest.TestCase):
             self.assertTrue(preferences["dialog"]["confirm"]["accept"])
             self.assertTrue(preferences["dialog"]["confirm"]["delete"])
 
+    def test_startup_readiness_is_local_recoverable_and_not_a_scientific_gate(self):
+        native = (
+            ROOT / "apps/desktop/src-tauri/src/startup_audit.rs"
+        ).read_text(encoding="utf-8")
+        runtime = (ROOT / "apps/desktop/src-tauri/src/runtime.rs").read_text(
+            encoding="utf-8"
+        )
+        commands = (ROOT / "apps/desktop/src-tauri/src/lib.rs").read_text(
+            encoding="utf-8"
+        )
+        surface = (
+            ROOT
+            / "apps/desktop/src/components/settings/StartupReadiness.tsx"
+        ).read_text(encoding="utf-8")
+        for marker in (
+            '"workspace"',
+            '"skills"',
+            '"heorCore"',
+            '"harness"',
+            "MIN_FIRST_PARTY_SKILLS",
+            "write_probe",
+        ):
+            self.assertIn(marker, native)
+        self.assertNotIn("reqwest", native)
+        self.assertNotIn("http://", native)
+        self.assertNotIn("https://", native)
+        self.assertIn("pub fn restart_runtime", runtime)
+        self.assertIn("runtime::restart_runtime", commands)
+        self.assertIn("startup_audit::audit_startup_environment", commands)
+        self.assertIn("restartLocalRuntime", surface)
+        self.assertIn("optional={true}", surface)
+
+        for locale in ("en", "zh-Hans", "ja", "es", "de", "fr", "ko"):
+            settings = json.loads(
+                (
+                    ROOT
+                    / f"apps/desktop/src/i18n/locales/{locale}/settings.json"
+                ).read_text(encoding="utf-8")
+            )
+            readiness = settings["readiness"]
+            self.assertTrue(readiness["readyTitle"])
+            self.assertTrue(readiness["actions"]["restart"])
+            self.assertTrue(readiness["checks"]["model"]["optional"])
+            self.assertTrue(readiness["scope"])
+
+        english = (ROOT / "README.md").read_text(encoding="utf-8")
+        chinese = (ROOT / "README.zh.md").read_text(encoding="utf-8")
+        self.assertIn("makes no scientific-validity claim", english)
+        self.assertIn("不代表方法适用或科学有效", chinese)
+
 
 if __name__ == "__main__":
     unittest.main()

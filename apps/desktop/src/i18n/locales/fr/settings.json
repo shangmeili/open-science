@@ -13,6 +13,26 @@
     "title": "Paramètres",
     "subtitle": "Configurez l’assistant IA, les modèles, les outils de preuve, l’espace de travail et l’environnement d’analyse local."
   },
+  "readiness": {
+    "title": "Prêt à travailler",
+    "checking": "Vérification de cet ordinateur…",
+    "readyTitle": "Tout est prêt",
+    "readyBody": "Le dossier du projet, les méthodes intégrées et l’assistant local sont disponibles. Connectez un modèle uniquement si nécessaire.",
+    "attentionTitle": "Un élément doit être vérifié",
+    "attentionBody": "Les fichiers du projet restent sur cet ordinateur. Vérifiez l’élément ci-dessous puis réessayez.",
+    "actions": { "recheck": "Revérifier", "restart": "Redémarrer l’assistant local", "restarting": "Redémarrage…", "openSettings": "Vérifier" },
+    "checks": {
+      "needsAttention": "Vérification nécessaire",
+      "workspace": { "title": "Dossier du projet", "ready": "Accessible en écriture" },
+      "skills": { "title": "Skills intégrés", "ready": "{{count}} Skills disponibles" },
+      "heorCore": { "title": "Calculs HEOR locaux", "ready": "Fichiers requis vérifiés" },
+      "harness": { "title": "Harness d’audit du projet", "ready": "Fichiers requis vérifiés" },
+      "runtime": { "title": "Assistant local", "ready": "Prêt", "connecting": "Démarrage…", "error": "Vérification nécessaire", "offline": "Arrêté" },
+      "model": { "title": "Modèle (facultatif)", "optional": "Non connecté — les calculs locaux restent disponibles" }
+    },
+    "scope": "Un modèle, Python et Jupyter ne sont pas requis pour cette vérification ; configurez-les seulement si le travail l’exige. Seule la disponibilité du logiciel est contrôlée, pas l’adéquation méthodologique ni la validité scientifique.",
+    "technical": "Détails techniques"
+  },
   "runtime": {
     "title": "Runtime de l’assistant IA",
     "hint": "Démarré et géré automatiquement par l’application de bureau",

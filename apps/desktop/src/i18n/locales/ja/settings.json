@@ -13,6 +13,26 @@
     "title": "設定",
     "subtitle": "AI アシスタント、モデル、エビデンスツール、ワークスペース、ローカル分析環境を設定します。"
   },
+  "readiness": {
+    "title": "利用準備",
+    "checking": "このコンピューターの環境を確認しています…",
+    "readyTitle": "作業を始められます",
+    "readyBody": "プロジェクトフォルダー、組み込み手法、ローカルアシスタントを利用できます。モデルは必要なときに接続してください。",
+    "attentionTitle": "対応が必要な項目があります",
+    "attentionBody": "プロジェクト資料はこのコンピューターに残っています。下の項目を確認し、再度チェックしてください。",
+    "actions": { "recheck": "再チェック", "restart": "ローカルアシスタントを再起動", "restarting": "再起動中…", "openSettings": "確認" },
+    "checks": {
+      "needsAttention": "対応が必要",
+      "workspace": { "title": "プロジェクトフォルダー", "ready": "書き込み可能" },
+      "skills": { "title": "組み込み Skill", "ready": "{{count}} 個の Skill を利用可能" },
+      "heorCore": { "title": "薬剤経済学のローカル計算", "ready": "必要なファイルを確認済み" },
+      "harness": { "title": "プロジェクト監査 harness", "ready": "必要なファイルを確認済み" },
+      "runtime": { "title": "ローカルアシスタント", "ready": "準備完了", "connecting": "起動中…", "error": "対応が必要", "offline": "停止中" },
+      "model": { "title": "モデル（任意）", "optional": "未接続でもローカル計算は利用できます" }
+    },
+    "scope": "このチェックにモデル、Python、Jupyter は必要ありません。実際の作業で必要なときだけ設定します。確認するのはソフトウェアの利用可否であり、方法の適切性や科学的妥当性ではありません。",
+    "technical": "技術情報"
+  },
   "runtime": {
     "title": "AI アシスタント実行環境",
     "hint": "デスクトップアプリが自動的に起動・管理します",

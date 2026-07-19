@@ -878,6 +878,25 @@ pub fn start_runtime(app: AppHandle, state: State<'_, RuntimeState>) -> Result<S
     Ok(url)
 }
 
+/// Explicit recovery path for a sidecar that exited or stopped responding.
+/// Unlike `start_runtime`, this always replaces the tracked process, while
+/// retaining the stable localhost port so the frontend can reconnect cleanly.
+#[tauri::command(async)]
+pub fn restart_runtime(app: AppHandle, state: State<'_, RuntimeState>) -> Result<String, String> {
+    let mut lifecycle = state.lifecycle.lock().unwrap();
+    if let Some(child) = lifecycle.child.take() {
+        let _ = child.kill();
+    }
+    lifecycle.url = None;
+
+    let port = *lifecycle.port.get_or_insert_with(free_port);
+    let child = spawn_sidecar(&app, port)?;
+    let url = format!("http://127.0.0.1:{port}");
+    lifecycle.child = Some(child);
+    lifecycle.url = Some(url.clone());
+    Ok(url)
+}
+
 /// The workspace directory the sidecar runs in — the frontend passes it to the
 /// SDK so skill discovery is scoped to the right OpenCode instance.
 #[tauri::command]

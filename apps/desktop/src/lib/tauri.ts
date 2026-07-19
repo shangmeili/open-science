@@ -23,6 +23,44 @@ export async function startRuntime(): Promise<string | null> {
   return invoke<string>("start_runtime");
 }
 
+/** Replace the bundled local runtime process and return its stable endpoint. */
+export async function restartRuntime(): Promise<string | null> {
+  if (!isTauri) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string>("restart_runtime");
+}
+
+export interface StartupEnvironmentCheck {
+  id: "workspace" | "skills" | "heorCore" | "harness" | string;
+  ready: boolean;
+  detail: string;
+}
+
+export interface StartupEnvironmentAudit {
+  desktop: boolean;
+  requiredReady: boolean;
+  workspacePath: string | null;
+  checks: StartupEnvironmentCheck[];
+}
+
+/**
+ * Check only the local files required to start AI4HEOR. Model providers,
+ * Python, Jupyter, network access, and scientific validity are deliberately
+ * outside this audit.
+ */
+export async function auditStartupEnvironment(): Promise<StartupEnvironmentAudit> {
+  if (!isTauri) {
+    return {
+      desktop: false,
+      requiredReady: true,
+      workspacePath: null,
+      checks: [],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<StartupEnvironmentAudit>("audit_startup_environment");
+}
+
 export interface AssetAdmissionRecord {
   assetId: string;
   displayName: string;

@@ -25,6 +25,7 @@ import {
   markSession,
   newDatedWorkspace,
   runtimePassword,
+  restartRuntime,
   setApprovalMode as persistApprovalMode,
   setProxySetting as persistProxySetting,
   setWorkspace,
@@ -125,6 +126,8 @@ interface RuntimeState {
   loadCatalog: () => Promise<void>;
   detectTools: () => Promise<void>;
   connect: () => Promise<void>;
+  /** Replace the bundled local process, then reconnect on its stable port. */
+  restartLocalRuntime: () => Promise<boolean>;
   /** Resolves true once connected, false when the retry window is exhausted. */
   connectRetry: (tries?: number) => Promise<boolean>;
   bootstrap: () => Promise<void>;
@@ -912,6 +915,31 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     }
     set({ status: "error", error: lastError });
     return false;
+  },
+
+  restartLocalRuntime: async () => {
+    if (!isTauri) {
+      await get().connect();
+      return get().status === "ready";
+    }
+    set({ switching: true, status: "connecting", error: null });
+    try {
+      const url = await restartRuntime();
+      if (!url) throw new Error("The local AI assistant did not return an endpoint.");
+      set({ serverUrl: url });
+      const connected = await get().connectRetry(30);
+      if (!connected) {
+        throw new Error(get().error ?? "The local AI assistant did not restart.");
+      }
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      void logDebug(`runtime recovery FAILED: ${message}`);
+      set({ status: "error", error: message });
+      return false;
+    } finally {
+      set({ switching: false });
+    }
   },
 
   bootstrap: () => {

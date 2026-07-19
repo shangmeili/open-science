@@ -13,6 +13,26 @@
     "title": "Einstellungen",
     "subtitle": "KI-Assistent, Modelle, Evidenzwerkzeuge, Arbeitsbereich und lokale Analyseumgebung konfigurieren."
   },
+  "readiness": {
+    "title": "Arbeitsbereitschaft",
+    "checking": "Dieser Computer wird geprüft…",
+    "readyTitle": "Bereit zum Arbeiten",
+    "readyBody": "Projektordner, integrierte Methoden und lokaler Assistent sind verfügbar. Ein Modell muss nur bei Bedarf verbunden werden.",
+    "attentionTitle": "Ein Punkt muss geprüft werden",
+    "attentionBody": "Die Projektdateien bleiben auf diesem Computer. Prüfen Sie den folgenden Punkt und versuchen Sie es erneut.",
+    "actions": { "recheck": "Erneut prüfen", "restart": "Lokalen Assistenten neu starten", "restarting": "Neustart…", "openSettings": "Prüfen" },
+    "checks": {
+      "needsAttention": "Prüfung erforderlich",
+      "workspace": { "title": "Projektordner", "ready": "Beschreibbar" },
+      "skills": { "title": "Integrierte Skills", "ready": "{{count}} Skills verfügbar" },
+      "heorCore": { "title": "Lokale HEOR-Berechnungen", "ready": "Erforderliche Dateien geprüft" },
+      "harness": { "title": "Projekt-Audit-Harness", "ready": "Erforderliche Dateien geprüft" },
+      "runtime": { "title": "Lokaler Assistent", "ready": "Bereit", "connecting": "Wird gestartet…", "error": "Prüfung erforderlich", "offline": "Nicht aktiv" },
+      "model": { "title": "Modell (optional)", "optional": "Nicht verbunden — lokale Berechnungen funktionieren weiterhin" }
+    },
+    "scope": "Modell, Python und Jupyter sind für diese Prüfung nicht erforderlich; richten Sie sie nur bei Bedarf ein. Geprüft wird die Verfügbarkeit der Software, nicht die methodische Eignung oder wissenschaftliche Validität.",
+    "technical": "Technische Details"
+  },
   "runtime": {
     "title": "Laufzeit des KI-Assistenten",
     "hint": "Wird von der Desktop-App automatisch gestartet und verwaltet",

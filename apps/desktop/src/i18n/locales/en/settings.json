@@ -13,6 +13,40 @@
     "title": "Settings",
     "subtitle": "Configure the AI assistant, models, evidence tools, workspace, and local analysis environment."
   },
+  "readiness": {
+    "title": "Getting ready",
+    "checking": "Checking this computer…",
+    "readyTitle": "Ready to work",
+    "readyBody": "The project folder, built-in methods, and local assistant are available. Connect a model only when you need one.",
+    "attentionTitle": "One item needs attention",
+    "attentionBody": "Your project files remain on this computer. Review the item below and try again.",
+    "actions": {
+      "recheck": "Check again",
+      "restart": "Restart local assistant",
+      "restarting": "Restarting…",
+      "openSettings": "Review"
+    },
+    "checks": {
+      "needsAttention": "Needs attention",
+      "workspace": { "title": "Project folder", "ready": "Writable" },
+      "skills": { "title": "Built-in Skills", "ready": "{{count}} Skills available" },
+      "heorCore": { "title": "Local HEOR calculations", "ready": "Required files available" },
+      "harness": { "title": "Project audit harness", "ready": "Required files available" },
+      "runtime": {
+        "title": "Local assistant",
+        "ready": "Ready",
+        "connecting": "Starting…",
+        "error": "Needs attention",
+        "offline": "Not running"
+      },
+      "model": {
+        "title": "Model (optional)",
+        "optional": "Not connected — local calculations still work"
+      }
+    },
+    "scope": "A model, Python, and Jupyter are not required for this check; set them up only when the work calls for them. This confirms software availability, not methodological suitability or scientific validity.",
+    "technical": "Technical details"
+  },
   "runtime": {
     "title": "AI assistant runtime",
     "hint": "Started and managed automatically by the desktop app",

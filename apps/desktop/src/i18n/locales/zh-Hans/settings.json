@@ -13,6 +13,40 @@
     "title": "设置",
     "subtitle": "管理模型、证据工具、项目位置和本地分析环境。"
   },
+  "readiness": {
+    "title": "使用准备情况",
+    "checking": "正在检查本机环境…",
+    "readyTitle": "可以开始工作",
+    "readyBody": "项目位置、内置方法和本地助手均已就绪。需要对话时再连接模型即可。",
+    "attentionTitle": "有一项需要处理",
+    "attentionBody": "项目资料仍保存在本机。请处理下面的项目后重新检查。",
+    "actions": {
+      "recheck": "重新检查",
+      "restart": "重新启动本地助手",
+      "restarting": "正在重新启动…",
+      "openSettings": "查看"
+    },
+    "checks": {
+      "needsAttention": "需要处理",
+      "workspace": { "title": "项目文件夹", "ready": "可写入" },
+      "skills": { "title": "内置 Skill", "ready": "已找到 {{count}} 个 Skill" },
+      "heorCore": { "title": "药物经济学本地计算", "ready": "所需文件可用" },
+      "harness": { "title": "项目审计 harness", "ready": "所需文件可用" },
+      "runtime": {
+        "title": "本地助手",
+        "ready": "已就绪",
+        "connecting": "正在启动…",
+        "error": "需要处理",
+        "offline": "未运行"
+      },
+      "model": {
+        "title": "模型（可选）",
+        "optional": "未连接，不影响本地计算"
+      }
+    },
+    "scope": "本机检查不要求安装模型、Python 或 Jupyter；只有具体工作需要时再配置。这里只确认软件可用，不判断方法是否适用或研究结论是否成立。",
+    "technical": "技术信息"
+  },
   "runtime": {
     "title": "本地助手服务",
     "hint": "由 AI4HEOR 自动启动和管理",

@@ -13,6 +13,26 @@
     "title": "Configuración",
     "subtitle": "Configura el asistente de IA, los modelos, las herramientas de evidencia, el espacio de trabajo y el entorno de análisis local."
   },
+  "readiness": {
+    "title": "Preparación para trabajar",
+    "checking": "Comprobando este equipo…",
+    "readyTitle": "Todo está listo",
+    "readyBody": "La carpeta del proyecto, los métodos integrados y el asistente local están disponibles. Conecta un modelo solo cuando lo necesites.",
+    "attentionTitle": "Hay un elemento que revisar",
+    "attentionBody": "Los archivos del proyecto permanecen en este equipo. Revisa el elemento siguiente e inténtalo de nuevo.",
+    "actions": { "recheck": "Comprobar de nuevo", "restart": "Reiniciar el asistente local", "restarting": "Reiniciando…", "openSettings": "Revisar" },
+    "checks": {
+      "needsAttention": "Requiere atención",
+      "workspace": { "title": "Carpeta del proyecto", "ready": "Se puede escribir" },
+      "skills": { "title": "Skills integrados", "ready": "{{count}} Skills disponibles" },
+      "heorCore": { "title": "Cálculos HEOR locales", "ready": "Archivos necesarios verificados" },
+      "harness": { "title": "Harness de auditoría del proyecto", "ready": "Archivos necesarios verificados" },
+      "runtime": { "title": "Asistente local", "ready": "Listo", "connecting": "Iniciando…", "error": "Requiere atención", "offline": "No está en ejecución" },
+      "model": { "title": "Modelo (opcional)", "optional": "Sin conectar; los cálculos locales siguen disponibles" }
+    },
+    "scope": "Esta comprobación no requiere un modelo, Python ni Jupyter; configúralos solo cuando el trabajo los necesite. Solo confirma que el software está disponible, no la idoneidad metodológica ni la validez científica.",
+    "technical": "Detalles técnicos"
+  },
   "runtime": {
     "title": "Entorno del asistente de IA",
     "hint": "La aplicación de escritorio lo inicia y gestiona automáticamente",
