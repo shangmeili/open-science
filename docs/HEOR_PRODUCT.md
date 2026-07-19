@@ -631,6 +631,17 @@ cannot silently alter effects or utilities. This proves reproducibility of the
 teaching arithmetic, not input validity, model validity, an official Chinese
 threshold, cost-effectiveness, reimbursement, pricing, or policy suitability.
 
+The desktop also provides a deliberately narrow auxiliary **Run locally** action.
+It is available only after the starter has installed the example and requires a
+separate researcher confirmation. The native command verifies the installed
+runner, analysis specification, CSV, and expected result against bundled bytes,
+then runs the base case and the declared stable-cost low and high values. It writes
+`outputs/base-case-result.json`, `outputs/stable-cost-low-result.json`, and
+`outputs/stable-cost-high-result.json`, and reuses the local Runs and Provenance
+records. It does not require a configured model and sends no case content to a
+model provider. Any changed governed input or conflicting existing output fails
+closed without overwriting the researcher's files.
+
 ## Local evidence library
 
 The shipped alpha accepts PDF, plain text, Markdown, CSV, and JSON sources under

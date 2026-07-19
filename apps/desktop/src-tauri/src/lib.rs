@@ -203,6 +203,7 @@ pub fn run() {
             runs::read_run_log,
             runs_index::query_runs_cmd,
             examples::install_example,
+            examples::run_heor_teaching_example,
             git_snapshot::commit_workspace_snapshot,
             compute::list_ssh_hosts,
             compute::compute_machines,

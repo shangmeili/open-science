@@ -33,8 +33,25 @@ inputs:
 
 ```bash
 python run_analysis.py --intervention-stable-cost 14400 \
-  --output outputs/intervention-stable-cost-low.json
+  --output outputs/stable-cost-low-result.json
 ```
+
+Run the declared high scenario in the same way:
+
+```bash
+python run_analysis.py --intervention-stable-cost 21600 \
+  --output outputs/stable-cost-high-result.json
+```
+
+In the AI4HEOR desktop app, selecting this teaching starter installs the case
+and leaves an editable natural-language request in the message box. The
+auxiliary **Run locally** action is separate. After the researcher confirms,
+the app verifies that the installed runner, specification, inputs, and expected
+result still match the bundled bytes; runs the base case and both declared
+sensitivity values; and records the run and provenance locally. The fixed run
+does not require a configured model and sends no case content to a model
+provider. Edited inputs are preserved, but the app refuses to describe them as
+the fixed teaching calculation.
 
 A useful Human-led workflow is:
 

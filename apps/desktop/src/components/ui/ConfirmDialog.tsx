@@ -9,12 +9,14 @@ export function ConfirmDialog({
   title,
   body,
   confirmLabel,
+  tone = "danger",
   onConfirm,
   onCancel,
 }: {
   title: string;
   body: string;
   confirmLabel: string;
+  tone?: "danger" | "primary";
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -49,7 +51,11 @@ export function ConfirmDialog({
             {t("actions.cancel")}
           </button>
           <button
-            className="rounded-input bg-error px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+            className={
+              tone === "danger"
+                ? "rounded-input bg-error px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+                : "rounded-input bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:opacity-90"
+            }
             onClick={onConfirm}
           >
             {confirmLabel}

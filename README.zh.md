@@ -79,8 +79,9 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 审计和合成成本效果分析示例。`examples/heor-cost-effectiveness/`
 中的双策略、三状态队列案例只有在研究者点击后才安装，请求会先留在输入框中。
 不依赖第三方包的 `run_analysis.py` 会绑定脚本、分析设定和 CSV 的准确哈希，
-复算 `expected/base-case-result.json`，并运行一项预先声明的成本敏感性分析，
-不让模型临时计算。
+复算 `expected/base-case-result.json`，并运行预先声明的低值、高值成本敏感性分析。
+研究者另行确认后，桌面应用可以在没有设置模型的情况下运行这套固定计算，写出三个
+本地结果文件并保留运行和溯源记录；案例内容不会发送给模型服务。
 其中的数值只是教学假设，不是临床或经济学证据，也不能生成批准、
 具有成本效果、报销或政策结论。
 
@@ -236,11 +237,13 @@ pnpm lint
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
 当前开发刻意收敛为先在 Intel macOS 上跑通产品；Windows、Linux、Apple Silicon
-与跨平台发布暂停，直到 macOS 路径通过验收。当前源码和已验证的 x64 macOS 安装包均为 `0.1.34`。
-0.1.34 增加了第六个药物经济学入口，用绑定哈希的
-固定脚本复算成本-效果教学案例；同时保留 0.1.33 对简体中文研究界面和 45 个内置 Skill 的重写，统一使用常见的
+与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.35`；新的 Intel 安装包完成构建和验证前，
+当前已验证的 x64 macOS 安装包仍为 `0.1.34`。0.1.35 为教学案例增加了单独确认的本机复算入口：
+程序先核对脚本、分析设定、输入数据和预期结果是否仍与内置版本一致，再写出基线结果与低值、高值
+敏感性分析，并保留运行和溯源记录；案例内容不会发送给模型服务。它保留 0.1.34 的第六个药物经济学入口，
+以及 0.1.33 对简体中文研究界面和 45 个内置 Skill 的重写，统一使用常见的
 中国药物经济学表述；原先写死在代码中的下载、文件管理、Jupyter、笔记本和助手提示也已进入
-七种语言的资源文件。0.1.32 建立的失败关闭项目约束和研究者科学决策权保持不变。80,116,453 字节的
+七种语言的资源文件。0.1.32 建立的失败关闭项目约束和研究者科学决策权保持不变。在 0.1.35 安装包完成验证前，80,116,453 字节的
 `AI4HEOR_0.1.34_x64.dmg` 的 SHA-256 为
 `4596f631cd3fafbd5c959cb95a58cc3c14eddeb54f85a7f0272f679f7fcd7476`，已从干净提交
 `37cb7d4c502357d49e19a8532a39eb244d8c1d3f` 构建，验证了 286 个
@@ -271,7 +274,7 @@ sealed resources 或 stapled ticket，严格 codesign 与 Gatekeeper 均拒绝�
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.34},
+  version = {0.1.35},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

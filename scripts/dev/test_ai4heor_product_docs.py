@@ -146,6 +146,26 @@ class AI4HEORProductDocsTests(unittest.TestCase):
             self.assertIn("run_analysis.py", text, relative)
             self.assertIn("expected/base-case-result.json", text, relative)
 
+        product_contract = (ROOT / "docs/HEOR_PRODUCT.md").read_text(encoding="utf-8")
+        for output in (
+            "outputs/base-case-result.json",
+            "outputs/stable-cost-low-result.json",
+            "outputs/stable-cost-high-result.json",
+        ):
+            self.assertIn(output, product_contract)
+        self.assertIn("sends no case content", product_contract)
+
+        native = (ROOT / "apps/desktop/src-tauri/src/examples.rs").read_text(
+            encoding="utf-8"
+        )
+        bridge = (ROOT / "apps/desktop/src/lib/tauri.ts").read_text(encoding="utf-8")
+        surface = (ROOT / "apps/desktop/src/components/heor/HeorStarters.tsx").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("run_heor_teaching_example", native)
+        self.assertIn('invoke<TeachingExampleRunResult>("run_heor_teaching_example"', bridge)
+        self.assertIn("runHeorTeachingExample()", surface)
+
 
 if __name__ == "__main__":
     unittest.main()

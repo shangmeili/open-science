@@ -102,8 +102,11 @@ model/report audit, or a synthetic cost-effectiveness example. The bundled
 three-state cohort workflow. The default HEOR surface installs it only after the
 researcher selects the example and keeps the request unsent for review. Its
 dependency-free `run_analysis.py` binds the exact script, specification, and CSV
-hashes, reproduces `expected/base-case-result.json`, and exposes one declared cost
-sensitivity without asking a model to perform the arithmetic. Its numbers are
+hashes, reproduces `expected/base-case-result.json`, and exposes declared low and
+high cost sensitivity values without asking a model to perform the arithmetic.
+After a separate Human confirmation, the desktop app can run this exact fixed
+case without a configured model, write all three local result files, and add run
+and provenance records; no case content is sent to a model provider. Its numbers are
 teaching assumptions, not clinical or economic evidence, and it cannot create
 approval, cost-effectiveness, or reimbursement conclusions.
 
@@ -287,14 +290,19 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source and the current verified x64 macOS package are 0.1.34. This
-version adds a sixth HEOR starter for a hash-bound, deterministic cost-effectiveness
-teaching case and retains the 0.1.33 rewrite of the Simplified-Chinese research surface
+accepted. Current source is 0.1.35; the current verified x64 macOS package remains
+0.1.34 while the new Intel package is built and checked. Version 0.1.35 adds a
+separately confirmed, model-free local run for the hash-bound cost-effectiveness
+teaching case. It verifies the installed governed bytes, writes the base case and
+declared low/high sensitivity results, and records the run and provenance without
+sending case content to a model provider. It retains the 0.1.34 sixth HEOR starter,
+the 0.1.33 rewrite of the Simplified-Chinese research surface,
 and all 45 bundled Skill
 descriptions in direct pharmacoeconomics language, and moves previously hard-coded
 download, file-manager, Jupyter, notebook, and generated-assistant prompts into the seven
 shipped locale resources. It retains the 0.1.32 fail-closed new-project harness and its
-machine-readable Human scientific-authority contract. The 80,116,453-byte
+machine-readable Human scientific-authority contract. Until 0.1.35 package validation
+finishes, the 80,116,453-byte
 AI4HEOR 0.1.34 x64 macOS DMG has SHA-256
 `4596f631cd3fafbd5c959cb95a58cc3c14eddeb54f85a7f0272f679f7fcd7476` and was locally built
 from clean commit `37cb7d4c502357d49e19a8532a39eb244d8c1d3f`. All 286
@@ -357,7 +365,7 @@ If you use AI4HEOR in your research, please cite it:
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.34},
+  version = {0.1.35},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

@@ -606,6 +606,38 @@ export async function installExample(name: string): Promise<string> {
   return invoke<string>("install_example", { name });
 }
 
+export interface TeachingExampleOutput {
+  path: string;
+  sha256: string;
+  scenario: "base_case" | "one_way_sensitivity";
+  scenarioValue: number | null;
+  incrementalCostPerPerson: number;
+  incrementalQalysPerPerson: number;
+  icerPerQaly: number | null;
+  incrementalNetMonetaryBenefitPerPerson: number;
+}
+
+export interface TeachingExampleRunResult {
+  schema: "ai4heor-teaching-cea-desktop-run/v1";
+  runId: string;
+  interpreterSource: "manual" | "jupyter-env" | "system";
+  expectedResultSha256: string;
+  baseCase: TeachingExampleOutput;
+  sensitivityLow: TeachingExampleOutput;
+  sensitivityHigh: TeachingExampleOutput;
+  limitations: string[];
+}
+
+/** Run the exact installed synthetic teaching case locally after the auxiliary
+ * Human confirmation. No model provider receives project content. */
+export async function runHeorTeachingExample(): Promise<TeachingExampleRunResult> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<TeachingExampleRunResult>("run_heor_teaching_example", {
+    confirmedTeachingAssumptions: true,
+  });
+}
+
 /** Append a diagnostic line to <app-data>/debug.log (desktop only; no-op in browser). */
 export async function logDebug(message: string): Promise<void> {
   if (!isTauri) return;

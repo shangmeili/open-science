@@ -422,7 +422,13 @@ reproduces `expected/base-case-result.json` byte for byte, writes cycle traces,
 and accepts only the declared intervention stable-state cost as its bounded
 one-way sensitivity input. The conversational workflow must explain the decision
 problem and ask the researcher whether to retain the teaching settings before
-running that fixed code. It must not substitute model arithmetic or create
+running that fixed code. As an auxiliary path, the desktop app may run only the
+exact bundled case after a separate Human confirmation. That path must verify the
+installed runner, specification, CSV, and expected-result bytes; write the base
+case plus both declared sensitivity results; retain local run and provenance
+records; require no configured model; and send no case content to a model provider.
+Changed governed files fail closed and remain untouched. Neither path may substitute
+model arithmetic or create
 scientific approval, cost-effectiveness, reimbursement, or policy conclusions.
 
 ## 9. Roadmap
