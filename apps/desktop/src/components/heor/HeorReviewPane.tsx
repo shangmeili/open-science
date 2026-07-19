@@ -51,6 +51,7 @@ import {
   auditHeorRweCausalAnalysis,
   auditHeorReporting,
   auditHeorReproducibility,
+  auditResearchPresentation,
   addHeorLibraryDirectory,
   addHeorLibraryFiles,
   installBundledHeorKnowledgeBase,
@@ -69,6 +70,7 @@ import {
   HEOR_RWE_CAUSAL_ANALYSIS_REQUEST_PATH,
   HEOR_REPORT_PACKAGE_PATH,
   HEOR_REPRODUCIBILITY_PACKAGE_PATH,
+  generateResearchPresentation,
   HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
   HEOR_EVIDENCE_LIBRARY_PATH,
   HEOR_METHODS_WATCHLIST_PATH,
@@ -156,6 +158,10 @@ import {
 import { isTauri } from "@/lib/tauri";
 import { toast } from "@/lib/toast";
 import { MaximizePaneButton, PaneTitlebarInset } from "@/components/inspector/RightPane";
+import {
+  ResearchPresentationAssessment,
+  type ResearchPresentationState,
+} from "./ResearchPresentationAssessment";
 
 const REVIEW_GATES: HeorGate[] = [
   "decision_problem",
@@ -479,6 +485,8 @@ export function HeorReviewPane({
   const [modelValidation, setModelValidation] = useState<ModelValidationState>({ kind: "loading" });
   const [reporting, setReporting] = useState<ReportingState>({ kind: "loading" });
   const [reproducibility, setReproducibility] = useState<ReproducibilityState>({ kind: "loading" });
+  const [researchPresentation, setResearchPresentation] = useState<ResearchPresentationState>({ kind: "loading" });
+  const [presentationGenerating, setPresentationGenerating] = useState(false);
   const [evidenceSearch, setEvidenceSearch] = useState<EvidenceSearchState>({ kind: "loading" });
   const [evidenceSynthesis, setEvidenceSynthesis] = useState<EvidenceSynthesisState>({ kind: "loading" });
   const [evidenceSelection, setEvidenceSelection] = useState<EvidenceSelectionState>({ kind: "loading" });
@@ -537,6 +545,7 @@ export function HeorReviewPane({
       setModelValidation({ kind: "invalid", message: t("validation.noProject") });
       setReporting({ kind: "invalid", message: t("reporting.noProject") });
       setReproducibility({ kind: "invalid", message: t("reproducibility.noProject") });
+      setResearchPresentation({ kind: "invalid", message: t("presentation.noProject") });
       setEvidenceSearch({ kind: "invalid", message: t("search.noProject") });
       setEvidenceSynthesis({ kind: "invalid", message: t("synthesis.noProject") });
       setEvidenceSelection({ kind: "invalid", message: t("evidence.noProject") });
@@ -563,6 +572,7 @@ export function HeorReviewPane({
     setModelValidation({ kind: "loading" });
     setReporting({ kind: "loading" });
     setReproducibility({ kind: "loading" });
+    setResearchPresentation({ kind: "loading" });
     setEvidenceSearch({ kind: "loading" });
     setEvidenceSynthesis({ kind: "loading" });
     setEvidenceSelection({ kind: "loading" });
@@ -580,6 +590,14 @@ export function HeorReviewPane({
       setEvidenceLibrary({ kind: "ready", audit: await auditHeorEvidenceLibrary() });
     } catch (error) {
       setEvidenceLibrary({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    try {
+      setResearchPresentation({ kind: "ready", audit: await auditResearchPresentation() });
+    } catch (error) {
+      setResearchPresentation({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
@@ -1309,6 +1327,22 @@ export function HeorReviewPane({
     }
   };
 
+  const renderResearchPresentation = async () => {
+    if (!project || presentationGenerating || !isTauri) return;
+    setPresentationGenerating(true);
+    try {
+      const audit = await generateResearchPresentation();
+      setResearchPresentation({ kind: "ready", audit });
+      toast.success(t("presentation.generated"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setResearchPresentation({ kind: "invalid", message });
+      toast.error(`${t("toast.actionFailed")}: ${message}`);
+    } finally {
+      setPresentationGenerating(false);
+    }
+  };
+
   const runUncertainty = async () => {
     if (!project || !isTauri || uncertainty.kind !== "ready"
       || !uncertainty.audit.complete || running) return;
@@ -1982,6 +2016,12 @@ export function HeorReviewPane({
             <ReportingAssessment
               state={reporting}
               onRequestPreparation={() => onRequestRevision(t("reporting.repairPrompt"))}
+            />
+            <ResearchPresentationAssessment
+              state={researchPresentation}
+              generating={presentationGenerating}
+              onRequestPreparation={() => onRequestRevision(t("presentation.repairPrompt"))}
+              onGenerate={() => void renderResearchPresentation()}
             />
             <ReproducibilityAssessment
               state={reproducibility}

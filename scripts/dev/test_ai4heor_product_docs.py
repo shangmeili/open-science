@@ -35,6 +35,7 @@ REPRESENTATIVE_SKILLS = {
     "heor-model-validation",
     "heor-reporting",
     "heor-reproducibility-package",
+    "research-presentation",
 }
 CURRENT_SCREENSHOTS = (
     "docs/audits/2026-07-17-first-use/06-skip-link-stable.png",
@@ -77,7 +78,7 @@ class AI4HEORProductDocsTests(unittest.TestCase):
             raise AssertionError("no bundled first-party Skills found")
 
     def test_localized_skill_catalogs_match_the_bundled_runtime(self):
-        self.assertEqual(len(self.skill_names), 47)
+        self.assertEqual(len(self.skill_names), 48)
         for locale in README_BY_LOCALE:
             with self.subTest(locale=locale):
                 payload = json.loads(
@@ -91,7 +92,7 @@ class AI4HEORProductDocsTests(unittest.TestCase):
             with self.subTest(locale=locale):
                 text = (ROOT / relative).read_text(encoding="utf-8")
                 self.assertIn("AI4HEOR", text)
-                self.assertIn("47", text)
+                self.assertIn("48", text)
                 for skill in REPRESENTATIVE_SKILLS:
                     self.assertIn(f"`${skill}`", text)
                 for screenshot in CURRENT_SCREENSHOTS:

@@ -45,6 +45,7 @@
     "modal-run": { "displayName": "Exécution Modal", "description": "Exécute le calcul lourd autorisé dans le compte Modal de l'utilisateur." },
     "publication-figures": { "displayName": "Figures de publication", "description": "Crée des figures scientifiques cohérentes prêtes à publier." },
     "remote-compute": { "displayName": "Calcul distant", "description": "Exécute et suit des tâches autorisées sur SSH ou Slurm." },
+    "research-presentation": { "displayName": "Présentation de recherche", "description": "Génère un PPTX vérifiable à partir de documents locaux liés aux sources." },
     "stats-integrity": { "displayName": "Intégrité statistique", "description": "Contrôle exécution statistique, préenregistrement et reproductibilité." },
     "traceability-review": { "displayName": "Revue de traçabilité", "description": "Audite les liens entre affirmations, citations, chiffres, données et code." }
   }

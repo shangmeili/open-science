@@ -127,6 +127,15 @@
         "requestTitle": "Request that produced this candidate",
         "acceptanceTitle": "Checks prepared for Human review",
         "limitationsTitle": "Declared limitations",
+        "licenseTitle": "License and allowed use",
+        "technicalDetails": "View technical and audit details",
+        "technical": {
+          "candidateId": "Internal ID",
+          "provider": "Provider used to prepare it",
+          "model": "Model used to prepare it",
+          "license": "License identifier",
+          "decisionHash": "SHA-256 bound to this review"
+        },
         "actor": "Reviewer name or local label",
         "actorPlaceholder": "For example: HEOR methods reviewer",
         "rationale": "Reason for this decision",
@@ -136,9 +145,9 @@
           "revoke": "State why the previously active capability should no longer run in this project."
         },
         "confirm": {
-          "activate": "I reviewed the exact hash, instructions, license note, limitations, and every acceptance check. I authorize this instruction-only Skill for the current project.",
-          "reject": "I reviewed the exact candidate hash and want it to remain inactive.",
-          "revoke": "I reviewed the active record and want the exact matching project Skill removed."
+          "activate": "I reviewed this capability's purpose, instructions, license note, limitations, and every acceptance check. I authorize this instruction-only Skill for the current project.",
+          "reject": "I understand this candidate's purpose and limitations and want it to remain inactive.",
+          "revoke": "I understand the effect of revocation and want to stop using the project Skill that matches the activation record."
         },
         "cancel": "Cancel",
         "recording": "Recording…",

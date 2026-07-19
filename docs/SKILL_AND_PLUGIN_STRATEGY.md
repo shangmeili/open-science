@@ -102,6 +102,28 @@ or blocked work back to the natural-language conversation.
 
 ## First-party capability inventory
 
+The inventory is split deliberately between HEOR method assets and the general
+research foundation they rely on. A researcher should not need a developer-only
+Codex Skill for ordinary project work, and a general writing or visualization
+tool must not acquire HEOR method authority.
+
+| General research capability available in the workbench | Shipped implementation | Boundary |
+| --- | --- | --- |
+| Natural-language project framing and local project context | conversation workspace, `heor-workbench`, `domain-check` | The researcher owns the question, scope, methods, and decisions. Forms record bounded confirmations only. |
+| Local knowledge and evidence work | local knowledge base, `heor-local-evidence`, `heor-evidence-search`, `heor-evidence-synthesis`, methods watchlist | Network retrieval is explicit and source-specific; source availability is not evidence truth or reuse permission. |
+| Data and computation inspection | notebook surface, `large-file`, `stats-integrity`, app-owned deterministic HEOR engines, optional authorized remote compute | Code and model output remain inspectable; no result becomes accepted merely because it ran successfully. |
+| Scientific figures and traceability | `publication-figures`, `traceability-review`, artifact preview | Figures must remain linked to current data/results and preserve adverse, uncertain, and null findings. |
+| Research reports and reproducibility | `heor-reporting`, `heor-reproducibility-package`, local report and artifact previews | Structural completeness and replay evidence do not establish scientific validity or external approval. |
+| Research presentation generation | `research-presentation` manifest, portable validator, and native deterministic macro-free PPTX renderer | The Agent prepares source-bound content; the app renders it; the Human reviews every slide and owns external-use rights and release. |
+| Capability growth | `ai4heor-skill-authoring`, candidate quarantine/admission, preference-learning proposals | The platform may propose or create bounded Skills, but cannot activate permissions, rewrite methods, or self-approve changes. |
+
+The audit found that PPTX preview existed but presentation creation did not. The
+first-party `research-presentation` slice closes that gap without bundling the
+rejected source-available Anthropic presentation Skill or depending on the
+developer's Codex installation. Generic DOCX/XLSX authoring, bibliography-manager
+integration, posters, and arbitrary presentation templates remain explicit
+backlog items rather than implied capabilities.
+
 The following platform Skills are already implemented and bundled: orchestration,
 input provenance, evidence search, local evidence, evidence synthesis, reference
 case assessment, methods currency watchlist, conceptual model design, cohort state transition, constant event
@@ -110,7 +132,10 @@ background-plus-excess mortality, RR/OR relative effects, constant HR applicatio
 survival extrapolation review, deterministic survival-curve materialization,
 structure-neutral economic inputs, treatment-effect duration, partitioned survival,
 paired patient-level PFS/OS bootstrap, joint survival uncertainty, uncertainty
-analysis, bounded advanced value of information, budget impact, model validation, and reporting.
+analysis, bounded advanced value of information, budget impact, model validation,
+reporting, reproducibility packaging, scientific figures, traceability review,
+large-file inspection, statistical-integrity review, and source-bound research
+presentation generation.
 
 The 2026-07-15 live refresh reconfirmed the reviewed external revisions:
 HEORAgent Git `19f5f0eea5764d7a2695c372f3ec8f3aa0f53dd8` at repository package `1.27.0` with npm `1.35.0`,

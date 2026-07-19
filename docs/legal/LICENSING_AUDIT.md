@@ -18,7 +18,8 @@ the exact bytes and preservation of all required notices.
 | Content class | Current evidence | Packaged | Decision |
 | --- | --- | ---: | --- |
 | Inherited Open Science source and AI4HEOR changes | Root MIT license; upstream `master` license is MIT | Yes | Allowed under MIT with notice |
-| First-party core Skills | 47 active Skill directories after this change; project-authored under root MIT | Yes | Allowed; embedded third-party notices preserved |
+| First-party core Skills | 48 active Skill directories after this change; project-authored under root MIT | Yes | Allowed; embedded third-party notices preserved |
+| Research-presentation renderer | Project-authored Rust OOXML/ZIP renderer and portable Python validator under root MIT; no Anthropic presentation code or asset is included | Yes | Allowed; macro-free first-party output path |
 | HEORAgent-informed evidence Skill | First-party rewrite; pinned upstream revision and MIT notice retained | Yes | Allowed; upstream package itself is not shipped |
 | External Skill cache | Git-ignored `runtime/skills/external/`; zero tracked files and no Tauri resource mapping | No | Discovery only |
 | Third-party admission registry | 14 entries: 10 quarantined, 4 rejected, 0 release-eligible | Registry only | No external code loaded |

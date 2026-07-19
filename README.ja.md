@@ -70,7 +70,7 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 
 ## 現在の機能
 
-**境界を持つ HEOR Skill による研究支援。** 47 個のファーストパーティ Skill は研究者が定義した作業を支援しますが、承認権や手法選択権を取得しません。代表的なワークフローは次のとおりです。
+**境界を持つ HEOR Skill による研究支援。** 48 個のファーストパーティ Skill は研究者が定義した作業を支援しますが、承認権や手法選択権を取得しません。代表的なワークフローは次のとおりです。
 
 | スキル | 役割 | 主な成果物 |
 | --- | --- | --- |
@@ -82,6 +82,7 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | 宣言済み不確実性分析と限定 VOI を実行 | DSA/PSA/CEAC/CEAF/EVPI と個別レビュー対象の高度 VOI |
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | 静的・動的予算影響分析を実行 | 内訳付き予算結果と監査成果物 |
 | `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | 現在の正確な成果物を検証・報告・梱包 | 独立レビュー用パッケージ、報告書、再実行バンドル |
+| `$research-presentation` | 出典に結び付いた発表内容を準備し、ローカルで生成 | 確認可能なマクロなし PPTX と生成監査記録 |
 
 全ファーストパーティ Skill の名称と説明は 7 言語で提供され、正確な `$skill-id` も表示されます。外部資産は個別に承認されるまで無効です。
 

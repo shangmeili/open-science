@@ -45,6 +45,7 @@
     "modal-run": { "displayName": "Modal 运行", "description": "在用户自己的 Modal 账户上执行经授权的重型计算。" },
     "publication-figures": { "displayName": "发表用图表", "description": "按统一格式制作适合报告或论文使用的科学图表。" },
     "remote-compute": { "displayName": "远程计算", "description": "在 SSH 或 Slurm 系统运行并跟踪经授权任务。" },
+    "research-presentation": { "displayName": "研究汇报幻灯", "description": "根据有来源绑定的本地研究材料生成可核对的 PPTX 汇报幻灯。" },
     "stats-integrity": { "displayName": "统计分析检查", "description": "检查统计实现、预注册一致性和可重复性风险。" },
     "traceability-review": { "displayName": "可追溯性检查", "description": "检查结论、引用、数字、图表、数据和代码之间的对应关系。" }
   }

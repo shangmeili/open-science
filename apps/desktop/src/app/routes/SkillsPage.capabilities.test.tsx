@@ -73,6 +73,8 @@ describe("SkillsPage project capability review", () => {
 
     renderAt("/skills");
     expect(await screen.findByText("HEOR table notes")).toBeInTheDocument();
+    expect(screen.queryByText("minimax-cn")).not.toBeInTheDocument();
+    expect(screen.queryByText("MiniMax-M2.7")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Review and activate" }));
     expect(screen.getByRole("dialog", { name: "Review and activate this capability" })).toBeInTheDocument();
     expect(screen.getByText(/not a pharmacoeconomic analysis/)).toBeInTheDocument();
@@ -82,6 +84,16 @@ describe("SkillsPage project capability review", () => {
     expect(screen.getByText("Preserve our reviewed table-note format.")).toBeInTheDocument();
     expect(screen.getByText("Values remain unchanged")).toBeInTheDocument();
     expect(screen.getByText("Presentation only")).toBeInTheDocument();
+    expect(screen.getByText("License and allowed use")).toBeInTheDocument();
+    expect(screen.getByText("Local project use only.")).toBeInTheDocument();
+    expect(screen.getByText("$heor-table-notes")).not.toBeVisible();
+    expect(screen.getByText("b".repeat(64))).not.toBeVisible();
+    await userEvent.click(screen.getByText("View technical and audit details"));
+    expect(screen.getByText("$heor-table-notes")).toBeVisible();
+    expect(screen.getByText("minimax-cn")).toBeVisible();
+    expect(screen.getByText("MiniMax-M2.7")).toBeVisible();
+    expect(screen.getByText("b".repeat(64))).toBeVisible();
+    expect(screen.getByText(/I reviewed this capability's purpose/)).toBeInTheDocument();
 
     const submit = screen.getByRole("button", { name: "Record and activate" });
     expect(submit).toBeDisabled();
@@ -162,7 +174,14 @@ describe("SkillsPage project capability review", () => {
     expect(screen.getByText("Preserve our reviewed table-note format.")).toBeInTheDocument();
     expect(screen.getByText("数值保持不变")).toBeInTheDocument();
     expect(screen.getByText("仅调整呈现方式")).toBeInTheDocument();
+    expect(screen.getByText("授权与使用范围")).toBeInTheDocument();
     expect(screen.getByText("仅限当前本地项目使用。")).toBeInTheDocument();
+    expect(screen.getByText("$heor-table-notes")).not.toBeVisible();
+    expect(screen.getByText("b".repeat(64))).not.toBeVisible();
+    await userEvent.click(screen.getByText("查看技术与审计信息"));
+    expect(screen.getByText("$heor-table-notes")).toBeVisible();
+    expect(screen.getByText("b".repeat(64))).toBeVisible();
+    expect(screen.getByText(/我已核对这项能力的用途/)).toBeInTheDocument();
     expect(screen.queryByText("Values remain unchanged")).not.toBeInTheDocument();
     expect(screen.queryByText("Local project use only.")).not.toBeInTheDocument();
   });

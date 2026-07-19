@@ -93,7 +93,7 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 
 ## 当前能力
 
-**把科研辅助收敛为有边界的 HEOR Skills。** AI4HEOR 的 47 个第一方 Skill
+**把科研辅助收敛为有边界的 HEOR Skills。** AI4HEOR 的 48 个第一方 Skill
 只路由研究者界定的任务，不取得批准权或方法选择权。代表性已准入工作流包括：
 
 | 技能 | 职责 | 主要产出 |
@@ -106,6 +106,7 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | 执行已声明的不确定性与有界 VOI 工作流 | DSA/PSA/CEAC/CEAF/EVPI 与单独复核的高级 VOI |
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | 执行静态或动态预算影响分析 | 分项预算结果和审计工件 |
 | `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | 验证、报告并封装当前精确工件 | 独立复核包、报告和重放包 |
+| `$research-presentation` | 准备有来源绑定的研究汇报内容并在本地生成 | 可逐页核对的无宏 PPTX 和生成审计记录 |
 
 全部第一方 Skill 的名称与说明均随七种界面语言发布，同时保留精确
 `$skill-id`；外部资产保留原始元数据，未经单独准入不会启用。
@@ -237,8 +238,8 @@ pnpm lint
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
 当前开发刻意收敛为先在 Intel macOS 上跑通产品；Windows、Linux、Apple Silicon
-与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.40`；当前经过验证的 x64 macOS 安装包也是
-`0.1.40`。0.1.40 会在每个能力复核弹窗中先说明这项 Skill 做什么、来自
+与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.41`；当前经过验证的 x64 macOS 安装包暂时仍为
+`0.1.40`。0.1.41 新增有来源绑定、确定性、无宏的研究汇报幻灯生成，生成后的每一页仍等待研究者核对。0.1.40 会在每个能力复核弹窗中先说明这项 Skill 做什么、来自
 哪项项目要求，并明确它不是药物经济学分析，也不能替研究者作出科研判断。0.1.39 增加了项目能力候选的
 应用内复核链路：原生程序重新核验准确文件，以哈希链记录启用、
 拒绝或撤销，只把纯指令副本启用到当前项目，并拒绝覆盖或删除已经发生变化的内容。
@@ -255,7 +256,7 @@ pnpm lint
 已安装资料不会被覆盖。它保留 0.1.35 为教学案例增加的单独确认本机复算入口：
 程序先核对脚本、分析设定、输入数据和预期结果是否仍与内置版本一致，再写出基线结果与低值、高值
 敏感性分析，并保留运行和溯源记录；案例内容不会发送给模型服务。它保留 0.1.34 的第六个药物经济学入口，
-以及 0.1.33 对简体中文研究界面和内置 Skill 的重写；当前 47 个内置 Skill 统一使用常见的
+以及 0.1.33 对简体中文研究界面和内置 Skill 的重写；当前 48 个内置 Skill 统一使用常见的
 中国药物经济学表述；原先写死在代码中的下载、文件管理、Jupyter、笔记本和助手提示也已进入
 七种语言的资源文件。0.1.32 建立的失败关闭项目约束和研究者科学决策权保持不变。模型无关的教学案例会记录
 1 条成功运行和 3 条溯源记录；固定输入发生变化时，应用使用自然中文说明拒绝复算，并保留原有结果。
@@ -316,7 +317,7 @@ sealed resources 或 stapled ticket，严格 codesign 与 Gatekeeper 均拒绝�
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.40},
+  version = {0.1.41},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

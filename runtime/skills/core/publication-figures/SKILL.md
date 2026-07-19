@@ -1,17 +1,18 @@
 ---
 name: publication-figures
-description: Use whenever you generate a chart, plot, or figure with matplotlib (or seaborn) in this workspace. Applies the Open Science publication figure style so every generated figure is publication-grade and shares one palette with the app's native charts. Not for interactive plotly/HTML — those follow the same palette manually.
+description: Use whenever you generate a chart, plot, or figure with matplotlib (or seaborn) in this workspace. Applies the AI4HEOR publication figure style so every generated figure is publication-grade and shares one palette with the app's native charts. Not for interactive plotly/HTML — those follow the same palette manually.
 ---
 
 # Publication Figures
 
 Make generated figures **publication-grade and on-system by default**. Every
-figure you produce with matplotlib must use the bundled Open Science style, so a
+figure you produce with matplotlib must use the bundled AI4HEOR style, so a
 figure in a report and a stat tile in the app read as one design system.
 
 ## Apply the style (always, before plotting)
 
-The style file `openscience.mplstyle` sits next to this SKILL.md. Load it by
+The compatibility-named style file `openscience.mplstyle` sits next to this
+SKILL.md. Load it by
 absolute path at the top of any figure script:
 
 ```python

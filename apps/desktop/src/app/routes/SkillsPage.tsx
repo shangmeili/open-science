@@ -334,18 +334,11 @@ function CandidateRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-text">{copy.name}</span>
-            <span className="font-mono text-[10.5px] text-muted">${candidate.candidateId}</span>
             <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted ring-1 ring-border">
               {t(`skills.candidates.status.${candidateStatus(candidate.status)}`)}
             </span>
           </div>
           <p className="mt-1 text-xs leading-5 text-muted">{copy.description}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted">
-            <span>{candidate.provider}</span>
-            <span>{candidate.model}</span>
-            <span className="font-mono">{candidate.licenseSpdx}</span>
-            {candidate.decisionSha256 && <span className="font-mono">{candidate.decisionSha256.slice(0, 12)}</span>}
-          </div>
           {candidate.validationErrors.map((error) => (
             <p key={error} className="mt-2 text-xs text-danger">{error}</p>
           ))}
@@ -470,10 +463,6 @@ function CandidateReviewDialog({
             {t("skills.candidates.dialog.requestTitle")}
           </div>
           <p className="mt-1 break-words text-xs leading-5 text-text">{candidate.request}</p>
-          <div className="mt-3 font-mono text-[10px] font-medium text-text">${candidate.candidateId}</div>
-          <div className="mt-1 break-all font-mono text-[9px] leading-4 text-muted">
-            {candidate.decisionSha256}
-          </div>
         </div>
         {action !== "revoke" && (
           <>
@@ -485,9 +474,27 @@ function CandidateReviewDialog({
             <ul className="mt-1 list-disc space-y-1 pl-5 text-xs leading-5 text-muted">
               {copy.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}
             </ul>
-            <p className="mt-3 text-[10px] leading-4 text-muted">{copy.licenseNote}</p>
+            <div className="mt-4 text-xs font-medium text-text">{t("skills.candidates.dialog.licenseTitle")}</div>
+            <p className="mt-1 text-xs leading-5 text-muted">{copy.licenseNote}</p>
           </>
         )}
+        <details className="mt-4 rounded-input border border-border bg-bg px-3 py-2 text-xs text-muted">
+          <summary className="cursor-pointer font-medium text-text">
+            {t("skills.candidates.dialog.technicalDetails")}
+          </summary>
+          <dl className="mt-3 grid grid-cols-[auto,minmax(0,1fr)] gap-x-3 gap-y-2 leading-5">
+            <dt>{t("skills.candidates.dialog.technical.candidateId")}</dt>
+            <dd className="break-all font-mono text-text">${candidate.candidateId}</dd>
+            <dt>{t("skills.candidates.dialog.technical.provider")}</dt>
+            <dd className="break-all text-text">{candidate.provider}</dd>
+            <dt>{t("skills.candidates.dialog.technical.model")}</dt>
+            <dd className="break-all text-text">{candidate.model}</dd>
+            <dt>{t("skills.candidates.dialog.technical.license")}</dt>
+            <dd className="break-all font-mono text-text">{candidate.licenseSpdx}</dd>
+            <dt>{t("skills.candidates.dialog.technical.decisionHash")}</dt>
+            <dd className="break-all font-mono text-[10px] text-text">{candidate.decisionSha256}</dd>
+          </dl>
+        </details>
         <label className="mt-4 block text-xs font-medium text-text">
           {t("skills.candidates.dialog.actor")}
           <input

@@ -127,6 +127,15 @@
         "requestTitle": "形成这项候选的要求",
         "acceptanceTitle": "需要研究者逐项核对",
         "limitationsTitle": "已声明的限制",
+        "licenseTitle": "授权与使用范围",
+        "technicalDetails": "查看技术与审计信息",
+        "technical": {
+          "candidateId": "内部编号",
+          "provider": "生成时使用的模型提供商",
+          "model": "生成时使用的模型",
+          "license": "授权标识",
+          "decisionHash": "本次复核绑定的 SHA-256"
+        },
         "actor": "复核人姓名或本机使用的称呼",
         "actorPlaceholder": "例如：药物经济学方法复核人",
         "rationale": "作出这项决定的理由",
@@ -136,9 +145,9 @@
           "revoke": "说明为什么不再允许这项能力在当前项目中运行。"
         },
         "confirm": {
-          "activate": "我已核对准确哈希、指令、授权说明、限制和全部检查项，同意仅在当前项目中启用这个纯指令 Skill。",
-          "reject": "我已核对当前候选的准确哈希，并决定保持停用。",
-          "revoke": "我已核对启用记录，并同意删除与该记录完全一致的项目 Skill。"
+          "activate": "我已核对这项能力的用途、指令、授权说明、限制和全部检查项，同意仅在当前项目中启用这个纯指令 Skill。",
+          "reject": "我已了解这项候选能力的用途和限制，并决定保持停用。",
+          "revoke": "我已了解撤销的影响，并同意停止使用当前项目中与启用记录一致的 Skill。"
         },
         "cancel": "取消",
         "recording": "正在记录……",

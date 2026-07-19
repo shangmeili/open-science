@@ -119,7 +119,7 @@ approval, cost-effectiveness, or reimbursement conclusions.
 
 ## Current capabilities
 
-**Research assistance, as bounded HEOR skills.** AI4HEOR's 47 first-party skills
+**Research assistance, as bounded HEOR skills.** AI4HEOR's 48 first-party skills
 route researcher-defined tasks without acquiring approval or method-selection
 authority. Representative admitted workflows are:
 
@@ -133,6 +133,7 @@ authority. Representative admitted workflows are:
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | Execute declared uncertainty and bounded VOI workflows | DSA/PSA/CEAC/CEAF/EVPI and separately reviewed advanced VOI |
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | Execute bounded static or dynamic budget-impact analysis | Disaggregated budget results and audit artifacts |
 | `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | Validate, report, and package exact current artifacts | Independent-review package, report, and replay bundle |
+| `$research-presentation` | Prepare source-bound research presentation content and render it locally | Reviewable macro-free PPTX plus generation audit |
 
 Every first-party Skill name and description ships in all seven interface
 languages while the exact `$skill-id` remains visible. External assets keep
@@ -291,8 +292,8 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.40; the verified x64 macOS package is also 0.1.40.
-Version 0.1.40 makes every capability-review
+accepted. Current source is 0.1.41; the currently verified x64 macOS package remains 0.1.40.
+Version 0.1.41 adds source-bound, deterministic, macro-free research-presentation generation and keeps every rendered slide awaiting Human review. Version 0.1.40 makes every capability-review
 dialog explain what the proposed Skill does, which project request produced it, and that it
 is not a pharmacoeconomic analysis or a substitute for researcher judgment. Version 0.1.39
 adds the app-owned Human review path for project capability candidates:
@@ -319,7 +320,7 @@ keeps stable theory/methods separate from dated recent-progress material, and re
 to overwrite an edited installed copy. It retains the 0.1.35 separately confirmed,
 model-free local run for the hash-bound cost-effectiveness teaching case, the 0.1.34
 sixth HEOR starter, the 0.1.33 rewrite of the Simplified-Chinese research surface,
-and all 47 bundled Skill
+and all 48 bundled Skill
 descriptions in direct pharmacoeconomics language, and moves previously hard-coded
 download, file-manager, Jupyter, notebook, and generated-assistant prompts into the seven
 shipped locale resources. It retains the 0.1.32 fail-closed new-project harness and its
@@ -428,7 +429,7 @@ If you use AI4HEOR in your research, please cite it:
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.40},
+  version = {0.1.41},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

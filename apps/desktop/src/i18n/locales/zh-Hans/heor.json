@@ -709,6 +709,24 @@
     "noProject": "没有可用于报告包检查的当前项目。",
     "missingPlan": "必须先有分析计划，才能检查报告包。"
   },
+  "presentation": {
+    "title": "研究汇报幻灯",
+    "loading": "正在检查汇报内容……",
+    "current": "当前材料已生成幻灯",
+    "ready": "汇报内容已就绪，可以生成 PPTX",
+    "missing": "尚未准备汇报内容",
+    "note": "应用按本地材料和引用关系生成幻灯；生成成功不代表研究结论已审定，使用前仍需由研究者逐页核对。",
+    "authoredSlides": "编写页数",
+    "renderedSlides": "生成页数",
+    "sources": "本地来源",
+    "askPrepare": "与助手一起准备汇报内容",
+    "repairPrompt": "使用 $research-presentation，先在对话中与我确认听众、汇报目的、语言和篇幅，再根据当前项目的本地材料准备或修复 deliverables/research-presentation.json。所有结论、数字、图表和局限必须绑定当前来源；保留不确定、阴性和不利结果。不要替我确认科学解释、外部使用权限或发布决定，human_review.status 保持 awaiting_human_review。",
+    "generate": "生成 PPTX",
+    "generating": "正在生成……",
+    "generated": "PPTX 已生成，请逐页核对后再使用。",
+    "open": "打开幻灯",
+    "noProject": "没有可用于准备研究汇报的当前项目。"
+  },
   "reproducibility": {
     "title": "可重复性材料包",
     "loading": "正在检查可重复性材料……",

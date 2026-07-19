@@ -709,6 +709,24 @@
     "noProject": "There is no current project for report-package audit.",
     "missingPlan": "An analysis plan is required before the report package can be audited."
   },
+  "presentation": {
+    "title": "Research presentation",
+    "loading": "Checking the presentation material…",
+    "current": "A presentation exists for the current material",
+    "ready": "The presentation content is ready to generate",
+    "missing": "Presentation content has not been prepared",
+    "note": "The app renders slides from local, source-bound material. A generated file is not scientific approval; the researcher must review every slide before use.",
+    "authoredSlides": "Authored slides",
+    "renderedSlides": "Rendered slides",
+    "sources": "Local sources",
+    "askPrepare": "Prepare the presentation with the Agent",
+    "repairPrompt": "Use $research-presentation. First confirm the audience, purpose, language, and length with me in the conversation, then prepare or repair deliverables/research-presentation.json from the current project's local material. Bind every conclusion, number, figure, and limitation to current sources; preserve uncertain, negative, and unfavourable findings. Do not confirm scientific interpretation, external-use rights, or release decisions for me, and keep human_review.status as awaiting_human_review.",
+    "generate": "Generate PPTX",
+    "generating": "Generating…",
+    "generated": "The PPTX was generated. Review every slide before use.",
+    "open": "Open presentation",
+    "noProject": "There is no current project for a research presentation."
+  },
   "reproducibility": {
     "title": "Reproducibility companion",
     "loading": "Auditing reproducibility evidence…",

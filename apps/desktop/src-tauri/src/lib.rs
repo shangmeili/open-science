@@ -50,6 +50,7 @@ mod preference_review;
 mod preview_server;
 mod project;
 mod provenance;
+mod research_presentation;
 mod runs;
 mod runs_index;
 mod runtime;
@@ -145,6 +146,8 @@ pub fn run() {
             artifact_file::list_notebooks,
             artifact_file::list_dir,
             artifact_file::write_workspace_file,
+            research_presentation::audit_research_presentation,
+            research_presentation::generate_research_presentation,
             asset_admission::audit_asset_admission,
             capability_review::audit_skill_candidates,
             capability_review::append_skill_candidate_review,

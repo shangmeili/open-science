@@ -29,6 +29,8 @@ export const HEOR_ADVANCED_VOI_RESULT_PATH = "heor/results/advanced-voi.json";
 export const HEOR_ADVANCED_VOI_REPLAY_PATH = "heor/results/advanced-voi-replay.json";
 export const HEOR_BUDGET_IMPACT_RESULT_PATH = "heor/results/budget-impact.json";
 export const HEOR_PARTITIONED_SURVIVAL_RESULT_PATH = "heor/results/partitioned-survival.json";
+export const RESEARCH_PRESENTATION_MANIFEST_PATH = "deliverables/research-presentation.json";
+export const RESEARCH_PRESENTATION_OUTPUT_PATH = "deliverables/research-presentation.pptx";
 
 function transitionPath(path: string): boolean {
   return /^strategies\.[a-z][a-z0-9_-]{0,63}\.(transition_matrix|transition_schedule)$/.test(path);
@@ -1139,6 +1141,25 @@ export interface HeorReproducibilityAudit {
   claimCount: number;
   requiredClaimCount: number;
   coveredClaimCount: number;
+  errors: string[];
+}
+
+export interface ResearchPresentationAudit {
+  complete: boolean;
+  readyToGenerate: boolean;
+  outputCurrent: boolean;
+  status: "missing" | "invalid" | "ready_to_generate" | "generated_current";
+  deckId: string;
+  title: string;
+  manifestPath: string;
+  outputPath: string;
+  auditPath: string;
+  manifestSha256: string;
+  outputSha256: string | null;
+  authoredSlideCount: number;
+  renderedSlideCount: number;
+  sourceCount: number;
+  humanReviewStatus: string;
   errors: string[];
 }
 
@@ -3734,6 +3755,18 @@ export async function auditHeorReproducibility(): Promise<HeorReproducibilityAud
   return invoke<HeorReproducibilityAudit>("audit_heor_reproducibility");
 }
 
+export async function auditResearchPresentation(): Promise<ResearchPresentationAudit> {
+  if (!isTauri) return RESEARCH_PRESENTATION_BROWSER_DEMO_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<ResearchPresentationAudit>("audit_research_presentation");
+}
+
+export async function generateResearchPresentation(): Promise<ResearchPresentationAudit> {
+  if (!isTauri) throw new Error("presentation generation is available only in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<ResearchPresentationAudit>("generate_research_presentation");
+}
+
 export async function auditHeorEvidenceSearch(): Promise<HeorEvidenceSearchAudit> {
   if (!isTauri) return HEOR_BROWSER_DEMO_EVIDENCE_SEARCH_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
@@ -4290,6 +4323,25 @@ export const HEOR_BROWSER_DEMO_REPRODUCIBILITY_AUDIT: HeorReproducibilityAudit =
   requiredClaimCount: 7,
   coveredClaimCount: 0,
   errors: ["heor/reproducibility-package.json is required"],
+};
+
+export const RESEARCH_PRESENTATION_BROWSER_DEMO_AUDIT: ResearchPresentationAudit = {
+  complete: false,
+  readyToGenerate: false,
+  outputCurrent: false,
+  status: "missing",
+  deckId: "",
+  title: "",
+  manifestPath: RESEARCH_PRESENTATION_MANIFEST_PATH,
+  outputPath: RESEARCH_PRESENTATION_OUTPUT_PATH,
+  auditPath: "deliverables/research-presentation.audit.json",
+  manifestSha256: "",
+  outputSha256: null,
+  authoredSlideCount: 0,
+  renderedSlideCount: 0,
+  sourceCount: 0,
+  humanReviewStatus: "",
+  errors: [`${RESEARCH_PRESENTATION_MANIFEST_PATH} is required`],
 };
 
 export function browserDemoRun(

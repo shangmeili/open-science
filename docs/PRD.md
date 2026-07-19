@@ -269,7 +269,7 @@ shows the native third-party admission audit. Its natural-language action create
 evaluates a candidate but never installs it directly. Skill sources are layered:
 
 1. **OpenCode built-in** skills/agents (shipped with the runtime).
-2. **AI4HEOR first-party Skills** — 47 pharmacoeconomics, evidence, analysis,
+2. **AI4HEOR first-party Skills** — 48 pharmacoeconomics, evidence, analysis,
    validation, reporting, execution, capability-authoring, and preference-proposal
    Skills under `runtime/skills/core`, deployed only into the app-private profile.
 3. **Third-party scientific skills** — inactive until a machine-validated,
