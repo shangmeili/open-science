@@ -196,7 +196,7 @@ does not yet exist, AI4HEOR atomically renames the prior default
 exist, it does not merge or delete either one; a base folder explicitly chosen in
 Settings always wins.
 
-The currently verified 0.1.37 local x64 macOS artifact is not code-signed or notarized. The
+The currently verified 0.1.38 local x64 macOS artifact is not code-signed or notarized. The
 `v*` tag pipeline now fails closed unless both macOS targets receive Developer ID and
 Apple notarization credentials and subsequently pass signature, hardened-runtime,
 stapled-ticket, and Gatekeeper checks. No credentialed tag run has produced that evidence
@@ -291,7 +291,7 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.38; the current verified x64 macOS package is 0.1.37.
+accepted. Current source is 0.1.38; the current verified x64 macOS package is 0.1.38.
 Version 0.1.38 makes both capability-growth Skills resolve their validators from the
 Skill installation directory reported by the runtime rather than assuming a source
 checkout. Version 0.1.37 adds a fail-closed capability-growth harness: natural-language
@@ -322,9 +322,9 @@ conversation. OpenCode implementation details remain under Settings → Advanced
 the default Settings surface contains governed first-party HEOR evidence access, managed
 Jupyter, and explicitly unmanaged user-added MCP servers rather than the inherited generic
 Open Science connector catalog.
-The 81,288,283-byte AI4HEOR 0.1.37 x64 macOS DMG has SHA-256
-`702c9ae95f7099c2af87d7433bbe3ada53b06ce0959d858502b9a911d8b9c826` and was locally
-built from tracked source commit `f1858c912d5f6edbe9630274ee72e9d2e1e926a5`. All 334
+The 81,288,293-byte AI4HEOR 0.1.38 x64 macOS DMG has SHA-256
+`04c4c8713a9e5e1ef1c480bca76709294fdee79db3c5f1c03044627421fc43c7` and was locally
+built from tracked source commit `a6940a610e096325886f6a30434ac3d089fcc0c6`. All 334
 configured resources match source bytes, all 177 deterministic HEOR tests pass against
 the mounted core, and isolated first-launch and legacy-migration checks pass. A separate
 native UI run confirmed the AI4HEOR logo, the Simplified-Chinese HEOR entry, localized
@@ -333,7 +333,7 @@ is unsigned and unnotarized and is for internal product-owner testing only.
 
 ### Intel macOS product-owner acceptance
 
-Use `AI4HEOR_0.1.37_x64.dmg` only on an Intel Mac. Before opening it, verify the exact
+Use `AI4HEOR_0.1.38_x64.dmg` only on an Intel Mac. Before opening it, verify the exact
 SHA-256 above. Because this internal build is unsigned, macOS may require Control-click →
 Open; that exception is not evidence of distribution readiness.
 
@@ -386,7 +386,7 @@ silently acquire those claims. Tagged matrix jobs no longer create or populate a
 only the final job may create a draft after all four evidence files and the cross-platform
 manifest validate, and it uploads exactly those verified installers and records. This gate
 is locally contract-tested and rejects the
-current unsigned 0.1.37 x64 DMG, but it has not been exercised with real Apple credentials.
+current unsigned 0.1.38 x64 DMG, but it has not been exercised with real Apple credentials.
 The AI4HEOR 0.1.30 Linux `.deb` and `.rpm` were built from the same clean commit
 `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. Both packages are payload-verified with all
 282 configured resources matching source bytes and all 177 deterministic HEOR tests
