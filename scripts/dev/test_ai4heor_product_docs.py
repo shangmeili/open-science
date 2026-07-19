@@ -172,6 +172,33 @@ class AI4HEORProductDocsTests(unittest.TestCase):
         ):
             self.assertIn(source, trail)
 
+    def test_conceptual_model_diagram_is_first_party_source_bound_and_layout_only(self):
+        native = (
+            ROOT / "apps/desktop/src-tauri/src/conceptual_model_diagram.rs"
+        ).read_text(encoding="utf-8")
+        surface = (
+            ROOT
+            / "apps/desktop/src/components/heor/ConceptualModelDiagramAssessment.tsx"
+        ).read_text(encoding="utf-8")
+        skill = (
+            SKILLS_ROOT / "heor-model-design" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        for output in (
+            "deliverables/conceptual-model-layout.json",
+            "deliverables/conceptual-model.svg",
+            "deliverables/conceptual-model.graphml",
+            "deliverables/conceptual-model.audit.json",
+        ):
+            self.assertIn(output, native)
+        self.assertIn("existing_outputs_replaceable", native)
+        self.assertIn("data-state-id", native)
+        self.assertIn("data-transition-id", native)
+        self.assertIn("ConceptualModelDiagramAssessment", surface)
+        self.assertIn("onGenerate", surface)
+        self.assertNotIn("setModel", surface)
+        self.assertIn("SVG and editable GraphML", skill)
+        self.assertIn("Never encode a semantic model change as a drawing-only edit", skill)
+
     def test_general_research_foundation_has_an_explicit_acceptance_matrix(self):
         relative = "docs/RESEARCH_FOUNDATION_CAPABILITIES.zh-CN.md"
         matrix = (ROOT / relative).read_text(encoding="utf-8")

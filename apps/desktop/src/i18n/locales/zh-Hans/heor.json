@@ -151,6 +151,25 @@
     "repairPrompt": "使用 $heor-model-design，为当前决策问题创建或修复 heor/conceptual-model.json。保留结构备选和结构不确定性，运行确定性校验器，不要创建或声称获得研究者批准。",
     "note": "应用会独立检查该文件。结构完整仅允许进入研究者复核，不代表模型已经有效。"
   },
+  "conceptualDiagram": {
+    "title": "概念模型图",
+    "loading": "正在检查当前模型和图形……",
+    "current": "当前图形可供复核",
+    "ready": "调整状态位置并导出图形",
+    "incomplete": "先补全概念模型，再导出图形",
+    "note": "图形内容取自当前概念模型。移动节点只调整版式；状态和转移仍以 heor/conceptual-model.json 为准。",
+    "canvasLabel": "当前概念模型的可编辑版式",
+    "visualOnly": "这里仅调整版式，模型结构仍与已复核的概念模型文件绑定",
+    "nodeLabel": "移动状态：{{state}}",
+    "editHint": "可直接拖动状态，也可选中状态后使用方向键；按住 Shift 可增大移动距离。",
+    "autoLayout": "自动排列",
+    "askModel": "与助手讨论模型结构",
+    "generate": "导出 SVG 和可编辑 GraphML",
+    "generating": "正在导出图形……",
+    "openSvg": "打开 SVG",
+    "openGraphml": "打开可编辑 GraphML",
+    "generated": "概念模型图已导出"
+  },
   "methodsWatchlist": {
     "title": "方法学时效性清单",
     "loading": "正在检查带日期的方法学快照…",

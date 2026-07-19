@@ -151,6 +151,25 @@
     "repairPrompt": "Use $heor-model-design to create or repair heor/conceptual-model.json for the current decision problem. Preserve structural alternatives and uncertainty, run the deterministic validator, and do not create or claim human approval.",
     "note": "The app audits this independent artifact. Structural completeness permits human review; it does not establish model validity."
   },
+  "conceptualDiagram": {
+    "title": "Conceptual model diagram",
+    "loading": "Checking the current model and diagram…",
+    "current": "Current diagram is ready for review",
+    "ready": "Arrange the states and export the diagram",
+    "incomplete": "Complete the conceptual model before exporting a diagram",
+    "note": "The diagram copies the current conceptual model. Moving a node changes only the layout; model states and transitions still come from heor/conceptual-model.json.",
+    "canvasLabel": "Editable layout of the current conceptual model",
+    "visualOnly": "Layout editor — structure remains bound to the reviewed conceptual-model file",
+    "nodeLabel": "Move state {{state}}",
+    "editHint": "Drag a state, or focus it and use the arrow keys. Hold Shift for a larger keyboard step.",
+    "autoLayout": "Arrange automatically",
+    "askModel": "Discuss the model structure with the assistant",
+    "generate": "Export SVG and editable GraphML",
+    "generating": "Exporting diagram…",
+    "openSvg": "Open SVG",
+    "openGraphml": "Open editable GraphML",
+    "generated": "Conceptual-model diagram exported"
+  },
   "methodsWatchlist": {
     "title": "Methods currency watchlist",
     "loading": "Auditing the dated methods snapshot…",

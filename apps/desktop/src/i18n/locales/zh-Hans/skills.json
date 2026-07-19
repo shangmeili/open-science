@@ -19,7 +19,7 @@
     "heor-local-evidence": { "displayName": "本地证据检索", "description": "检索本地 HEOR 资料，提供文件校验值和页码引用。" },
     "heor-methods-watchlist": { "displayName": "方法学更新清单", "description": "跟踪指南和方法文件的更新，并提示需要重新验证的分析。" },
     "heor-model-calibration": { "displayName": "模型校准", "description": "校准受限的队列自然史模型。" },
-    "heor-model-design": { "displayName": "模型设计", "description": "设计可复核的决策问题和概念模型。" },
+    "heor-model-design": { "displayName": "模型设计", "description": "设计可复核的决策问题和概念模型，并导出与源文件绑定的 SVG 和可编辑 GraphML 图形。" },
     "heor-model-validation": { "displayName": "模型验证", "description": "整理表面效度、内部效度、外部效度和交叉验证证据。" },
     "heor-network-meta-analysis": { "displayName": "网状 Meta 分析", "description": "设计并检查频率学派网状 Meta 分析。" },
     "heor-paired-survival-bootstrap": { "displayName": "配对生存 Bootstrap", "description": "生成并检查 PFS 与 OS 的配对 Bootstrap 抽样。" },

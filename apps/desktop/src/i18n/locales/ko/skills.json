@@ -19,7 +19,7 @@
     "heor-local-evidence": { "displayName": "로컬 근거", "description": "해시로 고정된 로컬 HEOR 자료를 페이지 인용과 함께 검색합니다." },
     "heor-methods-watchlist": { "displayName": "방법론 감시목록", "description": "지침 최신성과 필요한 방법 재검증을 추적합니다." },
     "heor-model-calibration": { "displayName": "모형 보정", "description": "범위가 제한된 코호트 자연사 모형을 보정합니다." },
-    "heor-model-design": { "displayName": "모형 설계", "description": "검토 가능한 의사결정 문제와 개념 모형을 설계합니다." },
+    "heor-model-design": { "displayName": "모형 설계", "description": "검토 가능한 의사결정 문제와 개념 모형을 설계하고 원본에 연결된 SVG와 편집 가능한 GraphML 도식을 내보냅니다." },
     "heor-model-validation": { "displayName": "모형 검증", "description": "감사 가능한 독립 모형 검증 근거를 준비합니다." },
     "heor-network-meta-analysis": { "displayName": "네트워크 메타분석", "description": "범위가 제한된 빈도주의 NMA를 계획하고 감사합니다." },
     "heor-paired-survival-bootstrap": { "displayName": "쌍체 생존 부트스트랩", "description": "감사된 PFS·OS 쌍체 부트스트랩 표본을 생성합니다." },

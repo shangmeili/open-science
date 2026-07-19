@@ -19,7 +19,7 @@
     "heor-local-evidence": { "displayName": "Données locales", "description": "Recherche des sources HEOR liées par hash avec citations de page." },
     "heor-methods-watchlist": { "displayName": "Veille méthodologique", "description": "Suit l'actualité des guides et les revalidations nécessaires." },
     "heor-model-calibration": { "displayName": "Calibrage du modèle", "description": "Calibre des modèles de cohorte d'histoire naturelle bornés." },
-    "heor-model-design": { "displayName": "Conception du modèle", "description": "Conçoit problèmes de décision et modèles conceptuels révisables." },
+    "heor-model-design": { "displayName": "Conception du modèle", "description": "Conçoit des problèmes de décision et des modèles conceptuels révisables, puis exporte des diagrammes SVG liés à la source et GraphML modifiables." },
     "heor-model-validation": { "displayName": "Validation du modèle", "description": "Prépare des preuves auditables de validation indépendante." },
     "heor-network-meta-analysis": { "displayName": "Méta-analyse en réseau", "description": "Planifie et audite une NMA fréquentiste bornée." },
     "heor-paired-survival-bootstrap": { "displayName": "Bootstrap apparié de survie", "description": "Génère des tirages bootstrap PFS-OS appariés et audités." },

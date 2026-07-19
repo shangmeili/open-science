@@ -170,6 +170,23 @@ class CoreSkillContractTests(unittest.TestCase):
         ):
             self.assertIn(required, contract)
 
+    def test_heor_model_design_owns_a_source_bound_diagram_contract(self):
+        skill_dir = SKILLS_ROOT / "heor-model-design"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        contract = (skill_dir / "references" / "diagram-export-contract.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("references/diagram-export-contract.md", skill)
+        for required in (
+            "deliverables/conceptual-model.svg",
+            "deliverables/conceptual-model.graphml",
+            "heor/conceptual-model.json",
+            "coordinates only",
+            "awaiting_human_review",
+            "never overwrites",
+        ):
+            self.assertIn(required, contract)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -35,6 +35,9 @@ export const RESEARCH_REPORT_MANIFEST_PATH = "deliverables/heor-report-export.js
 export const RESEARCH_REPORT_DOCX_PATH = "deliverables/heor-report.docx";
 export const RESEARCH_REPORT_PDF_PATH = "deliverables/heor-report.pdf";
 export const RESEARCH_REPORT_XLSX_PATH = "deliverables/heor-report.xlsx";
+export const CONCEPTUAL_MODEL_LAYOUT_PATH = "deliverables/conceptual-model-layout.json";
+export const CONCEPTUAL_MODEL_SVG_PATH = "deliverables/conceptual-model.svg";
+export const CONCEPTUAL_MODEL_GRAPHML_PATH = "deliverables/conceptual-model.graphml";
 
 function transitionPath(path: string): boolean {
   return /^strategies\.[a-z][a-z0-9_-]{0,63}\.(transition_matrix|transition_schedule)$/.test(path);
@@ -341,6 +344,35 @@ export interface HeorConceptualModelAudit {
   assumptionCount: number;
   alternativeCount: number;
   unresolvedAssumptions: string[];
+}
+
+export interface ConceptualModelNodePosition {
+  stateId: string;
+  x: number;
+  y: number;
+}
+
+export interface ConceptualModelDiagramAudit {
+  complete: boolean;
+  readyToGenerate: boolean;
+  outputsCurrent: boolean;
+  status: "incomplete" | "ready_to_generate" | "current";
+  modelId: string;
+  modelPath: string;
+  layoutPath: string;
+  svgPath: string;
+  graphmlPath: string;
+  auditPath: string;
+  conceptualModelSha256: string;
+  layoutSha256: string | null;
+  svgSha256: string | null;
+  graphmlSha256: string | null;
+  stateCount: number;
+  transitionCount: number;
+  positions: ConceptualModelNodePosition[];
+  humanReviewStatus: string;
+  errors: string[];
+  warnings: string[];
 }
 
 export interface HeorReferenceCaseAudit {
@@ -3813,6 +3845,20 @@ export async function generateResearchReport(): Promise<ResearchReportAudit> {
   return invoke<ResearchReportAudit>("generate_research_report");
 }
 
+export async function auditConceptualModelDiagram(): Promise<ConceptualModelDiagramAudit> {
+  if (!isTauri) return CONCEPTUAL_MODEL_DIAGRAM_BROWSER_DEMO_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<ConceptualModelDiagramAudit>("audit_conceptual_model_diagram");
+}
+
+export async function generateConceptualModelDiagram(
+  positions: ConceptualModelNodePosition[],
+): Promise<ConceptualModelDiagramAudit> {
+  if (!isTauri) throw new Error("conceptual-model diagram export is available only in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<ConceptualModelDiagramAudit>("generate_conceptual_model_diagram", { positions });
+}
+
 export async function auditHeorEvidenceSearch(): Promise<HeorEvidenceSearchAudit> {
   if (!isTauri) return HEOR_BROWSER_DEMO_EVIDENCE_SEARCH_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
@@ -4187,6 +4233,29 @@ export const HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL: HeorConceptualModel = {
     external: ["Compare simulated outcomes with an independent applicable dataset"],
   },
   validation_questions: ["Are the three demonstration states exhaustive and mutually exclusive?"],
+};
+
+export const CONCEPTUAL_MODEL_DIAGRAM_BROWSER_DEMO_AUDIT: ConceptualModelDiagramAudit = {
+  complete: true,
+  readyToGenerate: true,
+  outputsCurrent: false,
+  status: "ready_to_generate",
+  modelId: HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL.model_id,
+  modelPath: HEOR_CONCEPTUAL_MODEL_PATH,
+  layoutPath: CONCEPTUAL_MODEL_LAYOUT_PATH,
+  svgPath: CONCEPTUAL_MODEL_SVG_PATH,
+  graphmlPath: CONCEPTUAL_MODEL_GRAPHML_PATH,
+  auditPath: "deliverables/conceptual-model.audit.json",
+  conceptualModelSha256: "",
+  layoutSha256: null,
+  svgSha256: null,
+  graphmlSha256: null,
+  stateCount: HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL.states.length,
+  transitionCount: HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL.transitions.length,
+  positions: [],
+  humanReviewStatus: "awaiting_human_review",
+  errors: [],
+  warnings: [],
 };
 
 export const HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT: HeorReferenceCaseAudit = {

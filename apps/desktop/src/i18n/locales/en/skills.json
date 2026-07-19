@@ -19,7 +19,7 @@
     "heor-local-evidence": { "displayName": "Local Evidence", "description": "Search hash-bound local HEOR sources with page citations." },
     "heor-methods-watchlist": { "displayName": "Methods Watchlist", "description": "Track guidance currency and required method revalidation." },
     "heor-model-calibration": { "displayName": "Model Calibration", "description": "Calibrate bounded cohort natural-history models." },
-    "heor-model-design": { "displayName": "Model Design", "description": "Design reviewable decision problems and conceptual models." },
+    "heor-model-design": { "displayName": "Model Design", "description": "Design reviewable decision problems and conceptual models, then export source-bound SVG and editable GraphML diagrams." },
     "heor-model-validation": { "displayName": "Model Validation", "description": "Prepare auditable independent model-validation evidence." },
     "heor-network-meta-analysis": { "displayName": "Network Meta-Analysis", "description": "Plan and audit bounded frequentist network meta-analysis." },
     "heor-paired-survival-bootstrap": { "displayName": "Paired Survival Bootstrap", "description": "Generate audited paired PFS and OS bootstrap draws." },

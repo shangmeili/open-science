@@ -141,6 +141,9 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 不兼容的文档来源已从运行时和候选界面永久移除。PPTX 已由
 `research-presentation` 替代，DOCX/PDF/XLSX 报告导出已由第一方
 `heor-reporting` 原生渲染器替代；XLSX 复制已审计结果，不在工作簿中重算模型。
+概念模型图也已由第一方实现：状态和转移来自当前
+`heor/conceptual-model.json`，应用内只调整节点位置，并导出来源绑定的 SVG 和
+可编辑 GraphML；导出不会改变模型语义，也不会形成研究者批准。
 只读处置记录见
 [`docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md`](./docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md)。
 科研基础能力的已交付、部分交付与待建设边界见
@@ -245,7 +248,7 @@ pnpm lint
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
 当前开发刻意收敛为先在 Intel macOS 上跑通产品；Windows、Linux、Apple Silicon
-与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.45`；已完成隔离首次启动核验的 x64 macOS 交接包仍为
+与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.46`；已完成隔离首次启动核验的 x64 macOS 交接包仍为
 `0.1.41`。当前候选包 `AI4HEOR_0.1.45_x64.dmg` 从 `0fc4056` 构建，大小为
 89,755,004 字节，SHA-256 是
 `876f37346edd9d99bc39428f23c0abe9be3d332a811a9a0123cc6b1251e733db`。

@@ -1,11 +1,11 @@
 ---
 name: heor-model-design
-description: Create and audit HEOR decision-problem representations, conceptual models, health states, clinical pathways, structural assumptions, model-type rationale, structural alternatives, and validation questions. Use before approving a conceptual-model gate, translating evidence into a cohort state-transition model, or reviewing heor/conceptual-model.json for structural completeness and traceability.
+description: Create and audit HEOR decision-problem representations, conceptual models, health states, clinical pathways, structural assumptions, model-type rationale, structural alternatives, validation questions, and source-bound conceptual-model diagrams. Use before reviewing a conceptual-model gate, translating evidence into a cohort state-transition model, checking heor/conceptual-model.json, or exporting its SVG and editable GraphML views.
 ---
 
 # HEOR Model Design
 
-Separate conceptualizing the decision problem from selecting a computational technique. Read `references/conceptual-model.md` before creating or changing the artifact.
+Separate conceptualizing the decision problem from selecting a computational technique. Read `references/conceptual-model.md` before creating or changing the artifact. Read `references/diagram-export-contract.md` before asking the researcher to export or rearrange its diagram.
 
 ## Workflow
 
@@ -19,15 +19,18 @@ Separate conceptualizing the decision problem from selecting a computational tec
 8. Link structural claims to evidence-source IDs when available. Prespecify non-empty face, internal, and external validation plans plus questions that a later independent reviewer must test.
 9. Write `heor/conceptual-model.json` from `assets/conceptual-model.template.json`, then run `scripts/validate_conceptual_model.py heor/conceptual-model.json heor/analysis-plan.json` so the analysis link is checked.
 10. Ask the human to inspect the conceptual-model gate in the app only when the deterministic audit is complete.
+11. When a diagram is useful, send the researcher to the app's layout editor. The app may change node coordinates and export `deliverables/conceptual-model.svg` plus editable `deliverables/conceptual-model.graphml`; it must copy states and transitions from the exact current JSON bytes.
+12. If the researcher wants to add, remove, rename, or reconnect states, change `heor/conceptual-model.json` through the natural-language workflow and rerun validation. Never encode a semantic model change as a drawing-only edit.
 
 ## Boundaries
 
 - Do not insert transition probabilities, costs, utilities, or other numeric model inputs into this artifact.
-- A diagram is explanatory; the JSON artifact is the review contract.
+- A diagram is explanatory; the JSON artifact is the review contract. SVG, GraphML, and layout records never establish scientific validity or Human approval.
+- Do not hand-edit generated files on behalf of the researcher. AI4HEOR refuses to overwrite a generated output that changed outside the app.
 - Do not choose a model because a package supports it. Match technique to the decision problem.
 - Do not hide structural uncertainty inside parameter uncertainty.
 - The app owns approval. A structurally complete artifact is only ready for human review, not approved or validated.
 
 ## Handoff
 
-Report the artifact path, proposed model type, state and transition counts, structural assumptions, alternatives, unresolved items, and exact readiness for the conceptual-model human gate.
+Report the artifact path, proposed model type, state and transition counts, structural assumptions, alternatives, unresolved items, exact readiness for the conceptual-model human gate, and whether current source-bound SVG/GraphML views exist.

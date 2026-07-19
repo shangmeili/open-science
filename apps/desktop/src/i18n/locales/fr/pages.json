@@ -137,7 +137,7 @@
       "sectionTitle": "Adaptateurs externes",
       "loading": "Vérification des adaptateurs externes fournis…",
       "unavailable": "Les adaptateurs externes ne peuvent pas être vérifiés et restent désactivés.",
-      "firstPartyTitle": "48 Skills AI4HEOR internes sont intégrées",
+      "firstPartyTitle": "49 Skills AI4HEOR internes sont intégrées",
       "firstPartyBoundary": "Seuls les adaptateurs externes ayant réussi les contrôles de licence, de sécurité, de méthode et de paquet, puis réellement distribués avec AI4HEOR, apparaissent ici. Les sources à réécrire ou exclues ne restent pas des options utilisateur.",
       "groupAdmitted": "Actifs admis ({{count}})",
       "admitted": "admis",

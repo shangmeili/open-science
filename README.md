@@ -129,7 +129,7 @@ authority. Representative admitted workflows are:
 | `$heor-local-evidence` | Inventory an explicitly selected local knowledge base without automatic networking | Hash-bound local evidence inventory |
 | `$heor-evidence-search` | Draft an auditable PubMed/ClinicalTrials.gov request for Human network authorization | Exact request hash and imported metadata candidates |
 | `$literature-review` | Import, deduplicate, validate, and export project-local citation metadata | Source-bound reference library plus RIS, BibTeX, or CSL-JSON exchange file |
-| `$heor-model-design` | Structure the Human-defined decision problem and conceptual model | Decision-problem and conceptual-model artifacts |
+| `$heor-model-design` | Structure the Human-defined decision problem and conceptual model | Decision-problem artifact plus source-bound SVG and editable GraphML review views |
 | `$heor-cohort-state-transition` / `$heor-partitioned-survival` | Execute bounded deterministic economic models | Reproducible costs, QALYs, increments, and checks |
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | Execute declared uncertainty and bounded VOI workflows | DSA/PSA/CEAC/CEAF/EVPI and separately reviewed advanced VOI |
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | Execute bounded static or dynamic budget-impact analysis | Disaggregated budget results and audit artifacts |
@@ -297,7 +297,7 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.45; the fully first-launch-verified x64 macOS
+accepted. Current source is 0.1.46; the fully first-launch-verified x64 macOS
 handoff remains 0.1.41. The current 89,755,004-byte
 `AI4HEOR_0.1.45_x64.dmg` candidate built from `0fc4056` has SHA-256
 `876f37346edd9d99bc39428f23c0abe9be3d332a811a9a0123cc6b1251e733db`.
@@ -319,6 +319,9 @@ keeps both files awaiting Human review. The release inventory retains no
 quarantined or rejected options: completed rewrites ship as first-party
 implementations, while unfinished or licence-incompatible third-party sources
 do not enter the product list.
+Version 0.1.46 adds the first-party conceptual-model layout editor and native,
+deterministic SVG/GraphML export. Diagram files are bound to the exact current
+conceptual-model bytes, never alter model semantics, and remain awaiting Human review.
 Version 0.1.43 adds the first-party, local-only `literature-review` Skill: it
 imports, deduplicates, validates, and deterministically exports source-bound RIS,
 bounded BibTeX, and CSL-JSON metadata while preserving conflicts for Human review.

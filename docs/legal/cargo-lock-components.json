@@ -2,7 +2,7 @@
   "schema": "ai4heor-cargo-license-inventory/v1",
   "generated_on": "2026-07-20",
   "scope": "Cargo.lock package universe; conservative superset of one target build",
-  "lockfile_sha256": "11cd9849f037c2aaeb08b5ec01e9e6f3d80414ab33e233748a2f53f53fdf273a",
+  "lockfile_sha256": "64549ab924519f27d336bd6ec7d28a6ce15d408b70a927ab2b4c81337c561a42",
   "components": [
     {
       "name": "adler2",
@@ -48,7 +48,7 @@
     },
     {
       "name": "ai4s-workbench",
-      "version": "0.1.44",
+      "version": "0.1.46",
       "license": "MIT",
       "source": "workspace",
       "repository": null

@@ -19,7 +19,7 @@
     "heor-local-evidence": { "displayName": "Lokale Evidenz", "description": "Durchsucht hashgebundene HEOR-Quellen mit Seitenzitaten." },
     "heor-methods-watchlist": { "displayName": "Methoden-Watchlist", "description": "Verfolgt Aktualität von Leitlinien und nötige Revalidierung." },
     "heor-model-calibration": { "displayName": "Modellkalibrierung", "description": "Kalibriert begrenzte Kohorten-Naturverlaufsmodelle." },
-    "heor-model-design": { "displayName": "Modelldesign", "description": "Entwirft prüfbare Entscheidungsprobleme und Konzeptmodelle." },
+    "heor-model-design": { "displayName": "Modelldesign", "description": "Entwirft prüfbare Entscheidungsprobleme und Konzeptmodelle und exportiert quellgebundene SVG- und bearbeitbare GraphML-Diagramme." },
     "heor-model-validation": { "displayName": "Modellvalidierung", "description": "Bereitet prüfbare unabhängige Modellvalidierungsevidenz vor." },
     "heor-network-meta-analysis": { "displayName": "Netzwerk-Metaanalyse", "description": "Plant und prüft begrenzte frequentistische NMA." },
     "heor-paired-survival-bootstrap": { "displayName": "Gepaarter Überlebens-Bootstrap", "description": "Erzeugt geprüfte gepaarte PFS- und OS-Bootstrap-Ziehungen." },

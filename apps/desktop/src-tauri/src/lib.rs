@@ -4,6 +4,7 @@ mod artifact_file;
 mod asset_admission;
 mod capability_review;
 mod compute;
+mod conceptual_model_diagram;
 mod debug_log;
 mod examples;
 mod git_snapshot;
@@ -148,6 +149,8 @@ pub fn run() {
             artifact_file::list_notebooks,
             artifact_file::list_dir,
             artifact_file::write_workspace_file,
+            conceptual_model_diagram::audit_conceptual_model_diagram,
+            conceptual_model_diagram::generate_conceptual_model_diagram,
             research_presentation::audit_research_presentation,
             research_presentation::generate_research_presentation,
             research_report::audit_research_report,

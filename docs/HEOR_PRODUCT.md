@@ -234,6 +234,14 @@ draft -> scoped -> plan-approved -> computed -> validated -> released
 Only a human can move a project through `scoped`, `plan-approved`, `validated`,
 or `released`. Automated checks may block a transition but cannot approve it.
 
+The conceptual-model review surface also renders the exact current
+`heor/conceptual-model.json` as deterministic SVG and editable GraphML. The
+researcher may change node coordinates in the app, but every state, transition,
+label, trigger, and absorbing flag still comes from the source JSON. Layout and
+export files are SHA-256-bound, remain `awaiting_human_review`, become stale when
+the model changes, and are never imported back as model authority. AI4HEOR
+refuses to overwrite an output edited outside the app.
+
 The alpha desktop service keeps its canonical approval log in app-owned data,
 outside the agent workspace. It fails closed on malformed history and links
 events with an unanchored SHA-256 chain. This detects partial or inconsistent

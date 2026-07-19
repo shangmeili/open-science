@@ -16,7 +16,7 @@ AI4HEOR 不再把未完成改写或许可证不兼容的来源长期展示为“
 | AI4S Experiment Suite | 可复现运行、结果比较、运行记录 | 确定性 HEOR 引擎、运行记录和溯源链已覆盖 | 上游不进入运行时；新分析方法逐项增加合约与重放测试 |
 | AI4S Integrity Auditor | 数字、引用、代码、图表和来源一致性检查 | `stats-integrity`、`traceability-review`、`citation-reviewer`、`figure-provenance`、`heor-model-validation` 已分工覆盖 | 按 HEOR 工件补充检查，不引入通用审计链 |
 | AI4S Literature Survey | 检索、筛选、提取、综述和引用追踪 | `literature-review`、`heor-evidence-search`、`heor-evidence-synthesis` 已提供有协议、有请求哈希和人工网络授权的路径 | 已独立实现项目内 RIS、受控 BibTeX 与 CSL-JSON 导入、去重、校验和导出；CSL 样式渲染仍作为后续第一方工作 |
-| AI4S Mindmap Renderer | 概念模型、研究路径和证据关系可视化 | `heor-model-design` 已交付可审计的概念模型工件 | 可编辑图形和稳定导出列入第一方建设，不保留上游渲染器 |
+| AI4S Mindmap Renderer | 概念模型、研究路径和证据关系可视化 | `heor-model-design` 与应用原生渲染器已交付可审计的概念模型工件、可调整版式及来源绑定的 SVG/GraphML 导出 | 第一方替代链路已完成；上游渲染器不进入运行时、编译或可选清单 |
 | AI4S Paper Writer | 依据研究工件形成报告和汇报材料 | `heor-reporting` 已覆盖结构化 HEOR 报告并生成有来源绑定的 DOCX/PDF/XLSX；`research-presentation` 已生成有来源绑定的 PPTX | 替代链路已由第一方原生代码完成，不使用其他项目的受限文档 Skill |
 | AI4S Research Explorer | 研究方向梳理、方法更新和研究优先级 | `heor-methods-watchlist` 与有边界的 `heor-advanced-value-of-information` 已覆盖 | 不采用自由主题自动评分；优先级由研究者结合方法和 VOI 结果判断 |
 | HEORAgent MCP | HEOR 检索、模型、HTA、BIA 和材料组织 | 相关能力已拆入多个第一方 HEOR Skill；PubMed/ClinicalTrials.gov 由 `heor-evidence-search` 固定端点实现 | 不运行其 48-tool 进程；只按明确 HEOR 需求独立建设单项能力 |

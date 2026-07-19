@@ -113,12 +113,13 @@ tool must not acquire HEOR method authority.
 | Local knowledge and evidence work | local knowledge base, `heor-local-evidence`, `heor-evidence-search`, `heor-evidence-synthesis`, methods watchlist | Network retrieval is explicit and source-specific; source availability is not evidence truth or reuse permission. |
 | Data and computation inspection | notebook surface, `large-file`, `stats-integrity`, app-owned deterministic HEOR engines, optional authorized remote compute | Code and model output remain inspectable; no result becomes accepted merely because it ran successfully. |
 | Scientific figures and traceability | `publication-figures`, `traceability-review`, artifact preview | Figures must remain linked to current data/results and preserve adverse, uncertain, and null findings. |
+| Conceptual-model diagrams | `heor-model-design`, app-owned layout editor, deterministic SVG and editable GraphML exporter | The exact current conceptual-model JSON supplies all states and transitions; layout edits change coordinates only, and every output remains awaiting Human review. |
 | Research reports and reproducibility | `heor-reporting`, source-bound native DOCX/PDF/XLSX renderer, `heor-reproducibility-package`, local artifact previews | The app renders exact current sources and records hashes; XLSX copies audited results without hidden spreadsheet recalculation; structural completeness and replay evidence do not establish scientific validity or external approval. |
 | Research presentation generation | `research-presentation` manifest, portable validator, and native deterministic macro-free PPTX renderer | The Agent prepares source-bound content; the app renders it; the Human reviews every slide and owns external-use rights and release. |
 | Capability growth | `ai4heor-skill-authoring`, inactive exact-byte draft review, preference-learning proposals | The platform may propose or create bounded Skills, but cannot activate permissions, rewrite methods, or self-approve changes. |
 
-The first-party `research-presentation` and `heor-reporting` renderers close the
-PPTX and HEOR DOCX/PDF/XLSX gaps without bundling incompatible document sources or
+The first-party conceptual-model diagram, `research-presentation`, and `heor-reporting` renderers close the
+mind-map, PPTX, and HEOR DOCX/PDF/XLSX gaps without bundling excluded or incompatible sources or
 depending on the developer's Codex installation. Generic DOCX or XLSX authoring outside
 the HEOR report contract, bibliography-manager integration,
 posters, and arbitrary presentation templates remain explicit backlog items

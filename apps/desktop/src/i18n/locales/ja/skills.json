@@ -19,7 +19,7 @@
     "heor-local-evidence": { "displayName": "ローカルエビデンス", "description": "ハッシュ固定されたローカル HEOR 資料をページ引用付きで検索します。" },
     "heor-methods-watchlist": { "displayName": "方法ウォッチリスト", "description": "ガイダンスの更新と必要な再検証を追跡します。" },
     "heor-model-calibration": { "displayName": "モデル較正", "description": "境界付きコホート自然史モデルを較正します。" },
-    "heor-model-design": { "displayName": "モデル設計", "description": "レビュー可能な意思決定問題と概念モデルを設計します。" },
+    "heor-model-design": { "displayName": "モデル設計", "description": "レビュー可能な意思決定問題と概念モデルを設計し、原本にひも付く SVG と編集可能な GraphML 図を出力します。" },
     "heor-model-validation": { "displayName": "モデル検証", "description": "監査可能な独立モデル検証エビデンスを準備します。" },
     "heor-network-meta-analysis": { "displayName": "ネットワークメタ解析", "description": "境界付き頻度論的 NMA を計画・監査します。" },
     "heor-paired-survival-bootstrap": { "displayName": "ペア生存ブートストラップ", "description": "監査済みの PFS・OS ペアブートストラップ標本を生成します。" },

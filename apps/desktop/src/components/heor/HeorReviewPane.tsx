@@ -33,6 +33,7 @@ import {
   auditHeorAdvancedVoi,
   auditHeorPartitionedSurvival,
   auditHeorConceptualModel,
+  auditConceptualModelDiagram,
   auditHeorEvidence,
   auditHeorEvidenceLibrary,
   auditHeorMethodsWatchlist,
@@ -73,6 +74,7 @@ import {
   HEOR_REPRODUCIBILITY_PACKAGE_PATH,
   generateResearchPresentation,
   generateResearchReport,
+  generateConceptualModelDiagram,
   HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
   HEOR_EVIDENCE_LIBRARY_PATH,
   HEOR_METHODS_WATCHLIST_PATH,
@@ -93,6 +95,7 @@ import {
   type HeorApprovalLog,
   type HeorConceptualModel,
   type HeorConceptualModelAudit,
+  type ConceptualModelNodePosition,
   type HeorBudgetImpactAudit,
   type HeorBudgetImpactRunResult,
   type HeorPartitionedSurvivalAudit,
@@ -168,6 +171,10 @@ import {
   ResearchReportAssessment,
   type ResearchReportState,
 } from "./ResearchReportAssessment";
+import {
+  ConceptualModelDiagramAssessment,
+  type ConceptualModelDiagramState,
+} from "./ConceptualModelDiagramAssessment";
 
 const REVIEW_GATES: HeorGate[] = [
   "decision_problem",
@@ -455,6 +462,10 @@ export function HeorReviewPane({
   const [conceptualArtifact, setConceptualArtifact] = useState<ConceptualArtifactState>({
     kind: "loading",
   });
+  const [conceptualDiagram, setConceptualDiagram] = useState<ConceptualModelDiagramState>({
+    kind: "loading",
+  });
+  const [conceptualDiagramGenerating, setConceptualDiagramGenerating] = useState(false);
   const [referenceCase, setReferenceCase] = useState<ReferenceCaseState>({ kind: "loading" });
   const [uncertainty, setUncertainty] = useState<UncertaintyState>({ kind: "loading" });
   const [advancedVoi, setAdvancedVoi] = useState<AdvancedVoiState>({ kind: "loading" });
@@ -531,6 +542,7 @@ export function HeorReviewPane({
     if (!project) {
       setArtifact({ kind: "missing" });
       setConceptualArtifact({ kind: "missing" });
+      setConceptualDiagram({ kind: "invalid", message: t("conceptualDiagram.incomplete") });
       setReferenceCase({ kind: "invalid", message: t("reference.noProject") });
       setUncertainty({ kind: "invalid", message: t("uncertainty.noProject") });
       setAdvancedVoi({ kind: "invalid", message: t("advancedVoi.noProject") });
@@ -566,6 +578,7 @@ export function HeorReviewPane({
     }
     setArtifact({ kind: "loading" });
     setConceptualArtifact({ kind: "loading" });
+    setConceptualDiagram({ kind: "loading" });
     setReferenceCase({ kind: "loading" });
     setUncertainty({ kind: "loading" });
     setAdvancedVoi({ kind: "loading" });
@@ -616,6 +629,14 @@ export function HeorReviewPane({
       setResearchReport({ kind: "ready", audit: await auditResearchReport() });
     } catch (error) {
       setResearchReport({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    try {
+      setConceptualDiagram({ kind: "ready", audit: await auditConceptualModelDiagram() });
+    } catch (error) {
+      setConceptualDiagram({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
@@ -1377,6 +1398,22 @@ export function HeorReviewPane({
     }
   };
 
+  const renderConceptualModelDiagram = async (positions: ConceptualModelNodePosition[]) => {
+    if (!project || conceptualDiagramGenerating || !isTauri) return;
+    setConceptualDiagramGenerating(true);
+    try {
+      const audit = await generateConceptualModelDiagram(positions);
+      setConceptualDiagram({ kind: "ready", audit });
+      toast.success(t("conceptualDiagram.generated"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setConceptualDiagram({ kind: "invalid", message });
+      toast.error(`${t("toast.actionFailed")}: ${message}`);
+    } finally {
+      setConceptualDiagramGenerating(false);
+    }
+  };
+
   const runUncertainty = async () => {
     if (!project || !isTauri || uncertainty.kind !== "ready"
       || !uncertainty.audit.complete || running) return;
@@ -1987,6 +2024,18 @@ export function HeorReviewPane({
               artifact={conceptualArtifact}
               onRequestModel={() => onRequestRevision(t("conceptual.repairPrompt"))}
             />
+
+            {conceptualArtifact.kind === "ready" && (
+              <ConceptualModelDiagramAssessment
+                model={conceptualArtifact.model}
+                modelComplete={conceptualArtifact.audit.complete}
+                state={conceptualDiagram}
+                generating={conceptualDiagramGenerating}
+                desktopAvailable={isTauri}
+                onRequestModel={() => onRequestRevision(t("conceptual.repairPrompt"))}
+                onGenerate={renderConceptualModelDiagram}
+              />
+            )}
 
             <CohortTransitionSummary
               plan={artifact.plan}
