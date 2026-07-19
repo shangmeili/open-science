@@ -159,7 +159,7 @@ AI4HEOR 会将旧默认目录 `~/Documents/OpenScience` 原子重命名并保留
 如果两个目录都已存在，则不自动合并或删除其中任何一个。在 Settings 中明确选择的
 基础目录始终优先。
 
-当前验证的 0.1.33 本地 x64 macOS 构建尚未代码签名或 notarize。
+当前验证的 0.1.34 本地 x64 macOS 构建尚未代码签名或 notarize。
 
 **macOS**：如果 Gatekeeper 提示应用已损坏或来自未知开发者，把应用安装到 Applications 后运行：
 
@@ -236,14 +236,14 @@ pnpm lint
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
 当前开发刻意收敛为先在 Intel macOS 上跑通产品；Windows、Linux、Apple Silicon
-与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.34`；新源码完成打包和独立验证前，
-已验证的 x64 macOS 安装包仍为 `0.1.33`。0.1.34 增加了第六个药物经济学入口，用绑定哈希的
+与跨平台发布暂停，直到 macOS 路径通过验收。当前源码和已验证的 x64 macOS 安装包均为 `0.1.34`。
+0.1.34 增加了第六个药物经济学入口，用绑定哈希的
 固定脚本复算成本-效果教学案例；同时保留 0.1.33 对简体中文研究界面和 45 个内置 Skill 的重写，统一使用常见的
 中国药物经济学表述；原先写死在代码中的下载、文件管理、Jupyter、笔记本和助手提示也已进入
-七种语言的资源文件。0.1.32 建立的失败关闭项目约束和研究者科学决策权保持不变。80,110,025 字节的
-`AI4HEOR_0.1.33_x64.dmg` 的 SHA-256 为
-`38985b9f541a4067c5dab3754201730fc7c804a6ffa805b5649b15806f4d0de5`，已从干净提交
-`a43650b40ae7d2ba2d4bc6e2847933032f7d1902` 构建，验证了 283 个
+七种语言的资源文件。0.1.32 建立的失败关闭项目约束和研究者科学决策权保持不变。80,116,453 字节的
+`AI4HEOR_0.1.34_x64.dmg` 的 SHA-256 为
+`4596f631cd3fafbd5c959cb95a58cc3c14eddeb54f85a7f0272f679f7fcd7476`，已从干净提交
+`37cb7d4c502357d49e19a8532a39eb244d8c1d3f` 构建，验证了 286 个
 受控资源、177 项包内 HEOR 测试，以及两次隔离 LaunchServices 运行：全新创建
 `Documents/AI4HEOR`，以及保留内容地将 `Documents/OpenScience` 迁移为 AI4HEOR；
 两次均证明应用复制、单一应用进程、单一内置 OpenCode 子进程与完整清理。它仍未经 Developer ID 签名或 notarize；
@@ -271,7 +271,7 @@ sealed resources 或 stapled ticket，严格 codesign 与 Gatekeeper 均拒绝�
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.33},
+  version = {0.1.34},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }
