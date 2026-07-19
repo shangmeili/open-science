@@ -2,7 +2,7 @@
   "schema": "ai4heor-cargo-license-inventory/v1",
   "generated_on": "2026-07-20",
   "scope": "Cargo.lock package universe; conservative superset of one target build",
-  "lockfile_sha256": "539ba9d8c6b333592bdf5840405a78605b560047632a374b22d1c73f40e7e930",
+  "lockfile_sha256": "1a0b0d3e29849f154266873f2cddc71a0541444bae01f990d4ecbcc43ddf26c1",
   "components": [
     {
       "name": "adler2",
@@ -26,6 +26,13 @@
       "repository": "https://github.com/RustCrypto/block-ciphers"
     },
     {
+      "name": "aes",
+      "version": "0.9.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/RustCrypto/block-ciphers"
+    },
+    {
       "name": "ahash",
       "version": "0.8.12",
       "license": "MIT OR Apache-2.0",
@@ -41,10 +48,17 @@
     },
     {
       "name": "ai4s-workbench",
-      "version": "0.1.43",
+      "version": "0.1.44",
       "license": "MIT",
       "source": "workspace",
       "repository": null
+    },
+    {
+      "name": "aliasable",
+      "version": "0.1.3",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/avitex/rust-aliasable"
     },
     {
       "name": "alloc-no-stdlib",
@@ -59,6 +73,13 @@
       "license": "BSD-3-Clause",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/dropbox/rust-alloc-no-stdlib"
+    },
+    {
+      "name": "allsorts-azul",
+      "version": "0.17.1",
+      "license": "Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/fschutt/allsorts-azul"
     },
     {
       "name": "android_system_properties",
@@ -229,8 +250,22 @@
       "repository": "https://github.com/RustCrypto/utils"
     },
     {
+      "name": "block-buffer",
+      "version": "0.12.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/RustCrypto/utils"
+    },
+    {
       "name": "block-padding",
       "version": "0.3.3",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/RustCrypto/utils"
+    },
+    {
+      "name": "block-padding",
+      "version": "0.4.2",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/RustCrypto/utils"
@@ -362,6 +397,13 @@
       "repository": "https://github.com/RustCrypto/block-modes"
     },
     {
+      "name": "cbc",
+      "version": "0.2.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/RustCrypto/block-modes"
+    },
+    {
       "name": "cc",
       "version": "1.2.65",
       "license": "MIT OR Apache-2.0",
@@ -425,6 +467,13 @@
       "repository": "https://github.com/RustCrypto/traits"
     },
     {
+      "name": "cipher",
+      "version": "0.5.2",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/RustCrypto/traits"
+    },
+    {
       "name": "clipboard-win",
       "version": "5.4.1",
       "license": "BSL-1.0",
@@ -444,6 +493,13 @@
       "license": "Apache-2.0 OR MIT",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/smol-rs/concurrent-queue"
+    },
+    {
+      "name": "const-oid",
+      "version": "0.10.2",
+      "license": "Apache-2.0 OR MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/RustCrypto/formats"
     },
     {
       "name": "cookie",
@@ -479,6 +535,13 @@
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/servo/core-foundation-rs"
+    },
+    {
+      "name": "cpubits",
+      "version": "0.1.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/RustCrypto/utils"
     },
     {
       "name": "cpufeatures",
@@ -525,6 +588,13 @@
     {
       "name": "crypto-common",
       "version": "0.1.7",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/RustCrypto/traits"
+    },
+    {
+      "name": "crypto-common",
+      "version": "0.2.2",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/RustCrypto/traits"
@@ -609,6 +679,13 @@
     {
       "name": "digest",
       "version": "0.10.7",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/RustCrypto/traits"
+    },
+    {
+      "name": "digest",
+      "version": "0.11.3",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/RustCrypto/traits"
@@ -721,6 +798,13 @@
     {
       "name": "ecb",
       "version": "0.1.2",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/magic-akari/ecb"
+    },
+    {
+      "name": "ecb",
+      "version": "0.2.0",
       "license": "MIT",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/magic-akari/ecb"
@@ -1132,6 +1216,13 @@
       "repository": "https://github.com/rust-lang/glob"
     },
     {
+      "name": "glyph-names",
+      "version": "0.2.0",
+      "license": "BSD-3-Clause",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/yeslogic/glyph-names"
+    },
+    {
       "name": "gobject-sys",
       "version": "0.18.0",
       "license": "MIT",
@@ -1263,6 +1354,13 @@
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/seanmonstar/httparse"
+    },
+    {
+      "name": "hybrid-array",
+      "version": "0.4.13",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/RustCrypto/hybrid-array"
     },
     {
       "name": "hyper",
@@ -1407,6 +1505,13 @@
     {
       "name": "inout",
       "version": "0.1.4",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/RustCrypto/utils"
+    },
+    {
+      "name": "inout",
+      "version": "0.2.2",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/RustCrypto/utils"
@@ -1594,6 +1699,13 @@
       "repository": "https://github.com/J-F-Liu/lopdf.git"
     },
     {
+      "name": "lopdf",
+      "version": "0.44.0",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/J-F-Liu/lopdf.git"
+    },
+    {
       "name": "markup5ever",
       "version": "0.38.0",
       "license": "MIT OR Apache-2.0",
@@ -1603,6 +1715,13 @@
     {
       "name": "md-5",
       "version": "0.10.6",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/RustCrypto/hashes"
+    },
+    {
+      "name": "md-5",
+      "version": "0.11.0",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/RustCrypto/hashes"
@@ -1916,6 +2035,20 @@
       "repository": "https://github.com/oconnor663/os_pipe.rs"
     },
     {
+      "name": "ouroboros",
+      "version": "0.18.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/someguynamedjosh/ouroboros"
+    },
+    {
+      "name": "ouroboros_macro",
+      "version": "0.18.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/someguynamedjosh/ouroboros"
+    },
+    {
       "name": "pango",
       "version": "0.18.3",
       "license": "MIT",
@@ -1949,6 +2082,20 @@
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/Amanieu/parking_lot"
+    },
+    {
+      "name": "pathfinder_geometry",
+      "version": "0.5.1",
+      "license": "MIT/Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/servo/pathfinder"
+    },
+    {
+      "name": "pathfinder_simd",
+      "version": "0.5.6",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/servo/pathfinder"
     },
     {
       "name": "pdf-extract",
@@ -2091,6 +2238,13 @@
       "repository": "https://github.com/emilio/precomputed-hash"
     },
     {
+      "name": "printpdf",
+      "version": "0.11.3",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/fschutt/printpdf"
+    },
+    {
       "name": "proc-macro-crate",
       "version": "1.3.1",
       "license": "MIT OR Apache-2.0",
@@ -2131,6 +2285,13 @@
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/dtolnay/proc-macro2"
+    },
+    {
+      "name": "proc-macro2-diagnostics",
+      "version": "0.10.1",
+      "license": "MIT/Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/SergioBenitez/proc-macro2-diagnostics"
     },
     {
       "name": "pxfm",
@@ -2497,6 +2658,13 @@
       "repository": "https://github.com/RustCrypto/hashes"
     },
     {
+      "name": "sha2",
+      "version": "0.11.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/RustCrypto/hashes"
+    },
+    {
       "name": "shared_child",
       "version": "1.1.1",
       "license": "MIT",
@@ -2593,6 +2761,13 @@
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/storyyeller/stable_deref_trait"
+    },
+    {
+      "name": "static_assertions",
+      "version": "1.1.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/nvzqz/static-assertions-rs"
     },
     {
       "name": "string_cache",
@@ -3071,6 +3246,13 @@
       "repository": "https://github.com/paholg/typenum"
     },
     {
+      "name": "ucd-trie",
+      "version": "0.1.7",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/BurntSushi/ucd-generate"
+    },
+    {
       "name": "uds_windows",
       "version": "1.2.1",
       "license": "MIT",
@@ -3120,11 +3302,32 @@
       "repository": "https://github.com/servo/unicode-bidi"
     },
     {
+      "name": "unicode-canonical-combining-class",
+      "version": "1.0.0",
+      "license": "Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/yeslogic/unicode-canonical-combining-class"
+    },
+    {
+      "name": "unicode-general-category",
+      "version": "1.1.0",
+      "license": "Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/yeslogic/unicode-general-category"
+    },
+    {
       "name": "unicode-ident",
       "version": "1.0.24",
       "license": "(MIT OR Apache-2.0) AND Unicode-3.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/dtolnay/unicode-ident"
+    },
+    {
+      "name": "unicode-joining-type",
+      "version": "1.0.0",
+      "license": "Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/yeslogic/unicode-joining-type"
     },
     {
       "name": "unicode-normalization",
@@ -3381,6 +3584,13 @@
     {
       "name": "weezl",
       "version": "0.1.12",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/image-rs/weezl"
+    },
+    {
+      "name": "weezl",
+      "version": "0.2.1",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/image-rs/weezl"
@@ -3825,6 +4035,13 @@
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/psychon/x11rb"
+    },
+    {
+      "name": "yansi",
+      "version": "1.0.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/SergioBenitez/yansi"
     },
     {
       "name": "yoke",

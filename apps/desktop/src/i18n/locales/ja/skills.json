@@ -28,7 +28,7 @@
     "heor-probability-time-adapter": { "displayName": "確率時間アダプター", "description": "単一イベント確率をモデル周期へ変換します。" },
     "heor-reference-case": { "displayName": "リファレンスケース", "description": "版管理された地域別リファレンスケースに照らして監査します。" },
     "heor-relative-effect-adapter": { "displayName": "相対効果アダプター", "description": "境界付き RR または OR をベースラインリスクへ適用します。" },
-    "heor-reporting": { "displayName": "HEOR 報告", "description": "ハッシュ固定されたリリースレビュー用 HEOR 報告パッケージを作成します。" },
+    "heor-reporting": { "displayName": "HEOR 報告", "description": "ハッシュで固定した HEOR 報告パッケージと確認可能な DOCX/PDF を作成します。" },
     "heor-reproducibility-package": { "displayName": "再現性パッケージ", "description": "再実行手順、エビデンス、主張、リリース成果物を結合します。" },
     "heor-rwe-causal-analysis": { "displayName": "RWE 因果分析", "description": "治療・観察重みを用いる固定時点 RWE を監査します。" },
     "heor-semi-markov-microsimulation": { "displayName": "セミマルコフ微視的シミュレーション", "description": "監査可能な患者レベル状態遷移モデルを実行します。" },

@@ -28,7 +28,7 @@
     "heor-probability-time-adapter": { "displayName": "Adaptateur temporel de probabilité", "description": "Convertit une probabilité d'événement au cycle du modèle." },
     "heor-reference-case": { "displayName": "Cas de référence", "description": "Audite les plans selon des cas régionaux versionnés." },
     "heor-relative-effect-adapter": { "displayName": "Adaptateur d'effet relatif", "description": "Applique des effets RR ou OR bornés aux risques de base." },
-    "heor-reporting": { "displayName": "Rapport HEOR", "description": "Construit un rapport HEOR lié par hash et révisable." },
+    "heor-reporting": { "displayName": "Rapport HEOR", "description": "Prépare un rapport HEOR lié par hash et des fichiers DOCX/PDF vérifiables." },
     "heor-reproducibility-package": { "displayName": "Dossier de reproductibilité", "description": "Lie recettes de rejeu, données, affirmations et artefacts." },
     "heor-rwe-causal-analysis": { "displayName": "Analyse causale RWE", "description": "Audite une RWE à horizon fixe avec pondérations traitement-observation." },
     "heor-semi-markov-microsimulation": { "displayName": "Microsimulation semi-markovienne", "description": "Exécute des modèles de transition auditables au niveau patient." },

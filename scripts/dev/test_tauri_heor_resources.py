@@ -124,8 +124,10 @@ class TauriHeorResourceTests(unittest.TestCase):
             "../../../THIRD_PARTY_NOTICES.md": "legal/THIRD_PARTY_NOTICES.md",
             "../../../docs/legal/LICENSING_AUDIT.md": "legal/LICENSING_AUDIT.md",
             "../../../docs/legal/BRAND_ASSET_PROVENANCE.md": "legal/BRAND_ASSET_PROVENANCE.md",
+            "../../../docs/legal/REPORT_RENDERER_ASSETS.md": "legal/REPORT_RENDERER_ASSETS.md",
             "../../../docs/legal/npm-production-components.json": "legal/npm-production-components.json",
             "../../../docs/legal/cargo-lock-components.json": "legal/cargo-lock-components.json",
+            "../../../runtime/assets/fonts/source-han-sans-2.005R/LICENSE.txt": "legal/fonts/SourceHanSansCN-OFL-1.1.txt",
         }
         for source, destination in expected.items():
             self.assertEqual(resources.get(source), destination)
@@ -155,6 +157,30 @@ class TauriHeorResourceTests(unittest.TestCase):
         destinations = set(resources.values())
         self.assertFalse(any("skills-external" in value for value in destinations))
         self.assertFalse(any(value.startswith("mcp/") for value in destinations))
+
+        report_assets = (LEGAL_DIR / "REPORT_RENDERER_ASSETS.md").read_text(
+            encoding="utf-8"
+        )
+        report_font = (
+            ROOT
+            / "runtime"
+            / "assets"
+            / "fonts"
+            / "source-han-sans-2.005R"
+            / "SourceHanSansCN-Regular.otf"
+        )
+        report_font_license = report_font.with_name("LICENSE.txt")
+        self.assertIn(hashlib.sha256(report_font.read_bytes()).hexdigest(), report_assets)
+        self.assertIn(
+            hashlib.sha256(report_font_license.read_bytes()).hexdigest(), report_assets
+        )
+        printpdf = [
+            component
+            for component in cargo["components"]
+            if component["name"] == "printpdf" and component["version"] == "0.11.3"
+        ]
+        self.assertEqual(len(printpdf), 1)
+        self.assertEqual(printpdf[0]["license"], "MIT")
 
     def test_supplied_ai4heor_logo_provenance_matches_normalized_assets(self):
         ui_logo = ROOT / "apps" / "desktop" / "src" / "assets" / "logo.webp"

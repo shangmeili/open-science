@@ -17,7 +17,7 @@ AI4HEOR 不再把未完成改写或许可证不兼容的来源长期展示为“
 | AI4S Integrity Auditor | 数字、引用、代码、图表和来源一致性检查 | `stats-integrity`、`traceability-review`、`citation-reviewer`、`figure-provenance`、`heor-model-validation` 已分工覆盖 | 按 HEOR 工件补充检查，不引入通用审计链 |
 | AI4S Literature Survey | 检索、筛选、提取、综述和引用追踪 | `literature-review`、`heor-evidence-search`、`heor-evidence-synthesis` 已提供有协议、有请求哈希和人工网络授权的路径 | 已独立实现项目内 RIS、受控 BibTeX 与 CSL-JSON 导入、去重、校验和导出；CSL 样式渲染仍作为后续第一方工作 |
 | AI4S Mindmap Renderer | 概念模型、研究路径和证据关系可视化 | `heor-model-design` 已交付可审计的概念模型工件 | 可编辑图形和稳定导出列入第一方建设，不保留上游渲染器 |
-| AI4S Paper Writer | 依据研究工件形成报告和汇报材料 | `heor-reporting` 已覆盖结构化 HEOR 报告；`research-presentation` 已生成有来源绑定的 PPTX | DOCX/PDF 正式导出独立建设，不使用其他项目的受限文档 Skill |
+| AI4S Paper Writer | 依据研究工件形成报告和汇报材料 | `heor-reporting` 已覆盖结构化 HEOR 报告并生成有来源绑定的 DOCX/PDF；`research-presentation` 已生成有来源绑定的 PPTX | 替代链路已由第一方原生代码完成，不使用其他项目的受限文档 Skill |
 | AI4S Research Explorer | 研究方向梳理、方法更新和研究优先级 | `heor-methods-watchlist` 与有边界的 `heor-advanced-value-of-information` 已覆盖 | 不采用自由主题自动评分；优先级由研究者结合方法和 VOI 结果判断 |
 | HEORAgent MCP | HEOR 检索、模型、HTA、BIA 和材料组织 | 相关能力已拆入多个第一方 HEOR Skill；PubMed/ClinicalTrials.gov 由 `heor-evidence-search` 固定端点实现 | 不运行其 48-tool 进程；只按明确 HEOR 需求独立建设单项能力 |
 | Paper Search MCP | 多源文献检索和元数据获取 | `heor-evidence-search` 已覆盖受控的 PubMed/ClinicalTrials.gov 元数据路径 | 新数据源按权利、固定出站、请求哈希和人工授权逐源独立实现 |
@@ -31,8 +31,8 @@ Anthropic `docx`、`pdf`、`pptx`、`xlsx` 目录的来源许可证不允许 AI4
 
 | 能力 | 选定方案 | 当前结果 |
 | --- | --- | --- |
-| DOCX 生成 | 根据 AI4HEOR 报告工件独立实现第一方 OOXML 导出 | 建设任务；不得使用 Anthropic 源码或素材 |
-| PDF 生成 | 由第一方报告导出链生成；现有本地预览与提取继续使用已审核依赖 | 建设任务；不得使用 Anthropic 源码或素材 |
+| DOCX 生成 | 根据 AI4HEOR 报告工件独立实现第一方 OOXML 导出 | 已交付：确定性、来源绑定、嵌入授权中文字体、带生成审计 |
+| PDF 生成 | 由第一方报告导出链生成；现有本地预览与提取继续使用已审核依赖 | 已交付：确定性、来源绑定、嵌入授权中文字体、带生成审计 |
 | PPTX 生成 | 第一方 `research-presentation`，确定性、无宏、来源绑定 | 已交付并有合约测试 |
 | XLSX 生成 | 根据 AI4HEOR 表格和结果工件独立实现第一方 OOXML 导出 | 建设任务；不得使用 Anthropic 源码或素材 |
 

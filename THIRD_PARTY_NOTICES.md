@@ -32,6 +32,19 @@ The UI includes Inter, JetBrains Mono, and Source Serif 4 through Fontsource;
 these font packages declare OFL-1.1. Other resolved packages declare the
 license expressions recorded in the inventories.
 
+The first-party DOCX/PDF report renderer uses:
+
+- Source Han Sans CN 2.005R (`SourceHanSansCN-Regular.otf`), Adobe, SIL Open
+  Font License 1.1. Its exact license text is bundled at
+  `legal/fonts/SourceHanSansCN-OFL-1.1.txt`; the font is embedded in generated
+  DOCX and PDF files so Chinese output does not depend on a system font.
+- `printpdf` 0.11.3, MIT, compiled without its default features. It is used by
+  the native PDF path; its resolved Cargo metadata is recorded in
+  `docs/legal/cargo-lock-components.json`.
+
+Pinned hashes and upstream locations are recorded in
+`docs/legal/REPORT_RENDERER_ASSETS.md`.
+
 ## Not distributed or loaded
 
 - `runtime/skills/external/` is an ignored local discovery cache and is not a

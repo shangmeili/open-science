@@ -51,6 +51,7 @@ mod preview_server;
 mod project;
 mod provenance;
 mod research_presentation;
+mod research_report;
 mod runs;
 mod runs_index;
 mod runtime;
@@ -149,6 +150,8 @@ pub fn run() {
             artifact_file::write_workspace_file,
             research_presentation::audit_research_presentation,
             research_presentation::generate_research_presentation,
+            research_report::audit_research_report,
+            research_report::generate_research_report,
             startup_audit::audit_startup_environment,
             asset_admission::audit_asset_admission,
             capability_review::audit_skill_candidates,

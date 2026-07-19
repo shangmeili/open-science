@@ -727,6 +727,25 @@
     "open": "Open presentation",
     "noProject": "There is no current project for a research presentation."
   },
+  "reportExport": {
+    "title": "HEOR report files",
+    "loading": "Checking the report files…",
+    "current": "DOCX and PDF match the current report",
+    "ready": "The report is ready to generate",
+    "missing": "Report files have not been prepared",
+    "note": "The app generates both files from the current bound report. This does not approve the study or its conclusions; the researcher must review the text, numbers, tables, and limitations before use.",
+    "blocks": "Report blocks",
+    "tables": "Tables",
+    "pages": "PDF pages",
+    "askPrepare": "Prepare the report with the Agent",
+    "repairPrompt": "Use $heor-reporting. First complete and validate heor/report-package.json and heor/report.md, then prepare or repair deliverables/heor-report-export.json for the current report. Confirm the title, subtitle, audience, purpose, language, and date with me in the conversation. Bind the exact current SHA-256 of heor/report-package.json and heor/report.md, use style ai4heor-formal-report, and keep human_review.status as awaiting_human_review. Do not alter deterministic result files, invent missing disclosures, approve scientific interpretation, or create a release decision.",
+    "generate": "Generate DOCX and PDF",
+    "generating": "Generating…",
+    "generated": "DOCX and PDF were generated. Review both files before use.",
+    "openDocx": "Open DOCX",
+    "openPdf": "Open PDF",
+    "noProject": "There is no current project for report generation."
+  },
   "reproducibility": {
     "title": "Reproducibility companion",
     "loading": "Auditing reproducibility evidence…",

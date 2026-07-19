@@ -124,6 +124,52 @@ class CoreSkillContractTests(unittest.TestCase):
                 self.assertIn("source checkout", text)
                 self.assertNotIn(f"runtime/skills/core/{name}/scripts/", text)
 
+    def test_heor_reporting_owns_a_source_bound_docx_pdf_contract(self):
+        skill_dir = SKILLS_ROOT / "heor-reporting"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        contract = (skill_dir / "references" / "report-export-contract.md").read_text(
+            encoding="utf-8"
+        )
+        template = json.loads(
+            (skill_dir / "assets" / "report-export.template.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertIn("references/report-export-contract.md", skill)
+        self.assertIn("deliverables/heor-report-export.json", skill)
+        self.assertEqual(
+            set(template),
+            {
+                "schema_version",
+                "document_id",
+                "title",
+                "subtitle",
+                "language",
+                "prepared_on",
+                "audience",
+                "purpose",
+                "style",
+                "report_package",
+                "report_document",
+                "human_review",
+            },
+        )
+        self.assertEqual(template["schema_version"], "0.1.0")
+        self.assertEqual(template["style"], "ai4heor-formal-report")
+        self.assertEqual(template["report_package"]["path"], "heor/report-package.json")
+        self.assertEqual(template["report_document"]["path"], "heor/report.md")
+        self.assertEqual(
+            template["human_review"], {"status": "awaiting_human_review"}
+        )
+        for required in (
+            "deliverables/heor-report.docx",
+            "deliverables/heor-report.pdf",
+            "deliverables/heor-report.audit.json",
+            "source-hash drift",
+            "does not establish",
+        ):
+            self.assertIn(required, contract)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,8 +18,9 @@ the exact bytes and preservation of all required notices.
 | Content class | Current evidence | Packaged | Decision |
 | --- | --- | ---: | --- |
 | Inherited Open Science source and AI4HEOR changes | Root MIT license; upstream `master` license is MIT | Yes | Allowed under MIT with notice |
-| First-party core Skills | 48 active Skill directories after this change; project-authored under root MIT | Yes | Allowed; embedded third-party notices preserved |
+| First-party core Skills | 49 active Skill directories; project-authored under root MIT | Yes | Allowed; embedded third-party notices preserved |
 | Research-presentation renderer | Project-authored Rust OOXML/ZIP renderer and portable Python validator under root MIT; no Anthropic presentation code or asset is included | Yes | Allowed; macro-free first-party output path |
+| Research-report renderer | Project-authored source-bound DOCX/PDF renderer; `printpdf` 0.11.3 (MIT), its reviewed `lopdf` 0.44.0 chain, and Source Han Sans CN 2.005R (OFL-1.1) are pinned and audited | Yes | Allowed for internal testing; generated documents remain awaiting human review |
 | HEORAgent-informed evidence Skill | First-party rewrite; pinned upstream revision and MIT notice retained | Yes | Allowed; upstream package itself is not shipped |
 | External Skill cache | Removed after the source review; no `runtime/skills/external/` tree remains | No | External source is not retained |
 | External-adapter release registry | Schema 1.1.0, release-only, empty | Registry only | No external code loaded; unfinished and excluded sources are not user options |
@@ -31,7 +32,7 @@ the exact bytes and preservation of all required notices.
 | OpenCode 1.17.13 | Pinned sidecar; upstream tag declares MIT | Yes | Allowed with exact license notice still to bundle |
 | uv 0.11.26 | Pinned sidecar; upstream tag offers Apache-2.0 OR MIT | Yes | Allowed after selected license and notice are bundled |
 | Bundled Chinese HEOR knowledge base | 25 first-party Markdown learning documents plus manifest; sources are cited/linked, not copied wholesale | Yes | Allowed as project-authored synthesis; current-source verification remains a scientific requirement |
-| App fonts | Fontsource packages for Inter, JetBrains Mono, Source Serif 4 declare OFL-1.1 | Yes | Allowed with OFL texts and reserved-name checks still to bundle |
+| App and report fonts | Fontsource packages for Inter, JetBrains Mono, Source Serif 4 declare OFL-1.1; Source Han Sans CN 2.005R is pinned and its exact OFL-1.1 text is bundled | Yes | Source Han report-font notice is complete; remaining UI font notice corpus is a public-release task |
 | Documentation screenshots/showcase images | Tracked in the MIT source history; no separate third-party attribution found | Repository only | Keep under source license; re-audit before public marketing reuse |
 | AI4HEOR logo | Product owner supplied and explicitly requested project use | Yes | Internal test authorized; public rights record missing |
 

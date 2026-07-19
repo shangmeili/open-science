@@ -28,11 +28,19 @@ def version_tuple(version: str) -> tuple[int, int, int]:
 
 
 class RustSecurityPolicyTests(unittest.TestCase):
-    def test_pdf_parser_uses_the_rustsec_fixed_lopdf_baseline(self) -> None:
+    def test_pdf_parsers_use_the_exact_reviewed_patched_lopdf_pair(self) -> None:
         lopdf = packages_named("lopdf")
-        self.assertEqual(len(lopdf), 1)
-        self.assertGreaterEqual(version_tuple(lopdf[0]["version"]), (0, 42, 0))
-        self.assertTrue(lopdf[0].get("checksum"))
+        self.assertEqual({package["version"] for package in lopdf}, {"0.42.0", "0.44.0"})
+        for package in lopdf:
+            self.assertGreaterEqual(version_tuple(package["version"]), (0, 42, 0))
+            self.assertTrue(package.get("checksum"))
+
+        pdf_extract = packages_named("pdf-extract")
+        printpdf = packages_named("printpdf")
+        self.assertEqual(len(pdf_extract), 1)
+        self.assertEqual(len(printpdf), 1)
+        self.assertIn("lopdf 0.42.0", pdf_extract[0]["dependencies"])
+        self.assertIn("lopdf 0.44.0", printpdf[0]["dependencies"])
 
     def test_plist_runtime_path_uses_patched_quick_xml(self) -> None:
         plist = packages_named("plist")

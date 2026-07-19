@@ -52,6 +52,7 @@ import {
   auditHeorReporting,
   auditHeorReproducibility,
   auditResearchPresentation,
+  auditResearchReport,
   addHeorLibraryDirectory,
   addHeorLibraryFiles,
   installBundledHeorKnowledgeBase,
@@ -71,6 +72,7 @@ import {
   HEOR_REPORT_PACKAGE_PATH,
   HEOR_REPRODUCIBILITY_PACKAGE_PATH,
   generateResearchPresentation,
+  generateResearchReport,
   HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
   HEOR_EVIDENCE_LIBRARY_PATH,
   HEOR_METHODS_WATCHLIST_PATH,
@@ -162,6 +164,10 @@ import {
   ResearchPresentationAssessment,
   type ResearchPresentationState,
 } from "./ResearchPresentationAssessment";
+import {
+  ResearchReportAssessment,
+  type ResearchReportState,
+} from "./ResearchReportAssessment";
 
 const REVIEW_GATES: HeorGate[] = [
   "decision_problem",
@@ -487,6 +493,8 @@ export function HeorReviewPane({
   const [reproducibility, setReproducibility] = useState<ReproducibilityState>({ kind: "loading" });
   const [researchPresentation, setResearchPresentation] = useState<ResearchPresentationState>({ kind: "loading" });
   const [presentationGenerating, setPresentationGenerating] = useState(false);
+  const [researchReport, setResearchReport] = useState<ResearchReportState>({ kind: "loading" });
+  const [reportGenerating, setReportGenerating] = useState(false);
   const [evidenceSearch, setEvidenceSearch] = useState<EvidenceSearchState>({ kind: "loading" });
   const [evidenceSynthesis, setEvidenceSynthesis] = useState<EvidenceSynthesisState>({ kind: "loading" });
   const [evidenceSelection, setEvidenceSelection] = useState<EvidenceSelectionState>({ kind: "loading" });
@@ -546,6 +554,7 @@ export function HeorReviewPane({
       setReporting({ kind: "invalid", message: t("reporting.noProject") });
       setReproducibility({ kind: "invalid", message: t("reproducibility.noProject") });
       setResearchPresentation({ kind: "invalid", message: t("presentation.noProject") });
+      setResearchReport({ kind: "invalid", message: t("reportExport.noProject") });
       setEvidenceSearch({ kind: "invalid", message: t("search.noProject") });
       setEvidenceSynthesis({ kind: "invalid", message: t("synthesis.noProject") });
       setEvidenceSelection({ kind: "invalid", message: t("evidence.noProject") });
@@ -573,6 +582,7 @@ export function HeorReviewPane({
     setReporting({ kind: "loading" });
     setReproducibility({ kind: "loading" });
     setResearchPresentation({ kind: "loading" });
+    setResearchReport({ kind: "loading" });
     setEvidenceSearch({ kind: "loading" });
     setEvidenceSynthesis({ kind: "loading" });
     setEvidenceSelection({ kind: "loading" });
@@ -598,6 +608,14 @@ export function HeorReviewPane({
       setResearchPresentation({ kind: "ready", audit: await auditResearchPresentation() });
     } catch (error) {
       setResearchPresentation({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    try {
+      setResearchReport({ kind: "ready", audit: await auditResearchReport() });
+    } catch (error) {
+      setResearchReport({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
@@ -1343,6 +1361,22 @@ export function HeorReviewPane({
     }
   };
 
+  const renderResearchReport = async () => {
+    if (!project || reportGenerating || !isTauri) return;
+    setReportGenerating(true);
+    try {
+      const audit = await generateResearchReport();
+      setResearchReport({ kind: "ready", audit });
+      toast.success(t("reportExport.generated"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setResearchReport({ kind: "invalid", message });
+      toast.error(`${t("toast.actionFailed")}: ${message}`);
+    } finally {
+      setReportGenerating(false);
+    }
+  };
+
   const runUncertainty = async () => {
     if (!project || !isTauri || uncertainty.kind !== "ready"
       || !uncertainty.audit.complete || running) return;
@@ -2022,6 +2056,12 @@ export function HeorReviewPane({
               generating={presentationGenerating}
               onRequestPreparation={() => onRequestRevision(t("presentation.repairPrompt"))}
               onGenerate={() => void renderResearchPresentation()}
+            />
+            <ResearchReportAssessment
+              state={researchReport}
+              generating={reportGenerating}
+              onRequestPreparation={() => onRequestRevision(t("reportExport.repairPrompt"))}
+              onGenerate={() => void renderResearchReport()}
             />
             <ReproducibilityAssessment
               state={reproducibility}

@@ -113,16 +113,16 @@ tool must not acquire HEOR method authority.
 | Local knowledge and evidence work | local knowledge base, `heor-local-evidence`, `heor-evidence-search`, `heor-evidence-synthesis`, methods watchlist | Network retrieval is explicit and source-specific; source availability is not evidence truth or reuse permission. |
 | Data and computation inspection | notebook surface, `large-file`, `stats-integrity`, app-owned deterministic HEOR engines, optional authorized remote compute | Code and model output remain inspectable; no result becomes accepted merely because it ran successfully. |
 | Scientific figures and traceability | `publication-figures`, `traceability-review`, artifact preview | Figures must remain linked to current data/results and preserve adverse, uncertain, and null findings. |
-| Research reports and reproducibility | `heor-reporting`, `heor-reproducibility-package`, local report and artifact previews | Structural completeness and replay evidence do not establish scientific validity or external approval. |
+| Research reports and reproducibility | `heor-reporting`, source-bound native DOCX/PDF renderer, `heor-reproducibility-package`, local artifact previews | The app renders exact current sources and records hashes; structural completeness and replay evidence do not establish scientific validity or external approval. |
 | Research presentation generation | `research-presentation` manifest, portable validator, and native deterministic macro-free PPTX renderer | The Agent prepares source-bound content; the app renders it; the Human reviews every slide and owns external-use rights and release. |
 | Capability growth | `ai4heor-skill-authoring`, inactive exact-byte draft review, preference-learning proposals | The platform may propose or create bounded Skills, but cannot activate permissions, rewrite methods, or self-approve changes. |
 
-The audit found that PPTX preview existed but presentation creation did not. The
-first-party `research-presentation` slice closes that gap without bundling the
-rejected source-available Anthropic presentation Skill or depending on the
-developer's Codex installation. Generic DOCX/XLSX authoring, bibliography-manager
-integration, posters, and arbitrary presentation templates remain explicit
-backlog items rather than implied capabilities.
+The first-party `research-presentation` and `heor-reporting` renderers close the
+PPTX and HEOR DOCX/PDF gaps without bundling incompatible document sources or
+depending on the developer's Codex installation. Generic DOCX authoring outside
+the HEOR report contract, XLSX generation, bibliography-manager integration,
+posters, and arbitrary presentation templates remain explicit backlog items
+rather than implied capabilities.
 
 The following platform Skills are already implemented and bundled: orchestration,
 input provenance, evidence search, local evidence, evidence synthesis, reference

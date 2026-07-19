@@ -1013,6 +1013,18 @@ never scored or applied to BIA. A separate 12-item ISPOR BIA matrix covers the
 budget-impact report. All 40 entries require a rationale, bound evidence paths,
 and exactly one report section marker.
 
+For document delivery, the Skill prepares
+`deliverables/heor-report-export.json` with the exact current report-package and
+report-document hashes. The native app re-audits both sources and renders
+`deliverables/heor-report.docx`, `deliverables/heor-report.pdf`, and a generation
+audit. The deterministic DOCX path uses first-party OOXML with fixed styles,
+tables, numbering, headers and footer fields; the deterministic PDF path uses a
+pinned native renderer. Both embed the same pinned OFL-1.1 Source Han Sans CN
+font and remain marked `awaiting_human_review`. Changed source bytes invalidate
+the export, and externally changed outputs are never silently overwritten.
+Document generation is a communication step, not scientific or release
+approval.
+
 The portable and native validators require the exact copied economic basis and numerical summaries,
 including the complete decision-uncertainty object when present, explicit
 disclosures, limitations, a named release owner, and current hashes. Legacy

@@ -106,7 +106,7 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 | `$heor-cohort-state-transition` / `$heor-partitioned-survival` | 执行有边界的确定性经济学模型 | 可复现的成本、QALY、增量结果和检查 |
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | 执行已声明的不确定性与有界 VOI 工作流 | DSA/PSA/CEAC/CEAF/EVPI 与单独复核的高级 VOI |
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | 执行静态或动态预算影响分析 | 分项预算结果和审计工件 |
-| `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | 验证、报告并封装当前精确工件 | 独立复核包、报告和重放包 |
+| `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | 验证、报告并封装当前精确工件 | 独立复核包、有来源绑定的 DOCX/PDF 报告和重放包 |
 | `$research-presentation` | 准备有来源绑定的研究汇报内容并在本地生成 | 可逐页核对的无宏 PPTX 和生成审计记录 |
 
 全部第一方 Skill 的名称与说明均随七种界面语言发布，同时保留精确
@@ -138,8 +138,9 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 未完成或已排除的来源。当前登记表为空，因此没有第三方工具随 AI4HEOR 打包。
 
 此前外部审查中有价值的能力意图改写为有边界的 AI4HEOR 第一方能力。许可证
-不兼容的文档来源已从运行时和候选界面永久移除；PPTX 已由
-`research-presentation` 替代，DOCX、PDF 和 XLSX 生成则作为第一方能力独立建设。
+不兼容的文档来源已从运行时和候选界面永久移除。PPTX 已由
+`research-presentation` 替代，DOCX/PDF 报告导出已由第一方
+`heor-reporting` 原生渲染器替代；有来源绑定的 XLSX 生成仍作为第一方能力建设。
 只读处置记录见
 [`docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md`](./docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md)。
 科研基础能力的已交付、部分交付与待建设边界见
@@ -244,13 +245,13 @@ pnpm lint
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
 当前开发刻意收敛为先在 Intel macOS 上跑通产品；Windows、Linux、Apple Silicon
-与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.43`；已完成隔离首次启动核验的 x64 macOS 交接包仍为
+与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.44`；已完成隔离首次启动核验的 x64 macOS 交接包仍为
 `0.1.41`。当前候选包 `AI4HEOR_0.1.43_x64.dmg` 从 `9ff815a` 构建，大小为
 81,654,020 字节，SHA-256 是
 `6524e6bb1cdd4d1e04438e021307b0d48bafaba4c626979dc3d4d69762022bf9`。
 独立只读核验已确认 x86-64 架构、0.1.43 身份、OpenCode 1.17.13、uv 0.11.26、
 342 个受控资源和包内 177 项 HEOR 测试，并取代 0.1.42 成为当前候选包。由于已安装应用仍在运行，该精确候选包的
-隔离首次启动尚未核验，因此暂不取代已完成验收交接的 0.1.41 包。0.1.43 新增第一方、仅本地运行的 `literature-review` Skill：它可导入、去重、校验和确定性导出带来源记录的 RIS、受控 BibTeX 和 CSL-JSON 文献数据，并保留字段冲突供研究者复核；不声称已实现 CSL 样式渲染或文献信息正确性。0.1.42 增加了本机使用准备检查，核对项目文件夹、内置 Skill、药物经济学计算资源、
+隔离首次启动尚未核验，因此暂不取代已完成验收交接的 0.1.41 包。0.1.44 在第一方 `heor-reporting` 中新增有来源绑定的 DOCX/PDF 生成：原生应用重新核验当前报告包与报告，两个格式都嵌入已审核中文字体，记录输出哈希，并保持待研究者复核；0.1.44 Intel macOS 包尚未构建和独立核验。0.1.43 新增第一方、仅本地运行的 `literature-review` Skill：它可导入、去重、校验和确定性导出带来源记录的 RIS、受控 BibTeX 和 CSL-JSON 文献数据，并保留字段冲突供研究者复核；不声称已实现 CSL 样式渲染或文献信息正确性。0.1.42 增加了本机使用准备检查，核对项目文件夹、内置 Skill、药物经济学计算资源、
 项目 harness 和本地助手。本地助手异常时，现在可以直接在“设置”中重新启动并连接，无需重启应用；
 模型、Python 和 Jupyter 均为按需配置，这项检查不代表方法适用或科学有效。0.1.41 新增有来源绑定、确定性、无宏的
 研究汇报幻灯生成，生成后的每一页仍等待研究者核对。0.1.40 会在每个能力复核弹窗中先说明这项 Skill 做什么、来自

@@ -31,6 +31,9 @@ export const HEOR_BUDGET_IMPACT_RESULT_PATH = "heor/results/budget-impact.json";
 export const HEOR_PARTITIONED_SURVIVAL_RESULT_PATH = "heor/results/partitioned-survival.json";
 export const RESEARCH_PRESENTATION_MANIFEST_PATH = "deliverables/research-presentation.json";
 export const RESEARCH_PRESENTATION_OUTPUT_PATH = "deliverables/research-presentation.pptx";
+export const RESEARCH_REPORT_MANIFEST_PATH = "deliverables/heor-report-export.json";
+export const RESEARCH_REPORT_DOCX_PATH = "deliverables/heor-report.docx";
+export const RESEARCH_REPORT_PDF_PATH = "deliverables/heor-report.pdf";
 
 function transitionPath(path: string): boolean {
   return /^strategies\.[a-z][a-z0-9_-]{0,63}\.(transition_matrix|transition_schedule)$/.test(path);
@@ -1160,6 +1163,33 @@ export interface ResearchPresentationAudit {
   renderedSlideCount: number;
   sourceCount: number;
   humanReviewStatus: string;
+  errors: string[];
+}
+
+export interface ResearchReportAudit {
+  complete: boolean;
+  readyToGenerate: boolean;
+  outputsCurrent: boolean;
+  status: "missing" | "invalid" | "ready_to_generate" | "generated_current";
+  documentId: string;
+  title: string;
+  manifestPath: string;
+  docxPath: string;
+  pdfPath: string;
+  auditPath: string;
+  manifestSha256: string;
+  reportPackageSha256: string;
+  reportDocumentSha256: string;
+  docxSha256: string | null;
+  pdfSha256: string | null;
+  blockCount: number;
+  tableCount: number;
+  pdfPageCount: number;
+  humanReviewStatus: string;
+  fontName: string;
+  fontVersion: string;
+  fontLicense: string;
+  fontSha256: string;
   errors: string[];
 }
 
@@ -3767,6 +3797,18 @@ export async function generateResearchPresentation(): Promise<ResearchPresentati
   return invoke<ResearchPresentationAudit>("generate_research_presentation");
 }
 
+export async function auditResearchReport(): Promise<ResearchReportAudit> {
+  if (!isTauri) return RESEARCH_REPORT_BROWSER_DEMO_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<ResearchReportAudit>("audit_research_report");
+}
+
+export async function generateResearchReport(): Promise<ResearchReportAudit> {
+  if (!isTauri) throw new Error("report generation is available only in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<ResearchReportAudit>("generate_research_report");
+}
+
 export async function auditHeorEvidenceSearch(): Promise<HeorEvidenceSearchAudit> {
   if (!isTauri) return HEOR_BROWSER_DEMO_EVIDENCE_SEARCH_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
@@ -4342,6 +4384,33 @@ export const RESEARCH_PRESENTATION_BROWSER_DEMO_AUDIT: ResearchPresentationAudit
   sourceCount: 0,
   humanReviewStatus: "",
   errors: [`${RESEARCH_PRESENTATION_MANIFEST_PATH} is required`],
+};
+
+export const RESEARCH_REPORT_BROWSER_DEMO_AUDIT: ResearchReportAudit = {
+  complete: false,
+  readyToGenerate: false,
+  outputsCurrent: false,
+  status: "missing",
+  documentId: "",
+  title: "",
+  manifestPath: RESEARCH_REPORT_MANIFEST_PATH,
+  docxPath: RESEARCH_REPORT_DOCX_PATH,
+  pdfPath: RESEARCH_REPORT_PDF_PATH,
+  auditPath: "deliverables/heor-report.audit.json",
+  manifestSha256: "",
+  reportPackageSha256: "",
+  reportDocumentSha256: "",
+  docxSha256: null,
+  pdfSha256: null,
+  blockCount: 0,
+  tableCount: 0,
+  pdfPageCount: 0,
+  humanReviewStatus: "",
+  fontName: "Source Han Sans CN",
+  fontVersion: "2.005R",
+  fontLicense: "OFL-1.1",
+  fontSha256: "e2bc8a2e7f37474b774fff8db758681ece40bb6947a90d571bce9dd60671a8e4",
+  errors: [`${RESEARCH_REPORT_MANIFEST_PATH} is required`],
 };
 
 export function browserDemoRun(

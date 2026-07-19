@@ -28,7 +28,7 @@
     "heor-probability-time-adapter": { "displayName": "Wahrscheinlichkeits-Zeit-Adapter", "description": "Konvertiert eine Ereigniswahrscheinlichkeit in den Modellzyklus." },
     "heor-reference-case": { "displayName": "Referenzfall", "description": "Prüft Pläne gegen versionierte regionale Referenzfälle." },
     "heor-relative-effect-adapter": { "displayName": "Relativer-Effekt-Adapter", "description": "Wendet begrenzte RR- oder OR-Effekte auf Baseline-Risiken an." },
-    "heor-reporting": { "displayName": "HEOR-Berichterstattung", "description": "Erstellt ein hashgebundenes, freigabeprüfbares HEOR-Berichtspaket." },
+    "heor-reporting": { "displayName": "HEOR-Berichterstattung", "description": "Erstellt ein hashgebundenes HEOR-Berichtspaket sowie prüfbare DOCX- und PDF-Dateien." },
     "heor-reproducibility-package": { "displayName": "Reproduzierbarkeitspaket", "description": "Bindet Replay-Rezepte, Evidenz, Aussagen und Freigabeartefakte." },
     "heor-rwe-causal-analysis": { "displayName": "RWE-Kausalanalyse", "description": "Prüft Fixed-Horizon-RWE mit Behandlungs- und Beobachtungsgewichten." },
     "heor-semi-markov-microsimulation": { "displayName": "Semi-Markov-Mikrosimulation", "description": "Führt prüfbare patientenbezogene Zustandsübergangsmodelle aus." },

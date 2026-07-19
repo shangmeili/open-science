@@ -28,7 +28,7 @@
     "heor-probability-time-adapter": { "displayName": "Probability Time Adapter", "description": "Convert one event probability to the model cycle." },
     "heor-reference-case": { "displayName": "Reference Case", "description": "Audit plans against versioned jurisdiction reference cases." },
     "heor-relative-effect-adapter": { "displayName": "Relative Effect Adapter", "description": "Apply bounded RR or OR effects to baseline risks." },
-    "heor-reporting": { "displayName": "HEOR Reporting", "description": "Build a hash-bound, release-reviewable HEOR report package." },
+    "heor-reporting": { "displayName": "HEOR Reporting", "description": "Prepare a hash-bound HEOR report package and researcher-reviewable DOCX/PDF files." },
     "heor-reproducibility-package": { "displayName": "Reproducibility Package", "description": "Bind replay recipes, evidence, claims, and release artifacts." },
     "heor-rwe-causal-analysis": { "displayName": "RWE Causal Analysis", "description": "Audit fixed-horizon RWE with treatment and observation weights." },
     "heor-semi-markov-microsimulation": { "displayName": "Semi-Markov Microsimulation", "description": "Run auditable patient-level state-transition models." },

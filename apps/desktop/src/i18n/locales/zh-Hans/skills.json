@@ -28,7 +28,7 @@
     "heor-probability-time-adapter": { "displayName": "事件概率周期转换", "description": "把指定时间段的单一事件概率换算到模型周期。" },
     "heor-reference-case": { "displayName": "参考案例", "description": "依据版本化的地区参考案例检查分析计划。" },
     "heor-relative-effect-adapter": { "displayName": "相对效应转换", "description": "将适用的 RR 或 OR 换算为模型所需的事件风险。" },
-    "heor-reporting": { "displayName": "HEOR 报告", "description": "按照报告规范整理可复核的 HEOR 报告及配套文件。" },
+    "heor-reporting": { "displayName": "HEOR 报告", "description": "整理有来源绑定的 HEOR 报告包，并生成供研究者核对的 DOCX 和 PDF。" },
     "heor-reproducibility-package": { "displayName": "可重复性材料包", "description": "整理复现步骤、证据、结果主张和发布文件之间的对应关系。" },
     "heor-rwe-causal-analysis": { "displayName": "真实世界因果分析", "description": "检查同时使用治疗权重和结局观测权重的固定时点分析。" },
     "heor-semi-markov-microsimulation": { "displayName": "半马尔可夫微观模拟", "description": "运行患者水平状态转移模型，并保留可复核的模拟记录。" },
