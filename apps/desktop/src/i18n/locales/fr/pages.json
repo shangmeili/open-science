@@ -99,7 +99,10 @@
       "status": {"inactive": "en attente de revue", "active": "active dans ce projet", "rejected": "rejetée", "revoked": "révoquée", "invalid": "invalide", "drifted": "fichiers actifs modifiés", "activeCandidateChanged": "active ; candidate modifiée", "unmanagedConflict": "une Skill du même nom existe", "candidateMissing": "candidate absente"},
       "dialog": {
         "title": {"activate": "Examiner et activer cette capacité", "reject": "Rejeter cette capacité candidate", "revoke": "Révoquer cette capacité du projet"},
+        "purpose": {"activate": "L'assistant a préparé cette Skill de projet pour définir le traitement de tâches similaires. Ce n'est pas une analyse pharmacoéconomique et elle ne choisit ni méthodes, ni preuves, ni paramètres, ni conclusions. Elle ne devient active qu'après votre confirmation.", "reject": "Vous décidez si cette Skill candidate doit rester inactive. Ce n'est pas un jugement sur le protocole d'étude ou un résultat d'analyse.", "revoke": "Vous arrêtez d'utiliser une Skill de projet activée auparavant. Cette décision ne réécrit ni méthodes, ni preuves, ni paramètres, ni conclusions."},
         "boundary": {"activate": "Seuls les fichiers d'instructions validés sont copiés dans le projet courant. Aucun accès au réseau, aux commandes, aux secrets ou à l'écriture hors projet n'est accordé.", "reject": "Votre décision est liée aux octets exacts de cette candidate. Elle reste inactive et vérifiable.", "revoke": "La copie active n'est supprimée que si elle correspond encore exactement au registre d'activation. Le contenu modifié n'est jamais supprimé automatiquement."},
+        "capabilityTitle": "Rôle de cette capacité",
+        "requestTitle": "Demande à l'origine de cette candidate",
         "acceptanceTitle": "Contrôles préparés pour la revue humaine",
         "limitationsTitle": "Limites déclarées",
         "actor": "Nom ou libellé local de la personne qui examine",

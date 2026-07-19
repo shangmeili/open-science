@@ -99,7 +99,10 @@
       "status": {"inactive": "pendiente de revisión", "active": "activa en este proyecto", "rejected": "rechazada", "revoked": "revocada", "invalid": "no válida", "drifted": "los archivos activos cambiaron", "activeCandidateChanged": "activa; candidata modificada", "unmanagedConflict": "ya existe un Skill con ese nombre", "candidateMissing": "falta la candidata"},
       "dialog": {
         "title": {"activate": "Revisar y activar esta capacidad", "reject": "Rechazar esta capacidad candidata", "revoke": "Revocar esta capacidad del proyecto"},
+        "purpose": {"activate": "El asistente preparó este Skill del proyecto como propuesta para definir cómo tratar tareas similares. No es un análisis farmacoeconómico ni decide métodos, evidencia, parámetros o conclusiones. Solo se activa después de tu confirmación.", "reject": "Estás decidiendo si este Skill candidato debe permanecer inactivo. No es una valoración del plan de estudio ni del resultado de un análisis.", "revoke": "Estás dejando de usar un Skill del proyecto que se había activado. Esta decisión no reescribe métodos, evidencia, parámetros ni conclusiones."},
         "boundary": {"activate": "Solo copia al proyecto actual los archivos de instrucciones validados. No concede acceso a red, comandos, secretos ni escritura fuera del proyecto.", "reject": "Registra tu decisión para estos bytes exactos. La candidata permanece inactiva y auditable.", "revoke": "Solo elimina la copia activa si aún coincide exactamente con el registro de activación. Nunca borra contenido modificado."},
+        "capabilityTitle": "Qué hace esta capacidad",
+        "requestTitle": "Solicitud que originó esta candidata",
         "acceptanceTitle": "Comprobaciones para revisión humana",
         "limitationsTitle": "Limitaciones declaradas",
         "actor": "Nombre o etiqueta local del revisor",

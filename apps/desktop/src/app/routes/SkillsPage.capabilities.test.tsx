@@ -75,6 +75,11 @@ describe("SkillsPage project capability review", () => {
     expect(await screen.findByText("HEOR table notes")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Review and activate" }));
     expect(screen.getByRole("dialog", { name: "Review and activate this capability" })).toBeInTheDocument();
+    expect(screen.getByText(/not a pharmacoeconomic analysis/)).toBeInTheDocument();
+    expect(screen.getByText("What this capability does")).toBeInTheDocument();
+    expect(screen.getAllByText("Format reviewed HEOR table notes.").length).toBeGreaterThan(1);
+    expect(screen.getByText("Request that produced this candidate")).toBeInTheDocument();
+    expect(screen.getByText("Preserve our reviewed table-note format.")).toBeInTheDocument();
     expect(screen.getByText("Values remain unchanged")).toBeInTheDocument();
     expect(screen.getByText("Presentation only")).toBeInTheDocument();
 
@@ -149,6 +154,12 @@ describe("SkillsPage project capability review", () => {
       await i18n.changeLanguage("zh-Hans");
     });
     await userEvent.click(await screen.findByRole("button", { name: "复核并启用" }));
+    expect(screen.getByText(/不是一次药物经济学分析/)).toBeInTheDocument();
+    expect(screen.getByText("这项能力做什么")).toBeInTheDocument();
+    expect(screen.getAllByText("药物经济学表注").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("整理已经复核的药物经济学表注。").length).toBeGreaterThan(1);
+    expect(screen.getByText("形成这项候选的要求")).toBeInTheDocument();
+    expect(screen.getByText("Preserve our reviewed table-note format.")).toBeInTheDocument();
     expect(screen.getByText("数值保持不变")).toBeInTheDocument();
     expect(screen.getByText("仅调整呈现方式")).toBeInTheDocument();
     expect(screen.getByText("仅限当前本地项目使用。")).toBeInTheDocument();

@@ -99,7 +99,10 @@
       "status": {"inactive": "Prüfung ausstehend", "active": "in diesem Projekt aktiv", "rejected": "abgelehnt", "revoked": "widerrufen", "invalid": "ungültig", "drifted": "aktive Dateien geändert", "activeCandidateChanged": "aktiv; Kandidat geändert", "unmanagedConflict": "gleichnamiger Projekt-Skill vorhanden", "candidateMissing": "Kandidat fehlt"},
       "dialog": {
         "title": {"activate": "Diese Fähigkeit prüfen und aktivieren", "reject": "Diesen Fähigkeitskandidaten ablehnen", "revoke": "Diese Projektfähigkeit widerrufen"},
+        "purpose": {"activate": "Der Assistent hat diesen Projekt-Skill als Vorschlag erstellt, um die Bearbeitung ähnlicher Aufgaben festzulegen. Er ist keine pharmakoökonomische Analyse und entscheidet nicht über Methoden, Evidenz, Parameter oder Schlussfolgerungen. Aktiv wird er erst nach Ihrer Bestätigung.", "reject": "Sie entscheiden, ob dieser Skill-Vorschlag inaktiv bleiben soll. Dies ist keine Bewertung des Studienplans oder eines Analyseergebnisses.", "revoke": "Sie beenden die Nutzung eines zuvor aktivierten Projekt-Skills. Methoden, Evidenz, Parameter und Schlussfolgerungen werden dadurch nicht umgeschrieben."},
         "boundary": {"activate": "Nur die validierten Anweisungsdateien werden in das aktuelle Projekt kopiert. Netzwerk-, Befehls-, Geheimnis- oder projektfremde Schreibrechte werden nicht erteilt.", "reject": "Die Entscheidung wird an die exakten Kandidatenbytes gebunden. Der Kandidat bleibt inaktiv und auditierbar.", "revoke": "Die aktive Kopie wird nur entfernt, wenn sie noch exakt dem Aktivierungsdatensatz entspricht. Geänderte Inhalte werden nie automatisch gelöscht."},
+        "capabilityTitle": "Aufgabe dieser Fähigkeit",
+        "requestTitle": "Anforderung hinter diesem Vorschlag",
         "acceptanceTitle": "Prüfpunkte für die menschliche Prüfung",
         "limitationsTitle": "Deklarierte Einschränkungen",
         "actor": "Name oder lokale Bezeichnung der prüfenden Person",

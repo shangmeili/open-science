@@ -113,11 +113,18 @@
           "reject": "Reject this capability candidate",
           "revoke": "Revoke this project capability"
         },
+        "purpose": {
+          "activate": "The assistant prepared this project Skill candidate to define how similar tasks should be handled later. It is not a pharmacoeconomic analysis and cannot choose methods, evidence, parameters, or conclusions for the researcher. It becomes active only after you confirm it.",
+          "reject": "You are deciding whether this Skill candidate should remain inactive. This is not a judgment on a study plan or analysis result.",
+          "revoke": "You are stopping a previously activated project Skill. This decision does not rewrite research methods, evidence, parameters, or conclusions."
+        },
         "boundary": {
           "activate": "Activation copies only these validated instruction files into the current project. It grants no network, command, secret, or outside-workspace permission.",
           "reject": "Rejection records your decision for these exact candidate bytes. The candidate remains inactive and available for audit.",
           "revoke": "Revocation removes the active project copy only when its bytes still match the activation record. Changed content is never deleted automatically."
         },
+        "capabilityTitle": "What this capability does",
+        "requestTitle": "Request that produced this candidate",
         "acceptanceTitle": "Checks prepared for Human review",
         "limitationsTitle": "Declared limitations",
         "actor": "Reviewer name or local label",

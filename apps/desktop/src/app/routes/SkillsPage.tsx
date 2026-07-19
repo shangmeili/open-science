@@ -458,10 +458,20 @@ function CandidateReviewDialog({
           <ShieldCheck size={17} className="text-accent" />
           {t(`skills.candidates.dialog.title.${action}`)}
         </div>
+        <p className="mt-2 text-xs leading-5 text-text">{t(`skills.candidates.dialog.purpose.${action}`)}</p>
         <p className="mt-2 text-xs leading-5 text-muted">{t(`skills.candidates.dialog.boundary.${action}`)}</p>
         <div className="mt-3 rounded-input border border-border bg-bg p-3">
-          <div className="font-mono text-xs font-medium text-text">${candidate.candidateId}</div>
-          <div className="mt-1 break-all font-mono text-[10px] leading-4 text-muted">
+          <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted">
+            {t("skills.candidates.dialog.capabilityTitle")}
+          </div>
+          <div className="mt-1 text-sm font-semibold text-text">{copy.name}</div>
+          <p className="mt-1 text-xs leading-5 text-muted">{copy.description}</p>
+          <div className="mt-3 text-[10px] font-medium text-muted">
+            {t("skills.candidates.dialog.requestTitle")}
+          </div>
+          <p className="mt-1 break-words text-xs leading-5 text-text">{candidate.request}</p>
+          <div className="mt-3 font-mono text-[10px] font-medium text-text">${candidate.candidateId}</div>
+          <div className="mt-1 break-all font-mono text-[9px] leading-4 text-muted">
             {candidate.decisionSha256}
           </div>
         </div>

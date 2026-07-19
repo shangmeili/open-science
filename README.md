@@ -291,8 +291,11 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.39; the verified x64 macOS package is also 0.1.39.
-Version 0.1.39 adds the app-owned Human review path for project capability candidates:
+accepted. Current source is 0.1.40; the latest verified x64 macOS package remains 0.1.39
+until the 0.1.40 acceptance build is complete. Version 0.1.40 makes every capability-review
+dialog explain what the proposed Skill does, which project request produced it, and that it
+is not a pharmacoeconomic analysis or a substitute for researcher judgment. Version 0.1.39
+adds the app-owned Human review path for project capability candidates:
 the native control revalidates exact bytes, records activation, rejection, or revocation
 in a hash-linked audit chain, activates only instruction-only copies in the current
 project, and refuses to overwrite or delete drifted content. It also adds the app-owned

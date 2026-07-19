@@ -99,7 +99,10 @@
       "status": {"inactive": "검토 대기", "active": "이 프로젝트에서 활성", "rejected": "거부됨", "revoked": "철회됨", "invalid": "유효하지 않음", "drifted": "활성 파일이 변경됨", "activeCandidateChanged": "활성 상태, 후보 변경됨", "unmanagedConflict": "동일 이름의 프로젝트 Skill이 있음", "candidateMissing": "후보가 없음"},
       "dialog": {
         "title": {"activate": "이 기능을 검토하고 활성화", "reject": "이 기능 후보 거부", "revoke": "이 프로젝트 기능 철회"},
+        "purpose": {"activate": "비슷한 작업을 앞으로 어떻게 처리할지 정하기 위해 도우미가 현재 프로젝트용 Skill 후보를 만들었습니다. 이것은 약물경제성 분석이 아니며 연구자를 대신해 방법, 근거, 모수 또는 결론을 정하지 않습니다. 확인한 뒤에만 활성화됩니다.", "reject": "이 Skill 후보를 비활성 상태로 둘지 결정합니다. 연구 계획이나 분석 결과를 평가하는 작업은 아닙니다.", "revoke": "이전에 활성화한 프로젝트 Skill의 사용을 중지합니다. 연구 방법, 근거, 모수 또는 결론을 다시 작성하지 않습니다."},
         "boundary": {"activate": "검증된 지시 파일만 현재 프로젝트에 복사합니다. 네트워크, 명령, 비밀정보 또는 프로젝트 외부 쓰기 권한은 부여하지 않습니다.", "reject": "정확한 후보 바이트에 대한 결정을 기록합니다. 후보는 비활성 상태로 감사할 수 있습니다.", "revoke": "활성 사본이 활성화 기록과 정확히 일치할 때만 삭제합니다. 변경된 내용은 자동으로 삭제하지 않습니다."},
+        "capabilityTitle": "이 기능이 하는 일",
+        "requestTitle": "이 후보를 만든 요청",
         "acceptanceTitle": "사람이 검토할 확인 항목",
         "limitationsTitle": "명시된 제한",
         "actor": "검토자 이름 또는 로컬 표시명",
