@@ -219,7 +219,7 @@ class AI4HEORProductDocsTests(unittest.TestCase):
         for text in (english, chinese):
             self.assertIn("AI4HEOR_0.1.39_x64.dmg", text)
             self.assertIn(
-                "00382922bc37183c4509d48bc39d45d7e0b1e72810fab25032924cb22548bf96",
+                "0fa3ca87c98dc810ef8617aa4416fae910a33142eeefe9719e6ba74046846d15",
                 text,
             )
             self.assertIn("capabilities/candidates/", text)

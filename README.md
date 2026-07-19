@@ -330,9 +330,9 @@ conversation. OpenCode implementation details remain under Settings → Advanced
 the default Settings surface contains governed first-party HEOR evidence access, managed
 Jupyter, and explicitly unmanaged user-added MCP servers rather than the inherited generic
 Open Science connector catalog.
-The 81,477,589-byte AI4HEOR 0.1.39 x64 macOS DMG has SHA-256
-`00382922bc37183c4509d48bc39d45d7e0b1e72810fab25032924cb22548bf96` and was locally
-built from tracked source commit `8f15a2019ec3247a5ce1e30542046f52cea8bd62`. All 335
+The 81,477,696-byte AI4HEOR 0.1.39 x64 macOS DMG has SHA-256
+`0fa3ca87c98dc810ef8617aa4416fae910a33142eeefe9719e6ba74046846d15` and was locally
+built from tracked source commit `92a3e19fc6b8ce65ecb9cdc9d7015c4a5655299a`. All 335
 configured resources match source bytes, all 177 deterministic HEOR tests pass against
 the mounted core, and isolated first-launch and legacy-migration checks pass. A separate
 native UI run confirmed that candidate acceptance checks, limitations, and the
