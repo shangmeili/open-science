@@ -1,5 +1,6 @@
 import { saveTextFile } from "./tauri";
 import { toast } from "./toast";
+import i18n from "../i18n";
 
 /** Save text as a file via a Blob download. No-op outside the browser. */
 export function downloadText(filename: string, text: string, mime = "text/plain"): void {
@@ -26,13 +27,15 @@ export async function saveTextWithFeedback(
   try {
     const result = await saveTextFile(filename, text);
     if (result.kind === "saved") {
-      toast.success(`Saved to ${result.path}`);
+      toast.success(i18n.t("common:download.savedTo", { path: result.path }));
     } else if (result.kind === "not-desktop") {
       downloadText(filename, text, mime);
-      toast.success(`Downloaded ${filename}`);
+      toast.success(i18n.t("common:download.downloaded", { filename }));
     }
     // "canceled": the user closed the dialog — no feedback needed.
   } catch (err) {
-    toast.error(`Could not save ${filename}: ${err instanceof Error ? err.message : String(err)}`);
+    toast.error(
+      `${i18n.t("common:download.couldNotSave", { filename })}: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 }

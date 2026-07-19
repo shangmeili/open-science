@@ -77,7 +77,7 @@ export function NotebookEditor({
     setError(null);
     try {
       const f = await readArtifact(path, root);
-      if (!f || f.encoding !== "utf8") throw new Error("could not read the notebook");
+      if (!f || f.encoding !== "utf8") throw new Error(t("notebooks.editor.couldNotRead"));
       rawRef.current = f.data;
       setLanguage(notebookLanguage(f.data));
       setCells(parseIpynb(f.data));
@@ -85,7 +85,7 @@ export function NotebookEditor({
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [path, root]);
+  }, [path, root, t]);
 
   useEffect(() => {
     void load();
@@ -102,10 +102,12 @@ export function NotebookEditor({
       // notebook's path IS the lab-relative path — deep-link straight to it.
       // A "base" path spans session folders outside that root, so just open home.
       const ok = await openJupyterLab(root === "base" ? undefined : path);
-      if (ok) toast.success("Opening JupyterLab in your browser…");
-      else toast.error("Set up Jupyter first — Settings → MCP servers → Jupyter.");
+      if (ok) toast.success(t("notebooks.toast.openingJupyterLab"));
+      else toast.error(t("notebooks.toast.setUpJupyterFirst"));
     } catch (e) {
-      toast.error(`Could not open JupyterLab: ${e instanceof Error ? e.message : String(e)}`);
+      toast.error(
+        `${t("notebooks.toast.couldNotOpenJupyterLab")}: ${e instanceof Error ? e.message : String(e)}`,
+      );
     } finally {
       setOpeningLab(false);
     }
@@ -126,13 +128,17 @@ export function NotebookEditor({
               title: `${info.resolved} (${info.source})`,
               ok: true,
             }
-          : { label: "no Python", title: info.error ?? "no Python found", ok: false },
+          : {
+              label: t("notebooks.editor.noPython"),
+              title: info.error ?? t("notebooks.editor.noPythonFound"),
+              ok: false,
+            },
       );
     });
     return () => {
       alive = false;
     };
-  }, [language]);
+  }, [language, t]);
 
   // Follow the agent live: while the user isn't mid-edit, poll the file and
   // reload when its content changed on disk (the agent writes via Jupyter).
@@ -164,9 +170,9 @@ export function NotebookEditor({
       rawRef.current = out; // our own write is not an external change
       setSaved(true);
     } catch (e) {
-      toast.error(`Could not save: ${e instanceof Error ? e.message : String(e)}`);
+      toast.error(`${t("notebooks.toast.couldNotSave")}: ${e instanceof Error ? e.message : String(e)}`);
     }
-  }, [path, root]);
+  }, [path, root, t]);
 
   // Debounced autosave: runs AFTER React commits the latest cells, so the file
   // always gets the freshest state (saving inside handlers would race setState).
@@ -188,18 +194,18 @@ export function NotebookEditor({
   const run = async (cell: NotebookCell) => {
     if (running !== null) return;
     setRunning(cell.index);
-    update(cell.index, { output: "running…" });
+    update(cell.index, { output: t("notebooks.editor.runningOutput") });
     try {
       const lang = isCodeLanguage(cell.language) ? cell.language : language;
       const res = await kernelExecute(cell.code, lang, path, root);
       update(cell.index, {
-        output: res ? formatExecResult(res) : "(local kernel available only in the desktop app)",
+        output: res ? formatExecResult(res) : t("notebooks.editor.localKernelOnly"),
       });
     } catch (e) {
       update(cell.index, {
         output: interruptRef.current
-          ? "Interrupted — the kernel was restarted; variables were reset."
-          : `kernel error: ${e instanceof Error ? e.message : String(e)}`,
+          ? t("notebooks.editor.interrupted")
+          : `${t("notebooks.editor.kernelError")}: ${e instanceof Error ? e.message : String(e)}`,
       });
     } finally {
       interruptRef.current = false;

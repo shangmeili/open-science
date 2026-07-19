@@ -120,7 +120,8 @@
       "title": "このセッションの実験実行 — チャットの横に表示"
     },
     "notebook": {
-      "openTitle": "{{path}} を開く — エージェントはこのセッションでこのノートブックを操作します"
+      "openTitle": "{{path}} を開く — エージェントはこのセッションでこのノートブックを操作します",
+      "evaluatePrompt": "ノートブックのカーネルで次を実行してください：\n```python\n{{expr}}\n```"
     },
     "connBadge": {
       "title": "AI アシスタント · {{status}}",
@@ -192,7 +193,8 @@
     "annotationAria": "注釈 {{index}}: {{note}}",
     "notePlaceholder": "メモを追加…",
     "noteAria": "注釈メモ",
-    "send": "送信"
+    "send": "送信",
+    "commentPrompt": "図「{{title}}」の位置（{{x}}%, {{y}}%）にあるメモを確認してください：{{note}}"
   },
   "reviewer": {
     "heading": "レビュアー",

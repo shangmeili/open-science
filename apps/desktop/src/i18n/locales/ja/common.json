@@ -3,5 +3,10 @@
     "save": "保存",
     "cancel": "キャンセル",
     "remove": "削除"
+  },
+  "download": {
+    "savedTo": "{{path}} に保存しました",
+    "downloaded": "{{filename}} をダウンロードしました",
+    "couldNotSave": "{{filename}} を保存できませんでした"
   }
 }

@@ -16,7 +16,8 @@
       "openingJupyterLab": "ブラウザで JupyterLab を開いています…",
       "setUpJupyterFirst": "先に Jupyter を設定してください — 設定 → MCP サーバー → Jupyter。",
       "couldNotOpenJupyterLab": "JupyterLab を開けませんでした",
-      "couldNotCreateNotebook": "ノートブックを作成できませんでした"
+      "couldNotCreateNotebook": "ノートブックを作成できませんでした",
+      "couldNotSave": "ノートブックを保存できませんでした"
     },
     "editor": {
       "backAria": "ノートブック一覧に戻る",
@@ -34,7 +35,14 @@
       "stopCellTitle": "停止 — このノートブックのカーネルを再起動します（変数はリセットされます）",
       "stopLabel": "停止",
       "runLabel": "実行",
-      "addCellLabel": "セルを追加"
+      "addCellLabel": "セルを追加",
+      "couldNotRead": "ノートブックを読み込めませんでした",
+      "noPython": "Python なし",
+      "noPythonFound": "Python インタープリターが見つかりません",
+      "runningOutput": "実行中…",
+      "localKernelOnly": "ローカルカーネルはデスクトップアプリでのみ利用できます。",
+      "interrupted": "停止しました。カーネルを再起動し、変数を消去しました。",
+      "kernelError": "カーネルエラー"
     }
   },
   "files": {
@@ -50,7 +58,17 @@
       "copyPath": "パスをコピー",
       "copyRelativePath": "相対パスをコピー",
       "relativePathLabel": "相対パス",
-      "openInDefaultApp": "デフォルトのアプリで開く"
+      "openInDefaultApp": "デフォルトのアプリで開く",
+      "pathLabel": "パス",
+      "revealInFinder": "Finder に表示",
+      "showInExplorer": "エクスプローラーに表示",
+      "showInFileManager": "ファイルマネージャーに表示"
+    },
+    "toast": {
+      "copied": "{{what}}をコピーしました",
+      "copyFailed": "クリップボードにコピーできませんでした。",
+      "resolveFailed": "ファイルパスを取得できませんでした。",
+      "revealFailed": "ファイルを表示できませんでした：{{message}}"
     }
   },
   "skills": {

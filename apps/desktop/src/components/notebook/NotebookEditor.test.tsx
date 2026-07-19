@@ -60,7 +60,7 @@ describe("NotebookEditor · stopping a hung cell", () => {
     // Stop resets exactly THIS notebook's kernel…
     expect(mocks.kernelReset).toHaveBeenCalledWith("python", "analysis.ipynb", undefined);
     // …and the cell reports the interruption, not a raw kernel error.
-    expect(await screen.findByText(/Interrupted — the kernel was restarted/)).toBeInTheDocument();
+    expect(await screen.findByText(/Stopped\. The kernel was restarted/)).toBeInTheDocument();
     // The cell is runnable again.
     expect(await screen.findByLabelText("Run cell 1")).toBeInTheDocument();
   });
@@ -69,6 +69,6 @@ describe("NotebookEditor · stopping a hung cell", () => {
     mocks.kernelExecute.mockRejectedValue(new Error("kernel exited unexpectedly"));
     render(<NotebookEditor path="analysis.ipynb" />);
     await userEvent.click(await screen.findByLabelText("Run cell 1"));
-    expect(await screen.findByText(/kernel error: kernel exited unexpectedly/)).toBeInTheDocument();
+    expect(await screen.findByText(/Kernel error: kernel exited unexpectedly/)).toBeInTheDocument();
   });
 });

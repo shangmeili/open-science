@@ -3,5 +3,10 @@
     "save": "저장",
     "cancel": "취소",
     "remove": "제거"
+  },
+  "download": {
+    "savedTo": "{{path}}에 저장했습니다",
+    "downloaded": "{{filename}}을(를) 다운로드했습니다",
+    "couldNotSave": "{{filename}}을(를) 저장할 수 없습니다"
   }
 }

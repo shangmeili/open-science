@@ -3,5 +3,10 @@
     "save": "Guardar",
     "cancel": "Cancelar",
     "remove": "Quitar"
+  },
+  "download": {
+    "savedTo": "Guardado en {{path}}",
+    "downloaded": "{{filename}} descargado",
+    "couldNotSave": "No se pudo guardar {{filename}}"
   }
 }

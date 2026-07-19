@@ -16,7 +16,8 @@
       "openingJupyterLab": "브라우저에서 JupyterLab을 여는 중…",
       "setUpJupyterFirst": "먼저 Jupyter를 설정하세요 — 설정 → MCP 서버 → Jupyter.",
       "couldNotOpenJupyterLab": "JupyterLab을 열 수 없습니다",
-      "couldNotCreateNotebook": "노트북을 만들 수 없습니다"
+      "couldNotCreateNotebook": "노트북을 만들 수 없습니다",
+      "couldNotSave": "노트북을 저장할 수 없습니다"
     },
     "editor": {
       "backAria": "노트북 목록으로 돌아가기",
@@ -34,7 +35,14 @@
       "stopCellTitle": "정지 — 이 노트북의 커널을 재시작합니다(변수가 초기화됨)",
       "stopLabel": "정지",
       "runLabel": "실행",
-      "addCellLabel": "셀 추가"
+      "addCellLabel": "셀 추가",
+      "couldNotRead": "노트북을 읽을 수 없습니다",
+      "noPython": "Python 없음",
+      "noPythonFound": "Python 인터프리터를 찾을 수 없습니다",
+      "runningOutput": "실행 중…",
+      "localKernelOnly": "로컬 커널은 데스크톱 앱에서만 사용할 수 있습니다.",
+      "interrupted": "중지했습니다. 커널을 재시작하고 변수를 지웠습니다.",
+      "kernelError": "커널 오류"
     }
   },
   "files": {
@@ -50,7 +58,17 @@
       "copyPath": "경로 복사",
       "copyRelativePath": "상대 경로 복사",
       "relativePathLabel": "상대 경로",
-      "openInDefaultApp": "기본 앱으로 열기"
+      "openInDefaultApp": "기본 앱으로 열기",
+      "pathLabel": "경로",
+      "revealInFinder": "Finder에서 보기",
+      "showInExplorer": "파일 탐색기에서 보기",
+      "showInFileManager": "파일 관리자에서 보기"
+    },
+    "toast": {
+      "copied": "{{what}}을(를) 복사했습니다",
+      "copyFailed": "클립보드에 복사할 수 없습니다.",
+      "resolveFailed": "파일 경로를 확인할 수 없습니다.",
+      "revealFailed": "파일을 표시할 수 없습니다: {{message}}"
     }
   },
   "skills": {

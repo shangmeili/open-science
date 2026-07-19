@@ -6,17 +6,18 @@
     "newNotebook": "新建笔记本",
     "pythonNotebook": "Python 笔记本",
     "rNotebook": "R 笔记本",
-    "description": "您所有会话文件夹中的 Jupyter 笔记本，按最新排序。单元格在笔记本自身文件夹中的本地 Python 或 R 内核上运行；代理处理的是同一批文件。",
+    "description": "这里汇总各会话中的 Jupyter 笔记本，最近使用的排在前面。单元格通过本机的 Python 或 R 运行，助手处理的也是这些文件。",
     "createsIn": "新笔记本创建于",
     "empty": {
-      "tauri": "尚无笔记本。创建一个，或让代理生成一个。",
+      "tauri": "还没有笔记本。可以新建一个，也可以让助手生成。",
       "web": "笔记本功能在桌面应用中可用。"
     },
     "toast": {
       "openingJupyterLab": "正在浏览器中打开 JupyterLab…",
-      "setUpJupyterFirst": "请先设置 Jupyter — 设置 → MCP 服务器 → Jupyter。",
+      "setUpJupyterFirst": "请先到“设置 → 证据与 MCP 工具”中配置 Jupyter。",
       "couldNotOpenJupyterLab": "无法打开 JupyterLab",
-      "couldNotCreateNotebook": "无法创建笔记本"
+      "couldNotCreateNotebook": "无法创建笔记本",
+      "couldNotSave": "无法保存笔记本"
     },
     "editor": {
       "backAria": "返回笔记本列表",
@@ -24,17 +25,24 @@
       "languagePython": "Python",
       "saved": "已保存",
       "unsaved": "未保存",
-      "shortcutHint": "Shift/⌘+Enter 运行单元格 · 与代理共享",
+      "shortcutHint": "按 Shift/⌘+Enter 运行单元格，助手可以读取这个笔记本",
       "openJupyterLabAria": "在 JupyterLab 中打开",
       "historyAria": "历史记录",
-      "historyTitle": "历史记录 — 每个已记录版本及其代码和对话",
+      "historyTitle": "查看每个版本及对应的代码和对话",
       "reloadAria": "从磁盘重新加载",
-      "reloadTitle": "重新加载（获取代理的更改）",
+      "reloadTitle": "重新加载助手写入的更改",
       "closeAria": "关闭检查器",
-      "stopCellTitle": "停止 — 重启此笔记本的内核（变量将被重置）",
+      "stopCellTitle": "停止运行并重启内核（变量会被清空）",
       "stopLabel": "停止",
       "runLabel": "运行",
-      "addCellLabel": "添加单元格"
+      "addCellLabel": "添加单元格",
+      "couldNotRead": "无法读取笔记本",
+      "noPython": "未找到 Python",
+      "noPythonFound": "没有找到可用的 Python 解释器",
+      "runningOutput": "正在运行…",
+      "localKernelOnly": "本地内核只能在桌面应用中使用。",
+      "interrupted": "已停止。内核已经重启，原有变量已清空。",
+      "kernelError": "内核运行错误"
     }
   },
   "files": {
@@ -50,33 +58,43 @@
       "copyPath": "复制路径",
       "copyRelativePath": "复制相对路径",
       "relativePathLabel": "相对路径",
-      "openInDefaultApp": "用默认应用打开"
+      "openInDefaultApp": "用默认应用打开",
+      "pathLabel": "路径",
+      "revealInFinder": "在 Finder 中显示",
+      "showInExplorer": "在文件资源管理器中显示",
+      "showInFileManager": "在文件管理器中显示"
+    },
+    "toast": {
+      "copied": "已复制{{what}}",
+      "copyFailed": "无法复制到剪贴板。",
+      "resolveFailed": "无法获取文件路径。",
+      "revealFailed": "无法在文件管理器中显示：{{message}}"
     }
   },
   "skills": {
-    "title": "技能与代理",
+    "title": "方法与工具",
     "description": {
-      "prefix": "从 AI 助手运行环境实时加载——已准入的 AI4HEOR 能力，以及您工作区中位于 ",
+      "prefix": "这里显示 AI4HEOR 内置的方法工具，以及当前项目中位于 ",
       "suffix": " 下的所有内容。"
     },
     "install": {
-      "sectionTitle": "评估外部资产",
-      "placeholder": "描述或粘贴 Skill、插件、MCP、计算包或 GitHub URL，启动工业化审查",
+      "sectionTitle": "评估外部工具",
+      "placeholder": "描述要评估的技能、插件、MCP 服务或计算包，也可以粘贴 GitHub 链接",
       "starting": "正在启动…",
-      "cta": "使用代理审查",
-      "hintConnected": "将打开自然语言审查会话；候选资产保持停用，只有通过独立代码审查后才能准入。",
-      "hintDisconnected": "请先连接运行时。"
+      "cta": "开始检查",
+      "hintConnected": "系统会新建一个检查会话。检查通过前，外部工具不会启用。",
+      "hintDisconnected": "请先连接本地服务。"
     },
     "assetAdmission": {
-      "sectionTitle": "第三方资产准入",
-      "loading": "正在读取安装包内的准入注册表…",
-      "unavailable": "准入注册表不可用；所有外部资产保持停用。",
+      "sectionTitle": "第三方工具检查状态",
+      "loading": "正在读取第三方工具清单…",
+      "unavailable": "无法读取第三方工具清单，所有外部工具保持停用。",
       "admitted": "已准入",
       "quarantined": "隔离候选",
       "rejected": "已拒绝",
-      "noneAdmitted": "当前没有第三方生产资产获得准入。隔离和拒绝项目仅供审查，不会加载到运行时。",
-      "registryValid": "注册表有效，已有 {{count}} 个第三方资产按精确哈希准入。",
-      "failClosed": "注册表验证失败；所有第三方资产保持停用。",
+      "noneAdmitted": "当前没有已启用的第三方工具。待检查或已拒绝的工具不会运行。",
+      "registryValid": "第三方工具清单校验通过，已有 {{count}} 个工具可以使用。",
+      "failClosed": "第三方工具清单校验失败，所有外部工具保持停用。",
       "noBlockers": "没有未解决阻断项",
       "status": {
         "admitted": "已准入",
@@ -89,14 +107,14 @@
       "detectionUnavailable": "环境检测功能在桌面应用中运行。",
       "found": "已找到",
       "notFound": "未找到",
-      "note": "AI 助手使用此处已安装的工具运行代码（例如通过 shell 工具调用 Python）。Python/R/Jupyter 并未内置；请安装它们或安装 Science Pack 以启用分析功能。"
+      "note": "运行分析时会使用本机已安装的 Python、R 或 Jupyter。应用不自带这些环境；如需使用，请单独安装或安装 Science Pack。"
     },
     "agentsSection": {
-      "sectionTitle": "代理（{{count}}）",
-      "empty": "未报告任何代理。",
+      "sectionTitle": "助手（{{count}}）",
+      "empty": "没有可用的助手。",
       "agentMode": {
-        "primary": "主要",
-        "subagent": "子代理",
+        "primary": "主助手",
+        "subagent": "子助手",
         "all": "全部"
       }
     },
@@ -109,10 +127,10 @@
         "bundled": "AI4HEOR · 第一方"
       }
     },
-    "disconnected": "连接运行时以列出其已加载的技能和代理。"
+    "disconnected": "连接本地服务后，即可查看已加载的方法、工具和助手。"
   },
   "notFound": {
-    "title": "404 — 未找到",
+    "title": "找不到这个页面",
     "hint": "此页面不存在。",
     "backLink": "返回工作区"
   }

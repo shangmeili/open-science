@@ -16,7 +16,8 @@
       "openingJupyterLab": "Abriendo JupyterLab en tu navegador…",
       "setUpJupyterFirst": "Configura Jupyter primero — Configuración → Servidores MCP → Jupyter.",
       "couldNotOpenJupyterLab": "No se pudo abrir JupyterLab",
-      "couldNotCreateNotebook": "No se pudo crear el cuaderno"
+      "couldNotCreateNotebook": "No se pudo crear el cuaderno",
+      "couldNotSave": "No se pudo guardar el cuaderno"
     },
     "editor": {
       "backAria": "Volver a los cuadernos",
@@ -34,7 +35,14 @@
       "stopCellTitle": "Detener — reinicia el kernel de este cuaderno (las variables se restablecen)",
       "stopLabel": "Detener",
       "runLabel": "Ejecutar",
-      "addCellLabel": "Añadir celda"
+      "addCellLabel": "Añadir celda",
+      "couldNotRead": "No se pudo leer el cuaderno",
+      "noPython": "Python no disponible",
+      "noPythonFound": "No se encontró un intérprete de Python",
+      "runningOutput": "Ejecutando…",
+      "localKernelOnly": "El kernel local solo está disponible en la aplicación de escritorio.",
+      "interrupted": "Ejecución detenida. El kernel se reinició y se borraron las variables.",
+      "kernelError": "Error del kernel"
     }
   },
   "files": {
@@ -50,7 +58,17 @@
       "copyPath": "Copiar ruta",
       "copyRelativePath": "Copiar ruta relativa",
       "relativePathLabel": "Ruta relativa",
-      "openInDefaultApp": "Abrir en la app predeterminada"
+      "openInDefaultApp": "Abrir en la app predeterminada",
+      "pathLabel": "Ruta",
+      "revealInFinder": "Mostrar en Finder",
+      "showInExplorer": "Mostrar en el Explorador de archivos",
+      "showInFileManager": "Mostrar en el gestor de archivos"
+    },
+    "toast": {
+      "copied": "{{what}} copiada",
+      "copyFailed": "No se pudo copiar al portapapeles.",
+      "resolveFailed": "No se pudo obtener la ruta del archivo.",
+      "revealFailed": "No se pudo mostrar el archivo: {{message}}"
     }
   },
   "skills": {

@@ -120,7 +120,8 @@
       "title": "Les exécutions d'expériences de cette session — à côté du chat"
     },
     "notebook": {
-      "openTitle": "Ouvrir {{path}} — l'agent travaille sur ce notebook dans cette session"
+      "openTitle": "Ouvrir {{path}} — l'agent travaille sur ce notebook dans cette session",
+      "evaluatePrompt": "Exécutez ceci dans le noyau du notebook :\n```python\n{{expr}}\n```"
     },
     "connBadge": {
       "title": "Assistant IA · {{status}}",
@@ -199,7 +200,8 @@
     "annotationAria": "Annotation {{index}} : {{note}}",
     "notePlaceholder": "Ajouter une note…",
     "noteAria": "Note d'annotation",
-    "send": "Envoyer"
+    "send": "Envoyer",
+    "commentPrompt": "Vérifiez la note sur la figure {{title}} à la position ({{x}} %, {{y}} %) : {{note}}"
   },
   "reviewer": {
     "heading": "Réviseur",

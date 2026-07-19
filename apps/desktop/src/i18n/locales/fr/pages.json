@@ -16,7 +16,8 @@
       "openingJupyterLab": "Ouverture de JupyterLab dans votre navigateur…",
       "setUpJupyterFirst": "Configurez d'abord Jupyter — Paramètres → Serveurs MCP → Jupyter.",
       "couldNotOpenJupyterLab": "Impossible d'ouvrir JupyterLab",
-      "couldNotCreateNotebook": "Impossible de créer le notebook"
+      "couldNotCreateNotebook": "Impossible de créer le notebook",
+      "couldNotSave": "Impossible d’enregistrer le notebook"
     },
     "editor": {
       "backAria": "Retour aux notebooks",
@@ -34,7 +35,14 @@
       "stopCellTitle": "Arrêter — redémarre le noyau de ce notebook (les variables sont réinitialisées)",
       "stopLabel": "Arrêter",
       "runLabel": "Exécuter",
-      "addCellLabel": "Ajouter une cellule"
+      "addCellLabel": "Ajouter une cellule",
+      "couldNotRead": "Impossible de lire le notebook",
+      "noPython": "Python indisponible",
+      "noPythonFound": "Aucun interpréteur Python trouvé",
+      "runningOutput": "Exécution…",
+      "localKernelOnly": "Le noyau local est disponible uniquement dans l’application de bureau.",
+      "interrupted": "Exécution arrêtée. Le noyau a redémarré et les variables ont été effacées.",
+      "kernelError": "Erreur du noyau"
     }
   },
   "files": {
@@ -50,7 +58,17 @@
       "copyPath": "Copier le chemin",
       "copyRelativePath": "Copier le chemin relatif",
       "relativePathLabel": "Chemin relatif",
-      "openInDefaultApp": "Ouvrir dans l'application par défaut"
+      "openInDefaultApp": "Ouvrir dans l'application par défaut",
+      "pathLabel": "Chemin",
+      "revealInFinder": "Afficher dans le Finder",
+      "showInExplorer": "Afficher dans l’Explorateur de fichiers",
+      "showInFileManager": "Afficher dans le gestionnaire de fichiers"
+    },
+    "toast": {
+      "copied": "{{what}} copié",
+      "copyFailed": "Impossible de copier dans le presse-papiers.",
+      "resolveFailed": "Impossible d’obtenir le chemin du fichier.",
+      "revealFailed": "Impossible d’afficher le fichier : {{message}}"
     }
   },
   "skills": {

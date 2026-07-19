@@ -125,12 +125,17 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
   const handlers: BlockHandlers = {
     onArtifactOpen: openArtifact,
     onFigureComment: (a, title) =>
-      void sendPrompt(`On the figure ${title}, at (${a.x.toFixed(0)}%, ${a.y.toFixed(0)}%): ${a.note}`),
+      void sendPrompt(t("figure.commentPrompt", {
+        title,
+        x: a.x.toFixed(0),
+        y: a.y.toFixed(0),
+        note: a.note,
+      })),
     // Subagent events fold into their own thread; a running task row reads
     // its child's latest step from there.
     subagentActivity: (childId) => subagentActivity(threads[childId]?.blocks),
   };
-  const onEvaluate = (expr: string) => void sendPrompt(`Evaluate in the notebook kernel:\n\`\`\`python\n${expr}\n\`\`\``);
+  const onEvaluate = (expr: string) => void sendPrompt(t("live.notebook.evaluatePrompt", { expr }));
 
   // A draft shows its local thread (the first message echoes there instantly,
   // before any session exists) — it is grafted onto the session id on create.

@@ -16,7 +16,8 @@
       "openingJupyterLab": "JupyterLab wird im Browser geöffnet…",
       "setUpJupyterFirst": "Richten Sie zuerst Jupyter ein — Einstellungen → MCP-Server → Jupyter.",
       "couldNotOpenJupyterLab": "JupyterLab konnte nicht geöffnet werden",
-      "couldNotCreateNotebook": "Notebook konnte nicht erstellt werden"
+      "couldNotCreateNotebook": "Notebook konnte nicht erstellt werden",
+      "couldNotSave": "Notebook konnte nicht gespeichert werden"
     },
     "editor": {
       "backAria": "Zurück zu Notebooks",
@@ -34,7 +35,14 @@
       "stopCellTitle": "Stopp — startet den Kernel dieses Notebooks neu (Variablen werden zurückgesetzt)",
       "stopLabel": "Stopp",
       "runLabel": "Ausführen",
-      "addCellLabel": "Zelle hinzufügen"
+      "addCellLabel": "Zelle hinzufügen",
+      "couldNotRead": "Notebook konnte nicht gelesen werden",
+      "noPython": "Kein Python",
+      "noPythonFound": "Kein Python-Interpreter gefunden",
+      "runningOutput": "Wird ausgeführt…",
+      "localKernelOnly": "Der lokale Kernel ist nur in der Desktop-App verfügbar.",
+      "interrupted": "Gestoppt. Der Kernel wurde neu gestartet und die Variablen wurden gelöscht.",
+      "kernelError": "Kernel-Fehler"
     }
   },
   "files": {
@@ -50,7 +58,17 @@
       "copyPath": "Pfad kopieren",
       "copyRelativePath": "Relativen Pfad kopieren",
       "relativePathLabel": "Relativer Pfad",
-      "openInDefaultApp": "In Standard-App öffnen"
+      "openInDefaultApp": "In Standard-App öffnen",
+      "pathLabel": "Pfad",
+      "revealInFinder": "Im Finder anzeigen",
+      "showInExplorer": "Im Datei-Explorer anzeigen",
+      "showInFileManager": "Im Dateimanager anzeigen"
+    },
+    "toast": {
+      "copied": "{{what}} kopiert",
+      "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen.",
+      "resolveFailed": "Dateipfad konnte nicht ermittelt werden.",
+      "revealFailed": "Datei konnte nicht angezeigt werden: {{message}}"
     }
   },
   "skills": {

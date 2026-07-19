@@ -120,7 +120,8 @@
       "title": "Die Experimentdurchläufe dieser Sitzung — neben dem Chat"
     },
     "notebook": {
-      "openTitle": "{{path}} öffnen — der Agent arbeitet in dieser Sitzung an diesem Notebook"
+      "openTitle": "{{path}} öffnen — der Agent arbeitet in dieser Sitzung an diesem Notebook",
+      "evaluatePrompt": "Führe Folgendes im Notebook-Kernel aus:\n```python\n{{expr}}\n```"
     },
     "connBadge": {
       "title": "KI-Assistent · {{status}}",
@@ -199,7 +200,8 @@
     "annotationAria": "Anmerkung {{index}}: {{note}}",
     "notePlaceholder": "Eine Notiz hinzufügen…",
     "noteAria": "Anmerkungsnotiz",
-    "send": "Senden"
+    "send": "Senden",
+    "commentPrompt": "Prüfe die Notiz in Abbildung {{title}} bei ({{x}}%, {{y}}%): {{note}}"
   },
   "reviewer": {
     "heading": "Prüfer",

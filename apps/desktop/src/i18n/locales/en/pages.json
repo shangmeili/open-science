@@ -16,7 +16,8 @@
       "openingJupyterLab": "Opening JupyterLab in your browser…",
       "setUpJupyterFirst": "Set up Jupyter first — Settings → MCP servers → Jupyter.",
       "couldNotOpenJupyterLab": "Could not open JupyterLab",
-      "couldNotCreateNotebook": "Could not create notebook"
+      "couldNotCreateNotebook": "Could not create notebook",
+      "couldNotSave": "Could not save the notebook"
     },
     "editor": {
       "backAria": "Back to notebooks",
@@ -34,7 +35,14 @@
       "stopCellTitle": "Stop — restarts this notebook's kernel (variables reset)",
       "stopLabel": "Stop",
       "runLabel": "Run",
-      "addCellLabel": "Add cell"
+      "addCellLabel": "Add cell",
+      "couldNotRead": "Could not read the notebook",
+      "noPython": "No Python",
+      "noPythonFound": "No Python interpreter found",
+      "runningOutput": "Running…",
+      "localKernelOnly": "The local kernel is available only in the desktop app.",
+      "interrupted": "Stopped. The kernel was restarted and its variables were cleared.",
+      "kernelError": "Kernel error"
     }
   },
   "files": {
@@ -50,7 +58,17 @@
       "copyPath": "Copy path",
       "copyRelativePath": "Copy relative path",
       "relativePathLabel": "Relative path",
-      "openInDefaultApp": "Open in default app"
+      "openInDefaultApp": "Open in default app",
+      "pathLabel": "Path",
+      "revealInFinder": "Reveal in Finder",
+      "showInExplorer": "Show in File Explorer",
+      "showInFileManager": "Show in File Manager"
+    },
+    "toast": {
+      "copied": "{{what}} copied",
+      "copyFailed": "Could not copy to the clipboard.",
+      "resolveFailed": "Could not resolve the file path.",
+      "revealFailed": "Could not reveal the file: {{message}}"
     }
   },
   "skills": {

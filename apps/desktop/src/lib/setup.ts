@@ -9,6 +9,7 @@ import { create } from "zustand";
 import { getClient, useRuntimeStore } from "./runtime";
 import { setupJupyter, startJupyter, watchSetupProgress } from "./tauri";
 import { toast } from "./toast";
+import i18n from "../i18n";
 
 interface SetupState {
   /** True while the isolated Jupyter env is being provisioned. */
@@ -31,20 +32,24 @@ export const useSetupStore = create<SetupState>((set, get) => ({
     if (get().jupyterBusy) return;
     set({ jupyterBusy: true, line: null });
     try {
-      toast.success("Setting up Jupyter — first run downloads a few hundred MB, please wait…");
+      toast.success(i18n.t("settings:mcp.setupStarting"));
       await setupJupyter();
       const s = await startJupyter();
-      if (!s.url || !s.token || !s.mcp_command) throw new Error("setup finished incomplete");
+      if (!s.url || !s.token || !s.mcp_command) {
+        throw new Error(i18n.t("settings:mcp.setupIncomplete"));
+      }
       await getClient()!.addMcpServer("jupyter", {
         type: "local",
         command: [s.mcp_command],
         enabled: true,
         environment: { JUPYTER_URL: s.url, JUPYTER_TOKEN: s.token, ALLOW_IMG_OUTPUT: "true" },
       });
-      toast.success("Jupyter MCP enabled — the agent can now drive notebooks.");
+      toast.success(i18n.t("settings:mcp.setupComplete"));
       await useRuntimeStore.getState().loadCatalog();
     } catch (e) {
-      toast.error(`Jupyter setup failed: ${e instanceof Error ? e.message : String(e)}`);
+      toast.error(
+        `${i18n.t("settings:mcp.setupFailed")}: ${e instanceof Error ? e.message : String(e)}`,
+      );
     } finally {
       set((st) => ({ jupyterBusy: false, line: null, generation: st.generation + 1 }));
     }

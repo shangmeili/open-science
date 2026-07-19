@@ -120,7 +120,8 @@
       "title": "This session's experiment runs — beside the chat"
     },
     "notebook": {
-      "openTitle": "Open {{path}} — the agent works on this notebook in this session"
+      "openTitle": "Open {{path}} — the agent works on this notebook in this session",
+      "evaluatePrompt": "Evaluate this in the notebook kernel:\n```python\n{{expr}}\n```"
     },
     "connBadge": {
       "title": "AI assistant · {{status}}",
@@ -199,7 +200,8 @@
     "annotationAria": "Annotation {{index}}: {{note}}",
     "notePlaceholder": "Add a note…",
     "noteAria": "Annotation note",
-    "send": "Send"
+    "send": "Send",
+    "commentPrompt": "Review the note on figure {{title}} at ({{x}}%, {{y}}%): {{note}}"
   },
   "reviewer": {
     "heading": "Reviewer",

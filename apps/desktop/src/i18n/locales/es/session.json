@@ -120,7 +120,8 @@
       "title": "Las ejecuciones de experimentos de esta sesión — junto al chat"
     },
     "notebook": {
-      "openTitle": "Abrir {{path}} — el agente trabaja en este cuaderno dentro de esta sesión"
+      "openTitle": "Abrir {{path}} — el agente trabaja en este cuaderno dentro de esta sesión",
+      "evaluatePrompt": "Ejecuta lo siguiente en el kernel del cuaderno:\n```python\n{{expr}}\n```"
     },
     "connBadge": {
       "title": "Asistente de IA · {{status}}",
@@ -199,7 +200,8 @@
     "annotationAria": "Anotación {{index}}: {{note}}",
     "notePlaceholder": "Añade una nota…",
     "noteAria": "Nota de anotación",
-    "send": "Enviar"
+    "send": "Enviar",
+    "commentPrompt": "Revisa la nota de la figura {{title}} en ({{x}}%, {{y}}%): {{note}}"
   },
   "reviewer": {
     "heading": "Revisor",
