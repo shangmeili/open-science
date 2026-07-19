@@ -53,6 +53,7 @@ import {
   auditHeorReproducibility,
   addHeorLibraryDirectory,
   addHeorLibraryFiles,
+  installBundledHeorKnowledgeBase,
   browserDemoRun,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_PLAN,
@@ -1543,6 +1544,32 @@ export function HeorReviewPane({
     }
   };
 
+  const installBundledLibrary = async () => {
+    if (!project || librarySyncing || !isTauri) return;
+    setLibrarySyncing(true);
+    try {
+      const installation = await installBundledHeorKnowledgeBase(project.id);
+      setEvidenceLibrary({ kind: "ready", audit: installation.audit });
+      toast.success(installation.alreadyInstalled
+        ? t("toast.bundledLibraryAlreadyInstalled")
+        : t("toast.bundledLibraryInstalled", {
+          documents: installation.audit.documentCount,
+          updated: installation.updated,
+        }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(message.includes("existing files were preserved")
+        ? t("library.installChanged")
+        : message.includes("bundled knowledge base is unavailable")
+          || message.includes("bundled knowledge-base manifest")
+          || message.includes("bundled knowledge-base resource tree")
+          ? t("library.installUnavailable")
+          : t("library.installFailed"));
+    } finally {
+      setLibrarySyncing(false);
+    }
+  };
+
   const submitPairedBootstrapReview = async (
     action: "accept" | "reject",
     checklist: HeorPairedBootstrapChecklist,
@@ -1753,6 +1780,7 @@ export function HeorReviewPane({
           <EvidenceLibraryAssessment
             state={evidenceLibrary}
             syncing={librarySyncing}
+            onInstallBundled={() => void installBundledLibrary()}
             onAddFiles={() => void syncLibrary(LIBRARY_SYNC_SOURCE.files)}
             onAddFolder={() => void syncLibrary(LIBRARY_SYNC_SOURCE.folder)}
             onSync={() => void syncLibrary(LIBRARY_SYNC_SOURCE.none)}
@@ -2939,9 +2967,10 @@ export function MethodsWatchlistReviewDialog({
   );
 }
 
-function EvidenceLibraryAssessment({
+export function EvidenceLibraryAssessment({
   state,
   syncing,
+  onInstallBundled,
   onAddFiles,
   onAddFolder,
   onSync,
@@ -2949,6 +2978,7 @@ function EvidenceLibraryAssessment({
 }: {
   state: EvidenceLibraryState;
   syncing: boolean;
+  onInstallBundled: () => void;
   onAddFiles: () => void;
   onAddFolder: () => void;
   onSync: () => void;
@@ -3005,6 +3035,18 @@ function EvidenceLibraryAssessment({
         </ul>
       )}
       <div className="mt-3 flex flex-wrap gap-3">
+        {isTauri && (
+          <button
+            disabled={syncing}
+            onClick={onInstallBundled}
+            className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline disabled:opacity-50"
+          >
+            {syncing
+              ? <Loader2 size={13} className="animate-spin" />
+              : <BookOpen size={13} />}
+            {t("library.installBundled")}
+          </button>
+        )}
         {isTauri && (
           <button
             disabled={syncing}

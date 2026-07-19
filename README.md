@@ -73,9 +73,10 @@ in one continuous, auditable session.
 - **HEOR projects from the first click** — the app opens in the AI4HEOR workspace;
   new work creates a typed local HEOR project, keeps every project session in the
   HEOR route, and pre-fills a researcher-reviewable intake request without sending it.
-- **Local HEOR knowledge bases** — explicitly selected folders retain their hierarchy,
-  are hash-bound and indexed locally, and can ground researcher-initiated learning
-  without an automatic network call.
+- **Local HEOR knowledge bases** — install the dated built-in Chinese pharmacoeconomics
+  learning library with one explicit click, or add your own folders. Sources retain their
+  hierarchy, are hash-bound and indexed locally, and can ground researcher-initiated
+  learning without an automatic network call.
 - **Researcher-owned methods currency** — a dated local watchlist records official
   links, revisions, rights status, affected contracts, and revalidation work;
   AI4HEOR flags overdue or unresolved items without scraping restricted content or
@@ -290,12 +291,15 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source and the current verified x64 macOS package are 0.1.35. Version 0.1.35 adds a
-separately confirmed, model-free local run for the hash-bound cost-effectiveness
-teaching case. It verifies the installed governed bytes, writes the base case and
-declared low/high sensitivity results, and records the run and provenance without
-sending case content to a model provider. It retains the 0.1.34 sixth HEOR starter,
-the 0.1.33 rewrite of the Simplified-Chinese research surface,
+accepted. Current source is 0.1.36; the current verified x64 macOS package remains
+0.1.35 while the new Intel package is built and checked. Version 0.1.36 adds the
+versioned 25-document Simplified-Chinese pharmacoeconomics learning library and an
+explicit local install action. The app verifies the exact packaged manifest and source
+hashes, builds the existing project-bound local index without a model or network call,
+keeps stable theory/methods separate from dated recent-progress material, and refuses
+to overwrite an edited installed copy. It retains the 0.1.35 separately confirmed,
+model-free local run for the hash-bound cost-effectiveness teaching case, the 0.1.34
+sixth HEOR starter, the 0.1.33 rewrite of the Simplified-Chinese research surface,
 and all 45 bundled Skill
 descriptions in direct pharmacoeconomics language, and moves previously hard-coded
 download, file-manager, Jupyter, notebook, and generated-assistant prompts into the seven
@@ -365,7 +369,7 @@ If you use AI4HEOR in your research, please cite it:
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.35},
+  version = {0.1.36},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

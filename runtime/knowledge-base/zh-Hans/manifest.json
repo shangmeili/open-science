@@ -1,0 +1,124 @@
+{
+  "schemaVersion": "ai4heor-bundled-knowledge-base/v1",
+  "bundleId": "ai4heor-pharmacoeconomics-foundations-zh-Hans-2026-07",
+  "title": "AI4HEOR 药物经济学基础与方法学习库",
+  "locale": "zh-Hans",
+  "updated": "2026-07-14",
+  "status": "dated_learning_material",
+  "boundaries": {
+    "stableContent": [
+      "01-基础理论",
+      "02-方法学",
+      "03-工作实务",
+      "05-模板"
+    ],
+    "datedContent": [
+      "04-最新进展",
+      "06-来源"
+    ],
+    "scientificAuthority": "human_researcher",
+    "policyStatus": "verify_current_sources_before_use"
+  },
+  "files": [
+    {
+      "path": "00-导航/8周学习路线.md",
+      "sha256": "365dd821bb8f72acf2e1b728ad5c6d197915eba55d2c1c46b0cf63cc14221837"
+    },
+    {
+      "path": "00-导航/术语表.md",
+      "sha256": "e05ae32e80fbf4ea7e50317d04002c52932bff1c907e7405abdcecdf139d5fa3"
+    },
+    {
+      "path": "00-导航/知识地图.md",
+      "sha256": "e7d776c527559817870e1d6003824be1cecc15449dd27d490cbb2de8761f9830"
+    },
+    {
+      "path": "01-基础理论/01-稀缺性、效率与机会成本.md",
+      "sha256": "cb64e2e8162fd15ee83ccc3ab2bf1eb8ab3346a11fdc9cd79a359793b5666774"
+    },
+    {
+      "path": "01-基础理论/02-经济评价类型与适用场景.md",
+      "sha256": "a2a6e9e9bf425843e355c97a9facdbf2cd97ea4f053370876b297c79080e2d8c"
+    },
+    {
+      "path": "01-基础理论/03-QALY、ICER与净货币获益.md",
+      "sha256": "88ba262743a31e6fcad537d7aa24958c82552f501290613e5a79aec5a23a0ca9"
+    },
+    {
+      "path": "02-方法学/01-决策问题与参考案例.md",
+      "sha256": "293a698e8cbfbc4cc42705f4889d4fa6363cef0fddd0f0f723368a340233ee8a"
+    },
+    {
+      "path": "02-方法学/02-模型选择与结构.md",
+      "sha256": "3a660b685dc3b38c4baada3b2de3611fc479d1c061ad5226d435c448a6593dee"
+    },
+    {
+      "path": "02-方法学/03-临床证据与效果外推.md",
+      "sha256": "a900761bb2b6c758ce7412a3f350dec8ae67284591b106662b281dcd68d7f97f"
+    },
+    {
+      "path": "02-方法学/04-成本识别、测量与计价.md",
+      "sha256": "79c7afc31cfaa3ac90b85a6ad47f72f86057708be65c2d42de1c81e529ce3f9a"
+    },
+    {
+      "path": "02-方法学/05-健康效用与QALY测量.md",
+      "sha256": "bc979eb4ffe89d2db9645ae44ce0d44e96401298ca94662d6588298df2160faf"
+    },
+    {
+      "path": "02-方法学/06-不确定性、异质性与价值信息.md",
+      "sha256": "09f986be95df5101d2e62382eba0c61cb519077f7c4cdfc2a80e9fe7d55f6d10"
+    },
+    {
+      "path": "02-方法学/07-预算影响分析.md",
+      "sha256": "b7c8c5e9d8b9d8db3f0a12e01d123f591263f7663545530d1d13d6db3a707325"
+    },
+    {
+      "path": "03-工作实务/工作内容全景.md",
+      "sha256": "f2a5482e5af853566eb0d94d6b8d1ed33fddde4ac41c48b2239ef2b0f509d913"
+    },
+    {
+      "path": "03-工作实务/质量控制与常见陷阱.md",
+      "sha256": "8118540552dc3906215592ae8bcb9a486a8d6240c99e6a604a3e8ae68280a9a1"
+    },
+    {
+      "path": "03-工作实务/项目全流程.md",
+      "sha256": "aabded50babde7e34b3311668c30a3db53e553d9de137d21bb244c21c776a69c"
+    },
+    {
+      "path": "04-最新进展/截至2026-07的方法学与政策进展.md",
+      "sha256": "f3921cbe2adc3dd7fc70c760d3089cc439843d18efde7bfe647d6e7bc1f86ae5"
+    },
+    {
+      "path": "05-模板/参数来源表.md",
+      "sha256": "09dcca66edf6351a13af959a369a39054062a947d7dcbcdb1dc290cc82149d43"
+    },
+    {
+      "path": "05-模板/文献批判性评价模板.md",
+      "sha256": "56f00e4c761d9592258ed14053f15505da99ff1c71c2a94d1f85e52c7a540bbf"
+    },
+    {
+      "path": "05-模板/模型验证清单.md",
+      "sha256": "ec03b88082438b216e0e6d2f341019e3e9a7062fc95860d792b3cab616f5a9d1"
+    },
+    {
+      "path": "05-模板/研究方案模板.md",
+      "sha256": "98ab01e39eceb5f74ab822abcd8cf8ec1dc1094cfab11d65a9e41ae1fe52a426"
+    },
+    {
+      "path": "06-来源/更新日志.md",
+      "sha256": "ed373989b6202e8d5309acfe46f8989d2fe4e6d60c482e80a60eae6919cccfe0"
+    },
+    {
+      "path": "06-来源/更新规则.md",
+      "sha256": "f0ff42f4733cfdcc9b054faa382af53e486b7370bd6389e315cad1f9786cbb61"
+    },
+    {
+      "path": "06-来源/权威来源索引.md",
+      "sha256": "5a6da3f12d5346e87fe2bf17bbf4b66368d34960e111ce2dfc0fae66275f6d1f"
+    },
+    {
+      "path": "README.md",
+      "sha256": "54a2787f734d96fd5bb12fdbffe65a3c7f6a5dc1166fe2ed9daf0ed0bf0f967e"
+    }
+  ]
+}

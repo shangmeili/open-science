@@ -178,6 +178,13 @@ labels this only as the “AI assistant” state. OpenCode is an implementation 
 its engine name and local endpoint appear only in collapsed advanced diagnostics,
 and its command or port is not exposed in the HEOR workspace.
 
+The local-learning route includes an auxiliary, explicit install action for the
+versioned Simplified-Chinese pharmacoeconomics learning library shipped with the
+desktop package. The app verifies the manifest and every source SHA-256, preserves
+the theory/methods versus dated-progress boundary, installs without a model or
+network call, builds the existing local index, and never overwrites an edited or
+conflicting installed copy. Researchers may instead add their own local folders.
+
 Creating a project asks only for its local display name, then pre-fills an unsent,
 localized natural-language intake request. Scientific scope, methods, evidence,
 assumptions, and approvals are not collected or chosen by the creation form.

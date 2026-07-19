@@ -175,6 +175,7 @@ pub fn run() {
             heor_search::list_heor_search_authorizations,
             heor_library::add_heor_library_directory,
             heor_library::add_heor_library_files,
+            heor_library::install_bundled_heor_knowledge_base,
             heor_library::audit_heor_evidence_library,
             heor_library::search_heor_evidence_library,
             heor_library::sync_heor_evidence_library,

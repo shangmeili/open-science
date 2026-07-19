@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use tauri::AppHandle;
+use tauri::{path::BaseDirectory, AppHandle, Manager};
 
 pub const LIBRARY_DIR: &str = "heor/library";
 pub const LIBRARY_MANIFEST_PATH: &str = "heor/evidence-library.json";
@@ -27,6 +27,12 @@ const MAX_TOTAL_BYTES: u64 = 500 * 1024 * 1024;
 const MAX_EXTRACTED_BYTES: usize = 12 * 1024 * 1024;
 const MAX_TOTAL_EXTRACTED_BYTES: usize = 250 * 1024 * 1024;
 const MAX_QUERY_CHARS: usize = 500;
+const BUNDLED_LIBRARY_RESOURCE: &str = "knowledge-base/zh-Hans";
+const BUNDLED_LIBRARY_SCHEMA: &str = "ai4heor-bundled-knowledge-base/v1";
+const BUNDLED_LIBRARY_ID: &str = "ai4heor-pharmacoeconomics-foundations-zh-Hans-2026-07";
+const BUNDLED_LIBRARY_DESTINATION: &str = "ai4heor-pharmacoeconomics-foundations-zh-Hans-2026-07";
+const BUNDLED_LIBRARY_MANIFEST_COPY: &str = "_AI4HEOR-BUNDLE.json";
+const MAX_BUNDLED_SOURCE_BYTES: u64 = 1024 * 1024;
 
 #[derive(Default)]
 pub struct HeorLibraryState(pub Mutex<()>);
@@ -95,6 +101,49 @@ pub struct LibrarySearchResponse {
 pub struct LibraryDirectoryImport {
     pub added: Vec<String>,
     pub skipped: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct BundledLibraryFile {
+    path: String,
+    sha256: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct BundledLibraryBoundaries {
+    stable_content: Vec<String>,
+    dated_content: Vec<String>,
+    scientific_authority: String,
+    policy_status: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct BundledLibraryManifest {
+    schema_version: String,
+    bundle_id: String,
+    title: String,
+    locale: String,
+    updated: String,
+    status: String,
+    boundaries: BundledLibraryBoundaries,
+    files: Vec<BundledLibraryFile>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BundledLibraryInstall {
+    schema: &'static str,
+    bundle_id: String,
+    title: String,
+    locale: String,
+    updated: String,
+    manifest_sha256: String,
+    added: Vec<String>,
+    already_installed: bool,
+    audit: LibraryAudit,
 }
 
 #[derive(Debug)]
@@ -292,6 +341,274 @@ fn copy_checked(source: &Path, destination: &Path, expected_bytes: u64) -> Resul
         .sync_all()
         .map_err(|error| format!("could not sync imported evidence: {error}"))?;
     Ok(())
+}
+
+fn safe_bundle_relative(value: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(value);
+    if value.is_empty()
+        || path.is_absolute()
+        || path
+            .components()
+            .any(|component| !matches!(component, std::path::Component::Normal(_)))
+    {
+        return Err(format!("bundled knowledge-base path is unsafe: {value}"));
+    }
+    Ok(path)
+}
+
+fn read_bundled_manifest(resource: &Path) -> Result<(BundledLibraryManifest, Vec<u8>), String> {
+    let manifest_path = resource.join("manifest.json");
+    let metadata = std::fs::symlink_metadata(&manifest_path)
+        .map_err(|error| format!("bundled knowledge-base manifest is unavailable: {error}"))?;
+    if metadata.file_type().is_symlink()
+        || !metadata.is_file()
+        || metadata.len() > MAX_BUNDLED_SOURCE_BYTES
+    {
+        return Err("bundled knowledge-base manifest must be a bounded regular file".into());
+    }
+    let raw = std::fs::read(&manifest_path)
+        .map_err(|error| format!("bundled knowledge-base manifest could not be read: {error}"))?;
+    let manifest: BundledLibraryManifest = serde_json::from_slice(&raw)
+        .map_err(|error| format!("bundled knowledge-base manifest is invalid: {error}"))?;
+    if manifest.schema_version != BUNDLED_LIBRARY_SCHEMA
+        || manifest.bundle_id != BUNDLED_LIBRARY_ID
+        || manifest.locale != "zh-Hans"
+        || manifest.updated != "2026-07-14"
+        || manifest.status != "dated_learning_material"
+        || manifest.boundaries.scientific_authority != "human_researcher"
+        || manifest.boundaries.policy_status != "verify_current_sources_before_use"
+        || manifest.boundaries.stable_content.is_empty()
+        || manifest.boundaries.dated_content.is_empty()
+        || manifest.files.is_empty()
+    {
+        return Err(
+            "bundled knowledge-base manifest contract does not match the supported release".into(),
+        );
+    }
+    Ok((manifest, raw))
+}
+
+fn discover_bundle_tree(root: &Path) -> Result<Vec<String>, String> {
+    let root = root
+        .canonicalize()
+        .map_err(|error| format!("bundled knowledge base is unavailable: {error}"))?;
+    let mut directories = vec![root.clone()];
+    let mut files = Vec::new();
+    while let Some(directory) = directories.pop() {
+        let mut entries = std::fs::read_dir(&directory)
+            .map_err(|error| format!("could not read bundled knowledge base: {error}"))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| format!("could not read bundled knowledge-base entry: {error}"))?;
+        entries.sort_by_key(|entry| entry.file_name());
+        for entry in entries {
+            let path = entry.path();
+            let relative = relative_slash(&path, &root)?;
+            let file_type = entry
+                .file_type()
+                .map_err(|error| format!("could not inspect bundled source {relative}: {error}"))?;
+            if file_type.is_symlink() {
+                return Err(format!(
+                    "bundled knowledge base contains a symbolic link: {relative}"
+                ));
+            }
+            if file_type.is_dir() {
+                directories.push(path);
+            } else if file_type.is_file() {
+                files.push(relative);
+            } else {
+                return Err(format!(
+                    "bundled knowledge base contains a non-regular entry: {relative}"
+                ));
+            }
+        }
+    }
+    files.sort();
+    Ok(files)
+}
+
+fn validate_bundled_library(resource: &Path) -> Result<(BundledLibraryManifest, Vec<u8>), String> {
+    let resource_metadata = std::fs::symlink_metadata(resource)
+        .map_err(|error| format!("bundled knowledge base is unavailable: {error}"))?;
+    if resource_metadata.file_type().is_symlink() || !resource_metadata.is_dir() {
+        return Err("bundled knowledge base must be a regular resource directory".into());
+    }
+    let (manifest, manifest_raw) = read_bundled_manifest(resource)?;
+    let mut expected = vec!["manifest.json".to_string()];
+    let mut previous = None::<String>;
+    for file in &manifest.files {
+        let relative = safe_bundle_relative(&file.path)?;
+        if previous
+            .as_deref()
+            .is_some_and(|value| value >= file.path.as_str())
+        {
+            return Err("bundled knowledge-base manifest files must be unique and sorted".into());
+        }
+        previous = Some(file.path.clone());
+        let source = resource.join(&relative);
+        let metadata = std::fs::symlink_metadata(&source)
+            .map_err(|error| format!("bundled source {} is unavailable: {error}", file.path))?;
+        if metadata.file_type().is_symlink()
+            || !metadata.is_file()
+            || metadata.len() > MAX_BUNDLED_SOURCE_BYTES
+        {
+            return Err(format!(
+                "bundled source {} must be a bounded regular file",
+                file.path
+            ));
+        }
+        let raw = std::fs::read(&source)
+            .map_err(|error| format!("bundled source {} could not be read: {error}", file.path))?;
+        if sha256(&raw) != file.sha256 {
+            return Err(format!(
+                "bundled source {} failed SHA-256 verification",
+                file.path
+            ));
+        }
+        expected.push(file.path.clone());
+    }
+    expected.sort();
+    if discover_bundle_tree(resource)? != expected {
+        return Err("bundled knowledge-base resource tree differs from its manifest".into());
+    }
+    Ok((manifest, manifest_raw))
+}
+
+fn verify_installed_bundle(
+    destination: &Path,
+    manifest: &BundledLibraryManifest,
+    manifest_raw: &[u8],
+) -> Result<(), String> {
+    let metadata = std::fs::symlink_metadata(destination)
+        .map_err(|error| format!("bundled knowledge-base destination is unavailable: {error}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err("bundled knowledge-base destination must be a regular directory".into());
+    }
+    let mut expected = manifest
+        .files
+        .iter()
+        .map(|file| file.path.clone())
+        .collect::<Vec<_>>();
+    expected.push(BUNDLED_LIBRARY_MANIFEST_COPY.into());
+    expected.sort();
+    if discover_bundle_tree(destination)? != expected {
+        return Err("bundled knowledge-base destination contains missing or extra files".into());
+    }
+    for file in &manifest.files {
+        let installed = destination.join(safe_bundle_relative(&file.path)?);
+        let metadata = std::fs::symlink_metadata(&installed)
+            .map_err(|error| format!("installed source {} is unavailable: {error}", file.path))?;
+        if metadata.file_type().is_symlink()
+            || !metadata.is_file()
+            || metadata.len() > MAX_BUNDLED_SOURCE_BYTES
+        {
+            return Err(format!(
+                "installed source {} must remain a bounded regular file",
+                file.path
+            ));
+        }
+        let raw = std::fs::read(&installed).map_err(|error| {
+            format!("installed source {} could not be read: {error}", file.path)
+        })?;
+        if sha256(&raw) != file.sha256 {
+            return Err(format!(
+                "installed source {} differs from the bundled version",
+                file.path
+            ));
+        }
+    }
+    let installed_manifest_path = destination.join(BUNDLED_LIBRARY_MANIFEST_COPY);
+    let installed_manifest_metadata = std::fs::symlink_metadata(&installed_manifest_path)
+        .map_err(|error| format!("installed bundle manifest is unavailable: {error}"))?;
+    if installed_manifest_metadata.file_type().is_symlink()
+        || !installed_manifest_metadata.is_file()
+        || installed_manifest_metadata.len() > MAX_BUNDLED_SOURCE_BYTES
+    {
+        return Err("installed bundle manifest must remain a bounded regular file".into());
+    }
+    let installed_manifest = std::fs::read(installed_manifest_path)
+        .map_err(|error| format!("installed bundle manifest could not be read: {error}"))?;
+    if installed_manifest != manifest_raw {
+        return Err("installed bundle manifest differs from the bundled version".into());
+    }
+    Ok(())
+}
+
+fn install_bundled_library_from(
+    workspace: &Path,
+    resource: &Path,
+    project_id: &str,
+) -> Result<BundledLibraryInstall, String> {
+    if crate::project::require_project_id(workspace)? != project_id {
+        return Err("bundled knowledge-base projectId does not match the current project".into());
+    }
+    let (manifest, manifest_raw) = validate_bundled_library(resource)?;
+    let manifest_sha256 = sha256(&manifest_raw);
+    let library = ensure_library(workspace)?;
+    let destination = library.join(BUNDLED_LIBRARY_DESTINATION);
+    let already_installed = std::fs::symlink_metadata(&destination).is_ok();
+    let mut added = Vec::new();
+    if already_installed {
+        verify_installed_bundle(&destination, &manifest, &manifest_raw).map_err(|error| {
+            format!("{error}; existing files were preserved and were not replaced")
+        })?;
+    } else {
+        std::fs::create_dir(&destination).map_err(|error| {
+            format!("could not create bundled knowledge-base destination: {error}")
+        })?;
+        let copy_result = (|| -> Result<(), String> {
+            for file in &manifest.files {
+                let relative = safe_bundle_relative(&file.path)?;
+                let source = resource.join(&relative);
+                let target = destination.join(&relative);
+                std::fs::create_dir_all(
+                    target
+                        .parent()
+                        .ok_or("invalid bundled knowledge-base destination")?,
+                )
+                .map_err(|error| format!("could not create knowledge-base hierarchy: {error}"))?;
+                let bytes = std::fs::symlink_metadata(&source)
+                    .map_err(|error| format!("could not inspect bundled source: {error}"))?
+                    .len();
+                copy_checked(&source, &target, bytes)?;
+            }
+            let manifest_target = destination.join(BUNDLED_LIBRARY_MANIFEST_COPY);
+            let mut output = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&manifest_target)
+                .map_err(|error| format!("could not create installed bundle manifest: {error}"))?;
+            output
+                .write_all(&manifest_raw)
+                .map_err(|error| format!("could not write installed bundle manifest: {error}"))?;
+            output
+                .sync_all()
+                .map_err(|error| format!("could not sync installed bundle manifest: {error}"))?;
+            verify_installed_bundle(&destination, &manifest, &manifest_raw)
+        })();
+        if let Err(error) = copy_result {
+            let _ = std::fs::remove_dir_all(&destination);
+            return Err(error);
+        }
+        let canonical_workspace = workspace
+            .canonicalize()
+            .map_err(|error| format!("workspace unavailable: {error}"))?;
+        added = discover_bundle_tree(&destination)?
+            .into_iter()
+            .map(|relative| relative_slash(&destination.join(relative), &canonical_workspace))
+            .collect::<Result<Vec<_>, _>>()?;
+    }
+    build_index(workspace, project_id)?;
+    Ok(BundledLibraryInstall {
+        schema: BUNDLED_LIBRARY_SCHEMA,
+        bundle_id: manifest.bundle_id,
+        title: manifest.title,
+        locale: manifest.locale,
+        updated: manifest.updated,
+        manifest_sha256,
+        added,
+        already_installed,
+        audit: audit_library(workspace),
+    })
 }
 
 fn import_library_directory(
@@ -866,14 +1183,21 @@ pub fn search_heor_evidence_library(
     limit: usize,
 ) -> Result<LibrarySearchResponse, String> {
     let _guard = state.0.lock().map_err(|_| "HEOR library lock poisoned")?;
+    search_library(&crate::runtime::workspace_dir(&app)?, query, limit)
+}
+
+fn search_library(
+    workspace: &Path,
+    query: String,
+    limit: usize,
+) -> Result<LibrarySearchResponse, String> {
     let query = query.trim().to_string();
     if query.is_empty() || query.chars().count() > MAX_QUERY_CHARS || !(1..=50).contains(&limit) {
         return Err(
             "local library search requires a 1-500 character query and a 1-50 result limit".into(),
         );
     }
-    let workspace = crate::runtime::workspace_dir(&app)?;
-    let audit = audit_library(&workspace);
+    let audit = audit_library(workspace);
     if !audit.searchable {
         return Err(format!(
             "local evidence library is not safely searchable: {}",
@@ -884,7 +1208,7 @@ pub fn search_heor_evidence_library(
     if query_tokens.is_empty() {
         return Err("local library search query has no searchable terms".into());
     }
-    let connection = Connection::open(index_path(&workspace))
+    let connection = Connection::open(index_path(workspace))
         .map_err(|error| format!("local evidence index unavailable: {error}"))?;
     let mut statement = connection
         .prepare(
@@ -1009,6 +1333,26 @@ pub fn add_heor_library_directory(
     let selected = picked.into_path().map_err(|error| error.to_string())?;
     let workspace = crate::runtime::workspace_dir(&app)?;
     import_library_directory(&workspace, &selected)
+}
+
+#[tauri::command]
+pub fn install_bundled_heor_knowledge_base(
+    app: AppHandle,
+    state: tauri::State<HeorLibraryState>,
+    project_id: String,
+) -> Result<BundledLibraryInstall, String> {
+    let _guard = state.0.lock().map_err(|_| "HEOR library lock poisoned")?;
+    let resource = app
+        .path()
+        .resolve(BUNDLED_LIBRARY_RESOURCE, BaseDirectory::Resource)
+        .map_err(|error| format!("bundled knowledge base is unavailable: {error}"))?;
+    let workspace = crate::runtime::workspace_dir(&app)?;
+    let result = install_bundled_library_from(&workspace, &resource, &project_id)?;
+    crate::git_snapshot::commit_best_effort(
+        &workspace,
+        "Install bundled pharmacoeconomics knowledge base",
+    );
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -1186,6 +1530,62 @@ mod tests {
         let error = import_library_directory(&root, &source).unwrap_err();
         assert!(error.contains("contains a symbolic link"));
         let _ = std::fs::remove_dir_all(source);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    fn bundled_source() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../runtime/knowledge-base/zh-Hans")
+    }
+
+    #[test]
+    fn bundled_learning_library_is_hash_bound_and_searchable() {
+        let root = workspace("bundled-learning-library");
+        let result =
+            install_bundled_library_from(&root, &bundled_source(), "test-project").unwrap();
+        assert_eq!(result.schema, BUNDLED_LIBRARY_SCHEMA);
+        assert_eq!(result.bundle_id, BUNDLED_LIBRARY_ID);
+        assert_eq!(result.added.len(), 26);
+        assert!(!result.already_installed);
+        assert!(result.audit.complete, "{:?}", result.audit.errors);
+        assert!(result.audit.searchable);
+        assert_eq!(result.audit.document_count, 26);
+        assert!(root
+            .join("heor/library")
+            .join(BUNDLED_LIBRARY_DESTINATION)
+            .join("04-最新进展/截至2026-07的方法学与政策进展.md")
+            .is_file());
+        let search = search_library(&root, "机会成本".into(), 5).unwrap();
+        assert!(!search.hits.is_empty());
+        assert!(search.hits.iter().any(|hit| {
+            hit.path
+                .ends_with("01-基础理论/01-稀缺性、效率与机会成本.md")
+                && hit.source_sha256.len() == 64
+                && hit.page == 1
+        }));
+
+        let second =
+            install_bundled_library_from(&root, &bundled_source(), "test-project").unwrap();
+        assert!(second.already_installed);
+        assert!(second.added.is_empty());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn edited_bundled_learning_library_is_preserved_and_rejected() {
+        let root = workspace("bundled-learning-library-edited");
+        install_bundled_library_from(&root, &bundled_source(), "test-project").unwrap();
+        let edited = root
+            .join("heor/library")
+            .join(BUNDLED_LIBRARY_DESTINATION)
+            .join("README.md");
+        std::fs::write(&edited, "researcher edit\n").unwrap();
+        let error =
+            install_bundled_library_from(&root, &bundled_source(), "test-project").unwrap_err();
+        assert!(error.contains("existing files were preserved"));
+        assert_eq!(
+            std::fs::read_to_string(edited).unwrap(),
+            "researcher edit\n"
+        );
         let _ = std::fs::remove_dir_all(root);
     }
 }

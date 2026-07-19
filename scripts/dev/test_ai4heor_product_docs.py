@@ -166,6 +166,48 @@ class AI4HEORProductDocsTests(unittest.TestCase):
         self.assertIn('invoke<TeachingExampleRunResult>("run_heor_teaching_example"', bridge)
         self.assertIn("runHeorTeachingExample()", surface)
 
+    def test_bundled_learning_library_is_a_dated_local_first_asset(self):
+        root = ROOT / "runtime" / "knowledge-base" / "zh-Hans"
+        manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            manifest["schemaVersion"], "ai4heor-bundled-knowledge-base/v1"
+        )
+        self.assertEqual(manifest["status"], "dated_learning_material")
+        self.assertEqual(
+            manifest["boundaries"]["scientificAuthority"], "human_researcher"
+        )
+        self.assertEqual(
+            manifest["boundaries"]["policyStatus"],
+            "verify_current_sources_before_use",
+        )
+        self.assertEqual(len(manifest["files"]), 25)
+        for entry in manifest["files"]:
+            source = root / entry["path"]
+            self.assertTrue(source.is_file(), entry["path"])
+            self.assertEqual(
+                hashlib.sha256(source.read_bytes()).hexdigest(), entry["sha256"]
+            )
+
+        for relative in ("README.md", "docs/PRD.md", "docs/HEOR_PRODUCT.md"):
+            text = (ROOT / relative).read_text(encoding="utf-8")
+            self.assertIn("knowledge", text.lower(), relative)
+        self.assertIn(
+            "知识库", (ROOT / "README.zh.md").read_text(encoding="utf-8")
+        )
+        product_contract = (ROOT / "docs/HEOR_PRODUCT.md").read_text(encoding="utf-8")
+        self.assertIn("25 Markdown sources", product_contract)
+        self.assertIn("ai4heor-bundled-knowledge-base/v1", product_contract)
+        self.assertIn("no model and no network call", product_contract)
+
+        native = (ROOT / "apps/desktop/src-tauri/src/heor_library.rs").read_text(
+            encoding="utf-8"
+        )
+        surface = (ROOT / "apps/desktop/src/components/heor/HeorReviewPane.tsx").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("install_bundled_heor_knowledge_base", native)
+        self.assertIn("installBundledHeorKnowledgeBase", surface)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -655,6 +655,20 @@ extracts searchable text without a model or network call, and writes a
 reviewable `heor/evidence-library.json`. The SQLite index stays under
 `.openscience`, is serialized against concurrent access, and is rebuildable.
 
+The desktop package also contains a dated Simplified-Chinese pharmacoeconomics
+learning bundle. It has 25 Markdown sources covering navigation, basic theory,
+methods, working practice, dated recent progress, templates, and source/update
+rules. `ai4heor-bundled-knowledge-base/v1` binds the exact sorted file inventory
+and SHA-256 values, labels stable and dated sections separately, keeps scientific
+authority with the researcher, and requires current-source verification for policy
+or recent-progress use. The auxiliary install action verifies the packaged tree,
+copies it under a versioned library directory, retains the exact bundle manifest,
+builds the existing project-bound SQLite index, and records a best-effort Git
+snapshot. A second identical install is idempotent. Missing, extra, linked, oversized,
+or edited source bytes fail closed; an edited installed copy is preserved rather
+than replaced. Installation and indexing use no model and no network call and do
+not constitute methodological, evidence, policy, reimbursement, or release approval.
+
 Natural-language retrieval routes through `$heor-local-evidence`. Its portable
 search script re-verifies every indexed source hash and every returned page-text
 hash, then emits compact snippets with exact local path, page, and source

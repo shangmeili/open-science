@@ -1,6 +1,6 @@
 {
   "name": "ai4s-workbench",
-  "version": "0.1.35",
+  "version": "0.1.36",
   "private": true,
   "description": "AI4HEOR — local-first, model-agnostic AI research workbench for pharmacoeconomics and HEOR.",
   "license": "MIT",

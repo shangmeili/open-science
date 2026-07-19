@@ -1359,6 +1359,18 @@ export interface HeorLibraryDirectoryImport {
   skipped: string[];
 }
 
+export interface HeorBundledKnowledgeBaseInstall {
+  schema: "ai4heor-bundled-knowledge-base/v1";
+  bundleId: string;
+  title: string;
+  locale: string;
+  updated: string;
+  manifestSha256: string;
+  added: string[];
+  alreadyInstalled: boolean;
+  audit: HeorEvidenceLibraryAudit;
+}
+
 export interface HeorImportCandidatesRequest {
   projectId: string;
   outputPath: string;
@@ -3797,6 +3809,16 @@ export async function addHeorLibraryDirectory(): Promise<HeorLibraryDirectoryImp
   if (!isTauri) return { added: [], skipped: [] };
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<HeorLibraryDirectoryImport>("add_heor_library_directory");
+}
+
+export async function installBundledHeorKnowledgeBase(
+  projectId: string,
+): Promise<HeorBundledKnowledgeBaseInstall> {
+  if (!isTauri) throw new Error("bundled HEOR knowledge base is available only in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorBundledKnowledgeBaseInstall>("install_bundled_heor_knowledge_base", {
+    projectId,
+  });
 }
 
 export async function syncHeorEvidenceLibrary(projectId: string): Promise<HeorEvidenceLibraryAudit> {
