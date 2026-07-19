@@ -195,7 +195,7 @@ does not yet exist, AI4HEOR atomically renames the prior default
 exist, it does not merge or delete either one; a base folder explicitly chosen in
 Settings always wins.
 
-The currently verified 0.1.34 local x64 macOS artifact is not code-signed or notarized. The
+The currently verified 0.1.35 local x64 macOS artifact is not code-signed or notarized. The
 `v*` tag pipeline now fails closed unless both macOS targets receive Developer ID and
 Apple notarization credentials and subsequently pass signature, hardened-runtime,
 stapled-ticket, and Gatekeeper checks. No credentialed tag run has produced that evidence
@@ -290,8 +290,7 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.35; the current verified x64 macOS package remains
-0.1.34 while the new Intel package is built and checked. Version 0.1.35 adds a
+accepted. Current source and the current verified x64 macOS package are 0.1.35. Version 0.1.35 adds a
 separately confirmed, model-free local run for the hash-bound cost-effectiveness
 teaching case. It verifies the installed governed bytes, writes the base case and
 declared low/high sensitivity results, and records the run and provenance without
@@ -301,15 +300,16 @@ and all 45 bundled Skill
 descriptions in direct pharmacoeconomics language, and moves previously hard-coded
 download, file-manager, Jupyter, notebook, and generated-assistant prompts into the seven
 shipped locale resources. It retains the 0.1.32 fail-closed new-project harness and its
-machine-readable Human scientific-authority contract. Until 0.1.35 package validation
-finishes, the 80,116,453-byte
-AI4HEOR 0.1.34 x64 macOS DMG has SHA-256
-`4596f631cd3fafbd5c959cb95a58cc3c14eddeb54f85a7f0272f679f7fcd7476` and was locally built
-from clean commit `37cb7d4c502357d49e19a8532a39eb244d8c1d3f`. All 286
+machine-readable Human scientific-authority contract. The 80,139,562-byte
+AI4HEOR 0.1.35 x64 macOS DMG has SHA-256
+`11d1e4eb8924d1834003a78042b78e4befdce4b25ee2ecc1ca0253e449654003` and was locally built
+from clean tracked source commit `ad9f139975cef9be943cb23b702fd79bdcfe0592`. All 286
 configured resources match source bytes, all 177 deterministic HEOR tests pass
-against the mounted core, and two isolated LaunchServices runs prove fresh
-`Documents/AI4HEOR` creation plus content-preserving `Documents/OpenScience` migration,
-with one copied app process, one bundled OpenCode child, and verified cleanup in each run.
+against the mounted core, and isolated first-launch and legacy-migration checks prove fresh
+`Documents/AI4HEOR` creation plus content-preserving `Documents/OpenScience` migration.
+An additional isolated native UI run completed the model-free base case and two declared
+sensitivity calculations, created one successful Run and three Provenance entries, and
+rejected a subsequently changed governed input without altering any result bytes.
 The default entry creates a typed HEOR project and prepares a localized, unsent
 natural-language research intake. A seven-language first-use guide explains local storage,
 model choice, approval boundaries, and Human scientific authority without collecting a
@@ -339,7 +339,7 @@ silently acquire those claims. Tagged matrix jobs no longer create or populate a
 only the final job may create a draft after all four evidence files and the cross-platform
 manifest validate, and it uploads exactly those verified installers and records. This gate
 is locally contract-tested and rejects the
-current unsigned 0.1.34 x64 DMG, but it has not been exercised with real Apple credentials.
+current unsigned 0.1.35 x64 DMG, but it has not been exercised with real Apple credentials.
 The AI4HEOR 0.1.30 Linux `.deb` and `.rpm` were built from the same clean commit
 `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. Both packages are payload-verified with all
 282 configured resources matching source bytes and all 177 deterministic HEOR tests
