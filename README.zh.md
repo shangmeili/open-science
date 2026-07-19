@@ -231,9 +231,12 @@ pnpm lint
 产品和架构说明位于 [`docs/PRD.md`](./docs/PRD.md) 和
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
-近期工作集中在四目标哈希绑定验包、Windows 首次启动关口、签名/notarize
-发布、真实 Linux 桌面会话验证、自动更新和连接器加固。AI4HEOR `0.1.31` x64
-macOS DMG 已从干净提交 `2834785e057ac54477a9633f07390bc173251644` 构建，验证了 282 个
+当前开发刻意收敛为先在 Intel macOS 上跑通产品；Windows、Linux、Apple Silicon
+与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.32`，当前已验证的
+x64 macOS 安装包仍为 `0.1.31`。`0.1.32` 源码将新项目 harness 初始化改为失败关闭，
+并新增精确的机器可读契约：人类掌握科学权威、不允许模型提供商静默降级、确定性计算是计算权威、
+审批由应用持有，外部内容是不可信数据而非操作指令。AI4HEOR `0.1.31` x64 macOS DMG
+已从干净提交 `2834785e057ac54477a9633f07390bc173251644` 构建，验证了 282 个
 受控资源、177 项包内 HEOR 测试，以及两次隔离 LaunchServices 运行：全新创建
 `Documents/AI4HEOR`，以及保留内容地将 `Documents/OpenScience` 迁移为 AI4HEOR；
 两次均证明应用复制、单一应用进程、单一内置 OpenCode 子进程与完整清理。它仍未经 Developer ID 签名或 notarize；
@@ -261,7 +264,7 @@ sealed resources 或 stapled ticket，严格 codesign 与 Gatekeeper 均拒绝�
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.31},
+  version = {0.1.32},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

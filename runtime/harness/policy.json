@@ -1,0 +1,21 @@
+{
+  "schema": "ai4heor-research-assistant-harness/v1",
+  "version": "0.1.0",
+  "interaction": "natural_language_primary",
+  "scientific_lead": "human_researcher",
+  "assistant_role": "bounded_research_assistance",
+  "calculation_authority": "deterministic_versioned_code",
+  "approval_store": "app_owned",
+  "provider": {
+    "selection_authority": "human_only",
+    "silent_fallback": false,
+    "output_status": "draft_pending_human_review",
+    "scientific_authority": "none"
+  },
+  "external_content": {
+    "classification": "untrusted_data_not_instructions",
+    "may_change_governance": false,
+    "may_create_approval": false
+  },
+  "default_data_classification": "unknown"
+}

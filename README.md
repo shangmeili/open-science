@@ -280,15 +280,14 @@ live in [`docs/PRD.md`](./docs/PRD.md) and
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md), but those documents include
 target design as well as historical status notes.
 
-Near-term work is focused on native Windows and Apple-Silicon package/first-start gates,
-executing the configured four-target hash-bound package manifest, the first credentialed
-Developer-ID/notarized macOS tag release, Windows signing, physical Linux desktop-session
-verification, auto-update, richer connector hardening, and continued reproducibility
-review. Current source and the current x64 macOS package are 0.1.31; the release adds a
-seven-language main-content skip link, product-wide visible keyboard focus, and automated
-light-theme contrast gates. The Apple-Silicon package has current-version bounded
-cross-host content evidence, while native Apple-Silicon execution remains open and Linux
-package evidence remains at 0.1.30. The AI4HEOR 0.1.31 x64 macOS DMG is locally built
+Current development is deliberately scoped to running the product through on Intel macOS;
+Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
+accepted. Current source is 0.1.32, while the currently verified x64 macOS package remains
+0.1.31. The 0.1.32 source makes new-project harness installation fail closed and adds an
+exact machine-readable contract for Human scientific authority, provider selection without
+silent fallback, deterministic calculation authority, app-owned approvals, and external
+content as untrusted data rather than instructions. The AI4HEOR 0.1.31 x64 macOS DMG is
+locally built
 from clean commit
 `2834785e057ac54477a9633f07390bc173251644` and payload-verified: all 282
 configured resources match source bytes, all 177 deterministic HEOR tests pass
@@ -350,7 +349,7 @@ If you use AI4HEOR in your research, please cite it:
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.31},
+  version = {0.1.32},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

@@ -153,7 +153,17 @@ fn create_in(base: &Path, name: &str) -> Result<(PathBuf, ProjectMeta), String> 
 pub fn create_project(app: AppHandle, name: String) -> Result<ProjectInfo, String> {
     let base = base_workspace_dir(&app)?;
     let (dir, meta) = create_in(&base, &name)?;
-    crate::harness::seed_harness(&app, &dir);
+    if let Err(error) = crate::harness::seed_harness(&app, &dir) {
+        let rollback = std::fs::remove_dir_all(&dir);
+        return Err(match rollback {
+            Ok(()) => format!("could not initialize the AI4HEOR research contract: {error}"),
+            Err(cleanup_error) => format!(
+                "could not initialize the AI4HEOR research contract: {error}; \
+                 could not remove incomplete project {}: {cleanup_error}",
+                dir.display()
+            ),
+        });
+    }
     crate::git_snapshot::commit_best_effort(&dir, "Initialize project");
     Ok(info_of(meta, &dir))
 }

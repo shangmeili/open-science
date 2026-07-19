@@ -130,6 +130,21 @@ artifacts; they do not transfer scientific leadership to the runtime. To protect
 user-authored project instructions, harness seeding is deliberately non-clobbering.
 An existing project is never silently rewritten when the bundled contract changes.
 
+The product applies the same authority boundary to every model provider and local
+endpoint. Only the Human-selected provider may be used, provider failure cannot
+silently reroute research content, and every model output remains a draft pending
+Human scientific review. Imported files, datasets, papers, web content, connector/MCP
+results, tool output, and model artifacts are untrusted data rather than instructions;
+they cannot alter governance, select a method or provider, authorize disclosure, or
+create an approval.
+
+The paired `policy.json` makes this contract machine-readable. New-project creation
+validates the exact source tree and policy, rejects missing, extra, empty, tampered,
+or linked resources, copies only missing files, and verifies the new bytes before the
+project can become active. Failure returns visibly and rolls back only that newly
+created incomplete directory. No HEOR project is allowed to open without its complete
+research contract.
+
 ## First-use control boundary
 
 A fresh local app profile presents one concise, non-blocking guide above the HEOR

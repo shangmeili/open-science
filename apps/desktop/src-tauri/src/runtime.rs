@@ -991,14 +991,36 @@ pub fn new_dated_workspace(
         return Err("invalid folder name".into());
     }
     let dir = base_workspace_dir(&app)?.join(&name);
-    // `set_workspace` moves `app`; keep a handle to seed the harness afterwards.
-    let seed_app = app.clone();
-    let canon = set_workspace(app, state, dir.to_string_lossy().to_string())?;
-    // Seed the agent harness into the fresh folder so it starts with its
-    // operating rules, not an empty directory. Only NEW dated folders get seeded
-    // (never `set_workspace` alone — switching to an existing session must not
-    // re-plant the scaffold).
-    crate::harness::seed_harness(&seed_app, std::path::Path::new(&canon));
+    if dir.exists() {
+        return Err("a workspace with this name already exists".into());
+    }
+    // Seed and verify the product-owned research contract before persisting the
+    // folder as active. A partial harness must never become an apparently valid
+    // HEOR workspace.
+    if let Err(error) = crate::harness::seed_harness(&app, &dir) {
+        let rollback = std::fs::remove_dir_all(&dir);
+        return Err(match rollback {
+            Ok(()) => format!("could not initialize the AI4HEOR research contract: {error}"),
+            Err(cleanup_error) => format!(
+                "could not initialize the AI4HEOR research contract: {error}; \
+                 could not remove incomplete workspace {}: {cleanup_error}",
+                dir.display()
+            ),
+        });
+    }
+    let canon = match set_workspace(app, state, dir.to_string_lossy().to_string()) {
+        Ok(canon) => canon,
+        Err(error) => {
+            let rollback = std::fs::remove_dir_all(&dir);
+            return Err(match rollback {
+                Ok(()) => error,
+                Err(cleanup_error) => format!(
+                    "{error}; could not remove incomplete workspace {}: {cleanup_error}",
+                    dir.display()
+                ),
+            });
+        }
+    };
     crate::git_snapshot::commit_best_effort(std::path::Path::new(&canon), "Initialize workspace");
     Ok(canon)
 }

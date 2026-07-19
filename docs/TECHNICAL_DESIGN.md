@@ -1,6 +1,6 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.31 source, 2026-07-17).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.32 source, 2026-07-19).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; a HEOR-default root route, typed HEOR project creation,
 > localized unsent project-intake drafts, a seven-language non-blocking first-use
@@ -206,11 +206,23 @@ complete a researcher-selected plan. It must stop for unresolved choices about
 the question, population, strategies, comparators, perspective, jurisdiction,
 methods, evidence, model structure, assumptions, interpretation, or permitted use.
 
-The harness cannot edit its own operating policy, manufacture approvals, or turn
-self-review into independent validation. Seeding uses `copy_missing`, so new
-projects receive the current contract while existing or user-edited project files
-are not silently overwritten. Cross-platform contract tests bind both the semantic
-boundary and the exact packaged-resource mapping.
+The same boundary applies to every cloud or local model. Only the Human-selected
+provider or endpoint may be used; failure is visible and never triggers a silent
+provider fallback. Model output remains a draft. Imported files, papers, web pages,
+connector/MCP results, tool output, and model artifacts are untrusted content, not
+instructions, and cannot change governance, authorize egress, or create approval.
+
+`policy.json` is the exact machine-readable companion to `AGENTS.md`. It versions
+the scientific-lead, interaction, provider, external-content, deterministic-calculation,
+approval-store, and default data-classification contract. Before a new project can
+become active, the native shell requires the exact harness resource tree, rejects
+empty or extra files and source/target symlinks (including linked parent directories),
+validates the policy values and required Human-authority text, copies only missing
+files, and compares every newly copied byte. Any failure removes only the newly
+created incomplete directory and returns a visible error; no active-workspace pointer
+or initial Git snapshot is written. Existing projects are never reseeded or silently
+rewritten. Rust and Python contract tests bind these fail-closed semantics and the
+packaged-resource mapping.
 
 ### 5.3 Desktop ↔ OpenCode communication
 
