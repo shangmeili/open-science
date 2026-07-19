@@ -12,8 +12,8 @@
   },
   "starter": {
     "eyebrow": "Natural-language pharmacoeconomics workspace",
-    "title": "Start with the research question",
-    "body": "You frame the question and make scientific choices. The Agent helps organize evidence and auditable files; forms only record review decisions.",
+    "title": "Begin with the research question",
+    "body": "Describe the population, intervention, comparator, and outcomes you want to assess. Under your direction, AI4HEOR can find and organize evidence, carry out analyses, and check results; you review the study plan, key assumptions, evidence choices, and use of the conclusions.",
     "learn": { "title": "Learn from my local HEOR library", "body": "Build a source-grounded learning path from the knowledge base you selected.", "prompt": "Help me learn pharmacoeconomics from my current local HEOR knowledge base. If heor/evidence-library.json is missing or stale, tell me to install the built-in pharmacoeconomics learning library, add my own sources, or rescan them in the AI4HEOR review pane, then stop. Otherwise use $heor-local-evidence with deterministic local search. First ask what I want to learn and my current level, then propose a short learning path. Cite every factual claim with local path, page, and SHA-256; distinguish source text, interpretation, and dated updates. Do not use the network or treat summaries as primary guidance." },
     "scope": { "title": "Frame a cost-effectiveness study", "body": "Define population, intervention, comparator, perspective, horizon, and outcome.", "prompt": "Help me frame a cost-effectiveness study. Start by identifying the decision problem and only ask questions that would materially change the analysis." },
     "search": { "title": "Draft an evidence search", "body": "Prepare an exact public-source query for human-authorized retrieval.", "prompt": "Use $heor-evidence-search to draft heor/evidence-search-request.json for the current evidence gap. Do not make a network call. Use only PubMed and ClinicalTrials.gov, disclose the exact egress fields, validate the request, and leave execution for my explicit review in the AI4HEOR pane." },

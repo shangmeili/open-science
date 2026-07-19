@@ -29,21 +29,21 @@ describe("AI4HEOR conversation route", () => {
     });
     renderAt("/heor");
 
-    expect(await screen.findByRole("heading", { name: "Begin with you in control" }))
+    expect(await screen.findByRole("heading", { name: "Before you begin" }))
       .toBeInTheDocument();
     expect(screen.getByText("Local by default")).toBeInTheDocument();
     expect(screen.getByText("Your choice of model")).toBeInTheDocument();
     expect(screen.getByText("Actions remain reviewable")).toBeInTheDocument();
-    expect(screen.getByText("Human scientific authority")).toBeInTheDocument();
+    expect(screen.getByText("You review key research decisions")).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /provider|api key|workspace/i }))
       .not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Enter the HEOR workspace" }));
 
-    expect(screen.queryByRole("heading", { name: "Begin with you in control" }))
+    expect(screen.queryByRole("heading", { name: "Before you begin" }))
       .not.toBeInTheDocument();
     expect(window.localStorage.getItem(AI4HEOR_FIRST_RUN_KEY)).toBe("complete");
-    expect(screen.getByRole("heading", { name: "Start with the research question" }))
+    expect(screen.getByRole("heading", { name: "Begin with the research question" }))
       .toBeInTheDocument();
   });
 
@@ -56,9 +56,9 @@ describe("AI4HEOR conversation route", () => {
     renderAt("/heor");
 
     expect(
-      await screen.findByRole("heading", { name: "Start with the research question" }),
+      await screen.findByRole("heading", { name: "Begin with the research question" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/You frame the question and make scientific choices/i))
+    expect(screen.getByText(/Under your direction, AI4HEOR can find and organize evidence/i))
       .toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Describe the decision problem/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review analysis" })).toBeInTheDocument();

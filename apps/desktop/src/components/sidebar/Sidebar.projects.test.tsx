@@ -92,7 +92,7 @@ describe("Sidebar projects", () => {
 
     expect(createProject).toHaveBeenCalledWith(PROJECT.name);
     expect(startDraft).not.toHaveBeenCalled();
-    expect(await screen.findByRole("heading", { name: "Start with the research question" }))
+    expect(await screen.findByRole("heading", { name: "Begin with the research question" }))
       .toBeInTheDocument();
     const draft = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
     expect(draft).toContain("Help me start this HEOR project");

@@ -30,9 +30,19 @@ describe("Simplified Chinese product copy", () => {
   });
 
   it("keeps the first-use boundary direct and researcher-led", () => {
-    expect(i18n.t("session:firstRun.title", { lng: "zh-Hans" })).toBe("先从研究问题开始");
-    expect(i18n.t("session:firstRun.points.human.title", { lng: "zh-Hans" })).toBe(
-      "研究判断由你作出",
+    expect(i18n.t("heor:starter.title", { lng: "zh-Hans" })).toBe("从研究问题开始");
+    expect(i18n.t("heor:starter.body", { lng: "zh-Hans" })).toContain(
+      "AI4HEOR 会在你的指导下检索和整理证据、开展分析并检查结果",
     );
+    expect(i18n.t("heor:starter.body", { lng: "zh-Hans" })).toContain(
+      "由你审阅确认",
+    );
+    expect(i18n.t("session:firstRun.title", { lng: "zh-Hans" })).toBe(
+      "开始前，请先了解这四点",
+    );
+    expect(i18n.t("session:firstRun.points.human.title", { lng: "zh-Hans" })).toBe(
+      "关键研究决策由你把关",
+    );
+    expect(copy.join("\n")).not.toContain("资料整理、分析记录和结果检查可以交给助手");
   });
 });
