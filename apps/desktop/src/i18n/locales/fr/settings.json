@@ -68,7 +68,9 @@
   },
   "updates": {
     "title": "Mises à jour de l'app",
-    "hint": "Consulte GitHub Releases au plus une fois toutes les 24 heures",
+    "hint": "Afficher la version installée et le canal de diffusion",
+    "unavailable": "Les mises à jour en ligne ne sont pas encore disponibles",
+    "unavailableHint": "AI4HEOR ne dispose pas encore d’un canal de diffusion officiel configuré. Cette version ne recherche donc aucune mise à jour en ligne. La comparaison des versions et les notifications seront activées lorsque la source officielle sera établie.",
     "available": "Mise à jour disponible",
     "checking": "Vérification",
     "failed": "Échec de la vérification",

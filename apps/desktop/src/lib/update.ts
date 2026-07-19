@@ -1,13 +1,7 @@
 import { create } from "zustand";
-import { latestRelease } from "./tauri";
 
-const RELEASE_URL = "https://api.github.com/repos/ai4s-research/open-science/releases/latest";
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const ENABLED_KEY = "openscience.update.enabled";
-const BADGE_KEY = "openscience.update.badge";
-const DISMISSED_KEY = "openscience.update.dismissed";
-const LAST_CHECKED_KEY = "openscience.update.lastCheckedAt";
-const LATEST_KEY = "openscience.update.latest";
+export const UPDATE_SOURCE_CONFIGURED = false;
 
 export interface UpdateInfo {
   version: string;
@@ -16,18 +10,10 @@ export interface UpdateInfo {
   publishedAt: string | null;
 }
 
-interface GitHubRelease {
-  tag_name?: string;
-  html_url?: string;
-  name?: string | null;
-  published_at?: string | null;
-  draft?: boolean;
-  prerelease?: boolean;
-}
-
-type CheckStatus = "idle" | "checking" | "ready" | "error";
+type CheckStatus = "idle" | "checking" | "ready" | "error" | "unavailable";
 
 interface UpdateState {
+  sourceConfigured: boolean;
   enabled: boolean;
   badgeEnabled: boolean;
   dismissedVersion: string | null;
@@ -43,46 +29,6 @@ interface UpdateState {
   dismissBadge: () => void;
   check: (opts?: { manual?: boolean; now?: number }) => Promise<void>;
   maybeAutoCheck: () => Promise<void>;
-}
-
-function readBool(key: string, fallback: boolean): boolean {
-  if (typeof window === "undefined") return fallback;
-  const v = window.localStorage.getItem(key);
-  if (v === "1") return true;
-  if (v === "0") return false;
-  return fallback;
-}
-
-function readNumber(key: string): number | null {
-  if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem(key);
-  if (!raw) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-function readLatest(): UpdateInfo | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(LATEST_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as UpdateInfo;
-    return parsed?.version && parsed?.url ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function persistLatest(latest: UpdateInfo | null): void {
-  if (typeof window === "undefined") return;
-  if (latest) window.localStorage.setItem(LATEST_KEY, JSON.stringify(latest));
-  else window.localStorage.removeItem(LATEST_KEY);
-}
-
-function setLocal(key: string, value: string | null): void {
-  if (typeof window === "undefined") return;
-  if (value === null) window.localStorage.removeItem(key);
-  else window.localStorage.setItem(key, value);
 }
 
 export function normalizeVersion(version: string): string {
@@ -127,83 +73,35 @@ function derive(base: Pick<UpdateState, "enabled" | "badgeEnabled" | "latest" | 
   return { hasUpdate, showBadge };
 }
 
-async function fetchLatestRelease(): Promise<UpdateInfo> {
-  const native = await latestRelease();
-  if (native) return native;
-
-  const res = await fetch(RELEASE_URL, {
-    headers: {
-      Accept: "application/vnd.github+json",
-    },
-  });
-  if (!res.ok) throw new Error(`GitHub returned ${res.status}`);
-  const json = (await res.json()) as GitHubRelease;
-  const version = json.tag_name?.trim();
-  const url = json.html_url?.trim();
-  if (!version || !url) throw new Error("GitHub release response was incomplete");
-  return {
-    version,
-    url,
-    name: json.name ?? null,
-    publishedAt: json.published_at ?? null,
-  };
-}
-
 const initial = {
-  enabled: readBool(ENABLED_KEY, true),
-  badgeEnabled: readBool(BADGE_KEY, true),
-  dismissedVersion: typeof window === "undefined" ? null : window.localStorage.getItem(DISMISSED_KEY),
-  lastCheckedAt: readNumber(LAST_CHECKED_KEY),
-  latest: readLatest(),
+  sourceConfigured: UPDATE_SOURCE_CONFIGURED,
+  enabled: false,
+  badgeEnabled: false,
+  dismissedVersion: null,
+  lastCheckedAt: null,
+  latest: null,
   currentVersion: __APP_VERSION__,
 };
 
 export const useUpdateStore = create<UpdateState>((set, get) => ({
   ...initial,
-  status: "idle",
+  status: "unavailable",
   error: null,
   ...derive(initial),
-  setEnabled: (enabled) => {
-    setLocal(ENABLED_KEY, enabled ? "1" : "0");
-    set((s) => ({ enabled, ...derive({ ...s, enabled }) }));
-  },
-  setBadgeEnabled: (badgeEnabled) => {
-    setLocal(BADGE_KEY, badgeEnabled ? "1" : "0");
-    set((s) => ({ badgeEnabled, ...derive({ ...s, badgeEnabled }) }));
-  },
-  dismissBadge: () => {
-    const dismissedVersion = get().latest?.version ?? null;
-    setLocal(DISMISSED_KEY, dismissedVersion);
-    set((s) => ({ dismissedVersion, ...derive({ ...s, dismissedVersion }) }));
-  },
-  check: async (opts) => {
-    const manual = opts?.manual ?? false;
-    const now = opts?.now ?? Date.now();
-    const s = get();
-    if (!manual) {
-      if (!s.enabled) return;
-      if (!shouldAutoCheck(s.lastCheckedAt, now)) return;
-    }
-    set({ status: "checking", error: null });
-    try {
-      const latest = await fetchLatestRelease();
-      setLocal(LAST_CHECKED_KEY, String(now));
-      persistLatest(latest);
-      set((cur) => ({
-        latest,
-        lastCheckedAt: now,
-        status: "ready",
-        error: null,
-        ...derive({ ...cur, latest }),
-      }));
-    } catch (e) {
-      setLocal(LAST_CHECKED_KEY, String(now));
-      set({
-        lastCheckedAt: now,
-        status: "error",
-        error: e instanceof Error ? e.message : String(e),
-      });
-    }
+  setEnabled: () => set({ enabled: false, hasUpdate: false, showBadge: false }),
+  setBadgeEnabled: () => set({ badgeEnabled: false, showBadge: false }),
+  dismissBadge: () => set({ dismissedVersion: null, showBadge: false }),
+  check: async () => {
+    set({
+      enabled: false,
+      badgeEnabled: false,
+      latest: null,
+      lastCheckedAt: null,
+      status: "unavailable",
+      error: null,
+      hasUpdate: false,
+      showBadge: false,
+    });
   },
   maybeAutoCheck: () => get().check({ manual: false }),
 }));

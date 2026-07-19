@@ -4,13 +4,14 @@ import {
   isNewerVersion,
   shouldAutoCheck,
   shouldShowUpdateBadge,
+  UPDATE_SOURCE_CONFIGURED,
   useUpdateStore,
   type UpdateInfo,
 } from "./update";
 
 const latest: UpdateInfo = {
   version: "v0.1.8",
-  url: "https://github.com/ai4s-research/open-science/releases/tag/v0.1.8",
+  url: "https://example.invalid/ai4heor/releases/tag/v0.1.8",
   name: "v0.1.8",
   publishedAt: "2026-07-09T00:00:00Z",
 };
@@ -73,12 +74,13 @@ describe("update store", () => {
     localStorage.clear();
     vi.restoreAllMocks();
     useUpdateStore.setState({
-      enabled: true,
-      badgeEnabled: true,
+      sourceConfigured: false,
+      enabled: false,
+      badgeEnabled: false,
       dismissedVersion: null,
       lastCheckedAt: null,
       latest: null,
-      status: "idle",
+      status: "unavailable",
       error: null,
       currentVersion: "0.1.7",
       hasUpdate: false,
@@ -86,23 +88,24 @@ describe("update store", () => {
     });
   });
 
-  it("manual checks bypass the 24 hour throttle", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        tag_name: "v0.1.8",
-        html_url: latest.url,
-        name: latest.name,
-        published_at: latest.publishedAt,
-      }),
-    });
+  it("does not contact the network before an AI4HEOR release source is configured", async () => {
+    expect(UPDATE_SOURCE_CONFIGURED).toBe(false);
+    const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
     useUpdateStore.setState({ lastCheckedAt: 1000 });
     await useUpdateStore.getState().check({ manual: true, now: 2000 });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(useUpdateStore.getState().hasUpdate).toBe(true);
-    expect(useUpdateStore.getState().showBadge).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(useUpdateStore.getState()).toMatchObject({
+      sourceConfigured: false,
+      enabled: false,
+      badgeEnabled: false,
+      latest: null,
+      lastCheckedAt: null,
+      status: "unavailable",
+      hasUpdate: false,
+      showBadge: false,
+    });
   });
 });

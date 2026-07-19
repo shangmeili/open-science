@@ -68,7 +68,9 @@
   },
   "updates": {
     "title": "App-Updates",
-    "hint": "Prüft GitHub Releases höchstens einmal alle 24 Stunden",
+    "hint": "Installierte Version und Veröffentlichungskanal anzeigen",
+    "unavailable": "Online-Updates sind noch nicht verfügbar",
+    "unavailableHint": "Für AI4HEOR ist noch kein offizieller Veröffentlichungskanal eingerichtet. Dieser Build sucht daher nicht online nach Updates. Versionsvergleich und Hinweise werden nach Festlegung der offiziellen Quelle aktiviert.",
     "available": "Update verfügbar",
     "checking": "Wird geprüft",
     "failed": "Prüfung fehlgeschlagen",

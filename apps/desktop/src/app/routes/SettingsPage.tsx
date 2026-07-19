@@ -79,6 +79,7 @@ export function SettingsPage() {
   const defaultModel = useRuntimeStore((s) => s.defaultModel);
   const loadCatalog = useRuntimeStore((s) => s.loadCatalog);
   const connected = status === "ready";
+  const updateSourceConfigured = useUpdateStore((s) => s.sourceConfigured);
   const updateEnabled = useUpdateStore((s) => s.enabled);
   const setUpdateEnabled = useUpdateStore((s) => s.setEnabled);
   const updateBadgeEnabled = useUpdateStore((s) => s.badgeEnabled);
@@ -93,14 +94,22 @@ export function SettingsPage() {
   const checkForUpdates = useUpdateStore((s) => s.check);
   const dismissUpdateBadge = useUpdateStore((s) => s.dismissBadge);
   const updateTone =
-    hasUpdate || updateStatus === "error" ? "error" : updateStatus === "checking" ? "accent" : "ok";
-  const updateLabel = hasUpdate
-    ? t("updates.available")
-    : updateStatus === "checking"
-      ? t("updates.checking")
-      : updateStatus === "error"
-        ? t("updates.failed")
-        : t("updates.upToDate");
+    !updateSourceConfigured
+      ? "muted"
+      : hasUpdate || updateStatus === "error"
+        ? "error"
+        : updateStatus === "checking"
+          ? "accent"
+          : "ok";
+  const updateLabel = !updateSourceConfigured
+    ? t("updates.unavailable")
+    : hasUpdate
+      ? t("updates.available")
+      : updateStatus === "checking"
+        ? t("updates.checking")
+        : updateStatus === "error"
+          ? t("updates.failed")
+          : t("updates.upToDate");
 
   // Long-running uv provisioning lives in a store, not here: navigating away
   // must not discard the "setting up…" state or sever the progress stream.
@@ -1225,7 +1234,9 @@ export function SettingsPage() {
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1",
-                updateTone === "error"
+                updateTone === "muted"
+                  ? "bg-surface-2 text-muted ring-border"
+                  : updateTone === "error"
                   ? "bg-error/10 text-error ring-error/20"
                   : updateTone === "accent"
                     ? "bg-accent/10 text-accent ring-accent/20"
@@ -1235,7 +1246,13 @@ export function SettingsPage() {
               <span
                 className={cn(
                   "h-1.5 w-1.5 rounded-full",
-                  updateTone === "error" ? "bg-error" : updateTone === "accent" ? "bg-accent" : "bg-ok",
+                  updateTone === "muted"
+                    ? "bg-muted"
+                    : updateTone === "error"
+                      ? "bg-error"
+                      : updateTone === "accent"
+                        ? "bg-accent"
+                        : "bg-ok",
                 )}
               />
               {updateLabel}
@@ -1243,86 +1260,96 @@ export function SettingsPage() {
             <span className="text-xs text-muted">
               {t("updates.currentVersion", { version: currentVersion })}
             </span>
-            {latestUpdate && (
+            {updateSourceConfigured && latestUpdate && (
               <span className="text-xs text-muted">
                 {t("updates.latestVersion", { version: latestUpdate.version })}
               </span>
             )}
           </div>
 
-          {latestUpdate?.publishedAt && (
+          {!updateSourceConfigured && (
+            <p className="mt-3 text-xs leading-relaxed text-muted">{t("updates.unavailableHint")}</p>
+          )}
+
+          {updateSourceConfigured && latestUpdate?.publishedAt && (
             <div className="mt-2 text-xs text-muted">
               {t("updates.publishedAt", {
                 date: new Date(latestUpdate.publishedAt).toLocaleString(locale),
               })}
             </div>
           )}
-          {lastCheckedAt && (
+          {updateSourceConfigured && lastCheckedAt && (
             <div className="mt-1 text-xs text-muted">
               {t("updates.lastChecked", { date: new Date(lastCheckedAt).toLocaleString(locale) })}
             </div>
           )}
-          {updateStatus === "error" && updateError && (
+          {updateSourceConfigured && updateStatus === "error" && updateError && (
             <div className="mt-2 text-xs text-error">
               {t("updates.checkFailed", { message: updateError })}
             </div>
           )}
 
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              className={btnAccent("gap-1.5")}
-              onClick={() => void checkForUpdates({ manual: true })}
-              disabled={updateStatus === "checking"}
-            >
-              {updateStatus === "checking" ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <RefreshCw size={13} />
-              )}
-              {t("updates.checkNow")}
-            </button>
-            {latestUpdate?.url && (
+          {updateSourceConfigured && (
+            <div className="mt-3 flex flex-wrap gap-2">
               <button
-                className={btnGhost("gap-1.5")}
-                onClick={() => void openExternal(latestUpdate.url)}
+                className={btnAccent("gap-1.5")}
+                onClick={() => void checkForUpdates({ manual: true })}
+                disabled={updateStatus === "checking"}
               >
-                <ExternalLink size={13} /> {t("updates.openRelease")}
+                {updateStatus === "checking" ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={13} />
+                )}
+                {t("updates.checkNow")}
               </button>
-            )}
-            {showUpdateBadge && (
-              <button className={btnGhost()} onClick={dismissUpdateBadge}>
-                {t("updates.hideBadge")}
-              </button>
-            )}
-          </div>
+              {latestUpdate?.url && (
+                <button
+                  className={btnGhost("gap-1.5")}
+                  onClick={() => void openExternal(latestUpdate.url)}
+                >
+                  <ExternalLink size={13} /> {t("updates.openRelease")}
+                </button>
+              )}
+              {showUpdateBadge && (
+                <button className={btnGhost()} onClick={dismissUpdateBadge}>
+                  {t("updates.hideBadge")}
+                </button>
+              )}
+            </div>
+          )}
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <label className="flex items-start gap-2 rounded-input border border-border bg-surface-2 px-3 py-2">
-              <input
-                type="checkbox"
-                checked={updateEnabled}
-                onChange={(e) => setUpdateEnabled(e.target.checked)}
-                className="mt-0.5 accent-[var(--color-accent)]"
-              />
-              <span>
-                <span className="block text-[13px] font-medium text-text">{t("updates.autoCheck")}</span>
-                <span className="block text-xs leading-relaxed text-muted">{t("updates.autoCheckHint")}</span>
-              </span>
-            </label>
-            <label className="flex items-start gap-2 rounded-input border border-border bg-surface-2 px-3 py-2">
-              <input
-                type="checkbox"
-                checked={updateBadgeEnabled}
-                onChange={(e) => setUpdateBadgeEnabled(e.target.checked)}
-                className="mt-0.5 accent-[var(--color-accent)]"
-              />
-              <span>
-                <span className="block text-[13px] font-medium text-text">{t("updates.showBadge")}</span>
-                <span className="block text-xs leading-relaxed text-muted">{t("updates.showBadgeHint")}</span>
-              </span>
-            </label>
-          </div>
-          <p className="mt-3 text-xs leading-relaxed text-muted">{t("updates.privacy")}</p>
+          {updateSourceConfigured && (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <label className="flex items-start gap-2 rounded-input border border-border bg-surface-2 px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={updateEnabled}
+                  onChange={(e) => setUpdateEnabled(e.target.checked)}
+                  className="mt-0.5 accent-[var(--color-accent)]"
+                />
+                <span>
+                  <span className="block text-[13px] font-medium text-text">{t("updates.autoCheck")}</span>
+                  <span className="block text-xs leading-relaxed text-muted">{t("updates.autoCheckHint")}</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 rounded-input border border-border bg-surface-2 px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={updateBadgeEnabled}
+                  onChange={(e) => setUpdateBadgeEnabled(e.target.checked)}
+                  className="mt-0.5 accent-[var(--color-accent)]"
+                />
+                <span>
+                  <span className="block text-[13px] font-medium text-text">{t("updates.showBadge")}</span>
+                  <span className="block text-xs leading-relaxed text-muted">{t("updates.showBadgeHint")}</span>
+                </span>
+              </label>
+            </div>
+          )}
+          {updateSourceConfigured && (
+            <p className="mt-3 text-xs leading-relaxed text-muted">{t("updates.privacy")}</p>
+          )}
         </Card>
       </div>
     </div>

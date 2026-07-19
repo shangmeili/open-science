@@ -82,7 +82,9 @@
   },
   "updates": {
     "title": "应用更新",
-    "hint": "通过 GitHub Releases 检查更新，24 小时内最多自动检查一次",
+    "hint": "查看当前版本和发布渠道",
+    "unavailable": "暂未开放在线更新",
+    "unavailableHint": "AI4HEOR 尚未配置正式发布渠道，本版本不会联网检查更新。正式发布源确定后，再启用版本比较和更新提醒。",
     "available": "有新版本",
     "checking": "检查中",
     "failed": "检查失败",

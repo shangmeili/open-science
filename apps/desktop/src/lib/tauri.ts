@@ -577,19 +577,6 @@ export async function openExternal(url: string): Promise<void> {
   }
 }
 
-export interface LatestRelease {
-  version: string;
-  url: string;
-  name: string | null;
-  publishedAt: string | null;
-}
-
-export async function latestRelease(): Promise<LatestRelease | null> {
-  if (!isTauri) return null;
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<LatestRelease>("latest_release");
-}
-
 export type SaveResult =
   | { kind: "saved"; path: string }
   | { kind: "canceled" }
