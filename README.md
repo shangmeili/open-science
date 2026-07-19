@@ -196,7 +196,7 @@ does not yet exist, AI4HEOR atomically renames the prior default
 exist, it does not merge or delete either one; a base folder explicitly chosen in
 Settings always wins.
 
-The currently verified 0.1.38 local x64 macOS artifact is not code-signed or notarized. The
+The currently verified 0.1.39 local x64 macOS artifact is not code-signed or notarized. The
 `v*` tag pipeline now fails closed unless both macOS targets receive Developer ID and
 Apple notarization credentials and subsequently pass signature, hardened-runtime,
 stapled-ticket, and Gatekeeper checks. No credentialed tag run has produced that evidence
@@ -291,7 +291,7 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.39; the current verified x64 macOS package is 0.1.38.
+accepted. Current source is 0.1.39; the verified x64 macOS package is also 0.1.39.
 Version 0.1.39 adds the app-owned Human review path for project capability candidates:
 the native control revalidates exact bytes, records activation, rejection, or revocation
 in a hash-linked audit chain, activates only instruction-only copies in the current
@@ -330,18 +330,18 @@ conversation. OpenCode implementation details remain under Settings → Advanced
 the default Settings surface contains governed first-party HEOR evidence access, managed
 Jupyter, and explicitly unmanaged user-added MCP servers rather than the inherited generic
 Open Science connector catalog.
-The 81,288,293-byte AI4HEOR 0.1.38 x64 macOS DMG has SHA-256
-`04c4c8713a9e5e1ef1c480bca76709294fdee79db3c5f1c03044627421fc43c7` and was locally
-built from tracked source commit `a6940a610e096325886f6a30434ac3d089fcc0c6`. All 334
+The 81,477,589-byte AI4HEOR 0.1.39 x64 macOS DMG has SHA-256
+`00382922bc37183c4509d48bc39d45d7e0b1e72810fab25032924cb22548bf96` and was locally
+built from tracked source commit `8f15a2019ec3247a5ce1e30542046f52cea8bd62`. All 335
 configured resources match source bytes, all 177 deterministic HEOR tests pass against
 the mounted core, and isolated first-launch and legacy-migration checks pass. A separate
-native UI run confirmed the AI4HEOR logo, the Simplified-Chinese HEOR entry, localized
-capability-growth Skills, and complete harness-v2 creation in a new project. This package
+native UI run confirmed that candidate acceptance checks, limitations, and the
+plain-language license note all use the selected Simplified-Chinese review copy. This package
 is unsigned and unnotarized and is for internal product-owner testing only.
 
 ### Intel macOS product-owner acceptance
 
-Use `AI4HEOR_0.1.38_x64.dmg` only on an Intel Mac. Before opening it, verify the exact
+Use `AI4HEOR_0.1.39_x64.dmg` only on an Intel Mac. Before opening it, verify the exact
 SHA-256 above. Because this internal build is unsigned, macOS may require Control-click →
 Open; that exception is not evidence of distribution readiness.
 
@@ -360,15 +360,19 @@ Open; that exception is not evidence of distribution readiness.
    credential is bundled. A provider failure must remain visible and must not trigger a
    silent fallback.
 6. In Methods & Tools, ask AI4HEOR to create a narrow presentation-only Skill candidate.
-   The result must be bilingual, hash-bound, instruction-only, and remain under
-   `capabilities/candidates/`; it must not appear as an active Skill.
-7. Confirm that Runs and Provenance distinguish model-backed drafts from local
+   Its name, description, license note, limitations, and acceptance checks must be complete
+   in English and Simplified Chinese. Review and activate the exact candidate for this
+   disposable project, then revoke it; no core or other-project Skill may change.
+7. Create a repeated, non-sensitive presentation preference, review its supporting
+   interactions, accept it, then pause, resume, edit, and delete it. Scientific methods,
+   evidence, parameters, conclusions, approvals, model selection, and data routing must
+   remain outside learned preferences.
+8. Confirm that Runs and Provenance distinguish model-backed drafts from local
    deterministic calculations and that no credential appears in the project, records,
    logs, or exports.
 
-Current acceptance limits: the verified 0.1.38 package predates the new 0.1.39 candidate
-and preference review screens; no admitted external
-Skill or third-party MCP, no Developer-ID signature or notarization, no Apple-Silicon,
+Current acceptance limits: no admitted external Skill or third-party MCP, no Developer-ID
+signature or notarization, no Apple-Silicon,
 Windows, or current Linux acceptance, and no claim of scientific or methodological
 validity. Credentials entered in the current unsigned build are stored in an owner-only
 app-private OpenCode configuration, not the macOS Keychain; revisit keychain-backed
@@ -395,7 +399,7 @@ silently acquire those claims. Tagged matrix jobs no longer create or populate a
 only the final job may create a draft after all four evidence files and the cross-platform
 manifest validate, and it uploads exactly those verified installers and records. This gate
 is locally contract-tested and rejects the
-current unsigned 0.1.38 x64 DMG, but it has not been exercised with real Apple credentials.
+current unsigned 0.1.39 x64 DMG, but it has not been exercised with real Apple credentials.
 The AI4HEOR 0.1.30 Linux `.deb` and `.rpm` were built from the same clean commit
 `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. Both packages are payload-verified with all
 282 configured resources matching source bytes and all 177 deterministic HEOR tests
