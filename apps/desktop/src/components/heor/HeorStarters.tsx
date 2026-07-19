@@ -1,14 +1,23 @@
-import { BookOpenCheck, FileSearch, GraduationCap, Route, Search } from "lucide-react";
+import { BookOpenCheck, FileSearch, GraduationCap, HeartPulse, Route, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { installExample, isTauri } from "@/lib/tauri";
+import { toast } from "@/lib/toast";
 
 export function HeorStarters({ onPick }: { onPick: (prompt: string) => void }) {
   const { t } = useTranslation("heor");
   const items = [
-    { key: "learn" as const, icon: GraduationCap },
-    { key: "scope" as const, icon: Route },
-    { key: "search" as const, icon: Search },
-    { key: "inputs" as const, icon: FileSearch },
-    { key: "audit" as const, icon: BookOpenCheck },
+    { key: "learn" as const, icon: GraduationCap, prepare: undefined },
+    { key: "scope" as const, icon: Route, prepare: undefined },
+    { key: "search" as const, icon: Search, prepare: undefined },
+    { key: "inputs" as const, icon: FileSearch, prepare: undefined },
+    { key: "audit" as const, icon: BookOpenCheck, prepare: undefined },
+    {
+      key: "example" as const,
+      icon: HeartPulse,
+      prepare: async () => {
+        if (isTauri) await installExample("heor-cost-effectiveness");
+      },
+    },
   ];
 
   return (
@@ -21,11 +30,25 @@ export function HeorStarters({ onPick }: { onPick: (prompt: string) => void }) {
       </h1>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{t("starter.body")}</p>
       <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
-        {items.map(({ key, icon: Icon }) => (
+        {items.map(({ key, icon: Icon, prepare }) => (
           <button
             key={key}
             type="button"
-            onClick={() => onPick(t(`starter.${key}.prompt`))}
+            onClick={() => {
+              void (async () => {
+                try {
+                  await prepare?.();
+                } catch (error) {
+                  toast.error(
+                    t("starter.error.setup", {
+                      message: error instanceof Error ? error.message : String(error),
+                    }),
+                  );
+                  return;
+                }
+                onPick(t(`starter.${key}.prompt`));
+              })();
+            }}
             className="group rounded-card border border-border bg-surface p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-card"
           >
             <Icon size={18} strokeWidth={1.6} className="text-accent" />

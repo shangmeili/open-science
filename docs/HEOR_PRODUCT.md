@@ -611,6 +611,26 @@ lacks executable evidence-value derivations. Neither can pass analysis-plan
 approval. The review pane formats current monetary results from the
 engine-returned currency instead of a hard-coded jurisdiction.
 
+## Deterministic teaching example
+
+The default HEOR surface includes a sixth, explicitly local teaching starter for
+`examples/heor-cost-effectiveness`. Selecting the card copies the bundled example
+without overwriting an existing researcher-edited copy, then fills an unsent
+natural-language request. The request first asks the researcher whether to retain
+the proposed decision problem and never creates an approval by selecting the card.
+
+The two-strategy, three-state example has a dependency-free, versioned Python
+runner, `run_analysis.py`. It verifies the exact model-input SHA-256 declared by the analysis spec,
+validates complete stochastic transition rows, an absorbing death state, complete
+costs and utilities, and cohort mass conservation, then uses Decimal arithmetic
+with trapezoidal state occupancy and end-of-cycle discounting. The base case must
+match `expected/base-case-result.json` byte for byte; the result binds the exact
+runner, specification, and CSV hashes and retains cycle traces. The only bounded
+command-line sensitivity input changes the intervention stable-state cost, so it
+cannot silently alter effects or utilities. This proves reproducibility of the
+teaching arithmetic, not input validity, model validity, an official Chinese
+threshold, cost-effectiveness, reimbursement, pricing, or policy suitability.
+
 ## Local evidence library
 
 The shipped alpha accepts PDF, plain text, Markdown, CSV, and JSON sources under

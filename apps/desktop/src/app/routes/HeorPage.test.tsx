@@ -106,6 +106,28 @@ describe("AI4HEOR conversation route", () => {
     expect(sendPrompt).not.toHaveBeenCalled();
   });
 
+  it("prepares the deterministic teaching example without starting an agent turn", async () => {
+    const sendPrompt = vi.fn().mockResolvedValue("session-1");
+    useRuntimeStore.setState({
+      status: "ready",
+      currentId: null,
+      defaultModel: "openai/gpt-5.2",
+      sendPrompt,
+    });
+    renderAt("/heor");
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /Run the cost-effectiveness teaching example/i,
+      }),
+    );
+
+    const draft = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
+    expect(draft).toContain("python run_analysis.py --check expected/base-case-result.json");
+    expect(draft).toContain("ask me whether to continue");
+    expect(sendPrompt).not.toHaveBeenCalled();
+  });
+
   it("blocks agent turns until a model is explicitly selected", async () => {
     const sendPrompt = vi.fn().mockResolvedValue("session-1");
     useRuntimeStore.setState({

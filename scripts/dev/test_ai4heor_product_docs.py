@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import unittest
 from pathlib import Path
@@ -119,6 +120,31 @@ class AI4HEORProductDocsTests(unittest.TestCase):
                 text = (ROOT / relative).read_text(encoding="utf-8")
                 self.assertIn("ResearchClawBench", text)
                 self.assertIn(BENCHMARK_BOUNDARY_BY_LOCALE[locale], text)
+
+    def test_default_heor_example_is_hash_bound_and_documented(self):
+        example = ROOT / "examples/heor-cost-effectiveness"
+        runner = example / "run_analysis.py"
+        spec_path = example / "inputs/analysis-spec.json"
+        inputs = example / "inputs/model-inputs.csv"
+        expected_path = example / "expected/base-case-result.json"
+        for path in (runner, spec_path, inputs, expected_path):
+            self.assertTrue(path.is_file(), path)
+
+        digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+        spec = json.loads(spec_path.read_text(encoding="utf-8"))
+        expected = json.loads(expected_path.read_text(encoding="utf-8"))
+        self.assertEqual(spec["input_sha256"], digest(inputs))
+        self.assertEqual(expected["bindings"]["runner_sha256"], digest(runner))
+        self.assertEqual(expected["bindings"]["analysis_spec_sha256"], digest(spec_path))
+        self.assertEqual(expected["bindings"]["model_inputs_sha256"], digest(inputs))
+        self.assertIsNone(
+            expected["incremental_vs_comparator"]["cost_effectiveness_claim"]
+        )
+
+        for relative in ("README.md", "README.zh.md", "docs/PRD.md", "docs/HEOR_PRODUCT.md"):
+            text = (ROOT / relative).read_text(encoding="utf-8")
+            self.assertIn("run_analysis.py", text, relative)
+            self.assertIn("expected/base-case-result.json", text, relative)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,8 @@
 - States: stable, progressed, dead
 - Cycle length: one year
 - Time horizon: ten years
-- Discounting: 5% annually for costs and outcomes
+- Reward timing: average start- and end-of-cycle occupancy (trapezoidal half-cycle correction)
+- Discounting: 5% annually for costs and outcomes, applied at the end of each cycle
 - Currency and price year: CNY 2026
 - Cohort size: 1,000 people
 - Illustrative willingness-to-pay value: CNY 150,000 per QALY

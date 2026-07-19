@@ -1,0 +1,36 @@
+{
+  "schema": "ai4heor-teaching-cea-spec/v1",
+  "analysis_id": "synthetic-three-state-cohort",
+  "input_file": "inputs/model-inputs.csv",
+  "input_sha256": "c9f2fd47bc22c8c33565f1fb775c81b809b6cf789eb66c8d67d76a14786395bf",
+  "strategy_order": [
+    "comparator",
+    "intervention"
+  ],
+  "baseline_strategy_id": "comparator",
+  "states": [
+    "stable",
+    "progressed",
+    "dead"
+  ],
+  "initial_cohort": {
+    "stable": 1000,
+    "progressed": 0,
+    "dead": 0
+  },
+  "cycles": 10,
+  "cycle_length_years": 1,
+  "discount_rate_costs": 0.05,
+  "discount_rate_outcomes": 0.05,
+  "reward_timing": "trapezoidal_state_occupancy",
+  "discount_timing": "end_of_cycle",
+  "currency": "CNY",
+  "price_year": 2026,
+  "illustrative_threshold_per_qaly": 150000,
+  "sensitivity": {
+    "parameter": "intervention.stable.state_cost",
+    "low": 14400,
+    "high": 21600,
+    "basis": "synthetic_plus_or_minus_20_percent"
+  }
+}

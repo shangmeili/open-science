@@ -1161,15 +1161,20 @@ pub fn audit_heor_survival_extrapolation(
 mod tests {
     use super::*;
     use std::fs;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    static NEXT_WORKSPACE_ID: AtomicU64 = AtomicU64::new(0);
 
     fn workspace() -> std::path::PathBuf {
         let path = std::env::temp_dir().join(format!(
-            "ai4heor-survival-review-{}",
+            "ai4heor-survival-review-{}-{}-{}",
+            std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            NEXT_WORKSPACE_ID.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(path.join("heor/evidence")).unwrap();
         path

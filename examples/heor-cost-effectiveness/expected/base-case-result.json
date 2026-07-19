@@ -1,0 +1,247 @@
+{
+  "schema": "ai4heor-teaching-cea-result/v1",
+  "runner": "ai4heor-teaching-cea-runner/v1",
+  "analysis_id": "synthetic-three-state-cohort",
+  "scenario": {
+    "type": "base_case"
+  },
+  "bindings": {
+    "runner_path": "run_analysis.py",
+    "runner_sha256": "eb79774eb48a86ee58c979bdfe9421a259efabd298963702e974a646f6b8b81d",
+    "analysis_spec_path": "inputs/analysis-spec.json",
+    "analysis_spec_sha256": "49d1d841aa1527d16bb1994096be3c887036aa019e0115b082139ea724ef855d",
+    "model_inputs_path": "inputs/model-inputs.csv",
+    "model_inputs_sha256": "c9f2fd47bc22c8c33565f1fb775c81b809b6cf789eb66c8d67d76a14786395bf"
+  },
+  "methods": {
+    "model": "closed_cohort_state_transition",
+    "cycle_length_years": 1,
+    "cycles": 10,
+    "reward_timing": "trapezoidal_state_occupancy",
+    "discount_timing": "end_of_cycle",
+    "discount_rate_costs": 0.05,
+    "discount_rate_outcomes": 0.05,
+    "currency": "CNY",
+    "price_year": 2026
+  },
+  "strategies": [
+    {
+      "strategy_id": "comparator",
+      "discounted_cost_per_person": 66802.213928,
+      "discounted_qalys_per_person": 2.857589,
+      "discounted_life_years_per_person": 4.103962,
+      "final_occupancy": {
+        "stable": 28.247525,
+        "progressed": 112.263959,
+        "dead": 859.488516
+      },
+      "trace": [
+        {
+          "cycle": 0,
+          "end_occupancy": {
+            "stable": 1000.0,
+            "progressed": 0.0,
+            "dead": 0.0
+          }
+        },
+        {
+          "cycle": 1,
+          "end_occupancy": {
+            "stable": 700.0,
+            "progressed": 200.0,
+            "dead": 100.0
+          }
+        },
+        {
+          "cycle": 2,
+          "end_occupancy": {
+            "stable": 490.0,
+            "progressed": 290.0,
+            "dead": 220.0
+          }
+        },
+        {
+          "cycle": 3,
+          "end_occupancy": {
+            "stable": 343.0,
+            "progressed": 315.5,
+            "dead": 341.5
+          }
+        },
+        {
+          "cycle": 4,
+          "end_occupancy": {
+            "stable": 240.1,
+            "progressed": 305.225,
+            "dead": 454.675
+          }
+        },
+        {
+          "cycle": 5,
+          "end_occupancy": {
+            "stable": 168.07,
+            "progressed": 276.93875,
+            "dead": 554.99125
+          }
+        },
+        {
+          "cycle": 6,
+          "end_occupancy": {
+            "stable": 117.649,
+            "progressed": 241.318062,
+            "dead": 641.032938
+          }
+        },
+        {
+          "cycle": 7,
+          "end_occupancy": {
+            "stable": 82.3543,
+            "progressed": 204.518347,
+            "dead": 713.127353
+          }
+        },
+        {
+          "cycle": 8,
+          "end_occupancy": {
+            "stable": 57.64801,
+            "progressed": 169.85962,
+            "dead": 772.49237
+          }
+        },
+        {
+          "cycle": 9,
+          "end_occupancy": {
+            "stable": 40.353607,
+            "progressed": 138.924317,
+            "dead": 820.722076
+          }
+        },
+        {
+          "cycle": 10,
+          "end_occupancy": {
+            "stable": 28.247525,
+            "progressed": 112.263959,
+            "dead": 859.488516
+          }
+        }
+      ]
+    },
+    {
+      "strategy_id": "intervention",
+      "discounted_cost_per_person": 95043.29259,
+      "discounted_qalys_per_person": 3.261298,
+      "discounted_life_years_per_person": 4.617853,
+      "final_occupancy": {
+        "stable": 64.288889,
+        "progressed": 152.550952,
+        "dead": 783.160159
+      },
+      "trace": [
+        {
+          "cycle": 0,
+          "end_occupancy": {
+            "stable": 1000.0,
+            "progressed": 0.0,
+            "dead": 0.0
+          }
+        },
+        {
+          "cycle": 1,
+          "end_occupancy": {
+            "stable": 760.0,
+            "progressed": 160.0,
+            "dead": 80.0
+          }
+        },
+        {
+          "cycle": 2,
+          "end_occupancy": {
+            "stable": 577.6,
+            "progressed": 246.4,
+            "dead": 176.0
+          }
+        },
+        {
+          "cycle": 3,
+          "end_occupancy": {
+            "stable": 438.976,
+            "progressed": 284.608,
+            "dead": 276.416
+          }
+        },
+        {
+          "cycle": 4,
+          "end_occupancy": {
+            "stable": 333.62176,
+            "progressed": 292.2304,
+            "dead": 374.14784
+          }
+        },
+        {
+          "cycle": 5,
+          "end_occupancy": {
+            "stable": 253.552538,
+            "progressed": 281.319194,
+            "dead": 465.128269
+          }
+        },
+        {
+          "cycle": 6,
+          "end_occupancy": {
+            "stable": 192.699929,
+            "progressed": 259.997377,
+            "dead": 547.302694
+          }
+        },
+        {
+          "cycle": 7,
+          "end_occupancy": {
+            "stable": 146.451946,
+            "progressed": 233.629943,
+            "dead": 619.918112
+          }
+        },
+        {
+          "cycle": 8,
+          "end_occupancy": {
+            "stable": 111.303479,
+            "progressed": 205.663667,
+            "dead": 683.032855
+          }
+        },
+        {
+          "cycle": 9,
+          "end_occupancy": {
+            "stable": 84.590644,
+            "progressed": 178.226217,
+            "dead": 737.18314
+          }
+        },
+        {
+          "cycle": 10,
+          "end_occupancy": {
+            "stable": 64.288889,
+            "progressed": 152.550952,
+            "dead": 783.160159
+          }
+        }
+      ]
+    }
+  ],
+  "incremental_vs_comparator": {
+    "intervention_id": "intervention",
+    "comparator_id": "comparator",
+    "discounted_incremental_cost_per_person": 28241.078662,
+    "discounted_incremental_qalys_per_person": 0.403709,
+    "icer_per_qaly": 69954.047747,
+    "illustrative_threshold_per_qaly": 150000,
+    "incremental_net_monetary_benefit_per_person": 32315.271338,
+    "cost_effectiveness_claim": null
+  },
+  "limitations": [
+    "All inputs are synthetic teaching assumptions, not evidence.",
+    "The illustrative threshold is not an official Chinese threshold.",
+    "This deterministic calculation does not validate the model structure or inputs.",
+    "No reimbursement, pricing, coverage, or policy conclusion is produced."
+  ]
+}

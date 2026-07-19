@@ -414,11 +414,16 @@ Two-strategy, three-state cohort cost-effectiveness analysis
 ```
 
 The bundled `examples/heor-cost-effectiveness/` inputs are teaching assumptions,
-not clinical or economic evidence. The natural-language workflow must explain
-the decision problem, reproduce costs and QALYs with deterministic code, run a
-transparent sensitivity check, and prepare a local report with limitations and
-Human review points. It must not create scientific approval, cost-effectiveness,
-reimbursement, or policy conclusions.
+not clinical or economic evidence. The implemented default HEOR entry exposes
+this example directly. Selecting it explicitly installs a local copy and fills an
+unsent natural-language request; it never starts an Agent turn. The dependency-free,
+versioned `run_analysis.py` verifies exact script, analysis-specification, and CSV hashes,
+reproduces `expected/base-case-result.json` byte for byte, writes cycle traces,
+and accepts only the declared intervention stable-state cost as its bounded
+one-way sensitivity input. The conversational workflow must explain the decision
+problem and ask the researcher whether to retain the teaching settings before
+running that fixed code. It must not substitute model arithmetic or create
+scientific approval, cost-effectiveness, reimbursement, or policy conclusions.
 
 ## 9. Roadmap
 

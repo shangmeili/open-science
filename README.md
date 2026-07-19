@@ -99,8 +99,13 @@ in one continuous, auditable session.
 starts with pharmacoeconomic study design, HEOR evidence/data analysis,
 model/report audit, or a synthetic cost-effectiveness example. The bundled
 `examples/heor-cost-effectiveness/` project demonstrates a two-strategy,
-three-state cohort workflow; its numbers are teaching assumptions, not clinical
-or economic evidence, and it cannot create approval or reimbursement conclusions.
+three-state cohort workflow. The default HEOR surface installs it only after the
+researcher selects the example and keeps the request unsent for review. Its
+dependency-free `run_analysis.py` binds the exact script, specification, and CSV
+hashes, reproduces `expected/base-case-result.json`, and exposes one declared cost
+sensitivity without asking a model to perform the arithmetic. Its numbers are
+teaching assumptions, not clinical or economic evidence, and it cannot create
+approval, cost-effectiveness, or reimbursement conclusions.
 
 ![AI4HEOR first-use guide with local, model, approval, and Human-authority boundaries](./docs/audits/2026-07-17-first-use/06-skip-link-stable.png)
 
@@ -282,8 +287,10 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source and the current verified x64 macOS package are 0.1.33. This
-version rewrites the Simplified-Chinese research surface and all 45 bundled Skill
+accepted. Current source is 0.1.34; the current verified x64 macOS package remains
+0.1.33 until the new source is packaged and independently checked. The source adds a
+sixth HEOR starter for a hash-bound, deterministic cost-effectiveness teaching case and
+retains the 0.1.33 rewrite of the Simplified-Chinese research surface and all 45 bundled Skill
 descriptions in direct pharmacoeconomics language, and moves previously hard-coded
 download, file-manager, Jupyter, notebook, and generated-assistant prompts into the seven
 shipped locale resources. It retains the 0.1.32 fail-closed new-project harness and its
