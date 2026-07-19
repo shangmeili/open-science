@@ -1,6 +1,6 @@
 # AI4HEOR Desktop — Technical Design
 
-> **Implementation status (v0.1.32 source, 2026-07-19).** Built and locally verified: Tauri 2 +
+> **Implementation status (v0.1.33 source, 2026-07-19).** Built and locally verified: Tauri 2 +
 > React desktop shell; isolated bundled OpenCode and uv sidecars; model-provider-agnostic
 > natural-language sessions; a HEOR-default root route, typed HEOR project creation,
 > localized unsent project-intake drafts, a seven-language non-blocking first-use
@@ -18,8 +18,8 @@
 > visible keyboard-focus indicator, and light-theme normal-text contrast at or above 4.5:1
 > on its supported paper and card surfaces. These are source/browser checks, not an
 > assistive-technology or full WCAG conformance claim.
-> The 0.1.32 x64 macOS DMG is content-verified from clean commit
-> `2bd1bea0de2fb151c8f11a57b28600223eee34ce`; all 283 resources match source bytes,
+> The 0.1.33 x64 macOS DMG is content-verified from clean commit
+> `a43650b40ae7d2ba2d4bc6e2847933032f7d1902`; all 283 resources match source bytes,
 > all 177 mounted-core HEOR tests pass, and isolated fresh plus legacy-migration starts
 > were verified. Its ordinary research and closed-Settings surfaces identify only the AI
 > assistant; the OpenCode engine name and local endpoint are confined to an explicitly
