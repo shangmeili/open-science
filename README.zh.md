@@ -160,7 +160,7 @@ AI4HEOR 会将旧默认目录 `~/Documents/OpenScience` 原子重命名并保留
 如果两个目录都已存在，则不自动合并或删除其中任何一个。在 Settings 中明确选择的
 基础目录始终优先。
 
-当前验证的 0.1.39 本地 x64 macOS 构建尚未代码签名或 notarize。
+当前验证的 0.1.40 本地 x64 macOS 构建尚未代码签名或 notarize。
 
 **macOS**：如果 Gatekeeper 提示应用已损坏或来自未知开发者，把应用安装到 Applications 后运行：
 
@@ -237,8 +237,8 @@ pnpm lint
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
 当前开发刻意收敛为先在 Intel macOS 上跑通产品；Windows、Linux、Apple Silicon
-与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.40`；在 0.1.40 验收包完成前，最近一次经过
-验证的 x64 macOS 安装包仍是 `0.1.39`。0.1.40 会在每个能力复核弹窗中先说明这项 Skill 做什么、来自
+与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.40`；当前经过验证的 x64 macOS 安装包也是
+`0.1.40`。0.1.40 会在每个能力复核弹窗中先说明这项 Skill 做什么、来自
 哪项项目要求，并明确它不是药物经济学分析，也不能替研究者作出科研判断。0.1.39 增加了项目能力候选的
 应用内复核链路：原生程序重新核验准确文件，以哈希链记录启用、
 拒绝或撤销，只把纯指令副本启用到当前项目，并拒绝覆盖或删除已经发生变化的内容。
@@ -259,18 +259,18 @@ pnpm lint
 中国药物经济学表述；原先写死在代码中的下载、文件管理、Jupyter、笔记本和助手提示也已进入
 七种语言的资源文件。0.1.32 建立的失败关闭项目约束和研究者科学决策权保持不变。模型无关的教学案例会记录
 1 条成功运行和 3 条溯源记录；固定输入发生变化时，应用使用自然中文说明拒绝复算，并保留原有结果。
-81,477,696 字节的
-`AI4HEOR_0.1.39_x64.dmg` 的 SHA-256 为
-`0fa3ca87c98dc810ef8617aa4416fae910a33142eeefe9719e6ba74046846d15`，由受控源码提交
-`92a3e19fc6b8ce65ecb9cdc9d7015c4a5655299a` 构建。验证确认 335 个受控资源与源码逐字节一致，
-177 项包内 HEOR 测试全部通过，并完成全新启动、旧工作区迁移和隔离原生界面检查；候选能力的检查项、
-限制和授权说明均按当前界面语言显示。该包仍未经
+81,478,172 字节的
+`AI4HEOR_0.1.40_x64.dmg` 的 SHA-256 为
+`ddebf35ac7c18d6d2e357a4b61d419761f9ddefb1688eb74037a614fbb882f5f`，由受控源码提交
+`3afdc49b223d92c9b71e8c8e28c3ea8aa6844bf8` 构建。验证确认 335 个受控资源与源码逐字节一致，
+177 项包内 HEOR 测试全部通过，并完成全新启动和旧工作区迁移。前端交互测试确认，能力复核弹窗会在
+启用前显示所选语言的能力名称、用途、原始要求、限制和检查项。该包仍未经
 Developer ID 签名或 notarize；
 这些工程证据不代表科学有效性。
 
 ### Intel macOS 产品负责人验收
 
-`AI4HEOR_0.1.39_x64.dmg` 仅用于 Intel Mac 内部测试。打开前先核对上面的 SHA-256。由于该包尚未
+`AI4HEOR_0.1.40_x64.dmg` 仅用于 Intel Mac 内部测试。打开前先核对上面的 SHA-256。由于该包尚未
 签名，macOS 可能要求按住 Control 点击应用后选择“打开”；这只是内部测试方式，不代表已经具备公开分发条件。
 
 1. 确认应用名称和图标均为 AI4HEOR，首页从药物经济学研究问题开始，只显示六个 HEOR 相关入口。
@@ -316,7 +316,7 @@ sealed resources 或 stapled ticket，严格 codesign 与 Gatekeeper 均拒绝�
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.39},
+  version = {0.1.40},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

@@ -217,9 +217,9 @@ class AI4HEORProductDocsTests(unittest.TestCase):
         self.assertIn("Intel macOS product-owner acceptance", english)
         self.assertIn("Intel macOS 产品负责人验收", chinese)
         for text in (english, chinese):
-            self.assertIn("AI4HEOR_0.1.39_x64.dmg", text)
+            self.assertIn("AI4HEOR_0.1.40_x64.dmg", text)
             self.assertIn(
-                "0fa3ca87c98dc810ef8617aa4416fae910a33142eeefe9719e6ba74046846d15",
+                "ddebf35ac7c18d6d2e357a4b61d419761f9ddefb1688eb74037a614fbb882f5f",
                 text,
             )
             self.assertIn("capabilities/candidates/", text)
