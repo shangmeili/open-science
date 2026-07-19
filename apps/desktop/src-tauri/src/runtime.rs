@@ -833,7 +833,7 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
 /// Kill and respawn a running sidecar on its stable port. The lifecycle lock
 /// covers the complete state transition, and URL is cleared before spawning so
 /// a failed restart can never leave a stale "running" marker behind.
-fn restart_sidecar_if_running(
+pub(crate) fn restart_sidecar_if_running(
     app: &AppHandle,
     state: &RuntimeState,
 ) -> Result<Option<String>, String> {

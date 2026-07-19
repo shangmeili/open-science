@@ -1,11 +1,21 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Bot, Boxes, Check, Package, Puzzle, ShieldCheck, X } from "lucide-react";
+import { Bot, Boxes, Check, Package, Puzzle, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { useRuntimeStore } from "@/lib/runtime";
 import { cn } from "@/lib/cn";
 import { localizeSkill } from "@/i18n/skillLocalization";
-import { auditAssetAdmission, type AssetAdmissionAudit, type AssetAdmissionRecord } from "@/lib/tauri";
+import { PreferenceLearningSection } from "@/components/skills/PreferenceLearningSection";
+import {
+  appendSkillCandidateReview,
+  auditAssetAdmission,
+  auditSkillCandidates,
+  type AssetAdmissionAudit,
+  type AssetAdmissionRecord,
+  type SkillCandidateAudit,
+  type SkillCandidateReviewAction,
+  type SkillCandidateSummary,
+} from "@/lib/tauri";
 
 /**
  * Runtime capabilities plus the app-owned third-party admission registry.
@@ -15,12 +25,28 @@ import { auditAssetAdmission, type AssetAdmissionAudit, type AssetAdmissionRecor
 export function SkillsPage() {
   const { t, i18n } = useTranslation(["pages", "common", "skills"]);
   const navigate = useNavigate();
-  const { skills, agents, tools, status, loadCatalog, detectTools, reviewAssetCandidate } = useRuntimeStore();
+  const {
+    skills,
+    agents,
+    tools,
+    status,
+    workspace,
+    loadCatalog,
+    detectTools,
+    connectRetry,
+    reviewAssetCandidate,
+  } = useRuntimeStore();
   const connected = status === "ready";
   const [text, setText] = useState("");
   const [reviewing, setReviewing] = useState(false);
   const [admission, setAdmission] = useState<AssetAdmissionAudit | null>(null);
   const [admissionError, setAdmissionError] = useState(false);
+  const [candidateAudit, setCandidateAudit] = useState<SkillCandidateAudit | null>(null);
+  const [candidateError, setCandidateError] = useState(false);
+  const [candidateLoading, setCandidateLoading] = useState(true);
+  const [reviewTarget, setReviewTarget] = useState<SkillCandidateSummary | null>(null);
+  const [reviewAction, setReviewAction] = useState<SkillCandidateReviewAction>("activate");
+  const [reviewRunning, setReviewRunning] = useState(false);
 
   useEffect(() => {
     if (connected) void loadCatalog();
@@ -41,6 +67,22 @@ export function SkillsPage() {
     };
   }, []);
 
+  const loadCandidates = useCallback(async () => {
+    setCandidateLoading(true);
+    setCandidateError(false);
+    try {
+      setCandidateAudit(await auditSkillCandidates());
+    } catch {
+      setCandidateError(true);
+    } finally {
+      setCandidateLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCandidates();
+  }, [workspace, loadCandidates]);
+
   const onReview = async () => {
     if (!text.trim()) return;
     setReviewing(true);
@@ -49,6 +91,37 @@ export function SkillsPage() {
     if (id) {
       setText("");
       navigate(`/live/${id}`); // watch the agent install it
+    }
+  };
+
+  const openCandidateReview = (candidate: SkillCandidateSummary, action: SkillCandidateReviewAction) => {
+    setReviewTarget(candidate);
+    setReviewAction(action);
+  };
+
+  const submitCandidateReview = async (actorLabel: string, rationale: string) => {
+    if (!reviewTarget || !candidateAudit?.projectId) return;
+    setReviewRunning(true);
+    try {
+      await appendSkillCandidateReview({
+        projectId: candidateAudit.projectId,
+        candidateId: reviewTarget.candidateId,
+        decisionSha256: reviewTarget.decisionSha256,
+        acceptanceChecksSha256: reviewTarget.acceptanceChecksSha256,
+        action: reviewAction,
+        actorLabel,
+        rationale,
+      });
+      setReviewTarget(null);
+      await loadCandidates();
+      if (connected && reviewAction !== "reject") {
+        await connectRetry();
+      }
+      if (connected) void loadCatalog();
+    } catch {
+      setCandidateError(true);
+    } finally {
+      setReviewRunning(false);
     }
   };
 
@@ -87,6 +160,40 @@ export function SkillsPage() {
             </div>
           </div>
         </Section>
+
+        <Section title={t("skills.candidates.sectionTitle")} icon={<ShieldCheck size={15} />}>
+          <div className="flex items-start justify-between gap-3 px-4 py-3">
+            <p className="text-xs leading-5 text-muted">{t("skills.candidates.boundary")}</p>
+            <button
+              type="button"
+              aria-label={t("skills.candidates.refresh")}
+              onClick={() => void loadCandidates()}
+              disabled={candidateLoading}
+              className="shrink-0 rounded-input border border-border p-1.5 text-muted hover:bg-surface-2 disabled:opacity-40"
+            >
+              <RefreshCw size={14} className={candidateLoading ? "animate-spin" : undefined} />
+            </button>
+          </div>
+          {candidateError && <div className="px-4 py-3 text-xs text-danger">{t("skills.candidates.unavailable")}</div>}
+          {candidateLoading && !candidateAudit && <Empty>{t("skills.candidates.loading")}</Empty>}
+          {candidateAudit && !candidateAudit.projectAvailable && <Empty>{t("skills.candidates.noProject")}</Empty>}
+          {candidateAudit?.projectAvailable && candidateAudit.candidates.length === 0 && (
+            <Empty>{t("skills.candidates.empty")}</Empty>
+          )}
+          {candidateAudit?.errors.map((error) => (
+            <div key={error} className="px-4 py-2 text-xs text-danger">{error}</div>
+          ))}
+          {candidateAudit?.candidates.map((candidate) => (
+            <CandidateRow
+              key={candidate.candidateId}
+              candidate={candidate}
+              locale={i18n.resolvedLanguage}
+              onReview={openCandidateReview}
+            />
+          ))}
+        </Section>
+
+        <PreferenceLearningSection workspace={workspace} />
 
         <Section title={t("skills.assetAdmission.sectionTitle")} icon={<ShieldCheck size={15} />}>
           {admissionError && <Empty>{t("skills.assetAdmission.unavailable")}</Empty>}
@@ -168,6 +275,243 @@ export function SkillsPage() {
             {t("skills.disconnected")}
           </div>
         )}
+      </div>
+      {reviewTarget && (
+        <CandidateReviewDialog
+          candidate={reviewTarget}
+          action={reviewAction}
+          running={reviewRunning}
+          onCancel={() => !reviewRunning && setReviewTarget(null)}
+          onSubmit={(actor, rationale) => void submitCandidateReview(actor, rationale)}
+        />
+      )}
+    </div>
+  );
+}
+
+function candidateCopy(candidate: SkillCandidateSummary, locale?: string): { name: string; description: string } {
+  const normalized = locale?.toLowerCase();
+  const exact = locale ? candidate.localized[locale] : undefined;
+  const language = Object.entries(candidate.localized).find(([key]) =>
+    normalized?.startsWith(key.toLowerCase().split("-")[0]),
+  )?.[1];
+  const copy = exact ?? language ?? candidate.localized["zh-Hans"] ?? candidate.localized.en;
+  return {
+    name: copy?.displayName ?? candidate.candidateId,
+    description: copy?.description ?? candidate.request,
+  };
+}
+
+function CandidateRow({
+  candidate,
+  locale,
+  onReview,
+}: {
+  candidate: SkillCandidateSummary;
+  locale?: string;
+  onReview: (candidate: SkillCandidateSummary, action: SkillCandidateReviewAction) => void;
+}) {
+  const { t } = useTranslation("pages");
+  const copy = candidateCopy(candidate, locale);
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-start gap-3">
+        {candidate.valid ? (
+          <Check size={16} className="mt-0.5 shrink-0 text-ok" />
+        ) : (
+          <X size={16} className="mt-0.5 shrink-0 text-danger" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-text">{copy.name}</span>
+            <span className="font-mono text-[10.5px] text-muted">${candidate.candidateId}</span>
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted ring-1 ring-border">
+              {t(`skills.candidates.status.${candidateStatus(candidate.status)}`)}
+            </span>
+          </div>
+          <p className="mt-1 text-xs leading-5 text-muted">{copy.description}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted">
+            <span>{candidate.provider}</span>
+            <span>{candidate.model}</span>
+            <span className="font-mono">{candidate.licenseSpdx}</span>
+            {candidate.decisionSha256 && <span className="font-mono">{candidate.decisionSha256.slice(0, 12)}</span>}
+          </div>
+          {candidate.validationErrors.map((error) => (
+            <p key={error} className="mt-2 text-xs text-danger">{error}</p>
+          ))}
+        </div>
+      </div>
+      <div className="mt-3 flex justify-end gap-2">
+        {candidate.canReject && (
+          <button
+            type="button"
+            onClick={() => onReview(candidate, "reject")}
+            className="rounded-input border border-border px-3 py-1.5 text-xs font-medium text-muted hover:bg-surface-2"
+          >
+            {t("skills.candidates.reject")}
+          </button>
+        )}
+        {candidate.canRevoke && (
+          <button
+            type="button"
+            onClick={() => onReview(candidate, "revoke")}
+            className="rounded-input border border-danger/40 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/5"
+          >
+            {t("skills.candidates.revoke")}
+          </button>
+        )}
+        {candidate.canActivate && (
+          <button
+            type="button"
+            onClick={() => onReview(candidate, "activate")}
+            className="rounded-input bg-accent px-3 py-1.5 text-xs font-semibold text-white"
+          >
+            {t("skills.candidates.activate")}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type CandidateStatus =
+  | "inactive"
+  | "active"
+  | "rejected"
+  | "revoked"
+  | "invalid"
+  | "drifted"
+  | "activeCandidateChanged"
+  | "unmanagedConflict"
+  | "candidateMissing";
+
+function candidateStatus(status: string): CandidateStatus {
+  switch (status) {
+    case "active":
+    case "rejected":
+    case "revoked":
+    case "invalid":
+    case "drifted":
+    case "inactive":
+      return status;
+    case "active_candidate_changed":
+      return "activeCandidateChanged";
+    case "unmanaged_conflict":
+      return "unmanagedConflict";
+    case "candidate_missing":
+      return "candidateMissing";
+    default:
+      return "invalid";
+  }
+}
+
+function CandidateReviewDialog({
+  candidate,
+  action,
+  running,
+  onCancel,
+  onSubmit,
+}: {
+  candidate: SkillCandidateSummary;
+  action: SkillCandidateReviewAction;
+  running: boolean;
+  onCancel: () => void;
+  onSubmit: (actor: string, rationale: string) => void;
+}) {
+  const { t } = useTranslation("pages");
+  const [actor, setActor] = useState("");
+  const [rationale, setRationale] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const valid = actor.trim().length > 0 && rationale.trim().length > 1 && confirmed && !running;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && !running && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, running]);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+      onClick={onCancel}
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t(`skills.candidates.dialog.title.${action}`)}
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-card border border-border bg-surface p-5 shadow-card"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 text-sm font-semibold text-text">
+          <ShieldCheck size={17} className="text-accent" />
+          {t(`skills.candidates.dialog.title.${action}`)}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted">{t(`skills.candidates.dialog.boundary.${action}`)}</p>
+        <div className="mt-3 rounded-input border border-border bg-bg p-3">
+          <div className="font-mono text-xs font-medium text-text">${candidate.candidateId}</div>
+          <div className="mt-1 break-all font-mono text-[10px] leading-4 text-muted">
+            {candidate.decisionSha256}
+          </div>
+        </div>
+        {action !== "revoke" && (
+          <>
+            <div className="mt-4 text-xs font-medium text-text">{t("skills.candidates.dialog.acceptanceTitle")}</div>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-xs leading-5 text-muted">
+              {candidate.acceptanceChecks.map((check) => <li key={check}>{check}</li>)}
+            </ul>
+            <div className="mt-4 text-xs font-medium text-text">{t("skills.candidates.dialog.limitationsTitle")}</div>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-xs leading-5 text-muted">
+              {candidate.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}
+            </ul>
+            <p className="mt-3 text-[10px] leading-4 text-muted">{candidate.licenseNote}</p>
+          </>
+        )}
+        <label className="mt-4 block text-xs font-medium text-text">
+          {t("skills.candidates.dialog.actor")}
+          <input
+            value={actor}
+            onChange={(event) => setActor(event.target.value)}
+            autoFocus
+            placeholder={t("skills.candidates.dialog.actorPlaceholder")}
+            className="mt-1.5 w-full rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent"
+          />
+        </label>
+        <label className="mt-3 block text-xs font-medium text-text">
+          {t("skills.candidates.dialog.rationale")}
+          <textarea
+            value={rationale}
+            onChange={(event) => setRationale(event.target.value)}
+            placeholder={t(`skills.candidates.dialog.rationalePlaceholder.${action}`)}
+            rows={3}
+            className="mt-1.5 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent"
+          />
+        </label>
+        <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-text">
+          <input
+            type="checkbox"
+            checked={confirmed}
+            onChange={(event) => setConfirmed(event.target.checked)}
+            className="mt-1 accent-[var(--color-accent)]"
+          />
+          <span>{t(`skills.candidates.dialog.confirm.${action}`)}</span>
+        </label>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={running}
+            onClick={onCancel}
+            className="rounded-input border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-surface-2 disabled:opacity-40"
+          >
+            {t("skills.candidates.dialog.cancel")}
+          </button>
+          <button
+            type="button"
+            disabled={!valid}
+            onClick={() => onSubmit(actor.trim(), rationale.trim())}
+            className="rounded-input bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+          >
+            {running ? t("skills.candidates.dialog.recording") : t(`skills.candidates.dialog.submit.${action}`)}
+          </button>
+        </div>
       </div>
     </div>
   );

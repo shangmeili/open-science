@@ -51,6 +51,146 @@ export interface AssetAdmissionAudit {
   errors: string[];
 }
 
+export type SkillCandidateReviewAction = "activate" | "reject" | "revoke";
+
+export interface LocalizedCandidateCopy {
+  displayName: string;
+  description: string;
+}
+
+export interface SkillCandidateSummary {
+  candidateId: string;
+  createdAt: string;
+  request: string;
+  localized: Record<string, LocalizedCandidateCopy>;
+  provider: string;
+  model: string;
+  licenseSpdx: string;
+  licenseNote: string;
+  limitations: string[];
+  acceptanceChecks: string[];
+  acceptanceChecksSha256: string;
+  decisionSha256: string;
+  activeTreeSha256: string;
+  valid: boolean;
+  validationErrors: string[];
+  status: string;
+  canActivate: boolean;
+  canReject: boolean;
+  canRevoke: boolean;
+  lastAction?: SkillCandidateReviewAction;
+  lastActorLabel?: string;
+  lastRationale?: string;
+  lastTimestamp?: number;
+}
+
+export interface SkillCandidateAudit {
+  projectAvailable: boolean;
+  projectId?: string;
+  complete: boolean;
+  candidates: SkillCandidateSummary[];
+  chainHead?: string;
+  integrity: string;
+  identityAssurance: string;
+  errors: string[];
+}
+
+export interface SkillCandidateReviewRequest {
+  projectId: string;
+  candidateId: string;
+  decisionSha256: string;
+  acceptanceChecksSha256: string;
+  action: SkillCandidateReviewAction;
+  actorLabel: string;
+  rationale: string;
+}
+
+export interface SkillCandidateReviewEvent extends SkillCandidateReviewRequest {
+  schemaVersion: number;
+  sequence: number;
+  reviewId: string;
+  activeTreeSha256: string;
+  timestamp: number;
+  recordPath: string;
+  recordSha256: string;
+  assurance: string;
+  previousHash?: string;
+  eventHash: string;
+}
+
+export type PreferenceReviewAction = "accept" | "update" | "enable" | "disable" | "delete";
+
+export interface PreferenceEvidenceSummary {
+  interactionRef: string;
+  observedAt: string;
+  summary: string;
+}
+
+export interface PreferenceProposalSummary {
+  proposalId: string;
+  createdAt: string;
+  scope: "language" | "presentation" | "workflow" | "audit" | string;
+  proposedRule: string;
+  evidence: PreferenceEvidenceSummary[];
+  counterexamples: string[];
+  reviewCondition: string;
+  expiresAt?: string;
+  proposalSha256: string;
+  valid: boolean;
+  validationErrors: string[];
+  accepted: boolean;
+}
+
+export interface AcceptedPreferenceSummary {
+  id: string;
+  scope: "language" | "presentation" | "workflow" | "audit" | string;
+  rule: string;
+  sourceProposalSha256: string;
+  acceptedAt: number;
+  updatedAt: number;
+  enabled: boolean;
+  reviewCondition: string;
+  expiresAt?: string;
+}
+
+export interface PreferenceAudit {
+  projectAvailable: boolean;
+  projectId?: string;
+  complete: boolean;
+  storeSha256: string;
+  proposals: PreferenceProposalSummary[];
+  preferences: AcceptedPreferenceSummary[];
+  chainHead?: string;
+  integrity: string;
+  identityAssurance: string;
+  errors: string[];
+}
+
+export interface PreferenceReviewRequest {
+  projectId: string;
+  preferenceId: string;
+  proposalSha256: string;
+  storeSha256: string;
+  action: PreferenceReviewAction;
+  rule: string;
+  actorLabel: string;
+  rationale: string;
+}
+
+export interface PreferenceReviewEvent extends PreferenceReviewRequest {
+  schemaVersion: number;
+  sequence: number;
+  reviewId: string;
+  beforeStoreSha256: string;
+  afterStoreSha256: string;
+  timestamp: number;
+  recordPath: string;
+  recordSha256: string;
+  assurance: string;
+  previousHash?: string;
+  eventHash: string;
+}
+
 const BROWSER_ASSET_ADMISSION_AUDIT: AssetAdmissionAudit = {
   complete: true,
   failClosed: false,
@@ -113,6 +253,62 @@ export async function auditAssetAdmission(): Promise<AssetAdmissionAudit> {
   if (!isTauri) return BROWSER_ASSET_ADMISSION_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<AssetAdmissionAudit>("audit_asset_admission");
+}
+
+/** Independently revalidate current-project Skill candidates and their
+ *  app-owned Human review chain. Browser development has no project filesystem. */
+export async function auditSkillCandidates(): Promise<SkillCandidateAudit> {
+  if (!isTauri) {
+    return {
+      projectAvailable: false,
+      complete: true,
+      candidates: [],
+      integrity: "not_applicable",
+      identityAssurance: "app_owned_local_human_assertion",
+      errors: [],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<SkillCandidateAudit>("audit_skill_candidates");
+}
+
+/** Record a Human activation/rejection/revocation for exact candidate bytes.
+ *  Activation and revocation are performed only by the native app. */
+export async function appendSkillCandidateReview(
+  request: SkillCandidateReviewRequest,
+): Promise<SkillCandidateReviewEvent> {
+  if (!isTauri) throw new Error("Skill candidate review is available in the desktop app only.");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<SkillCandidateReviewEvent>("append_skill_candidate_review", { request });
+}
+
+/** Read repeated-observation preference proposals and the exact Human-reviewed
+ * local preference store for the current project. */
+export async function auditLocalPreferences(): Promise<PreferenceAudit> {
+  if (!isTauri) {
+    return {
+      projectAvailable: false,
+      complete: true,
+      storeSha256: "",
+      proposals: [],
+      preferences: [],
+      integrity: "not_applicable",
+      identityAssurance: "app_owned_local_human_assertion",
+      errors: [],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<PreferenceAudit>("audit_local_preferences");
+}
+
+/** Apply one explicit Human acceptance, edit, state change, or deletion to the
+ * exact current proposal and preference-store bytes. */
+export async function appendLocalPreferenceReview(
+  request: PreferenceReviewRequest,
+): Promise<PreferenceReviewEvent> {
+  if (!isTauri) throw new Error("Preference review is available in the desktop app only.");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<PreferenceReviewEvent>("append_local_preference_review", { request });
 }
 
 /**

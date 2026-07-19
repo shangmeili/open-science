@@ -291,8 +291,16 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.38; the current verified x64 macOS package is 0.1.38.
-Version 0.1.38 makes both capability-growth Skills resolve their validators from the
+accepted. Current source is 0.1.39; the current verified x64 macOS package is 0.1.38.
+Version 0.1.39 adds the app-owned Human review path for project capability candidates:
+the native control revalidates exact bytes, records activation, rejection, or revocation
+in a hash-linked audit chain, activates only instruction-only copies in the current
+project, and refuses to overwrite or delete drifted content. It also adds the app-owned
+review path for repeated, non-sensitive work preferences: the researcher can inspect the
+supporting interactions, edit the proposed wording, accept it, pause or resume it, and
+delete it. Exact proposal/store hashes and a local decision chain prevent stale or
+unreviewed changes from being treated as accepted preferences. Version 0.1.38 makes both
+capability-growth Skills resolve their validators from the
 Skill installation directory reported by the runtime rather than assuming a source
 checkout. Version 0.1.37 adds a fail-closed capability-growth harness: natural-language
 requests can produce bilingual,
@@ -358,7 +366,8 @@ Open; that exception is not evidence of distribution readiness.
    deterministic calculations and that no credential appears in the project, records,
    logs, or exports.
 
-Current acceptance limits: no app-owned candidate activation screen, no admitted external
+Current acceptance limits: the verified 0.1.38 package predates the new 0.1.39 candidate
+and preference review screens; no admitted external
 Skill or third-party MCP, no Developer-ID signature or notarization, no Apple-Silicon,
 Windows, or current Linux acceptance, and no claim of scientific or methodological
 validity. Credentials entered in the current unsigned build are stored in an owner-only
@@ -412,7 +421,7 @@ If you use AI4HEOR in your research, please cite it:
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.38},
+  version = {0.1.39},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

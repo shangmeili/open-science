@@ -237,8 +237,11 @@ pnpm lint
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
 当前开发刻意收敛为先在 Intel macOS 上跑通产品；Windows、Linux、Apple Silicon
-与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.38`；已验证的 x64 macOS 安装包也为
-`0.1.38`。
+与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.39`；当前已验证的 x64 macOS 安装包仍为
+`0.1.38`。0.1.39 增加了项目能力候选的应用内复核链路：原生程序重新核验准确文件，以哈希链记录启用、
+拒绝或撤销，只把纯指令副本启用到当前项目，并拒绝覆盖或删除已经发生变化的内容。
+该版本也增加了本地使用习惯的应用内复核：研究者可以查看形成建议的重复交流、修改建议表述、采用、暂停、
+恢复或删除；准确的建议文件和设置文件哈希以及本机决定链可阻止过期或未经复核的改动被当作已采用习惯。
 0.1.38 让两个能力成长 Skill 从运行时报告的实际安装目录调用校验器，不再假定用户从源码仓库
 启动应用。0.1.37 新增了失败关闭的能力成长 harness：
 研究者可以用自然语言提出新能力，系统只会生成带中英文描述、精确哈希和授权记录的指令型 Skill 候选项；
@@ -280,7 +283,8 @@ Developer ID 签名或 notarize；
    哈希和纯指令权限，只能保存在 `capabilities/candidates/`，不得出现在已启用 Skill 中。
 7. 检查“运行”和溯源记录能否区分模型生成草稿与本机确定性计算，并确认项目、记录、日志和导出内容中没有密钥。
 
-当前验收边界：尚无应用内候选启用界面；没有已准入的外部 Skill 或第三方 MCP；没有 Developer ID 签名和
+当前验收边界：已验证的 0.1.38 安装包早于 0.1.39 新增的能力候选和使用习惯复核界面；没有已准入的外部 Skill
+或第三方 MCP；没有 Developer ID 签名和
 公证；Apple Silicon、Windows 和当前 Linux 验收仍暂停；不主张科学有效性或方法学适用性。当前未签名版本中，
 从设置输入的模型密钥保存在仅当前账户可读的应用私有 OpenCode 配置中，而不是 macOS 钥匙串；系统钥匙串存储
 将在签名版本中重新评估。
@@ -307,7 +311,7 @@ sealed resources 或 stapled ticket，严格 codesign 与 Gatekeeper 均拒绝�
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.38},
+  version = {0.1.39},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

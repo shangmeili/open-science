@@ -78,12 +78,54 @@
       "suffix": " en tu espacio de trabajo."
     },
     "install": {
-      "sectionTitle": "Evaluar un activo externo",
-      "placeholder": "Describe o pega una Skill, plugin, MCP, paquete o URL de GitHub para una revisión de industrialización",
+      "sectionTitle": "Crear o evaluar una herramienta metodológica",
+      "placeholder": "Describe una capacidad que AI4HEOR debería añadir o pega una Skill, plugin, MCP, paquete o URL de GitHub",
       "starting": "Iniciando…",
-      "cta": "Revisar con el agente",
-      "hintConnected": "Abre una revisión en lenguaje natural. El candidato permanece inactivo hasta una admisión revisada por código.",
+      "cta": "Iniciar revisión",
+      "hintConnected": "AI4HEOR prepara y comprueba primero una candidata local. No puede ejecutarse hasta que una persona la revise y admita.",
       "hintDisconnected": "Conecta primero el entorno de ejecución."
+    },
+    "candidates": {
+      "sectionTitle": "Capacidades candidatas del proyecto",
+      "boundary": "Las candidatas son borradores locales compuestos solo por instrucciones. La aplicación vuelve a comprobar los bytes exactos antes de registrar tu decisión; la activación solo afecta a este proyecto y no transfiere autoridad científica.",
+      "refresh": "Actualizar capacidades candidatas",
+      "loading": "Comprobando las capacidades candidatas del proyecto…",
+      "unavailable": "No se pudo verificar la candidata o la cadena de revisión. No se modificó ninguna capacidad.",
+      "noProject": "Crea o abre un proyecto AI4HEOR para revisar sus capacidades.",
+      "empty": "Este proyecto no tiene capacidades candidatas.",
+      "activate": "Revisar y activar",
+      "reject": "Rechazar",
+      "revoke": "Revocar",
+      "status": {"inactive": "pendiente de revisión", "active": "activa en este proyecto", "rejected": "rechazada", "revoked": "revocada", "invalid": "no válida", "drifted": "los archivos activos cambiaron", "activeCandidateChanged": "activa; candidata modificada", "unmanagedConflict": "ya existe un Skill con ese nombre", "candidateMissing": "falta la candidata"},
+      "dialog": {
+        "title": {"activate": "Revisar y activar esta capacidad", "reject": "Rechazar esta capacidad candidata", "revoke": "Revocar esta capacidad del proyecto"},
+        "boundary": {"activate": "Solo copia al proyecto actual los archivos de instrucciones validados. No concede acceso a red, comandos, secretos ni escritura fuera del proyecto.", "reject": "Registra tu decisión para estos bytes exactos. La candidata permanece inactiva y auditable.", "revoke": "Solo elimina la copia activa si aún coincide exactamente con el registro de activación. Nunca borra contenido modificado."},
+        "acceptanceTitle": "Comprobaciones para revisión humana",
+        "limitationsTitle": "Limitaciones declaradas",
+        "actor": "Nombre o etiqueta local del revisor",
+        "actorPlaceholder": "Por ejemplo: revisor de métodos HEOR",
+        "rationale": "Motivo de la decisión",
+        "rationalePlaceholder": {"activate": "Indica qué revisaste y por qué aceptas esta capacidad limitada para el proyecto.", "reject": "Indica por qué debe permanecer inactiva.", "revoke": "Indica por qué ya no debe ejecutarse en este proyecto."},
+        "confirm": {"activate": "He revisado el hash exacto, las instrucciones, la licencia, las limitaciones y todas las comprobaciones. Autorizo este Skill solo para el proyecto actual.", "reject": "He revisado el hash exacto y quiero que permanezca inactiva.", "revoke": "He revisado el registro activo y autorizo eliminar el Skill que coincida exactamente."},
+        "cancel": "Cancelar",
+        "recording": "Registrando…",
+        "submit": {"activate": "Registrar y activar", "reject": "Registrar rechazo", "revoke": "Registrar y revocar"}
+      }
+    },
+    "preferences": {
+      "sectionTitle": "Preferencias locales de trabajo",
+      "boundary": "AI4HEOR solo puede sugerir una preferencia cuando el mismo hábito aparece en al menos dos interacciones independientes. Nada se vuelve permanente sin tu revisión. No puede cambiar métodos, evidencia, parámetros, conclusiones, aprobaciones, el modelo ni el destino de los datos.",
+      "refresh": "Actualizar preferencias", "loading": "Comprobando propuestas y preferencias aceptadas…", "unavailable": "No se pudo verificar la propuesta, el archivo de preferencias o el registro de revisión. No se cambió nada.", "noProject": "Crea o abre un proyecto de AI4HEOR para revisar sus preferencias.", "empty": "No hay preferencias propuestas a partir de hábitos repetidos.",
+      "proposal": "Preferencia sugerida", "current": "Preferencia actual", "accepted": "aceptada", "enabled": "en uso", "disabled": "en pausa", "evidenceCount": "Basada en {{count}} interacciones independientes", "reviewAccept": "Revisar y aceptar", "edit": "Editar", "enable": "Volver a usar", "disable": "Pausar", "delete": "Eliminar",
+      "scope": {"language": "idioma", "presentation": "presentación", "workflow": "flujo de trabajo", "audit": "auditoría"},
+      "dialog": {
+        "title": {"accept": "Revisar esta preferencia sugerida", "update": "Editar esta preferencia", "enable": "Volver a usar esta preferencia", "disable": "Pausar esta preferencia", "delete": "Eliminar esta preferencia"},
+        "boundary": {"accept": "Comprueba que las observaciones describan realmente cómo quieres trabajar. Puedes editar el texto antes de aceptarlo.", "update": "Edita solo la preferencia de trabajo; no puede incluir material confidencial ni decisiones científicas.", "enable": "Vuelve a aplicar esta preferencia revisada en el proyecto.", "disable": "Conserva el registro local, pero deja de aplicarlo.", "delete": "La elimina del archivo activo; la decisión humana permanece en el registro de auditoría."},
+        "evidence": "Interacciones que motivaron la sugerencia", "rule": "Texto de la preferencia", "actor": "Nombre o etiqueta local del revisor", "actorPlaceholder": "Por ejemplo: investigador del proyecto", "rationale": "Motivo de la decisión",
+        "rationalePlaceholder": {"accept": "Explica por qué este patrón repetido debe aceptarse como preferencia local.", "update": "Explica por qué debe cambiar el texto.", "enable": "Explica por qué quieres volver a usarla.", "disable": "Explica por qué debe pausarse.", "delete": "Explica por qué debe eliminarse."},
+        "confirm": {"accept": "He revisado las observaciones y el texto. Es una preferencia no sensible, no una decisión científica.", "update": "He revisado el nuevo texto y sigue siendo una preferencia no sensible.", "enable": "Quiero volver a usar esta preferencia revisada.", "disable": "Quiero pausarla sin borrar su registro local.", "delete": "Quiero eliminarla del archivo activo."},
+        "cancel": "Cancelar", "recording": "Registrando…", "submit": {"accept": "Registrar y aceptar", "update": "Registrar cambios", "enable": "Registrar y activar", "disable": "Registrar y pausar", "delete": "Registrar y eliminar"}
+      }
     },
     "assetAdmission": {
       "sectionTitle": "Admisión de activos externos",

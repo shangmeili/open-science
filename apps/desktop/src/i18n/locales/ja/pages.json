@@ -78,12 +78,54 @@
       "suffix": " にあるものすべて。"
     },
     "install": {
-      "sectionTitle": "外部アセットを評価",
-      "placeholder": "Skill、プラグイン、MCP、パッケージ、または GitHub URL を貼り付けて産業化レビューを開始",
+      "sectionTitle": "方法ツールを作成または評価",
+      "placeholder": "AI4HEOR に追加したい能力を説明するか、Skill、プラグイン、MCP、パッケージ、GitHub URL を貼り付けてください",
       "starting": "開始中…",
-      "cta": "エージェントでレビュー",
-      "hintConnected": "自然言語レビューを開きます。別途コードレビューで承認されるまで候補は無効です。",
+      "cta": "確認を開始",
+      "hintConnected": "AI4HEOR はまずローカル候補を作成して検査します。人が確認して承認するまで実行されません。",
       "hintDisconnected": "先にランタイムに接続してください。"
+    },
+    "candidates": {
+      "sectionTitle": "現在のプロジェクトの能力候補",
+      "boundary": "候補はローカルに保存された指示のみの下書きです。デスクトップアプリが決定前に正確なバイトを再検証します。有効化はこのプロジェクトだけに適用され、科学的判断権限は移りません。",
+      "refresh": "能力候補を更新",
+      "loading": "プロジェクトの能力候補を確認しています…",
+      "unavailable": "候補またはレビュー記録を検証できません。能力は変更されていません。",
+      "noProject": "AI4HEOR プロジェクトを作成または開いてから能力をレビューしてください。",
+      "empty": "このプロジェクトには能力候補がありません。",
+      "activate": "確認して有効化",
+      "reject": "却下",
+      "revoke": "取り消す",
+      "status": {"inactive": "確認待ち", "active": "このプロジェクトで有効", "rejected": "却下済み", "revoked": "取り消し済み", "invalid": "無効", "drifted": "有効化後に変更", "activeCandidateChanged": "有効・候補は変更済み", "unmanagedConflict": "同名のプロジェクト Skill あり", "candidateMissing": "候補がありません"},
+      "dialog": {
+        "title": {"activate": "この能力を確認して有効化", "reject": "この能力候補を却下", "revoke": "このプロジェクト能力を取り消す"},
+        "boundary": {"activate": "検証済みの指示ファイルだけを現在のプロジェクトへコピーします。ネットワーク、コマンド、秘密情報、プロジェクト外への書き込み権限は付与されません。", "reject": "この正確な候補バイトに対する判断を記録します。候補は無効のまま監査できます。", "revoke": "有効なコピーが記録と完全に一致する場合だけ削除します。変更された内容は自動削除しません。"},
+        "acceptanceTitle": "人が確認するチェック項目",
+        "limitationsTitle": "明示された制限",
+        "actor": "レビュアー名またはローカルラベル",
+        "actorPlaceholder": "例：HEOR 方法レビュアー",
+        "rationale": "この判断の理由",
+        "rationalePlaceholder": {"activate": "確認内容と、この限定的能力を認める理由を記載してください。", "reject": "候補を無効のままにする理由を記載してください。", "revoke": "このプロジェクトで使用を止める理由を記載してください。"},
+        "confirm": {"activate": "正確なハッシュ、指示、ライセンス注記、制限、全チェック項目を確認し、このプロジェクトだけで有効化します。", "reject": "正確な候補ハッシュを確認し、無効のままにします。", "revoke": "有効化記録を確認し、完全に一致するプロジェクト Skill の削除に同意します。"},
+        "cancel": "キャンセル",
+        "recording": "記録中…",
+        "submit": {"activate": "記録して有効化", "reject": "却下を記録", "revoke": "記録して取り消す"}
+      }
+    },
+    "preferences": {
+      "sectionTitle": "このプロジェクトの作業設定",
+      "boundary": "同じ作業上の希望が独立した2回以上の対話で確認された場合だけ、AI4HEOR は設定を提案できます。継続的な設定にするには人の確認が必要です。研究方法、エビデンス、パラメータ、結論、承認、モデル選択、データ経路は変更できません。",
+      "refresh": "作業設定を更新", "loading": "提案と採用済み設定を確認しています…", "unavailable": "提案、設定ファイル、またはレビュー記録を検証できません。変更は行われていません。", "noProject": "AI4HEOR プロジェクトを作成または開いてください。", "empty": "繰り返し確認された作業設定の提案はありません。",
+      "proposal": "作業設定の提案", "current": "採用済みの作業設定", "accepted": "採用済み", "enabled": "使用中", "disabled": "一時停止", "evidenceCount": "{{count}} 回の独立した対話に基づく", "reviewAccept": "確認して採用", "edit": "編集", "enable": "再開", "disable": "一時停止", "delete": "削除",
+      "scope": {"language": "言語", "presentation": "表示", "workflow": "作業手順", "audit": "監査"},
+      "dialog": {
+        "title": {"accept": "この設定提案を確認", "update": "作業設定を編集", "enable": "作業設定を再開", "disable": "作業設定を一時停止", "delete": "作業設定を削除"},
+        "boundary": {"accept": "対話記録が実際の希望を表しているか確認してください。採用前に文面を編集できます。", "update": "非機密の作業設定だけを編集できます。科学的判断は含められません。", "enable": "このプロジェクトで確認済み設定の使用を再開します。", "disable": "ローカル記録を残したまま使用を停止します。", "delete": "現在の設定から削除します。人の判断記録は監査用に残ります。"},
+        "evidence": "提案の根拠となった対話", "rule": "設定内容", "actor": "レビュアー名またはローカルラベル", "actorPlaceholder": "例：プロジェクト研究者", "rationale": "判断理由",
+        "rationalePlaceholder": {"accept": "この繰り返しパターンを設定にする理由を記載してください。", "update": "文面を変更する理由を記載してください。", "enable": "再開する理由を記載してください。", "disable": "一時停止する理由を記載してください。", "delete": "削除する理由を記載してください。"},
+        "confirm": {"accept": "対話記録と文面を確認し、科学的判断ではない非機密の作業設定であることを確認しました。", "update": "修正後も非機密の作業設定であることを確認しました。", "enable": "確認済み設定の使用を再開します。", "disable": "ローカル記録を残して一時停止します。", "delete": "現在の設定から削除します。"},
+        "cancel": "キャンセル", "recording": "記録中…", "submit": {"accept": "記録して採用", "update": "変更を記録", "enable": "記録して再開", "disable": "記録して停止", "delete": "記録して削除"}
+      }
     },
     "assetAdmission": {
       "sectionTitle": "第三者アセットの承認",

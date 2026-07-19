@@ -296,8 +296,10 @@ skills/
 workspace/
   capabilities/candidates/  # inactive local instruction-only candidates
   capabilities/reviews/     # app-owned Human decision records
+  .opencode/skills/          # exact project-local copies activated by Human review
   learning/proposals/       # inactive repeated-pattern proposals
   learning/preferences.json # Human-accepted local work preferences
+  learning/reviews/         # app-owned Human preference-decision snapshots
 ```
 
 ### 6.2 Current built-in Skills
@@ -334,6 +336,30 @@ work-style scope, explicit non-sensitive and non-scientific-authority flags, and
 acceptance. `AGENTS.md` and `policy.json` are product-owned; candidates and proposals
 cannot modify them, core Skills, deterministic engines, approval records, or release
 records. The current release intentionally provides no auto-activation path.
+
+The separate native preference-review control revalidates the exact proposal and current
+`learning/preferences.json` hash before it accepts, edits, enables, disables, or deletes a
+preference. Every action requires a reviewer label, rationale, and explicit confirmation.
+The accepted store permits only language, presentation, workflow, and audit preferences;
+common secret shapes, sensitive-content flags, one-observation proposals, scientific-
+authority changes, stale store hashes, symlinks, unexpected fields, and manual unreviewed
+entries fail closed. Each successful action writes an immutable snapshot under
+`learning/reviews/` and extends an owner-only app-private SHA-256 event chain. The Human
+may edit, pause, resume, or delete a preference through the desktop surface. The event
+chain is a local integrity assertion, not authenticated identity or external attestation.
+
+The desktop review control independently revalidates the candidate manifest,
+`validation.json`, every listed byte, the bilingual metadata, deny-by-default
+permissions, license note, limitations, acceptance checks, and Skill tree hash.
+Activation requires a Human reviewer label, rationale, exact-hash confirmation, and
+confirmation of all acceptance checks. The app then atomically copies only the reviewed
+instruction files to the current project's `.opencode/skills/<id>/`; it never writes to
+the app-managed core Skill directory or another project. Rejection and activation are
+bound to immutable workspace snapshots plus an owner-only append-only SHA-256 event
+chain. Revocation removes a project Skill only while its current tree hash still matches
+the activation event; edited or same-name unmanaged content fails closed and is never
+overwritten or deleted. This is a reversible Human-controlled project capability, not
+automatic self-modification or product-level third-party admission.
 
 The first-party `heor-evidence-search` connector is deliberately not an MCP
 passthrough. The Agent writes only a validated request artifact. A native Tauri

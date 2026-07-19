@@ -2,6 +2,7 @@
 // bundled OpenCode sidecar (isolated config/data + dedicated port; killed on exit).
 mod artifact_file;
 mod asset_admission;
+mod capability_review;
 mod compute;
 mod debug_log;
 mod examples;
@@ -45,6 +46,7 @@ mod kernel;
 mod large_file;
 mod modal;
 mod opencode_config;
+mod preference_review;
 mod preview_server;
 mod project;
 mod provenance;
@@ -81,6 +83,8 @@ pub fn run() {
         .manage(KernelState::default())
         .manage(JupyterState::default())
         .manage(PreviewState::default())
+        .manage(capability_review::CapabilityReviewState::default())
+        .manage(preference_review::PreferenceReviewState::default())
         .manage(ProvenanceState::default())
         .manage(heor_approval::HeorApprovalState::default())
         .manage(heor_advanced_voi::AdvancedVoiReviewState::default())
@@ -142,6 +146,10 @@ pub fn run() {
             artifact_file::list_dir,
             artifact_file::write_workspace_file,
             asset_admission::audit_asset_admission,
+            capability_review::audit_skill_candidates,
+            capability_review::append_skill_candidate_review,
+            preference_review::audit_local_preferences,
+            preference_review::append_local_preference_review,
             provenance::record_provenance,
             provenance::list_provenance,
             provenance::read_env_lockfile,

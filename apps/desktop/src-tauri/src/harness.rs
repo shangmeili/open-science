@@ -20,6 +20,7 @@ const REQUIRED_HARNESS_FILES: &[&str] = &[
     "learning/README.md",
     "learning/preferences.json",
     "learning/proposals/.gitkeep",
+    "learning/reviews/.gitkeep",
     "notes/.gitkeep",
     "policy.json",
 ];

@@ -28,6 +28,7 @@ class HeorHarnessContractTests(unittest.TestCase):
             "learning/README.md",
             "learning/preferences.json",
             "learning/proposals/.gitkeep",
+            "learning/reviews/.gitkeep",
             "notes/.gitkeep",
             "policy.json",
         }
@@ -42,6 +43,7 @@ class HeorHarnessContractTests(unittest.TestCase):
             "capabilities/candidates/.gitkeep",
             "capabilities/reviews/.gitkeep",
             "learning/proposals/.gitkeep",
+            "learning/reviews/.gitkeep",
         }:
             self.assertTrue((HARNESS_ROOT / relative).read_text(encoding="utf-8").strip())
 

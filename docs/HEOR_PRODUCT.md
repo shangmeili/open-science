@@ -1152,14 +1152,23 @@ produce a bilingual, hash-bound, instruction-only Skill candidate under
 `capabilities/candidates/`. The candidate remains outside active Skill discovery;
 deterministic validation checks its exact files, permissions, provenance, license
 basis, secret patterns, limitations, and acceptance checks. The current release
-does not activate candidates automatically.
+does not activate candidates automatically. A separate desktop review lets a Human
+activate, reject, or revoke the exact instruction-only candidate for the current
+project. The native control revalidates every byte, requires a reviewer label,
+rationale and explicit confirmation, and records a hash-linked app-private event plus
+an immutable project snapshot. Activation copies only the reviewed instructions into
+the current project's `.opencode/skills/<id>/` directory. Revocation deletes only an exact unchanged
+active copy; any drift or same-name unmanaged Skill stops the operation.
 
 Repeated non-sensitive work patterns can become local preference proposals only
 after at least two independent interactions. Scientific methods, evidence choices,
 parameter values, conclusions, provider selection, data routing, approvals, and
 release decisions are never learned preferences. Proposals remain local and
 inactive until a researcher accepts them, and accepted preferences can be viewed,
-edited, disabled, or deleted. Neither route can modify the product harness, core
+edited, disabled, or deleted. The desktop review revalidates the exact proposal and
+current `learning/preferences.json` store hash, requires a reviewer label, reason, and explicit confirmation, and
+records each Human decision in an immutable project snapshot plus an app-private
+hash-linked event chain. A stale or manually edited store fails closed. Neither route can modify the product harness, core
 Skills, calculation engines, Human gates, or release records.
 
 ## Upstream and licensing

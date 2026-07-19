@@ -85,6 +85,116 @@
       "hintConnected": "系统会先生成本地候选方案并检查。完成审阅和准入前，候选方案不会运行。",
       "hintDisconnected": "请先连接本地服务。"
     },
+    "candidates": {
+      "sectionTitle": "当前项目的能力候选",
+      "boundary": "候选只是保存在本机的纯指令草稿。桌面应用会重新核对每个文件后再记录你的决定；启用后也只对当前项目生效，不改变研究者的科学决策权。",
+      "refresh": "刷新能力候选",
+      "loading": "正在检查当前项目的能力候选……",
+      "unavailable": "无法核对候选文件或复核记录，本次没有改变任何能力。",
+      "noProject": "请先新建或打开一个 AI4HEOR 项目，再复核项目能力。",
+      "empty": "当前项目还没有新建能力候选。",
+      "activate": "复核并启用",
+      "reject": "拒绝",
+      "revoke": "停用并撤销",
+      "status": {
+        "inactive": "等待复核",
+        "active": "已在当前项目启用",
+        "rejected": "已拒绝",
+        "revoked": "已撤销",
+        "invalid": "校验未通过",
+        "drifted": "启用后的文件已改变",
+        "activeCandidateChanged": "已启用，候选后来有改动",
+        "unmanagedConflict": "项目中已有同名 Skill",
+        "candidateMissing": "候选文件已缺失"
+      },
+      "dialog": {
+        "title": {
+          "activate": "复核并启用这项能力",
+          "reject": "拒绝这项能力候选",
+          "revoke": "撤销当前项目中的这项能力"
+        },
+        "boundary": {
+          "activate": "启用时只会把已经校验的指令文件复制到当前项目，不会获得联网、执行命令、读取密钥或写入项目外部的权限。",
+          "reject": "拒绝决定会和当前候选的准确哈希一起记录。候选继续保持停用，可供以后核查。",
+          "revoke": "只有当前项目中的文件仍与启用记录完全一致时才会删除。研究者后来改过的内容不会被自动删除。"
+        },
+        "acceptanceTitle": "需要研究者逐项核对",
+        "limitationsTitle": "已声明的限制",
+        "actor": "复核人姓名或本机使用的称呼",
+        "actorPlaceholder": "例如：药物经济学方法复核人",
+        "rationale": "作出这项决定的理由",
+        "rationalePlaceholder": {
+          "activate": "说明你核对了什么，以及为何同意这项有限能力在当前项目中使用。",
+          "reject": "说明为什么不启用这项候选能力。",
+          "revoke": "说明为什么不再允许这项能力在当前项目中运行。"
+        },
+        "confirm": {
+          "activate": "我已核对准确哈希、指令、授权说明、限制和全部检查项，同意仅在当前项目中启用这个纯指令 Skill。",
+          "reject": "我已核对当前候选的准确哈希，并决定保持停用。",
+          "revoke": "我已核对启用记录，并同意删除与该记录完全一致的项目 Skill。"
+        },
+        "cancel": "取消",
+        "recording": "正在记录……",
+        "submit": {
+          "activate": "记录并启用",
+          "reject": "记录拒绝决定",
+          "revoke": "记录并撤销"
+        }
+      }
+    },
+    "preferences": {
+      "sectionTitle": "本项目的使用习惯",
+      "boundary": "同一种使用习惯至少在两次独立交流中出现后，AI4HEOR 才可以提出建议。是否长期采用，由你逐条复核。这里不能改变研究方法、证据取舍、参数、结论、审批、模型选择或数据去向。",
+      "refresh": "刷新使用习惯",
+      "loading": "正在核对习惯建议和已采用的设置……",
+      "unavailable": "无法核对建议、设置文件或复核记录，本次没有改变任何内容。",
+      "noProject": "请先新建或打开一个 AI4HEOR 项目，再复核本项目的使用习惯。",
+      "empty": "当前项目还没有根据重复使用习惯形成建议。",
+      "proposal": "待确认的使用习惯",
+      "current": "已采用的使用习惯",
+      "accepted": "已采用",
+      "enabled": "正在使用",
+      "disabled": "已暂停",
+      "evidenceCount": "来自 {{count}} 次独立交流",
+      "reviewAccept": "复核并采用",
+      "edit": "修改",
+      "enable": "重新使用",
+      "disable": "暂停",
+      "delete": "删除",
+      "scope": {"language": "语言", "presentation": "呈现方式", "workflow": "工作流程", "audit": "审计记录"},
+      "dialog": {
+        "title": {"accept": "确认是否采用这项习惯", "update": "修改这项使用习惯", "enable": "重新使用这项习惯", "disable": "暂停这项使用习惯", "delete": "删除这项使用习惯"},
+        "boundary": {
+          "accept": "请核对这些交流记录是否确实反映了你的使用习惯。采用前可以修改表述。",
+          "update": "这里只能调整工作习惯的表述，不能写入保密内容，也不能替你作出科学判断。",
+          "enable": "确认后，后续在本项目中继续使用这项已经复核的习惯。",
+          "disable": "暂停后仍保留本机记录，但后续工作不再使用这项习惯。",
+          "delete": "这项习惯会从当前设置中删除；本次人工决定仍保留在审计记录中。"
+        },
+        "evidence": "形成这项建议的交流记录",
+        "rule": "习惯表述",
+        "actor": "复核人姓名或本机使用的称呼",
+        "actorPlaceholder": "例如：项目研究者",
+        "rationale": "作出这项决定的理由",
+        "rationalePlaceholder": {
+          "accept": "说明为什么要把这个重复出现的做法作为本项目的使用习惯。",
+          "update": "说明为什么需要修改表述。",
+          "enable": "说明为什么要重新使用。",
+          "disable": "说明为什么暂时不用。",
+          "delete": "说明为什么要删除。"
+        },
+        "confirm": {
+          "accept": "我已核对交流记录和表述，确认这只是非敏感的工作习惯，不是科学决策。",
+          "update": "我已核对修改后的表述，确认它仍然只是非敏感的工作习惯。",
+          "enable": "我同意重新使用这项已经复核的工作习惯。",
+          "disable": "我同意暂停使用，但保留本机记录。",
+          "delete": "我同意从当前设置中删除这项习惯。"
+        },
+        "cancel": "取消",
+        "recording": "正在记录……",
+        "submit": {"accept": "记录并采用", "update": "记录修改", "enable": "记录并启用", "disable": "记录并暂停", "delete": "记录并删除"}
+      }
+    },
     "assetAdmission": {
       "sectionTitle": "工具准入状态",
       "loading": "正在读取第三方工具清单…",

@@ -85,6 +85,116 @@
       "hintConnected": "AI4HEOR first prepares and checks a local candidate. It cannot run before review and admission are complete.",
       "hintDisconnected": "Connect the runtime first."
     },
+    "candidates": {
+      "sectionTitle": "Project capability candidates",
+      "boundary": "Candidates are local, instruction-only drafts. The desktop app rechecks the exact bytes before recording your decision; activation affects only this project and does not transfer scientific authority.",
+      "refresh": "Refresh capability candidates",
+      "loading": "Checking this project's capability candidates…",
+      "unavailable": "The candidate or review chain could not be verified. No capability was changed.",
+      "noProject": "Create or open an AI4HEOR project to review project capabilities.",
+      "empty": "No capability candidate has been created in this project.",
+      "activate": "Review and activate",
+      "reject": "Reject",
+      "revoke": "Revoke",
+      "status": {
+        "inactive": "awaiting review",
+        "active": "active in this project",
+        "rejected": "rejected",
+        "revoked": "revoked",
+        "invalid": "invalid",
+        "drifted": "active bytes changed",
+        "activeCandidateChanged": "active; candidate changed",
+        "unmanagedConflict": "same-name project Skill exists",
+        "candidateMissing": "candidate missing"
+      },
+      "dialog": {
+        "title": {
+          "activate": "Review and activate this capability",
+          "reject": "Reject this capability candidate",
+          "revoke": "Revoke this project capability"
+        },
+        "boundary": {
+          "activate": "Activation copies only these validated instruction files into the current project. It grants no network, command, secret, or outside-workspace permission.",
+          "reject": "Rejection records your decision for these exact candidate bytes. The candidate remains inactive and available for audit.",
+          "revoke": "Revocation removes the active project copy only when its bytes still match the activation record. Changed content is never deleted automatically."
+        },
+        "acceptanceTitle": "Checks prepared for Human review",
+        "limitationsTitle": "Declared limitations",
+        "actor": "Reviewer name or local label",
+        "actorPlaceholder": "For example: HEOR methods reviewer",
+        "rationale": "Reason for this decision",
+        "rationalePlaceholder": {
+          "activate": "State what you checked and why this narrow capability is acceptable for this project.",
+          "reject": "State why the candidate should remain inactive.",
+          "revoke": "State why the previously active capability should no longer run in this project."
+        },
+        "confirm": {
+          "activate": "I reviewed the exact hash, instructions, license note, limitations, and every acceptance check. I authorize this instruction-only Skill for the current project.",
+          "reject": "I reviewed the exact candidate hash and want it to remain inactive.",
+          "revoke": "I reviewed the active record and want the exact matching project Skill removed."
+        },
+        "cancel": "Cancel",
+        "recording": "Recording…",
+        "submit": {
+          "activate": "Record and activate",
+          "reject": "Record rejection",
+          "revoke": "Record and revoke"
+        }
+      }
+    },
+    "preferences": {
+      "sectionTitle": "Local work preferences",
+      "boundary": "AI4HEOR may suggest a preference only after the same working habit appears in at least two independent interactions. Nothing becomes a lasting rule until you review it. Preferences cannot change methods, evidence, parameters, conclusions, approvals, provider choice, or data routing.",
+      "refresh": "Refresh local preferences",
+      "loading": "Checking preference proposals and accepted preferences…",
+      "unavailable": "The proposal, preference store, or review chain could not be verified. Nothing was changed.",
+      "noProject": "Create or open an AI4HEOR project to review local preferences.",
+      "empty": "No repeated work preference has been proposed in this project.",
+      "proposal": "Suggested work preference",
+      "current": "Current work preference",
+      "accepted": "accepted",
+      "enabled": "in use",
+      "disabled": "paused",
+      "evidenceCount": "Supported by {{count}} independent interactions",
+      "reviewAccept": "Review and accept",
+      "edit": "Edit",
+      "enable": "Use again",
+      "disable": "Pause",
+      "delete": "Delete",
+      "scope": {"language": "language", "presentation": "presentation", "workflow": "workflow", "audit": "audit"},
+      "dialog": {
+        "title": {"accept": "Review this suggested preference", "update": "Edit this work preference", "enable": "Use this preference again", "disable": "Pause this preference", "delete": "Delete this preference"},
+        "boundary": {
+          "accept": "Check whether the repeated observations really describe how you want AI4HEOR to work. You may edit the wording before accepting it.",
+          "update": "Edit only the working preference. It cannot contain confidential material or make a scientific decision for you.",
+          "enable": "This restores the reviewed preference for future work in this project.",
+          "disable": "The preference stays in the local record but will not be used while paused.",
+          "delete": "This removes the preference from the active local store. The Human decision remains in the audit record."
+        },
+        "evidence": "What prompted the suggestion",
+        "rule": "Preference wording",
+        "actor": "Reviewer name or local label",
+        "actorPlaceholder": "For example: project researcher",
+        "rationale": "Reason for this decision",
+        "rationalePlaceholder": {
+          "accept": "Explain why this repeated pattern should become a local work preference.",
+          "update": "Explain why the wording needs to change.",
+          "enable": "Explain why you want to use it again.",
+          "disable": "Explain why it should be paused.",
+          "delete": "Explain why it should be removed."
+        },
+        "confirm": {
+          "accept": "I reviewed the observations and wording. This is a non-sensitive work preference, not a scientific decision.",
+          "update": "I reviewed the revised wording and confirm that it remains a non-sensitive work preference.",
+          "enable": "I want this reviewed work preference to be used again.",
+          "disable": "I want this work preference paused without deleting its local record.",
+          "delete": "I want this preference removed from the active local store."
+        },
+        "cancel": "Cancel",
+        "recording": "Recording…",
+        "submit": {"accept": "Record and accept", "update": "Record changes", "enable": "Record and enable", "disable": "Record and pause", "delete": "Record and delete"}
+      }
+    },
     "assetAdmission": {
       "sectionTitle": "Tool admission status",
       "loading": "Reading the packaged admission registry…",

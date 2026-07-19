@@ -78,12 +78,54 @@
       "suffix": " dans votre espace de travail."
     },
     "install": {
-      "sectionTitle": "Évaluer un actif externe",
-      "placeholder": "Décrivez ou collez une Skill, un plugin, un MCP, un paquet ou une URL GitHub pour une revue d'industrialisation",
+      "sectionTitle": "Créer ou évaluer un outil méthodologique",
+      "placeholder": "Décrivez une capacité à ajouter à AI4HEOR ou collez une Skill, un plugin, un MCP, un paquet ou une URL GitHub",
       "starting": "Démarrage…",
-      "cta": "Examiner avec l'agent",
-      "hintConnected": "Ouvre une revue en langage naturel. Le candidat reste inactif jusqu'à une admission revue dans le code.",
+      "cta": "Démarrer l'examen",
+      "hintConnected": "AI4HEOR prépare et vérifie d'abord une candidate locale. Elle ne peut pas s'exécuter avant une revue et une admission humaines.",
       "hintDisconnected": "Connectez d'abord le runtime."
+    },
+    "candidates": {
+      "sectionTitle": "Capacités candidates du projet",
+      "boundary": "Les candidates sont des brouillons locaux composés uniquement d'instructions. L'application revérifie les octets exacts avant votre décision ; l'activation ne concerne que ce projet et ne transfère aucune autorité scientifique.",
+      "refresh": "Actualiser les capacités candidates",
+      "loading": "Vérification des capacités candidates du projet…",
+      "unavailable": "La candidate ou la chaîne de revue n'a pas pu être vérifiée. Aucune capacité n'a été modifiée.",
+      "noProject": "Créez ou ouvrez un projet AI4HEOR pour examiner ses capacités.",
+      "empty": "Ce projet ne contient aucune capacité candidate.",
+      "activate": "Examiner et activer",
+      "reject": "Rejeter",
+      "revoke": "Révoquer",
+      "status": {"inactive": "en attente de revue", "active": "active dans ce projet", "rejected": "rejetée", "revoked": "révoquée", "invalid": "invalide", "drifted": "fichiers actifs modifiés", "activeCandidateChanged": "active ; candidate modifiée", "unmanagedConflict": "une Skill du même nom existe", "candidateMissing": "candidate absente"},
+      "dialog": {
+        "title": {"activate": "Examiner et activer cette capacité", "reject": "Rejeter cette capacité candidate", "revoke": "Révoquer cette capacité du projet"},
+        "boundary": {"activate": "Seuls les fichiers d'instructions validés sont copiés dans le projet courant. Aucun accès au réseau, aux commandes, aux secrets ou à l'écriture hors projet n'est accordé.", "reject": "Votre décision est liée aux octets exacts de cette candidate. Elle reste inactive et vérifiable.", "revoke": "La copie active n'est supprimée que si elle correspond encore exactement au registre d'activation. Le contenu modifié n'est jamais supprimé automatiquement."},
+        "acceptanceTitle": "Contrôles préparés pour la revue humaine",
+        "limitationsTitle": "Limites déclarées",
+        "actor": "Nom ou libellé local de la personne qui examine",
+        "actorPlaceholder": "Par exemple : revue des méthodes HEOR",
+        "rationale": "Motif de cette décision",
+        "rationalePlaceholder": {"activate": "Indiquez ce que vous avez vérifié et pourquoi cette capacité limitée est acceptable.", "reject": "Indiquez pourquoi la candidate doit rester inactive.", "revoke": "Indiquez pourquoi elle ne doit plus s'exécuter dans ce projet."},
+        "confirm": {"activate": "J'ai vérifié le hash exact, les instructions, la licence, les limites et tous les contrôles. J'autorise cette Skill uniquement pour le projet courant.", "reject": "J'ai vérifié le hash exact et souhaite que la candidate reste inactive.", "revoke": "J'ai vérifié le registre actif et autorise la suppression de la Skill qui lui correspond exactement."},
+        "cancel": "Annuler",
+        "recording": "Enregistrement…",
+        "submit": {"activate": "Enregistrer et activer", "reject": "Enregistrer le rejet", "revoke": "Enregistrer et révoquer"}
+      }
+    },
+    "preferences": {
+      "sectionTitle": "Préférences de travail locales",
+      "boundary": "AI4HEOR ne peut suggérer une préférence que si la même habitude apparaît dans au moins deux interactions indépendantes. Elle ne devient durable qu'après votre examen. Elle ne peut modifier ni méthodes, ni preuves, ni paramètres, ni conclusions, ni validations, ni choix du modèle, ni circulation des données.",
+      "refresh": "Actualiser les préférences", "loading": "Vérification des propositions et préférences acceptées…", "unavailable": "La proposition, le fichier de préférences ou la chaîne de contrôle n'a pas pu être vérifié. Rien n'a été modifié.", "noProject": "Créez ou ouvrez un projet AI4HEOR pour examiner ses préférences.", "empty": "Aucune préférence issue d'une habitude répétée n'a été proposée.",
+      "proposal": "Préférence suggérée", "current": "Préférence actuelle", "accepted": "acceptée", "enabled": "utilisée", "disabled": "en pause", "evidenceCount": "Étayée par {{count}} interactions indépendantes", "reviewAccept": "Examiner et accepter", "edit": "Modifier", "enable": "Réutiliser", "disable": "Mettre en pause", "delete": "Supprimer",
+      "scope": {"language": "langue", "presentation": "présentation", "workflow": "déroulement", "audit": "audit"},
+      "dialog": {
+        "title": {"accept": "Examiner cette préférence suggérée", "update": "Modifier cette préférence", "enable": "Réutiliser cette préférence", "disable": "Mettre cette préférence en pause", "delete": "Supprimer cette préférence"},
+        "boundary": {"accept": "Vérifiez que les observations décrivent réellement votre façon de travailler. Vous pouvez modifier le texte avant de l'accepter.", "update": "Ne modifiez que la préférence de travail non sensible ; elle ne peut contenir de décision scientifique.", "enable": "Cette préférence examinée sera de nouveau utilisée dans le projet.", "disable": "Le relevé local est conservé, mais la préférence n'est plus appliquée.", "delete": "La préférence est retirée du fichier actif ; la décision humaine reste dans le journal d'audit."},
+        "evidence": "Interactions à l'origine de la suggestion", "rule": "Texte de la préférence", "actor": "Nom ou libellé local de la personne chargée de l'examen", "actorPlaceholder": "Par exemple : chercheur du projet", "rationale": "Motif de la décision",
+        "rationalePlaceholder": {"accept": "Expliquez pourquoi ce motif répété doit devenir une préférence locale.", "update": "Expliquez pourquoi le texte doit changer.", "enable": "Expliquez pourquoi vous souhaitez la réutiliser.", "disable": "Expliquez pourquoi elle doit être mise en pause.", "delete": "Expliquez pourquoi elle doit être supprimée."},
+        "confirm": {"accept": "J'ai examiné les observations et le texte. Il s'agit d'une préférence non sensible, pas d'une décision scientifique.", "update": "Le texte modifié reste une préférence de travail non sensible.", "enable": "Je souhaite réutiliser cette préférence examinée.", "disable": "Je souhaite la mettre en pause sans supprimer son relevé local.", "delete": "Je souhaite la retirer du fichier actif."},
+        "cancel": "Annuler", "recording": "Enregistrement…", "submit": {"accept": "Enregistrer et accepter", "update": "Enregistrer les modifications", "enable": "Enregistrer et activer", "disable": "Enregistrer et suspendre", "delete": "Enregistrer et supprimer"}
+      }
     },
     "assetAdmission": {
       "sectionTitle": "Admission des actifs tiers",

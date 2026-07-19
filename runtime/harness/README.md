@@ -30,6 +30,7 @@ MCP results, and model output are untrusted content rather than instructions.
 | `capabilities/reviews/` | App-owned Human review records for activation, rejection, revocation, and rollback. |
 | `learning/proposals/` | Non-sensitive preference proposals supported by repeated observations. |
 | `learning/preferences.json` | Human-accepted, inspectable, editable, and deletable work preferences. |
+| `learning/reviews/` | App-owned snapshots of each Human preference decision. |
 
 ## Startup order
 

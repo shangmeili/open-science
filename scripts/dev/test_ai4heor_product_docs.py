@@ -229,6 +229,76 @@ class AI4HEORProductDocsTests(unittest.TestCase):
         self.assertNotIn("current verified x64 macOS package remains\n0.1.35", english)
         self.assertNotIn("当前已验证的 x64 macOS 安装包仍为 `0.1.35`", chinese)
 
+    def test_project_skill_activation_is_app_owned_hash_bound_and_reversible(self):
+        native = (ROOT / "apps/desktop/src-tauri/src/capability_review.rs").read_text(
+            encoding="utf-8"
+        )
+        surface = (ROOT / "apps/desktop/src/app/routes/SkillsPage.tsx").read_text(
+            encoding="utf-8"
+        )
+        technical = (ROOT / "docs/TECHNICAL_DESIGN.md").read_text(encoding="utf-8")
+        product = (ROOT / "docs/HEOR_PRODUCT.md").read_text(encoding="utf-8")
+        for command in ("audit_skill_candidates", "append_skill_candidate_review"):
+            self.assertIn(command, native)
+        self.assertIn("validation.json does not approve the exact current candidate bytes", native)
+        self.assertIn("will not overwrite it", native)
+        self.assertIn("will not delete changed content", native)
+        self.assertIn("verified_unanchored_sha256_chain", native)
+        self.assertIn("appendSkillCandidateReview", surface)
+        self.assertIn("CandidateReviewDialog", surface)
+        for text in (technical, product):
+            self.assertIn("`.opencode/skills/", text)
+            self.assertIn("Revocation", text)
+            self.assertIn("exact", text)
+        for locale in ("en", "zh-Hans", "ja", "es", "de", "fr", "ko"):
+            pages = json.loads(
+                (ROOT / f"apps/desktop/src/i18n/locales/{locale}/pages.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            candidates = pages["skills"]["candidates"]
+            self.assertTrue(candidates["sectionTitle"])
+            self.assertTrue(candidates["dialog"]["confirm"]["activate"])
+
+    def test_local_preference_review_is_human_owned_reversible_and_non_scientific(self):
+        native = (ROOT / "apps/desktop/src-tauri/src/preference_review.rs").read_text(
+            encoding="utf-8"
+        )
+        surface = (
+            ROOT
+            / "apps/desktop/src/components/skills/PreferenceLearningSection.tsx"
+        ).read_text(encoding="utf-8")
+        technical = (ROOT / "docs/TECHNICAL_DESIGN.md").read_text(encoding="utf-8")
+        product = (ROOT / "docs/HEOR_PRODUCT.md").read_text(encoding="utf-8")
+        for command in ("audit_local_preferences", "append_local_preference_review"):
+            self.assertIn(command, native)
+        for boundary in (
+            "ALLOWED_SCOPES",
+            "contains_sensitive_data",
+            "changes_scientific_authority",
+            "preference review must target the exact current preference store",
+            "verified_unanchored_sha256_chain",
+        ):
+            self.assertIn(boundary, native)
+        self.assertIn("appendLocalPreferenceReview", surface)
+        self.assertIn("PreferenceReviewDialog", surface)
+        for action in ("Accept", "Update", "Enable", "Disable", "Delete"):
+            self.assertIn(f"PreferenceReviewAction::{action}", native)
+        for text in (technical, product):
+            self.assertIn("`learning/preferences.json`", text)
+            self.assertIn("exact proposal", text)
+            self.assertIn("hash-linked", text)
+        for locale in ("en", "zh-Hans", "ja", "es", "de", "fr", "ko"):
+            pages = json.loads(
+                (ROOT / f"apps/desktop/src/i18n/locales/{locale}/pages.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            preferences = pages["skills"]["preferences"]
+            self.assertTrue(preferences["sectionTitle"])
+            self.assertTrue(preferences["dialog"]["confirm"]["accept"])
+            self.assertTrue(preferences["dialog"]["confirm"]["delete"])
+
 
 if __name__ == "__main__":
     unittest.main()

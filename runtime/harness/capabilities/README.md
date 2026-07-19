@@ -16,4 +16,9 @@ The first release accepts instruction-only candidates. Executable scripts,
 binaries, symlinks, network access, secrets, and writes outside the active
 workspace require a later adapter and security review. A researcher reviews the
 exact validated bytes before an app-owned activation, rejection, revocation, or
-rollback record is created.
+rollback record is created. The desktop app independently repeats the validation,
+requires a reviewer label, rationale, and exact-hash confirmation, then records a
+hash-linked event and project snapshot. Activation copies only the reviewed
+instruction files into this project's `.opencode/skills/<skill-id>/`. Revocation
+removes that copy only if its bytes still match the activation record; changed or
+same-name unmanaged content is never overwritten or deleted automatically.

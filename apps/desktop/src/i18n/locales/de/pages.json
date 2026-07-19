@@ -78,12 +78,54 @@
       "suffix": " in Ihrem Arbeitsbereich."
     },
     "install": {
-      "sectionTitle": "Externes Asset bewerten",
-      "placeholder": "Skill, Plugin, MCP, Paket oder GitHub-URL für eine Industrialisierungsprüfung beschreiben oder einfügen",
+      "sectionTitle": "Methodenwerkzeug erstellen oder bewerten",
+      "placeholder": "Beschreiben Sie eine neue AI4HEOR-Fähigkeit oder fügen Sie Skill, Plugin, MCP, Paket oder GitHub-URL ein",
       "starting": "Wird gestartet…",
-      "cta": "Mit Agent prüfen",
-      "hintConnected": "Öffnet eine natürlichsprachige Prüfung. Der Kandidat bleibt bis zur separaten Code-Zulassung inaktiv.",
+      "cta": "Prüfung starten",
+      "hintConnected": "AI4HEOR erstellt und prüft zuerst einen lokalen Kandidaten. Er wird erst nach menschlicher Prüfung und Zulassung ausgeführt.",
       "hintDisconnected": "Verbinden Sie zuerst die Runtime."
+    },
+    "candidates": {
+      "sectionTitle": "Fähigkeitskandidaten des Projekts",
+      "boundary": "Kandidaten sind lokale Entwürfe, die nur Anweisungen enthalten. Die Desktop-App prüft vor Ihrer Entscheidung die exakten Bytes erneut; eine Aktivierung gilt nur für dieses Projekt und überträgt keine wissenschaftliche Autorität.",
+      "refresh": "Fähigkeitskandidaten aktualisieren",
+      "loading": "Fähigkeitskandidaten des Projekts werden geprüft…",
+      "unavailable": "Kandidat oder Prüfkette konnten nicht verifiziert werden. Es wurde keine Fähigkeit geändert.",
+      "noProject": "Erstellen oder öffnen Sie ein AI4HEOR-Projekt, um Projektfähigkeiten zu prüfen.",
+      "empty": "In diesem Projekt gibt es noch keinen Fähigkeitskandidaten.",
+      "activate": "Prüfen und aktivieren",
+      "reject": "Ablehnen",
+      "revoke": "Widerrufen",
+      "status": {"inactive": "Prüfung ausstehend", "active": "in diesem Projekt aktiv", "rejected": "abgelehnt", "revoked": "widerrufen", "invalid": "ungültig", "drifted": "aktive Dateien geändert", "activeCandidateChanged": "aktiv; Kandidat geändert", "unmanagedConflict": "gleichnamiger Projekt-Skill vorhanden", "candidateMissing": "Kandidat fehlt"},
+      "dialog": {
+        "title": {"activate": "Diese Fähigkeit prüfen und aktivieren", "reject": "Diesen Fähigkeitskandidaten ablehnen", "revoke": "Diese Projektfähigkeit widerrufen"},
+        "boundary": {"activate": "Nur die validierten Anweisungsdateien werden in das aktuelle Projekt kopiert. Netzwerk-, Befehls-, Geheimnis- oder projektfremde Schreibrechte werden nicht erteilt.", "reject": "Die Entscheidung wird an die exakten Kandidatenbytes gebunden. Der Kandidat bleibt inaktiv und auditierbar.", "revoke": "Die aktive Kopie wird nur entfernt, wenn sie noch exakt dem Aktivierungsdatensatz entspricht. Geänderte Inhalte werden nie automatisch gelöscht."},
+        "acceptanceTitle": "Prüfpunkte für die menschliche Prüfung",
+        "limitationsTitle": "Deklarierte Einschränkungen",
+        "actor": "Name oder lokale Bezeichnung der prüfenden Person",
+        "actorPlaceholder": "Zum Beispiel: HEOR-Methodenprüfung",
+        "rationale": "Begründung der Entscheidung",
+        "rationalePlaceholder": {"activate": "Beschreiben Sie Prüfung und Grund für die begrenzte Freigabe in diesem Projekt.", "reject": "Begründen Sie, warum der Kandidat inaktiv bleiben soll.", "revoke": "Begründen Sie, warum die Fähigkeit nicht mehr ausgeführt werden soll."},
+        "confirm": {"activate": "Ich habe exakten Hash, Anweisungen, Lizenzhinweis, Einschränkungen und alle Prüfpunkte geprüft und autorisiere diesen Skill nur für das aktuelle Projekt.", "reject": "Ich habe den exakten Kandidaten-Hash geprüft und möchte ihn inaktiv lassen.", "revoke": "Ich habe den aktiven Datensatz geprüft und stimme der Entfernung des exakt übereinstimmenden Projekt-Skills zu."},
+        "cancel": "Abbrechen",
+        "recording": "Wird protokolliert…",
+        "submit": {"activate": "Protokollieren und aktivieren", "reject": "Ablehnung protokollieren", "revoke": "Protokollieren und widerrufen"}
+      }
+    },
+    "preferences": {
+      "sectionTitle": "Lokale Arbeitspräferenzen",
+      "boundary": "AI4HEOR darf eine Präferenz nur vorschlagen, wenn dieselbe Gewohnheit in mindestens zwei unabhängigen Interaktionen auftritt. Dauerhaft wird sie erst nach Ihrer Prüfung. Methoden, Evidenz, Parameter, Schlussfolgerungen, Freigaben, Modellauswahl und Datenwege bleiben davon unberührt.",
+      "refresh": "Präferenzen aktualisieren", "loading": "Vorschläge und übernommene Präferenzen werden geprüft…", "unavailable": "Vorschlag, Präferenzdatei oder Prüfprotokoll konnten nicht verifiziert werden. Es wurde nichts geändert.", "noProject": "Erstellen oder öffnen Sie ein AI4HEOR-Projekt.", "empty": "Es gibt keine aus wiederholten Gewohnheiten abgeleiteten Vorschläge.",
+      "proposal": "Vorgeschlagene Präferenz", "current": "Aktuelle Präferenz", "accepted": "übernommen", "enabled": "aktiv", "disabled": "pausiert", "evidenceCount": "Durch {{count}} unabhängige Interaktionen gestützt", "reviewAccept": "Prüfen und übernehmen", "edit": "Bearbeiten", "enable": "Wieder verwenden", "disable": "Pausieren", "delete": "Löschen",
+      "scope": {"language": "Sprache", "presentation": "Darstellung", "workflow": "Arbeitsablauf", "audit": "Audit"},
+      "dialog": {
+        "title": {"accept": "Vorgeschlagene Präferenz prüfen", "update": "Arbeitspräferenz bearbeiten", "enable": "Präferenz wieder verwenden", "disable": "Präferenz pausieren", "delete": "Präferenz löschen"},
+        "boundary": {"accept": "Prüfen Sie, ob die Beobachtungen Ihre Arbeitsweise tatsächlich beschreiben. Der Wortlaut kann vor der Übernahme geändert werden.", "update": "Bearbeiten Sie nur die nicht vertrauliche Arbeitspräferenz; wissenschaftliche Entscheidungen sind ausgeschlossen.", "enable": "Die geprüfte Präferenz wird im Projekt wieder verwendet.", "disable": "Der lokale Eintrag bleibt erhalten, wird aber nicht angewendet.", "delete": "Die Präferenz wird aus der aktiven Datei entfernt; die Human-Entscheidung bleibt im Auditprotokoll."},
+        "evidence": "Auslöser des Vorschlags", "rule": "Wortlaut der Präferenz", "actor": "Name oder lokale Kennung der prüfenden Person", "actorPlaceholder": "Zum Beispiel: Projektforscher", "rationale": "Grund für die Entscheidung",
+        "rationalePlaceholder": {"accept": "Begründen Sie, warum das wiederholte Muster als lokale Präferenz gelten soll.", "update": "Begründen Sie die Änderung des Wortlauts.", "enable": "Begründen Sie die erneute Verwendung.", "disable": "Begründen Sie die Pause.", "delete": "Begründen Sie die Löschung."},
+        "confirm": {"accept": "Ich habe Beobachtungen und Wortlaut geprüft. Dies ist eine nicht sensible Arbeitspräferenz, keine wissenschaftliche Entscheidung.", "update": "Der geänderte Wortlaut bleibt eine nicht sensible Arbeitspräferenz.", "enable": "Ich möchte diese geprüfte Präferenz wieder verwenden.", "disable": "Ich möchte sie pausieren und den lokalen Eintrag behalten.", "delete": "Ich möchte sie aus der aktiven Datei löschen."},
+        "cancel": "Abbrechen", "recording": "Wird protokolliert…", "submit": {"accept": "Protokollieren und übernehmen", "update": "Änderung protokollieren", "enable": "Protokollieren und aktivieren", "disable": "Protokollieren und pausieren", "delete": "Protokollieren und löschen"}
+      }
     },
     "assetAdmission": {
       "sectionTitle": "Zulassung von Drittanbieter-Assets",

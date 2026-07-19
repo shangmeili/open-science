@@ -12,3 +12,8 @@ Only the researcher can accept a proposal into `preferences.json`. Accepted
 preferences remain local and can be viewed, edited, disabled, or deleted. They
 cannot weaken the harness, alter a calculation engine, create an approval, or
 replace current task instructions.
+
+The app records each acceptance, edit, state change, or deletion under
+`reviews/` and binds the decision to the exact proposal and preference-store
+hash. These records document a local Human assertion; they are not an external
+identity signature.
