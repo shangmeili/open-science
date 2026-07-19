@@ -597,7 +597,14 @@ fn install_bundled_library_from(
             .map(|relative| relative_slash(&destination.join(relative), &canonical_workspace))
             .collect::<Result<Vec<_>, _>>()?;
     }
-    build_index(workspace, project_id)?;
+    let current_audit = already_installed.then(|| audit_library(workspace));
+    let audit = match current_audit {
+        Some(audit) if audit.complete && audit.searchable && !audit.stale => audit,
+        _ => {
+            build_index(workspace, project_id)?;
+            audit_library(workspace)
+        }
+    };
     Ok(BundledLibraryInstall {
         schema: BUNDLED_LIBRARY_SCHEMA,
         bundle_id: manifest.bundle_id,
@@ -607,7 +614,7 @@ fn install_bundled_library_from(
         manifest_sha256,
         added,
         already_installed,
-        audit: audit_library(workspace),
+        audit,
     })
 }
 
@@ -1563,10 +1570,17 @@ mod tests {
                 && hit.page == 1
         }));
 
+        let manifest_before = std::fs::read(root.join(LIBRARY_MANIFEST_PATH)).unwrap();
+        let index_before = std::fs::read(index_path(&root)).unwrap();
         let second =
             install_bundled_library_from(&root, &bundled_source(), "test-project").unwrap();
         assert!(second.already_installed);
         assert!(second.added.is_empty());
+        assert_eq!(
+            std::fs::read(root.join(LIBRARY_MANIFEST_PATH)).unwrap(),
+            manifest_before
+        );
+        assert_eq!(std::fs::read(index_path(&root)).unwrap(), index_before);
         let _ = std::fs::remove_dir_all(root);
     }
 
