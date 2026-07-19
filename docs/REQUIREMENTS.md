@@ -492,11 +492,11 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
   first launch works without CLI knowledge.
 - **Acceptance.** A non-technical user installs and reaches a working first
   session on both macOS and Windows via a signed installer.
-- **Status.** 🟡 AI4HEOR 0.1.40 macOS x64 is locally verified from tracked commit
-  `3afdc49b223d92c9b71e8c8e28c3ea8aa6844bf8`; the cross-built macOS arm64 DMG remains
+- **Status.** 🟡 AI4HEOR 0.1.41 macOS x64 is locally verified from tracked commit
+  `38e061708e56ee82d53ea3d68a79b95dd25ea5dc`; the cross-built macOS arm64 DMG remains
   at 0.1.31 from clean commit `2834785e057ac54477a9633f07390bc173251644`,
   the Linux x86_64 `.deb`/`.rpm` remain at 0.1.30 from clean commit
-  `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. The x64 DMG contains all 335 current
+  `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. The x64 DMG contains all 340 current
   configured resources byte-identical to source; the earlier arm64/Linux artifacts each
   contain their source commit's complete 282-resource set. All four pass all 177 deterministic
   HEOR tests against mounted or extracted package cores. Both Linux packages were built in an isolated
@@ -701,7 +701,7 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
 | P1-1 | Multi-discipline platform lineage | P1 | 🟡 Pluggable, but generic examples are not part of the AI4HEOR delivery |
 | P1-2 | Domain + literature connectors | P1 | Superseded for AI4HEOR — governed HEOR evidence + Jupyter + unmanaged BYO MCP; no generic one-click catalog |
 | P1-3 | Scientific renderers | P1 | 🟡 Partial — base + 3D structure + genome + FITS + DOS + band + phase + qualitative-coding + anomaly map (all 4 disciplines; materials trio complete); ternary/coastlines next |
-| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — current 0.1.40 macOS x64 is locally verified, 0.1.31 arm64 is cross-host content-inspected, and Linux x64 remains verified at 0.1.30; cross-platform work is paused for Intel macOS product acceptance; Windows/native-arm execution and signing remain open |
+| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — current 0.1.41 macOS x64 is locally verified, 0.1.31 arm64 is cross-host content-inspected, and Linux x64 remains verified at 0.1.30; cross-platform work is paused for Intel macOS product acceptance; Windows/native-arm execution and signing remain open |
 | P1-5 | Interaction & visualization craft | P1 | 🟡 Partial — chart system + palette + command palette + native table→chart surface shipped |
 | **P1-6** | **Social-science analysis integrity** | **P1** | 🟡 **Partial — stats-integrity skill: interpretation/prereg/seed checks + verified .dta→R round-trip** |
 | P2-1 | Notebook + larger-project handling | P2 | ✅ Done — notebook + workspace Files explorer |
