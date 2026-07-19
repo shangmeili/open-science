@@ -28,7 +28,7 @@
     "heor-probability-time-adapter": { "displayName": "확률 시간 어댑터", "description": "단일 사건 확률을 모형 주기로 변환합니다." },
     "heor-reference-case": { "displayName": "참조 사례", "description": "버전 관리된 지역 참조 사례에 따라 계획을 감사합니다." },
     "heor-relative-effect-adapter": { "displayName": "상대효과 어댑터", "description": "제한된 RR 또는 OR을 기준 위험에 적용합니다." },
-    "heor-reporting": { "displayName": "HEOR 보고", "description": "해시로 고정된 HEOR 보고 패키지와 검토 가능한 DOCX/PDF를 준비합니다." },
+    "heor-reporting": { "displayName": "HEOR 보고", "description": "해시로 고정된 HEOR 보고 패키지와 검토 가능한 DOCX/PDF/XLSX를 준비합니다." },
     "heor-reproducibility-package": { "displayName": "재현성 패키지", "description": "재실행 절차, 근거, 주장 및 출시 산출물을 연결합니다." },
     "heor-rwe-causal-analysis": { "displayName": "RWE 인과분석", "description": "치료 및 관찰 가중치를 포함한 고정시점 RWE를 감사합니다." },
     "heor-semi-markov-microsimulation": { "displayName": "세미마르코프 미시모의", "description": "감사 가능한 환자 수준 상태전이 모형을 실행합니다." },

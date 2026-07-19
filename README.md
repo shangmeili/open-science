@@ -133,7 +133,7 @@ authority. Representative admitted workflows are:
 | `$heor-cohort-state-transition` / `$heor-partitioned-survival` | Execute bounded deterministic economic models | Reproducible costs, QALYs, increments, and checks |
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | Execute declared uncertainty and bounded VOI workflows | DSA/PSA/CEAC/CEAF/EVPI and separately reviewed advanced VOI |
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | Execute bounded static or dynamic budget-impact analysis | Disaggregated budget results and audit artifacts |
-| `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | Validate, report, and package exact current artifacts | Independent-review package, source-bound DOCX/PDF report, and replay bundle |
+| `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | Validate, report, and package exact current artifacts | Independent-review package, source-bound DOCX/PDF/XLSX report, and replay bundle |
 | `$research-presentation` | Prepare source-bound research presentation content and render it locally | Reviewable macro-free PPTX plus generation audit |
 
 Every first-party Skill name and description ships in all seven interface
@@ -170,9 +170,9 @@ sources. The current registry is empty, so no third-party tool is bundled.
 Useful behavior identified in earlier external reviews is rebuilt as bounded
 first-party AI4HEOR capabilities. License-incompatible document sources are
 permanently absent from the runtime and candidate UI. PPTX is replaced by
-`research-presentation`; DOCX/PDF report export is replaced by the first-party
-`heor-reporting` native renderer. Source-bound XLSX generation remains a
-first-party build task. The read-only decision trail is in
+`research-presentation`; DOCX/PDF/XLSX report export is replaced by the first-party
+`heor-reporting` native renderer. XLSX copies audited results without hidden
+spreadsheet model recalculation. The read-only decision trail is in
 [`docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md`](./docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md).
 
 The default connector surface contains no unreviewed third-party one-click MCP
@@ -297,7 +297,7 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.44; the fully first-launch-verified x64 macOS
+accepted. Current source is 0.1.45; the fully first-launch-verified x64 macOS
 handoff remains 0.1.41. The current 89,752,369-byte
 `AI4HEOR_0.1.44_x64.dmg` candidate built from `7f29e4a` has SHA-256
 `d55ba19e964330396970b39a2f10998b1e5da58a98fcfeb99bce24343028ab5a`.
@@ -306,6 +306,12 @@ identity, OpenCode 1.17.13, uv 0.11.26, all 346 controlled resources, and all
 177 packaged HEOR tests. It supersedes the 0.1.43 candidate. Exact isolated
 first launch remains pending because the installed app is still running; this
 candidate does not replace the fully accepted 0.1.41 handoff yet.
+Version 0.1.45 extends the same first-party, source-bound report path with a
+deterministic, macro-free and formula-free XLSX workbook. Its five bilingual
+worksheets copy typed values, tables, reporting coverage, disclosures,
+limitations, source paths, and SHA-256 bindings from the audited report package;
+the workbook does not recalculate the economic model and remains awaiting Human
+review.
 Version 0.1.44 adds first-party, source-bound DOCX/PDF generation to
 `heor-reporting`: the native app re-audits the current report package and report,
 embeds an admitted Chinese font in both formats, records output hashes, and

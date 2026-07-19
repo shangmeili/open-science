@@ -34,6 +34,7 @@ export const RESEARCH_PRESENTATION_OUTPUT_PATH = "deliverables/research-presenta
 export const RESEARCH_REPORT_MANIFEST_PATH = "deliverables/heor-report-export.json";
 export const RESEARCH_REPORT_DOCX_PATH = "deliverables/heor-report.docx";
 export const RESEARCH_REPORT_PDF_PATH = "deliverables/heor-report.pdf";
+export const RESEARCH_REPORT_XLSX_PATH = "deliverables/heor-report.xlsx";
 
 function transitionPath(path: string): boolean {
   return /^strategies\.[a-z][a-z0-9_-]{0,63}\.(transition_matrix|transition_schedule)$/.test(path);
@@ -1176,14 +1177,17 @@ export interface ResearchReportAudit {
   manifestPath: string;
   docxPath: string;
   pdfPath: string;
+  xlsxPath: string;
   auditPath: string;
   manifestSha256: string;
   reportPackageSha256: string;
   reportDocumentSha256: string;
   docxSha256: string | null;
   pdfSha256: string | null;
+  xlsxSha256: string | null;
   blockCount: number;
   tableCount: number;
+  workbookSheetCount: number;
   pdfPageCount: number;
   humanReviewStatus: string;
   fontName: string;
@@ -4396,14 +4400,17 @@ export const RESEARCH_REPORT_BROWSER_DEMO_AUDIT: ResearchReportAudit = {
   manifestPath: RESEARCH_REPORT_MANIFEST_PATH,
   docxPath: RESEARCH_REPORT_DOCX_PATH,
   pdfPath: RESEARCH_REPORT_PDF_PATH,
+  xlsxPath: RESEARCH_REPORT_XLSX_PATH,
   auditPath: "deliverables/heor-report.audit.json",
   manifestSha256: "",
   reportPackageSha256: "",
   reportDocumentSha256: "",
   docxSha256: null,
   pdfSha256: null,
+  xlsxSha256: null,
   blockCount: 0,
   tableCount: 0,
+  workbookSheetCount: 0,
   pdfPageCount: 0,
   humanReviewStatus: "",
   fontName: "Source Han Sans CN",

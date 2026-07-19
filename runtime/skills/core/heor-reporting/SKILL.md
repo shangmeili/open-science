@@ -1,6 +1,6 @@
 ---
 name: heor-reporting
-description: Prepare, audit, and revise a release-reviewable HEOR report package that binds economic-evaluation and budget-impact reports to exact model, validation, and deterministic result artifacts. Use for heor/report-package.json, heor/report.md, CHEERS 2022 reporting, budget-impact reporting, CEAC, CEAF, per-person EVPI, result tables, limitations, funding and conflict disclosures, reproducibility appendices, or preparation of the app-owned release gate without claiming methodological quality or creating release approval.
+description: Prepare, audit, and revise a release-reviewable HEOR report package and source-bound DOCX, PDF, and XLSX outputs that bind economic-evaluation and budget-impact reporting to exact model, validation, and deterministic result artifacts. Use for heor/report-package.json, heor/report.md, CHEERS 2022 reporting, budget-impact reporting, CEAC, CEAF, per-person EVPI, result tables, limitations, funding and conflict disclosures, reproducibility appendices, or preparation of the app-owned release gate without claiming methodological quality or creating release approval.
 ---
 
 # HEOR Reporting
@@ -8,7 +8,7 @@ description: Prepare, audit, and revise a release-reviewable HEOR report package
 ## Workflow
 
 1. Read `references/report-package-contract.md` before creating or changing a package.
-   Read `references/report-export-contract.md` before preparing DOCX/PDF export metadata.
+   Read `references/report-export-contract.md` before preparing DOCX/PDF/XLSX export metadata.
 2. Require the three app-owned results for the current model: base case or PSM, uncertainty, and budget impact. If any is missing, ask the researcher to run the corresponding deterministic analysis in the review panel; never recreate numerical results in prose or code.
 3. Copy `assets/report-package.template.json` to `heor/report-package.json` and `assets/report.template.md` to `heor/report.md` when absent. For linked PSM work, replace the package schema and `bindings` with `assets/psm-report-bindings.template.json`.
 4. For non-PSM schema `0.1.0`, bind the report, five method artifacts, and three results. For linked PSM schema `0.2.0`, bind the report, six method artifacts, five current PSM inputs, and three results. Preserve the fixed paths and lowercase SHA-256 values.
@@ -23,7 +23,7 @@ description: Prepare, audit, and revise a release-reviewable HEOR report package
 13. Disclose funding, conflicts, Agent contributions, model providers, data/model availability, and patient/public involvement. Never infer a missing disclosure.
 14. Copy `release_owner_label` only from an explicit human instruction. Do not invent an owner, create an approval event, or call a package released.
 15. Run `python3 scripts/validate_report_package.py WORKSPACE/heor/report-package.json WORKSPACE`. Treat `valid` as structural reporting readiness, not methodological quality, policy endorsement, or release.
-16. When the researcher asks for report files, confirm the document title, optional subtitle, audience, purpose, language, and date in the conversation. Copy `assets/report-export.template.json` to `deliverables/heor-report-export.json`, bind the exact current report-package and report-document SHA-256 values, keep `style` as `ai4heor-formal-report`, and keep `human_review.status` as `awaiting_human_review`. Ask the desktop app to generate the DOCX/PDF pair; do not write substitute DOCX/PDF files or turn generation into approval.
+16. When the researcher asks for report files, confirm the document title, optional subtitle, audience, purpose, language, and date in the conversation. Copy `assets/report-export.template.json` to `deliverables/heor-report-export.json`, bind the exact current report-package and report-document SHA-256 values, keep `style` as `ai4heor-formal-report`, and keep `human_review.status` as `awaiting_human_review`. Ask the desktop app to generate the DOCX/PDF/XLSX set; do not write substitute files or turn generation into approval. XLSX copies the audited `result_summary`, report tables, reporting matrix, bindings, disclosures, and limitations without recalculating the model.
 17. Use `$heor-reproducibility-package` to derive and audit the current release companion after the report package is complete. Do not copy restricted source content, add unrelated files, claim external reproducibility, or create another approval gate.
 18. For dynamic BIA schema `0.2.0`, report the declared annual event order plus delivered and unmet starts, deaths, discontinuation destinations, opening/closing stocks, and the full-year costing limitation from the app-written flow ledger. Never reinterpret those expected counts as observed patient flow.
 19. Ask the named human release owner to inspect both packages and use the desktop release control.
@@ -33,7 +33,7 @@ description: Prepare, audit, and revise a release-reviewable HEOR report package
 - Do not score CHEERS or use item counts to claim study quality.
 - Do not apply CHEERS to the BIA; use the separate BIA matrix.
 - Do not edit files under `heor/results/`; they are written by deterministic app execution.
-- Do not hand-edit or silently overwrite app-generated DOCX, PDF, or report-export audit files.
+- Do not hand-edit or silently overwrite app-generated DOCX, PDF, XLSX, or report-export audit files.
 - Do not hide negative, dominated, uncertain, or unaffordable results.
 - Do not turn a cost-effectiveness result into a reimbursement recommendation.
 - Do not describe CEAC or CEAF as a policy recommendation. Do not extrapolate per-person EVPI to a population or infer EVPPI, EVSI, research priority, optimal study design, or funding value from the base uncertainty result. If a separate advanced-VOI artifact exists, report it only under its own conditional scope and Human method-review status.

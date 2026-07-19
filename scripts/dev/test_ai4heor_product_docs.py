@@ -183,8 +183,9 @@ class AI4HEORProductDocsTests(unittest.TestCase):
             "待建设",
             "研究汇报幻灯",
             "RIS、受控 BibTeX 与 CSL-JSON",
-            "DOCX/PDF",
-            "XLSX",
+            "DOCX/PDF/XLSX",
+            "五张工作表",
+            "不在表格中重算模型",
             "不能因为“会写报告”或“会生成表格”",
         ):
             self.assertIn(required, matrix)

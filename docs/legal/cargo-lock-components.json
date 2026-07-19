@@ -2,7 +2,7 @@
   "schema": "ai4heor-cargo-license-inventory/v1",
   "generated_on": "2026-07-20",
   "scope": "Cargo.lock package universe; conservative superset of one target build",
-  "lockfile_sha256": "1a0b0d3e29849f154266873f2cddc71a0541444bae01f990d4ecbcc43ddf26c1",
+  "lockfile_sha256": "11cd9849f037c2aaeb08b5ec01e9e6f3d80414ab33e233748a2f53f53fdf273a",
   "components": [
     {
       "name": "adler2",

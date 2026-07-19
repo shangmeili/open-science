@@ -50,10 +50,11 @@ export function ResearchReportAssessment({
       </div>
 
       {audit && (
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+        <div className="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
           <Metric label={t("reportExport.blocks")} value={String(audit.blockCount)} />
           <Metric label={t("reportExport.tables")} value={String(audit.tableCount)} />
           <Metric label={t("reportExport.pages")} value={audit.outputsCurrent ? String(audit.pdfPageCount) : "—"} />
+          <Metric label={t("reportExport.workbookSheets")} value={audit.outputsCurrent ? String(audit.workbookSheetCount) : "—"} />
         </div>
       )}
 
@@ -99,6 +100,13 @@ export function ResearchReportAssessment({
               className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
             >
               <ExternalLink size={13} /> {t("reportExport.openPdf")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void openArtifactExternally(audit.xlsxPath)}
+              className="flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+            >
+              <ExternalLink size={13} /> {t("reportExport.openXlsx")}
             </button>
           </>
         )}

@@ -15,14 +15,17 @@ const readyAudit = {
   manifestPath: "deliverables/heor-report-export.json",
   docxPath: "deliverables/heor-report.docx",
   pdfPath: "deliverables/heor-report.pdf",
+  xlsxPath: "deliverables/heor-report.xlsx",
   auditPath: "deliverables/heor-report.audit.json",
   manifestSha256: "a".repeat(64),
   reportPackageSha256: "b".repeat(64),
   reportDocumentSha256: "c".repeat(64),
   docxSha256: null,
   pdfSha256: null,
+  xlsxSha256: null,
   blockCount: 42,
   tableCount: 3,
+  workbookSheetCount: 0,
   pdfPageCount: 0,
   humanReviewStatus: "awaiting_human_review",
   fontName: "Source Han Sans CN",
@@ -38,7 +41,7 @@ afterEach(async () => {
 });
 
 describe("research report assessment", () => {
-  it("generates both document formats only from a ready source-bound manifest", async () => {
+  it("generates all three report formats only from a ready source-bound manifest", async () => {
     const onGenerate = vi.fn();
     render(
       <ResearchReportAssessment
@@ -52,8 +55,33 @@ describe("research report assessment", () => {
     expect(screen.getByText("42")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText(/does not approve the study/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Generate DOCX and PDF" }));
+    await userEvent.click(screen.getByRole("button", { name: "Generate DOCX, PDF, and XLSX" }));
     expect(onGenerate).toHaveBeenCalledOnce();
+  });
+
+  it("opens the current workbook alongside the document formats", () => {
+    render(
+      <ResearchReportAssessment
+        state={{
+          kind: "ready",
+          audit: {
+            ...readyAudit,
+            outputsCurrent: true,
+            status: "generated_current",
+            workbookSheetCount: 5,
+          },
+        }}
+        generating={false}
+        onRequestPreparation={vi.fn()}
+        onGenerate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Open DOCX" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open PDF" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open XLSX" })).toBeInTheDocument();
+    expect(screen.getByText("Workbook sheets")).toBeInTheDocument();
+    expect(screen.getByText("5")).toBeInTheDocument();
   });
 
   it("uses direct Chinese research wording and keeps preparation conversational", async () => {
@@ -70,7 +98,7 @@ describe("research report assessment", () => {
     );
 
     expect(screen.getByText("尚未准备报告文件")).toBeInTheDocument();
-    expect(screen.getByText(/仍需研究者核对正文、数字、表格/)).toBeInTheDocument();
+    expect(screen.getByText(/XLSX 只整理已审计结果，不在表格中重算模型/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "与助手一起整理报告" }));
     expect(onPrepare).toHaveBeenCalledOnce();
   });

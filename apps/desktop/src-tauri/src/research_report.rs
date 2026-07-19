@@ -18,11 +18,13 @@ use tauri::AppHandle;
 pub const REPORT_EXPORT_MANIFEST_PATH: &str = "deliverables/heor-report-export.json";
 pub const REPORT_DOCX_OUTPUT_PATH: &str = "deliverables/heor-report.docx";
 pub const REPORT_PDF_OUTPUT_PATH: &str = "deliverables/heor-report.pdf";
+pub const REPORT_XLSX_OUTPUT_PATH: &str = "deliverables/heor-report.xlsx";
 pub const REPORT_EXPORT_AUDIT_PATH: &str = "deliverables/heor-report.audit.json";
 const MANIFEST_CAP_BYTES: u64 = 1024 * 1024;
 const SOURCE_CAP_BYTES: u64 = 5 * 1024 * 1024;
 const OUTPUT_CAP_BYTES: usize = 50 * 1024 * 1024;
-const ENGINE_VERSION: &str = "0.1.0";
+const ENGINE_VERSION: &str = "0.2.0";
+const WORKBOOK_SHEET_COUNT: usize = 5;
 const FONT_NAME: &str = "Source Han Sans CN";
 const FONT_VERSION: &str = "2.005R";
 const FONT_LICENSE: &str = "OFL-1.1";
@@ -97,14 +99,17 @@ pub struct ResearchReportAudit {
     pub manifest_path: &'static str,
     pub docx_path: &'static str,
     pub pdf_path: &'static str,
+    pub xlsx_path: &'static str,
     pub audit_path: &'static str,
     pub manifest_sha256: String,
     pub report_package_sha256: String,
     pub report_document_sha256: String,
     pub docx_sha256: Option<String>,
     pub pdf_sha256: Option<String>,
+    pub xlsx_sha256: Option<String>,
     pub block_count: usize,
     pub table_count: usize,
+    pub workbook_sheet_count: usize,
     pub pdf_page_count: usize,
     pub human_review_status: String,
     pub font_name: &'static str,
@@ -127,8 +132,14 @@ struct GenerationRecord {
     docx_sha256: String,
     pdf_path: String,
     pdf_sha256: String,
+    #[serde(default)]
+    xlsx_path: Option<String>,
+    #[serde(default)]
+    xlsx_sha256: Option<String>,
     block_count: usize,
     table_count: usize,
+    #[serde(default)]
+    workbook_sheet_count: usize,
     pdf_page_count: usize,
     human_review_status: String,
     font_name: String,
@@ -184,10 +195,6 @@ fn safe_relative(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 240
         && !value.contains('\\')
-        && !matches!(
-            value,
-            REPORT_DOCX_OUTPUT_PATH | REPORT_PDF_OUTPUT_PATH | REPORT_EXPORT_AUDIT_PATH
-        )
         && Path::new(value)
             .components()
             .all(|component| matches!(component, Component::Normal(_)))
@@ -473,14 +480,17 @@ fn empty_audit(manifest_sha256: String, errors: Vec<String>) -> ResearchReportAu
         manifest_path: REPORT_EXPORT_MANIFEST_PATH,
         docx_path: REPORT_DOCX_OUTPUT_PATH,
         pdf_path: REPORT_PDF_OUTPUT_PATH,
+        xlsx_path: REPORT_XLSX_OUTPUT_PATH,
         audit_path: REPORT_EXPORT_AUDIT_PATH,
         manifest_sha256,
         report_package_sha256: String::new(),
         report_document_sha256: String::new(),
         docx_sha256: None,
         pdf_sha256: None,
+        xlsx_sha256: None,
         block_count: 0,
         table_count: 0,
+        workbook_sheet_count: 0,
         pdf_page_count: 0,
         human_review_status: String::new(),
         font_name: FONT_NAME,
@@ -621,14 +631,17 @@ fn load_manifest(workspace: &Path) -> (ResearchReportAudit, Option<LoadedReport>
         manifest_path: REPORT_EXPORT_MANIFEST_PATH,
         docx_path: REPORT_DOCX_OUTPUT_PATH,
         pdf_path: REPORT_PDF_OUTPUT_PATH,
+        xlsx_path: REPORT_XLSX_OUTPUT_PATH,
         audit_path: REPORT_EXPORT_AUDIT_PATH,
         manifest_sha256: manifest_sha,
         report_package_sha256: sha256(&package_raw),
         report_document_sha256: sha256(&report_raw),
         docx_sha256: None,
         pdf_sha256: None,
+        xlsx_sha256: None,
         block_count: blocks.len(),
         table_count,
+        workbook_sheet_count: 0,
         pdf_page_count: 0,
         human_review_status: manifest.human_review.status.clone(),
         font_name: FONT_NAME,
@@ -655,14 +668,18 @@ fn apply_current_outputs(workspace: &Path, loaded: &LoadedReport, audit: &mut Re
         .and_then(|(_, raw)| serde_json::from_slice::<GenerationRecord>(&raw).ok());
     let docx = resolve_regular(workspace, REPORT_DOCX_OUTPUT_PATH, OUTPUT_CAP_BYTES as u64).ok();
     let pdf = resolve_regular(workspace, REPORT_PDF_OUTPUT_PATH, OUTPUT_CAP_BYTES as u64).ok();
-    let (Some(record), Some((_, docx)), Some((_, pdf))) = (record, docx, pdf) else {
+    let xlsx = resolve_regular(workspace, REPORT_XLSX_OUTPUT_PATH, OUTPUT_CAP_BYTES as u64).ok();
+    let (Some(record), Some((_, docx)), Some((_, pdf)), Some((_, xlsx))) =
+        (record, docx, pdf, xlsx)
+    else {
         return;
     };
     let expected_sources = BTreeMap::from([
         ("report_document".into(), sha256(&loaded.report_raw)),
         ("report_package".into(), sha256(&loaded.package_raw)),
     ]);
-    let current = record.schema_version == "0.1.0"
+    let xlsx_hash = sha256(&xlsx);
+    let current = record.schema_version == "0.2.0"
         && record.generator == "ai4heor-native-report"
         && record.generator_version == ENGINE_VERSION
         && record.document_id == loaded.manifest.document_id
@@ -673,8 +690,11 @@ fn apply_current_outputs(workspace: &Path, loaded: &LoadedReport, audit: &mut Re
         && record.docx_sha256 == sha256(&docx)
         && record.pdf_path == REPORT_PDF_OUTPUT_PATH
         && record.pdf_sha256 == sha256(&pdf)
+        && record.xlsx_path.as_deref() == Some(REPORT_XLSX_OUTPUT_PATH)
+        && record.xlsx_sha256.as_deref() == Some(xlsx_hash.as_str())
         && record.block_count == loaded.blocks.len()
         && record.table_count == loaded.table_count
+        && record.workbook_sheet_count == WORKBOOK_SHEET_COUNT
         && record.human_review_status == "awaiting_human_review"
         && record.font_name == FONT_NAME
         && record.font_version == FONT_VERSION
@@ -685,7 +705,9 @@ fn apply_current_outputs(workspace: &Path, loaded: &LoadedReport, audit: &mut Re
         audit.status = "generated_current";
         audit.docx_sha256 = Some(record.docx_sha256);
         audit.pdf_sha256 = Some(record.pdf_sha256);
+        audit.xlsx_sha256 = record.xlsx_sha256;
         audit.pdf_page_count = record.pdf_page_count;
+        audit.workbook_sheet_count = record.workbook_sheet_count;
     }
 }
 
@@ -1039,9 +1061,543 @@ fn build_stored_zip(entries: &[(String, Vec<u8>)]) -> Result<Vec<u8>, String> {
     push_u32(&mut output, central_offset);
     push_u16(&mut output, 0);
     if output.len() > OUTPUT_CAP_BYTES {
-        return Err("generated DOCX exceeds the 50 MiB output cap".into());
+        return Err("generated OOXML exceeds the 50 MiB output cap".into());
     }
     Ok(output)
+}
+
+#[derive(Clone, Debug)]
+enum XlsxValue {
+    Empty,
+    Text(String),
+    Number(String),
+    Boolean(bool),
+}
+
+#[derive(Clone, Debug)]
+struct XlsxCell {
+    value: XlsxValue,
+    style: u8,
+}
+
+impl XlsxCell {
+    fn empty() -> Self {
+        Self {
+            value: XlsxValue::Empty,
+            style: 0,
+        }
+    }
+
+    fn text(value: impl Into<String>, style: u8) -> Self {
+        Self {
+            value: XlsxValue::Text(value.into()),
+            style,
+        }
+    }
+
+    fn number(value: impl Into<String>) -> Self {
+        let value = value.into();
+        let style = if value
+            .chars()
+            .any(|character| matches!(character, '.' | 'e' | 'E'))
+        {
+            9
+        } else {
+            5
+        };
+        Self {
+            value: XlsxValue::Number(value),
+            style,
+        }
+    }
+
+    fn boolean(value: bool) -> Self {
+        Self {
+            value: XlsxValue::Boolean(value),
+            style: 4,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct XlsxSheet {
+    name: String,
+    rows: Vec<Vec<XlsxCell>>,
+    widths: Vec<f32>,
+    freeze_rows: usize,
+    auto_filter: Option<(usize, usize)>,
+}
+
+fn xlsx_text(value: &str) -> Result<String, String> {
+    if value.chars().count() > 32_767 {
+        return Err("an XLSX cell exceeds Excel's 32767-character limit".into());
+    }
+    if value
+        .chars()
+        .any(|character| character.is_control() && !matches!(character, '\n' | '\r' | '\t'))
+    {
+        return Err("an XLSX cell contains an unsupported control character".into());
+    }
+    Ok(value.replace("\r\n", "\n").replace('\r', "\n"))
+}
+
+fn column_name(mut index: usize) -> String {
+    let mut output = Vec::new();
+    loop {
+        output.push((b'A' + (index % 26) as u8) as char);
+        index /= 26;
+        if index == 0 {
+            break;
+        }
+        index -= 1;
+    }
+    output.iter().rev().collect()
+}
+
+fn xlsx_cell_xml(cell: &XlsxCell, row: usize, column: usize) -> Result<String, String> {
+    let reference = format!("{}{}", column_name(column), row);
+    match &cell.value {
+        XlsxValue::Empty => Ok(String::new()),
+        XlsxValue::Text(value) => Ok(format!(
+            "<c r=\"{reference}\" s=\"{}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">{}</t></is></c>",
+            cell.style,
+            xml_escape(&xlsx_text(value)?)
+        )),
+        XlsxValue::Number(value) => {
+            let parsed = value
+                .parse::<f64>()
+                .map_err(|_| format!("invalid numeric XLSX value: {value}"))?;
+            if !parsed.is_finite() {
+                return Err(format!("non-finite numeric XLSX value: {value}"));
+            }
+            Ok(format!(
+                "<c r=\"{reference}\" s=\"{}\" t=\"n\"><v>{value}</v></c>",
+                cell.style
+            ))
+        }
+        XlsxValue::Boolean(value) => Ok(format!(
+            "<c r=\"{reference}\" s=\"{}\" t=\"b\"><v>{}</v></c>",
+            cell.style,
+            usize::from(*value)
+        )),
+    }
+}
+
+fn xlsx_sheet_xml(sheet: &XlsxSheet) -> Result<Vec<u8>, String> {
+    if sheet.rows.is_empty() || sheet.rows.len() > 1_048_576 {
+        return Err(format!(
+            "XLSX sheet {} has an unsupported row count",
+            sheet.name
+        ));
+    }
+    if sheet.widths.is_empty() || sheet.widths.len() > 16_384 {
+        return Err(format!(
+            "XLSX sheet {} has an unsupported column count",
+            sheet.name
+        ));
+    }
+    let mut rows = String::new();
+    for (row_index, row) in sheet.rows.iter().enumerate() {
+        if row.len() > sheet.widths.len() {
+            return Err(format!(
+                "XLSX sheet {} has a row wider than declared",
+                sheet.name
+            ));
+        }
+        let number = row_index + 1;
+        let height = match row.first().map(|cell| cell.style) {
+            Some(1) => " ht=\"30\" customHeight=\"1\"",
+            Some(2) => " ht=\"22\" customHeight=\"1\"",
+            _ => "",
+        };
+        let mut cells = String::new();
+        for (column_index, cell) in row.iter().enumerate() {
+            cells.push_str(&xlsx_cell_xml(cell, number, column_index)?);
+        }
+        rows.push_str(&format!("<row r=\"{number}\"{height}>{cells}</row>"));
+    }
+    let columns = sheet
+        .widths
+        .iter()
+        .enumerate()
+        .map(|(index, width)| {
+            let number = index + 1;
+            format!(
+                "<col min=\"{number}\" max=\"{number}\" width=\"{width:.1}\" customWidth=\"1\"/>"
+            )
+        })
+        .collect::<String>();
+    let last_column = column_name(sheet.widths.len() - 1);
+    let last_row = sheet.rows.len();
+    let pane = if sheet.freeze_rows == 0 {
+        String::new()
+    } else {
+        let top = sheet.freeze_rows + 1;
+        format!("<pane ySplit=\"{}\" topLeftCell=\"A{top}\" activePane=\"bottomLeft\" state=\"frozen\"/><selection pane=\"bottomLeft\" activeCell=\"A{top}\" sqref=\"A{top}\"/>", sheet.freeze_rows)
+    };
+    let filter = sheet.auto_filter.map_or_else(String::new, |(start, end)| {
+        format!("<autoFilter ref=\"A{start}:{last_column}{end}\"/>")
+    });
+    Ok(format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><dimension ref=\"A1:{last_column}{last_row}\"/><sheetViews><sheetView showGridLines=\"0\" workbookViewId=\"0\">{pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight=\"18\"/><cols>{columns}</cols><sheetData>{rows}</sheetData>{filter}<pageMargins left=\"0.35\" right=\"0.35\" top=\"0.5\" bottom=\"0.5\" header=\"0.2\" footer=\"0.2\"/><pageSetup orientation=\"landscape\" fitToWidth=\"1\" fitToHeight=\"0\"/></worksheet>"
+    )
+    .into_bytes())
+}
+
+fn flatten_json(
+    prefix: &str,
+    value: &serde_json::Value,
+    output: &mut Vec<Vec<XlsxCell>>,
+) -> Result<(), String> {
+    if output.len() > 50_000 {
+        return Err("result_summary exceeds 50000 XLSX rows".into());
+    }
+    match value {
+        serde_json::Value::Object(values) => {
+            let mut keys = values.keys().collect::<Vec<_>>();
+            keys.sort();
+            for key in keys {
+                let path = if prefix.is_empty() {
+                    key.to_string()
+                } else {
+                    format!("{prefix}.{key}")
+                };
+                flatten_json(&path, &values[key], output)?;
+            }
+        }
+        serde_json::Value::Array(values) => {
+            if values.is_empty() {
+                output.push(vec![
+                    XlsxCell::text(prefix, 4),
+                    XlsxCell::text("array", 4),
+                    XlsxCell::text("[]", 4),
+                    XlsxCell::empty(),
+                ]);
+            } else {
+                for (index, item) in values.iter().enumerate() {
+                    flatten_json(&format!("{prefix}[{index}]"), item, output)?;
+                }
+            }
+        }
+        serde_json::Value::Null => output.push(vec![
+            XlsxCell::text(prefix, 4),
+            XlsxCell::text("null", 4),
+            XlsxCell::text("null", 6),
+            XlsxCell::text("The bound result contains an explicit null value.", 6),
+        ]),
+        serde_json::Value::Bool(value) => output.push(vec![
+            XlsxCell::text(prefix, 4),
+            XlsxCell::text("boolean", 4),
+            XlsxCell::boolean(*value),
+            XlsxCell::empty(),
+        ]),
+        serde_json::Value::Number(value) => output.push(vec![
+            XlsxCell::text(prefix, 4),
+            XlsxCell::text("number", 4),
+            XlsxCell::number(value.to_string()),
+            XlsxCell::empty(),
+        ]),
+        serde_json::Value::String(value) => output.push(vec![
+            XlsxCell::text(prefix, 4),
+            XlsxCell::text("string", 4),
+            XlsxCell::text(value, 4),
+            XlsxCell::empty(),
+        ]),
+    }
+    Ok(())
+}
+
+fn json_text(value: Option<&serde_json::Value>) -> String {
+    match value {
+        None | Some(serde_json::Value::Null) => "null".into(),
+        Some(serde_json::Value::String(value)) => value.clone(),
+        Some(serde_json::Value::Array(values)) => values
+            .iter()
+            .map(|value| json_text(Some(value)))
+            .collect::<Vec<_>>()
+            .join("; "),
+        Some(value) => value.to_string(),
+    }
+}
+
+fn report_table_rows(blocks: &[Block]) -> Vec<Vec<XlsxCell>> {
+    let mut output = vec![vec![XlsxCell::text("Report tables / 报告表格", 1)]];
+    let mut heading = String::new();
+    let mut table_number = 0usize;
+    for block in blocks {
+        match block {
+            Block::Heading { text, .. } => heading = text.clone(),
+            Block::Table(rows) => {
+                table_number += 1;
+                output.push(vec![XlsxCell::empty()]);
+                output.push(vec![XlsxCell::text(
+                    if heading.is_empty() {
+                        format!("Table {table_number} / 表 {table_number}")
+                    } else {
+                        format!("Table {table_number} / 表 {table_number} · {heading}")
+                    },
+                    2,
+                )]);
+                for (row_index, row) in rows.iter().enumerate() {
+                    output.push(
+                        row.iter()
+                            .map(|value| XlsxCell::text(value, if row_index == 0 { 3 } else { 4 }))
+                            .collect(),
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+    if table_number == 0 {
+        output.push(vec![XlsxCell::text(
+            "No tables in the current report document / 当前报告正文没有表格",
+            6,
+        )]);
+    }
+    output
+}
+
+fn build_xlsx(loaded: &LoadedReport) -> Result<Vec<u8>, String> {
+    let package: serde_json::Value = serde_json::from_slice(&loaded.package_raw)
+        .map_err(|error| format!("cannot parse audited report package for XLSX: {error}"))?;
+
+    let summary = XlsxSheet {
+        name: "Summary 摘要".into(),
+        rows: vec![
+            vec![XlsxCell::text(&loaded.manifest.title, 1)],
+            vec![XlsxCell::text(&loaded.manifest.subtitle, 4)],
+            vec![XlsxCell::text(
+                "This workbook copies the audited report package without recalculating the model. It is not research, reimbursement, or release approval. / 本工作簿复制已审计报告包，不重新计算模型，也不代表研究、支付或发布批准。",
+                6,
+            )],
+            vec![XlsxCell::text("Record / 记录项", 3), XlsxCell::text("Value / 值", 3)],
+            vec![XlsxCell::text("Document ID / 文档标识", 8), XlsxCell::text(&loaded.manifest.document_id, 4)],
+            vec![XlsxCell::text("Prepared on / 编制日期", 8), XlsxCell::text(&loaded.manifest.prepared_on, 4)],
+            vec![XlsxCell::text("Audience / 使用对象", 8), XlsxCell::text(&loaded.manifest.audience, 4)],
+            vec![XlsxCell::text("Purpose / 用途", 8), XlsxCell::text(&loaded.manifest.purpose, 4)],
+            vec![XlsxCell::text("Language / 语言", 8), XlsxCell::text(&loaded.manifest.language, 4)],
+            vec![XlsxCell::text("Review status / 复核状态", 8), XlsxCell::text("awaiting_human_review", 6)],
+            vec![XlsxCell::text("Report blocks / 报告内容块", 8), XlsxCell::number(loaded.blocks.len().to_string())],
+            vec![XlsxCell::text("Report tables / 报告表格", 8), XlsxCell::number(loaded.table_count.to_string())],
+        ],
+        widths: vec![26.0, 72.0],
+        freeze_rows: 4,
+        auto_filter: None,
+    };
+
+    let mut result_rows = vec![
+        vec![XlsxCell::text("Result summary / 结果指标", 1)],
+        vec![XlsxCell::text(
+            "Values come directly from the bound report-package.json; paths retain their hierarchy and null is not changed to zero. / 数值直接来自已绑定的报告包，null 不会改写为零。",
+            6,
+        )],
+        vec![
+            XlsxCell::text("Field path / 字段路径", 3),
+            XlsxCell::text("Type / 类型", 3),
+            XlsxCell::text("Value / 值", 3),
+            XlsxCell::text("Note / 说明", 3),
+        ],
+    ];
+    let result_summary = package
+        .get("result_summary")
+        .ok_or_else(|| "audited report package has no result_summary".to_string())?;
+    flatten_json("", result_summary, &mut result_rows)?;
+    let result_end = result_rows.len();
+    let results = XlsxSheet {
+        name: "Results 结果".into(),
+        rows: result_rows,
+        widths: vec![54.0, 14.0, 28.0, 58.0],
+        freeze_rows: 3,
+        auto_filter: Some((3, result_end)),
+    };
+
+    let report_tables = XlsxSheet {
+        name: "Report Tables 报告表".into(),
+        rows: report_table_rows(&loaded.blocks),
+        widths: vec![28.0, 22.0, 22.0, 22.0, 22.0, 22.0, 22.0, 22.0],
+        freeze_rows: 1,
+        auto_filter: None,
+    };
+
+    let mut matrix_rows = vec![
+        vec![XlsxCell::text("Reporting matrix / 报告规范", 1)],
+        vec![XlsxCell::text(
+            "Status records reporting coverage, not methodological quality. / 状态表示报告覆盖情况，不是方法学质量评分。",
+            6,
+        )],
+        vec![
+            XlsxCell::text("Profile / 规范", 3),
+            XlsxCell::text("Item / 条目", 3),
+            XlsxCell::text("Status / 状态", 3),
+            XlsxCell::text("Section / 报告章节", 3),
+            XlsxCell::text("Rationale / 理由", 3),
+            XlsxCell::text("Supporting files / 支持文件", 3),
+        ],
+    ];
+    let items = package
+        .get("items")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "audited report package has no reporting items".to_string())?;
+    for item in items {
+        matrix_rows.push(vec![
+            XlsxCell::text(json_text(item.get("profile_id")), 4),
+            XlsxCell::text(json_text(item.get("item_id")), 4),
+            XlsxCell::text(json_text(item.get("status")), 4),
+            XlsxCell::text(json_text(item.get("section_id")), 4),
+            XlsxCell::text(json_text(item.get("rationale")), 4),
+            XlsxCell::text(json_text(item.get("artifact_paths")), 4),
+        ]);
+    }
+    let matrix_end = matrix_rows.len();
+    let matrix = XlsxSheet {
+        name: "Reporting Matrix 报告规范".into(),
+        rows: matrix_rows,
+        widths: vec![20.0, 30.0, 16.0, 34.0, 42.0, 46.0],
+        freeze_rows: 3,
+        auto_filter: Some((3, matrix_end)),
+    };
+
+    let mut source_rows = vec![
+        vec![XlsxCell::text("Sources and review / 来源与复核", 1)],
+        vec![XlsxCell::text(
+            "SHA-256 binding detects source drift; it does not prove correctness, identity, or approval. / SHA-256 绑定用于发现来源漂移，不证明内容正确、身份真实或研究获得批准。",
+            6,
+        )],
+        vec![XlsxCell::text("Generation record / 生成记录", 2)],
+        vec![XlsxCell::text("Record / 项目", 3), XlsxCell::text("Value / 值", 3), XlsxCell::text("SHA-256", 3)],
+        vec![XlsxCell::text("Generator / 生成器", 8), XlsxCell::text(format!("AI4HEOR native report renderer {ENGINE_VERSION}"), 4)],
+        vec![XlsxCell::text("Manifest / 生成清单", 8), XlsxCell::text(REPORT_EXPORT_MANIFEST_PATH, 4), XlsxCell::text(sha256(&loaded.manifest_raw), 7)],
+        vec![XlsxCell::text("Report package / 报告包", 8), XlsxCell::text(&loaded.manifest.report_package.path, 4), XlsxCell::text(sha256(&loaded.package_raw), 7)],
+        vec![XlsxCell::text("Report document / 报告正文", 8), XlsxCell::text(&loaded.manifest.report_document.path, 4), XlsxCell::text(sha256(&loaded.report_raw), 7)],
+        vec![XlsxCell::text("Review status / 复核状态", 8), XlsxCell::text("awaiting_human_review", 6)],
+        vec![XlsxCell::empty()],
+        vec![XlsxCell::text("Bindings / 报告包绑定", 2)],
+        vec![XlsxCell::text("Binding / 绑定名称", 3), XlsxCell::text("Path / 路径", 3), XlsxCell::text("SHA-256", 3)],
+    ];
+    let bindings = package
+        .get("bindings")
+        .and_then(serde_json::Value::as_object)
+        .ok_or_else(|| "audited report package has no bindings".to_string())?;
+    let mut binding_names = bindings.keys().collect::<Vec<_>>();
+    binding_names.sort();
+    for name in binding_names {
+        let binding = &bindings[name];
+        source_rows.push(vec![
+            XlsxCell::text(name, 4),
+            XlsxCell::text(json_text(binding.get("path")), 4),
+            XlsxCell::text(
+                binding
+                    .get("content_sha256")
+                    .or_else(|| binding.get("sha256"))
+                    .map_or_else(String::new, |value| json_text(Some(value))),
+                7,
+            ),
+        ]);
+    }
+    source_rows.push(vec![XlsxCell::empty()]);
+    source_rows.push(vec![XlsxCell::text("Disclosures / 披露", 2)]);
+    source_rows.push(vec![
+        XlsxCell::text("Item / 项目", 3),
+        XlsxCell::text("Content / 内容", 3),
+    ]);
+    if let Some(disclosures) = package
+        .get("disclosures")
+        .and_then(serde_json::Value::as_object)
+    {
+        let mut names = disclosures.keys().collect::<Vec<_>>();
+        names.sort();
+        for name in names {
+            source_rows.push(vec![
+                XlsxCell::text(name, 4),
+                XlsxCell::text(json_text(Some(&disclosures[name])), 4),
+            ]);
+        }
+    }
+    source_rows.push(vec![XlsxCell::empty()]);
+    source_rows.push(vec![XlsxCell::text("Limitations / 局限性", 2)]);
+    source_rows.push(vec![
+        XlsxCell::text("No. / 序号", 3),
+        XlsxCell::text("Content / 内容", 3),
+    ]);
+    if let Some(limitations) = package
+        .get("limitations")
+        .and_then(serde_json::Value::as_array)
+    {
+        for (index, limitation) in limitations.iter().enumerate() {
+            source_rows.push(vec![
+                XlsxCell::number((index + 1).to_string()),
+                XlsxCell::text(json_text(Some(limitation)), 4),
+            ]);
+        }
+    }
+    let sources = XlsxSheet {
+        name: "Sources & Review 来源复核".into(),
+        rows: source_rows,
+        widths: vec![28.0, 58.0, 58.0],
+        freeze_rows: 4,
+        auto_filter: None,
+    };
+
+    let sheets = vec![summary, results, report_tables, matrix, sources];
+    let sheet_entries = sheets
+        .iter()
+        .enumerate()
+        .map(|(index, sheet)| {
+            Ok((
+                format!("xl/worksheets/sheet{}.xml", index + 1),
+                xlsx_sheet_xml(sheet)?,
+            ))
+        })
+        .collect::<Result<Vec<(String, Vec<u8>)>, String>>()?;
+    let sheet_nodes = sheets
+        .iter()
+        .enumerate()
+        .map(|(index, sheet)| {
+            format!(
+                "<sheet name=\"{}\" sheetId=\"{}\" r:id=\"rId{}\"/>",
+                xml_escape(&sheet.name),
+                index + 1,
+                index + 1
+            )
+        })
+        .collect::<String>();
+    let workbook = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><fileVersion appName=\"AI4HEOR\"/><workbookPr date1904=\"0\"/><bookViews><workbookView xWindow=\"0\" yWindow=\"0\" windowWidth=\"24000\" windowHeight=\"14000\"/></bookViews><sheets>{sheet_nodes}</sheets><calcPr calcId=\"0\" calcMode=\"manual\"/></workbook>"
+    );
+    let workbook_relationships = sheets
+        .iter()
+        .enumerate()
+        .map(|(index, _)| format!("<Relationship Id=\"rId{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet{}.xml\"/>", index + 1, index + 1))
+        .chain([format!("<Relationship Id=\"rId{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>", sheets.len() + 1)])
+        .collect::<String>();
+    let workbook_relationships = format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">{workbook_relationships}</Relationships>");
+    let content_overrides = (1..=sheets.len())
+        .map(|index| format!("<Override PartName=\"/xl/worksheets/sheet{index}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"))
+        .collect::<String>();
+    let content_types = format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>{content_overrides}<Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/><Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/></Types>");
+    let root_relationships = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/><Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties\" Target=\"docProps/core.xml\"/><Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties\" Target=\"docProps/app.xml\"/></Relationships>";
+    let core = format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><dc:title>{}</dc:title><dc:subject>{}</dc:subject><dc:creator>AI4HEOR</dc:creator><cp:lastModifiedBy>AI4HEOR</cp:lastModifiedBy><dcterms:created xsi:type=\"dcterms:W3CDTF\">{}T00:00:00Z</dcterms:created><dcterms:modified xsi:type=\"dcterms:W3CDTF\">{}T00:00:00Z</dcterms:modified></cp:coreProperties>", xml_escape(&loaded.manifest.title), xml_escape(&loaded.manifest.purpose), loaded.manifest.prepared_on, loaded.manifest.prepared_on);
+    let sheet_titles = sheets
+        .iter()
+        .map(|sheet| format!("<vt:lpstr>{}</vt:lpstr>", xml_escape(&sheet.name)))
+        .collect::<String>();
+    let app = format!("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\" xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\"><Application>AI4HEOR</Application><AppVersion>0.2</AppVersion><HeadingPairs><vt:vector size=\"2\" baseType=\"variant\"><vt:variant><vt:lpstr>Worksheets</vt:lpstr></vt:variant><vt:variant><vt:i4>{}</vt:i4></vt:variant></vt:vector></HeadingPairs><TitlesOfParts><vt:vector size=\"{}\" baseType=\"lpstr\">{sheet_titles}</vt:vector></TitlesOfParts></Properties>", sheets.len(), sheets.len());
+    let styles = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><numFmts count=\"2\"><numFmt numFmtId=\"164\" formatCode=\"#,##0\"/><numFmt numFmtId=\"165\" formatCode=\"#,##0.##########\"/></numFmts><fonts count=\"6\"><font><sz val=\"10\"/><name val=\"Arial\"/><color rgb=\"FF172033\"/></font><font><b/><sz val=\"18\"/><name val=\"Arial\"/><color rgb=\"FF172033\"/></font><font><b/><sz val=\"11\"/><name val=\"Arial\"/><color rgb=\"FFFFFFFF\"/></font><font><b/><sz val=\"10\"/><name val=\"Arial\"/><color rgb=\"FF172033\"/></font><font><i/><sz val=\"10\"/><name val=\"Arial\"/><color rgb=\"FF7A4B00\"/></font><font><sz val=\"9\"/><name val=\"Menlo\"/><color rgb=\"FF4E5968\"/></font></fonts><fills count=\"5\"><fill><patternFill patternType=\"none\"/></fill><fill><patternFill patternType=\"gray125\"/></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FF2E5D7B\"/><bgColor indexed=\"64\"/></patternFill></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFE8EEF5\"/><bgColor indexed=\"64\"/></patternFill></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFFFF4CC\"/><bgColor indexed=\"64\"/></patternFill></fill></fills><borders count=\"2\"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style=\"thin\"><color rgb=\"FFD7DCE2\"/></bottom><diagonal/></border></borders><cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs><cellXfs count=\"10\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/><xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyAlignment=\"1\"><alignment vertical=\"center\"/></xf><xf numFmtId=\"0\" fontId=\"2\" fillId=\"2\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyAlignment=\"1\"><alignment vertical=\"center\"/></xf><xf numFmtId=\"0\" fontId=\"3\" fillId=\"3\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"center\" wrapText=\"1\"/></xf><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf><xf numFmtId=\"164\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyNumberFormat=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"right\" vertical=\"top\"/></xf><xf numFmtId=\"0\" fontId=\"4\" fillId=\"4\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf><xf numFmtId=\"0\" fontId=\"5\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf><xf numFmtId=\"0\" fontId=\"3\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf><xf numFmtId=\"165\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyNumberFormat=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment horizontal=\"right\" vertical=\"top\"/></xf></cellXfs><cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles></styleSheet>";
+    let mut entries = vec![
+        ("[Content_Types].xml".into(), content_types.into_bytes()),
+        ("_rels/.rels".into(), root_relationships.as_bytes().to_vec()),
+        ("docProps/app.xml".into(), app.into_bytes()),
+        ("docProps/core.xml".into(), core.into_bytes()),
+        (
+            "xl/_rels/workbook.xml.rels".into(),
+            workbook_relationships.into_bytes(),
+        ),
+        ("xl/styles.xml".into(), styles.as_bytes().to_vec()),
+        ("xl/workbook.xml".into(), workbook.into_bytes()),
+    ];
+    entries.extend(sheet_entries);
+    build_stored_zip(&entries)
 }
 
 fn rgb(hex: &str) -> Color {
@@ -1561,7 +2117,8 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
 fn existing_outputs_replaceable(workspace: &Path) -> Result<(), String> {
     let docx = workspace.join(REPORT_DOCX_OUTPUT_PATH);
     let pdf = workspace.join(REPORT_PDF_OUTPUT_PATH);
-    if !docx.exists() && !pdf.exists() {
+    let xlsx = workspace.join(REPORT_XLSX_OUTPUT_PATH);
+    if !docx.exists() && !pdf.exists() && !xlsx.exists() {
         return Ok(());
     }
     let record_raw = std::fs::read(workspace.join(REPORT_EXPORT_AUDIT_PATH)).map_err(|_| {
@@ -1577,6 +2134,22 @@ fn existing_outputs_replaceable(workspace: &Path) -> Result<(), String> {
         (&pdf, record.pdf_sha256.as_str()),
     ] {
         let raw = std::fs::read(path).map_err(|_| {
+            "existing report exports are incomplete; move or remove them before generating"
+                .to_string()
+        })?;
+        if sha256(&raw) != expected {
+            return Err(
+                "an existing report export was changed outside AI4HEOR; move or rename it before generating"
+                    .into(),
+            );
+        }
+    }
+    if xlsx.exists() {
+        let expected = record.xlsx_sha256.as_deref().ok_or_else(|| {
+            "existing XLSX has no matching app audit; move or remove it before generating"
+                .to_string()
+        })?;
+        let raw = std::fs::read(&xlsx).map_err(|_| {
             "existing report exports are incomplete; move or remove them before generating"
                 .to_string()
         })?;
@@ -1606,8 +2179,9 @@ fn generate_at(workspace: &Path) -> Result<ResearchReportAudit, String> {
     existing_outputs_replaceable(workspace)?;
     let docx = build_docx(&loaded)?;
     let (pdf, page_count) = build_pdf(&loaded)?;
+    let xlsx = build_xlsx(&loaded)?;
     let record = GenerationRecord {
-        schema_version: "0.1.0".into(),
+        schema_version: "0.2.0".into(),
         generator: "ai4heor-native-report".into(),
         generator_version: ENGINE_VERSION.into(),
         document_id: loaded.manifest.document_id.clone(),
@@ -1621,8 +2195,11 @@ fn generate_at(workspace: &Path) -> Result<ResearchReportAudit, String> {
         docx_sha256: sha256(&docx),
         pdf_path: REPORT_PDF_OUTPUT_PATH.into(),
         pdf_sha256: sha256(&pdf),
+        xlsx_path: Some(REPORT_XLSX_OUTPUT_PATH.into()),
+        xlsx_sha256: Some(sha256(&xlsx)),
         block_count: loaded.blocks.len(),
         table_count: loaded.table_count,
+        workbook_sheet_count: WORKBOOK_SHEET_COUNT,
         pdf_page_count: page_count,
         human_review_status: "awaiting_human_review".into(),
         font_name: FONT_NAME.into(),
@@ -1634,6 +2211,7 @@ fn generate_at(workspace: &Path) -> Result<ResearchReportAudit, String> {
         .map_err(|error| format!("cannot serialize report audit: {error}"))?;
     write_atomic(&workspace.join(REPORT_DOCX_OUTPUT_PATH), &docx)?;
     write_atomic(&workspace.join(REPORT_PDF_OUTPUT_PATH), &pdf)?;
+    write_atomic(&workspace.join(REPORT_XLSX_OUTPUT_PATH), &xlsx)?;
     write_atomic(&workspace.join(REPORT_EXPORT_AUDIT_PATH), &record_raw)?;
     Ok(audit_at(workspace).0)
 }
@@ -1655,7 +2233,35 @@ mod tests {
     fn loaded_report(markdown: &str) -> LoadedReport {
         let (blocks, table_count) = parse_markdown(markdown.as_bytes()).unwrap();
         let report_raw = markdown.as_bytes().to_vec();
-        let package_raw = br#"{"package_id":"fixture"}"#.to_vec();
+        let package_raw = serde_json::to_vec(&serde_json::json!({
+            "package_id": "fixture",
+            "analysis_id": "fixture-analysis",
+            "status": "draft",
+            "result_summary": {
+                "cost_effectiveness": {
+                    "economic_basis": {"currency": "CNY", "price_year": 2026},
+                    "delta_cost": 10000,
+                    "delta_qaly": 0.5,
+                    "icer": 20000
+                },
+                "uncertainty": {"iterations": 1000, "cost_effective_probability": 0.72},
+                "budget_impact": {"annual_net_budget_impact": [1200000, 1750000]}
+            },
+            "items": [{
+                "profile_id": "CHEERS-2022",
+                "item_id": "23-summary-results",
+                "status": "reported",
+                "section_id": "results.summary",
+                "rationale": "Bound to the deterministic result",
+                "artifact_paths": ["heor/results/base-case.json"]
+            }],
+            "bindings": {
+                "base_case_result": {"path": "heor/results/base-case.json", "content_sha256": "a".repeat(64)}
+            },
+            "disclosures": {"funding": "Researcher-provided disclosure"},
+            "limitations": ["Not all structural uncertainty is represented."]
+        }))
+        .unwrap();
         let manifest = ReportExportManifest {
             schema_version: "0.1.0".into(),
             document_id: "fixture-report".into(),
@@ -1762,10 +2368,111 @@ mod tests {
     }
 
     #[test]
+    fn xlsx_is_source_bound_deterministic_typed_and_formula_free() {
+        let loaded = loaded_report(
+            "# 摘要\n\n## 结果\n\n| 策略 | 成本（元） | QALY |\n| --- | ---: | ---: |\n| 对照 | 10000 | 1.00 |\n| 干预 | 20000 | 1.50 |\n\n## 局限性\n\n- 未覆盖全部结构不确定性。\n",
+        );
+        let first = build_xlsx(&loaded).unwrap();
+        let second = build_xlsx(&loaded).unwrap();
+        assert_eq!(first, second);
+        assert!(first.starts_with(b"PK\x03\x04"));
+        for required in [
+            b"xl/workbook.xml".as_slice(),
+            b"xl/styles.xml".as_slice(),
+            b"xl/worksheets/sheet1.xml".as_slice(),
+            b"xl/worksheets/sheet5.xml".as_slice(),
+            "结果指标".as_bytes(),
+            b"cost_effectiveness.delta_cost".as_slice(),
+            b"heor/results/base-case.json".as_slice(),
+            b"awaiting_human_review".as_slice(),
+        ] {
+            assert!(first.windows(required.len()).any(|part| part == required));
+        }
+        assert!(first
+            .windows(b"t=\"n\"".len())
+            .any(|part| part == b"t=\"n\""));
+        assert!(!first.windows(b"<f>".len()).any(|part| part == b"<f>"));
+        assert!(!first.windows(b"<f ".len()).any(|part| part == b"<f "));
+        if let Some(directory) = std::env::var_os("AI4HEOR_KEEP_TEST_WORKBOOK") {
+            let directory = PathBuf::from(directory);
+            std::fs::create_dir_all(&directory).unwrap();
+            std::fs::write(directory.join("heor-report.xlsx"), first).unwrap();
+        }
+    }
+
+    #[test]
+    fn xlsx_hash_participates_in_currentness_and_overwrite_protection() {
+        let root = std::env::temp_dir().join(format!(
+            "ai4heor-report-xlsx-current-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("deliverables")).unwrap();
+        let loaded = loaded_report(
+            "# 摘要\n\n| 策略 | 成本（元） | QALY |\n| --- | ---: | ---: |\n| 对照 | 10000 | 1.00 |\n",
+        );
+        let docx = build_docx(&loaded).unwrap();
+        let (pdf, page_count) = build_pdf(&loaded).unwrap();
+        let xlsx = build_xlsx(&loaded).unwrap();
+        let record = GenerationRecord {
+            schema_version: "0.2.0".into(),
+            generator: "ai4heor-native-report".into(),
+            generator_version: ENGINE_VERSION.into(),
+            document_id: loaded.manifest.document_id.clone(),
+            manifest_path: REPORT_EXPORT_MANIFEST_PATH.into(),
+            manifest_sha256: sha256(&loaded.manifest_raw),
+            source_hashes: BTreeMap::from([
+                ("report_document".into(), sha256(&loaded.report_raw)),
+                ("report_package".into(), sha256(&loaded.package_raw)),
+            ]),
+            docx_path: REPORT_DOCX_OUTPUT_PATH.into(),
+            docx_sha256: sha256(&docx),
+            pdf_path: REPORT_PDF_OUTPUT_PATH.into(),
+            pdf_sha256: sha256(&pdf),
+            xlsx_path: Some(REPORT_XLSX_OUTPUT_PATH.into()),
+            xlsx_sha256: Some(sha256(&xlsx)),
+            block_count: loaded.blocks.len(),
+            table_count: loaded.table_count,
+            workbook_sheet_count: WORKBOOK_SHEET_COUNT,
+            pdf_page_count: page_count,
+            human_review_status: "awaiting_human_review".into(),
+            font_name: FONT_NAME.into(),
+            font_version: FONT_VERSION.into(),
+            font_license: FONT_LICENSE.into(),
+            font_sha256: FONT_SHA256.into(),
+        };
+        std::fs::write(root.join(REPORT_DOCX_OUTPUT_PATH), docx).unwrap();
+        std::fs::write(root.join(REPORT_PDF_OUTPUT_PATH), pdf).unwrap();
+        std::fs::write(root.join(REPORT_XLSX_OUTPUT_PATH), &xlsx).unwrap();
+        std::fs::write(
+            root.join(REPORT_EXPORT_AUDIT_PATH),
+            serde_json::to_vec_pretty(&record).unwrap(),
+        )
+        .unwrap();
+
+        let mut audit = empty_audit(String::new(), Vec::new());
+        apply_current_outputs(&root, &loaded, &mut audit);
+        assert!(audit.outputs_current);
+        assert_eq!(audit.xlsx_sha256.as_deref(), Some(sha256(&xlsx).as_str()));
+        assert_eq!(audit.workbook_sheet_count, WORKBOOK_SHEET_COUNT);
+        assert!(existing_outputs_replaceable(&root).is_ok());
+
+        let mut changed = xlsx;
+        changed.push(b'!');
+        std::fs::write(root.join(REPORT_XLSX_OUTPUT_PATH), changed).unwrap();
+        let mut changed_audit = empty_audit(String::new(), Vec::new());
+        apply_current_outputs(&root, &loaded, &mut changed_audit);
+        assert!(!changed_audit.outputs_current);
+        assert!(existing_outputs_replaceable(&root).is_err());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn output_paths_and_font_admission_are_fixed() {
         assert!(safe_relative("heor/report.md"));
         assert!(!safe_relative("../report.md"));
-        assert!(!safe_relative(REPORT_DOCX_OUTPUT_PATH));
+        assert!(safe_relative(REPORT_DOCX_OUTPUT_PATH));
+        assert!(safe_relative(REPORT_XLSX_OUTPUT_PATH));
         assert_eq!(sha256(PDF_FONT_BYTES), FONT_SHA256);
         let obfuscated = obfuscated_docx_font();
         assert_eq!(obfuscated.len(), PDF_FONT_BYTES.len());

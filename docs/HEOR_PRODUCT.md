@@ -1016,13 +1016,16 @@ and exactly one report section marker.
 For document delivery, the Skill prepares
 `deliverables/heor-report-export.json` with the exact current report-package and
 report-document hashes. The native app re-audits both sources and renders
-`deliverables/heor-report.docx`, `deliverables/heor-report.pdf`, and a generation
-audit. The deterministic DOCX path uses first-party OOXML with fixed styles,
+`deliverables/heor-report.docx`, `deliverables/heor-report.pdf`,
+`deliverables/heor-report.xlsx`, and a generation audit. The deterministic DOCX path uses first-party OOXML with fixed styles,
 tables, numbering, headers and footer fields; the deterministic PDF path uses a
 pinned native renderer. Both embed the same pinned OFL-1.1 Source Han Sans CN
-font and remain marked `awaiting_human_review`. Changed source bytes invalidate
-the export, and externally changed outputs are never silently overwritten.
-Document generation is a communication step, not scientific or release
+font. The macro-free, formula-free XLSX path writes five bilingual sheets for
+metadata, typed result-summary values, report tables, the reporting matrix, and
+sources/review; it copies the audited result summary and does not recalculate
+the economic model. All three outputs remain marked `awaiting_human_review`.
+Changed source bytes invalidate the export, and externally changed outputs are
+never silently overwritten. Document generation is a communication step, not scientific or release
 approval.
 
 The portable and native validators require the exact copied economic basis and numerical summaries,
