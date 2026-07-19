@@ -181,11 +181,7 @@ export function HeorStarters({ onPick }: { onPick: (prompt: string) => void }) {
                 toast.success(t("starter.local.success"));
               })
               .catch((error) => {
-                toast.error(
-                  t("starter.error.run", {
-                    message: error instanceof Error ? error.message : String(error),
-                  }),
-                );
+                toast.error(t(localRunErrorKey(error)));
               })
               .finally(() => setRunning(false));
           }}
@@ -196,6 +192,24 @@ export function HeorStarters({ onPick }: { onPick: (prompt: string) => void }) {
 }
 
 const PRIMARY_DIALOG_TONE = "primary" as const;
+
+function localRunErrorKey(error: unknown):
+  | "starter.error.inputChanged"
+  | "starter.error.outputConflict"
+  | "starter.error.pythonMissing"
+  | "starter.error.runGeneric" {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("differs from the bundled teaching example")) {
+    return "starter.error.inputChanged";
+  }
+  if (message.includes("already exists with different bytes")) {
+    return "starter.error.outputConflict";
+  }
+  if (message.includes("no Python found") || message.includes("configured Python")) {
+    return "starter.error.pythonMissing";
+  }
+  return "starter.error.runGeneric";
+}
 
 function ResultValue({ label, value }: { label: string; value: string }) {
   return (

@@ -41,7 +41,14 @@
       "checksum": "SHA-256",
       "runRecord": "本地运行记录"
     },
-    "error": { "setup": "无法安装教学示例：{{message}}", "run": "无法运行固定的教学计算：{{message}}" }
+    "error": {
+      "setup": "无法安装教学示例：{{message}}",
+      "run": "无法运行固定的教学计算：{{message}}",
+      "inputChanged": "教学案例的固定输入已经修改。AI4HEOR 已保留这些修改，不会把它们当作内置教学案例复算。如需核对固定结果，请在新项目中重新安装该示例。",
+      "outputConflict": "已有结果文件的内容与本次计算不同。AI4HEOR 没有覆盖该文件；请先保留或重命名它，再重新运行。",
+      "pythonMissing": "当前无法使用本机 Python。请在“设置”中选择可用的 Python 3，再重新运行。",
+      "runGeneric": "固定计算没有完成。请打开“运行”，查看本次失败记录。"
+    }
   },
   "panel": {
     "title": "分析进度",

@@ -41,7 +41,14 @@
       "checksum": "SHA-256",
       "runRecord": "Local run record"
     },
-    "error": { "setup": "Could not install the teaching example: {{message}}", "run": "Could not run the fixed teaching calculation: {{message}}" }
+    "error": {
+      "setup": "Could not install the teaching example: {{message}}",
+      "run": "Could not run the fixed teaching calculation: {{message}}",
+      "inputChanged": "The fixed inputs have been edited. AI4HEOR kept the changes and did not run them as the bundled teaching case. Install the example in a new project to reproduce the fixed case.",
+      "outputConflict": "An existing result file contains different content. AI4HEOR did not overwrite it. Keep or rename that file, then run again.",
+      "pythonMissing": "The local Python interpreter is unavailable. Choose a working Python 3 interpreter in Settings, then run again.",
+      "runGeneric": "The fixed calculation did not finish. Open Runs to review the failed local record."
+    }
   },
   "panel": {
     "title": "Analysis review",

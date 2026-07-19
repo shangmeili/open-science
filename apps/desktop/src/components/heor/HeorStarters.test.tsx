@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HeorStarters } from "./HeorStarters";
 
+const toastState = vi.hoisted(() => ({ errors: [] as string[], successes: [] as string[] }));
 const installCalls: string[] = [];
 let failInstall = false;
 let runCalls = 0;
@@ -53,8 +54,14 @@ vi.mock("@/lib/tauri", () => ({
   },
   runHeorTeachingExample: async () => {
     runCalls += 1;
-    if (failRun) throw new Error("fixed inputs changed");
+    if (failRun) throw new Error("model-inputs.csv differs from the bundled teaching example");
     return runResult;
+  },
+}));
+vi.mock("@/lib/toast", () => ({
+  toast: {
+    error: (message: string) => toastState.errors.push(message),
+    success: (message: string) => toastState.successes.push(message),
   },
 }));
 
@@ -64,6 +71,8 @@ describe("HeorStarters", () => {
     failInstall = false;
     runCalls = 0;
     failRun = false;
+    toastState.errors.length = 0;
+    toastState.successes.length = 0;
   });
 
   it("shows the model-independent HEOR teaching example on the default surface", () => {
@@ -123,6 +132,19 @@ describe("HeorStarters", () => {
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(runCalls).toBe(0);
+  });
+
+  it("uses a researcher-facing message when fixed inputs have changed", async () => {
+    failRun = true;
+    render(<HeorStarters onPick={() => {}} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: /Run the cost-effectiveness teaching example/i }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Run locally" }));
+    await userEvent.click(screen.getByRole("button", { name: "Run fixed calculation" }));
+    await waitFor(() => expect(toastState.errors).toHaveLength(1));
+    expect(toastState.errors[0]).toMatch(/The fixed inputs have been edited/i);
+    expect(toastState.errors[0]).not.toMatch(/differs from the bundled teaching example/i);
   });
 
   it("does not prepare a request when the local example cannot be installed", async () => {
