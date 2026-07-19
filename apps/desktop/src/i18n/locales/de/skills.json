@@ -1,5 +1,7 @@
 {
   "catalog": {
+    "ai4heor-preference-learning": { "displayName": "Vorschläge für Arbeitspräferenzen", "description": "Fasst ein nicht sensibles Muster aus mindestens zwei unabhängigen Interaktionen als lokalen Vorschlag zusammen, den Forschende prüfen, bearbeiten oder löschen können." },
+    "ai4heor-skill-authoring": { "displayName": "AI4HEOR Skill-Erstellung", "description": "Wandelt eine natürlichsprachliche Anfrage in einen zweisprachigen, validierten, aber noch inaktiven Skill-Kandidaten um." },
     "domain-check": { "displayName": "Wissenschaftlicher Domänencheck", "description": "Erkennt deterministische Domänenfehler in wissenschaftlichem Analysecode." },
     "heor-advanced-value-of-information": { "displayName": "Erweiterter Informationswert", "description": "Prüft Populations-EVPI, EVPPI, EVSI und ENBS." },
     "heor-background-mortality": { "displayName": "Hintergrundmortalität", "description": "Kombiniert geprüfte Bevölkerungs- und Exzessmortalität." },

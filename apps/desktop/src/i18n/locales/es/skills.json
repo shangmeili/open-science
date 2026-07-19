@@ -1,5 +1,7 @@
 {
   "catalog": {
+    "ai4heor-preference-learning": { "displayName": "Propuestas de preferencias", "description": "Convierte un patrón no sensible repetido en al menos dos interacciones independientes en una propuesta local que el investigador puede revisar, editar o eliminar." },
+    "ai4heor-skill-authoring": { "displayName": "Creación de Skills AI4HEOR", "description": "Convierte la solicitud en lenguaje natural del investigador en un candidato Skill bilingüe, validado y todavía inactivo." },
     "domain-check": { "displayName": "Comprobación del dominio científico", "description": "Detecta errores deterministas de dominio en código científico." },
     "heor-advanced-value-of-information": { "displayName": "Valor avanzado de la información", "description": "Audita EVPI poblacional, EVPPI, EVSI y ENBS." },
     "heor-background-mortality": { "displayName": "Mortalidad de fondo", "description": "Combina mortalidad poblacional y exceso de mortalidad revisados." },

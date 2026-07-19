@@ -6,3 +6,5 @@
   task, stage, data classification, and app-owned gate status.
 - `policy.json`: versioned machine-readable authority, provider, external-content,
   calculation, and approval-store boundary.
+- `capabilities/`: inactive Skill candidates and Human review records.
+- `learning/`: proposed and accepted non-sensitive work preferences.

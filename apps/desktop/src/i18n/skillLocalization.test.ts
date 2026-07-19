@@ -32,4 +32,18 @@ describe("localizeSkill", () => {
     expect(copy.displayName).not.toBe("heor-workbench");
     expect(copy.description).not.toBe("English runtime description");
   });
+
+  it.each(shippedLocales())("localizes the Skill-authoring harness in $nativeName", ({ code }) => {
+    const copy = localizeSkill("ai4heor-skill-authoring", "Runtime fallback", code);
+    expect(copy.localized).toBe(true);
+    expect(copy.displayName).not.toBe("ai4heor-skill-authoring");
+    expect(copy.description).not.toBe("Runtime fallback");
+  });
+
+  it.each(shippedLocales())("localizes preference proposals in $nativeName", ({ code }) => {
+    const copy = localizeSkill("ai4heor-preference-learning", "Runtime fallback", code);
+    expect(copy.localized).toBe(true);
+    expect(copy.displayName).not.toBe("ai4heor-preference-learning");
+    expect(copy.description).not.toBe("Runtime fallback");
+  });
 });

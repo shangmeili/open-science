@@ -15,6 +15,7 @@ TAURI_DIR = ROOT / "apps" / "desktop" / "src-tauri"
 CONFIG_PATH = TAURI_DIR / "tauri.conf.json"
 PACKAGE_DIR = ROOT / "python" / "heor_core" / "src" / "heor_core"
 KNOWLEDGE_BASE_DIR = ROOT / "runtime" / "knowledge-base" / "zh-Hans"
+LEGAL_DIR = ROOT / "docs" / "legal"
 
 
 class TauriHeorResourceTests(unittest.TestCase):
@@ -114,6 +115,54 @@ class TauriHeorResourceTests(unittest.TestCase):
                     f"broken bundled knowledge-base link in {source}: {raw_target}",
                 )
         self.assertGreater(wikilink_count, 0)
+
+    def test_legal_boundary_and_inventories_are_packaged(self):
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        resources = config["bundle"]["resources"]
+        expected = {
+            "../../../LICENSE": "legal/LICENSE.txt",
+            "../../../THIRD_PARTY_NOTICES.md": "legal/THIRD_PARTY_NOTICES.md",
+            "../../../docs/legal/LICENSING_AUDIT.md": "legal/LICENSING_AUDIT.md",
+            "../../../docs/legal/BRAND_ASSET_PROVENANCE.md": "legal/BRAND_ASSET_PROVENANCE.md",
+            "../../../docs/legal/npm-production-components.json": "legal/npm-production-components.json",
+            "../../../docs/legal/cargo-lock-components.json": "legal/cargo-lock-components.json",
+        }
+        for source, destination in expected.items():
+            self.assertEqual(resources.get(source), destination)
+            self.assertTrue((TAURI_DIR / source).resolve().is_file(), source)
+
+        npm = json.loads(
+            (LEGAL_DIR / "npm-production-components.json").read_text(encoding="utf-8")
+        )
+        cargo = json.loads(
+            (LEGAL_DIR / "cargo-lock-components.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(npm["lockfile_sha256"], hashlib.sha256((ROOT / "pnpm-lock.yaml").read_bytes()).hexdigest())
+        self.assertEqual(
+            cargo["lockfile_sha256"],
+            hashlib.sha256((TAURI_DIR / "Cargo.lock").read_bytes()).hexdigest(),
+        )
+        unresolved_npm = [
+            component for component in npm["components"] if component["license"] == "Unknown"
+        ]
+        self.assertEqual(
+            [(component["name"], component["versions"]) for component in unresolved_npm],
+            [("buffers", ["0.1.1"])],
+        )
+        self.assertFalse(
+            [component for component in cargo["components"] if component["license"] == "Unknown"]
+        )
+        destinations = set(resources.values())
+        self.assertFalse(any("skills-external" in value for value in destinations))
+        self.assertFalse(any(value.startswith("mcp/") for value in destinations))
+
+    def test_supplied_ai4heor_logo_provenance_matches_normalized_assets(self):
+        ui_logo = ROOT / "apps" / "desktop" / "src" / "assets" / "logo.webp"
+        icon_source = ROOT / "apps" / "desktop" / "src" / "assets" / "ai4heor-app-icon.png"
+        provenance = (LEGAL_DIR / "BRAND_ASSET_PROVENANCE.md").read_text(encoding="utf-8")
+        self.assertIn(hashlib.sha256(ui_logo.read_bytes()).hexdigest(), provenance)
+        self.assertIn(hashlib.sha256(icon_source.read_bytes()).hexdigest(), provenance)
+        self.assertIn("public redistribution not yet cleared", provenance)
 
 
 if __name__ == "__main__":

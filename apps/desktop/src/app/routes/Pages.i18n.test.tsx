@@ -34,7 +34,7 @@ describe("SkillsPage strings (i18n)", () => {
   it("renders the page heading and the disconnected-runtime prompts in English", async () => {
     renderAt("/skills");
     expect(await screen.findByRole("heading", { level: 1, name: "Skills & Agents" })).toBeInTheDocument();
-    expect(screen.getByText("Evaluate an external asset")).toBeInTheDocument();
+    expect(screen.getByText("Create or evaluate a method tool")).toBeInTheDocument();
     expect(screen.getByText("Environment detection runs in the desktop app.")).toBeInTheDocument();
     expect(
       await screen.findByText(

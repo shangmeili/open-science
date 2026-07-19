@@ -78,15 +78,15 @@
       "suffix": " 下的所有内容。"
     },
     "install": {
-      "sectionTitle": "评估外部工具",
-      "placeholder": "描述要评估的技能、插件、MCP 服务或计算包，也可以粘贴 GitHub 链接",
+      "sectionTitle": "创建或评估方法工具",
+      "placeholder": "说说你希望 AI4HEOR 增加什么能力，也可以粘贴 Skill、插件、MCP 服务、计算包或 GitHub 链接",
       "starting": "正在启动…",
       "cta": "开始检查",
-      "hintConnected": "系统会新建一个检查会话。检查通过前，外部工具不会启用。",
+      "hintConnected": "系统会先生成本地候选方案并检查。完成审阅和准入前，候选方案不会运行。",
       "hintDisconnected": "请先连接本地服务。"
     },
     "assetAdmission": {
-      "sectionTitle": "第三方工具检查状态",
+      "sectionTitle": "工具准入状态",
       "loading": "正在读取第三方工具清单…",
       "unavailable": "无法读取第三方工具清单，所有外部工具保持停用。",
       "admitted": "已准入",

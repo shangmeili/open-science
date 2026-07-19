@@ -1,5 +1,7 @@
 {
   "catalog": {
+    "ai4heor-preference-learning": { "displayName": "Work Preference Proposals", "description": "Turn a repeated, non-sensitive pattern from at least two independent interactions into a local preference proposal the researcher can inspect, edit, or delete." },
+    "ai4heor-skill-authoring": { "displayName": "AI4HEOR Skill Authoring", "description": "Turn a researcher's natural-language request into a bilingual, validated, but inactive Skill candidate." },
     "domain-check": { "displayName": "Scientific Domain Check", "description": "Detect deterministic domain errors in scientific analysis code." },
     "heor-advanced-value-of-information": { "displayName": "Advanced Value of Information", "description": "Audit population EVPI, EVPPI, EVSI, and ENBS analyses." },
     "heor-background-mortality": { "displayName": "Background Mortality", "description": "Combine reviewed population and excess mortality schedules." },

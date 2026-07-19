@@ -119,7 +119,7 @@ approval, cost-effectiveness, or reimbursement conclusions.
 
 ## Current capabilities
 
-**Research assistance, as bounded HEOR skills.** AI4HEOR's 45 first-party skills
+**Research assistance, as bounded HEOR skills.** AI4HEOR's 47 first-party skills
 route researcher-defined tasks without acquiring approval or method-selection
 authority. Representative admitted workflows are:
 
@@ -291,16 +291,22 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.36; the current verified x64 macOS package remains
-0.1.35 while the new Intel package is built and checked. Version 0.1.36 adds the
-versioned 25-document Simplified-Chinese pharmacoeconomics learning library and an
-explicit local install action. The app verifies the exact packaged manifest and source
+accepted. Current source is 0.1.37; the current verified x64 macOS package remains
+0.1.35 while the new Intel package is built and checked. Version 0.1.37 adds a
+fail-closed capability-growth harness: natural-language requests can produce bilingual,
+hash-bound, instruction-only Skill candidates, and repeated non-sensitive working
+patterns can produce local preference proposals. Neither becomes active without a
+separate researcher decision, and neither can modify governance, core Skills,
+calculation engines, or approval records. It also replaces the inherited logo, records
+the current licensing boundary, and retains the 0.1.36 versioned 25-document
+Simplified-Chinese pharmacoeconomics learning library and explicit local install action.
+The app verifies the exact packaged manifest and source
 hashes, builds the existing project-bound local index without a model or network call,
 keeps stable theory/methods separate from dated recent-progress material, and refuses
 to overwrite an edited installed copy. It retains the 0.1.35 separately confirmed,
 model-free local run for the hash-bound cost-effectiveness teaching case, the 0.1.34
 sixth HEOR starter, the 0.1.33 rewrite of the Simplified-Chinese research surface,
-and all 45 bundled Skill
+and all 47 bundled Skill
 descriptions in direct pharmacoeconomics language, and moves previously hard-coded
 download, file-manager, Jupyter, notebook, and generated-assistant prompts into the seven
 shipped locale resources. It retains the 0.1.32 fail-closed new-project harness and its
@@ -369,7 +375,7 @@ If you use AI4HEOR in your research, please cite it:
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.36},
+  version = {0.1.37},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

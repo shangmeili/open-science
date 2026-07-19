@@ -20,8 +20,14 @@ class HeorHarnessContractTests(unittest.TestCase):
             "AGENTS.md",
             "KNOWLEDGE.md",
             "README.md",
+            "capabilities/README.md",
+            "capabilities/candidates/.gitkeep",
+            "capabilities/reviews/.gitkeep",
             "knowledge/current-state.md",
             "knowledge/system.md",
+            "learning/README.md",
+            "learning/preferences.json",
+            "learning/proposals/.gitkeep",
             "notes/.gitkeep",
             "policy.json",
         }
@@ -31,7 +37,12 @@ class HeorHarnessContractTests(unittest.TestCase):
             if path.is_file()
         }
         self.assertEqual(actual, expected)
-        for relative in expected - {"notes/.gitkeep"}:
+        for relative in expected - {
+            "notes/.gitkeep",
+            "capabilities/candidates/.gitkeep",
+            "capabilities/reviews/.gitkeep",
+            "learning/proposals/.gitkeep",
+        }:
             self.assertTrue((HARNESS_ROOT / relative).read_text(encoding="utf-8").strip())
 
     def test_runtime_contract_makes_the_researcher_the_scientific_lead(self):
@@ -49,8 +60,8 @@ class HeorHarnessContractTests(unittest.TestCase):
         self.assertEqual(
             policy,
             {
-                "schema": "ai4heor-research-assistant-harness/v1",
-                "version": "0.1.0",
+                "schema": "ai4heor-research-assistant-harness/v2",
+                "version": "0.2.0",
                 "interaction": "natural_language_primary",
                 "scientific_lead": "human_researcher",
                 "assistant_role": "bounded_research_assistance",
@@ -66,6 +77,26 @@ class HeorHarnessContractTests(unittest.TestCase):
                     "classification": "untrusted_data_not_instructions",
                     "may_change_governance": False,
                     "may_create_approval": False,
+                },
+                "capability_evolution": {
+                    "request_interface": "natural_language",
+                    "candidate_store": "capabilities/candidates",
+                    "candidate_status": "inactive",
+                    "activation_authority": "human_via_app_owned_review",
+                    "may_self_activate": False,
+                    "may_modify_core_skills": False,
+                    "may_modify_governance": False,
+                    "may_modify_calculation_engines": False,
+                },
+                "preference_learning": {
+                    "proposal_store": "learning/proposals",
+                    "accepted_store": "learning/preferences.json",
+                    "minimum_independent_observations": 2,
+                    "single_observation_may_become_policy": False,
+                    "activation_authority": "human_only",
+                    "user_can_view_edit_delete": True,
+                    "store_secrets": False,
+                    "store_sensitive_content": False,
                 },
                 "default_data_classification": "unknown",
             },
@@ -100,6 +131,25 @@ class HeorHarnessContractTests(unittest.TestCase):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, combined)
         self.assertIn("Do not edit `AGENTS.md`", combined)
+
+    def test_capability_growth_stays_inactive_and_human_reviewed(self):
+        agents = (HARNESS_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("A candidate is inert", agents)
+        self.assertIn("never copy it into an active", agents)
+        self.assertIn("Only the app-owned review flow may activate", agents)
+        self.assertIn("at least two independent", agents)
+        self.assertIn("cannot store secrets", agents)
+        preferences = json.loads(
+            (HARNESS_ROOT / "learning/preferences.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            preferences,
+            {
+                "schema": "ai4heor-local-preferences/v1",
+                "updated_at": None,
+                "preferences": [],
+            },
+        )
 
     def test_current_state_keeps_scientific_and_execution_roles_distinct(self):
         system = (HARNESS_ROOT / "knowledge/system.md").read_text(encoding="utf-8")

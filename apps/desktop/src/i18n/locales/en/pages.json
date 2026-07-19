@@ -78,15 +78,15 @@
       "suffix": " in your workspace."
     },
     "install": {
-      "sectionTitle": "Evaluate an external asset",
-      "placeholder": "Describe or paste a Skill, plugin, MCP server, package, or GitHub URL for an industrialization review",
+      "sectionTitle": "Create or evaluate a method tool",
+      "placeholder": "Describe a capability AI4HEOR should add, or paste a Skill, plugin, MCP server, package, or GitHub URL",
       "starting": "Starting…",
-      "cta": "Review with agent",
-      "hintConnected": "Opens a natural-language review. The candidate stays inactive until a separate code-reviewed admission.",
+      "cta": "Start review",
+      "hintConnected": "AI4HEOR first prepares and checks a local candidate. It cannot run before review and admission are complete.",
       "hintDisconnected": "Connect the runtime first."
     },
     "assetAdmission": {
-      "sectionTitle": "Third-party asset admission",
+      "sectionTitle": "Tool admission status",
       "loading": "Reading the packaged admission registry…",
       "unavailable": "The admission registry is unavailable. External assets remain disabled.",
       "admitted": "admitted",

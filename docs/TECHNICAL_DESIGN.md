@@ -290,22 +290,24 @@ to pick it up. Keys never enter the user's global OpenCode config, logs, or git.
 
 ```text
 skills/
-  core/      # reproducible-research, literature-review, figure-provenance,
-             # citation-reviewer, paper-to-report
+  core/      # 47 first-party HEOR, evidence, validation, reporting, and harness Skills
   external/  # inactive third-party review cache; never loaded directly
-  user/      # custom skills
+
+workspace/
+  capabilities/candidates/  # inactive local instruction-only candidates
+  capabilities/reviews/     # app-owned Human decision records
+  learning/proposals/       # inactive repeated-pattern proposals
+  learning/preferences.json # Human-accepted local work preferences
 ```
 
-### 6.2 v1 built-in skills
+### 6.2 Current built-in Skills
 
-| Skill | Purpose |
+| Skill group | Purpose |
 | --- | --- |
-| `reproducible-research` | Standardize project structure, artifacts, logs, reproducibility |
-| `literature-review` | Search, filter, summarize literature |
-| `bibliometric-analysis` | Year trends, keywords, journal distribution, clustering |
-| `figure-provenance` | Figures must trace to code and data |
-| `citation-reviewer` | Check citation format and sources |
-| `paper-to-report` | Generate a Markdown report |
+| `heor-*` | Bounded pharmacoeconomics decision problems, evidence, inputs, models, uncertainty, budget impact, validation, reporting, and reproducibility |
+| `ai4heor-skill-authoring` | Create and validate an inactive bilingual instruction-only Skill candidate |
+| `ai4heor-preference-learning` | Propose a non-sensitive work preference after repeated independent observations |
+| Execution and integrity Skills | Bounded local/remote execution, large-file inspection, figures, traceability, and statistical checks |
 
 ### 6.3 Third-party skills
 
@@ -316,6 +318,22 @@ switch, and exact content hash before a `validated-adapter` can be copied into t
 app-managed OpenCode profile. The Skills page shows both the native registry audit and
 the real skills OpenCode loaded. Workspace `.opencode/skills/` content is visibly
 unmanaged and never becomes a bundled product asset automatically.
+
+#### 6.3.1 Capability-growth harness
+
+The project harness v2 separates candidate creation from activation. Natural-language
+requests may create `capabilities/candidates/<id>/candidate.json`, `skill/SKILL.md`,
+optional Markdown references, and a deterministic `validation.json`. Validation rejects
+path traversal, symlinks, unexpected or oversized files, hash drift, missing `en` and
+`zh-Hans` descriptions, active permissions, executable content, and common secret
+patterns. Passing validates packaging only, not scientific validity, security, license
+ownership, or fitness.
+
+Preference proposals require two unique local interaction references, an allowlisted
+work-style scope, explicit non-sensitive and non-scientific-authority flags, and Human
+acceptance. `AGENTS.md` and `policy.json` are product-owned; candidates and proposals
+cannot modify them, core Skills, deterministic engines, approval records, or release
+records. The current release intentionally provides no auto-activation path.
 
 The first-party `heor-evidence-search` connector is deliberately not an MCP
 passthrough. The Agent writes only a validated request artifact. A native Tauri

@@ -1,0 +1,25 @@
+{
+  "schema": "ai4heor-preference-proposal/v1",
+  "id": "replace-with-proposal-id",
+  "status": "proposal",
+  "created_at": "YYYY-MM-DDTHH:MM:SSZ",
+  "scope": "presentation",
+  "proposed_rule": "One narrow, observable work preference",
+  "evidence": [
+    {
+      "interaction_ref": "local interaction reference 1",
+      "observed_at": "YYYY-MM-DDTHH:MM:SSZ",
+      "summary": "Minimal non-sensitive summary"
+    },
+    {
+      "interaction_ref": "local interaction reference 2",
+      "observed_at": "YYYY-MM-DDTHH:MM:SSZ",
+      "summary": "Minimal non-sensitive summary"
+    }
+  ],
+  "counterexamples": [],
+  "review_condition": "When the researcher wants to review this preference",
+  "expires_at": null,
+  "contains_sensitive_data": false,
+  "changes_scientific_authority": false
+}

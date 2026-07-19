@@ -1,5 +1,7 @@
 {
   "catalog": {
+    "ai4heor-preference-learning": { "displayName": "作業設定の提案", "description": "2回以上の独立した対話で繰り返された非機密の作業パターンを、確認・編集・削除できるローカル提案にまとめます。" },
+    "ai4heor-skill-authoring": { "displayName": "AI4HEOR Skill 作成", "description": "研究者の自然言語の要望を、英語と簡体中国語の説明を備えた検証済み・未有効の Skill 候補にします。" },
     "domain-check": { "displayName": "科学領域チェック", "description": "科学分析コードの決定論的な領域エラーを検出します。" },
     "heor-advanced-value-of-information": { "displayName": "高度な情報価値", "description": "集団 EVPI、EVPPI、EVSI、ENBS を監査します。" },
     "heor-background-mortality": { "displayName": "背景死亡率", "description": "レビュー済みの一般集団死亡率と超過死亡率を統合します。" },

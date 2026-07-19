@@ -12,8 +12,14 @@ const REQUIRED_HARNESS_FILES: &[&str] = &[
     "AGENTS.md",
     "KNOWLEDGE.md",
     "README.md",
+    "capabilities/README.md",
+    "capabilities/candidates/.gitkeep",
+    "capabilities/reviews/.gitkeep",
     "knowledge/current-state.md",
     "knowledge/system.md",
+    "learning/README.md",
+    "learning/preferences.json",
+    "learning/proposals/.gitkeep",
     "notes/.gitkeep",
     "policy.json",
 ];
@@ -78,11 +84,13 @@ fn validate_policy(raw: &[u8]) -> Result<(), String> {
             "approval_store",
             "provider",
             "external_content",
+            "capability_evolution",
+            "preference_learning",
             "default_data_classification",
         ],
     ) || policy.get("schema").and_then(serde_json::Value::as_str)
-        != Some("ai4heor-research-assistant-harness/v1")
-        || policy.get("version").and_then(serde_json::Value::as_str) != Some("0.1.0")
+        != Some("ai4heor-research-assistant-harness/v2")
+        || policy.get("version").and_then(serde_json::Value::as_str) != Some("0.2.0")
         || policy
             .get("interaction")
             .and_then(serde_json::Value::as_str)
@@ -108,7 +116,7 @@ fn validate_policy(raw: &[u8]) -> Result<(), String> {
             .and_then(serde_json::Value::as_str)
             != Some("unknown")
     {
-        return Err("harness policy root contract does not match v1".into());
+        return Err("harness policy root contract does not match v2".into());
     }
 
     let provider = policy
@@ -139,7 +147,7 @@ fn validate_policy(raw: &[u8]) -> Result<(), String> {
             .and_then(serde_json::Value::as_str)
             != Some("none")
     {
-        return Err("harness policy provider contract does not match v1".into());
+        return Err("harness policy provider contract does not match v2".into());
     }
 
     let external = policy
@@ -165,7 +173,97 @@ fn validate_policy(raw: &[u8]) -> Result<(), String> {
             .and_then(serde_json::Value::as_bool)
             != Some(false)
     {
-        return Err("harness policy external-content contract does not match v1".into());
+        return Err("harness policy external-content contract does not match v2".into());
+    }
+
+    let evolution = policy
+        .get("capability_evolution")
+        .ok_or("harness capability-evolution contract is missing")?;
+    if !exact_object_keys(
+        evolution,
+        &[
+            "request_interface",
+            "candidate_store",
+            "candidate_status",
+            "activation_authority",
+            "may_self_activate",
+            "may_modify_core_skills",
+            "may_modify_governance",
+            "may_modify_calculation_engines",
+        ],
+    ) || evolution.get("request_interface").and_then(serde_json::Value::as_str)
+        != Some("natural_language")
+        || evolution.get("candidate_store").and_then(serde_json::Value::as_str)
+            != Some("capabilities/candidates")
+        || evolution.get("candidate_status").and_then(serde_json::Value::as_str)
+            != Some("inactive")
+        || evolution.get("activation_authority").and_then(serde_json::Value::as_str)
+            != Some("human_via_app_owned_review")
+        || [
+            "may_self_activate",
+            "may_modify_core_skills",
+            "may_modify_governance",
+            "may_modify_calculation_engines",
+        ]
+        .iter()
+        .any(|key| evolution.get(*key).and_then(serde_json::Value::as_bool) != Some(false))
+    {
+        return Err("harness capability-evolution contract does not match v2".into());
+    }
+
+    let learning = policy
+        .get("preference_learning")
+        .ok_or("harness preference-learning contract is missing")?;
+    if !exact_object_keys(
+        learning,
+        &[
+            "proposal_store",
+            "accepted_store",
+            "minimum_independent_observations",
+            "single_observation_may_become_policy",
+            "activation_authority",
+            "user_can_view_edit_delete",
+            "store_secrets",
+            "store_sensitive_content",
+        ],
+    ) || learning.get("proposal_store").and_then(serde_json::Value::as_str)
+        != Some("learning/proposals")
+        || learning.get("accepted_store").and_then(serde_json::Value::as_str)
+            != Some("learning/preferences.json")
+        || learning
+            .get("minimum_independent_observations")
+            .and_then(serde_json::Value::as_u64)
+            != Some(2)
+        || learning
+            .get("single_observation_may_become_policy")
+            .and_then(serde_json::Value::as_bool)
+            != Some(false)
+        || learning.get("activation_authority").and_then(serde_json::Value::as_str)
+            != Some("human_only")
+        || learning.get("user_can_view_edit_delete").and_then(serde_json::Value::as_bool)
+            != Some(true)
+        || learning.get("store_secrets").and_then(serde_json::Value::as_bool) != Some(false)
+        || learning.get("store_sensitive_content").and_then(serde_json::Value::as_bool)
+            != Some(false)
+    {
+        return Err("harness preference-learning contract does not match v2".into());
+    }
+    Ok(())
+}
+
+fn validate_preferences(raw: &[u8]) -> Result<(), String> {
+    let value: serde_json::Value = serde_json::from_slice(raw)
+        .map_err(|error| format!("invalid harness preferences: {error}"))?;
+    if !exact_object_keys(&value, &["schema", "updated_at", "preferences"])
+        || value.get("schema").and_then(serde_json::Value::as_str)
+            != Some("ai4heor-local-preferences/v1")
+        || !value.get("updated_at").is_some_and(serde_json::Value::is_null)
+        || !value
+            .get("preferences")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(Vec::is_empty)
+    {
+        return Err("initial harness preferences do not match v1".into());
     }
     Ok(())
 }
@@ -190,7 +288,7 @@ fn validate_harness_source(src: &Path) -> Result<(), String> {
         ));
     }
     for relative in REQUIRED_HARNESS_FILES {
-        if *relative == "notes/.gitkeep" {
+        if relative.ends_with("/.gitkeep") {
             continue;
         }
         let raw = std::fs::read(src.join(relative))
@@ -202,6 +300,10 @@ fn validate_harness_source(src: &Path) -> Result<(), String> {
     validate_policy(
         &std::fs::read(src.join("policy.json"))
             .map_err(|error| format!("could not read harness policy: {error}"))?,
+    )?;
+    validate_preferences(
+        &std::fs::read(src.join("learning/preferences.json"))
+            .map_err(|error| format!("could not read harness preferences: {error}"))?,
     )?;
     let agents = std::fs::read_to_string(src.join("AGENTS.md"))
         .map_err(|error| format!("could not read harness AGENTS.md: {error}"))?;
@@ -216,6 +318,10 @@ fn validate_harness_source(src: &Path) -> Result<(), String> {
         "Canonical gate evidence is app-owned",
         "Do not edit `AGENTS.md`",
         "Do not edit it; propose changes for Human product review",
+        "use\n  `$ai4heor-skill-authoring`",
+        "A candidate is inert",
+        "at least two independent\n  interactions",
+        "cannot store secrets",
     ] {
         if !agents.contains(required) {
             return Err(format!(

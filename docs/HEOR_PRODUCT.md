@@ -1144,6 +1144,24 @@ approval, reimbursement suitability, or external tamper-proofing.
   validation, result reproduction, actor, or approval sequence fails closed.
 - The core analysis runs without a model provider or network connection.
 
+## Bounded capability growth
+
+AI4HEOR harness v2 preserves future Skill creation without treating the runtime
+as a self-governing research system. A researcher's natural-language request can
+produce a bilingual, hash-bound, instruction-only Skill candidate under
+`capabilities/candidates/`. The candidate remains outside active Skill discovery;
+deterministic validation checks its exact files, permissions, provenance, license
+basis, secret patterns, limitations, and acceptance checks. The current release
+does not activate candidates automatically.
+
+Repeated non-sensitive work patterns can become local preference proposals only
+after at least two independent interactions. Scientific methods, evidence choices,
+parameter values, conclusions, provider selection, data routing, approvals, and
+release decisions are never learned preferences. Proposals remain local and
+inactive until a researcher accepts them, and accepted preferences can be viewed,
+edited, disabled, or deleted. Neither route can modify the product harness, core
+Skills, calculation engines, Human gates, or release records.
+
 ## Upstream and licensing
 
 The platform baseline is `ai4s-research/open-science` commit

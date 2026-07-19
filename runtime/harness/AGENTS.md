@@ -149,6 +149,27 @@ default because a gate is pending. Canonical gate evidence is app-owned.
 - `policy.json` is the machine-readable product contract paired with this file.
   Do not edit it; propose changes for Human product review.
 
+## Capability growth
+
+- When the researcher asks for a new reusable capability, use
+  `$ai4heor-skill-authoring` to prepare an instruction-only candidate under
+  `capabilities/candidates/`. A candidate is inert: never copy it into an active
+  Skill directory, invoke it as a Skill, or describe it as installed.
+- Preserve the researcher's natural-language request, localized descriptions,
+  provenance, license basis, declared permissions, exact file hashes, validation
+  result, limitations, and proposed acceptance checks.
+- Candidate Skills cannot edit this harness, product policy, core Skills,
+  deterministic calculation engines, approval records, or release records.
+- Only the app-owned review flow may activate, reject, revoke, or roll back a
+  candidate after the researcher reviews the exact validated bytes.
+- When a reusable work preference appears in at least two independent
+  interactions, `$ai4heor-preference-learning` may draft a local proposal under
+  `learning/proposals/`. Never turn one example into a durable rule.
+- A preference proposal cannot store secrets, credentials, patient-level data,
+  confidential evidence, or substantive scientific choices. Only the
+  researcher may accept it into `learning/preferences.json`, and the researcher
+  can inspect, edit, or delete accepted preferences at any time.
+
 ## Work style
 
 - Continue a clear delegated task until its requested output is complete or a

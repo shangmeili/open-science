@@ -265,20 +265,27 @@ requires a separate credential and consent flow before admission.
 #### 5.1.6 Skills library
 
 The Skills page lists the **real** skills and agents OpenCode loaded and separately
-shows the native third-party admission audit. Its natural-language action evaluates
-and adapts a candidate but never installs it directly. Skill sources are layered:
+shows the native third-party admission audit. Its natural-language action creates or
+evaluates a candidate but never installs it directly. Skill sources are layered:
 
 1. **OpenCode built-in** skills/agents (shipped with the runtime).
-2. **Self-authored AI4S skills** — planned: `literature-review`, `reproducible-analysis`,
-   `citation-reviewer`, `figure-provenance`, `paper-to-report` (Markdown skills under
-   `runtime/skills/core`, loaded from the workspace `.opencode/skill/`).
+2. **AI4HEOR first-party Skills** — 47 pharmacoeconomics, evidence, analysis,
+   validation, reporting, execution, capability-authoring, and preference-proposal
+   Skills under `runtime/skills/core`, deployed only into the app-private profile.
 3. **Third-party scientific skills** — inactive until a machine-validated,
    hash-locked `validated-adapter` entry passes license, security, methods,
    cross-platform, and Human-in-the-loop release evidence.
+4. **Locally authored candidates** — bilingual, instruction-only, deny-by-default
+   candidates under `capabilities/candidates/`. They are outside every active Skill
+   discovery directory and remain inert until an app-owned Human review records
+   admission for the exact validated hash.
 
-K-Dense `scientific-agent-skills` is a collection for science/research; its README
-describes ~148 skills and compatibility with Claude Code, Codex, Cursor, OpenCode, and
-other Agent Skills hosts.
+Repeated non-sensitive work patterns may be written only as proposals under
+`learning/proposals/` after at least two independent interactions. One interaction
+cannot become policy; scientific choices and sensitive content are never preferences;
+only researcher-accepted entries in `learning/preferences.json` are durable. The current
+release ships candidate/proposal creation and validation, not silent activation or model
+retraining.
 
 #### 5.1.7 Code execution
 

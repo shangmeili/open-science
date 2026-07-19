@@ -1,5 +1,7 @@
 {
   "catalog": {
+    "ai4heor-preference-learning": { "displayName": "工作偏好建议", "description": "根据至少两次独立交互中重复出现的非敏感习惯，整理成可查看、可修改、可删除的本地偏好建议。" },
+    "ai4heor-skill-authoring": { "displayName": "AI4HEOR Skill 创建", "description": "把研究者的自然语言需求整理为中英文描述完整、可验证但尚未启用的 Skill 候选项。" },
     "domain-check": { "displayName": "分析代码检查", "description": "检查科学分析代码中可明确判定的领域错误。" },
     "heor-advanced-value-of-information": { "displayName": "高级信息价值分析", "description": "计算并检查人群 EVPI、EVPPI、EVSI 和 ENBS。" },
     "heor-background-mortality": { "displayName": "背景死亡率", "description": "组合经复核的一般人群死亡率与超额死亡率。" },

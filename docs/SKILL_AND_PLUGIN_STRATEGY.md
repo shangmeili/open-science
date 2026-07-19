@@ -37,6 +37,16 @@ seeded with a product-owned researcher-led harness: Skills may help carry out a
 researcher-selected plan, but neither a Skill nor the configured runtime may
 define the study, silently resolve a scientific choice, or rewrite that policy.
 
+Harness v2 adds bounded capability growth without autonomous self-modification.
+`$ai4heor-skill-authoring` turns a natural-language request into an inactive,
+bilingual, hash-bound, instruction-only candidate under
+`capabilities/candidates/`; its validator rejects active permissions, executable
+content, secrets, path escape, symlinks, and unlisted bytes. It does not install
+the candidate. `$ai4heor-preference-learning` may propose only a narrow,
+non-sensitive work preference supported by at least two independent interactions.
+Neither Skill can accept its own output, change core assets, or manufacture an
+app-owned review record.
+
 ## Current external candidates
 
 | Candidate | Evidence observed | Decision for AI4HEOR |

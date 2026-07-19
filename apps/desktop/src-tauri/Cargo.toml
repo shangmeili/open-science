@@ -1,9 +1,10 @@
 [package]
 name = "ai4s-workbench"
-version = "0.1.36"
+version = "0.1.37"
 description = "AI4HEOR local-first research workbench"
 authors = ["AI4HEOR contributors"]
 edition = "2021"
+license = "MIT"
 
 [lib]
 name = "ai4s_workbench_lib"

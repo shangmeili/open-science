@@ -22,3 +22,9 @@
 - Memory: `knowledge/` stores evidence-backed current facts; `notes/` stores dated task logs.
 - Approval records: the canonical log is app-owned and may be appended only by
   the desktop approval service, never by the assistant or workspace tools.
+- Capability growth: new Skills begin as inactive, hash-bound candidates under
+  `capabilities/candidates/`; only the app-owned Human review flow can activate,
+  reject, revoke, or roll them back.
+- Preference learning: repeated, non-sensitive work patterns may be proposed
+  under `learning/proposals/`; only Human-accepted entries in
+  `learning/preferences.json` are durable preferences.

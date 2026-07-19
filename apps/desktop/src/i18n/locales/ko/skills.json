@@ -1,5 +1,7 @@
 {
   "catalog": {
+    "ai4heor-preference-learning": { "displayName": "작업 선호 제안", "description": "두 번 이상의 독립적인 대화에서 반복된 비민감 작업 패턴을 연구자가 확인·수정·삭제할 수 있는 로컬 제안으로 정리합니다." },
+    "ai4heor-skill-authoring": { "displayName": "AI4HEOR Skill 작성", "description": "연구자의 자연어 요청을 영어·중국어 설명이 있는 검증된 비활성 Skill 후보로 만듭니다." },
     "domain-check": { "displayName": "과학 도메인 검사", "description": "과학 분석 코드의 결정론적 도메인 오류를 탐지합니다." },
     "heor-advanced-value-of-information": { "displayName": "고급 정보가치", "description": "인구 EVPI, EVPPI, EVSI와 ENBS를 감사합니다." },
     "heor-background-mortality": { "displayName": "배경 사망률", "description": "검토된 일반인구 및 초과 사망률 일정을 결합합니다." },
