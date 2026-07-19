@@ -119,7 +119,7 @@ approval, cost-effectiveness, or reimbursement conclusions.
 
 ## Current capabilities
 
-**Research assistance, as bounded HEOR skills.** AI4HEOR's 48 first-party skills
+**Research assistance, as bounded HEOR skills.** AI4HEOR's 49 first-party skills
 route researcher-defined tasks without acquiring approval or method-selection
 authority. Representative admitted workflows are:
 
@@ -128,6 +128,7 @@ authority. Representative admitted workflows are:
 | `$heor-workbench` | Coordinate researcher-led HEOR work without taking scientific authority | Reviewable local plan, artifacts, and stop points |
 | `$heor-local-evidence` | Inventory an explicitly selected local knowledge base without automatic networking | Hash-bound local evidence inventory |
 | `$heor-evidence-search` | Draft an auditable PubMed/ClinicalTrials.gov request for Human network authorization | Exact request hash and imported metadata candidates |
+| `$literature-review` | Import, deduplicate, validate, and export project-local citation metadata | Source-bound reference library plus RIS, BibTeX, or CSL-JSON exchange file |
 | `$heor-model-design` | Structure the Human-defined decision problem and conceptual model | Decision-problem and conceptual-model artifacts |
 | `$heor-cohort-state-transition` / `$heor-partitioned-survival` | Execute bounded deterministic economic models | Reproducible costs, QALYs, increments, and checks |
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | Execute declared uncertainty and bounded VOI workflows | DSA/PSA/CEAC/CEAF/EVPI and separately reviewed advanced VOI |
@@ -295,7 +296,7 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.42; the verified x64 macOS package remains 0.1.41.
+accepted. Current source is 0.1.43; the verified x64 macOS package remains 0.1.41.
 An updated 81,638,295-byte `AI4HEOR_0.1.42_x64.dmg` candidate built from
 `b9f5b61` has SHA-256
 `0c7d25ecda62a903c78ac4e14d4a64e3c8347bb21112ab16aaa22910d4425db9`.
@@ -303,6 +304,11 @@ Read-only verification confirms its x86-64 payload, 0.1.42 identity, OpenCode
 1.17.13, uv 0.11.26, all 340 controlled resources, and all 177 packaged HEOR
 tests. Exact isolated first launch remains pending because the installed app is
 still running; this candidate does not replace the fully accepted 0.1.41 handoff yet.
+Version 0.1.43 adds the first-party, local-only `literature-review` Skill: it
+imports, deduplicates, validates, and deterministically exports source-bound RIS,
+bounded BibTeX, and CSL-JSON metadata while preserving conflicts for Human review.
+It does not claim CSL style rendering or bibliographic correctness. Its Intel
+macOS package remains pending a clean tracked-source build and package verification.
 Version 0.1.42 adds a local startup-readiness check for the project folder, first-party Skills,
 HEOR calculation resources, project harness, and bundled assistant runtime. A failed runtime can
 now be replaced and reconnected from Settings without restarting the app; models, Python, and
@@ -335,7 +341,7 @@ keeps stable theory/methods separate from dated recent-progress material, and re
 to overwrite an edited installed copy. It retains the 0.1.35 separately confirmed,
 model-free local run for the hash-bound cost-effectiveness teaching case, the 0.1.34
 sixth HEOR starter, the 0.1.33 rewrite of the Simplified-Chinese research surface,
-and all 48 bundled Skill
+and all 49 bundled Skill
 descriptions in direct pharmacoeconomics language, and moves previously hard-coded
 download, file-manager, Jupyter, notebook, and generated-assistant prompts into the seven
 shipped locale resources. It retains the 0.1.32 fail-closed new-project harness and its

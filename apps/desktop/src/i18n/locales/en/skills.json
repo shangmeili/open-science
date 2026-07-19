@@ -42,6 +42,7 @@
     "heor-utility-inputs": { "displayName": "Utility Inputs", "description": "Audit health-state utility inputs and schedules." },
     "heor-workbench": { "displayName": "AI4HEOR Research Workbench", "description": "Assist researcher-led, auditable pharmacoeconomics and HEOR work." },
     "large-file": { "displayName": "Large File", "description": "Inspect large research files safely with bounded sampling." },
+    "literature-review": { "displayName": "Reference Library", "description": "Import, deduplicate, and export source-bound RIS, BibTeX, and CSL-JSON metadata locally." },
     "modal-run": { "displayName": "Modal Run", "description": "Run authorized heavy computation on the user's Modal account." },
     "publication-figures": { "displayName": "Publication Figures", "description": "Create consistent, publication-grade scientific figures." },
     "remote-compute": { "displayName": "Remote Compute", "description": "Run and track authorized jobs on SSH or Slurm systems." },

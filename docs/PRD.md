@@ -258,8 +258,10 @@ acceptance. CDA-AMC remains unbundled until its official source bytes can pass
 the same reproducible source-hash admission gate.
 
 The broader platform backlog—arXiv, Crossref, OpenAlex, Semantic Scholar,
-deduplication exports, `corpus.csv`, BibTeX export, OCR, and complex layout/table
-reconstruction—remains planned. OpenAlex currently needs an API key, so it
+`corpus.csv`, CSL style rendering, OCR, and complex layout/table
+reconstruction—remains planned. Project-local RIS, bounded BibTeX, and CSL-JSON
+import, deterministic deduplication, and exchange export are supplied by the
+first-party `literature-review` Skill. OpenAlex currently needs an API key, so it
 requires a separate credential and consent flow before admission.
 
 #### 5.1.6 Skills library
@@ -269,7 +271,7 @@ shows the native third-party admission audit. Its natural-language action create
 evaluates a candidate but never installs it directly. Skill sources are layered:
 
 1. **OpenCode built-in** skills/agents (shipped with the runtime).
-2. **AI4HEOR first-party Skills** — 48 pharmacoeconomics, evidence, analysis,
+2. **AI4HEOR first-party Skills** — 49 pharmacoeconomics, evidence, analysis,
    validation, reporting, execution, capability-authoring, and preference-proposal
    Skills under `runtime/skills/core`, deployed only into the app-private profile.
 3. **Third-party scientific skills** — inactive until a machine-validated,

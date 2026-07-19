@@ -42,6 +42,7 @@
     "heor-utility-inputs": { "displayName": "효용 입력", "description": "건강상태 효용 입력과 일정을 감사합니다." },
     "heor-workbench": { "displayName": "AI4HEOR 연구 워크벤치", "description": "연구자 주도의 감사 가능한 약물경제학·HEOR 업무를 지원합니다." },
     "large-file": { "displayName": "대용량 파일", "description": "제한된 표본추출로 대형 연구 파일을 안전하게 검사합니다." },
+    "literature-review": { "displayName": "참고문헌 라이브러리", "description": "출처가 기록된 RIS, BibTeX, CSL-JSON 서지정보를 로컬에서 가져오고 중복 정리 후 내보냅니다." },
     "modal-run": { "displayName": "Modal 실행", "description": "사용자 Modal 계정에서 승인된 고부하 계산을 실행합니다." },
     "publication-figures": { "displayName": "출판용 그림", "description": "일관된 출판 품질의 과학 그림을 만듭니다." },
     "remote-compute": { "displayName": "원격 계산", "description": "SSH 또는 Slurm에서 승인된 작업을 실행하고 추적합니다." },

@@ -42,6 +42,7 @@
     "heor-utility-inputs": { "displayName": "Entradas de utilidad", "description": "Audita utilidades de estados de salud y calendarios." },
     "heor-workbench": { "displayName": "Banco de trabajo AI4HEOR", "description": "Ayuda al trabajo farmacoeconómico y HEOR auditable dirigido por investigadores." },
     "large-file": { "displayName": "Archivo grande", "description": "Inspecciona archivos grandes con muestreo acotado y seguro." },
+    "literature-review": { "displayName": "Biblioteca de referencias", "description": "Importa, deduplica y exporta metadatos RIS, BibTeX y CSL-JSON vinculados a sus fuentes de forma local." },
     "modal-run": { "displayName": "Ejecución Modal", "description": "Ejecuta cálculo pesado autorizado en la cuenta Modal del usuario." },
     "publication-figures": { "displayName": "Figuras para publicación", "description": "Crea figuras científicas coherentes y listas para publicación." },
     "remote-compute": { "displayName": "Cálculo remoto", "description": "Ejecuta y sigue trabajos autorizados en SSH o Slurm." },

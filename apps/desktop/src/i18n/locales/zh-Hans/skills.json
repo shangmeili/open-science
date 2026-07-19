@@ -42,6 +42,7 @@
     "heor-utility-inputs": { "displayName": "健康效用值", "description": "检查健康状态效用值、时间变化和适用范围。" },
     "heor-workbench": { "displayName": "AI4HEOR 药物经济学工作台", "description": "帮助研究者完成药物经济学与 HEOR 项目的设计、分析、复核和报告。" },
     "large-file": { "displayName": "大文件检查", "description": "通过分段抽样检查大型研究文件，避免一次载入全部内容。" },
+    "literature-review": { "displayName": "参考文献库", "description": "在本地导入、去重和导出带来源记录的 RIS、BibTeX 与 CSL-JSON 文献数据。" },
     "modal-run": { "displayName": "Modal 运行", "description": "在用户自己的 Modal 账户上执行经授权的重型计算。" },
     "publication-figures": { "displayName": "发表用图表", "description": "按统一格式制作适合报告或论文使用的科学图表。" },
     "remote-compute": { "displayName": "远程计算", "description": "在 SSH 或 Slurm 系统运行并跟踪经授权任务。" },

@@ -25,6 +25,7 @@ REPRESENTATIVE_SKILLS = {
     "heor-workbench",
     "heor-local-evidence",
     "heor-evidence-search",
+    "literature-review",
     "heor-model-design",
     "heor-cohort-state-transition",
     "heor-partitioned-survival",
@@ -78,7 +79,7 @@ class AI4HEORProductDocsTests(unittest.TestCase):
             raise AssertionError("no bundled first-party Skills found")
 
     def test_localized_skill_catalogs_match_the_bundled_runtime(self):
-        self.assertEqual(len(self.skill_names), 48)
+        self.assertEqual(len(self.skill_names), 49)
         for locale in README_BY_LOCALE:
             with self.subTest(locale=locale):
                 payload = json.loads(
@@ -92,7 +93,7 @@ class AI4HEORProductDocsTests(unittest.TestCase):
             with self.subTest(locale=locale):
                 text = (ROOT / relative).read_text(encoding="utf-8")
                 self.assertIn("AI4HEOR", text)
-                self.assertIn("48", text)
+                self.assertIn("49", text)
                 for skill in REPRESENTATIVE_SKILLS:
                     self.assertIn(f"`${skill}`", text)
                 for screenshot in CURRENT_SCREENSHOTS:
@@ -181,7 +182,7 @@ class AI4HEORProductDocsTests(unittest.TestCase):
             "部分交付",
             "待建设",
             "研究汇报幻灯",
-            "RIS/BibTeX/CSL",
+            "RIS、受控 BibTeX 与 CSL-JSON",
             "DOCX/PDF",
             "XLSX",
             "不能因为“会写报告”或“会生成表格”",

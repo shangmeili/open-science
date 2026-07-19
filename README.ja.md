@@ -70,13 +70,14 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 
 ## 現在の機能
 
-**境界を持つ HEOR Skill による研究支援。** 48 個のファーストパーティ Skill は研究者が定義した作業を支援しますが、承認権や手法選択権を取得しません。代表的なワークフローは次のとおりです。
+**境界を持つ HEOR Skill による研究支援。** 49 個のファーストパーティ Skill は研究者が定義した作業を支援しますが、承認権や手法選択権を取得しません。代表的なワークフローは次のとおりです。
 
 | スキル | 役割 | 主な成果物 |
 | --- | --- | --- |
 | `$heor-workbench` | 研究者主導の HEOR 作業を調整 | レビュー可能なローカル計画、成果物、停止点 |
 | `$heor-local-evidence` | 自動通信せず、選択されたローカル知識ベースを棚卸し | ハッシュで結び付けたローカルエビデンス一覧 |
 | `$heor-evidence-search` | Human の通信承認を要する PubMed/ClinicalTrials.gov 検索を作成 | 正確なリクエストハッシュとメタデータ候補 |
+| `$literature-review` | プロジェクト内の書誌情報を取り込み、重複整理、検証、書き出し | 出典付き参考文献ライブラリと RIS、BibTeX、CSL-JSON 交換ファイル |
 | `$heor-model-design` | 人間が定義した意思決定問題と概念モデルを構造化 | 意思決定問題・概念モデル成果物 |
 | `$heor-cohort-state-transition` / `$heor-partitioned-survival` | 境界付き決定論的経済モデルを実行 | 再現可能な費用、QALY、増分結果、検査 |
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | 宣言済み不確実性分析と限定 VOI を実行 | DSA/PSA/CEAC/CEAF/EVPI と個別レビュー対象の高度 VOI |

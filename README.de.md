@@ -70,13 +70,14 @@ Dieser Benchmark der Upstream-Plattform belegt weder, dass Forschung in AI4HEOR 
 
 ## Aktuelle Funktionen
 
-**HEOR-Unterstützung als begrenzte Skills.** Die 48 First-Party-Skills routen Aufgaben, die Forschende definiert haben, ohne Freigabe- oder Methodenwahl-Autorität zu übernehmen. Repräsentative Workflows:
+**HEOR-Unterstützung als begrenzte Skills.** Die 49 First-Party-Skills routen Aufgaben, die Forschende definiert haben, ohne Freigabe- oder Methodenwahl-Autorität zu übernehmen. Repräsentative Workflows:
 
 | Skill | Rolle | Hauptausgabe |
 | --- | --- | --- |
 | `$heor-workbench` | Vom Menschen geleitete HEOR-Arbeit koordinieren | Prüfbarer lokaler Plan, Artefakte und Stopppunkte |
 | `$heor-local-evidence` | Gewählte lokale Wissensbasis ohne automatischen Netzzugriff inventarisieren | Hash-gebundenes lokales Evidenzinventar |
 | `$heor-evidence-search` | Human-autorisierte PubMed/ClinicalTrials.gov-Suche vorbereiten | Exakter Request-Hash und Metadatenkandidaten |
+| `$literature-review` | Projektinterne Literaturdaten importieren, deduplizieren, validieren und exportieren | Quellengebundene Literaturbibliothek plus RIS-, BibTeX- oder CSL-JSON-Austauschdatei |
 | `$heor-model-design` | Menschlich definiertes Entscheidungsproblem und konzeptionelles Modell strukturieren | Entscheidungs- und Modellartefakte |
 | `$heor-cohort-state-transition` / `$heor-partitioned-survival` | Begrenzte deterministische ökonomische Modelle ausführen | Reproduzierbare Kosten, QALYs, Inkremente und Prüfungen |
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | Deklarierte Unsicherheit und begrenzte VOI ausführen | DSA/PSA/CEAC/CEAF/EVPI und separat geprüfte erweiterte VOI |
@@ -84,7 +85,7 @@ Dieser Benchmark der Upstream-Plattform belegt weder, dass Forschung in AI4HEOR 
 | `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | Exakte aktuelle Artefakte validieren, berichten und paketieren | Unabhängiges Review-Paket, Bericht und Replay-Bundle |
 | `$research-presentation` | Quellengebundene Präsentationsinhalte vorbereiten und lokal erzeugen | Prüfbare makrofreie PPTX mit Generierungsnachweis |
 
-Namen und Beschreibungen aller 48 First-Party-Skills werden in sieben UI-Sprachen ausgeliefert; die exakte `$skill-id` bleibt sichtbar. Externe Assets bleiben bis zur Einzelzulassung inaktiv.
+Namen und Beschreibungen aller 49 First-Party-Skills werden in sieben UI-Sprachen ausgeliefert; die exakte `$skill-id` bleibt sichtbar. Externe Assets bleiben bis zur Einzelzulassung inaktiv.
 
 ### Plattform
 

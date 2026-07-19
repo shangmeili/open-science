@@ -70,13 +70,14 @@ Este benchmark del proyecto base no demuestra que la ciencia dentro de AI4HEOR d
 
 ## Capacidades actuales
 
-**Asistencia HEOR mediante skills acotadas.** Las 48 skills propias enrutan tareas definidas por la persona investigadora sin adquirir autoridad de aprobación o selección metodológica. Flujos representativos:
+**Asistencia HEOR mediante skills acotadas.** Las 49 skills propias enrutan tareas definidas por la persona investigadora sin adquirir autoridad de aprobación o selección metodológica. Flujos representativos:
 
 | Skill | Rol | Salida principal |
 | --- | --- | --- |
 | `$heor-workbench` | Coordinar trabajo HEOR dirigido por la persona investigadora | Plan, artefactos y puntos de parada revisables |
 | `$heor-local-evidence` | Inventariar una base local seleccionada sin acceso automático a red | Inventario local vinculado por hash |
 | `$heor-evidence-search` | Preparar búsquedas PubMed/ClinicalTrials.gov sujetas a autorización humana | Hash exacto de solicitud y candidatos de metadatos |
+| `$literature-review` | Importar, deduplicar, validar y exportar referencias del proyecto | Biblioteca vinculada a fuentes y archivo RIS, BibTeX o CSL-JSON |
 | `$heor-model-design` | Estructurar el problema de decisión y modelo conceptual definidos por la persona | Artefactos de problema y modelo conceptual |
 | `$heor-cohort-state-transition` / `$heor-partitioned-survival` | Ejecutar modelos económicos deterministas acotados | Costes, QALY, incrementos y controles reproducibles |
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | Ejecutar incertidumbre declarada y VOI acotado | DSA/PSA/CEAC/CEAF/EVPI y VOI avanzado revisado aparte |
@@ -84,7 +85,7 @@ Este benchmark del proyecto base no demuestra que la ciencia dentro de AI4HEOR d
 | `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | Validar, informar y empaquetar artefactos actuales exactos | Paquete de revisión independiente, informe y bundle reproducible |
 | `$research-presentation` | Preparar contenido vinculado a fuentes y generarlo localmente | PPTX sin macros revisable y registro de generación |
 
-Los nombres y descripciones de las 48 skills propias se publican en los siete idiomas de interfaz manteniendo visible el `$skill-id` exacto. Los activos externos permanecen inactivos hasta su admisión individual.
+Los nombres y descripciones de las 49 skills propias se publican en los siete idiomas de interfaz manteniendo visible el `$skill-id` exacto. Los activos externos permanecen inactivos hasta su admisión individual.
 
 ### Plataforma
 
