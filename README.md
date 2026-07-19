@@ -296,19 +296,19 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.43; the verified x64 macOS package remains 0.1.41.
-An updated 81,638,295-byte `AI4HEOR_0.1.42_x64.dmg` candidate built from
-`b9f5b61` has SHA-256
-`0c7d25ecda62a903c78ac4e14d4a64e3c8347bb21112ab16aaa22910d4425db9`.
-Read-only verification confirms its x86-64 payload, 0.1.42 identity, OpenCode
-1.17.13, uv 0.11.26, all 340 controlled resources, and all 177 packaged HEOR
-tests. Exact isolated first launch remains pending because the installed app is
-still running; this candidate does not replace the fully accepted 0.1.41 handoff yet.
+accepted. Current source is 0.1.43; the fully first-launch-verified x64 macOS
+handoff remains 0.1.41. The current 81,654,020-byte
+`AI4HEOR_0.1.43_x64.dmg` candidate built from `9ff815a` has SHA-256
+`6524e6bb1cdd4d1e04438e021307b0d48bafaba4c626979dc3d4d69762022bf9`.
+Independent read-only verification confirms its x86-64 payload, 0.1.43
+identity, OpenCode 1.17.13, uv 0.11.26, all 342 controlled resources, and all
+177 packaged HEOR tests. It supersedes the 0.1.42 candidate. Exact isolated
+first launch remains pending because the installed app is still running; this
+candidate does not replace the fully accepted 0.1.41 handoff yet.
 Version 0.1.43 adds the first-party, local-only `literature-review` Skill: it
 imports, deduplicates, validates, and deterministically exports source-bound RIS,
 bounded BibTeX, and CSL-JSON metadata while preserving conflicts for Human review.
-It does not claim CSL style rendering or bibliographic correctness. Its Intel
-macOS package remains pending a clean tracked-source build and package verification.
+It does not claim CSL style rendering or bibliographic correctness.
 Version 0.1.42 adds a local startup-readiness check for the project folder, first-party Skills,
 HEOR calculation resources, project harness, and bundled assistant runtime. A failed runtime can
 now be replaced and reconnected from Settings without restarting the app; models, Python, and
