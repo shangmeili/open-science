@@ -11,11 +11,11 @@
     "settings": "설정"
   },
   "items": {
-    "new": "새 대화",
+    "new": "새 작업",
     "notebooks": "노트북",
     "files": "파일",
     "runs": "실행",
-    "skills": "스킬",
+    "skills": "스킬 및 도구",
     "heor": "연구 작업공간"
   },
   "projects": {
@@ -23,18 +23,18 @@
     "new": "새 프로젝트",
     "namePlaceholder": "프로젝트 이름",
     "intakePrompt": "이 HEOR 프로젝트를 시작하도록 도와주세요. 먼저 제가 다루려는 의사결정, 연구, 평가 또는 학습 질문과 그 사용 목적을 물어보세요. 그다음 작업을 실질적으로 바꿀 수 있는 누락 정보만 확인하세요. 과학적 주도권은 제가 유지합니다. 제가 과제를 정의하기 전에는 검색하거나, 방법을 선택하거나, 입력값을 가정하거나, 승인 기록을 만들지 마세요.",
-    "newSessionAria": "“{{name}}”에서 새 세션",
-    "noSessions": "아직 세션이 없습니다.",
+    "newSessionAria": "“{{name}}”에서 새 작업",
+    "noSessions": "아직 작업이 없습니다.",
     "renameHint": "더블 클릭으로 이름 변경"
   },
   "history": {
-    "heading": "독립 대화",
-    "empty": "아직 독립 대화가 없습니다.",
+    "heading": "작업",
+    "empty": "아직 작업이 없습니다.",
     "exampleTag": "예제",
     "deleteAria": "{{title}} 삭제"
   },
   "confirmDelete": {
-    "sessionTitle": "세션을 삭제하시겠습니까?",
+    "sessionTitle": "작업을 삭제하시겠습니까?",
     "sessionBody": "\"{{title}}\" 및 관련 메시지가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
     "exampleTitle": "예제를 숨기시겠습니까?",
     "exampleBody": "\"{{title}}\"이(가) 사이드바에서 숨겨집니다.",
@@ -57,11 +57,11 @@
     "placeholder": "명령을 입력하세요…",
     "noResults": "결과가 없습니다.",
     "actions": {
-      "newSession": "새 세션",
+      "newSession": "새 작업",
       "analyzeData": "HEOR 근거 또는 데이터 분석",
       "auditReport": "HEOR 모델 또는 보고서 감사",
       "openNotebooks": "노트북 열기",
-      "manageSkills": "스킬 관리",
+      "manageSkills": "스킬 및 도구 관리",
       "openSettings": "설정 열기",
       "toggleTheme": "라이트/다크 테마 전환"
     }

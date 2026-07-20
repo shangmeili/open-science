@@ -1,7 +1,18 @@
 {
+  "workbench": { "title": "Espace de recherche" },
+  "newTask": {
+    "title": "Nouvelle tâche",
+    "heading": "Quel travail HEOR souhaitez-vous traiter aujourd'hui ?",
+    "suggestions": {
+      "scope": { "title": "Cadrer la question de recherche", "prompt": "Aidez-moi à cadrer ce problème de décision pharmaco-économique ou HEOR. Confirmez la population, l'intervention, le comparateur, les résultats, la perspective, l'horizon temporel et l'usage prévu, et ne demandez que les informations susceptibles de modifier sensiblement l'étude." },
+      "evidence": { "title": "Trouver et organiser les preuves", "prompt": "Aidez-moi à trouver et organiser les preuves nécessaires à cette étude pharmaco-économique. Clarifiez d'abord la question de décision et les lacunes, puis identifiez les sources locales, les recherches nécessaires, la provenance et les limites. Avant tout accès réseau, affichez la requête exacte et les champs qui seraient envoyés." },
+      "model": { "title": "Concevoir ou examiner un modèle", "prompt": "Aidez-moi à concevoir ou examiner ce modèle d'économie de la santé. Examinez la structure, les preuves des paramètres, les hypothèses clés, l'incertitude et la validation, et distinguez les erreurs de calcul des questions qui exigent le jugement du chercheur." },
+      "deliverable": { "title": "Analyser des données ou préparer une présentation", "prompt": "Aidez-moi dans cette tâche pharmaco-économique ou HEOR. Je peux fournir des données, un modèle, un rapport ou des exigences de présentation. Recensez d'abord les documents disponibles et le livrable attendu, puis proposez une démarche vérifiable." }
+    }
+  },
   "notFound": {
-    "title": "Session introuvable",
-    "hint": "Choisissez une session dans la barre latérale."
+    "title": "Tâche introuvable",
+    "hint": "Choisissez une tâche dans la barre latérale."
   },
   "composer": {
     "placeholder": {
@@ -27,7 +38,7 @@
     },
     "shellMode": {
       "badge": "shell",
-      "title": "S'exécute directement dans le dossier de l'espace de travail de la session"
+      "title": "S'exécute directement dans le dossier de l'espace de travail de la tâche"
     },
     "stop": {
       "aria": "Arrêter",
@@ -73,7 +84,7 @@
     "settings": "Vérifier le modèle et la confidentialité"
   },
   "starters": {
-    "newSession": "Nouvelle session",
+    "newSession": "Nouvelle tâche",
     "heading": "Quelle question HEOR devons-nous traiter ?",
     "subheading": "Décrivez votre question pharmacoéconomique ou commencez par un flux dirigé par le chercheur.",
     "design": {
@@ -113,14 +124,14 @@
     },
     "filesToggle": {
       "default": "Fichiers",
-      "title": "Parcourir le dossier de cette session à côté du chat"
+      "title": "Parcourir le dossier de cette tâche à côté du chat"
     },
     "runsToggle": {
       "label": "Exécutions",
-      "title": "Les exécutions d'expériences de cette session — à côté du chat"
+      "title": "Les exécutions d'analyse de cette tâche — à côté du chat"
     },
     "notebook": {
-      "openTitle": "Ouvrir {{path}} — l'agent travaille sur ce notebook dans cette session",
+      "openTitle": "Ouvrir {{path}} — l'assistant travaille sur ce notebook dans cette tâche",
       "evaluatePrompt": "Exécutez ceci dans le noyau du notebook :\n```python\n{{expr}}\n```"
     },
     "connBadge": {
@@ -134,7 +145,7 @@
     },
     "status": {
       "paused": "En pause — l'agent attend votre réponse ci-dessous",
-      "startingSession": "Démarrage de la session dans son dossier…",
+      "startingSession": "Démarrage de la tâche dans son dossier…",
       "working": "En cours…"
     },
     "placeholder": {
@@ -244,13 +255,13 @@
   },
   "thread": {
     "exampleBadge": "Exemple · lecture seule",
-    "sampleNotice": "Cet exemple est en lecture seule. Démarrez une nouvelle recherche pour continuer dans AI4HEOR."
+    "sampleNotice": "Cet exemple est en lecture seule. Démarrez une nouvelle tâche pour continuer dans AI4HEOR."
   },
   "workspaceChip": {
     "fallbackName": "Espace de travail",
     "titlePinned": "{{workspace}} — cliquez pour choisir un autre dossier",
     "titleUnpinned": "Démarre dans un nouveau dossier daté ({{name}}) — cliquez pour choisir un dossier à la place",
-    "chooseAria": "Choisir le dossier de la session",
+    "chooseAria": "Choisir le dossier de la tâche",
     "switching": "Changement en cours…"
   },
   "agentMessage": {

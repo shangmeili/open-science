@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronRight,
-  Activity,
   Files,
   FlaskConical,
   Folder,
@@ -106,7 +105,7 @@ export function Sidebar() {
   const startNew = () => {
     setComposerDraft(null);
     startDraft();
-    if (!location.pathname.startsWith("/heor")) navigate("/heor");
+    if (location.pathname !== "/heor/new") navigate("/heor/new");
   };
 
   // ---- Projects: sessions group under a project by workspace folder ----
@@ -139,13 +138,13 @@ export function Sidebar() {
     setCreatingProject(false);
     if (created) {
       setComposerDraft(t("projects.intakePrompt"));
-      if (!location.pathname.startsWith("/heor")) navigate("/heor");
+      navigate("/heor/new");
     }
   };
 
   const newSessionIn = async (p: ProjectInfo) => {
     await startDraftInWorkspace(p.path);
-    navigate("/heor");
+    navigate("/heor/new");
   };
 
   const submitRename = async (p: ProjectInfo, name: string) => {
@@ -256,15 +255,23 @@ export function Sidebar() {
           </div>
         )}
         <div className={cn("px-4 pb-3", overlayTitlebar ? "pt-1" : "pt-4")}>
-          <div className="flex items-baseline gap-1.5">
-            <img src={logo} alt="" className="h-[18px] w-auto self-center" />
-            {/* eslint-disable-next-line i18next/no-literal-string -- product brand name, not translated across locales */}
-            <div className="font-serif text-[17px] font-semibold leading-none tracking-tight text-text">
-              AI4HEOR
-            </div>
-            <span className="text-[10px] uppercase tracking-widest text-muted">
-              {t("sidebar.betaBadge")}
-            </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => navigate("/heor")}
+              aria-label={t("items.heor")}
+              title={t("items.heor")}
+              className="flex items-baseline gap-1.5 rounded px-0.5 py-1 text-left hover:bg-surface-2"
+            >
+              <img src={logo} alt="" className="h-[18px] w-auto self-center" />
+              {/* eslint-disable-next-line i18next/no-literal-string -- product brand name, not translated across locales */}
+              <span className="font-serif text-[17px] font-semibold leading-none tracking-tight text-text">
+                AI4HEOR
+              </span>
+              <span className="text-[10px] uppercase tracking-widest text-muted">
+                {t("sidebar.betaBadge")}
+              </span>
+            </button>
             {!overlayTitlebar && (
               <button
                 onClick={toggleSidebar}
@@ -285,12 +292,7 @@ export function Sidebar() {
             icon={<Plus size={16} />}
             label={t("items.new")}
             onClick={startNew}
-          />
-          <NavRow
-            icon={<Activity size={16} />}
-            label={t("items.heor")}
-            onClick={() => navigate("/heor")}
-            active={location.pathname.startsWith("/heor")}
+            active={location.pathname === "/heor/new"}
           />
           <NavRow
             icon={<NotebookPen size={16} />}

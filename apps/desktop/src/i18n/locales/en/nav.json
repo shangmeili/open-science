@@ -11,11 +11,11 @@
     "settings": "Settings"
   },
   "items": {
-    "new": "New conversation",
+    "new": "New task",
     "notebooks": "Notebooks",
     "files": "Files",
     "runs": "Runs",
-    "skills": "Skills",
+    "skills": "Skills & tools",
     "heor": "Research workspace"
   },
   "projects": {
@@ -23,18 +23,18 @@
     "new": "New project",
     "namePlaceholder": "Project name",
     "intakePrompt": "Help me start this HEOR project. First ask what decision, research, evaluation, or learning question I want to address and its intended use. Then identify only missing information that would materially change the work. Keep me as the scientific lead; do not search, select methods, assume inputs, or create approval records before I define the task.",
-    "newSessionAria": "New session in {{name}}",
-    "noSessions": "No sessions yet.",
+    "newSessionAria": "New task in {{name}}",
+    "noSessions": "No tasks yet.",
     "renameHint": "Double-click to rename"
   },
   "history": {
-    "heading": "Standalone conversations",
-    "empty": "No standalone conversations yet.",
+    "heading": "Tasks",
+    "empty": "No tasks yet.",
     "exampleTag": "example",
     "deleteAria": "Delete {{title}}"
   },
   "confirmDelete": {
-    "sessionTitle": "Delete session?",
+    "sessionTitle": "Delete task?",
     "sessionBody": "\"{{title}}\" and its messages will be deleted. This cannot be undone.",
     "exampleTitle": "Hide example?",
     "exampleBody": "\"{{title}}\" will be hidden from the sidebar.",
@@ -57,11 +57,11 @@
     "placeholder": "Type a command…",
     "noResults": "No results.",
     "actions": {
-      "newSession": "Start new research",
+      "newSession": "New task",
       "analyzeData": "Analyze my HEOR evidence or data",
       "auditReport": "Audit an HEOR model or report",
       "openNotebooks": "Open notebooks",
-      "manageSkills": "Manage skills",
+      "manageSkills": "Manage skills & tools",
       "openSettings": "Open settings",
       "toggleTheme": "Toggle light / dark theme"
     }

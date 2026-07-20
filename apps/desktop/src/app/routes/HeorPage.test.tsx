@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { renderAt } from "@/test/render";
+import { renderAt, renderNavigableAt } from "@/test/render";
 import { useRuntimeStore } from "@/lib/runtime";
 import { useUiStore } from "@/lib/store";
 import { AI4HEOR_FIRST_RUN_KEY } from "@/components/heor/FirstRunGuide";
@@ -9,8 +9,14 @@ import { AI4HEOR_FIRST_RUN_KEY } from "@/components/heor/FirstRunGuide";
 const defaults = {
   status: useRuntimeStore.getState().status,
   currentId: useRuntimeStore.getState().currentId,
+  draftEpoch: useRuntimeStore.getState().draftEpoch,
   defaultModel: useRuntimeStore.getState().defaultModel,
   sendPrompt: useRuntimeStore.getState().sendPrompt,
+  workspacePinned: useRuntimeStore.getState().workspacePinned,
+  workspace: useRuntimeStore.getState().workspace,
+  projects: useRuntimeStore.getState().projects,
+  researchScope: useRuntimeStore.getState().researchScope,
+  openSession: useRuntimeStore.getState().openSession,
 };
 
 afterEach(() => {
@@ -27,7 +33,7 @@ describe("AI4HEOR conversation route", () => {
       currentId: null,
       defaultModel: null,
     });
-    renderAt("/heor");
+    renderNavigableAt("/heor");
 
     expect(await screen.findByRole("heading", { name: "Before you begin" }))
       .toBeInTheDocument();
@@ -47,21 +53,73 @@ describe("AI4HEOR conversation route", () => {
       .toBeInTheDocument();
   });
 
-  it("makes natural-language research the primary empty state", async () => {
+  it("keeps the workbench as a guided HEOR starting surface, not a second blank task", async () => {
     useRuntimeStore.setState({
       status: "ready",
       currentId: null,
       defaultModel: "openai/gpt-5.2",
     });
-    renderAt("/heor");
+    renderNavigableAt("/heor");
 
     expect(
       await screen.findByRole("heading", { name: "What are you working on?" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Describe the pharmacoeconomic or HEOR task in your own words/i))
       .toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Describe the decision problem/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Review analysis" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Research & analysis" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a new task unconstrained while HEOR suggestions only prefill the draft", async () => {
+    const sendPrompt = vi.fn().mockResolvedValue("session-1");
+    useRuntimeStore.setState({
+      status: "ready",
+      currentId: null,
+      defaultModel: "openai/gpt-5.2",
+      sendPrompt,
+      workspacePinned: false,
+    });
+    renderNavigableAt("/heor/new");
+
+    expect(
+      await screen.findByRole("heading", { name: "What HEOR work would you like to tackle today?" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Frame the research question" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Find and organize evidence" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Design or review a model" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Analyze data or prepare a briefing" }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Research & analysis" }))
+      .not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Find and organize evidence" }));
+    const input = screen.getByRole("textbox") as HTMLTextAreaElement;
+    expect(input.value).toContain("Help me find and organize the evidence");
+    expect(sendPrompt).not.toHaveBeenCalled();
+
+    await userEvent.clear(input);
+    await userEvent.type(input, "A completely different task");
+    expect(input.value).toBe("A completely different task");
+    expect(sendPrompt).not.toHaveBeenCalled();
+  });
+
+  it("shows research tools after a task has an actual session scope", async () => {
+    useRuntimeStore.setState({
+      status: "ready",
+      currentId: "session-1",
+      defaultModel: "openai/gpt-5.2",
+      openSession: vi.fn().mockResolvedValue(undefined),
+      threads: {
+        "session-1": { loaded: true, blocks: [], index: {} },
+      },
+    });
+    renderNavigableAt("/heor/session-1");
+
+    expect(await screen.findByRole("button", { name: "Research & analysis" }))
+      .toBeInTheDocument();
   });
 
   it("uses the AI4HEOR research surface for legacy live links", async () => {
@@ -75,6 +133,7 @@ describe("AI4HEOR conversation route", () => {
     expect(await screen.findByRole("heading", { name: "What are you working on?" }))
       .toBeInTheDocument();
     expect(screen.getByText("Learn from my local HEOR library")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByText(/climate trends|end-to-end demo/i)).not.toBeInTheDocument();
   });
 
@@ -86,7 +145,7 @@ describe("AI4HEOR conversation route", () => {
       defaultModel: "openai/gpt-5.2",
       sendPrompt,
     });
-    renderAt("/heor");
+    renderNavigableAt("/heor");
 
     await userEvent.click(
       await screen.findByRole("button", { name: /Frame a cost-effectiveness study/i }),
@@ -107,7 +166,7 @@ describe("AI4HEOR conversation route", () => {
       defaultModel: "openai/gpt-5.2",
       sendPrompt,
     });
-    renderAt("/heor");
+    renderNavigableAt("/heor");
 
     await userEvent.click(
       await screen.findByRole("button", { name: /Learn from my local HEOR library/i }),
@@ -128,7 +187,7 @@ describe("AI4HEOR conversation route", () => {
       defaultModel: "openai/gpt-5.2",
       sendPrompt,
     });
-    renderAt("/heor");
+    renderNavigableAt("/heor");
 
     await userEvent.click(
       await screen.findByRole("button", {
@@ -150,9 +209,8 @@ describe("AI4HEOR conversation route", () => {
       defaultModel: null,
       sendPrompt,
     });
-    renderAt("/heor");
+    renderNavigableAt("/heor");
 
-    expect(await screen.findByText("Choose a model before sending")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Frame a cost-effectiveness study/i }));
 
     expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toContain(
@@ -160,6 +218,7 @@ describe("AI4HEOR conversation route", () => {
     );
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
     expect(sendPrompt).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Open model settings" })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Choose a model to send this research request…"))
+      .toBeInTheDocument();
   });
 });

@@ -186,7 +186,7 @@
   },
   "workspace": {
     "title": "Espace de travail",
-    "hint": "Les projets et les conversations indépendantes restent ici ; les fichiers d’un projet sont réutilisables dans ses conversations",
+    "hint": "Les fichiers des projets et des tâches restent ici ; les tâches d’un même projet peuvent partager ses fichiers",
     "unavailable": "disponible dans l'application de bureau",
     "change": "Changer…",
     "reveal": "Afficher"
@@ -206,7 +206,7 @@
     "interpreterSet": "Interpréteur défini — les cellules de notebook s'exécutent désormais sur celui-ci.",
     "overrideCleared": "Substitution effacée.",
     "couldNotSetInterpreter": "Impossible de définir l'interpréteur",
-    "folderSet": "Les nouvelles sessions seront créées dans ce dossier.",
+    "folderSet": "Les nouvelles tâches seront créées dans ce dossier.",
     "couldNotSetFolder": "Impossible de définir le dossier",
     "couldNotSetModel": "Impossible de définir le modèle",
     "defaultModelSet": "Modèle par défaut défini sur {{model}}",
@@ -239,7 +239,7 @@
       "heading": "Reste sur cette machine",
       "workspaceFiles": "Vos fichiers d'espace de travail et données brutes",
       "codeExecution": "Exécution du code — le noyau Python et Jupyter s'exécutent localement ; les jeux de données sont traités ici, jamais téléversés en masse.",
-      "sessionHistory": "L'historique des sessions et les enregistrements de provenance, dans le dossier de données privé de l'application.",
+      "sessionHistory": "L'historique des tâches et les enregistrements de provenance, dans le dossier de données privé de l'application.",
       "providerKeys": "Les clés de fournisseur et jetons de connexion — un fichier privé à l'application, lisible uniquement par votre compte ; jamais écrit dans l'espace de travail, la provenance, les journaux ou les exports."
     },
     "remote": {

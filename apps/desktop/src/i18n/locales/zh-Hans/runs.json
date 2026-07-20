@@ -1,11 +1,11 @@
 {
   "title": "运行",
   "description": {
-    "prefix": "这里记录各会话中的分析运行，包括命令、代码版本、环境、硬件和输出。",
+    "prefix": "这里记录各项任务中的分析运行，包括命令、代码版本、运行环境、硬件和输出。",
     "suffix": "会重新运行并比较结果。"
   },
   "pane": {
-    "subtitle": "本会话",
+    "subtitle": "当前任务",
     "closeAria": "关闭运行面板"
   },
   "searchPlaceholder": "搜索命令或输出路径…",

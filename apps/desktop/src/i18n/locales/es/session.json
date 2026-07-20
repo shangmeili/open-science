@@ -1,7 +1,18 @@
 {
+  "workbench": { "title": "Espacio de investigación" },
+  "newTask": {
+    "title": "Nueva tarea",
+    "heading": "¿Qué trabajo de HEOR quieres abordar hoy?",
+    "suggestions": {
+      "scope": { "title": "Definir la pregunta de investigación", "prompt": "Ayúdame a definir este problema de decisión farmacoeconómica o de HEOR. Confirma población, intervención, comparador, resultados, perspectiva, horizonte temporal y uso previsto, y pregunta solo por información que pueda cambiar de forma sustancial el estudio." },
+      "evidence": { "title": "Buscar y organizar evidencia", "prompt": "Ayúdame a buscar y organizar la evidencia necesaria para este estudio farmacoeconómico. Primero aclara el problema de decisión y las lagunas, y después identifica fuentes locales, búsquedas necesarias, procedencia y limitaciones. Antes de usar la red, muestra la consulta exacta y los campos que se enviarían." },
+      "model": { "title": "Diseñar o revisar un modelo", "prompt": "Ayúdame a diseñar o revisar este modelo económico de salud. Examina la estructura, la evidencia de los parámetros, los supuestos clave, la incertidumbre y la validación, y separa los errores de cálculo de las cuestiones que requieren juicio investigador." },
+      "deliverable": { "title": "Analizar datos o preparar una presentación", "prompt": "Ayúdame con esta tarea farmacoeconómica o de HEOR. Puedo aportar datos, un modelo, un informe o requisitos de presentación. Primero revisa los materiales disponibles y el entregable esperado y luego propone un proceso verificable." }
+    }
+  },
   "notFound": {
-    "title": "Sesión no encontrada",
-    "hint": "Elige una sesión en la barra lateral."
+    "title": "Tarea no encontrada",
+    "hint": "Elige una tarea en la barra lateral."
   },
   "composer": {
     "placeholder": {
@@ -27,7 +38,7 @@
     },
     "shellMode": {
       "badge": "shell",
-      "title": "Se ejecuta directamente en la carpeta del espacio de trabajo de la sesión"
+      "title": "Se ejecuta directamente en la carpeta del espacio de trabajo de la tarea"
     },
     "stop": {
       "aria": "Detener",
@@ -73,7 +84,7 @@
     "settings": "Revisar modelo y privacidad"
   },
   "starters": {
-    "newSession": "Nueva sesión",
+    "newSession": "Nueva tarea",
     "heading": "¿Qué pregunta de HEOR debemos abordar?",
     "subheading": "Describe tu pregunta farmacoeconómica o comienza con un flujo dirigido por la persona investigadora.",
     "design": {
@@ -113,14 +124,14 @@
     },
     "filesToggle": {
       "default": "Archivos",
-      "title": "Explora la carpeta de esta sesión junto al chat"
+      "title": "Explora la carpeta de esta tarea junto al chat"
     },
     "runsToggle": {
       "label": "Ejecuciones",
-      "title": "Las ejecuciones de experimentos de esta sesión — junto al chat"
+      "title": "Las ejecuciones de análisis de esta tarea — junto al chat"
     },
     "notebook": {
-      "openTitle": "Abrir {{path}} — el agente trabaja en este cuaderno dentro de esta sesión",
+      "openTitle": "Abrir {{path}} — el asistente trabaja en este cuaderno dentro de esta tarea",
       "evaluatePrompt": "Ejecuta lo siguiente en el kernel del cuaderno:\n```python\n{{expr}}\n```"
     },
     "connBadge": {
@@ -134,7 +145,7 @@
     },
     "status": {
       "paused": "Pausado — el agente necesita tu respuesta a continuación",
-      "startingSession": "Iniciando la sesión en su carpeta…",
+      "startingSession": "Iniciando la tarea en su carpeta…",
       "working": "Trabajando…"
     },
     "placeholder": {
@@ -244,13 +255,13 @@
   },
   "thread": {
     "exampleBadge": "Ejemplo · solo lectura",
-    "sampleNotice": "Este ejemplo es de solo lectura. Inicia una nueva investigación para continuar en AI4HEOR."
+    "sampleNotice": "Este ejemplo es de solo lectura. Inicia una nueva tarea para continuar en AI4HEOR."
   },
   "workspaceChip": {
     "fallbackName": "Espacio de trabajo",
     "titlePinned": "{{workspace}} — haz clic para elegir una carpeta distinta",
     "titleUnpinned": "Se inicia en una nueva carpeta con fecha ({{name}}) — haz clic para elegir una carpeta en su lugar",
-    "chooseAria": "Elegir carpeta de la sesión",
+    "chooseAria": "Elegir carpeta de la tarea",
     "switching": "Cambiando…"
   },
   "agentMessage": {

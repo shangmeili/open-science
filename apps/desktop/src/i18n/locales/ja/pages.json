@@ -6,7 +6,7 @@
     "newNotebook": "新規ノートブック",
     "pythonNotebook": "Python ノートブック",
     "rNotebook": "R ノートブック",
-    "description": "セッションフォルダ全体の Jupyter ノートブックを新しい順に表示します。セルはノートブック自身のフォルダ内のローカル Python または R カーネルで実行され、エージェントも同じファイルを操作します。",
+    "description": "タスクフォルダ全体の Jupyter ノートブックを新しい順に表示します。セルはノートブック自身のフォルダ内のローカル Python または R カーネルで実行され、アシスタントも同じファイルを操作します。",
     "createsIn": "新しいノートブックの作成先:",
     "empty": {
       "tauri": "まだノートブックがありません。作成するか、エージェントに作成を依頼してください。",
@@ -51,7 +51,7 @@
     "explorerUnavailableWeb": "ファイルエクスプローラーはデスクトップアプリで利用可能です。",
     "selectFilePrompt": "ファイルを選択するとここにプレビューが表示されます。",
     "pane": {
-      "subtitle": "このセッションのフォルダ",
+      "subtitle": "このタスクのフォルダ",
       "closeAria": "ファイルを閉じる"
     },
     "contextMenu": {
@@ -72,13 +72,13 @@
     }
   },
   "skills": {
-    "title": "スキル & エージェント",
+    "title": "スキルとツール",
     "description": {
       "prefix": "AI アシスタント実行環境からライブで読み込まれます — 承認済みの AI4HEOR 機能と、ワークスペース内の ",
       "suffix": " にあるものすべて。"
     },
     "install": {
-      "sectionTitle": "方法ツールを作成または評価",
+      "sectionTitle": "スキルまたはツールを追加・評価",
       "placeholder": "AI4HEOR に追加したい能力を説明するか、Skill、プラグイン、MCP、パッケージ、GitHub URL を貼り付けてください",
       "starting": "開始中…",
       "cta": "確認を開始",

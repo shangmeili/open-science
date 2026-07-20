@@ -6,7 +6,7 @@
     "newNotebook": "New notebook",
     "pythonNotebook": "Python notebook",
     "rNotebook": "R notebook",
-    "description": "All Jupyter notebooks across your session folders, newest first. Cells run on the local Python or R kernel in the notebook's own folder; the agent works on the same files.",
+    "description": "All Jupyter notebooks across your task folders, newest first. Cells run on the local Python or R kernel in the notebook's own folder; the assistant works on the same files.",
     "createsIn": "New notebooks are created in",
     "empty": {
       "tauri": "No notebooks yet. Create one, or ask the agent to produce one.",
@@ -51,7 +51,7 @@
     "explorerUnavailableWeb": "The file explorer is available in the desktop app.",
     "selectFilePrompt": "Select a file to preview it here.",
     "pane": {
-      "subtitle": "this session's folder",
+      "subtitle": "this task's folder",
       "closeAria": "Close files"
     },
     "contextMenu": {
@@ -72,13 +72,13 @@
     }
   },
   "skills": {
-    "title": "Skills & Agents",
+    "title": "Skills & tools",
     "description": {
       "prefix": "Loaded live from the AI assistant runtime — admitted AI4HEOR capabilities plus anything under ",
       "suffix": " in your workspace."
     },
     "install": {
-      "sectionTitle": "Create or evaluate a method tool",
+      "sectionTitle": "Add or evaluate a skill or tool",
       "placeholder": "Describe a capability AI4HEOR should add, or paste a Skill, plugin, MCP server, package, or GitHub URL",
       "starting": "Starting…",
       "cta": "Start review",

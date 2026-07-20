@@ -134,6 +134,9 @@ interface RuntimeState {
   bootstrap: () => Promise<void>;
   disconnect: () => void;
   refreshSessions: () => Promise<void>;
+  /** Increments for every explicit new-task action so draft-only UI state can
+   *  reset even when the user is already on the new-task route. */
+  draftEpoch: number;
   startDraft: () => void;
   /** Materialize the draft's private local research scope before a file write
    *  or deterministic starter runs. Sending a first message also calls this. */
@@ -142,7 +145,7 @@ interface RuntimeState {
   /** AI4HEOR projects: typed HEOR workspace folders under the base dir.
    *  Sessions group under a project by `directory`; multiple sessions share the folder. */
   projects: ProjectInfo[];
-  /** Active named project or standalone conversation research scope. */
+  /** Active named project or standalone task research scope. */
   researchScope: ProjectInfo | null;
   refreshProjects: () => Promise<void>;
   /** Create an AI4HEOR project and move into it with a fresh pinned draft. */
@@ -153,7 +156,7 @@ interface RuntimeState {
   /** Active workspace folder (absolute path); null in the browser. */
   workspace: string | null;
   /** True when the user explicitly picked the active folder for the next new
-   *  session; false means a new session gets its own fresh dated folder. */
+   *  task; false means a new task gets its own fresh dated folder. */
   workspacePinned: boolean;
   /** A deliberate workspace move is in flight (event-stream reconnect into the
    *  new folder). The UI must not present it as a disconnection — no status
@@ -349,7 +352,7 @@ async function performTurn(
   try {
     let id = get().currentId;
     if (!id) {
-      // A standalone conversation gets its own local research scope. Choosing
+      // A standalone task gets its own local research scope. Choosing
       // a project pins the conversation to that project's shared workspace;
       // neither path changes the assistant, skills, files, or HEOR methods the
       // researcher can use.
@@ -464,6 +467,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   serverUrl: initialUrl(),
   sessions: [],
   currentId: null,
+  draftEpoch: 0,
   threads: {},
   skills: [],
   agents: [],
@@ -870,7 +874,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       set({ error: null });
       await get().refreshSessions();
       // Await the local project scan so the sidebar and active-scope label are
-      // coherent when connect() resolves. Standalone conversations do not
+      // coherent when connect() resolves. Standalone tasks do not
       // depend on this list.
       await get().refreshProjects();
       // Catalog (skills/agents/commands) fills in behind the page — a session
@@ -987,7 +991,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     }
   },
 
-  // The global "New conversation" action starts a standalone conversation.
+  // The global "New task" action starts a standalone task.
   // A project row has its own + action and uses startDraftInWorkspace instead.
   startDraft: () =>
     set((s) => {
@@ -995,7 +999,13 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       delete threads[DRAFT_KEY]; // leftovers from an aborted first message
       const panes = { ...s.panes };
       delete panes[DRAFT_KEY]; // a fresh draft starts with a closed pane
-      return { currentId: null, workspacePinned: false, threads, panes };
+      return {
+        currentId: null,
+        draftEpoch: s.draftEpoch + 1,
+        workspacePinned: false,
+        threads,
+        panes,
+      };
     }),
 
   ensureStandaloneWorkspace: async () => {
@@ -1089,7 +1099,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       // Reset the local kernel so it respawns in the new folder, then reconnect
       // the event stream scoped to it (connect() re-reads the active folder —
       // the sidecar itself keeps running). An explicit switch pins the folder,
-      // so the next new session lands exactly there.
+      // so the next new task lands exactly there.
       await kernelReset().catch(() => {});
       set((s) => {
         // Back to a draft in the new folder — the draft pane must not carry
@@ -1350,7 +1360,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   },
 }));
 
-/** Dated local folder for a standalone conversation. The folder is an
+/** Dated local folder for a standalone task. The folder is an
  * independent research scope, not an AI4HEOR project. */
 export function datedWorkspaceName(now = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");

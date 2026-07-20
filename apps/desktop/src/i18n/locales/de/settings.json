@@ -186,7 +186,7 @@
   },
   "workspace": {
     "title": "Arbeitsbereich",
-    "hint": "Projekte und eigenständige Unterhaltungen bleiben hier; Projektdateien können in den zugehörigen Unterhaltungen wiederverwendet werden",
+    "hint": "Projekt- und Aufgabendateien bleiben hier; Aufgaben im selben Projekt können dessen Dateien gemeinsam verwenden",
     "unavailable": "in der Desktop-App verfügbar",
     "change": "Ändern…",
     "reveal": "Anzeigen"
@@ -206,7 +206,7 @@
     "interpreterSet": "Interpreter festgelegt — Notebook-Zellen laufen jetzt darauf.",
     "overrideCleared": "Überschreibung zurückgesetzt.",
     "couldNotSetInterpreter": "Der Interpreter konnte nicht festgelegt werden",
-    "folderSet": "Neue Sitzungen werden in diesem Ordner erstellt.",
+    "folderSet": "Neue Aufgaben werden in diesem Ordner erstellt.",
     "couldNotSetFolder": "Der Ordner konnte nicht festgelegt werden",
     "couldNotSetModel": "Das Modell konnte nicht festgelegt werden",
     "defaultModelSet": "Standardmodell auf {{model}} gesetzt",
@@ -239,7 +239,7 @@
       "heading": "Bleibt auf diesem Rechner",
       "workspaceFiles": "Ihre Arbeitsbereichsdateien und Rohdaten",
       "codeExecution": "Codeausführung — der Python-Kernel und Jupyter laufen lokal; Datensätze werden hier verarbeitet, nie in großen Mengen hochgeladen.",
-      "sessionHistory": "Sitzungsverlauf und Herkunftsnachweise, im privaten Datenordner der App.",
+      "sessionHistory": "Aufgabenverlauf und Herkunftsnachweise, im privaten Datenordner der App.",
       "providerKeys": "Anbieterschlüssel und Anmelde-Token — eine app-private Datei, die nur von Ihrem Konto gelesen werden kann; wird nie in den Arbeitsbereich, die Herkunftsdaten, Protokolle oder Exporte geschrieben."
     },
     "remote": {

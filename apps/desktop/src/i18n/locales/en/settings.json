@@ -200,7 +200,7 @@
   },
   "workspace": {
     "title": "Workspace",
-    "hint": "Projects and standalone conversations stay here; project files can be reused across its conversations",
+    "hint": "Project and task files stay here; tasks in the same project can share its files",
     "unavailable": "available in the desktop app",
     "change": "Change…",
     "reveal": "Reveal"
@@ -220,7 +220,7 @@
     "interpreterSet": "Interpreter set — notebook cells now run on it.",
     "overrideCleared": "Override cleared.",
     "couldNotSetInterpreter": "Could not set the interpreter",
-    "folderSet": "New sessions will be created in this folder.",
+    "folderSet": "New tasks will be created in this folder.",
     "couldNotSetFolder": "Could not set the folder",
     "couldNotSetModel": "Could not set the model",
     "defaultModelSet": "Default model set to {{model}}",
@@ -253,7 +253,7 @@
       "heading": "Stays on this machine",
       "workspaceFiles": "Your workspace files and raw data",
       "codeExecution": "Code execution — the Python kernel and Jupyter run locally; datasets are processed here, never uploaded in bulk.",
-      "sessionHistory": "Session history and provenance records, in the app's private data folder.",
+      "sessionHistory": "Task history and provenance records, in the app's private data folder.",
       "providerKeys": "Provider keys and login tokens — an app-private file readable only by your account; never written to the workspace, provenance, logs, or exports."
     },
     "remote": {

@@ -70,9 +70,9 @@ in one continuous, auditable session.
 - **Natural-language-first assistance** — the researcher initiates and controls the
   work; the model/runtime proposes or executes bounded steps and leaves real,
   inspectable artifacts rather than claiming scientific authority.
-- **HEOR projects from the first click** — the app opens in the AI4HEOR workspace;
-  new work creates a typed local HEOR project, keeps every project session in the
-  HEOR route, and pre-fills a researcher-reviewable intake request without sending it.
+- **HEOR tasks from the first click** — New task opens an unrestricted natural-language
+  composer with optional draft shortcuts; project tasks stay inside a named local HEOR
+  workspace, while standalone tasks receive an independent local scope.
 - **Local HEOR knowledge bases** — install the dated built-in Chinese pharmacoeconomics
   learning library with one explicit click, or add your own folders. Sources retain their
   hierarchy, are hash-bound and indexed locally, and can ground researcher-initiated
@@ -96,7 +96,7 @@ in one continuous, auditable session.
 
 ## See it in action
 
-**A Human-led HEOR request -> reviewable, traceable local work.** A new session
+**A Human-led HEOR request -> reviewable, traceable local work.** A new task
 starts with pharmacoeconomic study design, HEOR evidence/data analysis,
 model/report audit, or a synthetic cost-effectiveness example. The bundled
 `examples/heor-cost-effectiveness/` project demonstrates a two-strategy,
@@ -149,8 +149,8 @@ excluded external sources are internal engineering records, not user choices.
 | --- | --- |
 | Desktop shell | Tauri 2 + React + TypeScript + Vite, with macOS, Windows, and Linux desktop builds. |
 | Runtime | Bundled OpenCode sidecar, auto-started by the app, isolated from the user's own OpenCode config/data. |
-| Projects and conversations | A project is a named local workspace whose files and context are shared by its conversations. A standalone conversation has its own local research scope and the same assistant, Skills, HEOR methods, files, review, and audit functions; it simply does not share them across conversations. Multi-session history, `/` commands, and `!` shell mode remain available. |
-| Files | Global and per-session file browsing, context menu actions, external open/reveal, copy path, and local preview server. |
+| Projects and tasks | A project is a named local workspace whose files and context may be shared by its tasks. A standalone task has its own local research scope and the same assistant, Skills, HEOR methods, files, review, and audit functions; it simply does not share them across tasks. Multi-task history, `/` commands, and `!` shell mode remain available. |
+| Files | Global and per-task file browsing, context menu actions, external open/reveal, copy path, and local preview server. |
 | Notebooks | Real `.ipynb` files, Python and R notebook creation, local kernel execution, managed Jupyter environment via bundled `uv`, and an Open JupyterLab action. |
 | Runs | Append-only run logs, global SQLite run index, search/facets/pagination, local/remote surfaces, output links, logs, and reproduce prompts. |
 | Provenance | `.openscience/provenance.jsonl` tracks file versions and links produced artifacts back to the run or edit that created them. |
@@ -207,7 +207,7 @@ does not yet exist, AI4HEOR atomically renames the prior default
 exist, it does not merge or delete either one; a base folder explicitly chosen in
 Settings always wins.
 
-The currently verified 0.1.54 local x64 macOS artifact is not code-signed or notarized. The
+The currently verified 0.1.56 local x64 macOS artifact is not code-signed or notarized. The
 `v*` tag pipeline now fails closed unless both macOS targets receive Developer ID and
 Apple notarization credentials and subsequently pass signature, hardened-runtime,
 stapled-ticket, and Gatekeeper checks. No credentialed tag run has produced that evidence
@@ -302,25 +302,28 @@ live in [`docs/PRD.md`](./docs/PRD.md) and
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md), but those documents include
 target design as well as historical status notes.
 
-Current development is deliberately scoped to running the product through on Intel macOS;
-Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.54, and the current first-launch-verified x64 macOS
-candidate is also 0.1.54. The 90,080,697-byte `AI4HEOR_0.1.54_x64.dmg` has SHA-256
-`2c8c70bd96fc9f78778f0c9653518b23de3d915c2198467c968345fd4b372aff`.
-Independent read-only verification confirms its x86-64 payload, 0.1.54
+The 0.1.56 internal test delivery targets Intel macOS and Windows x64. Linux and
+Apple-Silicon release work remain outside this test-delivery scope. Current source is 0.1.56,
+and the current first-launch-verified x64 macOS candidate is also 0.1.56.
+The 91,021,588-byte `AI4HEOR_0.1.56_x64.dmg` has SHA-256
+`ed1107407ef6e3c8d46d0c674d368540c82811868a673a0e1c4d2dd3a2962358`.
+Independent read-only verification confirms its x86-64 payload, 0.1.56
 identity, OpenCode 1.17.13, uv 0.11.26, all 359 controlled resources, and all
 177 packaged HEOR tests. An exact temporary app copy also passed isolated first
 launch, creation of a fresh `Documents/AI4HEOR`, content-preserving migration from
-`Documents/OpenScience`, and process cleanup. It supersedes the 0.1.53 candidate and
+`Documents/OpenScience`, and process cleanup. Packaged OpenCode streaming and a
+credential-isolated MiniMax-M3 turn also passed. It supersedes the 0.1.54 candidate and
 is ready for product-owner testing; product-owner acceptance has not yet been recorded.
-Version 0.1.54 separates projects from conversations without restricting standalone
-work. A project is a named local workspace shared by its conversations; a standalone
-conversation receives its own private local research scope with the same assistant,
-Skills, HEOR methods, files, review, and audit functions. The global New conversation
-action now starts standalone work, project `+` starts a conversation in that project,
-and the sidebar lists standalone conversations separately. The same distinction ships
-in all seven interface languages. The candidate is installed in `/Applications` and
-has passed packaged-runtime streaming plus a credential-isolated MiniMax-M3 turn.
+Version 0.1.56 presents New task as an unrestricted natural-language entry with four
+HEOR-specific, draft-only shortcuts; Workbench remains the guided project surface.
+Projects are named local workspaces shared by their tasks; a standalone task receives
+its own private local research scope with the same assistant,
+Skills, HEOR methods, files, review, and audit functions. The global New task action
+starts standalone work, project `+` starts a task in that project, and the sidebar lists
+standalone tasks separately. The same distinction ships
+in all seven interface languages. The focused CI profile builds both Windows x64
+installers and reruns Windows package, resource, install, first-launch, and cleanup
+verification; a Windows package is not considered accepted unless that workflow passes.
 Version 0.1.53 makes AI4HEOR the single user-facing research workbench, replaces the
 inherited generic starters with six pharmacoeconomics/HEOR tasks, and keeps legacy
 `/live` links inside the same product surface. It also corrects the MiniMax China
@@ -436,13 +439,14 @@ and unnotarized and is for internal product-owner testing only.
 
 ### Intel macOS product-owner acceptance
 
-Use `AI4HEOR_0.1.54_x64.dmg` only on an Intel Mac. Before opening it, verify SHA-256
-`2c8c70bd96fc9f78778f0c9653518b23de3d915c2198467c968345fd4b372aff`.
+Use `AI4HEOR_0.1.56_x64.dmg` only on an Intel Mac. Before opening it, verify SHA-256
+`ed1107407ef6e3c8d46d0c674d368540c82811868a673a0e1c4d2dd3a2962358`.
 Because this internal build is unsigned, macOS may require Control-click →
 Open; that exception is not evidence of distribution readiness.
 
-1. Confirm that the application name and icon are AI4HEOR and that the initial workspace
-   starts from a pharmacoeconomic research question with six HEOR-specific starters.
+1. Confirm that the application name and icon are AI4HEOR. New task must provide an
+   unrestricted natural-language composer plus four HEOR-specific draft shortcuts; the
+   guided Workbench must remain a separate project-oriented surface.
 2. Create a disposable project. Confirm that `AGENTS.md`, `policy.json`,
    `capabilities/candidates/`, `capabilities/reviews/`, `learning/proposals/`, and
    `learning/preferences.json` are present.
@@ -460,7 +464,7 @@ Open; that exception is not evidence of distribution readiness.
    PPTX from the research-presentation card; open it and check the title, figures/tables,
    limitations, and generated source pages. Change a bound source and confirm the prior PPTX
    is no longer reported as current. Generation must not create an approval record.
-7. In Methods & Tools, ask AI4HEOR to create a narrow presentation-only Skill candidate.
+7. In Skills & tools, ask AI4HEOR to create a narrow presentation-only Skill candidate.
    Its name, description, license note, limitations, and acceptance checks must be complete
    in English and Simplified Chinese. Review and activate the exact candidate for this
    disposable project, then revoke it; no core or other-project Skill may change.
@@ -473,8 +477,7 @@ Open; that exception is not evidence of distribution readiness.
    logs, or exports.
 
 Current acceptance limits: no admitted external Skill or third-party MCP, no Developer-ID
-signature or notarization, no Apple-Silicon,
-Windows, or current Linux acceptance, and no claim of scientific or methodological
+signature or notarization, no Apple-Silicon or current Linux acceptance, and no claim of scientific or methodological
 validity. Model-provider credentials entered in the current unsigned build are stored in
 OpenCode's owner-only app-private `auth.json`, separately from endpoint metadata and not
 in the macOS Keychain; revisit keychain-backed storage for a signed release. A
@@ -502,7 +505,7 @@ silently acquire those claims. Tagged matrix jobs no longer create or populate a
 only the final job may create a draft after all four evidence files and the cross-platform
 manifest validate, and it uploads exactly those verified installers and records. This gate
 is locally contract-tested and rejects the
-current unsigned 0.1.54 x64 DMG, but it has not been exercised with real Apple credentials.
+current unsigned 0.1.56 x64 DMG, but it has not been exercised with real Apple credentials.
 The AI4HEOR 0.1.30 Linux `.deb` and `.rpm` were built from the same clean commit
 `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. Both packages are payload-verified with all
 282 configured resources matching source bytes and all 177 deterministic HEOR tests
@@ -528,7 +531,7 @@ If you use AI4HEOR in your research, please cite it:
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.54},
+  version = {0.1.56},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

@@ -7,6 +7,8 @@ vi.mock("@/lib/tauri", () => ({
   isTauri: true,
   addFilesToWorkspace: vi.fn(async () => ["data.csv"]),
   addTextToWorkspace: vi.fn(async () => "pasted.txt"),
+  addBinaryToWorkspace: vi.fn(async () => "pasted.png"),
+  addPathsToWorkspace: vi.fn(async () => ["dropped.csv"]),
 }));
 
 describe("Composer attachments (desktop)", () => {
@@ -55,5 +57,25 @@ describe("Composer attachments (desktop)", () => {
     // A short paste stays a normal paste (no new chip).
     fireEvent.paste(input, { clipboardData: { getData: () => "short text" } });
     expect(screen.getAllByText("pasted.txt")).toHaveLength(1);
+  });
+
+  it("turns a pasted screenshot into a local image file chip", async () => {
+    const beforeWorkspaceWrite = vi.fn().mockResolvedValue(true);
+    render(<Composer onSend={vi.fn()} beforeWorkspaceWrite={beforeWorkspaceWrite} />);
+    const input = screen.getByLabelText("Ask anything") as HTMLTextAreaElement;
+
+    fireEvent.paste(input, {
+      clipboardData: {
+        getData: () => "",
+        items: [{
+          type: "image/png",
+          getAsFile: () => new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" }),
+        }],
+      },
+    });
+
+    await waitFor(() => expect(screen.getByText("pasted.png")).toBeTruthy());
+    expect(beforeWorkspaceWrite).toHaveBeenCalledTimes(1);
+    expect(input.value).toBe("");
   });
 });

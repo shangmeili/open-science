@@ -1,7 +1,18 @@
 {
+  "workbench": { "title": "Research workspace" },
+  "newTask": {
+    "title": "New task",
+    "heading": "What HEOR work would you like to tackle today?",
+    "suggestions": {
+      "scope": { "title": "Frame the research question", "prompt": "Help me frame this pharmacoeconomic or HEOR decision problem. Start from what I provide and confirm the population, intervention, comparator, outcomes, perspective, time horizon, and intended decision use. Ask only for information that would materially change the study." },
+      "evidence": { "title": "Find and organize evidence", "prompt": "Help me find and organize the evidence needed for this pharmacoeconomic study. First clarify the decision problem and evidence gaps, then identify useful local sources, searches that may be needed, provenance, and limitations. Before any network access, show the exact query and fields that would leave this computer." },
+      "model": { "title": "Design or review a model", "prompt": "Help me design or review this health economic model. Start from the decision problem and examine model structure, parameter evidence, key assumptions, uncertainty, and validation requirements. Keep calculation errors separate from issues that require researcher judgment." },
+      "deliverable": { "title": "Analyze data or prepare a briefing", "prompt": "Help me with this pharmacoeconomic or HEOR task. I can provide data, a model, a report, or briefing requirements. First inventory the available materials and expected deliverable, then propose a reviewable analysis or production path." }
+    }
+  },
   "notFound": {
-    "title": "Session not found",
-    "hint": "Pick a session from the sidebar."
+    "title": "Task not found",
+    "hint": "Pick a task from the sidebar."
   },
   "composer": {
     "placeholder": {
@@ -27,7 +38,7 @@
     },
     "shellMode": {
       "badge": "shell",
-      "title": "Runs directly in the session's workspace folder"
+      "title": "Runs directly in the task's workspace folder"
     },
     "stop": {
       "aria": "Stop",
@@ -73,7 +84,7 @@
     "settings": "Review model and privacy settings"
   },
   "starters": {
-    "newSession": "New session",
+    "newSession": "New task",
     "heading": "What HEOR question should we work on?",
     "subheading": "Describe your pharmacoeconomic question — or begin with a researcher-led workflow.",
     "design": {
@@ -113,14 +124,14 @@
     },
     "filesToggle": {
       "default": "Files",
-      "title": "Browse this session's folder beside the chat"
+      "title": "Browse this task's folder beside the chat"
     },
     "runsToggle": {
       "label": "Runs",
-      "title": "This session's experiment runs — beside the chat"
+      "title": "This task's analysis runs — beside the chat"
     },
     "notebook": {
-      "openTitle": "Open {{path}} — the agent works on this notebook in this session",
+      "openTitle": "Open {{path}} — the assistant works on this notebook in this task",
       "evaluatePrompt": "Evaluate this in the notebook kernel:\n```python\n{{expr}}\n```"
     },
     "connBadge": {
@@ -134,7 +145,7 @@
     },
     "status": {
       "paused": "Paused — the agent needs your answer below",
-      "startingSession": "Starting the session in its folder…",
+      "startingSession": "Starting the task in its folder…",
       "working": "Working…"
     },
     "placeholder": {
@@ -244,13 +255,13 @@
   },
   "thread": {
     "exampleBadge": "Example · read-only",
-    "sampleNotice": "This example is read-only. Start new research to continue in AI4HEOR."
+    "sampleNotice": "This example is read-only. Start a new task to continue in AI4HEOR."
   },
   "workspaceChip": {
     "fallbackName": "Workspace",
     "titlePinned": "{{workspace}} — click to choose a different folder",
     "titleUnpinned": "Starts in a new dated folder ({{name}}) — click to choose a folder instead",
-    "chooseAria": "Choose session folder",
+    "chooseAria": "Choose task folder",
     "switching": "Switching…"
   },
   "agentMessage": {

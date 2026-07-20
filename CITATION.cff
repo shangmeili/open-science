@@ -7,7 +7,7 @@ authors:
 repository-code: "https://github.com/ai4s-research/open-science"
 url: "https://github.com/ai4s-research/open-science"
 license: MIT
-version: 0.1.54
+version: 0.1.56
 date-released: "2026-07-20"
 keywords:
   - AI for science

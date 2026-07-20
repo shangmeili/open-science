@@ -199,7 +199,7 @@
   },
   "workspace": {
     "title": "工作区",
-    "hint": "项目和单独会话的文件都保存在这里；项目可在多个会话中共用资料",
+    "hint": "项目和任务的文件都保存在这里；同一项目中的任务可以共用资料",
     "unavailable": "该功能在桌面应用中可用",
     "change": "更改…",
     "reveal": "在文件管理器中显示"
@@ -219,7 +219,7 @@
     "interpreterSet": "解释器已设置，之后会用它运行笔记本单元格。",
     "overrideCleared": "覆盖设置已清除。",
     "couldNotSetInterpreter": "无法设置解释器",
-    "folderSet": "新会话将在此文件夹中创建。",
+    "folderSet": "新任务将在此文件夹中创建。",
     "couldNotSetFolder": "无法设置文件夹",
     "couldNotSetModel": "无法设置模型",
     "defaultModelSet": "默认模型已设置为 {{model}}",
@@ -252,7 +252,7 @@
       "heading": "留在本机",
       "workspaceFiles": "项目文件和原始数据",
       "codeExecution": "Python 和 Jupyter 均在本机运行，数据集不会因本地计算而整批上传。",
-      "sessionHistory": "会话历史和溯源记录，存储在应用的私有数据文件夹中。",
+      "sessionHistory": "任务历史和溯源记录，存储在应用的私有数据文件夹中。",
       "providerKeys": "模型服务的密钥和登录令牌保存在应用私有目录中，只有当前系统账户可读；不会写入项目、日志或导出文件。"
     },
     "remote": {

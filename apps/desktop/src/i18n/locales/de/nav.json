@@ -11,11 +11,11 @@
     "settings": "Einstellungen"
   },
   "items": {
-    "new": "Neue Unterhaltung",
+    "new": "Neue Aufgabe",
     "notebooks": "Notebooks",
     "files": "Dateien",
     "runs": "Durchläufe",
-    "skills": "Skills",
+    "skills": "Skills und Werkzeuge",
     "heor": "Forschungsbereich"
   },
   "projects": {
@@ -23,18 +23,18 @@
     "new": "Neues Projekt",
     "namePlaceholder": "Projektname",
     "intakePrompt": "Hilf mir, dieses HEOR-Projekt zu beginnen. Frage zuerst, welche Entscheidungs-, Forschungs-, Bewertungs- oder Lernfrage ich bearbeiten möchte und wofür die Ergebnisse bestimmt sind. Ermittle danach nur fehlende Angaben, die die Arbeit wesentlich verändern würden. Ich behalte die wissenschaftliche Leitung; suche nicht, wähle keine Methoden, nimm keine Eingaben an und erstelle keine Freigaben, bevor ich die Aufgabe definiert habe.",
-    "newSessionAria": "Neue Sitzung in „{{name}}“",
-    "noSessions": "Noch keine Sitzungen.",
+    "newSessionAria": "Neue Aufgabe in „{{name}}“",
+    "noSessions": "Noch keine Aufgaben.",
     "renameHint": "Zum Umbenennen doppelklicken"
   },
   "history": {
-    "heading": "Eigenständige Unterhaltungen",
-    "empty": "Noch keine eigenständigen Unterhaltungen.",
+    "heading": "Aufgaben",
+    "empty": "Noch keine Aufgaben.",
     "exampleTag": "Beispiel",
     "deleteAria": "{{title}} löschen"
   },
   "confirmDelete": {
-    "sessionTitle": "Sitzung löschen?",
+    "sessionTitle": "Aufgabe löschen?",
     "sessionBody": "„{{title}}“ und die zugehörigen Nachrichten werden gelöscht. Dies kann nicht widerrufen werden.",
     "exampleTitle": "Beispiel ausblenden?",
     "exampleBody": "„{{title}}“ wird in der Seitenleiste ausgeblendet.",
@@ -57,11 +57,11 @@
     "placeholder": "Befehl eingeben…",
     "noResults": "Keine Ergebnisse.",
     "actions": {
-      "newSession": "Neue Sitzung",
+      "newSession": "Neue Aufgabe",
       "analyzeData": "Meine HEOR-Evidenz oder -Daten analysieren",
       "auditReport": "Ein HEOR-Modell oder einen Bericht prüfen",
       "openNotebooks": "Notebooks öffnen",
-      "manageSkills": "Skills verwalten",
+      "manageSkills": "Skills und Werkzeuge verwalten",
       "openSettings": "Einstellungen öffnen",
       "toggleTheme": "Hell-/Dunkelmodus umschalten"
     }

@@ -1,8 +1,8 @@
 {
   "brand": "AI4HEOR",
   "badge": "HEOR",
-  "review": "Review analysis",
-  "closeReview": "Close analysis review",
+  "review": "Research & analysis",
+  "closeReview": "Close research & analysis",
   "placeholder": "Describe the decision problem, evidence gap, model change, or result you want to investigate…",
   "modelRequired": {
     "title": "Choose a model before sending",
@@ -51,11 +51,11 @@
     }
   },
   "panel": {
-    "title": "Analysis review",
-    "subtitle": "Human-governed deterministic workflow",
+    "title": "Research & analysis",
+    "subtitle": "Research materials, analysis records, and decisions awaiting your review",
     "loading": "Reading the project artifact…",
-    "noProjectTitle": "Open a project first",
-    "noProjectBody": "AI4HEOR artifacts and approvals are bound to the active project.",
+    "noProjectTitle": "This task does not have a research folder yet",
+    "noProjectBody": "Send the first message or start a task from a project to review research materials and analysis records here.",
     "emptyTitle": "No analysis plan yet",
     "emptyBody": "Ask the agent to frame the decision problem. It will create heor/analysis-plan.json when the inputs are ready.",
     "invalidTitle": "The analysis plan needs repair",

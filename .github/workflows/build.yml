@@ -9,6 +9,15 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      profile:
+        description: Build profile
+        type: choice
+        required: true
+        default: mac-windows-test
+        options:
+          - mac-windows-test
+          - full
 
 # The final manifest job creates the draft release only after every package gate passes.
 permissions:
@@ -19,15 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: macos-15
-            target: aarch64-apple-darwin
-          - platform: macos-15-intel
-            target: x86_64-apple-darwin
-          - platform: windows-2022
-            target: x86_64-pc-windows-msvc
-          - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
+        include: ${{ fromJSON((github.event_name == 'push' || inputs.profile == 'full') && '[{"platform":"macos-15","target":"aarch64-apple-darwin"},{"platform":"macos-15-intel","target":"x86_64-apple-darwin"},{"platform":"windows-2022","target":"x86_64-pc-windows-msvc"},{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu"}]' || '[{"platform":"macos-15-intel","target":"x86_64-apple-darwin"},{"platform":"windows-2022","target":"x86_64-pc-windows-msvc"}]') }}
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -263,17 +264,25 @@ jobs:
         shell: bash
         run: |
           mapfile -t evidence < <(find release-artifacts -type f -name '*-release-evidence.json' | sort)
-          test "${#evidence[@]}" -eq 4
-          python scripts/release/release_evidence.py assemble "${evidence[@]}" \
-            --artifact-root release-artifacts \
-            --require-platform macos \
-            --require-platform windows \
-            --require-platform linux \
-            --require-target aarch64-apple-darwin \
-            --require-target x86_64-apple-darwin \
-            --require-target x86_64-pc-windows-msvc \
-            --require-target x86_64-unknown-linux-gnu \
+          common=(
+            --artifact-root release-artifacts
+            --require-platform macos
+            --require-platform windows
+            --require-target x86_64-apple-darwin
+            --require-target x86_64-pc-windows-msvc
             --output ai4heor-release-manifest.json
+          )
+          if [[ "$GITHUB_EVENT_NAME" == "push" || "${{ inputs.profile }}" == "full" ]]; then
+            test "${#evidence[@]}" -eq 4
+            python scripts/release/release_evidence.py assemble "${evidence[@]}" \
+              "${common[@]}" \
+              --require-platform linux \
+              --require-target aarch64-apple-darwin \
+              --require-target x86_64-unknown-linux-gnu
+          else
+            test "${#evidence[@]}" -eq 2
+            python scripts/release/release_evidence.py assemble "${evidence[@]}" "${common[@]}"
+          fi
       - name: Upload cross-platform release evidence
         uses: actions/upload-artifact@v4
         with:

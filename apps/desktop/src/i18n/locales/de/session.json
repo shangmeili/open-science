@@ -1,7 +1,18 @@
 {
+  "workbench": { "title": "Forschungsbereich" },
+  "newTask": {
+    "title": "Neue Aufgabe",
+    "heading": "Welche HEOR-Arbeit möchten Sie heute angehen?",
+    "suggestions": {
+      "scope": { "title": "Forschungsfrage klären", "prompt": "Helfen Sie mir, diese pharmakoökonomische oder HEOR-Entscheidungsfrage zu klären. Bestätigen Sie Population, Intervention, Vergleich, Endpunkte, Perspektive, Zeithorizont und Verwendungszweck und fragen Sie nur nach Informationen, die die Studie wesentlich verändern." },
+      "evidence": { "title": "Evidenz suchen und ordnen", "prompt": "Helfen Sie mir, die für diese pharmakoökonomische Studie benötigte Evidenz zu finden und zu ordnen. Klären Sie zuerst Entscheidungsfrage und Evidenzlücken und nennen Sie lokale Quellen, erforderliche Suchen, Herkunft und Grenzen. Zeigen Sie vor jedem Netzwerkzugriff die genaue Suchanfrage und die zu sendenden Felder." },
+      "model": { "title": "Modell entwerfen oder prüfen", "prompt": "Helfen Sie mir, dieses gesundheitsökonomische Modell zu entwerfen oder zu prüfen. Untersuchen Sie Modellstruktur, Parameterevidenz, zentrale Annahmen, Unsicherheit und Validierung und trennen Sie Rechenfehler von Fragen, die eine fachliche Entscheidung erfordern." },
+      "deliverable": { "title": "Daten analysieren oder Bericht vorbereiten", "prompt": "Helfen Sie mir bei dieser pharmakoökonomischen oder HEOR-Aufgabe. Ich kann Daten, ein Modell, einen Bericht oder Anforderungen an eine Präsentation bereitstellen. Erfassen Sie zuerst vorhandene Materialien und das erwartete Ergebnis und schlagen Sie dann einen prüfbaren Arbeitsweg vor." }
+    }
+  },
   "notFound": {
-    "title": "Sitzung nicht gefunden",
-    "hint": "Wählen Sie eine Sitzung aus der Seitenleiste."
+    "title": "Aufgabe nicht gefunden",
+    "hint": "Wählen Sie eine Aufgabe aus der Seitenleiste."
   },
   "composer": {
     "placeholder": {
@@ -27,7 +38,7 @@
     },
     "shellMode": {
       "badge": "shell",
-      "title": "Läuft direkt im Arbeitsbereichsordner der Sitzung"
+      "title": "Läuft direkt im Arbeitsbereichsordner der Aufgabe"
     },
     "stop": {
       "aria": "Stopp",
@@ -73,7 +84,7 @@
     "settings": "Modell- und Datenschutzeinstellungen prüfen"
   },
   "starters": {
-    "newSession": "Neue Sitzung",
+    "newSession": "Neue Aufgabe",
     "heading": "Welche HEOR-Frage sollen wir bearbeiten?",
     "subheading": "Beschreiben Sie Ihre pharmakoökonomische Frage oder beginnen Sie mit einem forschungsgeleiteten Arbeitsablauf.",
     "design": {
@@ -113,14 +124,14 @@
     },
     "filesToggle": {
       "default": "Dateien",
-      "title": "Den Ordner dieser Sitzung neben dem Chat durchsuchen"
+      "title": "Den Ordner dieser Aufgabe neben dem Chat durchsuchen"
     },
     "runsToggle": {
       "label": "Durchläufe",
-      "title": "Die Experimentdurchläufe dieser Sitzung — neben dem Chat"
+      "title": "Die Analyseläufe dieser Aufgabe — neben dem Chat"
     },
     "notebook": {
-      "openTitle": "{{path}} öffnen — der Agent arbeitet in dieser Sitzung an diesem Notebook",
+      "openTitle": "{{path}} öffnen — der Assistent arbeitet in dieser Aufgabe an diesem Notebook",
       "evaluatePrompt": "Führe Folgendes im Notebook-Kernel aus:\n```python\n{{expr}}\n```"
     },
     "connBadge": {
@@ -134,7 +145,7 @@
     },
     "status": {
       "paused": "Pausiert — der Agent benötigt Ihre Antwort unten",
-      "startingSession": "Die Sitzung wird in ihrem Ordner gestartet…",
+      "startingSession": "Die Aufgabe wird in ihrem Ordner gestartet…",
       "working": "Arbeitet…"
     },
     "placeholder": {
@@ -244,13 +255,13 @@
   },
   "thread": {
     "exampleBadge": "Beispiel · nur lesbar",
-    "sampleNotice": "Dieses Beispiel ist schreibgeschützt. Beginnen Sie eine neue Forschung, um in AI4HEOR fortzufahren."
+    "sampleNotice": "Dieses Beispiel ist schreibgeschützt. Starten Sie eine neue Aufgabe, um in AI4HEOR fortzufahren."
   },
   "workspaceChip": {
     "fallbackName": "Arbeitsbereich",
     "titlePinned": "{{workspace}} — klicken, um einen anderen Ordner zu wählen",
     "titleUnpinned": "Startet in einem neuen, datierten Ordner ({{name}}) — klicken, um stattdessen einen Ordner zu wählen",
-    "chooseAria": "Sitzungsordner wählen",
+    "chooseAria": "Aufgabenordner wählen",
     "switching": "Wird gewechselt…"
   },
   "agentMessage": {

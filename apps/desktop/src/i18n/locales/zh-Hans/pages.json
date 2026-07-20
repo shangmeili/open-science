@@ -6,7 +6,7 @@
     "newNotebook": "新建笔记本",
     "pythonNotebook": "Python 笔记本",
     "rNotebook": "R 笔记本",
-    "description": "这里汇总各会话中的 Jupyter 笔记本，最近使用的排在前面。单元格通过本机的 Python 或 R 运行，助手处理的也是这些文件。",
+    "description": "这里汇总各项任务中的 Jupyter 笔记本，最近使用的排在前面。单元格通过本机的 Python 或 R 运行，助手处理的也是这些文件。",
     "createsIn": "新笔记本创建于",
     "empty": {
       "tauri": "还没有笔记本。可以新建一个，也可以让助手生成。",
@@ -51,7 +51,7 @@
     "explorerUnavailableWeb": "文件浏览器在桌面应用中可用。",
     "selectFilePrompt": "选择一个文件以在此处预览。",
     "pane": {
-      "subtitle": "此会话的文件夹",
+      "subtitle": "当前任务的文件夹",
       "closeAria": "关闭文件"
     },
     "contextMenu": {
@@ -72,13 +72,13 @@
     }
   },
   "skills": {
-    "title": "方法与工具",
+    "title": "技能与工具",
     "description": {
-      "prefix": "这里显示 AI4HEOR 内置的方法工具，以及当前项目中位于 ",
+      "prefix": "这里显示 AI4HEOR 内置的技能与工具，以及当前项目中位于 ",
       "suffix": " 下的所有内容。"
     },
     "install": {
-      "sectionTitle": "创建或评估方法工具",
+      "sectionTitle": "添加或评估技能与工具",
       "placeholder": "说说你希望 AI4HEOR 增加什么能力，也可以粘贴 Skill、插件、MCP 服务、计算包或 GitHub 链接",
       "starting": "正在启动…",
       "cta": "开始检查",

@@ -1,7 +1,18 @@
 {
+  "workbench": { "title": "研究工作台" },
+  "newTask": {
+    "title": "新建任务",
+    "heading": "今天想处理哪项药物经济学工作？",
+    "suggestions": {
+      "scope": { "title": "梳理研究问题", "prompt": "帮我梳理这项药物经济学或 HEOR 研究的决策问题。先根据我提供的内容，确认目标人群、干预、对照、结局、评价视角、时间范围和决策用途；只追问会实质影响研究的信息。" },
+      "evidence": { "title": "查找与整理证据", "prompt": "帮我查找并整理这项药物经济学研究所需的证据。先明确决策问题和证据缺口，再说明可用的本地资料、需要检索的内容以及出处和局限。如需联网，先列出检索式和将发送的字段。" },
+      "model": { "title": "设计或检查经济学模型", "prompt": "帮我设计或检查这项药物经济学模型。先根据决策问题说明模型结构、参数证据、关键假设、不确定性和验证要求；将计算错误与需要研究者判断的问题分开。" },
+      "deliverable": { "title": "分析数据或准备汇报", "prompt": "帮我处理这项药物经济学或 HEOR 任务。我可以提供数据、模型、报告或汇报要求。请先盘点现有材料和预期交付物，再给出可复核的处理步骤。" }
+    }
+  },
   "notFound": {
-    "title": "未找到会话",
-    "hint": "从侧边栏选择一个会话。"
+    "title": "未找到任务",
+    "hint": "从侧边栏选择一项任务。"
   },
   "composer": {
     "placeholder": {
@@ -27,7 +38,7 @@
     },
     "shellMode": {
       "badge": "shell",
-      "title": "直接在此会话的工作区文件夹中运行"
+      "title": "直接在当前任务的工作区文件夹中运行"
     },
     "stop": {
       "aria": "停止",
@@ -73,7 +84,7 @@
     "settings": "查看模型和隐私设置"
   },
   "starters": {
-    "newSession": "新建会话",
+    "newSession": "新建任务",
     "heading": "你想解决什么药物经济学问题？",
     "subheading": "直接描述研究问题，也可以从下面的常用任务开始。",
     "design": {
@@ -113,14 +124,14 @@
     },
     "filesToggle": {
       "default": "文件",
-      "title": "在聊天旁浏览此会话的文件夹"
+      "title": "在聊天旁浏览当前任务的文件夹"
     },
     "runsToggle": {
       "label": "运行",
-      "title": "在对话旁查看当前会话的分析运行"
+      "title": "在对话旁查看当前任务的分析运行"
     },
     "notebook": {
-      "openTitle": "打开 {{path}}（助手会在当前会话中处理这个笔记本）",
+      "openTitle": "打开 {{path}}（助手会在当前任务中处理这个笔记本）",
       "evaluatePrompt": "请在笔记本内核中计算：\n```python\n{{expr}}\n```"
     },
     "connBadge": {
@@ -134,7 +145,7 @@
     },
     "status": {
       "paused": "已暂停，请在下方回答后继续",
-      "startingSession": "正在其文件夹中启动会话…",
+      "startingSession": "正在任务文件夹中启动…",
       "working": "正在处理…"
     },
     "placeholder": {
@@ -236,13 +247,13 @@
   },
   "thread": {
     "exampleBadge": "示例 · 只读",
-    "sampleNotice": "这是只读示例。开始新的研究后，即可在 AI4HEOR 中继续。"
+    "sampleNotice": "这是只读示例。新建任务后，即可在 AI4HEOR 中继续。"
   },
   "workspaceChip": {
     "fallbackName": "工作区",
     "titlePinned": "当前文件夹：{{workspace}}。点击可更换",
     "titleUnpinned": "将在新的日期文件夹（{{name}}）中开始。点击可选择其他文件夹",
-    "chooseAria": "选择会话文件夹",
+    "chooseAria": "选择任务文件夹",
     "switching": "切换中…"
   },
   "agentMessage": {

@@ -1,9 +1,9 @@
 # AI4HEOR Desktop — Product Requirements
 
-> **Status (AI4HEOR alpha, 2026-07-17).** The runtime is **OpenCode**, bundled as an isolated
+> **Status (AI4HEOR 0.1.56 internal test, 2026-07-20).** The runtime is **OpenCode**, bundled as an isolated
 > sidecar (one-click, auto-started, does not touch a user's own OpenCode). Built: the
 > three-column workbench UI, real multi-session chat with history, a real Skills/Agents
-> view, BYOK key config, a macOS installer, and the first-party HEOR workflow described
+> view, BYOK key config, Intel macOS and Windows x64 test installers, and the first-party HEOR workflow described
 > in `docs/HEOR_PRODUCT.md`. Generic Science Pack statements below remain platform
 > lineage and roadmap; they do not override the narrower AI4HEOR product contract.
 
@@ -53,7 +53,7 @@ Human method review; it does not claim optimal study design, reimbursement,
 funding, or policy recommendations. Current
 PSM component uncertainty recomputes reviewed raw cost, utility, and event
 inputs under fixed survival; it is explicitly not a complete structural PSA.
-The analysis-review pane consolidates only current app-audited paired-bootstrap,
+The research-and-analysis pane consolidates only current app-audited paired-bootstrap,
 NMA, anchored-MAIC, natural-history model-calibration, semi-Markov microsimulation,
 RWE-causal, and advanced-VOI results into one method-review queue. Pending
 results open the exact Human form; rejected or blocked results return to the
@@ -153,7 +153,7 @@ After downloading and first opening, the user enters onboarding:
 3. Choose a workspace directory.
 4. Verify that the AI assistant environment is ready.
 5. Use the bundled assistant environment (auto-started; no separate install).
-6. Start a standalone conversation or create the first research project.
+6. Start a standalone task or create the first research project.
 
 First launch must clearly tell the user: data is stored locally by default; the agent
 requests authorization before sensitive actions; the user must explicitly select a
@@ -168,13 +168,15 @@ is a local UI preference only and cannot authorize research, data transfer, or r
 
 #### 5.1.2 Default HEOR entry
 
-The application opens directly in the AI4HEOR natural-language workspace. The
-global first action is “New conversation”; named HEOR projects remain available
-for work that should share files and context across conversations. Neither path
-uses an inherited generic Open Science example.
+The application opens on the AI4HEOR research workbench. The workbench orients
+the researcher with projects, recent tasks, and HEOR starters; it is not a second
+task-creation command. “New task” is the single explicit blank-task entry, while
+project `+` starts a task whose files and context belong to that project. Named
+HEOR projects remain available for work that should share files and context across
+tasks. Neither path uses an inherited generic Open Science example.
 The empty state offers pharmacoeconomics and HEOR tasks: local-knowledge-base
 learning, decision-problem scoping, Human-authorized evidence search, model-input
-research, and analysis-plan audit. Runtime, model, workspace, project, and session
+research, and analysis-plan audit. Runtime, model, workspace, project, and task
 state remain visible without displacing the research conversation. The main surface
 labels this only as the “AI assistant” state. OpenCode is an implementation detail:
 its engine name and local endpoint appear only in collapsed advanced diagnostics,
@@ -187,9 +189,9 @@ the theory/methods versus dated-progress boundary, installs without a model or
 network call, builds the existing local index, and never overwrites an edited or
 conflicting installed copy. Researchers may instead add their own local folders.
 
-Standalone conversations retain the same assistant, Skills, HEOR methods, local
-files, review, and audit functions as project conversations. Their local scope is
-private to that conversation instead of being shared. Creating a project asks only for its local display name, then pre-fills an unsent,
+Standalone tasks retain the same assistant, Skills, HEOR methods, local files,
+review, and audit functions as project tasks. Their local scope is private to that
+task instead of being shared. Creating a project asks only for its local display name, then pre-fills an unsent,
 localized natural-language intake request. Scientific scope, methods, evidence,
 assumptions, and approvals are not collected or chosen by the creation form.
 
@@ -394,7 +396,8 @@ Dark theme:
 
 ### 6.4 Core pages
 
-- **HEOR Start** — new standalone conversation, HEOR question framing, projects, researcher-led starters, AI assistant status, model status.
+- **Research workbench** — projects, recent tasks, researcher-led HEOR starters, AI assistant status, and model status. The AI4HEOR brand returns here; it is not duplicated in sidebar navigation.
+- **New task** — one unconstrained natural-language entry for standalone work; every explicit click creates a visibly clean, focused draft.
 - **Project Workspace** — agent chat, execution timeline, plan approval card, tool-call cards, artifact dock, review warnings.
 - **Literature** — search, filter, list, abstract preview, PDF status, citation info, add to corpus, export BibTeX / CSV.
 - **Data & Code** — file tree, Python scripts, notebook preview, CSV preview, run history, environment dependencies.
@@ -425,7 +428,7 @@ Allow Once · Always Allow for This Project · Deny · View Details.
 
 ### 7.4 Command palette
 
-Shortcut: `Cmd + K` (macOS) / `Ctrl + K` (Windows). Quick actions: new conversation, new project, search
+Shortcut: `Cmd + K` (macOS) / `Ctrl + K` (Windows). Quick actions: new task, new project, search
 literature, run reviewer, open settings, switch model, install skill, export report.
 
 ## 8. MVP example workflow

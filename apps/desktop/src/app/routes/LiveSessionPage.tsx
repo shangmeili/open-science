@@ -13,6 +13,7 @@ import { Elapsed } from "@/components/thread/ToolGroup";
 import { Composer } from "@/components/thread/Composer";
 import { baseName } from "@/lib/pathName";
 import { HeorStarters } from "@/components/heor/HeorStarters";
+import { NewTaskSuggestions } from "@/components/heor/NewTaskSuggestions";
 import { FirstRunGuide } from "@/components/heor/FirstRunGuide";
 import { HeorReviewPane } from "@/components/heor/HeorReviewPane";
 import { InteractionPrompt } from "@/components/thread/InteractionPrompt";
@@ -24,12 +25,13 @@ import { cn } from "@/lib/cn";
 import { buildHeorPrompt } from "@/lib/heor";
 import { isTauri } from "@/lib/tauri";
 
-/** AI4HEOR research conversation backed by the local assistant runtime. The
+/** AI4HEOR research task backed by the local assistant runtime. The runtime
  * session is created lazily on the first message, then the URL gains its id. */
-export function LiveSessionPage() {
+export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) {
   const { t } = useTranslation(["session", "common", "heor"]);
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const isWorkbench = workbench && !sessionId;
   const {
     status,
     switching,
@@ -39,6 +41,7 @@ export function LiveSessionPage() {
     projects,
     researchScope,
     currentId,
+    draftEpoch,
     threads,
     error,
     questions,
@@ -217,6 +220,12 @@ export function LiveSessionPage() {
     : workspacePinned || !!sessionId
       ? projects.find((candidate) => candidate.path === workspace) ?? researchScope
       : null;
+  const taskProject = projects.find((candidate) => candidate.path === workspace)
+    ?? (workspacePinned ? researchScope : null);
+  const canOpenHeorReview = !!sessionId || !!taskProject || workspacePinned;
+  useEffect(() => {
+    if (!canOpenHeorReview) setShowHeorReview(false);
+  }, [canOpenHeorReview]);
   // Show the Runs toggle only when this session has runs (like the Files/folder
   // affordance — present when there's content). Cheap count query on open.
   const [hasRuns, setHasRuns] = useState(false);
@@ -283,7 +292,11 @@ export function LiveSessionPage() {
           <div className="flex min-w-0 items-center gap-2">
             <Activity size={14} className="shrink-0 text-accent" />
             <h1 className="truncate font-serif text-[15px] font-semibold text-text">
-              {t("heor:brand")}
+              {isWorkbench
+                ? t("session:workbench.title")
+                : sessionId
+                  ? t("heor:brand")
+                  : t("session:newTask.title")}
             </h1>
             {sessionId && title && <span className="truncate text-xs text-muted">/ {title}</span>}
           </div>
@@ -322,18 +335,20 @@ export function LiveSessionPage() {
               <span>{t("live.runsToggle.label")}</span>
             </button>
           )}
-          <button
-            onClick={() => setShowHeorReview((open) => !open)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors hover:bg-surface-2",
-              showHeorReview ? "bg-surface-2 text-text" : "text-muted",
-            )}
-            aria-pressed={showHeorReview}
-            title={t("heor:review")}
-          >
-            <Activity size={13} />
-            <span>{t("heor:review")}</span>
-          </button>
+          {canOpenHeorReview && (
+            <button
+              onClick={() => setShowHeorReview((open) => !open)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors hover:bg-surface-2",
+                showHeorReview ? "bg-surface-2 text-text" : "text-muted",
+              )}
+              aria-pressed={showHeorReview}
+              title={t("heor:review")}
+            >
+              <Activity size={13} />
+              <span>{t("heor:review")}</span>
+            </button>
+          )}
           <ConnBadge status={displayStatus} />
           {uniqueNotebooks.map((nb) => (
             <button
@@ -363,14 +378,22 @@ export function LiveSessionPage() {
 
         <div ref={chatRef} onScroll={onChatScroll} className="flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-8 py-6">
-            {isEmpty && !sessionId && (
+            {isEmpty && !sessionId && isWorkbench && (
               <>
                 <FirstRunGuide onOpenSettings={() => navigate("/settings")} />
                 <HeorStarters
-                  onPick={(prompt) => useUiStore.getState().setComposerDraft(prompt)}
+                  onPick={(prompt) => {
+                    useUiStore.getState().setComposerDraft(prompt);
+                    navigate("/heor/new");
+                  }}
                   ensureWorkspace={ensureStandaloneWorkspace}
                 />
               </>
+            )}
+            {isEmpty && !sessionId && !isWorkbench && (
+              <NewTaskSuggestions
+                onPick={(prompt) => useUiStore.getState().setComposerDraft(prompt)}
+              />
             )}
             {/* Deliberate workspace switches don't render anything at all (they're
                 masked as connected); a genuine boot/reconnect shows only the
@@ -422,24 +445,6 @@ export function LiveSessionPage() {
 
         <div className="px-8 pb-5 pt-2">
           <div className="mx-auto max-w-[760px] space-y-3">
-            {connected && !defaultModel && (
-              <div
-                role="status"
-                className="flex items-center justify-between gap-4 rounded-card border border-warn/30 bg-warn/10 px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-text">{t("heor:modelRequired.title")}</div>
-                  <p className="mt-0.5 text-xs leading-5 text-muted">{t("heor:modelRequired.body")}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate("/settings")}
-                  className="shrink-0 rounded-input border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text hover:bg-surface-2"
-                >
-                  {t("heor:modelRequired.action")}
-                </button>
-              </div>
-            )}
             {activeRequest && (
               <InteractionPrompt
                 question={activeQuestion}
@@ -450,27 +455,32 @@ export function LiveSessionPage() {
                 onPermission={(id, reply) => void replyPermission(id, reply)}
               />
             )}
-            <Composer
-              onSend={onSend}
-              onRunShell={(c) => void onRunShell(c)}
-              onRunCommand={(n, a) => void onRunCommand(n, a)}
-              commands={composerCommands}
-              disabled={!connected || working || !defaultModel}
-              working={running}
-              onStop={() => void interrupt()}
-              placeholder={
-                working
-                  ? t("live.placeholder.waiting")
-                  : connected && !defaultModel
-                    ? t("heor:modelRequired.placeholder")
-                  : connected
-                    ? t("heor:placeholder")
-                    : t("live.placeholder.disconnected")
-              }
-              approvalMode={approvalMode}
-              onApprovalModeChange={(mode) => void setApprovalMode(mode)}
-              beforeWorkspaceWrite={ensureStandaloneWorkspace}
-            />
+            {!isWorkbench && (
+              <Composer
+                key={sessionId ?? `task:${draftEpoch}`}
+                onSend={onSend}
+                onRunShell={(c) => void onRunShell(c)}
+                onRunCommand={(n, a) => void onRunCommand(n, a)}
+                commands={composerCommands}
+                disabled={!connected || working || !defaultModel}
+                working={running}
+                onStop={() => void interrupt()}
+                placeholder={
+                  working
+                    ? t("live.placeholder.waiting")
+                    : connected && !defaultModel
+                      ? t("heor:modelRequired.placeholder")
+                    : connected
+                      ? t("heor:placeholder")
+                      : t("live.placeholder.disconnected")
+                }
+                approvalMode={approvalMode}
+                onApprovalModeChange={(mode) => void setApprovalMode(mode)}
+                beforeWorkspaceWrite={ensureStandaloneWorkspace}
+                autoFocus={!sessionId}
+                contextLabel={taskProject?.name}
+              />
+            )}
           </div>
         </div>
       </div>

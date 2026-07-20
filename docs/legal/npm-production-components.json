@@ -2,7 +2,7 @@
   "schema": "ai4heor-npm-license-inventory/v1",
   "generated_on": "2026-07-20",
   "scope": "pnpm production dependency universe resolved from the lockfile",
-  "lockfile_sha256": "ce8fd2d6dce18313816a1669c2723615c0a8281850fde0217ebd759d702c8ffc",
+  "lockfile_sha256": "011824d232b845c601b87a18845f5170011c445ceb1370616aff98ec469883b0",
   "components": [
     {
       "name": "3dmol",
@@ -473,6 +473,15 @@
       "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/hast"
     },
     {
+      "name": "@types/katex",
+      "versions": [
+        "0.16.8"
+      ],
+      "license": "MIT",
+      "author": null,
+      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/katex"
+    },
+    {
       "name": "@types/mdast",
       "versions": [
         "4.0.4"
@@ -773,6 +782,15 @@
       "homepage": "https://github.com/wooorm/comma-separated-tokens#readme"
     },
     {
+      "name": "commander",
+      "versions": [
+        "8.3.0"
+      ],
+      "license": "MIT",
+      "author": "TJ Holowaychuk",
+      "homepage": "https://github.com/tj/commander.js#readme"
+    },
+    {
       "name": "compress-commons",
       "versions": [
         "4.1.2"
@@ -917,6 +935,15 @@
       "homepage": "https://github.com/mafintosh/end-of-stream"
     },
     {
+      "name": "entities",
+      "versions": [
+        "6.0.1"
+      ],
+      "license": "BSD-2-Clause",
+      "author": "Felix Boehm",
+      "homepage": "https://github.com/fb55/entities#readme"
+    },
+    {
       "name": "escape-string-regexp",
       "versions": [
         "5.0.0"
@@ -1016,6 +1043,60 @@
       "homepage": "https://github.com/isaacs/node-graceful-fs#readme"
     },
     {
+      "name": "hast-util-from-dom",
+      "versions": [
+        "5.0.1"
+      ],
+      "license": "ISC",
+      "author": "Keith McKnight",
+      "homepage": "https://github.com/syntax-tree/hast-util-from-dom#readme"
+    },
+    {
+      "name": "hast-util-from-html",
+      "versions": [
+        "2.0.3"
+      ],
+      "license": "MIT",
+      "author": "Titus Wormer",
+      "homepage": "https://github.com/syntax-tree/hast-util-from-html#readme"
+    },
+    {
+      "name": "hast-util-from-html-isomorphic",
+      "versions": [
+        "2.0.0"
+      ],
+      "license": "MIT",
+      "author": "Remco Haszing",
+      "homepage": "https://github.com/syntax-tree/hast-util-from-html-isomorphic#readme"
+    },
+    {
+      "name": "hast-util-from-parse5",
+      "versions": [
+        "8.0.3"
+      ],
+      "license": "MIT",
+      "author": "Titus Wormer",
+      "homepage": "https://github.com/syntax-tree/hast-util-from-parse5#readme"
+    },
+    {
+      "name": "hast-util-is-element",
+      "versions": [
+        "3.0.0"
+      ],
+      "license": "MIT",
+      "author": "Titus Wormer",
+      "homepage": "https://github.com/syntax-tree/hast-util-is-element#readme"
+    },
+    {
+      "name": "hast-util-parse-selector",
+      "versions": [
+        "4.0.0"
+      ],
+      "license": "MIT",
+      "author": "Titus Wormer",
+      "homepage": "https://github.com/syntax-tree/hast-util-parse-selector#readme"
+    },
+    {
       "name": "hast-util-to-jsx-runtime",
       "versions": [
         "2.3.6"
@@ -1025,6 +1106,15 @@
       "homepage": "https://github.com/syntax-tree/hast-util-to-jsx-runtime#readme"
     },
     {
+      "name": "hast-util-to-text",
+      "versions": [
+        "4.0.2"
+      ],
+      "license": "MIT",
+      "author": "Titus Wormer",
+      "homepage": "https://github.com/syntax-tree/hast-util-to-text#readme"
+    },
+    {
       "name": "hast-util-whitespace",
       "versions": [
         "3.0.0"
@@ -1032,6 +1122,15 @@
       "license": "MIT",
       "author": "Titus Wormer",
       "homepage": "https://github.com/syntax-tree/hast-util-whitespace#readme"
+    },
+    {
+      "name": "hastscript",
+      "versions": [
+        "9.0.1"
+      ],
+      "license": "MIT",
+      "author": "Titus Wormer",
+      "homepage": "https://github.com/syntax-tree/hastscript#readme"
     },
     {
       "name": "highlight.js",
@@ -1194,6 +1293,16 @@
       "license": "(MIT OR GPL-3.0-or-later)",
       "author": "Stuart Knightley",
       "homepage": "https://github.com/Stuk/jszip#readme"
+    },
+    {
+      "name": "katex",
+      "versions": [
+        "0.16.47",
+        "0.17.0"
+      ],
+      "license": "MIT",
+      "author": null,
+      "homepage": "https://katex.org"
     },
     {
       "name": "lazystream",
@@ -1457,6 +1566,15 @@
       "homepage": "https://github.com/syntax-tree/mdast-util-gfm-task-list-item#readme"
     },
     {
+      "name": "mdast-util-math",
+      "versions": [
+        "3.0.0"
+      ],
+      "license": "MIT",
+      "author": "Titus Wormer",
+      "homepage": "https://github.com/syntax-tree/mdast-util-math#readme"
+    },
+    {
       "name": "mdast-util-mdx-expression",
       "versions": [
         "2.0.1"
@@ -1599,6 +1717,15 @@
       "license": "MIT",
       "author": "Titus Wormer",
       "homepage": "https://github.com/micromark/micromark-extension-gfm-task-list-item#readme"
+    },
+    {
+      "name": "micromark-extension-math",
+      "versions": [
+        "3.1.0"
+      ],
+      "license": "MIT",
+      "author": "Titus Wormer",
+      "homepage": "https://github.com/micromark/micromark-extension-math#readme"
     },
     {
       "name": "micromark-factory-destination",
@@ -1864,6 +1991,15 @@
       "homepage": "https://github.com/wooorm/parse-entities#readme"
     },
     {
+      "name": "parse5",
+      "versions": [
+        "7.3.0"
+      ],
+      "license": "MIT",
+      "author": "Ivan Nikulin",
+      "homepage": "https://parse5.js.org"
+    },
+    {
       "name": "path-is-absolute",
       "versions": [
         "1.0.1"
@@ -2000,6 +2136,15 @@
       "homepage": "https://github.com/Yqnn/node-readdir-glob"
     },
     {
+      "name": "rehype-katex",
+      "versions": [
+        "7.0.1"
+      ],
+      "license": "MIT",
+      "author": "Junyoung Choi",
+      "homepage": "https://github.com/remarkjs/remark-math/tree/main#readme"
+    },
+    {
       "name": "remark-gfm",
       "versions": [
         "4.0.1"
@@ -2007,6 +2152,15 @@
       "license": "MIT",
       "author": "Titus Wormer",
       "homepage": "https://github.com/remarkjs/remark-gfm#readme"
+    },
+    {
+      "name": "remark-math",
+      "versions": [
+        "6.0.0"
+      ],
+      "license": "MIT",
+      "author": "Junyoung Choi",
+      "homepage": "https://github.com/remarkjs/remark-math/tree/main#readme"
     },
     {
       "name": "remark-parse",
@@ -2217,6 +2371,15 @@
       "homepage": "https://unifiedjs.com"
     },
     {
+      "name": "unist-util-find-after",
+      "versions": [
+        "5.0.0"
+      ],
+      "license": "MIT",
+      "author": "Titus Wormer",
+      "homepage": "https://github.com/syntax-tree/unist-util-find-after#readme"
+    },
+    {
       "name": "unist-util-is",
       "versions": [
         "6.0.1"
@@ -2233,6 +2396,15 @@
       "license": "MIT",
       "author": "Titus Wormer",
       "homepage": "https://github.com/syntax-tree/unist-util-position#readme"
+    },
+    {
+      "name": "unist-util-remove-position",
+      "versions": [
+        "5.0.0"
+      ],
+      "license": "MIT",
+      "author": "Titus Wormer",
+      "homepage": "https://github.com/syntax-tree/unist-util-remove-position#readme"
     },
     {
       "name": "unist-util-stringify-position",
@@ -2335,6 +2507,15 @@
       "homepage": "https://github.com/vfile/vfile#readme"
     },
     {
+      "name": "vfile-location",
+      "versions": [
+        "5.0.3"
+      ],
+      "license": "MIT",
+      "author": "Titus Wormer",
+      "homepage": "https://github.com/vfile/vfile-location#readme"
+    },
+    {
       "name": "vfile-message",
       "versions": [
         "4.0.3"
@@ -2351,6 +2532,15 @@
       "license": "MIT",
       "author": "hemanth.hm",
       "homepage": "https://github.com/jadejs/void-elements"
+    },
+    {
+      "name": "web-namespaces",
+      "versions": [
+        "2.0.1"
+      ],
+      "license": "MIT",
+      "author": "Titus Wormer",
+      "homepage": "https://github.com/wooorm/web-namespaces#readme"
     },
     {
       "name": "wrappy",

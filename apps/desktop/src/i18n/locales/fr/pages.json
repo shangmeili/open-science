@@ -6,7 +6,7 @@
     "newNotebook": "Nouveau notebook",
     "pythonNotebook": "Notebook Python",
     "rNotebook": "Notebook R",
-    "description": "Tous les notebooks Jupyter de vos dossiers de session, du plus récent au plus ancien. Les cellules s'exécutent sur le noyau Python ou R local dans le propre dossier du notebook ; l'agent travaille sur les mêmes fichiers.",
+    "description": "Tous les notebooks Jupyter de vos dossiers de tâche, du plus récent au plus ancien. Les cellules s'exécutent sur le noyau Python ou R local dans le propre dossier du notebook ; l'assistant travaille sur les mêmes fichiers.",
     "createsIn": "Les nouveaux notebooks sont créés dans",
     "empty": {
       "tauri": "Aucun notebook pour le moment. Créez-en un, ou demandez à l'agent d'en produire un.",
@@ -51,7 +51,7 @@
     "explorerUnavailableWeb": "L'explorateur de fichiers est disponible dans l'application de bureau.",
     "selectFilePrompt": "Sélectionnez un fichier pour le prévisualiser ici.",
     "pane": {
-      "subtitle": "le dossier de cette session",
+      "subtitle": "le dossier de cette tâche",
       "closeAria": "Fermer les fichiers"
     },
     "contextMenu": {
@@ -72,13 +72,13 @@
     }
   },
   "skills": {
-    "title": "Compétences et agents",
+    "title": "Compétences et outils",
     "description": {
       "prefix": "Chargé en direct depuis le runtime de l’assistant IA — les capacités AI4HEOR admises, plus tout ce qui se trouve sous ",
       "suffix": " dans votre espace de travail."
     },
     "install": {
-      "sectionTitle": "Créer ou évaluer un outil méthodologique",
+      "sectionTitle": "Ajouter ou évaluer une compétence ou un outil",
       "placeholder": "Décrivez une capacité à ajouter à AI4HEOR ou collez une Skill, un plugin, un MCP, un paquet ou une URL GitHub",
       "starting": "Démarrage…",
       "cta": "Démarrer l'examen",

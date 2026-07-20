@@ -11,11 +11,11 @@
     "settings": "设置"
   },
   "items": {
-    "new": "新建会话",
+    "new": "新建任务",
     "notebooks": "笔记本",
     "files": "文件",
     "runs": "运行",
-    "skills": "方法与工具",
+    "skills": "技能与工具",
     "heor": "研究工作台"
   },
   "projects": {
@@ -23,18 +23,18 @@
     "new": "新建项目",
     "namePlaceholder": "项目名称",
     "intakePrompt": "帮我开始这个药物经济学项目。先问清楚要解决的决策、研究、评价或学习问题，以及结果准备怎么用。只追问会影响后续工作的关键信息。在我确认任务前，不要检索资料、选择方法、假定参数或记录任何批准。",
-    "newSessionAria": "在“{{name}}”中新建会话",
-    "noSessions": "暂无会话。",
+    "newSessionAria": "在“{{name}}”中新建任务",
+    "noSessions": "暂无任务。",
     "renameHint": "双击重命名"
   },
   "history": {
-    "heading": "单独会话",
-    "empty": "暂无单独会话。",
+    "heading": "任务",
+    "empty": "暂无任务。",
     "exampleTag": "示例",
     "deleteAria": "删除 {{title}}"
   },
   "confirmDelete": {
-    "sessionTitle": "删除会话？",
+    "sessionTitle": "删除任务？",
     "sessionBody": "“{{title}}”及其消息将被删除，此操作无法撤销。",
     "exampleTitle": "隐藏示例？",
     "exampleBody": "“{{title}}”将从侧边栏中隐藏。",
@@ -57,11 +57,11 @@
     "placeholder": "输入命令…",
     "noResults": "无结果。",
     "actions": {
-      "newSession": "开始新的研究",
+      "newSession": "新建任务",
       "analyzeData": "分析证据或数据",
       "auditReport": "检查模型或报告",
       "openNotebooks": "打开笔记本",
-      "manageSkills": "管理方法与工具",
+      "manageSkills": "管理技能与工具",
       "openSettings": "打开设置",
       "toggleTheme": "切换浅色/深色主题"
     }

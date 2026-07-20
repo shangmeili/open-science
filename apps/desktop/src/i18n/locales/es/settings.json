@@ -186,7 +186,7 @@
   },
   "workspace": {
     "title": "Espacio de trabajo",
-    "hint": "Los proyectos y las conversaciones independientes se guardan aquí; los archivos de un proyecto se reutilizan en sus conversaciones",
+    "hint": "Los archivos de proyectos y tareas se guardan aquí; las tareas del mismo proyecto pueden compartir sus archivos",
     "unavailable": "disponible en la app de escritorio",
     "change": "Cambiar…",
     "reveal": "Mostrar"
@@ -206,7 +206,7 @@
     "interpreterSet": "Intérprete configurado — las celdas del cuaderno ahora se ejecutan en él.",
     "overrideCleared": "Anulación borrada.",
     "couldNotSetInterpreter": "No se pudo configurar el intérprete",
-    "folderSet": "Las nuevas sesiones se crearán en esta carpeta.",
+    "folderSet": "Las nuevas tareas se crearán en esta carpeta.",
     "couldNotSetFolder": "No se pudo configurar la carpeta",
     "couldNotSetModel": "No se pudo configurar el modelo",
     "defaultModelSet": "Modelo predeterminado establecido en {{model}}",
@@ -239,7 +239,7 @@
       "heading": "Permanece en esta máquina",
       "workspaceFiles": "Los archivos de tu espacio de trabajo y los datos sin procesar",
       "codeExecution": "Ejecución de código — el kernel de Python y Jupyter se ejecutan localmente; los conjuntos de datos se procesan aquí y nunca se suben en bloque.",
-      "sessionHistory": "Historial de sesiones y registros de procedencia, en la carpeta de datos privada de la app.",
+      "sessionHistory": "Historial de tareas y registros de procedencia, en la carpeta de datos privada de la app.",
       "providerKeys": "Claves de proveedores y tokens de inicio de sesión — un archivo privado de la app legible solo por tu cuenta; nunca se escribe en el espacio de trabajo, la procedencia, los registros ni las exportaciones."
     },
     "remote": {

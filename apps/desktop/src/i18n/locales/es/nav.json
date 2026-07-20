@@ -11,11 +11,11 @@
     "settings": "Configuración"
   },
   "items": {
-    "new": "Nueva conversación",
+    "new": "Nueva tarea",
     "notebooks": "Cuadernos",
     "files": "Archivos",
     "runs": "Ejecuciones",
-    "skills": "Habilidades",
+    "skills": "Habilidades y herramientas",
     "heor": "Espacio de investigación"
   },
   "projects": {
@@ -23,18 +23,18 @@
     "new": "Nuevo proyecto",
     "namePlaceholder": "Nombre del proyecto",
     "intakePrompt": "Ayúdame a iniciar este proyecto HEOR. Pregunta primero qué cuestión de decisión, investigación, evaluación o aprendizaje quiero abordar y cuál es el uso previsto. Después, identifica solo la información ausente que cambiaría materialmente el trabajo. Yo mantengo el liderazgo científico; no busques, selecciones métodos, supongas datos de entrada ni crees registros de aprobación antes de que defina la tarea.",
-    "newSessionAria": "Nueva sesión en «{{name}}»",
-    "noSessions": "Aún no hay sesiones.",
+    "newSessionAria": "Nueva tarea en «{{name}}»",
+    "noSessions": "Aún no hay tareas.",
     "renameHint": "Doble clic para renombrar"
   },
   "history": {
-    "heading": "Conversaciones independientes",
-    "empty": "Aún no hay conversaciones independientes.",
+    "heading": "Tareas",
+    "empty": "Aún no hay tareas.",
     "exampleTag": "ejemplo",
     "deleteAria": "Eliminar {{title}}"
   },
   "confirmDelete": {
-    "sessionTitle": "¿Eliminar sesión?",
+    "sessionTitle": "¿Eliminar tarea?",
     "sessionBody": "\"{{title}}\" y sus mensajes se eliminarán. Esta acción no se puede deshacer.",
     "exampleTitle": "¿Ocultar ejemplo?",
     "exampleBody": "\"{{title}}\" se ocultará de la barra lateral.",
@@ -57,11 +57,11 @@
     "placeholder": "Escribe un comando…",
     "noResults": "Sin resultados.",
     "actions": {
-      "newSession": "Nueva sesión",
+      "newSession": "Nueva tarea",
       "analyzeData": "Analizar mi evidencia o mis datos de HEOR",
       "auditReport": "Auditar un modelo o informe de HEOR",
       "openNotebooks": "Abrir cuadernos",
-      "manageSkills": "Gestionar habilidades",
+      "manageSkills": "Gestionar habilidades y herramientas",
       "openSettings": "Abrir configuración",
       "toggleTheme": "Alternar tema claro / oscuro"
     }

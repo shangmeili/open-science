@@ -11,11 +11,11 @@
     "settings": "設定"
   },
   "items": {
-    "new": "新しい会話",
+    "new": "新しいタスク",
     "notebooks": "ノートブック",
     "files": "ファイル",
     "runs": "実行",
-    "skills": "スキル",
+    "skills": "スキルとツール",
     "heor": "研究ワークスペース"
   },
   "projects": {
@@ -23,18 +23,18 @@
     "new": "新規プロジェクト",
     "namePlaceholder": "プロジェクト名",
     "intakePrompt": "このHEORプロジェクトの開始を手伝ってください。まず、私が取り組みたい意思決定、研究、評価、または学習上の問いと、その利用目的を確認してください。その後、作業を実質的に変える不足情報だけを特定してください。科学的な主導権は私にあります。私が課題を定義する前に、検索、手法の選択、入力値の仮定、承認記録の作成を行わないでください。",
-    "newSessionAria": "「{{name}}」で新しいセッション",
-    "noSessions": "セッションはまだありません。",
+    "newSessionAria": "「{{name}}」で新しいタスク",
+    "noSessions": "タスクはまだありません。",
     "renameHint": "ダブルクリックで名前を変更"
   },
   "history": {
-    "heading": "単独の会話",
-    "empty": "単独の会話はまだありません。",
+    "heading": "タスク",
+    "empty": "タスクはまだありません。",
     "exampleTag": "例",
     "deleteAria": "{{title}} を削除"
   },
   "confirmDelete": {
-    "sessionTitle": "セッションを削除しますか？",
+    "sessionTitle": "タスクを削除しますか？",
     "sessionBody": "「{{title}}」とそのメッセージが削除されます。この操作は取り消せません。",
     "exampleTitle": "サンプルを非表示にしますか？",
     "exampleBody": "「{{title}}」がサイドバーから非表示になります。",
@@ -57,11 +57,11 @@
     "placeholder": "コマンドを入力…",
     "noResults": "結果がありません。",
     "actions": {
-      "newSession": "新規セッション",
+      "newSession": "新しいタスク",
       "analyzeData": "HEOR のエビデンスまたはデータを分析",
       "auditReport": "HEOR モデルまたはレポートを監査",
       "openNotebooks": "ノートブックを開く",
-      "manageSkills": "スキルを管理",
+      "manageSkills": "スキルとツールを管理",
       "openSettings": "設定を開く",
       "toggleTheme": "ライト / ダークテーマを切り替え"
     }

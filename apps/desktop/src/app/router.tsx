@@ -16,9 +16,10 @@ export const routes: RouteObject[] = [
       { index: true, element: <Navigate to="/heor" replace /> },
       // Keep legacy /live links readable, but render the same AI4HEOR
       // workspace. New navigation always uses /heor.
-      { path: "live", element: <LiveSessionPage /> },
+      { path: "live", element: <LiveSessionPage workbench /> },
       { path: "live/:sessionId", element: <LiveSessionPage /> },
-      { path: "heor", element: <LiveSessionPage /> },
+      { path: "heor", element: <LiveSessionPage workbench /> },
+      { path: "heor/new", element: <LiveSessionPage /> },
       { path: "heor/:sessionId", element: <LiveSessionPage /> },
       { path: "skills", element: <SkillsPage /> },
       { path: "notebooks", element: <NotebooksPage /> },

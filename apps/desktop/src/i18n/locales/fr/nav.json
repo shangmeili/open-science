@@ -11,11 +11,11 @@
     "settings": "Paramètres"
   },
   "items": {
-    "new": "Nouvelle conversation",
+    "new": "Nouvelle tâche",
     "notebooks": "Notebooks",
     "files": "Fichiers",
     "runs": "Exécutions",
-    "skills": "Compétences",
+    "skills": "Compétences et outils",
     "heor": "Espace de recherche"
   },
   "projects": {
@@ -23,18 +23,18 @@
     "new": "Nouveau projet",
     "namePlaceholder": "Nom du projet",
     "intakePrompt": "Aide-moi à démarrer ce projet HEOR. Demande d’abord quelle question de décision, de recherche, d’évaluation ou d’apprentissage je veux traiter et quel en est l’usage prévu. Identifie ensuite uniquement les informations manquantes qui modifieraient réellement le travail. Je conserve la direction scientifique ; ne lance aucune recherche, ne choisis aucune méthode, ne suppose aucune donnée d’entrée et ne crée aucun enregistrement d’approbation avant que j’aie défini la tâche.",
-    "newSessionAria": "Nouvelle session dans « {{name}} »",
-    "noSessions": "Aucune session pour l’instant.",
+    "newSessionAria": "Nouvelle tâche dans « {{name}} »",
+    "noSessions": "Aucune tâche pour l’instant.",
     "renameHint": "Double-cliquez pour renommer"
   },
   "history": {
-    "heading": "Conversations indépendantes",
-    "empty": "Aucune conversation indépendante pour le moment.",
+    "heading": "Tâches",
+    "empty": "Aucune tâche pour le moment.",
     "exampleTag": "exemple",
     "deleteAria": "Supprimer {{title}}"
   },
   "confirmDelete": {
-    "sessionTitle": "Supprimer la session ?",
+    "sessionTitle": "Supprimer la tâche ?",
     "sessionBody": "« {{title}} » et ses messages seront supprimés. Cette action est irréversible.",
     "exampleTitle": "Masquer l'exemple ?",
     "exampleBody": "« {{title}} » sera masqué dans la barre latérale.",
@@ -57,11 +57,11 @@
     "placeholder": "Tapez une commande…",
     "noResults": "Aucun résultat.",
     "actions": {
-      "newSession": "Nouvelle session",
+      "newSession": "Nouvelle tâche",
       "analyzeData": "Analyser mes preuves ou données HEOR",
       "auditReport": "Auditer un modèle ou rapport HEOR",
       "openNotebooks": "Ouvrir les notebooks",
-      "manageSkills": "Gérer les compétences",
+      "manageSkills": "Gérer les compétences et outils",
       "openSettings": "Ouvrir les paramètres",
       "toggleTheme": "Basculer entre thème clair et sombre"
     }

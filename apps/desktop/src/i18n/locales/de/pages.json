@@ -6,7 +6,7 @@
     "newNotebook": "Neues Notebook",
     "pythonNotebook": "Python-Notebook",
     "rNotebook": "R-Notebook",
-    "description": "Alle Jupyter-Notebooks aus Ihren Sitzungsordnern, neueste zuerst. Zellen laufen auf dem lokalen Python- oder R-Kernel im eigenen Ordner des Notebooks; der Agent arbeitet an denselben Dateien.",
+    "description": "Alle Jupyter-Notebooks aus Ihren Aufgabenordnern, neueste zuerst. Zellen laufen auf dem lokalen Python- oder R-Kernel im eigenen Ordner des Notebooks; der Assistent arbeitet an denselben Dateien.",
     "createsIn": "Neue Notebooks werden erstellt in",
     "empty": {
       "tauri": "Noch keine Notebooks. Erstellen Sie eines, oder lassen Sie den Agenten eines erzeugen.",
@@ -51,7 +51,7 @@
     "explorerUnavailableWeb": "Der Datei-Explorer ist in der Desktop-App verfügbar.",
     "selectFilePrompt": "Wählen Sie eine Datei, um sie hier anzuzeigen.",
     "pane": {
-      "subtitle": "Ordner dieser Sitzung",
+      "subtitle": "Ordner dieser Aufgabe",
       "closeAria": "Dateien schließen"
     },
     "contextMenu": {
@@ -72,13 +72,13 @@
     }
   },
   "skills": {
-    "title": "Skills & Agenten",
+    "title": "Skills und Werkzeuge",
     "description": {
       "prefix": "Live aus der Laufzeit des KI-Assistenten geladen — zugelassene AI4HEOR-Fähigkeiten plus alles unter ",
       "suffix": " in Ihrem Arbeitsbereich."
     },
     "install": {
-      "sectionTitle": "Methodenwerkzeug erstellen oder bewerten",
+      "sectionTitle": "Skill oder Werkzeug hinzufügen oder bewerten",
       "placeholder": "Beschreiben Sie eine neue AI4HEOR-Fähigkeit oder fügen Sie Skill, Plugin, MCP, Paket oder GitHub-URL ein",
       "starting": "Wird gestartet…",
       "cta": "Prüfung starten",

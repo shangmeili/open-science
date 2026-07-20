@@ -143,6 +143,8 @@ pub fn run() {
             kernel::set_python_path,
             artifact_file::read_artifact,
             artifact_file::open_path,
+            artifact_file::add_binary_to_workspace,
+            artifact_file::add_paths_to_workspace,
             artifact_file::reveal_path,
             artifact_file::absolute_path,
             artifact_file::resolve_artifact,

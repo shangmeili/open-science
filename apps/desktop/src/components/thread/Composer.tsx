@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, Check, ChevronDown, Hand, Paperclip, Square, Terminal, X, Zap } from "lucide-react";
-import { addFilesToWorkspace, addTextToWorkspace, isTauri, type ApprovalMode } from "@/lib/tauri";
+import { ArrowUp, Check, ChevronDown, Folder, Hand, Paperclip, Square, Terminal, X, Zap } from "lucide-react";
+import {
+  addBinaryToWorkspace,
+  addFilesToWorkspace,
+  addPathsToWorkspace,
+  addTextToWorkspace,
+  isTauri,
+  type ApprovalMode,
+} from "@/lib/tauri";
 import { useUiStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
@@ -11,6 +18,20 @@ const PASTE_AS_FILE_CHARS = 2000;
 const PASTE_AS_FILE_LINES = 25;
 /** Max composer height before it scrolls internally. */
 const MAX_HEIGHT_PX = 160;
+
+function imageExtension(mime: string): string {
+  const subtype = mime.split("/")[1]?.split(";")[0]?.replace("+xml", "") ?? "";
+  return subtype === "jpeg" ? "jpg" : subtype || "png";
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(reader.error ?? new Error("read failed"));
+    reader.readAsDataURL(blob);
+  });
+}
 
 // Terminal-style input history: every sent input (prompt, "!cmd", "/name args")
 // in its typed form, shared across sessions, newest last, ↑/↓ to recall.
@@ -73,6 +94,8 @@ export function Composer({
   approvalMode,
   onApprovalModeChange,
   beforeWorkspaceWrite,
+  autoFocus = false,
+  contextLabel,
 }: {
   onSend?: (text: string) => void;
   onRunShell?: (command: string) => void;
@@ -90,6 +113,10 @@ export function Composer({
   onApprovalModeChange?: (mode: ApprovalMode) => void;
   /** Materialize a draft's private workspace before attachments are copied. */
   beforeWorkspaceWrite?: () => Promise<boolean>;
+  /** Focus the input when an explicit new-task surface opens. */
+  autoFocus?: boolean;
+  /** Optional project context shown as a quiet strip above the free input. */
+  contextLabel?: string;
 }) {
   const { t } = useTranslation(["session", "common"]);
   const resolvedPlaceholder = placeholder ?? t("composer.placeholder.default");
@@ -108,6 +135,7 @@ export function Composer({
   const [value, setValue] = useState("");
   const [files, setFiles] = useState<string[]>([]);
   const [adding, setAdding] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   /** Highlighted palette row; clamped to the current matches. */
   const [sel, setSel] = useState(0);
   /** Esc closed the palette for the current input; typing reopens it. */
@@ -133,6 +161,10 @@ export function Composer({
   const taRef = useRef<HTMLTextAreaElement>(null);
   const composerDraft = useUiStore((s) => s.composerDraft);
   const setComposerDraft = useUiStore((s) => s.setComposerDraft);
+
+  useEffect(() => {
+    if (autoFocus) taRef.current?.focus();
+  }, [autoFocus]);
 
   const shellMode = !!onRunShell && !command && value.startsWith("!");
   // The palette is open while the command NAME is being typed ("/na…"); the
@@ -317,28 +349,74 @@ export function Composer({
     }
   };
 
-  // Very long pastes become a workspace file chip instead of flooding the box.
+  const addWorkspaceFiles = async (write: () => Promise<string | string[]>) => {
+    try {
+      if (beforeWorkspaceWrite && !(await beforeWorkspaceWrite())) return;
+      const result = await write();
+      const names = Array.isArray(result) ? result : [result];
+      if (names.length > 0) setFiles((current) => [...current, ...names]);
+    } catch (err) {
+      toast.error(
+        t("composer.error.paste", {
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    }
+  };
+
+  // Long text and pasted screenshots become local workspace file chips.
   const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
     if (!isTauri || !onSend) return;
+    const imageItem = Array.from(e.clipboardData.items ?? []).find((item) =>
+      item.type.startsWith("image/"),
+    );
+    const image = imageItem?.getAsFile();
+    if (image) {
+      e.preventDefault();
+      void addWorkspaceFiles(async () => {
+        const base64 = await blobToBase64(image);
+        return addBinaryToWorkspace(`pasted.${imageExtension(image.type)}`, base64);
+      });
+      return;
+    }
     const text = e.clipboardData.getData("text/plain");
     if (text.length <= PASTE_AS_FILE_CHARS && text.split("\n").length <= PASTE_AS_FILE_LINES) {
       return; // normal paste
     }
     e.preventDefault();
-    void (async () => {
-      try {
-        if (beforeWorkspaceWrite && !(await beforeWorkspaceWrite())) return;
-        const name = await addTextToWorkspace("pasted.txt", text);
-        setFiles((f) => [...f, name]);
-      } catch (err) {
-        toast.error(
-          t("composer.error.paste", {
-            message: err instanceof Error ? err.message : String(err),
-          }),
-        );
-      }
-    })();
+    void addWorkspaceFiles(() => addTextToWorkspace("pasted.txt", text));
   };
+
+  // OS file drops are native Tauri events; DOM drop events do not receive the
+  // absolute paths needed to copy files into the local research workspace.
+  useEffect(() => {
+    if (!isTauri || !onSend) return;
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    void import("@tauri-apps/api/webview")
+      .then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent((event) => {
+        const payload = event.payload;
+        if (payload.type === "enter" || payload.type === "over") setDragOver(true);
+        if (payload.type === "leave") setDragOver(false);
+        if (payload.type === "drop") {
+          setDragOver(false);
+          if (payload.paths.length > 0) {
+            void addWorkspaceFiles(() => addPathsToWorkspace(payload.paths));
+          }
+        }
+      }))
+      .then((stop) => {
+        if (cancelled) stop();
+        else unlisten = stop;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+    // The native listener must remain stable while this composer is mounted.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onSend]);
 
   // Copy local files into the agent workspace; they appear as chips.
   const addFiles = async () => {
@@ -372,8 +450,15 @@ export function Composer({
       className={cn(
         "relative rounded-card border bg-surface px-2 py-2 shadow-card",
         shellMode ? "border-warn/60" : command ? "border-accent/50" : "border-border",
+        dragOver && "border-accent ring-2 ring-accent/40",
       )}
     >
+      {contextLabel && (
+        <div className="mb-2 flex items-center gap-2 border-b border-faint px-1 pb-2 text-xs text-muted">
+          <Folder size={13} className="shrink-0" />
+          <span className="truncate">{contextLabel}</span>
+        </div>
+      )}
       {paletteOpen && (
         <div
           role="listbox"

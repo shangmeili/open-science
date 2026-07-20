@@ -323,9 +323,9 @@ class AI4HEORProductDocsTests(unittest.TestCase):
         for text in (english, chinese):
             self.assertIn("capabilities/candidates/", text)
             self.assertIn("learning/preferences.json", text)
-            self.assertIn("AI4HEOR_0.1.54_x64.dmg", text)
+            self.assertIn("AI4HEOR_0.1.56_x64.dmg", text)
             self.assertIn(
-                "2c8c70bd96fc9f78778f0c9653518b23de3d915c2198467c968345fd4b372aff",
+                "ed1107407ef6e3c8d46d0c674d368540c82811868a673a0e1c4d2dd3a2962358",
                 text,
             )
         self.assertIn("app-private `auth.json`", english)

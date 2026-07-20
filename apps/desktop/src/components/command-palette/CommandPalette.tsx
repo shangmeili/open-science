@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Command } from "cmdk";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   FileSearch,
   Moon,
@@ -27,6 +27,7 @@ export function CommandPalette() {
   const setOpen = useUiStore((s) => s.setPaletteOpen);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -57,11 +58,11 @@ export function CommandPalette() {
         ? t("starters.analyze.prompt", { ns: "session" })
         : t("starters.audit.prompt", { ns: "session" });
     useUiStore.getState().setComposerDraft(prompt);
-    navigate("/heor");
+    if (location.pathname !== "/heor/new") navigate("/heor/new");
   };
 
   const actions: Action[] = [
-    { id: "new", label: t("commandPalette.actions.newSession"), icon: <Plus size={16} />, run: () => { useRuntimeStore.getState().startDraft(); navigate("/heor"); close(); } },
+    { id: "new", label: t("commandPalette.actions.newSession"), icon: <Plus size={16} />, run: () => { useUiStore.getState().setComposerDraft(null); useRuntimeStore.getState().startDraft(); if (location.pathname !== "/heor/new") navigate("/heor/new"); close(); } },
     { id: "analyze", label: t("commandPalette.actions.analyzeData"), icon: <FileSearch size={16} />, run: () => draftWorkflow("analyze") },
     { id: "review", label: t("commandPalette.actions.auditReport"), icon: <ShieldCheck size={16} />, run: () => draftWorkflow("audit") },
     { id: "notebooks", label: t("commandPalette.actions.openNotebooks"), icon: <NotebookPen size={16} />, run: () => { navigate("/notebooks"); close(); } },

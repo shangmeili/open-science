@@ -588,8 +588,10 @@ describe("project and standalone conversations", () => {
   it("global startDraft starts standalone; a project can still pin its own draft", async () => {
     await useRuntimeStore.getState().switchWorkspace({ path: PROJECT.path });
     expect(useRuntimeStore.getState().workspacePinned).toBe(true);
+    const before = useRuntimeStore.getState().draftEpoch;
     useRuntimeStore.getState().startDraft();
     expect(useRuntimeStore.getState().workspacePinned).toBe(false);
+    expect(useRuntimeStore.getState().draftEpoch).toBe(before + 1);
   });
 });
 

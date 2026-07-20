@@ -46,6 +46,9 @@ function stripPrefixes(segment: string): string {
   let c = segment.trim();
   const cd = /^cd\s+(?:"[^"]*"|'[^']*'|[^\s&;]+)\s*(?:&&|;)\s*/;
   const env = /^\w+=(?:"[^"]*"|'[^']*'|\S*)\s+/;
+  // Launch wrappers are transparent for detection. The original command is
+  // still stored verbatim so a later reproduction keeps every flag/redirect.
+  const wrap = /^(?:nohup|time|timeout\s+\S+|stdbuf(?:\s+-\S+)+)\s+/;
   let changed = true;
   while (changed) {
     changed = false;
@@ -55,6 +58,10 @@ function stripPrefixes(segment: string): string {
     }
     if (env.test(c)) {
       c = c.replace(env, "").trim();
+      changed = true;
+    }
+    if (wrap.test(c)) {
+      c = c.replace(wrap, "").trim();
       changed = true;
     }
   }

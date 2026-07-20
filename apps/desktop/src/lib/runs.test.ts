@@ -91,6 +91,15 @@ describe("surfaceForCommand", () => {
     expect(surfaceForCommand('git commit -m "add sbatch script"')).toBe("local");
     expect(surfaceForCommand("python a.py --note 'use srun'")).toBe("local");
   });
+
+  it("sees through transparent launch wrappers to the real command", () => {
+    expect(looksLikeExecution("nohup python3 model.py >/dev/null 2>&1 &")).toBe(true);
+    expect(looksLikeExecution("time python model.py")).toBe(true);
+    expect(looksLikeExecution("timeout 30 python model.py")).toBe(true);
+    expect(looksLikeExecution("stdbuf -oL julia simulation.jl")).toBe(true);
+    expect(looksLikeExecution("nohup rsync -a a/ b/")).toBe(false);
+    expect(looksLikeExecution("timeout 5 sleep 3")).toBe(false);
+  });
 });
 
 describe("runInputFromEvent", () => {
@@ -116,6 +125,13 @@ describe("runInputFromEvent", () => {
   it("records a failed run too (a crashed experiment is provenance)", () => {
     const r = runInputFromEvent(bash({ status: "failed", output: "Traceback…" }));
     expect(r?.status).toBe("failed");
+  });
+
+  it("records a wrapped run without changing the command", () => {
+    const command = "nohup python3 model.py >/dev/null 2>&1 &";
+    const result = runInputFromEvent(bash({ input: { command } }));
+    expect(result?.command).toBe(command);
+    expect(result?.surface).toBe("local");
   });
 
   it("ignores non-bash, non-terminal, pathless, and non-execution commands", () => {

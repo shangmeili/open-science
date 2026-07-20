@@ -311,6 +311,20 @@ export async function addTextToWorkspace(filename: string, content: string): Pro
   return invoke<string>("add_text_to_workspace", { filename, content });
 }
 
+/** Write pasted binary content into the workspace as a deduplicated file. */
+export async function addBinaryToWorkspace(filename: string, base64: string): Promise<string> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string>("add_binary_to_workspace", { filename, base64 });
+}
+
+/** Copy files supplied by native drag-and-drop into the current workspace. */
+export async function addPathsToWorkspace(paths: string[]): Promise<string[]> {
+  if (!isTauri) return [];
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string[]>("add_paths_to_workspace", { paths });
+}
+
 /**
  * Explicitly import the user's OpenCode CLI login into the app's private
  * runtime (desktop only). Returns false when no CLI login exists; the sidecar
@@ -552,7 +566,7 @@ export async function workspaceBase(): Promise<string | null> {
   }
 }
 
-/** Choose the base folder new session workspaces are created under.
+/** Choose the base folder new task workspaces are created under.
  *  Returns the canonical path. Throws in the browser. */
 export async function setWorkspaceBase(path: string): Promise<string> {
   if (!isTauri) throw new Error("not running in the desktop app");
@@ -627,7 +641,7 @@ export async function listProjects(): Promise<ProjectInfo[]> {
   return invoke<ProjectInfo[]>("list_projects");
 }
 
-/** Active named project or standalone conversation research scope. */
+/** Active named project or standalone task research scope. */
 export async function currentResearchScope(): Promise<ProjectInfo | null> {
   if (!isTauri) return null;
   const { invoke } = await import("@tauri-apps/api/core");

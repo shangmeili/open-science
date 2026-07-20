@@ -1,11 +1,11 @@
 {
   "title": "Runs",
   "description": {
-    "prefix": "Every experiment execution across all sessions — command, code version, environment, hardware, and outputs. ",
+    "prefix": "Every analysis run across all tasks — command, code version, environment, hardware, and outputs. ",
     "suffix": " re-runs it and compares results."
   },
   "pane": {
-    "subtitle": "this session",
+    "subtitle": "this task",
     "closeAria": "Close runs"
   },
   "searchPlaceholder": "Search command or output path…",

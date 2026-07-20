@@ -6,7 +6,7 @@
     "newNotebook": "Nuevo cuaderno",
     "pythonNotebook": "Cuaderno de Python",
     "rNotebook": "Cuaderno de R",
-    "description": "Todos los cuadernos de Jupyter de tus carpetas de sesión, del más reciente al más antiguo. Las celdas se ejecutan en el kernel local de Python o R dentro de la carpeta propia del cuaderno; el agente trabaja sobre los mismos archivos.",
+    "description": "Todos los cuadernos de Jupyter de tus carpetas de tarea, del más reciente al más antiguo. Las celdas se ejecutan en el kernel local de Python o R dentro de la carpeta propia del cuaderno; el asistente trabaja sobre los mismos archivos.",
     "createsIn": "Los cuadernos nuevos se crean en",
     "empty": {
       "tauri": "Aún no hay cuadernos. Crea uno, o pídele al agente que produzca uno.",
@@ -51,7 +51,7 @@
     "explorerUnavailableWeb": "El explorador de archivos está disponible en la app de escritorio.",
     "selectFilePrompt": "Selecciona un archivo para previsualizarlo aquí.",
     "pane": {
-      "subtitle": "carpeta de esta sesión",
+      "subtitle": "carpeta de esta tarea",
       "closeAria": "Cerrar archivos"
     },
     "contextMenu": {
@@ -72,13 +72,13 @@
     }
   },
   "skills": {
-    "title": "Habilidades y agentes",
+    "title": "Habilidades y herramientas",
     "description": {
       "prefix": "Cargado en vivo desde el entorno del asistente de IA — capacidades AI4HEOR admitidas más todo lo que haya bajo ",
       "suffix": " en tu espacio de trabajo."
     },
     "install": {
-      "sectionTitle": "Crear o evaluar una herramienta metodológica",
+      "sectionTitle": "Añadir o evaluar una habilidad o herramienta",
       "placeholder": "Describe una capacidad que AI4HEOR debería añadir o pega una Skill, plugin, MCP, paquete o URL de GitHub",
       "starting": "Iniciando…",
       "cta": "Iniciar revisión",

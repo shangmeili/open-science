@@ -1,8 +1,8 @@
 {
   "brand": "AI4HEOR",
   "badge": "药物经济学",
-  "review": "查看分析进度",
-  "closeReview": "关闭分析进度",
+  "review": "研究与分析",
+  "closeReview": "关闭研究与分析",
   "placeholder": "描述你想研究的决策问题、证据缺口、模型修改或结果解释……",
   "modelRequired": {
     "title": "还没有选择模型",
@@ -14,9 +14,9 @@
     "eyebrow": "开始研究",
     "title": "你现在想做哪项工作？",
     "body": "可以直接描述药物经济学或 HEOR 研究任务，也可以从现有资料、分析结果或报告中的具体问题说起。",
-    "learn": { "title": "学习药物经济学基础", "body": "根据本地资料和你的当前水平，安排有出处的学习内容。", "prompt": "帮我根据当前本地 HEOR 知识库学习药物经济学。如果 heor/evidence-library.json 缺失或已过期，请提醒我在 AI4HEOR 的“分析进度”中安装内置药物经济学学习库、添加自己的资料或重新扫描，然后停止。否则使用 $heor-local-evidence 在本地检索。先问我想学什么、目前了解多少，再给出简短的学习安排。涉及事实的内容都要注明本地文件路径、页码和 SHA-256，并区分原文、解释和注明日期的最新进展。不要联网，也不要把摘要当作一级指导依据。" },
+    "learn": { "title": "学习药物经济学基础", "body": "根据本地资料和你的当前水平，安排有出处的学习内容。", "prompt": "帮我根据当前本地 HEOR 知识库学习药物经济学。如果 heor/evidence-library.json 缺失或已过期，请提醒我在 AI4HEOR 的“研究与分析”中安装内置药物经济学学习库、添加自己的资料或重新扫描，然后停止。否则使用 $heor-local-evidence 在本地检索。先问我想学什么、目前了解多少，再给出简短的学习安排。涉及事实的内容都要注明本地文件路径、页码和 SHA-256，并区分原文、解释和注明日期的最新进展。不要联网，也不要把摘要当作一级指导依据。" },
     "scope": { "title": "设计成本-效果分析", "body": "明确目标人群、干预措施、对照、评价视角、时间范围和健康产出。", "prompt": "帮我设计一项成本-效果分析。先明确决策问题，只追问会影响分析方案的关键信息。" },
-    "search": { "title": "制定文献检索方案", "body": "根据证据缺口准备 PubMed 或 ClinicalTrials.gov 检索式。", "prompt": "使用 $heor-evidence-search，根据当前证据缺口起草 heor/evidence-search-request.json。不要自行联网；数据源只能选择 PubMed 和 ClinicalTrials.gov。列清楚准备发送的查询字段并完成校验，等我在 AI4HEOR 的“分析进度”中确认后再检索。" },
+    "search": { "title": "制定文献检索方案", "body": "根据证据缺口准备 PubMed 或 ClinicalTrials.gov 检索式。", "prompt": "使用 $heor-evidence-search，根据当前证据缺口起草 heor/evidence-search-request.json。不要自行联网；数据源只能选择 PubMed 和 ClinicalTrials.gov。列清楚准备发送的查询字段并完成校验，等我在 AI4HEOR 的“研究与分析”中确认后再检索。" },
     "inputs": { "title": "查找并整理模型参数", "body": "查找参数证据、提取数值，并把证据与分析假设分开记录。", "prompt": "帮我查找并整理药物经济学模型参数。先明确决策问题和证据缺口，把有来源的数值与分析假设分开记录。" },
     "audit": { "title": "检查已有分析方案", "body": "检查模型结构、参数来源、证据链和参考案例缺口。", "prompt": "检查当前药物经济学分析方案的模型结构、可追溯性、无来源参数和参考案例缺口。不要代替研究者记录任何批准。" },
     "example": { "title": "运行成本-效果教学示例", "body": "安装本地教学案例，用固定脚本复算成本、QALY 和 ICER。", "prompt": "帮我检查并运行本地 heor-cost-effectiveness 教学示例。先阅读其中的 README.md、decision-problem.md 和 inputs/analysis-spec.json，说明所有数值都是教学假设，并问我是否按现有设定继续。得到确认后，只使用该目录中的版本化 run_analysis.py：先运行 `python run_analysis.py --check expected/base-case-result.json` 核对固定结果，再写出 `outputs/base-case-result.json`，并运行已声明的低值和高值单因素敏感性分析。报告输出文件的准确路径和 SHA-256，并区分计算可重复与模型有效。不要改写计算脚本，不要用模型临时计算代替，不要把示例阈值说成中国官方阈值，也不要作出具有成本效果、报销、定价或政策结论。" },
@@ -51,11 +51,11 @@
     }
   },
   "panel": {
-    "title": "分析进度",
-    "subtitle": "计算由程序复核，研究判断由你确认",
+    "title": "研究与分析",
+    "subtitle": "查看研究材料、分析记录和需要你确认的事项",
     "loading": "正在读取项目分析文件……",
-    "noProjectTitle": "请先打开一个项目",
-    "noProjectBody": "分析文件和确认记录必须保存在具体项目中。",
+    "noProjectTitle": "当前任务还没有研究文件夹",
+    "noProjectBody": "发送第一条消息或从项目中新建任务后，可以在这里查看研究材料和分析记录。",
     "emptyTitle": "尚无分析计划",
     "emptyBody": "先在对话中说明决策问题。信息充分后，助手会生成 heor/analysis-plan.json。",
     "invalidTitle": "分析计划需要修复",
