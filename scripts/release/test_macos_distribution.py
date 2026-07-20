@@ -313,6 +313,8 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn("*.msi", workflow)
         self.assertNotIn("MsiPath", verifier)
         self.assertIn("--check nsis-installed-payload", verifier)
+        self.assertIn("GetValue('DisplayName')", verifier)
+        self.assertNotIn("Where-Object DisplayName", verifier)
 
 
 if __name__ == "__main__":

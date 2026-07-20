@@ -67,13 +67,14 @@ function Assert-SameTree {
 
 function Get-Ai4HeorUninstallEntry {
     $paths = @(
-        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
-        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
-        'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall',
+        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall',
+        'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
     )
     $entries = @($paths | ForEach-Object {
-        Get-ItemProperty -Path $_ -ErrorAction SilentlyContinue |
-            Where-Object DisplayName -eq 'AI4HEOR'
+        Get-ChildItem -LiteralPath $_ -ErrorAction SilentlyContinue |
+            Where-Object { [string]$_.GetValue('DisplayName') -eq 'AI4HEOR' } |
+            ForEach-Object { Get-ItemProperty -LiteralPath $_.PSPath }
     })
     Assert-True ($entries.Count -eq 1) "Expected one installed AI4HEOR registry entry; found $($entries.Count)."
     return $entries[0]
@@ -81,12 +82,16 @@ function Get-Ai4HeorUninstallEntry {
 
 function Resolve-InstallRoot {
     param($Entry)
-    if ($Entry.InstallLocation -and (Test-Path -LiteralPath $Entry.InstallLocation)) {
-        return (Resolve-Path -LiteralPath $Entry.InstallLocation).Path
+    $installLocationProperty = $Entry.PSObject.Properties['InstallLocation']
+    $installLocation = if ($installLocationProperty) { [string]$installLocationProperty.Value } else { '' }
+    if ($installLocation -and (Test-Path -LiteralPath $installLocation)) {
+        return (Resolve-Path -LiteralPath $installLocation).Path
     }
-    $quoted = [regex]::Match([string]$Entry.UninstallString, '^\s*"([^"]+)"')
+    $uninstallProperty = $Entry.PSObject.Properties['UninstallString']
+    $uninstallString = if ($uninstallProperty) { [string]$uninstallProperty.Value } else { '' }
+    $quoted = [regex]::Match($uninstallString, '^\s*"([^"]+)"')
     if ($quoted.Success) { return Split-Path -Parent $quoted.Groups[1].Value }
-    $plain = ([string]$Entry.UninstallString -split '\s+')[0]
+    $plain = ($uninstallString -split '\s+')[0]
     Assert-True (-not [string]::IsNullOrWhiteSpace($plain)) "Installed AI4HEOR has no usable install location."
     return Split-Path -Parent $plain
 }
