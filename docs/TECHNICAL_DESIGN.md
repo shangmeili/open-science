@@ -290,10 +290,9 @@ git-ignored and fetched by `scripts/dev/fetch-opencode.sh`). The Rust side
 - with an **app-private** config/data dir via `XDG_CONFIG_HOME`/`XDG_DATA_HOME` under
   `~/Library/Application Support/com.ai4s.workbench/runtime/` (macOS) — so the user's
   sessions/config are never touched;
-- but it **shares the user's login**: the user's `auth.json` (OpenCode credentials / free
-  access) is copied read-only into the sandbox at startup, so the bundled runtime can
-  reply out of the box without a separate login. We only read the user's auth file; we
-  never modify it or their sessions.
+- it does **not silently share the user's login**: Settings offers an explicit import
+  action that copies the user's OpenCode CLI `auth.json` into the app-private data
+  directory. The source login and the user's OpenCode sessions are never modified.
 - killed on app exit.
 
 OpenCode and uv release archives are admitted through
@@ -306,9 +305,12 @@ asset metadata and uv values from the publisher's
 The contract covers every supported macOS, Windows, and Linux archive and runs in both
 build and cross-platform contract CI.
 
-The user's model provider key (entered in Settings) is written into that app-private
-`opencode.json` by the `configure_opencode` Rust command, and the sidecar is restarted
-to pick it up. Keys never enter the user's global OpenCode config, logs, or git.
+Settings writes custom provider metadata (adapter, endpoint and model identifiers) through
+OpenCode's authenticated `/global/config` API. It writes model-provider credentials
+separately through OpenCode's `/auth/:provider` API. OpenCode owns the resulting
+app-private `auth.json`; the runtime root is owner-only and the file is mode 600 on
+macOS/Linux. Model-provider keys never enter custom endpoint metadata, the user's global
+OpenCode config, provenance, logs, exports, or git.
 
 ## 6. Skills & MCP
 
@@ -926,8 +928,13 @@ maps high-risk actions to "ask" and must never blanket-allow them.
 
 ### 11.3 API keys
 
-Stored in macOS Keychain / Windows Credential Manager (fallback: encrypted local
-secrets). Never enter provenance, logs, crash reports, git, or exported projects.
+In the current unsigned internal build, model-provider credentials live in OpenCode's
+app-private `auth.json`, separately from provider/endpoint metadata. The runtime directory
+is owner-only and `auth.json` is mode 600 on macOS/Linux. Credentials never enter
+provenance, logs, crash reports, git, or exported projects. Keychain/Credential Manager
+storage remains a signed-release decision because unsigned builds caused repeated macOS
+keychain prompts. Researcher-added MCPs and connectors remain user-managed and may have
+their own credential-storage behavior.
 
 ## 12. Packaging & release
 

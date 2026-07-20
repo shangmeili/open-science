@@ -201,6 +201,54 @@ describe("Settings model browser integration", () => {
     expect(screen.queryByRole("button", { name: /^o3/ })).not.toBeInTheDocument();
   });
 
+  it("prefills MiniMax China without placing its key in endpoint config", async () => {
+    const client = catalogClient() as ReturnType<typeof catalogClient> & {
+      addCustomProvider: ReturnType<typeof vi.fn>;
+      setProviderApiKey: ReturnType<typeof vi.fn>;
+    };
+    client.addCustomProvider = vi.fn().mockResolvedValue(undefined);
+    client.setProviderApiKey = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(runtime, "getClient").mockReturnValue(client);
+    await renderSettings();
+    await screen.findByRole("button", { name: /^o3/ });
+
+    await userEvent.click(screen.getByRole("button", { name: "Manage" }));
+    await userEvent.click(screen.getByRole("button", { name: /Custom endpoint/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Fill MiniMax China Token Plan" }));
+
+    expect(screen.getByPlaceholderText("Name — e.g. Ollama, My DeepSeek gateway")).toHaveValue(
+      "MiniMax CN Token Plan",
+    );
+    expect(screen.getByDisplayValue("Anthropic-compatible")).toHaveValue("@ai-sdk/anthropic");
+    expect(screen.getByPlaceholderText(/Base URL/)).toHaveValue(
+      "https://api.minimaxi.com/anthropic",
+    );
+    expect(screen.getByPlaceholderText("Model ids, comma-separated")).toHaveValue("MiniMax-M2.7");
+    expect(screen.getByText(/endpoint configuration never contains the API key/i)).toBeVisible();
+
+    await userEvent.type(
+      screen.getByPlaceholderText("API key — optional, Ollama needs none"),
+      "local-test-key",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Add endpoint" }));
+
+    await waitFor(() =>
+      expect(client.addCustomProvider).toHaveBeenCalledWith("minimax-cn-token-plan", {
+        name: "MiniMax CN Token Plan",
+        npm: "@ai-sdk/anthropic",
+        baseURL: "https://api.minimaxi.com/anthropic",
+        models: ["MiniMax-M2.7"],
+      }),
+    );
+    expect(client.setProviderApiKey).toHaveBeenCalledWith(
+      "minimax-cn-token-plan",
+      "local-test-key",
+    );
+    expect(client.addCustomProvider.mock.invocationCallOrder[0]).toBeLessThan(
+      client.setProviderApiKey.mock.invocationCallOrder[0],
+    );
+  });
+
   it("keeps the runtime default and error semantics after a post-write reconnect failure", async () => {
     vi.spyOn(runtime, "getClient").mockReturnValue(catalogClient());
     saveModelPreferences({ favorites: [], recent: ["openai/gpt-5.2"] });

@@ -169,6 +169,30 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
     await expect(client.setProviderApiKey("bad", "nope")).rejects.toThrow(/invalid key format/);
   });
 
+  it("keeps custom-provider credentials out of the global config payload", async () => {
+    const bodies: string[] = [];
+    const fetchImpl: typeof fetch = async (_input, init) => {
+      bodies.push(String(init?.body ?? ""));
+      return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+    const client = new OpenCodeClient({ baseUrl: "http://127.0.0.1:1", fetchImpl });
+
+    await client.addCustomProvider("minimax-cn-token-plan", {
+      name: "MiniMax CN Token Plan",
+      npm: "@ai-sdk/anthropic",
+      baseURL: "https://api.minimaxi.com/anthropic",
+      models: ["MiniMax-M2.7"],
+    });
+
+    const payload = JSON.parse(bodies[0]) as {
+      provider: Record<string, { options: Record<string, unknown> }>;
+    };
+    expect(payload.provider["minimax-cn-token-plan"].options).toEqual({
+      baseURL: "https://api.minimaxi.com/anthropic",
+    });
+    expect(bodies[0]).not.toContain("apiKey");
+  });
+
   it("sends Basic auth on API calls when a password is set", async () => {
     // The sidecar now REQUIRES auth (OPENCODE_SERVER_PASSWORD) — every fetch
     // must carry the Authorization header or the server answers 401.

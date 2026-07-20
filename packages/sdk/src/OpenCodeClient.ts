@@ -403,14 +403,14 @@ export class OpenCodeClient {
    */
   async addCustomProvider(
     id: string,
-    opts: { name: string; npm: string; baseURL: string; apiKey?: string; models: string[] },
+    opts: { name: string; npm: string; baseURL: string; models: string[] },
   ): Promise<void> {
     const models = Object.fromEntries(opts.models.map((m) => [m, { name: m }]));
     const provider = {
       [id]: {
         name: opts.name,
         npm: opts.npm,
-        options: { baseURL: opts.baseURL, ...(opts.apiKey ? { apiKey: opts.apiKey } : {}) },
+        options: { baseURL: opts.baseURL },
         models,
       },
     };

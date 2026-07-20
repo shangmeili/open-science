@@ -271,8 +271,10 @@ pnpm lint
   stay local by default.
 - Command execution, file deletion, dependency installation, and remote connections
   are human-approved flows in the desktop app.
-- Provider credentials are written to app-private runtime config, not to the
-  workspace, provenance, git, exports, or global OpenCode config.
+- Provider credentials are written to OpenCode's app-private local auth store
+  (`auth.json`, owner-only on macOS/Linux), separately from custom endpoint
+  metadata. They never enter the workspace, provenance, git, exports, or the
+  user's global OpenCode config.
 - Settings includes a plain-language data-flow view explaining what can be sent to
   the selected model provider.
 
@@ -302,7 +304,7 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.50; the fully first-launch-verified x64 macOS
+accepted. Current source is 0.1.51; the fully first-launch-verified x64 macOS
 handoff remains 0.1.41. The current 90,082,675-byte
 `AI4HEOR_0.1.50_x64.dmg` candidate built from `19ac87b` has SHA-256
 `327607afb9e1d7e10c90c7ccce4a7355244611b754e3d7a2e75cbf6c38988a86`.
@@ -447,9 +449,11 @@ Open; that exception is not evidence of distribution readiness.
 Current acceptance limits: no admitted external Skill or third-party MCP, no Developer-ID
 signature or notarization, no Apple-Silicon,
 Windows, or current Linux acceptance, and no claim of scientific or methodological
-validity. Credentials entered in the current unsigned build are stored in an owner-only
-app-private OpenCode configuration, not the macOS Keychain; revisit keychain-backed
-storage for a signed release.
+validity. Model-provider credentials entered in the current unsigned build are stored in
+OpenCode's owner-only app-private `auth.json`, separately from endpoint metadata and not
+in the macOS Keychain; revisit keychain-backed storage for a signed release. A
+researcher who manually adds an MCP or another connector remains responsible for any
+credentials placed in that connector's own configuration.
 
 The current 0.1.31 Apple Silicon DMG was separately cross-built from clean commit
 `2834785e057ac54477a9633f07390bc173251644` on an Intel Mac. Its 76,095,510 bytes have

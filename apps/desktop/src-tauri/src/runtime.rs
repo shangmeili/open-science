@@ -8,8 +8,6 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
-use crate::opencode_config::merge_config;
-
 const DEFAULT_WORKSPACE_FOLDER: &str = "AI4HEOR";
 const LEGACY_WORKSPACE_FOLDERS: [&str; 2] = ["OpenScience", "Open Science"];
 
@@ -168,11 +166,6 @@ fn rewrite_workspace_pointer(
     std::fs::write(pointer_file, migrated.to_string_lossy().as_bytes()).map_err(|e| e.to_string())
 }
 
-/// Path OpenCode reads when XDG_CONFIG_HOME points at our private dir.
-fn opencode_config_file(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(xdg_config_home(app)?.join("opencode").join("opencode.json"))
-}
-
 /// The config file to edit in place: the server may have rewritten the config
 /// as opencode.jsonc — prefer whichever exists, fall back to opencode.json.
 fn effective_config_file(app: &AppHandle) -> Result<PathBuf, String> {
@@ -222,6 +215,7 @@ pub fn import_opencode_login(
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     std::fs::copy(&src, &dst).map_err(|e| format!("copy failed: {e}"))?;
+    tighten_private(&dst);
 
     // Restart the running sidecar so /config/providers reflects the login.
     restart_sidecar_if_running(&app, &state)?;
@@ -504,9 +498,10 @@ pub(crate) fn quiet_command(bin: impl AsRef<std::ffi::OsStr>) -> std::process::C
 }
 
 /// Make a secret-holding path owner-only: 700 for directories, 600 for files
-/// (unix). The runtime root carries provider/connector API keys in
-/// `opencode.jsonc`/`auth.json`, and the sidecar rewrites those files with a
-/// default umask while running — locking the DIRECTORY is what holds, since a
+/// (unix). The runtime root carries provider credentials in `auth.json` and may
+/// carry researcher-managed connector secrets in `opencode.jsonc`; the sidecar
+/// rewrites those files with a default umask while running. Locking the directory
+/// is what holds, since a
 /// 700 dir is unreachable for other users whatever the file modes inside. On
 /// Windows, %APPDATA% is per-user ACL'd already; nothing to do.
 pub(crate) fn tighten_private(path: &Path) {
@@ -534,7 +529,8 @@ pub(crate) fn random_hex(bytes: usize) -> String {
 /// built-in Basic auth, `OPENCODE_SERVER_PASSWORD`). Generated fresh each app
 /// launch and held only in memory — never written to disk — so a local
 /// webpage that scans loopback ports can neither drive agent turns nor read
-/// `/global/config` (which carries provider API keys). The webview gets it
+/// `/global/config` (which may carry researcher-managed connector settings).
+/// The webview gets it
 /// via the `runtime_password` command; Tauri IPC is app-only.
 pub(crate) fn server_password() -> &'static str {
     static PASSWORD: std::sync::OnceLock<String> = std::sync::OnceLock::new();
@@ -774,10 +770,11 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
         }
         std::fs::write(&cfg_file, seeded).map_err(|e| e.to_string())?;
     }
-    // Secrets live under the runtime root (provider/connector keys in
-    // opencode.jsonc, OpenCode's auth.json) — owner-only on every start, so
-    // existing installs are repaired and whatever the sidecar later rewrites
-    // inside stays unreachable to other users regardless of its umask.
+    // Secrets live under the runtime root (provider credentials in auth.json;
+    // researcher-managed connector secrets may exist in opencode.jsonc) —
+    // owner-only on every start, so existing installs are repaired and whatever
+    // the sidecar later rewrites stays unreachable to other users regardless of
+    // its umask.
     tighten_private(&root);
     tighten_private(&cfg_file);
     let home = std::env::var("HOME").unwrap_or_default();
@@ -1259,9 +1256,10 @@ mod tests {
         fs::set_permissions(&dir, fs::Permissions::from_mode(0o755)).unwrap();
         fs::set_permissions(&cfg, fs::Permissions::from_mode(0o644)).unwrap();
 
-        // The runtime root holds provider/connector keys (opencode.jsonc,
-        // auth.json) — it must be unreadable to other users even when the
-        // sidecar later rewrites files inside with a default umask.
+        // The runtime root holds provider credentials in auth.json and may hold
+        // researcher-managed connector secrets in opencode.jsonc. It must be
+        // unreadable to other users even when the sidecar later rewrites files
+        // inside with a default umask.
         super::tighten_private(&dir);
         assert_eq!(
             fs::metadata(&dir).unwrap().permissions().mode() & 0o777,
@@ -1481,7 +1479,7 @@ pub fn set_approval_mode(
     std::fs::write(&path, updated).map_err(|e| e.to_string())?;
     tighten_private(&path);
 
-    // Same restart flow as configure_opencode: reload rules on a stable port.
+    // Reload the rules on the current stable port.
     Ok(restart_sidecar_if_running(&app, &state)?
         .unwrap_or_else(|| path.to_string_lossy().to_string()))
 }
@@ -1550,29 +1548,4 @@ pub fn set_mirror_setting(app: AppHandle, pypi: String, python: String) -> Resul
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
     std::fs::write(&path, lines.join("\n")).map_err(|e| e.to_string())
-}
-
-/// Write the provider key/model into the app-private OpenCode config and restart
-/// the sidecar so it picks them up. Returns the same base URL (stable port).
-#[tauri::command(async)]
-pub fn configure_opencode(
-    app: AppHandle,
-    state: State<'_, RuntimeState>,
-    provider: String,
-    api_key: String,
-    model: String,
-    base_url: Option<String>,
-) -> Result<String, String> {
-    let path = opencode_config_file(&app)?;
-    let existing = std::fs::read_to_string(&path).unwrap_or_default();
-    let merged = merge_config(&existing, &provider, &api_key, &model, base_url.as_deref())?;
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    }
-    std::fs::write(&path, merged).map_err(|e| e.to_string())?;
-    tighten_private(&path);
-
-    // Restart so the running server reloads the new provider config.
-    Ok(restart_sidecar_if_running(&app, &state)?
-        .unwrap_or_else(|| path.to_string_lossy().to_string()))
 }

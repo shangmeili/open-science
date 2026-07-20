@@ -334,8 +334,10 @@ class AI4HEORProductDocsTests(unittest.TestCase):
                 text,
             )
             self.assertIn("19ac87b", text)
-        self.assertIn("not the macOS Keychain", english)
-        self.assertIn("不是 macOS 钥匙串", chinese)
+        self.assertIn("app-private `auth.json`", english)
+        self.assertIn("separately from endpoint metadata", english)
+        self.assertIn("应用私有 `auth.json`", chinese)
+        self.assertIn("与接口配置分开", chinese)
         self.assertNotIn("current verified x64 macOS package remains\n0.1.35", english)
         self.assertNotIn("当前已验证的 x64 macOS 安装包仍为 `0.1.35`", chinese)
 

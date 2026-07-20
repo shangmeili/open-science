@@ -55,6 +55,12 @@ import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 import { FIRST_PARTY_HEOR_CONNECTOR } from "@/lib/heorConnectorPolicy";
 
+const MINIMAX_CN_TOKEN_PLAN = {
+  npm: "@ai-sdk/anthropic",
+  baseURL: "https://api.minimaxi.com/anthropic",
+  models: "MiniMax-M2.7",
+} as const;
+
 /**
  * Settings. ONE configuration surface: everything talks to the bundled
  * OpenCode's own config/auth API — no separate "model key" concept.
@@ -152,6 +158,15 @@ export function SettingsPage() {
   const [cUrl, setCUrl] = useState("");
   const [cKey, setCKey] = useState("");
   const [cModels, setCModels] = useState("");
+
+  const fillMiniMaxChinaTokenPlan = () => {
+    setShowCustom(true);
+    setCName(t("providers.minimaxChinaTokenPlanName"));
+    setCNpm(MINIMAX_CN_TOKEN_PLAN.npm);
+    setCUrl(MINIMAX_CN_TOKEN_PLAN.baseURL);
+    setCModels(MINIMAX_CN_TOKEN_PLAN.models);
+    setCKey("");
+  };
 
   // Connect-a-provider flow state.
   const [providerManagerOpen, setProviderManagerOpen] = useState(false);
@@ -450,7 +465,9 @@ export function SettingsPage() {
   const disconnectProvider = (providerID: string) =>
     run(t("toast.couldNotRemove"), async () => {
       if (customIds.includes(providerID)) {
-        // Custom endpoints live in the config file; removal restarts the sidecar.
+        // Custom endpoint metadata lives in config, but credentials use the
+        // same mode-600 OpenCode auth store as built-in providers.
+        await getClient()!.removeProviderAuth(providerID);
         await removeConfigEntry("provider", providerID);
         await useRuntimeStore.getState().connectRetry();
       } else {
@@ -467,13 +484,14 @@ export function SettingsPage() {
         toast.error(t("toast.endpointFieldsRequired"));
         return;
       }
-      await getClient()!.addCustomProvider(id, {
+      const client = getClient()!;
+      await client.addCustomProvider(id, {
         name: cName.trim(),
         npm: cNpm,
         baseURL: cUrl.trim(),
-        apiKey: cKey.trim() || undefined,
         models,
       });
+      if (cKey.trim()) await client.setProviderApiKey(id, cKey.trim());
       toast.success(t("toast.endpointAdded", { name: cName.trim() }));
       setShowCustom(false);
       setCName("");
@@ -886,6 +904,13 @@ export function SettingsPage() {
                   </button>
                   {showCustom && (
                     <div className="space-y-2 px-3 pb-3">
+                      <button
+                        type="button"
+                        className="text-xs text-accent underline underline-offset-2"
+                        onClick={fillMiniMaxChinaTokenPlan}
+                      >
+                        {t("providers.fillMinimaxChinaTokenPlan")}
+                      </button>
                       <div className="flex gap-2">
                         <input
                           value={cName}
@@ -923,6 +948,9 @@ export function SettingsPage() {
                           className={inputCls("flex-1 font-mono")}
                         />
                       </div>
+                      <p className="text-xs text-muted">
+                        {t("providers.customCredentialHint")}
+                      </p>
                       <button className={btnAccent()} onClick={() => void saveCustom()} disabled={busy}>
                         {t("providers.addEndpoint")}
                       </button>

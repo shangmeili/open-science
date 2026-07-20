@@ -309,10 +309,14 @@ competitors.
     `external_directory`, but bash (default `allow`, real `$HOME`) escapes
     freely. Covered by the permission fix above (in "Approve for me" mode;
     "Full access" is an explicit user opt-out).
-  - [ ] **API keys are plaintext on disk** — provider keys, user-managed MCP
-    credentials, and the Jupyter token can land in `opencode.json` (not only the
-    mode-600 `auth.json` P2-3 describes). The keychain revert (P2-3) was a
-    deliberate call for signed-release reasons; revisit for signed releases.
+  - [ ] **Some credentials remain plaintext on disk** — **model-provider portion
+    fixed (2026-07-20):** built-in and custom-provider credentials now use only
+    OpenCode's app-private mode-600 `auth.json`; custom endpoint metadata no
+    longer accepts or stores `apiKey`, and the legacy Rust command that wrote
+    provider keys into `opencode.json` has been removed. Researcher-managed MCP
+    credentials and the Jupyter token can still land in connector configuration.
+    The keychain revert (P2-3) was a deliberate call for signed-release reasons;
+    revisit this remaining at-rest boundary for signed releases.
     **Both interim minimums are now met (2026-07-06):** the `/global/config`
     surface requires auth (see the CORS/auth fix above), and the config is no
     longer world-readable — the app-private runtime root is chmod 700 and
