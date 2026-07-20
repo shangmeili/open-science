@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 SCRIPT = Path(__file__).with_name("release_evidence.py")
@@ -77,13 +79,20 @@ class ReleaseEvidenceTests(unittest.TestCase):
             )
             subprocess.run(["git", "-C", str(root), "add", "."], check=True)
             subprocess.run(["git", "-C", str(root), "commit", "-qm", "fixture"], check=True)
-            commit, version = release_evidence.source_identity(root)
-            self.assertEqual(len(commit), 40)
-            self.assertEqual(version, "1.2.3")
+            fixture_commit = subprocess.run(
+                ["git", "-C", str(root), "rev-parse", "HEAD"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            with mock.patch.dict(os.environ, {"GITHUB_SHA": fixture_commit}):
+                commit, version = release_evidence.source_identity(root)
+                self.assertEqual(len(commit), 40)
+                self.assertEqual(version, "1.2.3")
 
-            config.write_text('{"version":"9.9.9"}\n', encoding="utf-8")
-            with self.assertRaisesRegex(AssertionError, "tracked source is dirty"):
-                release_evidence.source_identity(root)
+                config.write_text('{"version":"9.9.9"}\n', encoding="utf-8")
+                with self.assertRaisesRegex(AssertionError, "tracked source is dirty"):
+                    release_evidence.source_identity(root)
 
     def test_resource_inventory_rejects_links_and_caches(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

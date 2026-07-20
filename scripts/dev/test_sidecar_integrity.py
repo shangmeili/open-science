@@ -59,12 +59,12 @@ class SidecarIntegrityTests(unittest.TestCase):
             checksums.write_text(f"{digest}  test/1.0/fixture.bin\n", encoding="utf-8")
             command = [
                 "bash",
-                str(VERIFY),
-                str(archive),
+                VERIFY.as_posix(),
+                archive.as_posix(),
                 "test",
                 "1.0",
                 "fixture.bin",
-                str(checksums),
+                checksums.as_posix(),
             ]
             accepted = subprocess.run(command, capture_output=True, text=True, check=False)
             self.assertEqual(accepted.returncode, 0, accepted.stderr)
@@ -85,12 +85,12 @@ class SidecarIntegrityTests(unittest.TestCase):
                 result = subprocess.run(
                     [
                         "bash",
-                        str(VERIFY),
-                        str(archive),
+                        VERIFY.as_posix(),
+                        archive.as_posix(),
                         "test",
                         "1.0",
                         "fixture.bin",
-                        str(checksums),
+                        checksums.as_posix(),
                     ],
                     capture_output=True,
                     text=True,
