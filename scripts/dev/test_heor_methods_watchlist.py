@@ -6,10 +6,13 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 from copy import deepcopy
 from pathlib import Path
+
+sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parents[2]
 VALIDATOR = ROOT / (

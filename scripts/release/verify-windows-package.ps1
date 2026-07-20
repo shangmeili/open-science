@@ -178,7 +178,7 @@ try {
     try {
         $env:PYTHONPATH = Join-Path $resourceRoot 'heor-core/src'
         $env:PYTHONDONTWRITEBYTECODE = '1'
-        & python -m unittest discover -s (Join-Path $SourceRoot 'python/heor_core/tests') -q
+        & python -B -m unittest discover -s (Join-Path $SourceRoot 'python/heor_core/tests') -q
         Assert-True ($LASTEXITCODE -eq 0) "Packaged HEOR tests failed."
     } finally {
         $env:PYTHONPATH = $oldPythonPath

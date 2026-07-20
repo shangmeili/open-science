@@ -19,7 +19,7 @@ EXPECTED = EXAMPLE / "expected/base-case-result.json"
 
 def run(*arguments: str, cwd: Path = EXAMPLE) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, str(cwd / "run_analysis.py"), *arguments],
+        [sys.executable, "-B", str(cwd / "run_analysis.py"), *arguments],
         cwd=cwd,
         text=True,
         capture_output=True,

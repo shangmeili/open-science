@@ -252,7 +252,7 @@ pnpm lint
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
 当前开发刻意收敛为先在 Intel macOS 上跑通产品；Windows、Linux、Apple Silicon
-与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.49`；已完成隔离首次启动核验的 x64 macOS 交接包仍为
+与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.50`；已完成隔离首次启动核验的 x64 macOS 交接包仍为
 `0.1.41`。当前候选包 `AI4HEOR_0.1.49_x64.dmg` 从 `d0da1af` 构建，大小为
 90,082,873 字节，SHA-256 是
 `691d4c3be8bccca5b133905927b2a0f3b52d3acec06da7b77c1fba7527d17b12`。

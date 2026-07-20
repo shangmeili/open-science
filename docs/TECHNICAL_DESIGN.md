@@ -939,6 +939,15 @@ notarize. The implementation follows the current
 [Tauri macOS signing contract](https://v2.tauri.app/distribute/sign/macos/) and Apple's
 [notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
 
+Tauri's production `beforeBuildCommand` runs the frontend build and then a
+cross-platform resource preflight over every configured `bundle.resources`
+source. The preflight fails before compilation when a source is missing, linked,
+not a regular file or directory, contains generated Python/tool/OS caches, or
+collides with another packaged destination. Python HEOR test entry points also
+disable bytecode writes. This prevents test-generated files from entering a
+package; the post-build package verifier remains an independent check of the
+actual DMG contents.
+
 Native CI uses an explicit macOS 15 Apple Silicon runner for `aarch64` and an
 explicit macOS 15 Intel runner for `x86_64`. After each build,
 `scripts/release/verify_macos_package.py` mounts the DMG read-only; checks the exact

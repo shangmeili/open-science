@@ -183,6 +183,7 @@ def run_packaged_heor_tests(resource_root: Path, source_root: Path) -> None:
     run(
         [
             "python3",
+            "-B",
             "-m",
             "unittest",
             "discover",

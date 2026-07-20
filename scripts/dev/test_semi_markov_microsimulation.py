@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "runtime/skills/core/heor-semi-markov-microsimulation/scripts"
@@ -276,6 +277,7 @@ class SemiMarkovMicrosimulationTests(unittest.TestCase):
             build_workspace(root)
             run = subprocess.run([
                 sys.executable,
+                "-B",
                 str(SCRIPTS / "run_microsimulation.py"),
                 "--workspace", str(root),
                 "--request", "heor/semi-markov-microsimulation-request.json",
@@ -316,6 +318,7 @@ class SemiMarkovMicrosimulationTests(unittest.TestCase):
             build_workspace(root)
             run = subprocess.run([
                 sys.executable,
+                "-B",
                 str(SCRIPTS / "run_microsimulation.py"),
                 "--workspace", str(root),
                 "--request", "heor/semi-markov-microsimulation-request.json",

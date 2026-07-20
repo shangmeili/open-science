@@ -78,7 +78,7 @@ class LocalEvidenceSearchTest(unittest.TestCase):
 
     def run_search(self, root, query="成本效果"):
         return subprocess.run(
-            [sys.executable, str(SEARCH), "--workspace", str(root), "--query", query, "--json"],
+            [sys.executable, "-B", str(SEARCH), "--workspace", str(root), "--query", query, "--json"],
             text=True,
             capture_output=True,
             check=False,

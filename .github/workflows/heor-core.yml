@@ -88,7 +88,7 @@ jobs:
       - name: Test deterministic HEOR, uncertainty, and budget impact engines
         env:
           PYTHONPATH: ${{ github.workspace }}/python/heor_core/src
-        run: python -m unittest discover -s python/heor_core/tests -v
+        run: python -B -m unittest discover -s python/heor_core/tests -v
       - name: Test portable HEOR artifact contracts
         run: python scripts/dev/test_heor_artifact_contracts.py -v
       - name: Test local evidence search contract

@@ -14,6 +14,7 @@ from itertools import product
 from pathlib import Path
 from typing import Any
 
+sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parents[2]
 SKILL = ROOT / "runtime/skills/core/heor-model-calibration"
@@ -251,6 +252,7 @@ class ModelCalibrationTests(unittest.TestCase):
             run = subprocess.run(
                 [
                     sys.executable,
+                    "-B",
                     str(SCRIPTS / "run_model_calibration.py"),
                     "--workspace",
                     str(root),
@@ -367,6 +369,7 @@ class ModelCalibrationTests(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
+                    "-B",
                     str(SCRIPTS / "run_model_calibration.py"),
                     "--workspace",
                     str(root),
@@ -391,6 +394,7 @@ class ModelCalibrationTests(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
+                    "-B",
                     str(SCRIPTS / "run_model_calibration.py"),
                     "--workspace",
                     str(root),

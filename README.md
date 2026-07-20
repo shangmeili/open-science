@@ -302,7 +302,7 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.49; the fully first-launch-verified x64 macOS
+accepted. Current source is 0.1.50; the fully first-launch-verified x64 macOS
 handoff remains 0.1.41. The current 90,082,873-byte
 `AI4HEOR_0.1.49_x64.dmg` candidate built from `d0da1af` has SHA-256
 `691d4c3be8bccca5b133905927b2a0f3b52d3acec06da7b77c1fba7527d17b12`.

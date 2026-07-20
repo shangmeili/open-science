@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 from typing import Any
 
+sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parents[2]
 SKILL = ROOT / "runtime/skills/core/heor-population-adjusted-comparison"
@@ -225,6 +226,7 @@ class PopulationAdjustedComparisonTests(unittest.TestCase):
             completed = subprocess.run(
                 [
                     sys.executable,
+                    "-B",
                     str(SCRIPTS / "run_anchored_maic.py"),
                     "--workspace",
                     str(root),
@@ -252,7 +254,7 @@ class PopulationAdjustedComparisonTests(unittest.TestCase):
             root = Path(directory)
             build_workspace(root)
             subprocess.run(
-                [sys.executable, str(SCRIPTS / "run_anchored_maic.py"), "--workspace", str(root), "--request", "heor/population-adjusted-comparison-request.json"],
+                [sys.executable, "-B", str(SCRIPTS / "run_anchored_maic.py"), "--workspace", str(root), "--request", "heor/population-adjusted-comparison-request.json"],
                 check=True,
                 capture_output=True,
                 text=True,

@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 from typing import Any
 
+sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parents[2]
 SKILL = ROOT / "runtime/skills/core/heor-rwe-causal-analysis"
@@ -211,6 +212,7 @@ class RweCausalAnalysisTests(unittest.TestCase):
             run = subprocess.run(
                 [
                     sys.executable,
+                    "-B",
                     str(SCRIPTS / "run_rwe_causal_analysis.py"),
                     "--workspace",
                     str(root),
@@ -278,6 +280,7 @@ class RweCausalAnalysisTests(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
+                    "-B",
                     str(SCRIPTS / "run_rwe_causal_analysis.py"),
                     "--workspace",
                     str(root),

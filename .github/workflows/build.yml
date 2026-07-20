@@ -73,6 +73,9 @@ jobs:
       - name: Test release evidence contracts
         run: python scripts/release/test_release_evidence.py -v
 
+      - name: Test release-resource preflight contracts
+        run: python scripts/release/test_resource_preflight.py -v
+
       - name: Test macOS distribution contracts
         run: python scripts/release/test_macos_distribution.py -v
 

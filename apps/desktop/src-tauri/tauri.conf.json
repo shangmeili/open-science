@@ -1,13 +1,13 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "AI4HEOR",
-  "version": "0.1.49",
+  "version": "0.1.50",
   "identifier": "com.ai4s.workbench",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm --filter @ai4s/desktop exec vite --port 5173 --strictPort",
-    "beforeBuildCommand": "pnpm --filter @ai4s/desktop build"
+    "beforeBuildCommand": "pnpm --filter @ai4s/desktop build && node ../../scripts/release/preflight_resources.mjs"
   },
   "app": {
     "windows": [

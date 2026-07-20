@@ -137,6 +137,7 @@ def run_packaged_heor_tests(resource_root: Path, source_root: Path) -> None:
     run(
         [
             sys.executable,
+            "-B",
             "-m",
             "unittest",
             "discover",

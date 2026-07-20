@@ -19,6 +19,35 @@ LEGAL_DIR = ROOT / "docs" / "legal"
 
 
 class TauriHeorResourceTests(unittest.TestCase):
+    def test_tauri_build_runs_the_resource_preflight_after_frontend_build(self):
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        command = config["build"]["beforeBuildCommand"]
+        self.assertEqual(
+            command,
+            "pnpm --filter @ai4s/desktop build && node ../../scripts/release/preflight_resources.mjs",
+        )
+        self.assertTrue((ROOT / "scripts/release/preflight_resources.mjs").is_file())
+
+    def test_heor_test_entrypoints_disable_python_bytecode_caches(self):
+        package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+        self.assertIn("python -B -m unittest", package["scripts"]["test:heor"])
+        workflow = (ROOT / ".github/workflows/heor-core.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("run: python -B -m unittest", workflow)
+        macos_verifier = (ROOT / "scripts/release/verify_macos_package.py").read_text(
+            encoding="utf-8"
+        )
+        linux_verifier = (ROOT / "scripts/dev/verify_linux_packages.py").read_text(
+            encoding="utf-8"
+        )
+        windows_verifier = (
+            ROOT / "scripts/release/verify-windows-package.ps1"
+        ).read_text(encoding="utf-8")
+        self.assertRegex(macos_verifier, r'sys\.executable,\s+"-B",\s+"-m"')
+        self.assertRegex(linux_verifier, r'"python3",\s+"-B",\s+"-m"')
+        self.assertIn("& python -B -m unittest", windows_verifier)
+
     def test_every_python_module_is_bundled_once_at_the_expected_path(self):
         config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         resources = config["bundle"]["resources"]
