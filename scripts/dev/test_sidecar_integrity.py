@@ -60,6 +60,7 @@ class SidecarIntegrityTests(unittest.TestCase):
             checksums.write_text(f"{digest}  test/1.0/fixture.bin\n", encoding="utf-8")
             command = [
                 sys.executable,
+                "-B",
                 str(VERIFY),
                 str(archive),
                 "test",
@@ -86,6 +87,7 @@ class SidecarIntegrityTests(unittest.TestCase):
                 result = subprocess.run(
                     [
                         sys.executable,
+                        "-B",
                         str(VERIFY),
                         str(archive),
                         "test",
