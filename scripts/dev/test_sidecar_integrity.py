@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import re
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CHECKSUMS = ROOT / "scripts/dev/sidecar-checksums.sha256"
-VERIFY = ROOT / "scripts/dev/verify-sidecar-checksum.sh"
+VERIFY = ROOT / "scripts/dev/verify_sidecar_checksum.py"
 
 
 def manifest() -> dict[str, str]:
@@ -58,13 +59,13 @@ class SidecarIntegrityTests(unittest.TestCase):
             checksums = root / "checksums.sha256"
             checksums.write_text(f"{digest}  test/1.0/fixture.bin\n", encoding="utf-8")
             command = [
-                "bash",
-                VERIFY.as_posix(),
-                archive.as_posix(),
+                sys.executable,
+                str(VERIFY),
+                str(archive),
                 "test",
                 "1.0",
                 "fixture.bin",
-                checksums.as_posix(),
+                str(checksums),
             ]
             accepted = subprocess.run(command, capture_output=True, text=True, check=False)
             self.assertEqual(accepted.returncode, 0, accepted.stderr)
@@ -84,13 +85,13 @@ class SidecarIntegrityTests(unittest.TestCase):
                 checksums.write_text(body, encoding="utf-8")
                 result = subprocess.run(
                     [
-                        "bash",
-                        VERIFY.as_posix(),
-                        archive.as_posix(),
+                        sys.executable,
+                        str(VERIFY),
+                        str(archive),
                         "test",
                         "1.0",
                         "fixture.bin",
-                        checksums.as_posix(),
+                        str(checksums),
                     ],
                     capture_output=True,
                     text=True,
