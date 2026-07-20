@@ -54,8 +54,8 @@ describe("ThreadView strings (i18n)", () => {
     );
     expect(screen.getByText("Example · read-only")).toBeInTheDocument();
     expect(
-      screen.getByText("This is a sample session. Start a live agent session to chat for real."),
+      screen.getByText("This example is read-only. Start new research to continue in AI4HEOR."),
     ).toBeInTheDocument();
-    expect(screen.getByText("New session")).toBeInTheDocument();
+    expect(screen.getByText("Start new research")).toBeInTheDocument();
   });
 });

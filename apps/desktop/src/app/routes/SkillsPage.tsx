@@ -90,7 +90,7 @@ export function SkillsPage() {
     setReviewing(false);
     if (id) {
       setText("");
-      navigate(`/live/${id}`); // watch the agent install it
+      navigate(`/heor/${id}`); // continue in the AI4HEOR research workspace
     }
   };
 

@@ -244,7 +244,7 @@
   },
   "thread": {
     "exampleBadge": "Example · read-only",
-    "sampleNotice": "This is a sample session. Start a live agent session to chat for real."
+    "sampleNotice": "This example is read-only. Start new research to continue in AI4HEOR."
   },
   "workspaceChip": {
     "fallbackName": "Workspace",

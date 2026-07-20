@@ -53,7 +53,7 @@ describe("Sidebar projects", () => {
     expect(screen.getByText("quick question")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /quick question/i })).toHaveAttribute(
       "href",
-      "/live/out",
+      "/heor/out",
     );
     expect(screen.queryByText("subtask")).not.toBeInTheDocument();
     // The project offers its own "new session" entry point.
@@ -85,14 +85,14 @@ describe("Sidebar projects", () => {
     renderAt("/heor");
 
     await userEvent.click(
-      (await screen.findAllByRole("button", { name: "New HEOR project" }))[0],
+      (await screen.findAllByRole("button", { name: "Start a research project" }))[0],
     );
     const input = screen.getByPlaceholderText("Project name");
     await userEvent.type(input, `${PROJECT.name}{Enter}`);
 
     expect(createProject).toHaveBeenCalledWith(PROJECT.name);
     expect(startDraft).not.toHaveBeenCalled();
-    expect(await screen.findByRole("heading", { name: "Begin with the research question" }))
+    expect(await screen.findByRole("heading", { name: "What are you working on?" }))
       .toBeInTheDocument();
     const draft = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
     expect(draft).toContain("Help me start this HEOR project");

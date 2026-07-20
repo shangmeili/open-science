@@ -5,7 +5,7 @@ import type { Session } from "@ai4s/shared";
 import { BlockList } from "./BlockList";
 
 export function ThreadView({ session }: { session: Session }) {
-  const { t } = useTranslation(["session", "common"]);
+  const { t } = useTranslation(["session", "common", "nav"]);
   const isExample = session.group === "Examples";
   return (
     <div className="flex h-full min-w-0 flex-col">
@@ -27,10 +27,10 @@ export function ThreadView({ session }: { session: Session }) {
           <Sparkles size={16} className="text-accent" />
           <span>{t("thread.sampleNotice")}</span>
           <Link
-            to="/live"
+            to="/heor"
             className="ml-auto rounded-input bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:opacity-90"
           >
-            {t("starters.newSession")}
+            {t("nav:commandPalette.actions.newSession")}
           </Link>
         </div>
       </div>

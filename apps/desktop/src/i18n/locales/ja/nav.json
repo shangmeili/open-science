@@ -11,12 +11,12 @@
     "settings": "設定"
   },
   "items": {
-    "new": "HEORプロジェクトを新規作成",
+    "new": "新しい研究プロジェクトを始める",
     "notebooks": "ノートブック",
     "files": "ファイル",
     "runs": "実行",
     "skills": "スキル",
-    "heor": "AI4HEOR"
+    "heor": "研究ワークスペース"
   },
   "projects": {
     "heading": "プロジェクト",

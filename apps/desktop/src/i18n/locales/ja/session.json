@@ -236,7 +236,7 @@
   },
   "thread": {
     "exampleBadge": "例 · 読み取り専用",
-    "sampleNotice": "これはサンプルセッションです。実際に会話するには、ライブエージェントセッションを開始してください。"
+    "sampleNotice": "この例は読み取り専用です。新しい研究を始めると、AI4HEOR で続けられます。"
   },
   "workspaceChip": {
     "fallbackName": "ワークスペース",

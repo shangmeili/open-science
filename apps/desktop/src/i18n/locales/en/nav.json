@@ -11,12 +11,12 @@
     "settings": "Settings"
   },
   "items": {
-    "new": "New HEOR project",
+    "new": "Start a research project",
     "notebooks": "Notebooks",
     "files": "Files",
     "runs": "Runs",
     "skills": "Skills",
-    "heor": "AI4HEOR"
+    "heor": "Research workspace"
   },
   "projects": {
     "heading": "Projects",
@@ -57,7 +57,7 @@
     "placeholder": "Type a command…",
     "noResults": "No results.",
     "actions": {
-      "newSession": "New session",
+      "newSession": "Start new research",
       "analyzeData": "Analyze my HEOR evidence or data",
       "auditReport": "Audit an HEOR model or report",
       "openNotebooks": "Open notebooks",

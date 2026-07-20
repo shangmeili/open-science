@@ -244,7 +244,7 @@
   },
   "thread": {
     "exampleBadge": "Exemple · lecture seule",
-    "sampleNotice": "Il s'agit d'une session d'exemple. Démarrez une session d'agent en direct pour discuter réellement."
+    "sampleNotice": "Cet exemple est en lecture seule. Démarrez une nouvelle recherche pour continuer dans AI4HEOR."
   },
   "workspaceChip": {
     "fallbackName": "Espace de travail",

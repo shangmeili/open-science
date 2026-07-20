@@ -12,7 +12,6 @@ import { BlockList, type BlockHandlers } from "@/components/thread/BlockList";
 import { Elapsed } from "@/components/thread/ToolGroup";
 import { Composer } from "@/components/thread/Composer";
 import { baseName } from "@/components/thread/WorkspaceChip";
-import { WorkflowStarters } from "@/components/thread/WorkflowStarters";
 import { HeorStarters } from "@/components/heor/HeorStarters";
 import { FirstRunGuide } from "@/components/heor/FirstRunGuide";
 import { HeorReviewPane } from "@/components/heor/HeorReviewPane";
@@ -25,9 +24,9 @@ import { cn } from "@/lib/cn";
 import { buildHeorPrompt } from "@/lib/heor";
 import { isTauri } from "@/lib/tauri";
 
-/** Live agent session backed by the OpenCode runtime. `/live` (no id) is a blank draft;
- *  the session is created lazily on the first message, then the URL updates to /live/:id. */
-export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
+/** AI4HEOR research conversation backed by the local assistant runtime. The
+ * session is created lazily on the first message, then the URL gains its id. */
+export function LiveSessionPage() {
   const { t } = useTranslation(["session", "common", "heor"]);
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -91,25 +90,25 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
 
   // All three composer paths reflect a freshly-created session in the URL.
   const afterTurn = (id: string | null) => {
-    if (id && !sessionId) navigate(`${heorMode ? "/heor" : "/live"}/${id}`);
+    if (id && !sessionId) navigate(`/heor/${id}`);
   };
   const onSend = async (text: string) => {
-    if (heorMode && !defaultModel) {
+    if (!defaultModel) {
       useUiStore.getState().setComposerDraft(text);
       return;
     }
-    afterTurn(await sendPrompt(heorMode ? buildHeorPrompt(text) : text));
+    afterTurn(await sendPrompt(buildHeorPrompt(text)));
   };
   const onRunShell = async (command: string) => afterTurn(await runShell(command));
   const onRunCommand = async (name: string, args: string) => {
     const localClear = name === "new" || name === "clear";
     // Only arm the guard when a real session is open. From a draft, the URL is
-    // already /live and no route/currentId change follows — arming here would
+    // already a blank draft and no route/currentId change follows — arming here would
     // strand the flag at true (the reset lives in the effect's else branch,
     // which never re-runs) and silently block the next openSession.
     if (localClear && sessionId) clearingLocalCommand.current = true;
     const id = await runCommand(name, args);
-    if (localClear) navigate(heorMode ? "/heor" : "/live", { replace: true });
+    if (localClear) navigate("/heor", { replace: true });
     else afterTurn(id);
   };
   const composerCommands = useMemo(() => {
@@ -278,18 +277,13 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
               title — the workspace picker lives in the composer until the
               session exists. min-w-0 lets it truncate instead of shoving the
               right-side controls off the bar. */}
-          {sessionId && !heorMode && (
-            <h1 className="min-w-0 truncate text-[13px] font-medium text-text">{title ?? ""}</h1>
-          )}
-          {heorMode && (
-            <div className="flex min-w-0 items-center gap-2">
-              <Activity size={14} className="shrink-0 text-accent" />
-              <h1 className="truncate font-serif text-[15px] font-semibold text-text">
-                {t("heor:brand")}
-              </h1>
-              {sessionId && title && <span className="truncate text-xs text-muted">/ {title}</span>}
-            </div>
-          )}
+          <div className="flex min-w-0 items-center gap-2">
+            <Activity size={14} className="shrink-0 text-accent" />
+            <h1 className="truncate font-serif text-[15px] font-semibold text-text">
+              {t("heor:brand")}
+            </h1>
+            {sessionId && title && <span className="truncate text-xs text-muted">/ {title}</span>}
+          </div>
           <div data-tauri-drag-region={overlayTitlebar || undefined} className="flex-1" />
           {/* Right: quiet ghost controls — no border or fill until hovered or
               active, so the row stays flat and editorial (one visual language
@@ -325,20 +319,18 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
               <span>{t("live.runsToggle.label")}</span>
             </button>
           )}
-          {heorMode && (
-            <button
-              onClick={() => setShowHeorReview((open) => !open)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors hover:bg-surface-2",
-                showHeorReview ? "bg-surface-2 text-text" : "text-muted",
-              )}
-              aria-pressed={showHeorReview}
-              title={t("heor:review")}
-            >
-              <Activity size={13} />
-              <span>{t("heor:review")}</span>
-            </button>
-          )}
+          <button
+            onClick={() => setShowHeorReview((open) => !open)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors hover:bg-surface-2",
+              showHeorReview ? "bg-surface-2 text-text" : "text-muted",
+            )}
+            aria-pressed={showHeorReview}
+            title={t("heor:review")}
+          >
+            <Activity size={13} />
+            <span>{t("heor:review")}</span>
+          </button>
           <ConnBadge status={displayStatus} />
           {uniqueNotebooks.map((nb) => (
             <button
@@ -368,7 +360,7 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
 
         <div ref={chatRef} onScroll={onChatScroll} className="flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-8 py-6">
-            {isEmpty && !sessionId && heorMode && (
+            {isEmpty && !sessionId && (
               <>
                 <FirstRunGuide onOpenSettings={() => navigate("/settings")} />
                 <HeorStarters
@@ -391,9 +383,6 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
               <div className="rounded-input border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">
                 {error}
               </div>
-            )}
-            {connected && isEmpty && !sessionId && !heorMode && (
-              <WorkflowStarters onPick={(p) => void onSend(p)} />
             )}
             {historyLoading && <ThreadSkeleton />}
             {!historyLoading && thread && <BlockList blocks={thread.blocks} handlers={handlers} />}
@@ -429,7 +418,7 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
 
         <div className="px-8 pb-5 pt-2">
           <div className="mx-auto max-w-[760px] space-y-3">
-            {heorMode && connected && !defaultModel && (
+            {connected && !defaultModel && (
               <div
                 role="status"
                 className="flex items-center justify-between gap-4 rounded-card border border-warn/30 bg-warn/10 px-4 py-3"
@@ -462,18 +451,16 @@ export function LiveSessionPage({ heorMode = false }: { heorMode?: boolean }) {
               onRunShell={(c) => void onRunShell(c)}
               onRunCommand={(n, a) => void onRunCommand(n, a)}
               commands={composerCommands}
-              disabled={!connected || working || (heorMode && !defaultModel)}
+              disabled={!connected || working || !defaultModel}
               working={running}
               onStop={() => void interrupt()}
               placeholder={
                 working
                   ? t("live.placeholder.waiting")
-                  : heorMode && connected && !defaultModel
+                  : connected && !defaultModel
                     ? t("heor:modelRequired.placeholder")
                   : connected
-                    ? heorMode
-                      ? t("heor:placeholder")
-                      : t("composer.placeholder.default")
+                    ? t("heor:placeholder")
                     : t("live.placeholder.disconnected")
               }
               approvalMode={approvalMode}

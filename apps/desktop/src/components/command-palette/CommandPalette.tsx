@@ -47,22 +47,23 @@ export function CommandPalette() {
 
   const close = () => setOpen(false);
 
-  // Start a new session and send a workflow prompt, then reveal that session.
-  const runWorkflow = async (starterId: string) => {
+  // Put the selected HEOR task into the composer for the researcher to review.
+  // Choosing a shortcut must not start an agent turn by itself.
+  const draftWorkflow = (starterId: string) => {
     close();
     useRuntimeStore.getState().startDraft();
     const prompt =
       starterId === "analyze"
         ? t("starters.analyze.prompt", { ns: "session" })
         : t("starters.audit.prompt", { ns: "session" });
-    const id = await useRuntimeStore.getState().sendPrompt(prompt);
-    if (id) navigate(`/live/${id}`);
+    useUiStore.getState().setComposerDraft(prompt);
+    navigate("/heor");
   };
 
   const actions: Action[] = [
-    { id: "new", label: t("commandPalette.actions.newSession"), icon: <Plus size={16} />, run: () => { useRuntimeStore.getState().startDraft(); navigate("/live"); close(); } },
-    { id: "analyze", label: t("commandPalette.actions.analyzeData"), icon: <FileSearch size={16} />, run: () => void runWorkflow("analyze") },
-    { id: "review", label: t("commandPalette.actions.auditReport"), icon: <ShieldCheck size={16} />, run: () => void runWorkflow("audit") },
+    { id: "new", label: t("commandPalette.actions.newSession"), icon: <Plus size={16} />, run: () => { useRuntimeStore.getState().startDraft(); navigate("/heor"); close(); } },
+    { id: "analyze", label: t("commandPalette.actions.analyzeData"), icon: <FileSearch size={16} />, run: () => draftWorkflow("analyze") },
+    { id: "review", label: t("commandPalette.actions.auditReport"), icon: <ShieldCheck size={16} />, run: () => draftWorkflow("audit") },
     { id: "notebooks", label: t("commandPalette.actions.openNotebooks"), icon: <NotebookPen size={16} />, run: () => { navigate("/notebooks"); close(); } },
     { id: "skills", label: t("commandPalette.actions.manageSkills"), icon: <PackagePlus size={16} />, run: () => { navigate("/skills"); close(); } },
     { id: "settings", label: t("commandPalette.actions.openSettings"), icon: <Settings size={16} />, run: () => { navigate("/settings"); close(); } },

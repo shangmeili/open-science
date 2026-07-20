@@ -236,7 +236,7 @@
   },
   "thread": {
     "exampleBadge": "예제 · 읽기 전용",
-    "sampleNotice": "이것은 샘플 세션입니다. 실제로 대화하려면 실시간 에이전트 세션을 시작하세요."
+    "sampleNotice": "이 예시는 읽기 전용입니다. 새 연구를 시작하면 AI4HEOR에서 계속할 수 있습니다."
   },
   "workspaceChip": {
     "fallbackName": "워크스페이스",

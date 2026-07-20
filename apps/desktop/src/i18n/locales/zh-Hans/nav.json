@@ -11,12 +11,12 @@
     "settings": "设置"
   },
   "items": {
-    "new": "新建药物经济学项目",
+    "new": "开始新的研究项目",
     "notebooks": "笔记本",
     "files": "文件",
     "runs": "运行",
     "skills": "方法与工具",
-    "heor": "AI4HEOR"
+    "heor": "研究工作台"
   },
   "projects": {
     "heading": "项目",
@@ -57,7 +57,7 @@
     "placeholder": "输入命令…",
     "noResults": "无结果。",
     "actions": {
-      "newSession": "新建会话",
+      "newSession": "开始新的研究",
       "analyzeData": "分析证据或数据",
       "auditReport": "检查模型或报告",
       "openNotebooks": "打开笔记本",

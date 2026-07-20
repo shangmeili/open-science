@@ -11,12 +11,12 @@
     "settings": "Paramètres"
   },
   "items": {
-    "new": "Nouveau projet HEOR",
+    "new": "Démarrer un projet de recherche",
     "notebooks": "Notebooks",
     "files": "Fichiers",
     "runs": "Exécutions",
     "skills": "Compétences",
-    "heor": "AI4HEOR"
+    "heor": "Espace de recherche"
   },
   "projects": {
     "heading": "Projets",

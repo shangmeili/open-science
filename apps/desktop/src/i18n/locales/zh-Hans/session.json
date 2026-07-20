@@ -236,7 +236,7 @@
   },
   "thread": {
     "exampleBadge": "示例 · 只读",
-    "sampleNotice": "这是只读示例。新建会话后即可开始实际工作。"
+    "sampleNotice": "这是只读示例。开始新的研究后，即可在 AI4HEOR 中继续。"
   },
   "workspaceChip": {
     "fallbackName": "工作区",

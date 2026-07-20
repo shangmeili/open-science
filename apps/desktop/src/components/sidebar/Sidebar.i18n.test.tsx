@@ -13,7 +13,8 @@ describe("Sidebar i18n", () => {
 
     const nav = await screen.findByRole("navigation");
     expect(within(nav).getByText("Files")).toBeInTheDocument();
-    expect(within(nav).getByText("New HEOR project")).toBeInTheDocument();
+    expect(within(nav).getByText("Start a research project")).toBeInTheDocument();
+    expect(within(nav).getByText("Research workspace")).toBeInTheDocument();
     expect(screen.getByText("Sessions")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
   });

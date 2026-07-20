@@ -29,13 +29,10 @@ describe("Simplified Chinese product copy", () => {
     expect(copy.join("\n")).not.toMatch(/风险比值（HR）/);
   });
 
-  it("keeps the first-use boundary direct and researcher-led", () => {
-    expect(i18n.t("heor:starter.title", { lng: "zh-Hans" })).toBe("从研究问题开始");
-    expect(i18n.t("heor:starter.body", { lng: "zh-Hans" })).toContain(
-      "AI4HEOR 会在你的指导下检索和整理证据、开展分析并检查结果",
-    );
-    expect(i18n.t("heor:starter.body", { lng: "zh-Hans" })).toContain(
-      "由你审阅确认",
+  it("keeps the first-use copy natural and the research boundary explicit", () => {
+    expect(i18n.t("heor:starter.title", { lng: "zh-Hans" })).toBe("你现在想做哪项工作？");
+    expect(i18n.t("heor:starter.body", { lng: "zh-Hans" })).toBe(
+      "可以直接描述药物经济学或 HEOR 研究任务，也可以从现有资料、分析结果或报告中的具体问题说起。",
     );
     expect(i18n.t("session:firstRun.title", { lng: "zh-Hans" })).toBe(
       "开始前，请先了解这四点",

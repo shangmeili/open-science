@@ -169,7 +169,7 @@ export function Sidebar() {
     const row: Row = {
       id: s.id,
       title: s.title,
-      to: `/live/${s.id}`,
+      to: `/heor/${s.id}`,
     };
     const owner = s.directory ? projectByPath.get(s.directory) : undefined;
     if (owner) {
@@ -184,7 +184,7 @@ export function Sidebar() {
     setPendingDelete(null);
     if (!row) return;
     void deleteSession(row.id);
-    if (location.pathname === row.to) navigate("/live");
+    if (location.pathname === row.to) navigate("/heor");
   };
 
   // With the overlay titlebar (macOS), reserve a draggable strip at the top so

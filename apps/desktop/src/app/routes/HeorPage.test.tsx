@@ -43,7 +43,7 @@ describe("AI4HEOR conversation route", () => {
     expect(screen.queryByRole("heading", { name: "Before you begin" }))
       .not.toBeInTheDocument();
     expect(window.localStorage.getItem(AI4HEOR_FIRST_RUN_KEY)).toBe("complete");
-    expect(screen.getByRole("heading", { name: "Begin with the research question" }))
+    expect(screen.getByRole("heading", { name: "What are you working on?" }))
       .toBeInTheDocument();
   });
 
@@ -56,12 +56,26 @@ describe("AI4HEOR conversation route", () => {
     renderAt("/heor");
 
     expect(
-      await screen.findByRole("heading", { name: "Begin with the research question" }),
+      await screen.findByRole("heading", { name: "What are you working on?" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Under your direction, AI4HEOR can find and organize evidence/i))
+    expect(screen.getByText(/Describe the pharmacoeconomic or HEOR task in your own words/i))
       .toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Describe the decision problem/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review analysis" })).toBeInTheDocument();
+  });
+
+  it("uses the AI4HEOR research surface for legacy live links", async () => {
+    useRuntimeStore.setState({
+      status: "ready",
+      currentId: null,
+      defaultModel: "openai/gpt-5.2",
+    });
+    renderAt("/live");
+
+    expect(await screen.findByRole("heading", { name: "What are you working on?" }))
+      .toBeInTheDocument();
+    expect(screen.getByText("Learn from my local HEOR library")).toBeInTheDocument();
+    expect(screen.queryByText(/climate trends|end-to-end demo/i)).not.toBeInTheDocument();
   });
 
   it("keeps starter requests as Human-reviewed drafts", async () => {
