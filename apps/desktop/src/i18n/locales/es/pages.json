@@ -148,6 +148,7 @@
     },
     "environment": {
       "sectionTitle": "Entorno científico",
+      "jupyter": "Jupyter",
       "detectionUnavailable": "La detección del entorno se ejecuta en la app de escritorio.",
       "found": "encontrado",
       "notFound": "no encontrado",

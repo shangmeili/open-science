@@ -148,6 +148,7 @@
     },
     "environment": {
       "sectionTitle": "과학 환경",
+      "jupyter": "Jupyter",
       "detectionUnavailable": "환경 감지는 데스크톱 앱에서 실행됩니다.",
       "found": "발견됨",
       "notFound": "찾을 수 없음",

@@ -226,6 +226,7 @@
     },
     "environment": {
       "sectionTitle": "Scientific environment",
+      "jupyter": "Jupyter",
       "detectionUnavailable": "Environment detection runs in the desktop app.",
       "found": "found",
       "notFound": "not found",

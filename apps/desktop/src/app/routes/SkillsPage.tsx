@@ -245,7 +245,7 @@ export function SkillsPage() {
               ) : (
                 <Settings2 size={15} className="text-muted" />
               )}
-              <span className="w-24 text-text">Jupyter</span>
+              <span className="w-24 text-text">{t("skills.environment.jupyter")}</span>
               <span className="flex-1 text-xs text-muted">
                 {jupyter?.installed ? t("skills.environment.ready") : t("skills.environment.optional")}
               </span>

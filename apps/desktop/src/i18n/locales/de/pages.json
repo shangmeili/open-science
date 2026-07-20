@@ -148,6 +148,7 @@
     },
     "environment": {
       "sectionTitle": "Wissenschaftliche Umgebung",
+      "jupyter": "Jupyter",
       "detectionUnavailable": "Die Umgebungserkennung läuft in der Desktop-App.",
       "found": "gefunden",
       "notFound": "nicht gefunden",

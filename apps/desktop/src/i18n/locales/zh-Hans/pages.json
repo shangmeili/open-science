@@ -226,6 +226,7 @@
     },
     "environment": {
       "sectionTitle": "科学计算环境",
+      "jupyter": "Jupyter",
       "detectionUnavailable": "环境检测功能在桌面应用中运行。",
       "found": "已找到",
       "notFound": "未找到",

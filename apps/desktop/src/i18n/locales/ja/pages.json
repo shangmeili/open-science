@@ -148,6 +148,7 @@
     },
     "environment": {
       "sectionTitle": "科学計算環境",
+      "jupyter": "Jupyter",
       "detectionUnavailable": "環境検出はデスクトップアプリで実行されます。",
       "found": "検出済み",
       "notFound": "未検出",

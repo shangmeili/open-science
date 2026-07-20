@@ -148,6 +148,7 @@
     },
     "environment": {
       "sectionTitle": "Environnement scientifique",
+      "jupyter": "Jupyter",
       "detectionUnavailable": "La détection de l'environnement s'exécute dans l'application de bureau.",
       "found": "trouvé",
       "notFound": "introuvable",
