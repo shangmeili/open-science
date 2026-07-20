@@ -13,6 +13,15 @@
     "title": "Paramètres",
     "subtitle": "Configurez l’assistant IA, les modèles, les outils de preuve, l’espace de travail et l’environnement d’analyse local."
   },
+  "supportReport": {
+    "title": "Diagnostic des problèmes",
+    "hint": "Exportez un rapport lorsque vous devez signaler un problème",
+    "description": "Le rapport contient uniquement la version de l’application, l’architecture du système, l’état de l’assistant local et des nombres agrégés d’événements. Il exclut les identifiants, les chemins de projet, les fichiers de recherche, les conversations et les journaux bruts.",
+    "export": "Exporter le rapport de diagnostic",
+    "exporting": "Préparation du rapport…",
+    "saved": "Rapport de diagnostic enregistré",
+    "failed": "Impossible d’exporter le rapport de diagnostic"
+  },
   "readiness": {
     "title": "Prêt à travailler",
     "checking": "Vérification de cet ordinateur…",

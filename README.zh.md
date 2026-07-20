@@ -253,12 +253,13 @@ pnpm lint
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
 当前开发刻意收敛为先在 Intel macOS 上跑通产品；Windows、Linux、Apple Silicon
-与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.51`；已完成隔离首次启动核验的 x64 macOS
-候选包也是 `0.1.51`。`AI4HEOR_0.1.51_x64.dmg` 从 `17989c7` 构建，大小为
+与跨平台发布暂停，直到 macOS 路径通过验收。当前源码为 `0.1.52`；新源码完成打包前，已完成隔离首次启动核验的 x64 macOS
+候选包仍为 `0.1.51`。`AI4HEOR_0.1.51_x64.dmg` 从 `17989c7` 构建，大小为
 90,040,670 字节，SHA-256 是
 `b06e4cc6f46d52599edbe0ee4e359268840927ddc999fb9021ce4b43abb2e70c`。
 0.1.51 将自定义接口信息与模型服务密钥分开保存，删除旧的配置文件明文写入命令，并提供可编辑、七语言提示的
 MiniMax 中国区 Token Plan 预设；安装包不含密钥。
+0.1.52 在设置页新增第一方诊断报告导出，供产品测试反馈问题时使用。报告只记录应用版本、系统平台与架构、本地助手状态和有界日志片段的事件数量；不导出密钥、认证文件、项目路径和资料、对话内容、模型/服务商/接口信息、命令输出或原始日志。七种界面语言均已提供对应说明，Unix 系统上导出文件仅当前账户可读。
 0.1.50 阻止测试生成文件进入安装包：Python 测试不再写入字节码缓存；Tauri 正式构建会在编译前核对全部资源，发现缺失、链接、缓存、异常文件或目标路径冲突时直接停止。打包完成后仍对只读挂载的 DMG 作独立核验。
 0.1.49 新增第一方目标期刊投稿核对：只根据研究者保存的当前官方投稿指南快照和逐条来源位置检查明确的机械性要求，结果仍等待研究者复核。平台不内置期刊指南、报告清单、CSL 样式或投稿模板；通过检查不等于符合期刊要求或可以投稿。
 独立只读核验已确认 x86-64 架构、0.1.51 身份、OpenCode 1.17.13、uv 0.11.26、
@@ -349,7 +350,7 @@ sealed resources 或 stapled ticket，严格 codesign 与 Gatekeeper 均拒绝�
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.51},
+  version = {0.1.52},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

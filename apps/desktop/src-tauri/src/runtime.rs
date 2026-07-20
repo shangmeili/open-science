@@ -26,6 +26,12 @@ pub struct RuntimeState {
     lifecycle: Mutex<RuntimeLifecycle>,
 }
 
+/// A privacy-safe lifecycle bit for the support report. Do not expose the
+/// endpoint, port, command, environment, or authentication state.
+pub(crate) fn runtime_process_tracked(state: &RuntimeState) -> bool {
+    state.lifecycle.lock().unwrap().child.is_some()
+}
+
 /// App-private runtime root, e.g. ~/Library/Application Support/com.ai4s.workbench/runtime
 fn runtime_root(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app

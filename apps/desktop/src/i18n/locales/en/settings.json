@@ -13,6 +13,15 @@
     "title": "Settings",
     "subtitle": "Configure the AI assistant, models, evidence tools, workspace, and local analysis environment."
   },
+  "supportReport": {
+    "title": "Problem diagnostics",
+    "hint": "Export a report when you need to describe a problem",
+    "description": "The report contains the app version, system architecture, local assistant status, and aggregate diagnostic event counts. It does not contain model credentials, project paths, research files, conversations, or raw logs.",
+    "export": "Export diagnostic report",
+    "exporting": "Preparing report…",
+    "saved": "Diagnostic report saved",
+    "failed": "Could not export the diagnostic report"
+  },
   "readiness": {
     "title": "Getting ready",
     "checking": "Checking this computer…",

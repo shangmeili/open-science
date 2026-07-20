@@ -520,6 +520,16 @@ export async function saveTextFile(filename: string, content: string): Promise<S
   return path ? { kind: "saved", path } : { kind: "canceled" };
 }
 
+/** Export a native, privacy-preserving product diagnostic report. The report
+ * contains aggregate event counts, never raw logs, credentials, project paths,
+ * research files, conversations, endpoint URLs, provider names, or model IDs. */
+export async function exportSupportReport(): Promise<SaveResult> {
+  if (!isTauri) return { kind: "not-desktop" };
+  const { invoke } = await import("@tauri-apps/api/core");
+  const path = await invoke<string | null>("export_support_report");
+  return path ? { kind: "saved", path } : { kind: "canceled" };
+}
+
 /** The active workspace directory (desktop only; null in browser). */
 export async function workspacePath(): Promise<string | null> {
   if (!isTauri) return null;

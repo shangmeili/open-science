@@ -13,6 +13,15 @@
     "title": "Einstellungen",
     "subtitle": "KI-Assistent, Modelle, Evidenzwerkzeuge, Arbeitsbereich und lokale Analyseumgebung konfigurieren."
   },
+  "supportReport": {
+    "title": "Problemdiagnose",
+    "hint": "Bei einer Problemmeldung einen Bericht exportieren",
+    "description": "Der Bericht enthält nur App-Version, Systemarchitektur, Status des lokalen Assistenten und zusammengefasste Ereigniszahlen. Modellzugänge, Projektpfade, Forschungsdateien, Gespräche und Rohprotokolle sind ausgeschlossen.",
+    "export": "Diagnosebericht exportieren",
+    "exporting": "Bericht wird erstellt…",
+    "saved": "Diagnosebericht gespeichert",
+    "failed": "Diagnosebericht konnte nicht exportiert werden"
+  },
   "readiness": {
     "title": "Arbeitsbereitschaft",
     "checking": "Dieser Computer wird geprüft…",

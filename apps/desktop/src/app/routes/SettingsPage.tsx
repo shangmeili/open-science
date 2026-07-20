@@ -51,6 +51,7 @@ import { ModelBrowser } from "@/components/settings/ModelBrowser";
 import { ProviderManagerCard } from "@/components/settings/ProviderManagerCard";
 import { inputCls } from "@/components/settings/inputCls";
 import { StartupReadiness } from "@/components/settings/StartupReadiness";
+import { SupportReportCard } from "@/components/settings/SupportReportCard";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 import { FIRST_PARTY_HEOR_CONNECTOR } from "@/lib/heorConnectorPolicy";
@@ -1208,6 +1209,8 @@ export function SettingsPage() {
 
         {/* ---- Privacy & data flow ---- */}
         <DataFlowCard model={defaultModel} workspace={wsPath} />
+
+        <SupportReportCard />
 
         {/* ---- Appearance ---- */}
         <Card title={t("appearance.title")}>

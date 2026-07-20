@@ -13,6 +13,15 @@
     "title": "Configuración",
     "subtitle": "Configura el asistente de IA, los modelos, las herramientas de evidencia, el espacio de trabajo y el entorno de análisis local."
   },
+  "supportReport": {
+    "title": "Diagnóstico de problemas",
+    "hint": "Exporta un informe cuando necesites comunicar un problema",
+    "description": "El informe solo incluye la versión de la aplicación, la arquitectura del sistema, el estado del asistente local y recuentos agregados de eventos. No incluye credenciales, rutas del proyecto, archivos de investigación, conversaciones ni registros sin filtrar.",
+    "export": "Exportar informe de diagnóstico",
+    "exporting": "Preparando el informe…",
+    "saved": "Informe de diagnóstico guardado",
+    "failed": "No se pudo exportar el informe de diagnóstico"
+  },
   "readiness": {
     "title": "Preparación para trabajar",
     "checking": "Comprobando este equipo…",

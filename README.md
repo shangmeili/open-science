@@ -304,8 +304,8 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.51; the current first-launch-verified x64 macOS
-candidate is also 0.1.51. The 90,040,670-byte
+accepted. Current source is 0.1.52; the current first-launch-verified x64 macOS
+candidate remains 0.1.51 until the new source is packaged. The 90,040,670-byte
 `AI4HEOR_0.1.51_x64.dmg` candidate built from `17989c7` has SHA-256
 `b06e4cc6f46d52599edbe0ee4e359268840927ddc999fb9021ce4b43abb2e70c`.
 Independent read-only verification confirms its x86-64 payload, 0.1.51
@@ -315,6 +315,12 @@ launch, creation of a fresh `Documents/AI4HEOR`, content-preserving migration fr
 `Documents/OpenScience`, and process cleanup while the installed app remained
 running. It supersedes the 0.1.50 candidate and is ready for product-owner testing;
 product-owner acceptance has not yet been recorded.
+Version 0.1.52 adds a native diagnostic-report export for product testing. It
+contains only the app version, platform/architecture, managed-runtime status and
+aggregate counts from a bounded log tail; it excludes credentials, authentication
+files, project paths and files, conversation content, provider/model/endpoint
+details, command output and raw logs. The export is available in all seven interface
+languages and is saved with owner-only permissions on Unix systems.
 Version 0.1.51 separates custom endpoint metadata from model-provider credentials,
 removes the legacy plaintext-config command, and adds an editable seven-language
 MiniMax China Token Plan preset without bundling a key.
@@ -508,7 +514,7 @@ If you use AI4HEOR in your research, please cite it:
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.51},
+  version = {0.1.52},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

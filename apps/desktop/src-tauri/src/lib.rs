@@ -60,6 +60,7 @@ mod runs;
 mod runs_index;
 mod runtime;
 mod startup_audit;
+mod support_report;
 mod tools;
 mod uv;
 
@@ -244,6 +245,7 @@ pub fn run() {
             preview_server::preview_url,
             large_file::probe_large_file,
             tools::detect_tools,
+            support_report::export_support_report,
             debug_log::log_debug
         ])
         .build(tauri::generate_context!())
