@@ -28,6 +28,27 @@ const EXT_LANG: Record<string, string> = {
   py: "python", r: "r", jl: "julia", sh: "bash", tex: "latex", md: "markdown",
 };
 
+// These entries belong to the local harness, not to the researcher's file
+// collection. They remain on disk for policy, capability and learning flows,
+// but must never leak into the Research files browser.
+const INTERNAL_WORKSPACE_ROOT_ENTRIES = new Set([
+  "AGENTS.md",
+  "KNOWLEDGE.md",
+  "README.md",
+  "capabilities",
+  "knowledge",
+  "learning",
+  "notes",
+  "policy.json",
+]);
+
+function visibleResearchEntries(entries: DirEntry[], rel: string): DirEntry[] {
+  if (rel) return entries;
+  return entries.filter(
+    (entry) => !entry.name.startsWith(".") && !INTERNAL_WORKSPACE_ROOT_ENTRIES.has(entry.name),
+  );
+}
+
 function iconFor(entry: DirEntry) {
   if (entry.isDir) return <Folder size={15} className="text-accent" />;
   const kind = previewKindForName(entry.name);
@@ -74,7 +95,7 @@ export function FilesPage() {
     setEntries(null);
     setError(null);
     try {
-      setEntries(await listDir(rel, "workspace"));
+      setEntries(visibleResearchEntries(await listDir(rel, "workspace"), rel));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setEntries([]);
@@ -231,7 +252,7 @@ export function SessionFilesPane({
     setError(null);
     listDir(dir, "workspace")
       .then((e) => {
-        if (!cancelled) setEntries(e);
+        if (!cancelled) setEntries(visibleResearchEntries(e, dir));
       })
       .catch((e) => {
         if (!cancelled) {

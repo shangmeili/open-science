@@ -13,7 +13,7 @@ describe("Sidebar i18n", () => {
 
     const nav = await screen.findByRole("navigation");
     expect(within(nav).getByText("Research files")).toBeInTheDocument();
-    expect(within(nav).getByText("Analysis notes")).toBeInTheDocument();
+    expect(within(nav).queryByText("Analysis notes")).not.toBeInTheDocument();
     expect(within(nav).getByText("Analysis history")).toBeInTheDocument();
     expect(within(nav).getByText("New task")).toBeInTheDocument();
     expect(within(nav).getByText("Research capabilities")).toBeInTheDocument();

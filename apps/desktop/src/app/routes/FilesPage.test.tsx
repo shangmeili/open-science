@@ -21,6 +21,14 @@ const root: DirEntry[] = [
   { path: "data", name: "data", isDir: true, size: 0, modified: 2 },
   { path: "figure.png", name: "figure.png", isDir: false, size: 2048, modified: 3 },
   { path: "run.ipynb", name: "run.ipynb", isDir: false, size: 500, modified: 1 },
+  { path: "capabilities", name: "capabilities", isDir: true, size: 0, modified: 1 },
+  { path: "knowledge", name: "knowledge", isDir: true, size: 0, modified: 1 },
+  { path: "learning", name: "learning", isDir: true, size: 0, modified: 1 },
+  { path: "notes", name: "notes", isDir: true, size: 0, modified: 1 },
+  { path: "AGENTS.md", name: "AGENTS.md", isDir: false, size: 100, modified: 1 },
+  { path: "KNOWLEDGE.md", name: "KNOWLEDGE.md", isDir: false, size: 100, modified: 1 },
+  { path: "policy.json", name: "policy.json", isDir: false, size: 100, modified: 1 },
+  { path: "README.md", name: "README.md", isDir: false, size: 100, modified: 1 },
 ];
 const sub: DirEntry[] = [{ path: "data/genes.bed", name: "genes.bed", isDir: false, size: 120, modified: 4 }];
 
@@ -64,5 +72,23 @@ describe("FilesPage", () => {
     expect(screen.queryByText("7月20日 14:08 的任务")).not.toBeInTheDocument();
     expect(screen.queryByText("2026-07-20-1408")).not.toBeInTheDocument();
     expect(listDir).not.toHaveBeenCalledWith("", "base");
+  });
+
+  it("does not expose harness files as research material", async () => {
+    render(<FilesPage />);
+
+    expect(await screen.findByText("figure.png")).toBeInTheDocument();
+    for (const name of [
+      "capabilities",
+      "knowledge",
+      "learning",
+      "notes",
+      "AGENTS.md",
+      "KNOWLEDGE.md",
+      "policy.json",
+      "README.md",
+    ]) {
+      expect(screen.queryByText(name)).not.toBeInTheDocument();
+    }
   });
 });

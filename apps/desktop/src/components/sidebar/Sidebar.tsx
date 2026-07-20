@@ -8,7 +8,6 @@ import {
   Folder,
   FolderOpen,
   FolderTree,
-  NotebookPen,
   PanelLeft,
   Plus,
   Settings,
@@ -290,11 +289,6 @@ export function Sidebar() {
             label={t("items.new")}
             onClick={startNew}
             active={location.pathname === "/heor/new"}
-          />
-          <NavRow
-            icon={<NotebookPen size={16} />}
-            label={t("items.notebooks")}
-            onClick={() => navigate("/notebooks")}
           />
           <NavRow
             icon={<FolderTree size={16} />}
