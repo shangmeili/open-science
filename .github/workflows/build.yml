@@ -78,6 +78,7 @@ jobs:
         run: python scripts/release/test_resource_preflight.py -v
 
       - name: Test macOS distribution contracts
+        if: startsWith(matrix.platform, 'macos')
         run: python scripts/release/test_macos_distribution.py -v
 
       - name: Require macOS distribution credentials for tagged releases
