@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -39,7 +40,7 @@ class ProviderCredentialContractTests(unittest.TestCase):
         self.assertIn('npm: "@ai-sdk/anthropic"', settings)
         self.assertIn('baseURL: "https://api.minimaxi.com/anthropic"', settings)
         self.assertIn('models: "MiniMax-M2.7"', settings)
-        self.assertNotIn("sk-cp-", settings)
+        self.assertIsNone(re.search(r"sk-[A-Za-z0-9_-]{40,}", settings))
 
     def test_provider_credential_boundary_is_localized_in_every_ui_language(self) -> None:
         for locale in LOCALES:

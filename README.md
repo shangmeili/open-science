@@ -305,14 +305,17 @@ target design as well as historical status notes.
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
 accepted. Current source is 0.1.51; the fully first-launch-verified x64 macOS
-handoff remains 0.1.41. The current 90,082,675-byte
-`AI4HEOR_0.1.50_x64.dmg` candidate built from `19ac87b` has SHA-256
-`327607afb9e1d7e10c90c7ccce4a7355244611b754e3d7a2e75cbf6c38988a86`.
-Independent read-only verification confirms its x86-64 payload, 0.1.50
+handoff remains 0.1.41. The current 90,040,670-byte
+`AI4HEOR_0.1.51_x64.dmg` candidate built from `17989c7` has SHA-256
+`b06e4cc6f46d52599edbe0ee4e359268840927ddc999fb9021ce4b43abb2e70c`.
+Independent read-only verification confirms its x86-64 payload, 0.1.51
 identity, OpenCode 1.17.13, uv 0.11.26, all 359 controlled resources, and all
-177 packaged HEOR tests. It supersedes the 0.1.49 candidate. Exact isolated
+177 packaged HEOR tests. It supersedes the 0.1.50 candidate. Exact isolated
 first launch remains pending because the installed app is still running; this
 candidate does not replace the fully accepted 0.1.41 handoff yet.
+Version 0.1.51 separates custom endpoint metadata from model-provider credentials,
+removes the legacy plaintext-config command, and adds an editable seven-language
+MiniMax China Token Plan preset without bundling a key.
 Version 0.1.50 prevents test-generated files from entering release resources.
 Python test entry points no longer write bytecode caches, and Tauri's production
 build fails before compilation if any configured resource is missing, linked,
