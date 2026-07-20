@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -12,12 +13,13 @@ import plistlib
 import re
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -373,7 +375,52 @@ def launch_isolated_app(
     return proof
 
 
-def verify_first_launch(
+def single_instance_socket_path(bundle_identifier: str) -> Path:
+    safe_identifier = bundle_identifier.replace(".", "_").replace("-", "_")
+    return Path("/tmp") / f"{safe_identifier}_si.sock"
+
+
+@contextmanager
+def isolate_single_instance_socket(socket_path: Path) -> Iterator[bool]:
+    """Temporarily reserve the product socket for an exact-path test copy.
+
+    Renaming a Unix-domain socket preserves the running listener. The installed
+    app therefore keeps running while the temporary candidate owns the canonical
+    path. The original socket is restored byte-for-byte by rename in `finally`.
+    """
+
+    if not socket_path.exists():
+        yield False
+        return
+    if not stat.S_ISSOCK(socket_path.lstat().st_mode):
+        raise AssertionError(f"single-instance path is not a socket: {socket_path}")
+    backup = socket_path.with_name(
+        f"{socket_path.name}.verification-{os.getpid()}-{time.time_ns()}"
+    )
+    os.replace(socket_path, backup)
+    try:
+        yield True
+    finally:
+        unexpected: Path | None = None
+        if socket_path.exists():
+            if stat.S_ISSOCK(socket_path.lstat().st_mode):
+                socket_path.unlink()
+            else:
+                unexpected = backup.with_name(f"{backup.name}.unexpected")
+                os.replace(socket_path, unexpected)
+        if not backup.exists():
+            raise AssertionError(
+                "original single-instance socket disappeared during verification"
+            )
+        os.replace(backup, socket_path)
+        if unexpected is not None:
+            raise AssertionError(
+                "verification preserved an unexpected non-socket single-instance path at "
+                f"{unexpected}"
+            )
+
+
+def _verify_first_launch_workspaces(
     source_app: Path, expected_arch: str, timeout_seconds: float = 60.0
 ) -> dict[str, Any]:
     host_arch = platform.machine()
@@ -381,20 +428,12 @@ def verify_first_launch(
         raise AssertionError(
             f"first-launch verification requires native {expected_arch} macOS; host is {host_arch}"
         )
-    active_apps = [
-        row
-        for row in current_processes()
-        if Path(command_executable(str(row["command"]))).name == "ai4s-workbench"
-    ]
-    if active_apps:
-        raise AssertionError(
-            f"first-launch verification requires no existing AI4HEOR process: {active_apps}"
-        )
-
     with tempfile.TemporaryDirectory(prefix="ai4heor-macos-first-launch-") as temporary:
         # LaunchServices reports canonical executable paths (`/private/var/...` on
         # macOS) even when tempfile returned the `/var/...` alias. Resolve once so
         # readiness and cleanup compare the same exact path the process table uses.
+        # An already installed AI4HEOR may keep running: process proof and cleanup
+        # are both scoped to this temporary app copy's two exact executable paths.
         root = Path(temporary).resolve()
         installed_app = root / "Applications/AI4HEOR.app"
         installed_app.parent.mkdir(parents=True)
@@ -454,6 +493,22 @@ def verify_first_launch(
         )
         proof["workspace_migration"] = migration
         return proof
+
+
+def verify_first_launch(
+    source_app: Path, expected_arch: str, timeout_seconds: float = 60.0
+) -> dict[str, Any]:
+    with (source_app / "Contents/Info.plist").open("rb") as handle:
+        bundle_identifier = plistlib.load(handle).get("CFBundleIdentifier")
+    if not isinstance(bundle_identifier, str) or not bundle_identifier:
+        raise AssertionError("first-launch verification requires a bundle identifier")
+    socket_path = single_instance_socket_path(bundle_identifier)
+    with isolate_single_instance_socket(socket_path) as isolated_existing_socket:
+        proof = _verify_first_launch_workspaces(
+            source_app, expected_arch, timeout_seconds
+        )
+    proof["existing_single_instance_socket_isolated"] = isolated_existing_socket
+    return proof
 
 
 def verify_info(app: Path, expected_version: str) -> dict[str, str]:

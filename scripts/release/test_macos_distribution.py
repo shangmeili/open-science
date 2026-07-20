@@ -6,6 +6,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import plistlib
+import socket
+import stat
 import subprocess
 import tempfile
 import unittest
@@ -84,6 +86,49 @@ class CredentialPreflightTests(unittest.TestCase):
 
 
 class DistributionVerifierTests(unittest.TestCase):
+    def test_existing_single_instance_socket_is_restored_around_verification(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "com_ai4s_workbench_si.sock"
+            listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            listener.bind(str(path))
+            listener.listen(1)
+            try:
+                with verifier.isolate_single_instance_socket(path) as isolated:
+                    self.assertTrue(isolated)
+                    self.assertFalse(path.exists())
+                    candidate = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    try:
+                        candidate.bind(str(path))
+                    finally:
+                        candidate.close()
+                self.assertTrue(path.exists())
+                client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                try:
+                    client.connect(str(path))
+                finally:
+                    client.close()
+            finally:
+                listener.close()
+
+    def test_unexpected_single_instance_file_does_not_prevent_socket_restore(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "com_ai4s_workbench_si.sock"
+            listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            listener.bind(str(path))
+            try:
+                with self.assertRaisesRegex(AssertionError, "unexpected non-socket"):
+                    with verifier.isolate_single_instance_socket(path):
+                        path.write_text("preserve for audit", encoding="utf-8")
+                self.assertTrue(path.exists())
+                self.assertTrue(stat.S_ISSOCK(path.lstat().st_mode))
+                preserved = list(Path(temporary).glob("*.unexpected"))
+                self.assertEqual(len(preserved), 1)
+                self.assertEqual(
+                    preserved[0].read_text(encoding="utf-8"), "preserve for audit"
+                )
+            finally:
+                listener.close()
+
     def test_first_launch_classifier_requires_exact_packaged_processes(self) -> None:
         main = Path("/tmp/install/AI4HEOR.app/Contents/MacOS/ai4s-workbench")
         opencode = Path("/tmp/install/AI4HEOR.app/Contents/MacOS/opencode")
@@ -91,7 +136,8 @@ class DistributionVerifierTests(unittest.TestCase):
             """
               101 1 /tmp/install/AI4HEOR.app/Contents/MacOS/ai4s-workbench
               102 101 /tmp/install/AI4HEOR.app/Contents/MacOS/opencode serve --port 43123
-              103 1 /other/AI4HEOR.app/Contents/MacOS/opencode serve --port 9999
+              201 1 /Applications/AI4HEOR.app/Contents/MacOS/ai4s-workbench
+              202 201 /Applications/AI4HEOR.app/Contents/MacOS/opencode serve --port 9999
             """
         )
         proof = verifier.classify_first_launch_processes(rows, main, opencode, 101)
@@ -100,6 +146,15 @@ class DistributionVerifierTests(unittest.TestCase):
         self.assertEqual(proof["app_process_id"], 101)
         self.assertEqual(proof["opencode_process_id"], 102)
         self.assertEqual(proof["opencode_parent_process_id"], 101)
+        self.assertEqual(
+            [
+                row["pid"]
+                for row in verifier.matching_processes(
+                    rows, {str(main), str(opencode)}
+                )
+            ],
+            [101, 102],
+        )
         self.assertIsNone(
             verifier.classify_first_launch_processes(rows, main, opencode, 999)
         )

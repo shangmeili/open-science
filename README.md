@@ -207,7 +207,7 @@ does not yet exist, AI4HEOR atomically renames the prior default
 exist, it does not merge or delete either one; a base folder explicitly chosen in
 Settings always wins.
 
-The currently verified 0.1.41 local x64 macOS artifact is not code-signed or notarized. The
+The currently verified 0.1.51 local x64 macOS artifact is not code-signed or notarized. The
 `v*` tag pipeline now fails closed unless both macOS targets receive Developer ID and
 Apple notarization credentials and subsequently pass signature, hardened-runtime,
 stapled-ticket, and Gatekeeper checks. No credentialed tag run has produced that evidence
@@ -304,15 +304,17 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.51; the fully first-launch-verified x64 macOS
-handoff remains 0.1.41. The current 90,040,670-byte
+accepted. Current source is 0.1.51; the current first-launch-verified x64 macOS
+candidate is also 0.1.51. The 90,040,670-byte
 `AI4HEOR_0.1.51_x64.dmg` candidate built from `17989c7` has SHA-256
 `b06e4cc6f46d52599edbe0ee4e359268840927ddc999fb9021ce4b43abb2e70c`.
 Independent read-only verification confirms its x86-64 payload, 0.1.51
 identity, OpenCode 1.17.13, uv 0.11.26, all 359 controlled resources, and all
-177 packaged HEOR tests. It supersedes the 0.1.50 candidate. Exact isolated
-first launch remains pending because the installed app is still running; this
-candidate does not replace the fully accepted 0.1.41 handoff yet.
+177 packaged HEOR tests. An exact temporary app copy also passed isolated first
+launch, creation of a fresh `Documents/AI4HEOR`, content-preserving migration from
+`Documents/OpenScience`, and process cleanup while the installed app remained
+running. It supersedes the 0.1.50 candidate and is ready for product-owner testing;
+product-owner acceptance has not yet been recorded.
 Version 0.1.51 separates custom endpoint metadata from model-provider credentials,
 removes the legacy plaintext-config command, and adds an editable seven-language
 MiniMax China Token Plan preset without bundling a key.
@@ -414,8 +416,9 @@ and unnotarized and is for internal product-owner testing only.
 
 ### Intel macOS product-owner acceptance
 
-Use `AI4HEOR_0.1.41_x64.dmg` only on an Intel Mac. Before opening it, verify the exact
-SHA-256 above. Because this internal build is unsigned, macOS may require Control-click →
+Use `AI4HEOR_0.1.51_x64.dmg` only on an Intel Mac. Before opening it, verify SHA-256
+`b06e4cc6f46d52599edbe0ee4e359268840927ddc999fb9021ce4b43abb2e70c`.
+Because this internal build is unsigned, macOS may require Control-click →
 Open; that exception is not evidence of distribution readiness.
 
 1. Confirm that the application name and icon are AI4HEOR and that the initial workspace
@@ -479,7 +482,7 @@ silently acquire those claims. Tagged matrix jobs no longer create or populate a
 only the final job may create a draft after all four evidence files and the cross-platform
 manifest validate, and it uploads exactly those verified installers and records. This gate
 is locally contract-tested and rejects the
-current unsigned 0.1.41 x64 DMG, but it has not been exercised with real Apple credentials.
+current unsigned 0.1.51 x64 DMG, but it has not been exercised with real Apple credentials.
 The AI4HEOR 0.1.30 Linux `.deb` and `.rpm` were built from the same clean commit
 `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. Both packages are payload-verified with all
 282 configured resources matching source bytes and all 177 deterministic HEOR tests
@@ -505,7 +508,7 @@ If you use AI4HEOR in your research, please cite it:
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.41},
+  version = {0.1.51},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }
