@@ -2,16 +2,21 @@
 
 MCP (Model Context Protocol) server configurations.
 
-## First batch
+## Current distribution boundary
 
 | MCP | Purpose | Phase |
 | --- | --- | --- |
-| `filesystem` | Project file read/write | v0.1 |
-| `paper-search-mcp` | Literature search | v0.1 |
-| `BioMCP` | Biomedical databases | later |
+| Native workspace commands | Project file operations exposed by the signed desktop application | shipped; not an MCP package |
+| Native HEOR evidence search | Bounded PubMed and ClinicalTrials.gov connector with app-owned authorization | shipped; not an MCP package |
 | `Zotero MCP` | Reference library | later |
 | `GitHub MCP` | Repos / issues / releases | later |
 | `local runtime MCP` | Local execution status | later |
 
-v0.1 ships `filesystem` + paper search; the rest are added incrementally.
-MCP servers must stay pluggable and configurable.
+The current application packages no third-party MCP server configuration,
+binary, source tree, or transitive runtime. A public repository or compatible
+license is discovery evidence, not permission to load code. Any future MCP must
+pass the pinned-source, license, egress, permissions, data-classification,
+security, method-boundary, platform, test, kill-switch, and Human-review checks
+before it can enter the release-only `runtime/assets/asset-admission-registry.json`.
+Unfinished or excluded sources are not retained in that registry or offered in
+the product UI.

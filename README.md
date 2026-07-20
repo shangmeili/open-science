@@ -1,15 +1,17 @@
 <div align="center">
 
-[![Open Science Desktop — Local-first AI research workbench](./docs/assets/banner.webp)](https://github.com/ai4s-research/open-science)
+[![AI4HEOR — Local-first pharmacoeconomics and HEOR workbench](./docs/assets/banner.webp)](https://github.com/ai4s-research/open-science)
 
-# Open Science Desktop
+# AI4HEOR
 
-**Local-first, model-agnostic AI research workbench for macOS, Windows & Linux.**
+**Local-first, model-agnostic pharmacoeconomics and HEOR workbench for macOS,
+Windows & Linux.**
 
-Formerly Open Science. An open-source desktop alternative to Claude Science and
-similar AI-for-science workbenches — built with Tauri, MCP, agent skills, and
-reproducible artifacts. It connects agents, notebooks, files, figures, reports,
-runs, and review into one auditable desktop workflow.
+AI4HEOR is developed from the open-source Open Science Desktop platform using
+Tauri, MCP, skills, and reproducible artifacts. Natural-language interaction is
+primary, while forms only support inspection and Human review. The Human
+researcher leads the scientific work; the configured model/runtime assists with
+evidence organization, execution, checking, and explanation.
 
 <p>
   <b>English</b> ·
@@ -23,7 +25,6 @@ runs, and review into one auditable desktop workflow.
 
 <p>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://doi.org/10.5281/zenodo.21351225"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.21351225.svg" alt="DOI"></a>
   <a href="https://internscience.github.io/ResearchClawBench-Home/"><img src="https://img.shields.io/badge/%F0%9F%8F%86%20%231-ResearchClawBench-FFB300" alt="#1 on ResearchClawBench"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue" alt="Platforms">
   <img src="https://img.shields.io/badge/i18n-7%20languages-5B8DEF" alt="7 interface languages">
@@ -38,7 +39,10 @@ runs, and review into one auditable desktop workflow.
 
 ---
 
-🎉 **Recognition:** Open Science Desktop ranks #1 by scored-task average on [ResearchClawBench](https://internscience.github.io/ResearchClawBench-Home/), an end-to-end benchmark for autonomous scientific research agents (Pass@1 leaderboard, July 9, 2026).
+🎉 **Platform lineage:** The upstream Open Science Desktop project ranks #1 by
+scored-task average on [ResearchClawBench](https://internscience.github.io/ResearchClawBench-Home/)
+(Pass@1 leaderboard, July 9, 2026). This upstream agent benchmark is not evidence
+that AI4HEOR scientific work should be agent-led or that its outputs are valid.
 
 ---
 
@@ -59,13 +63,24 @@ runs, and review into one auditable desktop workflow.
 
 ## What it does
 
-**Runs the whole research loop** — from a broad direction to a finished paper:
-exploration, literature survey, hypothesis, experiment code, analysis, figures, and
-write-up, in one continuous, auditable session.
+**Supports a Human-led HEOR workflow** — from a researcher-defined question to
+reviewable evidence, deterministic analysis, validation, and reporting artifacts
+in one continuous, auditable session.
 
-- **Autonomous research agents** — the bundled `ai4s-agent` chains specialist skills
-  end to end (explore → survey → experiment → write), and each stage drops a real,
-  inspectable artifact into your workspace, not just a chat reply.
+- **Natural-language-first assistance** — the researcher initiates and controls the
+  work; the model/runtime proposes or executes bounded steps and leaves real,
+  inspectable artifacts rather than claiming scientific authority.
+- **HEOR tasks from the first click** — New task opens an unrestricted natural-language
+  composer with optional draft shortcuts; project tasks stay inside a named local HEOR
+  workspace, while standalone tasks receive an independent local scope.
+- **Local HEOR knowledge bases** — install the dated built-in Chinese pharmacoeconomics
+  learning library with one explicit click, or add your own folders. Sources retain their
+  hierarchy, are hash-bound and indexed locally, and can ground researcher-initiated
+  learning without an automatic network call.
+- **Researcher-owned methods currency** — a dated local watchlist records official
+  links, revisions, rights status, affected contracts, and revalidation work;
+  AI4HEOR flags overdue or unresolved items without scraping restricted content or
+  approving scientific choices.
 - **Everything traces back** — figures, tables, reports, notebooks, and run outputs
   link to the exact code, inputs, environment, model output, and conversation that
   produced them.
@@ -76,56 +91,57 @@ write-up, in one continuous, auditable session.
   stay pluggable.
 - **Reproducible by construction** — local, SSH/Slurm, Modal, and notebook-batch runs
   are captured as reproducible run records, not loose terminal scrollback.
-- **Extensible** — agent skills, MCP servers and one-click science connectors,
+- **Extensible** — governed first-party HEOR skills, researcher-managed MCP servers,
   `/` commands, `!` shell mode, and a model-agnostic SDK.
 
 ## See it in action
 
-**One prompt -> a complete, traceable analysis.** Simulate data, fit a model, save a
-publication-grade figure, and write a report where every number traces to the code.
+**A Human-led HEOR request -> reviewable, traceable local work.** A new task
+starts with pharmacoeconomic study design, HEOR evidence/data analysis,
+model/report audit, or a synthetic cost-effectiveness example. The bundled
+`examples/heor-cost-effectiveness/` project demonstrates a two-strategy,
+three-state cohort workflow. The default HEOR surface installs it only after the
+researcher selects the example and keeps the request unsent for review. Its
+dependency-free `run_analysis.py` binds the exact script, specification, and CSV
+hashes, reproduces `expected/base-case-result.json`, and exposes declared low and
+high cost sensitivity values without asking a model to perform the arithmetic.
+After a separate Human confirmation, the desktop app can run this exact fixed
+case without a configured model, write all three local result files, and add run
+and provenance records; no case content is sent to a model provider. Its numbers are
+teaching assumptions, not clinical or economic evidence, and it cannot create
+approval, cost-effectiveness, or reimbursement conclusions.
 
-![End-to-end dose-response analysis: the agent runs code and produces a fitted figure and a report](./docs/assets/showcase-workflow.webp)
+![AI4HEOR first-use guide with local, model, approval, and Human-authority boundaries](./docs/audits/2026-07-17-first-use/06-skip-link-stable.png)
 
-**Every artifact traces back to its code, inputs, and conversation.**
+![AI4HEOR HEOR-specific natural-language starter surface](./docs/audits/2026-07-17-first-use/07-heor-workspace-final.png)
 
-![Artifact inspector showing a figure's generating code, inputs, and provenance](./docs/assets/showcase-provenance.webp)
-
-**Literature -> verifiable report.** Search papers, draft a manuscript rendered as a
-PDF, and audit citations, unsourced numbers, and figure/code consistency.
-
-![Literature survey producing a rendered PDF manuscript with a traceability review](./docs/assets/showcase-literature.webp)
-
-<details>
-<summary><b>More screenshots</b></summary>
-
-<br>
-
-![The agent driving a Jupyter notebook with a live matplotlib figure](./docs/assets/showcase-notebook.webp)
-
-![An experiment sweep table alongside a live analysis notebook](./docs/assets/showcase-experiment.webp)
-
-![The skills library listing bundled scientific skills](./docs/assets/showcase-skills.webp)
-
-</details>
+![AI4HEOR editable cost-effectiveness request before any model turn](./docs/audits/2026-07-17-first-use/08-natural-language-draft-final.png)
 
 ## Current capabilities
 
-**The research loop, as skills.** One meta-skill runs the full pipeline; each stage
-is a self-contained skill that produces a real, gradeable artifact — runnable on any
-model OpenCode supports:
+**Research assistance, as bounded HEOR skills.** AI4HEOR's 52 first-party skills
+route researcher-defined tasks without acquiring approval or method-selection
+authority. Representative admitted workflows are:
 
 | Skill | Role | Primary output |
 | --- | --- | --- |
-| `ai4s-agent` | Runs the four skills below, in order | The full research package |
-| `research-explorer` | Turn a broad direction into concrete topics | `research_exploration.md`, `topic_matrix.md`, `literature_pre_survey.md` |
-| `literature-survey` | Write a literature survey | 6–20 pp PDF, 60+ real citations, LaTeX source, taxonomy figures |
-| `experiment-suite` | Build an experiment package | Design doc, runnable code, `results.json` with provenance, figures, report |
-| `paper-writer` | Write a research paper | 8–14 pp PDF, 200+ citations, 4–8 figures, tables |
-| `mindmap-render` | Render a mindmap | Image generated from a `topic_matrix.md` |
-| `integrity-auditor` | Audit a paper's integrity | Image / numerical / logical findings, 4-level evidence grading, `audit_report.md` |
+| `$heor-workbench` | Coordinate researcher-led HEOR work without taking scientific authority | Reviewable local plan, artifacts, and stop points |
+| `$heor-local-evidence` | Inventory an explicitly selected local knowledge base without automatic networking | Hash-bound local evidence inventory |
+| `$heor-evidence-search` | Draft an auditable PubMed/ClinicalTrials.gov request for Human network authorization | Exact request hash and imported metadata candidates |
+| `$literature-review` | Import, deduplicate, validate, and export project-local citation metadata | Source-bound reference library plus RIS, BibTeX, or CSL-JSON exchange file |
+| `$citation-formatting` | Prepare source-bound in-text citations and bibliography output from the validated local library | Deterministic reviewable Markdown in three AI4HEOR-owned profiles plus generation audit |
+| `$heor-model-design` | Structure the Human-defined decision problem and conceptual model | Decision-problem artifact plus source-bound SVG and editable GraphML review views |
+| `$heor-cohort-state-transition` / `$heor-partitioned-survival` | Execute bounded deterministic economic models | Reproducible costs, QALYs, increments, and checks |
+| `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | Execute declared uncertainty and bounded VOI workflows | DSA/PSA/CEAC/CEAF/EVPI and separately reviewed advanced VOI |
+| `$heor-budget-impact` / `$heor-dynamic-budget-impact` | Execute bounded static or dynamic budget-impact analysis | Disaggregated budget results and audit artifacts |
+| `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | Validate, report, and package exact current artifacts | Independent-review package, source-bound DOCX/PDF/XLSX report, and replay bundle |
+| `$research-presentation` | Prepare source-bound research presentation content and render it locally | Reviewable macro-free PPTX plus generation audit |
+| `$research-tables` | Structure typed, unit-labelled rows from exact local evidence and analysis outputs | Reviewable formula-free XLSX, one CSV per table, and generation audit |
+| `$journal-submission-check` | Capture explicit mechanical rules from a researcher-saved official author-guide snapshot | Source-bound check report that remains awaiting Human review |
 
-These ship in the `ai4s-skills` pack alongside first-party review skills and the
-office/document skills below.
+Every first-party Skill name and description ships in all seven interface
+languages while the exact `$skill-id` remains visible. Unfinished rewrites and
+excluded external sources are internal engineering records, not user choices.
 
 ### Platform
 
@@ -133,39 +149,44 @@ office/document skills below.
 | --- | --- |
 | Desktop shell | Tauri 2 + React + TypeScript + Vite, with macOS, Windows, and Linux desktop builds. |
 | Runtime | Bundled OpenCode sidecar, auto-started by the app, isolated from the user's own OpenCode config/data. |
-| Sessions | Multi-session chat/history, dated workspace folders, global history across workspaces, `/` commands, and `!` shell mode. |
-| Files | Global and per-session file browsing, context menu actions, external open/reveal, copy path, and local preview server. |
+| Projects and tasks | A project is a named local workspace whose files and context may be shared by its tasks. A standalone task has its own local research scope and the same assistant, Skills, HEOR methods, files, review, and audit functions; it simply does not share them across tasks. Multi-task history, `/` commands, and `!` shell mode remain available. |
+| Files | Global and per-task file browsing, context menu actions, external open/reveal, copy path, and local preview server. |
 | Notebooks | Real `.ipynb` files, Python and R notebook creation, local kernel execution, managed Jupyter environment via bundled `uv`, and an Open JupyterLab action. |
 | Runs | Append-only run logs, global SQLite run index, search/facets/pagination, local/remote surfaces, output links, logs, and reproduce prompts. |
 | Provenance | `.openscience/provenance.jsonl` tracks file versions and links produced artifacts back to the run or edit that created them. |
 | Review | Traceability, statistics-integrity, domain-check, large-file, publication-figure, remote-compute, and Modal run skills are bundled as first-party skills. |
 | Viewers | PDF, image, video, HTML, Markdown, code, CSV/TSV tables with charts, DOCX, XLSX, PPTX, molecules, 3D meshes, genome tracks, FITS, DOS/DOSCAR, EIGENVAL bands, qcode, anomaly maps, and phase files. |
 | Models | OpenCode provider catalog, OAuth/API-key provider flows, custom OpenAI-compatible endpoints, and local/provider-specific options supported by OpenCode. |
-| Interface languages | English, Simplified Chinese, Japanese, Spanish, German, French, and Korean. Portuguese (Brazil) and Arabic are registered but not selectable yet. |
+| Interface languages | English, Simplified Chinese, Japanese, Spanish, German, French, and Korean. First-party Skill names and descriptions ship in all seven languages while exact `$skill-id` values remain visible. Portuguese (Brazil) and Arabic are registered but not selectable yet. |
 
 ## Skills and connectors
 
-Bundled skills are fetched for builds and releases instead of being committed into
-git history:
+Only first-party core skills in `runtime/skills/core/` are bundled by default,
+including the AI4HEOR human-authorized PubMed/ClinicalTrials.gov evidence
+search, evidence synthesis, model-design, reference-case, uncertainty, advanced
+value-of-information, budget-impact, validation, and reporting workflows. Third-party Skills and MCP
+servers are governed by a release-only packaged registry. It contains only
+compatible, reviewed, cross-platform, hash-locked `validated-adapter` assets
+that actually ship with the app; it does not retain unfinished or excluded
+sources. The current registry is empty, so no third-party tool is bundled.
 
-- `ai4s-skills` pack from `ai4s-research/ai4s-skills`.
-- Office/document skills from the Apache-2.0 `anthropics/skills` repository:
-  `docx`, `pdf`, `pptx`, and `xlsx`.
-- First-party core skills in `runtime/skills/core/`:
-  `traceability-review`, `stats-integrity`, `domain-check`, `large-file`,
-  `publication-figures`, `remote-compute`, and `modal-run`.
+Useful behavior identified in earlier external reviews is rebuilt as bounded
+first-party AI4HEOR capabilities. License-incompatible document sources are
+permanently absent from the runtime and candidate UI. PPTX is replaced by
+`research-presentation`; DOCX/PDF/XLSX report export is replaced by the first-party
+`heor-reporting` native renderer. Configurable research tables are supplied by
+`research-tables`, which binds typed rows to exact source hashes and generates a
+formula-free XLSX plus one CSV per table. Neither XLSX path performs hidden
+spreadsheet model recalculation. The read-only decision trail is in
+[`docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md`](./docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md).
 
-One-click science MCP connectors currently include:
-
-- Literature search: arXiv, PubMed, Crossref, Semantic Scholar, bioRxiv/medRxiv.
-- Biomedical databases: PubMed, ClinicalTrials.gov, MyVariant/ClinVar.
-- Materials Project.
-- FRED economic data.
-- Space weather.
-- Open-Meteo weather and climate.
-- USGS water data.
-
-You can also add any local or remote MCP server from Settings. See
+The default connector surface contains no unreviewed third-party one-click MCP
+process. Built-in `$heor-evidence-search` performs fixed-endpoint,
+Human-authorized PubMed and ClinicalTrials.gov metadata retrieval; Jupyter is
+the sole one-click managed local computation tool. Researchers can still add
+local or remote MCP servers from Settings, where they are explicitly labelled
+as unmanaged external capabilities. Inherited Paper Search MCP and BioMCP
+definitions are removed rather than retained as product candidates. See
 [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md).
 
 For a neutral positioning note, see
@@ -180,13 +201,23 @@ Download the latest installer from the
 - **Windows**: NSIS `.exe` and `.msi`, Windows 10/11 x64.
 - **Linux**: `.deb` and `.rpm` on x86_64 Linux.
 
-Builds are not code-signed or notarized yet.
+From 0.1.27, a fresh installation uses `~/Documents/AI4HEOR`. When the new root
+does not yet exist, AI4HEOR atomically renames the prior default
+`~/Documents/OpenScience` root and preserves its contents. If both roots already
+exist, it does not merge or delete either one; a base folder explicitly chosen in
+Settings always wins.
+
+The currently verified 0.1.56 local x64 macOS artifact is not code-signed or notarized. The
+`v*` tag pipeline now fails closed unless both macOS targets receive Developer ID and
+Apple notarization credentials and subsequently pass signature, hardened-runtime,
+stapled-ticket, and Gatekeeper checks. No credentialed tag run has produced that evidence
+yet, and Windows Authenticode signing remains open.
 
 **macOS**: if Gatekeeper says the app is damaged or from an unidentified developer,
 install it into Applications and run:
 
 ```bash
-xattr -cr "/Applications/Open Science.app"
+xattr -cr "/Applications/AI4HEOR.app"
 ```
 
 **Windows**: if SmartScreen appears, choose **More info -> Run anyway**.
@@ -194,9 +225,9 @@ xattr -cr "/Applications/Open Science.app"
 **Linux**:
 
 ```bash
-sudo apt install ./OpenScience_*.deb
+sudo apt install ./AI4HEOR_*.deb
 # or
-sudo rpm -i OpenScience_*.rpm
+sudo rpm -i AI4HEOR-*.rpm
 ```
 
 ## Build from source
@@ -216,16 +247,19 @@ pnpm install
 # Fetch pinned sidecars and bundled skills. These are git-ignored.
 bash scripts/dev/fetch-opencode.sh
 bash scripts/dev/fetch-uv.sh
-bash scripts/dev/fetch-skills.sh
 
 # Run in development or build installers.
 pnpm --filter @ai4s/desktop tauri dev
 pnpm --filter @ai4s/desktop tauri build
+
+# Linux packages (AppImage is intentionally unsupported).
+pnpm --filter @ai4s/desktop tauri build --bundles deb,rpm
 ```
 
 Useful checks:
 
 ```bash
+python scripts/dev/test_sidecar_integrity.py -v
 pnpm test
 pnpm typecheck
 pnpm lint
@@ -237,8 +271,10 @@ pnpm lint
   stay local by default.
 - Command execution, file deletion, dependency installation, and remote connections
   are human-approved flows in the desktop app.
-- Provider credentials are written to app-private runtime config, not to the
-  workspace, provenance, git, exports, or global OpenCode config.
+- Provider credentials are written to OpenCode's app-private local auth store
+  (`auth.json`, owner-only on macOS/Linux), separately from custom endpoint
+  metadata. They never enter the workspace, provenance, git, exports, or the
+  user's global OpenCode config.
 - Settings includes a plain-language data-flow view explaining what can be sent to
   the selected model provider.
 
@@ -251,8 +287,8 @@ pnpm lint
 | `packages/shared/` | Shared domain types and chart palette. |
 | `packages/ui/` | Shared UI package. |
 | `runtime/skills/core/` | First-party scientific skills. |
-| `runtime/skills/external/` | Build-fetched external skills. |
-| `runtime/harness/` | Runtime harness knowledge and operator context. |
+| `runtime/skills/external/` | Optional review cache for external candidates; not bundled by default. |
+| `runtime/harness/` | Product-owned, researcher-led assistant contract seeded into new projects. |
 | `runtime/mcp/` | MCP runtime notes/configuration. |
 | `examples/` | Built-in example workspaces. |
 | `scripts/dev/` | Sidecar, `uv`, skill fetchers, and focused regression probes. |
@@ -266,9 +302,218 @@ live in [`docs/PRD.md`](./docs/PRD.md) and
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md), but those documents include
 target design as well as historical status notes.
 
-Near-term work is focused on signed/notarized releases, broader Windows/Linux
-verification, auto-update, richer connector hardening, and continued reproducibility
+The 0.1.56 internal test delivery targets Intel macOS and Windows x64. Linux and
+Apple-Silicon release work remain outside this test-delivery scope. Current source is 0.1.56,
+and the current first-launch-verified x64 macOS candidate is also 0.1.56.
+The 91,021,588-byte `AI4HEOR_0.1.56_x64.dmg` has SHA-256
+`ed1107407ef6e3c8d46d0c674d368540c82811868a673a0e1c4d2dd3a2962358`.
+Independent read-only verification confirms its x86-64 payload, 0.1.56
+identity, OpenCode 1.17.13, uv 0.11.26, all 359 controlled resources, and all
+177 packaged HEOR tests. An exact temporary app copy also passed isolated first
+launch, creation of a fresh `Documents/AI4HEOR`, content-preserving migration from
+`Documents/OpenScience`, and process cleanup. Packaged OpenCode streaming and a
+credential-isolated MiniMax-M3 turn also passed. It supersedes the 0.1.54 candidate and
+is ready for product-owner testing; product-owner acceptance has not yet been recorded.
+Version 0.1.56 presents New task as an unrestricted natural-language entry with four
+HEOR-specific, draft-only shortcuts; Workbench remains the guided project surface.
+Projects are named local workspaces shared by their tasks; a standalone task receives
+its own private local research scope with the same assistant,
+Skills, HEOR methods, files, review, and audit functions. The global New task action
+starts standalone work, project `+` starts a task in that project, and the sidebar lists
+standalone tasks separately. The same distinction ships
+in all seven interface languages. The focused CI profile builds both Windows x64
+installers and reruns Windows package, resource, install, first-launch, and cleanup
+verification; a Windows package is not considered accepted unless that workflow passes.
+Version 0.1.53 makes AI4HEOR the single user-facing research workbench, replaces the
+inherited generic starters with six pharmacoeconomics/HEOR tasks, and keeps legacy
+`/live` links inside the same product surface. It also corrects the MiniMax China
+Token Plan request prefix for the packaged `@ai-sdk/anthropic` adapter to
+`/anthropic/v1`, selects `MiniMax-M3`, and passes both a credential-free packaged
+OpenCode streaming fixture and a real Keychain-supplied model turn. The release proof
+contains no credential or research data, and the isolated credential is removed after
+the test.
+Version 0.1.52 adds a native diagnostic-report export for product testing. It
+contains only the app version, platform/architecture, managed-runtime status and
+aggregate counts from a bounded log tail; it excludes credentials, authentication
+files, project paths and files, conversation content, provider/model/endpoint
+details, command output and raw logs. The export is available in all seven interface
+languages and is saved with owner-only permissions on Unix systems.
+Version 0.1.51 separates custom endpoint metadata from model-provider credentials,
+removes the legacy plaintext-config command, and adds an editable seven-language
+MiniMax China Token Plan preset without bundling a key.
+Version 0.1.50 prevents test-generated files from entering release resources.
+Python test entry points no longer write bytecode caches, and Tauri's production
+build fails before compilation if any configured resource is missing, linked,
+generated, irregular, or mapped to a colliding package destination. The mounted
+DMG remains independently checked after packaging.
+Version 0.1.49 adds a first-party target-journal submission check. It evaluates
+only explicit mechanical rules captured from a researcher-saved current official
+author-guide snapshot, records rule locators and hashes, and leaves the report
+awaiting Human review. No journal guide, checklist, CSL style, or submission
+template is bundled; passing does not establish compliance or permission to submit.
+Version 0.1.48 adds first-party configurable research tables. A bounded manifest
+defines typed, unit-labelled rows, their evidence, analysis-output or assumption
+basis, and exact local source hashes; the native renderer produces a deterministic,
+macro-free and formula-free XLSX plus one injection-neutralised CSV per table. It
+never recalculates the economic model, preserves changed outputs, and leaves every
+table awaiting Human review.
+Version 0.1.45 extends the same first-party, source-bound report path with a
+deterministic, macro-free and formula-free XLSX workbook. Its five bilingual
+worksheets copy typed values, tables, reporting coverage, disclosures,
+limitations, source paths, and SHA-256 bindings from the audited report package;
+the workbook does not recalculate the economic model and remains awaiting Human
 review.
+Version 0.1.44 adds first-party, source-bound DOCX/PDF generation to
+`heor-reporting`: the native app re-audits the current report package and report,
+embeds an admitted Chinese font in both formats, records output hashes, and
+keeps both files awaiting Human review. The release inventory retains no
+quarantined or rejected options: completed rewrites ship as first-party
+implementations, while unfinished or licence-incompatible third-party sources
+do not enter the product list.
+Version 0.1.46 adds the first-party conceptual-model layout editor and native,
+deterministic SVG/GraphML export. Diagram files are bound to the exact current
+conceptual-model bytes, never alter model semantics, and remain awaiting Human review.
+Version 0.1.47 adds first-party, source-bound citation formatting. The native
+app renders named in-text citation clusters and a bibliography from the exact
+validated local reference library using three bounded AI4HEOR-owned profiles,
+reports missing metadata, preserves Human edits, and does not bundle third-party
+CSL styles or claim target-journal compliance.
+Version 0.1.43 adds the first-party, local-only `literature-review` Skill: it
+imports, deduplicates, validates, and deterministically exports source-bound RIS,
+bounded BibTeX, and CSL-JSON metadata while preserving conflicts for Human review.
+It does not claim generic CSL style processing or bibliographic correctness.
+Version 0.1.42 adds a local startup-readiness check for the project folder, first-party Skills,
+HEOR calculation resources, project harness, and bundled assistant runtime. A failed runtime can
+now be replaced and reconnected from Settings without restarting the app; models, Python, and
+Jupyter remain optional and the check makes no scientific-validity claim. Version 0.1.41 adds
+source-bound, deterministic, macro-free research-presentation generation and keeps every rendered
+slide awaiting Human review. Version 0.1.40 makes every capability-review
+dialog explain what the proposed Skill does, which project request produced it, and that it
+is not a pharmacoeconomic analysis or a substitute for researcher judgment. Version 0.1.39
+adds the app-owned Human review path for project capability candidates:
+the native control revalidates exact bytes, records activation, rejection, or revocation
+in a hash-linked audit chain, activates only instruction-only copies in the current
+project, and refuses to overwrite or delete drifted content. It also adds the app-owned
+review path for repeated, non-sensitive work preferences: the researcher can inspect the
+supporting interactions, edit the proposed wording, accept it, pause or resume it, and
+delete it. Exact proposal/store hashes and a local decision chain prevent stale or
+unreviewed changes from being treated as accepted preferences. Version 0.1.38 makes both
+capability-growth Skills resolve their validators from the
+Skill installation directory reported by the runtime rather than assuming a source
+checkout. Version 0.1.37 adds a fail-closed capability-growth harness: natural-language
+requests can produce bilingual,
+hash-bound, instruction-only Skill candidates, and repeated non-sensitive working
+patterns can produce local preference proposals. Neither becomes active without a
+separate researcher decision, and neither can modify governance, core Skills,
+calculation engines, or approval records. It also replaces the inherited logo, records
+the current licensing boundary, and retains the 0.1.36 versioned 25-document
+Simplified-Chinese pharmacoeconomics learning library and explicit local install action.
+The app verifies the exact packaged manifest and source
+hashes, builds the existing project-bound local index without a model or network call,
+keeps stable theory/methods separate from dated recent-progress material, and refuses
+to overwrite an edited installed copy. It retains the 0.1.35 separately confirmed,
+model-free local run for the hash-bound cost-effectiveness teaching case, the 0.1.34
+sixth HEOR starter, the 0.1.33 rewrite of the Simplified-Chinese research surface,
+and all 49 bundled Skill
+descriptions in direct pharmacoeconomics language, and moves previously hard-coded
+download, file-manager, Jupyter, notebook, and generated-assistant prompts into the seven
+shipped locale resources. It retains the 0.1.32 fail-closed new-project harness and its
+machine-readable Human scientific-authority contract. The default entry creates a typed
+HEOR project and prepares a localized, unsent natural-language research intake. The
+model-free teaching case preserves one successful Run and three Provenance entries and
+rejects a subsequently changed governed input without altering prior result bytes. A
+seven-language first-use guide explains local storage, model choice, approval boundaries,
+and Human scientific authority without collecting a scientific form or hiding the research
+conversation. OpenCode implementation details remain under Settings → Advanced diagnostics;
+the default Settings surface contains governed first-party HEOR evidence access, managed
+Jupyter, and explicitly unmanaged user-added MCP servers rather than the inherited generic
+Open Science connector catalog.
+The 81,600,567-byte AI4HEOR 0.1.41 x64 macOS DMG has SHA-256
+`9fc18e035748a2aa67e06443409dce9ffbd2aed83496ab9f1003138391c18ee6` and was locally
+built from tracked source commit `38e061708e56ee82d53ea3d68a79b95dd25ea5dc`. All 340
+configured resources match source bytes, all 177 deterministic HEOR tests pass against
+the mounted core, and isolated first-launch and legacy-migration checks pass. Frontend
+interaction tests confirm that the capability dialog shows its localized name, purpose,
+originating request, limitations and review checks before activation. This package is unsigned
+and unnotarized and is for internal product-owner testing only.
+
+### Intel macOS product-owner acceptance
+
+Use `AI4HEOR_0.1.56_x64.dmg` only on an Intel Mac. Before opening it, verify SHA-256
+`ed1107407ef6e3c8d46d0c674d368540c82811868a673a0e1c4d2dd3a2962358`.
+Because this internal build is unsigned, macOS may require Control-click →
+Open; that exception is not evidence of distribution readiness.
+
+1. Confirm that the application name and icon are AI4HEOR. New task must provide an
+   unrestricted natural-language composer plus four HEOR-specific draft shortcuts; the
+   guided Workbench must remain a separate project-oriented surface.
+2. Create a disposable project. Confirm that `AGENTS.md`, `policy.json`,
+   `capabilities/candidates/`, `capabilities/reviews/`, `learning/proposals/`, and
+   `learning/preferences.json` are present.
+3. Install the bundled pharmacoeconomics learning library, search for `机会成本`, and
+   repeat the install. The search must remain local and the installed source, manifest,
+   and index bytes must not change on the identical reinstall.
+4. Run the bundled cost-effectiveness teaching example through its separate local-run
+   confirmation. The request must remain editable and unsent; the deterministic result
+   must not claim cost-effectiveness, reimbursement, or policy authority.
+5. If testing a model, connect only a product-owner-selected provider in Settings. No
+   credential is bundled. A provider failure must remain visible and must not trigger a
+   silent fallback.
+6. Ask the Agent to prepare a source-bound research presentation for the current project.
+   Confirm the audience, purpose, language, and length in the conversation; generate the
+   PPTX from the research-presentation card; open it and check the title, figures/tables,
+   limitations, and generated source pages. Change a bound source and confirm the prior PPTX
+   is no longer reported as current. Generation must not create an approval record.
+7. In Skills & tools, ask AI4HEOR to create a narrow presentation-only Skill candidate.
+   Its name, description, license note, limitations, and acceptance checks must be complete
+   in English and Simplified Chinese. Review and activate the exact candidate for this
+   disposable project, then revoke it; no core or other-project Skill may change.
+8. Create a repeated, non-sensitive presentation preference, review its supporting
+   interactions, accept it, then pause, resume, edit, and delete it. Scientific methods,
+   evidence, parameters, conclusions, approvals, model selection, and data routing must
+   remain outside learned preferences.
+9. Confirm that Runs and Provenance distinguish model-backed drafts from local
+   deterministic calculations and that no credential appears in the project, records,
+   logs, or exports.
+
+Current acceptance limits: no admitted external Skill or third-party MCP, no Developer-ID
+signature or notarization, no Apple-Silicon or current Linux acceptance, and no claim of scientific or methodological
+validity. Model-provider credentials entered in the current unsigned build are stored in
+OpenCode's owner-only app-private `auth.json`, separately from endpoint metadata and not
+in the macOS Keychain; revisit keychain-backed storage for a signed release. A
+researcher who manually adds an MCP or another connector remains responsible for any
+credentials placed in that connector's own configuration.
+
+The current 0.1.31 Apple Silicon DMG was separately cross-built from clean commit
+`2834785e057ac54477a9633f07390bc173251644` on an Intel Mac. Its 76,095,510 bytes have
+SHA-256 `86b0583e36480affb90ec08b84d8c4276ec702b92e69ef90894f58c2888da42e`;
+read-only inspection proved
+pure-arm64 main/OpenCode/uv payloads, all 282 configured resources byte-identical to
+source, and all 177 deterministic HEOR tests against the mounted core. That is bounded
+cross-host package evidence, not native Apple Silicon execution: the strict verifier
+correctly stops when the Intel host cannot execute the arm64 sidecar, so no formal arm64
+release-evidence JSON or first-start claim was produced. The package is also not
+Developer-ID signed or notarized: it has only an ad-hoc linker signature, no Team ID,
+sealed resources, or stapled ticket, and is rejected by strict codesign and Gatekeeper.
+The tag-only release path now requires all Apple credential names before building and
+will record macOS release evidence only after every nested Mach-O shares one Developer ID
+whose Team ID matches the notarization account,
+hardened runtime and secure timestamps are present, resources are sealed, no executable
+enables `get-task-allow`, the notarization ticket is stapled, and Gatekeeper reports
+`Notarized Developer ID`. Manual workflow previews remain explicitly unsigned and cannot
+silently acquire those claims. Tagged matrix jobs no longer create or populate a release;
+only the final job may create a draft after all four evidence files and the cross-platform
+manifest validate, and it uploads exactly those verified installers and records. This gate
+is locally contract-tested and rejects the
+current unsigned 0.1.56 x64 DMG, but it has not been exercised with real Apple credentials.
+The AI4HEOR 0.1.30 Linux `.deb` and `.rpm` were built from the same clean commit
+`0beb7b2bcb04a796f256bd8f8528bb787aa77319`. Both packages are payload-verified with all
+282 configured resources matching source bytes and all 177 deterministic HEOR tests
+passing independently from each extracted package. The `.deb` passes a brand-new Ubuntu
+22.04 non-root headless first start with a fresh `Documents/AI4HEOR`; the `.rpm` passes a
+Fedora 42 headless start that preserves an exact marker while migrating the legacy
+`Documents/OpenScience` root. Each run observed exactly one desktop process and one bundled
+OpenCode child. A real visual Linux desktop-session acceptance remains outstanding.
 
 ## Contributing
 
@@ -279,15 +524,14 @@ join the [Open Science Discord](https://discord.gg/fWNMDKcd5P) or the
 
 ## Citation
 
-If you use Open Science Desktop in your research, please cite it:
+If you use AI4HEOR in your research, please cite it:
 
 ```bibtex
-@software{open_science_desktop,
-  author  = {{The Open Science Desktop Contributors}},
-  title   = {Open Science Desktop: a local-first, model-agnostic AI research workbench},
+@software{ai4heor,
+  author  = {{The AI4HEOR Contributors}},
+  title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.2.1},
-  doi     = {10.5281/zenodo.21410055},
+  version = {0.1.56},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }
@@ -300,5 +544,5 @@ GitHub's **"Cite this repository"** button (top of the repo page, generated from
 
 [MIT](./LICENSE). Bundled third-party skills and connectors keep their own licenses.
 
-> Open Science Desktop is beta research tooling. Treat outputs as drafts: verify numbers,
-> citations, code, and conclusions before publication or decision-making.
+> AI4HEOR is beta research tooling. Human researchers lead the science and remain
+> accountable for methods and decisions; verify numbers, citations, code, and conclusions.

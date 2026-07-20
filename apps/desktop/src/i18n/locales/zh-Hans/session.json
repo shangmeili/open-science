@@ -1,14 +1,24 @@
 {
+  "workbench": { "title": "研究工作台" },
+  "newTask": {
+    "title": "新建任务",
+    "heading": "今天想处理哪项药物经济学工作？",
+    "suggestions": {
+      "scope": { "title": "梳理研究问题", "prompt": "帮我梳理这项药物经济学或 HEOR 研究的决策问题。先根据我提供的内容，确认目标人群、干预、对照、结局、评价视角、时间范围和决策用途；只追问会实质影响研究的信息。" },
+      "evidence": { "title": "查找与整理证据", "prompt": "帮我查找并整理这项药物经济学研究所需的证据。先明确决策问题和证据缺口，再说明可用的本地资料、需要检索的内容以及出处和局限。如需联网，先列出检索式和将发送的字段。" },
+      "model": { "title": "设计或检查经济学模型", "prompt": "帮我设计或检查这项药物经济学模型。先根据决策问题说明模型结构、参数证据、关键假设、不确定性和验证要求；将计算错误与需要研究者判断的问题分开。" },
+      "deliverable": { "title": "分析数据或准备汇报", "prompt": "帮我处理这项药物经济学或 HEOR 任务。我可以提供数据、模型、报告或汇报要求。请先盘点现有材料和预期交付物，再给出可复核的处理步骤。" }
+    }
+  },
   "notFound": {
-    "title": "未找到会话",
-    "hint": "从侧边栏选择一个会话。"
+    "title": "未找到任务",
+    "hint": "从侧边栏选择一项任务。"
   },
   "composer": {
     "placeholder": {
-      "default": "尽情提问",
-      "arguments": "参数（可选）— 按 Enter 运行",
-      "shell": "在工作区文件夹中运行 shell 命令",
-      "plan": "描述要规划的任务——不会改动任何文件"
+      "default": "描述研究问题或要处理的工作",
+      "arguments": "填写参数（可选），按 Enter 运行",
+      "shell": "在项目文件夹中运行命令"
     },
     "commandsAria": "命令",
     "source": {
@@ -23,12 +33,12 @@
       "title": "将本地文件添加到工作区"
     },
     "command": {
-      "chipTitle": "运行此命令 — 输入参数，或按 Backspace 编辑名称",
+      "chipTitle": "运行这条命令；可以输入参数，或按 Backspace 修改名称",
       "removeAria": "移除命令"
     },
     "shellMode": {
       "badge": "shell",
-      "title": "直接在此会话的工作区文件夹中运行"
+      "title": "直接在当前任务的工作区文件夹中运行"
     },
     "stop": {
       "aria": "停止",
@@ -37,32 +47,18 @@
     "send": {
       "aria": "发送"
     },
-    "agent": {
-      "aria": "代理模式",
-      "title": "先规划还是直接执行",
-      "menuAria": "代理模式",
-      "menuTitle": "让代理怎么工作？",
-      "build": {
-        "label": "执行",
-        "description": "编辑文件并运行命令"
-      },
-      "plan": {
-        "label": "规划",
-        "description": "只读：先调研并写出计划文件"
-      }
-    },
     "approval": {
-      "aria": "审批模式",
-      "title": "代理操作如何获得批准",
-      "menuAria": "审批模式",
-      "menuTitle": "代理操作应如何获得批准？",
+      "aria": "操作确认",
+      "title": "设置操作确认方式",
+      "menuAria": "操作确认",
+      "menuTitle": "哪些操作需要先确认？",
       "approve": {
-        "label": "由我批准",
-        "description": "在删除、安装或访问远程资源前询问"
+        "label": "重要操作先确认",
+        "description": "删除、安装、联网或访问远程资源前先询问"
       },
       "full": {
-        "label": "完全访问",
-        "description": "不询问即运行所有命令"
+        "label": "全部允许",
+        "description": "直接运行命令，不再逐项询问"
       }
     },
     "error": {
@@ -75,25 +71,41 @@
     "clearDescription": "等同于 /new；文件仍保留在当前文件夹",
     "cleared": "聊天记录已清空。文件内容仍保留在同一个文件夹下。"
   },
+  "firstRun": {
+    "title": "开始前，请先了解这四点",
+    "body": "AI4HEOR 会在你的指导下整理证据、开展分析并检查结果。研究方案、关键假设、证据取舍和结论使用，由你审阅确认。",
+    "points": {
+      "local": { "title": "资料默认留在本机", "body": "项目和研究文件保存在本机。只有主动使用外部服务时，相关内容才会发送出去。" },
+      "provider": { "title": "模型由你选择", "body": "可以使用支持的在线模型或本地模型。发送消息前，界面会显示当前使用的模型。" },
+      "approval": { "title": "重要操作先确认", "body": "删除文件、安装软件、联网或访问远程资源前，默认会先征求你的同意。" },
+      "human": { "title": "关键研究决策由你把关", "body": "模型生成的内容均作为工作草稿。研究方案、关键假设、证据取舍和结论使用，应由你审阅确认。" }
+    },
+    "continue": "进入 AI4HEOR",
+    "settings": "查看模型和隐私设置"
+  },
   "starters": {
-    "newSession": "新建会话",
-    "heading": "我们该研究什么？",
-    "subheading": "在下方描述您的分析——或从以下选项开始。",
-    "demo": {
-      "title": "端到端运行一次演示分析",
-      "description": "模拟一份数据集，拟合模型，并生成图表和可追溯的报告。"
+    "newSession": "新建任务",
+    "heading": "你想解决什么药物经济学问题？",
+    "subheading": "直接描述研究问题，也可以从下面的常用任务开始。",
+    "design": {
+      "title": "设计药物经济学研究",
+      "description": "梳理决策问题、概念模型、证据需求和需要研究者确认的事项。",
+      "prompt": "帮我设计一项药物经济学或 HEOR 研究。使用 $heor-workbench 和 $heor-model-design。先用简短问题确认目标人群、干预措施、对照、健康产出、评价视角、适用地区、时间范围、决策情境、可用证据和预期用途，再准备可复核的本地文件和工作计划。研究方法、假设、证据、阈值和批准事项必须由我确认。"
     },
     "analyze": {
-      "title": "分析我的数据",
-      "description": "让代理处理您添加的文件；获取图表和报告。"
+      "title": "分析证据或数据",
+      "description": "先盘点本地资料、明确估计目标，再提出可复核的分析方案。",
+      "prompt": "帮我分析当前项目中的 HEOR 证据或数据。先使用 $heor-workbench 盘点相关本地文件，说明每个文件能支持什么、不能支持什么。执行前，请我确认决策问题、估计目标、目标人群、对照、健康产出和分析方法。计算过程应可重复，来源应可追溯；方法选择和结果解释由我确认。"
     },
     "audit": {
-      "title": "审查报告的可追溯性",
-      "description": "检查引用、无来源数字，以及图表与代码的一致性。"
+      "title": "检查模型或报告",
+      "description": "检查方法、模型输入、结果、报告、局限性和可重复性。",
+      "prompt": "使用 AI4HEOR 中适用的验证、报告、可重复性和可追溯性技能，检查当前 HEOR 模型、分析或报告。如果不清楚要检查哪些文件，先问我。区分计算或文件问题与需要研究者判断的问题，每项发现都要指向对应的本地证据。不要代替研究者作出批准，也不要直接宣称方法有效。"
     },
-    "example-climate": {
-      "title": "探索示例：气候趋势",
-      "description": "真实的 NASA GISTEMP 数据——趋势、十年对比、图表和报告。"
+    "example-cea": {
+      "title": "查看成本-效用分析示例",
+      "description": "用一组教学数据熟悉双策略队列模型和成本-效用分析流程。",
+      "prompt": "使用 $heor-workbench 查看 heor-cost-effectiveness/ 下的教学示例。所有数字都是演示假设，不是临床或经济学证据。说明决策问题，检查三状态队列模型，用确定性代码复现基准成本和 QALY 计算，完成一项易于核查的敏感性分析，并生成写明局限性和待确认事项的本地报告。不要作出批准、报销或医保准入结论。"
     },
     "error": {
       "setup": "无法设置示例：{{message}}"
@@ -101,29 +113,29 @@
   },
   "live": {
     "runtime": {
-      "title": "OpenCode 运行时",
-      "bodyPrefix": "桌面应用会自动运行一个内置的 OpenCode。在浏览器中，请使用以下命令启动一个",
-      "bodySuffix": "并连接。"
+      "title": "暂时无法使用助手",
+      "body": "请重新连接，或到“设置”中检查本地服务。项目文件仍保留在本机。"
     },
     "connect": "连接",
-    "subagentFallback": "一个子代理",
+    "subagentFallback": "一个子助手",
     "header": {
       "expandSidebarAria": "展开侧边栏",
       "expandSidebarTitle": "展开侧边栏（{{shortcut}}）"
     },
     "filesToggle": {
       "default": "文件",
-      "title": "在聊天旁浏览此会话的文件夹"
+      "title": "在聊天旁浏览当前任务的文件夹"
     },
     "runsToggle": {
       "label": "运行",
-      "title": "此会话的实验运行——在聊天旁显示"
+      "title": "在对话旁查看当前任务的分析运行"
     },
     "notebook": {
-      "openTitle": "打开 {{path}} — 代理在此会话中处理此笔记本"
+      "openTitle": "打开 {{path}}（助手会在当前任务中处理这个笔记本）",
+      "evaluatePrompt": "请在笔记本内核中计算：\n```python\n{{expr}}\n```"
     },
     "connBadge": {
-      "title": "OpenCode · {{status}}",
+      "title": "助手状态：{{status}}",
       "status": {
         "ready": "就绪",
         "connecting": "连接中",
@@ -132,9 +144,8 @@
       }
     },
     "status": {
-      "paused": "已暂停——代理需要您在下方回答",
-      "startingSession": "正在其文件夹中启动会话…",
-      "retrying": "服务商报错——正在重试（第 {{attempt}} 次）",
+      "paused": "已暂停，请在下方回答后继续",
+      "startingSession": "正在任务文件夹中启动…",
       "working": "正在处理…"
     },
     "placeholder": {
@@ -193,7 +204,8 @@
     "annotationAria": "注释 {{index}}：{{note}}",
     "notePlaceholder": "添加注释…",
     "noteAria": "注释内容",
-    "send": "发送"
+    "send": "发送",
+    "commentPrompt": "请查看图表“{{title}}”中位于（{{x}}%, {{y}}%）的注释：{{note}}"
   },
   "reviewer": {
     "heading": "审阅",
@@ -217,11 +229,11 @@
   },
   "interaction": {
     "question": {
-      "heading": "代理需要您的输入",
-      "customPlaceholder": "或输入您自己的答案…"
+      "heading": "需要你补充信息",
+      "customPlaceholder": "也可以输入自己的答案…"
     },
     "permission": {
-      "heading": "代理请求权限："
+      "heading": "需要你的允许："
     },
     "askedBy": "由 {{origin}} 请求",
     "skip": "跳过",
@@ -235,28 +247,16 @@
   },
   "thread": {
     "exampleBadge": "示例 · 只读",
-    "sampleNotice": "这是一个示例会话。请启动一个实时代理会话以进行真实对话。"
+    "sampleNotice": "这是只读示例。新建任务后，即可在 AI4HEOR 中继续。"
   },
   "workspaceChip": {
     "fallbackName": "工作区",
-    "titlePinned": "{{workspace}} — 点击选择其他文件夹",
-    "titleUnpinned": "将在新建的日期文件夹（{{name}}）中启动 — 点击改为选择文件夹",
-    "chooseAria": "选择会话文件夹",
+    "titlePinned": "当前文件夹：{{workspace}}。点击可更换",
+    "titleUnpinned": "将在新的日期文件夹（{{name}}）中开始。点击可选择其他文件夹",
+    "chooseAria": "选择任务文件夹",
     "switching": "切换中…"
   },
   "agentMessage": {
     "previewTitle": "预览 {{path}}"
-  },
-  "goal": {
-    "label": "目标",
-    "running": "进行中",
-    "runningTurns": "自动第 {{count}} 轮",
-    "paused": "已暂停",
-    "done": "完成",
-    "pauseAria": "暂停目标（停止自动续跑）",
-    "resumeAria": "继续目标",
-    "clearAria": "清除目标",
-    "unmet": "受阻",
-    "limited": "达到上限"
   }
 }

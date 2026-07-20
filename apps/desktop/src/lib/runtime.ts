@@ -3,7 +3,6 @@ import {
   OpenCodeClient,
   DEFAULT_OPENCODE_URL,
   type AgentInfo,
-  type AgentRuntime,
   type CommandInfo,
   type HistoryMessage,
   type OpenCodeEvent,
@@ -19,9 +18,7 @@ import {
   detectTools as probeTools,
   commitWorkspaceSnapshot,
   createProject as createProjectFolder,
-  importProject as importProjectFolder,
-  setProjectPinned as setProjectPinnedCmd,
-  deleteProject as deleteProjectCmd,
+  currentResearchScope,
   getApprovalMode,
   isTauri,
   listProjects,
@@ -29,6 +26,7 @@ import {
   markSession,
   newDatedWorkspace,
   runtimePassword,
+  restartRuntime,
   setApprovalMode as persistApprovalMode,
   setProxySetting as persistProxySetting,
   setWorkspace,
@@ -42,10 +40,9 @@ import {
 import { kernelReset } from "./kernel";
 import { moveScrollMemory } from "./scrollMemory";
 import { deriveArtifact } from "./artifacts";
-import { provenanceInputsFromEvent, recordProvenance } from "./provenance";
+import { provenanceInputFromEvent, recordProvenance } from "./provenance";
 import { recordRun, runInputFromEvent } from "./runs";
 import { splitReview } from "./review";
-import { notifyPermissionRequest } from "./systemNotification";
 import i18n from "@/i18n";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -119,11 +116,6 @@ interface RuntimeState {
    *  its own open artifact / Files browser and gets it back when reopened.
    *  In-memory only: an app restart returns every session to a closed pane. */
   panes: Record<string, PaneState>;
-  /** Composer agent switch per session (DRAFT_KEY for a draft); absent = build.
-   *  In-memory, but reconciled from the message stream and history: OpenCode's
-   *  plan_exit "Yes" continues the session as build — the pill must follow. */
-  sessionAgents: Record<string, AgentMode>;
-  setAgentMode: (mode: AgentMode) => void;
   openArtifact: (a: ArtifactBlock) => void;
   closeArtifact: () => void;
   setShowFiles: (show: boolean) => void;
@@ -135,29 +127,36 @@ interface RuntimeState {
   loadCatalog: () => Promise<void>;
   detectTools: () => Promise<void>;
   connect: () => Promise<void>;
+  /** Replace the bundled local process, then reconnect on its stable port. */
+  restartLocalRuntime: () => Promise<boolean>;
   /** Resolves true once connected, false when the retry window is exhausted. */
   connectRetry: (tries?: number) => Promise<boolean>;
   bootstrap: () => Promise<void>;
   disconnect: () => void;
   refreshSessions: () => Promise<void>;
+  /** Increments for every explicit new-task action so draft-only UI state can
+   *  reset even when the user is already on the new-task route. */
+  draftEpoch: number;
   startDraft: () => void;
+  /** Materialize the draft's private local research scope before a file write
+   *  or deterministic starter runs. Sending a first message also calls this. */
+  ensureStandaloneWorkspace: () => Promise<boolean>;
   startDraftInCurrentWorkspace: () => void;
-  /** Projects: named shared-workspace folders under the base dir. Sessions
-   *  group under a project by `directory`; multiple sessions share the folder. */
+  /** AI4HEOR projects: typed HEOR workspace folders under the base dir.
+   *  Sessions group under a project by `directory`; multiple sessions share the folder. */
   projects: ProjectInfo[];
+  /** Active named project or standalone task research scope. */
+  researchScope: ProjectInfo | null;
   refreshProjects: () => Promise<void>;
-  /** Create a project folder and move into it with a fresh pinned draft. */
+  /** Create an AI4HEOR project and move into it with a fresh pinned draft. */
   createProject: (name: string) => Promise<ProjectInfo | null>;
-  importProject: (path: string) => Promise<ProjectInfo | null>;
-  setProjectPinned: (id: string, pinned: boolean) => Promise<void>;
-  deleteProject: (id: string) => Promise<void>;
   /** Fresh draft pinned inside `path` (a project folder), so the next new
    *  session lands there. Skips the reconnect when the folder is already active. */
   startDraftInWorkspace: (path: string) => Promise<void>;
   /** Active workspace folder (absolute path); null in the browser. */
   workspace: string | null;
   /** True when the user explicitly picked the active folder for the next new
-   *  session; false means a new session gets its own fresh dated folder. */
+   *  task; false means a new task gets its own fresh dated folder. */
   workspacePinned: boolean;
   /** A deliberate workspace move is in flight (event-stream reconnect into the
    *  new folder). The UI must not present it as a disconnection — no status
@@ -173,18 +172,8 @@ interface RuntimeState {
    *  output shows inline in the thread — the output IS the result the user
    *  asked for. Agent bash steps stay quiet single-line log entries. */
   shellTurns: Record<string, true>;
-  /** Sessions whose model call failed and is being retried server-side —
-   *  OpenCode backs off with no attempt cap, so this is what keeps a broken
-   *  provider from looking like a silent "Working…" forever. Cleared by the
-   *  session's next sign of life (stream events, idle, error). */
-  retryNotices: Record<string, { attempt: number; message: string }>;
-  /** Switch to an existing folder, or (with `dated`) create a new dated one. */
-  switchWorkspace: (target: { path: string } | { dated: string }) => Promise<void>;
-  /** Ensure a brand-new draft already has its own (pinned) dated folder before
-   *  composer files are written into it — otherwise a file added to a draft
-   *  lands in the pre-send folder while send would create a different dated one,
-   *  orphaning it. No-op once a session exists or the folder is already pinned. */
-  ensureDraftWorkspace: () => Promise<void>;
+  /** Switch to an existing project or legacy session folder. */
+  switchWorkspace: (target: { path: string }) => Promise<void>;
   openSession: (id: string) => Promise<void>;
   sendPrompt: (text: string) => Promise<string | null>;
   /** Run a "!" shell command directly in the session's workspace folder —
@@ -200,15 +189,12 @@ interface RuntimeState {
   reconcileRunning: () => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
   hideExample: (id: string) => void;
-  installSkill: (text: string) => Promise<string | null>;
+  /** Open a natural-language industrialization review. The candidate remains
+   *  inactive; only the app's locked registry can admit a platform asset. */
+  reviewAssetCandidate: (text: string) => Promise<string | null>;
 }
 
-// The internal store depends only on the runtime-agnostic AgentRuntime contract
-// (see docs/rfc/agent-runtime.md). The concrete reference (opencodeClient) is
-// kept separately so getClient() can hand Settings/setup the full OpenCode
-// provider/MCP surface that lives outside the AgentRuntime contract.
-let client: AgentRuntime | null = null;
-let opencodeClient: OpenCodeClient | null = null;
+let client: OpenCodeClient | null = null;
 let openSessionSeq = 0;
 /** React StrictMode mounts effects twice in development. Share the same boot
  *  promise so duplicate AppShell effects cannot start dueling connect loops. */
@@ -232,16 +218,11 @@ function teardownClient() {
   clearStatusBlip();
   client?.close();
   client = null;
-  opencodeClient = null;
 }
 const emptyThread = (): Thread => ({ blocks: [], index: {}, loaded: false });
 /** Threads key for the draft conversation — its blocks move to the real
  *  session id once the session exists, so the page never visibly resets. */
 export const DRAFT_KEY = "draft";
-
-/** The composer's agent switch: "build" edits and runs; "plan" is OpenCode's
- *  read-only planning agent (edits denied except its plan .md file). */
-export type AgentMode = "build" | "plan";
 /** One bounded retry for the first POSTs after a sidecar restart — the old
  *  connection occasionally dies mid-handshake ("Load failed"). */
 async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
@@ -256,7 +237,6 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 const recordedProvenance = new Set<string>();
 /** Bash calls already written to the run store — terminal events can repeat per callId. */
 const recordedRuns = new Set<string>();
-const notifiedPermissions = new Set<string>();
 
 /** Sessions the user just interrupted: the thread already shows "Interrupted",
  *  so the abort's own trailing events (an "aborted" error and one or more
@@ -288,6 +268,21 @@ const liveFoldPending = new Map<
   string,
   { sessionId: string; timer: number; event: Extract<OpenCodeEvent, { type: "tool.updated" }> }
 >();
+
+export function buildAssetReviewPrompt(text: string): string {
+  return (
+    "Evaluate the following external Skill, plugin, MCP server, or calculation package as an " +
+    "AI4HEOR asset candidate. Do not install, enable, or copy it into .opencode/skills. Keep it " +
+    "inactive. Establish the exact source revision and license; map workspace access, network " +
+    "egress, executable dependencies, and authority; identify the smallest first-party derivative " +
+    "or isolated adapter; define contract, regression, adversarial, and macOS/Windows/Linux tests; " +
+    "and preserve every unresolved blocker. No asset may create human approvals, claim independent " +
+    "validation, or produce authoritative HEOR calculations. Write a review package under " +
+    "heor/asset-reviews/<safe-name>/ and finish with a natural-language recommendation. Updating the " +
+    "app's release registry remains a separate code-reviewed product change.\n\n---\n" +
+    text
+  );
+}
 
 /** Drop a session's queued partial folds — when its turn ends (idle, error,
  *  interrupt) a late timer must not fold a stale "running" event into a
@@ -339,7 +334,7 @@ async function performTurn(
   shell = false,
 ): Promise<string | null> {
   if (!client) {
-    set({ error: "Not connected to the OpenCode runtime." });
+    set({ error: "Not connected to the AI assistant runtime." });
     return null;
   }
   if (get().sending) return null; // one send at a time
@@ -357,27 +352,15 @@ async function performTurn(
   try {
     let id = get().currentId;
     if (!id) {
-      // Lazy-create the session on the first message (#3). Unless the user
-      // pinned a folder via the workspace switcher, a new session gets its
-      // own fresh dated folder (~/Documents/OpenScience/<date-time>) first,
-      // so its files never pile up in the bare base folder.
+      // A standalone task gets its own local research scope. Choosing
+      // a project pins the conversation to that project's shared workspace;
+      // neither path changes the assistant, skills, files, or HEOR methods the
+      // researcher can use.
       if (isTauri && !get().workspacePinned) {
-        set({ switching: true });
-        try {
-          await newDatedWorkspace(datedWorkspaceName());
-          await kernelReset().catch(() => {});
-          await get().connectRetry();
-        } finally {
-          set({ switching: false });
-        }
-        if (get().status !== "ready" || !client) {
-          throw new Error("Runtime did not reconnect after creating the session folder.");
+        if (!(await get().ensureStandaloneWorkspace()) || !client) {
+          throw new Error("Runtime did not reconnect after creating the conversation workspace.");
         }
       } else if (isTauri && get().workspacePinned) {
-        // /new and /clear intentionally keep the same folder, but the old
-        // session route may have just torn down/reopened directory-scoped SSE.
-        // Rebuild the scoped client before creating the next session so first
-        // send cannot hang on a stale workspace instance.
         set({ switching: true });
         try {
           await get().connectRetry();
@@ -385,7 +368,7 @@ async function performTurn(
           set({ switching: false });
         }
         if (get().status !== "ready" || !client) {
-          throw new Error("Runtime did not reconnect before creating the session.");
+          throw new Error("Runtime did not reconnect before creating the conversation.");
         }
       }
       id = await withRetry(() => client!.createSession());
@@ -398,12 +381,7 @@ async function performTurn(
           panes[id!] = panes[DRAFT_KEY];
           delete panes[DRAFT_KEY];
         }
-        const sessionAgents = { ...s.sessionAgents };
-        if (sessionAgents[DRAFT_KEY]) {
-          sessionAgents[id!] = sessionAgents[DRAFT_KEY];
-          delete sessionAgents[DRAFT_KEY];
-        }
-        return { currentId: id, threads, panes, sessionAgents };
+        return { currentId: id, threads, panes };
       });
       moveScrollMemory(`chat:${DRAFT_KEY}`, `chat:${id}`);
       void get().refreshSessions();
@@ -481,7 +459,7 @@ async function performTurn(
 
 /** The live OpenCode client (Settings talks to the runtime's config API directly). */
 export function getClient(): OpenCodeClient | null {
-  return opencodeClient;
+  return client;
 }
 
 export const useRuntimeStore = create<RuntimeState>((set, get) => ({
@@ -489,6 +467,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   serverUrl: initialUrl(),
   sessions: [],
   currentId: null,
+  draftEpoch: 0,
   threads: {},
   skills: [],
   agents: [],
@@ -503,17 +482,14 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   permissions: [],
   sessionParents: {},
   panes: {},
-  sessionAgents: {},
-  setAgentMode: (mode) =>
-    set((s) => ({ sessionAgents: { ...s.sessionAgents, [s.currentId ?? DRAFT_KEY]: mode } })),
   projects: [],
+  researchScope: null,
   workspace: null,
   workspacePinned: false,
   switching: false,
   sending: false,
   runningSessions: {},
   shellTurns: {},
-  retryNotices: {},
 
   // These write the CURRENT session's pane (DRAFT_KEY on a draft), keeping the
   // artifact inspector, the Files browser, and the Runs pane mutually exclusive
@@ -652,7 +628,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   },
 
   setDefaultModel: async (model) => {
-    if (!client) throw new Error("Not connected to the OpenCode runtime.");
+    if (!client) throw new Error("Not connected to the AI assistant runtime.");
     // Applying the model PATCHes OpenCode's global config, which closes the
     // event stream server-side. EventSource's own reconnect does not reliably
     // recover from that — it strands the app in "connecting"/disconnected until
@@ -693,7 +669,6 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       directory: directory ?? undefined,
       password: password ?? undefined,
     });
-    opencodeClient = c;
     client = c;
     clientStatusUnsub = c.onStatus((status) => {
       void logDebug(`status → ${status}`);
@@ -729,33 +704,25 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         // the thread already says "Interrupted"; don't add a second red line.
         if (sid) clearLiveFolds(sid);
         if (sid && interruptedSessions.has(sid)) return;
-        // A dangling default model (its provider removed or renamed) fails
-        // every send the same way — point at where the fix lives.
-        const message = /model not found/i.test(event.message)
-          ? `${event.message} Pick an available model in Settings → Models.`
-          : event.message;
         if (sid) {
           set((s) => {
             const cur = s.threads[sid] ?? emptyThread();
             const runningSessions = { ...s.runningSessions };
             delete runningSessions[sid];
-            const retryNotices = { ...s.retryNotices };
-            delete retryNotices[sid];
             return {
               runningSessions,
-              retryNotices,
               threads: {
                 ...s.threads,
                 [sid]: {
                   ...cur,
                   loaded: true,
-                  blocks: [...cur.blocks, { kind: "status-line", text: message, tone: "error" }],
+                  blocks: [...cur.blocks, { kind: "status-line", text: event.message, tone: "error" }],
                 },
               },
             };
           });
         } else {
-          set({ error: message });
+          set({ error: event.message });
         }
         return;
       }
@@ -770,10 +737,6 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           set((s) => ({ questions: s.questions.filter((q) => q.requestId !== event.requestId) }));
           return;
         case "permission.asked":
-          if (!notifiedPermissions.has(event.requestId)) {
-            notifiedPermissions.add(event.requestId);
-            void notifyPermissionRequest({ action: event.action, resources: event.resources });
-          }
           set((s) => ({
             permissions: [
               ...s.permissions.filter((p) => p.requestId !== event.requestId),
@@ -784,37 +747,9 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         case "permission.resolved":
           set((s) => ({ permissions: s.permissions.filter((p) => p.requestId !== event.requestId) }));
           return;
-        case "session.retry":
-          set((s) => ({
-            retryNotices: {
-              ...s.retryNotices,
-              [event.sessionId]: { attempt: event.attempt, message: event.message },
-            },
-          }));
-          return;
-        case "message.agent": {
-          // A user message names its agent. This is how the pill follows
-          // OpenCode's own plan_exit "Yes" (it injects a build user message)
-          // — and it self-confirms our own sends.
-          const mode: AgentMode = event.agent === "plan" ? "plan" : "build";
-          if (get().sessionAgents[event.sessionId] !== mode)
-            set((s) => ({
-              sessionAgents: { ...s.sessionAgents, [event.sessionId]: mode },
-            }));
-          return;
-        }
       }
       const sid = event.sessionId;
       if (!sid) return;
-      // Any other sign of life from the session supersedes its retry notice:
-      // an attempt is streaming again (text/tool events) or the turn is over.
-      if (get().retryNotices[sid]) {
-        set((s) => {
-          const retryNotices = { ...s.retryNotices };
-          delete retryNotices[sid];
-          return { retryNotices };
-        });
-      }
       if (event.type === "session.idle") clearLiveFolds(sid);
       // Idle after a user interrupt: the thread already ends with "Interrupted"
       // — keep the locks clear and skip the fold. An abort can emit MORE than
@@ -901,13 +836,11 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         }
       }
       applyFold(event);
-      // A completed live write becomes a provenance version. One apply_patch call
-      // can touch many files, so dedupe per (call, path) rather than per call.
-      if (event.type === "tool.updated") {
-        for (const input of provenanceInputsFromEvent(event)) {
-          const key = `${event.callId}:${input.path}`;
-          if (recordedProvenance.has(key)) continue;
-          recordedProvenance.add(key);
+      // A completed live write becomes a provenance version (once per call).
+      if (event.type === "tool.updated" && !recordedProvenance.has(event.callId)) {
+        const input = provenanceInputFromEvent(event);
+        if (input) {
+          recordedProvenance.add(event.callId);
           void recordProvenance(input, sid, get().defaultModel);
         }
       }
@@ -940,7 +873,10 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       void logDebug("connect OK");
       set({ error: null });
       await get().refreshSessions();
-      void get().refreshProjects();
+      // Await the local project scan so the sidebar and active-scope label are
+      // coherent when connect() resolves. Standalone tasks do not
+      // depend on this list.
+      await get().refreshProjects();
       // Catalog (skills/agents/commands) fills in behind the page — a session
       // switch must not wait on it to show the conversation.
       void get().loadCatalog();
@@ -981,6 +917,31 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     }
     set({ status: "error", error: lastError });
     return false;
+  },
+
+  restartLocalRuntime: async () => {
+    if (!isTauri) {
+      await get().connect();
+      return get().status === "ready";
+    }
+    set({ switching: true, status: "connecting", error: null });
+    try {
+      const url = await restartRuntime();
+      if (!url) throw new Error("The local AI assistant did not return an endpoint.");
+      set({ serverUrl: url });
+      const connected = await get().connectRetry(30);
+      if (!connected) {
+        throw new Error(get().error ?? "The local AI assistant did not restart.");
+      }
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      void logDebug(`runtime recovery FAILED: ${message}`);
+      set({ status: "error", error: message });
+      return false;
+    } finally {
+      set({ switching: false });
+    }
   },
 
   bootstrap: () => {
@@ -1030,18 +991,40 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     }
   },
 
-  // "New" opens a blank draft — no session is created until the first message (#3).
-  // A fresh draft also drops any pinned folder: back to the dated-folder default.
+  // The global "New task" action starts a standalone task.
+  // A project row has its own + action and uses startDraftInWorkspace instead.
   startDraft: () =>
     set((s) => {
       const threads = { ...s.threads };
       delete threads[DRAFT_KEY]; // leftovers from an aborted first message
       const panes = { ...s.panes };
       delete panes[DRAFT_KEY]; // a fresh draft starts with a closed pane
-      const sessionAgents = { ...s.sessionAgents };
-      delete sessionAgents[DRAFT_KEY]; // and in Build mode
-      return { currentId: null, workspacePinned: false, threads, panes, sessionAgents };
+      return {
+        currentId: null,
+        draftEpoch: s.draftEpoch + 1,
+        workspacePinned: false,
+        threads,
+        panes,
+      };
     }),
+
+  ensureStandaloneWorkspace: async () => {
+    if (!isTauri || get().currentId || get().workspacePinned) return true;
+    set({ switching: true });
+    try {
+      await newDatedWorkspace(datedWorkspaceName());
+      await kernelReset().catch(() => {});
+      const connected = await get().connectRetry();
+      if (!connected) return false;
+      set({ workspacePinned: true });
+      return true;
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+      return false;
+    } finally {
+      set({ switching: false });
+    }
+  },
 
   // Local /new and /clear: clear the visible chat context, but keep the active
   // folder. The first next message creates a new OpenCode session in that same
@@ -1063,15 +1046,17 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       };
       const panes = { ...s.panes };
       delete panes[DRAFT_KEY];
-      const sessionAgents = { ...s.sessionAgents };
-      delete sessionAgents[DRAFT_KEY];
-      return { currentId: null, workspacePinned: true, threads, panes, sessionAgents };
+      return { currentId: null, workspacePinned: true, threads, panes };
     }),
 
   refreshProjects: async () => {
     if (!isTauri) return;
     try {
-      set({ projects: await listProjects() });
+      const [projects, researchScope] = await Promise.all([
+        listProjects(),
+        currentResearchScope(),
+      ]);
+      set({ projects, researchScope });
     } catch {
       /* ignore transient scan failures */
     }
@@ -1080,45 +1065,16 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   createProject: async (name) => {
     try {
       const project = await createProjectFolder(name);
-      void get().refreshProjects();
+      set((s) => ({
+        projects: [...s.projects.filter((candidate) => candidate.id !== project.id), project]
+          .sort((left, right) => left.name.localeCompare(right.name)),
+      }));
       await get().switchWorkspace({ path: project.path });
       return project;
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
       return null;
     }
-  },
-
-  importProject: async (path) => {
-    try {
-      const project = await importProjectFolder(path);
-      void get().refreshProjects();
-      await get().switchWorkspace({ path: project.path });
-      return project;
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-      return null;
-    }
-  },
-
-  setProjectPinned: async (id, pinned) => {
-    // Optimistic: flip locally so the sidebar reacts immediately, then persist.
-    set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, pinned } : p)) }));
-    try {
-      await setProjectPinnedCmd(id, pinned);
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-    void get().refreshProjects();
-  },
-
-  deleteProject: async (id) => {
-    try {
-      await deleteProjectCmd(id);
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-    void get().refreshProjects();
   },
 
   startDraftInWorkspace: async (path) => {
@@ -1129,42 +1085,28 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         delete threads[DRAFT_KEY];
         const panes = { ...s.panes };
         delete panes[DRAFT_KEY];
-        const sessionAgents = { ...s.sessionAgents };
-        delete sessionAgents[DRAFT_KEY];
-        return { currentId: null, workspacePinned: true, threads, panes, sessionAgents };
+        return { currentId: null, workspacePinned: true, threads, panes };
       });
       return;
     }
     await get().switchWorkspace({ path });
   },
 
-  ensureDraftWorkspace: async () => {
-    const s = get();
-    // A session already has its folder; a pinned draft's folder is reused on
-    // send. Only a fresh, unpinned draft needs its dated folder materialized now
-    // so composer files and the eventual session share one workspace.
-    if (!isTauri || s.currentId || s.workspacePinned) return;
-    await get().switchWorkspace({ dated: datedWorkspaceName() });
-  },
-
   switchWorkspace: async (target) => {
     set({ switching: true });
     try {
-      if ("dated" in target) await newDatedWorkspace(target.dated);
-      else await setWorkspace(target.path);
+      await setWorkspace(target.path);
       // Reset the local kernel so it respawns in the new folder, then reconnect
       // the event stream scoped to it (connect() re-reads the active folder —
       // the sidecar itself keeps running). An explicit switch pins the folder,
-      // so the next new session lands exactly there.
+      // so the next new task lands exactly there.
       await kernelReset().catch(() => {});
       set((s) => {
         // Back to a draft in the new folder — the draft pane must not carry
         // files from the previous folder. Session panes keep their memory.
         const panes = { ...s.panes };
         delete panes[DRAFT_KEY];
-        const sessionAgents = { ...s.sessionAgents };
-        delete sessionAgents[DRAFT_KEY];
-        return { currentId: null, panes, workspacePinned: true, sessionAgents };
+        return { currentId: null, panes, workspacePinned: true };
       });
       await get().connectRetry();
       await Promise.all([get().refreshSessions(), get().loadCatalog()]);
@@ -1239,10 +1181,6 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           ...s.threads,
           [id]: { ...historyToThread(messages, s.commands), loaded: true },
         },
-        // Seed the agent pill from history: a session that was planning when
-        // the app closed (or whose plan_exit flip fell into an SSE gap) must
-        // reopen in the mode the server is actually in.
-        sessionAgents: { ...s.sessionAgents, [id]: lastAgentMode(messages) },
       }));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1263,25 +1201,8 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
 
   // The send lifecycle (new → input → send → response) is shared by plain
   // prompts, "!" shell commands and "/" slash commands — see performTurn.
-  sendPrompt: (text) => {
-    // Capture the mode BEFORE performTurn: on a draft, currentId is still null
-    // here (the session is created inside), so this reads DRAFT_KEY correctly.
-    // Pin "plan" only when the catalog actually has it — a stale mode against
-    // an older/custom sidecar must not fail every send with "Agent not found".
-    const s = get();
-    const mode = s.sessionAgents[s.currentId ?? DRAFT_KEY];
-    const agent =
-      mode === "plan" && s.agents.some((a) => a.name === "plan") ? "plan" : undefined;
-    return performTurn(
-      set,
-      get,
-      text,
-      // Pass the current default model so an old session (which OpenCode bound
-      // to its creation-time model) follows a later model switch, per #8.
-      (sid) => withRetry(() => client!.sendPrompt(sid, text, agent, get().defaultModel)),
-      false,
-    );
-  },
+  sendPrompt: (text) =>
+    performTurn(set, get, text, (sid) => withRetry(() => client!.sendPrompt(sid, text)), false),
 
   // No retry for shell/command: re-POSTing would run the command twice.
   runShell: (command) => {
@@ -1370,8 +1291,6 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
               ...s.threads,
               [sid]: { ...historyToThread(messages, s.commands), loaded: true },
             },
-            // Same for the agent pill (a plan_exit flip may have been missed).
-            sessionAgents: { ...s.sessionAgents, [sid]: lastAgentMode(messages) },
           };
         });
       } catch {
@@ -1395,14 +1314,11 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       delete runningSessions[id];
       const panes = { ...s.panes };
       delete panes[id];
-      const sessionAgents = { ...s.sessionAgents };
-      delete sessionAgents[id];
       return {
         sessions: s.sessions.filter((x) => x.id !== id),
         threads,
         runningSessions,
         panes,
-        sessionAgents,
         currentId: s.currentId === id ? null : s.currentId,
       };
     });
@@ -1414,31 +1330,28 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     set({ hiddenExamples: next });
   },
 
-  // Install a skill by asking the agent (uses OpenCode's customize-opencode skill) (#1).
-  installSkill: async (text) => {
+  // Start a review, never an active install. Workspace skills remain a separate,
+  // user-managed mechanism and cannot enter the bundled platform inventory.
+  reviewAssetCandidate: async (text) => {
     if (!client) {
-      set({ error: "Connect the runtime first to install skills." });
+      set({ error: "Connect the runtime first to review an external asset." });
       return null;
     }
     try {
       const id = await client.createSession();
       set((s) => ({ currentId: id, threads: { ...s.threads, [id]: { ...emptyThread(), loaded: true } } }));
       await get().refreshSessions();
-      const prompt =
-        "Install the following as an OpenCode skill for this project. Use the " +
-        "customize-opencode skill. If it is a URL, fetch it; if it is Markdown, save it as " +
-        "a skill file under .opencode/skills/<name>/SKILL.md. Then reply with the installed skill's name.\n\n---\n" +
-        text;
+      const prompt = buildAssetReviewPrompt(text);
       set((s) => {
         const cur = s.threads[id];
         return {
           threads: {
             ...s.threads,
-            [id]: { ...cur, blocks: [...cur.blocks, { kind: "user", text: `Install skill:\n${text}` }] },
+            [id]: { ...cur, blocks: [...cur.blocks, { kind: "user", text: `Review asset candidate:\n${text}` }] },
           },
         };
       });
-      await client.sendPrompt(id, prompt, undefined, get().defaultModel);
+      await client.sendPrompt(id, prompt);
       return id;
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
@@ -1447,7 +1360,8 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   },
 }));
 
-/** Dated folder name like `2026-07-04-1615` for a fresh per-session workspace. */
+/** Dated local folder for a standalone task. The folder is an
+ * independent research scope, not an AI4HEOR project. */
 export function datedWorkspaceName(now = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}`;
@@ -1461,14 +1375,14 @@ export interface FoldState {
 /** Pure reducer: fold one normalized OpenCode event into a thread's blocks. */
 /**
  * Tidy a tool-call title for the conversation: show workspace files by their
- * relative path (`demo/analyze.py`), not the full `/Users/.../OpenScience/...`
+ * relative path (`demo/analyze.py`), not the full `/Users/.../AI4HEOR/...`
  * absolute path, so the thread reads like a researcher's log, not a shell trace.
  * The workspace path never contains spaces (by design), so a space-free run
- * ending in `OpenScience/` matches it whether or not it has a leading slash
- * (OpenCode's write-tool titles drop it).
+ * ending in the current `AI4HEOR/` or legacy `OpenScience/` root matches it
+ * whether or not it has a leading slash (OpenCode's write-tool titles drop it).
  */
 export function tidyToolTitle(title: string): string {
-  return title.replace(/[^\s]*OpenScience\//g, "").trim() || title;
+  return title.replace(/[^\s]*(?:AI4HEOR|OpenScience)\//g, "").trim() || title;
 }
 
 /**
@@ -1688,46 +1602,21 @@ function mapToolStatus(status?: string): ToolCallStatus {
 }
 
 /** Convert loaded message history into thread blocks. */
-/** The agent mode a session's history says it is in: the last user message's
- *  agent (upstream stamps every user message; unknown agents read as build). */
-export function lastAgentMode(messages: HistoryMessage[]): AgentMode {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m.role === "user" && m.agent) return m.agent === "plan" ? "plan" : "build";
-  }
-  return "build";
-}
-
 export function historyToThread(messages: HistoryMessage[], commands?: CommandInfo[]): FoldState {
   const blocks: ThreadBlock[] = [];
-  // OpenCode stores a slash command's EXPANDED template as the user message —
-  // show the "/name args" the user actually typed instead. Templates either
-  // embed a $ARGUMENTS placeholder anywhere (match prefix + suffix around it,
-  // e.g. the goal plugin's <goal_command_arguments> block) or carry no
-  // placeholder (typed args are appended after the template, no marker).
-  // Longest template first, so one template being a prefix of another's
-  // expansion can't mis-attribute.
+  // OpenCode stores a slash command's EXPANDED template as the user message,
+  // with any typed arguments appended after it (no marker) — show the
+  // "/name args" the user actually typed instead. Longest template first, so
+  // one template being a prefix of another's expansion can't mis-attribute.
   const templates = (commands ?? [])
     .filter((c) => c.template?.trim())
     .map((c) => ({ name: c.name, template: c.template!.trim() }))
     .sort((a, b) => b.template.length - a.template.length);
   const asTypedCommand = (text: string): string | undefined => {
-    for (const t of templates) {
-      const at = t.template.indexOf("$ARGUMENTS");
-      if (at < 0) {
-        if (!text.startsWith(t.template)) continue;
-        const args = text.slice(t.template.length).trim();
-        return args ? `/${t.name} ${args}` : `/${t.name}`;
-      }
-      const prefix = t.template.slice(0, at);
-      const suffix = t.template.slice(at + "$ARGUMENTS".length).trimEnd();
-      if (!text.startsWith(prefix)) continue;
-      const rest = text.trimEnd();
-      if (suffix && !rest.endsWith(suffix)) continue;
-      const args = rest.slice(prefix.length, suffix ? rest.length - suffix.length : undefined).trim();
-      return args ? `/${t.name} ${args}` : `/${t.name}`;
-    }
-    return undefined;
+    const hit = templates.find((t) => text.startsWith(t.template));
+    if (!hit) return undefined;
+    const args = text.slice(hit.template.length).trim();
+    return args ? `/${hit.name} ${args}` : `/${hit.name}`;
   };
   // A step frozen mid-run (the runtime restarted or the turn was killed before
   // it finished) must not spin forever in history — render it quietly and say
@@ -1808,13 +1697,6 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
           });
           if (artifact) blocks.push(artifact);
         }
-      }
-      // A turn that ended in a provider/runtime error must say so on reload —
-      // its live session.error is gone (SSE reconnect, app restart) and an
-      // empty reply followed by "done" explains nothing. User-interrupted
-      // turns are not errors; the trailing "Interrupted" line covers those.
-      if (m.error && !/abort/i.test(m.error)) {
-        blocks.push({ kind: "status-line", text: m.error, tone: "error" });
       }
       shellTurn = false;
     }

@@ -1,0 +1,447 @@
+"""Command-line entry point for deterministic HEOR analyses."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+from pathlib import Path
+from typing import Sequence
+
+from .budget_impact import run_budget_impact
+from .advanced_voi import (
+    component_context,
+    json_bytes,
+    run_advanced_voi,
+    standard_context,
+)
+from .model import MarkovSpecification, ModelValidationError, run_markov
+from .partitioned_survival import run_partitioned_survival
+from .uncertainty import run_uncertainty
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("input", type=Path, help="Path to an HEOR analysis plan")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--uncertainty-plan",
+        type=Path,
+        help="Optional path to a hash-bound uncertainty analysis plan",
+    )
+    mode.add_argument(
+        "--budget-impact-plan",
+        type=Path,
+        help="Optional path to a hash-bound budget impact plan",
+    )
+    parser.add_argument(
+        "--advanced-voi-plan",
+        type=Path,
+        help="Optional advanced VOI plan; requires --uncertainty-plan and --uncertainty-result",
+    )
+    parser.add_argument(
+        "--uncertainty-result",
+        type=Path,
+        help="Current converged uncertainty result bound by an advanced VOI plan",
+    )
+    parser.add_argument(
+        "--partitioned-survival-plan",
+        type=Path,
+        help="Optional path to a hash-bound partitioned survival plan",
+    )
+    parser.add_argument(
+        "--survival-curve-materializations",
+        type=Path,
+        help="Required materialization manifest for partitioned survival",
+    )
+    parser.add_argument(
+        "--treatment-effect-duration",
+        type=Path,
+        help="Required treatment-effect duration artifact for PSM schema 0.4.0 through 0.7.0",
+    )
+    parser.add_argument(
+        "--cost-input-normalization",
+        type=Path,
+        help="Required cost-input normalization artifact for PSM schema 0.5.0 through 0.7.0",
+    )
+    parser.add_argument(
+        "--utility-inputs",
+        type=Path,
+        help="Required health-state utility artifact for PSM schema 0.6.0 or 0.7.0",
+    )
+    parser.add_argument(
+        "--event-disutilities",
+        type=Path,
+        help="Required event-disutility artifact for PSM schema 0.7.0",
+    )
+    parser.add_argument(
+        "--joint-survival-uncertainty-manifest",
+        type=Path,
+        help="Required manifest for uncertainty schema 0.12.0 or 0.14.0",
+    )
+    parser.add_argument(
+        "--joint-survival-draws",
+        type=Path,
+        help="Required JSONL joint PFS/OS draws for uncertainty schema 0.12.0 or 0.14.0",
+    )
+    return parser
+
+
+def _run_advanced_voi_from_args(
+    args: argparse.Namespace,
+    payload: dict,
+    raw: bytes,
+) -> dict:
+    if args.uncertainty_plan is None or args.uncertainty_result is None:
+        raise ModelValidationError(
+            "--advanced-voi-plan requires --uncertainty-plan and --uncertainty-result"
+        )
+    if args.joint_survival_uncertainty_manifest is not None:
+        raise ModelValidationError(
+            "advanced VOI schema 0.1.0 does not support joint survival uncertainty"
+        )
+    uncertainty_raw = args.uncertainty_plan.read_bytes()
+    uncertainty = json.loads(uncertainty_raw)
+    result_raw = args.uncertainty_result.read_bytes()
+    uncertainty_result = json.loads(result_raw)
+    voi_raw = args.advanced_voi_plan.read_bytes()
+    voi = json.loads(voi_raw)
+    if uncertainty.get("schema_version") == "0.9.0":
+        if any(
+            item is not None
+            for item in (
+                args.partitioned_survival_plan,
+                args.survival_curve_materializations,
+                args.treatment_effect_duration,
+                args.cost_input_normalization,
+                args.utility_inputs,
+                args.event_disutilities,
+            )
+        ):
+            raise ModelValidationError(
+                "advanced VOI over uncertainty schema 0.9.0 forbids PSM artifact options"
+            )
+        context = standard_context(payload, raw, uncertainty, uncertainty_raw)
+    elif uncertainty.get("schema_version") == "0.13.0":
+        required = (
+            args.partitioned_survival_plan,
+            args.survival_curve_materializations,
+            args.treatment_effect_duration,
+            args.cost_input_normalization,
+            args.utility_inputs,
+            args.event_disutilities,
+        )
+        if any(item is None for item in required):
+            raise ModelValidationError(
+                "advanced VOI over uncertainty schema 0.13.0 requires all six current PSM artifact options"
+            )
+        partitioned_raw = args.partitioned_survival_plan.read_bytes()
+        materializations_raw = args.survival_curve_materializations.read_bytes()
+        duration_raw = args.treatment_effect_duration.read_bytes()
+        cost_raw = args.cost_input_normalization.read_bytes()
+        utility_raw = args.utility_inputs.read_bytes()
+        event_raw = args.event_disutilities.read_bytes()
+        context = component_context(
+            payload,
+            raw,
+            uncertainty,
+            uncertainty_raw,
+            json.loads(partitioned_raw),
+            partitioned_raw,
+            json.loads(materializations_raw),
+            materializations_raw,
+            json.loads(duration_raw),
+            duration_raw,
+            json.loads(cost_raw),
+            cost_raw,
+            json.loads(utility_raw),
+            utility_raw,
+            json.loads(event_raw),
+            event_raw,
+        )
+    else:
+        raise ModelValidationError(
+            "advanced VOI schema 0.1.0 supports odds-ratio uncertainty schema 0.9.0 or fixed-survival component schema 0.13.0"
+        )
+    output = run_advanced_voi(
+        voi,
+        voi_raw,
+        payload,
+        raw,
+        uncertainty,
+        uncertainty_raw,
+        uncertainty_result,
+        result_raw,
+        context,
+    )
+    return {
+        "replay_json": json_bytes(output["replay"]).decode("utf-8"),
+        "result": output["result"],
+    }
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        if args.partitioned_survival_plan is not None and args.budget_impact_plan is not None:
+            raise ModelValidationError(
+                "--partitioned-survival-plan cannot be combined with --budget-impact-plan"
+            )
+        if (args.advanced_voi_plan is None) != (args.uncertainty_result is None):
+            raise ModelValidationError(
+                "--advanced-voi-plan and --uncertainty-result must be provided together"
+            )
+        if args.survival_curve_materializations is not None and args.partitioned_survival_plan is None:
+            raise ModelValidationError(
+                "--survival-curve-materializations requires "
+                "--partitioned-survival-plan"
+            )
+        if args.treatment_effect_duration is not None and args.partitioned_survival_plan is None:
+            raise ModelValidationError(
+                "--treatment-effect-duration requires --partitioned-survival-plan"
+            )
+        if args.cost_input_normalization is not None and args.partitioned_survival_plan is None:
+            raise ModelValidationError(
+                "--cost-input-normalization requires --partitioned-survival-plan"
+            )
+        if args.utility_inputs is not None and args.partitioned_survival_plan is None:
+            raise ModelValidationError(
+                "--utility-inputs requires --partitioned-survival-plan"
+            )
+        if args.event_disutilities is not None and args.partitioned_survival_plan is None:
+            raise ModelValidationError(
+                "--event-disutilities requires --partitioned-survival-plan"
+            )
+        joint_options = (
+            args.joint_survival_uncertainty_manifest,
+            args.joint_survival_draws,
+        )
+        if any(item is not None for item in joint_options) and not all(
+            item is not None for item in joint_options
+        ):
+            raise ModelValidationError(
+                "--joint-survival-uncertainty-manifest and --joint-survival-draws must be provided together"
+            )
+        if any(item is not None for item in joint_options) and args.uncertainty_plan is None:
+            raise ModelValidationError(
+                "joint survival artifacts require --uncertainty-plan"
+            )
+        raw = args.input.read_bytes()
+        payload = json.loads(raw)
+        if any(item is not None for item in joint_options) and payload.get("schema_version") not in {"0.12.0", "0.15.0"}:
+            raise ModelValidationError(
+                "joint survival artifacts require analysis schema 0.12.0 or 0.15.0"
+            )
+        if args.advanced_voi_plan is not None:
+            result = _run_advanced_voi_from_args(args, payload, raw)
+        elif (
+            args.uncertainty_plan is None
+            and args.budget_impact_plan is None
+            and args.partitioned_survival_plan is None
+        ):
+            specification = MarkovSpecification.from_dict(payload)
+            result = run_markov(specification).to_dict()
+            result["input_sha256"] = hashlib.sha256(raw).hexdigest()
+        elif args.uncertainty_plan is not None:
+            uncertainty_raw = args.uncertainty_plan.read_bytes()
+            uncertainty_payload = json.loads(uncertainty_raw)
+            if uncertainty_payload.get("schema_version") in {"0.13.0", "0.14.0"}:
+                joint_components = uncertainty_payload.get("schema_version") == "0.14.0"
+                required = (
+                    args.partitioned_survival_plan,
+                    args.survival_curve_materializations,
+                    args.treatment_effect_duration,
+                    args.cost_input_normalization,
+                    args.utility_inputs,
+                    args.event_disutilities,
+                )
+                if payload.get("schema_version") != "0.15.0" or any(
+                    item is None for item in required
+                ):
+                    raise ModelValidationError(
+                        "uncertainty schema 0.13.0 or 0.14.0 requires analysis schema 0.15.0 and all six current PSM artifact options"
+                    )
+                if joint_components != all(item is not None for item in joint_options):
+                    raise ModelValidationError(
+                        "uncertainty schema 0.14.0 requires both joint survival artifact options; schema 0.13.0 forbids them"
+                    )
+                partitioned_raw = args.partitioned_survival_plan.read_bytes()
+                partitioned_payload = json.loads(partitioned_raw)
+                materializations_raw = args.survival_curve_materializations.read_bytes()
+                materializations_payload = json.loads(materializations_raw)
+                duration_raw = args.treatment_effect_duration.read_bytes()
+                cost_raw = args.cost_input_normalization.read_bytes()
+                utility_raw = args.utility_inputs.read_bytes()
+                event_raw = args.event_disutilities.read_bytes()
+                joint_manifest_raw = (
+                    args.joint_survival_uncertainty_manifest.read_bytes()
+                    if joint_components
+                    else None
+                )
+                joint_draws_raw = (
+                    args.joint_survival_draws.read_bytes() if joint_components else None
+                )
+                result = run_uncertainty(
+                    payload,
+                    raw,
+                    uncertainty_payload,
+                    uncertainty_raw,
+                    partitioned_payload,
+                    partitioned_raw,
+                    materializations_payload,
+                    materializations_raw,
+                    treatment_effect_duration=json.loads(duration_raw),
+                    treatment_effect_duration_raw=duration_raw,
+                    cost_input_normalization=json.loads(cost_raw),
+                    cost_input_normalization_raw=cost_raw,
+                    utility_inputs=json.loads(utility_raw),
+                    utility_inputs_raw=utility_raw,
+                    event_disutilities=json.loads(event_raw),
+                    event_disutilities_raw=event_raw,
+                    joint_survival_manifest=(
+                        json.loads(joint_manifest_raw)
+                        if joint_manifest_raw is not None
+                        else None
+                    ),
+                    joint_survival_manifest_raw=joint_manifest_raw,
+                    joint_survival_draws_raw=joint_draws_raw,
+                )
+            elif payload.get("schema_version") in {"0.14.0", "0.15.0"}:
+                raise ModelValidationError(
+                    "analysis schema 0.14.0 or 0.15.0 requires component uncertainty schema 0.13.0 or 0.14.0"
+                )
+            elif payload.get("schema_version") == "0.12.0":
+                if (
+                    args.partitioned_survival_plan is None
+                    or args.survival_curve_materializations is None
+                ):
+                    raise ModelValidationError(
+                        "analysis schema 0.12.0 uncertainty requires both partitioned-survival artifact options"
+                    )
+                partitioned_raw = args.partitioned_survival_plan.read_bytes()
+                partitioned_payload = json.loads(partitioned_raw)
+                materializations_raw = args.survival_curve_materializations.read_bytes()
+                materializations_payload = json.loads(materializations_raw)
+                duration_required = partitioned_payload.get("schema_version") in {"0.4.0", "0.5.0"}
+                if duration_required != (args.treatment_effect_duration is not None):
+                    raise ModelValidationError(
+                        "partitioned-survival schema 0.4.0 or 0.5.0 requires exactly one --treatment-effect-duration option"
+                    )
+                if args.cost_input_normalization is not None:
+                    raise ModelValidationError(
+                        "analysis schema 0.12.0 uncertainty does not admit cost-input normalization"
+                    )
+                duration_raw = (
+                    args.treatment_effect_duration.read_bytes()
+                    if duration_required
+                    else None
+                )
+                duration_payload = (
+                    json.loads(duration_raw) if duration_raw is not None else None
+                )
+                joint_schema = uncertainty_payload.get("schema_version") == "0.12.0"
+                if joint_schema and not all(item is not None for item in joint_options):
+                    raise ModelValidationError(
+                        "uncertainty schema 0.12.0 requires both joint survival artifact options"
+                    )
+                if not joint_schema and any(item is not None for item in joint_options):
+                    raise ModelValidationError(
+                        "joint survival artifacts require uncertainty schema 0.12.0"
+                    )
+                joint_manifest_raw = (
+                    args.joint_survival_uncertainty_manifest.read_bytes()
+                    if joint_schema
+                    else None
+                )
+                joint_manifest_payload = (
+                    json.loads(joint_manifest_raw) if joint_manifest_raw is not None else None
+                )
+                joint_draws_raw = (
+                    args.joint_survival_draws.read_bytes() if joint_schema else None
+                )
+                result = run_uncertainty(
+                    payload,
+                    raw,
+                    uncertainty_payload,
+                    uncertainty_raw,
+                    partitioned_payload,
+                    partitioned_raw,
+                    materializations_payload,
+                    materializations_raw,
+                    joint_manifest_payload,
+                    joint_manifest_raw,
+                    joint_draws_raw,
+                    duration_payload,
+                    duration_raw,
+                )
+            else:
+                if args.partitioned_survival_plan is not None:
+                    raise ModelValidationError(
+                        "partitioned-survival artifacts with uncertainty require analysis schema 0.12.0"
+                    )
+                result = run_uncertainty(
+                    payload, raw, uncertainty_payload, uncertainty_raw
+                )
+        elif args.budget_impact_plan is not None:
+            budget_raw = args.budget_impact_plan.read_bytes()
+            budget_payload = json.loads(budget_raw)
+            result = run_budget_impact(payload, raw, budget_payload, budget_raw)
+        else:
+            if args.survival_curve_materializations is None:
+                raise ModelValidationError(
+                    "partitioned survival requires --survival-curve-materializations"
+                )
+            partitioned_raw = args.partitioned_survival_plan.read_bytes()
+            partitioned_payload = json.loads(partitioned_raw)
+            materializations_raw = args.survival_curve_materializations.read_bytes()
+            materializations_payload = json.loads(materializations_raw)
+            duration_required = partitioned_payload.get("schema_version") in {"0.4.0", "0.5.0", "0.6.0", "0.7.0"}
+            if duration_required != (args.treatment_effect_duration is not None):
+                raise ModelValidationError(
+                    "partitioned-survival schema 0.4.0 through 0.7.0 requires exactly one --treatment-effect-duration option"
+                )
+            cost_required = partitioned_payload.get("schema_version") in {"0.5.0", "0.6.0", "0.7.0"}
+            if cost_required != (args.cost_input_normalization is not None):
+                raise ModelValidationError(
+                    "partitioned-survival schema 0.5.0 through 0.7.0 requires exactly one --cost-input-normalization option"
+                )
+            utility_required = partitioned_payload.get("schema_version") in {"0.6.0", "0.7.0"}
+            if utility_required != (args.utility_inputs is not None):
+                raise ModelValidationError(
+                    "partitioned-survival schema 0.6.0 or 0.7.0 requires exactly one --utility-inputs option"
+                )
+            event_required = partitioned_payload.get("schema_version") == "0.7.0"
+            if event_required != (args.event_disutilities is not None):
+                raise ModelValidationError(
+                    "partitioned-survival schema 0.7.0 requires exactly one --event-disutilities option"
+                )
+            duration_raw = (
+                args.treatment_effect_duration.read_bytes() if duration_required else None
+            )
+            duration_payload = json.loads(duration_raw) if duration_raw is not None else None
+            cost_raw = args.cost_input_normalization.read_bytes() if cost_required else None
+            cost_payload = json.loads(cost_raw) if cost_raw is not None else None
+            utility_raw = args.utility_inputs.read_bytes() if utility_required else None
+            utility_payload = json.loads(utility_raw) if utility_raw is not None else None
+            event_raw = args.event_disutilities.read_bytes() if event_required else None
+            event_payload = json.loads(event_raw) if event_raw is not None else None
+            result = run_partitioned_survival(
+                payload,
+                raw,
+                partitioned_payload,
+                partitioned_raw,
+                materializations_payload,
+                materializations_raw,
+                duration_payload,
+                duration_raw,
+                cost_payload,
+                cost_raw,
+                utility_payload,
+                utility_raw,
+                event_payload,
+                event_raw,
+            )
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+    except (OSError, ArithmeticError, json.JSONDecodeError, ModelValidationError) as error:
+        raise SystemExit(f"heor-core: {error}") from error
+    return 0

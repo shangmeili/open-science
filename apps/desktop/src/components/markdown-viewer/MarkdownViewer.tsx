@@ -74,9 +74,6 @@ export function MarkdownViewer({
     <div className={cn(s.root, className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
-        // Render `$…$` / `$$…$$` math (KaTeX). `throwOnError: false` keeps a
-        // malformed expression from blanking the whole message — it shows the
-        // source in red instead.
         rehypePlugins={[[rehypeKatex, { throwOnError: false }]]}
         components={{
           p: ({ children }) => <p className={s.p}>{children}</p>,

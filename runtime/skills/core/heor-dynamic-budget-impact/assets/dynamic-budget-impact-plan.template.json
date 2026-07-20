@@ -1,0 +1,63 @@
+{
+  "schema_version": "0.2.0",
+  "bia_id": "replace-with-bia-id",
+  "analysis_id": "replace-with-analysis-id",
+  "status": "draft",
+  "base_analysis": {"path": "heor/analysis-plan.json", "content_sha256": "replace-with-sha256"},
+  "perspective": {
+    "type": "budget_holder",
+    "budget_holder": "Replace with the specific budget holder",
+    "jurisdiction": "China",
+    "currency": "CNY",
+    "price_year": 2026,
+    "alignment_rationale": "Explain why included costs match the budget holder."
+  },
+  "horizon_years": 3,
+  "discount_rate": 0,
+  "population": {
+    "label": "Treated prevalent and incident population",
+    "initial_prevalent": 0,
+    "incident_by_year": [0, 0, 0],
+    "derivation": "Describe prevalence, incidence, access restrictions, and overlap handling."
+  },
+  "annual_mortality_probability": [0, 0, 0],
+  "strategies": {
+    "comparator": {"id": "replace-with-comparator-id", "label": "Comparator"},
+    "intervention": {"id": "replace-with-intervention-id", "label": "New intervention"}
+  },
+  "market_scenarios": {
+    "without_new_intervention": {
+      "label": "Without access",
+      "initial_intervention_share": 0,
+      "incident_intervention_share_by_year": [0, 0, 0],
+      "comparator_displacement_share_by_year": [0, 0, 0],
+      "intervention_start_capacity_by_year": [0, 0, 0]
+    },
+    "with_new_intervention": {
+      "label": "With access",
+      "initial_intervention_share": 0,
+      "incident_intervention_share_by_year": [0, 0, 0],
+      "comparator_displacement_share_by_year": [0, 0, 0],
+      "intervention_start_capacity_by_year": [0, 0, 0]
+    }
+  },
+  "persistence": {
+    "comparator_continuation_probability_by_year": [1, 1, 1],
+    "intervention_continuation_probability_by_year": [1, 1, 1],
+    "comparator_discontinuation_destination": "exit_treated_market",
+    "intervention_discontinuation_destination": "comparator"
+  },
+  "cost_categories": [
+    {"id": "treatment", "label": "Treatment acquisition and administration", "type": "intervention", "included": true, "rationale": "Replace with rationale.", "annual_per_patient": {"comparator": [0, 0, 0], "intervention": [0, 0, 0]}},
+    {"id": "condition", "label": "Condition-related care", "type": "condition_related", "included": true, "rationale": "Replace with rationale.", "annual_per_patient": {"comparator": [0, 0, 0], "intervention": [0, 0, 0]}}
+  ],
+  "excluded_cost_categories": [],
+  "non_patient_costs": [],
+  "sensitivity_parameters": [],
+  "alternative_scenarios": [],
+  "evidence_sources": [],
+  "assumptions": [],
+  "input_provenance": [],
+  "validation_plan": {"face": [], "internal": [], "external": []},
+  "limitations": []
+}

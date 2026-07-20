@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Reporting"
+  short_description: "Build a hash-bound, release-reviewable HEOR report package"
+  default_prompt: "Use $heor-reporting to prepare or audit a traceable HEOR report package without creating a release approval."

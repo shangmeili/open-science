@@ -1,5 +1,5 @@
 // Detects which scientific/runtime tools are available on the user's system.
-// AI4S Workbench does not bundle Python/R/Jupyter; OpenCode's shell tool uses whatever
+// AI4HEOR does not bundle Python/R/Jupyter; OpenCode's shell tool uses whatever
 // is installed. This surfaces that to the UI honestly.
 use serde::Serialize;
 

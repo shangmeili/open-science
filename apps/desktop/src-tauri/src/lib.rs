@@ -1,29 +1,67 @@
-// AI4S Workbench — Tauri 2 entry. Hosts the React frontend and supervises the
+// AI4HEOR — Tauri 2 entry. Hosts the React frontend and supervises the
 // bundled OpenCode sidecar (isolated config/data + dedicated port; killed on exit).
 mod artifact_file;
-mod browser;
+mod asset_admission;
+mod capability_review;
+mod citation_formatting;
+mod compute;
+mod conceptual_model_diagram;
 mod debug_log;
 mod examples;
 mod git_snapshot;
-mod goal;
 mod harness;
-mod compute;
+mod heor_advanced_voi;
+mod heor_approval;
+mod heor_artifacts;
+mod heor_budget_impact;
+mod heor_cost_input_normalization;
+mod heor_economic_inputs;
+mod heor_engine;
+mod heor_event_disutilities;
+mod heor_evidence;
+mod heor_evidence_review;
+mod heor_joint_survival_uncertainty;
+mod heor_library;
+mod heor_methods_watchlist;
+mod heor_microsimulation;
+mod heor_model_calibration;
+mod heor_network_meta_analysis;
+mod heor_paired_survival_bootstrap;
+mod heor_parametric_survival;
+mod heor_partitioned_survival;
+mod heor_population_adjusted_comparison;
+mod heor_reference_case;
+mod heor_reporting;
+mod heor_reproducibility;
+mod heor_rwe_causal_analysis;
+mod heor_search;
+mod heor_survival_execution;
+mod heor_survival_materialization;
+mod heor_survival_review;
+mod heor_synthesis;
+mod heor_treatment_effect_duration;
+mod heor_uncertainty;
+mod heor_utility_inputs;
+mod heor_validation;
 mod jupyter;
+mod journal_submission;
 mod kernel;
 mod large_file;
 mod modal;
 mod opencode_config;
+mod preference_review;
 mod preview_server;
 mod project;
 mod provenance;
+mod research_presentation;
+mod research_report;
+mod research_tables;
 mod runs;
 mod runs_index;
 mod runtime;
-mod science_mcp;
+mod startup_audit;
+mod support_report;
 mod tools;
-#[cfg(target_os = "macos")]
-mod macos;
-mod updates;
 mod uv;
 
 use jupyter::JupyterState;
@@ -48,38 +86,32 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_notification::init())
         .manage(RuntimeState::default())
         .manage(KernelState::default())
         .manage(JupyterState::default())
         .manage(PreviewState::default())
+        .manage(capability_review::CapabilityReviewState::default())
+        .manage(preference_review::PreferenceReviewState::default())
         .manage(ProvenanceState::default())
+        .manage(heor_approval::HeorApprovalState::default())
+        .manage(heor_advanced_voi::AdvancedVoiReviewState::default())
+        .manage(heor_search::HeorSearchState::default())
+        .manage(heor_synthesis::HeorSynthesisState::default())
+        .manage(heor_library::HeorLibraryState::default())
+        .manage(heor_methods_watchlist::MethodsWatchlistReviewState::default())
+        .manage(heor_model_calibration::ModelCalibrationReviewState::default())
+        .manage(heor_microsimulation::MicrosimulationReviewState::default())
+        .manage(heor_paired_survival_bootstrap::PairedBootstrapReviewState::default())
+        .manage(heor_network_meta_analysis::NetworkMetaAnalysisReviewState::default())
+        .manage(
+            heor_population_adjusted_comparison::PopulationAdjustedComparisonReviewState::default(),
+        )
+        .manage(heor_rwe_causal_analysis::RweCausalAnalysisReviewState::default())
+        .manage(heor_evidence_review::HeorEvidenceReviewState::default())
         .manage(runs::RunState::default())
-        .setup(|app| {
-            // Watch the active workspace so changes made outside the app (an
-            // external editor, a detached process) still enqueue a debounced
-            // snapshot. Re-pointed on every workspace switch in set_workspace.
-            if let Ok(ws) = runtime::workspace_dir(app.handle()) {
-                git_snapshot::watch_workspace(&ws);
-            }
-            Ok(())
-        })
-        // The transparent + vibrancy window loses tao's traffic-light inset on
-        // some machines (tao only re-applies it from drawRect). Re-pin on the
-        // events that cover launch, resize, and the in-app theme switch.
-        .on_window_event(|_window, _event| {
-            #[cfg(target_os = "macos")]
-            if matches!(
-                _event,
-                tauri::WindowEvent::Focused(true)
-                    | tauri::WindowEvent::Resized(_)
-                    | tauri::WindowEvent::ThemeChanged(_)
-            ) {
-                macos::reapply_traffic_light_inset(_window);
-            }
-        })
         .invoke_handler(tauri::generate_handler![
             runtime::start_runtime,
+            runtime::restart_runtime,
             runtime::runtime_password,
             runtime::stop_runtime,
             runtime::workspace_path,
@@ -89,39 +121,30 @@ pub fn run() {
             runtime::set_workspace,
             runtime::mark_session,
             runtime::new_dated_workspace,
-            goal::goal_state,
-            goal::goal_update,
             project::create_project,
-            project::import_project,
             project::list_projects,
+            project::current_research_scope,
             project::rename_project,
-            project::set_project_pinned,
-            project::delete_project,
-            project::open_project_folder,
             runtime::pick_folder,
             runtime::import_opencode_login,
-            runtime::provider_auth_exists,
             runtime::remove_config_entry,
             jupyter::jupyter_status,
             jupyter::setup_jupyter,
             jupyter::start_jupyter,
-            runtime::configure_opencode,
             runtime::get_approval_mode,
             runtime::set_approval_mode,
             runtime::get_proxy_setting,
             runtime::set_proxy_setting,
             runtime::get_mirror_setting,
             runtime::set_mirror_setting,
-            browser::agent_browser_bin,
-            browser::agent_browser_profiles,
-            browser::detect_chrome,
-            browser::setup_browser_chrome,
             kernel::kernel_execute,
             kernel::kernel_reset,
             kernel::python_interpreter,
             kernel::set_python_path,
             artifact_file::read_artifact,
             artifact_file::open_path,
+            artifact_file::add_binary_to_workspace,
+            artifact_file::add_paths_to_workspace,
             artifact_file::reveal_path,
             artifact_file::absolute_path,
             artifact_file::resolve_artifact,
@@ -129,21 +152,90 @@ pub fn run() {
             artifact_file::open_url,
             artifact_file::add_files_to_workspace,
             artifact_file::add_text_to_workspace,
-            artifact_file::add_binary_to_workspace,
-            artifact_file::add_paths_to_workspace,
             artifact_file::list_notebooks,
             artifact_file::list_dir,
             artifact_file::write_workspace_file,
+            conceptual_model_diagram::audit_conceptual_model_diagram,
+            conceptual_model_diagram::generate_conceptual_model_diagram,
+            citation_formatting::audit_citation_formatting,
+            citation_formatting::generate_citation_formatting,
+            research_presentation::audit_research_presentation,
+            research_presentation::generate_research_presentation,
+            research_report::audit_research_report,
+            research_report::generate_research_report,
+            research_tables::audit_research_tables,
+            research_tables::generate_research_tables,
+            journal_submission::audit_journal_submission,
+            journal_submission::generate_journal_submission,
+            startup_audit::audit_startup_environment,
+            asset_admission::audit_asset_admission,
+            capability_review::audit_skill_candidates,
+            capability_review::append_skill_candidate_review,
+            preference_review::audit_local_preferences,
+            preference_review::append_local_preference_review,
             provenance::record_provenance,
             provenance::list_provenance,
             provenance::read_env_lockfile,
+            heor_approval::append_heor_approval,
+            heor_approval::list_heor_approvals,
+            heor_advanced_voi::audit_heor_advanced_voi,
+            heor_advanced_voi::run_heor_advanced_voi,
+            heor_advanced_voi::append_heor_advanced_voi_review,
+            heor_advanced_voi::list_heor_advanced_voi_reviews,
+            heor_budget_impact::audit_heor_budget_impact,
+            heor_budget_impact::run_heor_budget_impact,
+            heor_partitioned_survival::audit_heor_partitioned_survival,
+            heor_partitioned_survival::run_heor_partitioned_survival,
+            heor_paired_survival_bootstrap::audit_heor_paired_survival_bootstrap,
+            heor_paired_survival_bootstrap::append_heor_paired_bootstrap_review,
+            heor_paired_survival_bootstrap::list_heor_paired_bootstrap_reviews,
+            heor_network_meta_analysis::audit_heor_network_meta_analysis,
+            heor_network_meta_analysis::append_heor_network_meta_analysis_review,
+            heor_network_meta_analysis::list_heor_network_meta_analysis_reviews,
+            heor_population_adjusted_comparison::audit_heor_population_adjusted_comparison,
+            heor_population_adjusted_comparison::append_heor_population_adjusted_comparison_review,
+            heor_population_adjusted_comparison::list_heor_population_adjusted_comparison_reviews,
+            heor_rwe_causal_analysis::audit_heor_rwe_causal_analysis,
+            heor_rwe_causal_analysis::append_heor_rwe_causal_analysis_review,
+            heor_rwe_causal_analysis::list_heor_rwe_causal_analysis_reviews,
+            heor_reference_case::audit_heor_reference_case,
+            heor_reproducibility::audit_heor_reproducibility,
+            heor_reporting::audit_heor_reporting,
+            heor_search::audit_heor_evidence_search,
+            heor_search::execute_heor_evidence_search,
+            heor_search::list_heor_search_authorizations,
+            heor_library::add_heor_library_directory,
+            heor_library::add_heor_library_files,
+            heor_library::install_bundled_heor_knowledge_base,
+            heor_library::audit_heor_evidence_library,
+            heor_library::search_heor_evidence_library,
+            heor_library::sync_heor_evidence_library,
+            heor_methods_watchlist::audit_heor_methods_watchlist,
+            heor_methods_watchlist::append_heor_methods_watchlist_review,
+            heor_methods_watchlist::list_heor_methods_watchlist_reviews,
+            heor_model_calibration::audit_heor_model_calibration,
+            heor_model_calibration::append_heor_model_calibration_review,
+            heor_model_calibration::list_heor_model_calibration_reviews,
+            heor_microsimulation::audit_heor_microsimulation,
+            heor_microsimulation::append_heor_microsimulation_review,
+            heor_microsimulation::list_heor_microsimulation_reviews,
+            heor_synthesis::audit_heor_evidence_synthesis,
+            heor_synthesis::import_heor_search_candidates,
+            heor_survival_execution::audit_heor_survival_fit_execution,
+            heor_survival_review::audit_heor_survival_extrapolation,
+            heor_evidence::audit_heor_evidence_selection,
+            heor_evidence_review::list_heor_evidence_verifications,
+            heor_evidence_review::verify_heor_evidence_extractions,
+            heor_uncertainty::audit_heor_uncertainty,
+            heor_uncertainty::run_heor_uncertainty,
+            heor_validation::audit_heor_model_validation,
+            heor_engine::run_heor_markov,
             runs::record_run,
             runs::list_runs,
             runs::read_run_log,
             runs_index::query_runs_cmd,
-            science_mcp::science_mcp_python,
-            science_mcp::setup_science_mcp,
             examples::install_example,
+            examples::run_heor_teaching_example,
             git_snapshot::commit_workspace_snapshot,
             compute::list_ssh_hosts,
             compute::compute_machines,
@@ -156,17 +248,20 @@ pub fn run() {
             preview_server::preview_url,
             large_file::probe_large_file,
             tools::detect_tools,
-            updates::latest_release,
+            support_report::export_support_report,
             debug_log::log_debug
         ])
         .build(tauri::generate_context!())
-        .expect("error while building AI4S Workbench")
+        .expect("error while building AI4HEOR")
         .run(|app, event| {
             // Clean up on exit. macOS Cmd+Q / Quit terminates via RunEvent::Exit
             // (ExitRequested is not always delivered), so handle BOTH — otherwise
             // the OpenCode sidecar / kernel / Jupyter orphan on every quit. The
             // cleanup is idempotent, so running on both is safe.
-            if matches!(event, tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit) {
+            if matches!(
+                event,
+                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+            ) {
                 runtime::kill_child(&app.state::<RuntimeState>());
                 kernel::kill_kernel(&app.state::<KernelState>());
                 jupyter::kill_jupyter(&app.state::<JupyterState>());

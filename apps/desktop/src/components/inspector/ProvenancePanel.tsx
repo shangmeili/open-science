@@ -79,7 +79,7 @@ export function ProvenancePanel({ path, language }: { path: string; language?: s
   const reproduce = (r: ProvenanceRecord) => {
     const run = r.runId ? runsById.get(r.runId) : undefined;
     setComposerDraft(run ? reproduceRunPrompt(run) : reproducePrompt(r));
-    navigate(r.sessionId ? `/live/${r.sessionId}` : "/live");
+    navigate(r.sessionId ? `/heor/${r.sessionId}` : "/heor");
   };
 
   useEffect(() => {
@@ -191,7 +191,7 @@ export function ProvenancePanel({ path, language }: { path: string; language?: s
                   {r.sessionId && (
                     <button
                       className="flex items-center gap-1 text-link hover:underline"
-                      onClick={() => navigate(`/live/${r.sessionId}`)}
+                      onClick={() => navigate(`/heor/${r.sessionId}`)}
                       title={t("provenance.openConversationTitle")}
                     >
                       <MessageSquare size={12} /> {t("provenance.openConversation")}

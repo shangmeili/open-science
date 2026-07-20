@@ -1,29 +1,9 @@
 {
-  "nav": {
-    "back": "Volver a la app",
-    "general": "General",
-    "appearance": "Apariencia",
-    "models": "Modelos",
-    "runtime": "Entorno de ejecución",
-    "connectors": "Conectores",
-    "compute": "Cómputo",
-    "privacy": "Privacidad",
-    "browser": "Navegador"
-  },
   "appearance": {
     "title": "Apariencia",
-    "themeLabel": "Tema",
     "theme": {
       "light": "Claro",
-      "warm": "Cálido",
       "dark": "Oscuro"
-    },
-    "zoom": {
-      "label": "Zoom",
-      "hint": "{{mod}} + / − para hacer zoom, {{mod}} 0 para restablecer",
-      "in": "Acercar",
-      "out": "Alejar",
-      "reset": "Restablecer"
     }
   },
   "language": {
@@ -31,13 +11,55 @@
   },
   "page": {
     "title": "Configuración",
-    "subtitle": "Todo aquí configura el entorno de ejecución de OpenCode incluido — una sola configuración, sin copias."
+    "subtitle": "Configura el asistente de IA, los modelos, las herramientas de evidencia, el espacio de trabajo y el entorno de análisis local."
+  },
+  "supportReport": {
+    "title": "Diagnóstico de problemas",
+    "hint": "Exporta un informe cuando necesites comunicar un problema",
+    "description": "El informe solo incluye la versión de la aplicación, la arquitectura del sistema, el estado del asistente local y recuentos agregados de eventos. No incluye credenciales, rutas del proyecto, archivos de investigación, conversaciones ni registros sin filtrar.",
+    "export": "Exportar informe de diagnóstico",
+    "exporting": "Preparando el informe…",
+    "saved": "Informe de diagnóstico guardado",
+    "failed": "No se pudo exportar el informe de diagnóstico"
+  },
+  "readiness": {
+    "title": "Preparación para trabajar",
+    "checking": "Comprobando este equipo…",
+    "readyTitle": "Todo está listo",
+    "readyBody": "La carpeta del proyecto, los métodos integrados y el asistente local están disponibles. Conecta un modelo solo cuando lo necesites.",
+    "attentionTitle": "Hay un elemento que revisar",
+    "attentionBody": "Los archivos del proyecto permanecen en este equipo. Revisa el elemento siguiente e inténtalo de nuevo.",
+    "actions": { "recheck": "Comprobar de nuevo", "restart": "Reiniciar el asistente local", "restarting": "Reiniciando…", "openSettings": "Revisar" },
+    "checks": {
+      "needsAttention": "Requiere atención",
+      "workspace": { "title": "Carpeta del proyecto", "ready": "Se puede escribir" },
+      "skills": { "title": "Skills integrados", "ready": "{{count}} Skills disponibles" },
+      "heorCore": { "title": "Cálculos HEOR locales", "ready": "Archivos necesarios verificados" },
+      "harness": { "title": "Harness de auditoría del proyecto", "ready": "Archivos necesarios verificados" },
+      "runtime": { "title": "Asistente local", "ready": "Listo", "connecting": "Iniciando…", "error": "Requiere atención", "offline": "No está en ejecución" },
+      "model": { "title": "Modelo (opcional)", "optional": "Sin conectar; los cálculos locales siguen disponibles" }
+    },
+    "scope": "Esta comprobación no requiere un modelo, Python ni Jupyter; configúralos solo cuando el trabajo los necesite. Solo confirma que el software está disponible, no la idoneidad metodológica ni la validez científica.",
+    "technical": "Detalles técnicos"
   },
   "runtime": {
-    "title": "Entorno de ejecución del agente",
-    "hint": "opencode serve, controlado mediante su API HTTP + SSE",
+    "title": "Entorno del asistente de IA",
+    "hint": "La aplicación de escritorio lo inicia y gestiona automáticamente",
     "connect": "Conectar",
     "disconnect": "Desconectar",
+    "status": {
+      "ready": "Listo",
+      "connecting": "Conectando…",
+      "error": "Requiere atención",
+      "offline": "Sin conexión"
+    },
+    "advanced": {
+      "title": "Diagnóstico avanzado",
+      "description": "Detalles técnicos para solucionar problemas o conectar un entorno de desarrollo. La mayoría de usuarios no necesita cambiar estos valores.",
+      "engineLabel": "Motor de ejecución",
+      "engineValue": "OpenCode",
+      "endpointLabel": "Endpoint local"
+    },
     "serverUrlPlaceholder": "http://127.0.0.1:4096",
     "proxyLabel": "Proxy de red",
     "proxySystem": "Seguir el sistema",
@@ -55,7 +77,9 @@
   },
   "updates": {
     "title": "Actualizaciones de la app",
-    "hint": "Consulta GitHub Releases como máximo una vez cada 24 horas",
+    "hint": "Consulta la versión instalada y el canal de publicación",
+    "unavailable": "Las actualizaciones en línea aún no están disponibles",
+    "unavailableHint": "AI4HEOR todavía no tiene configurado un canal de publicación oficial, por lo que esta versión no busca actualizaciones en línea. La comparación de versiones y los avisos se activarán cuando se establezca la fuente oficial.",
     "available": "Actualización disponible",
     "checking": "Comprobando",
     "failed": "Comprobación fallida",
@@ -103,7 +127,7 @@
   },
   "providers": {
     "title": "Proveedores",
-    "hint": "Autenticación, endpoints personalizados e inicios de sesión de OpenCode importados",
+    "hint": "Autenticación, endpoints personalizados y credenciales existentes de CLI",
     "connectPrompt": "Conecta el runtime para gestionar proveedores.",
     "manage": "Administrar",
     "collapse": "Contraer",
@@ -121,6 +145,9 @@
     "pasteCode": "Pega el código del navegador",
     "customEndpoint": "Endpoint personalizado",
     "customEndpointHint": "autoalojado · Ollama local · compatible con OpenAI/Anthropic",
+    "minimaxChinaTokenPlanName": "MiniMax China Token Plan",
+    "fillMinimaxChinaTokenPlan": "Rellenar MiniMax China Token Plan",
+    "customCredentialHint": "La configuración del endpoint nunca guarda la clave de API. OpenCode conserva las credenciales por separado en su almacén de autenticación local privado.",
     "customNamePlaceholder": "Nombre — p. ej., Ollama, Mi gateway DeepSeek",
     "openaiCompatible": "Compatible con OpenAI",
     "anthropicCompatible": "Compatible con Anthropic",
@@ -128,22 +155,28 @@
     "customKeyPlaceholder": "Clave de API — opcional, Ollama no necesita ninguna",
     "customModelsPlaceholder": "ID de modelos, separados por comas",
     "addEndpoint": "Añadir endpoint",
-    "importLogin": "¿Ya usas la CLI de OpenCode? Importa su inicio de sesión"
+    "importLogin": "Importar credenciales desde una CLI local compatible"
   },
   "mcp": {
-    "title": "Servidores MCP",
-    "hint": "Herramientas adicionales para el agente (Model Context Protocol) — p. ej., un MCP de Jupyter o del navegador",
+    "title": "Evidencia y herramientas MCP",
+    "hint": "Acceso integrado a evidencia HEOR y servidores MCP opcionales gestionados por el investigador",
     "connectPrompt": "Conecta el entorno de ejecución para configurar servidores MCP.",
-    "openSource": "código abierto",
-    "enterKeyFirstTitle": "Introduce primero la clave de API",
+    "builtIn": "integrado",
+    "humanAuthorization": "Autorización humana",
+    "heorEvidenceLabel": "Búsqueda de evidencia HEOR",
+    "heorEvidenceDescription": "Recuperación de metadatos de PubMed y ClinicalTrials.gov mediante endpoints fijos. El agente prepara una solicitud vinculada por hash; solo la persona puede autorizar el acceso a la red.",
+    "heorEvidenceSources": "{{sources}} · ${{id}}",
+    "externalBoundary": "Los servidores que añadas son capacidades externas no gestionadas. Revisa su código, licencia, salida de datos y credenciales; no adquieren autoridad científica ni de aprobación.",
     "settingUp": "Configurando…",
     "enable": "Habilitar",
-    "freeKeySuffix": "(clave gratuita)",
-    "getFreeKey": "Obtener una clave gratuita",
     "jupyterLabel": "Jupyter",
     "jupyterDescription": "permite que el agente controle cuadernos reales · entorno aislado con numpy·pandas·matplotlib, ~500 MB en la primera ejecución · una vez configurado, el botón Ejecutar de la app también lo usa, así que tú y el agente comparten un mismo Python",
     "setUpAndEnable": "Configurar y habilitar",
     "startingDownload": "iniciando descarga…",
+    "setupStarting": "Configurando Jupyter. La primera vez se descargarán varios cientos de MB; espera un momento…",
+    "setupComplete": "Jupyter está listo. El asistente ya puede trabajar con cuadernos.",
+    "setupFailed": "No se pudo configurar Jupyter",
+    "setupIncomplete": "La configuración terminó sin los datos de conexión necesarios",
     "typeLocal": "local",
     "typeRemote": "remoto",
     "namePlaceholder": "Nombre — p. ej., jupyter, playwright",
@@ -151,39 +184,9 @@
     "urlPlaceholder": "URL — p. ej., https://example.com/mcp",
     "addServer": "Añadir servidor"
   },
-  "browser": {
-    "label": "Control del navegador",
-    "title": "Navegador",
-    "hint": "Deja que el agente controle un navegador real: navegar, hacer clic, rellenar formularios y leer páginas.",
-    "description": "Permite que el agente abra páginas, haga clic, rellene formularios y lea la web, reutilizando tu sesión de Chrome.",
-    "browseAs": "Navegar como",
-    "isolated": "Aislado: nuevo, sin sesión",
-    "showWindow": "Mostrar la ventana del navegador",
-    "noChrome": "No se encontró Chrome",
-    "download": "Descargar un navegador",
-    "noChromeWillDownload": "No se detectó Chrome: se descargará un navegador privado en el primer uso.",
-    "detected": "Usando",
-    "privateBrowser": "Navegador privado (sin sesión)",
-    "privateNote": "Usa un navegador descargado aparte que nunca toca tu Chrome. Empieza sin sesión; se descarga automáticamente en el primer uso.",
-    "reuseNote": "Reutiliza una copia de «{{name}}». El agente actúa como esa cuenta con sesión iniciada; tu perfil real de Chrome nunca se modifica. La navegación sigue tu modo de aprobación.",
-    "isolatedNote": "Perfil aislado: el agente empieza sin sesión. Elige una cuenta arriba para reutilizar sus sesiones.",
-    "downloaded": "Navegador descargado: ya puedes activar el control del navegador.",
-    "couldNotDownload": "No se pudo descargar el navegador",
-    "enabledStatus": "Activado",
-    "disabledStatus": "No activado",
-    "disable": "Desactivar",
-    "apply": "Aplicar cambios",
-    "capabilities": "Capacidades",
-    "capCore": "Estándar: navegar, clic, leer, captura, ejecutar JS",
-    "capNetwork": "Estándar + captura de red (HAR, inspección de peticiones)",
-    "capAll": "Todo (conjunto completo de herramientas)",
-    "allowedDomains": "Dominios permitidos",
-    "allowedDomainsHint": "Uno por línea. Vacío = sin restricción. Admite patrones como *.example.com.",
-    "allowedDomainsPlaceholder": "example.com\n*.github.com"
-  },
   "workspace": {
     "title": "Espacio de trabajo",
-    "hint": "Local-first — cada sesión trabaja en su propia subcarpeta con fecha, creada aquí",
+    "hint": "Los archivos de proyectos y tareas se guardan aquí; las tareas del mismo proyecto pueden compartir sus archivos",
     "unavailable": "disponible en la app de escritorio",
     "change": "Cambiar…",
     "reveal": "Mostrar"
@@ -203,11 +206,10 @@
     "interpreterSet": "Intérprete configurado — las celdas del cuaderno ahora se ejecutan en él.",
     "overrideCleared": "Anulación borrada.",
     "couldNotSetInterpreter": "No se pudo configurar el intérprete",
-    "folderSet": "Las nuevas sesiones se crearán en esta carpeta.",
+    "folderSet": "Las nuevas tareas se crearán en esta carpeta.",
     "couldNotSetFolder": "No se pudo configurar la carpeta",
     "couldNotSetModel": "No se pudo configurar el modelo",
     "defaultModelSet": "Modelo predeterminado establecido en {{model}}",
-    "defaultModelReset": "El modelo predeterminado {{old}} ya no está disponible — se cambió a {{model}}",
     "couldNotSaveKey": "No se pudo guardar la clave",
     "providerConnected": "{{providerID}} conectado",
     "couldNotStartLogin": "No se pudo iniciar el inicio de sesión",
@@ -223,8 +225,8 @@
     "couldNotRemoveMcp": "No se pudo quitar el servidor MCP",
     "mcpRemoved": "Servidor MCP {{name}} eliminado",
     "importFailed": "Error al importar",
-    "noOpenCodeLoginFound": "No se encontró ningún inicio de sesión de la CLI de OpenCode en esta máquina.",
-    "importedLogin": "Se importó tu inicio de sesión de la CLI de OpenCode.",
+    "noOpenCodeLoginFound": "No se encontraron credenciales de CLI local compatibles en este equipo.",
+    "importedLogin": "Se importaron credenciales de CLI local compatibles.",
     "couldNotSetProxy": "No se pudo aplicar la configuración del proxy",
     "proxyApplied": "Configuración del proxy aplicada",
     "mirrorSaved": "Configuración de espejo guardada",
@@ -237,7 +239,7 @@
       "heading": "Permanece en esta máquina",
       "workspaceFiles": "Los archivos de tu espacio de trabajo y los datos sin procesar",
       "codeExecution": "Ejecución de código — el kernel de Python y Jupyter se ejecutan localmente; los conjuntos de datos se procesan aquí y nunca se suben en bloque.",
-      "sessionHistory": "Historial de sesiones y registros de procedencia, en la carpeta de datos privada de la app.",
+      "sessionHistory": "Historial de tareas y registros de procedencia, en la carpeta de datos privada de la app.",
       "providerKeys": "Claves de proveedores y tokens de inicio de sesión — un archivo privado de la app legible solo por tu cuenta; nunca se escribe en el espacio de trabajo, la procedencia, los registros ni las exportaciones."
     },
     "remote": {

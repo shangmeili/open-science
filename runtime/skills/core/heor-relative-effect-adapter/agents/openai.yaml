@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Relative Effect Adapter"
+  short_description: "Apply bounded RR or OR effects to cycle-specific baseline risks"
+  default_prompt: "Use $heor-relative-effect-adapter to derive an evidence-bound two-state transition schedule from cycle-specific baseline risks and one aligned RR or OR, then validate the full schedule without claiming clinical approval."

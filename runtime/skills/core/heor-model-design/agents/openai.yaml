@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Model Design"
+  short_description: "Design reviewable HEOR conceptual models and alternatives"
+  default_prompt: "Use $heor-model-design to create or review a conceptual model for this HEOR question."

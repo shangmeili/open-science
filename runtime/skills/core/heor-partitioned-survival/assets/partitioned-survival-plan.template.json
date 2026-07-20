@@ -1,0 +1,63 @@
+{
+  "schema_version": "0.7.0",
+  "psm_id": "REPLACE_ME",
+  "analysis_id": "REPLACE_ME",
+  "status": "draft",
+  "base_analysis": {
+    "path": "heor/analysis-plan.json",
+    "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
+  },
+  "curve_materializations": {
+    "path": "heor/survival-curve-materializations.json",
+    "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
+  },
+  "treatment_effect_duration": {
+    "path": "heor/treatment-effect-duration.json",
+    "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
+  },
+  "cost_input_normalization": {
+    "path": "heor/cost-input-normalization.json",
+    "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
+  },
+  "utility_inputs": {
+    "path": "heor/utility-inputs.json",
+    "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
+  },
+  "event_disutilities": {
+    "path": "heor/event-disutilities.json",
+    "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256"
+  },
+  "time_origin": "REPLACE_ME",
+  "model_structure": {
+    "type": "partitioned_survival",
+    "state_order": ["progression_free", "progressed", "dead"],
+    "forward_only_disease_process": true
+  },
+  "conceptual_basis": {
+    "forward_only_process": {"rationale": "REPLACE_ME", "basis_ids": ["REPLACE_ME"]},
+    "population_alignment": {"rationale": "REPLACE_ME", "basis_ids": ["REPLACE_ME"]},
+    "endpoint_alignment": {"rationale": "REPLACE_ME", "basis_ids": ["REPLACE_ME"]},
+    "time_origin_alignment": {"rationale": "REPLACE_ME", "basis_ids": ["REPLACE_ME"]},
+    "independent_extrapolation": {"rationale": "REPLACE_ME", "basis_ids": ["REPLACE_ME"]}
+  },
+  "strategies": {
+    "REPLACE_WITH_STRATEGY_ID": {
+      "pfs": [
+        {"time_years": 0.0, "survival": 1.0, "basis_ids": ["review-sha256:REPLACE_ME", "fit-output-sha256:REPLACE_ME", "evaluator:ai4heor-parametric-survival@0.1.0"]}
+      ],
+      "os": [
+        {"time_years": 0.0, "survival": 1.0, "basis_ids": ["review-sha256:REPLACE_ME", "fit-output-sha256:REPLACE_ME", "evaluator:ai4heor-parametric-survival@0.1.0"]}
+      ],
+      "curve_review_bindings": {
+        "pfs": {"path": "REPLACE_ME", "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256", "target_path": "partitioned_survival.strategies.REPLACE_WITH_STRATEGY_ID.pfs", "selected_family": "REPLACE_ME"},
+        "os": {"path": "REPLACE_ME", "content_sha256": "REPLACE_WITH_LOWERCASE_SHA256", "target_path": "partitioned_survival.strategies.REPLACE_WITH_STRATEGY_ID.os", "selected_family": "REPLACE_ME"}
+      }
+    }
+  },
+  "validation_plan": {
+    "face": ["REPLACE_ME"],
+    "internal": ["REPLACE_ME"],
+    "external": ["REPLACE_ME"]
+  },
+  "limitations": ["REPLACE_ME"]
+}

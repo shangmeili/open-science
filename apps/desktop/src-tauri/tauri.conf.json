@@ -1,29 +1,26 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Open Science",
-  "version": "0.2.1",
+  "productName": "AI4HEOR",
+  "version": "0.1.56",
   "identifier": "com.ai4s.workbench",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm --filter @ai4s/desktop exec vite --port 5173 --strictPort",
-    "beforeBuildCommand": "pnpm --filter @ai4s/desktop build"
+    "beforeBuildCommand": "pnpm --filter @ai4s/desktop build && node ../../scripts/release/preflight_resources.mjs"
   },
   "app": {
     "windows": [
       {
-        "title": "Open Science",
+        "title": "AI4HEOR",
         "width": 1440,
         "height": 900,
         "minWidth": 1000,
         "minHeight": 640,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "zoomHotkeysEnabled": false,
-        "trafficLightPosition": {
-          "x": 13,
-          "y": 22
-        }
+        "zoomHotkeysEnabled": true,
+        "trafficLightPosition": { "x": 13, "y": 22 }
       }
     ],
     "security": {
@@ -33,21 +30,59 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": [
-      "binaries/opencode",
-      "binaries/uv",
-      "binaries/agent-browser"
-    ],
+    "externalBin": ["binaries/opencode", "binaries/uv"],
     "macOS": {
-      "minimumSystemVersion": "13.0"
+      "minimumSystemVersion": "13.0",
+      "hardenedRuntime": true
     },
     "resources": {
-      "../../../runtime/goal-plugin": "goal-plugin/",
-      "../../../runtime/skills/external/ai4s-skills": "skills/",
-      "../../../runtime/skills/external/anthropic-skills": "skills-office/",
       "../../../runtime/skills/core": "skills-core/",
+      "../../../runtime/assets/asset-admission-registry.json": "asset-admission-registry.json",
+      "../../../LICENSE": "legal/LICENSE.txt",
+      "../../../THIRD_PARTY_NOTICES.md": "legal/THIRD_PARTY_NOTICES.md",
+      "../../../docs/legal/LICENSING_AUDIT.md": "legal/LICENSING_AUDIT.md",
+      "../../../docs/legal/BRAND_ASSET_PROVENANCE.md": "legal/BRAND_ASSET_PROVENANCE.md",
+      "../../../docs/legal/REPORT_RENDERER_ASSETS.md": "legal/REPORT_RENDERER_ASSETS.md",
+      "../../../docs/legal/npm-production-components.json": "legal/npm-production-components.json",
+      "../../../docs/legal/cargo-lock-components.json": "legal/cargo-lock-components.json",
+      "../../../runtime/assets/fonts/source-han-sans-2.005R/LICENSE.txt": "legal/fonts/SourceHanSansCN-OFL-1.1.txt",
       "../../../runtime/harness": "harness/",
-      "../../../examples/climate-trends": "examples/climate-trends/"
+      "../../../runtime/knowledge-base/zh-Hans": "knowledge-base/zh-Hans/",
+      "../../../python/heor_core/src/heor_core/__init__.py": "heor-core/src/heor_core/__init__.py",
+      "../../../python/heor_core/src/heor_core/__main__.py": "heor-core/src/heor_core/__main__.py",
+      "../../../python/heor_core/src/heor_core/background_mortality.py": "heor-core/src/heor_core/background_mortality.py",
+      "../../../python/heor_core/src/heor_core/cli.py": "heor-core/src/heor_core/cli.py",
+      "../../../python/heor_core/src/heor_core/economic_inputs.py": "heor-core/src/heor_core/economic_inputs.py",
+      "../../../python/heor_core/src/heor_core/cost_input_normalization.py": "heor-core/src/heor_core/cost_input_normalization.py",
+      "../../../python/heor_core/src/heor_core/utility_inputs.py": "heor-core/src/heor_core/utility_inputs.py",
+      "../../../python/heor_core/src/heor_core/event_disutilities.py": "heor-core/src/heor_core/event_disutilities.py",
+      "../../../python/heor_core/src/heor_core/model.py": "heor-core/src/heor_core/model.py",
+      "../../../python/heor_core/src/heor_core/partitioned_survival.py": "heor-core/src/heor_core/partitioned_survival.py",
+      "../../../python/heor_core/src/heor_core/survival_materialization.py": "heor-core/src/heor_core/survival_materialization.py",
+      "../../../python/heor_core/src/heor_core/parametric_survival.py": "heor-core/src/heor_core/parametric_survival.py",
+      "../../../python/heor_core/src/heor_core/probability_time.py": "heor-core/src/heor_core/probability_time.py",
+      "../../../python/heor_core/src/heor_core/relative_effect.py": "heor-core/src/heor_core/relative_effect.py",
+      "../../../python/heor_core/src/heor_core/hazard_ratio.py": "heor-core/src/heor_core/hazard_ratio.py",
+      "../../../python/heor_core/src/heor_core/joint_survival_uncertainty.py": "heor-core/src/heor_core/joint_survival_uncertainty.py",
+      "../../../python/heor_core/src/heor_core/treatment_effect_duration.py": "heor-core/src/heor_core/treatment_effect_duration.py",
+      "../../../python/heor_core/src/heor_core/survival_curves.py": "heor-core/src/heor_core/survival_curves.py",
+      "../../../python/heor_core/src/heor_core/transition_rates.py": "heor-core/src/heor_core/transition_rates.py",
+      "../../../python/heor_core/src/heor_core/uncertainty.py": "heor-core/src/heor_core/uncertainty.py",
+      "../../../python/heor_core/src/heor_core/component_uncertainty.py": "heor-core/src/heor_core/component_uncertainty.py",
+      "../../../python/heor_core/src/heor_core/advanced_voi.py": "heor-core/src/heor_core/advanced_voi.py",
+      "../../../python/heor_core/src/heor_core/budget_impact.py": "heor-core/src/heor_core/budget_impact.py",
+      "../../../runtime/skills/core/heor-reference-case/assets/profiles/CN-2020-current.json": "reference-cases/CN-2020-current.json",
+      "../../../runtime/skills/core/heor-reference-case/assets/profiles/CN-2026-draft.json": "reference-cases/CN-2026-draft.json",
+      "../../../runtime/skills/core/heor-reference-case/assets/profiles/NICE-PMG36-2026-current.json": "reference-cases/NICE-PMG36-2026-current.json",
+      "../../../examples/heor-cost-effectiveness": "examples/heor-cost-effectiveness/"
+    },
+    "linux": {
+      "rpm": {
+        "compression": {
+          "type": "zstd",
+          "level": 3
+        }
+      }
     },
     "icon": [
       "icons/32x32.png",

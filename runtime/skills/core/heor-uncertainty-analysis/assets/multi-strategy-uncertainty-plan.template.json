@@ -1,0 +1,57 @@
+{
+  "schema_version": "0.7.0",
+  "uncertainty_id": "replace-with-uncertainty-id",
+  "analysis_id": "replace-with-analysis-id",
+  "status": "draft",
+  "base_analysis": {
+    "path": "heor/analysis-plan.json",
+    "content_sha256": "replace-with-sha256-of-final-analysis-plan"
+  },
+  "seed": 20260714,
+  "parameters": [
+    {
+      "id": "replace-with-parameter-id",
+      "label": "Replace with a human-readable parameter label",
+      "target": "/strategies/new_treatment/state_costs/0",
+      "provenance_path": "strategies.new_treatment.state_costs",
+      "deterministic": {
+        "low": 0.0,
+        "high": 1.0,
+        "rationale": "Replace with the range source and derivation."
+      },
+      "probabilistic": {
+        "type": "gamma",
+        "shape": 1.0,
+        "scale": 1.0,
+        "basis_ids": ["replace-with-source-or-proposed-assumption-id"],
+        "rationale": "Replace with the distribution choice and parameterization basis."
+      }
+    }
+  ],
+  "probabilistic_analysis": {
+    "iterations": 1000,
+    "decision_thresholds": {
+      "values": [],
+      "rationale": "Replace with the explicit decision or presentation range and include the analysis-plan willingness_to_pay value."
+    },
+    "convergence": {
+      "checkpoints": [500, 1000],
+      "max_probability_mcse": 0.02,
+      "max_probability_drift": 0.02
+    },
+    "correlation_handling": {
+      "independence_rationale": "Explain why parameters outside jointly sampled simplex rows and declared lognormal groups may be treated as independent.",
+      "groups": [],
+      "known_omitted_correlations": []
+    },
+    "omitted_parameters": []
+  },
+  "structural_scenarios": [
+    {
+      "id": "replace-with-scenario-id",
+      "label": "Replace with a scenario label",
+      "rationale": "Explain the structural uncertainty represented.",
+      "replacements": [{"target": "/cycles", "value": 20}]
+    }
+  ]
+}

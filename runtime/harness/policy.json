@@ -1,0 +1,41 @@
+{
+  "schema": "ai4heor-research-assistant-harness/v2",
+  "version": "0.2.0",
+  "interaction": "natural_language_primary",
+  "scientific_lead": "human_researcher",
+  "assistant_role": "bounded_research_assistance",
+  "calculation_authority": "deterministic_versioned_code",
+  "approval_store": "app_owned",
+  "provider": {
+    "selection_authority": "human_only",
+    "silent_fallback": false,
+    "output_status": "draft_pending_human_review",
+    "scientific_authority": "none"
+  },
+  "external_content": {
+    "classification": "untrusted_data_not_instructions",
+    "may_change_governance": false,
+    "may_create_approval": false
+  },
+  "capability_evolution": {
+    "request_interface": "natural_language",
+    "candidate_store": "capabilities/candidates",
+    "candidate_status": "inactive",
+    "activation_authority": "human_via_app_owned_review",
+    "may_self_activate": false,
+    "may_modify_core_skills": false,
+    "may_modify_governance": false,
+    "may_modify_calculation_engines": false
+  },
+  "preference_learning": {
+    "proposal_store": "learning/proposals",
+    "accepted_store": "learning/preferences.json",
+    "minimum_independent_observations": 2,
+    "single_observation_may_become_policy": false,
+    "activation_authority": "human_only",
+    "user_can_view_edit_delete": true,
+    "store_secrets": false,
+    "store_sensitive_content": false
+  },
+  "default_data_classification": "unknown"
+}

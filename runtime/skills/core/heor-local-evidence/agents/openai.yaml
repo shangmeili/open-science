@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Local Evidence"
+  short_description: "Search hash-bound local HEOR evidence with page citations"
+  default_prompt: "Use $heor-local-evidence to search my local HEOR evidence library and cite exact sources."

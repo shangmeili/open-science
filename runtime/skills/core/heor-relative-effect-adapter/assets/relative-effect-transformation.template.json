@@ -1,0 +1,49 @@
+{
+  "operation": "relative_effect_to_transition_schedule",
+  "cycle_length_years": 1.0,
+  "effect_interval_years": 1.0,
+  "from_state_index": 0,
+  "event_state_index": 1,
+  "measure": "risk_ratio",
+  "baseline_cycle_probabilities": [
+    {
+      "cycle": 1,
+      "probability": {
+        "value": 0.1,
+        "source_extraction_id": "replace-with-cycle-1-baseline-risk-extraction-id",
+        "source_pointer": "/probability"
+      }
+    },
+    {
+      "cycle": 2,
+      "probability": {
+        "value": 0.2,
+        "source_extraction_id": "replace-with-cycle-2-baseline-risk-extraction-id",
+        "source_pointer": "/probability"
+      }
+    },
+    {
+      "cycle": 3,
+      "probability": {
+        "value": 0.0,
+        "assumption_id": "replace-with-proposed-cycle-3-structural-zero-assumption-id"
+      }
+    }
+  ],
+  "relative_effect": {
+    "value": 0.75,
+    "source_extraction_id": "replace-with-risk-ratio-extraction-id",
+    "source_pointer": "/risk_ratio"
+  },
+  "review_bases": {
+    "endpoint_alignment": {
+      "assumption_id": "replace-with-proposed-endpoint-alignment-assumption-id"
+    },
+    "population_transportability": {
+      "assumption_id": "replace-with-proposed-population-transportability-assumption-id"
+    },
+    "effect_constancy_over_cycles": {
+      "assumption_id": "replace-with-proposed-effect-constancy-assumption-id"
+    }
+  }
+}

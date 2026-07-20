@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   ChevronRight,
   Files,
   FlaskConical,
   Folder,
-  FolderInput,
   FolderOpen,
   FolderTree,
   NotebookPen,
@@ -17,10 +14,9 @@ import {
   Settings,
   Trash2,
 } from "lucide-react";
-import type { Project } from "@ai4s/shared";
 import { cn } from "@/lib/cn";
 import { useRuntimeStore } from "@/lib/runtime";
-import { pickFolder, renameProject, type ProjectInfo } from "@/lib/tauri";
+import { renameProject, type ProjectInfo } from "@/lib/tauri";
 import {
   SIDEBAR_MAX,
   SIDEBAR_MIN,
@@ -28,8 +24,6 @@ import {
   useUiStore,
 } from "@/lib/store";
 import { useUpdateStore } from "@/lib/update";
-import { overlayTitlebarStyle } from "@/lib/titlebar";
-import { SETTINGS_SECTIONS, resolveSection } from "@/components/settings/sections";
 import { StatusPills } from "./StatusPills";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import logo from "@/assets/logo.webp";
@@ -38,7 +32,6 @@ interface Row {
   id: string;
   title: string;
   to: string;
-  kind: "session" | "example";
 }
 
 /** Dragging the divider below this pointer x collapses the sidebar; dragging
@@ -57,32 +50,25 @@ function initialCollapsedProjects(): string[] {
   }
 }
 
-export function Sidebar({ project }: { project: Project }) {
-  const { t } = useTranslation(["nav", "settings"]);
+export function Sidebar() {
+  const { t } = useTranslation("nav");
   const navigate = useNavigate();
   const location = useLocation();
-  // In settings the sidebar becomes the settings navigation: "Back to app" on
-  // top, one row per section, and NO collapse affordance — a collapsed sidebar
-  // would strand the user with no way back.
-  const inSettings = location.pathname.startsWith("/settings");
-  const activeSection = resolveSection(location.pathname.split("/")[2]);
   const {
     sessions,
     projects,
     workspace,
-    hiddenExamples,
     startDraft,
     startDraftInWorkspace,
     createProject,
-    importProject,
     refreshProjects,
     deleteSession,
-    hideExample,
   } = useRuntimeStore();
   const showUpdateBadge = useUpdateStore((s) => s.showBadge);
   const {
     sidebarCollapsed,
     sidebarWidth,
+    setComposerDraft,
     setSidebarCollapsed,
     setSidebarWidth,
     toggleSidebar,
@@ -102,7 +88,7 @@ export function Sidebar({ project }: { project: Project }) {
     if (!dragging) return;
     // The sidebar starts at the window's left edge, so clientX is the width.
     const x = e.clientX;
-    if (x < COLLAPSE_BELOW && !inSettings) {
+    if (x < COLLAPSE_BELOW) {
       if (!sidebarCollapsed) setSidebarCollapsed(true);
       return;
     }
@@ -117,17 +103,17 @@ export function Sidebar({ project }: { project: Project }) {
   };
 
   const startNew = () => {
+    setComposerDraft(null);
     startDraft();
-    navigate("/live");
+    if (location.pathname !== "/heor/new") navigate("/heor/new");
   };
 
   // ---- Projects: sessions group under a project by workspace folder ----
   const [collapsedProjects, setCollapsedProjects] = useState<string[]>(
     initialCollapsedProjects,
   );
-  const [namingProject, setNamingProject] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
-  const [importBusy, setImportBusy] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
 
   const toggleProject = (id: string) =>
@@ -143,34 +129,22 @@ export function Sidebar({ project }: { project: Project }) {
   const submitNewProject = async (name: string) => {
     const trimmed = name.trim();
     if (!trimmed || createBusy) {
-      setNamingProject(false);
+      setCreatingProject(false);
       return;
     }
     setCreateBusy(true);
     const created = await createProject(trimmed);
     setCreateBusy(false);
-    setNamingProject(false);
-    if (created) navigate("/live");
-  };
-
-  // Import an existing repo/folder as a project: pick a folder, then make a
-  // faithful copy of it (files, git history, symlinks) into the app's base dir,
-  // leaving the original untouched. The copy lives where the sandboxed sidecar
-  // can reach it — a folder left in place under ~/Documents would fail macOS
-  // TCC (#31). Its AGENTS.md records where it was imported from.
-  const handleImport = async () => {
-    if (importBusy) return;
-    const path = await pickFolder();
-    if (!path) return;
-    setImportBusy(true);
-    const imported = await importProject(path);
-    setImportBusy(false);
-    if (imported) navigate("/live");
+    setCreatingProject(false);
+    if (created) {
+      setComposerDraft(t("projects.intakePrompt"));
+      navigate("/heor/new");
+    }
   };
 
   const newSessionIn = async (p: ProjectInfo) => {
     await startDraftInWorkspace(p.path);
-    navigate("/live");
+    navigate("/heor/new");
   };
 
   const submitRename = async (p: ProjectInfo, name: string) => {
@@ -178,7 +152,7 @@ export function Sidebar({ project }: { project: Project }) {
     const trimmed = name.trim();
     if (!trimmed || trimmed === p.name) return;
     try {
-      await renameProject(p.id, trimmed);
+      await renameProject(p.path, trimmed);
       await refreshProjects();
     } catch {
       /* the sidebar keeps showing the old name */
@@ -197,49 +171,22 @@ export function Sidebar({ project }: { project: Project }) {
     const row: Row = {
       id: s.id,
       title: s.title,
-      to: `/live/${s.id}`,
-      kind: "session",
+      to: `/heor/${s.id}`,
     };
     const owner = s.directory ? projectByPath.get(s.directory) : undefined;
-    if (owner) sessionsByProject.get(owner.id)!.push(row);
+    if (owner) {
+      sessionsByProject.get(owner.id)!.push({ ...row, to: `/heor/${s.id}` });
+    }
     else looseRows.push(row);
   }
-  // Recency per project = its newest session's update time (else its creation).
-  const updatedByProject = new Map<string, number>();
-  for (const s of topSessions) {
-    if (!s.directory || s.updated == null) continue;
-    const owner = projectByPath.get(s.directory);
-    if (owner)
-      updatedByProject.set(owner.id, Math.max(updatedByProject.get(owner.id) ?? 0, s.updated));
-  }
-  const recencyOf = (p: ProjectInfo) => updatedByProject.get(p.id) ?? p.createdAt;
-  // The sidebar shows every pinned project plus the few most-recent others; the
-  // full list (search, delete, …) lives on the Projects page.
-  const RECENT_LIMIT = 5;
-  const byRecency = [...projects].sort((a, b) => recencyOf(b) - recencyOf(a));
-  const visibleProjects = [
-    ...byRecency.filter((p) => p.pinned),
-    ...byRecency.filter((p) => !p.pinned).slice(0, RECENT_LIMIT),
-  ];
-  const hiddenProjectCount = projects.length - visibleProjects.length;
-  const exampleRows: Row[] = project.sessions
-    .filter((e) => !hiddenExamples.includes(e.id))
-    .map((e) => ({
-      id: e.id,
-      title: e.title,
-      to: `/example/${e.id}`,
-      kind: "example" as const,
-    }));
-
   const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
 
   const confirmDelete = () => {
     const row = pendingDelete;
     setPendingDelete(null);
     if (!row) return;
-    if (row.kind === "session") void deleteSession(row.id);
-    else hideExample(row.id);
-    if (location.pathname === row.to) navigate("/live");
+    void deleteSession(row.id);
+    if (location.pathname === row.to) navigate("/heor");
   };
 
   // With the overlay titlebar (macOS), reserve a draggable strip at the top so
@@ -263,15 +210,10 @@ export function Sidebar({ project }: { project: Project }) {
         <span
           className={cn(
             "h-1.5 w-1.5 shrink-0 rounded-full",
-            row.kind === "example" ? "bg-muted" : "bg-ok",
+            "bg-ok",
           )}
         />
         <span className="flex-1 truncate">{row.title}</span>
-        {row.kind === "example" && (
-          <span className="shrink-0 rounded-full bg-surface-2 px-1.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
-            {t("history.exampleTag")}
-          </span>
-        )}
       </NavLink>
       <button
         onClick={() => setPendingDelete(row)}
@@ -289,10 +231,10 @@ export function Sidebar({ project }: { project: Project }) {
         "relative h-full shrink-0 overflow-hidden",
         !dragging && "transition-[width] duration-200 ease-out",
       )}
-      style={{ width: sidebarCollapsed && !inSettings ? 0 : width }}
+      style={{ width: sidebarCollapsed ? 0 : width }}
     >
       <aside
-        className="sidebar-surface flex h-full flex-col border-r border-border"
+        className="flex h-full flex-col border-r border-border bg-surface"
         style={{ width }}
       >
         {/* The strip clears the traffic lights and hosts the collapse button just
@@ -300,63 +242,36 @@ export function Sidebar({ project }: { project: Project }) {
         {overlayTitlebar && (
           <div
             data-tauri-drag-region
-            style={overlayTitlebarStyle(true)}
-            className="flex shrink-0 items-center"
+            className="flex h-12 shrink-0 items-center pl-[78px]"
           >
-            {!inSettings && (
-              <button
-                onClick={toggleSidebar}
-                aria-label={t("sidebar.collapse")}
-                title={t("sidebar.collapseTitle", { shortcut: "⌘B" })}
-                className="rounded p-1 text-text hover:bg-surface-2"
-              >
-                <PanelLeft size={14} strokeWidth={1.5} />
-              </button>
-            )}
+            <button
+              onClick={toggleSidebar}
+              aria-label={t("sidebar.collapse")}
+              title={t("sidebar.collapseTitle", { shortcut: "⌘B" })}
+              className="rounded p-1 text-text hover:bg-surface-2"
+            >
+              <PanelLeft size={14} strokeWidth={1.5} />
+            </button>
           </div>
         )}
-        {inSettings && (
-          <>
-            <div className={cn("px-3 pb-2", overlayTitlebar ? "pt-0" : "pt-3")}>
-              <button
-                onClick={() => navigate("/live")}
-                className="flex w-full items-center gap-2 rounded-input px-2 py-1.5 text-[13px] text-muted transition-colors hover:bg-surface-2 hover:text-text"
-              >
-                <ArrowLeft size={15} />
-                {t("settings:nav.back")}
-              </button>
-            </div>
-            <nav className="flex flex-col gap-0.5 px-3">
-              {SETTINGS_SECTIONS.map(({ key, icon: Icon }) => (
-                <NavLink
-                  key={key}
-                  to={`/settings/${key}`}
-                  className={cn(
-                    "flex items-center gap-2 rounded-input px-2 py-1.5 text-[13px]",
-                    activeSection === key
-                      ? "bg-surface-2 text-text"
-                      : "text-text/90 hover:bg-surface-2",
-                  )}
-                >
-                  <Icon size={15} className={activeSection === key ? "text-text" : "text-muted"} />
-                  {t(`settings:nav.${key}`)}
-                </NavLink>
-              ))}
-            </nav>
-          </>
-        )}
-        {!inSettings && (
-        <>
         <div className={cn("px-4 pb-3", overlayTitlebar ? "pt-1" : "pt-4")}>
-          <div className="flex items-baseline gap-1.5">
-            <img src={logo} alt="" className="h-[18px] w-auto self-center" />
-            {/* eslint-disable-next-line i18next/no-literal-string -- product brand name, not translated across locales (see AGENTS.md) */}
-            <div className="font-serif text-[17px] font-semibold leading-none tracking-tight text-text">
-              Open Science
-            </div>
-            <span className="text-[10px] uppercase tracking-widest text-muted">
-              {t("sidebar.betaBadge")}
-            </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => navigate("/heor")}
+              aria-label={t("items.heor")}
+              title={t("items.heor")}
+              className="flex items-baseline gap-1.5 rounded px-0.5 py-1 text-left hover:bg-surface-2"
+            >
+              <img src={logo} alt="" className="h-[18px] w-auto self-center" />
+              {/* eslint-disable-next-line i18next/no-literal-string -- product brand name, not translated across locales */}
+              <span className="font-serif text-[17px] font-semibold leading-none tracking-tight text-text">
+                AI4HEOR
+              </span>
+              <span className="text-[10px] uppercase tracking-widest text-muted">
+                {t("sidebar.betaBadge")}
+              </span>
+            </button>
             {!overlayTitlebar && (
               <button
                 onClick={toggleSidebar}
@@ -377,6 +292,7 @@ export function Sidebar({ project }: { project: Project }) {
             icon={<Plus size={16} />}
             label={t("items.new")}
             onClick={startNew}
+            active={location.pathname === "/heor/new"}
           />
           <NavRow
             icon={<NotebookPen size={16} />}
@@ -401,76 +317,41 @@ export function Sidebar({ project }: { project: Project }) {
         </nav>
 
         <div className="mt-4 flex-1 overflow-y-auto px-3 pb-2">
-          <div className="flex items-center gap-1 px-0.5 py-1">
+          <div className="flex items-center justify-between px-2 py-1">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted">
+              {t("projects.heading")}
+            </span>
             <button
-              onClick={() => navigate("/projects")}
-              title={t("projects.seeAll")}
-              className={cn(
-                "group/head flex min-w-0 flex-1 items-center gap-1.5 rounded-input px-1.5 py-1 text-[13px] font-medium outline-none hover:bg-surface-2",
-                location.pathname === "/projects" ? "text-text" : "text-muted hover:text-text",
-              )}
+              onClick={() => setCreatingProject(true)}
+              aria-label={t("projects.new")}
+              title={t("projects.new")}
+              className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-text"
             >
-              <FolderTree size={14} className="shrink-0" />
-              <span className="flex-1 truncate text-left">{t("projects.heading")}</span>
-              <ChevronRight size={13} className="shrink-0 opacity-60 transition-transform group-hover/head:translate-x-0.5" />
+              <Plus size={13} />
             </button>
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <button
-                  aria-label={t("projects.new")}
-                  title={t("projects.new")}
-                  className="rounded p-0.5 text-muted outline-none hover:bg-surface-2 hover:text-text"
-                >
-                  <Plus size={13} />
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content
-                  align="end"
-                  sideOffset={6}
-                  className="z-50 min-w-[210px] rounded-card border border-border bg-surface p-1 text-[13px] text-text shadow-pop"
-                >
-                  <DropdownMenu.Item
-                    onSelect={() => setNamingProject(true)}
-                    className="flex cursor-pointer items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[highlighted]:bg-surface-2"
-                  >
-                    <Plus size={14} className="shrink-0 text-muted" />
-                    <span className="truncate">{t("projects.menuScratch")}</span>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    onSelect={() => void handleImport()}
-                    className="flex cursor-pointer items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[highlighted]:bg-surface-2"
-                  >
-                    <FolderInput size={14} className="shrink-0 text-muted" />
-                    <span className="truncate">{t("projects.menuExisting")}</span>
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
           </div>
-          {namingProject && (
-            <NameProjectDialog
-              defaultName={t("projects.new")}
-              title={t("projects.nameTitle")}
-              subtitle={t("projects.nameSubtitle")}
-              placeholder={t("projects.namePlaceholder")}
-              busy={createBusy}
-              onSave={(v) => void submitNewProject(v)}
-              onCancel={() => {
-                if (!createBusy) setNamingProject(false);
-              }}
-            />
+          {creatingProject && (
+            <div className="px-1 pb-1">
+              <InlineNameInput
+                placeholder={t("projects.namePlaceholder")}
+                busy={createBusy}
+                onSubmit={(v) => void submitNewProject(v)}
+                onCancel={() => {
+                  if (!createBusy) setCreatingProject(false);
+                }}
+              />
+            </div>
           )}
-          {projects.length === 0 && !namingProject && (
+          {projects.length === 0 && !creatingProject && (
             <button
-              onClick={() => setNamingProject(true)}
+              onClick={() => setCreatingProject(true)}
               className="flex w-full items-center gap-2 rounded-input px-2 py-1 text-[13px] text-muted hover:bg-surface-2 hover:text-text"
             >
               <Folder size={14} className="shrink-0" />
               <span className="truncate">{t("projects.new")}</span>
             </button>
           )}
-          {visibleProjects.map((p) => {
+          {projects.map((p) => {
             const open = !collapsedProjects.includes(p.id);
             const active = p.path === workspace;
             const rows = sessionsByProject.get(p.id) ?? [];
@@ -522,18 +403,10 @@ export function Sidebar({ project }: { project: Project }) {
                           e.stopPropagation();
                           setRenamingId(p.id);
                         }}
-                        title={p.imported ? (p.importedFrom ?? p.path) : t("projects.renameHint")}
+                        title={t("projects.renameHint")}
                       >
                         {p.name}
                       </span>
-                      {p.imported && (
-                        <span
-                          className="shrink-0 rounded bg-surface-2 px-1 text-[9px] uppercase tracking-wide text-muted"
-                          title={p.importedFrom ?? p.path}
-                        >
-                          {t("projects.importedBadge")}
-                        </span>
-                      )}
                     </button>
                     <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center">
                       {rows.length > 0 && (
@@ -574,25 +447,15 @@ export function Sidebar({ project }: { project: Project }) {
               </div>
             );
           })}
-          {hiddenProjectCount > 0 && (
-            <button
-              onClick={() => navigate("/projects")}
-              className="flex w-full items-center gap-2 rounded-input px-2 py-1 pl-6 text-[13px] text-muted hover:bg-surface-2 hover:text-text"
-            >
-              <span className="truncate">{t("projects.seeAll")}</span>
-              <span className="text-[10px] tabular-nums text-muted">+{hiddenProjectCount}</span>
-            </button>
-          )}
           <div className="mt-3 px-2 py-1 text-xs font-medium uppercase tracking-wider text-muted">
             {t("history.heading")}
           </div>
-          {looseRows.length === 0 && exampleRows.length === 0 && (
+          {looseRows.length === 0 && (
             <div className="px-2 py-2 text-xs text-muted">
               {t("history.empty")}
             </div>
           )}
           {looseRows.map(sessionRow)}
-          {exampleRows.map(sessionRow)}
         </div>
 
         <div className="border-t border-border px-3 py-3">
@@ -612,25 +475,17 @@ export function Sidebar({ project }: { project: Project }) {
             )}
           </button>
         </div>
-        </>
-        )}
 
         {pendingDelete && (
           <ConfirmDialog
             title={
-              pendingDelete.kind === "session"
-                ? t("confirmDelete.sessionTitle")
-                : t("confirmDelete.exampleTitle")
+              t("confirmDelete.sessionTitle")
             }
             body={
-              pendingDelete.kind === "session"
-                ? t("confirmDelete.sessionBody", { title: pendingDelete.title })
-                : t("confirmDelete.exampleBody", { title: pendingDelete.title })
+              t("confirmDelete.sessionBody", { title: pendingDelete.title })
             }
             confirmLabel={
-              pendingDelete.kind === "session"
-                ? t("confirmDelete.deleteAction")
-                : t("confirmDelete.hideAction")
+              t("confirmDelete.deleteAction")
             }
             onConfirm={confirmDelete}
             onCancel={() => setPendingDelete(null)}
@@ -668,17 +523,22 @@ function NavRow({
   icon,
   label,
   onClick,
+  active = false,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
+  active?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 rounded-input px-2 py-1 text-[13px] text-text hover:bg-surface-2"
+      className={cn(
+        "flex items-center gap-2 rounded-input px-2 py-1 text-[13px] text-text hover:bg-surface-2",
+        active && "bg-surface-2",
+      )}
     >
-      <span className="text-muted">{icon}</span>
+      <span className={active ? "text-accent" : "text-muted"}>{icon}</span>
       <span>{label}</span>
     </button>
   );
@@ -722,84 +582,5 @@ function InlineNameInput({
         busy && "animate-pulse opacity-60",
       )}
     />
-  );
-}
-
-/** Modal for naming a new (from-scratch) project: a focused, pre-selected input
- *  with Save/Cancel. Used instead of an inline row so "New project" reads as a
- *  deliberate step (matching the from-scratch / existing-folder menu split). */
-function NameProjectDialog({
-  defaultName,
-  title,
-  subtitle,
-  placeholder,
-  busy,
-  onSave,
-  onCancel,
-}: {
-  defaultName: string;
-  title: string;
-  subtitle: string;
-  placeholder?: string;
-  busy: boolean;
-  onSave: (value: string) => void;
-  onCancel: () => void;
-}) {
-  const { t } = useTranslation("common");
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    ref.current?.focus();
-    ref.current?.select();
-  }, []);
-  const save = () => {
-    const v = ref.current?.value ?? "";
-    if (v.trim() && !busy) onSave(v);
-  };
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-      onClick={() => !busy && onCancel()}
-      role="presentation"
-    >
-      <div
-        role="dialog"
-        aria-label={title}
-        className="w-[420px] max-w-[calc(100vw-2rem)] rounded-card border border-border bg-surface p-5 shadow-card"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="text-base font-semibold text-text">{title}</div>
-        <p className="mt-1 text-sm text-muted">{subtitle}</p>
-        <input
-          ref={ref}
-          defaultValue={defaultName}
-          placeholder={placeholder}
-          disabled={busy}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") save();
-            else if (e.key === "Escape") onCancel();
-          }}
-          className={cn(
-            "mt-4 w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent",
-            busy && "animate-pulse opacity-60",
-          )}
-        />
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            className="rounded-input border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 disabled:opacity-50"
-            onClick={onCancel}
-            disabled={busy}
-          >
-            {t("actions.cancel")}
-          </button>
-          <button
-            className="rounded-input bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-            onClick={save}
-            disabled={busy}
-          >
-            {t("actions.save")}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }

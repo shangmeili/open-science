@@ -1,0 +1,20 @@
+{
+  "schema_version": "0.2.0",
+  "bindings": {
+    "report_document": {"path": "heor/report.md", "content_sha256": ""},
+    "analysis_plan": {"path": "heor/analysis-plan.json", "content_sha256": ""},
+    "conceptual_model": {"path": "heor/conceptual-model.json", "content_sha256": ""},
+    "uncertainty_plan": {"path": "heor/uncertainty-plan.json", "content_sha256": ""},
+    "budget_impact_plan": {"path": "heor/budget-impact-plan.json", "content_sha256": ""},
+    "model_validation": {"path": "heor/model-validation.json", "content_sha256": ""},
+    "partitioned_survival_plan": {"path": "heor/partitioned-survival-plan.json", "content_sha256": ""},
+    "survival_curve_materializations": {"path": "heor/survival-curve-materializations.json", "content_sha256": ""},
+    "treatment_effect_duration": {"path": "heor/treatment-effect-duration.json", "content_sha256": ""},
+    "cost_input_normalization": {"path": "heor/cost-input-normalization.json", "content_sha256": ""},
+    "utility_inputs": {"path": "heor/utility-inputs.json", "content_sha256": ""},
+    "event_disutilities": {"path": "heor/event-disutilities.json", "content_sha256": ""},
+    "partitioned_survival_result": {"path": "heor/results/partitioned-survival.json", "content_sha256": ""},
+    "uncertainty_result": {"path": "heor/results/uncertainty.json", "content_sha256": ""},
+    "budget_impact_result": {"path": "heor/results/budget-impact.json", "content_sha256": ""}
+  }
+}

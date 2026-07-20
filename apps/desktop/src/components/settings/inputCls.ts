@@ -7,7 +7,3 @@ export const inputCls = (extra = "") =>
     "placeholder:text-muted focus:border-accent/60",
     extra,
   );
-
-/** Same look for <select>: flat, with our own chevron instead of the native
- *  (metallic) system chrome. */
-export const selectCls = (extra = "") => cn(inputCls(extra), "select-chrome");

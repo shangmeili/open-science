@@ -1,14 +1,14 @@
 <div align="center">
 
-[![Open Science Desktop — 本地优先 AI 科研桌面工作台](./docs/assets/banner.webp)](https://github.com/ai4s-research/open-science)
+[![AI4HEOR — 本地优先的药物经济学与 HEOR 工作台](./docs/assets/banner.webp)](https://github.com/ai4s-research/open-science)
 
-# Open Science Desktop
+# AI4HEOR
 
-**本地优先、模型无关的 macOS、Windows & Linux AI 科研桌面工作台。**
+**本地优先、模型无关的 macOS、Windows & Linux 药物经济学与 HEOR 工作台。**
 
-原名 Open Science。它是 Claude Science 及同类 AI-for-science 工作台的开源桌面替代：
-基于 Tauri、MCP、agent skills 和可复现工件构建。它把智能体、笔记本、文件、图表、
-报告、运行记录和审查连接成一条可审计的桌面工作流。
+AI4HEOR 基于开源项目 Open Science Desktop 开发，使用 Tauri、MCP、
+Skills 和可复现工件。自然语言是主交互，表单只辅助检查与人工复核。
+人类研究者主导科学工作；配置的模型/运行时协助整理证据、执行、检查与解释。
 
 <p>
   <a href="./README.md">English</a> ·
@@ -22,7 +22,6 @@
 
 <p>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://doi.org/10.5281/zenodo.21351225"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.21351225.svg" alt="DOI"></a>
   <a href="https://internscience.github.io/ResearchClawBench-Home/"><img src="https://img.shields.io/badge/%F0%9F%8F%86%20%231-ResearchClawBench-FFB300" alt="#1 on ResearchClawBench"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue" alt="Platforms">
   <img src="https://img.shields.io/badge/i18n-7%20languages-5B8DEF" alt="7 interface languages">
@@ -37,7 +36,9 @@
 
 ---
 
-🎉 **认可：** Open Science Desktop 在面向自主科研智能体的端到端基准 [ResearchClawBench](https://internscience.github.io/ResearchClawBench-Home/) 上，按已评分任务平均分排名第 1（Pass@1 榜单，2026 年 7 月 9 日）。
+🎉 **平台源流：** 上游 Open Science Desktop 在 [ResearchClawBench](https://internscience.github.io/ResearchClawBench-Home/)
+的已评分任务平均分排名第 1（Pass@1，2026 年 7 月 9 日）。这一上游
+Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不能证明产出有效。
 
 ---
 
@@ -58,57 +59,61 @@
 
 ## 它能做什么
 
-**跑完整个科研闭环**——从一个宽泛的方向到一篇成稿论文：探索、文献综述、假设、实验代码、分析、绘图、写作，全部在一次连续、可审计的会话里完成。
+**支持人类主导的 HEOR 工作流**——从研究者界定的问题出发，形成可复核的
+证据、确定性分析、验证与报告工件，全程保持可审计。
 
-- **自主科研智能体**：内置的 `ai4s-agent` 端到端串起各专项技能(探索 → 综述 → 实验 → 写作)，每一步都把一个真实、可检查的工件落到你的工作区里,而不只是一条聊天回复。
+- **自然语言优先的辅助**：研究者发起并控制工作；模型/运行时在有界限的步骤中
+  提出建议或执行，留下真实可检查的工件，但不取得科学判断权。
+- **本地 HEOR 知识库**：研究者可以明确安装注明日期的内置中文药物经济学学习库，
+  也可以添加自己的文件夹。资料保留原有层级，在本地绑定哈希并建立索引；用于学习时不会自动联网。
 - **一切都可回溯**：图、表、报告、笔记本和运行输出都连回生成它们的确切代码、输入、环境、模型输出和对话。
-- **本地优先，数据归你**：会话、数据、溯源、笔记本和运行记录都在本机的本地文件夹里,默认不外流。
-- **模型无关运行时**：UI 通过 `packages/sdk` 调用内置固定版本的 OpenCode sidecar——自带模型即可;模型提供方、技能和 MCP 服务器保持可插拔。
-- **天然可复现**：本地、SSH/Slurm、Modal 和 notebook-batch 运行都被记录为可复现的 run record,而不是散落的终端输出。
-- **可扩展**：智能体技能、MCP 服务器与一键科学连接器、`/` 命令、`!` shell 模式,以及一个模型无关的 SDK。
+- **本地优先，数据归你**：会话、数据、溯源、笔记本和运行记录都在本机的本地文件夹里，默认不外流。
+- **模型无关运行时**：UI 通过 `packages/sdk` 调用内置固定版本的 OpenCode sidecar；模型提供方、技能和 MCP 服务器保持可插拔。
+- **天然可复现**：本地、SSH/Slurm、Modal 和 notebook-batch 运行都记录为可复现的运行记录，而不是散落的终端输出。
+- **可扩展**：智能体技能、MCP 服务器与一键科学连接器、`/` 命令、`!` shell 模式，以及模型无关的 SDK。
 
 ## 效果演示
 
-**一句提示 -> 一份完整、可追溯的分析。**
+**由人主导的 HEOR 请求 -> 可复核、可追溯的本地工作。**
+“新建任务”提供不受模板限制的自然语言输入；四个快捷项覆盖研究问题、证据整理、经济学模型和数据分析/汇报，
+只会填入可编辑草稿。“研究工作台”另行提供项目内的引导式入口。`examples/heor-cost-effectiveness/`
+中的双策略、三状态队列案例只有在研究者点击后才安装，请求会先留在输入框中。
+不依赖第三方包的 `run_analysis.py` 会绑定脚本、分析设定和 CSV 的准确哈希，
+复算 `expected/base-case-result.json`，并运行预先声明的低值、高值成本敏感性分析。
+研究者另行确认后，桌面应用可以在没有设置模型的情况下运行这套固定计算，写出三个
+本地结果文件并保留运行和溯源记录；案例内容不会发送给模型服务。
+其中的数值只是教学假设，不是临床或经济学证据，也不能生成批准、
+具有成本效果、报销或政策结论。
 
-![端到端剂量-响应分析：智能体运行代码，产出拟合图与报告](./docs/assets/showcase-workflow.webp)
+![AI4HEOR 首次使用界面明确本地、模型、授权与 Human 科学权责边界](./docs/audits/2026-07-17-first-use/06-skip-link-stable.png)
 
-**每个工件都能回到它的代码、输入和对话。**
+![AI4HEOR 的 HEOR 专属自然语言任务入口](./docs/audits/2026-07-17-first-use/07-heor-workspace-final.png)
 
-![工件检查器展示某张图的生成代码、输入与溯源信息](./docs/assets/showcase-provenance.webp)
-
-**文献 -> 可验证报告。**
-
-![文献综述产出渲染后的 PDF 稿件，并附带可追溯性评审](./docs/assets/showcase-literature.webp)
-
-<details>
-<summary><b>更多截图</b></summary>
-
-<br>
-
-![智能体驱动 Jupyter 笔记本并实时绘制 matplotlib 图](./docs/assets/showcase-notebook.webp)
-
-![实验扫描表格与实时分析笔记本并列](./docs/assets/showcase-experiment.webp)
-
-![技能库列出内置的科学技能](./docs/assets/showcase-skills.webp)
-
-</details>
+![模型执行前可编辑的成本效果分析自然语言请求](./docs/audits/2026-07-17-first-use/08-natural-language-draft-final.png)
 
 ## 当前能力
 
-**把科研闭环做成技能。** 一个元技能跑完整条流水线;每个阶段都是一个自足的技能,产出真实、可评审的工件——在 OpenCode 支持的任意模型上都能跑:
+**把科研辅助收敛为有边界的 HEOR Skills。** AI4HEOR 的 52 个第一方 Skill
+只路由研究者界定的任务，不取得批准权或方法选择权。代表性已准入工作流包括：
 
 | 技能 | 职责 | 主要产出 |
 | --- | --- | --- |
-| `ai4s-agent` | 按顺序运行下面四个技能 | 完整的研究包 |
-| `research-explorer` | 把宽泛方向收敛成具体课题 | `research_exploration.md`、`topic_matrix.md`、`literature_pre_survey.md` |
-| `literature-survey` | 撰写文献综述 | 6–20 页 PDF、60+ 条真实引用、LaTeX 源码、分类学图 |
-| `experiment-suite` | 构建实验包 | 设计文档、可运行代码、带溯源的 `results.json`、图、报告 |
-| `paper-writer` | 撰写研究论文 | 8–14 页 PDF、200+ 引用、4–8 张图、表格 |
-| `mindmap-render` | 渲染思维导图 | 由 `topic_matrix.md` 生成的图片 |
-| `integrity-auditor` | 审计论文完整性 | 图像/数值/逻辑问题、四级证据分级、`audit_report.md` |
+| `$heor-workbench` | 协调由研究者主导的 HEOR 工作，不取得科学决策权 | 可复核的本地计划、工件和停止点 |
+| `$heor-local-evidence` | 盘点研究者明确选择的本地知识库，不自动联网 | 哈希绑定的本地证据目录 |
+| `$heor-evidence-search` | 起草需 Human 联网授权的 PubMed/ClinicalTrials.gov 检索 | 精确请求哈希和导入的元数据候选 |
+| `$literature-review` | 导入、去重、校验和导出项目内的参考文献数据 | 带来源记录的文献库以及 RIS、BibTeX 或 CSL-JSON 交换文件 |
+| `$heor-model-design` | 结构化人类界定的决策问题与概念模型 | 决策问题和概念模型工件 |
+| `$heor-cohort-state-transition` / `$heor-partitioned-survival` | 执行有边界的确定性经济学模型 | 可复现的成本、QALY、增量结果和检查 |
+| `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | 执行已声明的不确定性与有界 VOI 工作流 | DSA/PSA/CEAC/CEAF/EVPI 与单独复核的高级 VOI |
+| `$heor-budget-impact` / `$heor-dynamic-budget-impact` | 执行静态或动态预算影响分析 | 分项预算结果和审计工件 |
+| `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | 验证、报告并封装当前精确工件 | 独立复核包、有来源绑定的 DOCX/PDF/XLSX 报告和重放包 |
+| `$research-presentation` | 准备有来源绑定的研究汇报内容并在本地生成 | 可逐页核对的无宏 PPTX 和生成审计记录 |
+| `$research-tables` | 根据当前本地来源整理带类型、单位和依据性质的科研表格 | 可逐表核对的无公式 XLSX、每表一份 CSV 和生成审计记录 |
+| `$journal-submission-check` | 从研究者保存的官方投稿指南快照中记录明确的机械性要求 | 有来源绑定、仍等待研究者复核的核对报告 |
 
-这些技能随 `ai4s-skills` 技能包一起提供,与第一方审查技能以及下方的 Office/文档技能并列。
+全部第一方 Skill 的名称与说明均随七种界面语言发布，同时保留精确
+`$skill-id`；尚未完成的改写和已排除的外部来源只作为内部工程记录，不再
+作为用户选项。
 
 ### 平台
 
@@ -116,35 +121,42 @@
 | --- | --- |
 | 桌面外壳 | Tauri 2 + React + TypeScript + Vite，主打 macOS 和 Windows 桌面构建，同时提供 Linux 包。 |
 | 运行时 | 内置 OpenCode sidecar，由应用自动启动，并与用户自己的 OpenCode 配置/数据隔离。 |
-| 会话 | 多会话聊天与历史、按时间创建的工作区文件夹、跨工作区全局历史、`/` 命令和 `!` shell 模式。 |
-| 文件 | 全局和会话内文件浏览、右键菜单、系统打开/定位、复制路径、本地预览服务。 |
+| 项目与任务 | 项目是可供多项任务共用资料和上下文的具名本地工作区。独立任务拥有自己的本地研究作用域，助手、Skill、HEOR 方法、文件、复核和审计能力不降级，只是不跨任务共用。 |
+| 文件 | 全局和任务内文件浏览、右键菜单、系统打开/定位、复制路径、本地预览服务。 |
 | 笔记本 | 真实 `.ipynb` 文件、Python/R 笔记本创建、本地内核运行、内置 `uv` 管理 Jupyter 环境，以及打开 JupyterLab。 |
 | 运行记录 | 追加式 run log、全局 SQLite 索引、搜索/筛选/分页、本地与远程 surface、输出链接、日志和复现提示。 |
 | 溯源 | `.openscience/provenance.jsonl` 记录文件版本，并把产物连回创建它的运行或编辑。 |
 | 审查 | 内置 traceability、stats-integrity、domain-check、large-file、publication-figure、remote-compute、Modal run 等第一方技能。 |
 | 查看器 | PDF、图片、视频、HTML、Markdown、代码、CSV/TSV 表格与图表、DOCX、XLSX、PPTX、分子、3D mesh、基因组轨道、FITS、DOS/DOSCAR、EIGENVAL bands、qcode、异常图和 phase 文件。 |
 | 模型 | OpenCode 提供方目录、OAuth/API key 连接、自定义 OpenAI-compatible endpoint，以及 OpenCode 支持的本地/云模型选项。 |
-| 界面语言 | English、简体中文、日本語、Español、Deutsch、Français、한국어。Portuguese (Brazil) 和 Arabic 已注册，但还不可选。 |
+| 界面语言 | English、简体中文、日本語、Español、Deutsch、Français、한국어。第一方 Skill 名称与说明在 7 种语言中发布，同时保留精确 `$skill-id`。Portuguese (Brazil) 和 Arabic 已注册，但还不可选。 |
 
 ## 技能与连接器
 
-构建和发布时会拉取内置技能，避免把第三方技能包直接提交到 git 历史：
+默认只打包 `runtime/skills/core/` 中的第一方技能，包括 AI4HEOR 的证据、
+模型设计、参考案例、不确定性、预算影响、验证和报告工作流。第三方 Skill
+与 MCP 由仅面向发布的包内登记表控制：登记表只包含授权兼容、完成审查、
+通过跨平台检查、锁定精确哈希并实际随包发布的 `validated-adapter`，不保留
+未完成或已排除的来源。当前登记表为空，因此没有第三方工具随 AI4HEOR 打包。
 
-- `ai4s-research/ai4s-skills` 技能包。
-- Apache-2.0 `anthropics/skills` 仓库中的 Office/文档技能：`docx`、`pdf`、`pptx`、`xlsx`。
-- `runtime/skills/core/` 中的第一方技能：`traceability-review`、`stats-integrity`、`domain-check`、`large-file`、`publication-figures`、`remote-compute`、`modal-run`。
+此前外部审查中有价值的能力意图改写为有边界的 AI4HEOR 第一方能力。许可证
+不兼容的文档来源已从运行时和候选界面永久移除。PPTX 已由
+`research-presentation` 替代，DOCX/PDF/XLSX 报告导出已由第一方
+`heor-reporting` 原生渲染器替代；可配置科研表格由 `research-tables` 提供，
+按精确来源哈希整理带类型和单位的行，并生成无公式 XLSX 与每表一份 CSV。
+两条 XLSX 路径都不在工作簿中重算模型。
+概念模型图也已由第一方实现：状态和转移来自当前
+`heor/conceptual-model.json`，应用内只调整节点位置，并导出来源绑定的 SVG 和
+可编辑 GraphML；导出不会改变模型语义，也不会形成研究者批准。
+只读处置记录见
+[`docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md`](./docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md)。
+科研基础能力的已交付、部分交付与待建设边界见
+[`docs/RESEARCH_FOUNDATION_CAPABILITIES.zh-CN.md`](./docs/RESEARCH_FOUNDATION_CAPABILITIES.zh-CN.md)。
 
-当前一键科学 MCP 连接器包括：
-
-- 文献检索：arXiv、PubMed、Crossref、Semantic Scholar、bioRxiv/medRxiv。
-- 生物医学数据库：PubMed、ClinicalTrials.gov、MyVariant/ClinVar。
-- Materials Project。
-- FRED 经济数据。
-- Space weather。
-- Open-Meteo 天气与气候。
-- USGS water data。
-
-你也可以在 Settings 中添加任意本地或远程 MCP 服务器。参见
+默认界面不启动未经审查的第三方一键 MCP。第一方 `$heor-evidence-search`
+只在 Human 明确授权后访问固定的 PubMed 与 ClinicalTrials.gov 元数据端点；
+Jupyter 是唯一的一键托管本地计算工具。研究者仍可在 Settings 添加本地或远程
+MCP，但它们会明确标为不受托管的外部能力，不获得科学判断或批准权。参见
 [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md)。
 
 中立定位对比见
@@ -158,12 +170,17 @@
 - **Windows**：NSIS `.exe` 和 `.msi`，Windows 10/11 x64。
 - **Linux**：x86_64 Linux 的 `.deb` 和 `.rpm`。
 
-当前构建尚未代码签名或 notarize。
+从 0.1.27 起，全新安装默认使用 `~/Documents/AI4HEOR`。如果新目录尚不存在，
+AI4HEOR 会将旧默认目录 `~/Documents/OpenScience` 原子重命名并保留全部内容；
+如果两个目录都已存在，则不自动合并或删除其中任何一个。在 Settings 中明确选择的
+基础目录始终优先。
+
+当前验证的 0.1.56 本地 x64 macOS 构建尚未代码签名或 notarize。
 
 **macOS**：如果 Gatekeeper 提示应用已损坏或来自未知开发者，把应用安装到 Applications 后运行：
 
 ```bash
-xattr -cr "/Applications/Open Science.app"
+xattr -cr "/Applications/AI4HEOR.app"
 ```
 
 **Windows**：如果出现 SmartScreen，选择 **更多信息 -> 仍要运行**。
@@ -171,9 +188,9 @@ xattr -cr "/Applications/Open Science.app"
 **Linux**：
 
 ```bash
-sudo apt install ./OpenScience_*.deb
+sudo apt install ./AI4HEOR_*.deb
 # 或
-sudo rpm -i OpenScience_*.rpm
+sudo rpm -i AI4HEOR-*.rpm
 ```
 
 ## 从源码构建
@@ -192,7 +209,6 @@ pnpm install
 
 bash scripts/dev/fetch-opencode.sh
 bash scripts/dev/fetch-uv.sh
-bash scripts/dev/fetch-skills.sh
 
 pnpm --filter @ai4s/desktop tauri dev
 pnpm --filter @ai4s/desktop tauri build
@@ -210,7 +226,8 @@ pnpm lint
 
 - 工作区文件、原始数据、会话历史、溯源、笔记本和运行记录默认保留在本机。
 - 命令执行、删除文件、安装依赖和远程连接在桌面应用中走人工批准流程。
-- 提供方凭据写入应用私有运行时配置，不进入工作区、溯源、git、导出或用户全局 OpenCode 配置。
+- 模型服务凭据写入 OpenCode 的应用私有本机认证文件（macOS/Linux 上仅当前账户可读），
+  与自定义接口的地址、适配器和模型信息分开保存，不进入工作区、溯源、git、导出或用户全局 OpenCode 配置。
 - Settings 中有大白话数据流说明，说明哪些内容可能发给所选模型提供方。
 
 ## 仓库结构
@@ -222,8 +239,8 @@ pnpm lint
 | `packages/shared/` | 共享领域类型和图表色板。 |
 | `packages/ui/` | 共享 UI 包。 |
 | `runtime/skills/core/` | 第一方科学技能。 |
-| `runtime/skills/external/` | 构建时拉取的外部技能。 |
-| `runtime/harness/` | 运行时 harness 知识与 operator 上下文。 |
+| `runtime/skills/external/` | 外部候选的可选审查缓存；默认不打包。 |
+| `runtime/harness/` | 新项目会加载的产品级“研究者主导、模型辅助”运行契约。 |
 | `runtime/mcp/` | MCP 运行时说明和配置。 |
 | `examples/` | 内置示例工作区。 |
 | `scripts/dev/` | sidecar、`uv`、技能拉取器和聚焦回归探针。 |
@@ -235,7 +252,98 @@ pnpm lint
 产品和架构说明位于 [`docs/PRD.md`](./docs/PRD.md) 和
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
-近期工作集中在签名/notarize 发布、更广的 Windows/Linux 验证、自动更新、连接器加固，以及继续强化可复现性审查。
+0.1.56 内部测试版同时面向 Intel macOS 和 Windows x64；Linux 与 Apple Silicon 不在本次测试交付范围内。
+当前源码为 `0.1.56`，已完成隔离首次启动核验的 x64 macOS 候选包也是 `0.1.56`。
+`AI4HEOR_0.1.56_x64.dmg` 大小为 91,021,588 字节，SHA-256 是
+`ed1107407ef6e3c8d46d0c674d368540c82811868a673a0e1c4d2dd3a2962358`。
+0.1.56 将“新建任务”做成不受模板限制的自然语言入口，四个药物经济学快捷项只填入草稿；“研究工作台”保留为
+项目内的引导式工作入口。项目是多个任务共用资料和上下文的具名本地工作区；独立任务拥有自己的本地研究作用域，
+助手、Skill、HEOR 方法、文件、复核和审计能力相同。七种界面语言采用同一逻辑。打包 OpenCode 流式测试和一次
+凭据隔离的 MiniMax-M3 真实请求均已通过。聚焦 CI 会同时生成 Windows x64 的 EXE 与 MSI，并在 Windows 上
+复核安装包、资源、安装、首次启动和清理；该工作流未通过时，不把 Windows 包写成已验收。
+0.1.53 将 AI4HEOR 统一为唯一的用户研究工作台，删除继承的通用科研入口，首页只保留六项药物经济学与 HEOR
+任务；旧 `/live` 地址也会进入同一工作台。该版本还把打包 OpenCode 使用的 MiniMax 中国区 Token Plan
+请求前缀修正为 `/anthropic/v1`，默认模型更新为 `MiniMax-M3`，并分别通过无密钥的打包运行时流式测试和一次
+由 macOS 钥匙串临时提供密钥的真实模型请求。验证记录不含密钥或研究资料，隔离凭据在测试后已删除。
+0.1.51 将自定义接口信息与模型服务密钥分开保存，删除旧的配置文件明文写入命令，并提供可编辑、七语言提示的
+MiniMax 中国区 Token Plan 预设；安装包不含密钥。
+0.1.52 在设置页新增第一方诊断报告导出，供产品测试反馈问题时使用。报告只记录应用版本、系统平台与架构、本地助手状态和有界日志片段的事件数量；不导出密钥、认证文件、项目路径和资料、对话内容、模型/服务商/接口信息、命令输出或原始日志。七种界面语言均已提供对应说明，Unix 系统上导出文件仅当前账户可读。
+0.1.50 阻止测试生成文件进入安装包：Python 测试不再写入字节码缓存；Tauri 正式构建会在编译前核对全部资源，发现缺失、链接、缓存、异常文件或目标路径冲突时直接停止。打包完成后仍对只读挂载的 DMG 作独立核验。
+0.1.49 新增第一方目标期刊投稿核对：只根据研究者保存的当前官方投稿指南快照和逐条来源位置检查明确的机械性要求，结果仍等待研究者复核。平台不内置期刊指南、报告清单、CSL 样式或投稿模板；通过检查不等于符合期刊要求或可以投稿。
+独立只读核验已确认 x86-64 架构、0.1.56 身份、OpenCode 1.17.13、uv 0.11.26、
+359 个受控资源和包内 177 项 HEOR 测试，并取代 0.1.54 成为当前候选包。临时应用副本还
+通过了全新工作区创建、旧 `Documents/OpenScience` 内容保留迁移和进程清理；产品负责人实际使用验收仍待完成。0.1.48 新增第一方可配置科研表格：受控清单定义字段类型、单位、证据/分析输出/假设依据和当前本地来源哈希，原生程序确定性生成无宏无公式 XLSX 与每表一份防公式注入 CSV；它不重算经济学模型，不覆盖研究者修改，并保持待研究者复核。0.1.47 新增第一方、来源绑定的正文引用和参考文献生成，使用三种受控内置格式，不打包第三方 CSL 样式，也不声称符合目标期刊要求。0.1.46 新增第一方概念模型版式编辑和 SVG/GraphML 导出，状态与转移仍以当前 JSON 为准。0.1.45 在同一条第一方、有来源绑定的报告链中新增确定性、无宏无公式的 XLSX 工作簿。五张中英双语工作表从已审计报告包复制带类型的数值、报告表格、报告规范覆盖情况、披露、局限性、来源路径和 SHA-256 绑定；工作簿不会重新计算经济学模型，仍需研究者复核。0.1.44 在第一方 `heor-reporting` 中新增有来源绑定的 DOCX/PDF 生成：原生应用重新核验当前报告包与报告，两个格式都嵌入已准入的中文字体，记录输出哈希，并保持待研究者复核。发布清单不保留隔离或拒绝选项；完成改写的能力直接作为第一方实现交付，未完成和授权不兼容的第三方来源不进入产品列表。0.1.43 新增第一方、仅本地运行的 `literature-review` Skill：它可导入、去重、校验和确定性导出带来源记录的 RIS、受控 BibTeX 和 CSL-JSON 文献数据，并保留字段冲突供研究者复核；不声称文献信息正确。0.1.42 增加了本机使用准备检查，核对项目文件夹、内置 Skill、药物经济学计算资源、
+项目 harness 和本地助手。本地助手异常时，现在可以直接在“设置”中重新启动并连接，无需重启应用；
+模型、Python 和 Jupyter 均为按需配置，这项检查不代表方法适用或科学有效。0.1.41 新增有来源绑定、确定性、无宏的
+研究汇报幻灯生成，生成后的每一页仍等待研究者核对。0.1.40 会在每个能力复核弹窗中先说明这项 Skill 做什么、来自
+哪项项目要求，并明确它不是药物经济学分析，也不能替研究者作出科研判断。0.1.39 增加了项目能力候选的
+应用内复核链路：原生程序重新核验准确文件，以哈希链记录启用、
+拒绝或撤销，只把纯指令副本启用到当前项目，并拒绝覆盖或删除已经发生变化的内容。
+该版本也增加了本地使用习惯的应用内复核：研究者可以查看形成建议的重复交流、修改建议表述、采用、暂停、
+恢复或删除；准确的建议文件和设置文件哈希以及本机决定链可阻止过期或未经复核的改动被当作已采用习惯。
+0.1.38 让两个能力成长 Skill 从运行时报告的实际安装目录调用校验器，不再假定用户从源码仓库
+启动应用。0.1.37 新增了失败关闭的能力成长 harness：
+研究者可以用自然语言提出新能力，系统只会生成带中英文描述、精确哈希和授权记录的指令型 Skill 候选项；
+至少两次独立交互中重复出现的非敏感工作习惯，只能成为本地偏好建议。两者都不会自行启用，
+也不能修改治理规则、核心 Skill、计算引擎或审批记录。该版本同时替换了应用标志，记录了当前授权边界，
+并保留 0.1.36 包含 25 份资料的版本化中文药物经济学学习库和本机安装入口。
+应用会核对安装包中的清单和每份资料的 SHA-256，不调用模型、不联网，
+直接建立与当前项目绑定的本地索引；稳定理论与方法资料、注明日期的最新进展保持分开，研究者修改过的
+已安装资料不会被覆盖。它保留 0.1.35 为教学案例增加的单独确认本机复算入口：
+程序先核对脚本、分析设定、输入数据和预期结果是否仍与内置版本一致，再写出基线结果与低值、高值
+敏感性分析，并保留运行和溯源记录；案例内容不会发送给模型服务。它保留 0.1.34 的第六个药物经济学入口，
+以及 0.1.33 对简体中文研究界面和内置 Skill 的重写；当前 52 个内置 Skill 统一使用常见的
+中国药物经济学表述；原先写死在代码中的下载、文件管理、Jupyter、笔记本和助手提示也已进入
+七种语言的资源文件。0.1.32 建立的失败关闭项目约束和研究者科学决策权保持不变。模型无关的教学案例会记录
+1 条成功运行和 3 条溯源记录；固定输入发生变化时，应用使用自然中文说明拒绝复算，并保留原有结果。
+81,600,567 字节的
+`AI4HEOR_0.1.41_x64.dmg` 的 SHA-256 为
+`9fc18e035748a2aa67e06443409dce9ffbd2aed83496ab9f1003138391c18ee6`，由受控源码提交
+`38e061708e56ee82d53ea3d68a79b95dd25ea5dc` 构建。验证确认 340 个受控资源与源码逐字节一致，
+177 项包内 HEOR 测试全部通过，并完成全新启动和旧工作区迁移。前端交互测试确认，能力复核弹窗会在
+启用前显示所选语言的能力名称、用途、原始要求、限制和检查项。该包仍未经
+Developer ID 签名或 notarize；
+这些工程证据不代表科学有效性。
+
+### Intel macOS 产品负责人验收
+
+`AI4HEOR_0.1.56_x64.dmg` 仅用于 Intel Mac 内部测试。打开前先核对 SHA-256
+`ed1107407ef6e3c8d46d0c674d368540c82811868a673a0e1c4d2dd3a2962358`。由于该包尚未
+签名，macOS 可能要求按住 Control 点击应用后选择“打开”；这只是内部测试方式，不代表已经具备公开分发条件。
+
+1. 确认应用名称和图标均为 AI4HEOR。“新建任务”应提供不受模板限制的自然语言输入框，以及四个只填入草稿的
+   药物经济学快捷项；“研究工作台”应保留为面向项目的引导式入口。
+2. 新建一个一次性项目，确认存在 `AGENTS.md`、`policy.json`、`capabilities/candidates/`、
+   `capabilities/reviews/`、`learning/proposals/` 和 `learning/preferences.json`。
+3. 安装内置药物经济学学习库，检索“机会成本”，然后重复安装。检索应完全在本机完成；相同内容重复安装后，
+   已安装资料、清单和索引字节不得变化。
+4. 通过单独的本机运行确认执行成本-效果教学案例。自然语言请求必须保持可编辑且未发送；确定性结果不得给出
+   成本有效、医保准入或政策结论。
+5. 如需测试模型，只在“设置”中连接由你选择的模型服务。安装包不含任何密钥；连接失败必须明确显示，不能
+   静默切换到其他模型服务。
+6. 请助手根据当前项目准备有来源绑定的研究汇报。先在对话中确认听众、目的、语言和篇幅，再从研究汇报卡片生成
+   PPTX；打开后逐页检查标题、图表、局限和自动生成的资料页。修改一个已绑定来源后，原 PPTX 不应继续显示为当前版本；
+   生成过程不得创建任何批准记录。
+7. 在“技能与工具”中要求 AI4HEOR 创建一个仅处理展示格式的窄范围 Skill 候选。名称、说明、授权说明、限制和
+   检查项必须同时具备完整的中英文版本。复核并只在这个一次性项目中启用准确候选，然后撤销；核心 Skill 和
+   其他项目不得发生变化。
+8. 形成一项重复出现、非敏感的展示习惯建议，查看依据后采用，再依次暂停、恢复、修改和删除。研究方法、证据、
+   参数、结论、审批、模型选择和数据去向不得成为学习偏好。
+9. 检查“运行”和溯源记录能否区分模型生成草稿与本机确定性计算，并确认项目、记录、日志和导出内容中没有密钥。
+
+当前验收边界：没有已准入的外部 Skill 或第三方 MCP；没有 Developer ID 签名和
+公证；Apple Silicon 和当前 Linux 验收不在本次交付范围；不主张科学有效性或方法学适用性。当前未签名版本中，
+从设置输入的模型服务密钥保存在 OpenCode 的应用私有 `auth.json` 中，与接口配置分开，
+且仅当前账户可读；当前未使用 macOS 钥匙串，系统钥匙串存储将在签名版本中重新评估。
+研究者自行添加 MCP 或其他连接器时，仍需对该连接器采用的凭据保存方式负责。
+
+同一干净提交还交叉构建了 76,095,510 字节的 `AI4HEOR_0.1.31_aarch64.dmg`
+（SHA-256 `86b0583e36480affb90ec08b84d8c4276ec702b92e69ef90894f58c2888da42e`）。
+Intel 主机上的只读检查确认主程序、OpenCode 和 uv 均为纯 arm64，固定 sidecar
+字节一致、282 个资源与源码一致，且包内 HEOR 核心通过全部 177 项测试。严格验证器
+在执行 arm64 OpenCode 时按预期以 `Bad CPU type` 失败关闭，未生成正式发布证据；
+因此这不是 Apple Silicon 原生启动证明。该包只有 ad-hoc linker 签名，无 Team ID、
+sealed resources 或 stapled ticket，严格 codesign 与 Gatekeeper 均拒绝。
 
 ## 参与贡献
 
@@ -244,15 +352,14 @@ pnpm lint
 
 ## 引用
 
-如果 Open Science Desktop 对你的研究有帮助,请如下引用:
+如果 AI4HEOR 对你的研究有帮助，请如下引用：
 
 ```bibtex
-@software{open_science_desktop,
-  author  = {{The Open Science Desktop Contributors}},
-  title   = {Open Science Desktop: a local-first, model-agnostic AI research workbench},
+@software{ai4heor,
+  author  = {{The AI4HEOR Contributors}},
+  title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.2.1},
-  doi     = {10.5281/zenodo.21410055},
+  version = {0.1.56},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }
@@ -264,4 +371,4 @@ pnpm lint
 
 [MIT](./LICENSE)。随附的第三方技能和连接器保留各自许可证。
 
-> Open Science Desktop 仍是 beta 阶段科研工具。产出应视为草稿：发表或决策前请核对数字、引用、代码和结论。
+> AI4HEOR 仍是 beta 阶段科研工具。人类研究者主导科研并承担方法与决策责任；发表或决策前必须核对数字、引用、代码和结论。

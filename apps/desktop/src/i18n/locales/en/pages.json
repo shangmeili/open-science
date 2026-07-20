@@ -6,7 +6,7 @@
     "newNotebook": "New notebook",
     "pythonNotebook": "Python notebook",
     "rNotebook": "R notebook",
-    "description": "All Jupyter notebooks across your session folders, newest first. Cells run on the local Python or R kernel in the notebook's own folder; the agent works on the same files.",
+    "description": "All Jupyter notebooks across your task folders, newest first. Cells run on the local Python or R kernel in the notebook's own folder; the assistant works on the same files.",
     "createsIn": "New notebooks are created in",
     "empty": {
       "tauri": "No notebooks yet. Create one, or ask the agent to produce one.",
@@ -16,7 +16,8 @@
       "openingJupyterLab": "Opening JupyterLab in your browser…",
       "setUpJupyterFirst": "Set up Jupyter first — Settings → MCP servers → Jupyter.",
       "couldNotOpenJupyterLab": "Could not open JupyterLab",
-      "couldNotCreateNotebook": "Could not create notebook"
+      "couldNotCreateNotebook": "Could not create notebook",
+      "couldNotSave": "Could not save the notebook"
     },
     "editor": {
       "backAria": "Back to notebooks",
@@ -34,7 +35,14 @@
       "stopCellTitle": "Stop — restarts this notebook's kernel (variables reset)",
       "stopLabel": "Stop",
       "runLabel": "Run",
-      "addCellLabel": "Add cell"
+      "addCellLabel": "Add cell",
+      "couldNotRead": "Could not read the notebook",
+      "noPython": "No Python",
+      "noPythonFound": "No Python interpreter found",
+      "runningOutput": "Running…",
+      "localKernelOnly": "The local kernel is available only in the desktop app.",
+      "interrupted": "Stopped. The kernel was restarted and its variables were cleared.",
+      "kernelError": "Kernel error"
     }
   },
   "files": {
@@ -43,36 +51,185 @@
     "explorerUnavailableWeb": "The file explorer is available in the desktop app.",
     "selectFilePrompt": "Select a file to preview it here.",
     "pane": {
-      "subtitle": "this session's folder",
+      "subtitle": "this task's folder",
       "closeAria": "Close files"
     },
     "contextMenu": {
       "copyPath": "Copy path",
       "copyRelativePath": "Copy relative path",
       "relativePathLabel": "Relative path",
-      "openInDefaultApp": "Open in default app"
+      "openInDefaultApp": "Open in default app",
+      "pathLabel": "Path",
+      "revealInFinder": "Reveal in Finder",
+      "showInExplorer": "Show in File Explorer",
+      "showInFileManager": "Show in File Manager"
+    },
+    "toast": {
+      "copied": "{{what}} copied",
+      "copyFailed": "Could not copy to the clipboard.",
+      "resolveFailed": "Could not resolve the file path.",
+      "revealFailed": "Could not reveal the file: {{message}}"
     }
   },
   "skills": {
-    "title": "Skills & Agents",
+    "title": "Skills & tools",
     "description": {
-      "prefix": "Loaded live from the OpenCode runtime — the bundled ai4s-skills pack plus anything under ",
+      "prefix": "Loaded live from the AI assistant runtime — admitted AI4HEOR capabilities plus anything under ",
       "suffix": " in your workspace."
     },
     "install": {
-      "sectionTitle": "Install a skill",
-      "placeholder": "Paste a skill (Markdown) or a GitHub URL — the agent installs it into .opencode/skills/",
+      "sectionTitle": "Add or evaluate a skill or tool",
+      "placeholder": "Describe a capability AI4HEOR should add, or paste a Skill, plugin, MCP server, package, or GitHub URL",
       "starting": "Starting…",
-      "cta": "Install with agent",
-      "hintConnected": "Opens a session and asks the agent to add it (customize-opencode).",
+      "cta": "Start review",
+      "hintConnected": "AI4HEOR first prepares and checks a local candidate. It cannot run before review and admission are complete.",
       "hintDisconnected": "Connect the runtime first."
+    },
+    "candidates": {
+      "sectionTitle": "Project capability candidates",
+      "boundary": "Candidates are local, instruction-only drafts. The desktop app rechecks the exact bytes before recording your decision; activation affects only this project and does not transfer scientific authority.",
+      "refresh": "Refresh capability candidates",
+      "loading": "Checking this project's capability candidates…",
+      "unavailable": "The candidate or review chain could not be verified. No capability was changed.",
+      "noProject": "Create or open an AI4HEOR project to review project capabilities.",
+      "empty": "No capability candidate has been created in this project.",
+      "activate": "Review and activate",
+      "reject": "Reject",
+      "revoke": "Revoke",
+      "status": {
+        "inactive": "awaiting review",
+        "active": "active in this project",
+        "rejected": "rejected",
+        "revoked": "revoked",
+        "invalid": "invalid",
+        "drifted": "active bytes changed",
+        "activeCandidateChanged": "active; candidate changed",
+        "unmanagedConflict": "same-name project Skill exists",
+        "candidateMissing": "candidate missing"
+      },
+      "dialog": {
+        "title": {
+          "activate": "Review and activate this capability",
+          "reject": "Reject this capability candidate",
+          "revoke": "Revoke this project capability"
+        },
+        "purpose": {
+          "activate": "The assistant prepared this project Skill candidate to define how similar tasks should be handled later. It is not a pharmacoeconomic analysis and cannot choose methods, evidence, parameters, or conclusions for the researcher. It becomes active only after you confirm it.",
+          "reject": "You are deciding whether this Skill candidate should remain inactive. This is not a judgment on a study plan or analysis result.",
+          "revoke": "You are stopping a previously activated project Skill. This decision does not rewrite research methods, evidence, parameters, or conclusions."
+        },
+        "boundary": {
+          "activate": "Activation copies only these validated instruction files into the current project. It grants no network, command, secret, or outside-workspace permission.",
+          "reject": "Rejection records your decision for these exact candidate bytes. The candidate remains inactive and available for audit.",
+          "revoke": "Revocation removes the active project copy only when its bytes still match the activation record. Changed content is never deleted automatically."
+        },
+        "capabilityTitle": "What this capability does",
+        "requestTitle": "Request that produced this candidate",
+        "acceptanceTitle": "Checks prepared for Human review",
+        "limitationsTitle": "Declared limitations",
+        "licenseTitle": "License and allowed use",
+        "technicalDetails": "View technical and audit details",
+        "technical": {
+          "candidateId": "Internal ID",
+          "provider": "Provider used to prepare it",
+          "model": "Model used to prepare it",
+          "license": "License identifier",
+          "decisionHash": "SHA-256 bound to this review"
+        },
+        "actor": "Reviewer name or local label",
+        "actorPlaceholder": "For example: HEOR methods reviewer",
+        "rationale": "Reason for this decision",
+        "rationalePlaceholder": {
+          "activate": "State what you checked and why this narrow capability is acceptable for this project.",
+          "reject": "State why the candidate should remain inactive.",
+          "revoke": "State why the previously active capability should no longer run in this project."
+        },
+        "confirm": {
+          "activate": "I reviewed this capability's purpose, instructions, license note, limitations, and every acceptance check. I authorize this instruction-only Skill for the current project.",
+          "reject": "I understand this candidate's purpose and limitations and want it to remain inactive.",
+          "revoke": "I understand the effect of revocation and want to stop using the project Skill that matches the activation record."
+        },
+        "cancel": "Cancel",
+        "recording": "Recording…",
+        "submit": {
+          "activate": "Record and activate",
+          "reject": "Record rejection",
+          "revoke": "Record and revoke"
+        }
+      }
+    },
+    "preferences": {
+      "sectionTitle": "Local work preferences",
+      "boundary": "AI4HEOR may suggest a preference only after the same working habit appears in at least two independent interactions. Nothing becomes a lasting rule until you review it. Preferences cannot change methods, evidence, parameters, conclusions, approvals, provider choice, or data routing.",
+      "refresh": "Refresh local preferences",
+      "loading": "Checking preference proposals and accepted preferences…",
+      "unavailable": "The proposal, preference store, or review chain could not be verified. Nothing was changed.",
+      "noProject": "Create or open an AI4HEOR project to review local preferences.",
+      "empty": "No repeated work preference has been proposed in this project.",
+      "proposal": "Suggested work preference",
+      "current": "Current work preference",
+      "accepted": "accepted",
+      "enabled": "in use",
+      "disabled": "paused",
+      "evidenceCount": "Supported by {{count}} independent interactions",
+      "reviewAccept": "Review and accept",
+      "edit": "Edit",
+      "enable": "Use again",
+      "disable": "Pause",
+      "delete": "Delete",
+      "scope": {"language": "language", "presentation": "presentation", "workflow": "workflow", "audit": "audit"},
+      "dialog": {
+        "title": {"accept": "Review this suggested preference", "update": "Edit this work preference", "enable": "Use this preference again", "disable": "Pause this preference", "delete": "Delete this preference"},
+        "boundary": {
+          "accept": "Check whether the repeated observations really describe how you want AI4HEOR to work. You may edit the wording before accepting it.",
+          "update": "Edit only the working preference. It cannot contain confidential material or make a scientific decision for you.",
+          "enable": "This restores the reviewed preference for future work in this project.",
+          "disable": "The preference stays in the local record but will not be used while paused.",
+          "delete": "This removes the preference from the active local store. The Human decision remains in the audit record."
+        },
+        "evidence": "What prompted the suggestion",
+        "rule": "Preference wording",
+        "actor": "Reviewer name or local label",
+        "actorPlaceholder": "For example: project researcher",
+        "rationale": "Reason for this decision",
+        "rationalePlaceholder": {
+          "accept": "Explain why this repeated pattern should become a local work preference.",
+          "update": "Explain why the wording needs to change.",
+          "enable": "Explain why you want to use it again.",
+          "disable": "Explain why it should be paused.",
+          "delete": "Explain why it should be removed."
+        },
+        "confirm": {
+          "accept": "I reviewed the observations and wording. This is a non-sensitive work preference, not a scientific decision.",
+          "update": "I reviewed the revised wording and confirm that it remains a non-sensitive work preference.",
+          "enable": "I want this reviewed work preference to be used again.",
+          "disable": "I want this work preference paused without deleting its local record.",
+          "delete": "I want this preference removed from the active local store."
+        },
+        "cancel": "Cancel",
+        "recording": "Recording…",
+        "submit": {"accept": "Record and accept", "update": "Record changes", "enable": "Record and enable", "disable": "Record and pause", "delete": "Record and delete"}
+      }
+    },
+    "assetAdmission": {
+      "sectionTitle": "External adapters",
+      "loading": "Checking external adapters shipped with the app…",
+      "unavailable": "External adapters cannot be verified and remain disabled.",
+      "firstPartyTitle": "52 first-party AI4HEOR Skills are built in",
+      "firstPartyBoundary": "Only external adapters that passed license, security, methods, and package checks and actually ship with AI4HEOR appear here. Sources awaiting a rewrite or excluded from the product are not retained as user options.",
+      "admitted": "admitted",
+      "groupAdmitted": "Admitted third-party assets ({{count}})",
+      "adapterBoundary": "This adapter can run only inside its declared workspace, network, permission, and Human-in-the-loop boundary.",
+      "noneAdmitted": "No third-party tool currently ships with AI4HEOR. Required capabilities are first-party Skills; unfinished rewrites and excluded sources are not shown here.",
+      "registryValid": "The external-adapter registry is valid and {{count}} adapter is available.",
+      "failClosed": "The external-adapter registry failed validation. All external capabilities remain disabled."
     },
     "environment": {
       "sectionTitle": "Scientific environment",
       "detectionUnavailable": "Environment detection runs in the desktop app.",
       "found": "found",
       "notFound": "not found",
-      "note": "OpenCode runs code with whatever is installed here (e.g. Python via its shell tool). Python/R/Jupyter are not bundled; install them or a Science Pack to enable analysis."
+      "note": "The AI assistant runs code with tools installed here (for example, Python through its shell tool). Python/R/Jupyter are not bundled; install them or a Science Pack to enable analysis."
     },
     "agentsSection": {
       "sectionTitle": "Agents ({{count}})",
@@ -88,8 +245,8 @@
       "empty": "No skills loaded yet.",
       "source": {
         "builtin": "built-in",
-        "project": "project",
-        "user": "user"
+        "project": "workspace · unmanaged",
+        "bundled": "AI4HEOR · first-party"
       }
     },
     "disconnected": "Connect the runtime to list the skills and agents it has loaded."

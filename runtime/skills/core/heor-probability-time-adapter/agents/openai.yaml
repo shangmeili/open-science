@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Probability Time Adapter"
+  short_description: "Convert one event probability to the model cycle"
+  default_prompt: "Use $heor-probability-time-adapter to convert one evidence-bound event probability to the model cycle and preserve deterministic auditability."

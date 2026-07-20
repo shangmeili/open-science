@@ -1,0 +1,3114 @@
+"""Reproducible uncertainty analysis for the narrow cohort Markov core.
+
+The module deliberately avoids Python's process-global random state and third-
+party numerical libraries. A versioned PCG32 stream makes integer draws bit-
+stable; explicit transforms make runs repeatable on one runtime. Supported
+platforms must still pass golden tolerance tests because system libm functions
+are not promised to be bit-identical.
+"""
+
+from __future__ import annotations
+
+import copy
+import hashlib
+from dataclasses import dataclass
+from math import cos, exp, fsum, isclose, isfinite, log, pi, sqrt
+from typing import Any
+
+from .background_mortality import (
+    ANALYSIS_SCHEMA_VERSION as BACKGROUND_MORTALITY_ANALYSIS_SCHEMA_VERSION,
+    TRANSFORMATION_METHOD as BACKGROUND_MORTALITY_TRANSFORMATION_METHOD,
+    TRANSFORMATION_OPERATION as BACKGROUND_MORTALITY_TRANSFORMATION_OPERATION,
+    BackgroundMortalityError,
+    apply_background_mortality_mappings,
+)
+from .hazard_ratio import (
+    ANALYSIS_SCHEMA_VERSION as HAZARD_RATIO_ANALYSIS_SCHEMA_VERSION,
+    TRANSFORMATION_METHOD as HAZARD_RATIO_TRANSFORMATION_METHOD,
+    TRANSFORMATION_OPERATION as HAZARD_RATIO_TRANSFORMATION_OPERATION,
+    HazardRatioError,
+    apply_hazard_ratio_mappings,
+    derive_hazard_ratio_schedule,
+)
+from .model import (
+    SCHEMA_VERSION as MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
+    EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION,
+    PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION,
+    PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
+    MarkovSpecification,
+    ModelValidationError,
+    run_markov,
+)
+from .economic_inputs import EconomicSpecification
+from .partitioned_survival import (
+    calculate_partitioned_survival,
+    run_partitioned_survival,
+)
+from .joint_survival_uncertainty import (
+    iter_joint_survival_curve_plans,
+    validate_joint_survival_uncertainty,
+)
+from .relative_effect import (
+    ANALYSIS_SCHEMA_VERSION as RELATIVE_EFFECT_ANALYSIS_SCHEMA_VERSION,
+    TRANSFORMATION_METHOD as RELATIVE_EFFECT_TRANSFORMATION_METHOD,
+    TRANSFORMATION_OPERATION as RELATIVE_EFFECT_TRANSFORMATION_OPERATION,
+    RelativeEffectError,
+    apply_relative_effect_mappings,
+)
+from .probability_time import (
+    ANALYSIS_SCHEMA_VERSION as PROBABILITY_TIME_ANALYSIS_SCHEMA_VERSION,
+    TRANSFORMATION_METHOD as PROBABILITY_TIME_TRANSFORMATION_METHOD,
+    TRANSFORMATION_OPERATION as PROBABILITY_TIME_TRANSFORMATION_OPERATION,
+    ProbabilityTimeError,
+    apply_probability_time_mappings,
+)
+from .survival_curves import (
+    ANALYSIS_SCHEMA_VERSION as SURVIVAL_ANALYSIS_SCHEMA_VERSION,
+    TRANSFORMATION_METHOD as SURVIVAL_TRANSFORMATION_METHOD,
+    TRANSFORMATION_OPERATION as SURVIVAL_TRANSFORMATION_OPERATION,
+    SurvivalCurveError,
+    apply_survival_curve_mappings,
+)
+from .transition_rates import (
+    TRANSFORMATION_METHOD,
+    TRANSFORMATION_OPERATION,
+    TransitionRateError,
+    derive_competing_rates,
+)
+
+
+UNCERTAINTY_SCHEMA_VERSION = "0.10.0"
+PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION = "0.11.0"
+JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION = "0.12.0"
+COMPONENT_UNCERTAINTY_SCHEMA_VERSION = "0.13.0"
+JOINT_COMPONENT_UNCERTAINTY_SCHEMA_VERSION = "0.14.0"
+PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS = {
+    PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+    JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+}
+RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION = "0.9.0"
+PREVIOUS_UNCERTAINTY_SCHEMA_VERSION = "0.8.0"
+PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION = "0.7.0"
+PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION = "0.6.0"
+SURVIVAL_UNCERTAINTY_SCHEMA_VERSION = "0.5.0"
+CORRELATION_UNCERTAINTY_SCHEMA_VERSION = "0.4.0"
+RATE_UNCERTAINTY_SCHEMA_VERSION = "0.3.0"
+PRIOR_UNCERTAINTY_SCHEMA_VERSION = "0.2.0"
+LEGACY_UNCERTAINTY_SCHEMA_VERSION = "0.1.0"
+UNCERTAINTY_ENGINE_VERSION = "0.11.0"
+PARTITIONED_SURVIVAL_UNCERTAINTY_ENGINE_VERSION = "0.12.0"
+JOINT_SURVIVAL_UNCERTAINTY_ENGINE_VERSION = "0.13.0"
+RELATIVE_EFFECT_UNCERTAINTY_ENGINE_VERSION = "0.10.0"
+PREVIOUS_UNCERTAINTY_ENGINE_VERSION = "0.9.0"
+PRIOR_MULTI_STRATEGY_UNCERTAINTY_ENGINE_VERSION = "0.8.0"
+PRNG_ALGORITHM = "pcg32-xsh-rr"
+PRNG_VERSION = "1"
+MAX_ITERATIONS = 10_000
+MAX_PARAMETERS = 256
+MAX_CORRELATION_GROUPS = 64
+MAX_CORRELATION_GROUP_SIZE = 32
+MAX_SCENARIOS = 64
+MAX_DECISION_THRESHOLDS = 101
+MAX_REJECTION_ATTEMPTS = 10_000
+
+
+class Pcg32:
+    """Small, fixed PCG-XSH-RR implementation with deterministic transforms."""
+
+    _MASK_64 = (1 << 64) - 1
+    _MASK_32 = (1 << 32) - 1
+
+    def __init__(self, seed: int, stream: int = 54) -> None:
+        self.state = 0
+        self.increment = ((stream << 1) | 1) & self._MASK_64
+        self._normal_cache: float | None = None
+        self.next_u32()
+        self.state = (self.state + seed) & self._MASK_64
+        self.next_u32()
+
+    def next_u32(self) -> int:
+        old_state = self.state
+        self.state = (
+            old_state * 6364136223846793005 + self.increment
+        ) & self._MASK_64
+        xor_shifted = (((old_state >> 18) ^ old_state) >> 27) & self._MASK_32
+        rotation = old_state >> 59
+        return (
+            (xor_shifted >> rotation) | (xor_shifted << ((-rotation) & 31))
+        ) & self._MASK_32
+
+    def uniform_open(self) -> float:
+        return (self.next_u32() + 0.5) / (1 << 32)
+
+    def normal(self) -> float:
+        if self._normal_cache is not None:
+            value = self._normal_cache
+            self._normal_cache = None
+            return value
+        radius = sqrt(-2.0 * log(self.uniform_open()))
+        angle = 2.0 * pi * self.uniform_open()
+        self._normal_cache = radius * cos(angle + pi / 2.0)
+        return radius * cos(angle)
+
+    def gamma(self, shape: float, scale: float = 1.0) -> float:
+        if shape <= 0 or scale <= 0:
+            raise ModelValidationError("gamma shape and scale must be positive")
+        if shape < 1.0:
+            return (
+                self.gamma(shape + 1.0, 1.0)
+                * self.uniform_open() ** (1.0 / shape)
+                * scale
+            )
+        d = shape - 1.0 / 3.0
+        c = 1.0 / sqrt(9.0 * d)
+        for _ in range(MAX_REJECTION_ATTEMPTS):
+            x = self.normal()
+            factor = 1.0 + c * x
+            if factor <= 0:
+                continue
+            v = factor**3
+            u = self.uniform_open()
+            if u < 1.0 - 0.0331 * x**4 or log(u) < 0.5 * x * x + d * (1 - v + log(v)):
+                return d * v * scale
+        raise ModelValidationError("gamma sampler exceeded its bounded rejection limit")
+
+    def beta(self, alpha: float, beta: float) -> float:
+        left = self.gamma(alpha)
+        right = self.gamma(beta)
+        return left / (left + right)
+
+    def dirichlet(self, alpha: list[float]) -> list[float]:
+        draws = [self.gamma(value) for value in alpha]
+        total = sum(draws)
+        return [value / total for value in draws]
+
+
+@dataclass(frozen=True)
+class Parameter:
+    identifier: str
+    label: str
+    target: str
+    provenance_path: str
+    dsa_low: Any
+    dsa_high: Any
+    dsa_rationale: str
+    distribution: dict[str, Any]
+    distribution_rationale: str
+    basis_ids: tuple[str, ...]
+    rate_mapping_index: int | None
+    survival_mapping_index: int | None
+    probability_mapping_index: int | None
+    background_mortality_mapping_index: int | None
+    relative_effect_mapping_index: int | None
+    hazard_ratio_mapping_index: int | None
+
+
+@dataclass(frozen=True)
+class CorrelationGroup:
+    identifier: str
+    parameter_ids: tuple[str, ...]
+    scale: str
+    method: str
+    correlation_matrix: tuple[tuple[float, ...], ...]
+    cholesky: tuple[tuple[float, ...], ...]
+    basis_ids: tuple[str, ...]
+    rationale: str
+
+
+@dataclass(frozen=True)
+class Scenario:
+    identifier: str
+    label: str
+    rationale: str
+    replacements: tuple[tuple[str, Any], ...]
+
+
+def _validate_schema_pairing(analysis_schema: Any, uncertainty_schema: str) -> None:
+    if (
+        analysis_schema == "0.12.0"
+        and uncertainty_schema
+        not in PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS
+    ):
+        raise ModelValidationError(
+            "analysis schema_version 0.12.0 requires uncertainty schema_version 0.11.0 or 0.12.0"
+        )
+    if (
+        analysis_schema == MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION
+        and uncertainty_schema != UNCERTAINTY_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
+            "analysis schema_version 0.11.0 requires uncertainty schema_version 0.10.0"
+        )
+    if (
+        analysis_schema == PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION
+        and uncertainty_schema != RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
+            "analysis schema_version 0.10.0 requires uncertainty schema_version 0.9.0"
+        )
+    if (
+        analysis_schema == PRIOR_MULTI_STRATEGY_SCHEMA_VERSION
+        and uncertainty_schema != PREVIOUS_UNCERTAINTY_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
+            "analysis schema_version 0.9.0 requires uncertainty schema_version 0.8.0"
+        )
+    if (
+        analysis_schema == EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION
+        and uncertainty_schema != PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
+            "analysis schema_version 0.8.0 requires uncertainty schema_version 0.7.0"
+        )
+    if (
+        uncertainty_schema in PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS
+        and analysis_schema != "0.12.0"
+    ):
+        raise ModelValidationError(
+            "uncertainty schema_version 0.11.0 or 0.12.0 requires analysis schema_version 0.12.0"
+        )
+    if (
+        uncertainty_schema == UNCERTAINTY_SCHEMA_VERSION
+        and analysis_schema != MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
+            "uncertainty schema_version 0.10.0 requires analysis schema_version 0.11.0"
+        )
+    if (
+        uncertainty_schema == RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION
+        and analysis_schema != PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
+            "uncertainty schema_version 0.9.0 requires analysis schema_version 0.10.0"
+        )
+    if (
+        uncertainty_schema == PREVIOUS_UNCERTAINTY_SCHEMA_VERSION
+        and analysis_schema != PRIOR_MULTI_STRATEGY_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
+            "uncertainty schema_version 0.8.0 requires analysis schema_version 0.9.0"
+        )
+    if (
+        uncertainty_schema == PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION
+        and analysis_schema != EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION
+    ):
+        raise ModelValidationError(
+            "uncertainty schema_version 0.7.0 requires analysis schema_version 0.8.0"
+        )
+
+
+@dataclass(frozen=True)
+class UncertaintySpecification:
+    schema_version: str
+    uncertainty_id: str
+    analysis_id: str
+    status: str
+    base_path: str
+    base_sha256: str
+    seed: int
+    iterations: int
+    primary_threshold: float
+    decision_thresholds: tuple[float, ...]
+    threshold_rationale: str
+    threshold_source: str
+    checkpoints: tuple[int, ...]
+    max_probability_mcse: float
+    max_probability_drift: float
+    independence_rationale: str
+    known_omitted_correlations: tuple[str, ...]
+    correlation_groups: tuple[CorrelationGroup, ...]
+    omitted_parameters: tuple[dict[str, str], ...]
+    parameters: tuple[Parameter, ...]
+    scenarios: tuple[Scenario, ...]
+
+    @classmethod
+    def from_dict(
+        cls,
+        value: dict[str, Any],
+        base_payload: dict[str, Any],
+        base_sha256: str,
+    ) -> "UncertaintySpecification":
+        value = _mapping(value, "uncertainty plan")
+        schema_version = str(value.get("schema_version", ""))
+        if schema_version not in {
+            LEGACY_UNCERTAINTY_SCHEMA_VERSION,
+            PRIOR_UNCERTAINTY_SCHEMA_VERSION,
+            RATE_UNCERTAINTY_SCHEMA_VERSION,
+            CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
+            SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+            PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
+            PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
+            PREVIOUS_UNCERTAINTY_SCHEMA_VERSION,
+            RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
+            UNCERTAINTY_SCHEMA_VERSION,
+            PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+            JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+        }:
+            raise ModelValidationError(
+                "uncertainty schema_version must be 0.1.0 through 0.12.0"
+            )
+        _validate_schema_pairing(base_payload.get("schema_version"), schema_version)
+        base = _mapping(value.get("base_analysis", {}), "base_analysis")
+        psa = _mapping(value.get("probabilistic_analysis", {}), "probabilistic_analysis")
+        convergence = _mapping(psa.get("convergence", {}), "probabilistic_analysis.convergence")
+        correlation = _mapping(psa.get("correlation_handling", {}), "probabilistic_analysis.correlation_handling")
+        primary_threshold = _positive_float(
+            base_payload.get("willingness_to_pay"), "willingness_to_pay"
+        )
+        if schema_version in {
+            PRIOR_UNCERTAINTY_SCHEMA_VERSION,
+            RATE_UNCERTAINTY_SCHEMA_VERSION,
+            CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
+            SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+            PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
+            PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
+            PREVIOUS_UNCERTAINTY_SCHEMA_VERSION,
+            RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
+            UNCERTAINTY_SCHEMA_VERSION,
+            PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+            JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+        }:
+            threshold_config = _mapping(
+                psa.get("decision_thresholds", {}),
+                "probabilistic_analysis.decision_thresholds",
+            )
+            decision_thresholds = tuple(
+                _finite_float(item, "probabilistic_analysis.decision_thresholds.values")
+                for item in _array(
+                    threshold_config.get("values"),
+                    "probabilistic_analysis.decision_thresholds.values",
+                )
+            )
+            threshold_rationale = _nonempty(
+                threshold_config.get("rationale"),
+                "probabilistic_analysis.decision_thresholds.rationale",
+            )
+            threshold_source = "declared_grid"
+        else:
+            if "decision_thresholds" in psa:
+                raise ModelValidationError(
+                    "decision thresholds require uncertainty schema_version 0.2.0 through 0.11.0"
+                )
+            decision_thresholds = (primary_threshold,)
+            threshold_rationale = (
+                "Legacy uncertainty schema: only the analysis-plan primary threshold is evaluated."
+            )
+            threshold_source = "legacy_primary_only"
+        parameters = tuple(
+            _parameter(item, index, base_payload, schema_version)
+            for index, item in enumerate(_array(value.get("parameters"), "parameters"))
+        )
+        correlation_groups = _correlation_groups(
+            correlation,
+            parameters,
+            schema_version,
+        )
+        scenarios = tuple(
+            _scenario(item, index, base_payload, schema_version)
+            for index, item in enumerate(
+                _array(value.get("structural_scenarios"), "structural_scenarios")
+            )
+        )
+        omitted = tuple(
+            {
+                "provenance_path": _nonempty(item.get("provenance_path"), "omitted parameter provenance_path"),
+                "rationale": _nonempty(item.get("rationale"), "omitted parameter rationale"),
+            }
+            for item in (
+                _mapping(entry, "omitted parameter")
+                for entry in _array(psa.get("omitted_parameters"), "probabilistic_analysis.omitted_parameters")
+            )
+        )
+        specification = cls(
+            schema_version=schema_version,
+            uncertainty_id=_nonempty(value.get("uncertainty_id"), "uncertainty_id"),
+            analysis_id=_nonempty(value.get("analysis_id"), "analysis_id"),
+            status=_nonempty(value.get("status"), "status"),
+            base_path=_nonempty(base.get("path"), "base_analysis.path"),
+            base_sha256=_nonempty(base.get("content_sha256"), "base_analysis.content_sha256"),
+            seed=_strict_int(value.get("seed"), "seed"),
+            iterations=_strict_int(psa.get("iterations"), "probabilistic_analysis.iterations"),
+            primary_threshold=primary_threshold,
+            decision_thresholds=decision_thresholds,
+            threshold_rationale=threshold_rationale,
+            threshold_source=threshold_source,
+            checkpoints=tuple(
+                _strict_int(item, "probabilistic_analysis.convergence.checkpoint")
+                for item in _array(convergence.get("checkpoints"), "probabilistic_analysis.convergence.checkpoints")
+            ),
+            max_probability_mcse=_positive_float(
+                convergence.get("max_probability_mcse"),
+                "probabilistic_analysis.convergence.max_probability_mcse",
+            ),
+            max_probability_drift=_positive_float(
+                convergence.get("max_probability_drift"),
+                "probabilistic_analysis.convergence.max_probability_drift",
+            ),
+            independence_rationale=_nonempty(
+                correlation.get("independence_rationale"),
+                "probabilistic_analysis.correlation_handling.independence_rationale",
+            ),
+            known_omitted_correlations=tuple(
+                _nonempty(item, "known omitted correlation")
+                for item in _array(
+                    correlation.get("known_omitted_correlations"),
+                    "probabilistic_analysis.correlation_handling.known_omitted_correlations",
+                )
+            ),
+            correlation_groups=correlation_groups,
+            omitted_parameters=omitted,
+            parameters=parameters,
+            scenarios=scenarios,
+        )
+        specification.validate(base_payload, base_sha256)
+        return specification
+
+    def validate(self, base_payload: dict[str, Any], base_sha256: str) -> None:
+        _validate_schema_pairing(
+            base_payload.get("schema_version"), self.schema_version
+        )
+        if self.status != "ready_for_human_review":
+            raise ModelValidationError("uncertainty plan must be ready_for_human_review")
+        if self.analysis_id != base_payload.get("analysis_id"):
+            raise ModelValidationError("uncertainty analysis_id does not match the base analysis")
+        if self.base_path != "heor/analysis-plan.json":
+            raise ModelValidationError("base_analysis.path must be heor/analysis-plan.json")
+        if self.base_sha256 != base_sha256:
+            raise ModelValidationError("base_analysis hash does not match the current analysis plan")
+        if self.seed < 0 or self.seed > (1 << 64) - 1:
+            raise ModelValidationError("seed must be an unsigned 64-bit integer")
+        if not 1_000 <= self.iterations <= MAX_ITERATIONS:
+            raise ModelValidationError(
+                f"probabilistic_analysis.iterations must be from 1000 to {MAX_ITERATIONS}"
+            )
+        if (
+            len(self.checkpoints) < 2
+            or tuple(sorted(set(self.checkpoints))) != self.checkpoints
+            or self.checkpoints[-1] != self.iterations
+            or self.checkpoints[0] < 100
+        ):
+            raise ModelValidationError(
+                "convergence checkpoints must be unique increasing values ending at iterations"
+            )
+        if self.max_probability_mcse > 0.1 or self.max_probability_drift > 0.1:
+            raise ModelValidationError("probability convergence thresholds must not exceed 0.1")
+        if self.known_omitted_correlations:
+            raise ModelValidationError(
+                "known omitted parameter correlations must be resolved before review"
+            )
+        if not self.parameters or len(self.parameters) > MAX_PARAMETERS:
+            raise ModelValidationError(
+                f"parameters must contain from 1 to {MAX_PARAMETERS} entries"
+            )
+        if len(self.scenarios) > MAX_SCENARIOS:
+            raise ModelValidationError(
+                f"structural_scenarios must contain no more than {MAX_SCENARIOS} entries"
+            )
+        if not self.scenarios:
+            raise ModelValidationError("at least one structural scenario is required")
+        if len({item.identifier for item in self.parameters}) != len(self.parameters):
+            raise ModelValidationError("uncertainty parameter ids must be unique")
+        if len({item.target for item in self.parameters}) != len(self.parameters):
+            raise ModelValidationError("uncertainty parameter targets must be unique")
+        if len({item.identifier for item in self.scenarios}) != len(self.scenarios):
+            raise ModelValidationError("structural scenario ids must be unique")
+        if base_payload.get("willingness_to_pay") is None:
+            raise ModelValidationError(
+                "willingness_to_pay is required to estimate cost-effectiveness probability"
+            )
+        primary_threshold = _positive_float(
+            base_payload.get("willingness_to_pay"), "willingness_to_pay"
+        )
+        expected_count = (
+            (2, MAX_DECISION_THRESHOLDS)
+            if self.schema_version
+            in {
+                PRIOR_UNCERTAINTY_SCHEMA_VERSION,
+                RATE_UNCERTAINTY_SCHEMA_VERSION,
+                CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
+                SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+                PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
+                PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
+                PREVIOUS_UNCERTAINTY_SCHEMA_VERSION,
+                RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
+                UNCERTAINTY_SCHEMA_VERSION,
+                PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+                JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+            }
+            else (1, 1)
+        )
+        if not expected_count[0] <= len(self.decision_thresholds) <= expected_count[1]:
+            raise ModelValidationError(
+                "decision thresholds must contain from "
+                f"{expected_count[0]} to {expected_count[1]} values"
+            )
+        if any(value < 0.0 for value in self.decision_thresholds):
+            raise ModelValidationError("decision thresholds must be non-negative")
+        if tuple(sorted(set(self.decision_thresholds))) != self.decision_thresholds:
+            raise ModelValidationError("decision thresholds must be unique and strictly increasing")
+        if not any(
+            isclose(value, primary_threshold, rel_tol=0.0, abs_tol=1e-9)
+            for value in self.decision_thresholds
+        ):
+            raise ModelValidationError(
+                "decision thresholds must include the primary willingness_to_pay"
+            )
+
+
+def run_uncertainty(
+    base_payload: dict[str, Any],
+    base_raw: bytes,
+    uncertainty_payload: dict[str, Any],
+    uncertainty_raw: bytes,
+    partitioned_plan: dict[str, Any] | None = None,
+    partitioned_raw: bytes | None = None,
+    materializations: dict[str, Any] | None = None,
+    materializations_raw: bytes | None = None,
+    joint_survival_manifest: dict[str, Any] | None = None,
+    joint_survival_manifest_raw: bytes | None = None,
+    joint_survival_draws_raw: bytes | None = None,
+    treatment_effect_duration: dict[str, Any] | None = None,
+    treatment_effect_duration_raw: bytes | None = None,
+    cost_input_normalization: dict[str, Any] | None = None,
+    cost_input_normalization_raw: bytes | None = None,
+    utility_inputs: dict[str, Any] | None = None,
+    utility_inputs_raw: bytes | None = None,
+    event_disutilities: dict[str, Any] | None = None,
+    event_disutilities_raw: bytes | None = None,
+) -> dict[str, Any]:
+    if uncertainty_payload.get("schema_version") in {
+        COMPONENT_UNCERTAINTY_SCHEMA_VERSION,
+        JOINT_COMPONENT_UNCERTAINTY_SCHEMA_VERSION,
+    }:
+        joint_components = (
+            uncertainty_payload.get("schema_version")
+            == JOINT_COMPONENT_UNCERTAINTY_SCHEMA_VERSION
+        )
+        required = (
+            partitioned_plan,
+            partitioned_raw,
+            materializations,
+            materializations_raw,
+            treatment_effect_duration,
+            treatment_effect_duration_raw,
+            cost_input_normalization,
+            cost_input_normalization_raw,
+            utility_inputs,
+            utility_inputs_raw,
+            event_disutilities,
+            event_disutilities_raw,
+        )
+        if any(item is None for item in required):
+            raise ModelValidationError(
+                "component uncertainty requires all current partitioned-survival, cost, utility, and event artifacts"
+            )
+        if joint_components:
+            if (
+                joint_survival_manifest is None
+                or joint_survival_manifest_raw is None
+                or joint_survival_draws_raw is None
+            ):
+                raise ModelValidationError(
+                    "joint component uncertainty requires the manifest and JSONL draw artifact"
+                )
+            _validate_joint_survival_uncertainty_bindings(
+                uncertainty_payload,
+                joint_survival_manifest_raw,
+                joint_survival_draws_raw,
+            )
+        elif any(
+            item is not None
+            for item in (
+                joint_survival_manifest,
+                joint_survival_manifest_raw,
+                joint_survival_draws_raw,
+            )
+        ):
+            raise ModelValidationError(
+                "joint survival artifacts require uncertainty schema_version 0.12.0 or 0.14.0"
+            )
+        from .component_uncertainty import run_component_uncertainty
+
+        return run_component_uncertainty(
+            base_payload,
+            base_raw,
+            uncertainty_payload,
+            uncertainty_raw,
+            partitioned_plan,
+            partitioned_raw,
+            materializations,
+            materializations_raw,
+            treatment_effect_duration,
+            treatment_effect_duration_raw,
+            cost_input_normalization,
+            cost_input_normalization_raw,
+            utility_inputs,
+            utility_inputs_raw,
+            event_disutilities,
+            event_disutilities_raw,
+            joint_survival_manifest,
+            joint_survival_manifest_raw,
+            joint_survival_draws_raw,
+        )
+    base_sha256 = hashlib.sha256(base_raw).hexdigest()
+    uncertainty_sha256 = hashlib.sha256(uncertainty_raw).hexdigest()
+    specification = UncertaintySpecification.from_dict(
+        uncertainty_payload, base_payload, base_sha256
+    )
+    partitioned = specification.schema_version in (
+        PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS
+    )
+    joint_survival = (
+        specification.schema_version == JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION
+    )
+    joint_curve_plans = None
+    if partitioned:
+        if (
+            partitioned_plan is None
+            or partitioned_raw is None
+            or materializations is None
+            or materializations_raw is None
+        ):
+            raise ModelValidationError(
+                "partitioned-survival uncertainty requires the PSM plan and curve materializations"
+            )
+        _validate_partitioned_survival_uncertainty_bindings(
+            base_payload,
+            uncertainty_payload,
+            specification,
+            partitioned_plan,
+            partitioned_raw,
+            materializations_raw,
+            treatment_effect_duration_raw,
+        )
+        duration_required = partitioned_plan.get("schema_version") == "0.4.0"
+        if duration_required and (
+            treatment_effect_duration is None
+            or treatment_effect_duration_raw is None
+        ):
+            raise ModelValidationError(
+                "partitioned-survival schema 0.4.0 uncertainty requires treatment-effect duration artifacts"
+            )
+        if not duration_required and (
+            treatment_effect_duration is not None
+            or treatment_effect_duration_raw is not None
+        ):
+            raise ModelValidationError(
+                "treatment-effect duration artifacts require partitioned-survival schema 0.4.0"
+            )
+        if joint_survival:
+            if (
+                joint_survival_manifest is None
+                or joint_survival_manifest_raw is None
+                or joint_survival_draws_raw is None
+            ):
+                raise ModelValidationError(
+                    "joint survival uncertainty requires the manifest and JSONL draw artifact"
+                )
+            _validate_joint_survival_uncertainty_bindings(
+                uncertainty_payload,
+                joint_survival_manifest_raw,
+                joint_survival_draws_raw,
+            )
+            validate_joint_survival_uncertainty(
+                base_payload,
+                base_raw,
+                partitioned_plan,
+                partitioned_raw,
+                materializations,
+                materializations_raw,
+                joint_survival_manifest,
+                joint_survival_manifest_raw,
+                joint_survival_draws_raw,
+                specification.iterations,
+                treatment_effect_duration_raw,
+            )
+            joint_curve_plans = iter_joint_survival_curve_plans(
+                joint_survival_draws_raw,
+                base_payload["strategy_order"],
+                joint_survival_manifest["time_grid_years"],
+            )
+        elif any(
+            item is not None
+            for item in (
+                joint_survival_manifest,
+                joint_survival_manifest_raw,
+                joint_survival_draws_raw,
+            )
+        ):
+            raise ModelValidationError(
+                "joint survival artifacts require uncertainty schema_version 0.12.0"
+            )
+        base_result_value = run_partitioned_survival(
+            base_payload,
+            base_raw,
+            partitioned_plan,
+            partitioned_raw,
+            materializations,
+            materializations_raw,
+            treatment_effect_duration,
+            treatment_effect_duration_raw,
+        )
+
+        def evaluate(
+            payload: dict[str, Any], curve_plan: dict[str, Any] | None = None
+        ) -> dict[str, Any]:
+            return calculate_partitioned_survival(
+                EconomicSpecification.from_analysis_plan(payload),
+                partitioned_plan if curve_plan is None else curve_plan,
+            )
+
+        base_result_dict = base_result_value
+        economic_basis = base_result_value["economic_basis"]
+    else:
+        if any(
+            item is not None
+            for item in (
+                partitioned_plan,
+                partitioned_raw,
+                materializations,
+                materializations_raw,
+                joint_survival_manifest,
+                joint_survival_manifest_raw,
+                joint_survival_draws_raw,
+                treatment_effect_duration,
+                treatment_effect_duration_raw,
+            )
+        ):
+            raise ModelValidationError(
+                "partitioned-survival artifacts require uncertainty schema_version 0.11.0 or 0.12.0"
+            )
+        base_result = run_markov(MarkovSpecification.from_dict(base_payload))
+        base_result_dict = base_result.to_dict()
+        economic_basis = base_result.economic_basis
+        evaluate = None
+    multi_strategy = specification.schema_version in {
+        PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
+        PREVIOUS_UNCERTAINTY_SCHEMA_VERSION,
+        RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
+        UNCERTAINTY_SCHEMA_VERSION,
+        PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+        JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+    }
+    if multi_strategy:
+        deterministic = [
+            _run_multi_strategy_dsa(base_payload, item, evaluate)
+            for item in specification.parameters
+        ]
+        scenarios = [
+            _run_multi_strategy_scenario(base_payload, item, evaluate)
+            for item in specification.scenarios
+        ]
+        probabilistic = _run_multi_strategy_psa(
+            base_payload, specification, evaluate, joint_curve_plans
+        )
+        base_case = _multi_strategy_decision_summary(base_result_dict)
+    else:
+        deterministic = [_run_dsa(base_payload, item) for item in specification.parameters]
+        scenarios = [_run_scenario(base_payload, item) for item in specification.scenarios]
+        probabilistic = _run_psa(base_payload, specification)
+        base_case = base_result.incremental.to_dict()
+    return {
+        "analysis_id": specification.analysis_id,
+        "uncertainty_id": specification.uncertainty_id,
+        "engine_version": (
+            JOINT_SURVIVAL_UNCERTAINTY_ENGINE_VERSION
+            if joint_survival
+            else PARTITIONED_SURVIVAL_UNCERTAINTY_ENGINE_VERSION
+            if partitioned
+            else UNCERTAINTY_ENGINE_VERSION
+            if specification.schema_version == UNCERTAINTY_SCHEMA_VERSION
+            else RELATIVE_EFFECT_UNCERTAINTY_ENGINE_VERSION
+            if specification.schema_version == RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION
+            else PREVIOUS_UNCERTAINTY_ENGINE_VERSION
+            if specification.schema_version == PREVIOUS_UNCERTAINTY_SCHEMA_VERSION
+            else PRIOR_MULTI_STRATEGY_UNCERTAINTY_ENGINE_VERSION
+            if specification.schema_version
+            == PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION
+            else "0.7.0"
+        ),
+        "schema_version": specification.schema_version,
+        "base_analysis_sha256": base_sha256,
+        "uncertainty_plan_sha256": uncertainty_sha256,
+        "prng": {"algorithm": PRNG_ALGORITHM, "version": PRNG_VERSION},
+        # JSON consumers such as the desktop webview cannot represent every
+        # uint64 exactly as a JavaScript number. Preserve the audit value as text.
+        "seed": str(specification.seed),
+        "calculation_classification": (
+            "joint_curve_draw_parameter_uncertainty"
+            if joint_survival
+            else "partial_parameter_uncertainty"
+            if partitioned
+            else "calculation_only"
+        ),
+        "uncertainty_scope": (
+            "joint_survival_curves_and_economic_inputs"
+            if joint_survival
+            else "economic_inputs_only"
+            if partitioned
+            else "declared_model_parameters"
+        ),
+        **(
+            {
+                "partitioned_survival_plan_sha256": hashlib.sha256(
+                    partitioned_raw
+                ).hexdigest(),
+                "survival_curve_materializations_sha256": hashlib.sha256(
+                    materializations_raw
+                ).hexdigest(),
+                **(
+                    {
+                        "treatment_effect_duration_sha256": hashlib.sha256(
+                            treatment_effect_duration_raw
+                        ).hexdigest(),
+                    }
+                    if treatment_effect_duration_raw is not None
+                    else {}
+                ),
+            }
+            if partitioned
+            else {}
+        ),
+        **(
+            {
+                "joint_survival_uncertainty_sha256": hashlib.sha256(
+                    joint_survival_manifest_raw
+                ).hexdigest(),
+                "joint_survival_draws_sha256": hashlib.sha256(
+                    joint_survival_draws_raw
+                ).hexdigest(),
+            }
+            if joint_survival
+            else {}
+        ),
+        "economic_basis": economic_basis,
+        "base_case": base_case,
+        "deterministic_analysis": deterministic,
+        "probabilistic_analysis": probabilistic,
+        "structural_scenarios": scenarios,
+        **(
+            {
+                "treatment_effect_duration_scenarios": base_result_dict[
+                    "treatment_effect_duration_scenarios"
+                ]
+            }
+            if partitioned
+            and "treatment_effect_duration_scenarios" in base_result_dict
+            else {}
+        ),
+        "limitations": [
+            (
+                "Only uncertainty represented by the hash-bound joint survival draws and declared economic-input distributions is sampled."
+                if joint_survival
+                else "Only parameter uncertainty represented by the declared distributions is sampled."
+            ),
+            *(
+                [
+                    "Schema 0.11.0 samples only declared state-cost and state-utility inputs while holding every PFS and OS curve fixed.",
+                    "This is partial parameter uncertainty, not a complete partitioned-survival PSA; survival parameter, curve-selection, extrapolation, and joint PFS/OS uncertainty remain outside the calculation and block release-ready interpretation.",
+                    "Per-person EVPI is conditional on the fixed survival curves and covers only the represented economic inputs.",
+                ]
+                if partitioned and not joint_survival
+                else [
+                    "Schema 0.12.0 propagates one hash-bound joint draw across every strategy PFS/OS curve together with declared economic-input distributions in each PSA iteration.",
+                    "The engine verifies draw completeness and curve coherence but does not establish that the source posterior or paired bootstrap is statistically or clinically appropriate; that remains a Human and independent-validation responsibility.",
+                    (
+                        "Curve-family selection and extrapolation assumptions remain structural uncertainty outside the joint draw artifact; treatment-effect duration is reported separately through explicit sustained, immediate-stop, and log-linear-waning scenarios."
+                        if treatment_effect_duration_raw is not None
+                        else "Curve-family selection, extrapolation assumptions, and treatment-effect duration remain structural uncertainty outside the joint draw artifact and block release-ready interpretation."
+                    ),
+                    "Per-person EVPI is conditional on the selected structural survival assumptions and covers only represented joint curve draws and economic inputs.",
+                ]
+                if joint_survival
+                else [
+                    "Declared event-rate parameters are sampled in rate space and deterministically transformed into complete transition inputs for each run.",
+                    "Declared exponential or Weibull parameters are sampled on their positive parameter scale and the complete survival-derived transition schedule is recomputed for each run.",
+                    "Schema 0.8.0 varies only a strictly positive excess mortality rate while holding declared life-table probabilities fixed and recomputing the complete background-plus-excess mortality schedule for each run.",
+                    "Schema 0.9.0 varies only a strictly positive risk ratio or odds ratio while holding baseline cycle probabilities and review bases fixed and recomputing the complete relative-effect schedule for each run.",
+                ]
+            ),
+            (
+                "Survival-curve dependence is carried by each joint draw row; cross-parameter dependence among economic inputs is limited to evidence-bound lognormal correlation groups, and the remaining independence rationale is a human-review item."
+                if joint_survival
+                else "Cross-parameter dependence is limited to evidence-bound lognormal correlation groups; the remaining economic-input independence rationale is a human-review item."
+                if partitioned
+                else "Cross-parameter dependence is limited to declared Dirichlet simplex rows and evidence-bound lognormal correlation groups; the remaining independence rationale is a human-review item."
+            ),
+            "A convergence diagnostic describes Monte Carlo error for this run and is not independent model validation.",
+            "Per-person EVPI covers only the uncertainty represented in this PSA; "
+            "it is not population EVPI, EVPPI, a research-funding recommendation, "
+            "or a reimbursement recommendation.",
+        ],
+    }
+
+
+def _validate_partitioned_survival_uncertainty_bindings(
+    base_payload: dict[str, Any],
+    uncertainty_payload: dict[str, Any],
+    specification: UncertaintySpecification,
+    partitioned_plan: dict[str, Any],
+    partitioned_raw: bytes,
+    materializations_raw: bytes,
+    treatment_effect_duration_raw: bytes | None,
+) -> None:
+    inputs = _mapping(
+        uncertainty_payload.get("partitioned_survival_inputs"),
+        "partitioned_survival_inputs",
+    )
+    duration_required = partitioned_plan.get("schema_version") == "0.4.0"
+    expected_fields = {"plan", "curve_materializations"}
+    if duration_required:
+        expected_fields.add("treatment_effect_duration")
+    if set(inputs) != expected_fields:
+        raise ModelValidationError(
+            "partitioned_survival_inputs fields do not match the current PSM schema"
+        )
+    bindings: list[tuple[str, str, bytes]] = [
+        ("plan", "heor/partitioned-survival-plan.json", partitioned_raw),
+        (
+            "curve_materializations",
+            "heor/survival-curve-materializations.json",
+            materializations_raw,
+        ),
+    ]
+    if duration_required:
+        if treatment_effect_duration_raw is None:
+            raise ModelValidationError(
+                "partitioned_survival_inputs requires treatment_effect_duration for PSM schema 0.4.0"
+            )
+        bindings.append(
+            (
+                "treatment_effect_duration",
+                "heor/treatment-effect-duration.json",
+                treatment_effect_duration_raw,
+            )
+        )
+    for field, expected_path, raw in bindings:
+        binding = _mapping(inputs.get(field), f"partitioned_survival_inputs.{field}")
+        if set(binding) != {"path", "content_sha256"}:
+            raise ModelValidationError(
+                f"partitioned_survival_inputs.{field} must contain only path and content_sha256"
+            )
+        if binding.get("path") != expected_path:
+            raise ModelValidationError(
+                f"partitioned_survival_inputs.{field}.path must be {expected_path}"
+            )
+        if binding.get("content_sha256") != hashlib.sha256(raw).hexdigest():
+            raise ModelValidationError(
+                f"partitioned_survival_inputs.{field}.content_sha256 does not match the current bytes"
+            )
+    fixed_curve_paths = {
+        f"partitioned_survival.strategies.{strategy_id}.{endpoint}"
+        for strategy_id in _analysis_strategy_ids(base_payload)
+        for endpoint in ("pfs", "os")
+    }
+    declared_omissions = {
+        item["provenance_path"] for item in specification.omitted_parameters
+    }
+    if specification.schema_version == PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION:
+        missing = sorted(fixed_curve_paths - declared_omissions)
+        if missing:
+            raise ModelValidationError(
+                "partitioned-survival economic-only uncertainty must explicitly omit every fixed curve: "
+                + ", ".join(missing)
+            )
+    else:
+        incorrectly_omitted = sorted(fixed_curve_paths & declared_omissions)
+        if incorrectly_omitted:
+            raise ModelValidationError(
+                "joint survival uncertainty must not list represented PFS/OS curves as omitted: "
+                + ", ".join(incorrectly_omitted)
+            )
+        required_structural_omissions = {
+            "partitioned_survival.structural.curve_family_selection",
+            "partitioned_survival.structural.extrapolation_assumptions",
+        }
+        if not duration_required:
+            required_structural_omissions.add(
+                "partitioned_survival.structural.treatment_effect_duration"
+            )
+        missing = sorted(required_structural_omissions - declared_omissions)
+        if missing:
+            raise ModelValidationError(
+                "joint survival uncertainty must explicitly omit unresolved structural uncertainty: "
+                + ", ".join(missing)
+            )
+
+
+def _validate_joint_survival_uncertainty_bindings(
+    uncertainty_payload: dict[str, Any],
+    manifest_raw: bytes,
+    draws_raw: bytes,
+) -> None:
+    inputs = _mapping(
+        uncertainty_payload.get("joint_survival_inputs"),
+        "joint_survival_inputs",
+    )
+    if set(inputs) != {"manifest", "draws"}:
+        raise ModelValidationError(
+            "joint_survival_inputs must contain only manifest and draws"
+        )
+    for field, expected_path, raw in (
+        ("manifest", "heor/joint-survival-uncertainty.json", manifest_raw),
+        ("draws", "heor/joint-survival-draws.jsonl", draws_raw),
+    ):
+        binding = _mapping(inputs.get(field), f"joint_survival_inputs.{field}")
+        if set(binding) != {"path", "content_sha256"}:
+            raise ModelValidationError(
+                f"joint_survival_inputs.{field} must contain only path and content_sha256"
+            )
+        if binding.get("path") != expected_path:
+            raise ModelValidationError(
+                f"joint_survival_inputs.{field}.path must be {expected_path}"
+            )
+        if binding.get("content_sha256") != hashlib.sha256(raw).hexdigest():
+            raise ModelValidationError(
+                f"joint_survival_inputs.{field}.content_sha256 does not match the current bytes"
+            )
+
+
+def _multi_strategy_decision_summary(result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "strategy_order": result["strategy_order"],
+        "baseline_strategy_id": result["baseline_strategy_id"],
+        "strategies": {
+            strategy_id: {
+                "name": strategy["name"],
+                "total_cost": strategy["total_cost"],
+                "total_qaly": strategy["total_qaly"],
+                "net_monetary_benefit": strategy["net_monetary_benefit"],
+            }
+            for strategy_id, strategy in result["strategies"].items()
+        },
+        "pairwise_vs_baseline": result["pairwise_vs_baseline"],
+        "fully_incremental_analysis": result["fully_incremental_analysis"],
+        "optimal_at_primary_threshold": result["optimal_at_primary_threshold"],
+    }
+
+
+def _run_multi_strategy_dsa(
+    base_payload: dict[str, Any],
+    parameter: Parameter,
+    evaluator: Any = None,
+) -> dict[str, Any]:
+    outcomes: dict[str, dict[str, Any]] = {}
+    for label, value in (("low", parameter.dsa_low), ("high", parameter.dsa_high)):
+        payload = _apply_parameter_values(base_payload, ((parameter, value),))
+        result = (
+            evaluator(payload)
+            if evaluator is not None
+            else run_markov(MarkovSpecification.from_dict(payload)).to_dict()
+        )
+        outcomes[label] = _multi_strategy_decision_summary(result)
+    strategy_order = outcomes["low"]["strategy_order"]
+    spans = {
+        strategy_id: abs(
+            outcomes["high"]["strategies"][strategy_id]["net_monetary_benefit"]
+            - outcomes["low"]["strategies"][strategy_id]["net_monetary_benefit"]
+        )
+        for strategy_id in strategy_order
+    }
+    return {
+        "parameter_id": parameter.identifier,
+        "label": parameter.label,
+        "target": parameter.target,
+        "low_value": parameter.dsa_low,
+        "high_value": parameter.dsa_high,
+        "low_result": outcomes["low"],
+        "high_result": outcomes["high"],
+        "net_monetary_benefit_span_by_strategy": spans,
+    }
+
+
+def _run_multi_strategy_scenario(
+    base_payload: dict[str, Any],
+    scenario: Scenario,
+    evaluator: Any = None,
+) -> dict[str, Any]:
+    payload = copy.deepcopy(base_payload)
+    for target, value in scenario.replacements:
+        _replace(payload, target, value)
+    result = (
+        evaluator(payload)
+        if evaluator is not None
+        else run_markov(MarkovSpecification.from_dict(payload)).to_dict()
+    )
+    return {
+        "scenario_id": scenario.identifier,
+        "label": scenario.label,
+        "rationale": scenario.rationale,
+        "replacements": [
+            {"target": target, "value": value}
+            for target, value in scenario.replacements
+        ],
+        "result": _multi_strategy_decision_summary(result),
+    }
+
+
+def _run_dsa(base_payload: dict[str, Any], parameter: Parameter) -> dict[str, Any]:
+    outcomes: dict[str, Any] = {}
+    for label, value in (("low", parameter.dsa_low), ("high", parameter.dsa_high)):
+        payload = _apply_parameter_values(base_payload, ((parameter, value),))
+        result = run_markov(MarkovSpecification.from_dict(payload)).incremental
+        outcomes[label] = result.to_dict()
+    low_inmb = outcomes["low"]["incremental_net_monetary_benefit"]
+    high_inmb = outcomes["high"]["incremental_net_monetary_benefit"]
+    return {
+        "parameter_id": parameter.identifier,
+        "label": parameter.label,
+        "target": parameter.target,
+        "low_value": parameter.dsa_low,
+        "high_value": parameter.dsa_high,
+        "low_result": outcomes["low"],
+        "high_result": outcomes["high"],
+        "incremental_nmb_span": abs(high_inmb - low_inmb),
+    }
+
+
+def _run_scenario(base_payload: dict[str, Any], scenario: Scenario) -> dict[str, Any]:
+    payload = copy.deepcopy(base_payload)
+    for target, value in scenario.replacements:
+        _replace(payload, target, value)
+    result = run_markov(MarkovSpecification.from_dict(payload)).incremental
+    return {
+        "scenario_id": scenario.identifier,
+        "label": scenario.label,
+        "rationale": scenario.rationale,
+        "replacements": [
+            {"target": target, "value": value} for target, value in scenario.replacements
+        ],
+        "result": result.to_dict(),
+    }
+
+
+def _run_psa(
+    base_payload: dict[str, Any], specification: UncertaintySpecification
+) -> dict[str, Any]:
+    rng = Pcg32(specification.seed)
+    samples: list[dict[str, Any]] = []
+    inmb_values: list[float] = []
+    cost_effective = 0
+    checkpoints: list[dict[str, Any]] = []
+    checkpoint_set = set(specification.checkpoints)
+    for iteration in range(1, specification.iterations + 1):
+        payload = _apply_parameter_values(
+            base_payload,
+            _sample_parameter_values(rng, specification),
+        )
+        result = run_markov(MarkovSpecification.from_dict(payload)).incremental
+        inmb = result.incremental_net_monetary_benefit
+        if inmb is None:
+            raise ModelValidationError("PSA requires incremental net monetary benefit")
+        inmb_values.append(inmb)
+        if inmb >= 0:
+            cost_effective += 1
+        samples.append(
+            {
+                "iteration": iteration,
+                "delta_cost": result.delta_cost,
+                "delta_qaly": result.delta_qaly,
+                "incremental_net_monetary_benefit": inmb,
+            }
+        )
+        if iteration in checkpoint_set:
+            probability = cost_effective / iteration
+            checkpoints.append(
+                {
+                    "iterations": iteration,
+                    "cost_effective_probability": probability,
+                    "probability_mcse": sqrt(probability * (1.0 - probability) / iteration),
+                }
+            )
+    mean_inmb = sum(inmb_values) / len(inmb_values)
+    variance = sum((value - mean_inmb) ** 2 for value in inmb_values) / (
+        len(inmb_values) - 1
+    )
+    final = checkpoints[-1]
+    probability_drift = abs(
+        checkpoints[-1]["cost_effective_probability"]
+        - checkpoints[-2]["cost_effective_probability"]
+    )
+    convergence_passed = (
+        final["probability_mcse"] <= specification.max_probability_mcse
+        and probability_drift <= specification.max_probability_drift
+    )
+    decision_uncertainty = _decision_uncertainty(samples, specification)
+    return {
+        "iterations": specification.iterations,
+        "cost_effective_probability": final["cost_effective_probability"],
+        "mean_incremental_net_monetary_benefit": mean_inmb,
+        "incremental_net_monetary_benefit_mcse": sqrt(variance / len(inmb_values)),
+        "convergence": {
+            "passed": convergence_passed,
+            "probability_drift": probability_drift,
+            "max_probability_mcse": specification.max_probability_mcse,
+            "max_probability_drift": specification.max_probability_drift,
+            "checkpoints": checkpoints,
+        },
+        "independence_rationale": specification.independence_rationale,
+        "correlation_groups": [
+            {
+                "id": group.identifier,
+                "parameter_ids": list(group.parameter_ids),
+                "scale": group.scale,
+                "method": group.method,
+                "correlation_matrix": [list(row) for row in group.correlation_matrix],
+                "basis_ids": list(group.basis_ids),
+                "rationale": group.rationale,
+            }
+            for group in specification.correlation_groups
+        ],
+        "omitted_parameters": list(specification.omitted_parameters),
+        "decision_uncertainty": decision_uncertainty,
+        "samples": samples,
+    }
+
+
+def _multi_strategy_optimal(
+    costs: list[float],
+    qalys: list[float],
+    threshold: float,
+) -> tuple[list[float], tuple[int, ...]]:
+    net_benefits = [
+        threshold * qaly - cost for cost, qaly in zip(costs, qalys)
+    ]
+    if any(not isfinite(value) for value in net_benefits):
+        raise ModelValidationError(
+            f"decision threshold {threshold} produced a non-finite net monetary benefit"
+        )
+    best = max(net_benefits)
+    tolerance = max(
+        1e-9,
+        max((abs(value) for value in net_benefits), default=0.0) * 1e-12,
+    )
+    optimal = tuple(
+        index
+        for index, value in enumerate(net_benefits)
+        if abs(value - best) <= tolerance
+    )
+    return net_benefits, optimal
+
+
+def _run_multi_strategy_psa(
+    base_payload: dict[str, Any],
+    specification: UncertaintySpecification,
+    evaluator: Any = None,
+    joint_curve_plans: Any = None,
+) -> dict[str, Any]:
+    strategy_order = tuple(base_payload["strategy_order"])
+    rng = Pcg32(specification.seed)
+    samples: list[dict[str, Any]] = []
+    primary_nmb_values = {strategy_id: [] for strategy_id in strategy_order}
+    unique_counts = {strategy_id: 0 for strategy_id in strategy_order}
+    tie_count = 0
+    checkpoints: list[dict[str, Any]] = []
+    checkpoint_set = set(specification.checkpoints)
+    for iteration in range(1, specification.iterations + 1):
+        payload = _apply_parameter_values(
+            base_payload,
+            _sample_parameter_values(rng, specification),
+        )
+        if evaluator is None:
+            result = run_markov(MarkovSpecification.from_dict(payload))
+            result_map = result.strategy_result_map
+            costs = [result_map[strategy_id].total_cost for strategy_id in strategy_order]
+            qalys = [result_map[strategy_id].total_qaly for strategy_id in strategy_order]
+        else:
+            result = evaluator(
+                payload,
+                next(joint_curve_plans) if joint_curve_plans is not None else None,
+            )
+            costs = [
+                result["strategies"][strategy_id]["total_cost"]
+                for strategy_id in strategy_order
+            ]
+            qalys = [
+                result["strategies"][strategy_id]["total_qaly"]
+                for strategy_id in strategy_order
+            ]
+        net_benefits, optimal = _multi_strategy_optimal(
+            costs, qalys, specification.primary_threshold
+        )
+        for index, strategy_id in enumerate(strategy_order):
+            primary_nmb_values[strategy_id].append(net_benefits[index])
+        if len(optimal) == 1:
+            unique_counts[strategy_order[optimal[0]]] += 1
+        else:
+            tie_count += 1
+        samples.append(
+            {
+                "iteration": iteration,
+                "strategy_costs": costs,
+                "strategy_qalys": qalys,
+            }
+        )
+        if iteration in checkpoint_set:
+            probabilities = {
+                strategy_id: unique_counts[strategy_id] / iteration
+                for strategy_id in strategy_order
+            }
+            tie_probability = tie_count / iteration
+            checkpoint_mcse = max(
+                sqrt(probability * (1.0 - probability) / iteration)
+                for probability in [*probabilities.values(), tie_probability]
+            )
+            checkpoints.append(
+                {
+                    "iterations": iteration,
+                    "strategy_optimal_probabilities": probabilities,
+                    "tie_probability": tie_probability,
+                    "max_probability_mcse": checkpoint_mcse,
+                }
+            )
+    final = checkpoints[-1]
+    previous = checkpoints[-2]
+    probability_drift = max(
+        [
+            abs(
+                final["strategy_optimal_probabilities"][strategy_id]
+                - previous["strategy_optimal_probabilities"][strategy_id]
+            )
+            for strategy_id in strategy_order
+        ]
+        + [abs(final["tie_probability"] - previous["tie_probability"])]
+    )
+    convergence_passed = (
+        final["max_probability_mcse"] <= specification.max_probability_mcse
+        and probability_drift <= specification.max_probability_drift
+    )
+    means: dict[str, float] = {}
+    mean_mcse: dict[str, float] = {}
+    for strategy_id, values in primary_nmb_values.items():
+        mean = fsum(values) / len(values)
+        variance = fsum((value - mean) ** 2 for value in values) / (
+            len(values) - 1
+        )
+        means[strategy_id] = mean
+        mean_mcse[strategy_id] = sqrt(variance / len(values))
+    decision_uncertainty = _multi_strategy_decision_uncertainty(
+        samples,
+        strategy_order,
+        specification,
+    )
+    return {
+        "iterations": specification.iterations,
+        "strategy_order": list(strategy_order),
+        "primary_threshold_strategy_optimal_probabilities": final[
+            "strategy_optimal_probabilities"
+        ],
+        "primary_threshold_tie_probability": final["tie_probability"],
+        "mean_net_monetary_benefit_by_strategy": means,
+        "net_monetary_benefit_mcse_by_strategy": mean_mcse,
+        "convergence": {
+            "passed": convergence_passed,
+            "probability_drift": probability_drift,
+            "max_probability_mcse": specification.max_probability_mcse,
+            "max_probability_drift": specification.max_probability_drift,
+            "checkpoints": checkpoints,
+        },
+        "independence_rationale": specification.independence_rationale,
+        "correlation_groups": [
+            {
+                "id": group.identifier,
+                "parameter_ids": list(group.parameter_ids),
+                "scale": group.scale,
+                "method": group.method,
+                "correlation_matrix": [list(row) for row in group.correlation_matrix],
+                "basis_ids": list(group.basis_ids),
+                "rationale": group.rationale,
+            }
+            for group in specification.correlation_groups
+        ],
+        "omitted_parameters": list(specification.omitted_parameters),
+        "decision_uncertainty": decision_uncertainty,
+        "sample_encoding": {
+            "strategy_order": list(strategy_order),
+            "cost_field": "strategy_costs",
+            "qaly_field": "strategy_qalys",
+        },
+        "samples": samples,
+    }
+
+
+def _multi_strategy_decision_uncertainty(
+    samples: list[dict[str, Any]],
+    strategy_order: tuple[str, ...],
+    specification: UncertaintySpecification,
+) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    sample_count = len(samples)
+    for threshold in specification.decision_thresholds:
+        unique_counts = [0] * len(strategy_order)
+        tie_count = 0
+        nmb_by_strategy: list[list[float]] = [
+            [] for _ in strategy_order
+        ]
+        maximum_nmb: list[float] = []
+        for sample in samples:
+            values, optimal = _multi_strategy_optimal(
+                sample["strategy_costs"],
+                sample["strategy_qalys"],
+                threshold,
+            )
+            for index, value in enumerate(values):
+                nmb_by_strategy[index].append(value)
+            maximum_nmb.append(max(values))
+            if len(optimal) == 1:
+                unique_counts[optimal[0]] += 1
+            else:
+                tie_count += 1
+        expected = [fsum(values) / sample_count for values in nmb_by_strategy]
+        best_expected = max(expected)
+        expected_tolerance = max(
+            1e-9,
+            max((abs(value) for value in expected), default=0.0) * 1e-12,
+        )
+        selected = tuple(
+            index
+            for index, value in enumerate(expected)
+            if abs(value - best_expected) <= expected_tolerance
+        )
+        selected_strategy = (
+            strategy_order[selected[0]] if len(selected) == 1 else None
+        )
+        ceaf_probability = (
+            unique_counts[selected[0]] / sample_count
+            if len(selected) == 1
+            else None
+        )
+        # Tolerance-based ties are a display policy. EVPI must still use the
+        # exact sample-mean maximizer in E[max NMB] - max E[NMB]. Declaration
+        # order resolves an exact floating-point tie deterministically.
+        representative = max(range(len(expected)), key=expected.__getitem__)
+        losses = [
+            maximum - nmb_by_strategy[representative][index]
+            for index, maximum in enumerate(maximum_nmb)
+        ]
+        evpi = fsum(losses) / sample_count
+        loss_variance = fsum((value - evpi) ** 2 for value in losses) / (
+            sample_count - 1
+        )
+        probabilities = {
+            strategy_id: unique_counts[index] / sample_count
+            for index, strategy_id in enumerate(strategy_order)
+        }
+        probability_mcse = {
+            strategy_id: sqrt(
+                probability * (1.0 - probability) / sample_count
+            )
+            for strategy_id, probability in probabilities.items()
+        }
+        tie_probability = tie_count / sample_count
+        rows.append(
+            {
+                "threshold": threshold,
+                "expected_net_monetary_benefit_by_strategy": {
+                    strategy_id: expected[index]
+                    for index, strategy_id in enumerate(strategy_order)
+                },
+                "strategy_optimal_probabilities": probabilities,
+                "tie_probability": tie_probability,
+                "probability_mcse_by_strategy": probability_mcse,
+                "tie_probability_mcse": sqrt(
+                    tie_probability * (1.0 - tie_probability) / sample_count
+                ),
+                "strategy_with_highest_expected_net_benefit": selected_strategy,
+                "expected_net_benefit_tied_strategy_ids": (
+                    [strategy_order[index] for index in selected]
+                    if len(selected) > 1
+                    else []
+                ),
+                "ceaf_probability": ceaf_probability,
+                "per_person_evpi": evpi,
+                "per_person_evpi_mcse": sqrt(loss_variance / sample_count),
+            }
+        )
+    return {
+        "method": "net_monetary_benefit",
+        "strategy_order": list(strategy_order),
+        "tie_handling": "ties_reported_separately_without_fractional_allocation",
+        "primary_threshold": specification.primary_threshold,
+        "threshold_source": specification.threshold_source,
+        "threshold_rationale": specification.threshold_rationale,
+        "threshold_results": rows,
+        "population_evpi": None,
+        "evppi": None,
+    }
+
+
+def _decision_uncertainty(
+    samples: list[dict[str, Any]], specification: UncertaintySpecification
+) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    sample_count = len(samples)
+    for threshold in specification.decision_thresholds:
+        values = [
+            threshold * sample["delta_qaly"] - sample["delta_cost"]
+            for sample in samples
+        ]
+        if any(not isfinite(value) for value in values):
+            raise ModelValidationError(
+                f"decision threshold {threshold} produced a non-finite net monetary benefit"
+            )
+        mean = sum(values) / sample_count
+        positive = sum(value > 0.0 for value in values)
+        negative = sum(value < 0.0 for value in values)
+        ties = sample_count - positive - negative
+        if mean > 0.0:
+            selected_strategy = "intervention"
+            ceaf_probability: float | None = positive / sample_count
+            losses = [max(0.0, value) - value for value in values]
+        elif mean < 0.0:
+            selected_strategy = "comparator"
+            ceaf_probability = negative / sample_count
+            losses = [max(0.0, value) for value in values]
+        else:
+            selected_strategy = "tie"
+            ceaf_probability = None
+            losses = [max(0.0, value) for value in values]
+        evpi = sum(losses) / sample_count
+        loss_variance = sum((value - evpi) ** 2 for value in losses) / (
+            sample_count - 1
+        )
+        intervention_probability = positive / sample_count
+        rows.append(
+            {
+                "threshold": threshold,
+                "expected_incremental_net_monetary_benefit": mean,
+                "intervention_optimal_probability": intervention_probability,
+                "comparator_optimal_probability": negative / sample_count,
+                "tie_probability": ties / sample_count,
+                "probability_mcse": sqrt(
+                    intervention_probability
+                    * (1.0 - intervention_probability)
+                    / sample_count
+                ),
+                "strategy_with_highest_expected_net_benefit": selected_strategy,
+                "ceaf_probability": ceaf_probability,
+                "per_person_evpi": evpi,
+                "per_person_evpi_mcse": sqrt(loss_variance / sample_count),
+            }
+        )
+    return {
+        "method": "net_monetary_benefit",
+        "primary_threshold": specification.primary_threshold,
+        "threshold_source": specification.threshold_source,
+        "threshold_rationale": specification.threshold_rationale,
+        "threshold_results": rows,
+        "population_evpi": None,
+        "evppi": None,
+    }
+
+
+def _sample(rng: Pcg32, distribution: dict[str, Any]) -> Any:
+    kind = distribution["type"]
+    try:
+        if kind == "beta":
+            result: Any = rng.beta(distribution["alpha"], distribution["beta"])
+        elif kind == "gamma":
+            result = rng.gamma(distribution["shape"], distribution["scale"])
+        elif kind == "lognormal":
+            result = _lognormal_from_normal(distribution, rng.normal())
+        elif kind == "uniform":
+            result = distribution["low"] + (
+                distribution["high"] - distribution["low"]
+            ) * rng.uniform_open()
+        elif kind == "dirichlet":
+            result = rng.dirichlet(distribution["alpha"])
+        else:
+            raise ModelValidationError(f"unsupported distribution {kind!r}")
+    except ArithmeticError as error:
+        raise ModelValidationError(
+            f"{kind} sampler encountered a numerical overflow or division failure"
+        ) from error
+    if isinstance(result, list):
+        if (
+            not result
+            or any(not isfinite(item) or item < 0.0 or item > 1.0 for item in result)
+            or abs(sum(result) - 1.0) > 1e-9
+        ):
+            raise ModelValidationError(f"{kind} sampler returned an invalid simplex")
+    elif not isfinite(result):
+        raise ModelValidationError(f"{kind} sampler returned a non-finite value")
+    return result
+
+
+def _sample_parameter_values(
+    rng: Pcg32,
+    specification: UncertaintySpecification,
+) -> tuple[tuple[Parameter, Any], ...]:
+    parameters = {parameter.identifier: parameter for parameter in specification.parameters}
+    correlated_values: dict[str, float] = {}
+    for group in specification.correlation_groups:
+        independent = [rng.normal() for _ in group.parameter_ids]
+        correlated = [
+            sum(group.cholesky[row][column] * independent[column] for column in range(row + 1))
+            for row in range(len(group.parameter_ids))
+        ]
+        for parameter_id, normal_value in zip(group.parameter_ids, correlated, strict=True):
+            correlated_values[parameter_id] = _lognormal_from_normal(
+                parameters[parameter_id].distribution,
+                normal_value,
+            )
+    return tuple(
+        (
+            parameter,
+            correlated_values.get(parameter.identifier)
+            if parameter.identifier in correlated_values
+            else _sample(rng, parameter.distribution),
+        )
+        for parameter in specification.parameters
+    )
+
+
+def _lognormal_from_normal(distribution: dict[str, Any], normal_value: float) -> float:
+    try:
+        result = exp(
+            distribution["mu_log"] + distribution["sigma_log"] * normal_value
+        )
+    except ArithmeticError as error:
+        raise ModelValidationError(
+            "lognormal sampler encountered a numerical overflow or division failure"
+        ) from error
+    if not isfinite(result) or result <= 0.0:
+        raise ModelValidationError("lognormal sampler returned a non-positive or non-finite value")
+    return result
+
+
+def _correlation_groups(
+    correlation: dict[str, Any],
+    parameters: tuple[Parameter, ...],
+    schema_version: str,
+) -> tuple[CorrelationGroup, ...]:
+    if schema_version not in {
+        CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
+        SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+        PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
+        PREVIOUS_UNCERTAINTY_SCHEMA_VERSION,
+        RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
+        UNCERTAINTY_SCHEMA_VERSION,
+        PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+        JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+    }:
+        if "groups" in correlation:
+            raise ModelValidationError(
+                "correlation groups require uncertainty schema_version 0.4.0 through 0.12.0"
+            )
+        return ()
+    raw_groups = _array(
+        correlation.get("groups"),
+        "probabilistic_analysis.correlation_handling.groups",
+    )
+    if len(raw_groups) > MAX_CORRELATION_GROUPS:
+        raise ModelValidationError(
+            f"correlation groups must contain no more than {MAX_CORRELATION_GROUPS} entries"
+        )
+    by_id = {parameter.identifier: parameter for parameter in parameters}
+    group_ids: set[str] = set()
+    grouped_parameters: set[str] = set()
+    groups: list[CorrelationGroup] = []
+    for index, raw in enumerate(raw_groups):
+        label = f"probabilistic_analysis.correlation_handling.groups[{index}]"
+        value = _mapping(raw, label)
+        allowed_fields = {
+            "id",
+            "parameter_ids",
+            "scale",
+            "method",
+            "correlation_matrix",
+            "basis_ids",
+            "rationale",
+        }
+        unknown = set(value) - allowed_fields
+        if unknown:
+            raise ModelValidationError(
+                f"{label} contains unsupported fields: {', '.join(sorted(unknown))}"
+            )
+        identifier = _nonempty(value.get("id"), f"{label}.id")
+        if identifier in group_ids:
+            raise ModelValidationError("correlation group ids must be unique")
+        group_ids.add(identifier)
+        parameter_ids = tuple(
+            _nonempty(item, f"{label}.parameter_ids")
+            for item in _array(value.get("parameter_ids"), f"{label}.parameter_ids")
+        )
+        if (
+            not 2 <= len(parameter_ids) <= MAX_CORRELATION_GROUP_SIZE
+            or len(set(parameter_ids)) != len(parameter_ids)
+        ):
+            raise ModelValidationError(
+                f"{label}.parameter_ids must contain 2-{MAX_CORRELATION_GROUP_SIZE} unique ids"
+            )
+        if any(parameter_id not in by_id for parameter_id in parameter_ids):
+            raise ModelValidationError(f"{label} references an unknown parameter id")
+        if grouped_parameters.intersection(parameter_ids):
+            raise ModelValidationError("an uncertainty parameter may belong to only one correlation group")
+        grouped_parameters.update(parameter_ids)
+        if any(
+            by_id[parameter_id].distribution.get("type") != "lognormal"
+            for parameter_id in parameter_ids
+        ):
+            raise ModelValidationError(
+                f"{label} supports only scalar lognormal parameter members"
+            )
+        scale = _nonempty(value.get("scale"), f"{label}.scale")
+        method = _nonempty(value.get("method"), f"{label}.method")
+        if scale != "log_standard_normal" or method != "cholesky":
+            raise ModelValidationError(
+                f"{label} requires log_standard_normal scale and cholesky method"
+            )
+        matrix = _correlation_matrix(
+            value.get("correlation_matrix"),
+            len(parameter_ids),
+            f"{label}.correlation_matrix",
+        )
+        basis_ids = tuple(
+            _nonempty(item, f"{label}.basis_ids")
+            for item in _array(value.get("basis_ids"), f"{label}.basis_ids")
+        )
+        if not basis_ids or len(set(basis_ids)) != len(basis_ids):
+            raise ModelValidationError(f"{label}.basis_ids must be non-empty and unique")
+        if not all(
+            set(basis_ids).issubset(set(by_id[parameter_id].basis_ids))
+            for parameter_id in parameter_ids
+        ):
+            raise ModelValidationError(
+                f"{label}.basis_ids must be linked by every member parameter distribution"
+            )
+        groups.append(
+            CorrelationGroup(
+                identifier=identifier,
+                parameter_ids=parameter_ids,
+                scale=scale,
+                method=method,
+                correlation_matrix=matrix,
+                cholesky=_cholesky(matrix, f"{label}.correlation_matrix"),
+                basis_ids=basis_ids,
+                rationale=_nonempty(value.get("rationale"), f"{label}.rationale"),
+            )
+        )
+    return tuple(groups)
+
+
+def _correlation_matrix(
+    value: Any,
+    size: int,
+    label: str,
+) -> tuple[tuple[float, ...], ...]:
+    rows = _array(value, label)
+    if len(rows) != size:
+        raise ModelValidationError(f"{label} must be a {size} by {size} matrix")
+    matrix = tuple(
+        tuple(
+            _finite_float(item, label)
+            for item in _array(row, f"{label}[{row_index}]")
+        )
+        for row_index, row in enumerate(rows)
+    )
+    if any(len(row) != size for row in matrix):
+        raise ModelValidationError(f"{label} must be a {size} by {size} matrix")
+    for row in range(size):
+        if not isclose(matrix[row][row], 1.0, rel_tol=0.0, abs_tol=1e-12):
+            raise ModelValidationError(f"{label} diagonal must equal 1")
+        for column in range(row):
+            if not -1.0 < matrix[row][column] < 1.0:
+                raise ModelValidationError(
+                    f"{label} off-diagonal correlations must be strictly between -1 and 1"
+                )
+            if not isclose(
+                matrix[row][column],
+                matrix[column][row],
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            ):
+                raise ModelValidationError(f"{label} must be symmetric")
+    return matrix
+
+
+def _cholesky(
+    matrix: tuple[tuple[float, ...], ...],
+    label: str,
+) -> tuple[tuple[float, ...], ...]:
+    size = len(matrix)
+    lower = [[0.0] * size for _ in range(size)]
+    for row in range(size):
+        for column in range(row + 1):
+            remainder = matrix[row][column] - sum(
+                lower[row][item] * lower[column][item]
+                for item in range(column)
+            )
+            if row == column:
+                if remainder <= 1e-12:
+                    raise ModelValidationError(f"{label} must be strictly positive definite")
+                lower[row][column] = sqrt(remainder)
+            else:
+                lower[row][column] = remainder / lower[column][column]
+    return tuple(tuple(row) for row in lower)
+
+
+def _parameter(
+    value: Any,
+    index: int,
+    base_payload: dict[str, Any],
+    schema_version: str,
+) -> Parameter:
+    value = _mapping(value, f"parameters[{index}]")
+    dsa = _mapping(value.get("deterministic"), f"parameters[{index}].deterministic")
+    psa = _mapping(value.get("probabilistic"), f"parameters[{index}].probabilistic")
+    target = _nonempty(value.get("target"), f"parameters[{index}].target")
+    base = _resolve(base_payload, target)
+    low = copy.deepcopy(dsa.get("low"))
+    high = copy.deepcopy(dsa.get("high"))
+    rate_mapping_index = _rate_mapping_index(target)
+    survival_target = _survival_mapping_parameter(target)
+    survival_mapping_index = survival_target[0] if survival_target is not None else None
+    probability_mapping_index = _probability_mapping_index(target)
+    background_mortality_mapping_index = _background_mortality_mapping_index(target)
+    relative_effect_mapping_index = _relative_effect_mapping_index(target)
+    hazard_ratio_mapping_index = _hazard_ratio_mapping_index(target)
+    if schema_version in PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS:
+        tokens = _pointer_tokens(target)
+        if not (
+            len(tokens) == 4
+            and tokens[0] == "strategies"
+            and tokens[1] in _analysis_strategy_ids(base_payload)
+            and tokens[2] in {"state_costs", "state_utilities"}
+            and tokens[3].isdigit()
+        ):
+            raise ModelValidationError(
+                "partitioned-survival uncertainty permits only exact state_costs or state_utilities scalar targets"
+            )
+    if (
+        schema_version == UNCERTAINTY_SCHEMA_VERSION
+        and hazard_ratio_mapping_index is None
+    ):
+        raise ModelValidationError(
+            "uncertainty schema_version 0.10.0 permits only the exact hazard_ratio.value target"
+        )
+    if (
+        schema_version == RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION
+        and relative_effect_mapping_index is None
+    ):
+        raise ModelValidationError(
+            "uncertainty schema_version 0.9.0 permits only the exact relative_effect.value target"
+        )
+    if (
+        schema_version == PREVIOUS_UNCERTAINTY_SCHEMA_VERSION
+        and background_mortality_mapping_index is None
+    ):
+        raise ModelValidationError(
+            "uncertainty schema_version 0.8.0 permits only the exact excess_mortality_rate_per_year.value target"
+        )
+    if rate_mapping_index is not None and schema_version not in {
+        RATE_UNCERTAINTY_SCHEMA_VERSION,
+        CORRELATION_UNCERTAINTY_SCHEMA_VERSION,
+        SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+        PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
+    }:
+        raise ModelValidationError(
+            "event-rate uncertainty requires uncertainty schema_version 0.3.0 through 0.7.0"
+        )
+    if survival_mapping_index is not None and schema_version not in {
+        SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+        PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
+    }:
+        raise ModelValidationError(
+            "survival-parameter uncertainty requires uncertainty schema_version 0.5.0 through 0.7.0"
+        )
+    if probability_mapping_index is not None and schema_version not in {
+        PROBABILITY_TIME_UNCERTAINTY_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_UNCERTAINTY_SCHEMA_VERSION,
+    }:
+        raise ModelValidationError(
+            "probability-time uncertainty requires uncertainty schema_version 0.6.0 or 0.7.0"
+        )
+    positive_parameter = (
+        rate_mapping_index is not None
+        or survival_mapping_index is not None
+        or background_mortality_mapping_index is not None
+        or relative_effect_mapping_index is not None
+        or hazard_ratio_mapping_index is not None
+    )
+    bounded_probability = probability_mapping_index is not None
+    strategy_ids = _analysis_strategy_ids(base_payload)
+    _validate_replacement(
+        target,
+        low,
+        base,
+        rate_parameter=positive_parameter,
+        probability_parameter=bounded_probability,
+        strategy_ids=strategy_ids,
+    )
+    _validate_replacement(
+        target,
+        high,
+        base,
+        rate_parameter=positive_parameter,
+        probability_parameter=bounded_probability,
+        strategy_ids=strategy_ids,
+    )
+    distribution = _distribution(
+        psa,
+        base,
+        f"parameters[{index}].probabilistic",
+        rate_parameter=positive_parameter,
+        probability_parameter=bounded_probability,
+        relative_effect_measure=(
+            _relative_effect_measure(base_payload, relative_effect_mapping_index)
+            if relative_effect_mapping_index is not None
+            else "hazard_ratio"
+            if hazard_ratio_mapping_index is not None
+            else None
+        ),
+    )
+    basis_ids = tuple(
+        _nonempty(item, f"parameters[{index}].probabilistic.basis_ids")
+        for item in _array(
+            psa.get("basis_ids"), f"parameters[{index}].probabilistic.basis_ids"
+        )
+    )
+    if not basis_ids:
+        raise ModelValidationError(
+            f"parameters[{index}].probabilistic.basis_ids must not be empty"
+        )
+    provenance_path = _nonempty(
+        value.get("provenance_path"), f"parameters[{index}].provenance_path"
+    )
+    if schema_version in PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSIONS:
+        _validate_partitioned_survival_economic_parameter(
+            base_payload,
+            target,
+            provenance_path,
+            basis_ids,
+            low,
+            high,
+            distribution,
+        )
+    elif rate_mapping_index is not None:
+        _validate_rate_parameter(
+            base_payload,
+            rate_mapping_index,
+            target,
+            provenance_path,
+            basis_ids,
+        )
+    elif survival_target is not None:
+        _validate_survival_parameter(
+            base_payload,
+            survival_target[0],
+            survival_target[1],
+            target,
+            provenance_path,
+            basis_ids,
+        )
+    elif probability_mapping_index is not None:
+        _validate_probability_parameter(
+            base_payload,
+            probability_mapping_index,
+            target,
+            provenance_path,
+            basis_ids,
+        )
+    elif background_mortality_mapping_index is not None:
+        _validate_background_mortality_parameter(
+            base_payload,
+            background_mortality_mapping_index,
+            target,
+            provenance_path,
+            basis_ids,
+        )
+    elif relative_effect_mapping_index is not None:
+        _validate_relative_effect_parameter(
+            base_payload,
+            relative_effect_mapping_index,
+            target,
+            provenance_path,
+            basis_ids,
+            high,
+            distribution,
+        )
+    elif hazard_ratio_mapping_index is not None:
+        _validate_hazard_ratio_parameter(
+            base_payload,
+            hazard_ratio_mapping_index,
+            target,
+            provenance_path,
+            basis_ids,
+            high,
+            distribution,
+        )
+    elif _deterministic_mapping(base_payload, provenance_path):
+        raise ModelValidationError(
+            f"parameters[{index}] targets a derived transition input; vary an admitted event rate instead"
+        )
+    if isinstance(base, (int, float)) and not isinstance(base, bool):
+        low_number = _finite_float(low, f"parameters[{index}].deterministic.low")
+        high_number = _finite_float(high, f"parameters[{index}].deterministic.high")
+        if low_number >= high_number or not low_number <= float(base) <= high_number:
+            raise ModelValidationError(
+                f"parameters[{index}] deterministic bounds must bracket the base value"
+            )
+    return Parameter(
+        identifier=_nonempty(value.get("id"), f"parameters[{index}].id"),
+        label=_nonempty(value.get("label"), f"parameters[{index}].label"),
+        target=target,
+        provenance_path=provenance_path,
+        dsa_low=low,
+        dsa_high=high,
+        dsa_rationale=_nonempty(
+            dsa.get("rationale"), f"parameters[{index}].deterministic.rationale"
+        ),
+        distribution=distribution,
+        distribution_rationale=_nonempty(
+            psa.get("rationale"), f"parameters[{index}].probabilistic.rationale"
+        ),
+        basis_ids=basis_ids,
+        rate_mapping_index=rate_mapping_index,
+        survival_mapping_index=survival_mapping_index,
+        probability_mapping_index=probability_mapping_index,
+        background_mortality_mapping_index=background_mortality_mapping_index,
+        relative_effect_mapping_index=relative_effect_mapping_index,
+        hazard_ratio_mapping_index=hazard_ratio_mapping_index,
+    )
+
+
+def _validate_partitioned_survival_economic_parameter(
+    base_payload: dict[str, Any],
+    target: str,
+    provenance_path: str,
+    basis_ids: tuple[str, ...],
+    low: Any,
+    high: Any,
+    distribution: dict[str, Any],
+) -> None:
+    expected_path = target.rsplit("/", 1)[0].removeprefix("/").replace("/", ".")
+    if provenance_path != expected_path:
+        raise ModelValidationError(
+            "partitioned-survival economic uncertainty provenance_path must exactly match the target reward-vector path"
+        )
+    mappings = base_payload.get("input_provenance")
+    mapping = next(
+        (
+            item
+            for item in mappings
+            if isinstance(item, dict) and item.get("path") == provenance_path
+        ),
+        None,
+    ) if isinstance(mappings, list) else None
+    if not isinstance(mapping, dict) or mapping.get("uncertainty_status") != "distribution_available":
+        raise ModelValidationError(
+            "partitioned-survival economic uncertainty requires a distribution_available input-provenance mapping"
+        )
+    allowed_basis = {
+        item
+        for field in ("source_ids", "extraction_ids", "assumption_ids")
+        for item in mapping.get(field, [])
+        if isinstance(item, str) and item.strip()
+    }
+    if not set(basis_ids).issubset(allowed_basis):
+        raise ModelValidationError(
+            "partitioned-survival economic uncertainty basis_ids are not linked by input provenance"
+        )
+    methodology = (
+        base_payload.get("methodology", {}).get("uncertainty_analysis", {})
+        if isinstance(base_payload.get("methodology"), dict)
+        else {}
+    )
+    deterministic_paths = (
+        methodology.get("deterministic", {}).get("input_paths", [])
+        if isinstance(methodology.get("deterministic"), dict)
+        else []
+    )
+    probabilistic_paths = (
+        methodology.get("probabilistic", {}).get("input_paths", [])
+        if isinstance(methodology.get("probabilistic"), dict)
+        else []
+    )
+    if provenance_path not in deterministic_paths or provenance_path not in probabilistic_paths:
+        raise ModelValidationError(
+            "partitioned-survival economic uncertainty provenance_path must appear in both methodology input lists"
+        )
+    kind = distribution["type"]
+    if "/state_costs/" in target:
+        if float(low) < 0 or kind not in {"gamma", "lognormal", "uniform"}:
+            raise ModelValidationError(
+                "state-cost uncertainty must stay non-negative and use gamma, lognormal, or uniform"
+            )
+        if kind == "uniform" and distribution["low"] < 0:
+            raise ModelValidationError(
+                "state-cost uniform uncertainty must have a non-negative lower bound"
+            )
+    else:
+        if not -1 <= float(low) < float(high) <= 1:
+            raise ModelValidationError(
+                "state-utility deterministic bounds must stay within -1 and 1"
+            )
+        if kind == "uniform":
+            if not -1 <= distribution["low"] < distribution["high"] <= 1:
+                raise ModelValidationError(
+                    "state-utility uniform uncertainty must stay within -1 and 1"
+                )
+        elif kind != "beta":
+            raise ModelValidationError(
+                "state-utility uncertainty must use beta or bounded uniform"
+            )
+
+
+def _distribution(
+    value: dict[str, Any],
+    base: Any,
+    label: str,
+    *,
+    rate_parameter: bool = False,
+    probability_parameter: bool = False,
+    relative_effect_measure: str | None = None,
+) -> dict[str, Any]:
+    kind = _nonempty(value.get("type"), f"{label}.type")
+    if kind == "beta":
+        result = {
+            "type": kind,
+            "alpha": _positive_float(value.get("alpha"), f"{label}.alpha"),
+            "beta": _positive_float(value.get("beta"), f"{label}.beta"),
+        }
+    elif kind == "gamma":
+        result = {
+            "type": kind,
+            "shape": _positive_float(value.get("shape"), f"{label}.shape"),
+            "scale": _positive_float(value.get("scale"), f"{label}.scale"),
+        }
+    elif kind == "lognormal":
+        result = {
+            "type": kind,
+            "mu_log": _finite_float(value.get("mu_log"), f"{label}.mu_log"),
+            "sigma_log": _positive_float(value.get("sigma_log"), f"{label}.sigma_log"),
+        }
+    elif kind == "uniform":
+        low = _finite_float(value.get("low"), f"{label}.low")
+        high = _finite_float(value.get("high"), f"{label}.high")
+        if low >= high:
+            raise ModelValidationError(f"{label}.low must be less than high")
+        result = {"type": kind, "low": low, "high": high}
+    elif kind == "dirichlet":
+        alpha = [
+            _positive_float(item, f"{label}.alpha")
+            for item in _array(value.get("alpha"), f"{label}.alpha")
+        ]
+        if not isinstance(base, list) or len(alpha) != len(base):
+            raise ModelValidationError(
+                f"{label}.alpha must match the target simplex length"
+            )
+        result = {"type": kind, "alpha": alpha}
+    else:
+        raise ModelValidationError(f"{label}.type is unsupported")
+    if isinstance(base, list) != (kind == "dirichlet"):
+        raise ModelValidationError(
+            f"{label} must use dirichlet for a simplex row and a scalar distribution otherwise"
+        )
+    if relative_effect_measure == "risk_ratio":
+        if kind != "uniform":
+            raise ModelValidationError(
+                f"{label} must use bounded uniform for a risk ratio"
+            )
+        if result["low"] <= 0:
+            raise ModelValidationError(
+                f"{label}.low must be positive for a risk ratio"
+            )
+    elif relative_effect_measure == "odds_ratio":
+        if kind not in {"lognormal", "uniform"}:
+            raise ModelValidationError(
+                f"{label} must use lognormal or positive bounded uniform for an odds ratio"
+            )
+        if kind == "uniform" and result["low"] <= 0:
+            raise ModelValidationError(
+                f"{label}.low must be positive for an odds ratio"
+            )
+    elif relative_effect_measure == "hazard_ratio":
+        if kind != "uniform":
+            raise ModelValidationError(
+                f"{label} must use bounded uniform for a hazard ratio"
+            )
+        if result["low"] <= 0:
+            raise ModelValidationError(
+                f"{label}.low must be positive for a hazard ratio"
+            )
+    elif rate_parameter:
+        if kind not in {"gamma", "lognormal", "uniform"}:
+            raise ModelValidationError(
+                f"{label} must use gamma, lognormal, or positive uniform for an event rate"
+            )
+        if kind == "uniform" and result["low"] <= 0:
+            raise ModelValidationError(f"{label}.low must be positive for an event rate")
+    if probability_parameter:
+        if kind not in {"beta", "uniform"}:
+            raise ModelValidationError(
+                f"{label} must use beta or bounded uniform for a source probability"
+            )
+        if kind == "uniform" and not 0 < result["low"] < result["high"] < 1:
+            raise ModelValidationError(
+                f"{label}.uniform bounds must be strictly between 0 and 1 for a source probability"
+            )
+    return result
+
+
+def _apply_parameter_values(
+    base_payload: dict[str, Any],
+    values: tuple[tuple[Parameter, Any], ...],
+) -> dict[str, Any]:
+    payload = copy.deepcopy(base_payload)
+    affected_rate_mappings: set[int] = set()
+    affected_survival_mappings: set[int] = set()
+    affected_probability_mappings: set[int] = set()
+    affected_background_mortality_mappings: set[int] = set()
+    affected_relative_effect_mappings: set[int] = set()
+    affected_hazard_ratio_mappings: set[int] = set()
+    for parameter, value in values:
+        _replace(payload, parameter.target, value)
+        if parameter.rate_mapping_index is not None:
+            affected_rate_mappings.add(parameter.rate_mapping_index)
+        if parameter.survival_mapping_index is not None:
+            affected_survival_mappings.add(parameter.survival_mapping_index)
+        if parameter.probability_mapping_index is not None:
+            affected_probability_mappings.add(parameter.probability_mapping_index)
+        if parameter.background_mortality_mapping_index is not None:
+            affected_background_mortality_mappings.add(
+                parameter.background_mortality_mapping_index
+            )
+        if parameter.relative_effect_mapping_index is not None:
+            affected_relative_effect_mappings.add(
+                parameter.relative_effect_mapping_index
+            )
+        if parameter.hazard_ratio_mapping_index is not None:
+            affected_hazard_ratio_mappings.add(parameter.hazard_ratio_mapping_index)
+    for mapping_index in sorted(affected_rate_mappings):
+        mapping = payload["input_provenance"][mapping_index]
+        derivation = mapping["derivation"]
+        try:
+            output, _, _ = derive_competing_rates(
+                derivation["transformation"],
+                target_path=mapping["path"],
+                state_count=len(payload["states"]),
+                cycles=payload["cycles"],
+                cycle_length_years=payload["cycle_length_years"],
+            )
+        except (KeyError, TypeError, TransitionRateError) as error:
+            raise ModelValidationError(
+                f"rate-space uncertainty could not recompute input_provenance[{mapping_index}]"
+            ) from error
+        _replace_dot_path(payload, mapping["path"], output)
+        derivation["model_value"] = copy.deepcopy(output)
+    if affected_survival_mappings:
+        try:
+            apply_survival_curve_mappings(payload, affected_survival_mappings)
+        except (KeyError, TypeError, SurvivalCurveError) as error:
+            raise ModelValidationError(
+                "survival-parameter uncertainty could not recompute the affected transition schedule"
+            ) from error
+    if affected_probability_mappings:
+        try:
+            apply_probability_time_mappings(payload, affected_probability_mappings)
+        except (KeyError, TypeError, ProbabilityTimeError) as error:
+            raise ModelValidationError(
+                "probability-time uncertainty could not recompute the affected transition input"
+            ) from error
+    if affected_background_mortality_mappings:
+        try:
+            apply_background_mortality_mappings(
+                payload, affected_background_mortality_mappings
+            )
+        except (KeyError, TypeError, BackgroundMortalityError) as error:
+            raise ModelValidationError(
+                "excess-mortality uncertainty could not recompute the affected transition schedule"
+            ) from error
+    if affected_relative_effect_mappings:
+        try:
+            apply_relative_effect_mappings(payload, affected_relative_effect_mappings)
+        except (KeyError, TypeError, RelativeEffectError) as error:
+            raise ModelValidationError(
+                "relative-effect uncertainty could not recompute the affected transition schedule"
+            ) from error
+    if affected_hazard_ratio_mappings:
+        try:
+            apply_hazard_ratio_mappings(payload, affected_hazard_ratio_mappings)
+        except (KeyError, TypeError, HazardRatioError) as error:
+            raise ModelValidationError(
+                "hazard-ratio uncertainty could not recompute the affected transition schedule"
+            ) from error
+    return payload
+
+
+def _rate_mapping_index(target: str) -> int | None:
+    tokens = _pointer_tokens(target)
+    if (
+        len(tokens) == 11
+        and tokens[0] == "input_provenance"
+        and tokens[1].isdigit()
+        and tokens[2:5] == ["derivation", "transformation", "phases"]
+        and tokens[5].isdigit()
+        and tokens[6] == "rows"
+        and tokens[7].isdigit()
+        and tokens[8] == "events"
+        and tokens[9].isdigit()
+        and tokens[10] == "rate_per_year"
+    ):
+        return int(tokens[1])
+    return None
+
+
+def _survival_mapping_parameter(target: str) -> tuple[int, str] | None:
+    tokens = _pointer_tokens(target)
+    if (
+        len(tokens) == 7
+        and tokens[0] == "input_provenance"
+        and tokens[1].isdigit()
+        and tokens[2:5] == ["derivation", "transformation", "parameters"]
+        and tokens[5] in {"rate_per_year", "shape", "scale_years"}
+        and tokens[6] == "value"
+    ):
+        return int(tokens[1]), tokens[5]
+    return None
+
+
+def _probability_mapping_index(target: str) -> int | None:
+    tokens = _pointer_tokens(target)
+    if (
+        len(tokens) == 10
+        and tokens[0] == "input_provenance"
+        and tokens[1].isdigit()
+        and tokens[2:5] == ["derivation", "transformation", "phases"]
+        and tokens[5].isdigit()
+        and tokens[6] == "rows"
+        and tokens[7].isdigit()
+        and tokens[8] == "event"
+        and tokens[9] == "source_probability"
+    ):
+        return int(tokens[1])
+    return None
+
+
+def _background_mortality_mapping_index(target: str) -> int | None:
+    tokens = _pointer_tokens(target)
+    if (
+        len(tokens) == 6
+        and tokens[0] == "input_provenance"
+        and tokens[1].isdigit()
+        and tokens[2:5]
+        == ["derivation", "transformation", "excess_mortality_rate_per_year"]
+        and tokens[5] == "value"
+    ):
+        return int(tokens[1])
+    return None
+
+
+def _relative_effect_mapping_index(target: str) -> int | None:
+    tokens = _pointer_tokens(target)
+    if (
+        len(tokens) == 6
+        and tokens[0] == "input_provenance"
+        and tokens[1].isdigit()
+        and tokens[2:5] == ["derivation", "transformation", "relative_effect"]
+        and tokens[5] == "value"
+    ):
+        return int(tokens[1])
+    return None
+
+
+def _hazard_ratio_mapping_index(target: str) -> int | None:
+    tokens = _pointer_tokens(target)
+    if (
+        len(tokens) == 6
+        and tokens[0] == "input_provenance"
+        and tokens[1].isdigit()
+        and tokens[2:5] == ["derivation", "transformation", "hazard_ratio"]
+        and tokens[5] == "value"
+    ):
+        return int(tokens[1])
+    return None
+
+
+def _relative_effect_measure(
+    base_payload: dict[str, Any], mapping_index: int
+) -> str:
+    mappings = base_payload.get("input_provenance")
+    if not isinstance(mappings, list) or not 0 <= mapping_index < len(mappings):
+        raise ModelValidationError("relative-effect uncertainty mapping does not exist")
+    mapping = mappings[mapping_index]
+    derivation = mapping.get("derivation") if isinstance(mapping, dict) else None
+    transformation = (
+        derivation.get("transformation") if isinstance(derivation, dict) else None
+    )
+    measure = transformation.get("measure") if isinstance(transformation, dict) else None
+    if measure not in {"risk_ratio", "odds_ratio"}:
+        raise ModelValidationError(
+            "relative-effect uncertainty requires risk_ratio or odds_ratio"
+        )
+    return measure
+
+
+def _validate_relative_effect_parameter(
+    base_payload: dict[str, Any],
+    mapping_index: int,
+    target: str,
+    provenance_path: str,
+    basis_ids: tuple[str, ...],
+    dsa_high: Any,
+    distribution: dict[str, Any],
+) -> None:
+    if base_payload.get("schema_version") != RELATIVE_EFFECT_ANALYSIS_SCHEMA_VERSION:
+        raise ModelValidationError(
+            "relative-effect uncertainty requires analysis schema_version 0.10.0"
+        )
+    mappings = base_payload.get("input_provenance")
+    if not isinstance(mappings, list) or not 0 <= mapping_index < len(mappings):
+        raise ModelValidationError(f"uncertainty target {target!r} does not exist")
+    mapping = mappings[mapping_index]
+    if not isinstance(mapping, dict) or mapping.get("path") != provenance_path:
+        raise ModelValidationError(
+            "relative-effect uncertainty provenance_path must equal its transformation mapping path"
+        )
+    derivation = mapping.get("derivation")
+    transformation = (
+        derivation.get("transformation") if isinstance(derivation, dict) else None
+    )
+    if (
+        not isinstance(derivation, dict)
+        or derivation.get("method") != RELATIVE_EFFECT_TRANSFORMATION_METHOD
+        or not isinstance(transformation, dict)
+        or transformation.get("operation") != RELATIVE_EFFECT_TRANSFORMATION_OPERATION
+    ):
+        raise ModelValidationError(
+            "relative-effect uncertainty requires an admitted relative-effect transformation"
+        )
+    parameter = transformation.get("relative_effect")
+    if not isinstance(parameter, dict):
+        raise ModelValidationError(
+            "relative-effect uncertainty target must identify relative_effect.value"
+        )
+    value = parameter.get("value")
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not isfinite(float(value))
+        or float(value) <= 0.0
+    ):
+        raise ModelValidationError(
+            "uncertain relative_effect base value must be strictly positive"
+        )
+    source_id = parameter.get("source_extraction_id")
+    assumption_id = parameter.get("assumption_id")
+    expected_basis = (
+        source_id if isinstance(source_id, str) and source_id.strip() else assumption_id
+    )
+    if not isinstance(expected_basis, str) or tuple(basis_ids) != (expected_basis,):
+        raise ModelValidationError(
+            "relative-effect uncertainty basis_ids must contain exactly the relative-effect source extraction or assumption id"
+        )
+    measure = _relative_effect_measure(base_payload, mapping_index)
+    if measure != "risk_ratio":
+        return
+    entries = transformation.get("baseline_cycle_probabilities")
+    if not isinstance(entries, list):
+        raise ModelValidationError(
+            "risk-ratio uncertainty requires baseline_cycle_probabilities"
+        )
+    baselines: list[float] = []
+    for entry in entries:
+        probability = entry.get("probability") if isinstance(entry, dict) else None
+        baseline = probability.get("value") if isinstance(probability, dict) else None
+        if (
+            isinstance(baseline, bool)
+            or not isinstance(baseline, (int, float))
+            or not isfinite(float(baseline))
+            or not 0.0 <= float(baseline) < 1.0
+        ):
+            raise ModelValidationError(
+                "risk-ratio uncertainty requires finite baseline probabilities in [0, 1)"
+            )
+        baselines.append(float(baseline))
+    max_baseline = max(baselines, default=0.0)
+    if max_baseline <= 0.0:
+        raise ModelValidationError(
+            "risk-ratio uncertainty requires at least one positive baseline probability"
+        )
+    upper_limit = 1.0 / max_baseline
+    high = _finite_float(dsa_high, "risk-ratio deterministic high")
+    if high >= upper_limit:
+        raise ModelValidationError(
+            "risk-ratio deterministic high must be strictly below 1 / max baseline probability"
+        )
+    if (
+        distribution.get("type") != "uniform"
+        or distribution.get("high", upper_limit) >= upper_limit
+    ):
+        raise ModelValidationError(
+            "risk-ratio uniform high must be strictly below 1 / max baseline probability"
+        )
+
+
+def _validate_hazard_ratio_parameter(
+    base_payload: dict[str, Any],
+    mapping_index: int,
+    target: str,
+    provenance_path: str,
+    basis_ids: tuple[str, ...],
+    dsa_high: Any,
+    distribution: dict[str, Any],
+) -> None:
+    if base_payload.get("schema_version") != HAZARD_RATIO_ANALYSIS_SCHEMA_VERSION:
+        raise ModelValidationError(
+            "hazard-ratio uncertainty requires analysis schema_version 0.11.0"
+        )
+    mappings = base_payload.get("input_provenance")
+    if not isinstance(mappings, list) or not 0 <= mapping_index < len(mappings):
+        raise ModelValidationError(f"uncertainty target {target!r} does not exist")
+    mapping = mappings[mapping_index]
+    if not isinstance(mapping, dict) or mapping.get("path") != provenance_path:
+        raise ModelValidationError(
+            "hazard-ratio uncertainty provenance_path must equal its transformation mapping path"
+        )
+    derivation = mapping.get("derivation")
+    transformation = (
+        derivation.get("transformation") if isinstance(derivation, dict) else None
+    )
+    if (
+        not isinstance(derivation, dict)
+        or derivation.get("method") != HAZARD_RATIO_TRANSFORMATION_METHOD
+        or not isinstance(transformation, dict)
+        or transformation.get("operation") != HAZARD_RATIO_TRANSFORMATION_OPERATION
+    ):
+        raise ModelValidationError(
+            "hazard-ratio uncertainty requires an admitted hazard-ratio transformation"
+        )
+    parameter = transformation.get("hazard_ratio")
+    if not isinstance(parameter, dict):
+        raise ModelValidationError(
+            "hazard-ratio uncertainty target must identify hazard_ratio.value"
+        )
+    source_id = parameter.get("source_extraction_id")
+    assumption_id = parameter.get("assumption_id")
+    expected_basis = (
+        source_id if isinstance(source_id, str) and source_id.strip() else assumption_id
+    )
+    if not isinstance(expected_basis, str) or tuple(basis_ids) != (expected_basis,):
+        raise ModelValidationError(
+            "hazard-ratio uncertainty basis_ids must contain exactly the hazard-ratio source extraction or assumption id"
+        )
+    if distribution.get("type") != "uniform":
+        raise ModelValidationError(
+            "hazard-ratio uncertainty requires a bounded uniform distribution"
+        )
+    for label, candidate in (
+        ("deterministic high", dsa_high),
+        ("uniform high", distribution.get("high")),
+    ):
+        candidate_value = _finite_float(candidate, f"hazard-ratio {label}")
+        proposed = copy.deepcopy(transformation)
+        proposed["hazard_ratio"]["value"] = candidate_value
+        try:
+            derive_hazard_ratio_schedule(
+                proposed,
+                state_count=len(base_payload.get("states", [])),
+                cycles=base_payload.get("cycles"),
+                cycle_length_years=base_payload.get("cycle_length_years"),
+            )
+        except (TypeError, HazardRatioError) as error:
+            raise ModelValidationError(
+                f"hazard-ratio {label} must reproduce a valid complete transition schedule"
+            ) from error
+
+
+def _validate_background_mortality_parameter(
+    base_payload: dict[str, Any],
+    mapping_index: int,
+    target: str,
+    provenance_path: str,
+    basis_ids: tuple[str, ...],
+) -> None:
+    if base_payload.get("schema_version") != BACKGROUND_MORTALITY_ANALYSIS_SCHEMA_VERSION:
+        raise ModelValidationError(
+            "excess-mortality uncertainty requires analysis schema_version 0.9.0"
+        )
+    mappings = base_payload.get("input_provenance")
+    if not isinstance(mappings, list) or not 0 <= mapping_index < len(mappings):
+        raise ModelValidationError(f"uncertainty target {target!r} does not exist")
+    mapping = mappings[mapping_index]
+    if not isinstance(mapping, dict) or mapping.get("path") != provenance_path:
+        raise ModelValidationError(
+            "excess-mortality uncertainty provenance_path must equal its transformation mapping path"
+        )
+    derivation = mapping.get("derivation")
+    transformation = (
+        derivation.get("transformation") if isinstance(derivation, dict) else None
+    )
+    if (
+        not isinstance(derivation, dict)
+        or derivation.get("method") != BACKGROUND_MORTALITY_TRANSFORMATION_METHOD
+        or not isinstance(transformation, dict)
+        or transformation.get("operation")
+        != BACKGROUND_MORTALITY_TRANSFORMATION_OPERATION
+    ):
+        raise ModelValidationError(
+            "excess-mortality uncertainty requires an admitted background-plus-excess mortality transformation"
+        )
+    parameter = transformation.get("excess_mortality_rate_per_year")
+    if not isinstance(parameter, dict):
+        raise ModelValidationError(
+            "excess-mortality uncertainty target must identify the excess rate parameter"
+        )
+    value = parameter.get("value")
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not isfinite(float(value))
+        or float(value) <= 0.0
+    ):
+        raise ModelValidationError(
+            "uncertain excess_mortality_rate_per_year base value must be strictly positive"
+        )
+    source_id = parameter.get("source_extraction_id")
+    assumption_id = parameter.get("assumption_id")
+    expected_basis = (
+        source_id
+        if isinstance(source_id, str) and source_id.strip()
+        else assumption_id
+    )
+    if not isinstance(expected_basis, str) or tuple(basis_ids) != (expected_basis,):
+        raise ModelValidationError(
+            "excess-mortality uncertainty basis_ids must contain exactly the excess rate source extraction or assumption id"
+        )
+
+
+def _validate_probability_parameter(
+    base_payload: dict[str, Any],
+    mapping_index: int,
+    target: str,
+    provenance_path: str,
+    basis_ids: tuple[str, ...],
+) -> None:
+    if base_payload.get("schema_version") not in {
+        PROBABILITY_TIME_ANALYSIS_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
+        MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
+    }:
+        raise ModelValidationError(
+            f"probability-time uncertainty requires analysis schema_version {PROBABILITY_TIME_ANALYSIS_SCHEMA_VERSION}"
+        )
+    mappings = base_payload.get("input_provenance")
+    if not isinstance(mappings, list) or mapping_index >= len(mappings):
+        raise ModelValidationError(f"uncertainty target {target!r} does not exist")
+    mapping = mappings[mapping_index]
+    if not isinstance(mapping, dict) or mapping.get("path") != provenance_path:
+        raise ModelValidationError(
+            "probability-time uncertainty provenance_path must equal its transformation mapping path"
+        )
+    derivation = mapping.get("derivation")
+    transformation = (
+        derivation.get("transformation") if isinstance(derivation, dict) else None
+    )
+    if (
+        not isinstance(derivation, dict)
+        or derivation.get("method") != PROBABILITY_TIME_TRANSFORMATION_METHOD
+        or not isinstance(transformation, dict)
+        or transformation.get("operation") != PROBABILITY_TIME_TRANSFORMATION_OPERATION
+    ):
+        raise ModelValidationError(
+            "probability-time uncertainty requires an admitted single-event transformation"
+        )
+    event = _resolve(base_payload, target.rsplit("/", 1)[0])
+    if not isinstance(event, dict):
+        raise ModelValidationError(
+            "probability-time uncertainty target must belong to an event"
+        )
+    source_id = event.get("source_extraction_id")
+    assumption_id = event.get("assumption_id")
+    expected_basis = (
+        source_id
+        if isinstance(source_id, str) and source_id.strip()
+        else assumption_id
+    )
+    if not isinstance(expected_basis, str) or tuple(basis_ids) != (expected_basis,):
+        raise ModelValidationError(
+            "probability-time uncertainty basis_ids must contain exactly the event source extraction or assumption id"
+        )
+
+
+def _validate_survival_parameter(
+    base_payload: dict[str, Any],
+    mapping_index: int,
+    parameter_name: str,
+    target: str,
+    provenance_path: str,
+    basis_ids: tuple[str, ...],
+) -> None:
+    if base_payload.get("schema_version") not in {
+        SURVIVAL_ANALYSIS_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
+        MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
+    }:
+        raise ModelValidationError(
+            f"survival-parameter uncertainty requires analysis schema_version {SURVIVAL_ANALYSIS_SCHEMA_VERSION}"
+        )
+    mappings = base_payload.get("input_provenance")
+    if not isinstance(mappings, list) or mapping_index >= len(mappings):
+        raise ModelValidationError(f"uncertainty target {target!r} does not exist")
+    mapping = mappings[mapping_index]
+    if not isinstance(mapping, dict) or mapping.get("path") != provenance_path:
+        raise ModelValidationError(
+            "survival-parameter uncertainty provenance_path must equal its transformation mapping path"
+        )
+    derivation = mapping.get("derivation")
+    transformation = derivation.get("transformation") if isinstance(derivation, dict) else None
+    if (
+        not isinstance(derivation, dict)
+        or derivation.get("method") != SURVIVAL_TRANSFORMATION_METHOD
+        or not isinstance(transformation, dict)
+        or transformation.get("operation") != SURVIVAL_TRANSFORMATION_OPERATION
+    ):
+        raise ModelValidationError(
+            "survival-parameter uncertainty requires an admitted parametric survival transformation"
+        )
+    expected = {
+        "exponential": {"rate_per_year"},
+        "weibull": {"shape", "scale_years"},
+    }.get(transformation.get("distribution"))
+    if expected is None or parameter_name not in expected:
+        raise ModelValidationError(
+            "survival-parameter uncertainty target does not match the declared distribution"
+        )
+    parameter = _resolve(base_payload, target.rsplit("/", 1)[0])
+    if not isinstance(parameter, dict):
+        raise ModelValidationError("survival-parameter uncertainty target is invalid")
+    source_id = parameter.get("source_extraction_id")
+    assumption_id = parameter.get("assumption_id")
+    expected_basis = source_id if isinstance(source_id, str) and source_id.strip() else assumption_id
+    if not isinstance(expected_basis, str) or tuple(basis_ids) != (expected_basis,):
+        raise ModelValidationError(
+            "survival-parameter uncertainty basis_ids must contain exactly the parameter source extraction or assumption id"
+        )
+
+
+def _validate_rate_parameter(
+    base_payload: dict[str, Any],
+    mapping_index: int,
+    target: str,
+    provenance_path: str,
+    basis_ids: tuple[str, ...],
+) -> None:
+    if base_payload.get("schema_version") not in {
+        "0.5.0",
+        PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
+        MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
+    }:
+        raise ModelValidationError(
+            "event-rate uncertainty requires analysis schema_version 0.5.0"
+        )
+    mappings = base_payload.get("input_provenance")
+    if not isinstance(mappings, list) or mapping_index >= len(mappings):
+        raise ModelValidationError(f"uncertainty target {target!r} does not exist")
+    mapping = mappings[mapping_index]
+    if not isinstance(mapping, dict) or mapping.get("path") != provenance_path:
+        raise ModelValidationError(
+            "event-rate uncertainty provenance_path must equal its transformation mapping path"
+        )
+    derivation = mapping.get("derivation")
+    transformation = derivation.get("transformation") if isinstance(derivation, dict) else None
+    if (
+        not isinstance(derivation, dict)
+        or derivation.get("method") != TRANSFORMATION_METHOD
+        or not isinstance(transformation, dict)
+        or transformation.get("operation") != TRANSFORMATION_OPERATION
+    ):
+        raise ModelValidationError(
+            "event-rate uncertainty requires an admitted constant competing-rate transformation"
+        )
+    event_pointer = target.rsplit("/", 1)[0]
+    event = _resolve(base_payload, event_pointer)
+    if not isinstance(event, dict):
+        raise ModelValidationError("event-rate uncertainty target must belong to an event")
+    source_id = event.get("source_extraction_id")
+    assumption_id = event.get("assumption_id")
+    expected_basis = (
+        source_id
+        if isinstance(source_id, str) and source_id.strip()
+        else assumption_id
+    )
+    if not isinstance(expected_basis, str) or tuple(basis_ids) != (expected_basis,):
+        raise ModelValidationError(
+            "event-rate uncertainty basis_ids must contain exactly the event source extraction or assumption id"
+        )
+
+
+def _deterministic_mapping(base_payload: dict[str, Any], provenance_path: str) -> bool:
+    mappings = base_payload.get("input_provenance")
+    if not isinstance(mappings, list):
+        return False
+    return any(
+        isinstance(mapping, dict)
+        and mapping.get("path") == provenance_path
+        and isinstance(mapping.get("derivation"), dict)
+        and mapping["derivation"].get("method") == TRANSFORMATION_METHOD
+        for mapping in mappings
+    )
+
+
+def _scenario(
+    value: Any,
+    index: int,
+    base_payload: dict[str, Any],
+    schema_version: str,
+) -> Scenario:
+    value = _mapping(value, f"structural_scenarios[{index}]")
+    replacements: list[tuple[str, Any]] = []
+    seen: set[str] = set()
+    for replacement_index, raw in enumerate(
+        _array(value.get("replacements"), f"structural_scenarios[{index}].replacements")
+    ):
+        replacement = _mapping(
+            raw, f"structural_scenarios[{index}].replacements[{replacement_index}]"
+        )
+        target = _nonempty(replacement.get("target"), "scenario replacement target")
+        if target in seen:
+            raise ModelValidationError("scenario replacement targets must be unique")
+        seen.add(target)
+        base = _resolve(base_payload, target)
+        new_value = copy.deepcopy(replacement.get("value"))
+        _validate_replacement(
+            target,
+            new_value,
+            base,
+            structural=True,
+            strategy_ids=_analysis_strategy_ids(base_payload),
+            background_mortality_schema=(
+                schema_version
+                in {
+                    PREVIOUS_UNCERTAINTY_SCHEMA_VERSION,
+                    RELATIVE_EFFECT_UNCERTAINTY_SCHEMA_VERSION,
+                    UNCERTAINTY_SCHEMA_VERSION,
+                    PARTITIONED_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+                    JOINT_SURVIVAL_UNCERTAINTY_SCHEMA_VERSION,
+                }
+            ),
+        )
+        replacements.append((target, new_value))
+    if not replacements:
+        raise ModelValidationError("each structural scenario needs at least one replacement")
+    return Scenario(
+        identifier=_nonempty(value.get("id"), f"structural_scenarios[{index}].id"),
+        label=_nonempty(value.get("label"), f"structural_scenarios[{index}].label"),
+        rationale=_nonempty(
+            value.get("rationale"), f"structural_scenarios[{index}].rationale"
+        ),
+        replacements=tuple(replacements),
+    )
+
+
+def _validate_replacement(
+    target: str,
+    value: Any,
+    base: Any,
+    strategy_ids: tuple[str, ...],
+    structural: bool = False,
+    rate_parameter: bool = False,
+    probability_parameter: bool = False,
+    background_mortality_schema: bool = False,
+) -> None:
+    tokens = _pointer_tokens(target)
+    scalar_target = (
+        len(tokens) == 4
+        and tokens[0] == "strategies"
+        and tokens[1] in strategy_ids
+        and tokens[2] in {"state_costs", "state_utilities"}
+        and tokens[3].isdigit()
+    )
+    simplex_target = (
+        len(tokens) == 4
+        and tokens[0] == "strategies"
+        and tokens[1] in strategy_ids
+        and tokens[2] == "transition_matrix"
+        and tokens[3].isdigit()
+    )
+    structural_targets = {
+        "/cycles",
+        "/cycle_length_years",
+        "/discount_rates/costs",
+        "/discount_rates/outcomes",
+        "/half_cycle_correction",
+    }
+    scheduled_row = _scheduled_transition_row_target(target, strategy_ids)
+    scheduled_start = _scheduled_transition_start_target(target, strategy_ids)
+    allowed = (
+        scalar_target
+        or simplex_target
+        or scheduled_row
+        or rate_parameter
+        or probability_parameter
+    )
+    if structural and background_mortality_schema:
+        allowed = scalar_target or target in {
+            "/discount_rates/costs",
+            "/discount_rates/outcomes",
+            "/half_cycle_correction",
+        }
+    elif structural:
+        allowed = allowed or target in structural_targets or scheduled_start
+    if not allowed:
+        raise ModelValidationError(f"uncertainty target {target!r} is outside the allowlist")
+    if isinstance(base, bool):
+        if not isinstance(value, bool):
+            raise ModelValidationError(f"replacement for {target} must be a boolean")
+    elif isinstance(base, int) and not isinstance(base, bool):
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ModelValidationError(f"replacement for {target} must be an integer")
+    elif isinstance(base, (int, float)):
+        number = _finite_float(value, f"replacement for {target}")
+        if rate_parameter and number <= 0:
+            raise ModelValidationError(f"replacement for {target} must be positive")
+        if probability_parameter and not 0 < number < 1:
+            raise ModelValidationError(
+                f"replacement for {target} must be strictly between 0 and 1"
+            )
+    elif isinstance(base, list):
+        if not isinstance(value, list) or len(value) != len(base):
+            raise ModelValidationError(f"replacement for {target} must match the array length")
+        numeric = [_finite_float(item, f"replacement for {target}") for item in value]
+        if any(item < 0 or item > 1 for item in numeric) or abs(sum(numeric) - 1.0) > 1e-9:
+            raise ModelValidationError(f"replacement for {target} must be a probability simplex")
+    else:
+        raise ModelValidationError(f"replacement for {target} has an unsupported type")
+
+
+def _scheduled_transition_row_target(
+    target: str, strategy_ids: tuple[str, ...]
+) -> bool:
+    tokens = _pointer_tokens(target)
+    return (
+        len(tokens) == 6
+        and tokens[0] == "strategies"
+        and tokens[1] in strategy_ids
+        and tokens[2] == "transition_schedule"
+        and tokens[3].isdigit()
+        and tokens[4] == "matrix"
+        and tokens[5].isdigit()
+    )
+
+
+def _scheduled_transition_start_target(
+    target: str, strategy_ids: tuple[str, ...]
+) -> bool:
+    tokens = _pointer_tokens(target)
+    return (
+        len(tokens) == 5
+        and tokens[0] == "strategies"
+        and tokens[1] in strategy_ids
+        and tokens[2] == "transition_schedule"
+        and tokens[3].isdigit()
+        and tokens[4] == "start_cycle"
+    )
+
+
+def _analysis_strategy_ids(base_payload: dict[str, Any]) -> tuple[str, ...]:
+    if base_payload.get("schema_version") not in {
+        EARLIEST_MULTI_STRATEGY_SCHEMA_VERSION,
+        PRIOR_MULTI_STRATEGY_SCHEMA_VERSION,
+        PREVIOUS_MULTI_STRATEGY_SCHEMA_VERSION,
+        MULTI_STRATEGY_ANALYSIS_SCHEMA_VERSION,
+        "0.12.0",
+    }:
+        return ("comparator", "intervention")
+    raw_order = base_payload.get("strategy_order")
+    strategies = base_payload.get("strategies")
+    if (
+        not isinstance(raw_order, (list, tuple))
+        or any(not isinstance(item, str) for item in raw_order)
+        or not isinstance(strategies, dict)
+        or set(strategies) != set(raw_order)
+    ):
+        raise ModelValidationError(
+            "multi-strategy uncertainty requires exact strategy_order and strategies key agreement"
+        )
+    return tuple(raw_order)
+
+
+def _replace(value: dict[str, Any], pointer: str, replacement: Any) -> None:
+    tokens = _pointer_tokens(pointer)
+    current: Any = value
+    for token in tokens[:-1]:
+        current = current[int(token)] if isinstance(current, list) else current[token]
+    last = tokens[-1]
+    if isinstance(current, list):
+        current[int(last)] = copy.deepcopy(replacement)
+    else:
+        current[last] = copy.deepcopy(replacement)
+
+
+def _replace_dot_path(value: dict[str, Any], path: str, replacement: Any) -> None:
+    tokens = path.split(".")
+    if not tokens or any(not token for token in tokens):
+        raise ModelValidationError("rate transformation mapping path is invalid")
+    current: Any = value
+    try:
+        for token in tokens[:-1]:
+            current = current[token]
+        current[tokens[-1]] = copy.deepcopy(replacement)
+    except (KeyError, TypeError) as error:
+        raise ModelValidationError(
+            f"rate transformation mapping path {path!r} does not exist"
+        ) from error
+
+
+def _resolve(value: dict[str, Any], pointer: str) -> Any:
+    current: Any = value
+    for token in _pointer_tokens(pointer):
+        try:
+            current = current[int(token)] if isinstance(current, list) else current[token]
+        except (KeyError, IndexError, ValueError, TypeError) as error:
+            raise ModelValidationError(f"uncertainty target {pointer!r} does not exist") from error
+    return current
+
+
+def _pointer_tokens(pointer: str) -> list[str]:
+    if not pointer.startswith("/") or pointer == "/":
+        raise ModelValidationError("uncertainty targets must be non-root JSON Pointers")
+    return [token.replace("~1", "/").replace("~0", "~") for token in pointer[1:].split("/")]
+
+
+def _array(value: Any, name: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise ModelValidationError(f"{name} must be an array")
+    return value
+
+
+def _mapping(value: Any, name: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ModelValidationError(f"{name} must be an object")
+    return value
+
+
+def _nonempty(value: Any, name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ModelValidationError(f"{name} must be a non-empty string")
+    return value
+
+
+def _strict_int(value: Any, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ModelValidationError(f"{name} must be an integer")
+    return value
+
+
+def _finite_float(value: Any, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ModelValidationError(f"{name} must be a number")
+    result = float(value)
+    if not isfinite(result):
+        raise ModelValidationError(f"{name} must be finite")
+    return result
+
+
+def _positive_float(value: Any, name: str) -> float:
+    result = _finite_float(value, name)
+    if result <= 0:
+        raise ModelValidationError(f"{name} must be positive")
+    return result

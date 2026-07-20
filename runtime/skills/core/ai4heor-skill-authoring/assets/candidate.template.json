@@ -1,0 +1,56 @@
+{
+  "schema": "ai4heor-skill-candidate/v2",
+  "id": "replace-with-skill-id",
+  "status": "candidate",
+  "created_at": "YYYY-MM-DDTHH:MM:SSZ",
+  "request": "Exact natural-language request from the researcher",
+  "localized": {
+    "en": {
+      "display_name": "English display name",
+      "description": "English description",
+      "license_note": "Plain-language English note describing the permitted use",
+      "limitations": [
+        "State scientific and implementation limits in English"
+      ],
+      "acceptance_checks": [
+        "Describe one observable Human acceptance check in English"
+      ]
+    },
+    "zh-Hans": {
+      "display_name": "中文名称",
+      "description": "中文说明",
+      "license_note": "用中文说明允许的使用范围",
+      "limitations": [
+        "用中文说明科学与实现边界"
+      ],
+      "acceptance_checks": [
+        "用中文说明一项可观察的研究者验收检查"
+      ]
+    }
+  },
+  "authoring": {
+    "provider": "provider selected by the researcher",
+    "model": "model identifier",
+    "session_ref": "local session reference"
+  },
+  "source": {
+    "kind": "user-requested-original",
+    "copyright_holder": "rights holder or unknown",
+    "rights_basis": "user-authorized original drafting",
+    "license_spdx": "LicenseRef-Proprietary-User-Provided",
+    "license_note": "Local use only until redistribution rights are recorded"
+  },
+  "permissions": {
+    "network": false,
+    "secrets": false,
+    "commands": false,
+    "outside_workspace": false
+  },
+  "files": [
+    {
+      "path": "skill/SKILL.md",
+      "bytes": 0,
+      "sha256": "replace-with-lowercase-sha256"
+    }
+  ]
+}

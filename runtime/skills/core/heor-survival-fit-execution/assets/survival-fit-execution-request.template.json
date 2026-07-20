@@ -1,0 +1,67 @@
+{
+  "schema_version": "0.1.0",
+  "execution_id": "replace-with-safe-id",
+  "status": "draft",
+  "analysis_target": {
+    "analysis_id": "",
+    "path": ""
+  },
+  "source_data": {
+    "classification": "restricted",
+    "execution_boundary": "local_only",
+    "format": "csv",
+    "path": "",
+    "sha256": "",
+    "columns": {
+      "time": "time",
+      "event": "event"
+    },
+    "row_count": 0,
+    "event_count": 0,
+    "censor_count": 0,
+    "contains_direct_identifiers": false,
+    "missing_policy": "reject",
+    "additional_columns": "reject"
+  },
+  "fit": {
+    "method": "maximum_likelihood",
+    "formula": "intercept_only",
+    "candidate_models": [
+      {
+        "family": "exponential",
+        "rationale": ""
+      },
+      {
+        "family": "weibull",
+        "rationale": ""
+      }
+    ],
+    "prediction_times": [
+      0,
+      1,
+      5
+    ],
+    "observed_follow_up": 1,
+    "model_horizon": 5,
+    "cross_implementation_tolerance": 1e-08
+  },
+  "runtime": {
+    "expected_packages": {
+      "survHE": "2.0.51",
+      "flexsurv": "replace-with-exact-version",
+      "survival": "replace-with-exact-version"
+    }
+  },
+  "output": {
+    "directory": "heor/survival-fit-executions/replace-with-safe-id",
+    "overwrite_policy": "fail_if_exists"
+  },
+  "limitations": [
+    "This request does not establish internal, external, or clinical validity.",
+    "The first execution slice is intercept-only maximum-likelihood fitting and does not establish joint PFS/OS validity."
+  ],
+  "human_gate": {
+    "state": "awaiting_execution_authorization",
+    "required_action": "approve_local_survival_fit_command"
+  }
+}

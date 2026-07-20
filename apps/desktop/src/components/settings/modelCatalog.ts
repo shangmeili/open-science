@@ -26,20 +26,6 @@ export function flattenModelOptions(providers: ProviderInfo[]): ModelOption[] {
   );
 }
 
-/**
- * Where the configured default model should land after a provider change made
- * it dangling (provider removed, or its models renamed): null when the default
- * is still available — or nothing is available to fall back to — otherwise the
- * closest valid "provider/model" key: the same provider's first model when the
- * provider survived, else the first model of the first provider.
- */
-export function fallbackDefaultModel(providers: ProviderInfo[], defaultModel: string): string | null {
-  const options = flattenModelOptions(providers);
-  if (options.length === 0 || options.some((m) => m.key === defaultModel)) return null;
-  const providerID = defaultModel.split("/")[0];
-  return (options.find((m) => m.providerID === providerID) ?? options[0]).key;
-}
-
 function baseOptions(
   options: ModelOption[],
   filter: ModelFilter,

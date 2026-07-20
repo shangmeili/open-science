@@ -1,0 +1,85 @@
+{
+  "schema_version": "0.1.0",
+  "execution_id": "replace-with-safe-id",
+  "status": "draft",
+  "question": {
+    "population": "Replace with the eligible population",
+    "intervention_network": "Replace with the intervention network",
+    "outcome": "Replace with one outcome",
+    "timepoint": "Replace with one aligned timepoint",
+    "estimand": "Replace with the target relative-effect estimand",
+    "study_design": "randomized_parallel_two_arm"
+  },
+  "evidence_synthesis": {
+    "path": "heor/evidence-synthesis.json",
+    "sha256": "replace-with-sha256",
+    "included_record_ids": []
+  },
+  "source_data": {
+    "classification": "public",
+    "execution_boundary": "local_only",
+    "format": "contrast_csv",
+    "path": "heor/nma-data/contrasts.csv",
+    "sha256": "replace-with-sha256",
+    "columns": ["study_id", "treat1", "treat2", "effect", "se"],
+    "row_count": 0,
+    "study_count": 0,
+    "contains_direct_identifiers": false,
+    "missing_policy": "reject",
+    "multiarm_policy": "reject"
+  },
+  "treatments": [],
+  "reference_treatment": "replace-with-treatment-id",
+  "effect": {
+    "measure": "log_odds_ratio",
+    "scale": "log",
+    "likelihood": "normal",
+    "link": "identity",
+    "confidence_level": 0.95,
+    "favorable_direction": "lower"
+  },
+  "model": {
+    "type": "random",
+    "heterogeneity_variance": "common_tau_squared",
+    "tau_method": "REML",
+    "prediction_interval": true
+  },
+  "transitivity": {
+    "status": "awaiting_human_review",
+    "joint_randomizability_rationale": "Replace with a clinical and methodological rationale.",
+    "effect_modifiers": [],
+    "concerns": []
+  },
+  "diagnostics": {
+    "global_inconsistency": "design_decomposition",
+    "local_inconsistency": "node_splitting",
+    "ranking": "none"
+  },
+  "runtime": {
+    "r_version": "replace-with-version",
+    "package_versions": {
+      "netmeta": "replace-with-version",
+      "meta": "replace-with-version",
+      "metafor": "replace-with-version"
+    },
+    "adapter_sha256": "replace-with-sha256"
+  },
+  "output": {
+    "directory": "heor/network-meta-analysis-runs/replace-with-safe-id"
+  },
+  "study_provenance": [],
+  "limitations": [],
+  "human_gate": {
+    "status": "awaiting_model_review",
+    "required_checks": [
+      "question_outcome_estimand",
+      "nodes_connectivity_two_arm_boundary",
+      "study_contrasts_provenance_risk_of_bias",
+      "transitivity_effect_modifiers",
+      "model_tau_method",
+      "heterogeneity_prediction",
+      "global_local_inconsistency",
+      "ranking_transportability_limitations"
+    ]
+  }
+}

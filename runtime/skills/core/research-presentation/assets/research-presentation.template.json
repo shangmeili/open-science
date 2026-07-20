@@ -1,0 +1,56 @@
+{
+  "schema_version": "0.1.0",
+  "deck_id": "project-readout",
+  "title": "Research title",
+  "subtitle": "Decision question and reporting period",
+  "language": "zh-Hans",
+  "prepared_on": "2026-07-19",
+  "audience": "Named research or decision audience",
+  "purpose": "What the audience should understand or decide after the presentation",
+  "theme": "ai4heor-paper",
+  "sources": [
+    {
+      "source_id": "S1",
+      "path": "heor/report.md",
+      "sha256": "",
+      "label": "Current reviewed research report"
+    }
+  ],
+  "slides": [
+    {
+      "slide_id": "title",
+      "kind": "title",
+      "title": "Research title",
+      "subtitle": "Decision question and reporting period"
+    },
+    {
+      "slide_id": "key-message",
+      "kind": "content",
+      "title": "One clear message",
+      "bullets": [
+        "Replace this text with a source-supported conclusion."
+      ],
+      "source_refs": ["S1"]
+    },
+    {
+      "slide_id": "limitations",
+      "kind": "limitations",
+      "title": "Limitations and open questions",
+      "bullets": [
+        "State the most decision-relevant limitation explicitly."
+      ],
+      "source_refs": ["S1"]
+    },
+    {
+      "slide_id": "next-step",
+      "kind": "closing",
+      "title": "Next step",
+      "bullets": [
+        "Name the decision or review required from the audience."
+      ]
+    }
+  ],
+  "human_review": {
+    "status": "awaiting_human_review"
+  }
+}

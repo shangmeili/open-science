@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Evidence Search"
+  short_description: "Draft auditable, human-authorized HEOR searches"
+  default_prompt: "Use $heor-evidence-search to draft an auditable evidence-search request for human authorization."

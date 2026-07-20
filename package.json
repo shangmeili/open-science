@@ -1,13 +1,15 @@
 {
   "name": "ai4s-workbench",
-  "version": "0.2.1",
+  "version": "0.1.56",
   "private": true,
-  "description": "Open Science Desktop — local-first, model-agnostic AI research workbench for macOS, Windows and Linux.",
+  "description": "AI4HEOR — local-first, model-agnostic AI research workbench for pharmacoeconomics and HEOR.",
   "license": "MIT",
   "scripts": {
     "dev": "pnpm --filter @ai4s/desktop dev",
     "build": "pnpm --filter @ai4s/desktop build",
     "test": "pnpm --filter @ai4s/desktop test",
+    "test:heor": "uv run --project python/heor_core python -B -m unittest discover -s python/heor_core/tests -v",
+    "preflight:resources": "node scripts/release/preflight_resources.mjs",
     "typecheck": "pnpm --filter @ai4s/desktop typecheck",
     "lint": "pnpm --filter @ai4s/desktop lint"
   },

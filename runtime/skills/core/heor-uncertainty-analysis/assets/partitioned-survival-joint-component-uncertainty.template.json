@@ -1,0 +1,57 @@
+{
+  "schema_version": "0.14.0",
+  "uncertainty_id": "REPLACE_WITH_UNCERTAINTY_ID",
+  "analysis_id": "REPLACE_WITH_ANALYSIS_ID",
+  "status": "ready_for_human_review",
+  "base_analysis": {
+    "path": "heor/analysis-plan.json",
+    "content_sha256": "REPLACE_WITH_SHA256"
+  },
+  "partitioned_survival_inputs": {
+    "partitioned_survival_plan": {"path": "heor/partitioned-survival-plan.json", "content_sha256": "REPLACE_WITH_SHA256"},
+    "curve_materializations": {"path": "heor/survival-curve-materializations.json", "content_sha256": "REPLACE_WITH_SHA256"},
+    "treatment_effect_duration": {"path": "heor/treatment-effect-duration.json", "content_sha256": "REPLACE_WITH_SHA256"},
+    "cost_input_normalization": {"path": "heor/cost-input-normalization.json", "content_sha256": "REPLACE_WITH_SHA256"},
+    "utility_inputs": {"path": "heor/utility-inputs.json", "content_sha256": "REPLACE_WITH_SHA256"},
+    "event_disutilities": {"path": "heor/event-disutilities.json", "content_sha256": "REPLACE_WITH_SHA256"}
+  },
+  "joint_survival_inputs": {
+    "manifest": {"path": "heor/joint-survival-uncertainty.json", "content_sha256": "REPLACE_WITH_SHA256"},
+    "draws": {"path": "heor/joint-survival-draws.jsonl", "content_sha256": "REPLACE_WITH_SHA256"}
+  },
+  "seed": 20260715,
+  "parameters": [
+    {
+      "id": "REPLACE_WITH_PARAMETER_ID",
+      "label": "REPLACE_ME",
+      "artifact": "cost_input_normalization",
+      "target": "/items/REPLACE_WITH_ITEM_ID/unit_price/amount",
+      "provenance_path": "cost_input_normalization.items.REPLACE_WITH_ITEM_ID.unit_price.amount",
+      "deterministic": {"low": 0, "high": 1, "rationale": "REPLACE_WITH_LINKED_EVIDENCE_OR_HUMAN_BASIS"},
+      "probabilistic": {"type": "uniform", "low": 0, "high": 1, "basis_ids": ["REPLACE_WITH_TARGET_LINKED_BASIS_ID"], "rationale": "REPLACE_WITH_DISTRIBUTION_BASIS"}
+    }
+  ],
+  "probabilistic_analysis": {
+    "iterations": 1000,
+    "decision_thresholds": {"values": [0, 1], "rationale": "REPLACE_WITH_DECISION_CONTEXT_AND_INCLUDE_PRIMARY_WTP"},
+    "convergence": {"checkpoints": [500, 1000], "max_probability_mcse": 0.05, "max_probability_drift": 0.05},
+    "correlation_handling": {
+      "groups": [],
+      "independence_rationale": "REPLACE_WITH_EVIDENCE_BASED_RATIONALE",
+      "known_omitted_correlations": []
+    },
+    "omitted_parameters": [
+      {"provenance_path": "partitioned_survival.structural.curve_family_selection", "rationale": "Alternative curve families remain structural uncertainty."},
+      {"provenance_path": "partitioned_survival.structural.extrapolation_assumptions", "rationale": "Alternative extrapolation assumptions remain structural uncertainty."},
+      {"provenance_path": "partitioned_survival.structural.source_model_validity", "rationale": "Source-model validity remains a Human and independent-validation responsibility."}
+    ]
+  },
+  "structural_scenarios": [
+    {
+      "id": "REPLACE_WITH_SCENARIO_ID",
+      "label": "REPLACE_ME",
+      "rationale": "REPLACE_WITH_REVIEWABLE_BASIS",
+      "replacements": [{"target": "/discount_rates/outcomes", "value": 0}]
+    }
+  ]
+}

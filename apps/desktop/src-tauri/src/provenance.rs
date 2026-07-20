@@ -2,7 +2,6 @@
 // version record to <workspace>/.openscience/provenance.jsonl — append-only,
 // one JSON object per line, so any artifact can reveal its generating code,
 // environment, and originating conversation, per version.
-use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -108,48 +107,28 @@ pub struct PackageSnapshot {
 
 const ENV_DIR: &str = "env";
 
-/// Memoize a per-interpreter shell probe: the first call for a given interpreter
-/// path spawns a process (seconds); later records reusing the same interpreter
-/// hit the cache, so a per-write spawn never slows agent edits. Keyed by
-/// interpreter path so a venv run and the app default don't share a result.
-fn cached_probe(
-    cache: &Mutex<HashMap<String, Option<String>>>,
-    interpreter: &str,
-    compute: impl FnOnce() -> Option<String>,
-) -> Option<String> {
-    if let Ok(m) = cache.lock() {
-        if let Some(v) = m.get(interpreter) {
-            return v.clone();
-        }
-    }
-    let v = compute();
-    if let Ok(mut m) = cache.lock() {
-        m.insert(interpreter.to_string(), v.clone());
-    }
-    v
-}
-
-/// Capture `pip freeze` for a specific interpreter (the venv/interpreter the run
-/// actually used, not always the app default). Returns the raw `name==version`
-/// list. Cached per interpreter path.
-fn pip_freeze(interpreter: &str) -> Option<String> {
-    static CACHE: std::sync::OnceLock<Mutex<HashMap<String, Option<String>>>> = std::sync::OnceLock::new();
-    let cache = CACHE.get_or_init(Mutex::default);
-    cached_probe(cache, interpreter, || {
-        let out = crate::runtime::quiet_command(interpreter)
-            .args(["-m", "pip", "freeze"])
-            .output()
-            .ok()?;
-        if !out.status.success() {
-            return None;
-        }
-        let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        if text.is_empty() {
-            None
-        } else {
-            Some(text)
-        }
-    })
+/// Capture `pip freeze` once per app run — a per-write process spawn would slow
+/// every agent edit. Returns the raw `name==version` list.
+fn pip_freeze(app: &tauri::AppHandle) -> Option<String> {
+    static CACHE: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    CACHE
+        .get_or_init(|| {
+            let (bin, _) = crate::kernel::python_bin(app).ok()?;
+            let out = crate::runtime::quiet_command(bin)
+                .args(["-m", "pip", "freeze"])
+                .output()
+                .ok()?;
+            if !out.status.success() {
+                return None;
+            }
+            let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if text.is_empty() {
+                None
+            } else {
+                Some(text)
+            }
+        })
+        .clone()
 }
 
 /// Detect hardware once per app run by shelling out to the OS's own tools —
@@ -249,175 +228,35 @@ fn write_lockfile(root: &Path, freeze: &str) -> Result<PackageSnapshot, String> 
     Ok(PackageSnapshot { count, hash })
 }
 
-/// Detect a specific interpreter's Python version (`<interp> --version`).
-/// Cached per interpreter path, so repeated records don't re-spawn.
-fn python_version(interpreter: &str) -> Option<String> {
-    static CACHE: std::sync::OnceLock<Mutex<HashMap<String, Option<String>>>> = std::sync::OnceLock::new();
-    let cache = CACHE.get_or_init(Mutex::default);
-    cached_probe(cache, interpreter, || {
-        let out = crate::runtime::quiet_command(interpreter).arg("--version").output().ok()?;
-        let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        let text = if text.is_empty() {
-            String::from_utf8_lossy(&out.stderr).trim().to_string() // Python 2 printed -V to stderr
-        } else {
-            text
-        };
-        Some(text.strip_prefix("Python ").unwrap_or(&text).to_string())
-    })
+/// Detect the local Python version once per app run — `python -V` on every
+/// record would add a process spawn to each agent write.
+fn python_version(app: &tauri::AppHandle) -> Option<String> {
+    static CACHE: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    CACHE
+        .get_or_init(|| {
+            let (bin, _) = crate::kernel::python_bin(app).ok()?;
+            let out = crate::runtime::quiet_command(bin).arg("--version").output().ok()?;
+            let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            let text = if text.is_empty() {
+                String::from_utf8_lossy(&out.stderr).trim().to_string() // Python 2 printed -V to stderr
+            } else {
+                text
+            };
+            Some(text.strip_prefix("Python ").unwrap_or(&text).to_string())
+        })
+        .clone()
 }
 
-/// Capture the runtime environment for a record. When `command` names an
-/// explicit Python interpreter by path (a project venv, e.g.
-/// `.venv/bin/python train.py` or `C:\proj\.venv\Scripts\python.exe -c …`), the
-/// env snapshot is taken from THAT interpreter — its version and its packages —
-/// so a venv run's provenance isn't silently stamped with the app default
-/// Python. If the command names an explicit interpreter that is MISSING on disk
-/// (the run failed to launch), no Python env is attributed — falling back to the
-/// app default there would be semantically misleading (see issue #23). A bare
-/// `python` (or a non-run write, `command == None`) falls back to the app
-/// default interpreter.
-pub(crate) fn capture_env(
-    app: &tauri::AppHandle,
-    root: &Path,
-    app_version: String,
-    command: Option<&str>,
-) -> EnvInfo {
-    let interpreter = match command.and_then(|c| interpreter_from_command(c, root)) {
-        // An explicit path-form interpreter that exists — snapshot THIS one.
-        Some(RunInterpreter::Explicit(p)) => Some(p.to_string_lossy().into_owned()),
-        // An explicit interpreter was named but is missing: the run could not
-        // have used the app default, so attribute no Python env (not the default).
-        Some(RunInterpreter::Missing) => None,
-        // No explicit interpreter (bare `python`, non-Python, or a write): the
-        // app default is the right, non-misleading fallback.
-        None => crate::kernel::python_bin(app).ok().map(|(bin, _)| bin),
-    };
-
-    let (python, packages) = match interpreter {
-        // Package capture is best-effort: no pip / write failure just omits it.
-        Some(interp) => (
-            python_version(&interp),
-            pip_freeze(&interp).and_then(|f| write_lockfile(root, &f).ok()),
-        ),
-        None => (None, None),
-    };
+pub(crate) fn capture_env(app: &tauri::AppHandle, root: &Path, app_version: String) -> EnvInfo {
+    // Package capture is best-effort: no pip / write failure just omits it.
+    let packages = pip_freeze(app).and_then(|f| write_lockfile(root, &f).ok());
     EnvInfo {
-        python,
+        python: python_version(app),
         platform: format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
         app: app_version,
         packages,
         hardware: Some(hardware_info()),
     }
-}
-
-/// The Python interpreter a run used, derived from its command's head.
-enum RunInterpreter {
-    /// An explicit path-form interpreter that exists on disk — snapshot this one.
-    Explicit(PathBuf),
-    /// An explicit path-form interpreter was named but does not exist, so the run
-    /// could not have used the app default Python.
-    Missing,
-}
-
-/// Classify the Python interpreter named at a command's head — e.g.
-/// `C:\proj\.venv\Scripts\python.exe` or `/proj/.venv/bin/python`. Returns:
-/// - `None` — no explicit path-form `python*` head (bare `python`, resolved via
-///   PATH, or a non-Python command): the caller uses the app default.
-/// - `Some(Explicit(path))` — a path-form `python*` that resolves to a real file.
-/// - `Some(Missing)` — a path-form `python*` head that does not exist on disk.
-///
-/// Extraction is best-effort and only inspects each segment's head token.
-fn interpreter_from_command(command: &str, root: &Path) -> Option<RunInterpreter> {
-    for raw in command
-        .split('\n')
-        .flat_map(|s| s.split("&&"))
-        .flat_map(|s| s.split(';'))
-        .flat_map(|s| s.split('|'))
-    {
-        let head = strip_seg_prefixes(raw);
-        let token = first_token(&head);
-        if token.is_empty() {
-            continue;
-        }
-        let base = token.rsplit(['/', '\\']).next().unwrap_or(&token);
-        let stem = base
-            .strip_suffix(".exe")
-            .or_else(|| base.strip_suffix(".EXE"))
-            .unwrap_or(base);
-        let is_path_form = token.contains('/') || token.contains('\\');
-        if is_path_form && stem.starts_with("python") {
-            let p = Path::new(&token);
-            let resolved = if p.is_absolute() { p.to_path_buf() } else { root.join(p) };
-            return Some(if resolved.is_file() {
-                RunInterpreter::Explicit(resolved)
-            } else {
-                RunInterpreter::Missing
-            });
-        }
-    }
-    None
-}
-
-/// Strip leading `VAR=val` env assignments and a PowerShell `&` call operator
-/// from a command segment, exposing the operative command (`cd` hops are already
-/// split off as their own segments). Mirrors the frontend's `stripPrefixes`.
-fn strip_seg_prefixes(seg: &str) -> String {
-    let mut s = seg.trim();
-    loop {
-        // PowerShell call operator: `& C:\proj\.venv\Scripts\python.exe`.
-        if let Some(rest) = s.strip_prefix('&') {
-            let rest = rest.trim_start();
-            if rest.len() != s.len() {
-                s = rest;
-                continue;
-            }
-        }
-        if let Some(rest) = strip_env_assignment(s) {
-            s = rest;
-            continue;
-        }
-        break;
-    }
-    s.trim().to_string()
-}
-
-/// If `s` starts with a `VAR=value` env assignment followed by more command,
-/// return the remainder after it; else None. (Quoted values with spaces aren't
-/// handled — that just falls back to the default interpreter.)
-fn strip_env_assignment(s: &str) -> Option<&str> {
-    let bytes = s.as_bytes();
-    let mut i = 0;
-    if bytes.first().is_none_or(|b| !(b.is_ascii_alphabetic() || *b == b'_')) {
-        return None;
-    }
-    while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
-        i += 1;
-    }
-    if i >= bytes.len() || bytes[i] != b'=' {
-        return None;
-    }
-    let mut j = i + 1;
-    while j < bytes.len() && !bytes[j].is_ascii_whitespace() {
-        j += 1;
-    }
-    if j >= bytes.len() {
-        return None; // no command follows — not a prefix
-    }
-    Some(s[j..].trim_start())
-}
-
-/// The first shell token of a segment, honoring a leading quoted path (so a
-/// Windows path with spaces, `"C:\Program Files\Py\python.exe"`, stays intact).
-fn first_token(s: &str) -> String {
-    let s = s.trim_start();
-    for quote in ['"', '\''] {
-        if let Some(after) = s.strip_prefix(quote) {
-            if let Some(end) = after.find(quote) {
-                return after[..end].to_string();
-            }
-        }
-    }
-    s.split_whitespace().next().unwrap_or("").to_string()
 }
 
 /// Normalize an artifact path (absolute or relative, from tool input) to a
@@ -616,8 +455,7 @@ pub fn record_provenance(
 ) -> Result<ProvenanceRecord, String> {
     let _guard = state.0.lock().map_err(|_| "provenance lock poisoned")?;
     let root = workspace_dir(&app)?;
-    // An authored write, not a run — no command interpreter to introspect.
-    let env = capture_env(&app, &root, app.package_info().version.to_string(), None);
+    let env = capture_env(&app, &root, app.package_info().version.to_string());
     // Writes are authored, not runs — no run_id here (runs.rs sets it for
     // files produced by executing code).
     let record = append_record(&root, &path, &tool, session_id, model, content, diff, log, Some(env), None)?;
@@ -770,86 +608,5 @@ mod tests {
         assert!(capped.ends_with("[truncated]"));
 
         let _ = std::fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn extracts_an_explicit_venv_interpreter_from_a_command() {
-        use super::{interpreter_from_command, RunInterpreter};
-        let root = temp_root("interp");
-        // A venv-style interpreter that actually exists on disk (relative to root).
-        let venv = root.join(".venv/bin");
-        std::fs::create_dir_all(&venv).unwrap();
-        let py = venv.join("python");
-        std::fs::write(&py, "#!/bin/sh\n").unwrap();
-
-        // Every explicit path-form spelling resolves to the same existing file.
-        let explicit = |cmd: &str| match interpreter_from_command(cmd, &root) {
-            Some(RunInterpreter::Explicit(p)) => p,
-            other => panic!("expected Explicit for {cmd:?}, got {}", label(&other)),
-        };
-        assert_eq!(explicit(".venv/bin/python train.py"), py); // relative to workspace
-        assert_eq!(explicit("./.venv/bin/python train.py"), py); // `./` prefix
-        assert_eq!(explicit("CUDA_VISIBLE_DEVICES=0 .venv/bin/python train.py"), py); // env prefix
-        assert_eq!(explicit("& \".venv/bin/python\" -c \"print(1)\""), py); // PowerShell `&`, quoted
-        assert_eq!(explicit(&format!("{} -c 'x'", py.to_string_lossy())), py); // absolute path
-
-        // A bare `python` is PATH-resolved, not an explicit path — fall back to default.
-        assert!(matches!(interpreter_from_command("python train.py", &root), None));
-        // A non-Python path-form command is not treated as an interpreter.
-        assert!(matches!(interpreter_from_command("./scripts/run.sh", &root), None));
-        // An explicit interpreter that does NOT exist is reported Missing, so the
-        // caller attributes no Python env rather than the misleading default (#23).
-        assert!(matches!(
-            interpreter_from_command(".venv/bin/python3.99 train.py", &root),
-            Some(RunInterpreter::Missing),
-        ));
-
-        let _ = std::fs::remove_dir_all(root);
-    }
-
-    fn label(r: &Option<super::RunInterpreter>) -> &'static str {
-        match r {
-            None => "None",
-            Some(super::RunInterpreter::Explicit(_)) => "Explicit",
-            Some(super::RunInterpreter::Missing) => "Missing",
-        }
-    }
-
-    // Proves the env snapshot shells out to the EXACT interpreter path it is
-    // given (not a global default): a fake interpreter answers with a distinct
-    // version and freeze, and that is what comes back. Unix-only (shebang+chmod).
-    #[cfg(unix)]
-    #[test]
-    fn env_snapshot_runs_the_exact_interpreter_it_is_given() {
-        use super::{pip_freeze, python_version};
-        use std::os::unix::fs::PermissionsExt;
-        let root = temp_root("interp-exec");
-        let bin = root.join("python");
-        std::fs::write(
-            &bin,
-            "#!/bin/sh\ncase \"$*\" in\n  '--version') echo 'Python 9.9.9-venvtest' ;;\n  *pip*freeze*) printf 'venvpkg==1.2.3\\n' ;;\nesac\n",
-        )
-        .unwrap();
-        std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let interp = bin.to_string_lossy();
-
-        // The version and packages come from THIS interpreter, verbatim.
-        assert_eq!(python_version(&interp).as_deref(), Some("9.9.9-venvtest"));
-        assert_eq!(pip_freeze(&interp).as_deref(), Some("venvpkg==1.2.3"));
-
-        let _ = std::fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn segment_prefix_and_token_helpers() {
-        use super::{first_token, strip_seg_prefixes};
-        assert_eq!(strip_seg_prefixes("CUDA_VISIBLE_DEVICES=0 python x.py"), "python x.py");
-        assert_eq!(strip_seg_prefixes("A=1 B=2 python x.py"), "python x.py");
-        assert_eq!(strip_seg_prefixes("& C:\\p\\python.exe -c y"), "C:\\p\\python.exe -c y");
-        // A trailing `VAR=val` with no following command is NOT stripped.
-        assert_eq!(strip_seg_prefixes("FOO=bar"), "FOO=bar");
-        // First token honors a leading quoted path with spaces.
-        assert_eq!(first_token("\"C:\\Program Files\\Py\\python.exe\" train.py"), "C:\\Program Files\\Py\\python.exe");
-        assert_eq!(first_token("python train.py"), "python");
     }
 }

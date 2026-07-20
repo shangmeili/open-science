@@ -1,6 +1,5 @@
 import { HardDrive, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Section } from "./Section";
 
 /**
  * Plain-language disclosure of what stays local vs. what is sent to the model
@@ -10,8 +9,12 @@ import { Section } from "./Section";
 export function DataFlowCard({ model, workspace }: { model: string | null; workspace: string | null }) {
   const { t } = useTranslation(["settings", "common"]);
   return (
-    <Section title={t("dataFlow.title")} hint={t("dataFlow.subtitle")}>
-      <div className="grid gap-5 py-1 sm:grid-cols-2">
+    <section className="mt-5 rounded-card border border-border bg-surface shadow-card">
+      <header className="border-b border-border px-5 py-3">
+        <h2 className="font-serif text-[15px] text-text">{t("dataFlow.title")}</h2>
+        <p className="mt-0.5 text-xs text-muted">{t("dataFlow.subtitle")}</p>
+      </header>
+      <div className="grid gap-5 px-5 py-4 sm:grid-cols-2">
         <div>
           <div className="flex items-center gap-1.5 text-[13px] font-medium text-text">
             <HardDrive size={14} className="text-ok" /> {t("dataFlow.local.heading")}
@@ -41,6 +44,6 @@ export function DataFlowCard({ model, workspace }: { model: string | null; works
           <p className="mt-2 text-xs text-muted">{t("dataFlow.skillsHint")}</p>
         </div>
       </div>
-    </Section>
+    </section>
   );
 }

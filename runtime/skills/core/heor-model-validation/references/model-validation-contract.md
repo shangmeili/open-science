@@ -1,0 +1,56 @@
+# AI4HEOR model-validation contract
+
+`heor/model-validation.json` is a transparent record of validation work and results. It is not a score and cannot approve itself.
+
+## Method basis
+
+- China 2020 requires face, internal, and external validation for economic models and recommends cross-model comparison when feasible. Its BIA section separately calls for face, technical, and external validation.
+- ISPOR-SMDM distinguishes face, verification/internal, cross, external, and predictive validation. External and predictive comparisons are the strongest forms, but fitness remains an intended-use judgment.
+- AdViSHE organizes reported efforts across the conceptual model, input data, computerized model, and outcomes. AI4HEOR adopts the reporting principle, not a quality score.
+- TECH-VER organizes technical verification across input calculations, event/state calculations, result calculations, uncertainty calculations, and overall checks. Completion does not guarantee an error-free model.
+
+The published 2012 ISPOR-SMDM report remains the current baseline. A Validation II task force is active in 2026; update this contract only after final guidance is published and reviewed.
+
+## Required binding
+
+Schema `0.1.0` remains the non-PSM contract. The report binds the exact current bytes of:
+
+- `heor/analysis-plan.json`
+- `heor/conceptual-model.json`
+- `heor/uncertainty-plan.json`
+- `heor/budget-impact-plan.json`
+
+For a linked partitioned-survival analysis, schema `0.2.0` instead requires the exact 13-key set in `assets/psm-model-bindings.template.json`: the four artifacts above; `heor/partitioned-survival-plan.json`; the five current materialization, duration, cost, utility, and event inputs; and the PSM, uncertainty, and budget-impact results. The PSM and uncertainty results must reproduce the same source hashes, and the budget-impact result must bind the current analysis and BIA plan. The exact uncertainty-plan bytes transitively bind any joint-survival manifest and draws; those potentially large files are not duplicated in this bounded validation manifest.
+
+Every evidence item must be a bounded local file under `heor/validation-evidence/` with a matching SHA-256. The independent-validation approval event binds the report and every schema-selected artifact. Any changed byte makes the approval stale.
+
+## Required coverage
+
+For cost effectiveness, passed independent-reviewer checks must cover face validity, input data, external validity, and all five technical components: input calculations, event/state calculations, result calculations, uncertainty calculations, and overall checks.
+
+When analysis schema `0.4.0` through `0.7.0` uses `transition_schedule`, event/state verification evidence must exercise every change-point boundary, confirm the matrix active immediately before and at each `start_cycle`, check mass conservation through the full trace, and compare a one-phase schedule with the equivalent static matrix. For schema `0.5.0`, independently recompute each rate-derived row from the declared competing rates and exact cycle length, verify extraction or assumption bindings, and test that altered rates and stale matrices fail closed. For schema `0.6.0`, independently recompute every cycle from exponential or Weibull cumulative-hazard increments, verify parameterization and bases, and test stale schedules, wrong state counts, unsupported distributions, and non-finite hazards; this verifies arithmetic, not curve fit or clinical extrapolation validity. For schema `0.7.0`, independently recompute every affected row from the source probability and exact source/model intervals, test the hand-calculated `0.36` over two years to `0.20` per year case, and reject simple division, stale output, endpoint probabilities, multiple events, and unlinked bases. When uncertainty schema `0.3.0` through `0.6.0` varies event rates, test positive-bound enforcement, exact event-basis binding, seeded repeatability, competing-row mass conservation for multiple varied rates, and rejection of direct probability-row mutation. When uncertainty schema `0.5.0` or `0.6.0` varies survival parameters, test exact parameter and basis binding, positive bounds and distributions, seeded repeatability, full schedule and derivation-snapshot recomputation, and rejection of curve-family or derived-row mutation. When uncertainty schema `0.6.0` varies a source probability, test strict `(0,1)` DSA/PSA bounds, Beta or bounded Uniform only, exact basis binding, seeded repeatability, full transition-input recomputation, and rejection of derived-row mutation. For every schema `0.4.0` through `0.6.0` correlation group, independently verify member order, lognormal parameterization, evidence basis, symmetry, unit diagonal, strict positive definiteness, declared Cholesky multiplication, seeded first-draw reproduction, and rejection of unsupported distributions, reused members, singular/perfect matrices, and unlinked bases. This is still model-cycle behavior; it does not validate time-in-state, patient-history effects, curve fitting or extrapolation, general CTMC behavior, arbitrary copulas, empirical posterior draws, or transformation-space structural scenarios.
+
+For analysis schema `0.8.0`, additionally verify exact strategy-order/key agreement, baseline-first semantics, 2–16 bounds, safe IDs, unique strategy names, stable equivalent-point handling, all strict-dominance quadrants, at least one hand-calculated extended-dominance case, monotonically increasing sequential ICERs on the final frontier, and maximum-NMB selection including ties. For uncertainty schema `0.7.0`, reproduce every strategy's unique-optimal and tie counts from the aligned sample arrays, verify the probability vector sums to one, recompute CEAF and `E[max_j NMB_j] - max_j E[NMB_j]`, and test maximum-vector MCSE/drift convergence. Verify that legacy result shapes remain unchanged and that reporting copies the full frontier and multi-strategy decision-uncertainty objects without inference.
+
+For analysis schema `0.9.0`, independently verify the exact background-mortality fields; two-state indices and absorbing death row; life-table jurisdiction, year, population, sex, start age, and one record per horizon cycle; `attained_age_years = floor(start_age_years + (cycle-1)*cycle_length_years)` including repeated ages under subannual cycles; exact bases for every annual probability, the excess rate, `population_exchangeability`, and `no_double_counting`; and full schedule recomputation from `1-exp(-(-ln(1-q_annual)+h_excess)*cycle_length_years)`. Test stale schedules, direct multiplication of annual `q` by cycle length, wrong ages, unsupported fields, endpoint probabilities, invalid bases, non-finite values, and mismatched mapping jurisdiction. Scientific review must assess table-population exchangeability, double counting, and whether an unimplemented multiplicative/SMR structure could materially change results. For uncertainty `0.8.0`, verify that only the exact positive excess-rate value is targeted, life-table and review bases stay fixed, an ordinary external structural scenario remains present, and transformation-internal replacements fail closed.
+
+For analysis schema `0.10.0`, independently verify the exact RR/OR transformation fields; two-state indices and absorbing event row; equal cycle/effect intervals; complete ordered baseline cycle coverage with at least one positive risk; exact bases for every baseline, the relative effect, `endpoint_alignment`, `population_transportability`, and `effect_constancy_over_cycles`; and full schedule recomputation from `q*RR` or `q*OR/(1-q+q*OR)`. Test stale schedules, all-zero baselines, unsupported measures or fields, invalid bases, interval drift, non-finite values, and RR ceiling violations. Scientific review must assess endpoint alignment, population transportability, and effect constancy. For uncertainty `0.9.0`, verify the sole relative-effect target, RR bounded-Uniform support and strict baseline ceiling, OR Lognormal/positive-Uniform support, fixed transformation internals, and rejection of transformation-space scenarios.
+
+For analysis schema `0.11.0`, independently verify the exact constant-HR transformation fields; two-state indices and absorbing event row; complete ordered cumulative-hazard coverage; non-negative non-decreasing values with at least one positive increment; exact bases for every hazard, the HR, `endpoint_alignment`, `population_transportability`, `proportional_hazards_assumption`, `effect_constancy_over_horizon`, and `treatment_switching_assessment`; and full schedule recomputation from `-expm1(-HR*(H0(i)-H0(i-1)))`. Test stale schedules, all-zero or decreasing hazards, unsupported fields, invalid bases, non-finite values, and probability saturation. Scientific review must assess the endpoint and estimand, population transportability, proportional hazards in trial and extrapolation, treatment-effect duration, and switching. For uncertainty `0.10.0`, verify the sole HR target, strictly positive bounded-Uniform support, numerical safety at both high bounds, fixed transformation internals, and rejection of transformation-space scenarios.
+
+For static BIA schema `0.1.0`, passed independent-reviewer checks must cover face validity, input data, external validity, and four technical components: input calculations, result calculations, uncertainty calculations, and overall checks. Dynamic annual-cohort schema `0.2.0` additionally requires budget-impact `event_state_calculations`: independently reproduce each annual opening stock, incident allocation, incident-first capacity rule, comparator displacement, treated stock, mortality, persistence, discontinuation destination, closing stock, unmet starts, and mass balance for both scenarios, including binding and boundary failures. This verifies the admitted annual flow arithmetic, not epidemiological, clinical, or predictive validity.
+
+Cross validity must be passed or explicitly `not_feasible` for the cost-effectiveness model. Predictive validity must be passed or explicitly `not_feasible` for both calculation paths. A `not_feasible` check still needs local evidence and a rationale. External validity cannot be replaced by `not_feasible` at the independent-validation gate.
+
+## Findings and authority
+
+Failed or inconclusive checks remain in the record and link to issues. Resolved issues require a root cause, resolution, and evidence. Open blocker or major issues make the report non-approvable. `approve_for_intended_use` requires no open issues; `approve_with_limitations` requires explicit limitations and may retain only minor issues.
+
+Codex and automated tools may prepare evidence but cannot mark their work as performed by the independent reviewer. The reviewer label in the report must differ from the developer label and must match the actor label entered in the app-owned approval event. Both identity and independence remain local human declarations until OS-backed signing exists.
+
+## Primary sources
+
+- Chinese Pharmaceutical Association, *China Guidelines for Pharmacoeconomic Evaluations 2020*, sections 7.6 and 11.9.
+- Eddy et al., *Model Transparency and Validation*, ISPOR-SMDM Task Force 7, 2012.
+- Vemer et al., *AdViSHE*, PharmacoEconomics, 2016.
+- Büyükkaramikli et al., *TECH-VER*, PharmacoEconomics, 2019.

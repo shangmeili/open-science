@@ -3,5 +3,10 @@
     "save": "Save",
     "cancel": "Cancel",
     "remove": "Remove"
+  },
+  "download": {
+    "savedTo": "Saved to {{path}}",
+    "downloaded": "Downloaded {{filename}}",
+    "couldNotSave": "Could not save {{filename}}"
   }
 }

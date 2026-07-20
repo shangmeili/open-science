@@ -1,0 +1,107 @@
+{
+  "schema_version": "0.1.0",
+  "execution_id": "replace-with-safe-id",
+  "status": "ready_for_execution",
+  "analysis": {
+    "path": "heor/analysis-plan.json",
+    "sha256": "replace-with-current-lowercase-sha256",
+    "id": "replace-with-analysis-id"
+  },
+  "partitioned_survival": {
+    "path": "heor/partitioned-survival-plan.json",
+    "sha256": "replace-with-current-lowercase-sha256",
+    "id": "replace-with-psm-id"
+  },
+  "curve_materializations": {
+    "path": "heor/survival-curve-materializations.json",
+    "sha256": "replace-with-current-lowercase-sha256",
+    "id": "replace-with-materialization-id"
+  },
+  "source_data": {
+    "classification": "restricted",
+    "execution_boundary": "local_only",
+    "format": "csv",
+    "path": "heor/data/replace-with-pseudonymous-paired-survival.csv",
+    "sha256": "replace-with-current-lowercase-sha256",
+    "columns": [
+      "subject_id",
+      "strategy_id",
+      "pfs_time",
+      "pfs_event",
+      "os_time",
+      "os_event"
+    ],
+    "row_count": 0,
+    "strategy_counts": {
+      "replace-with-baseline-strategy": 0,
+      "replace-with-intervention-strategy": 0
+    },
+    "contains_direct_identifiers": false,
+    "subject_identifier": "pseudonymous_unique",
+    "time_unit": "years",
+    "missing_policy": "reject",
+    "additional_columns": "reject"
+  },
+  "bootstrap": {
+    "method": "ordinary_nonparametric_case_resampling",
+    "iterations": 1000,
+    "seed": 20260715,
+    "rng": "pcg32-xsh-rr",
+    "rng_version": "1",
+    "resampling_unit": "whole_subject_row",
+    "strategy_resampling_design": "stratified_independent_parallel_arms",
+    "preserve_strategy_sample_sizes": true,
+    "endpoint_sampling": "same_subject_indices_for_pfs_and_os",
+    "between_strategy_assumption": "conditional_independence_given_parallel_arm_design",
+    "curves": [
+      {
+        "target_path": "partitioned_survival.strategies.replace-with-baseline-strategy.pfs",
+        "strategy_id": "replace-with-baseline-strategy",
+        "endpoint": "pfs",
+        "family": "replace-with-reviewed-family"
+      },
+      {
+        "target_path": "partitioned_survival.strategies.replace-with-baseline-strategy.os",
+        "strategy_id": "replace-with-baseline-strategy",
+        "endpoint": "os",
+        "family": "replace-with-reviewed-family"
+      },
+      {
+        "target_path": "partitioned_survival.strategies.replace-with-intervention-strategy.pfs",
+        "strategy_id": "replace-with-intervention-strategy",
+        "endpoint": "pfs",
+        "family": "replace-with-reviewed-family"
+      },
+      {
+        "target_path": "partitioned_survival.strategies.replace-with-intervention-strategy.os",
+        "strategy_id": "replace-with-intervention-strategy",
+        "endpoint": "os",
+        "family": "replace-with-reviewed-family"
+      }
+    ],
+    "time_grid_years": [
+      0.0
+    ],
+    "cross_implementation_tolerance": 1e-8
+  },
+  "runtime": {
+    "expected_packages": {
+      "survHE": "replace-with-exact-version",
+      "flexsurv": "replace-with-exact-version",
+      "survival": "replace-with-exact-version"
+    }
+  },
+  "output": {
+    "directory": "heor/paired-survival-bootstrap-executions/replace-with-safe-id",
+    "overwrite_policy": "fail_if_exists"
+  },
+  "limitations": [
+    "The source contains one pseudonymous row per subject with both PFS and OS observations.",
+    "The selected curve families and bootstrap design require separate Human methodological review.",
+    "Parallel arms are conditionally independent under this stratified resampling design."
+  ],
+  "human_gate": {
+    "state": "awaiting_execution_authorization",
+    "required_action": "approve_local_paired_survival_bootstrap_command"
+  }
+}

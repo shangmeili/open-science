@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Population-Adjusted Comparison"
+  short_description: "Run a bounded, auditable anchored MAIC comparison"
+  default_prompt: "Use $heor-population-adjusted-comparison to prepare and audit a researcher-led anchored MAIC."

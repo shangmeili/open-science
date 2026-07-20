@@ -1,0 +1,54 @@
+{
+  "operation": "background_plus_excess_mortality_to_transition_schedule",
+  "cycle_length_years": 0.5,
+  "from_state_index": 0,
+  "death_state_index": 1,
+  "life_table": {
+    "jurisdiction": "replace-with-life-table-jurisdiction",
+    "table_year": 2025,
+    "population": "replace-with-life-table-population",
+    "sex": "replace-with-life-table-sex",
+    "start_age_years": 60.0,
+    "cycle_probabilities": [
+      {
+        "cycle": 1,
+        "attained_age_years": 60,
+        "annual_probability": {
+          "value": 0.1,
+          "source_extraction_id": "replace-with-cycle-1-life-table-extraction-id",
+          "source_pointer": "/q"
+        }
+      },
+      {
+        "cycle": 2,
+        "attained_age_years": 60,
+        "annual_probability": {
+          "value": 0.1,
+          "source_extraction_id": "replace-with-cycle-2-life-table-extraction-id",
+          "source_pointer": "/q"
+        }
+      },
+      {
+        "cycle": 3,
+        "attained_age_years": 61,
+        "annual_probability": {
+          "value": 0.2,
+          "source_extraction_id": "replace-with-cycle-3-life-table-extraction-id",
+          "source_pointer": "/q"
+        }
+      }
+    ]
+  },
+  "excess_mortality_rate_per_year": {
+    "value": 0.05,
+    "assumption_id": "replace-with-proposed-excess-mortality-assumption-id"
+  },
+  "review_bases": {
+    "population_exchangeability": {
+      "assumption_id": "replace-with-proposed-population-exchangeability-assumption-id"
+    },
+    "no_double_counting": {
+      "assumption_id": "replace-with-proposed-no-double-counting-assumption-id"
+    }
+  }
+}

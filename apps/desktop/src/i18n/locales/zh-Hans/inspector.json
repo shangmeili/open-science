@@ -13,23 +13,23 @@
     "noExecutionLog": "无执行日志。",
     "noMessages": "此版本没有消息。",
     "noEnvironmentInfo": "无环境信息。",
-    "reviewPassed": "审查通过 — {{version}} 可追溯到代码和输入。",
-    "reviewNotPassed": "{{version}} 尚未通过审查。",
+    "reviewPassed": "检查通过。{{version}} 可以追溯到对应的代码和输入。",
+    "reviewNotPassed": "{{version}} 还没有通过检查。",
     "tabs": {
       "Code": "代码",
       "Execution Log": "执行日志",
       "Messages": "消息",
       "Environment": "环境",
-      "Review": "审查"
+      "Review": "检查"
     }
   },
   "notebook": {
     "title": "笔记本",
-    "sharedWithAgent": "与代理共享",
+    "sharedWithAgent": "助手可以读取",
     "live": "实时",
     "outputLabel": "> 输出",
     "running": "运行中…",
-    "sentToKernel": "→ 已发送到代理的内核",
+    "sentToKernel": "已发送到笔记本内核",
     "localOnly": "（本地内核仅在桌面应用中可用）",
     "kernelError": "内核错误：{{message}}",
     "exprPlaceholder": "输入表达式并按 Enter",
@@ -38,27 +38,27 @@
   },
   "provenance": {
     "loadingHistory": "正在加载历史记录…",
-    "emptyPrefix": "尚无记录的版本。每次代理写入",
-    "emptySuffix": "，都会在此添加一个包含代码、模型和对话的新版本。",
+    "emptyPrefix": "还没有版本记录。助手每次写入",
+    "emptySuffix": "，系统都会保存当时的代码、所用模型和相关对话。",
     "envTitle": "生成此版本时所用的环境",
-    "lockfileTitle": "查看此版本捕获的 pip freeze 锁定文件",
+    "lockfileTitle": "查看这个版本保存的 pip freeze 环境清单",
     "packageCount_other": "{{count}} 个软件包",
     "pipFreezePrefix": "pip freeze · ",
     "reproduce": "复现",
-    "reproduceRunTitle": "起草一个提示，重新运行此文件的运行并比较输出",
-    "reproduceVersionTitle": "起草一个提示，重新运行此版本的代码并比较结果",
+    "reproduceRunTitle": "重新执行生成这个文件的命令，并比较输出",
+    "reproduceVersionTitle": "重新运行这个版本的代码，并比较结果",
     "openConversation": "打开对话",
     "openConversationTitle": "打开产生此版本的对话",
     "loadingLockfile": "正在加载…",
     "openRunTitle": "在“运行”视图中打开此运行",
     "producedByRunPrefix": "由运行产生",
     "commandSeparator": " — ",
-    "producedByRunSuffix": "。此文件是运行代码的输出；“复现”会重新运行该命令并比较结果。",
-    "contentNotCaptured": "此版本的内容未被捕获（可能是二进制写入，或仅记录了差异的编辑）。"
+    "producedByRunSuffix": "。这个文件由代码运行生成；点击“复现”会重新执行命令并比较结果。",
+    "contentNotCaptured": "没有保存这个版本的完整内容。可能是二进制文件，也可能只记录了修改差异。"
   },
   "filePreview": {
     "historyAria": "历史记录",
-    "historyTitle": "历史记录 — 每个记录的版本及其代码和对话",
+    "historyTitle": "查看每个版本及对应的代码和对话",
     "openExternally": "在外部打开",
     "openExternallyTitle": "在默认应用中打开",
     "tabs": {
@@ -68,7 +68,7 @@
     "loading": "正在加载 {{filename}}…",
     "desktopOnly": "预览功能在桌面应用中可用。",
     "sourceDesktopOnly": "源代码在桌面应用中可用。",
-    "binaryNoPreview": "此文件为二进制文件，无法预览——请在外部打开。",
+    "binaryNoPreview": "这是二进制文件，无法在应用内预览。请用其他应用打开。",
     "artifactKind": {
       "figure": "图表",
       "script": "脚本",
@@ -85,8 +85,8 @@
       "chart": "图表"
     },
     "tooLarge": "{{filename}} 过大，无法预览",
-    "tooLargeBody": "预览有大小限制，以避免大文件导致应用卡死。您可以无需加载即可检查——大文件探测器会通过流式读取获取其结构、形状、样本和关键数值，从不加载整个文件——或在系统应用中打开它。",
-    "inspectWithoutLoading": "无需加载即可检查",
+    "tooLargeBody": "为了避免应用卡顿，大文件不能直接预览。可以分段读取文件结构、字段、样本和关键数值，也可以用系统中的其他应用打开。",
+    "inspectWithoutLoading": "分段检查文件",
     "pointer": {
       "format": "格式",
       "size": "大小",
@@ -111,7 +111,7 @@
     "xlsxReadError": "无法读取此工作簿：{{message}}",
     "pptxRenderError": "无法渲染此演示文稿：{{message}}",
     "noSheets": "此工作簿没有工作表。",
-    "truncatedPrefix": "已截断预览 · ",
+    "truncatedPrefix": "仅显示部分内容 · ",
     "embeddedChartsNote": "嵌入的图表未被渲染。"
   },
   "table": {
@@ -127,7 +127,7 @@
     "triangleCount_other": "{{formatted}} 个三角形",
     "rendering": "正在渲染模型…",
     "fileProblem": "文件问题",
-    "noGeometry": "此三维文件没有可见几何体——导出内容似乎不完整或已损坏。",
+    "noGeometry": "这个三维文件没有可见几何体，导出内容可能不完整或已经损坏。",
     "unsupportedFormat": "不支持的三维格式：.{{ext}}",
     "badge3D": "三维"
   },
@@ -234,8 +234,8 @@
     "unknownFormat": "未知格式",
     "sourceCount_other": "{{count}} 个来源",
     "codeCount_other": "{{count}} 个编码",
-    "exactSpansBadge": "引用为精确的原文片段",
-    "exactSpansTitle": "高亮内容为精确的原文片段——引文均从原文中切取，绝非生成。",
+    "exactSpansBadge": "引用来自原文",
+    "exactSpansTitle": "高亮内容直接截取自原文，不是模型生成的文字。",
     "codebookHeading": "编码手册",
     "clearFilter": "清除筛选",
     "warningsCount_other": "{{count}} 条注释被跳过或标记：",

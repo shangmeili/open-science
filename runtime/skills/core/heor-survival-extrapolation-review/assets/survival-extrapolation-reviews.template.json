@@ -1,0 +1,16 @@
+{
+  "schema_version": "0.1.0",
+  "analysis_id": "",
+  "reviews": [
+    {
+      "target_path": "",
+      "review_path": "heor/survival-extrapolation-reviews/replace-with-safe-id.json",
+      "review_sha256": ""
+    },
+    {
+      "target_path": "",
+      "review_path": "heor/survival-extrapolation-reviews/replace-with-another-safe-id.json",
+      "review_sha256": ""
+    }
+  ]
+}

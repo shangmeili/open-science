@@ -1,0 +1,46 @@
+{
+  "schema_version": "ai4heor-journal-submission-check/v1",
+  "check_id": "target-journal-check",
+  "title": "目标期刊投稿前核对",
+  "language": "zh-CN",
+  "prepared_on": "2026-07-20",
+  "journal": {
+    "name": "REPLACE_WITH_TARGET_JOURNAL",
+    "article_type": "REPLACE_WITH_ARTICLE_TYPE",
+    "guide_url": "https://REPLACE_WITH_OFFICIAL_AUTHOR_GUIDE",
+    "accessed_on": "2026-07-20",
+    "version_label": "REPLACE_WITH_VISIBLE_VERSION_OR_DATE",
+    "source_path": "references/target-journal-author-guide.pdf",
+    "source_sha256": "REPLACE_WITH_CURRENT_LOWERCASE_SHA256"
+  },
+  "files": [
+    {
+      "role": "manuscript",
+      "label": "投稿正文 Markdown",
+      "path": "heor/report.md",
+      "sha256": "REPLACE_WITH_CURRENT_LOWERCASE_SHA256"
+    }
+  ],
+  "rules": [
+    {
+      "id": "manuscript-required",
+      "label": "提交正文",
+      "kind": "required_file",
+      "severity": "required",
+      "file_role": "manuscript",
+      "guide_locator": "REPLACE_WITH_PAGE_SECTION_OR_HEADING",
+      "note": ""
+    },
+    {
+      "id": "title-length",
+      "label": "题名长度",
+      "kind": "title_characters_max",
+      "severity": "review",
+      "file_role": "manuscript",
+      "limit": 50,
+      "guide_locator": "REPLACE_WITH_PAGE_SECTION_OR_HEADING",
+      "note": "确认期刊采用字符数而不是英文词数。"
+    }
+  ],
+  "human_review": { "status": "awaiting_human_review" }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Transition Rate Adapter"
+  short_description: "Derive and correlate auditable competing event rates"
+  default_prompt: "Use $heor-transition-rate-adapter to derive schema 0.5.0 transitions from competing event rates and prepare evidence-bound rate-space uncertainty."

@@ -3,7 +3,6 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { isTauri, modalStatus, type ModalStatus } from "@/lib/tauri";
 import { cn } from "@/lib/cn";
-import { Section } from "./Section";
 
 /**
  * Cloud compute (Modal) status (P2-2). Like the HPC card, the app never handles
@@ -35,11 +34,13 @@ export function ModalCard() {
   const dot = ok ? "bg-ok" : status?.installed ? "bg-warn" : "bg-muted";
 
   return (
-    <Section
-      title={t("modal.title")}
-      hint={t("modal.subtitle")}
-      action={
-        isTauri ? (
+    <section className="mt-5 rounded-card border border-border bg-surface shadow-card">
+      <header className="flex items-center gap-2 border-b border-border px-5 py-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-serif text-[15px] text-text">{t("modal.title")}</h2>
+          <p className="mt-0.5 text-xs text-muted">{t("modal.subtitle")}</p>
+        </div>
+        {isTauri && (
           <button
             className="inline-flex items-center gap-1 rounded-input border border-border px-2 py-1 text-[12px] text-muted hover:text-text"
             onClick={() => void check()}
@@ -49,10 +50,9 @@ export function ModalCard() {
             {checking ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}{" "}
             {t("modal.recheck")}
           </button>
-        ) : undefined
-      }
-    >
-      <div className="text-[13px]">
+        )}
+      </header>
+      <div className="px-5 py-4 text-[13px]">
         {!isTauri ? (
           <p className="text-muted">{t("modal.unavailable")}</p>
         ) : (
@@ -78,6 +78,6 @@ export function ModalCard() {
           </div>
         )}
       </div>
-    </Section>
+    </section>
   );
 }

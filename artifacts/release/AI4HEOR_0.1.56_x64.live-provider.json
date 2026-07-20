@@ -1,0 +1,38 @@
+{
+  "artifact": {
+    "app_version": "0.1.56",
+    "filename": "AI4HEOR_0.1.56_x64.dmg",
+    "opencode_version": "1.17.13",
+    "sha256": "ed1107407ef6e3c8d46d0c674d368540c82811868a673a0e1c4d2dd3a2962358"
+  },
+  "cleanup": {
+    "runtime_stopped": true,
+    "temporary_profile_removed": true
+  },
+  "credential": {
+    "auth_file_owner_only": true,
+    "credential_hits": 1,
+    "credential_location": "isolated_auth_json_only",
+    "data_root_owner_only": true,
+    "removed_after_turn": true,
+    "source": "macOS_Keychain",
+    "temporary_profile_hits_after_delete": 0,
+    "tracked_source_hits": 0,
+    "verification_record_contains_credential": false
+  },
+  "provider": {
+    "adapter": "@ai-sdk/anthropic",
+    "catalog_reachable": true,
+    "credential_accepted": true,
+    "id": "minimax-cn-token-plan",
+    "metadata_and_auth_separate": true,
+    "model": "MiniMax-M3",
+    "model_listed": true
+  },
+  "schema": "ai4heor-live-provider-verification/v1",
+  "turn": {
+    "real_network_request": true,
+    "research_data_included": false,
+    "response_marker_found": true
+  }
+}

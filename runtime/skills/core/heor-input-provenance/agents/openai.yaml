@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Input Provenance"
+  short_description: "Bind model inputs to exact reviewed evidence"
+  default_prompt: "Use $heor-input-provenance to bind each source-based model input to the current evidence synthesis and exact extraction IDs."

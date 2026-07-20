@@ -1,19 +1,14 @@
 // @vitest-environment node
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { OpenCodeClient, type OpenCodeEvent } from "@ai4s/sdk";
 import { startMockOpenCode, type MockOpenCode } from "@ai4s/sdk/mock-server";
 
 let server: MockOpenCode;
 
-// A fresh server per test: it broadcasts turn events to ALL connected SSE
-// clients, so a single shared server would let one test's (async, timer-driven)
-// turn stream into another test's client — an unrelated `session.idle` could
-// then satisfy a `waitFor` before the expected events arrive. Per-test isolation
-// removes that cross-talk (the cause of this file's flakiness under load).
-beforeEach(async () => {
+beforeAll(async () => {
   server = await startMockOpenCode(0);
 });
-afterEach(async () => {
+afterAll(async () => {
   await server.close();
 });
 
@@ -99,50 +94,15 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
   });
 
   it("maps time.completed onto history messages and aborts a session", async () => {
-    const events: OpenCodeEvent[] = [];
     const client = new OpenCodeClient({ baseUrl: `http://127.0.0.1:${server.port}` });
-    client.onEvent((e) => events.push(e));
     await client.connect();
     const sessionId = await client.createSession();
     await client.sendPrompt(sessionId, "run a literature review");
-    // Wait for the turn to finish before reading history — the mock writes the
-    // stored messages when it streams the turn (on a timer), so reading eagerly
-    // races that write (empty history) under load.
-    await waitFor(() => events.some((e) => e.type === "session.idle"));
     const messages = await client.getMessages(sessionId);
     const last = messages[messages.length - 1];
     expect(last.role).toBe("assistant");
     expect(last.completed).toBe(2); // the turn is over — the reconcile signal
     await expect(client.abortSession(sessionId)).resolves.toBeUndefined();
-    client.close();
-  });
-
-  it("surfaces a failing model call: retry status, session error, and the history error", async () => {
-    const events: OpenCodeEvent[] = [];
-    const client = new OpenCodeClient({ baseUrl: `http://127.0.0.1:${server.port}` });
-    client.onEvent((e) => events.push(e));
-    await client.connect();
-    const sessionId = await client.createSession();
-    await client.sendPrompt(sessionId, "flaky provider call");
-    await waitFor(() => events.some((e) => e.type === "session.idle"));
-
-    // The server-side retry loop is unbounded — its status events are the only
-    // sign of life while every attempt fails, so they must reach the app.
-    expect(events.find((e) => e.type === "session.retry")).toMatchObject({
-      sessionId,
-      attempt: 2,
-      message: "no channel available for this model",
-    });
-    expect(events.find((e) => e.type === "error")).toMatchObject({
-      sessionId,
-      message: "no channel available for this model",
-    });
-
-    // A reload after the live error was missed must still explain the failure.
-    const messages = await client.getMessages(sessionId);
-    const last = messages[messages.length - 1];
-    expect(last.role).toBe("assistant");
-    expect(last.error).toBe("no channel available for this model");
     client.close();
   });
 
@@ -207,6 +167,30 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
   it("surfaces the server's diagnostic message when saving a key fails", async () => {
     const client = new OpenCodeClient({ baseUrl: `http://127.0.0.1:${server.port}` });
     await expect(client.setProviderApiKey("bad", "nope")).rejects.toThrow(/invalid key format/);
+  });
+
+  it("keeps custom-provider credentials out of the global config payload", async () => {
+    const bodies: string[] = [];
+    const fetchImpl: typeof fetch = async (_input, init) => {
+      bodies.push(String(init?.body ?? ""));
+      return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+    const client = new OpenCodeClient({ baseUrl: "http://127.0.0.1:1", fetchImpl });
+
+    await client.addCustomProvider("minimax-cn-token-plan", {
+      name: "MiniMax CN Token Plan",
+      npm: "@ai-sdk/anthropic",
+      baseURL: "https://api.minimaxi.com/anthropic/v1",
+      models: ["MiniMax-M3"],
+    });
+
+    const payload = JSON.parse(bodies[0]) as {
+      provider: Record<string, { options: Record<string, unknown> }>;
+    };
+    expect(payload.provider["minimax-cn-token-plan"].options).toEqual({
+      baseURL: "https://api.minimaxi.com/anthropic/v1",
+    });
+    expect(bodies[0]).not.toContain("apiKey");
   });
 
   it("sends Basic auth on API calls when a password is set", async () => {
@@ -303,45 +287,5 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
       requestTimeoutMs: 10,
     });
     await expect(client.getMessages("ses_hung")).rejects.toThrow("Timed out waiting for OpenCode");
-  });
-});
-
-describe("per-prompt agent pinning", () => {
-  it("sends the optional agent field exactly when passed", async () => {
-    const client = new OpenCodeClient({ baseUrl: `http://127.0.0.1:${server.port}` });
-    await client.connect();
-    const sessionId = await client.createSession();
-    const before = server.promptBodies.length;
-
-    await client.sendPrompt(sessionId, "plan the analysis", "plan");
-    await client.sendPrompt(sessionId, "run a literature review");
-
-    const bodies = server.promptBodies.slice(before) as Array<Record<string, unknown>>;
-    expect(bodies[0]).toMatchObject({
-      agent: "plan",
-      parts: [{ type: "text", text: "plan the analysis" }],
-    });
-    // Build mode stays byte-identical to before: no agent key at all.
-    expect(bodies[1]).not.toHaveProperty("agent");
-    client.close();
-  });
-});
-
-describe("per-prompt model pinning (#8: old sessions follow the current default)", () => {
-  it("sends model as {providerID, modelID} when a default is passed, omits it otherwise", async () => {
-    const client = new OpenCodeClient({ baseUrl: `http://127.0.0.1:${server.port}` });
-    await client.connect();
-    const sessionId = await client.createSession();
-    const before = server.promptBodies.length;
-
-    await client.sendPrompt(sessionId, "hi", undefined, "anthropic/claude-opus-4-8");
-    await client.sendPrompt(sessionId, "hi again"); // no default → no model key
-    await client.sendPrompt(sessionId, "hi", undefined, "malformed-no-slash"); // unparseable → omitted
-
-    const bodies = server.promptBodies.slice(before) as Array<Record<string, unknown>>;
-    expect(bodies[0]).toMatchObject({ model: { providerID: "anthropic", modelID: "claude-opus-4-8" } });
-    expect(bodies[1]).not.toHaveProperty("model");
-    expect(bodies[2]).not.toHaveProperty("model");
-    client.close();
   });
 });

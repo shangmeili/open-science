@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Treatment-Effect Duration"
+  short_description: "Audit stopping and treatment-effect waning scenarios"
+  default_prompt: "Use $heor-treatment-effect-duration to create or audit explicit sustained, stopping, and waning scenarios for this two-strategy partitioned-survival model."

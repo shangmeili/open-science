@@ -1,35 +1,127 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Bot, Boxes, Check, Package, Puzzle, X } from "lucide-react";
+import { Bot, Boxes, Check, Package, Puzzle, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { useRuntimeStore } from "@/lib/runtime";
 import { cn } from "@/lib/cn";
+import { localizeSkill } from "@/i18n/skillLocalization";
+import { PreferenceLearningSection } from "@/components/skills/PreferenceLearningSection";
+import {
+  appendSkillCandidateReview,
+  auditAssetAdmission,
+  auditSkillCandidates,
+  type AssetAdmissionAudit,
+  type AssetAdmissionRecord,
+  type SkillCandidateAudit,
+  type SkillCandidateReviewAction,
+  type SkillCandidateSummary,
+} from "@/lib/tauri";
 
 /**
- * Skills, agents, install-a-skill, and detected scientific environment — all real:
- * skills/agents from the OpenCode runtime, environment from the host system.
+ * Runtime capabilities plus the app-owned external-adapter release registry.
+ * Unresolved and excluded sources are internal engineering records, not user
+ * choices. Only fully validated adapters may appear here.
  */
 export function SkillsPage() {
-  const { t } = useTranslation(["pages", "common"]);
+  const { t, i18n } = useTranslation(["pages", "common", "skills"]);
   const navigate = useNavigate();
-  const { skills, agents, tools, status, loadCatalog, detectTools, installSkill } = useRuntimeStore();
+  const {
+    skills,
+    agents,
+    tools,
+    status,
+    workspace,
+    loadCatalog,
+    detectTools,
+    connectRetry,
+    reviewAssetCandidate,
+  } = useRuntimeStore();
   const connected = status === "ready";
   const [text, setText] = useState("");
-  const [installing, setInstalling] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const [admission, setAdmission] = useState<AssetAdmissionAudit | null>(null);
+  const [admissionError, setAdmissionError] = useState(false);
+  const [candidateAudit, setCandidateAudit] = useState<SkillCandidateAudit | null>(null);
+  const [candidateError, setCandidateError] = useState(false);
+  const [candidateLoading, setCandidateLoading] = useState(true);
+  const [reviewTarget, setReviewTarget] = useState<SkillCandidateSummary | null>(null);
+  const [reviewAction, setReviewAction] = useState<SkillCandidateReviewAction>("activate");
+  const [reviewRunning, setReviewRunning] = useState(false);
 
   useEffect(() => {
     if (connected) void loadCatalog();
     void detectTools();
   }, [connected, loadCatalog, detectTools]);
 
-  const onInstall = async () => {
+  useEffect(() => {
+    let current = true;
+    void auditAssetAdmission()
+      .then((result) => {
+        if (current) setAdmission(result);
+      })
+      .catch(() => {
+        if (current) setAdmissionError(true);
+      });
+    return () => {
+      current = false;
+    };
+  }, []);
+
+  const loadCandidates = useCallback(async () => {
+    setCandidateLoading(true);
+    setCandidateError(false);
+    try {
+      setCandidateAudit(await auditSkillCandidates());
+    } catch {
+      setCandidateError(true);
+    } finally {
+      setCandidateLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCandidates();
+  }, [workspace, loadCandidates]);
+
+  const onReview = async () => {
     if (!text.trim()) return;
-    setInstalling(true);
-    const id = await installSkill(text.trim());
-    setInstalling(false);
+    setReviewing(true);
+    const id = await reviewAssetCandidate(text.trim());
+    setReviewing(false);
     if (id) {
       setText("");
-      navigate(`/live/${id}`); // watch the agent install it
+      navigate(`/heor/${id}`); // continue in the AI4HEOR research workspace
+    }
+  };
+
+  const openCandidateReview = (candidate: SkillCandidateSummary, action: SkillCandidateReviewAction) => {
+    setReviewTarget(candidate);
+    setReviewAction(action);
+  };
+
+  const submitCandidateReview = async (actorLabel: string, rationale: string) => {
+    if (!reviewTarget || !candidateAudit?.projectId) return;
+    setReviewRunning(true);
+    try {
+      await appendSkillCandidateReview({
+        projectId: candidateAudit.projectId,
+        candidateId: reviewTarget.candidateId,
+        decisionSha256: reviewTarget.decisionSha256,
+        acceptanceChecksSha256: reviewTarget.acceptanceChecksSha256,
+        action: reviewAction,
+        actorLabel,
+        rationale,
+      });
+      setReviewTarget(null);
+      await loadCandidates();
+      if (connected && reviewAction !== "reject") {
+        await connectRetry();
+      }
+      if (connected) void loadCatalog();
+    } catch {
+      setCandidateError(true);
+    } finally {
+      setReviewRunning(false);
     }
   };
 
@@ -44,7 +136,7 @@ export function SkillsPage() {
           {t("skills.description.suffix")}
         </p>
 
-        {/* Install a skill (#1) */}
+        {/* Natural-language work first: review and adapt, never install directly. */}
         <Section title={t("skills.install.sectionTitle")} icon={<Boxes size={15} />}>
           <div className="p-4">
             <textarea
@@ -56,17 +148,82 @@ export function SkillsPage() {
             />
             <div className="mt-2 flex items-center gap-3">
               <button
-                onClick={onInstall}
-                disabled={!connected || !text.trim() || installing}
+                onClick={onReview}
+                disabled={!connected || !text.trim() || reviewing}
                 className="rounded-input bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:opacity-90 disabled:opacity-40"
               >
-                {installing ? t("skills.install.starting") : t("skills.install.cta")}
+                {reviewing ? t("skills.install.starting") : t("skills.install.cta")}
               </button>
               <span className="text-xs text-muted">
                 {connected ? t("skills.install.hintConnected") : t("skills.install.hintDisconnected")}
               </span>
             </div>
           </div>
+        </Section>
+
+        <Section title={t("skills.candidates.sectionTitle")} icon={<ShieldCheck size={15} />}>
+          <div className="flex items-start justify-between gap-3 px-4 py-3">
+            <p className="text-xs leading-5 text-muted">{t("skills.candidates.boundary")}</p>
+            <button
+              type="button"
+              aria-label={t("skills.candidates.refresh")}
+              onClick={() => void loadCandidates()}
+              disabled={candidateLoading}
+              className="shrink-0 rounded-input border border-border p-1.5 text-muted hover:bg-surface-2 disabled:opacity-40"
+            >
+              <RefreshCw size={14} className={candidateLoading ? "animate-spin" : undefined} />
+            </button>
+          </div>
+          {candidateError && <div className="px-4 py-3 text-xs text-danger">{t("skills.candidates.unavailable")}</div>}
+          {candidateLoading && !candidateAudit && <Empty>{t("skills.candidates.loading")}</Empty>}
+          {candidateAudit && !candidateAudit.projectAvailable && <Empty>{t("skills.candidates.noProject")}</Empty>}
+          {candidateAudit?.projectAvailable && candidateAudit.candidates.length === 0 && (
+            <Empty>{t("skills.candidates.empty")}</Empty>
+          )}
+          {candidateAudit?.errors.map((error) => (
+            <div key={error} className="px-4 py-2 text-xs text-danger">{error}</div>
+          ))}
+          {candidateAudit?.candidates.map((candidate) => (
+            <CandidateRow
+              key={candidate.candidateId}
+              candidate={candidate}
+              locale={i18n.resolvedLanguage}
+              onReview={openCandidateReview}
+            />
+          ))}
+        </Section>
+
+        <PreferenceLearningSection workspace={workspace} />
+
+        <Section title={t("skills.assetAdmission.sectionTitle")} icon={<ShieldCheck size={15} />}>
+          {admissionError && <Empty>{t("skills.assetAdmission.unavailable")}</Empty>}
+          {!admission && !admissionError && <Empty>{t("skills.assetAdmission.loading")}</Empty>}
+          {admission && (
+            <>
+              <div className="bg-surface-2 px-4 py-3">
+                <p className="text-sm font-medium text-text">{t("skills.assetAdmission.firstPartyTitle")}</p>
+                <p className="mt-1 text-xs leading-5 text-muted">{t("skills.assetAdmission.firstPartyBoundary")}</p>
+              </div>
+              <p className={cn("px-4 py-3 text-xs", admission.complete ? "text-muted" : "text-danger") }>
+                {admission.complete
+                  ? admission.admittedCount === 0
+                    ? t("skills.assetAdmission.noneAdmitted")
+                    : t("skills.assetAdmission.registryValid", { count: admission.admittedCount })
+                  : t("skills.assetAdmission.failClosed")}
+              </p>
+              {admission.errors.map((error) => (
+                <div key={error} className="px-4 py-2 text-xs text-danger">{error}</div>
+              ))}
+              {admission.assets.length > 0 && (
+                <div>
+                  <div className="bg-surface-2 px-4 py-2 text-xs font-medium text-text">
+                    {t("skills.assetAdmission.groupAdmitted", { count: admission.assets.length })}
+                  </div>
+                  {admission.assets.map((asset) => <AdmissionRow key={asset.assetId} asset={asset} />)}
+                </div>
+              )}
+            </>
+          )}
         </Section>
 
         {/* Environment (#2) */}
@@ -97,16 +254,25 @@ export function SkillsPage() {
             <Section title={t("skills.skillsListSection.sectionTitle", { count: skills.length })} icon={<Puzzle size={15} />}>
               {skills.length === 0 && <Empty>{t("skills.skillsListSection.empty")}</Empty>}
               {skills.map((s) => {
+                const copy = localizeSkill(s.name, s.description, i18n.resolvedLanguage);
                 const source = sourceOf(s.location);
                 const sourceLabel =
                   source === "builtin"
                     ? t("skills.skillsListSection.source.builtin")
                     : source === "project"
                       ? t("skills.skillsListSection.source.project")
-                      : source === "user"
-                        ? t("skills.skillsListSection.source.user")
+                      : source === "bundled"
+                        ? t("skills.skillsListSection.source.bundled")
                         : undefined;
-                return <RowItem key={s.name} name={s.name} desc={s.description} tag={sourceLabel} />;
+                return (
+                  <RowItem
+                    key={s.name}
+                    name={copy.displayName}
+                    code={copy.localized ? `$${s.name}` : undefined}
+                    desc={copy.description}
+                    tag={sourceLabel}
+                  />
+                );
               })}
             </Section>
           </>
@@ -116,17 +282,285 @@ export function SkillsPage() {
           </div>
         )}
       </div>
+      {reviewTarget && (
+        <CandidateReviewDialog
+          candidate={reviewTarget}
+          locale={i18n.resolvedLanguage}
+          action={reviewAction}
+          running={reviewRunning}
+          onCancel={() => !reviewRunning && setReviewTarget(null)}
+          onSubmit={(actor, rationale) => void submitCandidateReview(actor, rationale)}
+        />
+      )}
     </div>
   );
 }
 
-type SkillSource = "builtin" | "project" | "user";
+function candidateCopy(candidate: SkillCandidateSummary, locale?: string): {
+  name: string;
+  description: string;
+  licenseNote: string;
+  limitations: string[];
+  acceptanceChecks: string[];
+} {
+  const normalized = locale?.toLowerCase();
+  const exact = locale ? candidate.localized[locale] : undefined;
+  const language = Object.entries(candidate.localized).find(([key]) =>
+    normalized?.startsWith(key.toLowerCase().split("-")[0]),
+  )?.[1];
+  const copy = exact ?? language ?? candidate.localized["zh-Hans"] ?? candidate.localized.en;
+  return {
+    name: copy?.displayName ?? candidate.candidateId,
+    description: copy?.description ?? candidate.request,
+    licenseNote: copy?.licenseNote ?? candidate.licenseNote,
+    limitations: copy?.limitations ?? [],
+    acceptanceChecks: copy?.acceptanceChecks ?? [],
+  };
+}
+
+function CandidateRow({
+  candidate,
+  locale,
+  onReview,
+}: {
+  candidate: SkillCandidateSummary;
+  locale?: string;
+  onReview: (candidate: SkillCandidateSummary, action: SkillCandidateReviewAction) => void;
+}) {
+  const { t } = useTranslation("pages");
+  const copy = candidateCopy(candidate, locale);
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-start gap-3">
+        {candidate.valid ? (
+          <Check size={16} className="mt-0.5 shrink-0 text-ok" />
+        ) : (
+          <X size={16} className="mt-0.5 shrink-0 text-danger" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-text">{copy.name}</span>
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted ring-1 ring-border">
+              {t(`skills.candidates.status.${candidateStatus(candidate.status)}`)}
+            </span>
+          </div>
+          <p className="mt-1 text-xs leading-5 text-muted">{copy.description}</p>
+          {candidate.validationErrors.map((error) => (
+            <p key={error} className="mt-2 text-xs text-danger">{error}</p>
+          ))}
+        </div>
+      </div>
+      <div className="mt-3 flex justify-end gap-2">
+        {candidate.canReject && (
+          <button
+            type="button"
+            onClick={() => onReview(candidate, "reject")}
+            className="rounded-input border border-border px-3 py-1.5 text-xs font-medium text-muted hover:bg-surface-2"
+          >
+            {t("skills.candidates.reject")}
+          </button>
+        )}
+        {candidate.canRevoke && (
+          <button
+            type="button"
+            onClick={() => onReview(candidate, "revoke")}
+            className="rounded-input border border-danger/40 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/5"
+          >
+            {t("skills.candidates.revoke")}
+          </button>
+        )}
+        {candidate.canActivate && (
+          <button
+            type="button"
+            onClick={() => onReview(candidate, "activate")}
+            className="rounded-input bg-accent px-3 py-1.5 text-xs font-semibold text-white"
+          >
+            {t("skills.candidates.activate")}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type CandidateStatus =
+  | "inactive"
+  | "active"
+  | "rejected"
+  | "revoked"
+  | "invalid"
+  | "drifted"
+  | "activeCandidateChanged"
+  | "unmanagedConflict"
+  | "candidateMissing";
+
+function candidateStatus(status: string): CandidateStatus {
+  switch (status) {
+    case "active":
+    case "rejected":
+    case "revoked":
+    case "invalid":
+    case "drifted":
+    case "inactive":
+      return status;
+    case "active_candidate_changed":
+      return "activeCandidateChanged";
+    case "unmanaged_conflict":
+      return "unmanagedConflict";
+    case "candidate_missing":
+      return "candidateMissing";
+    default:
+      return "invalid";
+  }
+}
+
+function CandidateReviewDialog({
+  candidate,
+  locale,
+  action,
+  running,
+  onCancel,
+  onSubmit,
+}: {
+  candidate: SkillCandidateSummary;
+  locale?: string;
+  action: SkillCandidateReviewAction;
+  running: boolean;
+  onCancel: () => void;
+  onSubmit: (actor: string, rationale: string) => void;
+}) {
+  const { t } = useTranslation("pages");
+  const copy = candidateCopy(candidate, locale);
+  const [actor, setActor] = useState("");
+  const [rationale, setRationale] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const valid = actor.trim().length > 0 && rationale.trim().length > 1 && confirmed && !running;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && !running && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, running]);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+      onClick={onCancel}
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t(`skills.candidates.dialog.title.${action}`)}
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-card border border-border bg-surface p-5 shadow-card"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 text-sm font-semibold text-text">
+          <ShieldCheck size={17} className="text-accent" />
+          {t(`skills.candidates.dialog.title.${action}`)}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-text">{t(`skills.candidates.dialog.purpose.${action}`)}</p>
+        <p className="mt-2 text-xs leading-5 text-muted">{t(`skills.candidates.dialog.boundary.${action}`)}</p>
+        <div className="mt-3 rounded-input border border-border bg-bg p-3">
+          <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted">
+            {t("skills.candidates.dialog.capabilityTitle")}
+          </div>
+          <div className="mt-1 text-sm font-semibold text-text">{copy.name}</div>
+          <p className="mt-1 text-xs leading-5 text-muted">{copy.description}</p>
+          <div className="mt-3 text-[10px] font-medium text-muted">
+            {t("skills.candidates.dialog.requestTitle")}
+          </div>
+          <p className="mt-1 break-words text-xs leading-5 text-text">{candidate.request}</p>
+        </div>
+        {action !== "revoke" && (
+          <>
+            <div className="mt-4 text-xs font-medium text-text">{t("skills.candidates.dialog.acceptanceTitle")}</div>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-xs leading-5 text-muted">
+              {copy.acceptanceChecks.map((check) => <li key={check}>{check}</li>)}
+            </ul>
+            <div className="mt-4 text-xs font-medium text-text">{t("skills.candidates.dialog.limitationsTitle")}</div>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-xs leading-5 text-muted">
+              {copy.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}
+            </ul>
+            <div className="mt-4 text-xs font-medium text-text">{t("skills.candidates.dialog.licenseTitle")}</div>
+            <p className="mt-1 text-xs leading-5 text-muted">{copy.licenseNote}</p>
+          </>
+        )}
+        <details className="mt-4 rounded-input border border-border bg-bg px-3 py-2 text-xs text-muted">
+          <summary className="cursor-pointer font-medium text-text">
+            {t("skills.candidates.dialog.technicalDetails")}
+          </summary>
+          <dl className="mt-3 grid grid-cols-[auto,minmax(0,1fr)] gap-x-3 gap-y-2 leading-5">
+            <dt>{t("skills.candidates.dialog.technical.candidateId")}</dt>
+            <dd className="break-all font-mono text-text">${candidate.candidateId}</dd>
+            <dt>{t("skills.candidates.dialog.technical.provider")}</dt>
+            <dd className="break-all text-text">{candidate.provider}</dd>
+            <dt>{t("skills.candidates.dialog.technical.model")}</dt>
+            <dd className="break-all text-text">{candidate.model}</dd>
+            <dt>{t("skills.candidates.dialog.technical.license")}</dt>
+            <dd className="break-all font-mono text-text">{candidate.licenseSpdx}</dd>
+            <dt>{t("skills.candidates.dialog.technical.decisionHash")}</dt>
+            <dd className="break-all font-mono text-[10px] text-text">{candidate.decisionSha256}</dd>
+          </dl>
+        </details>
+        <label className="mt-4 block text-xs font-medium text-text">
+          {t("skills.candidates.dialog.actor")}
+          <input
+            value={actor}
+            onChange={(event) => setActor(event.target.value)}
+            autoFocus
+            placeholder={t("skills.candidates.dialog.actorPlaceholder")}
+            className="mt-1.5 w-full rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent"
+          />
+        </label>
+        <label className="mt-3 block text-xs font-medium text-text">
+          {t("skills.candidates.dialog.rationale")}
+          <textarea
+            value={rationale}
+            onChange={(event) => setRationale(event.target.value)}
+            placeholder={t(`skills.candidates.dialog.rationalePlaceholder.${action}`)}
+            rows={3}
+            className="mt-1.5 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent"
+          />
+        </label>
+        <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-text">
+          <input
+            type="checkbox"
+            checked={confirmed}
+            onChange={(event) => setConfirmed(event.target.checked)}
+            className="mt-1 accent-[var(--color-accent)]"
+          />
+          <span>{t(`skills.candidates.dialog.confirm.${action}`)}</span>
+        </label>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={running}
+            onClick={onCancel}
+            className="rounded-input border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-surface-2 disabled:opacity-40"
+          >
+            {t("skills.candidates.dialog.cancel")}
+          </button>
+          <button
+            type="button"
+            disabled={!valid}
+            onClick={() => onSubmit(actor.trim(), rationale.trim())}
+            className="rounded-input bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+          >
+            {running ? t("skills.candidates.dialog.recording") : t(`skills.candidates.dialog.submit.${action}`)}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type SkillSource = "builtin" | "project" | "bundled";
 
 function sourceOf(location?: string): SkillSource | undefined {
   if (!location) return undefined;
-  if (location.includes("/builtin/")) return "builtin";
-  if (location.includes("/.opencode/")) return "project";
-  return "user";
+  const normalized = location.split("\\").join("/");
+  if (normalized.includes("/builtin/")) return "builtin";
+  if (normalized.includes("/.opencode/")) return "project";
+  return "bundled";
 }
 
 // AgentInfo.mode is typed `string` (external SDK), but OpenCode only ever
@@ -152,12 +586,15 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
   );
 }
 
-function RowItem({ name, desc, tag }: { name: string; desc: string; tag?: string }) {
+function RowItem({ name, desc, tag, code }: { name: string; desc: string; tag?: string; code?: string }) {
   return (
     <div className="flex items-start gap-3 px-4 py-3">
       <Package size={16} className="mt-0.5 shrink-0 text-muted" />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-text">{name}</div>
+        <div className="flex min-w-0 items-baseline gap-2">
+          <div className="truncate text-sm font-medium text-text">{name}</div>
+          {code && <span className="truncate font-mono text-[10.5px] text-muted">{code}</span>}
+        </div>
         <div className={cn("text-xs text-muted", "line-clamp-2")}>{desc}</div>
       </div>
       {tag && (
@@ -165,6 +602,25 @@ function RowItem({ name, desc, tag }: { name: string; desc: string; tag?: string
           {tag}
         </span>
       )}
+    </div>
+  );
+}
+
+function AdmissionRow({ asset }: { asset: AssetAdmissionRecord }) {
+  const { t } = useTranslation("pages");
+  return (
+    <div className="flex items-start gap-3 px-4 py-3">
+      <Check size={16} className="mt-0.5 shrink-0 text-ok" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-text">{asset.displayName}</span>
+          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted ring-1 ring-border">
+            {t("skills.assetAdmission.admitted")}
+          </span>
+          <span className="font-mono text-[11px] text-muted">{asset.licenseSpdx}</span>
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted">{t("skills.assetAdmission.adapterBoundary")}</p>
+      </div>
     </div>
   );
 }

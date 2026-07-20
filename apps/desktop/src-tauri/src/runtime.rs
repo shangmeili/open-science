@@ -8,7 +8,8 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
-use crate::opencode_config::merge_config;
+const DEFAULT_WORKSPACE_FOLDER: &str = "AI4HEOR";
+const LEGACY_WORKSPACE_FOLDERS: [&str; 2] = ["OpenScience", "Open Science"];
 
 #[derive(Default)]
 struct RuntimeLifecycle {
@@ -25,6 +26,12 @@ pub struct RuntimeState {
     lifecycle: Mutex<RuntimeLifecycle>,
 }
 
+/// A privacy-safe lifecycle bit for the support report. Do not expose the
+/// endpoint, port, command, environment, or authentication state.
+pub(crate) fn runtime_process_tracked(state: &RuntimeState) -> bool {
+    state.lifecycle.lock().unwrap().child.is_some()
+}
+
 /// App-private runtime root, e.g. ~/Library/Application Support/com.ai4s.workbench/runtime
 fn runtime_root(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app
@@ -36,12 +43,6 @@ fn runtime_root(app: &AppHandle) -> Result<PathBuf, String> {
 
 fn xdg_config_home(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(runtime_root(app)?.join("xdg-config"))
-}
-
-/// The sidecar's XDG_DATA_HOME — also where the bundled goal plugin keeps its
-/// per-session state (`opencode-goal-plugin/goals.json`, read by `goal.rs`).
-pub(crate) fn xdg_data_home(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(runtime_root(app)?.join("xdg-data"))
 }
 
 /// File recording the user's chosen active workspace folder (absolute path).
@@ -56,9 +57,12 @@ fn base_workspace_file(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 /// The active workspace folder OpenCode / the kernel / previews / provenance all
-/// operate in. Defaults to the base folder (`~/Documents/OpenScience`) until the
+/// operate in. Defaults to the base folder (`~/Documents/AI4HEOR`) until the
 /// user opens or creates another one; the choice persists across restarts.
 pub fn workspace_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    // Resolve the base first so a legacy default root is migrated and an active
+    // pointer below it is rewritten before we try to use that pointer.
+    let base = base_workspace_dir(app)?;
     if let Ok(f) = active_workspace_file(app) {
         if let Ok(s) = std::fs::read_to_string(&f) {
             let dir = PathBuf::from(s.trim());
@@ -67,11 +71,11 @@ pub fn workspace_dir(app: &AppHandle) -> Result<PathBuf, String> {
             }
         }
     }
-    base_workspace_dir(app)
+    Ok(base)
 }
 
 /// The workspace root new dated session folders are created under. A folder
-/// the user picked in Settings wins; the default is `~/Documents/OpenScience`
+/// the user picked in Settings wins; the default is `~/Documents/AI4HEOR`
 /// (no space — the agent runs shell commands against this path, and unquoted
 /// spaces break them), falling back to `$HOME/Documents`.
 pub fn base_workspace_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -92,27 +96,80 @@ pub fn base_workspace_dir(app: &AppHandle) -> Result<PathBuf, String> {
             PathBuf::from(home).join("Documents")
         }
     };
-    let dir = docs.join("OpenScience");
-
-    // One-time migrations, oldest name last. A failed rename (e.g. cross-volume)
-    // keeps the existing location rather than splitting the user's files.
-    if !dir.exists() {
-        for old in [docs.join("Open Science"), runtime_root(app)?.join("workspace")] {
-            if old.is_dir() {
-                if std::fs::rename(&old, &dir).is_ok() {
-                    break;
-                }
-                return Ok(old);
-            }
-        }
+    let active_file = active_workspace_file(app)?;
+    let (dir, migrated_from) =
+        resolve_default_workspace(&docs, &runtime_root(app)?.join("workspace"))?;
+    if let Some(old) = migrated_from {
+        // Best effort: failure only loses the active selection, never the data;
+        // workspace_dir will safely fall back to the newly migrated base.
+        let _ = rewrite_workspace_pointer(&active_file, &old, &dir);
     }
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
 }
 
-/// Path OpenCode reads when XDG_CONFIG_HOME points at our private dir.
-fn opencode_config_file(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(xdg_config_home(app)?.join("opencode").join("opencode.json"))
+fn resolve_default_workspace(
+    docs: &Path,
+    legacy_private_workspace: &Path,
+) -> Result<(PathBuf, Option<PathBuf>), String> {
+    resolve_default_workspace_with(docs, legacy_private_workspace, |from, to| {
+        std::fs::rename(from, to)
+    })
+}
+
+fn resolve_default_workspace_with<F>(
+    docs: &Path,
+    legacy_private_workspace: &Path,
+    rename: F,
+) -> Result<(PathBuf, Option<PathBuf>), String>
+where
+    F: Fn(&Path, &Path) -> std::io::Result<()>,
+{
+    let target = docs.join(DEFAULT_WORKSPACE_FOLDER);
+    if target.is_dir() {
+        return Ok((target, None));
+    }
+    if target.exists() {
+        return Err(format!(
+            "default workspace exists but is not a directory: {}",
+            target.display()
+        ));
+    }
+
+    // A public OpenScience root is the immediate predecessor. The spaced name
+    // and app-private root are older migrations retained for existing users.
+    // If rename fails (permissions/cross-volume), keep using the old root and
+    // never create a parallel empty AI4HEOR workspace.
+    let candidates = LEGACY_WORKSPACE_FOLDERS
+        .iter()
+        .map(|name| docs.join(name))
+        .chain(std::iter::once(legacy_private_workspace.to_path_buf()));
+    for old in candidates {
+        if old.is_dir() {
+            return match rename(&old, &target) {
+                Ok(()) => Ok((target, Some(old))),
+                Err(_) => Ok((old, None)),
+            };
+        }
+    }
+
+    std::fs::create_dir_all(&target).map_err(|e| e.to_string())?;
+    Ok((target, None))
+}
+
+fn rewrite_workspace_pointer(
+    pointer_file: &Path,
+    old_root: &Path,
+    new_root: &Path,
+) -> Result<(), String> {
+    let Ok(value) = std::fs::read_to_string(pointer_file) else {
+        return Ok(());
+    };
+    let current = PathBuf::from(value.trim());
+    let Ok(relative) = current.strip_prefix(old_root) else {
+        return Ok(());
+    };
+    let migrated = new_root.join(relative);
+    std::fs::write(pointer_file, migrated.to_string_lossy().as_bytes()).map_err(|e| e.to_string())
 }
 
 /// The config file to edit in place: the server may have rewritten the config
@@ -149,118 +206,148 @@ fn user_auth_source() -> Option<PathBuf> {
 /// (from the Settings page) — never silently. Returns false when there is no
 /// CLI login to import. Restarts the sidecar so it picks the credentials up.
 #[tauri::command(async)]
-pub fn import_opencode_login(app: AppHandle, state: State<'_, RuntimeState>) -> Result<bool, String> {
+pub fn import_opencode_login(
+    app: AppHandle,
+    state: State<'_, RuntimeState>,
+) -> Result<bool, String> {
     let Some(src) = user_auth_source() else {
         return Ok(false);
     };
-    let dst = runtime_root(&app)?.join("xdg-data").join("opencode").join("auth.json");
+    let dst = runtime_root(&app)?
+        .join("xdg-data")
+        .join("opencode")
+        .join("auth.json");
     if let Some(parent) = dst.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     std::fs::copy(&src, &dst).map_err(|e| format!("copy failed: {e}"))?;
+    tighten_private(&dst);
 
     // Restart the running sidecar so /config/providers reflects the login.
     restart_sidecar_if_running(&app, &state)?;
     Ok(true)
 }
 
-/// Whether the bundled runtime's credential store (its auth.json) has an entry
-/// for this provider. The sidecar writes the token there the moment a browser
-/// login completes, so the UI can fall back on it when the pending OAuth
-/// callback request is lost (loopback port collision, proxy) — issue #17.
-#[tauri::command(async)]
-pub fn provider_auth_exists(app: AppHandle, provider_id: String) -> Result<bool, String> {
-    let path = runtime_root(&app)?
-        .join("xdg-data")
-        .join("opencode")
-        .join("auth.json");
-    let Ok(text) = std::fs::read_to_string(&path) else {
-        return Ok(false); // no store yet — no logins
-    };
-    Ok(auth_has_provider(&text, &provider_id))
-}
-
-fn auth_has_provider(text: &str, provider_id: &str) -> bool {
-    serde_json::from_str::<serde_json::Value>(text)
-        .ok()
-        .is_some_and(|auth| auth.get(provider_id).is_some())
-}
-
-/// Deploy the bundled skill packs (Tauri resources) into the app-private
-/// profile's global skills dir (`<xdg-config>/opencode/skills/`), which OpenCode
-/// scans regardless of project detection: `skills/` is the external ai4s-skills
-/// pack, `skills-office/` Anthropic's document skills (docx/pdf/pptx/xlsx),
-/// `skills-core/` the first-party skills from `runtime/skills/core`. The
-/// workspace's own `.opencode/skills/` stays reserved for skills the user
-/// installs. Runs before every sidecar start so app upgrades refresh the packs.
+/// Deploy first-party skills and only hash-locked third-party adapters admitted
+/// by the release-only packaged registry. Unfinished and excluded external
+/// sources are not registry rows and are never copied into OpenCode's active
+/// global skill directory. The workspace's own
+/// `.opencode/skills/` remains user-controlled and is not a platform admission.
 fn deploy_bundled_skills(app: &AppHandle) {
     let dst = match xdg_config_home(app) {
         Ok(cfg) => cfg.join("opencode").join("skills"),
         Err(_) => return,
     };
-    let mut bundled: std::collections::HashSet<std::ffi::OsString> = std::collections::HashSet::new();
-    let mut all_ok = true;
-    for resource in ["skills", "skills-office", "skills-core"] {
-        let src = match app
-            .path()
-            .resolve(resource, tauri::path::BaseDirectory::Resource)
-        {
-            Ok(p) if p.is_dir() => p,
-            _ => {
-                all_ok = false; // dev run without `fetch-skills.sh` — nothing to deploy
-                continue;
+    let mut bundled: std::collections::HashSet<std::ffi::OsString> =
+        std::collections::HashSet::new();
+    let core = app
+        .path()
+        .resolve("skills-core", tauri::path::BaseDirectory::Resource)
+        .ok()
+        .filter(|path| path.is_dir());
+    let core_ok = match core {
+        Some(src) => match sync_skill_pack(&src, &dst) {
+            Ok(names) => {
+                bundled.extend(names);
+                true
             }
-        };
-        match sync_skill_pack(&src, &dst) {
-            Ok(names) => bundled.extend(names),
-            Err(e) => {
-                all_ok = false;
-                eprintln!("failed to deploy bundled skills ({resource}): {e}");
+            Err(error) => {
+                eprintln!("failed to deploy first-party skills: {error}");
+                false
+            }
+        },
+        None => false,
+    };
+
+    let registry = crate::asset_admission::read_registry_resource(app)
+        .map(|raw| crate::asset_admission::validate_registry(&raw));
+    match registry {
+        Ok((audit, deployments)) if audit.complete => {
+            for deployment in deployments {
+                let src = app
+                    .path()
+                    .resolve(
+                        &deployment.resource_pack,
+                        tauri::path::BaseDirectory::Resource,
+                    )
+                    .ok()
+                    .filter(|path| path.is_dir());
+                match src.and_then(|src| {
+                    sync_admitted_skill(&src, &dst, &deployment)
+                        .map_err(|error| {
+                            eprintln!(
+                                "failed to deploy admitted asset {}/{}: {error}",
+                                deployment.resource_pack, deployment.entry
+                            );
+                        })
+                        .ok()
+                }) {
+                    Some(name) => {
+                        bundled.insert(name);
+                    }
+                    None => {
+                        // Fail closed: omit it from `bundled`; stale-pruning below
+                        // removes any previously deployed version.
+                    }
+                }
             }
         }
+        Ok((audit, _)) => {
+            eprintln!(
+                "asset admission registry failed closed: {}",
+                audit.errors.join("; ")
+            );
+        }
+        Err(error) => eprintln!("asset admission registry failed closed: {error}"),
     }
     // The global skills dir is exclusively app-managed (the user's own skills
     // live in the workspace's `.opencode/skills/`), so any skill dir not in the
     // freshly-bundled set is a stale leftover — e.g. one renamed across an app
     // upgrade (`hpc-slurm` → `remote-compute`) — and must be removed so the
-    // obsolete duplicate can't shadow or confuse the agent. Prune ONLY when all
-    // three packs deployed cleanly: a partial deploy would make `bundled`
-    // incomplete and wrongly delete valid skills.
-    if all_ok {
+    // obsolete duplicate can't shadow or confuse the agent. Once the first-party
+    // pack is known-good, prune even when the external registry or adapter copy
+    // fails: retaining a previously admitted but now-unverifiable adapter would
+    // turn a fail-closed policy into fail-open behavior.
+    if core_ok {
         prune_stale_skills(&dst, &bundled);
     }
 }
 
-/// Ship the bundled goal plugin (one self-contained JS file, see
-/// scripts/dev/fetch-goal-plugin.sh) into the app-private OpenCode profile and
-/// return its absolute path for the config's `plugin` array. OpenCode 1.17
-/// cannot install npm plugin specs itself (silently ignored), so the file is
-/// referenced by absolute path. None in dev runs without the fetch script.
-fn deploy_goal_plugin(app: &AppHandle) -> Option<PathBuf> {
-    let src = app
-        .path()
-        .resolve("goal-plugin/goal-plugin.server.js", tauri::path::BaseDirectory::Resource)
-        .ok()
-        .filter(|p| p.is_file())?;
-    let dst = xdg_config_home(app).ok()?.join("opencode").join("goal-plugin.server.js");
-    std::fs::create_dir_all(dst.parent()?).ok()?;
-    // Refresh on every start so app upgrades replace the plugin in place.
-    if let Err(e) = std::fs::copy(&src, &dst) {
-        eprintln!("failed to deploy goal plugin: {e}");
-        return None;
+fn sync_admitted_skill(
+    src_pack: &Path,
+    dst: &Path,
+    deployment: &crate::asset_admission::SkillDeployment,
+) -> Result<std::ffi::OsString, String> {
+    crate::asset_admission::verify_skill_deployment(src_pack, deployment)?;
+    let src = src_pack.join(&deployment.entry);
+    std::fs::create_dir_all(dst).map_err(|error| error.to_string())?;
+    let target = dst.join(&deployment.entry);
+    let stage = dst.join(format!(".asset-stage-{}", deployment.entry));
+    if stage.exists() {
+        std::fs::remove_dir_all(&stage).map_err(|error| error.to_string())?;
     }
-    Some(dst)
+    copy_dir(&src, &stage).map_err(|error| error.to_string())?;
+    let staged = crate::asset_admission::tree_sha256(&stage)?;
+    if staged != deployment.content_sha256 {
+        let _ = std::fs::remove_dir_all(&stage);
+        return Err("copied asset hash does not match the admitted bytes".into());
+    }
+    if target.exists() {
+        std::fs::remove_dir_all(&target).map_err(|error| error.to_string())?;
+    }
+    std::fs::rename(&stage, &target).map_err(|error| error.to_string())?;
+    Ok(std::ffi::OsString::from(&deployment.entry))
 }
 
 /// Remove every SKILL.md-bearing directory in `dst` whose name is not in
 /// `bundled` (the set just deployed). Non-skill directories are left untouched.
 fn prune_stale_skills(dst: &Path, bundled: &std::collections::HashSet<std::ffi::OsString>) {
-    let Ok(entries) = std::fs::read_dir(dst) else { return };
+    let Ok(entries) = std::fs::read_dir(dst) else {
+        return;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir()
-            && path.join("SKILL.md").is_file()
-            && !bundled.contains(&entry.file_name())
+        if path.is_dir() && path.join("SKILL.md").is_file() && !bundled.contains(&entry.file_name())
         {
             let _ = std::fs::remove_dir_all(&path);
         }
@@ -294,10 +381,22 @@ fn copy_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let to = dst.join(entry.file_name());
-        if entry.file_type()?.is_dir() {
+        let file_type = entry.file_type()?;
+        if file_type.is_symlink() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "skill trees cannot contain symlinks",
+            ));
+        }
+        if file_type.is_dir() {
             copy_dir(&entry.path(), &to)?;
-        } else {
+        } else if file_type.is_file() {
             std::fs::copy(entry.path(), &to)?;
+        } else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "skill trees may contain only regular files",
+            ));
         }
     }
     Ok(())
@@ -369,15 +468,17 @@ pub(crate) fn enriched_path() -> String {
     roots.push("C:\\ProgramData\\miniconda3".into());
     let mut extras: Vec<String> = Vec::new();
     for root in roots {
-        for dir in [root.clone(), format!("{root}\\Scripts"), format!("{root}\\Library\\bin")] {
+        for dir in [
+            root.clone(),
+            format!("{root}\\Scripts"),
+            format!("{root}\\Library\\bin"),
+        ] {
             extras.push(dir);
         }
     }
     let mut parts: Vec<String> = extras
         .into_iter()
-        .filter(|p| {
-            !base.split(';').any(|b| b.eq_ignore_ascii_case(p)) && Path::new(p).is_dir()
-        })
+        .filter(|p| !base.split(';').any(|b| b.eq_ignore_ascii_case(p)) && Path::new(p).is_dir())
         .collect();
     if !base.is_empty() {
         parts.push(base);
@@ -403,9 +504,10 @@ pub(crate) fn quiet_command(bin: impl AsRef<std::ffi::OsStr>) -> std::process::C
 }
 
 /// Make a secret-holding path owner-only: 700 for directories, 600 for files
-/// (unix). The runtime root carries provider/connector API keys in
-/// `opencode.jsonc`/`auth.json`, and the sidecar rewrites those files with a
-/// default umask while running — locking the DIRECTORY is what holds, since a
+/// (unix). The runtime root carries provider credentials in `auth.json` and may
+/// carry researcher-managed connector secrets in `opencode.jsonc`; the sidecar
+/// rewrites those files with a default umask while running. Locking the directory
+/// is what holds, since a
 /// 700 dir is unreachable for other users whatever the file modes inside. On
 /// Windows, %APPDATA% is per-user ACL'd already; nothing to do.
 pub(crate) fn tighten_private(path: &Path) {
@@ -433,7 +535,8 @@ pub(crate) fn random_hex(bytes: usize) -> String {
 /// built-in Basic auth, `OPENCODE_SERVER_PASSWORD`). Generated fresh each app
 /// launch and held only in memory — never written to disk — so a local
 /// webpage that scans loopback ports can neither drive agent turns nor read
-/// `/global/config` (which carries provider API keys). The webview gets it
+/// `/global/config` (which may carry researcher-managed connector settings).
+/// The webview gets it
 /// via the `runtime_password` command; Tauri IPC is app-only.
 pub(crate) fn server_password() -> &'static str {
     static PASSWORD: std::sync::OnceLock<String> = std::sync::OnceLock::new();
@@ -606,15 +709,6 @@ pub(crate) fn uv_network_env(app: &AppHandle) -> Vec<(&'static str, String)> {
     env
 }
 
-/// Proxy env for a bundled sidecar OTHER than opencode (e.g. agent-browser's
-/// Chrome download). Same resolution as the OpenCode sidecar so a first-run
-/// browser install works behind the user's configured proxy, without the uv
-/// mirror vars that only uv understands.
-pub(crate) fn sidecar_proxy_env(app: &AppHandle) -> Vec<(&'static str, String)> {
-    let (mode, url) = read_proxy_setting(app);
-    resolve_proxy_env(&mode, &url)
-}
-
 /// The system-configured proxy as a URL, if one is enabled (macOS: scutil).
 /// HTTP(S) proxies are preferred — an HTTPS proxy endpoint still speaks plain
 /// HTTP CONNECT, hence the http:// scheme — with SOCKS as the fallback.
@@ -625,11 +719,15 @@ fn system_proxy_url() -> Option<String> {
 }
 
 /// Parse `scutil --proxy` output (`  Key : value` lines) into a proxy URL.
+#[cfg(any(target_os = "macos", test))]
 fn parse_scutil_proxy(text: &str) -> Option<String> {
     let get = |key: &str| -> Option<String> {
         let prefix = format!("{key} : ");
-        text.lines()
-            .find_map(|l| l.trim().strip_prefix(prefix.as_str()).map(|v| v.trim().to_string()))
+        text.lines().find_map(|l| {
+            l.trim()
+                .strip_prefix(prefix.as_str())
+                .map(|v| v.trim().to_string())
+        })
     };
     let enabled = |key: &str| get(key).as_deref() == Some("1");
     for (en, host, port, scheme) in [
@@ -678,20 +776,11 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
         }
         std::fs::write(&cfg_file, seeded).map_err(|e| e.to_string())?;
     }
-    // Goal mode (/goal): register the bundled plugin under its deployed path.
-    // Forward slashes everywhere — Windows accepts them, and the config stays
-    // portable for opencode's path-spec detection.
-    if let Some(plugin_path) = deploy_goal_plugin(app) {
-        let existing = std::fs::read_to_string(&cfg_file).unwrap_or_default();
-        let path_str = plugin_path.to_string_lossy().replace('\\', "/");
-        if let Some(updated) = crate::opencode_config::ensure_goal_plugin(&existing, &path_str) {
-            std::fs::write(&cfg_file, updated).map_err(|e| e.to_string())?;
-        }
-    }
-    // Secrets live under the runtime root (provider/connector keys in
-    // opencode.jsonc, OpenCode's auth.json) — owner-only on every start, so
-    // existing installs are repaired and whatever the sidecar later rewrites
-    // inside stays unreachable to other users regardless of its umask.
+    // Secrets live under the runtime root (provider credentials in auth.json;
+    // researcher-managed connector secrets may exist in opencode.jsonc) —
+    // owner-only on every start, so existing installs are repaired and whatever
+    // the sidecar later rewrites stays unreachable to other users regardless of
+    // its umask.
     tighten_private(&root);
     tighten_private(&cfg_file);
     let home = std::env::var("HOME").unwrap_or_default();
@@ -701,7 +790,13 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
         .shell()
         .sidecar("opencode")
         .map_err(|e| format!("sidecar not found: {e}"))?
-        .args(["serve", "--hostname", "127.0.0.1", "--port", port_str.as_str()])
+        .args([
+            "serve",
+            "--hostname",
+            "127.0.0.1",
+            "--port",
+            port_str.as_str(),
+        ])
         // Require auth on every request (P0-7): without a password the server
         // trusts ANY localhost-origin page (verified in the 1.17.13 source —
         // its CORS allowlist admits http://localhost:*/127.0.0.1:* wholesale,
@@ -717,7 +812,10 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
         // Lets bundled skill helpers (e.g. remote-compute's record_run.py) stamp
         // the recording app version into provenance — they run outside the app
         // and can't otherwise know it.
-        .env("OPENSCIENCE_APP_VERSION", app.package_info().version.to_string())
+        .env(
+            "OPENSCIENCE_APP_VERSION",
+            app.package_info().version.to_string(),
+        )
         .current_dir(workspace);
     // GUI-launched apps get a minimal PATH; give the agent the user's real tools.
     let mut cmd = cmd.env("PATH", enriched_path());
@@ -728,47 +826,18 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
         cmd = cmd.env(k, v);
     }
 
-    let (mut rx, child) = cmd.spawn().map_err(|e| format!("failed to spawn opencode: {e}"))?;
-    // Drain events so the child's stdout/stderr buffer never blocks it, AND record
-    // the failure signals we used to discard. When the ad-hoc-signed sidecar dies
-    // during bootstrap (TCC denial, config-merge abort, panic) the only symptom was
-    // a generic "Could not open OpenCode event stream" in the UI with no cause. Now
-    // stderr, spawn errors, and the exit code land in debug.log next to the
-    // frontend's connection attempts. Stdout is left to OpenCode's own log file
-    // (xdg-data/opencode/log/opencode.log) so request spam never bloats debug.log.
-    let app = app.clone();
-    tauri::async_runtime::spawn(async move {
-        use tauri_plugin_shell::process::CommandEvent;
-        while let Some(event) = rx.recv().await {
-            match event {
-                CommandEvent::Stderr(bytes) => {
-                    for line in String::from_utf8_lossy(&bytes).split(['\n', '\r']) {
-                        let line = line.trim();
-                        if !line.is_empty() {
-                            crate::debug_log::append(&app, &format!("[opencode] {line}"));
-                        }
-                    }
-                }
-                CommandEvent::Error(e) => {
-                    crate::debug_log::append(&app, &format!("[opencode] error: {e}"));
-                }
-                CommandEvent::Terminated(status) => {
-                    crate::debug_log::append(
-                        &app,
-                        &format!("[opencode] terminated: code={:?} signal={:?}", status.code, status.signal),
-                    );
-                }
-                _ => {}
-            }
-        }
-    });
+    let (mut rx, child) = cmd
+        .spawn()
+        .map_err(|e| format!("failed to spawn opencode: {e}"))?;
+    // Drain events so the child's stdout/stderr buffer never blocks it.
+    tauri::async_runtime::spawn(async move { while rx.recv().await.is_some() {} });
     Ok(child)
 }
 
 /// Kill and respawn a running sidecar on its stable port. The lifecycle lock
 /// covers the complete state transition, and URL is cleared before spawning so
 /// a failed restart can never leave a stale "running" marker behind.
-fn restart_sidecar_if_running(
+pub(crate) fn restart_sidecar_if_running(
     app: &AppHandle,
     state: &RuntimeState,
 ) -> Result<Option<String>, String> {
@@ -813,6 +882,25 @@ pub fn start_runtime(app: AppHandle, state: State<'_, RuntimeState>) -> Result<S
     Ok(url)
 }
 
+/// Explicit recovery path for a sidecar that exited or stopped responding.
+/// Unlike `start_runtime`, this always replaces the tracked process, while
+/// retaining the stable localhost port so the frontend can reconnect cleanly.
+#[tauri::command(async)]
+pub fn restart_runtime(app: AppHandle, state: State<'_, RuntimeState>) -> Result<String, String> {
+    let mut lifecycle = state.lifecycle.lock().unwrap();
+    if let Some(child) = lifecycle.child.take() {
+        let _ = child.kill();
+    }
+    lifecycle.url = None;
+
+    let port = *lifecycle.port.get_or_insert_with(free_port);
+    let child = spawn_sidecar(&app, port)?;
+    let url = format!("http://127.0.0.1:{port}");
+    lifecycle.child = Some(child);
+    lifecycle.url = Some(url.clone());
+    Ok(url)
+}
+
 /// The workspace directory the sidecar runs in — the frontend passes it to the
 /// SDK so skill discovery is scoped to the right OpenCode instance.
 #[tauri::command]
@@ -820,7 +908,7 @@ pub fn workspace_path(app: AppHandle) -> Result<String, String> {
     Ok(workspace_dir(&app)?.to_string_lossy().to_string())
 }
 
-/// The base folder new dated workspaces are created under (`~/Documents/OpenScience`).
+/// The base folder new dated workspaces are created under (`~/Documents/AI4HEOR`).
 #[tauri::command]
 pub fn workspace_base(app: AppHandle) -> Result<String, String> {
     Ok(base_workspace_dir(&app)?.to_string_lossy().to_string())
@@ -837,8 +925,11 @@ pub fn set_workspace_base(app: AppHandle, path: String) -> Result<String, String
     }
     std::fs::create_dir_all(&dir).map_err(|e| format!("could not create folder: {e}"))?;
     let canon = dir.canonicalize().map_err(|e| e.to_string())?;
-    std::fs::write(base_workspace_file(&app)?, canon.to_string_lossy().as_bytes())
-        .map_err(|e| e.to_string())?;
+    std::fs::write(
+        base_workspace_file(&app)?,
+        canon.to_string_lossy().as_bytes(),
+    )
+    .map_err(|e| e.to_string())?;
     Ok(canon.to_string_lossy().to_string())
 }
 
@@ -868,12 +959,20 @@ pub fn set_workspace(
     }
     std::fs::create_dir_all(&dir).map_err(|e| format!("could not create folder: {e}"))?;
     let canon = dir.canonicalize().map_err(|e| e.to_string())?;
-    std::fs::write(active_workspace_file(&app)?, canon.to_string_lossy().as_bytes())
-        .map_err(|e| e.to_string())?;
-
-    // Follow the active folder with the snapshot watcher so out-of-app edits
-    // (external editor, detached process) in the new workspace are captured too.
-    crate::git_snapshot::watch_workspace(&canon);
+    let base_dir = base_workspace_dir(&app)?;
+    let base = base_dir.canonicalize().unwrap_or(base_dir);
+    if canon != base {
+        let scope_name = canon
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("conversation");
+        crate::project::ensure_session_scope(&canon, scope_name)?;
+    }
+    std::fs::write(
+        active_workspace_file(&app)?,
+        canon.to_string_lossy().as_bytes(),
+    )
+    .map_err(|e| e.to_string())?;
 
     // No sidecar restart: OpenCode serves every folder from one process via
     // per-directory instances, and the frontend reconnects its event stream
@@ -923,15 +1022,59 @@ pub fn new_dated_workspace(
     if name.is_empty() || name.contains('/') || name.contains('\\') || name.contains("..") {
         return Err("invalid folder name".into());
     }
-    let dir = base_workspace_dir(&app)?.join(&name);
-    // `set_workspace` moves `app`; keep a handle to seed the harness afterwards.
-    let seed_app = app.clone();
-    let canon = set_workspace(app, state, dir.to_string_lossy().to_string())?;
-    // Seed the agent harness into the fresh folder so it starts with its
-    // operating rules, not an empty directory. Only NEW dated folders get seeded
-    // (never `set_workspace` alone — switching to an existing session must not
-    // re-plant the scaffold).
-    crate::harness::seed_harness(&seed_app, std::path::Path::new(&canon));
+    let base = base_workspace_dir(&app)?;
+    let mut dir = base.join(&name);
+    for suffix in 2..100 {
+        if !dir.exists() {
+            break;
+        }
+        dir = base.join(format!("{name}-{suffix}"));
+    }
+    if dir.exists() {
+        return Err("could not allocate a unique conversation folder".into());
+    }
+    // Seed and verify the product-owned research contract before persisting the
+    // folder as active. A partial harness must never become an apparently valid
+    // HEOR workspace.
+    if let Err(error) = crate::harness::seed_harness(&app, &dir) {
+        let rollback = std::fs::remove_dir_all(&dir);
+        return Err(match rollback {
+            Ok(()) => format!("could not initialize the AI4HEOR research contract: {error}"),
+            Err(cleanup_error) => format!(
+                "could not initialize the AI4HEOR research contract: {error}; \
+                 could not remove incomplete workspace {}: {cleanup_error}",
+                dir.display()
+            ),
+        });
+    }
+    let scope_name = dir
+        .file_name()
+        .and_then(|folder| folder.to_str())
+        .unwrap_or(&name);
+    if let Err(error) = crate::project::ensure_session_scope(&dir, scope_name) {
+        let rollback = std::fs::remove_dir_all(&dir);
+        return Err(match rollback {
+            Ok(()) => format!("could not initialize the conversation research scope: {error}"),
+            Err(cleanup_error) => format!(
+                "could not initialize the conversation research scope: {error}; \
+                 could not remove incomplete workspace {}: {cleanup_error}",
+                dir.display()
+            ),
+        });
+    }
+    let canon = match set_workspace(app, state, dir.to_string_lossy().to_string()) {
+        Ok(canon) => canon,
+        Err(error) => {
+            let rollback = std::fs::remove_dir_all(&dir);
+            return Err(match rollback {
+                Ok(()) => error,
+                Err(cleanup_error) => format!(
+                    "{error}; could not remove incomplete workspace {}: {cleanup_error}",
+                    dir.display()
+                ),
+            });
+        }
+    };
     crate::git_snapshot::commit_best_effort(std::path::Path::new(&canon), "Initialize workspace");
     Ok(canon)
 }
@@ -968,18 +1111,104 @@ pub fn kill_child(state: &RuntimeState) {
 #[cfg(test)]
 mod tests {
     use super::{
-        auth_has_provider, parse_scutil_proxy, prune_stale_skills, random_hex,
-        remove_key_from_config, resolve_proxy_env, sync_skill_pack, validate_proxy_url,
+        parse_scutil_proxy, prune_stale_skills, random_hex, remove_key_from_config,
+        resolve_default_workspace_with, resolve_proxy_env, rewrite_workspace_pointer,
+        sync_admitted_skill, sync_skill_pack, validate_proxy_url,
     };
     use std::fs;
 
+    fn temp_workspace_root(label: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!(
+            "ai4heor-workspace-{label}-{}-{}",
+            std::process::id(),
+            random_hex(4)
+        ))
+    }
+
     #[test]
-    fn auth_store_provider_lookup() {
-        let auth = r#"{ "openai": { "type": "oauth", "refresh": "r", "access": "a" } }"#;
-        assert!(auth_has_provider(auth, "openai"));
-        assert!(!auth_has_provider(auth, "anthropic"));
-        assert!(!auth_has_provider("", "openai")); // empty/corrupt store
-        assert!(!auth_has_provider("not json", "openai"));
+    fn fresh_default_workspace_uses_ai4heor_name() {
+        let root = temp_workspace_root("fresh");
+        let docs = root.join("Documents");
+        let private = root.join("runtime/workspace");
+        fs::create_dir_all(&docs).unwrap();
+
+        let (workspace, migrated) =
+            resolve_default_workspace_with(&docs, &private, |from, to| fs::rename(from, to))
+                .unwrap();
+
+        assert_eq!(workspace, docs.join("AI4HEOR"));
+        assert!(workspace.is_dir());
+        assert_eq!(migrated, None);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn legacy_default_is_renamed_and_active_child_pointer_is_rewritten() {
+        let root = temp_workspace_root("migrate");
+        let docs = root.join("Documents");
+        let old = docs.join("OpenScience");
+        let child = old.join("2026-07-17-0900");
+        let private = root.join("runtime/workspace");
+        let pointer = root.join("runtime/active-workspace.txt");
+        fs::create_dir_all(&child).unwrap();
+        fs::create_dir_all(pointer.parent().unwrap()).unwrap();
+        fs::write(&pointer, child.to_string_lossy().as_bytes()).unwrap();
+
+        let (workspace, migrated) =
+            resolve_default_workspace_with(&docs, &private, |from, to| fs::rename(from, to))
+                .unwrap();
+        rewrite_workspace_pointer(&pointer, migrated.as_ref().unwrap(), &workspace).unwrap();
+
+        assert_eq!(workspace, docs.join("AI4HEOR"));
+        assert_eq!(migrated.as_deref(), Some(old.as_path()));
+        assert!(!old.exists());
+        assert!(workspace.join("2026-07-17-0900").is_dir());
+        assert_eq!(
+            fs::read_to_string(pointer).unwrap(),
+            workspace.join("2026-07-17-0900").to_string_lossy()
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn existing_ai4heor_root_wins_without_merging_legacy_data() {
+        let root = temp_workspace_root("precedence");
+        let docs = root.join("Documents");
+        let target = docs.join("AI4HEOR");
+        let old = docs.join("OpenScience");
+        fs::create_dir_all(&target).unwrap();
+        fs::create_dir_all(&old).unwrap();
+        fs::write(old.join("legacy.txt"), b"keep").unwrap();
+
+        let (workspace, migrated) =
+            resolve_default_workspace_with(&docs, &root.join("runtime/workspace"), |from, to| {
+                fs::rename(from, to)
+            })
+            .unwrap();
+
+        assert_eq!(workspace, target);
+        assert_eq!(migrated, None);
+        assert!(old.join("legacy.txt").is_file());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn failed_legacy_rename_reuses_old_root_without_splitting() {
+        let root = temp_workspace_root("rename-failure");
+        let docs = root.join("Documents");
+        let old = docs.join("OpenScience");
+        fs::create_dir_all(&old).unwrap();
+
+        let (workspace, migrated) =
+            resolve_default_workspace_with(&docs, &root.join("runtime/workspace"), |_from, _to| {
+                Err(std::io::Error::other("simulated failure"))
+            })
+            .unwrap();
+
+        assert_eq!(workspace, old);
+        assert_eq!(migrated, None);
+        assert!(!docs.join("AI4HEOR").exists());
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
@@ -997,20 +1226,32 @@ mod tests {
     fn proxy_env_modes() {
         let none = resolve_proxy_env("none", "");
         assert!(none.iter().any(|(k, v)| *k == "NO_PROXY" && v == "*"));
-        assert!(none.iter().any(|(k, v)| *k == "HTTPS_PROXY" && v.is_empty()));
+        assert!(none
+            .iter()
+            .any(|(k, v)| *k == "HTTPS_PROXY" && v.is_empty()));
 
         let custom = resolve_proxy_env("custom", "http://127.0.0.1:7890");
-        assert!(custom.iter().any(|(k, v)| *k == "HTTPS_PROXY" && v == "http://127.0.0.1:7890"));
-        assert!(custom.iter().any(|(k, v)| *k == "NO_PROXY" && v.contains("127.0.0.1")));
+        assert!(custom
+            .iter()
+            .any(|(k, v)| *k == "HTTPS_PROXY" && v == "http://127.0.0.1:7890"));
+        assert!(custom
+            .iter()
+            .any(|(k, v)| *k == "NO_PROXY" && v.contains("127.0.0.1")));
     }
 
     #[test]
     fn scutil_proxy_parses_and_prefers_https() {
         // Real `scutil --proxy` shape (indented `Key : value` lines).
         let all = "<dictionary> {\n  HTTPEnable : 1\n  HTTPPort : 1087\n  HTTPProxy : 127.0.0.1\n  HTTPSEnable : 1\n  HTTPSPort : 1087\n  HTTPSProxy : 127.0.0.1\n  SOCKSEnable : 1\n  SOCKSPort : 1087\n  SOCKSProxy : 127.0.0.1\n}";
-        assert_eq!(parse_scutil_proxy(all).as_deref(), Some("http://127.0.0.1:1087"));
+        assert_eq!(
+            parse_scutil_proxy(all).as_deref(),
+            Some("http://127.0.0.1:1087")
+        );
         let socks_only = "  SOCKSEnable : 1\n  SOCKSPort : 7890\n  SOCKSProxy : 10.0.0.2\n";
-        assert_eq!(parse_scutil_proxy(socks_only).as_deref(), Some("socks5://10.0.0.2:7890"));
+        assert_eq!(
+            parse_scutil_proxy(socks_only).as_deref(),
+            Some("socks5://10.0.0.2:7890")
+        );
         let disabled = "  HTTPEnable : 0\n  HTTPPort : 1087\n  HTTPProxy : 127.0.0.1\n";
         assert_eq!(parse_scutil_proxy(disabled), None);
         assert_eq!(parse_scutil_proxy(""), None);
@@ -1032,7 +1273,10 @@ mod tests {
         prune_stale_skills(&dst, &bundled);
 
         assert!(dst.join("remote-compute").is_dir(), "bundled skill kept");
-        assert!(!dst.join("hpc-slurm").exists(), "stale renamed skill removed");
+        assert!(
+            !dst.join("hpc-slurm").exists(),
+            "stale renamed skill removed"
+        );
         assert!(dst.join("notes").is_dir(), "non-skill dir left alone");
         let _ = fs::remove_dir_all(&dst);
     }
@@ -1049,13 +1293,20 @@ mod tests {
         fs::set_permissions(&dir, fs::Permissions::from_mode(0o755)).unwrap();
         fs::set_permissions(&cfg, fs::Permissions::from_mode(0o644)).unwrap();
 
-        // The runtime root holds provider/connector keys (opencode.jsonc,
-        // auth.json) — it must be unreadable to other users even when the
-        // sidecar later rewrites files inside with a default umask.
+        // The runtime root holds provider credentials in auth.json and may hold
+        // researcher-managed connector secrets in opencode.jsonc. It must be
+        // unreadable to other users even when the sidecar later rewrites files
+        // inside with a default umask.
         super::tighten_private(&dir);
-        assert_eq!(fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
+        assert_eq!(
+            fs::metadata(&dir).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
         super::tighten_private(&cfg);
-        assert_eq!(fs::metadata(&cfg).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            fs::metadata(&cfg).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -1113,15 +1364,30 @@ mod tests {
 
         sync_skill_pack(&src, &dst).unwrap();
 
-        assert_eq!(fs::read_to_string(dst.join("paper-writer/SKILL.md")).unwrap(), "v2");
+        assert_eq!(
+            fs::read_to_string(dst.join("paper-writer/SKILL.md")).unwrap(),
+            "v2"
+        );
         assert_eq!(
             fs::read_to_string(dst.join("paper-writer/references/guide.md")).unwrap(),
             "ref"
         );
-        assert!(!dst.join("paper-writer/obsolete.md").exists(), "stale file must be gone");
-        assert_eq!(fs::read_to_string(dst.join("my-skill/SKILL.md")).unwrap(), "user");
-        assert!(!dst.join(".commit").exists(), "top-level files are not skills");
-        assert!(!dst.join("placeholder").exists(), "dirs without SKILL.md are not skills");
+        assert!(
+            !dst.join("paper-writer/obsolete.md").exists(),
+            "stale file must be gone"
+        );
+        assert_eq!(
+            fs::read_to_string(dst.join("my-skill/SKILL.md")).unwrap(),
+            "user"
+        );
+        assert!(
+            !dst.join(".commit").exists(),
+            "top-level files are not skills"
+        );
+        assert!(
+            !dst.join("placeholder").exists(),
+            "dirs without SKILL.md are not skills"
+        );
 
         fs::remove_dir_all(&tmp).unwrap();
     }
@@ -1140,6 +1406,38 @@ mod tests {
             "s"
         );
         fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    #[test]
+    fn admitted_skill_sync_requires_the_exact_tree_hash() {
+        let tmp = std::env::temp_dir().join(format!("admitted-sync-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&tmp);
+        let src = tmp.join("pack");
+        let dst = tmp.join("active");
+        write(&src.join("review-adapter/SKILL.md"), "approved");
+        write(&src.join("review-adapter/references/contract.md"), "bound");
+        let hash = crate::asset_admission::tree_sha256(&src.join("review-adapter")).unwrap();
+        let valid = crate::asset_admission::SkillDeployment {
+            resource_pack: "skills-admitted-test".into(),
+            entry: "review-adapter".into(),
+            content_sha256: hash,
+        };
+        sync_admitted_skill(&src, &dst, &valid).unwrap();
+        assert_eq!(
+            fs::read_to_string(dst.join("review-adapter/SKILL.md")).unwrap(),
+            "approved"
+        );
+
+        write(&src.join("review-adapter/SKILL.md"), "changed upstream");
+        assert!(sync_admitted_skill(&src, &dst, &valid)
+            .unwrap_err()
+            .contains("content hash mismatch"));
+        assert_eq!(
+            fs::read_to_string(dst.join("review-adapter/SKILL.md")).unwrap(),
+            "approved",
+            "a mismatched candidate cannot replace the last admitted bytes"
+        );
+        fs::remove_dir_all(tmp).unwrap();
     }
 }
 
@@ -1183,7 +1481,9 @@ fn remove_key_from_config(text: &str, section: &str, key: &str) -> Result<String
         .map(|p| p.remove(key).is_some())
         .unwrap_or(false);
     if !removed {
-        return Err(format!("\"{key}\" is not in the config's {section} section"));
+        return Err(format!(
+            "\"{key}\" is not in the config's {section} section"
+        ));
     }
     serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())
 }
@@ -1216,7 +1516,7 @@ pub fn set_approval_mode(
     std::fs::write(&path, updated).map_err(|e| e.to_string())?;
     tighten_private(&path);
 
-    // Same restart flow as configure_opencode: reload rules on a stable port.
+    // Reload the rules on the current stable port.
     Ok(restart_sidecar_if_running(&app, &state)?
         .unwrap_or_else(|| path.to_string_lossy().to_string()))
 }
@@ -1285,29 +1585,4 @@ pub fn set_mirror_setting(app: AppHandle, pypi: String, python: String) -> Resul
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
     std::fs::write(&path, lines.join("\n")).map_err(|e| e.to_string())
-}
-
-/// Write the provider key/model into the app-private OpenCode config and restart
-/// the sidecar so it picks them up. Returns the same base URL (stable port).
-#[tauri::command(async)]
-pub fn configure_opencode(
-    app: AppHandle,
-    state: State<'_, RuntimeState>,
-    provider: String,
-    api_key: String,
-    model: String,
-    base_url: Option<String>,
-) -> Result<String, String> {
-    let path = opencode_config_file(&app)?;
-    let existing = std::fs::read_to_string(&path).unwrap_or_default();
-    let merged = merge_config(&existing, &provider, &api_key, &model, base_url.as_deref())?;
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    }
-    std::fs::write(&path, merged).map_err(|e| e.to_string())?;
-    tighten_private(&path);
-
-    // Restart so the running server reloads the new provider config.
-    Ok(restart_sidecar_if_running(&app, &state)?
-        .unwrap_or_else(|| path.to_string_lossy().to_string()))
 }

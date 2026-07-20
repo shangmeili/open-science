@@ -1,0 +1,66 @@
+{
+  "schema_version": "0.1.0",
+  "bia_id": "replace-with-bia-id",
+  "analysis_id": "replace-with-analysis-id",
+  "status": "draft",
+  "base_analysis": {
+    "path": "heor/analysis-plan.json",
+    "content_sha256": "replace-with-sha256-of-final-analysis-plan"
+  },
+  "perspective": {
+    "type": "budget_holder",
+    "budget_holder": "Replace with the specific budget holder",
+    "jurisdiction": "China",
+    "currency": "CNY",
+    "price_year": 2026,
+    "alignment_rationale": "Explain why the included costs match this budget holder."
+  },
+  "horizon_years": 3,
+  "discount_rate": 0,
+  "population": {
+    "label": "Eligible treated population",
+    "annual_eligible": [0, 0, 0],
+    "derivation": "Replace with the population funnel and access restrictions."
+  },
+  "strategies": {
+    "comparator": {"id": "replace-with-analysis-plan-comparator-name", "label": "Comparator"},
+    "intervention": {"id": "replace-with-analysis-plan-intervention-name", "label": "New intervention"}
+  },
+  "market_scenarios": {
+    "without_new_intervention": {
+      "label": "Without access",
+      "intervention_share_by_year": [0, 0, 0]
+    },
+    "with_new_intervention": {
+      "label": "With access",
+      "intervention_share_by_year": [0, 0, 0]
+    }
+  },
+  "cost_categories": [
+    {
+      "id": "treatment",
+      "label": "Treatment acquisition and administration",
+      "type": "intervention",
+      "included": true,
+      "rationale": "Replace with the perspective-alignment rationale.",
+      "annual_per_patient": {"comparator": [0, 0, 0], "intervention": [0, 0, 0]}
+    },
+    {
+      "id": "condition",
+      "label": "Condition-related care",
+      "type": "condition_related",
+      "included": true,
+      "rationale": "Replace with the perspective-alignment rationale.",
+      "annual_per_patient": {"comparator": [0, 0, 0], "intervention": [0, 0, 0]}
+    }
+  ],
+  "excluded_cost_categories": [],
+  "non_patient_costs": [],
+  "sensitivity_parameters": [],
+  "alternative_scenarios": [],
+  "evidence_sources": [],
+  "assumptions": [],
+  "input_provenance": [],
+  "validation_plan": {"face": [], "internal": [], "external": []},
+  "limitations": []
+}

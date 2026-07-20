@@ -1,11 +1,11 @@
 {
   "title": "Durchläufe",
   "description": {
-    "prefix": "Jede Experimentausführung über alle Sitzungen hinweg — Befehl, Codeversion, Umgebung, Hardware und Ausgaben. ",
+    "prefix": "Jeder Analyselauf über alle Aufgaben hinweg — Befehl, Codeversion, Umgebung, Hardware und Ausgaben. ",
     "suffix": " führt ihn erneut aus und vergleicht die Ergebnisse."
   },
   "pane": {
-    "subtitle": "diese Sitzung",
+    "subtitle": "diese Aufgabe",
     "closeAria": "Durchläufe schließen"
   },
   "searchPlaceholder": "Befehl oder Ausgabepfad suchen…",

@@ -1,6 +1,5 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProviderInfo } from "@ai4s/sdk";
 import i18n from "@/i18n";
@@ -39,13 +38,10 @@ async function renderSettings() {
   let view!: ReturnType<typeof render>;
   await act(async () => {
     view = render(
-      // Models and Providers live in the "models" settings section.
-      <MemoryRouter initialEntries={["/settings/models"]}>
-        <Routes>
-          <Route path="/settings/:section" element={<SettingsPage />} />
-        </Routes>
+      <>
+        <SettingsPage />
         <Toaster />
-      </MemoryRouter>,
+      </>,
     );
   });
   activeView = view;
@@ -203,6 +199,54 @@ describe("Settings model browser integration", () => {
     expect(await screen.findByText("Connect the runtime to configure models.")).toBeInTheDocument();
     expect(screen.queryByRole("searchbox", { name: "Search models" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^o3/ })).not.toBeInTheDocument();
+  });
+
+  it("prefills MiniMax China without placing its key in endpoint config", async () => {
+    const client = catalogClient() as ReturnType<typeof catalogClient> & {
+      addCustomProvider: ReturnType<typeof vi.fn>;
+      setProviderApiKey: ReturnType<typeof vi.fn>;
+    };
+    client.addCustomProvider = vi.fn().mockResolvedValue(undefined);
+    client.setProviderApiKey = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(runtime, "getClient").mockReturnValue(client);
+    await renderSettings();
+    await screen.findByRole("button", { name: /^o3/ });
+
+    await userEvent.click(screen.getByRole("button", { name: "Manage" }));
+    await userEvent.click(screen.getByRole("button", { name: /Custom endpoint/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Fill MiniMax China Token Plan" }));
+
+    expect(screen.getByPlaceholderText("Name — e.g. Ollama, My DeepSeek gateway")).toHaveValue(
+      "MiniMax CN Token Plan",
+    );
+    expect(screen.getByDisplayValue("Anthropic-compatible")).toHaveValue("@ai-sdk/anthropic");
+    expect(screen.getByPlaceholderText(/Base URL/)).toHaveValue(
+      "https://api.minimaxi.com/anthropic/v1",
+    );
+    expect(screen.getByPlaceholderText("Model ids, comma-separated")).toHaveValue("MiniMax-M3");
+    expect(screen.getByText(/endpoint configuration never contains the API key/i)).toBeVisible();
+
+    await userEvent.type(
+      screen.getByPlaceholderText("API key — optional, Ollama needs none"),
+      "local-test-key",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Add endpoint" }));
+
+    await waitFor(() =>
+      expect(client.addCustomProvider).toHaveBeenCalledWith("minimax-cn-token-plan", {
+        name: "MiniMax CN Token Plan",
+        npm: "@ai-sdk/anthropic",
+        baseURL: "https://api.minimaxi.com/anthropic/v1",
+        models: ["MiniMax-M3"],
+      }),
+    );
+    expect(client.setProviderApiKey).toHaveBeenCalledWith(
+      "minimax-cn-token-plan",
+      "local-test-key",
+    );
+    expect(client.addCustomProvider.mock.invocationCallOrder[0]).toBeLessThan(
+      client.setProviderApiKey.mock.invocationCallOrder[0],
+    );
   });
 
   it("keeps the runtime default and error semantics after a post-write reconnect failure", async () => {

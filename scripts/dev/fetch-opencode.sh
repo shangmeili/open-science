@@ -24,8 +24,11 @@ esac
 
 URL="https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/${ASSET}"
 TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 echo "Downloading $URL"
 curl -fsSL "$URL" -o "$TMP/$ASSET"
+bash "$ROOT/scripts/dev/verify-sidecar-checksum.sh" \
+  "$TMP/$ASSET" opencode "$OPENCODE_VERSION" "$ASSET"
 case "$ASSET" in
   *.tar.gz) tar -xzf "$TMP/$ASSET" -C "$TMP" ;;
   *)
@@ -45,5 +48,4 @@ else
   cp "$BIN" "$OUT_DIR/opencode-$TRIPLE"
   chmod +x "$OUT_DIR/opencode-$TRIPLE"
 fi
-rm -rf "$TMP"
 echo "Placed sidecar for $TRIPLE in $OUT_DIR"

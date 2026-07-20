@@ -1,5 +1,5 @@
-// Shared runner for long uv-sidecar provisioning (jupyter env, science MCP
-// env). The old `.output().await` calls were silent and unbounded: a stalled
+// Shared runner for long uv-sidecar provisioning (currently the Jupyter env).
+// The old `.output().await` calls were silent and unbounded: a stalled
 // download (proxy, TLS inspection, antivirus) left the UI on "Setting up…"
 // forever with zero diagnostics. This streams every output line to the
 // frontend as a `setup-progress` event and kills the process when it produces
@@ -14,7 +14,7 @@ use tauri_plugin_shell::ShellExt;
 /// One line of live provisioning output, shown in Settings while setting up.
 #[derive(Clone, serde::Serialize)]
 pub struct SetupProgress {
-    /// Which provisioning flow the line belongs to ("jupyter" | "science").
+    /// Which provisioning flow the line belongs to (currently "jupyter").
     pub task: &'static str,
     pub line: String,
 }

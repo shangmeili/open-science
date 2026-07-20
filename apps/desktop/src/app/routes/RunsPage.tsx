@@ -125,7 +125,7 @@ function RunsView({ sessionId }: { sessionId?: string }) {
 
   const reproduce = (r: RunRecord) => {
     setComposerDraft(reproduceRunPrompt(r));
-    navigate(r.sessionId ? `/live/${r.sessionId}` : "/live");
+    navigate(r.sessionId ? `/heor/${r.sessionId}` : "/heor");
   };
 
   const copyCommand = (r: RunRecord) => {
@@ -236,7 +236,7 @@ function RunsView({ sessionId }: { sessionId?: string }) {
                     open={expanded === r.runId}
                     onToggle={() => setExpanded((e) => (e === r.runId ? null : r.runId))}
                     onReproduce={() => reproduce(r)}
-                    onOpenConversation={r.sessionId ? () => navigate(`/live/${r.sessionId}`) : undefined}
+                    onOpenConversation={r.sessionId ? () => navigate(`/heor/${r.sessionId}`) : undefined}
                     onCopy={() => copyCommand(r)}
                     copied={copied === r.runId}
                     log={log}

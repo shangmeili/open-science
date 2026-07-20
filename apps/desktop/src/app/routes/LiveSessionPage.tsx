@@ -1,53 +1,61 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { FlaskConical, FolderOpen, Loader2, NotebookPen, PanelLeft, PlugZap } from "lucide-react";
+import { Activity, FlaskConical, FolderOpen, Loader2, NotebookPen, PanelLeft, PlugZap } from "lucide-react";
 import type { RuntimeStatus } from "@ai4s/shared";
 import { DRAFT_KEY, rootSessionOf, subagentActivity, useRuntimeStore } from "@/lib/runtime";
 import { queryRuns } from "@/lib/runs";
 import { useOverlayTitlebar, useUiStore } from "@/lib/store";
-import { overlayTitlebarStyle } from "@/lib/titlebar";
 import { fileInspectorFromBlock } from "@/lib/artifacts";
 import { useScrollMemory } from "@/lib/scrollMemory";
 import { BlockList, type BlockHandlers } from "@/components/thread/BlockList";
 import { Elapsed } from "@/components/thread/ToolGroup";
 import { Composer } from "@/components/thread/Composer";
-import { GOAL_RESUME_NUDGE, GoalPill } from "@/components/thread/GoalPill";
-import { baseName } from "@/components/thread/WorkspaceChip";
-import { WorkflowStarters } from "@/components/thread/WorkflowStarters";
+import { baseName } from "@/lib/pathName";
+import { HeorStarters } from "@/components/heor/HeorStarters";
+import { NewTaskSuggestions } from "@/components/heor/NewTaskSuggestions";
+import { FirstRunGuide } from "@/components/heor/FirstRunGuide";
+import { HeorReviewPane } from "@/components/heor/HeorReviewPane";
 import { InteractionPrompt } from "@/components/thread/InteractionPrompt";
 import { InspectorShell } from "@/components/inspector/InspectorShell";
 import { MaximizePaneButton, RightPane } from "@/components/inspector/RightPane";
 import { SessionFilesPane } from "./FilesPage";
 import { RunsPane } from "./RunsPage";
 import { cn } from "@/lib/cn";
+import { buildHeorPrompt } from "@/lib/heor";
+import { isTauri } from "@/lib/tauri";
 
-/** Live agent session backed by the OpenCode runtime. `/live` (no id) is a blank draft;
- *  the session is created lazily on the first message, then the URL updates to /live/:id. */
-export function LiveSessionPage() {
-  const { t } = useTranslation(["session", "common"]);
+/** AI4HEOR research task backed by the local assistant runtime. The runtime
+ * session is created lazily on the first message, then the URL gains its id. */
+export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) {
+  const { t } = useTranslation(["session", "common", "heor"]);
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const isWorkbench = workbench && !sessionId;
   const {
     status,
     switching,
     sending,
     runningSessions,
-    retryNotices,
-    serverUrl,
     sessions,
+    projects,
+    researchScope,
     currentId,
+    draftEpoch,
     threads,
     error,
     questions,
     permissions,
     sessionParents,
     workspace,
+    workspacePinned,
     panes,
     commands,
+    defaultModel,
     connect,
     openSession,
     startDraft,
+    ensureStandaloneWorkspace,
     sendPrompt,
     runShell,
     runCommand,
@@ -62,11 +70,9 @@ export function LiveSessionPage() {
     reconcileRunning,
     approvalMode,
     setApprovalMode,
-    agents,
-    sessionAgents,
-    setAgentMode,
   } = useRuntimeStore();
   const clearingLocalCommand = useRef(false);
+  const [showHeorReview, setShowHeorReview] = useState(false);
 
   // A deliberate workspace move restarts the sidecar — expected and brief, so
   // the UI stays "connected" (no badge flip, no Connect button, no help card).
@@ -75,9 +81,6 @@ export function LiveSessionPage() {
   const connecting = status === "connecting" && !switching;
   const displayStatus = switching ? "ready" : status;
 
-  // The session's folder, once the list has loaded — openSession needs it to
-  // follow the session into its workspace.
-  const sessionDir = sessions.find((s) => s.id === sessionId)?.directory;
   useEffect(() => {
     if (sessionId) {
       if (!clearingLocalCommand.current) void openSession(sessionId);
@@ -89,29 +92,29 @@ export function LiveSessionPage() {
       // EventSockets until the connection pool is exhausted and sessions hang.
       if (useRuntimeStore.getState().currentId) startDraft(); // blank draft (#3)
     }
-    // `connected` and `sessionDir` re-fire this on purpose: a hard reload (or a
-    // context-menu Reload) lands here before bootstrap has a client, and that
-    // first openSession bails — without the re-fire the history never loads
-    // (permanent skeleton). sessionDir arrives with the session list and lets
-    // the re-run follow the session into its own workspace folder. openSession
-    // is sequenced + loaded-guarded, so extra runs are cheap no-ops.
-  }, [sessionId, connected, sessionDir, openSession, startDraft]);
+  }, [sessionId, openSession, startDraft]);
 
   // All three composer paths reflect a freshly-created session in the URL.
   const afterTurn = (id: string | null) => {
-    if (id && !sessionId) navigate(`/live/${id}`);
+    if (id && !sessionId) navigate(`/heor/${id}`);
   };
-  const onSend = async (text: string) => afterTurn(await sendPrompt(text));
+  const onSend = async (text: string) => {
+    if (!defaultModel) {
+      useUiStore.getState().setComposerDraft(text);
+      return;
+    }
+    afterTurn(await sendPrompt(buildHeorPrompt(text)));
+  };
   const onRunShell = async (command: string) => afterTurn(await runShell(command));
   const onRunCommand = async (name: string, args: string) => {
     const localClear = name === "new" || name === "clear";
     // Only arm the guard when a real session is open. From a draft, the URL is
-    // already /live and no route/currentId change follows — arming here would
+    // already a blank draft and no route/currentId change follows — arming here would
     // strand the flag at true (the reset lives in the effect's else branch,
     // which never re-runs) and silently block the next openSession.
     if (localClear && sessionId) clearingLocalCommand.current = true;
     const id = await runCommand(name, args);
-    if (localClear) navigate("/live", { replace: true });
+    if (localClear) navigate("/heor", { replace: true });
     else afterTurn(id);
   };
   const composerCommands = useMemo(() => {
@@ -127,12 +130,17 @@ export function LiveSessionPage() {
   const handlers: BlockHandlers = {
     onArtifactOpen: openArtifact,
     onFigureComment: (a, title) =>
-      void sendPrompt(`On the figure ${title}, at (${a.x.toFixed(0)}%, ${a.y.toFixed(0)}%): ${a.note}`),
+      void sendPrompt(t("figure.commentPrompt", {
+        title,
+        x: a.x.toFixed(0),
+        y: a.y.toFixed(0),
+        note: a.note,
+      })),
     // Subagent events fold into their own thread; a running task row reads
     // its child's latest step from there.
     subagentActivity: (childId) => subagentActivity(threads[childId]?.blocks),
   };
-  const onEvaluate = (expr: string) => void sendPrompt(`Evaluate in the notebook kernel:\n\`\`\`python\n${expr}\n\`\`\``);
+  const onEvaluate = (expr: string) => void sendPrompt(t("live.notebook.evaluatePrompt", { expr }));
 
   // A draft shows its local thread (the first message echoes there instantly,
   // before any session exists) — it is grafted onto the session id on create.
@@ -148,10 +156,6 @@ export function LiveSessionPage() {
   // working indicator, so a sent message is never silently "nowhere".
   const running = !!(currentId && runningSessions[currentId]);
   const working = sending || running;
-  // The turn's model call is failing and the server keeps retrying it — the
-  // only life sign a broken provider produces. Show it, or the row below
-  // reads "Working…" forever with nothing actually working.
-  const retryNotice = currentId ? retryNotices[currentId] : undefined;
   // What the agent is doing right now — the newest still-running tool call.
   const currentTool = working
     ? [...(thread?.blocks ?? [])]
@@ -208,15 +212,20 @@ export function LiveSessionPage() {
   // artifact or Files browser (mutually exclusive, enforced by the store) and
   // gets it back when the user returns.
   const pane = panes[currentId ?? DRAFT_KEY];
-  // The Build/Plan switch exists only when the runtime actually has the plan
-  // agent (older/custom sidecars may not) — otherwise Composer hides it and
-  // sends never pin an agent.
-  const planAvailable = agents.some((a) => a.name === "plan");
-  const agentMode = sessionAgents[currentId ?? DRAFT_KEY] ?? "build";
   const activeArtifact = pane?.artifact ?? null;
   const showFiles = !activeArtifact && !!pane?.showFiles;
   const showRuns = !activeArtifact && !showFiles && !!pane?.showRuns;
-
+  const activeProject = !isTauri
+    ? { id: "ai4heor-demo", name: "First-line NSCLC" }
+    : workspacePinned || !!sessionId
+      ? projects.find((candidate) => candidate.path === workspace) ?? researchScope
+      : null;
+  const taskProject = projects.find((candidate) => candidate.path === workspace)
+    ?? (workspacePinned ? researchScope : null);
+  const canOpenHeorReview = !!sessionId || !!taskProject || workspacePinned;
+  useEffect(() => {
+    if (!canOpenHeorReview) setShowHeorReview(false);
+  }, [canOpenHeorReview]);
   // Show the Runs toggle only when this session has runs (like the Files/folder
   // affordance — present when there's content). Cheap count query on open.
   const [hasRuns, setHasRuns] = useState(false);
@@ -259,16 +268,12 @@ export function LiveSessionPage() {
       <div className="flex h-full min-w-0 flex-1 flex-col">
         <div
           data-tauri-drag-region={overlayTitlebar || undefined}
-          // Collapsed + overlay, this row IS the titlebar: it clears the traffic
-          // lights and counter-scales for page zoom so the expand button stays
-          // pinned to them (overlayTitlebarStyle). Otherwise it's a normal header.
-          style={sidebarCollapsed && overlayTitlebar ? overlayTitlebarStyle(true) : undefined}
           className={cn(
-            "flex shrink-0 items-center gap-2 px-6",
+            "flex h-12 shrink-0 items-center gap-2 px-6",
             // A draft is a clean page — no separator; an open session gets a
             // faint one so the title row reads as part of the conversation.
             sessionId && "border-b border-faint",
-            !(sidebarCollapsed && overlayTitlebar) && "h-12",
+            sidebarCollapsed && overlayTitlebar && "pl-[78px]",
           )}
         >
           {sidebarCollapsed && (
@@ -282,22 +287,19 @@ export function LiveSessionPage() {
             </button>
           )}
           {/* Left: the session title is the identity anchor. A draft shows no
-              title — the workspace picker lives in the composer until the
-              session exists. min-w-0 lets it truncate instead of shoving the
-              right-side controls off the bar. */}
-          {sessionId && (
-            <h1 className="min-w-0 truncate text-[13px] font-medium text-text">{title ?? ""}</h1>
-          )}
-          {/* Goal mode (/goal): the objective stays visible with live status
-              and instant pause/clear — an agent that keeps working on its own
-              must never be invisible. Resume also kicks one turn: a paused
-              session has no idle event left to re-arm the plugin's loop. */}
-          {sessionId && (
-            <GoalPill
-              sessionId={sessionId}
-              onResumed={() => void sendPrompt(GOAL_RESUME_NUDGE)}
-            />
-          )}
+              session title until its first message. min-w-0 lets it truncate
+              instead of shoving the right-side controls off the bar. */}
+          <div className="flex min-w-0 items-center gap-2">
+            <Activity size={14} className="shrink-0 text-accent" />
+            <h1 className="truncate font-serif text-[15px] font-semibold text-text">
+              {isWorkbench
+                ? t("session:workbench.title")
+                : sessionId
+                  ? t("heor:brand")
+                  : t("session:newTask.title")}
+            </h1>
+            {sessionId && title && <span className="truncate text-xs text-muted">/ {title}</span>}
+          </div>
           <div data-tauri-drag-region={overlayTitlebar || undefined} className="flex-1" />
           {/* Right: quiet ghost controls — no border or fill until hovered or
               active, so the row stays flat and editorial (one visual language
@@ -333,6 +335,20 @@ export function LiveSessionPage() {
               <span>{t("live.runsToggle.label")}</span>
             </button>
           )}
+          {canOpenHeorReview && (
+            <button
+              onClick={() => setShowHeorReview((open) => !open)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors hover:bg-surface-2",
+                showHeorReview ? "bg-surface-2 text-text" : "text-muted",
+              )}
+              aria-pressed={showHeorReview}
+              title={t("heor:review")}
+            >
+              <Activity size={13} />
+              <span>{t("heor:review")}</span>
+            </button>
+          )}
           <ConnBadge status={displayStatus} />
           {uniqueNotebooks.map((nb) => (
             <button
@@ -362,6 +378,23 @@ export function LiveSessionPage() {
 
         <div ref={chatRef} onScroll={onChatScroll} className="flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-8 py-6">
+            {isEmpty && !sessionId && isWorkbench && (
+              <>
+                <FirstRunGuide onOpenSettings={() => navigate("/settings")} />
+                <HeorStarters
+                  onPick={(prompt) => {
+                    useUiStore.getState().setComposerDraft(prompt);
+                    navigate("/heor/new");
+                  }}
+                  ensureWorkspace={ensureStandaloneWorkspace}
+                />
+              </>
+            )}
+            {isEmpty && !sessionId && !isWorkbench && (
+              <NewTaskSuggestions
+                onPick={(prompt) => useUiStore.getState().setComposerDraft(prompt)}
+              />
+            )}
             {/* Deliberate workspace switches don't render anything at all (they're
                 masked as connected); a genuine boot/reconnect shows only the
                 header badge's pulsing dot — anything appearing and disappearing
@@ -370,24 +403,13 @@ export function LiveSessionPage() {
             {!connected && !connecting && (
               <div className="rounded-card border border-border bg-surface p-5 shadow-card">
                 <div className="text-sm font-medium text-text">{t("live.runtime.title")}</div>
-                <p className="mt-1 text-sm text-muted">
-                  {t("live.runtime.bodyPrefix")}{" "}
-                  {/* eslint-disable-next-line i18next/no-literal-string -- literal shell command, not prose */}
-                  <span className="font-mono">opencode serve</span>
-                  {t("live.runtime.bodySuffix")}
-                </p>
-                <div className="mt-3 rounded-input bg-surface-2 px-3 py-2 font-mono text-xs text-text">
-                  {serverUrl}
-                </div>
+                <p className="mt-1 text-sm text-muted">{t("live.runtime.body")}</p>
               </div>
             )}
             {error && (
               <div className="rounded-input border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">
                 {error}
               </div>
-            )}
-            {connected && isEmpty && !sessionId && (
-              <WorkflowStarters onPick={(p) => void onSend(p)} />
             )}
             {historyLoading && <ThreadSkeleton />}
             {!historyLoading && thread && <BlockList blocks={thread.blocks} handlers={handlers} />}
@@ -399,18 +421,11 @@ export function LiveSessionPage() {
                 <span className="shrink-0">
                   {activeRequest
                     ? t("live.status.paused")
-                    : retryNotice
-                      ? t("live.status.retrying", { attempt: Math.max(1, retryNotice.attempt) })
-                      : sending && !currentId
-                        ? t("live.status.startingSession")
-                        : t("live.status.working")}
+                    : sending && !currentId
+                      ? t("live.status.startingSession")
+                      : t("live.status.working")}
                 </span>
-                {!activeRequest && retryNotice && (
-                  <span className="truncate font-mono text-xs text-warn" title={retryNotice.message}>
-                    {retryNotice.message}
-                  </span>
-                )}
-                {!activeRequest && !retryNotice && currentTool && (
+                {!activeRequest && currentTool && (
                   <>
                     <span
                       className="truncate font-mono text-xs"
@@ -440,37 +455,50 @@ export function LiveSessionPage() {
                 onPermission={(id, reply) => void replyPermission(id, reply)}
               />
             )}
-            <Composer
-              onSend={onSend}
-              onRunShell={(c) => void onRunShell(c)}
-              onRunCommand={(n, a) => void onRunCommand(n, a)}
-              commands={composerCommands}
-              disabled={!connected || working}
-              working={running}
-              onStop={() => void interrupt()}
-              placeholder={
-                working
-                  ? t("live.placeholder.waiting")
-                  : !connected
-                    ? t("live.placeholder.disconnected")
-                    : planAvailable && agentMode === "plan"
-                      ? t("composer.placeholder.plan")
-                      : t("composer.placeholder.default")
-              }
-              approvalMode={approvalMode}
-              onApprovalModeChange={(mode) => void setApprovalMode(mode)}
-              agentMode={planAvailable ? agentMode : undefined}
-              onAgentModeChange={planAvailable ? setAgentMode : undefined}
-            />
+            {!isWorkbench && (
+              <Composer
+                key={sessionId ?? `task:${draftEpoch}`}
+                onSend={onSend}
+                onRunShell={(c) => void onRunShell(c)}
+                onRunCommand={(n, a) => void onRunCommand(n, a)}
+                commands={composerCommands}
+                disabled={!connected || working || !defaultModel}
+                working={running}
+                onStop={() => void interrupt()}
+                placeholder={
+                  working
+                    ? t("live.placeholder.waiting")
+                    : connected && !defaultModel
+                      ? t("heor:modelRequired.placeholder")
+                    : connected
+                      ? t("heor:placeholder")
+                      : t("live.placeholder.disconnected")
+                }
+                approvalMode={approvalMode}
+                onApprovalModeChange={(mode) => void setApprovalMode(mode)}
+                beforeWorkspaceWrite={ensureStandaloneWorkspace}
+                autoFocus={!sessionId}
+                contextLabel={taskProject?.name}
+              />
+            )}
           </div>
         </div>
       </div>
 
-      {(activeArtifact || showFiles || showRuns) && (
+      {(showHeorReview || activeArtifact || showFiles || showRuns) && (
         <RightPane
-          onClose={activeArtifact ? closeArtifact : showRuns ? () => setShowRuns(false) : () => setShowFiles(false)}
+          onClose={showHeorReview ? () => setShowHeorReview(false) : activeArtifact ? closeArtifact : showRuns ? () => setShowRuns(false) : () => setShowFiles(false)}
         >
-          {activeArtifact ? (
+          {showHeorReview ? (
+            <HeorReviewPane
+              project={activeProject}
+              onClose={() => setShowHeorReview(false)}
+              onRequestRevision={(prompt) => {
+                useUiStore.getState().setComposerDraft(prompt);
+                setShowHeorReview(false);
+              }}
+            />
+          ) : activeArtifact ? (
             <InspectorShell
               inspector={fileInspectorFromBlock(activeArtifact)}
               onClose={closeArtifact}
@@ -536,7 +564,7 @@ function ConnBadge({ status }: { status: RuntimeStatus }) {
       />
       {/* Ready is the norm — a green dot says it all (hover for detail). Text
           appears only for states that need attention. */}
-      {status !== "ready" && t("live.connBadge.title", { status: t(`live.connBadge.status.${status}`) })}
+      {status !== "ready" && t(`live.connBadge.status.${status}`)}
     </span>
   );
 }

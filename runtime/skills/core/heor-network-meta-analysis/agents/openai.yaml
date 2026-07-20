@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Network Meta-Analysis"
+  short_description: "Plan and audit bounded frequentist NMA"
+  default_prompt: "Use $heor-network-meta-analysis to prepare, execute, and review a bounded local frequentist network meta-analysis."

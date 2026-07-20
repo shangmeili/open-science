@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Joint Survival Uncertainty"
+  short_description: "Audit declared PFS and OS dependence for PSM PSA"
+  default_prompt: "Use $heor-joint-survival-uncertainty to create and audit hash-bound joint PFS/OS draws with an explicit between-strategy assumption."

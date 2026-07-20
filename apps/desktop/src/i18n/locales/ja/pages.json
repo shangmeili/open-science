@@ -6,7 +6,7 @@
     "newNotebook": "新規ノートブック",
     "pythonNotebook": "Python ノートブック",
     "rNotebook": "R ノートブック",
-    "description": "セッションフォルダ全体の Jupyter ノートブックを新しい順に表示します。セルはノートブック自身のフォルダ内のローカル Python または R カーネルで実行され、エージェントも同じファイルを操作します。",
+    "description": "タスクフォルダ全体の Jupyter ノートブックを新しい順に表示します。セルはノートブック自身のフォルダ内のローカル Python または R カーネルで実行され、アシスタントも同じファイルを操作します。",
     "createsIn": "新しいノートブックの作成先:",
     "empty": {
       "tauri": "まだノートブックがありません。作成するか、エージェントに作成を依頼してください。",
@@ -16,7 +16,8 @@
       "openingJupyterLab": "ブラウザで JupyterLab を開いています…",
       "setUpJupyterFirst": "先に Jupyter を設定してください — 設定 → MCP サーバー → Jupyter。",
       "couldNotOpenJupyterLab": "JupyterLab を開けませんでした",
-      "couldNotCreateNotebook": "ノートブックを作成できませんでした"
+      "couldNotCreateNotebook": "ノートブックを作成できませんでした",
+      "couldNotSave": "ノートブックを保存できませんでした"
     },
     "editor": {
       "backAria": "ノートブック一覧に戻る",
@@ -34,7 +35,14 @@
       "stopCellTitle": "停止 — このノートブックのカーネルを再起動します（変数はリセットされます）",
       "stopLabel": "停止",
       "runLabel": "実行",
-      "addCellLabel": "セルを追加"
+      "addCellLabel": "セルを追加",
+      "couldNotRead": "ノートブックを読み込めませんでした",
+      "noPython": "Python なし",
+      "noPythonFound": "Python インタープリターが見つかりません",
+      "runningOutput": "実行中…",
+      "localKernelOnly": "ローカルカーネルはデスクトップアプリでのみ利用できます。",
+      "interrupted": "停止しました。カーネルを再起動し、変数を消去しました。",
+      "kernelError": "カーネルエラー"
     }
   },
   "files": {
@@ -43,36 +51,107 @@
     "explorerUnavailableWeb": "ファイルエクスプローラーはデスクトップアプリで利用可能です。",
     "selectFilePrompt": "ファイルを選択するとここにプレビューが表示されます。",
     "pane": {
-      "subtitle": "このセッションのフォルダ",
+      "subtitle": "このタスクのフォルダ",
       "closeAria": "ファイルを閉じる"
     },
     "contextMenu": {
       "copyPath": "パスをコピー",
       "copyRelativePath": "相対パスをコピー",
       "relativePathLabel": "相対パス",
-      "openInDefaultApp": "デフォルトのアプリで開く"
+      "openInDefaultApp": "デフォルトのアプリで開く",
+      "pathLabel": "パス",
+      "revealInFinder": "Finder に表示",
+      "showInExplorer": "エクスプローラーに表示",
+      "showInFileManager": "ファイルマネージャーに表示"
+    },
+    "toast": {
+      "copied": "{{what}}をコピーしました",
+      "copyFailed": "クリップボードにコピーできませんでした。",
+      "resolveFailed": "ファイルパスを取得できませんでした。",
+      "revealFailed": "ファイルを表示できませんでした：{{message}}"
     }
   },
   "skills": {
-    "title": "スキル & エージェント",
+    "title": "スキルとツール",
     "description": {
-      "prefix": "OpenCode ランタイムからライブで読み込まれます — バンドルされた ai4s-skills パックと、ワークスペース内の ",
+      "prefix": "AI アシスタント実行環境からライブで読み込まれます — 承認済みの AI4HEOR 機能と、ワークスペース内の ",
       "suffix": " にあるものすべて。"
     },
     "install": {
-      "sectionTitle": "スキルをインストール",
-      "placeholder": "スキル（Markdown）または GitHub URL を貼り付けてください — エージェントが .opencode/skills/ にインストールします",
+      "sectionTitle": "スキルまたはツールを追加・評価",
+      "placeholder": "AI4HEOR に追加したい能力を説明するか、Skill、プラグイン、MCP、パッケージ、GitHub URL を貼り付けてください",
       "starting": "開始中…",
-      "cta": "エージェントでインストール",
-      "hintConnected": "セッションを開き、エージェントに追加を依頼します（customize-opencode）。",
+      "cta": "確認を開始",
+      "hintConnected": "AI4HEOR はまずローカル候補を作成して検査します。人が確認して承認するまで実行されません。",
       "hintDisconnected": "先にランタイムに接続してください。"
+    },
+    "candidates": {
+      "sectionTitle": "現在のプロジェクトの能力候補",
+      "boundary": "候補はローカルに保存された指示のみの下書きです。デスクトップアプリが決定前に正確なバイトを再検証します。有効化はこのプロジェクトだけに適用され、科学的判断権限は移りません。",
+      "refresh": "能力候補を更新",
+      "loading": "プロジェクトの能力候補を確認しています…",
+      "unavailable": "候補またはレビュー記録を検証できません。能力は変更されていません。",
+      "noProject": "AI4HEOR プロジェクトを作成または開いてから能力をレビューしてください。",
+      "empty": "このプロジェクトには能力候補がありません。",
+      "activate": "確認して有効化",
+      "reject": "却下",
+      "revoke": "取り消す",
+      "status": {"inactive": "確認待ち", "active": "このプロジェクトで有効", "rejected": "却下済み", "revoked": "取り消し済み", "invalid": "無効", "drifted": "有効化後に変更", "activeCandidateChanged": "有効・候補は変更済み", "unmanagedConflict": "同名のプロジェクト Skill あり", "candidateMissing": "候補がありません"},
+      "dialog": {
+        "title": {"activate": "この能力を確認して有効化", "reject": "この能力候補を却下", "revoke": "このプロジェクト能力を取り消す"},
+        "purpose": {"activate": "これは、同じ種類の作業を今後どう扱うかを定めるために、アシスタントが現在のプロジェクト向けに作成した Skill 候補です。薬剤経済分析そのものではなく、研究者に代わって方法、エビデンス、パラメータ、結論を決めることもありません。確認後にだけ有効になります。", "reject": "この Skill 候補を無効のままにするかを決めます。研究計画や分析結果を評価する操作ではありません。", "revoke": "以前に有効化したプロジェクト Skill の使用を停止します。研究方法、エビデンス、パラメータ、結論を書き換える操作ではありません。"},
+        "boundary": {"activate": "検証済みの指示ファイルだけを現在のプロジェクトへコピーします。ネットワーク、コマンド、秘密情報、プロジェクト外への書き込み権限は付与されません。", "reject": "この正確な候補バイトに対する判断を記録します。候補は無効のまま監査できます。", "revoke": "有効なコピーが記録と完全に一致する場合だけ削除します。変更された内容は自動削除しません。"},
+        "capabilityTitle": "この能力の内容",
+        "requestTitle": "候補を作成した依頼",
+        "acceptanceTitle": "人が確認するチェック項目",
+        "limitationsTitle": "明示された制限",
+        "licenseTitle": "ライセンスと利用範囲",
+        "technicalDetails": "技術・監査情報を表示",
+        "technical": {"candidateId": "内部 ID", "provider": "作成時のプロバイダー", "model": "作成時のモデル", "license": "ライセンス識別子", "decisionHash": "この確認に紐付く SHA-256"},
+        "actor": "レビュアー名またはローカルラベル",
+        "actorPlaceholder": "例：HEOR 方法レビュアー",
+        "rationale": "この判断の理由",
+        "rationalePlaceholder": {"activate": "確認内容と、この限定的能力を認める理由を記載してください。", "reject": "候補を無効のままにする理由を記載してください。", "revoke": "このプロジェクトで使用を止める理由を記載してください。"},
+        "confirm": {"activate": "この能力の目的、指示、ライセンス注記、制限、全チェック項目を確認し、このプロジェクトだけで有効化します。", "reject": "この候補の目的と制限を理解し、無効のままにします。", "revoke": "取り消しの影響を理解し、有効化記録に一致するプロジェクト Skill の使用を停止します。"},
+        "cancel": "キャンセル",
+        "recording": "記録中…",
+        "submit": {"activate": "記録して有効化", "reject": "却下を記録", "revoke": "記録して取り消す"}
+      }
+    },
+    "preferences": {
+      "sectionTitle": "このプロジェクトの作業設定",
+      "boundary": "同じ作業上の希望が独立した2回以上の対話で確認された場合だけ、AI4HEOR は設定を提案できます。継続的な設定にするには人の確認が必要です。研究方法、エビデンス、パラメータ、結論、承認、モデル選択、データ経路は変更できません。",
+      "refresh": "作業設定を更新", "loading": "提案と採用済み設定を確認しています…", "unavailable": "提案、設定ファイル、またはレビュー記録を検証できません。変更は行われていません。", "noProject": "AI4HEOR プロジェクトを作成または開いてください。", "empty": "繰り返し確認された作業設定の提案はありません。",
+      "proposal": "作業設定の提案", "current": "採用済みの作業設定", "accepted": "採用済み", "enabled": "使用中", "disabled": "一時停止", "evidenceCount": "{{count}} 回の独立した対話に基づく", "reviewAccept": "確認して採用", "edit": "編集", "enable": "再開", "disable": "一時停止", "delete": "削除",
+      "scope": {"language": "言語", "presentation": "表示", "workflow": "作業手順", "audit": "監査"},
+      "dialog": {
+        "title": {"accept": "この設定提案を確認", "update": "作業設定を編集", "enable": "作業設定を再開", "disable": "作業設定を一時停止", "delete": "作業設定を削除"},
+        "boundary": {"accept": "対話記録が実際の希望を表しているか確認してください。採用前に文面を編集できます。", "update": "非機密の作業設定だけを編集できます。科学的判断は含められません。", "enable": "このプロジェクトで確認済み設定の使用を再開します。", "disable": "ローカル記録を残したまま使用を停止します。", "delete": "現在の設定から削除します。人の判断記録は監査用に残ります。"},
+        "evidence": "提案の根拠となった対話", "rule": "設定内容", "actor": "レビュアー名またはローカルラベル", "actorPlaceholder": "例：プロジェクト研究者", "rationale": "判断理由",
+        "rationalePlaceholder": {"accept": "この繰り返しパターンを設定にする理由を記載してください。", "update": "文面を変更する理由を記載してください。", "enable": "再開する理由を記載してください。", "disable": "一時停止する理由を記載してください。", "delete": "削除する理由を記載してください。"},
+        "confirm": {"accept": "対話記録と文面を確認し、科学的判断ではない非機密の作業設定であることを確認しました。", "update": "修正後も非機密の作業設定であることを確認しました。", "enable": "確認済み設定の使用を再開します。", "disable": "ローカル記録を残して一時停止します。", "delete": "現在の設定から削除します。"},
+        "cancel": "キャンセル", "recording": "記録中…", "submit": {"accept": "記録して採用", "update": "変更を記録", "enable": "記録して再開", "disable": "記録して停止", "delete": "記録して削除"}
+      }
+    },
+    "assetAdmission": {
+      "sectionTitle": "外部アダプター",
+      "loading": "アプリに同梱された外部アダプターを確認しています…",
+      "unavailable": "外部アダプターを確認できないため、すべて無効のままです。",
+      "firstPartyTitle": "AI4HEOR のファーストパーティ Skill 52 件を内蔵",
+      "firstPartyBoundary": "ライセンス、セキュリティ、方法、パッケージの確認を完了し、実際に同梱された外部アダプターだけを表示します。改修中または除外済みの提供元は選択肢として残しません。",
+      "groupAdmitted": "承認済み（{{count}}）",
+      "admitted": "承認済み",
+      "adapterBoundary": "宣言済みのワークスペース、ネットワーク、権限、Human-in-the-loop の範囲内でのみ実行できます。",
+      "noneAdmitted": "現在、AI4HEOR に第三者ツールは同梱されていません。必要な機能はファーストパーティ Skill が提供し、改修中または除外済みの提供元は表示しません。",
+      "registryValid": "外部アダプター台帳は有効で、{{count}} 件を利用できます。",
+      "failClosed": "外部アダプター台帳の検証に失敗しました。すべての外部機能は無効のままです。"
     },
     "environment": {
       "sectionTitle": "科学計算環境",
       "detectionUnavailable": "環境検出はデスクトップアプリで実行されます。",
       "found": "検出済み",
       "notFound": "未検出",
-      "note": "OpenCode はここにインストールされているものを使ってコードを実行します（例: シェルツール経由の Python）。Python/R/Jupyter はバンドルされていません。分析を有効にするには、それらまたは Science Pack をインストールしてください。"
+      "note": "AI アシスタントはここにインストールされたツールでコードを実行します（例: シェルツール経由の Python）。Python/R/Jupyter はバンドルされていません。分析を有効にするには、それらまたは Science Pack をインストールしてください。"
     },
     "agentsSection": {
       "sectionTitle": "エージェント ({{count}})",
@@ -88,8 +167,8 @@
       "empty": "まだスキルが読み込まれていません。",
       "source": {
         "builtin": "組み込み",
-        "project": "プロジェクト",
-        "user": "ユーザー"
+        "project": "ワークスペース・未管理",
+        "bundled": "AI4HEOR・ファーストパーティ"
       }
     },
     "disconnected": "読み込まれたスキルとエージェントを一覧表示するには、ランタイムに接続してください。"

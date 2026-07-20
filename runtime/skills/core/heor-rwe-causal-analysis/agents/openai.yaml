@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR RWE Causal Analysis"
+  short_description: "Audit fixed-horizon RWE with treatment and observation weights"
+  default_prompt: "Use $heor-rwe-causal-analysis to prepare and audit a researcher-led fixed-horizon RWE analysis with explicit outcome loss."

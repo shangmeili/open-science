@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { renderAt } from "@/test/render";
 import { useUiStore } from "@/lib/store";
 import { Composer } from "./Composer";
-import { WorkflowStarters } from "./WorkflowStarters";
 
 // COPYCAT RULE: useUiStore is module-global; reset the locale after each test
 // so this suite never bleeds a non-English locale into other test files.
@@ -17,25 +16,15 @@ describe("Composer strings (i18n)", () => {
   });
 });
 
-describe("WorkflowStarters strings (i18n)", () => {
-  it("renders the welcome copy and a starter card's title/description in English", () => {
-    render(<WorkflowStarters onPick={() => {}} />);
-    expect(screen.getByText("What should we look into?")).toBeInTheDocument();
-    expect(screen.getByText("Run a demo analysis, end to end")).toBeInTheDocument();
-    expect(
-      screen.getByText("Simulate a dataset, fit a model, and produce a figure and a traceable report."),
-    ).toBeInTheDocument();
-  });
-});
-
 describe("LiveSessionPage strings (i18n)", () => {
-  it("renders the disconnected-runtime card in English (no Tauri sidecar in tests)", async () => {
-    renderAt("/live");
-    expect(await screen.findByText("OpenCode runtime")).toBeInTheDocument();
+  it("keeps runtime implementation details out of the disconnected research surface", async () => {
+    const view = renderAt("/live");
+    expect(await screen.findByText("AI assistant unavailable")).toBeInTheDocument();
     expect(
-      screen.getByText((_, node) =>
-        node?.textContent === "The desktop app runs a bundled OpenCode automatically. In the browser, start one with opencode serve and connect.",
+      screen.getByText(
+        "Reconnect, or check the AI assistant runtime in Settings. Your local project files remain available.",
       ),
     ).toBeInTheDocument();
+    expect(view.container).not.toHaveTextContent(/OpenCode|opencode serve/i);
   });
 });

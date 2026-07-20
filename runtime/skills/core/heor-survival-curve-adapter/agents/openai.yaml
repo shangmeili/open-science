@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Survival Curve Adapter"
+  short_description: "Derive and vary auditable survival schedules"
+  default_prompt: "Use $heor-survival-curve-adapter to derive an evidence-bound two-state transition schedule and propagate supported parameter uncertainty through a declared exponential or Weibull curve."

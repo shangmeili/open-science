@@ -1,18 +1,6 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  ArrowUp,
-  Check,
-  ChevronDown,
-  ClipboardList,
-  Hammer,
-  Hand,
-  Paperclip,
-  Square,
-  Terminal,
-  X,
-  Zap,
-} from "lucide-react";
+import { ArrowUp, Check, ChevronDown, Folder, Hand, Paperclip, Square, Terminal, X, Zap } from "lucide-react";
 import {
   addBinaryToWorkspace,
   addFilesToWorkspace,
@@ -21,8 +9,6 @@ import {
   isTauri,
   type ApprovalMode,
 } from "@/lib/tauri";
-import { useRuntimeStore, type AgentMode } from "@/lib/runtime";
-import { WorkspaceChip } from "@/components/thread/WorkspaceChip";
 import { useUiStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
@@ -33,16 +19,11 @@ const PASTE_AS_FILE_LINES = 25;
 /** Max composer height before it scrolls internally. */
 const MAX_HEIGHT_PX = 160;
 
-/** Extension for a clipboard image's MIME type (`image/png` → `png`,
- *  `image/svg+xml` → `svg`, `image/jpeg` → `jpg`); falls back to `png`. */
-function imageExt(mime: string): string {
-  const sub = mime.split("/")[1]?.split(";")[0]?.replace("+xml", "") ?? "";
-  const mapped = ({ jpeg: "jpg" } as Record<string, string>)[sub];
-  return mapped ?? (sub || "png");
+function imageExtension(mime: string): string {
+  const subtype = mime.split("/")[1]?.split(";")[0]?.replace("+xml", "") ?? "";
+  return subtype === "jpeg" ? "jpg" : subtype || "png";
 }
 
-/** A Blob's bytes as base64 (no data-URI prefix). FileReader handles large
- *  images without the call-stack limit that spreading into btoa hits. */
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -89,13 +70,6 @@ const APPROVAL_OPTIONS: { mode: ApprovalMode; icon: typeof Hand }[] = [
   { mode: "full", icon: Zap },
 ];
 
-/** Build (default) or Plan — OpenCode's read-only planning agent. Copy is
- *  translated at render time (`agentCopy`), mirroring the approval switch. */
-const AGENT_OPTIONS: { mode: AgentMode; icon: typeof Hammer }[] = [
-  { mode: "build", icon: Hammer },
-  { mode: "plan", icon: ClipboardList },
-];
-
 /**
  * The "Ask anything" composer. Static mock sessions pass no `onSend`; the live
  * OpenCode session passes one to submit prompts to the runtime. Attached
@@ -119,8 +93,9 @@ export function Composer({
   placeholder,
   approvalMode,
   onApprovalModeChange,
-  agentMode,
-  onAgentModeChange,
+  beforeWorkspaceWrite,
+  autoFocus = false,
+  contextLabel,
 }: {
   onSend?: (text: string) => void;
   onRunShell?: (command: string) => void;
@@ -136,10 +111,12 @@ export function Composer({
    *  session does; static mock sessions don't). */
   approvalMode?: ApprovalMode;
   onApprovalModeChange?: (mode: ApprovalMode) => void;
-  /** The Build/Plan agent switch — same both-or-nothing contract; the live
-   *  session withholds it when the runtime has no "plan" agent. */
-  agentMode?: AgentMode;
-  onAgentModeChange?: (mode: AgentMode) => void;
+  /** Materialize a draft's private workspace before attachments are copied. */
+  beforeWorkspaceWrite?: () => Promise<boolean>;
+  /** Focus the input when an explicit new-task surface opens. */
+  autoFocus?: boolean;
+  /** Optional project context shown as a quiet strip above the free input. */
+  contextLabel?: string;
 }) {
   const { t } = useTranslation(["session", "common"]);
   const resolvedPlaceholder = placeholder ?? t("composer.placeholder.default");
@@ -153,17 +130,6 @@ export function Composer({
     full: {
       label: t("composer.approval.full.label"),
       description: t("composer.approval.full.description"),
-    },
-  };
-  // Agent-mode copy, same pattern as approvalCopy.
-  const agentCopy: Record<AgentMode, { label: string; description: string }> = {
-    build: {
-      label: t("composer.agent.build.label"),
-      description: t("composer.agent.build.description"),
-    },
-    plan: {
-      label: t("composer.agent.plan.label"),
-      description: t("composer.agent.plan.description"),
     },
   };
   const [value, setValue] = useState("");
@@ -181,9 +147,6 @@ export function Composer({
   /** The approval-mode menu is open. */
   const [approvalOpen, setApprovalOpen] = useState(false);
   const approvalRef = useRef<HTMLDivElement>(null);
-  /** The agent-mode menu is open. */
-  const [agentOpen, setAgentOpen] = useState(false);
-  const agentRef = useRef<HTMLDivElement>(null);
 
   // Dismiss the approval menu on any outside press. (Button blur can't do
   // this: WKWebView never focuses a clicked button, so blur never fires.)
@@ -195,18 +158,13 @@ export function Composer({
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [approvalOpen]);
-  // Same for the agent menu.
-  useEffect(() => {
-    if (!agentOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (!agentRef.current?.contains(e.target as Node)) setAgentOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [agentOpen]);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const composerDraft = useUiStore((s) => s.composerDraft);
   const setComposerDraft = useUiStore((s) => s.setComposerDraft);
+
+  useEffect(() => {
+    if (autoFocus) taRef.current?.focus();
+  }, [autoFocus]);
 
   const shellMode = !!onRunShell && !command && value.startsWith("!");
   // The palette is open while the command NAME is being typed ("/na…"); the
@@ -391,41 +349,12 @@ export function Composer({
     }
   };
 
-  // Very long pastes become a workspace file chip instead of flooding the box;
-  // a pasted image (screenshot) becomes an image file chip. Both land in the
-  // draft's own folder (materialized first) so the session can see them.
-  const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    if (!isTauri || !onSend) return;
-    // A clipboard image — works the same across macOS/Windows/Linux webviews,
-    // which all expose the bitmap as an `image/*` clipboard item.
-    const imageItem = Array.from(e.clipboardData.items ?? []).find((it) =>
-      it.type.startsWith("image/"),
-    );
-    const blob = imageItem?.getAsFile();
-    if (blob) {
-      e.preventDefault();
-      void addWorkspaceFile(async () => {
-        const base64 = await blobToBase64(blob);
-        return addBinaryToWorkspace(`pasted.${imageExt(blob.type)}`, base64);
-      });
-      return;
-    }
-    const text = e.clipboardData.getData("text/plain");
-    if (text.length <= PASTE_AS_FILE_CHARS && text.split("\n").length <= PASTE_AS_FILE_LINES) {
-      return; // normal paste
-    }
-    e.preventDefault();
-    void addWorkspaceFile(() => addTextToWorkspace("pasted.txt", text));
-  };
-
-  // Shared: materialize the draft's folder, run the write, and chip the result
-  // (one file or several — paste yields one, a multi-file drop yields many).
-  const addWorkspaceFile = async (write: () => Promise<string | string[]>) => {
+  const addWorkspaceFiles = async (write: () => Promise<string | string[]>) => {
     try {
-      await useRuntimeStore.getState().ensureDraftWorkspace();
-      const res = await write();
-      const names = Array.isArray(res) ? res : [res];
-      if (names.length > 0) setFiles((f) => [...f, ...names]);
+      if (beforeWorkspaceWrite && !(await beforeWorkspaceWrite())) return;
+      const result = await write();
+      const names = Array.isArray(result) ? result : [result];
+      if (names.length > 0) setFiles((current) => [...current, ...names]);
     } catch (err) {
       toast.error(
         t("composer.error.paste", {
@@ -435,34 +364,57 @@ export function Composer({
     }
   };
 
-  // Drag-and-drop files onto the app → workspace chips. Tauri captures OS file
-  // drops natively (the DOM `drop` event never sees them), so we subscribe to
-  // its webview drag-drop event, which hands us absolute paths. Active only
-  // while the composer is mounted; a drop anywhere in the window attaches here.
+  // Long text and pasted screenshots become local workspace file chips.
+  const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!isTauri || !onSend) return;
+    const imageItem = Array.from(e.clipboardData.items ?? []).find((item) =>
+      item.type.startsWith("image/"),
+    );
+    const image = imageItem?.getAsFile();
+    if (image) {
+      e.preventDefault();
+      void addWorkspaceFiles(async () => {
+        const base64 = await blobToBase64(image);
+        return addBinaryToWorkspace(`pasted.${imageExtension(image.type)}`, base64);
+      });
+      return;
+    }
+    const text = e.clipboardData.getData("text/plain");
+    if (text.length <= PASTE_AS_FILE_CHARS && text.split("\n").length <= PASTE_AS_FILE_LINES) {
+      return; // normal paste
+    }
+    e.preventDefault();
+    void addWorkspaceFiles(() => addTextToWorkspace("pasted.txt", text));
+  };
+
+  // OS file drops are native Tauri events; DOM drop events do not receive the
+  // absolute paths needed to copy files into the local research workspace.
   useEffect(() => {
     if (!isTauri || !onSend) return;
     let unlisten: (() => void) | undefined;
     let cancelled = false;
-    void (async () => {
-      const { getCurrentWebview } = await import("@tauri-apps/api/webview");
-      const un = await getCurrentWebview().onDragDropEvent((event) => {
-        const p = event.payload;
-        if (p.type === "enter" || p.type === "over") setDragOver(true);
-        else if (p.type === "leave") setDragOver(false);
-        else if (p.type === "drop") {
+    void import("@tauri-apps/api/webview")
+      .then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent((event) => {
+        const payload = event.payload;
+        if (payload.type === "enter" || payload.type === "over") setDragOver(true);
+        if (payload.type === "leave") setDragOver(false);
+        if (payload.type === "drop") {
           setDragOver(false);
-          if (p.paths.length > 0) void addWorkspaceFile(() => addPathsToWorkspace(p.paths));
+          if (payload.paths.length > 0) {
+            void addWorkspaceFiles(() => addPathsToWorkspace(payload.paths));
+          }
         }
-      });
-      if (cancelled) un();
-      else unlisten = un;
-    })();
+      }))
+      .then((stop) => {
+        if (cancelled) stop();
+        else unlisten = stop;
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
       unlisten?.();
     };
-    // addWorkspaceFile only closes over stable setFiles/t; re-subscribing the
-    // native listener on every render would needlessly churn it.
+    // The native listener must remain stable while this composer is mounted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onSend]);
 
@@ -470,8 +422,7 @@ export function Composer({
   const addFiles = async () => {
     setAdding(true);
     try {
-      // Same as paste: give the draft its folder before copying files in.
-      await useRuntimeStore.getState().ensureDraftWorkspace();
+      if (beforeWorkspaceWrite && !(await beforeWorkspaceWrite())) return;
       const names = await addFilesToWorkspace();
       if (names.length > 0) setFiles((f) => [...f, ...names]);
     } catch (err) {
@@ -498,19 +449,16 @@ export function Composer({
     <div
       className={cn(
         "relative rounded-card border bg-surface px-2 py-2 shadow-card",
-        // Plan mode gets the blue link tone — distinct from shell (warn) and
-        // a chipped command (accent) — so a read-only turn is unmistakable.
-        shellMode
-          ? "border-warn/60"
-          : command
-            ? "border-accent/50"
-            : agentMode === "plan"
-              ? "border-link/60"
-              : "border-border",
-        // Dragging a file over the window: highlight the composer as the target.
+        shellMode ? "border-warn/60" : command ? "border-accent/50" : "border-border",
         dragOver && "border-accent ring-2 ring-accent/40",
       )}
     >
+      {contextLabel && (
+        <div className="mb-2 flex items-center gap-2 border-b border-faint px-1 pb-2 text-xs text-muted">
+          <Folder size={13} className="shrink-0" />
+          <span className="truncate">{contextLabel}</span>
+        </div>
+      )}
       {paletteOpen && (
         <div
           role="listbox"
@@ -621,64 +569,6 @@ export function Composer({
               <Paperclip size={15} />
             </button>
           )
-        )}
-        {/* Folder picker for a fresh draft — renders nothing once the session
-            exists (its folder then shows in the header's Files toggle). */}
-        <WorkspaceChip />
-        {agentMode && onAgentModeChange && (
-          <div className="relative shrink-0" ref={agentRef}>
-            {agentOpen && (
-              <div
-                role="menu"
-                aria-label={t("composer.agent.menuAria")}
-                className="absolute bottom-full left-0 z-20 mb-2 w-80 rounded-card border border-border bg-surface p-1 shadow-card"
-              >
-                <div className="px-2 pb-1 pt-1.5 text-xs text-muted">
-                  {t("composer.agent.menuTitle")}
-                </div>
-                {AGENT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.mode}
-                    role="menuitemradio"
-                    aria-checked={opt.mode === agentMode}
-                    className="flex w-full items-start gap-2 rounded-input px-2 py-1.5 text-left hover:bg-surface-2"
-                    // mousedown, not click — a click would blur the textarea first.
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setAgentOpen(false);
-                      if (opt.mode !== agentMode) onAgentModeChange(opt.mode);
-                    }}
-                  >
-                    <opt.icon size={13} className="mt-0.5 shrink-0 text-muted" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-xs text-text">{agentCopy[opt.mode].label}</span>
-                      <span className="block text-xs text-muted">
-                        {agentCopy[opt.mode].description}
-                      </span>
-                    </span>
-                    {opt.mode === agentMode && (
-                      <Check size={13} className="mt-0.5 shrink-0 text-accent" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-            <button
-              aria-label={t("composer.agent.aria")}
-              title={t("composer.agent.title")}
-              className={cn(
-                "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs",
-                agentMode === "plan"
-                  ? "bg-link/15 text-link hover:bg-link/25"
-                  : "text-muted hover:bg-surface-2 hover:text-text",
-              )}
-              onClick={() => setAgentOpen((o) => !o)}
-            >
-              {agentMode === "plan" ? <ClipboardList size={12} /> : <Hammer size={12} />}
-              <span>{agentCopy[agentMode].label}</span>
-              <ChevronDown size={11} />
-            </button>
-          </div>
         )}
         {approvalMode && onApprovalModeChange && (
           <div className="relative shrink-0" ref={approvalRef}>

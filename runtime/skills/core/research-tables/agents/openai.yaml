@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research tables"
+  short_description: "Create typed source-bound XLSX and CSV research tables"
+  default_prompt: "Use $research-tables to prepare a typed, source-bound research table manifest for this project."

@@ -1,0 +1,51 @@
+{
+  "schema_version": "0.1.0",
+  "normalization_id": "replace-with-safe-id",
+  "analysis_id": "replace-with-analysis-id",
+  "status": "draft",
+  "base_analysis": {
+    "path": "heor/analysis-plan.json",
+    "content_sha256": "replace-with-lowercase-sha256"
+  },
+  "target_basis": {
+    "currency": "GBP",
+    "price_year": 2026,
+    "jurisdiction": "England",
+    "perspective": "NHS and PSS"
+  },
+  "item_order": ["replace-item-id"],
+  "items": {
+    "replace-item-id": {
+      "item_id": "replace-item-id",
+      "strategy_id": "replace-strategy-id",
+      "state_id": "progression_free",
+      "category": "drug_acquisition",
+      "description": "Replace with the resource and annual-rate interpretation.",
+      "scope_basis_ids": ["replace-scope-basis"],
+      "annual_quantity": {
+        "value": 12,
+        "unit": "dose",
+        "basis_ids": ["replace-quantity-basis"]
+      },
+      "unit_price": {
+        "amount": 100,
+        "per_unit": "dose",
+        "currency": "GBP",
+        "price_year": 2026,
+        "jurisdiction": "England",
+        "price_basis": "paid_price",
+        "tax_status": "excluded",
+        "basis_ids": ["replace-price-basis"]
+      },
+      "adjustments": [],
+      "normalized_unit_price": 100,
+      "normalized_annual_cost": 1200
+    }
+  },
+  "annual_state_costs": {
+    "replace-strategy-id": [1200, 0, 0]
+  },
+  "limitations": [
+    "Replace with unresolved scope, price-basis, transferability, confidentiality, and unsupported cost-structure limitations."
+  ]
+}

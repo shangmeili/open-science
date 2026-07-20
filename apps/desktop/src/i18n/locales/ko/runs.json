@@ -1,11 +1,11 @@
 {
   "title": "실행",
   "description": {
-    "prefix": "모든 세션에 걸친 모든 실험 실행 — 명령, 코드 버전, 환경, 하드웨어, 결과물. ",
+    "prefix": "모든 작업의 분석 실행 — 명령, 코드 버전, 환경, 하드웨어, 결과물. ",
     "suffix": " 재실행하고 결과를 비교합니다."
   },
   "pane": {
-    "subtitle": "이 세션",
+    "subtitle": "이 작업",
     "closeAria": "실행 닫기"
   },
   "searchPlaceholder": "명령 또는 출력 경로 검색…",

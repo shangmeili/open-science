@@ -1,0 +1,556 @@
+from __future__ import annotations
+
+import copy
+from contextlib import redirect_stdout
+import hashlib
+import importlib.util
+from io import StringIO
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+from heor_core.model import ModelValidationError
+from heor_core.cli import main as cli_main
+from heor_core.uncertainty import run_uncertainty
+from test_treatment_effect_duration import _apply_base_rows, event_disutility_inputs
+
+
+ROOT = Path(__file__).resolve().parents[3]
+PORTABLE_PATH = ROOT / "runtime/skills/core/heor-uncertainty-analysis/scripts/validate_uncertainty_plan.py"
+PORTABLE_SPEC = importlib.util.spec_from_file_location("portable_component_uncertainty", PORTABLE_PATH)
+assert PORTABLE_SPEC is not None and PORTABLE_SPEC.loader is not None
+PORTABLE = importlib.util.module_from_spec(PORTABLE_SPEC)
+PORTABLE_SPEC.loader.exec_module(PORTABLE)
+JOINT_PORTABLE_PATH = ROOT / "runtime/skills/core/heor-joint-survival-uncertainty/scripts/validate_joint_survival_uncertainty.py"
+JOINT_PORTABLE_SPEC = importlib.util.spec_from_file_location("portable_current_joint_survival", JOINT_PORTABLE_PATH)
+assert JOINT_PORTABLE_SPEC is not None and JOINT_PORTABLE_SPEC.loader is not None
+JOINT_PORTABLE = importlib.util.module_from_spec(JOINT_PORTABLE_SPEC)
+JOINT_PORTABLE_SPEC.loader.exec_module(JOINT_PORTABLE)
+
+
+def raw(value: dict) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+
+
+def valid_inputs() -> list:
+    inputs = event_disutility_inputs()
+    analysis, _, psm, _, curves, _, duration, _, cost, _, utility, _, event, _ = inputs
+    analysis["uncertainty_analysis"] = {"path": "heor/uncertainty-plan.json"}
+    analysis_raw = raw(analysis)
+    psm["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    curves["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    curves_raw = raw(curves)
+    psm["curve_materializations"]["content_sha256"] = hashlib.sha256(curves_raw).hexdigest()
+    duration["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    duration["source_curve_materializations"]["content_sha256"] = hashlib.sha256(curves_raw).hexdigest()
+    duration_raw = raw(duration)
+    psm["treatment_effect_duration"]["content_sha256"] = hashlib.sha256(duration_raw).hexdigest()
+    _apply_base_rows(psm, duration_raw, curves_raw)
+    for artifact in (cost, utility, event):
+        artifact["base_analysis"]["content_sha256"] = hashlib.sha256(analysis_raw).hexdigest()
+    shared_basis = "quantity-source"
+    cost["items"]["intervention-pf"]["unit_price"]["basis_ids"].append(shared_basis)
+    cost_raw = raw(cost)
+    psm["cost_input_normalization"]["content_sha256"] = hashlib.sha256(cost_raw).hexdigest()
+    utility["items"]["intervention-progression-free"]["source_utility"]["basis_ids"].append(shared_basis)
+    utility_raw = raw(utility)
+    psm["utility_inputs"]["content_sha256"] = hashlib.sha256(utility_raw).hexdigest()
+    event["base_utility_inputs"]["content_sha256"] = hashlib.sha256(utility_raw).hexdigest()
+    event["items"]["intervention-infusion-reaction"]["occurrence"]["basis_ids"].append(shared_basis)
+    event_raw = raw(event)
+    psm["event_disutilities"]["content_sha256"] = hashlib.sha256(event_raw).hexdigest()
+    psm_raw = raw(psm)
+    bindings = {
+        "partitioned_survival_plan": ("heor/partitioned-survival-plan.json", psm_raw),
+        "curve_materializations": ("heor/survival-curve-materializations.json", curves_raw),
+        "treatment_effect_duration": ("heor/treatment-effect-duration.json", duration_raw),
+        "cost_input_normalization": ("heor/cost-input-normalization.json", cost_raw),
+        "utility_inputs": ("heor/utility-inputs.json", utility_raw),
+        "event_disutilities": ("heor/event-disutilities.json", event_raw),
+    }
+    parameters = [
+        {
+            "id": "drug-price",
+            "label": "Intervention drug unit price",
+            "artifact": "cost_input_normalization",
+            "target": "/items/intervention-pf/unit_price/amount",
+            "provenance_path": "cost_input_normalization.items.intervention-pf.unit_price.amount",
+            "deterministic": {"low": 3000.0, "high": 5000.0, "rationale": "Reviewed price range."},
+            "probabilistic": {"type": "uniform", "low": 3000.0, "high": 5000.0, "basis_ids": [shared_basis], "rationale": "Bounded reviewed price uncertainty."},
+        },
+        {
+            "id": "pf-utility",
+            "label": "Intervention progression-free utility",
+            "artifact": "utility_inputs",
+            "target": "/items/intervention-progression-free/source_utility/value",
+            "provenance_path": "utility_inputs.items.intervention-progression-free.source_utility.value",
+            "deterministic": {"low": 0.7, "high": 0.9, "rationale": "Reviewed utility range."},
+            "probabilistic": {"type": "uniform", "low": 0.7, "high": 0.9, "basis_ids": [shared_basis], "rationale": "Bounded reviewed utility uncertainty."},
+        },
+        {
+            "id": "infusion-frequency",
+            "label": "Infusion reaction probability",
+            "artifact": "event_disutilities",
+            "target": "/items/intervention-infusion-reaction/occurrence/schedule/0",
+            "provenance_path": "event_disutilities.items.intervention-infusion-reaction.occurrence.schedule.0",
+            "deterministic": {"low": 0.1, "high": 0.3, "rationale": "Reviewed event-frequency range."},
+            "probabilistic": {"type": "uniform", "low": 0.1, "high": 0.3, "basis_ids": [shared_basis], "rationale": "Bounded reviewed event-frequency uncertainty."},
+        },
+    ]
+    uncertainty = {
+        "schema_version": "0.13.0",
+        "uncertainty_id": "component-uncertainty",
+        "analysis_id": analysis["analysis_id"],
+        "status": "ready_for_human_review",
+        "base_analysis": {"path": "heor/analysis-plan.json", "content_sha256": hashlib.sha256(analysis_raw).hexdigest()},
+        "partitioned_survival_inputs": {
+            key: {"path": path, "content_sha256": hashlib.sha256(content).hexdigest()}
+            for key, (path, content) in bindings.items()
+        },
+        "seed": 20260715,
+        "parameters": parameters,
+        "probabilistic_analysis": {
+            "iterations": 1000,
+            "decision_thresholds": {"values": [0.0, 100000.0], "rationale": "Primary decision range."},
+            "convergence": {"checkpoints": [500, 1000], "max_probability_mcse": 0.1, "max_probability_drift": 0.1},
+            "correlation_handling": {
+                "groups": [{
+                    "id": "shared-study-components",
+                    "parameter_ids": ["drug-price", "pf-utility", "infusion-frequency"],
+                    "scale": "latent_standard_normal",
+                    "method": "gaussian_copula_cholesky",
+                    "correlation_matrix": [[1.0, 0.25, 0.1], [0.25, 1.0, -0.1], [0.1, -0.1, 1.0]],
+                    "basis_ids": [shared_basis],
+                    "rationale": "Human-reviewed latent dependence from the linked joint evidence basis.",
+                }],
+                "independence_rationale": "All remaining component parameters are fixed or independently evidenced.",
+                "known_omitted_correlations": [],
+            },
+            "omitted_parameters": [
+                {"provenance_path": f"partitioned_survival.strategies.{strategy}.{endpoint}", "rationale": "Fixed curve outside component uncertainty."}
+                for strategy in analysis["strategy_order"]
+                for endpoint in ("pfs", "os")
+            ],
+        },
+        "structural_scenarios": [{
+            "id": "outcome-discount",
+            "label": "Outcome discount scenario",
+            "rationale": "Reviewed reference-case alternative.",
+            "replacements": [{"target": "/discount_rates/outcomes", "value": 0.03}],
+        }],
+    }
+    return [analysis, analysis_raw, uncertainty, raw(uncertainty), psm, psm_raw, curves, curves_raw, duration, duration_raw, cost, cost_raw, utility, utility_raw, event, event_raw]
+
+
+def joint_inputs(vary: bool = True) -> list:
+    inputs = valid_inputs()
+    analysis, analysis_raw, uncertainty, _, psm, psm_raw, curves, curves_raw = inputs[:8]
+    duration_raw = inputs[9]
+    rows = []
+    for draw_index in range(1, 1001):
+        exponent = 1.0 + (((draw_index - 1) % 21) - 10) / 200.0 if vary else 1.0
+        row_curves = []
+        for strategy in analysis["strategy_order"]:
+            for endpoint in ("pfs", "os"):
+                values = [point["survival"] for point in psm["strategies"][strategy][endpoint]]
+                row_curves.append([value**exponent for value in values])
+        rows.append(json.dumps({"draw_index": draw_index, "curves": row_curves}, separators=(",", ":")))
+    draws_raw = ("\n".join(rows) + "\n").encode()
+    manifest = {
+        "schema_version": "0.5.0",
+        "survival_uncertainty_id": "current-joint-survival",
+        "analysis_id": analysis["analysis_id"],
+        "psm_id": psm["psm_id"],
+        "status": "ready_for_human_review",
+        "base_analysis": {"path": "heor/analysis-plan.json", "content_sha256": hashlib.sha256(analysis_raw).hexdigest()},
+        "partitioned_survival_plan": {"path": "heor/partitioned-survival-plan.json", "content_sha256": hashlib.sha256(psm_raw).hexdigest()},
+        "curve_materializations": {"path": "heor/survival-curve-materializations.json", "content_sha256": hashlib.sha256(curves_raw).hexdigest()},
+        "treatment_effect_duration": {"path": "heor/treatment-effect-duration.json", "content_sha256": hashlib.sha256(duration_raw).hexdigest()},
+        "draw_file": {"path": "heor/joint-survival-draws.jsonl", "content_sha256": hashlib.sha256(draws_raw).hexdigest(), "format": "ai4heor-joint-survival-draws-jsonl@0.1.0", "draw_count": 1000},
+        "curve_order": [f"partitioned_survival.strategies.{strategy}.{endpoint}" for strategy in analysis["strategy_order"] for endpoint in ("pfs", "os")],
+        "time_grid_years": [index * analysis["cycle_length_years"] for index in range(analysis["cycles"] + 1)],
+        "generation": {
+            "method": "joint_posterior",
+            "sampling_unit": "joint_draw_across_all_curves",
+            "independent_endpoint_sampling": False,
+            "strategy_resampling_design": "joint_model",
+            "between_strategy_assumption": "represented_by_source_joint_distribution",
+            "dependence_scope": ["within_strategy_pfs_os", "between_strategy_curves"],
+            "source_artifact_bindings": [{"path": "heor/fits/current-joint-posterior.json", "content_sha256": hashlib.sha256(b"current joint posterior").hexdigest(), "role": "Reviewed joint posterior rows."}],
+            "rationale": "One reviewed posterior row supplies every strategy PFS and OS curve.",
+        },
+        "limitations": ["Structural survival assumptions and source-model validity remain Human review items."],
+    }
+    manifest_raw = raw(manifest)
+    uncertainty["schema_version"] = "0.14.0"
+    uncertainty["uncertainty_id"] = "joint-component-uncertainty"
+    uncertainty["probabilistic_analysis"]["omitted_parameters"] = [
+        {"provenance_path": path, "rationale": "Structural uncertainty outside the composed parameter PSA."}
+        for path in (
+            "partitioned_survival.structural.curve_family_selection",
+            "partitioned_survival.structural.extrapolation_assumptions",
+            "partitioned_survival.structural.source_model_validity",
+        )
+    ]
+    uncertainty["joint_survival_inputs"] = {
+        "manifest": {"path": "heor/joint-survival-uncertainty.json", "content_sha256": hashlib.sha256(manifest_raw).hexdigest()},
+        "draws": {"path": "heor/joint-survival-draws.jsonl", "content_sha256": hashlib.sha256(draws_raw).hexdigest()},
+    }
+    inputs[2] = uncertainty
+    inputs[3] = raw(uncertainty)
+    return [*inputs, manifest, manifest_raw, draws_raw]
+
+
+def add_paired_method_review(generation: dict) -> None:
+    result_path = "heor/paired-survival-bootstrap-executions/run-1/result-manifest.json"
+    record_path = "heor/paired-survival-bootstrap-reviews/run-1-review.json"
+    result_sha = "a" * 64
+    record_sha = "b" * 64
+    generation["source_artifact_bindings"].extend([
+        {"path": result_path, "content_sha256": result_sha, "role": "Native-audited paired bootstrap result."},
+        {"path": record_path, "content_sha256": record_sha, "role": "App-owned Human method acceptance."},
+    ])
+    generation["method_review"] = {
+        "review_id": "c" * 32,
+        "record_path": record_path,
+        "record_sha256": record_sha,
+        "action": "accept",
+        "assurance": "app_owned_local_human_assertion",
+        "result_path": result_path,
+        "result_sha256": result_sha,
+    }
+
+
+class ComponentUncertaintyTests(unittest.TestCase):
+    @staticmethod
+    def execute(inputs: list) -> dict:
+        return run_uncertainty(
+            *inputs[:8],
+            treatment_effect_duration=inputs[8],
+            treatment_effect_duration_raw=inputs[9],
+            cost_input_normalization=inputs[10],
+            cost_input_normalization_raw=inputs[11],
+            utility_inputs=inputs[12],
+            utility_inputs_raw=inputs[13],
+            event_disutilities=inputs[14],
+            event_disutilities_raw=inputs[15],
+        )
+
+    def test_runs_reproducible_correlated_component_uncertainty(self) -> None:
+        inputs = valid_inputs()
+        result = self.execute(inputs)
+        self.assertEqual(result, self.execute(inputs))
+        self.assertEqual(result["schema_version"], "0.13.0")
+        self.assertEqual(result["engine_version"], "0.14.0")
+        self.assertEqual(result["calculation_classification"], "component_parameter_uncertainty")
+        self.assertEqual(result["uncertainty_scope"], "cost_utility_event_components_only")
+        self.assertEqual(len(result["probabilistic_analysis"]["samples"]), 1000)
+        self.assertEqual(len(result["probabilistic_analysis"]["correlation_groups"]), 1)
+
+    def test_combines_one_joint_curve_row_with_each_component_draw(self) -> None:
+        inputs = joint_inputs()
+        result = run_uncertainty(
+            *inputs[:8],
+            joint_survival_manifest=inputs[16],
+            joint_survival_manifest_raw=inputs[17],
+            joint_survival_draws_raw=inputs[18],
+            treatment_effect_duration=inputs[8],
+            treatment_effect_duration_raw=inputs[9],
+            cost_input_normalization=inputs[10],
+            cost_input_normalization_raw=inputs[11],
+            utility_inputs=inputs[12],
+            utility_inputs_raw=inputs[13],
+            event_disutilities=inputs[14],
+            event_disutilities_raw=inputs[15],
+        )
+        fixed = joint_inputs(vary=False)
+        fixed_result = run_uncertainty(
+            *fixed[:8],
+            joint_survival_manifest=fixed[16],
+            joint_survival_manifest_raw=fixed[17],
+            joint_survival_draws_raw=fixed[18],
+            treatment_effect_duration=fixed[8],
+            treatment_effect_duration_raw=fixed[9],
+            cost_input_normalization=fixed[10],
+            cost_input_normalization_raw=fixed[11],
+            utility_inputs=fixed[12],
+            utility_inputs_raw=fixed[13],
+            event_disutilities=fixed[14],
+            event_disutilities_raw=fixed[15],
+        )
+        self.assertEqual(result["schema_version"], "0.14.0")
+        self.assertEqual(result["engine_version"], "0.15.0")
+        self.assertEqual(result["calculation_classification"], "joint_curve_and_component_parameter_uncertainty")
+        self.assertEqual(result["uncertainty_scope"], "joint_survival_curves_and_cost_utility_event_components")
+        self.assertNotEqual(result["probabilistic_analysis"]["samples"], fixed_result["probabilistic_analysis"]["samples"])
+        self.assertIn("joint_survival_draws_sha256", result)
+
+    def test_current_paired_bootstrap_declares_parallel_arm_independence(self) -> None:
+        inputs = joint_inputs()
+        generation = inputs[16]["generation"]
+        generation["method"] = "paired_patient_bootstrap"
+        generation["strategy_resampling_design"] = "stratified_independent_parallel_arms"
+        generation["between_strategy_assumption"] = "conditional_independence_given_parallel_arm_design"
+        generation["dependence_scope"] = ["within_strategy_pfs_os"]
+        add_paired_method_review(generation)
+        inputs[17] = raw(inputs[16])
+        inputs[2]["joint_survival_inputs"]["manifest"]["content_sha256"] = hashlib.sha256(inputs[17]).hexdigest()
+        inputs[3] = raw(inputs[2])
+        result = run_uncertainty(
+            *inputs[:8],
+            joint_survival_manifest=inputs[16],
+            joint_survival_manifest_raw=inputs[17],
+            joint_survival_draws_raw=inputs[18],
+            treatment_effect_duration=inputs[8],
+            treatment_effect_duration_raw=inputs[9],
+            cost_input_normalization=inputs[10],
+            cost_input_normalization_raw=inputs[11],
+            utility_inputs=inputs[12],
+            utility_inputs_raw=inputs[13],
+            event_disutilities=inputs[14],
+            event_disutilities_raw=inputs[15],
+        )
+        self.assertEqual(result["calculation_classification"], "joint_curve_and_component_parameter_uncertainty")
+
+    def test_current_paired_bootstrap_requires_app_owned_method_acceptance(self) -> None:
+        inputs = joint_inputs()
+        generation = inputs[16]["generation"]
+        generation["method"] = "paired_patient_bootstrap"
+        generation["strategy_resampling_design"] = "stratified_independent_parallel_arms"
+        generation["between_strategy_assumption"] = "conditional_independence_given_parallel_arm_design"
+        generation["dependence_scope"] = ["within_strategy_pfs_os"]
+        manifest_raw = raw(inputs[16])
+        inputs[2]["joint_survival_inputs"]["manifest"]["content_sha256"] = hashlib.sha256(manifest_raw).hexdigest()
+        inputs[3] = raw(inputs[2])
+        with self.assertRaisesRegex(ModelValidationError, "generation fields"):
+            run_uncertainty(
+                *inputs[:8],
+                joint_survival_manifest=inputs[16],
+                joint_survival_manifest_raw=manifest_raw,
+                joint_survival_draws_raw=inputs[18],
+                treatment_effect_duration=inputs[8],
+                treatment_effect_duration_raw=inputs[9],
+                cost_input_normalization=inputs[10],
+                cost_input_normalization_raw=inputs[11],
+                utility_inputs=inputs[12],
+                utility_inputs_raw=inputs[13],
+                event_disutilities=inputs[14],
+                event_disutilities_raw=inputs[15],
+            )
+
+    def test_current_paired_bootstrap_rejects_a_between_strategy_dependence_claim(self) -> None:
+        inputs = joint_inputs()
+        generation = inputs[16]["generation"]
+        generation["method"] = "paired_patient_bootstrap"
+        generation["strategy_resampling_design"] = "stratified_independent_parallel_arms"
+        generation["between_strategy_assumption"] = "conditional_independence_given_parallel_arm_design"
+        add_paired_method_review(generation)
+        manifest_raw = raw(inputs[16])
+        inputs[2]["joint_survival_inputs"]["manifest"]["content_sha256"] = hashlib.sha256(manifest_raw).hexdigest()
+        inputs[3] = raw(inputs[2])
+        with self.assertRaisesRegex(ModelValidationError, "parallel-arm conditional independence"):
+            run_uncertainty(
+                *inputs[:8],
+                joint_survival_manifest=inputs[16],
+                joint_survival_manifest_raw=manifest_raw,
+                joint_survival_draws_raw=inputs[18],
+                treatment_effect_duration=inputs[8],
+                treatment_effect_duration_raw=inputs[9],
+                cost_input_normalization=inputs[10],
+                cost_input_normalization_raw=inputs[11],
+                utility_inputs=inputs[12],
+                utility_inputs_raw=inputs[13],
+                event_disutilities=inputs[14],
+                event_disutilities_raw=inputs[15],
+            )
+
+    def test_joint_component_uncertainty_rejects_a_represented_curve_omission(self) -> None:
+        inputs = joint_inputs()
+        inputs[2]["probabilistic_analysis"]["omitted_parameters"].append({
+            "provenance_path": "partitioned_survival.strategies.comparator.pfs",
+            "rationale": "Invalid represented curve omission.",
+        })
+        inputs[3] = raw(inputs[2])
+        with self.assertRaisesRegex(ModelValidationError, "must not list represented"):
+            run_uncertainty(
+                *inputs[:8],
+                joint_survival_manifest=inputs[16],
+                joint_survival_manifest_raw=inputs[17],
+                joint_survival_draws_raw=inputs[18],
+                treatment_effect_duration=inputs[8],
+                treatment_effect_duration_raw=inputs[9],
+                cost_input_normalization=inputs[10],
+                cost_input_normalization_raw=inputs[11],
+                utility_inputs=inputs[12],
+                utility_inputs_raw=inputs[13],
+                event_disutilities=inputs[14],
+                event_disutilities_raw=inputs[15],
+            )
+
+    def test_current_joint_component_contract_is_portable_and_cli_executable(self) -> None:
+        inputs = joint_inputs()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            files = {
+                "heor/analysis-plan.json": inputs[1],
+                "heor/uncertainty-plan.json": inputs[3],
+                "heor/partitioned-survival-plan.json": inputs[5],
+                "heor/survival-curve-materializations.json": inputs[7],
+                "heor/treatment-effect-duration.json": inputs[9],
+                "heor/cost-input-normalization.json": inputs[11],
+                "heor/utility-inputs.json": inputs[13],
+                "heor/event-disutilities.json": inputs[15],
+                "heor/joint-survival-uncertainty.json": inputs[17],
+                "heor/joint-survival-draws.jsonl": inputs[18],
+                "heor/fits/current-joint-posterior.json": b"current joint posterior",
+            }
+            for relative, content in files.items():
+                destination = root / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(content)
+            heor = root / "heor"
+            self.assertEqual(
+                PORTABLE.validate(
+                    heor / "uncertainty-plan.json",
+                    heor / "analysis-plan.json",
+                    heor / "partitioned-survival-plan.json",
+                    heor / "survival-curve-materializations.json",
+                    heor / "joint-survival-uncertainty.json",
+                    heor / "joint-survival-draws.jsonl",
+                    heor / "treatment-effect-duration.json",
+                    heor / "cost-input-normalization.json",
+                    heor / "utility-inputs.json",
+                    heor / "event-disutilities.json",
+                ),
+                [],
+            )
+            self.assertEqual(
+                JOINT_PORTABLE.validate(
+                    heor / "analysis-plan.json",
+                    heor / "partitioned-survival-plan.json",
+                    heor / "survival-curve-materializations.json",
+                    heor / "uncertainty-plan.json",
+                    heor / "joint-survival-uncertainty.json",
+                    heor / "joint-survival-draws.jsonl",
+                    root,
+                    heor / "treatment-effect-duration.json",
+                ),
+                [],
+            )
+            output = StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(
+                    cli_main([
+                        str(heor / "analysis-plan.json"),
+                        "--uncertainty-plan", str(heor / "uncertainty-plan.json"),
+                        "--partitioned-survival-plan", str(heor / "partitioned-survival-plan.json"),
+                        "--survival-curve-materializations", str(heor / "survival-curve-materializations.json"),
+                        "--treatment-effect-duration", str(heor / "treatment-effect-duration.json"),
+                        "--cost-input-normalization", str(heor / "cost-input-normalization.json"),
+                        "--utility-inputs", str(heor / "utility-inputs.json"),
+                        "--event-disutilities", str(heor / "event-disutilities.json"),
+                        "--joint-survival-uncertainty-manifest", str(heor / "joint-survival-uncertainty.json"),
+                        "--joint-survival-draws", str(heor / "joint-survival-draws.jsonl"),
+                    ]),
+                    0,
+                )
+            self.assertEqual(json.loads(output.getvalue())["schema_version"], "0.14.0")
+
+    def test_rejects_stale_component_binding(self) -> None:
+        inputs = valid_inputs()
+        inputs[2]["partitioned_survival_inputs"]["event_disutilities"]["content_sha256"] = "0" * 64
+        inputs[3] = raw(inputs[2])
+        with self.assertRaisesRegex(ModelValidationError, "does not bind"):
+            self.execute(inputs)
+
+    def test_portable_validator_matches_component_boundary(self) -> None:
+        inputs = valid_inputs()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            names = [
+                "analysis.json", "uncertainty.json", "psm.json", "curves.json",
+                "duration.json", "cost.json", "utility.json", "event.json",
+            ]
+            raws = [inputs[index] for index in (1, 3, 5, 7, 9, 11, 13, 15)]
+            paths = [root / name for name in names]
+            for path, content in zip(paths, raws):
+                path.write_bytes(content)
+            self.assertEqual(
+                PORTABLE.validate(
+                    paths[1], paths[0], paths[2], paths[3], None, None,
+                    paths[4], paths[5], paths[6], paths[7],
+                ),
+                [],
+            )
+            invalid = copy.deepcopy(inputs[2])
+            invalid["structural_scenarios"][0]["replacements"] = ["not-an-object"]
+            paths[1].write_bytes(raw(invalid))
+            self.assertIn(
+                "component structural scenarios are invalid",
+                PORTABLE.validate(
+                    paths[1], paths[0], paths[2], paths[3], None, None,
+                    paths[4], paths[5], paths[6], paths[7],
+                ),
+            )
+
+    def test_cli_executes_component_contract(self) -> None:
+        inputs = valid_inputs()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            names = [
+                "analysis.json", "uncertainty.json", "psm.json", "curves.json",
+                "duration.json", "cost.json", "utility.json", "event.json",
+            ]
+            raws = [inputs[index] for index in (1, 3, 5, 7, 9, 11, 13, 15)]
+            paths = [root / name for name in names]
+            for path, content in zip(paths, raws):
+                path.write_bytes(content)
+            output = StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(
+                    cli_main([
+                        str(paths[0]),
+                        "--uncertainty-plan", str(paths[1]),
+                        "--partitioned-survival-plan", str(paths[2]),
+                        "--survival-curve-materializations", str(paths[3]),
+                        "--treatment-effect-duration", str(paths[4]),
+                        "--cost-input-normalization", str(paths[5]),
+                        "--utility-inputs", str(paths[6]),
+                        "--event-disutilities", str(paths[7]),
+                    ]),
+                    0,
+                )
+            self.assertEqual(json.loads(output.getvalue())["schema_version"], "0.13.0")
+
+    def test_extreme_lognormal_draw_fails_closed(self) -> None:
+        inputs = valid_inputs()
+        inputs[2]["parameters"][0]["probabilistic"] = {
+            "type": "lognormal",
+            "mu_log": 1000.0,
+            "sigma_log": 0.1,
+            "basis_ids": ["quantity-source"],
+            "rationale": "Deliberately non-finite stress case.",
+        }
+        inputs[3] = raw(inputs[2])
+        with self.assertRaisesRegex(ModelValidationError, "non-finite"):
+            self.execute(inputs)
+
+    def test_rejects_aggregate_or_out_of_domain_targets(self) -> None:
+        for mutation in ("aggregate", "utility"):
+            with self.subTest(mutation=mutation):
+                inputs = valid_inputs()
+                uncertainty = copy.deepcopy(inputs[2])
+                parameter = uncertainty["parameters"][1]
+                if mutation == "aggregate":
+                    parameter["target"] = "/cycle_state_utilities/intervention/0/0"
+                else:
+                    parameter["deterministic"]["high"] = 1.1
+                inputs[2] = uncertainty
+                inputs[3] = raw(uncertainty)
+                with self.assertRaises(ModelValidationError):
+                    self.execute(inputs)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Reproducibility Package"
+  short_description: "Bind replay recipes, evidence, claims, and release artifacts"
+  default_prompt: "Use $heor-reproducibility-package to prepare or audit a bounded HEOR reproducibility companion without creating release approval."

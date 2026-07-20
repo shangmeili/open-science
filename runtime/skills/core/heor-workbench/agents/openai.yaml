@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI4HEOR Research Workbench"
+  short_description: "Assist researcher-led, auditable HEOR work"
+  default_prompt: "Use $heor-workbench to assist with my researcher-defined HEOR question and produce reviewable local artifacts."

@@ -1,29 +1,9 @@
 {
-  "nav": {
-    "back": "アプリに戻る",
-    "general": "一般",
-    "appearance": "外観",
-    "models": "モデル",
-    "runtime": "ランタイム",
-    "connectors": "コネクタ",
-    "compute": "コンピューティング",
-    "privacy": "プライバシー",
-    "browser": "ブラウザ"
-  },
   "appearance": {
     "title": "外観",
-    "themeLabel": "テーマ",
     "theme": {
       "light": "ライト",
-      "warm": "ウォーム",
       "dark": "ダーク"
-    },
-    "zoom": {
-      "label": "ズーム",
-      "hint": "{{mod}} + / − でズーム、{{mod}} 0 でリセット",
-      "in": "拡大",
-      "out": "縮小",
-      "reset": "リセット"
     }
   },
   "language": {
@@ -31,13 +11,55 @@
   },
   "page": {
     "title": "設定",
-    "subtitle": "ここでの設定はすべて、バンドルされた OpenCode ランタイムに対するものです — 設定は一つだけで、コピーはありません。"
+    "subtitle": "AI アシスタント、モデル、エビデンスツール、ワークスペース、ローカル分析環境を設定します。"
+  },
+  "supportReport": {
+    "title": "問題の診断",
+    "hint": "問題を報告するときにレポートを書き出します",
+    "description": "レポートには、アプリのバージョン、システム構成、ローカルアシスタントの状態、診断イベントの集計値だけが含まれます。モデルの認証情報、プロジェクトパス、研究ファイル、会話、生ログは含まれません。",
+    "export": "診断レポートを書き出す",
+    "exporting": "レポートを作成中…",
+    "saved": "診断レポートを保存しました",
+    "failed": "診断レポートを書き出せませんでした"
+  },
+  "readiness": {
+    "title": "利用準備",
+    "checking": "このコンピューターの環境を確認しています…",
+    "readyTitle": "作業を始められます",
+    "readyBody": "プロジェクトフォルダー、組み込み手法、ローカルアシスタントを利用できます。モデルは必要なときに接続してください。",
+    "attentionTitle": "対応が必要な項目があります",
+    "attentionBody": "プロジェクト資料はこのコンピューターに残っています。下の項目を確認し、再度チェックしてください。",
+    "actions": { "recheck": "再チェック", "restart": "ローカルアシスタントを再起動", "restarting": "再起動中…", "openSettings": "確認" },
+    "checks": {
+      "needsAttention": "対応が必要",
+      "workspace": { "title": "プロジェクトフォルダー", "ready": "書き込み可能" },
+      "skills": { "title": "組み込み Skill", "ready": "{{count}} 個の Skill を利用可能" },
+      "heorCore": { "title": "薬剤経済学のローカル計算", "ready": "必要なファイルを確認済み" },
+      "harness": { "title": "プロジェクト監査 harness", "ready": "必要なファイルを確認済み" },
+      "runtime": { "title": "ローカルアシスタント", "ready": "準備完了", "connecting": "起動中…", "error": "対応が必要", "offline": "停止中" },
+      "model": { "title": "モデル（任意）", "optional": "未接続でもローカル計算は利用できます" }
+    },
+    "scope": "このチェックにモデル、Python、Jupyter は必要ありません。実際の作業で必要なときだけ設定します。確認するのはソフトウェアの利用可否であり、方法の適切性や科学的妥当性ではありません。",
+    "technical": "技術情報"
   },
   "runtime": {
-    "title": "エージェントランタイム",
-    "hint": "opencode serve を、その HTTP + SSE API 経由で操作します",
+    "title": "AI アシスタント実行環境",
+    "hint": "デスクトップアプリが自動的に起動・管理します",
     "connect": "接続",
     "disconnect": "切断",
+    "status": {
+      "ready": "準備完了",
+      "connecting": "接続中…",
+      "error": "確認が必要",
+      "offline": "オフライン"
+    },
+    "advanced": {
+      "title": "高度な診断",
+      "description": "トラブルシューティングや開発用実行環境への接続に使う技術情報です。通常は変更する必要はありません。",
+      "engineLabel": "実行エンジン",
+      "engineValue": "OpenCode",
+      "endpointLabel": "ローカルエンドポイント"
+    },
     "serverUrlPlaceholder": "http://127.0.0.1:4096",
     "proxyLabel": "ネットワークプロキシ",
     "proxySystem": "システムに従う",
@@ -55,7 +77,9 @@
   },
   "updates": {
     "title": "アプリの更新",
-    "hint": "GitHub Releases を確認します。自動確認は 24 時間に 1 回までです",
+    "hint": "現在のバージョンとリリースチャネルを確認します",
+    "unavailable": "オンライン更新はまだ利用できません",
+    "unavailableHint": "AI4HEOR の正式なリリース元はまだ設定されていないため、このビルドはオンラインで更新を確認しません。正式な配布元の確定後にバージョン比較と通知を有効にします。",
     "available": "更新があります",
     "checking": "確認中",
     "failed": "確認失敗",
@@ -103,7 +127,7 @@
   },
   "providers": {
     "title": "プロバイダー",
-    "hint": "認証、カスタムエンドポイント、インポートした OpenCode ログイン",
+    "hint": "認証、カスタムエンドポイント、既存の CLI 認証情報",
     "connectPrompt": "プロバイダーを管理するにはランタイムに接続してください。",
     "manage": "管理",
     "collapse": "折りたたむ",
@@ -120,6 +144,9 @@
     "pasteCode": "ブラウザからコードを貼り付け",
     "customEndpoint": "カスタムエンドポイント",
     "customEndpointHint": "セルフホスト・ローカル Ollama・OpenAI/Anthropic 互換",
+    "minimaxChinaTokenPlanName": "MiniMax 中国版 Token Plan",
+    "fillMinimaxChinaTokenPlan": "MiniMax 中国版 Token Plan を入力",
+    "customCredentialHint": "エンドポイント設定には API キーを保存しません。OpenCode が認証情報をローカルの非公開認証ストアに分けて保存します。",
     "customNamePlaceholder": "名前 — 例: Ollama、My DeepSeek gateway",
     "openaiCompatible": "OpenAI 互換",
     "anthropicCompatible": "Anthropic 互換",
@@ -127,22 +154,28 @@
     "customKeyPlaceholder": "API キー — 任意、Ollama では不要です",
     "customModelsPlaceholder": "モデル ID（カンマ区切り）",
     "addEndpoint": "エンドポイントを追加",
-    "importLogin": "すでに OpenCode CLI を使っていますか？ そのログインをインポート"
+    "importLogin": "互換性のあるローカル CLI から認証情報をインポート"
   },
   "mcp": {
-    "title": "MCP サーバー",
-    "hint": "エージェント向けの追加ツール（Model Context Protocol）— 例: Jupyter やブラウザの MCP",
+    "title": "エビデンスと MCP ツール",
+    "hint": "組み込み HEOR エビデンス検索と、研究者が管理する任意の MCP サーバー",
     "connectPrompt": "MCP サーバーを設定するには、ランタイムに接続してください。",
-    "openSource": "オープンソース",
-    "enterKeyFirstTitle": "先に API キーを入力してください",
+    "builtIn": "組み込み",
+    "humanAuthorization": "人間の承認が必要",
+    "heorEvidenceLabel": "HEOR エビデンス検索",
+    "heorEvidenceDescription": "固定エンドポイントで PubMed と ClinicalTrials.gov のメタデータのみを取得します。エージェントはハッシュに結び付いた要求を準備し、ネットワークアクセスを承認できるのは人間だけです。",
+    "heorEvidenceSources": "{{sources}} · ${{id}}",
+    "externalBoundary": "追加したサーバーは管理対象外の外部機能です。コード、ライセンス、データ送信、認証情報を確認してください。科学的判断権や承認権は付与されません。",
     "settingUp": "セットアップ中…",
     "enable": "有効化",
-    "freeKeySuffix": "（無料キー）",
-    "getFreeKey": "無料キーを取得",
     "jupyterLabel": "Jupyter",
     "jupyterDescription": "エージェントが実際のノートブックを操作できるようにします · numpy・pandas・matplotlib を含む独立環境、初回実行時に約 500 MB · 設定後はアプリの実行ボタンもこれを使うため、あなたとエージェントで同じ Python を共有します",
     "setUpAndEnable": "セットアップして有効化",
     "startingDownload": "ダウンロードを開始中…",
+    "setupStarting": "Jupyter を設定しています。初回は数百 MB をダウンロードします。しばらくお待ちください…",
+    "setupComplete": "Jupyter の準備ができました。アシスタントがノートブックを操作できます。",
+    "setupFailed": "Jupyter の設定に失敗しました",
+    "setupIncomplete": "Jupyter の設定は終了しましたが、必要な接続情報がありません",
     "typeLocal": "ローカル",
     "typeRemote": "リモート",
     "namePlaceholder": "名前 — 例: jupyter、playwright",
@@ -150,39 +183,9 @@
     "urlPlaceholder": "URL — 例: https://example.com/mcp",
     "addServer": "サーバーを追加"
   },
-  "browser": {
-    "label": "ブラウザ制御",
-    "title": "ブラウザ",
-    "hint": "エージェントに実際のブラウザを操作させます — ページの移動、クリック、フォーム入力、読み取り。",
-    "description": "エージェントがページを開き、クリックし、フォームに入力し、Web を読み取れるようにします — あなたの Chrome ログインを再利用します。",
-    "browseAs": "使用するプロフィール",
-    "isolated": "分離 — 新規・未ログイン",
-    "showWindow": "ブラウザウィンドウを表示",
-    "noChrome": "Chrome が見つかりません",
-    "download": "ブラウザをダウンロード",
-    "noChromeWillDownload": "Chrome が見つかりません — 初回使用時に専用ブラウザをダウンロードします。",
-    "detected": "使用中",
-    "privateBrowser": "プライベートブラウザ(未ログイン)",
-    "privateNote": "あなたの Chrome に一切触れない、別途ダウンロードしたブラウザを使用します。未ログインで開始し、初回使用時に自動ダウンロードされます。",
-    "reuseNote": "「{{name}}」のコピーを再利用します。エージェントはそのログイン済みアカウントとして操作します。実際の Chrome プロファイルは変更されません。ナビゲーションは承認モードに従います。",
-    "isolatedNote": "分離プロファイル — エージェントは未ログイン状態で開始します。ログインを再利用するには上でアカウントを選択してください。",
-    "downloaded": "ブラウザをダウンロードしました — ブラウザ制御を有効にできます。",
-    "couldNotDownload": "ブラウザをダウンロードできませんでした",
-    "enabledStatus": "有効",
-    "disabledStatus": "無効",
-    "disable": "無効にする",
-    "apply": "変更を適用",
-    "capabilities": "機能",
-    "capCore": "標準 — 移動、クリック、読み取り、スクリーンショット、JS 実行",
-    "capNetwork": "標準 + ネットワークキャプチャ(HAR、リクエスト検査)",
-    "capAll": "すべて(全ツール)",
-    "allowedDomains": "許可するドメイン",
-    "allowedDomainsHint": "1 行に 1 つ。空欄で制限なし。*.example.com のようなパターンに対応。",
-    "allowedDomainsPlaceholder": "example.com\n*.github.com"
-  },
   "workspace": {
     "title": "ワークスペース",
-    "hint": "ローカルファースト — 各セッションは、ここに作成される日付付きの専用サブフォルダで動作します",
+    "hint": "プロジェクトとタスクのファイルはここに保存され、同じプロジェクトのタスクで共有できます",
     "unavailable": "デスクトップアプリで利用可能",
     "change": "変更…",
     "reveal": "表示"
@@ -202,11 +205,10 @@
     "interpreterSet": "インタープリタを設定しました — ノートブックのセルはこれで実行されます。",
     "overrideCleared": "上書き設定を解除しました。",
     "couldNotSetInterpreter": "インタープリタを設定できませんでした",
-    "folderSet": "新しいセッションはこのフォルダに作成されます。",
+    "folderSet": "新しいタスクはこのフォルダに作成されます。",
     "couldNotSetFolder": "フォルダを設定できませんでした",
     "couldNotSetModel": "モデルを設定できませんでした",
     "defaultModelSet": "デフォルトモデルを {{model}} に設定しました",
-    "defaultModelReset": "デフォルトモデル {{old}} は利用できなくなったため、{{model}} に切り替えました",
     "couldNotSaveKey": "キーを保存できませんでした",
     "providerConnected": "{{providerID}} を接続しました",
     "couldNotStartLogin": "ログインを開始できませんでした",
@@ -222,8 +224,8 @@
     "couldNotRemoveMcp": "MCP サーバーを削除できませんでした",
     "mcpRemoved": "MCP サーバー {{name}} を削除しました",
     "importFailed": "インポートに失敗しました",
-    "noOpenCodeLoginFound": "このマシンで OpenCode CLI のログインが見つかりませんでした。",
-    "importedLogin": "OpenCode CLI のログインをインポートしました。",
+    "noOpenCodeLoginFound": "このマシンに互換性のあるローカル CLI 認証情報が見つかりませんでした。",
+    "importedLogin": "互換性のあるローカル CLI 認証情報をインポートしました。",
     "couldNotSetProxy": "プロキシ設定を適用できませんでした",
     "proxyApplied": "プロキシ設定を適用しました",
     "mirrorSaved": "ミラー設定を保存しました",
@@ -236,7 +238,7 @@
       "heading": "このマシンに留まるもの",
       "workspaceFiles": "ワークスペースのファイルと生データ",
       "codeExecution": "コード実行 — Python カーネルと Jupyter はローカルで動作し、データセットはここで処理され、まとめてアップロードされることはありません。",
-      "sessionHistory": "セッション履歴とプロベナンス記録は、アプリの専用データフォルダに保存されます。",
+      "sessionHistory": "タスク履歴とプロベナンス記録は、アプリの専用データフォルダに保存されます。",
       "providerKeys": "プロバイダーのキーとログイントークン — あなたのアカウントのみが読み取れるアプリ専用ファイルに保存され、ワークスペース、プロベナンス、ログ、書き出しファイルには一切書き込まれません。"
     },
     "remote": {

@@ -1,0 +1,53 @@
+{
+  "schema_version": "0.2.0",
+  "materialization_id": "replace-with-safe-id",
+  "analysis_id": "replace-with-analysis-id",
+  "psm_id": "replace-with-psm-id",
+  "status": "draft",
+  "base_analysis": {
+    "path": "heor/analysis-plan.json",
+    "content_sha256": "replace-with-lowercase-sha256"
+  },
+  "time_origin": "replace-with-time-origin",
+  "time_unit": "years",
+  "evaluator": {
+    "id": "ai4heor-parametric-survival",
+    "version": "0.2.0"
+  },
+  "curves": [
+    {
+      "target_path": "partitioned_survival.strategies.replace-with-strategy.pfs",
+      "strategy_id": "replace-with-strategy",
+      "endpoint": "pfs",
+      "review_binding": {
+        "path": "heor/reviews/replace-with-review.json",
+        "content_sha256": "replace-with-lowercase-sha256",
+        "target_path": "partitioned_survival.strategies.replace-with-strategy.pfs",
+        "selected_family": "exponential"
+      },
+      "fit_output_binding": {
+        "path": "heor/fits/replace-with-fit.json",
+        "content_sha256": "replace-with-lowercase-sha256"
+      },
+      "family": "exponential",
+      "parameterization": "exponential_rate",
+      "parameters": {
+        "rate_per_year": 0.1
+      },
+      "basis_ids": [
+        "review-sha256:replace-with-lowercase-sha256",
+        "fit-output-sha256:replace-with-lowercase-sha256",
+        "evaluator:ai4heor-parametric-survival@0.2.0"
+      ],
+      "values": [
+        {
+          "time_years": 0.0,
+          "survival": 1.0
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Materialization reproduces a Human-selected reviewed model and does not establish clinical plausibility."
+  ]
+}

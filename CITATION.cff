@@ -1,19 +1,20 @@
 cff-version: 1.2.0
-message: "If you use Open Science Desktop in your research, please cite it as below."
-title: "Open Science Desktop: a local-first, model-agnostic AI research workbench"
+message: "If you use AI4HEOR in your research, please cite it as below."
+title: "AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR"
 type: software
 authors:
-  - name: "The Open Science Desktop Contributors"
+  - name: "The AI4HEOR Contributors"
 repository-code: "https://github.com/ai4s-research/open-science"
-url: "https://openedscience.com"
+url: "https://github.com/ai4s-research/open-science"
 license: MIT
-version: 0.2.1
-doi: 10.5281/zenodo.21410055
-date-released: "2026-07-17"
+version: 0.1.56
+date-released: "2026-07-20"
 keywords:
   - AI for science
   - research workbench
   - AI agents
   - reproducibility
   - local-first
+  - pharmacoeconomics
+  - HEOR
   - desktop application

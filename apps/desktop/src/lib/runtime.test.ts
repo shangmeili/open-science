@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { OpenCodeEvent, HistoryMessage } from "@ai4s/sdk";
 import {
+  buildAssetReviewPrompt,
   datedWorkspaceName,
   foldCarriageReturns,
   foldEvent,
@@ -12,6 +13,24 @@ import {
   type FoldState,
 } from "./runtime";
 
+describe("datedWorkspaceName", () => {
+  it("formats the independent conversation scope name", () => {
+    expect(datedWorkspaceName(new Date(2026, 6, 4, 16, 5))).toBe("2026-07-04-1605");
+    expect(datedWorkspaceName(new Date(2026, 0, 9, 3, 40))).toBe("2026-01-09-0340");
+  });
+});
+
+describe("buildAssetReviewPrompt", () => {
+  it("keeps discovery inactive and preserves the app-owned admission boundary", () => {
+    const prompt = buildAssetReviewPrompt("https://example.test/candidate");
+    expect(prompt).toContain("Do not install, enable, or copy");
+    expect(prompt).toContain("Keep it inactive");
+    expect(prompt).toContain("macOS/Windows/Linux tests");
+    expect(prompt).toContain("separate code-reviewed product change");
+    expect(prompt).toContain("https://example.test/candidate");
+  });
+});
+
 const empty: FoldState = { blocks: [], index: {} };
 const S = "ses_1";
 const foldAll = (events: OpenCodeEvent[], from: FoldState = empty): FoldState =>
@@ -19,13 +38,18 @@ const foldAll = (events: OpenCodeEvent[], from: FoldState = empty): FoldState =>
 
 describe("tidyToolTitle", () => {
   it("shows workspace files by their relative path", () => {
-    expect(tidyToolTitle("/Users/asq/Documents/OpenScience/demo/analyze.py")).toBe("demo/analyze.py");
-    expect(tidyToolTitle("mkdir -p /Users/asq/Documents/OpenScience/demo_analysis")).toBe(
+    expect(tidyToolTitle("/Users/asq/Documents/AI4HEOR/demo/analyze.py")).toBe("demo/analyze.py");
+    expect(tidyToolTitle("mkdir -p /Users/asq/Documents/AI4HEOR/demo_analysis")).toBe(
       "mkdir -p demo_analysis",
     );
     // OpenCode's write-tool titles drop the leading slash — must still relativize.
-    expect(tidyToolTitle("Users/asq/Documents/OpenScience/demo_analysis/analyze.py")).toBe(
+    expect(tidyToolTitle("Users/asq/Documents/AI4HEOR/demo_analysis/analyze.py")).toBe(
       "demo_analysis/analyze.py",
+    );
+  });
+  it("keeps legacy OpenScience session logs relative after migration", () => {
+    expect(tidyToolTitle("Users/asq/Documents/OpenScience/legacy/report.md")).toBe(
+      "legacy/report.md",
     );
   });
   it("leaves non-workspace titles unchanged", () => {
@@ -68,7 +92,7 @@ describe("toolPresentation", () => {
   });
   it("file tools: verb + relative path", () => {
     expect(
-      toolPresentation("write", "", { filePath: "/Users/asq/Documents/OpenScience/demo/train.py" }),
+      toolPresentation("write", "", { filePath: "/Users/asq/Documents/AI4HEOR/demo/train.py" }),
     ).toEqual({ verb: "Created", title: "demo/train.py" });
     expect(toolPresentation("edit", "", { filePath: "config.yaml" })).toEqual({
       verb: "Edited",
@@ -78,13 +102,6 @@ describe("toolPresentation", () => {
   it("unknown tools keep the old fallback chain, no verb", () => {
     expect(toolPresentation("mcp_thing", "did something", {})).toEqual({ title: "did something" });
     expect(toolPresentation("mcp_thing", "", {})).toEqual({ title: "mcp_thing" });
-  });
-});
-
-describe("datedWorkspaceName", () => {
-  it("formats a zero-padded YYYY-MM-DD-HHMM folder name", () => {
-    expect(datedWorkspaceName(new Date(2026, 6, 4, 16, 5))).toBe("2026-07-04-1605");
-    expect(datedWorkspaceName(new Date(2026, 0, 9, 3, 40))).toBe("2026-01-09-0340");
   });
 });
 
@@ -140,7 +157,7 @@ describe("foldEvent", () => {
     // OpenCode only sets a write/edit tool's title on completion — while the
     // tool runs, the file path in its input is the only thing worth showing.
     const s = foldAll([
-      { type: "tool.updated", sessionId: S, callId: "c1", tool: "write", status: "running", input: { filePath: "/Users/asq/Documents/OpenScience/2026-07-04/index.html", content: "<!doctype html>" } },
+      { type: "tool.updated", sessionId: S, callId: "c1", tool: "write", status: "running", input: { filePath: "/Users/asq/Documents/AI4HEOR/2026-07-04/index.html", content: "<!doctype html>" } },
     ]);
     expect(s.blocks[0]).toMatchObject({
       kind: "tool-call",
@@ -313,26 +330,6 @@ describe("historyToThread", () => {
     ]);
   });
 
-  it("shows a failed turn's error on reload instead of an unexplained empty reply", () => {
-    const msgs: HistoryMessage[] = [
-      { role: "user", parts: [{ type: "text", text: "hi" }] },
-      { role: "assistant", completed: 2, error: "no channel available for this model", parts: [] },
-    ];
-    const t = historyToThread(msgs);
-    expect(t.blocks).toEqual([
-      { kind: "user", text: "hi" },
-      { kind: "status-line", text: "no channel available for this model", tone: "error" },
-    ]);
-  });
-
-  it("keeps user-interrupted turns quiet: an aborted error adds no red line", () => {
-    const msgs: HistoryMessage[] = [
-      { role: "user", parts: [{ type: "text", text: "hi" }] },
-      { role: "assistant", completed: 2, error: "The operation was aborted.", parts: [] },
-    ];
-    expect(historyToThread(msgs).blocks).toEqual([{ kind: "user", text: "hi" }]);
-  });
-
   it("falls back to the bash command as the row title (agent steps too)", () => {
     const msgs: HistoryMessage[] = [
       {
@@ -380,20 +377,6 @@ describe("historyToThread", () => {
     ]);
     expect(t.blocks[0]).toEqual({ kind: "user", text: "/growth-marketing" });
     expect(t.blocks[2]).toEqual({ kind: "user", text: "/growth-marketing 帮我设计增长方式" });
-  });
-
-  it("collapses a template whose $ARGUMENTS placeholder sits mid-template (goal plugin)", () => {
-    // The goal plugin's command embeds the args INSIDE the template, with a
-    // long instruction block after them — prefix/suffix matching around
-    // $ARGUMENTS must recover the typed "/goal <args>".
-    const template =
-      'OpenCode goal mode command "/goal" was invoked.\n\nArguments:\n<goal_command_arguments>\n$ARGUMENTS\n</goal_command_arguments>\n\nUse the goal tools to handle this command:\n- If the arguments are empty, call get_goal…';
-    const expanded = template.replace("$ARGUMENTS", "梳理项目，做一个详细剧情docx。");
-    const msgs: HistoryMessage[] = [
-      { role: "user", parts: [{ type: "text", text: expanded }] },
-    ];
-    const t = historyToThread(msgs, [{ name: "goal", source: "command", template }]);
-    expect(t.blocks[0]).toEqual({ kind: "user", text: "/goal 梳理项目，做一个详细剧情docx。" });
   });
 
   it("leaves a long pasted user text alone when it matches no template", () => {

@@ -1,0 +1,157 @@
+{
+  "schema_version": "0.1.0",
+  "bia_id": "golden-three-year-budget-impact",
+  "analysis_id": "golden-two-strategy-markov",
+  "status": "ready_for_human_review",
+  "base_analysis": {
+    "path": "heor/analysis-plan.json",
+    "content_sha256": "c040cd1c6fe45ef5864aca4c655027836a24ef6ebaa5adefb747d05ff0740c05"
+  },
+  "perspective": {
+    "type": "budget_holder",
+    "budget_holder": "Synthetic payer",
+    "jurisdiction": "China",
+    "currency": "CNY",
+    "price_year": 2026,
+    "alignment_rationale": "Synthetic payer costs only for a deterministic golden fixture."
+  },
+  "horizon_years": 3,
+  "discount_rate": 0,
+  "population": {
+    "label": "Annual eligible treated population",
+    "annual_eligible": [1000, 1100, 1200],
+    "derivation": "Synthetic annual totals for a hand-checkable golden fixture."
+  },
+  "strategies": {
+    "comparator": {"id": "standard_care", "label": "Standard care"},
+    "intervention": {"id": "new_treatment", "label": "New treatment"}
+  },
+  "market_scenarios": {
+    "without_new_intervention": {
+      "label": "Without access",
+      "intervention_share_by_year": [0, 0, 0]
+    },
+    "with_new_intervention": {
+      "label": "With access",
+      "intervention_share_by_year": [0.1, 0.2, 0.3]
+    }
+  },
+  "cost_categories": [
+    {
+      "id": "treatment",
+      "label": "Treatment acquisition and administration",
+      "type": "intervention",
+      "included": true,
+      "rationale": "Direct treatment costs borne by the synthetic payer.",
+      "annual_per_patient": {
+        "comparator": [10000, 10000, 10000],
+        "intervention": [16000, 16000, 16000]
+      }
+    },
+    {
+      "id": "condition",
+      "label": "Condition-related care",
+      "type": "condition_related",
+      "included": true,
+      "rationale": "Direct condition-related costs borne by the synthetic payer.",
+      "annual_per_patient": {
+        "comparator": [5000, 5000, 5000],
+        "intervention": [4000, 4000, 4000]
+      }
+    }
+  ],
+  "excluded_cost_categories": [
+    {
+      "category": "indirect costs",
+      "rationale": "Outside the synthetic budget-holder perspective."
+    }
+  ],
+  "non_patient_costs": [
+    {
+      "id": "implementation",
+      "label": "Implementation programme",
+      "type": "implementation",
+      "included": true,
+      "rationale": "Scenario-level implementation costs are not allocated per patient.",
+      "annual_total": {
+        "without_new_intervention": [0, 0, 0],
+        "with_new_intervention": [50000, 20000, 10000]
+      }
+    }
+  ],
+  "sensitivity_parameters": [
+    {
+      "id": "eligible-population-year-1",
+      "label": "Year 1 eligible population",
+      "target": "/population/annual_eligible/0",
+      "low": 900,
+      "high": 1100,
+      "basis_ids": ["golden-synthetic" ]
+    },
+    {
+      "id": "uptake-year-3",
+      "label": "Year 3 intervention uptake",
+      "target": "/market_scenarios/with_new_intervention/intervention_share_by_year/2",
+      "low": 0.2,
+      "high": 0.4,
+      "basis_ids": ["golden-synthetic"]
+    }
+  ],
+  "alternative_scenarios": [
+    {
+      "scenario_id": "faster-uptake",
+      "label": "Faster uptake",
+      "rationale": "Synthetic higher uptake trajectory for scenario testing.",
+      "overrides": [
+        {"target": "/market_scenarios/with_new_intervention/intervention_share_by_year/0", "value": 0.15},
+        {"target": "/market_scenarios/with_new_intervention/intervention_share_by_year/1", "value": 0.25},
+        {"target": "/market_scenarios/with_new_intervention/intervention_share_by_year/2", "value": 0.35}
+      ],
+      "basis_ids": ["golden-synthetic"]
+    }
+  ],
+  "evidence_sources": [],
+  "assumptions": [
+    {
+      "id": "golden-synthetic",
+      "statement": "All numeric inputs are synthetic values used only for deterministic contract testing.",
+      "reason": "The fixture must be hand-checkable and must not imply clinical evidence.",
+      "status": "proposed"
+    }
+  ],
+  "input_provenance": [
+    {"path": "/population/annual_eligible/0", "assumption_ids": ["golden-synthetic"], "unit": "patients", "jurisdiction": "China", "selection_rationale": "Synthetic fixture", "uncertainty_status": "range_available"},
+    {"path": "/population/annual_eligible/1", "assumption_ids": ["golden-synthetic"], "unit": "patients", "jurisdiction": "China", "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/population/annual_eligible/2", "assumption_ids": ["golden-synthetic"], "unit": "patients", "jurisdiction": "China", "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/market_scenarios/with_new_intervention/intervention_share_by_year/0", "assumption_ids": ["golden-synthetic"], "unit": "proportion", "jurisdiction": "China", "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/market_scenarios/with_new_intervention/intervention_share_by_year/1", "assumption_ids": ["golden-synthetic"], "unit": "proportion", "jurisdiction": "China", "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/market_scenarios/with_new_intervention/intervention_share_by_year/2", "assumption_ids": ["golden-synthetic"], "unit": "proportion", "jurisdiction": "China", "selection_rationale": "Synthetic fixture", "uncertainty_status": "range_available"},
+    {"path": "/cost_categories/0/annual_per_patient/comparator/0", "assumption_ids": ["golden-synthetic"], "unit": "CNY/patient/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/cost_categories/0/annual_per_patient/comparator/1", "assumption_ids": ["golden-synthetic"], "unit": "CNY/patient/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/cost_categories/0/annual_per_patient/comparator/2", "assumption_ids": ["golden-synthetic"], "unit": "CNY/patient/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/cost_categories/0/annual_per_patient/intervention/0", "assumption_ids": ["golden-synthetic"], "unit": "CNY/patient/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/cost_categories/0/annual_per_patient/intervention/1", "assumption_ids": ["golden-synthetic"], "unit": "CNY/patient/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/cost_categories/0/annual_per_patient/intervention/2", "assumption_ids": ["golden-synthetic"], "unit": "CNY/patient/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/cost_categories/1/annual_per_patient/comparator/0", "assumption_ids": ["golden-synthetic"], "unit": "CNY/patient/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/cost_categories/1/annual_per_patient/comparator/1", "assumption_ids": ["golden-synthetic"], "unit": "CNY/patient/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/cost_categories/1/annual_per_patient/comparator/2", "assumption_ids": ["golden-synthetic"], "unit": "CNY/patient/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/cost_categories/1/annual_per_patient/intervention/0", "assumption_ids": ["golden-synthetic"], "unit": "CNY/patient/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/cost_categories/1/annual_per_patient/intervention/1", "assumption_ids": ["golden-synthetic"], "unit": "CNY/patient/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/cost_categories/1/annual_per_patient/intervention/2", "assumption_ids": ["golden-synthetic"], "unit": "CNY/patient/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/non_patient_costs/0/annual_total/without_new_intervention/0", "assumption_ids": ["golden-synthetic"], "unit": "CNY/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/non_patient_costs/0/annual_total/without_new_intervention/1", "assumption_ids": ["golden-synthetic"], "unit": "CNY/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/non_patient_costs/0/annual_total/without_new_intervention/2", "assumption_ids": ["golden-synthetic"], "unit": "CNY/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/non_patient_costs/0/annual_total/with_new_intervention/0", "assumption_ids": ["golden-synthetic"], "unit": "CNY/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/non_patient_costs/0/annual_total/with_new_intervention/1", "assumption_ids": ["golden-synthetic"], "unit": "CNY/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"},
+    {"path": "/non_patient_costs/0/annual_total/with_new_intervention/2", "assumption_ids": ["golden-synthetic"], "unit": "CNY/year", "jurisdiction": "China", "price_year": 2026, "selection_rationale": "Synthetic fixture", "uncertainty_status": "fixed"}
+  ],
+  "validation_plan": {
+    "face": ["Review eligible population, uptake, and included costs with the budget holder."],
+    "internal": ["Recalculate every annual scenario total independently."],
+    "external": ["Compare year-one estimates with observed payer expenditure when available."]
+  },
+  "limitations": [
+    "Synthetic golden fixture; values are not clinical or payer evidence.",
+    "The two-strategy cost calculator does not represent induced demand, dynamic cohort entry and exit, or more than two treatments."
+  ]
+}

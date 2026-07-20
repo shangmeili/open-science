@@ -1,14 +1,24 @@
 {
+  "workbench": { "title": "Espace de recherche" },
+  "newTask": {
+    "title": "Nouvelle tâche",
+    "heading": "Quel travail HEOR souhaitez-vous traiter aujourd'hui ?",
+    "suggestions": {
+      "scope": { "title": "Cadrer la question de recherche", "prompt": "Aidez-moi à cadrer ce problème de décision pharmaco-économique ou HEOR. Confirmez la population, l'intervention, le comparateur, les résultats, la perspective, l'horizon temporel et l'usage prévu, et ne demandez que les informations susceptibles de modifier sensiblement l'étude." },
+      "evidence": { "title": "Trouver et organiser les preuves", "prompt": "Aidez-moi à trouver et organiser les preuves nécessaires à cette étude pharmaco-économique. Clarifiez d'abord la question de décision et les lacunes, puis identifiez les sources locales, les recherches nécessaires, la provenance et les limites. Avant tout accès réseau, affichez la requête exacte et les champs qui seraient envoyés." },
+      "model": { "title": "Concevoir ou examiner un modèle", "prompt": "Aidez-moi à concevoir ou examiner ce modèle d'économie de la santé. Examinez la structure, les preuves des paramètres, les hypothèses clés, l'incertitude et la validation, et distinguez les erreurs de calcul des questions qui exigent le jugement du chercheur." },
+      "deliverable": { "title": "Analyser des données ou préparer une présentation", "prompt": "Aidez-moi dans cette tâche pharmaco-économique ou HEOR. Je peux fournir des données, un modèle, un rapport ou des exigences de présentation. Recensez d'abord les documents disponibles et le livrable attendu, puis proposez une démarche vérifiable." }
+    }
+  },
   "notFound": {
-    "title": "Session introuvable",
-    "hint": "Choisissez une session dans la barre latérale."
+    "title": "Tâche introuvable",
+    "hint": "Choisissez une tâche dans la barre latérale."
   },
   "composer": {
     "placeholder": {
       "default": "Posez n'importe quelle question",
       "arguments": "Arguments (facultatif) — Entrée pour exécuter",
-      "shell": "Exécuter une commande shell dans le dossier de l'espace de travail",
-      "plan": "Décrivez quoi planifier — aucun fichier ne sera modifié"
+      "shell": "Exécuter une commande shell dans le dossier de l'espace de travail"
     },
     "commandsAria": "Commandes",
     "source": {
@@ -28,7 +38,7 @@
     },
     "shellMode": {
       "badge": "shell",
-      "title": "S'exécute directement dans le dossier de l'espace de travail de la session"
+      "title": "S'exécute directement dans le dossier de l'espace de travail de la tâche"
     },
     "stop": {
       "aria": "Arrêter",
@@ -36,20 +46,6 @@
     },
     "send": {
       "aria": "Envoyer"
-    },
-    "agent": {
-      "aria": "Mode de l'agent",
-      "title": "Planifier d'abord ou exécuter directement",
-      "menuAria": "Modes de l'agent",
-      "menuTitle": "Comment l'agent doit-il travailler ?",
-      "build": {
-        "label": "Exécuter",
-        "description": "Modifie des fichiers et lance des commandes"
-      },
-      "plan": {
-        "label": "Planifier",
-        "description": "Lecture seule : recherche et rédige d'abord un plan"
-      }
     },
     "approval": {
       "aria": "Mode d'approbation",
@@ -75,25 +71,41 @@
     "clearDescription": "Identique à /new ; les fichiers restent dans ce dossier",
     "cleared": "Contexte du chat effacé. Les fichiers restent dans le même dossier."
   },
+  "firstRun": {
+    "title": "Commencez en gardant le contrôle",
+    "body": "AI4HEOR assiste votre recherche ; il ne dirige pas l’étude et ne prend pas de décisions scientifiques à votre place.",
+    "points": {
+      "local": { "title": "Local par défaut", "body": "Les projets et fichiers restent sur cet appareil, sauf utilisation explicite d’un service externe." },
+      "provider": { "title": "Vous choisissez le modèle", "body": "Choisissez un fournisseur compatible ou un point d’accès local. Rien n’est envoyé avant l’envoi d’une demande de recherche." },
+      "approval": { "title": "Actions toujours révisables", "body": "Le mode par défaut demande confirmation avant suppression, installation, accès réseau ou distant, et élévation de privilèges." },
+      "human": { "title": "Autorité scientifique humaine", "body": "La sortie du modèle est un brouillon. Méthodes, preuves, hypothèses, interprétation, validation et diffusion restent des décisions humaines." }
+    },
+    "continue": "Accéder à l’espace HEOR",
+    "settings": "Vérifier le modèle et la confidentialité"
+  },
   "starters": {
-    "newSession": "Nouvelle session",
-    "heading": "Que devrions-nous explorer ?",
-    "subheading": "Décrivez votre analyse ci-dessous — ou partez de l'un de ces exemples.",
-    "demo": {
-      "title": "Exécuter une analyse de démonstration, de bout en bout",
-      "description": "Simuler un jeu de données, ajuster un modèle, et produire une figure et un rapport traçable."
+    "newSession": "Nouvelle tâche",
+    "heading": "Quelle question HEOR devons-nous traiter ?",
+    "subheading": "Décrivez votre question pharmacoéconomique ou commencez par un flux dirigé par le chercheur.",
+    "design": {
+      "title": "Démarrer une étude pharmacoéconomique",
+      "description": "Définir le problème de décision, le modèle conceptuel, les besoins en données et les revues humaines.",
+      "prompt": "Aidez-moi à démarrer une étude pharmacoéconomique ou HEOR dirigée par le chercheur humain. Utilisez $heor-workbench et $heor-model-design. Clarifiez d'abord population, intervention, comparateurs, résultats, perspective, juridiction, horizon, contexte de décision, données disponibles et usage prévu. Préparez ensuite des artefacts locaux révisables et un plan explicite. Ne choisissez pas les méthodes, hypothèses, données, seuils ou approbations à la place du chercheur."
     },
     "analyze": {
-      "title": "Analyser mes données",
-      "description": "Indiquez à l'agent un fichier que vous avez ajouté ; obtenez des figures et un rapport en retour."
+      "title": "Analyser mes données ou preuves HEOR",
+      "description": "Inventorier les éléments locaux, préciser l'estimand et proposer une analyse auditable.",
+      "prompt": "Aidez-moi à analyser les données ou preuves HEOR de ce projet. Utilisez $heor-workbench pour inventorier d'abord les fichiers locaux, puis confirmez avec moi la question de décision, l'estimand, la population, le comparateur, les résultats et la méthode avant exécution. Préservez la provenance et le calcul déterministe et arrêtez-vous aux décisions Human-in-the-loop de méthode et d'interprétation."
     },
     "audit": {
-      "title": "Auditer un rapport pour sa traçabilité",
-      "description": "Vérifier les citations, les chiffres non sourcés et la cohérence entre figures et code."
+      "title": "Auditer un modèle ou rapport HEOR",
+      "description": "Vérifier méthodes, entrées, liens modèle-résultat, rapport, limites et reproductibilité.",
+      "prompt": "Auditez le modèle, l'analyse ou le rapport HEOR actuel avec les Skills AI4HEOR appropriées de validation, rapport, reproductibilité et traçabilité. En cas d'ambiguïté, demandez quel graphe d'artefacts examiner. Séparez les défauts déterministes des jugements scientifiques et ne créez aucune approbation humaine."
     },
-    "example-climate": {
-      "title": "Explorer un exemple : tendances climatiques",
-      "description": "Données réelles NASA GISTEMP — tendance, comparaison décennale, figure et rapport."
+    "example-cea": {
+      "title": "Explorer un exemple : analyse coût-efficacité",
+      "description": "Entrées synthétiques de cohorte à deux stratégies pour un flux coût-utilité auditable.",
+      "prompt": "Utilisez $heor-workbench pour explorer les fichiers synthétiques sous heor-cost-effectiveness/. Traitez chaque nombre comme une hypothèse pédagogique, non comme une preuve. Expliquez le problème de décision, examinez la cohorte à trois états, reproduisez coûts et QALY par code déterministe, réalisez une sensibilité transparente et préparez un rapport avec limites et points de revue humaine. Aucune approbation ni conclusion de remboursement."
     },
     "error": {
       "setup": "Impossible de configurer l'exemple : {{message}}"
@@ -101,9 +113,8 @@
   },
   "live": {
     "runtime": {
-      "title": "Runtime OpenCode",
-      "bodyPrefix": "L'application de bureau exécute automatiquement un OpenCode intégré. Dans le navigateur, démarrez-en un avec",
-      "bodySuffix": " puis connectez-vous."
+      "title": "Assistant IA indisponible",
+      "body": "Reconnectez-vous ou vérifiez le runtime de l’assistant IA dans les paramètres. Vos fichiers de projet locaux restent disponibles."
     },
     "connect": "Connecter",
     "subagentFallback": "un sous-agent",
@@ -113,17 +124,18 @@
     },
     "filesToggle": {
       "default": "Fichiers",
-      "title": "Parcourir le dossier de cette session à côté du chat"
+      "title": "Parcourir le dossier de cette tâche à côté du chat"
     },
     "runsToggle": {
       "label": "Exécutions",
-      "title": "Les exécutions d'expériences de cette session — à côté du chat"
+      "title": "Les exécutions d'analyse de cette tâche — à côté du chat"
     },
     "notebook": {
-      "openTitle": "Ouvrir {{path}} — l'agent travaille sur ce notebook dans cette session"
+      "openTitle": "Ouvrir {{path}} — l'assistant travaille sur ce notebook dans cette tâche",
+      "evaluatePrompt": "Exécutez ceci dans le noyau du notebook :\n```python\n{{expr}}\n```"
     },
     "connBadge": {
-      "title": "OpenCode · {{status}}",
+      "title": "Assistant IA · {{status}}",
       "status": {
         "ready": "prêt",
         "connecting": "connexion…",
@@ -133,8 +145,7 @@
     },
     "status": {
       "paused": "En pause — l'agent attend votre réponse ci-dessous",
-      "startingSession": "Démarrage de la session dans son dossier…",
-      "retrying": "Erreur du fournisseur — nouvelle tentative (essai {{attempt}})",
+      "startingSession": "Démarrage de la tâche dans son dossier…",
       "working": "En cours…"
     },
     "placeholder": {
@@ -200,7 +211,8 @@
     "annotationAria": "Annotation {{index}} : {{note}}",
     "notePlaceholder": "Ajouter une note…",
     "noteAria": "Note d'annotation",
-    "send": "Envoyer"
+    "send": "Envoyer",
+    "commentPrompt": "Vérifiez la note sur la figure {{title}} à la position ({{x}} %, {{y}} %) : {{note}}"
   },
   "reviewer": {
     "heading": "Réviseur",
@@ -243,28 +255,16 @@
   },
   "thread": {
     "exampleBadge": "Exemple · lecture seule",
-    "sampleNotice": "Il s'agit d'une session d'exemple. Démarrez une session d'agent en direct pour discuter réellement."
+    "sampleNotice": "Cet exemple est en lecture seule. Démarrez une nouvelle tâche pour continuer dans AI4HEOR."
   },
   "workspaceChip": {
     "fallbackName": "Espace de travail",
     "titlePinned": "{{workspace}} — cliquez pour choisir un autre dossier",
     "titleUnpinned": "Démarre dans un nouveau dossier daté ({{name}}) — cliquez pour choisir un dossier à la place",
-    "chooseAria": "Choisir le dossier de la session",
+    "chooseAria": "Choisir le dossier de la tâche",
     "switching": "Changement en cours…"
   },
   "agentMessage": {
     "previewTitle": "Aperçu de {{path}}"
-  },
-  "goal": {
-    "label": "Objectif",
-    "running": "en cours",
-    "runningTurns": "tour auto {{count}}",
-    "paused": "en pause",
-    "done": "terminé",
-    "pauseAria": "Mettre l'objectif en pause (stoppe la continuation auto)",
-    "resumeAria": "Reprendre l'objectif",
-    "clearAria": "Retirer l'objectif",
-    "unmet": "bloqué",
-    "limited": "limite atteinte"
   }
 }

@@ -1,0 +1,1267 @@
+# AI4HEOR Product Contract
+
+## Purpose
+
+AI4HEOR is a local-first, model-provider-agnostic desktop workbench for
+pharmacoeconomic research. It uses Open Science Desktop as its platform base,
+but keeps decision calculations in a deterministic, testable engine rather than
+in a language model.
+
+Natural-language conversation is the primary research interface. The agent
+assists the researcher by turning researcher-defined intent into reviewable files,
+evidence records, code, and runs. The human researcher leads the scientific work:
+they frame the question, select methods and evidence, resolve assumptions, interpret
+results, and own every decision-relevant judgment. The agent may propose, execute,
+check, and explain, but it does not direct the research programme.
+Structured controls are secondary surfaces for inspecting parameters, resolving
+ambiguity, and recording human decisions; they must not turn the workbench into
+a form-led modeling application.
+
+The natural-language work surface must remain operable without pointer input. Every
+interactive control receives a visible product-level keyboard focus indicator; the shell
+provides a localized skip link to bypass navigation and place focus on the HEOR workspace;
+and normal-sized supporting text in the light theme maintains at least 4.5:1 contrast on
+the product's paper and card backgrounds. These are minimum implementation contracts, not
+a claim of full WCAG conformance or assistive-technology acceptance.
+
+Method currency follows the same boundary. The first-party
+`$heor-methods-watchlist` records official canonical links, observed revisions,
+dated checks, reuse status, affected platform contracts, and Agent preparation
+work in `heor/methods-watchlist.json`. Its native and portable audits can expose
+an overdue check or unresolved change, but the Agent-writable artifact cannot
+store a Human disposition. The auxiliary desktop control records the researcher's
+`accept_revalidation` or `dismiss_change` decision in an app-private hash-linked
+event chain bound to the exact watchlist SHA-256 and exports an immutable review
+snapshot. Any watchlist-byte change invalidates the effective disposition.
+Neither route can decide scientific relevance, grant content rights, rewrite
+downstream research artifacts, or approve a method. Restricted sources remain
+link-only unless the researcher supplies a lawful local snapshot and explicit
+rights basis.
+
+## Bounded natural-history model calibration
+
+The first-party `$heor-model-calibration` Skill supports one deliberately narrow
+point-calibration question: a researcher has already defined a homogeneous
+continuous-time cohort natural-history model, its 2–6 states and time origin,
+fixed transition rates, 1–4 unobservable transition rates with evidence-based
+bounds, and compatible aggregate state-occupancy targets. At least one target is
+assigned to held-out validation before fitting, and the number of calibration
+targets must exceed the number of unknown rates.
+
+The local dependency-free engine evaluates the generator with uniformization,
+uses target standard errors only to scale squared residuals, and runs one fixed
+seven-level grid plus eight-start bounded pattern search. It preserves every
+evaluation, every local solution, the selected candidate, training and held-out
+residuals, and a finite-difference local rank/conditioning diagnostic. The
+portable auditor regenerates the complete search; native Rust independently
+recalculates the selected point, occupancy predictions, held-out RMSE, and local
+identifiability. Neither implementation turns the loss into a likelihood claim,
+uses an automatic fit threshold, or treats a local full-rank result as proof of
+global identifiability.
+
+The result stops at an app-owned eight-check Human method review bound to the
+exact request, evidence, evaluator, search trace, and manifest. Acceptance makes
+that exact candidate eligible only for a later, separately governed input-
+selection workflow. It never edits an economic model automatically. Bayesian or
+probabilistic calibration, target covariance, calibrated-parameter uncertainty
+propagation, treatment-effect fitting, individual simulation, time-varying rates,
+structural calibration, automatic target/bound/model selection, and scientific-
+validity claims remain outside this alpha.
+
+## Bounded semi-Markov individual-level microsimulation
+
+The first-party `$heor-semi-markov-microsimulation` Skill supports one closed,
+non-interacting individual state-transition model when the researcher has already
+justified that time in state or capped prior-event history materially changes
+transitions or rewards and transparent cohort-state expansion is unmanageable.
+Schema `0.1.0` admits 2–8 states with exactly one absorbing death state, 2–4
+researcher-defined strategies, 1–3 capped event-entry trackers, complete conditional
+probability rows, annual state costs and utilities, transition-event costs, separate
+cost and outcome discounting, and prespecified sampled patient traces.
+
+The dependency-free engine uses a counter-based SplitMix64 top-53-bit generator.
+Every strategy receives the same initialization and patient-cycle uniforms for a
+given seed, replicate, patient, cycle, and stream, so paired comparisons use common
+random numbers without path-dependent stream drift. Three to twenty independent
+replicates, 100–50,000 patients per replicate, and a five-million patient-strategy-
+cycle cap make the execution boundary explicit. The result reports disaggregated
+costs, QALYs, life-years, occupancy, tracker summaries, paired increments, patient-
+level standard errors, between-replicate variation, and sampled traces; it never
+uses an automatic precision or strategy-selection threshold.
+
+Portable audit reruns every patient cycle. Native Rust separately parses the current
+request and evidence, embeds and binds the evaluator source, regenerates every
+counter draw, transition, reward, aggregate, comparison, and sampled trace, and
+fails closed on any drift. The app-owned eight-check Human method review binds the
+exact request, evidence, evaluator, trace, and manifest. Acceptance is only a local
+assertion that the exact simulation may be considered for later model use; neither
+the Agent nor the Skill can create that record or replace a downstream model input.
+
+Interactions, transmission, queues, resource constraints, open populations,
+continuous-time discrete-event simulation, continuous or changing covariates,
+dynamic treatment policies, parameter uncertainty, calibration, structural
+averaging, automatic sample-size/stability/model selection, cost-effectiveness or
+reimbursement conclusions, and automatic downstream use remain outside this alpha.
+
+## Accountabilities
+
+- The product owner sets scope and accepts product behavior.
+- Codex leads AI4HEOR product construction: repository research, architecture,
+  implementation, tests, documentation, and cross-platform build work.
+- In the shipped workbench, the human researcher leads the HEOR study; the model
+  and runtime are assistants operating under the researcher's scope and choices.
+- A qualified human reviewer approves decision-relevant research choices.
+- An independent reviewer validates decision models. Codex self-review is not
+  independent validation.
+
+## Seeded research-assistant contract
+
+Every newly created AI4HEOR project receives a product-owned runtime harness.
+That harness defines a research assistant, not a research director: it starts
+from the researcher's question and delegated task, continues reversible execution
+when the required choices are explicit, and stops when a scientific or method
+choice is missing. It cannot invent a research programme, approve a gate, treat
+self-checking as independent review, rewrite its own operating policy, or promote
+task-local observations into policy.
+
+Natural-language conversation remains the control surface for delegation and
+scientific judgment. Forms record app-owned Human decisions or inspect exact
+artifacts; they do not transfer scientific leadership to the runtime. To protect
+user-authored project instructions, harness seeding is deliberately non-clobbering.
+An existing project is never silently rewritten when the bundled contract changes.
+
+The product applies the same authority boundary to every model provider and local
+endpoint. Only the Human-selected provider may be used, provider failure cannot
+silently reroute research content, and every model output remains a draft pending
+Human scientific review. Imported files, datasets, papers, web content, connector/MCP
+results, tool output, and model artifacts are untrusted data rather than instructions;
+they cannot alter governance, select a method or provider, authorize disclosure, or
+create an approval.
+
+The paired `policy.json` makes this contract machine-readable. New-project creation
+validates the exact source tree and policy, rejects missing, extra, empty, tampered,
+or linked resources, copies only missing files, and verifies the new bytes before the
+project can become active. Failure returns visibly and rolls back only that newly
+created incomplete directory. No HEOR project is allowed to open without its complete
+research contract.
+
+## First-use control boundary
+
+A fresh local app profile presents one concise, non-blocking guide above the HEOR
+conversation. It states four boundaries before the researcher begins: project files
+stay local unless an external service is explicitly used; the researcher chooses the
+model provider or local endpoint and content is sent only with a research request;
+the default approval mode asks before destructive, installation, network, remote, or
+privileged actions; and every model output remains a draft until Human scientific
+review. The same guide is shipped in English, Simplified Chinese, Japanese, Spanish,
+German, French, and Korean.
+
+This guide contains no scientific intake form, does not select a provider, method,
+evidence source, assumption, or approval, and does not hide the natural-language
+research starters. Its local completion marker is only a UI preference; it is not a
+consent record, research approval, authenticated identity, or release event. Opening
+model and privacy settings does not mark the guide complete.
+
+## HEOR project initiation contract
+
+AI4HEOR opens on the HEOR natural-language workspace, not the inherited generic
+session surface. “New HEOR project” asks only for a local project name, creates a
+typed `kind: "heor"` project marker, seeds the researcher-led harness, switches the
+workspace, and opens `/heor`. The project name is storage metadata, not a scientific
+form and not a decision problem.
+
+The bundled agent engine is platform implementation, not an AI4HEOR research
+feature or product identity. Research surfaces therefore show only a localized
+“AI assistant” readiness state and recovery action. Engine name and local endpoint
+are available only inside collapsed advanced diagnostics in Settings; implementation
+commands and ports never displace the HEOR conversation. This presentation boundary
+does not suppress real errors: user-facing recovery remains visible, while exact
+technical evidence stays available for troubleshooting.
+
+After creation, the composer contains a localized, unsent intake draft. It asks the
+researcher to define the decision, research, evaluation, or learning question and
+intended use before the assistant searches, selects a method, assumes an input, or
+creates a review artifact. The Human may edit or discard the draft. No model turn is
+started by project creation.
+
+Every session owned by a project opens under `/heor/:sessionId`; only older loose
+session folders retain `/live/:sessionId` compatibility. Project metadata version 2
+adds the HEOR kind. Version-1 project markers without the field load as HEOR projects,
+so upgrading does not strand existing work. A marker that explicitly declares a
+different kind is not eligible for app-owned HEOR approval or execution commands.
+
+## MVP decision problem
+
+The current complete cost-effectiveness workflow compares 2–16 explicitly
+ordered strategies against a declared baseline using a static or piecewise
+model-cycle-dependent cohort state-transition model. The bounded three-year
+budget impact analysis explicitly selects two of those strategies. Both deterministic
+calculation paths, independent validation, hash-bound reporting, and the
+human-controlled local release gate are implemented.
+
+## Non-negotiable boundaries
+
+1. Language models may draft inputs, explanations, and code, but they do not
+   produce the authoritative cost, QALY, ICER, net benefit, or budget result.
+2. A run is not decision-ready until the decision problem, independent
+   `heor/conceptual-model.json` artifact, hash-bound reference-case assessment,
+   executable uncertainty plan, executable budget impact plan, and analysis
+   plan are approved by a human, an independent reviewer has submitted an
+   approvable validation package bound to all four current model artifacts, and
+   a named human release owner has approved the current report package after
+   deterministic result reproduction.
+3. Every decision-relevant value must carry a source, unit, jurisdiction,
+   selection rationale, and uncertainty status before public beta. Monetary
+   values also require a common currency and price year plus a reproducible
+   normalization trail.
+4. Results must trace to input, engine version, reference-case version, and run
+   environment.
+5. The MVP accepts public or non-sensitive data only. Patient-level, claims,
+   EHR, or other restricted data are out of scope until the security boundary is
+   independently reviewed.
+6. Current guidance and draft guidance are separate reference-case profiles.
+   Draft guidance must never be presented as a binding current requirement.
+7. Valuable third-party HEOR assets are adapted through the admission and
+   industrialization gates in `docs/HEOR_ECOSYSTEM.md`; upstream popularity or
+   a passing upstream test suite is insufficient for bundling.
+
+## Product states
+
+```text
+draft -> scoped -> plan-approved -> computed -> validated -> released
+```
+
+Only a human can move a project through `scoped`, `plan-approved`, `validated`,
+or `released`. Automated checks may block a transition but cannot approve it.
+
+The conceptual-model review surface also renders the exact current
+`heor/conceptual-model.json` as deterministic SVG and editable GraphML. The
+researcher may change node coordinates in the app, but every state, transition,
+label, trigger, and absorbing flag still comes from the source JSON. Layout and
+export files are SHA-256-bound, remain `awaiting_human_review`, become stale when
+the model changes, and are never imported back as model authority. AI4HEOR
+refuses to overwrite an output edited outside the app.
+
+The alpha desktop service keeps its canonical approval log in app-owned data,
+outside the agent workspace. It fails closed on malformed history and links
+events with an unanchored SHA-256 chain. This detects partial or inconsistent
+edits but cannot prove non-tampering against a same-user process that can rewrite
+the entire log. The actor label is also a local human assertion until an
+OS-keychain-backed signature and identity flow is independently reviewed. The
+dedicated desktop review surface is the only initial approval entry point;
+analysis input metadata and agent-authored files can never self-authorize a run.
+
+## Human-authorized public evidence search
+
+The shipped alpha supports a natural-language-first search handoff for PubMed
+and ClinicalTrials.gov. The Agent uses `$heor-evidence-search` to draft and
+portably validate `heor/evidence-search-request.json`; it cannot execute the
+network call. The desktop audits the exact bytes and exposes the query, dates,
+fixed source allowlist, per-source cap, non-sensitive egress declaration, and
+SHA-256 for explicit human authorization.
+
+Native execution accepts no caller-controlled URL, header, credential, path, or
+arbitrary provider. It disables redirects, caps time and response size, verifies
+JSON responses, writes a new immutable run under
+`heor/evidence-search-runs/`, and appends a hash-linked authorization event to
+app-owned storage outside the Agent workspace. A changed request requires a new
+authorization.
+
+The evidence-synthesis ledger is now a native review surface rather than a
+manual copy step. The desktop re-verifies the app-owned authorization chain,
+active project, safe run path, exact request/run hashes, fixed endpoints,
+response hashes, result caps, and normalized record set before importing. A
+compare-and-swap synthesis hash prevents stale writes; repeated imports are
+idempotent; existing screening, appraisal, and extraction judgments are never
+overwritten. New records always enter as `not_assessed`, after which the Agent
+continues screening and extraction through `$heor-evidence-synthesis` in the
+natural-language workflow.
+
+Returned bibliographic and registry metadata is candidate
+evidence with initial screening status `not_assessed`; retrieval is not
+inclusion, appraisal, extraction, full-text verification, or proof that a
+systematic search is complete. OpenAlex and licensed databases remain out of
+scope until separate API-key, license, and consent boundaries are designed.
+
+## App-owned evidence verification and input selection
+
+Workspace fields such as `human_checked` and `verified_by` remain agent-writable
+activity records and are not trusted as approval facts. After a synthesis is
+structurally complete, the desktop exposes each exact extraction value, model
+target, record ID, source location, and applicability. An app-owned review event
+binds the exact synthesis SHA-256, a sorted set of eligible extraction IDs, one
+local reviewer label and rationale, and a `confirmed` or `rejected` decision.
+Events form a per-project append-only SHA-256 chain outside the workspace.
+
+Every selected extraction now requires confirmations from at least two distinct
+local reviewer labels. A label cannot review the same extraction twice for the
+same synthesis. Any rejection blocks that extraction from model-input approval;
+the evidence synthesis must be revised, which gives it a new SHA-256 and makes
+all prior decisions inapplicable. Schema-v1 single-reviewer events remain
+verifiable but count as one confirmation only.
+
+The analysis plan now binds the current `heor/evidence-synthesis.json` digest.
+Every source-based input mapping must name one or more `extraction_ids`; each
+extraction target must exactly equal the model-input path and its record ID must
+be a linked evidence-source ID. The native analysis-plan gate requires all
+selected IDs to exist in the current structurally complete synthesis and in the
+current dual-confirmed, non-rejected app-owned set, then binds the synthesis digest into the
+analysis-plan approval event. Execution, uncertainty, and budget-impact status
+repeat the check. Structural validation remains portable, but portable tools
+explicitly cannot claim human verification.
+
+This boundary records two distinct local labels and detects inconsistent or
+partial edits. It does not prove reviewer identity, source truth, blinding,
+duplicate independent extraction, consensus or arbitration, or resistance to
+an attacker able to rewrite the whole local app-data store. Cochrane requires
+at least two people to extract critical outcome data independently and a
+prespecified disagreement process; AI4HEOR does not claim that stronger method
+until identity, independent entry, and resolution workflow are implemented and
+used. OS-backed identity and external anchoring remain future hardening.
+
+## Executable evidence-to-model derivation
+
+Analysis-plan schema `0.3.0` closes the gap between a confirmed extraction and
+the number actually calculated. Every required input mapping copies its exact
+current model value into `derivation.model_value`; the plan audit rejects a
+stale or different snapshot. A source-based non-monetary input uses
+`direct_evidence`, exactly one extraction, and an `extracted_value` that parses
+as strict JSON and equals the complete scalar, vector, matrix, or boolean model
+value. An assumption-only input uses `explicit_assumption`, no extraction, and
+at least one `proposed` assumption.
+
+Source-based monetary values use `monetary_adjustment`. Every recorded source
+value binds to a selected extraction's JSON scalar or array index before the
+normalization arithmetic is checked. Every selected extraction must be used.
+The portable validator checks the current synthesis bytes; the native desktop
+repeats the same value audit in the app-owned selection boundary before it
+considers the dual-review status.
+
+The contract deliberately does not execute free-form formulas. A narrative in
+`selection_rationale` cannot authorize a hidden transformation. Schema `0.5.0`
+admits constant cause-specific competing event rates, schema `0.6.0` admits a
+bounded two-state survival schedule, and schema `0.7.0` admits the single-event
+probability time conversion described below. Schema `0.9.0` admits the bounded
+background-plus-excess mortality operation described below. Schema `0.10.0`
+admits only the bounded RR/OR relative-effect operation described below, and
+schema `0.11.0` admits only the bounded constant-HR operation described below.
+Other effect measures, pooling, calibration, interpolation, and general
+continuous-time matrix conversion remain incomplete. Schemas `0.1.0` and
+`0.2.0` remain calculable for reproducibility but cannot pass analysis-plan
+approval; static `0.3.0` and schedule-capable `0.4.0` plans remain approvable.
+
+Analysis-plan schema `0.8.0` removes the two-role ceiling without weakening
+auditability. It requires 2–16 safe strategy IDs, an explicit deterministic
+`strategy_order`, an exact strategies map, and a baseline ID in first position.
+The engine reports pairwise results versus that baseline but separately performs
+the methodologically required fully incremental analysis: ordering by expected
+QALY, identifying strict and extended dominance, constructing the efficiency
+frontier, and calculating sequential ICERs only between adjacent frontier
+strategies. Identical cost/QALY points remain explicit and declaration order
+selects the retained representative. At the primary threshold, all strategies
+compete on net monetary benefit.
+
+## Executable model-cycle-dependent transitions
+
+Analysis-plan schema `0.4.0` adds a bounded `transition_schedule` alternative
+to each strategy's static matrix. A strategy defines exactly one mechanism. A
+schedule starts at one-based cycle 1, contains unique strictly increasing
+change points within the horizon, and provides a complete square probability
+matrix at every phase; the last matrix remains active through the horizon. The
+engine validates every row and cohort-mass conservation, selects the effective
+matrix deterministically by model cycle, and records the transition mode and
+change points in each strategy result.
+
+The full schedule replaces the static matrix in input provenance. Direct
+evidence must be strict JSON equal to that schedule; unexecutable matrix
+assembly, rate or hazard conversion, pooling, or treatment-effect extrapolation
+remains blocked. DSA and PSA may target a complete scheduled matrix row, and a
+structural scenario may move a declared change point only if the resulting plan
+still passes the full engine contract.
+
+This is model time for the whole closed cohort. It is not time in state,
+tunnel-state or semi-Markov memory, patient history, individual simulation,
+partitioned survival, interactions, time-varying rewards, or an automatic
+treatment-waning assumption. `$heor-cohort-state-transition` makes that choice
+and boundary explicit before Human-in-the-loop review. The implementation uses
+the selection and transparency questions in the ISPOR-SMDM state-transition
+good-practices report and NICE PMG36; those methods sources do not certify any
+particular model.
+
+## Executable constant competing-event rates
+
+Analysis-plan schema `0.5.0` adds the first admitted evidence transformation
+for transition inputs. For each state and phase, a structured declaration binds
+every positive cause-specific event rate to exactly one selected extraction or
+`proposed` assumption and records the exact cycle length. With total rate `R`,
+the adapter computes total event mass `1 - exp(-R*t)`, allocates it in proportion
+to each cause-specific rate, and assigns `exp(-R*t)` to remaining in the state.
+Structural zeros are omitted and an absorbing row has no events.
+
+Python calculation, portable Skill validation, native Rust approval audit, and
+the browser preview independently recompute the complete matrix or schedule.
+They require the output to equal the current model input and derivation snapshot,
+and require every declared extraction and assumption ID to be used. Altering a
+rate, matrix, cycle length, phase, or basis set therefore fails closed.
+
+This is a competing-first-event calculation under constant within-phase rates
+and an at-most-one-state-change-per-cycle assumption. It is not general CTMC
+matrix exponentiation. Uncertainty schemas `0.3.0` through `0.7.0` can vary exact positive event
+rates with gamma, lognormal, or strictly positive uniform distributions. For each
+DSA run or PSA draw, the compatible uncertainty engine recomputes each affected complete matrix or
+schedule and its derivation snapshot before ordinary validation. Changing only a
+derived probability row still fails closed. The adapter does not implement
+probability-time conversion inside the rate adapter, HR application or RR/OR application outside the dedicated adapter, pooling, calibration, survival
+extrapolation, within-cycle multi-step paths, arbitrary correlated rate models, or
+transformation-space structural scenarios, except that schemas `0.4.0` through `0.7.0` may correlate
+only evidence-bound lognormal rate members through the bounded latent log-scale
+Cholesky contract. Eligible single-event source probabilities route to the separate
+`$heor-probability-time-adapter`; `$heor-transition-rate-adapter`
+exposes the method and its stopping rules through the natural-language workflow.
+
+## Executable bounded survival-curve schedules
+
+Analysis-plan schema `0.6.0` admits one deliberately narrow survival operation:
+an already-selected exponential or Weibull scale/shape curve for one all-cause
+event in an exactly two-state model. At every model-cycle boundary the adapter
+evaluates cumulative hazard and converts its increment into the interval event
+probability. It emits a complete two-state matrix for every cycle and preserves
+the event state as absorbing.
+
+Every positive curve parameter binds exactly one strict-JSON extraction or
+`proposed` assumption. Python calculation, the standalone Skill validator,
+portable provenance audit, native Rust audit, and browser preview independently
+recompute the schedule and compare it with both the current model input and the
+derivation snapshot. Parameter, cycle-length, source, version, state-count, or
+schedule drift fails closed. The natural-language workbench exposes this through
+`$heor-survival-curve-adapter`; the form action is only a shortcut into that
+conversation.
+
+Uncertainty schemas `0.5.0` through `0.7.0` may vary exact positive exponential or Weibull
+parameter values with evidence-bound gamma, lognormal, or strictly positive
+uniform distributions. The compatible uncertainty engine applies all replacements and recomputes
+the complete affected schedule and derivation snapshot before ordinary model
+validation. This is parameter propagation for an already-selected curve, not a
+complete survival-analysis workflow.
+
+The first-party `$heor-survival-extrapolation-review` now prepares a separate
+schema `0.2.0` external-import or schema `0.3.0` first-party-execution review
+artifact before curve selection. It requires 2–8
+pre-specified standard parametric families, exact data/command/session/output
+hashes, visible failed fits and protocol deviations, common observed and
+extrapolated survival/hazard landmarks, AIC/BIC, KM and hazard diagnostics,
+external and clinical plausibility assessments, limitations, and at least two
+structural scenarios. For an authorized strict two-column local CSV,
+`$heor-survival-fit-execution` can now use an already-installed isolated `survHE`
+library, preserve exact runtime evidence, independently challenge every converged
+admitted family before review, and export a hash-bound estimation-scale coefficient
+vector, full covariance matrix, parameter order, and inverse transforms for each
+converged model. Portable Python and native Rust audits require symmetry, positive
+definiteness, and recovery of the natural-scale fit. The artifact covers parameters
+within one absolute curve only and explicitly cannot authorize joint PFS/OS or
+between-strategy draws. It neither bundles that GPL backend nor
+silently installs it. The validator rejects post-hoc model-order drift, stale hashes,
+incomparable or invalid landmarks, hidden approval fields, and fewer than two
+converged alternatives. The only admitted state is
+`awaiting_human_selection`; the selected curve enters the app-owned analysis-
+plan review rather than being chosen by a score or Agent output. The native app
+now matches every exact analysis ID and parametric-survival target, requires each
+selected plan distribution to be a converged candidate, independently verifies
+the contract and local hashes, shows the result in the review pane, and binds all
+current review hashes into analysis-plan approval and every analysis authorization
+check. Plans with 2–32 targets use an ordered schema `0.1.0` manifest and one
+schema `0.2.0` or `0.3.0` review per exact target. This supports separate control/intervention
+or PFS/OS reviews without implying joint cross-curve validity.
+
+Automatic curve selection, KM/IPD reconstruction, flexible or cure models,
+PFS/OS consistency and partitioned survival, treatment effects, background mortality, competing
+risks, covariance reconstruction from incomplete fit results, cross-curve dependence, and clinical
+extrapolation validity remain explicitly unsupported. NICE PMG36 and NICE DSU TSD 14/21 require validity,
+plausibility, alternatives, and uncertainty beyond this executable fragment;
+the platform therefore does not infer those claims from a generated schedule.
+
+## Executable single-event probability time conversion
+
+Analysis-plan schema `0.7.0` changes the time unit of at most one event
+probability per affected state row under an explicit constant-hazard
+assumption. For source probability `p` over `t_source` years and model cycle
+`t_cycle`, it evaluates `1 - exp(log(1-p) * t_cycle / t_source)` with stable
+`log1p`/`expm1` implementations. It never divides the probability by a cycle
+count. Source probabilities must be strictly inside `(0,1)`; a structural zero
+uses a null event; both time intervals must be positive.
+
+Every source probability binds exactly one strict-JSON extraction or `proposed`
+assumption. Python calculation, the standalone Skill validator, portable
+provenance audit, native Rust audit, and browser preview independently
+recompute the complete matrix or schedule. `$heor-probability-time-adapter` is
+the natural-language entry point; the form action only drafts that conversation.
+
+Uncertainty schema `0.6.0` or `0.7.0` may vary the exact `source_probability` with an
+evidence-bound Beta or Uniform distribution strictly inside `(0,1)`. Every DSA
+run and PSA draw recomputes the complete transition input and derivation
+snapshot before model validation. Competing events, probabilities 0 or 1,
+time-varying hazards, HR application or RR/OR application outside the dedicated adapter, composite endpoints, recurrent
+events, dependence between probability parameters, and clinical
+appropriateness remain unsupported. ISPOR-SMDM and PHARMAC support the
+arithmetic and disclosure requirement; they do not validate the assumption for
+a specific decision problem.
+
+## Executable background plus excess mortality
+
+Analysis-plan schema `0.9.0` admits one exactly two-state operation:
+`background_plus_excess_mortality_to_transition_schedule`. The exact declaration
+contains the model cycle length and state indices; one life table with jurisdiction,
+table year, population, sex, start age, and one cycle record per horizon cycle;
+one constant `excess_mortality_rate_per_year`; and the exact review bases
+`population_exchangeability` and `no_double_counting`. Every cycle record binds
+an annual all-cause probability to one extraction or proposed assumption and
+declares `attained_age_years = floor(start_age_years + (cycle-1)*cycle_length_years)`.
+
+The adapter first converts annual `q` to background hazard and then scales to any
+finite positive model-cycle length:
+`p_death = 1-exp(-(-ln(1-q_annual)+h_excess)*cycle_length_years)`.
+Python calculation, the standalone Skill validator, portable provenance audit,
+native audit, and browser preview independently recompute the complete schedule.
+The review bases expose evidence or assumptions; they never create approval.
+
+Paired uncertainty schema `0.8.0` permits only the exact positive
+`excess_mortality_rate_per_year.value` parameter target with Gamma, Lognormal, or
+strictly positive Uniform PSA. It fixes all life-table values and metadata,
+review bases, operation, and other transformation internals. At least one ordinary
+allowlisted external structural scenario remains required, limited under `0.8.0`
+to cost or utility scalars, discount rates, or half-cycle correction. Changes to
+cycle count/length or transition matrices/schedules fail closed because they
+would invalidate the fixed mortality transformation. Additive and
+multiplicative/SMR mortality structures can materially differ; only additive
+excess hazard is implemented, so the multiplicative alternative remains a
+Human-in-the-loop structural limitation.
+
+The route stops for already all-cause disease inputs, cause-specific/subdistribution
+mixing, calendar mortality improvement, age/sex mixtures, time-varying excess
+hazards, competing non-death events, and partitioned survival. NICE PMG36/TSD 21,
+ISPOR-SMDM state-transition guidance, and CDA-AMC 4th edition provide the methods
+basis; they do not establish exchangeability, absence of double counting, or
+scientific validity for a particular model.
+
+## Executable bounded RR/OR relative effects
+
+Analysis-plan schema `0.10.0` admits one deliberately narrow operation:
+`relative_effect_to_transition_schedule`. It applies one interval-aligned risk
+ratio or odds ratio to cycle-specific baseline risks for a single absorbing
+event in an exactly two-state schedule. Every baseline risk and the relative
+effect binds one extraction or proposed assumption. The declaration also
+requires exactly `endpoint_alignment`, `population_transportability`, and
+`effect_constancy_over_cycles` review bases; those bases support review and do
+not create approval.
+
+For risk ratio, each cycle uses `p=q*RR`; for odds ratio it uses
+`p=q*OR/(1-q+q*OR)`. The adapter independently recomputes every complete matrix
+and rejects all-zero baselines, unequal effect/cycle intervals, stale schedules,
+unsupported fields, and incompatible effect measures. Paired uncertainty schema
+`0.9.0` targets only `relative_effect.value`: RR admits bounded Uniform PSA with
+its high strictly below `1/max(q>0)`, while OR admits Lognormal or strictly
+positive bounded Uniform PSA. Baselines and transformation internals stay fixed.
+
+Hazard ratio, rate ratio, risk difference, competing events, and treatment-effect
+extrapolation remain unsupported by this RR/OR operation. Eligible constant HR
+work routes to `$heor-hazard-ratio-adapter`; the form interface remains
+subordinate to the natural-language workflow and Human-in-the-loop review.
+
+## Executable bounded constant hazard ratio
+
+Analysis-plan schema `0.11.0` admits one deliberately narrow operation:
+`hazard_ratio_to_transition_schedule`. It applies one positive constant HR to
+cycle-specific increments of one selected baseline cumulative-hazard curve for a
+single absorbing time-to-first event in exactly two states. Baseline cumulative
+hazards are non-negative, non-decreasing, cycle-aligned, individually bound to
+evidence or proposed assumptions, and contain at least one positive increment.
+The HR has its own exact basis.
+
+With `H0(0)=0`, each cycle uses
+`p=-expm1(-HR*(H0(i)-H0(i-1)))`. The transformation requires exactly the
+`endpoint_alignment`, `population_transportability`,
+`proportional_hazards_assumption`, `effect_constancy_over_horizon`, and
+`treatment_switching_assessment` review bases. Python, Rust, TypeScript, the
+portable provenance audit, and the standalone Skill independently recompute the
+complete absorbing schedule and reject stale output, non-monotone hazards,
+non-finite arithmetic, and probability saturation.
+
+Paired uncertainty schema `0.10.0` targets only `hazard_ratio.value`. DSA and a
+strictly positive bounded Uniform PSA must bracket the base and keep every
+recomputed probability finite and below one. Unbounded Lognormal support is
+deferred until a truncated distribution can be represented and audited exactly.
+Time-varying or non-proportional HRs, effect stopping or waning, unresolved
+treatment switching, competing/recurrent events, curve fitting or selection,
+PFS/OS partitioned survival, and scientific-validity claims remain blocked.
+
+## Executable monetary basis
+
+Analysis-plan schema `0.2.0` introduced one calculation currency and price
+year, and current schemas through `0.13.0` retain that contract while binding each source
+value to evidence or an explicit assumption.
+Every state-cost element and non-null willingness-to-pay value records its
+source value, source currency, source price year, positive composite adjustment
+factor, method, and evidence or proposed-assumption basis IDs. Python, Rust, and
+the portable Skill validator independently verify that the model-basis metadata
+matches the plan and that `source value × factor` reproduces the exact model
+input. A same-basis value must use factor 1 and method `none`; any currency,
+price-year, unit, or numerical adjustment requires a reviewable method and
+basis link.
+
+AI4HEOR does not silently select inflation indices or exchange rates. NICE's
+current methods manual requires older costs to be adjusted with an index
+appropriate to the cost perspective and foreign costs to use an appropriate
+current exchange-rate source. The Agent may prepare that transformation from
+an explicitly selected source, but the app audits arithmetic and provenance,
+not the substantive appropriateness of the chosen index. Legacy schema `0.1.0`
+returns no claimed economic basis; prior schema `0.2.0` retains its basis but
+lacks executable evidence-value derivations. Neither can pass analysis-plan
+approval. The review pane formats current monetary results from the
+engine-returned currency instead of a hard-coded jurisdiction.
+
+## Deterministic teaching example
+
+The default HEOR surface includes a sixth, explicitly local teaching starter for
+`examples/heor-cost-effectiveness`. Selecting the card copies the bundled example
+without overwriting an existing researcher-edited copy, then fills an unsent
+natural-language request. The request first asks the researcher whether to retain
+the proposed decision problem and never creates an approval by selecting the card.
+
+The two-strategy, three-state example has a dependency-free, versioned Python
+runner, `run_analysis.py`. It verifies the exact model-input SHA-256 declared by the analysis spec,
+validates complete stochastic transition rows, an absorbing death state, complete
+costs and utilities, and cohort mass conservation, then uses Decimal arithmetic
+with trapezoidal state occupancy and end-of-cycle discounting. The base case must
+match `expected/base-case-result.json` byte for byte; the result binds the exact
+runner, specification, and CSV hashes and retains cycle traces. The only bounded
+command-line sensitivity input changes the intervention stable-state cost, so it
+cannot silently alter effects or utilities. This proves reproducibility of the
+teaching arithmetic, not input validity, model validity, an official Chinese
+threshold, cost-effectiveness, reimbursement, pricing, or policy suitability.
+
+The desktop also provides a deliberately narrow auxiliary **Run locally** action.
+It is available only after the starter has installed the example and requires a
+separate researcher confirmation. The native command verifies the installed
+runner, analysis specification, CSV, and expected result against bundled bytes,
+then runs the base case and the declared stable-cost low and high values. It writes
+`outputs/base-case-result.json`, `outputs/stable-cost-low-result.json`, and
+`outputs/stable-cost-high-result.json`, and reuses the local Runs and Provenance
+records. It does not require a configured model and sends no case content to a
+model provider. Any changed governed input or conflicting existing output fails
+closed without overwriting the researcher's files.
+
+## Local evidence library
+
+The shipped alpha accepts PDF, plain text, Markdown, CSV, and JSON sources under
+`heor/library`. A researcher can explicitly select either individual files or a
+knowledge-base folder. Folder import preserves its relative hierarchy under a
+new library root, reports hidden and unsupported entries, rejects symbolic links
+and any directory that contains or sits inside the active workspace, and never
+auto-scans a parent or sibling directory. Native sync caps file count, source
+bytes, and total extracted text, hashes the exact source and derived index,
+extracts searchable text without a model or network call, and writes a
+reviewable `heor/evidence-library.json`. The SQLite index stays under
+`.openscience`, is serialized against concurrent access, and is rebuildable.
+
+The desktop package also contains a dated Simplified-Chinese pharmacoeconomics
+learning bundle. It has 25 Markdown sources covering navigation, basic theory,
+methods, working practice, dated recent progress, templates, and source/update
+rules. `ai4heor-bundled-knowledge-base/v1` binds the exact sorted file inventory
+and SHA-256 values, labels stable and dated sections separately, keeps scientific
+authority with the researcher, and requires current-source verification for policy
+or recent-progress use. The auxiliary install action verifies the packaged tree,
+copies it under a versioned library directory, retains the exact bundle manifest,
+builds the existing project-bound SQLite index, and records a best-effort Git
+snapshot. A second identical install is idempotent. Missing, extra, linked, oversized,
+or edited source bytes fail closed; an edited installed copy is preserved rather
+than replaced. Installation and indexing use no model and no network call and do
+not constitute methodological, evidence, policy, reimbursement, or release approval.
+
+Natural-language retrieval routes through `$heor-local-evidence`. Its portable
+search script re-verifies every indexed source hash and every returned page-text
+hash, then emits compact snippets with exact local path, page, and source
+SHA-256. Changed bytes invalidate search until a native rescan. Searchable
+results are extracted evidence, not appraisal or an automatic model input.
+The natural-language learning starter remains a researcher-authored draft: it
+first asks for the researcher's learning goal and current level, then uses the
+same deterministic local retrieval contract. It does not start a turn, select a
+model, use the network, or turn a generated learning path into scientific
+authority without explicit researcher action.
+Image-only PDFs are `requires_ocr`; encrypted, malformed, unsupported, or
+oversized documents remain explicit issues. OCR, layout/table reconstruction,
+semantic embeddings, and licensed corpus connectors are not silently inferred
+from this alpha.
+
+## Implemented reference-case registry
+
+| ID | Status | Use |
+| --- | --- | --- |
+| `CN-2020-current` | current | Current Chinese pharmacoeconomic guidance |
+| `CN-2026-draft` | draft | Gap analysis only until formally issued |
+| `NICE-PMG36-2026-current` | current | NICE technology appraisal and highly specialised technologies economic-evaluation subset for England |
+
+The registry profiles now contain source-snapshot hashes, source locators,
+required/recommended levels, applicability, and app-check identifiers. The
+first-party `$heor-reference-case` skill creates
+`heor/reference-case-assessment.json`; the plan binds its exact SHA-256. The
+desktop independently verifies every requirement, local evidence paths,
+automatic plan checks, profile revision/hash/status, and analysis link at both
+analysis-plan approval and execution. Required gaps, unresolved items, changed
+bytes, and draft profiles fail closed. A complete audit is still only a
+prerequisite for human review, not a general compliance certification.
+The NICE profile binds the official 31 March 2026 PMG36 PDF hash and adds
+machine checks for the England jurisdiction, NHS and personal social services
+perspective, 3.5% reference-case discounting, and structured EQ-5D/UK-3L
+health-outcome metadata. It remains an executable subset: topic scope,
+cost-comparison, paediatric HRQoL, diagnostics, severity modifiers, equality,
+and managed-access conditions require direct review of current NICE guidance.
+The source PDF is not redistributed. CDA-AMC remains a planned profile because
+its official fourth-edition source was methodologically readable but its
+Cloudflare-protected bytes could not be independently re-hashed in the current
+build environment; the platform does not admit an unverifiable source digest.
+
+## Implemented uncertainty boundary
+
+The first-party `$heor-uncertainty-analysis` skill creates
+`heor/uncertainty-plan.json`. It binds to the exact current analysis-plan bytes
+and records evidence-linked DSA bounds, parameter distributions, omissions,
+dependence handling, a uint64 seed, convergence thresholds, and bounded
+structural scenarios. The analysis-plan approval event binds the uncertainty
+artifact's exact SHA-256 without creating a circular pair of file hashes.
+Changing either artifact invalidates local authorization.
+
+The dependency-free engine executes one-way sensitivity analyses, joint PSA,
+and structural scenarios with versioned `pcg32-xsh-rr` sampling and fixed beta,
+gamma, lognormal, uniform, Dirichlet, and bounded lognormal-Cholesky transforms. Schemas
+`0.4.0` through `0.7.0` admit evidence-bound groups of 2–32 scalar lognormal parameters only;
+their declared matrix is the correlation of latent standard-normal values on the
+log scale and must be symmetric, unit-diagonal, and strictly positive definite.
+Each member can belong to one group, and every group basis must already be linked
+by every member distribution. The current desktop bridge
+limits PSA to 10,000 draws because it returns every draw for audit; larger runs
+require a future streamed, content-addressed result artifact. The app reports
+cost-effectiveness probability and checkpoint Monte Carlo diagnostics.
+Schemas `0.2.0` through `0.11.0` require a declared 2–101 point threshold grid containing
+the analysis plan's primary willingness-to-pay value. The grid must come from
+the stated decision context or a human instruction; neither the Agent nor a
+form may invent a jurisdictional threshold.
+
+For analysis schema `0.8.0`, uncertainty schema `0.7.0` reuses the same draws
+to calculate every strategy's unique-optimal CEAC probability, a separate tie
+probability, the multi-strategy CEAF, and `E[max_j NMB_j] - max_j E[NMB_j]`
+per-person EVPI at every threshold. It stores strategy order once and aligned
+cost/QALY arrays per draw to keep the bounded artifact compact. Legacy schemas
+retain their original incremental output. The review pane renders each CEAC and
+the CEAF as distinct accessible line series and retains exact values in
+the result artifact. This is a secondary evidence surface in the
+natural-language workflow, not a new form-led modeling path. The base
+uncertainty result reports Monte Carlo error and keeps population EVPI and
+EVPPI explicitly null. A separate advanced-VOI result may calculate population
+EVPI, EVPPI, EVSI, and ENBS only from explicit Human-owned population and study-
+design inputs, exact hash bindings, and its own replay; it remains conditional
+research-prioritization output behind a separate Human method review. Neither
+artifact infers funding, reimbursement, or policy advice. Rust, Python, and the
+portable skill validator each
+fail closed on unsafe targets, changed hashes, unsupported distributions,
+unlinked distribution or correlation bases, reused group members, invalid or
+singular matrices, known omitted correlations, or invalid scenarios. The engine
+does not infer correlations from shared sources, convert original-scale matrices,
+or implement arbitrary copulas, rank correlation, empirical posterior draws, or
+perfect correlation.
+
+For partitioned-survival analysis schema `0.12.0`, uncertainty schema `0.11.0`
+adds an intentionally partial economic-input analysis. It hash-binds the fixed
+PSM plan and survival-curve materializations; permits only exact state-cost or
+state-utility scalars plus bounded reward/discount/half-cycle scenarios; and
+requires every strategy's PFS and OS curve to be listed as omitted. The engine
+returns `partial_parameter_uncertainty` with scope `economic_inputs_only`, and
+the auxiliary review surface labels conditional EVPI accordingly. Survival
+parameters, covariance, curve selection, extrapolation alternatives, and joint
+PFS/OS uncertainty remain outside the calculation and continue to block a
+release-ready PSM interpretation.
+
+When a reviewed joint posterior or paired-patient bootstrap already exists,
+uncertainty schema `0.12.0` uses the first-party
+`$heor-joint-survival-uncertainty` asset. A manifest binds the exact analysis,
+PSM, deterministic materializations, source artifacts, and JSONL draw file.
+Every PSA iteration consumes one complete row spanning all strategies and both
+PFS/OS endpoints. The manifest states what that row represents: a reviewed joint
+posterior may preserve both within- and between-strategy dependence, while a
+whole-subject bootstrap stratified over independent parallel arms preserves
+within-strategy PFS/OS dependence and declares conditional independence between
+strategies. A shared replicate number never upgrades that assumption into observed
+correlation. Independent endpoint draws, missing rows, increasing or crossing
+curves, stale hashes, and silent repairs fail closed. Economic DSA/PSA rules
+remain unchanged. Results are labeled `joint_curve_draw_parameter_uncertainty`
+with scope `joint_survival_curves_and_economic_inputs`, and EVPI remains
+conditional. The workbench does not infer that the source posterior/bootstrap
+is valid and still exposes curve-family selection, extrapolation assumptions,
+treatment-effect duration, clinical validity, and independent validation as
+release blockers.
+
+For a paired-patient bootstrap, the natural-language workflow leaves execution
+at `awaiting_bootstrap_method_review` and the secondary review form presents
+seven explicit Human assertions. The desktop owns the resulting accept/reject
+record and a separate hash-chained local event log; an Agent may bind an accepted
+record but cannot create or edit it. Native Rust regenerates the exact PCG32 plan
+and recalculates every reported curve and PFS/OS relationship. It does not repeat
+the statistical refits, so source-model validity remains a distinct release gate.
+
+For current analysis schema `0.15.0` and PSM `0.7.0`, uncertainty schema `0.13.0`
+hash-binds all six PSM and component artifacts. It targets only allowlisted raw
+annual-cost, health-state utility, and event-loss inputs, then rebuilds every
+dependent normalized value and aggregate for each DSA endpoint and PSA draw.
+Mixed Uniform/Lognormal dependence is admitted only through a Human-supplied,
+evidence-linked latent Gaussian-copula matrix; shared sources never create an
+implicit correlation. Results are labeled `component_parameter_uncertainty`
+with scope `cost_utility_event_components_only`. Survival remains fixed and
+every strategy PFS/OS curve is an explicit omission, so the result is not a
+complete PSM PSA or structural uncertainty analysis.
+
+When reviewed joint PFS/OS rows also exist, current uncertainty schema `0.14.0`
+binds manifest `0.5.0` (with prior-current `0.4.0` and `0.3.0` readable) and the JSONL draw bytes in addition to all six component
+artifacts. Every PSA iteration combines exactly one complete curve row with one
+recomputed component draw. Results are labeled
+`joint_curve_and_component_parameter_uncertainty` with scope
+`joint_survival_curves_and_cost_utility_event_components`. This closes the split
+between the two partial parameter PSAs, but curve selection, extrapolation,
+source-model validity, treatment-duration alternatives, and independent
+validation remain outside the result.
+For paired-bootstrap generation, manifest `0.5.0` also binds the exact app-owned
+accepted review and result; analysis approval and every native uncertainty run
+fail when that review is missing, stale, or superseded by rejection.
+
+## Implemented network meta-analysis boundary
+
+The first-party `$heor-network-meta-analysis` Skill implements one deliberately
+bounded contrast-level frequentist NMA for one researcher-defined outcome and
+timepoint. It accepts 3–32 treatment nodes and one independent two-arm randomized
+study contrast per row on log OR, log RR, log HR, MD, or SMD scales. The Human
+researcher defines the nodes, estimand, reference treatment, favorable direction,
+effect modifiers, transitivity rationale, and either a common-effect model or a
+common-heterogeneity REML random-effects model. AI4HEOR never chooses those items
+from fit statistics or ranking.
+
+Execution uses a fixed no-install adapter against an existing isolated
+user-supplied `netmeta` R library. The result binds the exact request, contrast
+CSV, evidence synthesis, adapter, and five raw backend outputs. Portable Python
+and native Rust independently reconstruct the treatment design and weighted
+least-squares network; random-effects parity is explicitly conditional on the
+backend-reported tau and is not an independent REML implementation. The review
+pane reports network geometry, heterogeneity, prediction intervals, global
+design-decomposition status, local direct-versus-indirect diagnostics, optional
+descriptive P-scores, hashes, and limitations.
+
+The result stops at an eight-item app-owned Human method review over the exact
+ten-artifact execution graph. An Agent can prepare, execute, audit, and explain,
+but cannot create an acceptance record, declare a top-ranked treatment best, or
+populate an economic model automatically. Multi-arm studies, arm-level
+likelihoods, disconnected networks, zero-cell handling, Bayesian NMA,
+meta-regression/NMR, component or dose-response models, population adjustment,
+automatic node/model/treatment selection, certainty grading, and reimbursement
+claims remain outside this alpha.
+
+## Implemented anchored population-adjusted comparison boundary
+
+The first-party `$heor-population-adjusted-comparison` Skill implements one
+bounded anchored MAIC: two independent randomized parallel two-arm trials share
+a common comparator; local pseudonymous IPD cover B versus A; aggregate evidence
+and target means cover C versus A; and the researcher defines one target
+population, outcome, timepoint, estimand, favorable direction, and every
+scale-specific effect modifier. Only log odds ratios and mean differences are
+admitted. AI4HEOR never selects modifiers or substitutes a different
+population-adjustment method from fit diagnostics.
+
+The dependency-free evaluator uses mean-one exponential-tilting weights to
+balance declared modifier means without trimming or capping. It reports
+unadjusted and adjusted B:A effects, aggregate C:A evidence, the anchored B:C
+indirect effect, calibration coefficients and balance, the complete weight
+distribution, overall and arm-specific ESS, and uncertainty from 1,000–5,000
+deterministic stratified nonparametric bootstrap refits. Every failure is retained
+and blocks review. Complete portable replay verifies every bootstrap draw;
+native Rust independently re-reads current IPD and aggregate bytes and recomputes
+calibration, weights, balance, ESS, and point effects, but explicitly does not
+claim an independent bootstrap implementation.
+
+The result stops at an app-owned eight-item Human method review bound to the
+exact seven-artifact graph. Acceptance makes the result eligible for later
+evidence selection only; it never populates an economic model automatically.
+Unanchored MAIC, STC, ML-NMR, larger or disconnected networks, survival effects,
+RR/HR/SMD, higher moments or interactions, automatic modifier selection,
+weight trimming or capping, missing-data handling, observational or single-arm
+evidence, and reimbursement claims remain outside this alpha.
+
+## Implemented RWE target-trial causal-analysis boundary
+
+The first-party `$heor-rwe-causal-analysis` Skill implements one deliberately
+bounded observational comparative-effect workflow. The Human researcher defines
+an active-comparator new-user target trial, including population, eligibility,
+treatment strategies, assignment, shared time zero, one fixed-horizon binary
+outcome with an explicit observation indicator, causal contrast, and the
+source-cohort ATE risk-difference estimand if nobody's outcome were lost.
+The local input is already reduced to one pseudonymous baseline row per eligible
+person. AI4HEOR does not derive eligibility or index dates, select a comparator,
+choose confounders from associations, or infer that the upstream cohort construction
+emulates a valid target trial.
+
+The dependency-free evaluator fits separate unpenalized main-effects Logistic
+treatment and observation models using only Human-prespecified baseline common
+causes and observation-outcome predictors. It applies untrimmed, uncapped
+stabilized ATE-IPTW×IPOW to observed outcomes and reports complete-case and
+weighted arm risks, risk difference, descriptive risk/odds ratios, propensity
+overlap, follow-up rates, treatment/observation/combined weight distributions,
+observed-row ESS, and pre/treatment/combined standardized mean differences.
+There are no automatic scientific balance, overlap, or ESS acceptance thresholds.
+Uncertainty uses 1,000–5,000 deterministic arm-stratified nonparametric bootstrap
+replicates that repeat standardization, both model fits, weighting, diagnostics, and
+the risk difference. Every failed refit is retained and blocks review.
+
+Complete portable replay verifies the exact request, cohort, evidence, evaluator,
+draw stream, point analysis, and every bootstrap refit. Native Rust independently
+re-reads the cohort and refits both point models, with Python-derived golden parity
+for coefficients, ESS, overlap, SMD, weights, and risk differences; it explicitly
+does not claim a second bootstrap implementation. The result stops at an
+app-owned eight-item Human method review bound to the six-artifact graph.
+Acceptance only makes the exact result eligible for later evidence selection; it
+does not establish causal validity, regulatory fitness, treatment value, or
+automatic economic-model suitability.
+
+Time-varying censoring, intermittent observation, missing baseline covariates,
+imputation, missing-not-at-random mechanisms, treatment switching, time-varying
+exposure or confounding, survival or competing-risk outcomes, clustering,
+matching, trimming, overlap weighting, ATT/ATC, outcome regression, AIPW/TMLE,
+more general g-methods, instrumental variables, difference-in-differences,
+negative controls, quantitative bias analysis, and automatic causal interpretation
+remain outside this alpha and require separate contracts.
+
+## Implemented budget impact boundary
+
+The first-party `$heor-budget-impact` and `$heor-dynamic-budget-impact` skills
+create alternate versioned forms of `heor/budget-impact-plan.json`. Both bind to
+the exact analysis-plan bytes and record the budget holder, jurisdiction,
+currency, price year, itemized treatment and condition-related per-patient
+costs, scenario-level implementation costs, exclusions, provenance, one-way
+ranges, alternative scenarios, validation plans, and limitations. Analysis-plan
+approval binds the exact BIA hash alongside the uncertainty artifact; changing
+any bound artifact invalidates local authorization.
+
+The dependency-free engine implements the transparent cost-calculator form
+recommended for a simple BIA. It derives comparator share as one minus new-
+intervention share, reports each of three budget years and the undiscounted
+cumulative with-minus-without impact, preserves category-level calculations,
+and executes evidence-bound one-way and alternative scenarios. Python, Rust,
+and the portable skill validator reject discounting, unsafe targets, missing
+provenance, non-finite values, invalid shares, stale hashes, incomplete cost
+scope, or unresolved assumptions.
+
+Dynamic schema `0.2.0` adds an annual-boundary cohort ledger. It starts from an
+explicit prevalent treated population, adds three incident cohorts, and records
+separate without/with-access initial shares, incident uptake, comparator
+displacement, and intervention-start capacity. Within each annual cycle it
+allocates incident starts before displacement, charges full-year costs, applies
+a common mortality probability, then applies treatment-specific continuation.
+Surviving intervention discontinuers move to comparator at the next annual
+boundary; comparator discontinuers leave the treated market. Results preserve
+requested, delivered and unmet starts, opening/closing stocks, deaths,
+discontinuations, category costs, and annual/cumulative impacts as fractional
+expected counts. The native review pane exposes that flow ledger before the
+existing Human gate.
+
+Both schemas remain pairwise. The dynamic alpha deliberately excludes partial-
+cycle entry or costs, re-initiation, treatment-specific mortality, capacity
+queues, induced diagnosis, combination therapy, severity or disease-state
+migration, more than two active treatments, and patient-level history. When
+those materially affect the question, the workbench must stop and use a future
+separately admitted cohort or patient-level adapter.
+
+## Implemented independent-validation boundary
+
+The first-party `$heor-model-validation` skill prepares or audits
+`heor/model-validation.json` and local evidence under
+`heor/validation-evidence/`. It adapts, rather than copies, the Chinese 2020
+guideline, ISPOR-SMDM validation taxonomy, AdViSHE reporting structure, and
+TECH-VER technical-verification domains. It deliberately produces no quality
+score: fitness for intended use remains a reviewer judgment.
+
+The native desktop audit requires face, input, external, cross-model,
+predictive, and technical-verification coverage across the cost-effectiveness
+and budget-impact models. Cross-model and predictive checks may be documented
+as not feasible only when the report supplies evidence and rationale. Every
+evidence file must remain under the project, pass a size and path boundary, and
+match its recorded SHA-256. For non-PSM work, schema `0.1.0` binds the exact
+current bytes of the analysis plan, conceptual model, uncertainty plan, and
+budget-impact plan. For linked PSM work, schema `0.2.0` additionally binds the
+PSM plan, survival materializations, duration, cost, utility, and event
+artifacts plus the PSM, uncertainty, and budget-impact results.
+
+Codex may run tests, prepare evidence, and preserve findings, but it may not
+fill the reviewer independence declaration or recommendation, identify its own
+work as independent review, or create approval events. The app permits the
+independent-validation approval only when the declared reviewer differs from
+the developer, the approval actor exactly matches that reviewer label, all
+required coverage is present, and no blocker or major issue remains open.
+Changing any report, model, or bound analysis artifact makes the approval
+stale.
+
+This gate establishes local structural integrity and a human assertion, not
+objective truth. The app cannot prove that evidence is accurate, that the
+reviewer is genuinely independent, or that the model is fit for decisions; a
+future identity/signature boundary and methods acceptance process remain
+necessary before public release.
+
+## Implemented reporting and release boundary
+
+The first-party `$heor-reporting` skill prepares `heor/report-package.json` and
+`heor/report.md`. Non-PSM schema `0.1.0` binds the exact current bytes of the
+report, five method artifacts, and three app-written deterministic results.
+Linked-PSM schema `0.2.0` instead binds the report, the five base method
+artifacts, PSM plan, five current PSM inputs, and PSM, uncertainty, and
+budget-impact results. CHEERS 2022 supplies 28 cost-effectiveness reporting items and is
+never scored or applied to BIA. A separate 12-item ISPOR BIA matrix covers the
+budget-impact report. All 40 entries require a rationale, bound evidence paths,
+and exactly one report section marker.
+
+For document delivery, the Skill prepares
+`deliverables/heor-report-export.json` with the exact current report-package and
+report-document hashes. The native app re-audits both sources and renders
+`deliverables/heor-report.docx`, `deliverables/heor-report.pdf`,
+`deliverables/heor-report.xlsx`, and a generation audit. The deterministic DOCX path uses first-party OOXML with fixed styles,
+tables, numbering, headers and footer fields; the deterministic PDF path uses a
+pinned native renderer. Both embed the same pinned OFL-1.1 Source Han Sans CN
+font. The macro-free, formula-free XLSX path writes five bilingual sheets for
+metadata, typed result-summary values, report tables, the reporting matrix, and
+sources/review; it copies the audited result summary and does not recalculate
+the economic model. All three outputs remain marked `awaiting_human_review`.
+Changed source bytes invalidate the export, and externally changed outputs are
+never silently overwritten. Document generation is a communication step, not scientific or release
+approval.
+
+The portable and native validators require the exact copied economic basis and numerical summaries,
+including the complete decision-uncertainty object when present, explicit
+disclosures, limitations, a named release owner, and current hashes. Legacy
+uncertainty results retain their legacy summary shape rather than receiving
+manufactured CEAC, CEAF, or value-of-information values.
+The first-party `$heor-reproducibility-package` Skill then derives
+`heor/reproducibility-package.json` from the complete current report. Its bounded
+schema inventories the exact report graph, three deterministic replay recipes,
+current AI4HEOR/platform/Python/engine versions, the standard-library-only core
+dependency boundary, the exact union of declared evidence sources and their
+availability/licence states, three result exhibits, and seven CHEERS/BIA
+claim-to-artifact links. Portable and native audits fail closed on extra or missing
+files, stale bytes, recipe or runtime drift, undeclared sources, incomplete
+availability, or broken claim links. The package does not copy restricted data,
+prove scientific validity, or claim successful reproduction on another machine.
+At release, the desktop requires current analysis and independent-validation
+approvals, re-executes the applicable base case or PSM plus uncertainty and
+budget-impact calculations with the exact current inputs, compares their output
+hashes with the bound result files, and records the report package, all 9 or 15
+schema-selected bindings, and the exact current reproducibility companion in the
+app-owned approval chain. This is still one Human-owned release gate. The assistant
+can prepare both packages under researcher direction but cannot invent the owner,
+choose what may be shared, or create approval.
+
+`decision_ready_local_release_assertion` means these local structural,
+reproduction, validation, reporting, and human gates are current. It does not
+assert scientific truth, reviewer identity, journal acceptance, regulatory
+approval, reimbursement suitability, or external tamper-proofing.
+
+## Alpha acceptance
+
+- A hand-checkable golden model matches an independent calculation.
+- Invalid transition probabilities, dimensions, utilities, and costs fail
+  explicitly.
+- Cohort mass remains one within numerical tolerance for every cycle.
+- A fixed input yields the same result within declared numerical tolerances
+  across supported operating systems.
+- A fixed plan, uncertainty artifact, PRNG version, and seed yield a
+  bit-identical integer random stream and PSA results within declared
+  cross-platform numerical tolerances; changed artifact bytes invalidate
+  approval. Byte-identical floating-point output is not claimed without a
+  controlled math runtime.
+- The current golden suite compares scalar model and PSA summaries to seven
+  decimal places, requires exact probability counts for the seeded fixture, and
+  requires an exact PCG32 integer sequence on macOS, Windows, and Linux CI.
+- The BIA golden fixture matches an independent annual hand calculation,
+  reports all category subtotals, applies zero discounting, and fails closed on
+  changed plan bytes or missing population, uptake, and cost provenance.
+- Independent validation requires the exact schema-selected 4 or 13 artifact
+  bindings and evidence hashes,
+  declared reviewer/developer separation, complete required coverage, and zero
+  open blocker or major issues. Invalid evidence, stale bytes, or actor mismatch
+  fails closed.
+- Evidence-to-input approval requires two distinct local-label confirmations
+  per selected extraction against the exact synthesis bytes. A duplicate label,
+  missing second confirmation, rejection, changed synthesis, or tampered review
+  chain fails closed; this remains distinct from authenticated independent
+  duplicate extraction.
+- Evidence-to-input approval also requires schema `0.3.0` through `0.13.0`, an exact model-value
+  snapshot per mapping, strict JSON equality for direct evidence, and extraction-
+  bound source values for monetary normalization. Changed, narrative, unused,
+  or silently transformed extraction values fail closed.
+- A scheduled-transition plan additionally requires schema `0.4.0` through `0.11.0`, exactly one
+  transition mechanism per strategy, ordered in-horizon change points, valid
+  matrices, mass conservation, and schedule-aware provenance and uncertainty
+  targets. Static `0.3.0` plans remain backward compatible.
+- A schema `0.5.0` or `0.8.0` transition-rate mapping additionally requires the bounded
+  constant competing-rate operation, exact cycle length, complete ordered rows
+  and phases, one declared basis per event, and exact output reproduction. Rate-
+  space uncertainty additionally requires uncertainty schema `0.3.0` through `0.7.0`, an exact positive
+  event-rate target, one matching event basis ID, and full transformation
+  recomputation for every DSA/PSA run. Correlated rate sampling additionally
+  requires uncertainty schema `0.4.0` through `0.7.0` and the evidence-bound lognormal-Cholesky contract.
+- A schema `0.6.0` or `0.8.0` survival mapping additionally requires exactly two states,
+  one absorbing event state, an exponential or Weibull scale/shape declaration,
+  positive singly bound parameters, exact cycle length, a complete per-cycle
+  schedule, and independent reproduction across all four audit layers. Analysis-
+  plan approval also requires one schema `0.2.0` extrapolation review per exact
+  current analysis ID and survival-mapping path; the selected distributions must
+  be converged pre-specified candidates and every local evidence hash must verify.
+  A single target binds the fixed review, while 2–32 targets bind the ordered
+  schema `0.1.0` manifest plus every referenced review. Survival-
+  parameter DSA/PSA additionally requires uncertainty schema `0.5.0` through `0.7.0`, an exact
+  positive parameter-value target, its sole basis ID, and full schedule
+  recomputation. Fitting remains external and local, curve selection remains a
+  Human analysis-plan decision, and covariance reconstruction or substantive
+  extrapolation validity remains outside deterministic claims.
+- A schema `0.7.0` or `0.8.0` probability-time mapping additionally requires at most one
+  event per row, a source probability strictly inside `(0,1)`, explicit positive
+  source and model intervals, one declared basis per event, and exact complete
+  output reproduction. Source-probability DSA/PSA additionally requires
+  uncertainty schema `0.6.0` or `0.7.0`, strict `(0,1)` bounds, Beta or bounded Uniform,
+  its sole basis ID, and full transition-input recomputation. Competing events,
+  time-varying hazards, relative effects outside the dedicated bounded RR/OR adapter,
+  and clinical applicability remain gaps.
+- A schema `0.8.0` analysis additionally requires 2–16 unique safe strategy
+  IDs, exact agreement between `strategy_order` and `strategies`, and the
+  declared baseline first. Results retain baseline-pairwise comparisons and
+  independently identify equivalent points, strict and extended dominance,
+  the efficiency frontier, and adjacent-frontier ICERs. Paired uncertainty
+  schema `0.7.0` reports every strategy's unique-optimal CEAC probability,
+  separate tie probability, CEAF, and exact per-person EVPI. BIA remains a
+  bounded two-strategy calculator and must select two distinct declared IDs.
+- A schema `0.9.0` background-mortality mapping additionally requires exactly two
+  states; an exact life-table declaration and cycle coverage; attained-age floor
+  alignment; one basis for each annual probability, the excess rate, and both
+  review bases; positive cycle length; and exact hazard-scaled schedule
+  reproduction. Paired uncertainty schema `0.8.0` permits only the exact positive
+  excess-rate target and fixes the life table and transformation structure.
+- A schema `0.10.0` relative-effect mapping additionally requires exactly two
+  states with one absorbing event; equal cycle and effect intervals; complete
+  cycle-specific baseline risks with at least one positive value; one aligned RR
+  or OR; the exact three review bases; and exact schedule reproduction. Paired
+  uncertainty schema `0.9.0` permits only the relative-effect value. RR DSA and
+  bounded Uniform PSA remain strictly below the positive-baseline ceiling; OR
+  admits Lognormal or strictly positive bounded Uniform PSA. HR and all other
+  effect measures remain blocked by that operation.
+- A schema `0.11.0` constant-HR mapping additionally requires exactly two states
+  with one absorbing time-to-first event; complete non-negative non-decreasing
+  baseline cumulative hazards with at least one positive increment; one positive
+  HR; the exact five review bases; and exact schedule reproduction from hazard
+  increments. Paired uncertainty schema `0.10.0` permits only the HR value with
+  strictly positive bounded Uniform support whose high reproduces finite
+  probabilities below one. Non-proportional/time-varying effects, waning or
+  stopping, unresolved switching, competing/recurrent events, fitting/selection,
+  and partitioned survival remain blocked.
+- Exploratory, analysis-authorized, independently validated, and locally
+  released decision-ready states remain distinct. Any stale package, binding,
+  validation, result reproduction, actor, or approval sequence fails closed.
+- The core analysis runs without a model provider or network connection.
+
+## Bounded capability growth
+
+AI4HEOR harness v2 preserves future Skill creation without treating the runtime
+as a self-governing research system. A researcher's natural-language request can
+produce a bilingual, hash-bound, instruction-only Skill candidate under
+`capabilities/candidates/`. The candidate remains outside active Skill discovery;
+deterministic validation checks its exact files, permissions, provenance, license
+basis, secret patterns, and complete English and Simplified Chinese license
+notes, limitations, and acceptance checks. The current release
+does not activate candidates automatically. A separate desktop review lets a Human
+activate, reject, or revoke the exact instruction-only candidate for the current
+project. The native control revalidates every byte, requires a reviewer label,
+rationale and explicit confirmation, and records a hash-linked app-private event plus
+an immutable project snapshot. Activation copies only the reviewed instructions into
+the current project's `.opencode/skills/<id>/` directory. Revocation deletes only an exact unchanged
+active copy; any drift or same-name unmanaged Skill stops the operation.
+
+Repeated non-sensitive work patterns can become local preference proposals only
+after at least two independent interactions. Scientific methods, evidence choices,
+parameter values, conclusions, provider selection, data routing, approvals, and
+release decisions are never learned preferences. Proposals remain local and
+inactive until a researcher accepts them, and accepted preferences can be viewed,
+edited, disabled, or deleted. The desktop review revalidates the exact proposal and
+current `learning/preferences.json` store hash, requires a reviewer label, reason, and explicit confirmation, and
+records each Human decision in an immutable project snapshot plus an app-private
+hash-linked event chain. A stale or manually edited store fails closed. Neither route can modify the product harness, core
+Skills, calculation engines, Human gates, or release records.
+
+## Upstream and licensing
+
+The platform baseline is `ai4s-research/open-science` commit
+`42c8101ab969011c2205fa1eacb96572ef309c18` and remains subject to its MIT
+license. Bundled third-party skills and connectors retain their own licenses and
+require a separate release inventory.
+
+## Partitioned-survival alpha boundary (2026-07-15)
+
+The optional `heor/partitioned-survival-plan.json` alpha is a separate
+three-state calculation class. Natural-language interaction creates or repairs
+the rationale and bindings; curve rows are an auxiliary exact-input surface.
+Each curve review must match the current analysis, strategy/endpoint target,
+PFS or OS context, exact bytes, and Human-selected converged family. PSM schema
+`0.6.0` binds `heor/survival-curve-materializations.json` as immutable source curves and
+`heor/treatment-effect-duration.json` as explicit structural policy: for each strategy
+and endpoint, that manifest binds one typed selected-fit output, its exact bytes,
+an admitted parameterization, evaluator `ai4heor-parametric-survival@0.1.0`,
+the analysis time grid, and every reproduced value. The first-party
+`$heor-survival-curve-materialization` workflow and a standalone validator create
+and check the artifact; native Rust independently re-reads the reviews and fit
+outputs and recalculates every exponential-rate or Weibull AFT value before the
+plan can enter approval. The first-party `$heor-treatment-effect-duration` workflow
+then requires exactly two ordered strategies and three complete sustained,
+immediate-stop, and log-linear-waning scenarios. It retains each source intervention
+curve through a declared evidence horizon, rebuilds the later tail from comparator
+hazard increments and an evidence-bound HR, rejects PFS above OS, and never infers
+duration from the HR point estimate.
+It derives progression-free occupancy from PFS, progressed occupancy from
+OS-PFS, and death from 1-OS; computes state rewards and incremental results;
+and blocks curve crossing, increasing survival, time-grid mismatch, stale
+hashes, and hidden approval claims. Analysis-plan approval is supported, but
+release is intentionally blocked until validation and reporting bind the PSM
+plan and result. Analysis schema `0.15.0` now separates common costs, utilities, event losses,
+cycle settings, discounting, and thresholds from PSM structure; its strategy
+objects forbid initial distributions and transition definitions. Portable,
+Python, browser, and native validators independently enforce that boundary while
+legacy analysis `0.13.0` / PSM `0.5.0` remains calculation-compatible. PSM
+`0.7.0` retains the PSM `0.6.0` cost and utility contracts and additionally requires
+`heor/utility-inputs.json`. One item per strategy/state records instrument and
+version, respondent and source population, value set and license, optional
+mapping and performance evidence, captured/excluded effects, overlap rationale,
+source utility, and explicit multiplicative cycle adjustments. Python, the
+portable Skill, and native Rust independently reproduce the full cycle schedule,
+and the PSM calculation consumes it for QALYs. The engine never chooses a value
+set, mapping algorithm, population adjustment, or overlap policy. The separate
+`heor/event-disutilities.json` ledger reproduces one-time, recurrent, and continuous-
+exposure QALY losses from explicit decrements, durations, schedules, and eligible
+states. Every event must be explicitly excluded from each affected health-state
+utility; the engine subtracts the occupancy-weighted loss under the same half-cycle
+and outcome-discount rules. Long sequelae require explicit states. Event selection,
+additivity, distribution choice, and dependence remain Human-owned. The bounded
+component engine propagates only explicitly reviewed raw component uncertainty;
+long sequelae and fixed survival remain outside that result.
+
+PSM `0.5.0` introduced `heor/cost-input-normalization.json`: natural
+language is the primary way to identify ingredients and resolve missing method
+choices, while structured item rows are an auxiliary review surface. Each row
+binds annual quantity, unit, unit price, currency, price year, jurisdiction,
+price basis, tax status, and explicit adjustment factors to existing evidence
+or assumptions. The engine independently recalculates normalized unit price,
+annual item cost, and each strategy/state aggregate before accepting the plan's
+annual state-cost rates. It never chooses an inflation index, exchange rate,
+tax treatment, price concept, or transferability assumption. Component-level
+uncertainty, event/one-time/time-varying costs, capital annualization, dynamic
+BIA, and societal-cost structures remain blocked. Curve materialization closes the numerical-
+derivation gap only for the two admitted parameterizations. Statistical fitting,
+coefficient transformation, automatic family selection, covariance and PSM
+uncertainty, other survival families, probabilistic integration across duration alternatives, and
+substantive internal, external, or clinical validity remain outside this alpha.

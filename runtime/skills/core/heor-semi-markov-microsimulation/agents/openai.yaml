@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Semi-Markov Microsimulation"
+  short_description: "Run auditable patient-level state-transition models"
+  default_prompt: "Use $heor-semi-markov-microsimulation to prepare and audit a researcher-defined patient-level state-transition analysis with time-in-state and history tracking."

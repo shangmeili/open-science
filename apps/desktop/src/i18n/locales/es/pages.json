@@ -6,7 +6,7 @@
     "newNotebook": "Nuevo cuaderno",
     "pythonNotebook": "Cuaderno de Python",
     "rNotebook": "Cuaderno de R",
-    "description": "Todos los cuadernos de Jupyter de tus carpetas de sesión, del más reciente al más antiguo. Las celdas se ejecutan en el kernel local de Python o R dentro de la carpeta propia del cuaderno; el agente trabaja sobre los mismos archivos.",
+    "description": "Todos los cuadernos de Jupyter de tus carpetas de tarea, del más reciente al más antiguo. Las celdas se ejecutan en el kernel local de Python o R dentro de la carpeta propia del cuaderno; el asistente trabaja sobre los mismos archivos.",
     "createsIn": "Los cuadernos nuevos se crean en",
     "empty": {
       "tauri": "Aún no hay cuadernos. Crea uno, o pídele al agente que produzca uno.",
@@ -16,7 +16,8 @@
       "openingJupyterLab": "Abriendo JupyterLab en tu navegador…",
       "setUpJupyterFirst": "Configura Jupyter primero — Configuración → Servidores MCP → Jupyter.",
       "couldNotOpenJupyterLab": "No se pudo abrir JupyterLab",
-      "couldNotCreateNotebook": "No se pudo crear el cuaderno"
+      "couldNotCreateNotebook": "No se pudo crear el cuaderno",
+      "couldNotSave": "No se pudo guardar el cuaderno"
     },
     "editor": {
       "backAria": "Volver a los cuadernos",
@@ -34,7 +35,14 @@
       "stopCellTitle": "Detener — reinicia el kernel de este cuaderno (las variables se restablecen)",
       "stopLabel": "Detener",
       "runLabel": "Ejecutar",
-      "addCellLabel": "Añadir celda"
+      "addCellLabel": "Añadir celda",
+      "couldNotRead": "No se pudo leer el cuaderno",
+      "noPython": "Python no disponible",
+      "noPythonFound": "No se encontró un intérprete de Python",
+      "runningOutput": "Ejecutando…",
+      "localKernelOnly": "El kernel local solo está disponible en la aplicación de escritorio.",
+      "interrupted": "Ejecución detenida. El kernel se reinició y se borraron las variables.",
+      "kernelError": "Error del kernel"
     }
   },
   "files": {
@@ -43,36 +51,107 @@
     "explorerUnavailableWeb": "El explorador de archivos está disponible en la app de escritorio.",
     "selectFilePrompt": "Selecciona un archivo para previsualizarlo aquí.",
     "pane": {
-      "subtitle": "carpeta de esta sesión",
+      "subtitle": "carpeta de esta tarea",
       "closeAria": "Cerrar archivos"
     },
     "contextMenu": {
       "copyPath": "Copiar ruta",
       "copyRelativePath": "Copiar ruta relativa",
       "relativePathLabel": "Ruta relativa",
-      "openInDefaultApp": "Abrir en la app predeterminada"
+      "openInDefaultApp": "Abrir en la app predeterminada",
+      "pathLabel": "Ruta",
+      "revealInFinder": "Mostrar en Finder",
+      "showInExplorer": "Mostrar en el Explorador de archivos",
+      "showInFileManager": "Mostrar en el gestor de archivos"
+    },
+    "toast": {
+      "copied": "{{what}} copiada",
+      "copyFailed": "No se pudo copiar al portapapeles.",
+      "resolveFailed": "No se pudo obtener la ruta del archivo.",
+      "revealFailed": "No se pudo mostrar el archivo: {{message}}"
     }
   },
   "skills": {
-    "title": "Habilidades y agentes",
+    "title": "Habilidades y herramientas",
     "description": {
-      "prefix": "Cargado en vivo desde el entorno de ejecución de OpenCode — el paquete ai4s-skills incluido, más todo lo que haya bajo ",
+      "prefix": "Cargado en vivo desde el entorno del asistente de IA — capacidades AI4HEOR admitidas más todo lo que haya bajo ",
       "suffix": " en tu espacio de trabajo."
     },
     "install": {
-      "sectionTitle": "Instalar una habilidad",
-      "placeholder": "Pega una habilidad (Markdown) o una URL de GitHub — el agente la instalará en .opencode/skills/",
+      "sectionTitle": "Añadir o evaluar una habilidad o herramienta",
+      "placeholder": "Describe una capacidad que AI4HEOR debería añadir o pega una Skill, plugin, MCP, paquete o URL de GitHub",
       "starting": "Iniciando…",
-      "cta": "Instalar con el agente",
-      "hintConnected": "Abre una sesión y le pide al agente que la añada (customize-opencode).",
+      "cta": "Iniciar revisión",
+      "hintConnected": "AI4HEOR prepara y comprueba primero una candidata local. No puede ejecutarse hasta que una persona la revise y admita.",
       "hintDisconnected": "Conecta primero el entorno de ejecución."
+    },
+    "candidates": {
+      "sectionTitle": "Capacidades candidatas del proyecto",
+      "boundary": "Las candidatas son borradores locales compuestos solo por instrucciones. La aplicación vuelve a comprobar los bytes exactos antes de registrar tu decisión; la activación solo afecta a este proyecto y no transfiere autoridad científica.",
+      "refresh": "Actualizar capacidades candidatas",
+      "loading": "Comprobando las capacidades candidatas del proyecto…",
+      "unavailable": "No se pudo verificar la candidata o la cadena de revisión. No se modificó ninguna capacidad.",
+      "noProject": "Crea o abre un proyecto AI4HEOR para revisar sus capacidades.",
+      "empty": "Este proyecto no tiene capacidades candidatas.",
+      "activate": "Revisar y activar",
+      "reject": "Rechazar",
+      "revoke": "Revocar",
+      "status": {"inactive": "pendiente de revisión", "active": "activa en este proyecto", "rejected": "rechazada", "revoked": "revocada", "invalid": "no válida", "drifted": "los archivos activos cambiaron", "activeCandidateChanged": "activa; candidata modificada", "unmanagedConflict": "ya existe un Skill con ese nombre", "candidateMissing": "falta la candidata"},
+      "dialog": {
+        "title": {"activate": "Revisar y activar esta capacidad", "reject": "Rechazar esta capacidad candidata", "revoke": "Revocar esta capacidad del proyecto"},
+        "purpose": {"activate": "El asistente preparó este Skill del proyecto como propuesta para definir cómo tratar tareas similares. No es un análisis farmacoeconómico ni decide métodos, evidencia, parámetros o conclusiones. Solo se activa después de tu confirmación.", "reject": "Estás decidiendo si este Skill candidato debe permanecer inactivo. No es una valoración del plan de estudio ni del resultado de un análisis.", "revoke": "Estás dejando de usar un Skill del proyecto que se había activado. Esta decisión no reescribe métodos, evidencia, parámetros ni conclusiones."},
+        "boundary": {"activate": "Solo copia al proyecto actual los archivos de instrucciones validados. No concede acceso a red, comandos, secretos ni escritura fuera del proyecto.", "reject": "Registra tu decisión para estos bytes exactos. La candidata permanece inactiva y auditable.", "revoke": "Solo elimina la copia activa si aún coincide exactamente con el registro de activación. Nunca borra contenido modificado."},
+        "capabilityTitle": "Qué hace esta capacidad",
+        "requestTitle": "Solicitud que originó esta candidata",
+        "acceptanceTitle": "Comprobaciones para revisión humana",
+        "limitationsTitle": "Limitaciones declaradas",
+        "licenseTitle": "Licencia y uso permitido",
+        "technicalDetails": "Ver detalles técnicos y de auditoría",
+        "technical": {"candidateId": "ID interno", "provider": "Proveedor usado para prepararla", "model": "Modelo usado para prepararla", "license": "Identificador de licencia", "decisionHash": "SHA-256 vinculado a esta revisión"},
+        "actor": "Nombre o etiqueta local del revisor",
+        "actorPlaceholder": "Por ejemplo: revisor de métodos HEOR",
+        "rationale": "Motivo de la decisión",
+        "rationalePlaceholder": {"activate": "Indica qué revisaste y por qué aceptas esta capacidad limitada para el proyecto.", "reject": "Indica por qué debe permanecer inactiva.", "revoke": "Indica por qué ya no debe ejecutarse en este proyecto."},
+        "confirm": {"activate": "He revisado el propósito, las instrucciones, la licencia, las limitaciones y todas las comprobaciones. Autorizo este Skill solo para el proyecto actual.", "reject": "Entiendo el propósito y las limitaciones de esta candidata y quiero que permanezca inactiva.", "revoke": "Entiendo el efecto de la revocación y quiero dejar de usar el Skill que coincide con el registro de activación."},
+        "cancel": "Cancelar",
+        "recording": "Registrando…",
+        "submit": {"activate": "Registrar y activar", "reject": "Registrar rechazo", "revoke": "Registrar y revocar"}
+      }
+    },
+    "preferences": {
+      "sectionTitle": "Preferencias locales de trabajo",
+      "boundary": "AI4HEOR solo puede sugerir una preferencia cuando el mismo hábito aparece en al menos dos interacciones independientes. Nada se vuelve permanente sin tu revisión. No puede cambiar métodos, evidencia, parámetros, conclusiones, aprobaciones, el modelo ni el destino de los datos.",
+      "refresh": "Actualizar preferencias", "loading": "Comprobando propuestas y preferencias aceptadas…", "unavailable": "No se pudo verificar la propuesta, el archivo de preferencias o el registro de revisión. No se cambió nada.", "noProject": "Crea o abre un proyecto de AI4HEOR para revisar sus preferencias.", "empty": "No hay preferencias propuestas a partir de hábitos repetidos.",
+      "proposal": "Preferencia sugerida", "current": "Preferencia actual", "accepted": "aceptada", "enabled": "en uso", "disabled": "en pausa", "evidenceCount": "Basada en {{count}} interacciones independientes", "reviewAccept": "Revisar y aceptar", "edit": "Editar", "enable": "Volver a usar", "disable": "Pausar", "delete": "Eliminar",
+      "scope": {"language": "idioma", "presentation": "presentación", "workflow": "flujo de trabajo", "audit": "auditoría"},
+      "dialog": {
+        "title": {"accept": "Revisar esta preferencia sugerida", "update": "Editar esta preferencia", "enable": "Volver a usar esta preferencia", "disable": "Pausar esta preferencia", "delete": "Eliminar esta preferencia"},
+        "boundary": {"accept": "Comprueba que las observaciones describan realmente cómo quieres trabajar. Puedes editar el texto antes de aceptarlo.", "update": "Edita solo la preferencia de trabajo; no puede incluir material confidencial ni decisiones científicas.", "enable": "Vuelve a aplicar esta preferencia revisada en el proyecto.", "disable": "Conserva el registro local, pero deja de aplicarlo.", "delete": "La elimina del archivo activo; la decisión humana permanece en el registro de auditoría."},
+        "evidence": "Interacciones que motivaron la sugerencia", "rule": "Texto de la preferencia", "actor": "Nombre o etiqueta local del revisor", "actorPlaceholder": "Por ejemplo: investigador del proyecto", "rationale": "Motivo de la decisión",
+        "rationalePlaceholder": {"accept": "Explica por qué este patrón repetido debe aceptarse como preferencia local.", "update": "Explica por qué debe cambiar el texto.", "enable": "Explica por qué quieres volver a usarla.", "disable": "Explica por qué debe pausarse.", "delete": "Explica por qué debe eliminarse."},
+        "confirm": {"accept": "He revisado las observaciones y el texto. Es una preferencia no sensible, no una decisión científica.", "update": "He revisado el nuevo texto y sigue siendo una preferencia no sensible.", "enable": "Quiero volver a usar esta preferencia revisada.", "disable": "Quiero pausarla sin borrar su registro local.", "delete": "Quiero eliminarla del archivo activo."},
+        "cancel": "Cancelar", "recording": "Registrando…", "submit": {"accept": "Registrar y aceptar", "update": "Registrar cambios", "enable": "Registrar y activar", "disable": "Registrar y pausar", "delete": "Registrar y eliminar"}
+      }
+    },
+    "assetAdmission": {
+      "sectionTitle": "Adaptadores externos",
+      "loading": "Comprobando los adaptadores externos incluidos…",
+      "unavailable": "No se pueden verificar los adaptadores externos y permanecen desactivados.",
+      "firstPartyTitle": "52 Skills propias de AI4HEOR están integradas",
+      "firstPartyBoundary": "Aquí solo aparecen adaptadores externos que superaron las revisiones de licencia, seguridad, método y paquete y que realmente se distribuyen con AI4HEOR. Las fuentes pendientes de reescritura o excluidas no se conservan como opciones.",
+      "groupAdmitted": "Activos admitidos ({{count}})",
+      "admitted": "admitidos",
+      "adapterBoundary": "Este adaptador solo puede ejecutarse dentro de los límites declarados de espacio de trabajo, red, permisos y Human-in-the-loop.",
+      "noneAdmitted": "Actualmente no se distribuye ninguna herramienta de terceros con AI4HEOR. Las funciones necesarias son Skills propias; las reescrituras incompletas y las fuentes excluidas no se muestran aquí.",
+      "registryValid": "El registro de adaptadores externos es válido y hay {{count}} disponible.",
+      "failClosed": "Falló la validación del registro. Todas las capacidades externas permanecen desactivadas."
     },
     "environment": {
       "sectionTitle": "Entorno científico",
       "detectionUnavailable": "La detección del entorno se ejecuta en la app de escritorio.",
       "found": "encontrado",
       "notFound": "no encontrado",
-      "note": "OpenCode ejecuta código con lo que esté instalado aquí (p. ej., Python mediante su herramienta de shell). Python/R/Jupyter no vienen incluidos; instálalos o instala un Science Pack para habilitar el análisis."
+      "note": "El asistente de IA ejecuta código con las herramientas instaladas aquí (p. ej., Python mediante la herramienta de shell). Python/R/Jupyter no vienen incluidos; instálalos o instala un Science Pack para habilitar el análisis."
     },
     "agentsSection": {
       "sectionTitle": "Agentes ({{count}})",
@@ -88,8 +167,8 @@
       "empty": "Aún no se ha cargado ninguna habilidad.",
       "source": {
         "builtin": "incluida",
-        "project": "proyecto",
-        "user": "usuario"
+        "project": "espacio de trabajo · no gestionado",
+        "bundled": "AI4HEOR · propio"
       }
     },
     "disconnected": "Conecta el entorno de ejecución para listar las habilidades y agentes que ha cargado."

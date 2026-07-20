@@ -1,10 +1,37 @@
-// Workspace-per-session behavior: a fresh draft's first message creates a new
-// dated folder by default; an explicit switcher choice pins the destination.
+// Project/session behavior: a standalone conversation gets its own local
+// research scope; choosing a project pins the conversation to shared context.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  newDatedWorkspace: vi.fn(async (name: string) => `/ws/${name}`),
-  setWorkspace: vi.fn(async (path: string) => path),
+  activePath: "/ws/base",
+  projects: [
+    {
+      id: "project-1",
+      name: "Test HEOR project",
+      createdAt: 1,
+      kind: "heor" as const,
+      path: "/ws/base",
+    },
+  ],
+  setWorkspace: vi.fn(async (path: string) => {
+    mocks.activePath = path;
+    return path;
+  }),
+  newDatedWorkspace: vi.fn(async (name: string) => {
+    mocks.activePath = `/ws/${name}`;
+    return mocks.activePath;
+  }),
+  createProject: vi.fn(async (name: string) => {
+    const project = {
+      id: "created-project",
+      name,
+      createdAt: 2,
+      kind: "heor" as const,
+      path: "/ws/Created-Project",
+    };
+    mocks.projects.push(project);
+    return project;
+  }),
   commitWorkspaceSnapshot: vi.fn(async () => false),
   kernelReset: vi.fn(async () => {}),
   /** Number of connect() attempts that fail before one succeeds. */
@@ -16,7 +43,6 @@ const mocks = vi.hoisted(() => ({
   /** Fire a client status flip into the store, as the SDK's reconnect would. */
   fireStatus: (_s: string) => {},
   runShell: vi.fn(),
-  sendPromptSpy: vi.fn(),
   runCommand: vi.fn(),
   replyPermission: vi.fn(),
   abortSession: vi.fn(),
@@ -46,8 +72,8 @@ const mocks = vi.hoisted(() => ({
     mocks.approvalMode = mode;
     return "http://127.0.0.1:1";
   }),
-  notifyPermissionRequest: vi.fn(async () => true),
   startRuntime: vi.fn(async () => "http://127.0.0.1:1"),
+  restartRuntime: vi.fn(async () => "http://127.0.0.1:1"),
   /** Constructor options every OpenCodeClient was created with. */
   clientOpts: [] as Record<string, unknown>[],
 }));
@@ -57,9 +83,20 @@ vi.mock("./tauri", () => ({
   logDebug: async () => {},
   detectTools: async () => [],
   startRuntime: mocks.startRuntime,
-  workspacePath: async () => "/ws/base",
+  restartRuntime: mocks.restartRuntime,
+  workspacePath: async () => mocks.activePath,
   setWorkspace: mocks.setWorkspace,
   newDatedWorkspace: mocks.newDatedWorkspace,
+  createProject: mocks.createProject,
+  listProjects: async () => mocks.projects,
+  currentResearchScope: async () =>
+    mocks.projects.find((project) => project.path === mocks.activePath) ?? {
+      id: "standalone-scope",
+      name: mocks.activePath.split("/").pop() ?? "conversation",
+      createdAt: 3,
+      kind: "session" as const,
+      path: mocks.activePath,
+    },
   markSession: async () => {},
   commitWorkspaceSnapshot: mocks.commitWorkspaceSnapshot,
   getApprovalMode: async () => mocks.approvalMode,
@@ -67,9 +104,6 @@ vi.mock("./tauri", () => ({
   runtimePassword: async () => "pw-test",
 }));
 vi.mock("./kernel", () => ({ kernelReset: mocks.kernelReset }));
-vi.mock("./systemNotification", () => ({
-  notifyPermissionRequest: mocks.notifyPermissionRequest,
-}));
 vi.mock("@ai4s/sdk", () => {
   class OpenCodeClient {
     private statusCb: (s: string) => void = () => {};
@@ -102,10 +136,7 @@ vi.mock("@ai4s/sdk", () => {
       return [{ name: "stub" }];
     }
     async listAgents() {
-      return [
-        { name: "build", description: "", mode: "primary" },
-        { name: "plan", description: "", mode: "primary" },
-      ];
+      return [];
     }
     async getDefaultModel() {
       return mocks.currentModel;
@@ -122,9 +153,7 @@ vi.mock("@ai4s/sdk", () => {
       }
       return "ses_new";
     }
-    async sendPrompt(sid: string, text: string, agent?: string) {
-      mocks.sendPromptSpy(sid, text, agent);
-    }
+    async sendPrompt() {}
     async listCommands() {
       return [{ name: "init", description: "guided AGENTS.md setup", source: "command" }];
     }
@@ -187,8 +216,18 @@ vi.mock("@ai4s/sdk", () => {
 import type { ArtifactBlock } from "@ai4s/shared";
 import { DRAFT_KEY, rootSessionOf, useRuntimeStore } from "./runtime";
 
+const PROJECT = {
+  id: "project-1",
+  name: "Test HEOR project",
+  createdAt: 1,
+  kind: "heor" as const,
+  path: "/ws/base",
+};
+
 beforeEach(async () => {
   vi.clearAllMocks();
+  mocks.activePath = PROJECT.path;
+  mocks.projects = [PROJECT];
   mocks.failConnects = 0;
   mocks.failCreates = 0;
   mocks.failShell = false;
@@ -200,10 +239,12 @@ beforeEach(async () => {
   mocks.approvalMode = "approve";
   mocks.currentModel = null;
   mocks.failSetModel = false;
-  mocks.notifyPermissionRequest.mockResolvedValue(true);
   useRuntimeStore.setState({
     currentId: null,
+    workspace: PROJECT.path,
     workspacePinned: false,
+    projects: [PROJECT],
+    researchScope: PROJECT,
     threads: {},
     error: null,
     sending: false,
@@ -211,13 +252,9 @@ beforeEach(async () => {
     permissions: [],
     sessionParents: {},
     panes: {},
-    sessionAgents: {},
   });
   await useRuntimeStore.getState().connect();
   expect(useRuntimeStore.getState().status).toBe("ready");
-  // connect() fires loadCatalog without awaiting it — settle it so tests that
-  // override `agents` (or read them) aren't racing the catalog write.
-  await new Promise((r) => setTimeout(r, 0));
 });
 
 describe("runtime authentication", () => {
@@ -239,26 +276,61 @@ describe("runtime authentication", () => {
       password: "pw-test",
     });
   });
+
+  it("replaces the local runtime process before reconnecting during recovery", async () => {
+    useRuntimeStore.setState({ status: "error", error: "runtime stopped" });
+
+    const recovered = await useRuntimeStore.getState().restartLocalRuntime();
+
+    expect(recovered).toBe(true);
+    expect(mocks.restartRuntime).toHaveBeenCalledTimes(1);
+    expect(useRuntimeStore.getState()).toMatchObject({
+      status: "ready",
+      error: null,
+      switching: false,
+      serverUrl: "http://127.0.0.1:1",
+    });
+  });
 });
 
-describe("per-session workspace folders", () => {
-  it("creates a fresh dated folder before the first message of an unpinned draft", async () => {
+describe("project and standalone conversations", () => {
+  it("adds a newly created project before switching into it", async () => {
+    useRuntimeStore.setState({ projects: [], workspacePinned: false });
+    const created = await useRuntimeStore.getState().createProject("Created Project");
+    expect(created?.id).toBe("created-project");
+    expect(useRuntimeStore.getState().projects).toContainEqual(created);
+    expect(mocks.setWorkspace).toHaveBeenCalledWith("/ws/Created-Project");
+    expect(useRuntimeStore.getState().workspacePinned).toBe(true);
+  });
+
+  it("creates a standalone conversation in its own dated research scope", async () => {
+    useRuntimeStore.setState({ projects: [], workspacePinned: false });
     const id = await useRuntimeStore.getState().sendPrompt("hello");
     expect(id).toBe("ses_new");
     expect(mocks.newDatedWorkspace).toHaveBeenCalledTimes(1);
     expect(mocks.newDatedWorkspace.mock.calls[0][0]).toMatch(/^\d{4}-\d{2}-\d{2}-\d{4}$/);
-    // The kernel is reset so it respawns inside the new folder.
     expect(mocks.kernelReset).toHaveBeenCalled();
+    expect(useRuntimeStore.getState().researchScope?.kind).toBe("session");
   });
 
-  it("keeps a pinned folder: no dated folder is created", async () => {
+  it("materializes a standalone scope before a starter or attachment writes files", async () => {
+    useRuntimeStore.setState({ projects: [], workspacePinned: false });
+    expect(await useRuntimeStore.getState().ensureStandaloneWorkspace()).toBe(true);
+    expect(useRuntimeStore.getState().workspacePinned).toBe(true);
+    expect(mocks.newDatedWorkspace).toHaveBeenCalledTimes(1);
+
+    await useRuntimeStore.getState().sendPrompt("continue with the prepared files");
+    expect(mocks.newDatedWorkspace).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates a conversation in the selected project without a dated scope", async () => {
     useRuntimeStore.setState({ workspacePinned: true });
     const id = await useRuntimeStore.getState().sendPrompt("hello");
     expect(id).toBe("ses_new");
     expect(mocks.newDatedWorkspace).not.toHaveBeenCalled();
   });
 
-  it("does not create another folder for later messages in the same session", async () => {
+  it("does not create another scope for later messages in the same conversation", async () => {
     await useRuntimeStore.getState().sendPrompt("first");
     await useRuntimeStore.getState().sendPrompt("second");
     expect(mocks.newDatedWorkspace).toHaveBeenCalledTimes(1);
@@ -493,7 +565,6 @@ describe("per-session workspace folders", () => {
 
     const connectsBeforeNextTurn = mocks.clientOpts.length;
     await useRuntimeStore.getState().sendPrompt("next");
-    expect(mocks.newDatedWorkspace).not.toHaveBeenCalled();
     expect(mocks.clientOpts.length).toBeGreaterThan(connectsBeforeNextTurn);
   });
 
@@ -514,31 +585,13 @@ describe("per-session workspace folders", () => {
     ]);
   });
 
-  it("switchWorkspace pins the chosen folder; startDraft un-pins it", async () => {
-    await useRuntimeStore.getState().switchWorkspace({ path: "/ws/mine" });
-    expect(mocks.setWorkspace).toHaveBeenCalledWith("/ws/mine");
+  it("global startDraft starts standalone; a project can still pin its own draft", async () => {
+    await useRuntimeStore.getState().switchWorkspace({ path: PROJECT.path });
     expect(useRuntimeStore.getState().workspacePinned).toBe(true);
+    const before = useRuntimeStore.getState().draftEpoch;
     useRuntimeStore.getState().startDraft();
     expect(useRuntimeStore.getState().workspacePinned).toBe(false);
-  });
-
-  it("ensureDraftWorkspace materializes a fresh draft's dated folder before files are written", async () => {
-    // A brand-new, unpinned draft → creates+pins its dated folder, so a pasted
-    // or attached file lands in the same workspace the session will run in.
-    useRuntimeStore.setState({ currentId: null, workspacePinned: false });
-    mocks.newDatedWorkspace.mockClear();
-    await useRuntimeStore.getState().ensureDraftWorkspace();
-    expect(mocks.newDatedWorkspace).toHaveBeenCalledTimes(1);
-    expect(useRuntimeStore.getState().workspacePinned).toBe(true);
-
-    // Idempotent: an already-pinned draft (or a live session) is left alone, so
-    // send does not create a second dated folder that would orphan the file.
-    mocks.newDatedWorkspace.mockClear();
-    await useRuntimeStore.getState().ensureDraftWorkspace();
-    expect(mocks.newDatedWorkspace).not.toHaveBeenCalled();
-    useRuntimeStore.setState({ currentId: "ses_1", workspacePinned: false });
-    await useRuntimeStore.getState().ensureDraftWorkspace();
-    expect(mocks.newDatedWorkspace).not.toHaveBeenCalled();
+    expect(useRuntimeStore.getState().draftEpoch).toBe(before + 1);
   });
 });
 
@@ -612,26 +665,6 @@ describe("subagent permission asks and long sync turns", () => {
     expect(mocks.replyPermission).toHaveBeenCalledTimes(3);
     expect(mocks.replyPermission).toHaveBeenCalledWith("per_b", "always");
     expect(useRuntimeStore.getState().permissions).toHaveLength(0);
-  });
-
-  it("sends one system notification for each new permission request", async () => {
-    await useRuntimeStore.getState().sendPrompt("go");
-    const permission = {
-      type: "permission.asked" as const,
-      sessionId: "ses_new",
-      requestId: "per_notify",
-      action: "bash",
-      resources: ["npm install"],
-    };
-
-    mocks.fireEvent(permission);
-    mocks.fireEvent(permission);
-
-    expect(mocks.notifyPermissionRequest).toHaveBeenCalledTimes(1);
-    expect(mocks.notifyPermissionRequest).toHaveBeenCalledWith({
-      action: "bash",
-      resources: ["npm install"],
-    });
   });
 });
 
@@ -1028,57 +1061,5 @@ describe("model switch failure state", () => {
     useRuntimeStore.setState({ modelSwitchError: "stale" });
     useRuntimeStore.getState().disconnect();
     expect(useRuntimeStore.getState().modelSwitchError).toBe(null);
-  });
-});
-
-describe("plan agent mode", () => {
-  it("pins agent 'plan' on send, and grafts the draft's mode onto the new session", async () => {
-    useRuntimeStore.getState().setAgentMode("plan");
-    const id = await useRuntimeStore.getState().sendPrompt("plan an analysis");
-
-    expect(mocks.sendPromptSpy).toHaveBeenLastCalledWith("ses_new", "plan an analysis", "plan");
-    const { sessionAgents } = useRuntimeStore.getState();
-    expect(sessionAgents[id!]).toBe("plan");
-    expect(sessionAgents["draft"]).toBeUndefined();
-  });
-
-  it("omits the agent field entirely in build mode", async () => {
-    await useRuntimeStore.getState().sendPrompt("hello");
-    expect(mocks.sendPromptSpy).toHaveBeenLastCalledWith("ses_new", "hello", undefined);
-  });
-
-  it("never pins a stale plan mode when the runtime has no plan agent", async () => {
-    useRuntimeStore.setState({ agents: [{ name: "build", description: "", mode: "primary" }] });
-    useRuntimeStore.getState().setAgentMode("plan");
-    await useRuntimeStore.getState().sendPrompt("hi");
-    expect(mocks.sendPromptSpy).toHaveBeenLastCalledWith("ses_new", "hi", undefined);
-  });
-
-  it("follows OpenCode's plan_exit Yes-path: a build user message flips the pill", async () => {
-    useRuntimeStore.getState().setAgentMode("plan");
-    const id = await useRuntimeStore.getState().sendPrompt("plan it");
-    expect(useRuntimeStore.getState().sessionAgents[id!]).toBe("plan");
-
-    // The injected "Execute the plan" user message arrives with agent build.
-    mocks.fireEvent({ type: "message.agent", sessionId: id, agent: "build" });
-
-    expect(useRuntimeStore.getState().sessionAgents[id!]).toBe("build");
-  });
-
-  it("a fresh draft always starts in build", async () => {
-    useRuntimeStore.getState().setAgentMode("plan");
-    useRuntimeStore.getState().startDraft();
-    expect(useRuntimeStore.getState().sessionAgents["draft"]).toBeUndefined();
-  });
-
-  it("reopening a session seeds the mode from the last user message's agent", async () => {
-    mocks.messages = [
-      { role: "user", agent: "build", parts: [{ type: "text", text: "hi" }] },
-      { role: "assistant", completed: 2, parts: [] },
-      { role: "user", agent: "plan", parts: [{ type: "text", text: "plan X" }] },
-      { role: "assistant", completed: 4, parts: [] },
-    ];
-    await useRuntimeStore.getState().openSession("ses_hist");
-    expect(useRuntimeStore.getState().sessionAgents["ses_hist"]).toBe("plan");
   });
 });

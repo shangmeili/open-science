@@ -1,5 +1,13 @@
 # Open Science Desktop — Prioritized Requirements (Community-Informed)
 
+> **Historical upstream baseline.** This file records the inherited
+> multi-discipline Open Science product requirements. It is not the current
+> AI4HEOR delivery contract. `docs/PRD.md`, `docs/HEOR_PRODUCT.md`, and
+> `docs/HEOR_ECOSYSTEM.md` govern the HEOR product. In particular, inherited
+> generic one-click MCP claims below were superseded on 2026-07-17: AI4HEOR
+> ships governed first-party HEOR evidence access, managed Jupyter, and an
+> explicitly unmanaged bring-your-own MCP path.
+
 > **Purpose.** This document turns real community evidence into concrete,
 > prioritized requirements for **Open Science Desktop**, our open-source, local-first,
 > reproducible AI research workbench. It complements `PRD.md`: the PRD says
@@ -68,11 +76,11 @@ competitors.
 - **Acceptance.** From a single natural-language request, produce at least one
   figure **and** one report artifact, each linked to the code that made them,
   without the user leaving the app.
-- **Status.** ✅ The empty session offers one-click workflow starters (demo
-  end-to-end analysis, analyze-my-data, audit-a-report, and the climate-trends
-  example on real bundled data); the demo starter verifiably produces code →
-  figure → report → stats in one turn, all files surfaced as artifacts with
-  provenance. Minor gap: bci-trends is still repo-only.
+- **Status.** ✅ AI4HEOR's empty session offers only HEOR-focused starters:
+  pharmacoeconomic study design, HEOR evidence/data analysis, model/report audit,
+  and a synthetic cost-effectiveness example. The researcher remains the
+  scientific lead; each prompt requires reviewable local artifacts and explicit
+  Human method or interpretation gates.
 
 ### P0-2 · Local data + local compute (restricted-environment friendly) — ✅ Done
 
@@ -301,10 +309,14 @@ competitors.
     `external_directory`, but bash (default `allow`, real `$HOME`) escapes
     freely. Covered by the permission fix above (in "Approve for me" mode;
     "Full access" is an explicit user opt-out).
-  - [ ] **API keys are plaintext on disk** — provider keys, connector keys
-    (MP/FRED), and the Jupyter token all land in `opencode.json` (not only the
-    mode-600 `auth.json` P2-3 describes). The keychain revert (P2-3) was a
-    deliberate call for signed-release reasons; revisit for signed releases.
+  - [ ] **Some credentials remain plaintext on disk** — **model-provider portion
+    fixed (2026-07-20):** built-in and custom-provider credentials now use only
+    OpenCode's app-private mode-600 `auth.json`; custom endpoint metadata no
+    longer accepts or stores `apiKey`, and the legacy Rust command that wrote
+    provider keys into `opencode.json` has been removed. Researcher-managed MCP
+    credentials and the Jupyter token can still land in connector configuration.
+    The keychain revert (P2-3) was a deliberate call for signed-release reasons;
+    revisit this remaining at-rest boundary for signed releases.
     **Both interim minimums are now met (2026-07-06):** the `/global/config`
     surface requires auth (see the CORS/auth fix above), and the config is no
     longer world-readable — the app-private runtime root is chmod 700 and
@@ -392,57 +404,34 @@ competitors.
   fields at a time; make extensibility visible so non-bio users see a path in.
 - **Acceptance.** At least one non-bio example project ships alongside the bio
   demo; a new field's connector needs no core change.
-- **Status.** 🟡 Skills + MCP management shipped and pluggable; non-bio showcase
-  shipped (`examples/climate-trends/`, real NASA GISTEMP v4, bundled, one-click).
+- **Status.** 🟡 Skills + MCP management remains pluggable as platform lineage,
+  but AI4HEOR no longer bundles a climate showcase. Its sole delivery example is
+  the synthetic `examples/heor-cost-effectiveness/` project.
   Non-bio depth now spans all five targeted disciplines via connectors
   (P1-2), domain viewers (P1-3), and correctness gates (P0-5: physics/earth/
   biology/chemistry). Gap: deeper per-field coverage (astronomy catalogs, a
   social-science correctness gate) continues under P1-2 / P1-3 / P1-6.
 
-### P1-2 · Domain connectors (databases + literature) — 🟡 Partial
+### P1-2 · Domain connectors (historical upstream requirement) — superseded
 
-- **Evidence.** Connectors are a genuine highlight but *"strong for life sciences,
-  weak elsewhere."* Agents hallucinate dataset names and mismatch coverage when
-  no grounded catalog exists: *"failed to autonomously locate authoritative
-  datasets, instead hallucinating dataset names."* The biggest whitespace is
-  discipline-specific databases outside biology.
-- **Requirement.** Curated one-click MCP connectors, plus a documented
-  bring-your-own path. Provide **executable access paths / catalog metadata** (not
-  just keyword search) so the agent stops inventing datasets. Coverage targets by
-  discipline:
+The inherited requirement prioritized broad multi-discipline one-click MCP
+coverage. That is not the AI4HEOR acceptance boundary. Current behavior is:
 
-  | Discipline | Connectors | Status |
-  |---|---|---|
-  | Literature (all) | arXiv, PubMed, Crossref, Semantic Scholar; OpenAlex | ✅ shipped (paper-search-mcp) |
-  | Biology | PubMed, trials, variants (biomcp); PDB/UniProt/ChEMBL/ClinVar | 🟡 partial |
-  | Physics/astro | Space weather (`spaceweather-mcp` — NOAA SWPC/NASA DONKI/USGS) ✅ shipped; NASA ADS, SIMBAD, VizieR, MAST/IRSA, Gaia, SDSS/DESI, GWOSC/LIGO next | 🟡 partial |
-  | Chemistry/materials | Materials Project (`mcp-materials-project`) ✅ shipped; PubChem, ChEMBL, ICSD, COD, NIST next | 🟡 partial |
-  | Earth/climate | Open-Meteo weather/climate (`mcp-weather-server`) ✅ + USGS water (`usgs-mcp`) ✅ shipped; NASA Earthdata, Copernicus/Sentinel, CDS/ERA5, NOAA CDO, GEE, ESGF/CMIP6 next | 🟡 partial |
-  | Social science | FRED (`fred-mcp`) ✅ shipped; IPUMS API, ICPSR, OSF, GSS, World Bank next | 🟡 partial |
+- first-party `$heor-evidence-search` for fixed-endpoint PubMed and
+  ClinicalTrials.gov metadata, with an exact request hash and Human network
+  authorization;
+- one-click managed Jupyter for local computation;
+- researcher-managed local or remote MCP servers, explicitly outside product
+  admission; and
+- no third-party default MCP until a per-tool, hash-locked adapter passes
+  license, egress, rights, methods, adversarial, cross-platform, and kill-switch
+  review.
 
-- **Acceptance.** From chat, query literature (PubMed/arXiv/Crossref) auditable by
-  the reviewer, plus **at least one non-bio domain database per targeted
-  discipline**; the BYO-MCP path is documented and works.
-- **Status.** 🟡 Literature + bio + **five non-bio** connectors ship with
-  one-click Enable (isolated env via bundled uv) + `docs/CONNECT_YOUR_TOOLS.md`,
-  now spanning **all five targeted disciplines** — the acceptance's "≥1 non-bio
-  domain database per targeted discipline" is met: **Materials Project**
-  (`mcp-materials-project`, materials), **FRED** (`fred-mcp`, economics),
-  **Space weather** (`spaceweather-mcp` — NOAA SWPC/NASA DONKI/USGS, physics),
-  **Open-Meteo weather/climate** (`mcp-weather-server`, earth), and **USGS water**
-  (`usgs-mcp`, earth). The catalog carries a discipline chip, a per-connector
-  free-API-key field (passed via the MCP `environment`, never into
-  provenance/logs), and console-script *or* `-m module` launch (resolved next to
-  the managed interpreter, cross-platform). **Every connector is verified by a
-  real MCP `initialize`/`tools/list` stdio handshake in the bundled-uv env
-  before shipping** (spaceweather → 15 tools, open-meteo → 8, usgs → 10; the
-  three no-key ones need no credentials at all) — the discipline that caught two
-  false friends earlier (`astro-mcp` is Airflow, not astronomy; earlier
-  usgs/open-meteo doubts were an inadequate check, now disproven by the real
-  handshake). We integrate existing open-source servers, not reimplement them.
-  Gap: the classic astronomy catalogs (NASA ADS, SIMBAD, Gaia, MAST) have no
-  pip-installable stdio MCP yet — GitHub-only, would need vendoring; and more
-  chem/social DBs (see the table).
+Paper Search MCP and BioMCP have been removed rather than retained as product
+candidates. Materials Project, FRED, space-weather, Open-Meteo, and USGS are no
+longer offered as AI4HEOR defaults.
+The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
+`docs/HEOR_ECOSYSTEM.md`.
 
 ### P1-3 · Scientific renderers (native viewers) — 🟡 Partial
 
@@ -508,11 +497,50 @@ competitors.
   first launch works without CLI knowledge.
 - **Acceptance.** A non-technical user installs and reaches a working first
   session on both macOS and Windows via a signed installer.
-- **Status.** 🟡 macOS installer shipped; sidecars bundled. Windows CI pipeline in
-  place (matrix produces NSIS `.exe`/`.msi`; both sidecar fetch scripts emit the
-  Windows binaries) and cross-platform paths audited (fixed a Windows-only
-  orphaned-jupyter cleanup gap). Gap (host-bound): producing + code-signing the
-  Windows installer and verifying a real first-run need a Windows machine/CI.
+- **Status.** 🟡 The current AI4HEOR 0.1.52 macOS x64 candidate from
+  `0b7750492651d47d9fa3a1763697ceb5eb0c6b82` is structurally and byte-for-byte verified with all 177 packaged HEOR
+  tests. An exact temporary app copy also passed fresh-workspace creation,
+  content-preserving legacy-workspace migration, bundled-process proof and cleanup
+  while the installed app remained open. Product-owner use and acceptance, signing,
+  and notarization remain open; the cross-built macOS arm64 DMG remains
+  at 0.1.31 from clean commit `2834785e057ac54477a9633f07390bc173251644`,
+  the Linux x86_64 `.deb`/`.rpm` remain at 0.1.30 from clean commit
+  `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. The x64 DMG contains all 359 current
+  configured resources byte-identical to source; the earlier arm64/Linux artifacts each
+  contain their source commit's complete 282-resource set. All four pass all 177 deterministic
+  HEOR tests against mounted or extracted package cores. Both Linux packages were built in an isolated
+  Ubuntu 22.04 builder and are structurally and byte-for-byte verified. The arm64 DMG's
+  read-only inspection on an Intel Mac verified pure-arm64 main/OpenCode/uv binaries and all 282
+  resources byte-identical to source. It is not native-run evidence: the strict verifier
+  fails closed when the Intel host cannot execute the arm64 sidecar and emits no formal
+  release-evidence JSON. Separate inspection found only an ad-hoc linker signature with
+  unsealed resources, and Gatekeeper rejects the app. The `v*` tag workflow now fails
+  before building when any required Apple secret is absent and injects those secrets only
+  into tagged macOS jobs. Its strict post-build mode requires a common Developer ID chain
+  across every Mach-O with the exact credentialed Apple Team ID, hardened runtime, secure
+  timestamps, sealed resources, safe
+  entitlements, a stapled ticket, and Gatekeeper `Notarized Developer ID`; tag release
+  evidence rejects missing trust checks or incomplete proof. Unit contracts and the
+  current unsigned x64 and arm64 DMGs prove the failure path, but no credentialed tag run proves the
+  success path yet. Matrix jobs also cannot create a draft release; only the final
+  four-target manifest job can create a new draft containing exactly six verified
+  installers, four evidence files, and the manifest. The Linux `.deb` additionally passed
+  a brand-new Ubuntu 22.04 non-root headless first-start check with one desktop process,
+  one bundled OpenCode process and a fresh `~/Documents/AI4HEOR`; the `.rpm` passed a
+  Fedora 42 start that preserved an exact marker while migrating the legacy
+  `~/Documents/OpenScience` root. Windows CI is
+  configured on an explicit Windows 2022 host to produce NSIS `.exe`/`.msi`, inspect MSI
+  metadata and extracted payload bytes, run the packaged HEOR suite, silently install
+  NSIS, and require one desktop process, one bundled OpenCode process, and a new workspace.
+  Each of the four explicit native targets now has a fail-closed package verifier and
+  hash-bound evidence JSON. A final CI job downloads and re-hashes every installer, then
+  accepts only one source/resource inventory covering macOS arm64, macOS x64, Windows
+  x64, and Linux x64. The portable manifest contracts and current macOS x64/Linux
+  packages have been locally exercised, but the four-target job has not yet run for the
+  current commit. Gaps: a physical Linux desktop visual session; actual current-commit
+  four-target manifest and Windows host/first-run evidence; native Apple Silicon package
+  verification and first start; Windows and Apple Silicon visual/non-technical-user
+  acceptance; the first credentialed macOS tag execution; and Windows Authenticode signing.
 
 ### P1-5 · Interaction & visualization craft (the app must feel premium) — 🟡 Partial
 
@@ -672,17 +700,17 @@ competitors.
 
 | # | Requirement | Tier | Status |
 |---|---|---|---|
-| P0-1 | Full workflow end to end (not chat) | P0 | ✅ Done — starters + real-data example |
+| P0-1 | Full workflow end to end (not chat) | P0 | ✅ Done — HEOR starters + synthetic CEA example |
 | P0-2 | Local data + local compute | P0 | ✅ Done — local Python **and** R + data-flow card |
 | P0-3 | Artifact provenance / reproducibility | P0 | ✅ Done — versioned records + env/package lockfile + Reproduce |
 | P0-4 | Reviewer: traceable claims (3 checks) | P0 | 🟡 Partial — 3 checks + PDF-manuscript extractor shipped; weak-model robustness pending |
 | **P0-5** | **Domain-correctness gates ("runs" ≠ "right")** | **P0** | 🟡 **Partial — 5 gates ship (physics/earth/biology/chemistry/social science), deterministic + pluggable; chemistry now uses real RDKit round-trip when installed; only POSCAR→pymatgen round-trip pending** |
 | P0-6 | Large files: reference, don't load | P0 | ✅ Done — memory-pointer probe (table/parquet/hdf5/fits/netcdf/log + genomics FASTQ/FASTA/VCF/BAM, GRIB, ROOT) + one-click "Inspect without loading" in the too-large-preview card |
 | **P0-7** | **Safety-defaults compliance + audit debt** | **P0** | 🟡 **Partial — ALL critical items addressed (approval modes, sidecar/preview auth, kernel deadlock, Windows injection, owner-only key files); keychain-at-rest deferred to signed releases (P2-3); moderate/cleanup backlog remains** |
-| P1-1 | Multi-discipline from day one | P1 | 🟡 Partial — pluggable + climate example; non-bio depth pending |
-| P1-2 | Domain + literature connectors | P1 | 🟡 Partial — literature/bio + non-bio across ALL 5 disciplines (materials, economics, physics space-weather, earth Open-Meteo + USGS) shipped, each MCP-handshake verified; astronomy catalogs (no PyPI MCP) + more chem/social DBs pending |
+| P1-1 | Multi-discipline platform lineage | P1 | 🟡 Pluggable, but generic examples are not part of the AI4HEOR delivery |
+| P1-2 | Domain + literature connectors | P1 | Superseded for AI4HEOR — governed HEOR evidence + Jupyter + unmanaged BYO MCP; no generic one-click catalog |
 | P1-3 | Scientific renderers | P1 | 🟡 Partial — base + 3D structure + genome + FITS + DOS + band + phase + qualitative-coding + anomaly map (all 4 disciplines; materials trio complete); ternary/coastlines next |
-| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — macOS done; Windows CI ready (signing/verify host-bound) |
+| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — 0.1.52 macOS x64 is structurally, byte-for-byte and isolated-first-launch verified and is ready for product-owner testing; 0.1.31 arm64 is cross-host content-inspected, and Linux x64 remains verified at 0.1.30; cross-platform work is paused for Intel macOS product acceptance; product-owner acceptance, Windows/native-arm execution and signing remain open |
 | P1-5 | Interaction & visualization craft | P1 | 🟡 Partial — chart system + palette + command palette + native table→chart surface shipped |
 | **P1-6** | **Social-science analysis integrity** | **P1** | 🟡 **Partial — stats-integrity skill: interpretation/prereg/seed checks + verified .dta→R round-trip** |
 | P2-1 | Notebook + larger-project handling | P2 | ✅ Done — notebook + workspace Files explorer |
@@ -698,10 +726,9 @@ discipline-specific 20% and the one cross-cutting gap this revision adds:
    ships with five gates (physics/earth/biology/chemistry/social science); next
    is the remaining library round-trip (POSCAR→pymatgen validity — SMILES→RDKit
    now ships).
-2. **P1-2 / P1-3 non-bio connectors + viewers** — connectors now span all five
-   targeted disciplines (materials, economics, physics space-weather, earth
-   Open-Meteo/USGS); next is astronomy catalogs (no PyPI MCP yet) and richer
-   viewers.
+2. **AI4HEOR connectors + viewers** — admit HEOR evidence sources one bounded
+   adapter at a time; retain useful inherited viewers without reintroducing a
+   generic Open Science connector catalog.
 3. **Deepen the shipped gates** — P0-5 (library round-trip + social science),
    P1-6 (in-app prereg artifact + Stata/SPSS UI). **P0-6 is now ✅ Done** — the
    probe covers genomics/GRIB/ROOT and the UI exposes it as one-click "Inspect

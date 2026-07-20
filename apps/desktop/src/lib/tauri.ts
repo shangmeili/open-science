@@ -4,23 +4,280 @@
 export const isTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-export interface OpenCodeCredentials {
-  provider: string;
-  apiKey: string;
-  model: string;
-  baseUrl?: string;
-}
-
-export type ConfigureResult =
-  | { ok: true; path: string }
-  | { ok: false; reason: "not-desktop" }
-  | { ok: false; reason: "error"; message: string };
-
 /** Start the bundled OpenCode sidecar (desktop only). Returns its base URL. */
 export async function startRuntime(): Promise<string | null> {
   if (!isTauri) return null;
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<string>("start_runtime");
+}
+
+/** Replace the bundled local runtime process and return its stable endpoint. */
+export async function restartRuntime(): Promise<string | null> {
+  if (!isTauri) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string>("restart_runtime");
+}
+
+export interface StartupEnvironmentCheck {
+  id: "workspace" | "skills" | "heorCore" | "harness" | string;
+  ready: boolean;
+  detail: string;
+}
+
+export interface StartupEnvironmentAudit {
+  desktop: boolean;
+  requiredReady: boolean;
+  workspacePath: string | null;
+  checks: StartupEnvironmentCheck[];
+}
+
+/**
+ * Check only the local files required to start AI4HEOR. Model providers,
+ * Python, Jupyter, network access, and scientific validity are deliberately
+ * outside this audit.
+ */
+export async function auditStartupEnvironment(): Promise<StartupEnvironmentAudit> {
+  if (!isTauri) {
+    return {
+      desktop: false,
+      requiredReady: true,
+      workspacePath: null,
+      checks: [],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<StartupEnvironmentAudit>("audit_startup_environment");
+}
+
+export interface AssetAdmissionRecord {
+  assetId: string;
+  displayName: string;
+  kind: "skill" | "mcp" | "package" | string;
+  status: "validated-adapter" | string;
+  releaseEligible: boolean;
+  repository: string;
+  revision: string;
+  licenseSpdx: string;
+  licenseCompatible: boolean;
+  networkEgress: string;
+  execution: string;
+  blockers: string[];
+}
+
+export interface AssetAdmissionAudit {
+  complete: boolean;
+  failClosed: boolean;
+  schemaVersion: string;
+  policyRevision: string;
+  totalCount: number;
+  admittedCount: number;
+  assets: AssetAdmissionRecord[];
+  errors: string[];
+}
+
+export type SkillCandidateReviewAction = "activate" | "reject" | "revoke";
+
+export interface LocalizedCandidateCopy {
+  displayName: string;
+  description: string;
+  licenseNote: string;
+  limitations: string[];
+  acceptanceChecks: string[];
+}
+
+export interface SkillCandidateSummary {
+  candidateId: string;
+  createdAt: string;
+  request: string;
+  localized: Record<string, LocalizedCandidateCopy>;
+  provider: string;
+  model: string;
+  licenseSpdx: string;
+  licenseNote: string;
+  acceptanceChecksSha256: string;
+  decisionSha256: string;
+  activeTreeSha256: string;
+  valid: boolean;
+  validationErrors: string[];
+  status: string;
+  canActivate: boolean;
+  canReject: boolean;
+  canRevoke: boolean;
+  lastAction?: SkillCandidateReviewAction;
+  lastActorLabel?: string;
+  lastRationale?: string;
+  lastTimestamp?: number;
+}
+
+export interface SkillCandidateAudit {
+  projectAvailable: boolean;
+  projectId?: string;
+  complete: boolean;
+  candidates: SkillCandidateSummary[];
+  chainHead?: string;
+  integrity: string;
+  identityAssurance: string;
+  errors: string[];
+}
+
+export interface SkillCandidateReviewRequest {
+  projectId: string;
+  candidateId: string;
+  decisionSha256: string;
+  acceptanceChecksSha256: string;
+  action: SkillCandidateReviewAction;
+  actorLabel: string;
+  rationale: string;
+}
+
+export interface SkillCandidateReviewEvent extends SkillCandidateReviewRequest {
+  schemaVersion: number;
+  sequence: number;
+  reviewId: string;
+  activeTreeSha256: string;
+  timestamp: number;
+  recordPath: string;
+  recordSha256: string;
+  assurance: string;
+  previousHash?: string;
+  eventHash: string;
+}
+
+export type PreferenceReviewAction = "accept" | "update" | "enable" | "disable" | "delete";
+
+export interface PreferenceEvidenceSummary {
+  interactionRef: string;
+  observedAt: string;
+  summary: string;
+}
+
+export interface PreferenceProposalSummary {
+  proposalId: string;
+  createdAt: string;
+  scope: "language" | "presentation" | "workflow" | "audit" | string;
+  proposedRule: string;
+  evidence: PreferenceEvidenceSummary[];
+  counterexamples: string[];
+  reviewCondition: string;
+  expiresAt?: string;
+  proposalSha256: string;
+  valid: boolean;
+  validationErrors: string[];
+  accepted: boolean;
+}
+
+export interface AcceptedPreferenceSummary {
+  id: string;
+  scope: "language" | "presentation" | "workflow" | "audit" | string;
+  rule: string;
+  sourceProposalSha256: string;
+  acceptedAt: number;
+  updatedAt: number;
+  enabled: boolean;
+  reviewCondition: string;
+  expiresAt?: string;
+}
+
+export interface PreferenceAudit {
+  projectAvailable: boolean;
+  projectId?: string;
+  complete: boolean;
+  storeSha256: string;
+  proposals: PreferenceProposalSummary[];
+  preferences: AcceptedPreferenceSummary[];
+  chainHead?: string;
+  integrity: string;
+  identityAssurance: string;
+  errors: string[];
+}
+
+export interface PreferenceReviewRequest {
+  projectId: string;
+  preferenceId: string;
+  proposalSha256: string;
+  storeSha256: string;
+  action: PreferenceReviewAction;
+  rule: string;
+  actorLabel: string;
+  rationale: string;
+}
+
+export interface PreferenceReviewEvent extends PreferenceReviewRequest {
+  schemaVersion: number;
+  sequence: number;
+  reviewId: string;
+  beforeStoreSha256: string;
+  afterStoreSha256: string;
+  timestamp: number;
+  recordPath: string;
+  recordSha256: string;
+  assurance: string;
+  previousHash?: string;
+  eventHash: string;
+}
+
+/** Audit the packaged third-party asset registry. Missing or invalid registry
+ *  data is returned as a fail-closed audit by the native service. */
+export async function auditAssetAdmission(): Promise<AssetAdmissionAudit> {
+  if (!isTauri) throw new Error("The packaged admission registry is available only in the desktop app.");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<AssetAdmissionAudit>("audit_asset_admission");
+}
+
+/** Independently revalidate current-project Skill candidates and their
+ *  app-owned Human review chain. Browser development has no project filesystem. */
+export async function auditSkillCandidates(): Promise<SkillCandidateAudit> {
+  if (!isTauri) {
+    return {
+      projectAvailable: false,
+      complete: true,
+      candidates: [],
+      integrity: "not_applicable",
+      identityAssurance: "app_owned_local_human_assertion",
+      errors: [],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<SkillCandidateAudit>("audit_skill_candidates");
+}
+
+/** Record a Human activation/rejection/revocation for exact candidate bytes.
+ *  Activation and revocation are performed only by the native app. */
+export async function appendSkillCandidateReview(
+  request: SkillCandidateReviewRequest,
+): Promise<SkillCandidateReviewEvent> {
+  if (!isTauri) throw new Error("Skill candidate review is available in the desktop app only.");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<SkillCandidateReviewEvent>("append_skill_candidate_review", { request });
+}
+
+/** Read repeated-observation preference proposals and the exact Human-reviewed
+ * local preference store for the current project. */
+export async function auditLocalPreferences(): Promise<PreferenceAudit> {
+  if (!isTauri) {
+    return {
+      projectAvailable: false,
+      complete: true,
+      storeSha256: "",
+      proposals: [],
+      preferences: [],
+      integrity: "not_applicable",
+      identityAssurance: "app_owned_local_human_assertion",
+      errors: [],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<PreferenceAudit>("audit_local_preferences");
+}
+
+/** Apply one explicit Human acceptance, edit, state change, or deletion to the
+ * exact current proposal and preference-store bytes. */
+export async function appendLocalPreferenceReview(
+  request: PreferenceReviewRequest,
+): Promise<PreferenceReviewEvent> {
+  if (!isTauri) throw new Error("Preference review is available in the desktop app only.");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<PreferenceReviewEvent>("append_local_preference_review", { request });
 }
 
 /**
@@ -54,16 +311,14 @@ export async function addTextToWorkspace(filename: string, content: string): Pro
   return invoke<string>("add_text_to_workspace", { filename, content });
 }
 
-/** Write binary content (base64) into the workspace as `filename` (deduplicated).
- *  Used for pasted images. Returns the actual name written. */
+/** Write pasted binary content into the workspace as a deduplicated file. */
 export async function addBinaryToWorkspace(filename: string, base64: string): Promise<string> {
   if (!isTauri) throw new Error("not running in the desktop app");
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<string>("add_binary_to_workspace", { filename, base64 });
 }
 
-/** Copy explicit local file paths into the workspace (deduplicated). Used by
- *  drag-and-drop. Returns the names written. */
+/** Copy files supplied by native drag-and-drop into the current workspace. */
 export async function addPathsToWorkspace(paths: string[]): Promise<string[]> {
   if (!isTauri) return [];
   const { invoke } = await import("@tauri-apps/api/core");
@@ -147,55 +402,6 @@ export async function setMirrorSetting(pypi: string, python: string): Promise<vo
   await invoke("set_mirror_setting", { pypi, python });
 }
 
-/** Whether the bundled runtime's credential store has an entry for this
- *  provider — ground truth that a browser login landed even when its OAuth
- *  callback was lost. False in browser dev (and on any read failure). */
-export async function providerAuthExists(providerID: string): Promise<boolean> {
-  if (!isTauri) return false;
-  const { invoke } = await import("@tauri-apps/api/core");
-  try {
-    return await invoke<boolean>("provider_auth_exists", { providerId: providerID });
-  } catch {
-    return false;
-  }
-}
-
-/** Per-session goal-mode state, as the bundled goal plugin records it.
- *  Passed through verbatim from goals.json — the plugin owns the schema. */
-export interface GoalState {
-  objective: string;
-  /** The plugin's status enum (its schema owns the literals). */
-  status: "active" | "paused" | "budgetLimited" | "usageLimited" | "complete" | "unmet" | string;
-  autoTurns?: number | null;
-  blocker?: string | null;
-  completionEvidence?: string | null;
-  lastStatus?: string | null;
-}
-
-/** The session's current goal (null when none / in browser dev). Reads the
- *  plugin's state file directly — a status pill must not cost a model turn. */
-export async function goalState(sessionId: string): Promise<GoalState | null> {
-  if (!isTauri) return null;
-  const { invoke } = await import("@tauri-apps/api/core");
-  try {
-    return await invoke<GoalState | null>("goal_state", { sessionId });
-  } catch {
-    return null;
-  }
-}
-
-/** Pause / resume / clear the session's goal from the UI (no model turn).
- *  Continuation only fires while status is "active", so pause stops the loop
- *  at the next idle. Returns the new state (null after clear). */
-export async function goalUpdate(
-  sessionId: string,
-  action: "pause" | "resume" | "clear",
-): Promise<GoalState | null> {
-  if (!isTauri) return null;
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<GoalState | null>("goal_update", { sessionId, action });
-}
-
 /** Remove a provider/mcp entry from the global OpenCode config (restarts the sidecar). */
 export async function removeConfigEntry(section: "provider" | "mcp", key: string): Promise<void> {
   if (!isTauri) throw new Error("not running in the desktop app");
@@ -275,10 +481,9 @@ export async function setPythonPath(path: string): Promise<void> {
   await invoke("set_python_path", { path });
 }
 
-/** One live output line from a provisioning run (jupyter / science MCP env, or
- *  an agent-browser Chrome download). */
+/** One live output line from the Jupyter uv provisioning run. */
 export interface SetupProgress {
-  task: "jupyter" | "science" | "browser";
+  task: "jupyter";
   line: string;
 }
 
@@ -289,77 +494,6 @@ export async function watchSetupProgress(
   if (!isTauri) return () => {};
   const { listen } = await import("@tauri-apps/api/event");
   return listen<SetupProgress>("setup-progress", (e) => cb(e.payload));
-}
-
-/** Managed interpreter path for the shared science-MCP env, or null if not yet
- *  provisioned (desktop only). */
-export async function scienceMcpPython(): Promise<string | null> {
-  if (!isTauri) return null;
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<string | null>("science_mcp_python");
-}
-
-/** Provision one open-source MCP pip package into the shared isolated env and
- *  return the managed Python path to launch it with (desktop only). */
-export async function setupScienceMcp(pkg: string): Promise<string> {
-  if (!isTauri) throw new Error("not running in the desktop app");
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<string>("setup_science_mcp", { package: pkg });
-}
-
-// ---- Browser control (bundled agent-browser sidecar) ----
-
-/** A Chrome profile agent-browser can reuse. `directory` is passed as
- *  AGENT_BROWSER_PROFILE ("Default", "Profile 4"); `name` is the account label. */
-export interface BrowserProfile {
-  directory: string;
-  name: string;
-}
-
-/** An installed Chromium-family browser we can reuse instead of downloading. */
-export interface ChromeInfo {
-  path: string;
-  kind: "chrome" | "chromium" | "edge" | "brave" | string;
-}
-
-/** Absolute path to the bundled agent-browser sidecar (for the MCP command).
- *  Throws in browser dev; the caller only needs it inside the desktop app. */
-export async function agentBrowserBin(): Promise<string> {
-  if (!isTauri) throw new Error("not running in the desktop app");
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<string>("agent_browser_bin");
-}
-
-/** The user's Chrome profiles (empty when no Chrome / not desktop). */
-export async function agentBrowserProfiles(): Promise<BrowserProfile[]> {
-  if (!isTauri) return [];
-  const { invoke } = await import("@tauri-apps/api/core");
-  try {
-    return await invoke<BrowserProfile[]>("agent_browser_profiles");
-  } catch {
-    return [];
-  }
-}
-
-/** First installed Chrome/Chromium/Edge/Brave, or null. Setting its path as the
- *  browser executable avoids a Chrome-for-Testing download and (on macOS) lets
- *  the real profile's cookies decrypt without a Keychain prompt. */
-export async function detectChrome(): Promise<ChromeInfo | null> {
-  if (!isTauri) return null;
-  const { invoke } = await import("@tauri-apps/api/core");
-  try {
-    return await invoke<ChromeInfo | null>("detect_chrome");
-  } catch {
-    return null;
-  }
-}
-
-/** Download a browser (Chrome for Testing) when none is installed. Streams
- *  progress as `setup-progress` (task "browser") and honors the proxy setting. */
-export async function setupBrowserChrome(): Promise<void> {
-  if (!isTauri) throw new Error("not running in the desktop app");
-  const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("setup_browser_chrome");
 }
 
 /** Auto-start Jupyter on launch when it was enabled before. Silent no-op otherwise. */
@@ -387,19 +521,6 @@ export async function openExternal(url: string): Promise<void> {
   }
 }
 
-export interface LatestRelease {
-  version: string;
-  url: string;
-  name: string | null;
-  publishedAt: string | null;
-}
-
-export async function latestRelease(): Promise<LatestRelease | null> {
-  if (!isTauri) return null;
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<LatestRelease>("latest_release");
-}
-
 export type SaveResult =
   | { kind: "saved"; path: string }
   | { kind: "canceled" }
@@ -410,6 +531,16 @@ export async function saveTextFile(filename: string, content: string): Promise<S
   if (!isTauri) return { kind: "not-desktop" };
   const { invoke } = await import("@tauri-apps/api/core");
   const path = await invoke<string | null>("save_text_file", { filename, content });
+  return path ? { kind: "saved", path } : { kind: "canceled" };
+}
+
+/** Export a native, privacy-preserving product diagnostic report. The report
+ * contains aggregate event counts, never raw logs, credentials, project paths,
+ * research files, conversations, endpoint URLs, provider names, or model IDs. */
+export async function exportSupportReport(): Promise<SaveResult> {
+  if (!isTauri) return { kind: "not-desktop" };
+  const { invoke } = await import("@tauri-apps/api/core");
+  const path = await invoke<string | null>("export_support_report");
   return path ? { kind: "saved", path } : { kind: "canceled" };
 }
 
@@ -435,7 +566,7 @@ export async function workspaceBase(): Promise<string | null> {
   }
 }
 
-/** Choose the base folder new session workspaces are created under.
+/** Choose the base folder new task workspaces are created under.
  *  Returns the canonical path. Throws in the browser. */
 export async function setWorkspaceBase(path: string): Promise<string> {
   if (!isTauri) throw new Error("not running in the desktop app");
@@ -482,24 +613,17 @@ export async function newDatedWorkspace(name: string): Promise<string> {
   return invoke<string>("new_dated_workspace", { name });
 }
 
-/** A project: a named workspace folder under the base dir, marked by its
- *  `.openscience/project.json`. Sessions group under it by `directory`. */
+/** An AI4HEOR project: a named workspace folder under the base dir, marked by
+ *  the historical `.openscience/project.json` compatibility path. Sessions
+ *  group under it by `directory`. */
 export interface ProjectInfo {
   id: string;
   name: string;
   description?: string;
   createdAt: number;
-  /** Absolute workspace folder (canonical, matches session `directory`). For a
-   *  copy-import this is the local copy under the base dir. */
+  kind: "heor" | "session";
+  /** Absolute workspace folder (canonical, matches session `directory`). */
   path: string;
-  /** True when this project was brought in from elsewhere (a copy-import, or a
-   *  legacy in-place import) — drives the "imported" badge. */
-  imported: boolean;
-  /** Where an imported project was brought in from (shown as a hint). Absent for
-   *  app-created projects. */
-  importedFrom?: string;
-  /** Whether this project is pinned to the sidebar. */
-  pinned: boolean;
 }
 
 /** Create a project folder (with metadata, harness and an initial git
@@ -510,14 +634,6 @@ export async function createProject(name: string): Promise<ProjectInfo> {
   return invoke<ProjectInfo>("create_project", { name });
 }
 
-/** Import an existing repo/folder as a project, referenced in place: the repo
- *  is not moved, not scaffolded, and never auto-committed into. */
-export async function importProject(path: string): Promise<ProjectInfo> {
-  if (!isTauri) throw new Error("not running in the desktop app");
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<ProjectInfo>("import_project", { path });
-}
-
 /** Every project under the base dir, sorted by name. */
 export async function listProjects(): Promise<ProjectInfo[]> {
   if (!isTauri) return [];
@@ -525,35 +641,18 @@ export async function listProjects(): Promise<ProjectInfo[]> {
   return invoke<ProjectInfo[]>("list_projects");
 }
 
-/** Rename a project's display name (keyed by id; the folder never moves). */
-export async function renameProject(id: string, name: string): Promise<void> {
-  if (!isTauri) throw new Error("not running in the desktop app");
+/** Active named project or standalone task research scope. */
+export async function currentResearchScope(): Promise<ProjectInfo | null> {
+  if (!isTauri) return null;
   const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("rename_project", { id, name });
+  return invoke<ProjectInfo | null>("current_research_scope");
 }
 
-/** Open a project's workspace folder in the OS file manager (Finder / Explorer /
- *  Linux file manager). Resolved server-side from the project id. */
-export async function openProjectFolder(id: string): Promise<void> {
+/** Rename a project's display name (the folder never moves). */
+export async function renameProject(path: string, name: string): Promise<void> {
   if (!isTauri) throw new Error("not running in the desktop app");
   const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("open_project_folder", { id });
-}
-
-/** Pin/unpin a project to the sidebar. */
-export async function setProjectPinned(id: string, pinned: boolean): Promise<void> {
-  if (!isTauri) throw new Error("not running in the desktop app");
-  const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("set_project_pinned", { id, pinned });
-}
-
-/** Remove a project from the index. Files on disk are NOT deleted (an imported
- *  project's external repo is untouched; an app-created project's folder stays,
- *  demoted to a plain folder). */
-export async function deleteProject(id: string): Promise<void> {
-  if (!isTauri) throw new Error("not running in the desktop app");
-  const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("delete_project", { id });
+  await invoke("rename_project", { path, name });
 }
 
 /** Native folder picker; null on cancel or in the browser. */
@@ -690,6 +789,38 @@ export async function installExample(name: string): Promise<string> {
   return invoke<string>("install_example", { name });
 }
 
+export interface TeachingExampleOutput {
+  path: string;
+  sha256: string;
+  scenario: "base_case" | "one_way_sensitivity";
+  scenarioValue: number | null;
+  incrementalCostPerPerson: number;
+  incrementalQalysPerPerson: number;
+  icerPerQaly: number | null;
+  incrementalNetMonetaryBenefitPerPerson: number;
+}
+
+export interface TeachingExampleRunResult {
+  schema: "ai4heor-teaching-cea-desktop-run/v1";
+  runId: string;
+  interpreterSource: "manual" | "jupyter-env" | "system";
+  expectedResultSha256: string;
+  baseCase: TeachingExampleOutput;
+  sensitivityLow: TeachingExampleOutput;
+  sensitivityHigh: TeachingExampleOutput;
+  limitations: string[];
+}
+
+/** Run the exact installed synthetic teaching case locally after the auxiliary
+ * Human confirmation. No model provider receives project content. */
+export async function runHeorTeachingExample(): Promise<TeachingExampleRunResult> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<TeachingExampleRunResult>("run_heor_teaching_example", {
+    confirmedTeachingAssumptions: true,
+  });
+}
+
 /** Append a diagnostic line to <app-data>/debug.log (desktop only; no-op in browser). */
 export async function logDebug(message: string): Promise<void> {
   if (!isTauri) return;
@@ -698,35 +829,6 @@ export async function logDebug(message: string): Promise<void> {
     await invoke("log_debug", { message });
   } catch {
     /* never let diagnostics break the app */
-  }
-}
-
-/** Sync the native window appearance with the in-app theme so the macOS
- *  vibrancy material behind the translucent sidebar matches (warm and light
- *  are both light appearances). */
-export async function setWindowTheme(dark: boolean): Promise<void> {
-  if (!isTauri) return;
-  try {
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().setTheme(dark ? "dark" : "light");
-  } catch (e) {
-    // Best-effort — without it the material follows the system appearance.
-    // Loud in the console: a denied capability here looks like a CSS bug.
-    console.warn("setWindowTheme failed:", e);
-  }
-}
-
-/** Set the webview page zoom (desktop only). We own zoom ourselves rather than
- *  Tauri's `zoomHotkeysEnabled` so the titlebar strips can counter-scale by the
- *  same factor — the native traffic lights don't zoom (see ZoomProvider). */
-export async function setWebviewZoom(factor: number): Promise<void> {
-  if (!isTauri) return;
-  try {
-    const { getCurrentWebview } = await import("@tauri-apps/api/webview");
-    await getCurrentWebview().setZoom(factor);
-  } catch (e) {
-    // Best-effort — a denied capability just leaves the page at 100%.
-    console.warn("setWebviewZoom failed:", e);
   }
 }
 
@@ -763,23 +865,4 @@ export async function watchFullscreen(cb: (fullscreen: boolean) => void): Promis
   };
   await sync();
   return win.onResized(() => void sync());
-}
-
-/** Write the provider key/model into OpenCode's config via the Rust command. */
-export async function configureOpenCode(
-  creds: OpenCodeCredentials,
-): Promise<ConfigureResult> {
-  if (!isTauri) return { ok: false, reason: "not-desktop" };
-  try {
-    const { invoke } = await import("@tauri-apps/api/core");
-    const path = await invoke<string>("configure_opencode", {
-      provider: creds.provider,
-      apiKey: creds.apiKey,
-      model: creds.model,
-      baseUrl: creds.baseUrl ?? null,
-    });
-    return { ok: true, path };
-  } catch (e) {
-    return { ok: false, reason: "error", message: e instanceof Error ? e.message : String(e) };
-  }
 }

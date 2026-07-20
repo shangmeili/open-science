@@ -1,0 +1,33 @@
+{
+  "schema_version": "0.1.0",
+  "model_id": "replace-with-model-id",
+  "analysis_id": "replace-with-analysis-id",
+  "status": "draft",
+  "objective": "Replace with the decision-support objective",
+  "scope": {
+    "population": "Replace with population",
+    "intervention": "Replace with intervention",
+    "comparator": "Replace with comparator",
+    "perspective": "Replace with perspective",
+    "time_horizon": "Replace with time horizon and rationale",
+    "outcomes": ["QALY", "cost"],
+    "jurisdiction": "China",
+    "decision_context": "Replace with decision context"
+  },
+  "care_pathway": ["Replace with an ordered pathway step"],
+  "model_type": {
+    "proposed": "cohort_state_transition",
+    "rationale": "Replace with a problem-based rationale"
+  },
+  "states": [],
+  "transitions": [],
+  "structural_assumptions": [],
+  "structural_alternatives": [],
+  "evidence_links": [],
+  "validation_plan": {
+    "face": ["Describe the expert and clinical-pathway checks to perform."],
+    "internal": ["Describe formula, code, and boundary-condition checks to perform."],
+    "external": ["Describe the independent outcomes or datasets for comparison."]
+  },
+  "validation_questions": []
+}

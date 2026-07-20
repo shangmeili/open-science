@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Event Disutilities"
+  short_description: "Audit event-related QALY losses and overlap"
+  default_prompt: "Use $heor-event-disutilities to prepare evidence-linked event QALY losses for this HEOR model."

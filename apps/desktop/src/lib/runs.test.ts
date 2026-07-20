@@ -56,46 +56,6 @@ describe("looksLikeExecution", () => {
     }
   });
 
-  it("recognizes path-form / venv interpreters, not only a bare `python`", () => {
-    for (const c of [
-      // Windows venv interpreter by full path (issue #23).
-      'C:\\path\\to\\project\\.venv\\Scripts\\python.exe -c "print(1)"',
-      // PowerShell call operator in front of the path.
-      '& C:\\path\\to\\project\\.venv\\Scripts\\python.exe -c "print(1)"',
-      // Windows path with spaces, quoted.
-      '"C:\\Program Files\\Python\\python.exe" train.py',
-      // POSIX absolute and relative venv interpreters.
-      "/home/u/proj/.venv/bin/python train.py",
-      "./.venv/bin/python train.py",
-      // Bare `python.exe` and versioned names still work.
-      'python.exe -c "print(1)"',
-      "python3.11 train.py",
-      // Env prefix in front of a path-form interpreter.
-      "CUDA_VISIBLE_DEVICES=0 /home/u/.venv/bin/python train.py",
-    ]) {
-      expect(looksLikeExecution(c)).toBe(true);
-      expect(surfaceForCommand(c)).toBe("local");
-    }
-  });
-
-  it("does not mistake a path to a non-interpreter for a run", () => {
-    for (const c of [
-      "C:\\Windows\\System32\\cmd.exe /c dir",
-      "/usr/bin/cat train.py",
-      "./configure --prefix=/usr",
-    ]) {
-      expect(looksLikeExecution(c)).toBe(false);
-    }
-  });
-
-  it("treats bash/sh as a run only when the first argument is a .sh script", () => {
-    expect(looksLikeExecution("bash run_experiment.sh")).toBe(true);
-    expect(looksLikeExecution("sh scripts/go.sh")).toBe(true);
-    // A `.sh` merely mentioned in a quoted argument is NOT a run.
-    expect(looksLikeExecution('bash -c "echo foo.sh"')).toBe(false);
-    expect(looksLikeExecution('bash -c "python train.py"')).toBe(false);
-  });
-
   it("records commands prefixed with environment-variable assignments", () => {
     // Ubiquitous in ML — the env prefix must not hide the interpreter.
     expect(looksLikeExecution("CUDA_VISIBLE_DEVICES=0 python train.py")).toBe(true);
@@ -106,18 +66,6 @@ describe("looksLikeExecution", () => {
   it("sees through leading cd hops to the real command", () => {
     expect(looksLikeExecution("cd experiment && python train.py")).toBe(true);
     expect(looksLikeExecution("cd a/b && ./run.sh")).toBe(true);
-  });
-
-  it("sees through transparent launch wrappers to the real command", () => {
-    // Backgrounding/launch wrappers must not hide the interpreter.
-    expect(looksLikeExecution("nohup python3 super_snake.py >/dev/null 2>&1 &")).toBe(true);
-    expect(looksLikeExecution("time python train.py")).toBe(true);
-    expect(looksLikeExecution("timeout 30 python train.py")).toBe(true);
-    expect(looksLikeExecution("stdbuf -oL julia sim.jl")).toBe(true);
-    expect(looksLikeExecution("nohup cd exp && python train.py")).toBe(true);
-    // Still gated by the interpreter allowlist — a wrapped non-run stays out.
-    expect(looksLikeExecution("nohup rsync -a a/ b/")).toBe(false);
-    expect(looksLikeExecution("timeout 5 sleep 3")).toBe(false);
   });
 
   it("recognizes HPC/Modal/notebook batch commands even when not the head", () => {
@@ -142,6 +90,15 @@ describe("surfaceForCommand", () => {
   it("does not treat a marker word inside an argument as a remote surface", () => {
     expect(surfaceForCommand('git commit -m "add sbatch script"')).toBe("local");
     expect(surfaceForCommand("python a.py --note 'use srun'")).toBe("local");
+  });
+
+  it("sees through transparent launch wrappers to the real command", () => {
+    expect(looksLikeExecution("nohup python3 model.py >/dev/null 2>&1 &")).toBe(true);
+    expect(looksLikeExecution("time python model.py")).toBe(true);
+    expect(looksLikeExecution("timeout 30 python model.py")).toBe(true);
+    expect(looksLikeExecution("stdbuf -oL julia simulation.jl")).toBe(true);
+    expect(looksLikeExecution("nohup rsync -a a/ b/")).toBe(false);
+    expect(looksLikeExecution("timeout 5 sleep 3")).toBe(false);
   });
 });
 
@@ -170,14 +127,11 @@ describe("runInputFromEvent", () => {
     expect(r?.status).toBe("failed");
   });
 
-  it("records a nohup-launched run, preserving the ORIGINAL command verbatim", () => {
-    // The wrapper only feeds detection — the recorded command keeps `nohup`,
-    // redirections, and the trailing `&` so Reproduce re-runs exactly this.
-    const cmd = "nohup python3 super_snake.py >/dev/null 2>&1 &";
-    const r = runInputFromEvent(bash({ input: { command: cmd } }));
-    expect(r).not.toBeNull();
-    expect(r?.command).toBe(cmd);
-    expect(r?.surface).toBe("local");
+  it("records a wrapped run without changing the command", () => {
+    const command = "nohup python3 model.py >/dev/null 2>&1 &";
+    const result = runInputFromEvent(bash({ input: { command } }));
+    expect(result?.command).toBe(command);
+    expect(result?.surface).toBe("local");
   });
 
   it("ignores non-bash, non-terminal, pathless, and non-execution commands", () => {

@@ -1,8 +1,9 @@
-# Open Science Desktop
+# AI4HEOR
 
-Brand name: **Open Science Desktop** — "Local-first, model-agnostic AI research
-workbench for macOS, Windows & Linux." Formerly Open Science. Bundle identifier stays
-`com.ai4s.workbench` and internal `@ai4s/*` package names are unchanged.
+Brand name: **AI4HEOR** — a local-first, model-provider-agnostic AI research
+workbench for pharmacoeconomics and HEOR on macOS, Windows, and Linux. It is
+built on Open Science Desktop. The bundle identifier stays `com.ai4s.workbench`
+and internal `@ai4s/*` package names remain unchanged for compatibility.
 
 Project rules and working context for AI agents (Claude Code, Cursor, Codex, etc.).
 `CLAUDE.md` is a symlink to this file — edit only `AGENTS.md`.

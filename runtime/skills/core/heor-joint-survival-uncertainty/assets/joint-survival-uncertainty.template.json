@@ -1,0 +1,74 @@
+{
+  "schema_version": "0.5.0",
+  "survival_uncertainty_id": "replace-me",
+  "analysis_id": "replace-me",
+  "psm_id": "replace-me",
+  "status": "draft",
+  "base_analysis": {
+    "path": "heor/analysis-plan.json",
+    "content_sha256": "replace-with-lowercase-sha256"
+  },
+  "partitioned_survival_plan": {
+    "path": "heor/partitioned-survival-plan.json",
+    "content_sha256": "replace-with-lowercase-sha256"
+  },
+  "curve_materializations": {
+    "path": "heor/survival-curve-materializations.json",
+    "content_sha256": "replace-with-lowercase-sha256"
+  },
+  "treatment_effect_duration": {
+    "path": "heor/treatment-effect-duration.json",
+    "content_sha256": "replace-with-lowercase-sha256"
+  },
+  "draw_file": {
+    "path": "heor/joint-survival-draws.jsonl",
+    "content_sha256": "replace-with-lowercase-sha256",
+    "format": "ai4heor-joint-survival-draws-jsonl@0.1.0",
+    "draw_count": 1000
+  },
+  "curve_order": [
+    "partitioned_survival.strategies.replace-strategy.pfs",
+    "partitioned_survival.strategies.replace-strategy.os"
+  ],
+  "time_grid_years": [0.0, 1.0],
+  "generation": {
+    "method": "paired_patient_bootstrap",
+    "sampling_unit": "joint_draw_across_all_curves",
+    "independent_endpoint_sampling": false,
+    "strategy_resampling_design": "stratified_independent_parallel_arms",
+    "between_strategy_assumption": "conditional_independence_given_parallel_arm_design",
+    "dependence_scope": [
+      "within_strategy_pfs_os"
+    ],
+    "source_artifact_bindings": [
+      {
+        "path": "heor/paired-survival-bootstrap-executions/replace-execution-id/result-manifest.json",
+        "content_sha256": "replace-with-lowercase-sha256",
+        "role": "Audited paired-patient bootstrap execution result."
+      },
+      {
+        "path": "heor/paired-survival-bootstrap-executions/replace-execution-id/joint-survival-draws.candidate.jsonl",
+        "content_sha256": "replace-with-lowercase-sha256",
+        "role": "Complete noncanonical candidate rows copied without reordering or filtering."
+      },
+      {
+        "path": "heor/paired-survival-bootstrap-reviews/replace-review-record.json",
+        "content_sha256": "replace-with-lowercase-sha256",
+        "role": "App-owned Human method acceptance for the exact audited bootstrap result."
+      }
+    ],
+    "method_review": {
+      "review_id": "replace-with-32-hex-review-id",
+      "record_path": "heor/paired-survival-bootstrap-reviews/replace-review-record.json",
+      "record_sha256": "replace-with-lowercase-sha256",
+      "action": "accept",
+      "assurance": "app_owned_local_human_assertion",
+      "result_path": "heor/paired-survival-bootstrap-executions/replace-execution-id/result-manifest.json",
+      "result_sha256": "replace-with-lowercase-sha256"
+    },
+    "rationale": "Whole-subject rows preserve PFS/OS dependence within each strategy; independently randomized parallel arms are conditionally independent under the declared design."
+  },
+  "limitations": [
+    "Replace with unresolved statistical, clinical, extrapolation, and structural limitations."
+  ]
+}

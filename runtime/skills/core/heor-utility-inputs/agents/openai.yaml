@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Utility Inputs"
+  short_description: "Audit health-state utility inputs and schedules"
+  default_prompt: "Use $heor-utility-inputs to prepare evidence-linked, reviewable utility inputs for this HEOR model."

@@ -45,28 +45,6 @@ export interface SessionIdleEvent {
   type: "session.idle";
   sessionId: string;
 }
-/** The turn's model call failed and the server is retrying it — OpenCode backs
- *  off exponentially with NO attempt cap, so without surfacing these the UI
- *  shows a bare "Working…" forever while every attempt fails. */
-/** A user message landed carrying its agent — including the build message
- *  OpenCode injects itself when the plan_exit question is answered Yes. The
- *  app syncs its per-session agent-mode state from this (never from question
- *  text, which is locale/version-brittle). */
-export interface MessageAgentEvent {
-  type: "message.agent";
-  sessionId: string;
-  agent: string;
-}
-
-export interface SessionRetryEvent {
-  type: "session.retry";
-  sessionId: string;
-  attempt: number;
-  /** The provider's error message for the failed attempt. */
-  message: string;
-  /** Epoch ms of the next scheduled attempt. */
-  nextAt: number;
-}
 
 // ---- Interactive requests (the agent asks; the user must answer) ----
 // OpenCode blocks the run until answered. Two kinds: a `question` (pick from
@@ -122,8 +100,6 @@ export type OpenCodeEvent =
   | TextUpdatedEvent
   | ToolUpdatedEvent
   | SessionIdleEvent
-  | MessageAgentEvent
-  | SessionRetryEvent
   | RuntimeErrorEvent
   | QuestionAskedEvent
   | QuestionResolvedEvent
@@ -143,10 +119,6 @@ export interface SessionMeta {
   directory?: string;
   /** Set on subagent sessions: the session whose task tool spawned this one. */
   parentId?: string;
-  /** Epoch ms the session was created / last updated (from OpenCode's `time`).
-   *  Drives "Updated" timestamps and recency ordering. */
-  created?: number;
-  updated?: number;
 }
 
 export interface SkillInfo {
@@ -183,14 +155,6 @@ export interface HistoryMessage {
   /** Epoch ms when the message finished — unset while it is still streaming.
    *  On the LAST message this is the server's truth for "is the turn over". */
   completed?: number;
-  /** The error that ended this assistant turn, when it failed. Without it a
-   *  failed turn whose live session.error was missed (SSE reconnect, app
-   *  restart) reloads as an empty reply with no explanation at all. */
-  error?: string;
-  /** Agent that drove this message ("build" / "plan" / …) — required upstream
-   *  on user messages; the app derives a session's agent mode from the last
-   *  user message when (re)opening it. */
-  agent?: string;
   parts: HistoryPart[];
 }
 export interface HistoryPart {

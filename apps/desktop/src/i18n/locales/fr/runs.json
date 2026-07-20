@@ -1,11 +1,11 @@
 {
   "title": "Exécutions",
   "description": {
-    "prefix": "Chaque exécution d'expérience dans toutes les sessions — commande, version du code, environnement, matériel et sorties. ",
+    "prefix": "Chaque exécution d'analyse dans toutes les tâches — commande, version du code, environnement, matériel et sorties. ",
     "suffix": " la relance et compare les résultats."
   },
   "pane": {
-    "subtitle": "cette session",
+    "subtitle": "cette tâche",
     "closeAria": "Fermer les exécutions"
   },
   "searchPlaceholder": "Rechercher une commande ou un chemin de sortie…",

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research presentation"
+  short_description: "Create a source-bound scientific presentation deck"
+  default_prompt: "Use $research-presentation to prepare a source-bound presentation manifest for this research project."

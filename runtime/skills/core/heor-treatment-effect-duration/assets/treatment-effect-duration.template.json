@@ -1,0 +1,104 @@
+{
+  "schema_version": "0.1.0",
+  "duration_id": "replace-me",
+  "analysis_id": "replace-me",
+  "psm_id": "replace-me",
+  "status": "draft",
+  "base_analysis": {
+    "path": "heor/analysis-plan.json",
+    "content_sha256": "replace-with-lowercase-sha256"
+  },
+  "source_curve_materializations": {
+    "path": "heor/survival-curve-materializations.json",
+    "content_sha256": "replace-with-lowercase-sha256"
+  },
+  "comparison": {
+    "comparator_strategy_id": "replace-comparator",
+    "intervention_strategy_id": "replace-intervention",
+    "endpoint_order": ["pfs", "os"]
+  },
+  "base_case_scenario_id": "waning-base",
+  "scenarios": [
+    {
+      "scenario_id": "waning-base",
+      "label": "Reviewable base-case waning",
+      "rationale": "Replace with the Human-reviewable duration rationale.",
+      "basis_ids": ["replace-duration-basis"],
+      "policies": [
+        {
+          "endpoint": "pfs",
+          "mode": "log_linear_waning",
+          "evidence_horizon_years": 1.0,
+          "hazard_ratio": {"value": 0.8, "basis_ids": ["replace-pfs-effect-basis"]},
+          "waning_end_years": 3.0,
+          "rationale": "Replace with the PFS waning rationale.",
+          "basis_ids": ["replace-pfs-duration-basis"]
+        },
+        {
+          "endpoint": "os",
+          "mode": "log_linear_waning",
+          "evidence_horizon_years": 1.0,
+          "hazard_ratio": {"value": 0.8, "basis_ids": ["replace-os-effect-basis"]},
+          "waning_end_years": 3.0,
+          "rationale": "Replace with the OS waning rationale.",
+          "basis_ids": ["replace-os-duration-basis"]
+        }
+      ]
+    },
+    {
+      "scenario_id": "sustained-effect",
+      "label": "Sustained effect",
+      "rationale": "Replace with the upper-duration rationale.",
+      "basis_ids": ["replace-sustained-basis"],
+      "policies": [
+        {
+          "endpoint": "pfs",
+          "mode": "sustained",
+          "evidence_horizon_years": 1.0,
+          "hazard_ratio": {"value": 0.8, "basis_ids": ["replace-pfs-effect-basis"]},
+          "waning_end_years": null,
+          "rationale": "Replace with the PFS sustained-effect rationale.",
+          "basis_ids": ["replace-pfs-sustained-basis"]
+        },
+        {
+          "endpoint": "os",
+          "mode": "sustained",
+          "evidence_horizon_years": 1.0,
+          "hazard_ratio": {"value": 0.8, "basis_ids": ["replace-os-effect-basis"]},
+          "waning_end_years": null,
+          "rationale": "Replace with the OS sustained-effect rationale.",
+          "basis_ids": ["replace-os-sustained-basis"]
+        }
+      ]
+    },
+    {
+      "scenario_id": "immediate-stop",
+      "label": "No effect beyond evidence horizon",
+      "rationale": "Replace with the lower-duration rationale.",
+      "basis_ids": ["replace-stop-basis"],
+      "policies": [
+        {
+          "endpoint": "pfs",
+          "mode": "immediate_stop",
+          "evidence_horizon_years": 1.0,
+          "hazard_ratio": {"value": 0.8, "basis_ids": ["replace-pfs-effect-basis"]},
+          "waning_end_years": null,
+          "rationale": "Replace with the PFS immediate-stop rationale.",
+          "basis_ids": ["replace-pfs-stop-basis"]
+        },
+        {
+          "endpoint": "os",
+          "mode": "immediate_stop",
+          "evidence_horizon_years": 1.0,
+          "hazard_ratio": {"value": 0.8, "basis_ids": ["replace-os-effect-basis"]},
+          "waning_end_years": null,
+          "rationale": "Replace with the OS immediate-stop rationale.",
+          "basis_ids": ["replace-os-stop-basis"]
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Replace with unresolved source-model, extrapolation, causal, clinical, and external-validity limitations."
+  ]
+}

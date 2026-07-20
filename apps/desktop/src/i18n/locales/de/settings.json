@@ -1,29 +1,9 @@
 {
-  "nav": {
-    "back": "Zurück zur App",
-    "general": "Allgemein",
-    "appearance": "Erscheinungsbild",
-    "models": "Modelle",
-    "runtime": "Laufzeit",
-    "connectors": "Konnektoren",
-    "compute": "Rechenleistung",
-    "privacy": "Datenschutz",
-    "browser": "Browser"
-  },
   "appearance": {
     "title": "Erscheinungsbild",
-    "themeLabel": "Design",
     "theme": {
       "light": "Hell",
-      "warm": "Warm",
       "dark": "Dunkel"
-    },
-    "zoom": {
-      "label": "Zoom",
-      "hint": "{{mod}} + / − zum Zoomen, {{mod}} 0 zum Zurücksetzen",
-      "in": "Vergrößern",
-      "out": "Verkleinern",
-      "reset": "Zurücksetzen"
     }
   },
   "language": {
@@ -31,13 +11,55 @@
   },
   "page": {
     "title": "Einstellungen",
-    "subtitle": "Hier wird ausschließlich die gebündelte OpenCode-Runtime konfiguriert — eine Konfiguration, keine Kopien."
+    "subtitle": "KI-Assistent, Modelle, Evidenzwerkzeuge, Arbeitsbereich und lokale Analyseumgebung konfigurieren."
+  },
+  "supportReport": {
+    "title": "Problemdiagnose",
+    "hint": "Bei einer Problemmeldung einen Bericht exportieren",
+    "description": "Der Bericht enthält nur App-Version, Systemarchitektur, Status des lokalen Assistenten und zusammengefasste Ereigniszahlen. Modellzugänge, Projektpfade, Forschungsdateien, Gespräche und Rohprotokolle sind ausgeschlossen.",
+    "export": "Diagnosebericht exportieren",
+    "exporting": "Bericht wird erstellt…",
+    "saved": "Diagnosebericht gespeichert",
+    "failed": "Diagnosebericht konnte nicht exportiert werden"
+  },
+  "readiness": {
+    "title": "Arbeitsbereitschaft",
+    "checking": "Dieser Computer wird geprüft…",
+    "readyTitle": "Bereit zum Arbeiten",
+    "readyBody": "Projektordner, integrierte Methoden und lokaler Assistent sind verfügbar. Ein Modell muss nur bei Bedarf verbunden werden.",
+    "attentionTitle": "Ein Punkt muss geprüft werden",
+    "attentionBody": "Die Projektdateien bleiben auf diesem Computer. Prüfen Sie den folgenden Punkt und versuchen Sie es erneut.",
+    "actions": { "recheck": "Erneut prüfen", "restart": "Lokalen Assistenten neu starten", "restarting": "Neustart…", "openSettings": "Prüfen" },
+    "checks": {
+      "needsAttention": "Prüfung erforderlich",
+      "workspace": { "title": "Projektordner", "ready": "Beschreibbar" },
+      "skills": { "title": "Integrierte Skills", "ready": "{{count}} Skills verfügbar" },
+      "heorCore": { "title": "Lokale HEOR-Berechnungen", "ready": "Erforderliche Dateien geprüft" },
+      "harness": { "title": "Projekt-Audit-Harness", "ready": "Erforderliche Dateien geprüft" },
+      "runtime": { "title": "Lokaler Assistent", "ready": "Bereit", "connecting": "Wird gestartet…", "error": "Prüfung erforderlich", "offline": "Nicht aktiv" },
+      "model": { "title": "Modell (optional)", "optional": "Nicht verbunden — lokale Berechnungen funktionieren weiterhin" }
+    },
+    "scope": "Modell, Python und Jupyter sind für diese Prüfung nicht erforderlich; richten Sie sie nur bei Bedarf ein. Geprüft wird die Verfügbarkeit der Software, nicht die methodische Eignung oder wissenschaftliche Validität.",
+    "technical": "Technische Details"
   },
   "runtime": {
-    "title": "Agent-Runtime",
-    "hint": "opencode serve, gesteuert über dessen HTTP- + SSE-API",
+    "title": "Laufzeit des KI-Assistenten",
+    "hint": "Wird von der Desktop-App automatisch gestartet und verwaltet",
     "connect": "Verbinden",
     "disconnect": "Trennen",
+    "status": {
+      "ready": "Bereit",
+      "connecting": "Verbindung wird hergestellt…",
+      "error": "Eingriff erforderlich",
+      "offline": "Offline"
+    },
+    "advanced": {
+      "title": "Erweiterte Diagnose",
+      "description": "Technische Details zur Fehlerbehebung oder zum Verbinden einer Entwicklungsumgebung. Die meisten Nutzer müssen diese Werte nicht ändern.",
+      "engineLabel": "Laufzeit-Engine",
+      "engineValue": "OpenCode",
+      "endpointLabel": "Lokaler Endpunkt"
+    },
     "serverUrlPlaceholder": "http://127.0.0.1:4096",
     "proxyLabel": "Netzwerk-Proxy",
     "proxySystem": "System folgen",
@@ -55,7 +77,9 @@
   },
   "updates": {
     "title": "App-Updates",
-    "hint": "Prüft GitHub Releases höchstens einmal alle 24 Stunden",
+    "hint": "Installierte Version und Veröffentlichungskanal anzeigen",
+    "unavailable": "Online-Updates sind noch nicht verfügbar",
+    "unavailableHint": "Für AI4HEOR ist noch kein offizieller Veröffentlichungskanal eingerichtet. Dieser Build sucht daher nicht online nach Updates. Versionsvergleich und Hinweise werden nach Festlegung der offiziellen Quelle aktiviert.",
     "available": "Update verfügbar",
     "checking": "Wird geprüft",
     "failed": "Prüfung fehlgeschlagen",
@@ -103,7 +127,7 @@
   },
   "providers": {
     "title": "Anbieter",
-    "hint": "Authentifizierung, benutzerdefinierte Endpunkte und importierte OpenCode-Anmeldungen",
+    "hint": "Authentifizierung, benutzerdefinierte Endpunkte und vorhandene CLI-Zugangsdaten",
     "connectPrompt": "Verbinde die Laufzeit, um Anbieter zu verwalten.",
     "manage": "Verwalten",
     "collapse": "Einklappen",
@@ -121,6 +145,9 @@
     "pasteCode": "Den Code aus dem Browser einfügen",
     "customEndpoint": "Benutzerdefinierter Endpunkt",
     "customEndpointHint": "selbst gehostet · lokales Ollama · OpenAI-/Anthropic-kompatibel",
+    "minimaxChinaTokenPlanName": "MiniMax China Token Plan",
+    "fillMinimaxChinaTokenPlan": "MiniMax China Token Plan eintragen",
+    "customCredentialHint": "Die Endpunktkonfiguration speichert niemals den API-Schlüssel. OpenCode verwahrt Zugangsdaten getrennt in seinem privaten lokalen Authentifizierungsspeicher.",
     "customNamePlaceholder": "Name — z. B. Ollama, Mein DeepSeek-Gateway",
     "openaiCompatible": "OpenAI-kompatibel",
     "anthropicCompatible": "Anthropic-kompatibel",
@@ -128,22 +155,28 @@
     "customKeyPlaceholder": "API-Schlüssel — optional, für Ollama nicht erforderlich",
     "customModelsPlaceholder": "Modell-IDs, durch Kommas getrennt",
     "addEndpoint": "Endpunkt hinzufügen",
-    "importLogin": "Nutzen Sie bereits die OpenCode-CLI? Deren Anmeldung importieren"
+    "importLogin": "Zugangsdaten aus einer kompatiblen lokalen CLI importieren"
   },
   "mcp": {
-    "title": "MCP-Server",
-    "hint": "Zusätzliche Werkzeuge für den Agenten (Model Context Protocol) — z. B. ein Jupyter- oder Browser-MCP",
+    "title": "Evidenz- und MCP-Werkzeuge",
+    "hint": "Integrierter HEOR-Evidenzzugang plus optionale, von Forschenden verwaltete MCP-Server",
     "connectPrompt": "Verbinden Sie die Runtime, um MCP-Server zu konfigurieren.",
-    "openSource": "Open Source",
-    "enterKeyFirstTitle": "Zuerst den API-Schlüssel eingeben",
+    "builtIn": "integriert",
+    "humanAuthorization": "Freigabe durch Menschen",
+    "heorEvidenceLabel": "HEOR-Evidenzsuche",
+    "heorEvidenceDescription": "Metadatenabruf von PubMed und ClinicalTrials.gov über feste Endpunkte. Der Agent bereitet eine hashgebundene Anfrage vor; nur der Mensch darf den Netzwerkzugriff freigeben.",
+    "heorEvidenceSources": "{{sources}} · ${{id}}",
+    "externalBoundary": "Hinzugefügte Server sind nicht verwaltete externe Fähigkeiten. Prüfen Sie Code, Lizenz, Datenabfluss und Zugangsdaten; sie erhalten weder wissenschaftliche Entscheidungs- noch Freigaberechte.",
     "settingUp": "Wird eingerichtet…",
     "enable": "Aktivieren",
-    "freeKeySuffix": "(kostenloser Schlüssel)",
-    "getFreeKey": "Kostenlosen Schlüssel anfordern",
     "jupyterLabel": "Jupyter",
     "jupyterDescription": "ermöglicht dem Agenten die Steuerung echter Notebooks · isolierte Umgebung mit numpy·pandas·matplotlib, ~500 MB beim ersten Ausführen · nach der Einrichtung nutzt auch die „Ausführen“-Schaltfläche der App sie, sodass Sie und der Agent sich ein Python teilen",
     "setUpAndEnable": "Einrichten & aktivieren",
     "startingDownload": "Download wird gestartet…",
+    "setupStarting": "Jupyter wird eingerichtet. Beim ersten Mal werden einige hundert MB heruntergeladen; bitte warten…",
+    "setupComplete": "Jupyter ist bereit. Der Assistent kann jetzt mit Notebooks arbeiten.",
+    "setupFailed": "Jupyter konnte nicht eingerichtet werden",
+    "setupIncomplete": "Die Einrichtung wurde ohne die erforderlichen Verbindungsdaten beendet",
     "typeLocal": "lokal",
     "typeRemote": "remote",
     "namePlaceholder": "Name — z. B. jupyter, playwright",
@@ -151,39 +184,9 @@
     "urlPlaceholder": "URL — z. B. https://example.com/mcp",
     "addServer": "Server hinzufügen"
   },
-  "browser": {
-    "label": "Browsersteuerung",
-    "title": "Browser",
-    "hint": "Lässt den Agenten einen echten Browser steuern – navigieren, klicken, Formulare ausfüllen und Seiten lesen.",
-    "description": "Lässt den Agenten Seiten öffnen, klicken, Formulare ausfüllen und das Web lesen – unter Wiederverwendung deiner Chrome-Anmeldung.",
-    "browseAs": "Surfen als",
-    "isolated": "Isoliert – neu, abgemeldet",
-    "showWindow": "Browserfenster anzeigen",
-    "noChrome": "Kein Chrome gefunden",
-    "download": "Browser herunterladen",
-    "noChromeWillDownload": "Kein Chrome erkannt – beim ersten Gebrauch wird ein privater Browser heruntergeladen.",
-    "detected": "Verwendet",
-    "privateBrowser": "Privater Browser (ohne Anmeldung)",
-    "privateNote": "Verwendet einen separat heruntergeladenen Browser, der dein Chrome nie berührt. Startet abgemeldet; wird beim ersten Gebrauch automatisch heruntergeladen.",
-    "reuseNote": "Verwendet eine Kopie von „{{name}}“. Der Agent handelt als dieses angemeldete Konto; dein echtes Chrome-Profil wird nie verändert. Die Navigation folgt weiterhin deinem Genehmigungsmodus.",
-    "isolatedNote": "Isoliertes Profil – der Agent startet abgemeldet. Wähle oben ein Konto, um dessen Anmeldungen wiederzuverwenden.",
-    "downloaded": "Browser heruntergeladen – du kannst die Browsersteuerung jetzt aktivieren.",
-    "couldNotDownload": "Browser konnte nicht heruntergeladen werden",
-    "enabledStatus": "Aktiviert",
-    "disabledStatus": "Nicht aktiviert",
-    "disable": "Deaktivieren",
-    "apply": "Änderungen übernehmen",
-    "capabilities": "Funktionen",
-    "capCore": "Standard – navigieren, klicken, lesen, Screenshot, JS ausführen",
-    "capNetwork": "Standard + Netzwerkaufzeichnung (HAR, Anfrageinspektion)",
-    "capAll": "Alles (vollständiger Funktionsumfang)",
-    "allowedDomains": "Erlaubte Domains",
-    "allowedDomainsHint": "Eine pro Zeile. Leer = keine Einschränkung. Unterstützt Muster wie *.example.com.",
-    "allowedDomainsPlaceholder": "example.com\n*.github.com"
-  },
   "workspace": {
     "title": "Arbeitsbereich",
-    "hint": "Local-first — jede Sitzung arbeitet in ihrem eigenen, hier erstellten, datierten Unterordner",
+    "hint": "Projekt- und Aufgabendateien bleiben hier; Aufgaben im selben Projekt können dessen Dateien gemeinsam verwenden",
     "unavailable": "in der Desktop-App verfügbar",
     "change": "Ändern…",
     "reveal": "Anzeigen"
@@ -203,11 +206,10 @@
     "interpreterSet": "Interpreter festgelegt — Notebook-Zellen laufen jetzt darauf.",
     "overrideCleared": "Überschreibung zurückgesetzt.",
     "couldNotSetInterpreter": "Der Interpreter konnte nicht festgelegt werden",
-    "folderSet": "Neue Sitzungen werden in diesem Ordner erstellt.",
+    "folderSet": "Neue Aufgaben werden in diesem Ordner erstellt.",
     "couldNotSetFolder": "Der Ordner konnte nicht festgelegt werden",
     "couldNotSetModel": "Das Modell konnte nicht festgelegt werden",
     "defaultModelSet": "Standardmodell auf {{model}} gesetzt",
-    "defaultModelReset": "Standardmodell {{old}} ist nicht mehr verfügbar — auf {{model}} umgestellt",
     "couldNotSaveKey": "Der Schlüssel konnte nicht gespeichert werden",
     "providerConnected": "{{providerID}} verbunden",
     "couldNotStartLogin": "Die Anmeldung konnte nicht gestartet werden",
@@ -223,8 +225,8 @@
     "couldNotRemoveMcp": "Der MCP-Server konnte nicht entfernt werden",
     "mcpRemoved": "MCP-Server {{name}} entfernt",
     "importFailed": "Import fehlgeschlagen",
-    "noOpenCodeLoginFound": "Auf diesem Rechner wurde keine OpenCode-CLI-Anmeldung gefunden.",
-    "importedLogin": "Ihre OpenCode-CLI-Anmeldung wurde importiert.",
+    "noOpenCodeLoginFound": "Auf diesem Rechner wurden keine kompatiblen lokalen CLI-Zugangsdaten gefunden.",
+    "importedLogin": "Kompatible lokale CLI-Zugangsdaten wurden importiert.",
     "couldNotSetProxy": "Proxy-Einstellung konnte nicht übernommen werden",
     "proxyApplied": "Proxy-Einstellung übernommen",
     "mirrorSaved": "Spiegel-Einstellungen gespeichert",
@@ -237,7 +239,7 @@
       "heading": "Bleibt auf diesem Rechner",
       "workspaceFiles": "Ihre Arbeitsbereichsdateien und Rohdaten",
       "codeExecution": "Codeausführung — der Python-Kernel und Jupyter laufen lokal; Datensätze werden hier verarbeitet, nie in großen Mengen hochgeladen.",
-      "sessionHistory": "Sitzungsverlauf und Herkunftsnachweise, im privaten Datenordner der App.",
+      "sessionHistory": "Aufgabenverlauf und Herkunftsnachweise, im privaten Datenordner der App.",
       "providerKeys": "Anbieterschlüssel und Anmelde-Token — eine app-private Datei, die nur von Ihrem Konto gelesen werden kann; wird nie in den Arbeitsbereich, die Herkunftsdaten, Protokolle oder Exporte geschrieben."
     },
     "remote": {

@@ -1,14 +1,24 @@
 {
+  "workbench": { "title": "Research workspace" },
+  "newTask": {
+    "title": "New task",
+    "heading": "What HEOR work would you like to tackle today?",
+    "suggestions": {
+      "scope": { "title": "Frame the research question", "prompt": "Help me frame this pharmacoeconomic or HEOR decision problem. Start from what I provide and confirm the population, intervention, comparator, outcomes, perspective, time horizon, and intended decision use. Ask only for information that would materially change the study." },
+      "evidence": { "title": "Find and organize evidence", "prompt": "Help me find and organize the evidence needed for this pharmacoeconomic study. First clarify the decision problem and evidence gaps, then identify useful local sources, searches that may be needed, provenance, and limitations. Before any network access, show the exact query and fields that would leave this computer." },
+      "model": { "title": "Design or review a model", "prompt": "Help me design or review this health economic model. Start from the decision problem and examine model structure, parameter evidence, key assumptions, uncertainty, and validation requirements. Keep calculation errors separate from issues that require researcher judgment." },
+      "deliverable": { "title": "Analyze data or prepare a briefing", "prompt": "Help me with this pharmacoeconomic or HEOR task. I can provide data, a model, a report, or briefing requirements. First inventory the available materials and expected deliverable, then propose a reviewable analysis or production path." }
+    }
+  },
   "notFound": {
-    "title": "Session not found",
-    "hint": "Pick a session from the sidebar."
+    "title": "Task not found",
+    "hint": "Pick a task from the sidebar."
   },
   "composer": {
     "placeholder": {
       "default": "Ask anything",
       "arguments": "Arguments (optional) — Enter to run",
-      "shell": "Run a shell command in the workspace folder",
-      "plan": "Describe what to plan — no files will be changed"
+      "shell": "Run a shell command in the workspace folder"
     },
     "commandsAria": "Commands",
     "source": {
@@ -28,7 +38,7 @@
     },
     "shellMode": {
       "badge": "shell",
-      "title": "Runs directly in the session's workspace folder"
+      "title": "Runs directly in the task's workspace folder"
     },
     "stop": {
       "aria": "Stop",
@@ -36,20 +46,6 @@
     },
     "send": {
       "aria": "Send"
-    },
-    "agent": {
-      "aria": "Agent mode",
-      "title": "Plan first or build right away",
-      "menuAria": "Agent modes",
-      "menuTitle": "How should the agent work?",
-      "build": {
-        "label": "Build",
-        "description": "Edits files and runs commands"
-      },
-      "plan": {
-        "label": "Plan",
-        "description": "Read-only: researches and writes a plan file first"
-      }
     },
     "approval": {
       "aria": "Approval mode",
@@ -75,25 +71,41 @@
     "clearDescription": "Same as /new; files stay in this folder",
     "cleared": "Chat context cleared. Files stay in the same folder."
   },
+  "firstRun": {
+    "title": "Before you begin",
+    "body": "Under your direction, AI4HEOR can organize evidence, carry out analyses, and check results. You review the study plan, key assumptions, evidence choices, and use of the conclusions.",
+    "points": {
+      "local": { "title": "Local by default", "body": "Projects and research files stay on this device unless you explicitly use an external service." },
+      "provider": { "title": "Your choice of model", "body": "Choose any supported provider or local endpoint. Nothing is sent until you send a research request." },
+      "approval": { "title": "Actions remain reviewable", "body": "The default approval mode asks before deletion, installation, network, remote, or privileged actions." },
+      "human": { "title": "You review key research decisions", "body": "Model output remains a working draft. You review the study plan, key assumptions, evidence choices, and use of the conclusions." }
+    },
+    "continue": "Enter the HEOR workspace",
+    "settings": "Review model and privacy settings"
+  },
   "starters": {
-    "newSession": "New session",
-    "heading": "What should we look into?",
-    "subheading": "Describe your analysis below — or start from one of these.",
-    "demo": {
-      "title": "Run a demo analysis, end to end",
-      "description": "Simulate a dataset, fit a model, and produce a figure and a traceable report."
+    "newSession": "New task",
+    "heading": "What HEOR question should we work on?",
+    "subheading": "Describe your pharmacoeconomic question — or begin with a researcher-led workflow.",
+    "design": {
+      "title": "Start a pharmacoeconomic study",
+      "description": "Define the decision problem, conceptual model, evidence needs, and Human review points.",
+      "prompt": "Help me start a researcher-led pharmacoeconomic or HEOR study. Use $heor-workbench and $heor-model-design. First ask concise questions about the population, intervention, comparators, outcomes, perspective, jurisdiction, time horizon, decision context, available evidence, and intended use. Then prepare reviewable local artifacts and an explicit plan. Do not choose scientific methods, assumptions, evidence, thresholds, or approvals for the human researcher."
     },
     "analyze": {
-      "title": "Analyze my data",
-      "description": "Point the agent at a file you added; get figures and a report back."
+      "title": "Analyze my HEOR evidence or data",
+      "description": "Inventory local evidence and data, clarify the estimand, then propose an auditable analysis.",
+      "prompt": "Help me analyze the HEOR evidence or data in this project. Use $heor-workbench to inventory relevant local files first, identify what each file can and cannot support, and ask me to confirm the decision question, estimand, population, comparator, outcomes, and method before execution. Keep computation deterministic where supported, preserve provenance, and stop at Human-in-the-loop method and interpretation decisions."
     },
     "audit": {
-      "title": "Audit a report for traceability",
-      "description": "Check citations, unsourced numbers, and figure-versus-code consistency."
+      "title": "Audit an HEOR model or report",
+      "description": "Check methods, inputs, model-result bindings, reporting, limitations, and reproducibility.",
+      "prompt": "Audit the current HEOR model, analysis, or report using the relevant AI4HEOR validation, reporting, reproducibility, and traceability Skills. Ask me which artifact graph to review if it is ambiguous. Separate deterministic defects from scientific judgments, bind every finding to exact local evidence, and never create Human approval or claim methodological validity."
     },
-    "example-climate": {
-      "title": "Explore an example: climate trends",
-      "description": "Real NASA GISTEMP data — trend, decadal comparison, figure, and report."
+    "example-cea": {
+      "title": "Explore an example: cost-effectiveness analysis",
+      "description": "Synthetic two-strategy cohort inputs for an auditable cost-utility workflow.",
+      "prompt": "Use $heor-workbench to explore the synthetic demonstration files under heor-cost-effectiveness/. Treat every number as a proposed teaching assumption, not clinical or economic evidence. Explain the decision problem, review the three-state cohort structure, reproduce the base-case cost and QALY calculation with deterministic code, run one transparent sensitivity check, and prepare a local report with limitations and Human review points. Do not create approvals or reimbursement conclusions."
     },
     "error": {
       "setup": "Could not set up the example: {{message}}"
@@ -101,9 +113,8 @@
   },
   "live": {
     "runtime": {
-      "title": "OpenCode runtime",
-      "bodyPrefix": "The desktop app runs a bundled OpenCode automatically. In the browser, start one with",
-      "bodySuffix": " and connect."
+      "title": "AI assistant unavailable",
+      "body": "Reconnect, or check the AI assistant runtime in Settings. Your local project files remain available."
     },
     "connect": "Connect",
     "subagentFallback": "a subagent",
@@ -113,17 +124,18 @@
     },
     "filesToggle": {
       "default": "Files",
-      "title": "Browse this session's folder beside the chat"
+      "title": "Browse this task's folder beside the chat"
     },
     "runsToggle": {
       "label": "Runs",
-      "title": "This session's experiment runs — beside the chat"
+      "title": "This task's analysis runs — beside the chat"
     },
     "notebook": {
-      "openTitle": "Open {{path}} — the agent works on this notebook in this session"
+      "openTitle": "Open {{path}} — the assistant works on this notebook in this task",
+      "evaluatePrompt": "Evaluate this in the notebook kernel:\n```python\n{{expr}}\n```"
     },
     "connBadge": {
-      "title": "OpenCode · {{status}}",
+      "title": "AI assistant · {{status}}",
       "status": {
         "ready": "ready",
         "connecting": "connecting",
@@ -133,8 +145,7 @@
     },
     "status": {
       "paused": "Paused — the agent needs your answer below",
-      "startingSession": "Starting the session in its folder…",
-      "retrying": "Provider error — retrying (attempt {{attempt}})",
+      "startingSession": "Starting the task in its folder…",
       "working": "Working…"
     },
     "placeholder": {
@@ -200,7 +211,8 @@
     "annotationAria": "Annotation {{index}}: {{note}}",
     "notePlaceholder": "Add a note…",
     "noteAria": "Annotation note",
-    "send": "Send"
+    "send": "Send",
+    "commentPrompt": "Review the note on figure {{title}} at ({{x}}%, {{y}}%): {{note}}"
   },
   "reviewer": {
     "heading": "Reviewer",
@@ -243,28 +255,16 @@
   },
   "thread": {
     "exampleBadge": "Example · read-only",
-    "sampleNotice": "This is a sample session. Start a live agent session to chat for real."
+    "sampleNotice": "This example is read-only. Start a new task to continue in AI4HEOR."
   },
   "workspaceChip": {
     "fallbackName": "Workspace",
     "titlePinned": "{{workspace}} — click to choose a different folder",
     "titleUnpinned": "Starts in a new dated folder ({{name}}) — click to choose a folder instead",
-    "chooseAria": "Choose session folder",
+    "chooseAria": "Choose task folder",
     "switching": "Switching…"
   },
   "agentMessage": {
     "previewTitle": "Preview {{path}}"
-  },
-  "goal": {
-    "label": "Goal",
-    "running": "running",
-    "runningTurns": "auto-turn {{count}}",
-    "paused": "paused",
-    "done": "done",
-    "pauseAria": "Pause the goal (stops auto-continuation)",
-    "resumeAria": "Resume the goal",
-    "clearAria": "Clear the goal",
-    "unmet": "blocked",
-    "limited": "limit reached"
   }
 }

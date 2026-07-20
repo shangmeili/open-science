@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Uncertainty Analysis"
+  short_description: "Audit correlated HEOR DSA, PSA, PSM uncertainty and EVPI"
+  default_prompt: "Use $heor-uncertainty-analysis to create, audit, repair, or execute an evidence-bound HEOR uncertainty plan while preserving Human method decisions and explicit omissions."

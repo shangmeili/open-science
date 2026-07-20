@@ -8,12 +8,16 @@ import { renderAt } from "@/test/render";
 afterEach(() => useUiStore.getState().setLocale("en"));
 
 describe("Sidebar i18n", () => {
-  it("renders migrated nav labels and section heading in English", async () => {
+  it("uses task and skills-and-tools labels without a duplicate workspace nav item", async () => {
     renderAt("/files");
 
     const nav = await screen.findByRole("navigation");
     expect(within(nav).getByText("Files")).toBeInTheDocument();
-    expect(screen.getByText("Sessions")).toBeInTheDocument();
+    expect(within(nav).getByText("New task")).toBeInTheDocument();
+    expect(within(nav).getByText("Skills & tools")).toBeInTheDocument();
+    expect(within(nav).queryByText("Research workspace")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Research workspace" })).toBeInTheDocument();
+    expect(screen.getByText("Tasks")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
   });
 });

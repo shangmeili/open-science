@@ -1,0 +1,4 @@
+interface:
+  display_name: "Advanced Value of Information"
+  short_description: "Audit population EVPI, EVPPI, EVSI, and ENBS"
+  default_prompt: "Use $heor-advanced-value-of-information to prepare a bounded, auditable advanced VOI plan from the current converged PSA."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "HEOR Survival Curve Materialization"
+  short_description: "Reproduce all reviewed standard parametric curves"
+  default_prompt: "Use $heor-survival-curve-materialization to reproduce each Human-selected reviewed PFS and OS curve on the analysis cycle grid from exact normalized fit outputs."

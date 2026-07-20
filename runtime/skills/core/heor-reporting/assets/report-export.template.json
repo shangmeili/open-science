@@ -1,0 +1,22 @@
+{
+  "schema_version": "0.1.0",
+  "document_id": "",
+  "title": "",
+  "subtitle": "",
+  "language": "zh-Hans",
+  "prepared_on": "",
+  "audience": "",
+  "purpose": "",
+  "style": "ai4heor-formal-report",
+  "report_package": {
+    "path": "heor/report-package.json",
+    "sha256": ""
+  },
+  "report_document": {
+    "path": "heor/report.md",
+    "sha256": ""
+  },
+  "human_review": {
+    "status": "awaiting_human_review"
+  }
+}

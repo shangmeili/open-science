@@ -18,7 +18,7 @@ describe("CommandPalette", () => {
     expect(input).toBeInTheDocument();
 
     await user.type(input, "audit");
-    expect(screen.getByText("Audit a report (traceability review)")).toBeInTheDocument();
+    expect(screen.getByText("Audit an HEOR model or report")).toBeInTheDocument();
     expect(screen.queryByText("Open notebooks")).not.toBeInTheDocument();
   });
 });

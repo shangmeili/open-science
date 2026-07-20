@@ -21,7 +21,6 @@ import type {
   ToolCallStatus,
 } from "./types";
 import { DEFAULT_OPENCODE_URL } from "./types";
-import type { AgentRuntime } from "./runtime";
 
 type EventListener = (event: OpenCodeEvent) => void;
 type StatusListener = (status: RuntimeStatus) => void;
@@ -39,31 +38,12 @@ function mapToolStatus(status: string): ToolCallStatus {
   }
 }
 
-/** OpenCode's error objects nest the human-readable message at
- *  error.data.message; keep the first line (some errors append a stack). */
-function errorText(error: unknown): string | undefined {
-  const err = error as { name?: string; message?: string; data?: { message?: string } } | undefined;
-  const full = err?.data?.message ?? err?.message ?? err?.name;
-  return typeof full === "string" && full ? full.split("\n")[0] : undefined;
-}
-
-/** Split a "provider/model" default-model string into the `{providerID, modelID}`
- *  shape the prompt API expects. Returns undefined when the string is empty or
- *  has no provider prefix (so the caller omits the key and the server falls back
- *  to its own default). Splits on the FIRST slash: a model id may contain more. */
-function parseModel(model?: string | null): { providerID: string; modelID: string } | undefined {
-  if (!model) return undefined;
-  const i = model.indexOf("/");
-  if (i <= 0 || i >= model.length - 1) return undefined;
-  return { providerID: model.slice(0, i), modelID: model.slice(i + 1) };
-}
-
 /**
  * The single boundary between the app and the OpenCode agent runtime.
  * Talks to a running `opencode serve` over its HTTP + SSE API. The UI must go
  * through this class, never the transport directly (see AGENTS.md guardrails).
  */
-export class OpenCodeClient implements AgentRuntime {
+export class OpenCodeClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
   private readonly authHeader: string | null;
@@ -313,7 +293,6 @@ export class OpenCodeClient implements AgentRuntime {
       slug?: string;
       directory?: string;
       parentID?: string | null;
-      time?: { created?: number; updated?: number };
     }>;
     return arr.map((s) => ({
       id: s.id,
@@ -321,8 +300,6 @@ export class OpenCodeClient implements AgentRuntime {
       slug: s.slug,
       directory: s.directory,
       parentId: s.parentID ?? undefined,
-      created: s.time?.created,
-      updated: s.time?.updated,
     }));
   }
 
@@ -343,24 +320,14 @@ export class OpenCodeClient implements AgentRuntime {
     );
     if (!res.ok) throw await this.apiError(res, "Failed to load messages");
     const arr = (await res.json()) as Array<{
-      info: {
-        role: "user" | "assistant";
-        time?: { completed?: number };
-        error?: unknown;
-        agent?: string;
-      };
+      info: { role: "user" | "assistant"; time?: { completed?: number } };
       parts: HistoryMessage["parts"];
     }>;
-    return arr.map((m) => {
-      const error = errorText(m.info.error);
-      return {
-        role: m.info.role,
-        completed: m.info.time?.completed,
-        ...(error ? { error } : {}),
-        ...(m.info.agent ? { agent: m.info.agent } : {}),
-        parts: m.parts ?? [],
-      };
-    });
+    return arr.map((m) => ({
+      role: m.info.role,
+      completed: m.info.time?.completed,
+      parts: m.parts ?? [],
+    }));
   }
 
   /** Interrupt the session's current turn (POST /session/:id/abort). A no-op
@@ -436,14 +403,14 @@ export class OpenCodeClient implements AgentRuntime {
    */
   async addCustomProvider(
     id: string,
-    opts: { name: string; npm: string; baseURL: string; apiKey?: string; models: string[] },
+    opts: { name: string; npm: string; baseURL: string; models: string[] },
   ): Promise<void> {
     const models = Object.fromEntries(opts.models.map((m) => [m, { name: m }]));
     const provider = {
       [id]: {
         name: opts.name,
         npm: opts.npm,
-        options: { baseURL: opts.baseURL, ...(opts.apiKey ? { apiKey: opts.apiKey } : {}) },
+        options: { baseURL: opts.baseURL },
         models,
       },
     };
@@ -570,13 +537,6 @@ export class OpenCodeClient implements AgentRuntime {
     await this.disposeInstance();
   }
 
-  /** Drop the server's cached provider list so a credential stored outside
-   *  this client's own auth calls (e.g. a browser login whose callback never
-   *  reached us) shows up in listProviders. */
-  async refreshProviderCache(): Promise<void> {
-    await this.disposeInstance();
-  }
-
   /** The server caches its provider list per instance — a credential change
    *  (PUT/DELETE /auth, OAuth) is invisible to /config/providers until the
    *  instance is disposed. Two instances can hold the stale cache: the default
@@ -668,30 +628,14 @@ export class OpenCodeClient implements AgentRuntime {
     if (!res.ok) throw await this.apiError(res, `Failed to run /${command}`);
   }
 
-  /** Send a prompt into a session; output streams back via onEvent (SSE).
-   *  `agent` pins the turn to a specific agent (e.g. "plan"); omitted, the
-   *  server resolves its default — the key is left out entirely so build-mode
-   *  requests stay byte-identical to before.
-   *
-   *  `model` ("provider/model") pins the turn to the current default model.
-   *  OpenCode persists a `session.model` at session creation, so switching the
-   *  global default does NOT rebind existing sessions — an old session would
-   *  keep answering on its creation-time provider/model. Passing the current
-   *  default on every turn overrides that stale binding without mutating the
-   *  server's stored rows. Omitted/unparseable, the key is left out and the
-   *  server falls back to the session/global default. */
-  async sendPrompt(sessionId: string, text: string, agent?: string, model?: string | null): Promise<void> {
-    const m = parseModel(model);
+  /** Send a prompt into a session; output streams back via onEvent (SSE). */
+  async sendPrompt(sessionId: string, text: string): Promise<void> {
     const res = await this.fetchWithTimeout(
       `${this.baseUrl}/session/${encodeURIComponent(sessionId)}/prompt_async`,
       {
         method: "POST",
         headers: this.headers(true),
-        body: JSON.stringify({
-          parts: [{ type: "text", text }],
-          ...(agent ? { agent } : {}),
-          ...(m ? { model: m } : {}),
-        }),
+        body: JSON.stringify({ parts: [{ type: "text", text }] }),
       },
     );
     if (!res.ok) throw await this.apiError(res, "Failed to send prompt");
@@ -834,19 +778,8 @@ export class OpenCodeClient implements AgentRuntime {
     switch (raw.type) {
       case "message.updated": {
         // Learn each message's role so we can skip the echoed user message parts.
-        const info = props.info as
-          | { id?: string; role?: string; sessionID?: string; agent?: string }
-          | undefined;
+        const info = props.info as { id?: string; role?: string } | undefined;
         if (info?.id && info.role) this.roles.set(info.id, info.role);
-        // A user message names its agent — surface it so the app can keep its
-        // per-session agent mode in sync (plan_exit "Yes" injects a build one).
-        if (info?.role === "user" && typeof info.agent === "string" && info.sessionID) {
-          this.emit({
-            type: "message.agent",
-            sessionId: String(info.sessionID),
-            agent: info.agent,
-          });
-        }
         break;
       }
       case "message.part.updated": {
@@ -993,31 +926,16 @@ export class OpenCodeClient implements AgentRuntime {
         break;
       }
       case "session.error": {
+        const err = props.error as
+          | { name?: string; message?: string; data?: { message?: string } }
+          | undefined;
         // OpenCode nests the human-readable message at error.data.message.
+        const full = err?.data?.message ?? err?.message ?? err?.name ?? "session error";
         // Keep the first line — OpenCode appends a stack trace to some errors.
         this.emit({
           type: "error",
           sessionId: String(props.sessionID ?? ""),
-          message: errorText(props.error) ?? "session error",
-        });
-        break;
-      }
-      case "session.status": {
-        // A failed model call being retried server-side. OpenCode's retry
-        // policy has NO attempt cap (exponential backoff only), so these are
-        // the ONLY sign of life while a broken provider fails every attempt —
-        // dropping them leaves the UI on a bare "Working…" forever. ("busy"
-        // and "idle" statuses carry nothing session.idle doesn't already.)
-        const status = props.status as
-          | { type?: string; attempt?: number; message?: string; next?: number }
-          | undefined;
-        if (status?.type !== "retry") break;
-        this.emit({
-          type: "session.retry",
-          sessionId: String(props.sessionID ?? ""),
-          attempt: status.attempt ?? 0,
-          message: status.message ?? "provider error",
-          nextAt: status.next ?? 0,
+          message: full.split("\n")[0],
         });
         break;
       }

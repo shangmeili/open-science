@@ -20,8 +20,11 @@ esac
 
 URL="https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/${ASSET}"
 TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 echo "Downloading $URL"
 curl -fsSL "$URL" -o "$TMP/$ASSET"
+bash "$ROOT/scripts/dev/verify-sidecar-checksum.sh" \
+  "$TMP/$ASSET" uv "$UV_VERSION" "$ASSET"
 case "$ASSET" in
   *.tar.gz) tar -xzf "$TMP/$ASSET" -C "$TMP" ;;
   *.zip) unzip -oq "$TMP/$ASSET" -d "$TMP" ;;
@@ -35,5 +38,4 @@ else
   cp "$BIN" "$OUT_DIR/uv-$TRIPLE"
   chmod +x "$OUT_DIR/uv-$TRIPLE"
 fi
-rm -rf "$TMP"
 echo "Placed uv sidecar for $TRIPLE in $OUT_DIR"

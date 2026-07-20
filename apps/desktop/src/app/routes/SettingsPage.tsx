@@ -5,11 +5,8 @@ import {
   Download,
   ExternalLink,
   FolderOpen,
-  Globe,
   Loader2,
-  Minus,
   NotebookPen,
-  Plus,
   RefreshCw,
   Search,
 } from "lucide-react";
@@ -21,25 +18,17 @@ import type {
   ProviderInfo,
 } from "@ai4s/sdk";
 import { useTranslation } from "react-i18next";
-import { useParams } from "react-router-dom";
-import { useUiStore, ZOOM_MAX, ZOOM_MIN } from "@/lib/store";
+import { useUiStore } from "@/lib/store";
 import { shippedLocales } from "@/i18n/config";
 import { getClient, useRuntimeStore } from "@/lib/runtime";
 import { useUpdateStore } from "@/lib/update";
 import {
-  agentBrowserProfiles,
-  detectChrome,
-  setupBrowserChrome,
-  type BrowserProfile,
-  type ChromeInfo,
   importOpenCodeLogin,
-  isMacUA,
   isTauri,
   jupyterStatus,
   openExternal,
   openWorkspaceBase,
   pickFolder,
-  providerAuthExists,
   pythonInterpreter,
   removeConfigEntry,
   setPythonPath,
@@ -59,35 +48,31 @@ import { RemoteComputeCard } from "@/components/settings/RemoteComputeCard";
 import { ModalCard } from "@/components/settings/ModalCard";
 import { DataFlowCard } from "@/components/settings/DataFlowCard";
 import { ModelBrowser } from "@/components/settings/ModelBrowser";
-import { fallbackDefaultModel } from "@/components/settings/modelCatalog";
 import { ProviderManagerCard } from "@/components/settings/ProviderManagerCard";
-import { Row, Section, Switch } from "@/components/settings/Section";
-import { resolveSection } from "@/components/settings/sections";
-import { inputCls, selectCls } from "@/components/settings/inputCls";
-import { SCIENCE_CONNECTORS } from "@/lib/scienceConnectors";
-import {
-  BROWSER_MCP_ID,
-  BROWSER_SOURCE,
-  BROWSER_DISPLAY_NAMES,
-  PRIVATE_BROWSER,
-} from "@/lib/browser";
+import { inputCls } from "@/components/settings/inputCls";
+import { StartupReadiness } from "@/components/settings/StartupReadiness";
+import { SupportReportCard } from "@/components/settings/SupportReportCard";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
+import { FIRST_PARTY_HEOR_CONNECTOR } from "@/lib/heorConnectorPolicy";
+
+const MINIMAX_CN_TOKEN_PLAN = {
+  npm: "@ai-sdk/anthropic",
+  // OpenCode uses @ai-sdk/anthropic, whose baseURL is the request prefix and
+  // appends `/messages` directly. MiniMax's raw endpoint is /anthropic/v1/messages.
+  baseURL: "https://api.minimaxi.com/anthropic/v1",
+  models: "MiniMax-M3",
+} as const;
 
 /**
  * Settings. ONE configuration surface: everything talks to the bundled
  * OpenCode's own config/auth API — no separate "model key" concept.
  */
 export function SettingsPage() {
-  // Which settings section is on screen — the sidebar is the navigation.
-  const section = resolveSection(useParams().section);
   const theme = useUiStore((s) => s.theme);
   const setTheme = useUiStore((s) => s.setTheme);
   const locale = useUiStore((s) => s.locale);
   const setLocale = useUiStore((s) => s.setLocale);
-  const zoom = useUiStore((s) => s.zoom);
-  const zoomBy = useUiStore((s) => s.zoomBy);
-  const resetZoom = useUiStore((s) => s.resetZoom);
   const { t } = useTranslation(["settings", "common"]);
   // Select each field individually. A bare `useRuntimeStore()` subscribed to the
   // WHOLE store, so every unrelated mutation (session events, streaming, idle
@@ -103,6 +88,7 @@ export function SettingsPage() {
   const defaultModel = useRuntimeStore((s) => s.defaultModel);
   const loadCatalog = useRuntimeStore((s) => s.loadCatalog);
   const connected = status === "ready";
+  const updateSourceConfigured = useUpdateStore((s) => s.sourceConfigured);
   const updateEnabled = useUpdateStore((s) => s.enabled);
   const setUpdateEnabled = useUpdateStore((s) => s.setEnabled);
   const updateBadgeEnabled = useUpdateStore((s) => s.badgeEnabled);
@@ -117,20 +103,26 @@ export function SettingsPage() {
   const checkForUpdates = useUpdateStore((s) => s.check);
   const dismissUpdateBadge = useUpdateStore((s) => s.dismissBadge);
   const updateTone =
-    hasUpdate || updateStatus === "error" ? "error" : updateStatus === "checking" ? "accent" : "ok";
-  const updateLabel = hasUpdate
-    ? t("updates.available")
-    : updateStatus === "checking"
-      ? t("updates.checking")
-      : updateStatus === "error"
-        ? t("updates.failed")
-        : t("updates.upToDate");
+    !updateSourceConfigured
+      ? "muted"
+      : hasUpdate || updateStatus === "error"
+        ? "error"
+        : updateStatus === "checking"
+          ? "accent"
+          : "ok";
+  const updateLabel = !updateSourceConfigured
+    ? t("updates.unavailable")
+    : hasUpdate
+      ? t("updates.available")
+      : updateStatus === "checking"
+        ? t("updates.checking")
+        : updateStatus === "error"
+          ? t("updates.failed")
+          : t("updates.upToDate");
 
   // Long-running uv provisioning lives in a store, not here: navigating away
   // must not discard the "setting up…" state or sever the progress stream.
   const jupyterBusy = useSetupStore((s) => s.jupyterBusy);
-  const enablingConnector = useSetupStore((s) => s.connectorId);
-  const browserBusy = useSetupStore((s) => s.browserBusy);
   const setupLine = useSetupStore((s) => s.line);
   const setupGeneration = useSetupStore((s) => s.generation);
 
@@ -144,21 +136,10 @@ export function SettingsPage() {
   const [customIds, setCustomIds] = useState<string[]>([]);
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
   const [jupyter, setJupyter] = useState<JupyterStatus | null>(null);
-  // Browser control (agent-browser): detected Chrome + profiles, and the choices
-  // the card collects before enabling.
-  const [browserProfiles, setBrowserProfiles] = useState<BrowserProfile[]>([]);
-  const [chrome, setChrome] = useState<ChromeInfo | null>(null);
-  const [browserProfile, setBrowserProfile] = useState(""); // "" ⇒ isolated
-  const [browserHeaded, setBrowserHeaded] = useState(false);
-  const [browserTools, setBrowserTools] = useState("core");
-  const [browserDomains, setBrowserDomains] = useState(""); // one pattern per line
   // The interpreter local Python kernels resolve to + the manual override input.
   const [pyInfo, setPyInfo] = useState<PythonInterpreter | null>(null);
   const [pyPath, setPyPath] = useState("");
   const [savingPy, setSavingPy] = useState(false);
-  // API keys typed for key-requiring connectors, keyed by connector id.
-  const [connectorKeys, setConnectorKeys] = useState<Record<string, string>>({});
-
   // Add-MCP-server form.
   const [mName, setMName] = useState("");
   const [mType, setMType] = useState<"local" | "remote">("local");
@@ -181,6 +162,15 @@ export function SettingsPage() {
   const [cKey, setCKey] = useState("");
   const [cModels, setCModels] = useState("");
 
+  const fillMiniMaxChinaTokenPlan = () => {
+    setShowCustom(true);
+    setCName(t("providers.minimaxChinaTokenPlanName"));
+    setCNpm(MINIMAX_CN_TOKEN_PLAN.npm);
+    setCUrl(MINIMAX_CN_TOKEN_PLAN.baseURL);
+    setCModels(MINIMAX_CN_TOKEN_PLAN.models);
+    setCKey("");
+  };
+
   // Connect-a-provider flow state.
   const [providerManagerOpen, setProviderManagerOpen] = useState(false);
   const [connectQuery, setConnectQuery] = useState("");
@@ -196,16 +186,14 @@ export function SettingsPage() {
   const oauthGen = useRef(0);
   const oauthAbort = useRef<AbortController | null>(null);
 
-  const refresh = useCallback(async (): Promise<ProviderInfo[] | null> => {
+  const refresh = useCallback(async () => {
     const client = getClient();
-    if (!client) return null;
+    if (!client) return;
     // The model catalog (listProviders) is what the Models card renders — only
     // its failure means "catalog unavailable", and only when there is no last
     // good list to keep showing. The rest is auxiliary settings data.
-    let fresh: ProviderInfo[] | null = null;
     try {
-      fresh = await client.listProviders();
-      setProviders(fresh);
+      setProviders(await client.listProviders());
       setCatalogState("ready");
     } catch {
       setCatalogState((s) => (s === "ready" ? s : "unavailable"));
@@ -225,11 +213,10 @@ export function SettingsPage() {
     } catch {
       /* runtime not ready yet */
     }
-    return fresh;
   }, []);
 
   // Re-refresh when a provisioning run finishes (setupGeneration bumps) so a
-  // newly-enabled MCP shows up even if setup completed while this page was
+  // newly-enabled Jupyter server shows up even if setup completed while this page was
   // closed — the flow itself lives in the setup store.
   useEffect(() => {
     if (connected) void refresh();
@@ -250,45 +237,6 @@ export function SettingsPage() {
   }, []);
   // Also on setupGeneration: a fresh jupyter-env may now back the local kernel.
   useEffect(refreshPython, [refreshPython, setupGeneration]);
-
-  // Detect Chrome + profiles once connected, and re-detect after a provisioning
-  // run (a Chrome download can appear between renders).
-  useEffect(() => {
-    if (!isTauri || !connected) return;
-    void agentBrowserProfiles().then(setBrowserProfiles);
-    void detectChrome().then((c) => {
-      setChrome(c);
-      // With no system Chrome, the only workable choice is the private browser.
-      if (!c) setBrowserProfile((p) => (p === PRIVATE_BROWSER ? p : PRIVATE_BROWSER));
-    });
-  }, [connected, setupGeneration]);
-
-  // The registered MCP entry is the source of truth for browser settings.
-  const browserServer = mcpServers.find((s) => s.name === BROWSER_MCP_ID) ?? null;
-  const browserEnabled = browserServer !== null;
-  const browserConfigSig = JSON.stringify(browserServer?.config ?? null);
-  // When enabled, mirror the live config into the form so the page shows the
-  // current settings and edits start from them (not stale defaults).
-  useEffect(() => {
-    const cfg = browserServer?.config;
-    if (!cfg || cfg.type !== "local") return;
-    const env = cfg.environment ?? {};
-    // No executable path pinned ⇒ it's the private (downloaded) browser.
-    setBrowserProfile(
-      env.AGENT_BROWSER_EXECUTABLE_PATH ? (env.AGENT_BROWSER_PROFILE ?? "") : PRIVATE_BROWSER,
-    );
-    setBrowserHeaded(env.AGENT_BROWSER_HEADED === "true");
-    setBrowserDomains(
-      (env.AGENT_BROWSER_ALLOWED_DOMAINS ?? "")
-        .split(",")
-        .map((d) => d.trim())
-        .filter(Boolean)
-        .join("\n"),
-    );
-    const ti = cfg.command.indexOf("--tools");
-    setBrowserTools(ti >= 0 && cfg.command[ti + 1] ? cfg.command[ti + 1] : "core");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [browserConfigSig]);
 
   const savePythonPath = async (path: string) => {
     setSavingPy(true);
@@ -345,8 +293,8 @@ export function SettingsPage() {
   };
   const validProxyUrl = /^(https?|socks5):\/\/\S+:\d+\/?$/i.test(proxyUrlInput.trim());
 
-  // uv download mirrors, used only when provisioning Python tools (Jupyter,
-  // science databases). Optional; a blank field clears that mirror.
+  // uv download mirrors, used only when provisioning local Python tools such
+  // as Jupyter. Optional; a blank field clears that mirror.
   const [mirror, setMirror] = useState<MirrorSetting | null>(null);
   const [pypiInput, setPypiInput] = useState("");
   const [pythonInput, setPythonInput] = useState("");
@@ -372,21 +320,8 @@ export function SettingsPage() {
   // The one post-change sequence — run() and the background OAuth wait must
   // stay in lockstep, so they share it instead of each keeping a copy.
   const refreshAll = async () => {
-    const fresh = await refresh();
+    await refresh();
     await loadCatalog();
-    // A provider change can strand the configured default model (provider
-    // removed, or its models renamed): every later send then fails with
-    // "model not found" (#18). Re-point it at the closest surviving model
-    // while the change that broke it is still on screen.
-    const { defaultModel: current, setDefaultModel } = useRuntimeStore.getState();
-    const next = fresh && current ? fallbackDefaultModel(fresh, current) : null;
-    if (!next) return;
-    try {
-      await setDefaultModel(next);
-      toast.success(t("toast.defaultModelReset", { old: current, model: next }));
-    } catch (e) {
-      toast.error(`${t("toast.couldNotSetModel")}: ${e instanceof Error ? e.message : String(e)}`);
-    }
   };
 
   const run = async (label: string, fn: () => Promise<void>) => {
@@ -463,17 +398,6 @@ export function SettingsPage() {
   const OAUTH_WAIT_MS = 5 * 60 * 1000;
 
   const waitForBrowserLogin = async (providerID: string, methodIndex: number, gen: number) => {
-    const deadline = Date.now() + OAUTH_WAIT_MS;
-    const active = () => gen === oauthGen.current;
-    // Ground truth that the login landed: the sidecar writes the provider's
-    // token to its credential store the moment the browser flow completes —
-    // even when the callback wait below never hears about it (loopback port
-    // collision, proxy, dropped redirect). The browser then shows "success"
-    // while the app looks frozen (#17). Only conclusive for a provider that
-    // had no credentials when the wait began.
-    const hadAuth = await providerAuthExists(providerID);
-    const loginLanded = async () => !hadAuth && (await providerAuthExists(providerID));
-
     // The callback POST hangs open until the browser redirect lands, but the
     // webview's native fetch enforces its own idle timeout (~60s in WKWebView)
     // — far shorter than the provider's login window, and a slow browser login
@@ -483,71 +407,45 @@ export function SettingsPage() {
     // waiting on it (opencode's ProviderAuth.callback re-invokes the stored
     // pending closure; it is never consumed). Retry those; HTTP errors are the
     // provider's real verdict and stay terminal.
-    type Verdict = { ok: boolean; viaStore: boolean; error?: unknown };
-    const callbackVerdict = async (): Promise<Verdict | null> => {
-      let lastError: unknown = new Error("Timed out waiting for the browser login");
-      while (Date.now() < deadline && active()) {
-        const abort = new AbortController();
-        oauthAbort.current = abort;
-        try {
-          await getClient()!.oauthCallback(providerID, methodIndex, undefined, abort.signal);
-          if (!active()) {
-            // Cancelled in the UI, but the login DID complete — refresh silently
-            // so the now-connected provider still shows up in the list.
-            await refreshAll();
-            return null;
-          }
-          return { ok: true, viaStore: false };
-        } catch (e) {
-          if (!active()) return null; // cancelled — the abort is expected
-          // Webview fetch failures (idle timeout, transient drop) are TypeError;
-          // apiError() throws plain Error for the server's HTTP verdicts.
-          if (e instanceof TypeError) {
-            lastError = e;
-            await new Promise((r) => setTimeout(r, 500));
-            continue;
-          }
-          return { ok: false, viaStore: false, error: e };
-        } finally {
-          if (oauthAbort.current === abort) oauthAbort.current = null;
+    const deadline = Date.now() + OAUTH_WAIT_MS;
+    let lastError: unknown = new Error("Timed out waiting for the browser login");
+    while (Date.now() < deadline) {
+      const abort = new AbortController();
+      oauthAbort.current = abort;
+      try {
+        await getClient()!.oauthCallback(providerID, methodIndex, undefined, abort.signal);
+        if (gen !== oauthGen.current) {
+          // Cancelled in the UI, but the login DID complete — refresh silently
+          // so the now-connected provider still shows up in the list.
+          await refreshAll();
+          return;
         }
+        setOauth(null);
+        toast.success(t("toast.providerConnected", { providerID }));
+        await refreshAll();
+        return;
+      } catch (e) {
+        if (gen !== oauthGen.current) return; // cancelled — the abort is expected
+        // Webview fetch failures (idle timeout, transient drop) are TypeError;
+        // apiError() throws plain Error for the server's HTTP verdicts.
+        if (e instanceof TypeError) {
+          lastError = e;
+          await new Promise((r) => setTimeout(r, 500));
+          if (gen !== oauthGen.current) return;
+          continue;
+        }
+        setOauth(null);
+        toast.error(`${t("toast.loginDidNotComplete")}: ${e instanceof Error ? e.message : String(e)}`);
+        return;
+      } finally {
+        if (oauthAbort.current === abort) oauthAbort.current = null;
       }
-      // The login window closed without a verdict from the server.
-      return active() ? { ok: false, viaStore: false, error: lastError } : null;
-    };
-
-    // Race the server's verdict against the credential store: whichever
-    // reports first settles the wait. The watcher only ever reports success —
-    // silence just leaves the callback in charge.
-    let verdict = await new Promise<Verdict | null>((resolve) => {
-      void callbackVerdict().then(resolve);
-      void (async () => {
-        while (Date.now() < deadline && active()) {
-          await new Promise((r) => setTimeout(r, 2000));
-          if (!active()) return;
-          if (await loginLanded()) return resolve({ ok: true, viaStore: true });
-        }
-      })();
-    });
-    if (verdict === null || !active()) return; // cancelled
-    if (!verdict.ok && (await loginLanded())) {
-      // The server said failure (or timed out), but the credential store says
-      // the login landed — the callback signal was lost, not the login.
-      verdict = { ok: true, viaStore: true };
     }
-    if (!active()) return; // superseded while re-checking the store
-    invalidateOauthWait(); // settled either way — stop the losing strategy
+    // The login window closed without a verdict from the server.
     setOauth(null);
-    if (!verdict.ok) {
-      const err = verdict.error;
-      toast.error(`${t("toast.loginDidNotComplete")}: ${err instanceof Error ? err.message : String(err)}`);
-      return;
-    }
-    // A store-confirmed login skipped oauthCallback's cache invalidation — the
-    // provider list would still answer from the pre-login cache.
-    if (verdict.viaStore) await getClient()?.refreshProviderCache();
-    toast.success(t("toast.providerConnected", { providerID }));
-    await refreshAll();
+    toast.error(
+      `${t("toast.loginDidNotComplete")}: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+    );
   };
 
   const cancelOAuth = () => {
@@ -570,7 +468,9 @@ export function SettingsPage() {
   const disconnectProvider = (providerID: string) =>
     run(t("toast.couldNotRemove"), async () => {
       if (customIds.includes(providerID)) {
-        // Custom endpoints live in the config file; removal restarts the sidecar.
+        // Custom endpoint metadata lives in config, but credentials use the
+        // same mode-600 OpenCode auth store as built-in providers.
+        await getClient()!.removeProviderAuth(providerID);
         await removeConfigEntry("provider", providerID);
         await useRuntimeStore.getState().connectRetry();
       } else {
@@ -587,13 +487,14 @@ export function SettingsPage() {
         toast.error(t("toast.endpointFieldsRequired"));
         return;
       }
-      await getClient()!.addCustomProvider(id, {
+      const client = getClient()!;
+      await client.addCustomProvider(id, {
         name: cName.trim(),
         npm: cNpm,
         baseURL: cUrl.trim(),
-        apiKey: cKey.trim() || undefined,
         models,
       });
+      if (cKey.trim()) await client.setProviderApiKey(id, cKey.trim());
       toast.success(t("toast.endpointAdded", { name: cName.trim() }));
       setShowCustom(false);
       setCName("");
@@ -619,45 +520,6 @@ export function SettingsPage() {
       toast.success(t("toast.mcpAdded", { name }));
       setMName("");
       setMTarget("");
-    });
-
-  // The provisioning flows themselves live in the setup store so they outlive
-  // this page. The connector's API key is dropped from UI state up front — the
-  // store already holds the value it needs, so it never lingers here.
-  const enableConnector = (id: string) => {
-    const key = connectorKeys[id];
-    setConnectorKeys((k) => ({ ...k, [id]: "" }));
-    void useSetupStore.getState().enableConnector(id, key);
-  };
-
-  const enableBrowserControl = () => {
-    const useSystemChrome = browserProfile !== PRIVATE_BROWSER;
-    void useSetupStore.getState().enableBrowser({
-      profileDir: useSystemChrome && browserProfile ? browserProfile : undefined,
-      headed: browserHeaded,
-      tools: browserTools,
-      useSystemChrome,
-      allowedDomains: browserDomains
-        .split(/[\n,]/)
-        .map((d) => d.trim())
-        .filter(Boolean),
-    });
-  };
-
-  const disableBrowser = () =>
-    run(t("toast.couldNotRemoveMcp"), async () => {
-      await removeConfigEntry("mcp", BROWSER_MCP_ID);
-      await useRuntimeStore.getState().connectRetry();
-      toast.success(t("toast.mcpRemoved", { name: t("browser.label") }));
-    });
-
-  // Pre-download a private browser when no system Chrome exists (agent-browser
-  // would otherwise fetch one silently on first use). Streams via setup-progress.
-  const downloadBrowser = () =>
-    run(t("browser.couldNotDownload"), async () => {
-      await setupBrowserChrome();
-      setChrome(await detectChrome());
-      toast.success(t("browser.downloaded"));
     });
 
   const removeMcp = (name: string) =>
@@ -696,20 +558,30 @@ export function SettingsPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      {/* Modest top padding: the AppShell titlebar strip already clears 48px. */}
-      <div className="mx-auto max-w-2xl px-8 pb-16 pt-4">
-        <h1 className="font-serif text-2xl text-text">{t(`nav.${section}`)}</h1>
+      <div className="mx-auto max-w-2xl px-8 pb-16 pt-8">
+        <h1 className="font-serif text-xl text-text">{t("page.title")}</h1>
+        <p className="mt-0.5 text-xs text-muted">{t("page.subtitle")}</p>
 
-        {/* ---- Agent runtime ---- */}
-        {section === "runtime" && (
-        <Section title={t("runtime.title")} hint={t("runtime.hint")}>
+        <StartupReadiness />
+
+        {/* ---- AI assistant runtime ---- */}
+        <Card title={t("runtime.title")} hint={t("runtime.hint")}>
           <div className="flex items-center gap-2">
-            <input
-              value={serverUrl}
-              onChange={(e) => setServerUrl(e.target.value)}
-              placeholder={t("runtime.serverUrlPlaceholder")}
-              className={inputCls("flex-1 font-mono")}
-            />
+            <div className="flex flex-1 items-center gap-1.5 text-xs text-muted">
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  connected ? "bg-ok" : status === "error" ? "bg-error" : "bg-muted",
+                )}
+              />
+              <span>{t(`runtime.status.${status}`)}</span>
+              {connected && defaultModel && (
+                <>
+                  <span className="text-border">·</span>
+                  <span className="font-mono">{defaultModel}</span>
+                </>
+              )}
+            </div>
             {connected ? (
               <button onClick={disconnect} className={btnGhost()}>
                 {t("runtime.disconnect")}
@@ -720,21 +592,25 @@ export function SettingsPage() {
               </button>
             )}
           </div>
-          <div className="mt-2.5 flex items-center gap-1.5 text-xs text-muted">
-            <span
-              className={cn(
-                "h-1.5 w-1.5 rounded-full",
-                connected ? "bg-ok" : status === "error" ? "bg-error" : "bg-muted",
-              )}
-            />
-            <span className="capitalize">{status}</span>
-            {connected && defaultModel && (
-              <>
-                <span className="text-border">·</span>
-                <span className="font-mono">{defaultModel}</span>
-              </>
-            )}
-          </div>
+
+          <details className="group mt-3 border-t border-border pt-3 text-xs text-muted">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none hover:text-text">
+              <ChevronRight size={13} className="transition-transform group-open:rotate-90" />
+              {t("runtime.advanced.title")}
+            </summary>
+            <p className="mt-2 leading-relaxed">{t("runtime.advanced.description")}</p>
+            <div className="mt-3 grid grid-cols-[7rem_1fr] items-center gap-2">
+              <span>{t("runtime.advanced.engineLabel")}</span>
+              <span className="font-mono text-text">{t("runtime.advanced.engineValue")}</span>
+              <label htmlFor="runtime-server-url">{t("runtime.advanced.endpointLabel")}</label>
+              <input
+                id="runtime-server-url"
+                value={serverUrl}
+                onChange={(e) => setServerUrl(e.target.value)}
+                placeholder={t("runtime.serverUrlPlaceholder")}
+                className={inputCls("font-mono")}
+              />
+            </div>
 
           {/* Network proxy: follow system / custom / direct. system and none
               apply on select; custom applies on Save (needs a URL first). */}
@@ -746,7 +622,7 @@ export function SettingsPage() {
                   value={proxy.mode}
                   onChange={(e) => changeProxyMode(e.target.value as ProxyMode)}
                   disabled={busy}
-                  className={selectCls("w-44")}
+                  className={cn(inputCls("w-44"), "cursor-pointer")}
                 >
                   <option value="system">{t("runtime.proxySystem")}</option>
                   <option value="custom">{t("runtime.proxyCustom")}</option>
@@ -817,12 +693,11 @@ export function SettingsPage() {
               </p>
             </div>
           )}
-        </Section>
-        )}
+          </details>
+        </Card>
 
         {/* ---- Models ---- */}
-        {section === "models" && (
-        <Section title={t("model.title")} hint={t("model.hint")}>
+        <Card title={t("model.title")} hint={t("model.hint")}>
           {!modelSurfaceAvailable ? (
             <p className="text-[13px] text-muted">{t("model.connectPrompt")}</p>
           ) : catalogState === "unavailable" ? (
@@ -838,21 +713,19 @@ export function SettingsPage() {
               onManageProviders={() => setProviderManagerOpen(true)}
             />
           )}
-        </Section>
-        )}
+        </Card>
 
         {/* ---- Providers ---- */}
-        {section === "models" && (
         <ProviderManagerCard
           providers={providers}
           expanded={providerManagerOpen}
           onExpandedChange={setProviderManagerOpen}
         >
           {!connected ? (
-            <p className="px-4 py-3 text-[13px] text-muted">{t("providers.connectPrompt")}</p>
+            <p className="text-[13px] text-muted">{t("providers.connectPrompt")}</p>
           ) : (
             <>
-              <div>
+              <div className="overflow-hidden rounded-input border border-border">
                 {providers.map((p, i) => (
                   <div
                     key={p.id}
@@ -924,7 +797,7 @@ export function SettingsPage() {
                                   onChange={(e) =>
                                     setPromptInputs((s) => ({ ...s, [pr.key]: e.target.value }))
                                   }
-                                  className={selectCls("w-full")}
+                                  className={inputCls("w-full")}
                                 >
                                   <option value="">{pr.message}</option>
                                   {(pr.options ?? []).map((o) => (
@@ -1034,6 +907,13 @@ export function SettingsPage() {
                   </button>
                   {showCustom && (
                     <div className="space-y-2 px-3 pb-3">
+                      <button
+                        type="button"
+                        className="text-xs text-accent underline underline-offset-2"
+                        onClick={fillMiniMaxChinaTokenPlan}
+                      >
+                        {t("providers.fillMinimaxChinaTokenPlan")}
+                      </button>
                       <div className="flex gap-2">
                         <input
                           value={cName}
@@ -1044,7 +924,7 @@ export function SettingsPage() {
                         <select
                           value={cNpm}
                           onChange={(e) => setCNpm(e.target.value)}
-                          className={selectCls("w-[190px]")}
+                          className={inputCls("w-[190px]")}
                         >
                           <option value="@ai-sdk/openai-compatible">{t("providers.openaiCompatible")}</option>
                           <option value="@ai-sdk/anthropic">{t("providers.anthropicCompatible")}</option>
@@ -1071,6 +951,9 @@ export function SettingsPage() {
                           className={inputCls("flex-1 font-mono")}
                         />
                       </div>
+                      <p className="text-xs text-muted">
+                        {t("providers.customCredentialHint")}
+                      </p>
                       <button className={btnAccent()} onClick={() => void saveCustom()} disabled={busy}>
                         {t("providers.addEndpoint")}
                       </button>
@@ -1081,7 +964,7 @@ export function SettingsPage() {
 
               {isTauri && (
                 <button
-                  className="flex items-center gap-1.5 border-t border-border px-3 py-2.5 text-xs text-muted transition-colors hover:text-text"
+                  className="mt-3 flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-text"
                   onClick={() => void importLogin()}
                   disabled={busy}
                 >
@@ -1092,83 +975,34 @@ export function SettingsPage() {
             </>
           )}
         </ProviderManagerCard>
-        )}
 
         {/* ---- MCP servers ---- */}
-        {section === "connectors" && (
-        <Section title={t("mcp.title")} hint={t("mcp.hint")} flush>
+        <Card title={t("mcp.title")} hint={t("mcp.hint")}>
           {!connected ? (
-            <p className="px-4 py-3 text-[13px] text-muted">{t("mcp.connectPrompt")}</p>
+            <p className="text-[13px] text-muted">{t("mcp.connectPrompt")}</p>
           ) : (
-            <div>
-              {/* Curated open-source science connectors — one-click enable. */}
-              {isTauri &&
-                SCIENCE_CONNECTORS.filter((c) => !mcpServers.some((s) => s.name === c.id)).map(
-                  (c) => {
-                    const keyMissing = Boolean(c.apiKeyEnv) && !connectorKeys[c.id]?.trim();
-                    return (
-                      <div
-                        key={c.id}
-                        className="border-b border-border bg-surface px-3 py-2.5 text-[13px]"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Search size={14} className="shrink-0 text-muted" />
-                          <div className="min-w-0 flex-1">
-                            <span className="font-medium text-text">{c.label}</span>
-                            <span className="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
-                              {c.discipline}
-                            </span>
-                            <span className="ml-1.5 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
-                              {t("mcp.openSource")}
-                            </span>
-                            <div className="truncate text-xs text-muted">{c.description}</div>
-                            <div className="truncate font-mono text-[11px] text-muted/70">
-                              {c.source}
-                              {c.installNote ? ` · ${c.installNote}` : ""}
-                            </div>
-                          </div>
-                          <button
-                            className={btnAccent("h-8")}
-                            onClick={() => void enableConnector(c.id)}
-                            disabled={enablingConnector !== null || busy || keyMissing}
-                            title={keyMissing ? t("mcp.enterKeyFirstTitle") : undefined}
-                          >
-                            {enablingConnector === c.id ? (
-                              <>
-                                <Loader2 size={12} className="animate-spin" /> {t("mcp.settingUp")}
-                              </>
-                            ) : (
-                              t("mcp.enable")
-                            )}
-                          </button>
-                        </div>
-                        {c.apiKeyEnv && (
-                          <div className="mt-2 flex items-center gap-2 pl-6">
-                            <input
-                              type="password"
-                              value={connectorKeys[c.id] ?? ""}
-                              onChange={(e) =>
-                                setConnectorKeys((k) => ({ ...k, [c.id]: e.target.value }))
-                              }
-                              placeholder={`${c.apiKeyEnv} ${t("mcp.freeKeySuffix")}`}
-                              className="h-8 min-w-0 flex-1 rounded-input border border-border bg-surface-2 px-2 font-mono text-[12px] text-text placeholder:text-muted/60"
-                            />
-                            {c.apiKeyUrl && (
-                              <a
-                                href={c.apiKeyUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] text-accent hover:underline"
-                              >
-                                <ExternalLink size={11} /> {t("mcp.getFreeKey")}
-                              </a>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  },
-                )}
+            <div className="overflow-hidden rounded-input border border-border">
+              <div className="flex items-start gap-2.5 border-b border-border bg-surface px-3 py-2.5 text-[13px]">
+                <Search size={14} className="mt-0.5 shrink-0 text-accent" />
+                <div className="min-w-0 flex-1">
+                  <span className="font-medium text-text">{t("mcp.heorEvidenceLabel")}</span>
+                  <span className="ml-2 rounded bg-accent/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-accent ring-1 ring-accent/20">
+                    {t("mcp.builtIn")}
+                  </span>
+                  <span className="ml-1.5 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
+                    {t("mcp.humanAuthorization")}
+                  </span>
+                  <div className="mt-0.5 text-xs leading-relaxed text-muted">
+                    {t("mcp.heorEvidenceDescription")}
+                  </div>
+                  <div className="font-mono text-[11px] text-muted/70">
+                    {t("mcp.heorEvidenceSources", {
+                      sources: FIRST_PARTY_HEOR_CONNECTOR.sources.join(" · "),
+                      id: FIRST_PARTY_HEOR_CONNECTOR.id,
+                    })}
+                  </div>
+                </div>
+              </div>
               {/* Featured: one-click Jupyter (shown until its MCP entry exists). */}
               {isTauri && !mcpServers.some((s) => s.name === "jupyter") && (
                 <div className="flex items-center gap-2.5 border-b border-border bg-surface px-3 py-2.5 text-[13px]">
@@ -1198,7 +1032,7 @@ export function SettingsPage() {
               )}
               {/* Live uv output while a provisioning run is in flight — a
                   300 MB download must never look like a frozen spinner. */}
-              {(jupyterBusy || enablingConnector !== null) && (
+              {jupyterBusy && (
                 <div className="flex items-center gap-2 border-b border-border bg-surface-2/50 px-3 py-1.5">
                   <Loader2 size={11} className="shrink-0 animate-spin text-muted" />
                   <span className="truncate font-mono text-[11px] text-muted">
@@ -1251,6 +1085,9 @@ export function SettingsPage() {
                   mcpServers.length > 0 && "border-t border-border",
                 )}
               >
+                <p className="text-[11px] leading-relaxed text-muted">
+                  {t("mcp.externalBoundary")}
+                </p>
                 <div className="flex gap-2">
                   <input
                     value={mName}
@@ -1261,7 +1098,7 @@ export function SettingsPage() {
                   <select
                     value={mType}
                     onChange={(e) => setMType(e.target.value as "local" | "remote")}
-                    className={selectCls("w-[110px]")}
+                    className={inputCls("w-[110px]")}
                   >
                     <option value="local">{t("mcp.typeLocal")}</option>
                     <option value="remote">{t("mcp.typeRemote")}</option>
@@ -1285,187 +1122,10 @@ export function SettingsPage() {
               </div>
             </div>
           )}
-        </Section>
-        )}
-
-        {/* ---- Browser control (agent-browser) — its own page, reconfigurable ---- */}
-        {section === "browser" && (
-        <Section title={t("browser.title")} hint={t("browser.hint")}>
-          {!connected ? (
-            <p className="text-[13px] text-muted">{t("mcp.connectPrompt")}</p>
-          ) : (
-            <div className="space-y-4">
-              {/* Status + upstream */}
-              <div className="flex items-start gap-2.5">
-                <Globe size={16} className="mt-0.5 shrink-0 text-muted" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-text">{t("browser.label")}</span>
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium",
-                        browserEnabled
-                          ? "bg-ok/15 text-ok"
-                          : "bg-surface-2 text-muted ring-1 ring-border",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full",
-                          browserEnabled ? "bg-ok" : "bg-muted",
-                        )}
-                      />
-                      {browserEnabled ? t("browser.enabledStatus") : t("browser.disabledStatus")}
-                    </span>
-                  </div>
-                  <div className="truncate font-mono text-[11px] text-muted/70">
-                    {BROWSER_SOURCE}
-                  </div>
-                </div>
-              </div>
-
-              {/* Which browser was detected (info only) */}
-              <div className="text-[13px]">
-                {chrome ? (
-                  <span className="text-muted">
-                    {t("browser.detected")}:{" "}
-                    <span className="text-text">
-                      {BROWSER_DISPLAY_NAMES[chrome.kind] ?? chrome.kind}
-                    </span>
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted">{t("browser.noChromeWillDownload")}</span>
-                )}
-              </div>
-
-              {/* Browse as — reuse a Chrome login, run isolated, or a separate
-                  private (downloaded) browser that never touches Chrome. */}
-              <div className="space-y-1.5">
-                <label className="block text-[13px] font-medium text-text">
-                  {t("browser.browseAs")}
-                </label>
-                <select
-                  value={browserProfile}
-                  onChange={(e) => setBrowserProfile(e.target.value)}
-                  className={selectCls("h-9 w-full max-w-md")}
-                >
-                  {chrome && <option value="">{t("browser.isolated")}</option>}
-                  {chrome &&
-                    browserProfiles.map((p) => (
-                      <option key={p.directory} value={p.directory}>
-                        {p.name} · {p.directory}
-                      </option>
-                    ))}
-                  <option value={PRIVATE_BROWSER}>{t("browser.privateBrowser")}</option>
-                </select>
-                <p className="max-w-md text-[11px] leading-relaxed text-muted/80">
-                  {browserProfile === PRIVATE_BROWSER
-                    ? t("browser.privateNote")
-                    : browserProfile
-                      ? t("browser.reuseNote", {
-                          name:
-                            browserProfiles.find((p) => p.directory === browserProfile)?.name ??
-                            browserProfile,
-                        })
-                      : t("browser.isolatedNote")}
-                </p>
-                {browserProfile === PRIVATE_BROWSER && (
-                  <button
-                    className="inline-flex items-center gap-1 text-[11px] text-accent hover:underline disabled:opacity-50"
-                    onClick={() => void downloadBrowser()}
-                    disabled={browserBusy || busy}
-                  >
-                    <Download size={11} /> {t("browser.download")}
-                  </button>
-                )}
-              </div>
-
-              {/* Capabilities (tool profile) */}
-              <div className="space-y-1.5">
-                <label className="block text-[13px] font-medium text-text">
-                  {t("browser.capabilities")}
-                </label>
-                <select
-                  value={browserTools}
-                  onChange={(e) => setBrowserTools(e.target.value)}
-                  className={selectCls("h-9 w-full max-w-md")}
-                >
-                  <option value="core">{t("browser.capCore")}</option>
-                  <option value="core,network">{t("browser.capNetwork")}</option>
-                  <option value="all">{t("browser.capAll")}</option>
-                </select>
-              </div>
-
-              {/* Allowed domains — the safety guardrail */}
-              <div className="space-y-1.5">
-                <label className="block text-[13px] font-medium text-text">
-                  {t("browser.allowedDomains")}
-                </label>
-                <textarea
-                  value={browserDomains}
-                  onChange={(e) => setBrowserDomains(e.target.value)}
-                  rows={3}
-                  placeholder={t("browser.allowedDomainsPlaceholder")}
-                  className="w-full max-w-md rounded-input border border-border bg-surface-2 px-2.5 py-2 font-mono text-[12px] text-text placeholder:text-muted/50"
-                />
-                <p className="max-w-md text-[11px] leading-relaxed text-muted/80">
-                  {t("browser.allowedDomainsHint")}
-                </p>
-              </div>
-
-              {/* Show the window */}
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={browserHeaded}
-                  onChange={setBrowserHeaded}
-                  label={t("browser.showWindow")}
-                />
-                <span className="text-[13px] text-text">{t("browser.showWindow")}</span>
-              </div>
-
-              {/* Live output during a Chrome download */}
-              {(browserBusy || busy) && setupLine && (
-                <div className="flex items-center gap-2">
-                  <Loader2 size={11} className="shrink-0 animate-spin text-muted" />
-                  <span className="truncate font-mono text-[11px] text-muted">{setupLine}</span>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  className={btnAccent()}
-                  onClick={enableBrowserControl}
-                  disabled={browserBusy || busy}
-                >
-                  {browserBusy ? (
-                    <>
-                      <Loader2 size={12} className="animate-spin" /> {t("mcp.settingUp")}
-                    </>
-                  ) : browserEnabled ? (
-                    t("browser.apply")
-                  ) : (
-                    t("mcp.enable")
-                  )}
-                </button>
-                {browserEnabled && (
-                  <button
-                    className="flex h-9 items-center rounded-input px-3.5 text-[13px] font-medium text-muted ring-1 ring-border transition-colors hover:text-error"
-                    onClick={() => void disableBrowser()}
-                    disabled={busy || browserBusy}
-                  >
-                    {t("browser.disable")}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </Section>
-        )}
+        </Card>
 
         {/* ---- Workspace ---- */}
-        {section === "general" && (
-        <Section title={t("workspace.title")} hint={t("workspace.hint")}>
+        <Card title={t("workspace.title")} hint={t("workspace.hint")}>
           <div className="flex items-center gap-2">
             <span
               className={cn(
@@ -1486,12 +1146,11 @@ export function SettingsPage() {
               </>
             )}
           </div>
-        </Section>
-        )}
+        </Card>
 
         {/* ---- Local Python kernel ---- */}
-        {section === "runtime" && isTauri && (
-          <Section title={t("python.title")} hint={t("python.hint")}>
+        {isTauri && (
+          <Card title={t("python.title")} hint={t("python.hint")}>
             <div className="flex items-center gap-2 text-[13px]">
               <span
                 className={cn(
@@ -1543,188 +1202,188 @@ export function SettingsPage() {
                 </button>
               )}
             </div>
-          </Section>
+          </Card>
         )}
 
-        {section === "compute" && (
-          <>
-            <RemoteComputeCard />
-            <ModalCard />
-          </>
-        )}
+        <RemoteComputeCard />
+
+        <ModalCard />
 
         {/* ---- Privacy & data flow ---- */}
-        {section === "privacy" && <DataFlowCard model={defaultModel} workspace={wsPath} />}
+        <DataFlowCard model={defaultModel} workspace={wsPath} />
+
+        <SupportReportCard />
 
         {/* ---- Appearance ---- */}
-        {section === "appearance" && (
-        <Section title={t("appearance.title")} flush>
-          <div className="divide-y divide-faint">
-            <Row title={t("appearance.themeLabel")}
-              control={
-                <div className="inline-flex shrink-0 rounded-input border border-border bg-surface-2 p-0.5">
-                  {/* eslint-disable-next-line i18next/no-literal-string -- internal theme-mode keys, not display text (the visible label is t(`appearance.theme.${mode}`)) */}
-                  {(["light", "warm", "dark"] as const).map((mode) => (
-                    <button
-                      key={mode}
-                      onClick={() => setTheme(mode)}
-                      className={cn(
-                        "rounded-[5px] px-4 py-1.5 text-[13px] transition-colors",
-                        theme === mode ? "bg-surface text-text shadow-card" : "text-muted hover:text-text",
-                      )}
-                    >
-                      {t(`appearance.theme.${mode}`)}
-                    </button>
-                  ))}
-                </div>
-              }
-            />
-            <Row title={t("language.label")}
-              control={
-                <select
-                  value={locale}
-                  onChange={(e) => setLocale(e.target.value)}
-                  aria-label={t("language.label")}
-                  className={selectCls("w-48")}
-                >
-                  {shippedLocales().map((l) => (
-                    <option key={l.code} value={l.code}>
-                      {l.nativeName}
-                    </option>
-                  ))}
-                </select>
-              }
-            />
-            {/* Zoom is desktop-only: in a browser the browser's own zoom rules. */}
-            {isTauri && (
-              <Row
-                title={t("appearance.zoom.label")}
-                hint={t("appearance.zoom.hint", { mod: isMacUA() ? "⌘" : "Ctrl" })}
-                control={
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <button
-                      className={btnGhost("h-8 w-8 justify-center px-0")}
-                      onClick={() => zoomBy(-1)}
-                      disabled={zoom <= ZOOM_MIN}
-                      aria-label={t("appearance.zoom.out")}
-                    >
-                      <Minus size={13} />
-                    </button>
-                    <span className="w-11 text-center text-[13px] tabular-nums text-text">
-                      {/* eslint-disable-next-line i18next/no-literal-string -- "%" unit glue, not prose */}
-                      {Math.round(zoom * 100)}%
-                    </span>
-                    <button
-                      className={btnGhost("h-8 w-8 justify-center px-0")}
-                      onClick={() => zoomBy(1)}
-                      disabled={zoom >= ZOOM_MAX}
-                      aria-label={t("appearance.zoom.in")}
-                    >
-                      <Plus size={13} />
-                    </button>
-                    {zoom !== 1 && (
-                      <button className={btnGhost("h-8")} onClick={resetZoom}>
-                        {t("appearance.zoom.reset")}
-                      </button>
-                    )}
-                  </div>
-                }
-              />
-            )}
+        <Card title={t("appearance.title")}>
+          <div className="inline-flex rounded-input border border-border bg-surface-2 p-0.5">
+            {/* eslint-disable-next-line i18next/no-literal-string -- internal theme-mode keys, not display text (the visible label is t(`appearance.theme.${mode}`)) */}
+            {(["light", "dark"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setTheme(mode)}
+                className={cn(
+                  "rounded-[5px] px-4 py-1.5 text-[13px] transition-colors",
+                  theme === mode ? "bg-surface text-text shadow-card" : "text-muted hover:text-text",
+                )}
+              >
+                {t(`appearance.theme.${mode}`)}
+              </button>
+            ))}
           </div>
-        </Section>
-        )}
+          <div className="mt-4">
+            <div className="mb-2 text-xs font-medium text-muted">{t("language.label")}</div>
+            <div
+              role="group"
+              aria-label={t("language.label")}
+              className="grid grid-cols-2 gap-1.5 sm:grid-cols-4"
+            >
+              {shippedLocales().map((l) => {
+                const active = locale === l.code;
+                return (
+                  <button
+                    key={l.code}
+                    onClick={() => setLocale(l.code)}
+                    className={cn(
+                      "rounded-input border px-2.5 py-2 text-left text-[13px] transition-colors",
+                      active
+                        ? "border-accent bg-accent/10 text-text shadow-sm"
+                        : "border-border bg-surface text-muted hover:bg-surface-2 hover:text-text",
+                    )}
+                    aria-pressed={active}
+                  >
+                    <span className="block truncate font-medium">{l.nativeName}</span>
+                    <span className="block truncate text-[10.5px] text-muted">{l.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </Card>
 
         {/* ---- App updates ---- */}
-        {section === "general" && (
-        <Section title={t("updates.title")} hint={t("updates.hint")} flush>
-          <div className="divide-y divide-faint">
-            <Row
-              title={
-                <span className="inline-flex items-center gap-1.5">
-                  <span
-                    className={cn(
-                      "h-1.5 w-1.5 rounded-full",
-                      updateTone === "error" ? "bg-error" : updateTone === "accent" ? "bg-accent" : "bg-ok",
-                    )}
-                  />
-                  {updateLabel}
-                </span>
-              }
-              hint={[
-                t("updates.currentVersion", { version: currentVersion }),
-                latestUpdate && t("updates.latestVersion", { version: latestUpdate.version }),
-                latestUpdate?.publishedAt &&
-                  t("updates.publishedAt", {
-                    date: new Date(latestUpdate.publishedAt).toLocaleString(locale),
-                  }),
-                lastCheckedAt &&
-                  t("updates.lastChecked", { date: new Date(lastCheckedAt).toLocaleString(locale) }),
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-              control={
-                <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                  <button
-                    className={btnGhost("gap-1.5")}
-                    onClick={() => void checkForUpdates({ manual: true })}
-                    disabled={updateStatus === "checking"}
-                  >
-                    {updateStatus === "checking" ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      <RefreshCw size={13} />
-                    )}
-                    {t("updates.checkNow")}
-                  </button>
-                  {latestUpdate?.url && (
-                    <button
-                      className={btnGhost("gap-1.5")}
-                      onClick={() => void openExternal(latestUpdate.url)}
-                    >
-                      <ExternalLink size={13} /> {t("updates.openRelease")}
-                    </button>
-                  )}
-                  {showUpdateBadge && (
-                    <button className={btnGhost()} onClick={dismissUpdateBadge}>
-                      {t("updates.hideBadge")}
-                    </button>
-                  )}
-                </div>
-              }
-            >
-              {updateStatus === "error" && updateError && (
-                <div className="mt-2 text-xs text-error">
-                  {t("updates.checkFailed", { message: updateError })}
-                </div>
+        <Card title={t("updates.title")} hint={t("updates.hint")}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1",
+                updateTone === "muted"
+                  ? "bg-surface-2 text-muted ring-border"
+                  : updateTone === "error"
+                  ? "bg-error/10 text-error ring-error/20"
+                  : updateTone === "accent"
+                    ? "bg-accent/10 text-accent ring-accent/20"
+                    : "bg-ok/10 text-ok ring-ok/20",
               )}
-            </Row>
-            <Row
-              title={t("updates.autoCheck")}
-              hint={t("updates.autoCheckHint")}
-              control={
-                <Switch
-                  checked={updateEnabled}
-                  onChange={setUpdateEnabled}
-                  label={t("updates.autoCheck")}
-                />
-              }
-            />
-            <Row
-              title={t("updates.showBadge")}
-              hint={t("updates.showBadgeHint")}
-              control={
-                <Switch
-                  checked={updateBadgeEnabled}
-                  onChange={setUpdateBadgeEnabled}
-                  label={t("updates.showBadge")}
-                />
-              }
-            />
-            <div className="px-4 py-3 text-xs leading-relaxed text-muted">{t("updates.privacy")}</div>
+            >
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  updateTone === "muted"
+                    ? "bg-muted"
+                    : updateTone === "error"
+                      ? "bg-error"
+                      : updateTone === "accent"
+                        ? "bg-accent"
+                        : "bg-ok",
+                )}
+              />
+              {updateLabel}
+            </span>
+            <span className="text-xs text-muted">
+              {t("updates.currentVersion", { version: currentVersion })}
+            </span>
+            {updateSourceConfigured && latestUpdate && (
+              <span className="text-xs text-muted">
+                {t("updates.latestVersion", { version: latestUpdate.version })}
+              </span>
+            )}
           </div>
-        </Section>
-        )}
+
+          {!updateSourceConfigured && (
+            <p className="mt-3 text-xs leading-relaxed text-muted">{t("updates.unavailableHint")}</p>
+          )}
+
+          {updateSourceConfigured && latestUpdate?.publishedAt && (
+            <div className="mt-2 text-xs text-muted">
+              {t("updates.publishedAt", {
+                date: new Date(latestUpdate.publishedAt).toLocaleString(locale),
+              })}
+            </div>
+          )}
+          {updateSourceConfigured && lastCheckedAt && (
+            <div className="mt-1 text-xs text-muted">
+              {t("updates.lastChecked", { date: new Date(lastCheckedAt).toLocaleString(locale) })}
+            </div>
+          )}
+          {updateSourceConfigured && updateStatus === "error" && updateError && (
+            <div className="mt-2 text-xs text-error">
+              {t("updates.checkFailed", { message: updateError })}
+            </div>
+          )}
+
+          {updateSourceConfigured && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                className={btnAccent("gap-1.5")}
+                onClick={() => void checkForUpdates({ manual: true })}
+                disabled={updateStatus === "checking"}
+              >
+                {updateStatus === "checking" ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={13} />
+                )}
+                {t("updates.checkNow")}
+              </button>
+              {latestUpdate?.url && (
+                <button
+                  className={btnGhost("gap-1.5")}
+                  onClick={() => void openExternal(latestUpdate.url)}
+                >
+                  <ExternalLink size={13} /> {t("updates.openRelease")}
+                </button>
+              )}
+              {showUpdateBadge && (
+                <button className={btnGhost()} onClick={dismissUpdateBadge}>
+                  {t("updates.hideBadge")}
+                </button>
+              )}
+            </div>
+          )}
+
+          {updateSourceConfigured && (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <label className="flex items-start gap-2 rounded-input border border-border bg-surface-2 px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={updateEnabled}
+                  onChange={(e) => setUpdateEnabled(e.target.checked)}
+                  className="mt-0.5 accent-[var(--color-accent)]"
+                />
+                <span>
+                  <span className="block text-[13px] font-medium text-text">{t("updates.autoCheck")}</span>
+                  <span className="block text-xs leading-relaxed text-muted">{t("updates.autoCheckHint")}</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 rounded-input border border-border bg-surface-2 px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={updateBadgeEnabled}
+                  onChange={(e) => setUpdateBadgeEnabled(e.target.checked)}
+                  className="mt-0.5 accent-[var(--color-accent)]"
+                />
+                <span>
+                  <span className="block text-[13px] font-medium text-text">{t("updates.showBadge")}</span>
+                  <span className="block text-xs leading-relaxed text-muted">{t("updates.showBadgeHint")}</span>
+                </span>
+              </label>
+            </div>
+          )}
+          {updateSourceConfigured && (
+            <p className="mt-3 text-xs leading-relaxed text-muted">{t("updates.privacy")}</p>
+          )}
+        </Card>
       </div>
     </div>
   );
@@ -1753,3 +1412,23 @@ const btnAccent = (extra = "") =>
     "text-accent-fg transition-colors hover:bg-accent/90 disabled:bg-accent/50",
     extra,
   );
+
+function Card({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-5 rounded-card border border-border bg-surface shadow-card">
+      <header className="border-b border-border px-5 py-3">
+        <h2 className="font-serif text-[15px] text-text">{title}</h2>
+        {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
+      </header>
+      <div className="px-5 py-4">{children}</div>
+    </section>
+  );
+}

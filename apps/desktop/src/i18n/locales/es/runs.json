@@ -1,11 +1,11 @@
 {
   "title": "Ejecuciones",
   "description": {
-    "prefix": "Cada ejecución de experimento en todas las sesiones — comando, versión del código, entorno, hardware y salidas. ",
+    "prefix": "Cada ejecución de análisis en todas las tareas — comando, versión del código, entorno, hardware y salidas. ",
     "suffix": " la vuelve a ejecutar y compara los resultados."
   },
   "pane": {
-    "subtitle": "esta sesión",
+    "subtitle": "esta tarea",
     "closeAria": "Cerrar ejecuciones"
   },
   "searchPlaceholder": "Buscar comando o ruta de salida…",

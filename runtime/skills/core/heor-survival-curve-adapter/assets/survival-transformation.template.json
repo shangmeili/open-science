@@ -1,0 +1,13 @@
+{
+  "operation": "parametric_survival_to_transition_schedule",
+  "cycle_length_years": 1.0,
+  "from_state_index": 0,
+  "event_state_index": 1,
+  "distribution": "exponential",
+  "parameters": {
+    "rate_per_year": {
+      "value": 0.22314355131420976,
+      "assumption_id": "replace-with-proposed-assumption-id"
+    }
+  }
+}

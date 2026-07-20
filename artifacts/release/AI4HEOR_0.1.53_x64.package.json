@@ -1,0 +1,48 @@
+{
+  "bundle": {
+    "dmg_sha256": "77e59c78f9210e154272d50aec3e4f5e4ad3e66265e0da480f18752aef893c75",
+    "filename": "AI4HEOR_0.1.53_x64.dmg",
+    "target": "x86_64-apple-darwin"
+  },
+  "first_launch": {
+    "app_executable": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-76_2o46v/Applications/AI4HEOR.app/Contents/MacOS/ai4s-workbench",
+    "app_process_id": 17846,
+    "cleanup_verified": true,
+    "existing_single_instance_socket_isolated": false,
+    "install_mode": "temporary-app-copy",
+    "installed_app": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-76_2o46v/Applications/AI4HEOR.app",
+    "launch_mode": "launch-services",
+    "opencode_executable": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-76_2o46v/Applications/AI4HEOR.app/Contents/MacOS/opencode",
+    "opencode_parent_process_id": 17846,
+    "opencode_process_id": 17864,
+    "workspace": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-76_2o46v/fresh-home/Documents/AI4HEOR",
+    "workspace_migration": {
+      "app_executable": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-76_2o46v/Applications/AI4HEOR.app/Contents/MacOS/ai4s-workbench",
+      "app_process_id": 17874,
+      "cleanup_verified": true,
+      "install_mode": "temporary-app-copy",
+      "installed_app": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-76_2o46v/Applications/AI4HEOR.app",
+      "launch_mode": "launch-services",
+      "legacy_workspace": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-76_2o46v/migration-home/Documents/OpenScience",
+      "legacy_workspace_removed": true,
+      "marker_preserved": "2026-07-17-legacy/marker.txt",
+      "opencode_executable": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-76_2o46v/Applications/AI4HEOR.app/Contents/MacOS/opencode",
+      "opencode_parent_process_id": 17874,
+      "opencode_process_id": 17888,
+      "workspace": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-76_2o46v/migration-home/Documents/AI4HEOR"
+    }
+  },
+  "info_plist": {
+    "CFBundleDisplayName": "AI4HEOR",
+    "CFBundleExecutable": "ai4s-workbench",
+    "CFBundleIdentifier": "com.ai4s.workbench",
+    "CFBundleShortVersionString": "0.1.53",
+    "CFBundleVersion": "0.1.53"
+  },
+  "payload": {
+    "architecture": "x86_64",
+    "opencode_version": "1.17.13",
+    "resource_files": 359,
+    "uv_version": "uv 0.11.26 (396ef7ce4 2026-06-30 x86_64-apple-darwin)"
+  }
+}

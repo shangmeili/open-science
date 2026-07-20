@@ -1,4 +1,7 @@
 {
+  "accessibility": {
+    "skipToMain": "Skip to HEOR workspace"
+  },
   "sidebar": {
     "collapse": "Collapse sidebar",
     "collapseTitle": "Collapse sidebar ({{shortcut}})",
@@ -8,48 +11,30 @@
     "settings": "Settings"
   },
   "items": {
-    "new": "New",
+    "new": "New task",
     "notebooks": "Notebooks",
     "files": "Files",
     "runs": "Runs",
-    "skills": "Skills",
-    "projects": "Projects"
+    "skills": "Skills & tools",
+    "heor": "Research workspace"
   },
   "projects": {
     "heading": "Projects",
     "new": "New project",
-    "importedBadge": "imported",
-    "menuScratch": "Start from scratch",
-    "menuExisting": "Use an existing folder",
-    "nameTitle": "Name project",
-    "nameSubtitle": "Keep it short and recognizable",
     "namePlaceholder": "Project name",
-    "newSessionAria": "New session in {{name}}",
-    "noSessions": "No sessions yet.",
-    "renameHint": "Double-click to rename",
-    "pageSearch": "Search projects",
-    "colName": "Name",
-    "colSources": "Sources",
-    "colUpdated": "Updated",
-    "noResults": "No projects match.",
-    "pin": "Pin",
-    "unpin": "Unpin",
-    "rename": "Rename",
-    "remove": "Remove",
-    "more": "More",
-    "removeTitle": "Remove {{name}}?",
-    "removeBody": "This removes the project from the sidebar. Files on disk will not be deleted.",
-    "seeAll": "All projects",
-    "openFolder": "Open {{path}}"
+    "intakePrompt": "Help me start this HEOR project. First ask what decision, research, evaluation, or learning question I want to address and its intended use. Then identify only missing information that would materially change the work. Keep me as the scientific lead; do not search, select methods, assume inputs, or create approval records before I define the task.",
+    "newSessionAria": "New task in {{name}}",
+    "noSessions": "No tasks yet.",
+    "renameHint": "Double-click to rename"
   },
   "history": {
-    "heading": "Sessions",
-    "empty": "No conversations yet.",
+    "heading": "Tasks",
+    "empty": "No tasks yet.",
     "exampleTag": "example",
     "deleteAria": "Delete {{title}}"
   },
   "confirmDelete": {
-    "sessionTitle": "Delete session?",
+    "sessionTitle": "Delete task?",
     "sessionBody": "\"{{title}}\" and its messages will be deleted. This cannot be undone.",
     "exampleTitle": "Hide example?",
     "exampleBody": "\"{{title}}\" will be hidden from the sidebar.",
@@ -72,13 +57,13 @@
     "placeholder": "Type a command…",
     "noResults": "No results.",
     "actions": {
-      "newSession": "New session",
-      "analyzeData": "Analyze my data (new workflow)",
-      "auditReport": "Audit a report (traceability review)",
+      "newSession": "New task",
+      "analyzeData": "Analyze my HEOR evidence or data",
+      "auditReport": "Audit an HEOR model or report",
       "openNotebooks": "Open notebooks",
-      "manageSkills": "Manage skills",
+      "manageSkills": "Manage skills & tools",
       "openSettings": "Open settings",
-      "toggleTheme": "Switch theme (light / warm / dark)"
+      "toggleTheme": "Toggle light / dark theme"
     }
   }
 }

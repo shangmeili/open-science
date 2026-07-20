@@ -27,6 +27,7 @@ apps/desktop/src-tauri/gen/
 # Python
 __pycache__/
 *.py[cod]
+*.egg-info/
 .venv/
 venv/
 .uv/
@@ -57,9 +58,6 @@ apps/desktop/src-tauri/binaries/
 
 # Third-party skill packs (fetched by scripts/dev/fetch-skills.sh)
 runtime/skills/external/
-
-# Bundled goal plugin (fetched by scripts/dev/fetch-goal-plugin.sh)
-runtime/goal-plugin/
 
 # Local demo recordings (too large for git)
 videos/

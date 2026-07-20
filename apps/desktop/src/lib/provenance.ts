@@ -5,7 +5,7 @@
 import type { ToolUpdatedEvent } from "@ai4s/sdk";
 import type { ProvenanceRecord } from "@ai4s/shared";
 import { isTauri, logDebug } from "./tauri";
-import { deriveArtifact, parsePatchFiles } from "./artifacts";
+import { deriveArtifact } from "./artifacts";
 
 export interface ProvenanceInput {
   path: string;
@@ -40,44 +40,6 @@ export function provenanceInputFromEvent(event: ToolUpdatedEvent): ProvenanceInp
   // History still shows what changed, rather than "content not captured".
   const diff = artifact.content ? undefined : event.diff;
   return { path: artifact.path, tool: event.tool, content: artifact.content, diff, log };
-}
-
-/**
- * All version records a completed tool call produces. Most write tools name one
- * file, but apply_patch can touch many in a single call — each becomes its own
- * record. Returns `[]` for non-version-worthy events (failures, reads, non-file
- * tools), so the caller can iterate unconditionally.
- */
-export function provenanceInputsFromEvent(event: ToolUpdatedEvent): ProvenanceInput[] {
-  if (event.status !== "success") return [];
-  if ((event.tool ?? "").toLowerCase() === "apply_patch") {
-    const input = (event.input ?? {}) as Record<string, unknown>;
-    const patchText = typeof input.patchText === "string" ? input.patchText : undefined;
-    if (!patchText) return [];
-    // A delete removes the artifact — there is no version to open — so skip it;
-    // adds carry the full new text, updates carry a diff.
-    return parsePatchFiles(patchText)
-      .filter((f) => f.op !== "delete")
-      .map((f) => {
-        const filename = f.path.split(/[\\/]/).pop() || f.path;
-        const isAdd = f.op === "add";
-        const content = isAdd
-          ? f.body
-              .split("\n")
-              .map((l) => (l.startsWith("+") ? l.slice(1) : l))
-              .join("\n")
-          : undefined;
-        return {
-          path: f.path,
-          tool: event.tool,
-          content,
-          diff: isAdd ? undefined : f.body,
-          log: `${event.tool} → ${filename}`,
-        };
-      });
-  }
-  const single = provenanceInputFromEvent(event);
-  return single ? [single] : [];
 }
 
 /** Append a version record (desktop only). Recording must never break the chat flow. */

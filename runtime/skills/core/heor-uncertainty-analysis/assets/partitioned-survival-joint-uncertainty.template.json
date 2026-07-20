@@ -1,0 +1,92 @@
+{
+  "schema_version": "0.12.0",
+  "uncertainty_id": "REPLACE_WITH_UNCERTAINTY_ID",
+  "analysis_id": "REPLACE_WITH_ANALYSIS_ID",
+  "status": "ready_for_human_review",
+  "base_analysis": {
+    "path": "heor/analysis-plan.json",
+    "content_sha256": "REPLACE_WITH_SHA256"
+  },
+  "partitioned_survival_inputs": {
+    "plan": {
+      "path": "heor/partitioned-survival-plan.json",
+      "content_sha256": "REPLACE_WITH_SHA256"
+    },
+    "curve_materializations": {
+      "path": "heor/survival-curve-materializations.json",
+      "content_sha256": "REPLACE_WITH_SHA256"
+    },
+    "treatment_effect_duration": {
+      "path": "heor/treatment-effect-duration.json",
+      "content_sha256": "REPLACE_WITH_SHA256"
+    }
+  },
+  "joint_survival_inputs": {
+    "manifest": {
+      "path": "heor/joint-survival-uncertainty.json",
+      "content_sha256": "REPLACE_WITH_SHA256"
+    },
+    "draws": {
+      "path": "heor/joint-survival-draws.jsonl",
+      "content_sha256": "REPLACE_WITH_SHA256"
+    }
+  },
+  "seed": 20260715,
+  "parameters": [
+    {
+      "id": "REPLACE_WITH_PARAMETER_ID",
+      "label": "REPLACE_ME",
+      "target": "/strategies/intervention/state_costs/0",
+      "provenance_path": "strategies.intervention.state_costs",
+      "deterministic": {
+        "low": 0,
+        "high": 1,
+        "rationale": "REPLACE_WITH_EVIDENCE_OR_HUMAN_BASIS"
+      },
+      "probabilistic": {
+        "type": "gamma",
+        "shape": 1,
+        "scale": 1,
+        "basis_ids": ["REPLACE_WITH_LINKED_BASIS_ID"],
+        "rationale": "REPLACE_WITH_DISTRIBUTION_BASIS"
+      }
+    }
+  ],
+  "probabilistic_analysis": {
+    "iterations": 1000,
+    "decision_thresholds": {
+      "values": [0, 1],
+      "rationale": "REPLACE_WITH_DECISION_CONTEXT_AND_INCLUDE_PRIMARY_WTP"
+    },
+    "convergence": {
+      "checkpoints": [500, 1000],
+      "max_probability_mcse": 0.05,
+      "max_probability_drift": 0.05
+    },
+    "correlation_handling": {
+      "groups": [],
+      "independence_rationale": "REPLACE_WITH_ECONOMIC_INPUT_DEPENDENCE_RATIONALE",
+      "known_omitted_correlations": []
+    },
+    "omitted_parameters": [
+      {
+        "provenance_path": "partitioned_survival.structural.curve_family_selection",
+        "rationale": "Alternative curve families remain structural uncertainty outside the selected joint draw model."
+      },
+      {
+        "provenance_path": "partitioned_survival.structural.extrapolation_assumptions",
+        "rationale": "Alternative extrapolation assumptions remain structural uncertainty outside the selected joint draw model."
+      }
+    ]
+  },
+  "structural_scenarios": [
+    {
+      "id": "REPLACE_WITH_SCENARIO_ID",
+      "label": "REPLACE_ME",
+      "rationale": "REPLACE_WITH_REVIEWABLE_BASIS",
+      "replacements": [
+        {"target": "/discount_rates/costs", "value": 0}
+      ]
+    }
+  ]
+}

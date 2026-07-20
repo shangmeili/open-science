@@ -22,5 +22,9 @@ SOFTWARE.
 
 ---
 
-Note: Third-party scientific skills (e.g. K-Dense scientific-agent-skills) are
-distributed under their own licenses. See each skill's own LICENSE / SKILL.md.
+Third-party components retain their own licenses. First-party AI4HEOR Skills
+under `runtime/skills/core/` are covered by this MIT license except where an
+embedded notice explicitly identifies adapted third-party material. Discovery
+caches under `runtime/skills/external/` are not part of the repository or
+distributed application. See `THIRD_PARTY_NOTICES.md` and `docs/legal/` for the
+audited distribution boundary and unresolved release blockers.

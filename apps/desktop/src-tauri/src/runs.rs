@@ -392,7 +392,7 @@ pub fn record_run(
     // to pip freeze / nvidia-smi (seconds), and it writes only the (idempotent,
     // content-addressed) env lockfile — not provenance.jsonl — so holding the
     // provenance lock across it would needlessly block concurrent writes.
-    let env = capture_env(&app, &root, app.package_info().version.to_string(), Some(&command));
+    let env = capture_env(&app, &root, app.package_info().version.to_string());
     // Now hold RunState (serializes runs.jsonl) AND ProvenanceState (serializes
     // provenance.jsonl, shared with record_provenance) — record_run writes both
     // stores. Only this path takes both, always in this order, so no deadlock.

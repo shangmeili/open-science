@@ -1,5 +1,4 @@
 export { OpenCodeClient } from "./OpenCodeClient";
-export type { AgentRuntime } from "./runtime";
 export {
   OPENCODE_VERSION,
   DEFAULT_OPENCODE_URL,

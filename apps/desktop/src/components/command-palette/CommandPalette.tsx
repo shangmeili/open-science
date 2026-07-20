@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Command } from "cmdk";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   FileSearch,
   Moon,
@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { useUiStore } from "@/lib/store";
 import { useRuntimeStore } from "@/lib/runtime";
-import { WORKFLOW_STARTERS } from "@/components/thread/WorkflowStarters";
 
 interface Action {
   id: string;
@@ -22,15 +21,13 @@ interface Action {
   run: () => void;
 }
 
-/** Prompt for a starter workflow by id, so ⌘K and the empty-session cards stay in sync. */
-const starterPrompt = (id: string) => WORKFLOW_STARTERS.find((s) => s.id === id)?.prompt ?? "";
-
 export function CommandPalette() {
-  const { t } = useTranslation("nav");
+  const { t } = useTranslation(["nav", "session"]);
   const open = useUiStore((s) => s.paletteOpen);
   const setOpen = useUiStore((s) => s.setPaletteOpen);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -51,18 +48,23 @@ export function CommandPalette() {
 
   const close = () => setOpen(false);
 
-  // Start a new session and send a workflow prompt, then reveal that session.
-  const runWorkflow = async (starterId: string) => {
+  // Put the selected HEOR task into the composer for the researcher to review.
+  // Choosing a shortcut must not start an agent turn by itself.
+  const draftWorkflow = (starterId: string) => {
     close();
     useRuntimeStore.getState().startDraft();
-    const id = await useRuntimeStore.getState().sendPrompt(starterPrompt(starterId));
-    if (id) navigate(`/live/${id}`);
+    const prompt =
+      starterId === "analyze"
+        ? t("starters.analyze.prompt", { ns: "session" })
+        : t("starters.audit.prompt", { ns: "session" });
+    useUiStore.getState().setComposerDraft(prompt);
+    if (location.pathname !== "/heor/new") navigate("/heor/new");
   };
 
   const actions: Action[] = [
-    { id: "new", label: t("commandPalette.actions.newSession"), icon: <Plus size={16} />, run: () => { useRuntimeStore.getState().startDraft(); navigate("/live"); close(); } },
-    { id: "analyze", label: t("commandPalette.actions.analyzeData"), icon: <FileSearch size={16} />, run: () => void runWorkflow("analyze") },
-    { id: "review", label: t("commandPalette.actions.auditReport"), icon: <ShieldCheck size={16} />, run: () => void runWorkflow("audit") },
+    { id: "new", label: t("commandPalette.actions.newSession"), icon: <Plus size={16} />, run: () => { useUiStore.getState().setComposerDraft(null); useRuntimeStore.getState().startDraft(); if (location.pathname !== "/heor/new") navigate("/heor/new"); close(); } },
+    { id: "analyze", label: t("commandPalette.actions.analyzeData"), icon: <FileSearch size={16} />, run: () => draftWorkflow("analyze") },
+    { id: "review", label: t("commandPalette.actions.auditReport"), icon: <ShieldCheck size={16} />, run: () => draftWorkflow("audit") },
     { id: "notebooks", label: t("commandPalette.actions.openNotebooks"), icon: <NotebookPen size={16} />, run: () => { navigate("/notebooks"); close(); } },
     { id: "skills", label: t("commandPalette.actions.manageSkills"), icon: <PackagePlus size={16} />, run: () => { navigate("/skills"); close(); } },
     { id: "settings", label: t("commandPalette.actions.openSettings"), icon: <Settings size={16} />, run: () => { navigate("/settings"); close(); } },

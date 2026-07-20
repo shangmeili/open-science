@@ -1,4 +1,7 @@
 {
+  "accessibility": {
+    "skipToMain": "HEOR 작업 공간으로 건너뛰기"
+  },
   "sidebar": {
     "collapse": "사이드바 접기",
     "collapseTitle": "사이드바 접기 ({{shortcut}})",
@@ -8,48 +11,30 @@
     "settings": "설정"
   },
   "items": {
-    "new": "새로 만들기",
+    "new": "새 작업",
     "notebooks": "노트북",
     "files": "파일",
     "runs": "실행",
-    "skills": "스킬",
-    "projects": "프로젝트"
+    "skills": "스킬 및 도구",
+    "heor": "연구 작업공간"
   },
   "projects": {
     "heading": "프로젝트",
     "new": "새 프로젝트",
-    "importedBadge": "가져옴",
-    "menuScratch": "처음부터 시작",
-    "menuExisting": "기존 폴더 사용",
-    "nameTitle": "프로젝트 이름",
-    "nameSubtitle": "짧고 알아보기 쉽게",
     "namePlaceholder": "프로젝트 이름",
-    "newSessionAria": "“{{name}}”에서 새 세션",
-    "noSessions": "아직 세션이 없습니다.",
-    "renameHint": "더블 클릭으로 이름 변경",
-    "pageSearch": "프로젝트 검색",
-    "colName": "이름",
-    "colSources": "소스",
-    "colUpdated": "업데이트",
-    "noResults": "일치하는 프로젝트가 없습니다.",
-    "pin": "고정",
-    "unpin": "고정 해제",
-    "rename": "이름 바꾸기",
-    "remove": "제거",
-    "more": "더 보기",
-    "removeTitle": "{{name}} 제거?",
-    "removeBody": "사이드바에서 프로젝트를 제거합니다. 디스크의 파일은 삭제되지 않습니다.",
-    "seeAll": "모든 프로젝트",
-    "openFolder": "{{path}} 열기"
+    "intakePrompt": "이 HEOR 프로젝트를 시작하도록 도와주세요. 먼저 제가 다루려는 의사결정, 연구, 평가 또는 학습 질문과 그 사용 목적을 물어보세요. 그다음 작업을 실질적으로 바꿀 수 있는 누락 정보만 확인하세요. 과학적 주도권은 제가 유지합니다. 제가 과제를 정의하기 전에는 검색하거나, 방법을 선택하거나, 입력값을 가정하거나, 승인 기록을 만들지 마세요.",
+    "newSessionAria": "“{{name}}”에서 새 작업",
+    "noSessions": "아직 작업이 없습니다.",
+    "renameHint": "더블 클릭으로 이름 변경"
   },
   "history": {
-    "heading": "세션",
-    "empty": "아직 대화가 없습니다.",
+    "heading": "작업",
+    "empty": "아직 작업이 없습니다.",
     "exampleTag": "예제",
     "deleteAria": "{{title}} 삭제"
   },
   "confirmDelete": {
-    "sessionTitle": "세션을 삭제하시겠습니까?",
+    "sessionTitle": "작업을 삭제하시겠습니까?",
     "sessionBody": "\"{{title}}\" 및 관련 메시지가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
     "exampleTitle": "예제를 숨기시겠습니까?",
     "exampleBody": "\"{{title}}\"이(가) 사이드바에서 숨겨집니다.",
@@ -72,13 +57,13 @@
     "placeholder": "명령을 입력하세요…",
     "noResults": "결과가 없습니다.",
     "actions": {
-      "newSession": "새 세션",
-      "analyzeData": "내 데이터 분석 (새 워크플로)",
-      "auditReport": "리포트 감사 (추적성 검토)",
+      "newSession": "새 작업",
+      "analyzeData": "HEOR 근거 또는 데이터 분석",
+      "auditReport": "HEOR 모델 또는 보고서 감사",
       "openNotebooks": "노트북 열기",
-      "manageSkills": "스킬 관리",
+      "manageSkills": "스킬 및 도구 관리",
       "openSettings": "설정 열기",
-      "toggleTheme": "테마 전환 (라이트 / 웜 / 다크)"
+      "toggleTheme": "라이트/다크 테마 전환"
     }
   }
 }

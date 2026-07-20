@@ -1,0 +1,71 @@
+{
+  "schema_version": "0.1.0",
+  "voi_id": "replace-with-voi-id",
+  "analysis_id": "replace-with-analysis-id",
+  "uncertainty_id": "replace-with-uncertainty-id",
+  "status": "draft",
+  "bindings": {
+    "analysis_plan": {
+      "path": "heor/analysis-plan.json",
+      "content_sha256": "replace-with-current-sha256"
+    },
+    "uncertainty_plan": {
+      "path": "heor/uncertainty-plan.json",
+      "content_sha256": "replace-with-current-sha256"
+    },
+    "uncertainty_result": {
+      "path": "heor/results/uncertainty.json",
+      "content_sha256": "replace-with-current-sha256"
+    }
+  },
+  "decision_threshold": 0.0,
+  "population": {
+    "annual_affected_population": [],
+    "discount_rate": 0.0,
+    "basis_ids": ["replace-with-population-basis-id"],
+    "rationale": "Replace with the Human-selected population, technology-lifetime, implementation, and discounting rationale."
+  },
+  "evppi": {
+    "method": "nested_monte_carlo",
+    "seed": 20260716,
+    "outer_iterations": 100,
+    "inner_iterations": 100,
+    "parameter_groups": [
+      {
+        "id": "replace-with-group-id",
+        "label": "Replace with a researchable uncertainty group",
+        "parameter_ids": ["replace-with-current-uncertainty-parameter-id"],
+        "basis_ids": ["replace-with-grouping-basis-id"],
+        "rationale": "Replace with the Human rationale for this complete correlation-closed group."
+      }
+    ]
+  },
+  "evsi": {
+    "method": "normal_normal_nested_monte_carlo",
+    "seed": 20260717,
+    "target_group_id": "replace-with-single-parameter-group-id",
+    "target_parameter_id": "replace-with-independent-lognormal-parameter-id",
+    "sampling_standard_deviation": 0.0,
+    "sample_sizes": [],
+    "outer_iterations": 100,
+    "inner_iterations": 100,
+    "study_delay_years": 0,
+    "study_cost": {
+      "fixed": 0.0,
+      "per_participant": 0.0,
+      "currency": "CNY",
+      "price_year": 2026,
+      "basis_ids": ["replace-with-study-cost-basis-id"],
+      "rationale": "Replace with the fixed and variable study-cost basis."
+    },
+    "basis_ids": ["replace-with-study-design-basis-id"],
+    "rationale": "Replace with the proposed Normal sample-mean study and log-scale likelihood rationale."
+  },
+  "limitations": [
+    "model_and_parameter_scope",
+    "population_and_implementation_scope",
+    "evppi_nested_monte_carlo_error",
+    "evsi_normal_normal_study_model",
+    "decision_authority_remains_human"
+  ]
+}

@@ -3,5 +3,10 @@
     "save": "保存",
     "cancel": "取消",
     "remove": "移除"
+  },
+  "download": {
+    "savedTo": "已保存到 {{path}}",
+    "downloaded": "已下载 {{filename}}",
+    "couldNotSave": "无法保存 {{filename}}"
   }
 }

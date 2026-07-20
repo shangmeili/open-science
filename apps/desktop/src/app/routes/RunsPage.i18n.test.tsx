@@ -13,7 +13,7 @@ describe("RunsPage strings (i18n)", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Runs" })).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Every experiment execution across all sessions — command, code version, environment, hardware, and outputs\./,
+        /Every analysis run across all tasks — command, code version, environment, hardware, and outputs\./,
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Reproduce")).toBeInTheDocument();

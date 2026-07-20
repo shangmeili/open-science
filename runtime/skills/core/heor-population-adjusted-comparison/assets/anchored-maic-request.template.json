@@ -1,0 +1,95 @@
+{
+  "schema_version": "0.1.0",
+  "execution_id": "maic-example-001",
+  "status": "ready_for_execution",
+  "method": {
+    "family": "anchored_maic",
+    "network": "connected_two_trial_common_comparator",
+    "trial_relationship": "independent_parallel_randomized_trials",
+    "ipd_trial_id": "trial-ab",
+    "aggregate_trial_id": "trial-ac",
+    "common_comparator_id": "a",
+    "ipd_treatment_id": "b",
+    "aggregate_treatment_id": "c",
+    "target_population": "The aggregate trial population",
+    "outcome": "Prespecified outcome",
+    "timepoint": "Prespecified timepoint",
+    "estimand": "Marginal B versus C effect in the aggregate trial population"
+  },
+  "evidence_synthesis": {
+    "path": "heor/evidence-synthesis.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "included_record_ids": ["trial-ab-record", "trial-ac-record"]
+  },
+  "source_data": {
+    "classification": "restricted",
+    "execution_boundary": "local_only",
+    "format": "ipd_csv",
+    "path": "heor/population-adjusted-data/trial-ab.csv",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "columns": ["subject_id", "treatment", "outcome", "modifier_1"],
+    "row_count": 100,
+    "contains_direct_identifiers": false,
+    "missing_policy": "reject",
+    "treatment_assignment": "randomized_parallel_two_arm"
+  },
+  "aggregate_evidence": {
+    "path": "heor/population-adjusted-data/trial-ac-aggregate.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "effect_modifiers": [
+    {
+      "id": "modifier-1",
+      "column": "modifier_1",
+      "label": "Prespecified modifier",
+      "rationale": "Human-prespecified scale-specific effect modifier with cited evidence.",
+      "evidence_record_ids": ["effect-modifier-record"]
+    }
+  ],
+  "effect": {
+    "measure": "log_odds_ratio",
+    "scale": "logit",
+    "confidence_level": 0.95,
+    "favorable_direction": "lower"
+  },
+  "weighting": {
+    "method": "method_of_moments_exponential_tilting",
+    "balance_moments": "means",
+    "normalization": "mean_one",
+    "convergence_tolerance": 1e-10,
+    "max_iterations": 200,
+    "weight_cap": "none",
+    "trimming": "none"
+  },
+  "uncertainty": {
+    "method": "stratified_nonparametric_bootstrap_refit",
+    "iterations": 1000,
+    "seed": 20260716,
+    "prng": {"algorithm": "pcg32-xsh-rr", "version": "1"},
+    "failure_policy": "retain_and_block_review"
+  },
+  "output": {"directory": "heor/population-adjusted-comparison-runs/maic-example-001"},
+  "study_provenance": [
+    {"trial_id": "trial-ab", "evidence_record_ids": ["trial-ab-record"], "risk_of_bias": "awaiting_human_review"},
+    {"trial_id": "trial-ac", "evidence_record_ids": ["trial-ac-record"], "risk_of_bias": "awaiting_human_review"}
+  ],
+  "human_authorization": {
+    "actor": "researcher-label",
+    "authorized_at": "2026-07-16T00:00:00Z",
+    "scope": "execute_local_anchored_maic"
+  },
+  "limitations": ["Calibration cannot adjust unmeasured or incorrectly specified effect modifiers."],
+  "human_gate": {
+    "status": "awaiting_method_review",
+    "required_checks": [
+      "question_estimand_target_common_comparator",
+      "randomized_connected_evidence_provenance",
+      "effect_modifier_rationale_completeness",
+      "ipd_integrity_privacy_missingness",
+      "target_moments_overlap",
+      "calibration_balance_weights_ess",
+      "bootstrap_precision_failures",
+      "residual_bias_transportability_downstream"
+    ]
+  }
+}

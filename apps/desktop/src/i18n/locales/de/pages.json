@@ -6,7 +6,7 @@
     "newNotebook": "Neues Notebook",
     "pythonNotebook": "Python-Notebook",
     "rNotebook": "R-Notebook",
-    "description": "Alle Jupyter-Notebooks aus Ihren Sitzungsordnern, neueste zuerst. Zellen laufen auf dem lokalen Python- oder R-Kernel im eigenen Ordner des Notebooks; der Agent arbeitet an denselben Dateien.",
+    "description": "Alle Jupyter-Notebooks aus Ihren Aufgabenordnern, neueste zuerst. Zellen laufen auf dem lokalen Python- oder R-Kernel im eigenen Ordner des Notebooks; der Assistent arbeitet an denselben Dateien.",
     "createsIn": "Neue Notebooks werden erstellt in",
     "empty": {
       "tauri": "Noch keine Notebooks. Erstellen Sie eines, oder lassen Sie den Agenten eines erzeugen.",
@@ -16,7 +16,8 @@
       "openingJupyterLab": "JupyterLab wird im Browser geöffnet…",
       "setUpJupyterFirst": "Richten Sie zuerst Jupyter ein — Einstellungen → MCP-Server → Jupyter.",
       "couldNotOpenJupyterLab": "JupyterLab konnte nicht geöffnet werden",
-      "couldNotCreateNotebook": "Notebook konnte nicht erstellt werden"
+      "couldNotCreateNotebook": "Notebook konnte nicht erstellt werden",
+      "couldNotSave": "Notebook konnte nicht gespeichert werden"
     },
     "editor": {
       "backAria": "Zurück zu Notebooks",
@@ -34,7 +35,14 @@
       "stopCellTitle": "Stopp — startet den Kernel dieses Notebooks neu (Variablen werden zurückgesetzt)",
       "stopLabel": "Stopp",
       "runLabel": "Ausführen",
-      "addCellLabel": "Zelle hinzufügen"
+      "addCellLabel": "Zelle hinzufügen",
+      "couldNotRead": "Notebook konnte nicht gelesen werden",
+      "noPython": "Kein Python",
+      "noPythonFound": "Kein Python-Interpreter gefunden",
+      "runningOutput": "Wird ausgeführt…",
+      "localKernelOnly": "Der lokale Kernel ist nur in der Desktop-App verfügbar.",
+      "interrupted": "Gestoppt. Der Kernel wurde neu gestartet und die Variablen wurden gelöscht.",
+      "kernelError": "Kernel-Fehler"
     }
   },
   "files": {
@@ -43,36 +51,107 @@
     "explorerUnavailableWeb": "Der Datei-Explorer ist in der Desktop-App verfügbar.",
     "selectFilePrompt": "Wählen Sie eine Datei, um sie hier anzuzeigen.",
     "pane": {
-      "subtitle": "Ordner dieser Sitzung",
+      "subtitle": "Ordner dieser Aufgabe",
       "closeAria": "Dateien schließen"
     },
     "contextMenu": {
       "copyPath": "Pfad kopieren",
       "copyRelativePath": "Relativen Pfad kopieren",
       "relativePathLabel": "Relativer Pfad",
-      "openInDefaultApp": "In Standard-App öffnen"
+      "openInDefaultApp": "In Standard-App öffnen",
+      "pathLabel": "Pfad",
+      "revealInFinder": "Im Finder anzeigen",
+      "showInExplorer": "Im Datei-Explorer anzeigen",
+      "showInFileManager": "Im Dateimanager anzeigen"
+    },
+    "toast": {
+      "copied": "{{what}} kopiert",
+      "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen.",
+      "resolveFailed": "Dateipfad konnte nicht ermittelt werden.",
+      "revealFailed": "Datei konnte nicht angezeigt werden: {{message}}"
     }
   },
   "skills": {
-    "title": "Skills & Agenten",
+    "title": "Skills und Werkzeuge",
     "description": {
-      "prefix": "Live aus der OpenCode-Runtime geladen — das gebündelte ai4s-skills-Paket plus alles unter ",
+      "prefix": "Live aus der Laufzeit des KI-Assistenten geladen — zugelassene AI4HEOR-Fähigkeiten plus alles unter ",
       "suffix": " in Ihrem Arbeitsbereich."
     },
     "install": {
-      "sectionTitle": "Einen Skill installieren",
-      "placeholder": "Einen Skill (Markdown) oder eine GitHub-URL einfügen — der Agent installiert ihn in .opencode/skills/",
+      "sectionTitle": "Skill oder Werkzeug hinzufügen oder bewerten",
+      "placeholder": "Beschreiben Sie eine neue AI4HEOR-Fähigkeit oder fügen Sie Skill, Plugin, MCP, Paket oder GitHub-URL ein",
       "starting": "Wird gestartet…",
-      "cta": "Mit Agent installieren",
-      "hintConnected": "Öffnet eine Sitzung und bittet den Agenten, ihn hinzuzufügen (customize-opencode).",
+      "cta": "Prüfung starten",
+      "hintConnected": "AI4HEOR erstellt und prüft zuerst einen lokalen Kandidaten. Er wird erst nach menschlicher Prüfung und Zulassung ausgeführt.",
       "hintDisconnected": "Verbinden Sie zuerst die Runtime."
+    },
+    "candidates": {
+      "sectionTitle": "Fähigkeitskandidaten des Projekts",
+      "boundary": "Kandidaten sind lokale Entwürfe, die nur Anweisungen enthalten. Die Desktop-App prüft vor Ihrer Entscheidung die exakten Bytes erneut; eine Aktivierung gilt nur für dieses Projekt und überträgt keine wissenschaftliche Autorität.",
+      "refresh": "Fähigkeitskandidaten aktualisieren",
+      "loading": "Fähigkeitskandidaten des Projekts werden geprüft…",
+      "unavailable": "Kandidat oder Prüfkette konnten nicht verifiziert werden. Es wurde keine Fähigkeit geändert.",
+      "noProject": "Erstellen oder öffnen Sie ein AI4HEOR-Projekt, um Projektfähigkeiten zu prüfen.",
+      "empty": "In diesem Projekt gibt es noch keinen Fähigkeitskandidaten.",
+      "activate": "Prüfen und aktivieren",
+      "reject": "Ablehnen",
+      "revoke": "Widerrufen",
+      "status": {"inactive": "Prüfung ausstehend", "active": "in diesem Projekt aktiv", "rejected": "abgelehnt", "revoked": "widerrufen", "invalid": "ungültig", "drifted": "aktive Dateien geändert", "activeCandidateChanged": "aktiv; Kandidat geändert", "unmanagedConflict": "gleichnamiger Projekt-Skill vorhanden", "candidateMissing": "Kandidat fehlt"},
+      "dialog": {
+        "title": {"activate": "Diese Fähigkeit prüfen und aktivieren", "reject": "Diesen Fähigkeitskandidaten ablehnen", "revoke": "Diese Projektfähigkeit widerrufen"},
+        "purpose": {"activate": "Der Assistent hat diesen Projekt-Skill als Vorschlag erstellt, um die Bearbeitung ähnlicher Aufgaben festzulegen. Er ist keine pharmakoökonomische Analyse und entscheidet nicht über Methoden, Evidenz, Parameter oder Schlussfolgerungen. Aktiv wird er erst nach Ihrer Bestätigung.", "reject": "Sie entscheiden, ob dieser Skill-Vorschlag inaktiv bleiben soll. Dies ist keine Bewertung des Studienplans oder eines Analyseergebnisses.", "revoke": "Sie beenden die Nutzung eines zuvor aktivierten Projekt-Skills. Methoden, Evidenz, Parameter und Schlussfolgerungen werden dadurch nicht umgeschrieben."},
+        "boundary": {"activate": "Nur die validierten Anweisungsdateien werden in das aktuelle Projekt kopiert. Netzwerk-, Befehls-, Geheimnis- oder projektfremde Schreibrechte werden nicht erteilt.", "reject": "Die Entscheidung wird an die exakten Kandidatenbytes gebunden. Der Kandidat bleibt inaktiv und auditierbar.", "revoke": "Die aktive Kopie wird nur entfernt, wenn sie noch exakt dem Aktivierungsdatensatz entspricht. Geänderte Inhalte werden nie automatisch gelöscht."},
+        "capabilityTitle": "Aufgabe dieser Fähigkeit",
+        "requestTitle": "Anforderung hinter diesem Vorschlag",
+        "acceptanceTitle": "Prüfpunkte für die menschliche Prüfung",
+        "limitationsTitle": "Deklarierte Einschränkungen",
+        "licenseTitle": "Lizenz und erlaubte Nutzung",
+        "technicalDetails": "Technische und Audit-Details anzeigen",
+        "technical": {"candidateId": "Interne ID", "provider": "Anbieter bei der Erstellung", "model": "Modell bei der Erstellung", "license": "Lizenzkennung", "decisionHash": "An diese Prüfung gebundener SHA-256"},
+        "actor": "Name oder lokale Bezeichnung der prüfenden Person",
+        "actorPlaceholder": "Zum Beispiel: HEOR-Methodenprüfung",
+        "rationale": "Begründung der Entscheidung",
+        "rationalePlaceholder": {"activate": "Beschreiben Sie Prüfung und Grund für die begrenzte Freigabe in diesem Projekt.", "reject": "Begründen Sie, warum der Kandidat inaktiv bleiben soll.", "revoke": "Begründen Sie, warum die Fähigkeit nicht mehr ausgeführt werden soll."},
+        "confirm": {"activate": "Ich habe Zweck, Anweisungen, Lizenzhinweis, Einschränkungen und alle Prüfpunkte geprüft und autorisiere diesen Skill nur für das aktuelle Projekt.", "reject": "Ich verstehe Zweck und Einschränkungen dieses Kandidaten und möchte ihn inaktiv lassen.", "revoke": "Ich verstehe die Auswirkung des Widerrufs und möchte den zum Aktivierungsdatensatz passenden Projekt-Skill nicht mehr verwenden."},
+        "cancel": "Abbrechen",
+        "recording": "Wird protokolliert…",
+        "submit": {"activate": "Protokollieren und aktivieren", "reject": "Ablehnung protokollieren", "revoke": "Protokollieren und widerrufen"}
+      }
+    },
+    "preferences": {
+      "sectionTitle": "Lokale Arbeitspräferenzen",
+      "boundary": "AI4HEOR darf eine Präferenz nur vorschlagen, wenn dieselbe Gewohnheit in mindestens zwei unabhängigen Interaktionen auftritt. Dauerhaft wird sie erst nach Ihrer Prüfung. Methoden, Evidenz, Parameter, Schlussfolgerungen, Freigaben, Modellauswahl und Datenwege bleiben davon unberührt.",
+      "refresh": "Präferenzen aktualisieren", "loading": "Vorschläge und übernommene Präferenzen werden geprüft…", "unavailable": "Vorschlag, Präferenzdatei oder Prüfprotokoll konnten nicht verifiziert werden. Es wurde nichts geändert.", "noProject": "Erstellen oder öffnen Sie ein AI4HEOR-Projekt.", "empty": "Es gibt keine aus wiederholten Gewohnheiten abgeleiteten Vorschläge.",
+      "proposal": "Vorgeschlagene Präferenz", "current": "Aktuelle Präferenz", "accepted": "übernommen", "enabled": "aktiv", "disabled": "pausiert", "evidenceCount": "Durch {{count}} unabhängige Interaktionen gestützt", "reviewAccept": "Prüfen und übernehmen", "edit": "Bearbeiten", "enable": "Wieder verwenden", "disable": "Pausieren", "delete": "Löschen",
+      "scope": {"language": "Sprache", "presentation": "Darstellung", "workflow": "Arbeitsablauf", "audit": "Audit"},
+      "dialog": {
+        "title": {"accept": "Vorgeschlagene Präferenz prüfen", "update": "Arbeitspräferenz bearbeiten", "enable": "Präferenz wieder verwenden", "disable": "Präferenz pausieren", "delete": "Präferenz löschen"},
+        "boundary": {"accept": "Prüfen Sie, ob die Beobachtungen Ihre Arbeitsweise tatsächlich beschreiben. Der Wortlaut kann vor der Übernahme geändert werden.", "update": "Bearbeiten Sie nur die nicht vertrauliche Arbeitspräferenz; wissenschaftliche Entscheidungen sind ausgeschlossen.", "enable": "Die geprüfte Präferenz wird im Projekt wieder verwendet.", "disable": "Der lokale Eintrag bleibt erhalten, wird aber nicht angewendet.", "delete": "Die Präferenz wird aus der aktiven Datei entfernt; die Human-Entscheidung bleibt im Auditprotokoll."},
+        "evidence": "Auslöser des Vorschlags", "rule": "Wortlaut der Präferenz", "actor": "Name oder lokale Kennung der prüfenden Person", "actorPlaceholder": "Zum Beispiel: Projektforscher", "rationale": "Grund für die Entscheidung",
+        "rationalePlaceholder": {"accept": "Begründen Sie, warum das wiederholte Muster als lokale Präferenz gelten soll.", "update": "Begründen Sie die Änderung des Wortlauts.", "enable": "Begründen Sie die erneute Verwendung.", "disable": "Begründen Sie die Pause.", "delete": "Begründen Sie die Löschung."},
+        "confirm": {"accept": "Ich habe Beobachtungen und Wortlaut geprüft. Dies ist eine nicht sensible Arbeitspräferenz, keine wissenschaftliche Entscheidung.", "update": "Der geänderte Wortlaut bleibt eine nicht sensible Arbeitspräferenz.", "enable": "Ich möchte diese geprüfte Präferenz wieder verwenden.", "disable": "Ich möchte sie pausieren und den lokalen Eintrag behalten.", "delete": "Ich möchte sie aus der aktiven Datei löschen."},
+        "cancel": "Abbrechen", "recording": "Wird protokolliert…", "submit": {"accept": "Protokollieren und übernehmen", "update": "Änderung protokollieren", "enable": "Protokollieren und aktivieren", "disable": "Protokollieren und pausieren", "delete": "Protokollieren und löschen"}
+      }
+    },
+    "assetAdmission": {
+      "sectionTitle": "Externe Adapter",
+      "loading": "Mitgelieferte externe Adapter werden geprüft…",
+      "unavailable": "Externe Adapter können nicht geprüft werden und bleiben deaktiviert.",
+      "firstPartyTitle": "52 AI4HEOR-Skills aus erster Hand sind integriert",
+      "firstPartyBoundary": "Hier erscheinen nur externe Adapter, die Lizenz-, Sicherheits-, Methoden- und Paketprüfungen bestanden haben und tatsächlich mit AI4HEOR ausgeliefert werden. Noch umzuschreibende oder ausgeschlossene Quellen bleiben keine Benutzeroptionen.",
+      "groupAdmitted": "Zugelassene Assets ({{count}})",
+      "admitted": "zugelassen",
+      "adapterBoundary": "Dieser Adapter darf nur innerhalb der festgelegten Arbeitsbereichs-, Netzwerk-, Berechtigungs- und Human-in-the-loop-Grenzen ausgeführt werden.",
+      "noneAdmitted": "Derzeit wird kein Drittanbieter-Werkzeug mit AI4HEOR ausgeliefert. Benötigte Funktionen stammen aus First-Party-Skills; unfertige Umschreibungen und ausgeschlossene Quellen werden hier nicht angezeigt.",
+      "registryValid": "Das Register externer Adapter ist gültig; {{count}} Adapter ist verfügbar.",
+      "failClosed": "Die Prüfung des Adapterregisters ist fehlgeschlagen. Alle externen Funktionen bleiben deaktiviert."
     },
     "environment": {
       "sectionTitle": "Wissenschaftliche Umgebung",
       "detectionUnavailable": "Die Umgebungserkennung läuft in der Desktop-App.",
       "found": "gefunden",
       "notFound": "nicht gefunden",
-      "note": "OpenCode führt Code mit dem aus, was hier installiert ist (z. B. Python über sein Shell-Tool). Python/R/Jupyter sind nicht gebündelt; installieren Sie sie oder ein Science Pack, um Analysen zu ermöglichen."
+      "note": "Der KI-Assistent führt Code mit den hier installierten Werkzeugen aus (z. B. Python über das Shell-Tool). Python/R/Jupyter sind nicht gebündelt; installieren Sie sie oder ein Science Pack, um Analysen zu ermöglichen."
     },
     "agentsSection": {
       "sectionTitle": "Agenten ({{count}})",
@@ -88,8 +167,8 @@
       "empty": "Noch keine Skills geladen.",
       "source": {
         "builtin": "integriert",
-        "project": "Projekt",
-        "user": "Benutzer"
+        "project": "Arbeitsbereich · nicht verwaltet",
+        "bundled": "AI4HEOR · Erstanbieter"
       }
     },
     "disconnected": "Verbinden Sie die Runtime, um die geladenen Skills und Agenten aufzulisten."

@@ -27,43 +27,11 @@ export interface RunInput {
   surface: RunSurface;
 }
 
-/** Local interpreter/build executables we record, matched against a segment's
- *  executable *basename* (see `headExecutable`). A conservative allowlist:
- *  recording only what we confidently recognize keeps `runs.jsonl` meaningful
- *  and low-noise (reads/housekeeping are not runs). */
-const INTERPRETER =
-  /^(python[0-9.]*|Rscript|julia|matlab|octave|make|snakemake|nextflow|torchrun|mpirun|accelerate|dvc|luigi)$/;
-
-/** The executable basename at the head of a command segment. Unwraps the first
- *  shell token (honoring quotes), drops any directory prefix (`/` or `\`) and a
- *  Windows `.exe`/`.cmd`/`.bat` extension — so a path- or venv-form interpreter
- *  (`C:\proj\.venv\Scripts\python.exe`, `"C:\Program Files\Py\python.exe"`,
- *  `/proj/.venv/bin/python`, `./.venv/bin/python`) all reduce to `python`, not
- *  just a bare `python`. The leading PowerShell `&` call operator is already
- *  removed by `stripPrefixes`. */
-function headExecutable(segment: string): string {
-  const m = segment.match(/^"([^"]*)"|^'([^']*)'|^(\S+)/);
-  const token = m ? (m[1] ?? m[2] ?? m[3] ?? "") : "";
-  const base = token.split(/[\\/]/).pop() ?? token;
-  return base.replace(/\.(exe|cmd|bat)$/i, "");
-}
-
-/** Whether a single (prefix-stripped) segment is a local interpreter/build run:
- *  a recognized interpreter basename, or a shell script invoked directly
- *  (`./run.sh`, `/path/run.sh`) or via `bash`/`sh`. */
-function isLocalExecution(segment: string): boolean {
-  const exe = headExecutable(segment);
-  if (INTERPRETER.test(exe)) return true;
-  if (exe.endsWith(".sh")) return true; // ./run.sh, /path/run.sh, run.sh
-  // `bash script.sh` / `sh path/to/run.sh` — only when the FIRST argument is a
-  // `.sh` script, so `bash -c "echo foo.sh"` (a marker word in an arg) is not a
-  // run. Basename-only, so an interpreter path in the arg still counts.
-  if (exe === "bash" || exe === "sh") {
-    const arg = segment.trim().split(/\s+/)[1] ?? "";
-    return (arg.split(/[\\/]/).pop() ?? "").endsWith(".sh");
-  }
-  return false;
-}
+/** Local interpreter/build commands, anchored at a segment head. A conservative
+ *  allowlist: recording only what we confidently recognize keeps `runs.jsonl`
+ *  meaningful and low-noise (reads/housekeeping are not runs). */
+const EXECUTION_HEAD =
+  /^(python[0-9.]*|Rscript|julia|matlab|octave|make|snakemake|nextflow|torchrun|mpirun|accelerate|dvc|luigi)\b|^(bash|sh)\s+\S*\.sh\b|^\.?\/\S*\.sh\b/;
 
 // Remote/batch markers, anchored at a segment head (NOT matched inside quoted
 // args, so `git commit -m "…sbatch…"` is not mistaken for a run).
@@ -71,21 +39,15 @@ const HPC_HEAD = /^(sbatch|srun|salloc|sacct)\b/;
 const MODAL_HEAD = /^modal\s+(run|deploy|serve)\b/;
 const JUPYTER_HEAD = /^papermill\b|^jupyter\s+.*\bnbconvert\b/;
 
-/** Strip leading `VAR=val` env assignments, `cd X &&/;` hops, and transparent
- *  launch wrappers from a command segment, exposing the operative command (e.g.
- *  `CUDA_VISIBLE_DEVICES=0 cd x && nohup python …` → `python …`). This feeds
- *  detection only — the ORIGINAL command (wrappers and all) is what gets
- *  recorded, so nothing the user typed is lost. */
+/** Strip leading `VAR=val` env assignments and `cd X &&/;` hops from a command
+ *  segment, exposing the operative command (e.g. `CUDA_VISIBLE_DEVICES=0 cd x
+ *  && python …` → `python …`). */
 function stripPrefixes(segment: string): string {
   let c = segment.trim();
   const cd = /^cd\s+(?:"[^"]*"|'[^']*'|[^\s&;]+)\s*(?:&&|;)\s*/;
   const env = /^\w+=(?:"[^"]*"|'[^']*'|\S*)\s+/;
-  const call = /^&\s+/; // PowerShell call operator: `& C:\proj\.venv\Scripts\python.exe`
-  // Transparent wrappers that prefix — but don't change — the command that
-  // actually runs (`nohup python …`, `timeout 30 python …`, `stdbuf -oL julia
-  // …`). Stripping them lets the real interpreter head show through. Wrappers
-  // that take their own argument (`timeout <dur>`, `stdbuf <-flags>`) consume it
-  // too, so the head lands on the operative command.
+  // Launch wrappers are transparent for detection. The original command is
+  // still stored verbatim so a later reproduction keeps every flag/redirect.
   const wrap = /^(?:nohup|time|timeout\s+\S+|stdbuf(?:\s+-\S+)+)\s+/;
   let changed = true;
   while (changed) {
@@ -96,10 +58,6 @@ function stripPrefixes(segment: string): string {
     }
     if (env.test(c)) {
       c = c.replace(env, "").trim();
-      changed = true;
-    }
-    if (call.test(c)) {
-      c = c.replace(call, "").trim();
       changed = true;
     }
     if (wrap.test(c)) {
@@ -139,7 +97,7 @@ export function surfaceForCommand(command: string): RunSurface {
 export function looksLikeExecution(command: string): boolean {
   // A recognized local interpreter/build head in any segment, OR a remote/batch
   // marker at a segment head.
-  return commandSegments(command).some(isLocalExecution) || surfaceForCommand(command) !== "local";
+  return commandSegments(command).some((s) => EXECUTION_HEAD.test(s)) || surfaceForCommand(command) !== "local";
 }
 
 /**

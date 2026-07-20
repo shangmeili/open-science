@@ -18,7 +18,7 @@ import { extOf, extToKind, previewKindForName, type PreviewKind } from "@/lib/ar
 import { listDir, type DirEntry } from "@/lib/artifactFile";
 import { isTauri, workspaceBase } from "@/lib/tauri";
 import { useRuntimeStore } from "@/lib/runtime";
-import { baseName } from "@/components/thread/WorkspaceChip";
+import { baseName } from "@/lib/pathName";
 import { NotebookEditor } from "@/components/notebook/NotebookEditor";
 import { FilePreviewInspector } from "@/components/inspector/FilePreviewInspector";
 import { FileContextMenu } from "@/components/files/FileContextMenu";
