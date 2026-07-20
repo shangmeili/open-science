@@ -497,8 +497,8 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
   first launch works without CLI knowledge.
 - **Acceptance.** A non-technical user installs and reaches a working first
   session on both macOS and Windows via a signed installer.
-- **Status.** 🟡 The current AI4HEOR 0.1.51 macOS x64 candidate from
-  `17989c73ac328e36166fb038c56dbde422b8906a` is structurally and byte-for-byte verified with all 177 packaged HEOR
+- **Status.** 🟡 The current AI4HEOR 0.1.52 macOS x64 candidate from
+  `0b7750492651d47d9fa3a1763697ceb5eb0c6b82` is structurally and byte-for-byte verified with all 177 packaged HEOR
   tests. An exact temporary app copy also passed fresh-workspace creation,
   content-preserving legacy-workspace migration, bundled-process proof and cleanup
   while the installed app remained open. Product-owner use and acceptance, signing,
@@ -710,7 +710,7 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
 | P1-1 | Multi-discipline platform lineage | P1 | 🟡 Pluggable, but generic examples are not part of the AI4HEOR delivery |
 | P1-2 | Domain + literature connectors | P1 | Superseded for AI4HEOR — governed HEOR evidence + Jupyter + unmanaged BYO MCP; no generic one-click catalog |
 | P1-3 | Scientific renderers | P1 | 🟡 Partial — base + 3D structure + genome + FITS + DOS + band + phase + qualitative-coding + anomaly map (all 4 disciplines; materials trio complete); ternary/coastlines next |
-| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — 0.1.51 macOS x64 is structurally, byte-for-byte and isolated-first-launch verified and is ready for product-owner testing; 0.1.31 arm64 is cross-host content-inspected, and Linux x64 remains verified at 0.1.30; cross-platform work is paused for Intel macOS product acceptance; product-owner acceptance, Windows/native-arm execution and signing remain open |
+| P1-4 | Windows + macOS installers | P1 | 🟡 Partial — 0.1.52 macOS x64 is structurally, byte-for-byte and isolated-first-launch verified and is ready for product-owner testing; 0.1.31 arm64 is cross-host content-inspected, and Linux x64 remains verified at 0.1.30; cross-platform work is paused for Intel macOS product acceptance; product-owner acceptance, Windows/native-arm execution and signing remain open |
 | P1-5 | Interaction & visualization craft | P1 | 🟡 Partial — chart system + palette + command palette + native table→chart surface shipped |
 | **P1-6** | **Social-science analysis integrity** | **P1** | 🟡 **Partial — stats-integrity skill: interpretation/prereg/seed checks + verified .dta→R round-trip** |
 | P2-1 | Notebook + larger-project handling | P2 | ✅ Done — notebook + workspace Files explorer |
