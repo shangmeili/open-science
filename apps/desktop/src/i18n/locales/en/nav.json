@@ -12,10 +12,10 @@
   },
   "items": {
     "new": "New task",
-    "notebooks": "Notebooks",
-    "files": "Files",
-    "runs": "Runs",
-    "skills": "Skills & tools",
+    "notebooks": "Analysis notes",
+    "files": "Research files",
+    "runs": "Analysis history",
+    "skills": "Research capabilities",
     "heor": "Research workspace"
   },
   "projects": {

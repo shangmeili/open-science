@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Bot, Boxes, Check, Package, Puzzle, RefreshCw, ShieldCheck, X } from "lucide-react";
+import { Bot, Boxes, Check, Package, Puzzle, RefreshCw, Settings2, ShieldCheck, X } from "lucide-react";
 import { useRuntimeStore } from "@/lib/runtime";
 import { cn } from "@/lib/cn";
 import { localizeSkill } from "@/i18n/skillLocalization";
@@ -15,6 +15,9 @@ import {
   type SkillCandidateAudit,
   type SkillCandidateReviewAction,
   type SkillCandidateSummary,
+  type JupyterStatus,
+  isTauri,
+  jupyterStatus,
 } from "@/lib/tauri";
 
 /**
@@ -47,10 +50,12 @@ export function SkillsPage() {
   const [reviewTarget, setReviewTarget] = useState<SkillCandidateSummary | null>(null);
   const [reviewAction, setReviewAction] = useState<SkillCandidateReviewAction>("activate");
   const [reviewRunning, setReviewRunning] = useState(false);
+  const [jupyter, setJupyter] = useState<JupyterStatus | null>(null);
 
   useEffect(() => {
     if (connected) void loadCatalog();
     void detectTools();
+    if (isTauri) void jupyterStatus().then(setJupyter).catch(() => setJupyter(null));
   }, [connected, loadCatalog, detectTools]);
 
   useEffect(() => {
@@ -129,12 +134,7 @@ export function SkillsPage() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl px-8 py-8">
         <h1 className="font-serif text-xl text-text">{t("skills.title")}</h1>
-        <p className="mt-1 text-sm text-muted">
-          {t("skills.description.prefix")}
-          {/* eslint-disable-next-line i18next/no-literal-string -- literal filesystem path, not prose */}
-          <span className="font-mono">.opencode/skills/</span>
-          {t("skills.description.suffix")}
-        </p>
+        <p className="mt-1 text-sm text-muted">{t("skills.description.prefix")}</p>
 
         {/* Natural-language work first: review and adapt, never install directly. */}
         <Section title={t("skills.install.sectionTitle")} icon={<Boxes size={15} />}>
@@ -229,15 +229,37 @@ export function SkillsPage() {
         {/* Environment (#2) */}
         <Section title={t("skills.environment.sectionTitle")} icon={<Package size={15} />}>
           {tools.length === 0 && <Empty>{t("skills.environment.detectionUnavailable")}</Empty>}
-          {tools.map((tool) => (
+          {tools.filter((tool) => tool.name === "Python" || tool.name === "R").map((tool) => (
             <div key={tool.name} className="flex items-center gap-3 px-4 py-2.5 text-sm">
               {tool.found ? <Check size={15} className="text-ok" /> : <X size={15} className="text-muted" />}
               <span className="w-24 text-text">{tool.name}</span>
-              <span className="flex-1 truncate font-mono text-xs text-muted">
-                {tool.found ? tool.version ?? t("skills.environment.found") : t("skills.environment.notFound")}
+              <span className="flex-1 text-xs text-muted">
+                {tool.found ? t("skills.environment.found") : t("skills.environment.notFound")}
               </span>
             </div>
           ))}
+          {isTauri && (
+            <div className="flex items-center gap-3 px-4 py-2.5 text-sm">
+              {jupyter?.installed ? (
+                <Check size={15} className="text-ok" />
+              ) : (
+                <Settings2 size={15} className="text-muted" />
+              )}
+              <span className="w-24 text-text">Jupyter</span>
+              <span className="flex-1 text-xs text-muted">
+                {jupyter?.installed ? t("skills.environment.ready") : t("skills.environment.optional")}
+              </span>
+              {!jupyter?.installed && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/settings")}
+                  className="rounded-input border border-border px-2 py-1 text-xs text-text hover:bg-surface-2"
+                >
+                  {t("skills.environment.configure")}
+                </button>
+              )}
+            </div>
+          )}
           <p className="px-4 py-2 text-xs text-muted">{t("skills.environment.note")}</p>
         </Section>
 

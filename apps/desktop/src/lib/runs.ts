@@ -6,6 +6,7 @@
 // can be unit-tested without a desktop shell.
 import type { RunArtifact, RunRecord } from "@ai4s/shared";
 import type { ToolUpdatedEvent } from "@ai4s/sdk";
+import i18n from "@/i18n";
 import { isTauri, logDebug } from "./tauri";
 
 /** The compute surface a run targeted. Only "local" runs produce workspace
@@ -134,6 +135,7 @@ export function runInputFromEvent(event: ToolUpdatedEvent): RunInput | null {
 export function reproduceRunPrompt(r: RunRecord): string {
   const env = r.env;
   const hw = env?.hardware;
+  const zh = (i18n.resolvedLanguage ?? i18n.language).startsWith("zh");
   const parts: string[] = [];
   if (env) {
     const bits = [
@@ -142,30 +144,51 @@ export function reproduceRunPrompt(r: RunRecord): string {
       hw?.gpu?.length ? hw.gpu.join(", ") : hw?.accelerator,
       hw?.cpu,
     ].filter(Boolean);
-    if (bits.length) parts.push(`It ran on ${bits.join(" · ")}.`);
+    if (bits.length) parts.push(zh ? `原运行环境：${bits.join(" · ")}。` : `Original environment: ${bits.join(" · ")}.`);
     if (env.packages)
       parts.push(
-        `The environment had ${env.packages.count} installed Python packages, pinned in \`.openscience/env/${env.packages.hash}.txt\` — install matching versions from that lockfile if the result differs.`,
+        zh
+          ? `平台保存了 ${env.packages.count} 个 Python 包的环境快照（编号 ${env.packages.hash}）；如果结果不一致，先对照该快照检查依赖版本。`
+          : `AI4HEOR saved an environment snapshot with ${env.packages.count} Python packages (ID ${env.packages.hash}); if the result differs, compare dependency versions with that snapshot.`,
       );
   }
   const code = fileList(r.code ?? []);
-  if (code) parts.push(`The code version is pinned by hash: ${code} — check it hasn't changed since.`);
+  if (code)
+    parts.push(
+      zh
+        ? `相关代码已按文件哈希记录：${code}；再次运行前请确认代码是否发生变化。`
+        : `Related code is recorded by file hash: ${code}; check whether it has changed before running again.`,
+    );
   const remote = r.surface === "hpc" || r.surface === "modal" || r.surface === "ssh";
   if (remote)
     parts.push(
-      `This ran on ${
-        r.surface === "hpc" ? "an HPC cluster" : r.surface === "modal" ? "Modal" : "a remote machine over SSH"
-      }, so its outputs live off this machine and weren't captured locally.`,
+      zh
+        ? `这项分析在${r.surface === "hpc" ? "高性能计算集群" : r.surface === "modal" ? "云计算环境" : "远程计算机"}上运行，输出未保存在本机。`
+        : `This analysis ran on ${
+            r.surface === "hpc" ? "an HPC cluster" : r.surface === "modal" ? "a cloud environment" : "a remote computer"
+          }, so its outputs were not saved on this computer.`,
     );
   const outputs = fileList(r.outputs ?? []);
+  if (zh) {
+    const compare = outputs
+      ? `按相同条件再次运行，并将新结果（${outputs}）与原记录逐项比较；如有差异，请说明差异和可能原因。`
+      : remote
+        ? "重新提交任务，取回远程输出后与原结果比较。"
+        : "按相同条件再次运行并检查结果；本次记录没有可直接比较的输出文件。";
+    return (
+      `请再次运行分析记录 \`${r.runId}\`。原命令为：\n\n    ${r.command}\n\n` +
+      `${parts.join(" ")}${parts.length ? " " : ""}${compare}`
+    );
+  }
+
   const compare = outputs
-    ? `re-run it, then compare the regenerated outputs (${outputs}) against the recorded run and report whether they match — and what changed if not.`
+    ? `run it again under the same conditions, then compare the new outputs (${outputs}) with the recorded outputs and explain any differences.`
     : remote
-      ? `re-submit it and report whether it reproduces, fetching the remote outputs to compare.`
-      : `re-run it and report whether it reproduces (no output files were captured for this run).`;
+      ? "submit it again, retrieve the remote outputs, and compare them with the original results."
+      : "run it again under the same conditions and check the result; this record has no output files available for direct comparison.";
   return (
-    `Reproduce run \`${r.runId}\`, which executed:\n\n    ${r.command}\n\n` +
-    `${parts.join(" ")}${parts.length ? " " : ""}Recreate that environment, ${compare}`
+    `Run analysis record \`${r.runId}\` again. The original command was:\n\n    ${r.command}\n\n` +
+    `${parts.join(" ")}${parts.length ? " " : ""}${compare}`
   );
 }
 

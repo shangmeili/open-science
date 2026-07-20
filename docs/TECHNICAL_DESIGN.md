@@ -163,7 +163,7 @@ AI4HEOR Desktop
 ├── Capability Layer: governed HEOR evidence / managed Jupyter / user-managed MCP
 ├── Execution Layer: OpenCode agents/tools + optional Jupyter Kernel Gateway
 ├── Storage: Local workspace + SQLite + JSONL provenance
-└── Packaging: Tauri DMG / APP / NSIS / MSI / DEB / RPM
+└── Packaging: Tauri DMG / APP / NSIS / DEB / RPM
 ```
 
 ## 3. Tauri over Electron
@@ -996,22 +996,22 @@ reject it; this artifact is neither Developer-ID signed nor notarized.
 
 ### 12.2 Windows
 
-Outputs: `AI4HEOR_*_x64-setup.exe` and `AI4HEOR_*_x64_en-US.msi`. Prefer the NSIS
-`Setup.exe` in v1 for a familiar install experience. Unsigned apps run but may trigger
+Output: `AI4HEOR_*_x64-setup.exe`. The NSIS installer is the v1 Windows test-delivery
+format because it provides a familiar install experience without maintaining a second,
+functionally duplicate MSI pipeline. Unsigned apps run but may trigger
 SmartScreen; formal release needs a code-signing certificate (EV certs earn SmartScreen
 reputation faster). Early GitHub Release preview builds may be unsigned, but the README
 must say so.
 
-The Windows 2022 CI runner builds both formats and then runs
-`scripts/release/verify-windows-package.ps1`. The verifier reads ProductName,
-ProductVersion, and ProductCode from the MSI; administratively extracts it; rejects
-reparse points and generated Python caches; requires x86-64 PE binaries; verifies the
-pinned OpenCode and uv versions; compares every configured scientific resource with the
-source tree; and runs the deterministic HEOR suite against the extracted core. It then
-silently installs the NSIS package into a clean runner, starts the installed application,
-and requires exactly one installed desktop process, one bundled OpenCode process, and a
-new local workspace before cleanup. This is an automated host-level gate, not a visual or
-non-technical-user acceptance test.
+The Windows 2022 CI runner builds the NSIS package and then runs
+`scripts/release/verify-windows-package.ps1`. The verifier silently installs it into a
+clean runner; rejects reparse points and generated Python caches in the installed tree;
+requires x86-64 PE binaries; verifies the pinned OpenCode and uv versions; compares every
+configured scientific resource with the source tree; and runs the deterministic HEOR
+suite against the installed core. It then starts the installed application and requires
+exactly one desktop process, one bundled OpenCode process, and a new local workspace
+before cleanup. This is an automated host-level gate, not a visual or non-technical-user
+acceptance test.
 
 ### 12.3 Linux
 
@@ -1076,12 +1076,12 @@ platform/target pairs, tampered packages, duplicate targets, mixed source commit
 different resource inventories.
 
 Only after all four build jobs pass does a separate Ubuntu job download the actual
-workflow artifacts, re-hash every DMG/MSI/NSIS/deb/rpm, require all four explicit
+workflow artifacts, re-hash every DMG/NSIS/deb/rpm, require all four explicit
 targets from the same workflow run and attempt, and write
 `ai4heor-release-manifest/v1`. Workflow artifacts retain the four
 evidence files and manifest. Matrix builds never create or populate a GitHub Release.
 Only after the final job validates the manifest and finds exactly four evidence files and
-six installers may it create a new draft release and attach that exact set; an existing
+five installers may it create a new draft release and attach that exact set; an existing
 release for the tag makes the step fail instead of merging stale assets. This is a
 workflow-produced source/package association, not a reproducible-build proof, signed
 provenance attestation, visual acceptance, or scientific-validity claim. The schema and
@@ -1232,7 +1232,7 @@ OpenCode as agent runtime (bundled single-binary sidecar, pinned OPENCODE_VERSIO
 OpenCode HTTP + SSE API via OpenCodeClient (packages/sdk)
 OpenCode skills/agents + optional third-party scientific skills
 Local workspace + SQLite + JSONL provenance
-DMG / NSIS / MSI installers via GitHub Actions
+DMG / NSIS installers via GitHub Actions
 GitHub Releases (self-contained; sidecar fetched at build time)
 ```
 

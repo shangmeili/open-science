@@ -47,6 +47,11 @@
     "send": {
       "aria": "送信"
     },
+    "modelRequired": {
+      "action": "モデルを選択",
+      "description": "このタスクで使用するモデルを選択",
+      "sendHint": "送信する前にモデルを選択してください"
+    },
     "approval": {
       "aria": "承認モード",
       "title": "エージェントの操作をどのように承認するか",

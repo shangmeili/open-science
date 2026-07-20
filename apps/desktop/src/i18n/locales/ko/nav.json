@@ -12,10 +12,10 @@
   },
   "items": {
     "new": "새 작업",
-    "notebooks": "노트북",
-    "files": "파일",
-    "runs": "실행",
-    "skills": "스킬 및 도구",
+    "notebooks": "분석 노트",
+    "files": "연구 자료",
+    "runs": "분석 기록",
+    "skills": "연구 기능",
     "heor": "연구 작업공간"
   },
   "projects": {

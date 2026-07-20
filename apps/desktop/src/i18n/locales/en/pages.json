@@ -1,12 +1,12 @@
 {
   "notebooks": {
-    "title": "Notebooks",
+    "title": "Analysis notes",
     "openJupyterLab": "Open JupyterLab",
     "openJupyterLabTitle": "Open the full JupyterLab (same env and files) in your browser",
     "newNotebook": "New notebook",
     "pythonNotebook": "Python notebook",
     "rNotebook": "R notebook",
-    "description": "All Jupyter notebooks across your task folders, newest first. Cells run on the local Python or R kernel in the notebook's own folder; the assistant works on the same files.",
+    "description": "View and edit analysis notes from every task. Files and results stay together on this device.",
     "createsIn": "New notebooks are created in",
     "empty": {
       "tauri": "No notebooks yet. Create one, or ask the agent to produce one.",
@@ -72,14 +72,14 @@
     }
   },
   "skills": {
-    "title": "Skills & tools",
+    "title": "Research capabilities",
     "description": {
-      "prefix": "Loaded live from the AI assistant runtime — admitted AI4HEOR capabilities plus anything under ",
+      "prefix": "View and manage the research methods, analysis tools, and extensions available to this task.",
       "suffix": " in your workspace."
     },
     "install": {
-      "sectionTitle": "Add or evaluate a skill or tool",
-      "placeholder": "Describe a capability AI4HEOR should add, or paste a Skill, plugin, MCP server, package, or GitHub URL",
+      "sectionTitle": "Add a research capability",
+      "placeholder": "Describe the research capability you need, or provide a link to an existing tool or resource",
       "starting": "Starting…",
       "cta": "Start review",
       "hintConnected": "AI4HEOR first prepares and checks a local candidate. It cannot run before review and admission are complete.",
@@ -214,7 +214,7 @@
     "assetAdmission": {
       "sectionTitle": "External adapters",
       "loading": "Checking external adapters shipped with the app…",
-      "unavailable": "External adapters cannot be verified and remain disabled.",
+      "unavailable": "External tools could not be checked, so none were enabled.",
       "firstPartyTitle": "52 first-party AI4HEOR Skills are built in",
       "firstPartyBoundary": "Only external adapters that passed license, security, methods, and package checks and actually ship with AI4HEOR appear here. Sources awaiting a rewrite or excluded from the product are not retained as user options.",
       "admitted": "admitted",
@@ -229,7 +229,10 @@
       "detectionUnavailable": "Environment detection runs in the desktop app.",
       "found": "found",
       "notFound": "not found",
-      "note": "The AI assistant runs code with tools installed here (for example, Python through its shell tool). Python/R/Jupyter are not bundled; install them or a Science Pack to enable analysis."
+      "ready": "ready",
+      "optional": "set up when needed",
+      "configure": "Open settings",
+      "note": "Python and R support local calculations. Jupyter is optional and is managed separately by AI4HEOR when interactive notebooks or JupyterLab are needed."
     },
     "agentsSection": {
       "sectionTitle": "Agents ({{count}})",
@@ -249,7 +252,7 @@
         "bundled": "AI4HEOR · first-party"
       }
     },
-    "disconnected": "Connect the runtime to list the skills and agents it has loaded."
+    "disconnected": "Connect the local assistant to view available research capabilities."
   },
   "notFound": {
     "title": "404 — Not found",

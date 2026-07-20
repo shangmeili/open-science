@@ -2,7 +2,6 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)] [string] $MsiPath,
     [Parameter(Mandatory = $true)] [string] $NsisPath,
     [string] $SourceRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")),
     [Parameter(Mandatory = $true)] [string] $EvidenceOut
@@ -66,19 +65,6 @@ function Assert-SameTree {
     }
 }
 
-function Get-MsiProperty {
-    param($Database, [string] $Name)
-    $view = $Database.OpenView("SELECT ``Value`` FROM ``Property`` WHERE ``Property``='$Name'")
-    try {
-        $view.Execute()
-        $record = $view.Fetch()
-        if ($null -eq $record) { return $null }
-        return $record.StringData(1)
-    } finally {
-        $view.Close()
-    }
-}
-
 function Get-Ai4HeorUninstallEntry {
     $paths = @(
         'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
@@ -109,42 +95,38 @@ Assert-True ($env:RUNNER_OS -eq 'Windows') "Windows package verification must ru
 Assert-True ([Environment]::Is64BitOperatingSystem) "Windows package verification requires a 64-bit host."
 
 $SourceRoot = (Resolve-Path -LiteralPath $SourceRoot).Path
-$MsiPath = (Resolve-Path -LiteralPath $MsiPath).Path
 $NsisPath = (Resolve-Path -LiteralPath $NsisPath).Path
 $config = Get-Content -LiteralPath (Join-Path $SourceRoot 'apps/desktop/src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json
 $expectedVersion = [string]$config.version
-Assert-True ((Split-Path $MsiPath -Leaf) -match '^AI4HEOR_.+_x64_en-US\.msi$') "Unexpected MSI filename: $MsiPath"
 Assert-True ((Split-Path $NsisPath -Leaf) -match '^AI4HEOR_.+_x64-setup\.exe$') "Unexpected NSIS filename: $NsisPath"
 
 $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) ("ai4heor-windows-verification-" + [guid]::NewGuid())
-$extractRoot = Join-Path $temporaryRoot 'msi'
 $verificationPath = Join-Path $temporaryRoot 'windows-verification.json'
 $workspace = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'AI4HEOR'
 $createdWorkspace = $false
 $installRoot = $null
 $startedProcess = $null
 $verification = [ordered]@{}
-New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
+New-Item -ItemType Directory -Path $temporaryRoot -Force | Out-Null
 
 try {
     Assert-True (-not (Test-Path -LiteralPath $workspace)) "First-launch workspace already exists: $workspace"
 
-    $installer = New-Object -ComObject WindowsInstaller.Installer
-    $database = $installer.OpenDatabase($MsiPath, 0)
-    $productName = Get-MsiProperty $database 'ProductName'
-    $productVersion = Get-MsiProperty $database 'ProductVersion'
-    $productCode = Get-MsiProperty $database 'ProductCode'
-    Assert-True ($productName -eq 'AI4HEOR') "Unexpected MSI ProductName: $productName"
-    Assert-True ($productVersion -eq $expectedVersion) "Unexpected MSI ProductVersion: $productVersion"
-    Assert-True (-not [string]::IsNullOrWhiteSpace($productCode)) "MSI ProductCode is missing."
-    $verification.msi = [ordered]@{ product_name = $productName; product_version = $productVersion; product_code = $productCode }
+    $install = Start-Process -FilePath $NsisPath -ArgumentList '/S' -Wait -PassThru
+    Assert-True ($install.ExitCode -eq 0) "NSIS silent install failed with exit code $($install.ExitCode)."
+    $entry = Get-Ai4HeorUninstallEntry
+    Assert-True ([string]$entry.DisplayName -eq 'AI4HEOR') "Unexpected installed product name: $($entry.DisplayName)"
+    Assert-True ([string]$entry.DisplayVersion -eq $expectedVersion) "Installed version does not match $expectedVersion."
+    $installRoot = Resolve-InstallRoot $entry
+    $verification.nsis = [ordered]@{
+        product_name = [string]$entry.DisplayName
+        product_version = [string]$entry.DisplayVersion
+        install_root = $installRoot
+    }
 
-    $extract = Start-Process -FilePath msiexec.exe -ArgumentList @('/a', "`"$MsiPath`"", '/qn', "TARGETDIR=`"$extractRoot`"") -Wait -PassThru
-    Assert-True ($extract.ExitCode -eq 0) "MSI administrative extraction failed with exit code $($extract.ExitCode)."
-
-    $mainExe = Get-OnlyFile $extractRoot 'ai4s-workbench.exe'
-    $opencodeExe = Get-OnlyFile $extractRoot 'opencode.exe'
-    $uvExe = Get-OnlyFile $extractRoot 'uv.exe'
+    $mainExe = Get-OnlyFile $installRoot 'ai4s-workbench.exe'
+    $opencodeExe = Get-OnlyFile $installRoot 'opencode.exe'
+    $uvExe = Get-OnlyFile $installRoot 'uv.exe'
     foreach ($binary in @($mainExe, $opencodeExe, $uvExe)) {
         Assert-True ((Get-PeMachine $binary) -eq 0x8664) "Packaged binary is not x86-64: $binary"
     }
@@ -153,7 +135,7 @@ try {
     $uvVersion = (& $uvExe --version 2>&1 | Out-String).Trim()
     Assert-True ($LASTEXITCODE -eq 0 -and $uvVersion.Contains('0.11.26')) "Unexpected packaged uv version: $uvVersion"
 
-    $registry = Get-OnlyFile $extractRoot 'asset-admission-registry.json'
+    $registry = Get-OnlyFile $installRoot 'asset-admission-registry.json'
     $resourceRoot = Split-Path -Parent $registry
     $resourceCount = 0
     foreach ($property in $config.bundle.resources.PSObject.Properties) {
@@ -171,7 +153,7 @@ try {
             $resourceCount += 1
         }
     }
-    Get-TreeInventory $extractRoot | Out-Null
+    Get-TreeInventory $installRoot | Out-Null
 
     $oldPythonPath = $env:PYTHONPATH
     $oldNoBytecode = $env:PYTHONDONTWRITEBYTECODE
@@ -186,13 +168,7 @@ try {
     }
     $verification.payload = [ordered]@{ resource_files = $resourceCount; opencode_version = $opencodeVersion; uv_version = $uvVersion }
 
-    $install = Start-Process -FilePath $NsisPath -ArgumentList '/S' -Wait -PassThru
-    Assert-True ($install.ExitCode -eq 0) "NSIS silent install failed with exit code $($install.ExitCode)."
-    $entry = Get-Ai4HeorUninstallEntry
-    Assert-True ([string]$entry.DisplayVersion -eq $expectedVersion) "Installed version does not match $expectedVersion."
-    $installRoot = Resolve-InstallRoot $entry
-    $installedExe = Get-OnlyFile $installRoot 'ai4s-workbench.exe'
-    $startedProcess = Start-Process -FilePath $installedExe -PassThru
+    $startedProcess = Start-Process -FilePath $mainExe -PassThru
 
     $deadline = [DateTime]::UtcNow.AddSeconds(60)
     $appProcesses = @()
@@ -200,7 +176,7 @@ try {
     do {
         Start-Sleep -Milliseconds 500
         $processes = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($installRoot, [StringComparison]::OrdinalIgnoreCase) })
-        $appProcesses = @($processes | Where-Object { $_.ExecutablePath -ieq $installedExe })
+        $appProcesses = @($processes | Where-Object { $_.ExecutablePath -ieq $mainExe })
         $opencodeProcesses = @($processes | Where-Object Name -eq 'opencode.exe')
         $createdWorkspace = Test-Path -LiteralPath $workspace -PathType Container
         $ready = $appProcesses.Count -eq 1 -and $opencodeProcesses.Count -eq 1 -and $createdWorkspace
@@ -218,10 +194,8 @@ try {
     & python (Join-Path $SourceRoot 'scripts/release/release_evidence.py') record `
         --platform windows `
         --target x86_64-pc-windows-msvc `
-        --bundle "msi=$MsiPath" `
         --bundle "nsis=$NsisPath" `
-        --check msi-metadata `
-        --check msi-payload `
+        --check nsis-installed-payload `
         --check scientific-resources `
         --check packaged-heor-tests `
         --check bundled-sidecars `

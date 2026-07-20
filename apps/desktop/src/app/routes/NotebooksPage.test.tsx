@@ -27,11 +27,11 @@ describe("NotebooksPage", () => {
     listNotebooks.mockResolvedValue(entries);
   });
 
-  it("lists notebooks across all session folders (base scope) with their folder", async () => {
+  it("lists notebooks across all task folders without exposing timestamp folder names", async () => {
     render(<NotebooksPage />);
     expect(await screen.findByText("nature_figure.ipynb")).toBeInTheDocument();
-    // The containing session folder is visible; base-folder notebooks show none.
-    expect(screen.getByText("2026-07-05-0319")).toBeInTheDocument();
+    expect(screen.getByText("Jul 5, 03:19 task")).toBeInTheDocument();
+    expect(screen.queryByText("2026-07-05-0319")).not.toBeInTheDocument();
     expect(screen.getByText("live-demo.ipynb")).toBeInTheDocument();
     expect(listNotebooks).toHaveBeenCalledWith("base");
   });

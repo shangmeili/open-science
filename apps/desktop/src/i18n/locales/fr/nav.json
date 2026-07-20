@@ -12,10 +12,10 @@
   },
   "items": {
     "new": "Nouvelle tâche",
-    "notebooks": "Notebooks",
-    "files": "Fichiers",
-    "runs": "Exécutions",
-    "skills": "Compétences et outils",
+    "notebooks": "Notes d’analyse",
+    "files": "Fichiers de recherche",
+    "runs": "Historique des analyses",
+    "skills": "Capacités de recherche",
     "heor": "Espace de recherche"
   },
   "projects": {

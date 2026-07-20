@@ -1,8 +1,8 @@
 {
-  "title": "Ejecuciones",
+  "title": "Historial de análisis",
   "description": {
-    "prefix": "Cada ejecución de análisis en todas las tareas — comando, versión del código, entorno, hardware y salidas. ",
-    "suffix": " la vuelve a ejecutar y compara los resultados."
+    "prefix": "Registro local de los análisis terminados y sus resultados. Usa ",
+    "suffix": " cuando necesites comprobar un resultado."
   },
   "pane": {
     "subtitle": "esta tarea",
@@ -18,10 +18,10 @@
   "loading": "Cargando ejecuciones…",
   "loadingMore": "Cargando más…",
   "empty": {
-    "title": "Aún no hay ejecuciones registradas",
-    "bodyPrefix": "Cuando el agente ejecuta código (p. ej., ",
-    "bodyExample": "python train.py",
-    "bodySuffix": "), cada ejecución se registra aquí con su receta de reproducibilidad.",
+    "title": "Aún no hay análisis registrados",
+    "bodyPrefix": "Los modelos de coste-efectividad, los análisis de sensibilidad y otros cálculos locales aparecerán aquí después de ejecutarse.",
+    "bodyExample": "",
+    "bodySuffix": "",
     "noMatch": "Ninguna ejecución coincide con tus filtros."
   },
   "status": {

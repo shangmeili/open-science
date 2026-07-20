@@ -12,10 +12,10 @@
   },
   "items": {
     "new": "新建任务",
-    "notebooks": "笔记本",
-    "files": "文件",
-    "runs": "运行",
-    "skills": "技能与工具",
+    "notebooks": "分析笔记",
+    "files": "研究资料",
+    "runs": "分析记录",
+    "skills": "研究能力",
     "heor": "研究工作台"
   },
   "projects": {

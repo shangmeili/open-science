@@ -178,7 +178,7 @@
     "builtIn": "built in",
     "humanAuthorization": "Human authorization",
     "heorEvidenceLabel": "HEOR evidence search",
-    "heorEvidenceDescription": "Fixed-endpoint PubMed and ClinicalTrials.gov metadata retrieval. The agent prepares a hash-bound request; only the Human can authorize network access.",
+    "heorEvidenceDescription": "Search public PubMed and ClinicalTrials.gov metadata. Before a new search task begins, AI4HEOR shows the query, date range, and outgoing fields; pagination within that approved search does not ask again.",
     "heorEvidenceSources": "{{sources}} · ${{id}}",
     "externalBoundary": "Servers you add are unmanaged external capabilities. Review their code, license, data egress, and credentials; they gain no scientific or approval authority.",
     "settingUp": "Setting up…",

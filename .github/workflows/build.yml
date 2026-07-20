@@ -1,6 +1,6 @@
 name: build
 
-# Builds macOS (.dmg/.app), Windows (NSIS .exe / .msi) and Linux
+# Builds macOS (.dmg/.app), Windows (NSIS .exe) and Linux
 # (.deb/.rpm) installers. Each platform's installer can only be
 # produced on its own runner — hence the matrix. On a `v*` tag push the
 # installers are also attached to a draft GitHub Release.
@@ -129,22 +129,41 @@ jobs:
         shell: bash
         run: bash scripts/dev/fetch-uv.sh ${{ matrix.target }}
 
-      - name: Build the app (Tauri)
+      - name: Build the unsigned test app (Tauri)
+        if: github.ref_type != 'tag'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_CERTIFICATE: ${{ startsWith(matrix.platform, 'macos') && github.ref_type == 'tag' && secrets.APPLE_CERTIFICATE || '' }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ startsWith(matrix.platform, 'macos') && github.ref_type == 'tag' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          APPLE_SIGNING_IDENTITY: ${{ startsWith(matrix.platform, 'macos') && github.ref_type == 'tag' && secrets.APPLE_SIGNING_IDENTITY || '' }}
-          APPLE_ID: ${{ startsWith(matrix.platform, 'macos') && github.ref_type == 'tag' && secrets.APPLE_ID || '' }}
-          APPLE_PASSWORD: ${{ startsWith(matrix.platform, 'macos') && github.ref_type == 'tag' && secrets.APPLE_PASSWORD || '' }}
-          APPLE_TEAM_ID: ${{ startsWith(matrix.platform, 'macos') && github.ref_type == 'tag' && secrets.APPLE_TEAM_ID || '' }}
         with:
           projectPath: apps/desktop
           # Linux: deb+rpm only. AppImage is off because linuxdeploy runs ldd
           # on every bundled ELF and ldd exits 1 on the Bun-built opencode
           # sidecar, aborting the whole bundle (tauri-apps/tauri#8929).
-          args: --target ${{ matrix.target }} ${{ startsWith(matrix.platform, 'ubuntu') && '--bundles deb,rpm' || '' }}
+          args: --target ${{ matrix.target }} ${{ startsWith(matrix.platform, 'macos') && '--bundles dmg' || startsWith(matrix.platform, 'windows') && '--bundles nsis' || '--bundles deb,rpm' }}
+
+      - name: Build the signed macOS release app (Tauri)
+        if: github.ref_type == 'tag' && startsWith(matrix.platform, 'macos')
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: apps/desktop
+          args: --target ${{ matrix.target }} --bundles dmg
+
+      - name: Build the non-macOS release packages (Tauri)
+        if: github.ref_type == 'tag' && !startsWith(matrix.platform, 'macos')
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          args: --target ${{ matrix.target }} ${{ startsWith(matrix.platform, 'windows') && '--bundles nsis' || '--bundles deb,rpm' }}
 
       - name: Verify Linux installer contents and scientific resources
         if: startsWith(matrix.platform, 'ubuntu')
@@ -219,17 +238,14 @@ jobs:
             --verification-json "$verification" \
             --output "$bundle_root/macos-${{ matrix.target }}-release-evidence.json"
 
-      - name: Verify Windows installers, scientific resources, and first launch
+      - name: Verify the Windows installer, scientific resources, and first launch
         if: startsWith(matrix.platform, 'windows')
         shell: pwsh
         run: |
           $bundleRoot = "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
-          $msis = @(Get-ChildItem -LiteralPath $bundleRoot -Recurse -File -Filter '*.msi')
           $installers = @(Get-ChildItem -LiteralPath $bundleRoot -Recurse -File -Filter '*-setup.exe')
-          if ($msis.Count -ne 1) { throw "Expected one MSI; found $($msis.Count)." }
           if ($installers.Count -ne 1) { throw "Expected one NSIS installer; found $($installers.Count)." }
           ./scripts/release/verify-windows-package.ps1 `
-            -MsiPath $msis[0].FullName `
             -NsisPath $installers[0].FullName `
             -EvidenceOut (Join-Path $bundleRoot 'windows-x64-release-evidence.json')
 
@@ -240,7 +256,6 @@ jobs:
           path: |
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
-            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*-release-evidence.json
@@ -304,7 +319,7 @@ jobs:
             - Both apps passed Developer ID, hardened-runtime, stapled notarization-ticket, and Gatekeeper checks before this draft was created.
             - Open the DMG and drag **AI4HEOR** into Applications.
 
-            **Windows** — `…_x64-setup.exe` or `…_x64_en-US.msi`
+            **Windows** — `…_x64-setup.exe`
             - Windows installers are not yet Authenticode-signed. SmartScreen may show *"Windows protected your PC"* → **More info** → **Run anyway**.
 
             **Linux** — `.deb` / `.rpm`
@@ -315,12 +330,12 @@ jobs:
           mapfile -t evidence < <(find release-artifacts -type f -name '*-release-evidence.json' | sort)
           mapfile -t installers < <(
             find release-artifacts -type f \( \
-              -name '*.dmg' -o -name '*.exe' -o -name '*.msi' -o \
+              -name '*.dmg' -o -name '*.exe' -o \
               -name '*.deb' -o -name '*.rpm' \
             \) | sort
           )
           test "${#evidence[@]}" -eq 4
-          test "${#installers[@]}" -eq 6
+          test "${#installers[@]}" -eq 5
           gh release create "$GITHUB_REF_NAME" \
             "${installers[@]}" \
             ai4heor-release-manifest.json \

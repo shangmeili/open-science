@@ -16,7 +16,7 @@ afterEach(() => useRuntimeStore.setState(RUNTIME_DEFAULTS));
 describe("NotebooksPage strings (i18n)", () => {
   it("renders the page heading and the desktop-only empty state in English", async () => {
     renderAt("/notebooks");
-    expect(await screen.findByRole("heading", { level: 1, name: "Notebooks" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Analysis notes" })).toBeInTheDocument();
     expect(screen.getByText("Notebooks are available in the desktop app.")).toBeInTheDocument();
     expect(screen.getByText("New notebook")).toBeInTheDocument();
   });
@@ -31,18 +31,19 @@ describe("FilesPage strings (i18n)", () => {
 });
 
 describe("SkillsPage strings (i18n)", () => {
-  it("renders the page heading and the disconnected-runtime prompts in English", async () => {
+  it("uses research-facing copy and hides implementation paths in English", async () => {
     renderAt("/skills");
-    expect(await screen.findByRole("heading", { level: 1, name: "Skills & tools" })).toBeInTheDocument();
-    expect(screen.getByText("Add or evaluate a skill or tool")).toBeInTheDocument();
-    expect(screen.getByText("Environment detection runs in the desktop app.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Research capabilities" })).toBeInTheDocument();
+    expect(screen.getByText("Add a research capability")).toBeInTheDocument();
+    expect(screen.queryByText(/\.opencode\/skills/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Node.js")).not.toBeInTheDocument();
     expect(
       await screen.findByText(
-        "External adapters cannot be verified and remain disabled.",
+        "External tools could not be checked, so none were enabled.",
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Connect the runtime to list the skills and agents it has loaded."),
+      screen.getByText("Connect the local assistant to view available research capabilities."),
     ).toBeInTheDocument();
   });
 

@@ -173,8 +173,9 @@ describe("reproduceRunPrompt", () => {
     expect(p).toContain("Python 3.11.4");
     expect(p).toContain("linux-x86_64");
     expect(p).toContain("NVIDIA A100-SXM4-40GB");
-    // The lockfile pointer so a differing result can be pinned to versions.
-    expect(p).toContain(".openscience/env/deadbeef.txt");
+    expect(p).toContain("environment snapshot with 51 Python packages");
+    expect(p).toContain("deadbeef");
+    expect(p).not.toContain(".openscience");
     // Compares the recorded outputs, not source text.
     expect(p).toContain("output/metrics.json");
     expect(p).toContain("output/model.pt");

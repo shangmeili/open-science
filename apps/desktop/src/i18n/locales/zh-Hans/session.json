@@ -47,6 +47,11 @@
     "send": {
       "aria": "发送"
     },
+    "modelRequired": {
+      "action": "选择模型",
+      "description": "选择本任务使用的模型",
+      "sendHint": "选择模型后即可发送"
+    },
     "approval": {
       "aria": "操作确认",
       "title": "设置操作确认方式",

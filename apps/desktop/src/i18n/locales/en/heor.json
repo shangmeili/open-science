@@ -3,7 +3,7 @@
   "badge": "HEOR",
   "review": "Research & analysis",
   "closeReview": "Close research & analysis",
-  "placeholder": "Describe the decision problem, evidence gap, model change, or result you want to investigate…",
+  "placeholder": "Describe the research question or work you want to address…",
   "modelRequired": {
     "title": "Choose a model before sending",
     "body": "AI4HEOR keeps the research request as your draft and will not start an agent turn until you explicitly select a model.",

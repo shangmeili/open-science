@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, Check, ChevronDown, Folder, Hand, Paperclip, Square, Terminal, X, Zap } from "lucide-react";
+import { ArrowUp, Check, ChevronDown, Folder, Hand, Paperclip, Settings2, Square, Terminal, X, Zap } from "lucide-react";
 import {
   addBinaryToWorkspace,
   addFilesToWorkspace,
@@ -96,6 +96,8 @@ export function Composer({
   beforeWorkspaceWrite,
   autoFocus = false,
   contextLabel,
+  modelRequired = false,
+  onOpenModelSettings,
 }: {
   onSend?: (text: string) => void;
   onRunShell?: (command: string) => void;
@@ -117,6 +119,9 @@ export function Composer({
   autoFocus?: boolean;
   /** Optional project context shown as a quiet strip above the free input. */
   contextLabel?: string;
+  /** The draft remains editable, but a model must be selected before sending. */
+  modelRequired?: boolean;
+  onOpenModelSettings?: () => void;
 }) {
   const { t } = useTranslation(["session", "common"]);
   const resolvedPlaceholder = placeholder ?? t("composer.placeholder.default");
@@ -448,7 +453,7 @@ export function Composer({
   return (
     <div
       className={cn(
-        "relative rounded-card border bg-surface px-2 py-2 shadow-card",
+        "relative rounded-[14px] border bg-surface px-3 pb-2.5 pt-3 shadow-card transition-[border-color,box-shadow] focus-within:border-accent/50 focus-within:ring-2 focus-within:ring-accent/10",
         shellMode ? "border-warn/60" : command ? "border-accent/50" : "border-border",
         dragOver && "border-accent ring-2 ring-accent/40",
       )}
@@ -528,13 +533,13 @@ export function Composer({
               : resolvedPlaceholder
         }
         className={cn(
-          "max-h-[160px] w-full resize-none bg-transparent px-1.5 py-0.5 text-sm leading-6 text-text outline-none placeholder:text-muted",
+          "max-h-[160px] min-h-[48px] w-full resize-none bg-transparent px-0.5 py-0 text-sm leading-6 text-text outline-none placeholder:text-muted/90",
           (shellMode || command) && "font-mono",
         )}
         aria-label={t("composer.placeholder.default")}
       />
       {/* Codex-style action row: mode controls bottom-left, send bottom-right. */}
-      <div className="flex items-center gap-1.5 pt-1">
+      <div className="flex min-h-8 items-center gap-1.5 pt-1.5">
         {command ? (
           <span
             className="flex h-7 shrink-0 items-center gap-1 rounded-input bg-accent/15 pl-2 pr-1 font-mono text-xs text-accent"
@@ -620,12 +625,24 @@ export function Composer({
             </button>
           </div>
         )}
+        {modelRequired && onOpenModelSettings && (
+          <button
+            type="button"
+            onClick={onOpenModelSettings}
+            className="flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-accent/10 px-2.5 text-xs font-medium text-accent hover:bg-accent/15"
+            aria-label={t("composer.modelRequired.action")}
+            title={t("composer.modelRequired.description")}
+          >
+            <Settings2 size={12} />
+            <span>{t("composer.modelRequired.action")}</span>
+          </button>
+        )}
         <span className="flex-1" />
         {working && onStop ? (
           // Same spot, same shape, one action: the send button becomes Stop
           // while the agent works — always live, even though the input is not.
           <button
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-input bg-accent text-accent-fg hover:opacity-90"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-fg hover:opacity-90"
             aria-label={t("composer.stop.aria")}
             title={t("composer.stop.title")}
             onClick={onStop}
@@ -634,8 +651,14 @@ export function Composer({
           </button>
         ) : (
           <button
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-input bg-accent text-accent-fg hover:opacity-90 disabled:opacity-40"
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
+              canSend
+                ? "bg-accent text-accent-fg hover:opacity-90"
+                : "bg-surface-2 text-muted/60",
+            )}
             aria-label={t("composer.send.aria")}
+            title={modelRequired ? t("composer.modelRequired.sendHint") : undefined}
             onClick={submit}
             disabled={!canSend}
           >

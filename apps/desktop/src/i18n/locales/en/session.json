@@ -47,6 +47,11 @@
     "send": {
       "aria": "Send"
     },
+    "modelRequired": {
+      "action": "Choose a model",
+      "description": "Choose the model for this task",
+      "sendHint": "Choose a model before sending"
+    },
     "approval": {
       "aria": "Approval mode",
       "title": "How agent actions get approved",

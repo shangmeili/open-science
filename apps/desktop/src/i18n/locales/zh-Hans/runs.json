@@ -1,8 +1,8 @@
 {
-  "title": "运行",
+  "title": "分析记录",
   "description": {
-    "prefix": "这里记录各项任务中的分析运行，包括命令、代码版本、运行环境、硬件和输出。",
-    "suffix": "会重新运行并比较结果。"
+    "prefix": "这里保存已经完成的本地分析及其结果。需要复核时，可以选择",
+    "suffix": "。"
   },
   "pane": {
     "subtitle": "当前任务",
@@ -18,10 +18,10 @@
   "loading": "正在加载运行…",
   "loadingMore": "正在加载更多…",
   "empty": {
-    "title": "尚无运行记录",
-    "bodyPrefix": "助手运行代码时（例如 ",
-    "bodyExample": "python train.py",
-    "bodySuffix": "），系统会在这里保存运行记录和复现所需的信息。",
+    "title": "还没有分析记录",
+    "bodyPrefix": "成本－效果模型、敏感性分析及其他本地计算完成后，会在这里留下记录。",
+    "bodyExample": "",
+    "bodySuffix": "",
     "noMatch": "没有符合筛选条件的运行。"
   },
   "status": {
@@ -38,10 +38,10 @@
     "jobLabel": "任务"
   },
   "action": {
-    "reproduce": "复现",
-    "reproduceTitle": "重新运行这条命令并比较结果",
-    "log": "日志",
-    "logTitle": "查看捕获的 stdout/stderr",
+    "reproduce": "再次运行",
+    "reproduceTitle": "按原有条件再次运行并比较结果",
+    "log": "技术记录",
+    "logTitle": "查看原始运行输出",
     "openConversation": "打开对话",
     "openConversationTitle": "打开产生此次运行的对话",
     "copyCommand": "复制命令",
@@ -58,7 +58,7 @@
     "outputsNotCaptured": "在 {{surface}} 上运行——输出保存在该机器上，未在本地捕获。"
   },
   "log": {
-    "header": "stdout / stderr",
+    "header": "原始运行输出",
     "loading": "正在加载…"
   },
   "relative": {

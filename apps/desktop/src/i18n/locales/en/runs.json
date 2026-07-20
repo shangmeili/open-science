@@ -1,8 +1,8 @@
 {
-  "title": "Runs",
+  "title": "Analysis history",
   "description": {
-    "prefix": "Every analysis run across all tasks — command, code version, environment, hardware, and outputs. ",
-    "suffix": " re-runs it and compares results."
+    "prefix": "A local record of completed analyses and their outputs. Use ",
+    "suffix": " when a result needs to be checked."
   },
   "pane": {
     "subtitle": "this task",
@@ -18,10 +18,10 @@
   "loading": "Loading runs…",
   "loadingMore": "Loading more…",
   "empty": {
-    "title": "No runs recorded yet",
-    "bodyPrefix": "When the agent runs code (e.g. ",
-    "bodyExample": "python train.py",
-    "bodySuffix": "), each execution is recorded here with its reproducibility recipe.",
+    "title": "No analysis records yet",
+    "bodyPrefix": "Cost-effectiveness models, sensitivity analyses, and other local calculations will appear here after they run.",
+    "bodyExample": "",
+    "bodySuffix": "",
     "noMatch": "No runs match your filters."
   },
   "status": {
@@ -39,10 +39,10 @@
     "jobLabel": "job"
   },
   "action": {
-    "reproduce": "Reproduce",
-    "reproduceTitle": "Draft a prompt that re-runs this command and compares the outputs",
-    "log": "Log",
-    "logTitle": "View captured stdout/stderr",
+    "reproduce": "Run again",
+    "reproduceTitle": "Run the analysis under the same conditions and compare the results",
+    "log": "Technical record",
+    "logTitle": "View the raw process output",
     "openConversation": "Open conversation",
     "openConversationTitle": "Open the conversation this run came from",
     "copyCommand": "Copy command",
@@ -59,7 +59,7 @@
     "outputsNotCaptured": "Ran on {{surface}} — outputs live off this machine and weren't captured locally."
   },
   "log": {
-    "header": "stdout / stderr",
+    "header": "Raw process output",
     "loading": "Loading…"
   },
   "relative": {

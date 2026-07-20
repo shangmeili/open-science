@@ -12,10 +12,10 @@
   },
   "items": {
     "new": "Neue Aufgabe",
-    "notebooks": "Notebooks",
-    "files": "Dateien",
-    "runs": "Durchläufe",
-    "skills": "Skills und Werkzeuge",
+    "notebooks": "Analysenotizen",
+    "files": "Forschungsdateien",
+    "runs": "Analyseverlauf",
+    "skills": "Forschungsfunktionen",
     "heor": "Forschungsbereich"
   },
   "projects": {

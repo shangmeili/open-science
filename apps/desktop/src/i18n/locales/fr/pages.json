@@ -74,7 +74,7 @@
   "skills": {
     "title": "Compétences et outils",
     "description": {
-      "prefix": "Chargé en direct depuis le runtime de l’assistant IA — les capacités AI4HEOR admises, plus tout ce qui se trouve sous ",
+      "prefix": "Consultez et gérez les méthodes de recherche, les outils d’analyse et les extensions disponibles pour cette tâche.",
       "suffix": " dans votre espace de travail."
     },
     "install": {
@@ -151,7 +151,10 @@
       "detectionUnavailable": "La détection de l'environnement s'exécute dans l'application de bureau.",
       "found": "trouvé",
       "notFound": "introuvable",
-      "note": "L’assistant IA exécute le code avec les outils installés ici (p. ex. Python via l’outil shell). Python/R/Jupyter ne sont pas intégrés ; installez-les, ou un Science Pack, pour activer l’analyse."
+      "ready": "prêt",
+      "optional": "à configurer si nécessaire",
+      "configure": "Ouvrir les réglages",
+      "note": "Python et R assurent les calculs locaux. Jupyter est facultatif et géré séparément par AI4HEOR lorsqu’il est nécessaire."
     },
     "agentsSection": {
       "sectionTitle": "Agents ({{count}})",

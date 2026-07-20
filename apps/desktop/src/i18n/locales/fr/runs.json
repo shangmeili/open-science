@@ -1,8 +1,8 @@
 {
-  "title": "Exécutions",
+  "title": "Historique des analyses",
   "description": {
-    "prefix": "Chaque exécution d'analyse dans toutes les tâches — commande, version du code, environnement, matériel et sorties. ",
-    "suffix": " la relance et compare les résultats."
+    "prefix": "Historique local des analyses terminées et de leurs résultats. Utilisez ",
+    "suffix": " lorsqu'un résultat doit être vérifié."
   },
   "pane": {
     "subtitle": "cette tâche",
@@ -18,10 +18,10 @@
   "loading": "Chargement des exécutions…",
   "loadingMore": "Chargement de la suite…",
   "empty": {
-    "title": "Aucune exécution enregistrée pour le moment",
-    "bodyPrefix": "Lorsque l'agent exécute du code (p. ex. ",
-    "bodyExample": "python train.py",
-    "bodySuffix": "), chaque exécution est enregistrée ici avec sa recette de reproductibilité.",
+    "title": "Aucune analyse enregistrée pour le moment",
+    "bodyPrefix": "Les modèles coût-efficacité, les analyses de sensibilité et les autres calculs locaux apparaîtront ici après leur exécution.",
+    "bodyExample": "",
+    "bodySuffix": "",
     "noMatch": "Aucune exécution ne correspond à vos filtres."
   },
   "status": {

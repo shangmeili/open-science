@@ -8,6 +8,7 @@ import type { KernelLanguage } from "@/lib/kernel";
 import { NotebookEditor } from "@/components/notebook/NotebookEditor";
 import { toast } from "@/lib/toast";
 import i18n from "@/i18n";
+import { workspaceLabel } from "@/lib/workspaceLabel";
 
 /**
  * Notebooks live in session workspaces as real .ipynb files: the user runs
@@ -17,7 +18,7 @@ import i18n from "@/i18n";
  * first. A notebook's kernel always runs in the notebook's own folder.
  */
 export function NotebooksPage() {
-  const { t } = useTranslation(["pages", "common"]);
+  const { t, i18n: translation } = useTranslation(["pages", "common"]);
   const [entries, setEntries] = useState<NotebookEntry[]>([]);
   /** Open notebook + the tree its path resolves in ("base" = listed here;
    *  "workspace" = just created in the active session folder). */
@@ -155,7 +156,7 @@ export function NotebooksPage() {
           <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
             {t("notebooks.createsIn")}
             <span className="max-w-[60%] truncate rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-text">
-              {createTarget}
+              {workspaceLabel(createTarget, translation.resolvedLanguage)}
             </span>
           </p>
         )}
@@ -180,7 +181,7 @@ export function NotebooksPage() {
                 <span className="truncate text-sm text-text">{name}</span>
                 {folder && (
                   <span className="max-w-[40%] truncate rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted">
-                    {folder}
+                    {workspaceLabel(folder, translation.resolvedLanguage)}
                   </span>
                 )}
                 <span className="ml-auto shrink-0 text-xs text-muted">

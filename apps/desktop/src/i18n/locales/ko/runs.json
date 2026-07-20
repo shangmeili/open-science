@@ -1,8 +1,8 @@
 {
-  "title": "실행",
+  "title": "분석 기록",
   "description": {
-    "prefix": "모든 작업의 분석 실행 — 명령, 코드 버전, 환경, 하드웨어, 결과물. ",
-    "suffix": " 재실행하고 결과를 비교합니다."
+    "prefix": "완료된 분석과 결과를 기기에 기록합니다. 결과를 확인할 때는 ",
+    "suffix": " 기능을 사용합니다."
   },
   "pane": {
     "subtitle": "이 작업",
@@ -18,10 +18,10 @@
   "loading": "실행 목록을 불러오는 중…",
   "loadingMore": "더 불러오는 중…",
   "empty": {
-    "title": "아직 기록된 실행이 없습니다",
-    "bodyPrefix": "에이전트가 코드를 실행하면 (예: ",
-    "bodyExample": "python train.py",
-    "bodySuffix": "), 각 실행이 재현 방법과 함께 여기에 기록됩니다.",
+    "title": "아직 분석 기록이 없습니다",
+    "bodyPrefix": "비용효과 모델, 민감도 분석 및 기타 로컬 계산은 실행 후 여기에 표시됩니다.",
+    "bodyExample": "",
+    "bodySuffix": "",
     "noMatch": "필터에 일치하는 실행이 없습니다."
   },
   "status": {

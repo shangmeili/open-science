@@ -14,11 +14,16 @@ import i18n from "@/i18n";
 /** The prompt the Reproduce action drafts — prefilled, reviewed, user-sent. */
 export function reproducePrompt(r: ProvenanceRecord): string {
   const pkgs = r.env?.packages;
+  const zh = (i18n.resolvedLanguage ?? i18n.language).startsWith("zh");
   const pkgNote = pkgs
-    ? ` The environment had ${pkgs.count} installed Python packages, listed in \`.openscience/env/${pkgs.hash}.txt\` — if the regenerated result differs, install matching versions from that lockfile and re-run.`
+    ? zh
+      ? ` 平台保存了 ${pkgs.count} 个 Python 包的环境快照（编号 ${pkgs.hash}）；如果结果不一致，请先对照该快照检查依赖版本。`
+      : ` AI4HEOR saved an environment snapshot with ${pkgs.count} installed Python packages (ID ${pkgs.hash}); if the result differs, compare dependency versions with that snapshot.`
     : "";
   const env = r.env
-    ? ` It was produced with${r.env.python ? ` Python ${r.env.python} on` : ""} ${r.env.platform}.${pkgNote}`
+    ? zh
+      ? ` 原生成环境：${r.env.python ? `Python ${r.env.python} · ` : ""}${r.env.platform}。${pkgNote}`
+      : ` It was produced with${r.env.python ? ` Python ${r.env.python} on` : ""} ${r.env.platform}.${pkgNote}`
     : "";
   const content = r.content ?? "";
   // A fence longer than any backtick run in the content, so embedded ``` in
@@ -27,13 +32,21 @@ export function reproducePrompt(r: ProvenanceRecord): string {
   // Records are capped at 100 KB (provenance.rs cap_content) — a truncated
   // record is not runnable, so tell the agent where the full code lives.
   const truncNote = content.endsWith("[truncated]")
-    ? " NOTE: the recorded code below is truncated at the store's size cap — read the full " +
-      `record for \`${r.path}\` from \`.openscience/provenance.jsonl\` before re-running.`
+    ? zh
+      ? ` 注意：下方代码因长度限制未完整展示；再次运行前，请先读取平台保存的 \`${r.path}\` 完整审计记录。`
+      : ` NOTE: the code below is truncated; read AI4HEOR's saved full audit record for \`${r.path}\` before running it again.`
     : "";
+  if (zh) {
+    return (
+      `请按第 ${r.version} 版审计记录再次生成 \`${r.path}\`。${env} ` +
+      `运行下方已记录的生成代码，然后将新文件与当前 \`${r.path}\` 比较，并说明是否一致及具体差异。` +
+      `${truncNote}\n\n${fence}\n${content}\n${fence}`
+    );
+  }
   return (
-    `Reproduce \`${r.path}\` (provenance v${r.version}).${env} ` +
-    `Re-run its recorded generating code below, then compare the regenerated file ` +
-    `with the current \`${r.path}\` and report whether they match — and what changed if not.` +
+    `Regenerate \`${r.path}\` from audit record v${r.version}.${env} ` +
+    `Run the recorded generating code below, then compare the new file with the current ` +
+    `\`${r.path}\` and explain whether they match and what changed.` +
     `${truncNote}\n\n${fence}\n${content}\n${fence}`
   );
 }

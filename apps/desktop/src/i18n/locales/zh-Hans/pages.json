@@ -1,12 +1,12 @@
 {
   "notebooks": {
-    "title": "笔记本",
+    "title": "分析笔记",
     "openJupyterLab": "打开 JupyterLab",
     "openJupyterLabTitle": "在浏览器中打开完整的 JupyterLab（相同环境和文件）",
     "newNotebook": "新建笔记本",
     "pythonNotebook": "Python 笔记本",
     "rNotebook": "R 笔记本",
-    "description": "这里汇总各项任务中的 Jupyter 笔记本，最近使用的排在前面。单元格通过本机的 Python 或 R 运行，助手处理的也是这些文件。",
+    "description": "集中查看和编辑各项任务中的分析笔记。内容保存在本机，运行结果与任务文件保持在一起。",
     "createsIn": "新笔记本创建于",
     "empty": {
       "tauri": "还没有笔记本。可以新建一个，也可以让助手生成。",
@@ -72,14 +72,14 @@
     }
   },
   "skills": {
-    "title": "技能与工具",
+    "title": "研究能力",
     "description": {
-      "prefix": "这里显示 AI4HEOR 内置的技能与工具，以及当前项目中位于 ",
+      "prefix": "查看和管理当前任务可使用的研究方法、分析工具和扩展能力。",
       "suffix": " 下的所有内容。"
     },
     "install": {
-      "sectionTitle": "添加或评估技能与工具",
-      "placeholder": "说说你希望 AI4HEOR 增加什么能力，也可以粘贴 Skill、插件、MCP 服务、计算包或 GitHub 链接",
+      "sectionTitle": "添加研究能力",
+      "placeholder": "说明你希望增加的研究能力，也可以提供已有工具或资料的链接",
       "starting": "正在启动…",
       "cta": "开始检查",
       "hintConnected": "系统会先生成本地候选方案并检查。完成审阅和准入前，候选方案不会运行。",
@@ -214,7 +214,7 @@
     "assetAdmission": {
       "sectionTitle": "外部适配器",
       "loading": "正在核对随平台发布的外部适配器…",
-      "unavailable": "无法核对外部适配器，所有外部能力保持停用。",
+      "unavailable": "未能完成外部工具检查，因此没有启用任何外部工具。",
       "firstPartyTitle": "52 个 AI4HEOR 第一方 Skill 已内置",
       "firstPartyBoundary": "这里仅显示已经通过授权、安全、方法和打包检查，并实际随平台发布的外部适配器。待改写或已排除的来源不会作为用户选项保留。",
       "admitted": "已准入",
@@ -229,7 +229,10 @@
       "detectionUnavailable": "环境检测功能在桌面应用中运行。",
       "found": "已找到",
       "notFound": "未找到",
-      "note": "运行分析时会使用本机已安装的 Python、R 或 Jupyter。应用不自带这些环境；如需使用，请单独安装或安装 Science Pack。"
+      "ready": "可以使用",
+      "optional": "按需设置",
+      "configure": "前往设置",
+      "note": "Python 和 R 用于本地计算；Jupyter 仅在需要交互式笔记本或 JupyterLab 时启用，由 AI4HEOR 单独管理。"
     },
     "agentsSection": {
       "sectionTitle": "助手（{{count}}）",
@@ -249,7 +252,7 @@
         "bundled": "AI4HEOR · 第一方"
       }
     },
-    "disconnected": "连接本地服务后，即可查看已加载的方法、工具和助手。"
+    "disconnected": "连接本地助手后，即可查看可用的研究能力。"
   },
   "notFound": {
     "title": "找不到这个页面",

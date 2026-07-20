@@ -74,7 +74,7 @@
   "skills": {
     "title": "スキルとツール",
     "description": {
-      "prefix": "AI アシスタント実行環境からライブで読み込まれます — 承認済みの AI4HEOR 機能と、ワークスペース内の ",
+      "prefix": "このタスクで利用できる研究手法、分析ツール、拡張機能を確認・管理します。",
       "suffix": " にあるものすべて。"
     },
     "install": {
@@ -151,7 +151,10 @@
       "detectionUnavailable": "環境検出はデスクトップアプリで実行されます。",
       "found": "検出済み",
       "notFound": "未検出",
-      "note": "AI アシスタントはここにインストールされたツールでコードを実行します（例: シェルツール経由の Python）。Python/R/Jupyter はバンドルされていません。分析を有効にするには、それらまたは Science Pack をインストールしてください。"
+      "ready": "使用可能",
+      "optional": "必要なときに設定",
+      "configure": "設定を開く",
+      "note": "Python と R はローカル計算に使用します。Jupyter は任意で、必要な場合に AI4HEOR が個別に管理します。"
     },
     "agentsSection": {
       "sectionTitle": "エージェント ({{count}})",

@@ -88,7 +88,7 @@ function RunsView({ sessionId }: { sessionId?: string }) {
       setCursor(page.next);
       setState("ready");
       const target = searchParams.get("run");
-      setExpanded(target && page.rows.some((r) => r.runId === target) ? target : page.rows[0]?.runId ?? null);
+      setExpanded(target && page.rows.some((r) => r.runId === target) ? target : null);
     });
     return () => {
       cancelled = true;

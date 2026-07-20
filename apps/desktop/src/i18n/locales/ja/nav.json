@@ -12,10 +12,10 @@
   },
   "items": {
     "new": "新しいタスク",
-    "notebooks": "ノートブック",
-    "files": "ファイル",
-    "runs": "実行",
-    "skills": "スキルとツール",
+    "notebooks": "分析ノート",
+    "files": "研究資料",
+    "runs": "分析履歴",
+    "skills": "研究機能",
     "heor": "研究ワークスペース"
   },
   "projects": {

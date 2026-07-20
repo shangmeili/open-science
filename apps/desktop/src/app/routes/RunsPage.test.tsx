@@ -24,12 +24,12 @@ const run: RunRecord = {
   runId: "run_ab12cd34",
   ts: 1751500000,
   sessionId: "ses_1",
-  command: "python train.py --lr 3e-4",
+  command: "python cea.py --scenario base-case",
   status: "ok",
   wallMs: 8000,
   logHash: "cafe1234",
-  code: [{ path: "train.py", hash: "aaaa", size: 512 }],
-  outputs: [{ path: "output/metrics.json", hash: "bbbb", size: 64 }],
+  code: [{ path: "cea.py", hash: "aaaa", size: 512 }],
+  outputs: [{ path: "output/cea-results.json", hash: "bbbb", size: 64 }],
   env: {
     python: "3.11.4",
     platform: "linux-x86_64",
@@ -77,27 +77,31 @@ describe("RunsPage", () => {
     serve([run]);
   });
 
-  it("lists runs with their command and expands the newest to show the recipe", async () => {
+  it("lists runs with details collapsed until the researcher opens one", async () => {
     renderPage();
-    expect(await screen.findByText("python train.py --lr 3e-4")).toBeInTheDocument();
+    const row = await screen.findByRole("button", { name: /python cea\.py --scenario base-case/ });
+    expect(screen.queryByText(/NVIDIA A100-SXM4-40GB/)).not.toBeInTheDocument();
+    await userEvent.click(row);
     expect(screen.getByText(/NVIDIA A100-SXM4-40GB/)).toBeInTheDocument();
-    expect(screen.getByText("output/metrics.json")).toBeInTheDocument();
+    expect(screen.getByText("output/cea-results.json")).toBeInTheDocument();
     expect(screen.getByText(/3.11.4/)).toBeInTheDocument();
   });
 
-  it("drafts the run recipe when Reproduce is clicked", async () => {
+  it("drafts the run recipe when Run again is clicked", async () => {
     useUiStore.setState({ composerDraft: null });
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: /Reproduce/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /python cea\.py --scenario base-case/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Run again/ }));
     const draft = useUiStore.getState().composerDraft;
-    expect(draft).toContain("Reproduce run `run_ab12cd34`");
-    expect(draft).toContain("python train.py --lr 3e-4");
+    expect(draft).toContain("Run analysis record `run_ab12cd34` again");
+    expect(draft).toContain("python cea.py --scenario base-case");
   });
 
   it("loads the captured log on demand", async () => {
     readRunLog.mockResolvedValue("epoch 1\naccuracy 0.93\n");
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: /Log/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /python cea\.py --scenario base-case/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Technical record/ }));
     expect(readRunLog).toHaveBeenCalledWith("cafe1234");
     expect(await screen.findByText(/accuracy 0.93/)).toBeInTheDocument();
   });
@@ -129,8 +133,9 @@ describe("RunsPage", () => {
 
   it("opens an output file in the OS when clicked", async () => {
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: /output\/metrics\.json/ }));
-    expect(openArtifactExternally).toHaveBeenCalledWith("output/metrics.json", "workspace");
+    await userEvent.click(await screen.findByRole("button", { name: /python cea\.py --scenario base-case/ }));
+    await userEvent.click(screen.getByRole("button", { name: /output\/cea-results\.json/ }));
+    expect(openArtifactExternally).toHaveBeenCalledWith("output/cea-results.json", "workspace");
   });
 
   it("expands the run named in the ?run= query param (deep link)", async () => {
@@ -145,18 +150,18 @@ describe("RunsPage", () => {
     serve([run, older]);
     renderPage("/runs?run=run_older");
     expect(await screen.findByText("prep.py")).toBeInTheDocument();
-    expect(screen.queryByText("output/metrics.json")).not.toBeInTheDocument();
+    expect(screen.queryByText("output/cea-results.json")).not.toBeInTheDocument();
   });
 
   it("renders a run whose code/outputs arrays were omitted by the store", async () => {
     serve([{ ...run, code: undefined, outputs: undefined, logHash: undefined } as unknown as RunRecord]);
     renderPage();
-    expect(await screen.findByText("python train.py --lr 3e-4")).toBeInTheDocument();
+    expect(await screen.findByText("python cea.py --scenario base-case")).toBeInTheDocument();
   });
 
   it("explains the empty state", async () => {
     serve([]);
     renderPage();
-    expect(await screen.findByText(/No runs recorded yet/)).toBeInTheDocument();
+    expect(await screen.findByText(/No analysis records yet/)).toBeInTheDocument();
   });
 });

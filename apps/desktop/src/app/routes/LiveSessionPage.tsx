@@ -468,12 +468,12 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
                 placeholder={
                   working
                     ? t("live.placeholder.waiting")
-                    : connected && !defaultModel
-                      ? t("heor:modelRequired.placeholder")
                     : connected
                       ? t("heor:placeholder")
                       : t("live.placeholder.disconnected")
                 }
+                modelRequired={connected && !defaultModel}
+                onOpenModelSettings={() => navigate("/settings")}
                 approvalMode={approvalMode}
                 onApprovalModeChange={(mode) => void setApprovalMode(mode)}
                 beforeWorkspaceWrite={ensureStandaloneWorkspace}

@@ -53,7 +53,7 @@ describe("SkillsPage project capability review", () => {
 
     renderAt("/skills");
     expect(await screen.findByText("External adapters")).toBeInTheDocument();
-    expect(screen.getByText(/No third-party tool currently ships with AI4HEOR/)).toBeInTheDocument();
+    expect(await screen.findByText(/No third-party tool currently ships with AI4HEOR/)).toBeInTheDocument();
     expect(screen.queryByText(/Quarantined candidates/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Rejected assets/)).not.toBeInTheDocument();
   });

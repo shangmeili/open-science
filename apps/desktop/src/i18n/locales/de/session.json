@@ -47,6 +47,11 @@
     "send": {
       "aria": "Senden"
     },
+    "modelRequired": {
+      "action": "Modell auswählen",
+      "description": "Modell für diese Aufgabe auswählen",
+      "sendHint": "Vor dem Senden ein Modell auswählen"
+    },
     "approval": {
       "aria": "Genehmigungsmodus",
       "title": "Wie Agentenaktionen genehmigt werden",

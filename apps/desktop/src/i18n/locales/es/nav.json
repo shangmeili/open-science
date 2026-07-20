@@ -12,10 +12,10 @@
   },
   "items": {
     "new": "Nueva tarea",
-    "notebooks": "Cuadernos",
-    "files": "Archivos",
-    "runs": "Ejecuciones",
-    "skills": "Habilidades y herramientas",
+    "notebooks": "Notas de análisis",
+    "files": "Archivos de investigación",
+    "runs": "Historial de análisis",
+    "skills": "Capacidades de investigación",
     "heor": "Espacio de investigación"
   },
   "projects": {

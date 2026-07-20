@@ -44,8 +44,6 @@ import {
   type MirrorSetting,
 } from "@/lib/tauri";
 import { useSetupStore } from "@/lib/setup";
-import { RemoteComputeCard } from "@/components/settings/RemoteComputeCard";
-import { ModalCard } from "@/components/settings/ModalCard";
 import { DataFlowCard } from "@/components/settings/DataFlowCard";
 import { ModelBrowser } from "@/components/settings/ModelBrowser";
 import { ProviderManagerCard } from "@/components/settings/ProviderManagerCard";
@@ -1205,9 +1203,6 @@ export function SettingsPage() {
           </Card>
         )}
 
-        <RemoteComputeCard />
-
-        <ModalCard />
 
         {/* ---- Privacy & data flow ---- */}
         <DataFlowCard model={defaultModel} workspace={wsPath} />

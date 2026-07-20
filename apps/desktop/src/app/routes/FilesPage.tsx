@@ -24,6 +24,7 @@ import { FilePreviewInspector } from "@/components/inspector/FilePreviewInspecto
 import { FileContextMenu } from "@/components/files/FileContextMenu";
 import { PaneTitlebarInset } from "@/components/inspector/RightPane";
 import { cn } from "@/lib/cn";
+import { workspaceLabel } from "@/lib/workspaceLabel";
 
 const EXT_LANG: Record<string, string> = {
   py: "python", r: "r", jl: "julia", sh: "bash", tex: "latex", md: "markdown",
@@ -57,7 +58,7 @@ function humanSize(n: number): string {
  * so all past work is reachable in one place.
  */
 export function FilesPage() {
-  const { t } = useTranslation(["pages", "common"]);
+  const { t, i18n } = useTranslation(["pages", "common"]);
   const [dir, setDir] = useState(""); // base-relative; "" = the base folder
   const [entries, setEntries] = useState<DirEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +116,7 @@ export function FilesPage() {
                   className={cn("rounded px-1 hover:bg-surface-2", isLast ? "font-medium text-text" : "text-link")}
                   onClick={() => setDir(to)}
                 >
-                  {part}
+                  {i === 0 ? workspaceLabel(part, i18n.resolvedLanguage) : part}
                 </button>
               </span>
             );
@@ -144,7 +145,11 @@ export function FilesPage() {
                 )}
               >
                 {iconFor(entry)}
-                <span className="flex-1 truncate">{entry.name}</span>
+                <span className="flex-1 truncate">
+                  {dir === "" && entry.isDir
+                    ? workspaceLabel(entry.name, i18n.resolvedLanguage)
+                    : entry.name}
+                </span>
                 {!entry.isDir && <span className="shrink-0 text-[11px] text-muted">{humanSize(entry.size)}</span>}
                 {entry.isDir && <ChevronRight size={14} className="shrink-0 text-muted" />}
               </button>

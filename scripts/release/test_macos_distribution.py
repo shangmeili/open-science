@@ -295,6 +295,25 @@ class WorkflowContractTests(unittest.TestCase):
         )
         self.assertIs(config["bundle"]["macOS"]["hardenedRuntime"], True)
 
+    def test_test_builds_do_not_expose_empty_apple_signing_environment(self) -> None:
+        workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
+        unsigned = workflow.split(
+            "- name: Build the unsigned test app (Tauri)", 1
+        )[1].split("- name: Build the signed macOS release app (Tauri)", 1)[0]
+        self.assertIn("if: github.ref_type != 'tag'", unsigned)
+        self.assertNotIn("APPLE_CERTIFICATE", unsigned)
+        self.assertNotIn("APPLE_SIGNING_IDENTITY", unsigned)
+
+    def test_windows_delivery_is_one_verified_nsis_installer(self) -> None:
+        workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
+        verifier = (ROOT / "scripts/release/verify-windows-package.ps1").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("--bundles nsis", workflow)
+        self.assertNotIn("*.msi", workflow)
+        self.assertNotIn("MsiPath", verifier)
+        self.assertIn("--check nsis-installed-payload", verifier)
+
 
 if __name__ == "__main__":
     unittest.main()

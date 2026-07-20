@@ -218,7 +218,8 @@ describe("AI4HEOR conversation route", () => {
     );
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
     expect(sendPrompt).not.toHaveBeenCalled();
-    expect(screen.getByPlaceholderText("Choose a model to send this research request…"))
+    expect(screen.getByPlaceholderText("Describe the research question or work you want to address…"))
       .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose a model" })).toBeInTheDocument();
   });
 });

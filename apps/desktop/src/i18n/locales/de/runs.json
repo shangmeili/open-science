@@ -1,8 +1,8 @@
 {
-  "title": "Durchläufe",
+  "title": "Analyseverlauf",
   "description": {
-    "prefix": "Jeder Analyselauf über alle Aufgaben hinweg — Befehl, Codeversion, Umgebung, Hardware und Ausgaben. ",
-    "suffix": " führt ihn erneut aus und vergleicht die Ergebnisse."
+    "prefix": "Lokale Aufzeichnungen abgeschlossener Analysen und ihrer Ergebnisse. Mit ",
+    "suffix": " können Sie ein Ergebnis erneut prüfen."
   },
   "pane": {
     "subtitle": "diese Aufgabe",
@@ -18,10 +18,10 @@
   "loading": "Durchläufe werden geladen…",
   "loadingMore": "Weitere werden geladen…",
   "empty": {
-    "title": "Noch keine Durchläufe aufgezeichnet",
-    "bodyPrefix": "Wenn der Agent Code ausführt (z. B. ",
-    "bodyExample": "python train.py",
-    "bodySuffix": "), wird jede Ausführung hier mit ihrem Reproduzierbarkeitsrezept aufgezeichnet.",
+    "title": "Noch keine Analyseaufzeichnungen",
+    "bodyPrefix": "Kosten-Effektivitätsmodelle, Sensitivitätsanalysen und andere lokale Berechnungen erscheinen nach ihrer Ausführung hier.",
+    "bodyExample": "",
+    "bodySuffix": "",
     "noMatch": "Keine Durchläufe entsprechen Ihren Filtern."
   },
   "status": {

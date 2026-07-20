@@ -10,20 +10,21 @@ afterEach(() => useUiStore.getState().setLocale("en"));
 describe("RunsPage strings (i18n)", () => {
   it("renders the page heading and description in English", async () => {
     renderAt("/runs");
-    expect(await screen.findByRole("heading", { level: 1, name: "Runs" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Analysis history" })).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Every analysis run across all tasks — command, code version, environment, hardware, and outputs\./,
+        /A local record of completed analyses and their outputs\./,
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("Reproduce")).toBeInTheDocument();
+    expect(screen.getByText("Run again")).toBeInTheDocument();
   });
 
   it("renders the empty state (no runs recorded) in English", async () => {
     renderAt("/runs");
-    expect(await screen.findByText("No runs recorded yet")).toBeInTheDocument();
+    expect(await screen.findByText("No analysis records yet")).toBeInTheDocument();
     expect(
-      screen.getByText((_, node) => node?.textContent === "When the agent runs code (e.g. python train.py), each execution is recorded here with its reproducibility recipe."),
+      screen.getByText("Cost-effectiveness models, sensitivity analyses, and other local calculations will appear here after they run."),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/python train\.py/)).not.toBeInTheDocument();
   });
 });

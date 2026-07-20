@@ -89,12 +89,13 @@ describe("ProvenancePanel", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /Reproduce/ }));
     const draft = useUiStore.getState().composerDraft;
-    expect(draft).toContain("Reproduce `fig/plot.py` (provenance v2)");
+    expect(draft).toContain("Regenerate `fig/plot.py` from audit record v2");
     expect(draft).toContain("Python 3.12.4");
     expect(draft).toContain("print(2)");
-    // The reproduce prompt references the captured package lockfile.
+    // The draft references the captured environment without exposing storage paths.
     expect(draft).toContain("3 installed Python packages");
-    expect(draft).toContain(".openscience/env/deadbeef.txt");
+    expect(draft).toContain("deadbeef");
+    expect(draft).not.toContain(".openscience");
   });
 
   it("reveals the captured package lockfile on demand", async () => {
@@ -135,7 +136,7 @@ describe("ProvenancePanel", () => {
     // Reproduce drafts the RUN recipe (re-run the command), not re-authoring.
     await userEvent.click(screen.getByRole("button", { name: /Reproduce/ }));
     const draft = useUiStore.getState().composerDraft;
-    expect(draft).toContain("Reproduce run `run_abc123`");
+    expect(draft).toContain("Run analysis record `run_abc123` again");
     expect(draft).toContain("python train.py --lr 3e-4");
     expect(draft).toContain("output/metrics.json");
   });
@@ -184,9 +185,10 @@ describe("reproducePrompt", () => {
     expect(prompt).toContain(`\`\`\`\`\n${content}\n\`\`\`\``);
   });
 
-  it("flags truncated records and points at the full provenance store", () => {
+  it("flags truncated records without exposing the internal provenance store", () => {
     const prompt = reproducePrompt(record("big = 1\n… [truncated]"));
     expect(prompt).toContain("truncated");
-    expect(prompt).toContain(".openscience/provenance.jsonl");
+    expect(prompt).toContain("saved full audit record");
+    expect(prompt).not.toContain(".openscience");
   });
 });

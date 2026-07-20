@@ -52,6 +52,24 @@ describe("Composer", () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
+  it("keeps natural-language input available and exposes model setup separately", () => {
+    const openSettings = vi.fn();
+    render(
+      <Composer
+        onSend={vi.fn()}
+        disabled
+        modelRequired
+        onOpenModelSettings={openSettings}
+        placeholder="Describe the research question"
+      />,
+    );
+
+    expect(screen.getByPlaceholderText("Describe the research question")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Choose a model" }));
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("Send")).toHaveAttribute("title", "Choose a model before sending");
+  });
+
   it("turns the send button into Stop while working, back to Send when done", () => {
     const onStop = vi.fn();
     const { rerender } = render(<Composer onSend={vi.fn()} disabled working onStop={onStop} />);

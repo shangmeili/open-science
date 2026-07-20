@@ -268,9 +268,6 @@ export function Sidebar() {
               <span className="font-serif text-[17px] font-semibold leading-none tracking-tight text-text">
                 AI4HEOR
               </span>
-              <span className="text-[10px] uppercase tracking-widest text-muted">
-                {t("sidebar.betaBadge")}
-              </span>
             </button>
             {!overlayTitlebar && (
               <button

@@ -177,7 +177,7 @@
     "builtIn": "内置",
     "humanAuthorization": "每次检索前需确认",
     "heorEvidenceLabel": "HEOR 证据检索",
-    "heorEvidenceDescription": "可检索 PubMed 和 ClinicalTrials.gov 的公开元数据。助手只负责准备检索式；每次联网检索都要由研究者确认。",
+    "heorEvidenceDescription": "检索 PubMed 和 ClinicalTrials.gov 的公开元数据。开始一项新的检索任务前，会展示检索式、日期范围和发送字段；确认后，该次检索中的分页请求无需重复确认。",
     "heorEvidenceSources": "{{sources}} · ${{id}}",
     "externalBoundary": "自行添加的 MCP 服务由其提供方负责。启用前请检查代码、许可证、会发送哪些数据以及如何使用凭据。这些服务不能替研究者作出方法学判断或批准。",
     "settingUp": "正在设置…",

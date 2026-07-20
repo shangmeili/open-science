@@ -125,6 +125,7 @@ describe("Sidebar projects", () => {
     expect(await screen.findByRole("heading", { name: "What HEOR work would you like to tackle today?" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Research workspace" }));
     expect(await screen.findByRole("heading", { name: "What are you working on?" })).toBeInTheDocument();
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument();
   });
 
   it("keeps an explicit project flow for work that should share context", async () => {
