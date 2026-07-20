@@ -9,7 +9,7 @@ describe("Composer", () => {
     const input = screen.getByLabelText("Ask anything");
 
     expect(input).toHaveAttribute("data-focus-style", "neutral");
-    expect(input.parentElement).toHaveClass("focus-within:border-muted/45");
+    expect(input.parentElement).toHaveClass("focus-within:border-muted", "focus-within:ring-border");
     expect(input.parentElement).not.toHaveClass("focus-within:border-accent/50");
   });
 

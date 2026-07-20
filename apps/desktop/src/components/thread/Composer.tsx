@@ -453,7 +453,7 @@ export function Composer({
   return (
     <div
       className={cn(
-        "relative rounded-[14px] border bg-surface px-3 pb-2.5 pt-3 shadow-card transition-[border-color,box-shadow] focus-within:border-muted/45 focus-within:ring-2 focus-within:ring-border/70",
+        "relative rounded-[14px] border bg-surface px-3 pb-2.5 pt-3 shadow-card transition-[border-color,box-shadow] focus-within:border-muted focus-within:ring-2 focus-within:ring-border",
         shellMode ? "border-warn/60" : command ? "border-accent/50" : "border-border",
         dragOver && "border-accent ring-2 ring-accent/40",
       )}

@@ -576,7 +576,7 @@ function InlineNameInput({
         if (!busy) onCancel();
       }}
       className={cn(
-        "w-full min-w-0 rounded-input border border-border bg-surface px-2 py-[3px] text-[13px] text-text outline-none transition-[border-color,box-shadow] placeholder:text-muted focus:border-muted/60 focus:ring-2 focus:ring-border/70",
+        "w-full min-w-0 rounded-input border border-border bg-surface px-2 py-[3px] text-[13px] text-text outline-none transition-[border-color,box-shadow] placeholder:text-muted focus:border-muted focus:ring-2 focus:ring-border",
         busy && "animate-pulse opacity-60",
       )}
     />

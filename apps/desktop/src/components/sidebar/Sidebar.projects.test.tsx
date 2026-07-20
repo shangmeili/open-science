@@ -141,7 +141,7 @@ describe("Sidebar projects", () => {
     await userEvent.click((await screen.findAllByRole("button", { name: "New project" }))[0]);
     const input = screen.getByPlaceholderText("Project name");
     expect(input).toHaveAttribute("data-focus-style", "neutral");
-    expect(input).toHaveClass("border-border", "focus:border-muted/60");
+    expect(input).toHaveClass("border-border", "focus:border-muted", "focus:ring-border");
     expect(input).not.toHaveClass("border-accent/50", "focus:border-accent");
     await userEvent.type(input, `${PROJECT.name}{Enter}`);
 
