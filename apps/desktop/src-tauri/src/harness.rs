@@ -13,15 +13,15 @@ const REQUIRED_HARNESS_FILES: &[&str] = &[
     "KNOWLEDGE.md",
     "README.md",
     "capabilities/README.md",
-    "capabilities/candidates/.gitkeep",
-    "capabilities/reviews/.gitkeep",
+    "capabilities/candidates/KEEP",
+    "capabilities/reviews/KEEP",
     "knowledge/current-state.md",
     "knowledge/system.md",
     "learning/README.md",
     "learning/preferences.json",
-    "learning/proposals/.gitkeep",
-    "learning/reviews/.gitkeep",
-    "notes/.gitkeep",
+    "learning/proposals/KEEP",
+    "learning/reviews/KEEP",
+    "notes/KEEP",
     "policy.json",
 ];
 
@@ -289,9 +289,6 @@ fn validate_harness_source(src: &Path) -> Result<(), String> {
         ));
     }
     for relative in REQUIRED_HARNESS_FILES {
-        if relative.ends_with("/.gitkeep") {
-            continue;
-        }
         let raw = std::fs::read(src.join(relative))
             .map_err(|error| format!("could not read harness {relative}: {error}"))?;
         if raw.is_empty() {

@@ -196,6 +196,10 @@ interface RuntimeState {
 
 let client: OpenCodeClient | null = null;
 let openSessionSeq = 0;
+/** Increments when the researcher deliberately changes the model. Catalog
+ *  requests capture the value they started with, so a stale response cannot
+ *  overwrite a newer selection after the switch has completed. */
+let modelSelectionSeq = 0;
 /** React StrictMode mounts effects twice in development. Share the same boot
  *  promise so duplicate AppShell effects cannot start dueling connect loops. */
 let bootstrapInFlight: Promise<void> | null = null;
@@ -231,6 +235,27 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   } catch {
     await sleep(600);
     return await fn();
+  }
+}
+/** Remember only the newest keys. Long-running desktop sessions can receive
+ *  many repeated SSE events, so deduplication state must not grow forever. */
+export function rememberBounded(set: Set<string>, key: string, cap = 4000): void {
+  if (set.has(key)) return;
+  set.add(key);
+  while (set.size > cap) {
+    const oldest = set.values().next().value as string | undefined;
+    if (oldest === undefined) break;
+    set.delete(oldest);
+  }
+}
+
+function setBoundedMap<K, V>(map: Map<K, V>, key: K, value: V, cap: number): void {
+  map.delete(key);
+  map.set(key, value);
+  while (map.size > cap) {
+    const oldest = map.keys().next().value as K | undefined;
+    if (oldest === undefined) break;
+    map.delete(oldest);
   }
 }
 /** Tool calls already written to provenance — success events can repeat per callId. */
@@ -571,6 +596,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
 
   loadCatalog: async () => {
     if (!client) return;
+    const selectionSeq = modelSelectionSeq;
     try {
       const [firstSkills, agents, defaultModel, commands] = await Promise.all([
         client.listSkills(),
@@ -581,7 +607,11 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       // A model switch in flight owns `defaultModel`: this read may predate
       // the switch's config write, and applying it would visibly revert the
       // just-selected model.
-      set(get().switching ? { agents, commands } : { agents, defaultModel, commands });
+      set(
+        get().switching || selectionSeq !== modelSelectionSeq
+          ? { agents, commands }
+          : { agents, defaultModel, commands },
+      );
       let skills = firstSkills;
       // The first workspace-scoped /api/skill call triggers OpenCode's lazy
       // instance init and can answer before the scan finishes — poll briefly.
@@ -629,6 +659,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
 
   setDefaultModel: async (model) => {
     if (!client) throw new Error("Not connected to the AI assistant runtime.");
+    modelSelectionSeq += 1;
     // Applying the model PATCHes OpenCode's global config, which closes the
     // event stream server-side. EventSource's own reconnect does not reliably
     // recover from that — it strands the app in "connecting"/disconnected until
@@ -694,7 +725,8 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         !(event.type === "tool.updated" && event.status === "running")
       )
         void logDebug(`event ← ${event.type}${"sessionId" in event ? " " + event.sessionId : ""}`);
-      if ("sessionId" in event && event.sessionId) sseLast.set(event.sessionId, ++sseSeq);
+      if ("sessionId" in event && event.sessionId)
+        setBoundedMap(sseLast, event.sessionId, ++sseSeq, 500);
       if (event.type === "error") {
         // A session-scoped error belongs IN the conversation (a red status
         // line where the user is looking), and it ends that session's turn so
@@ -840,7 +872,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       if (event.type === "tool.updated" && !recordedProvenance.has(event.callId)) {
         const input = provenanceInputFromEvent(event);
         if (input) {
-          recordedProvenance.add(event.callId);
+          rememberBounded(recordedProvenance, event.callId);
           void recordProvenance(input, sid, get().defaultModel);
         }
       }
@@ -849,7 +881,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       if (event.type === "tool.updated" && !recordedRuns.has(event.callId)) {
         const run = runInputFromEvent(event);
         if (run) {
-          recordedRuns.add(event.callId);
+          rememberBounded(recordedRuns, event.callId);
           void recordRun(run, sid, get().defaultModel);
         }
       }

@@ -59,7 +59,10 @@ function Assert-SameTree {
     $packagedFiles = Get-TreeInventory $Packaged
     $sourceNames = @($sourceFiles.Keys | Sort-Object)
     $packagedNames = @($packagedFiles.Keys | Sort-Object)
-    Assert-True (($sourceNames -join "`n") -ceq ($packagedNames -join "`n")) "Packaged resource file set differs: $Packaged"
+    $missing = @($sourceNames | Where-Object { -not $packagedFiles.ContainsKey($_) })
+    $extra = @($packagedNames | Where-Object { -not $sourceFiles.ContainsKey($_) })
+    $difference = "missing=[$($missing -join ', ')]; extra=[$($extra -join ', ')]"
+    Assert-True (($sourceNames -join "`n") -ceq ($packagedNames -join "`n")) "Packaged resource file set differs: $Packaged ($difference)"
     foreach ($name in $sourceNames) {
         Assert-True ($sourceFiles[$name] -eq $packagedFiles[$name]) "Packaged resource bytes differ: $Packaged/$name"
     }

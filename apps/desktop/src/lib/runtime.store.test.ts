@@ -53,6 +53,8 @@ const mocks = vi.hoisted(() => ({
   /** Records setDefaultModel calls; `currentModel` is what getDefaultModel returns. */
   setDefaultModelSpy: vi.fn(),
   currentModel: null as string | null,
+  /** Optional delayed catalog read used to reproduce a stale response race. */
+  getDefaultModelDeferred: null as Promise<string | null> | null,
   /** Next setDefaultModel PATCH throws (server unreachable). */
   failSetModel: false,
   /** History the mock server returns for any session. */
@@ -139,6 +141,7 @@ vi.mock("@ai4s/sdk", () => {
       return [];
     }
     async getDefaultModel() {
+      if (mocks.getDefaultModelDeferred) return mocks.getDefaultModelDeferred;
       return mocks.currentModel;
     }
     async setDefaultModel(model: string) {
@@ -214,7 +217,7 @@ vi.mock("@ai4s/sdk", () => {
 });
 
 import type { ArtifactBlock } from "@ai4s/shared";
-import { DRAFT_KEY, rootSessionOf, useRuntimeStore } from "./runtime";
+import { DRAFT_KEY, rememberBounded, rootSessionOf, useRuntimeStore } from "./runtime";
 
 const PROJECT = {
   id: "project-1",
@@ -238,6 +241,7 @@ beforeEach(async () => {
   mocks.failMessages = false;
   mocks.approvalMode = "approve";
   mocks.currentModel = null;
+  mocks.getDefaultModelDeferred = null;
   mocks.failSetModel = false;
   useRuntimeStore.setState({
     currentId: null,
@@ -258,6 +262,14 @@ beforeEach(async () => {
 });
 
 describe("runtime authentication", () => {
+  it("bounds long-lived SSE deduplication memory", () => {
+    const seen = new Set<string>();
+    rememberBounded(seen, "first", 2);
+    rememberBounded(seen, "second", 2);
+    rememberBounded(seen, "third", 2);
+    expect([...seen]).toEqual(["second", "third"]);
+  });
+
   it("deduplicates concurrent bootstrap calls", async () => {
     const first = useRuntimeStore.getState().bootstrap();
     const second = useRuntimeStore.getState().bootstrap();
@@ -992,6 +1004,21 @@ describe("approval mode", () => {
     } finally {
       useRuntimeStore.setState({ switching: false });
     }
+  });
+
+  it("ignores a catalog model read that started before a completed switch", async () => {
+    let resolveStale: (model: string | null) => void = () => {};
+    mocks.getDefaultModelDeferred = new Promise((resolve) => {
+      resolveStale = resolve;
+    });
+    const staleCatalog = useRuntimeStore.getState().loadCatalog();
+
+    mocks.getDefaultModelDeferred = null;
+    await useRuntimeStore.getState().setDefaultModel("moonshot/kimi-k2-thinking");
+    resolveStale("moonshot/kimi-k2.7-code");
+    await staleCatalog;
+
+    expect(useRuntimeStore.getState().defaultModel).toBe("moonshot/kimi-k2-thinking");
   });
 });
 

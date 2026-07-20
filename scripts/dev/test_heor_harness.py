@@ -21,15 +21,15 @@ class HeorHarnessContractTests(unittest.TestCase):
             "KNOWLEDGE.md",
             "README.md",
             "capabilities/README.md",
-            "capabilities/candidates/.gitkeep",
-            "capabilities/reviews/.gitkeep",
+            "capabilities/candidates/KEEP",
+            "capabilities/reviews/KEEP",
             "knowledge/current-state.md",
             "knowledge/system.md",
             "learning/README.md",
             "learning/preferences.json",
-            "learning/proposals/.gitkeep",
-            "learning/reviews/.gitkeep",
-            "notes/.gitkeep",
+            "learning/proposals/KEEP",
+            "learning/reviews/KEEP",
+            "notes/KEEP",
             "policy.json",
         }
         actual = {
@@ -38,13 +38,7 @@ class HeorHarnessContractTests(unittest.TestCase):
             if path.is_file()
         }
         self.assertEqual(actual, expected)
-        for relative in expected - {
-            "notes/.gitkeep",
-            "capabilities/candidates/.gitkeep",
-            "capabilities/reviews/.gitkeep",
-            "learning/proposals/.gitkeep",
-            "learning/reviews/.gitkeep",
-        }:
+        for relative in expected:
             self.assertTrue((HARNESS_ROOT / relative).read_text(encoding="utf-8").strip())
 
     def test_runtime_contract_makes_the_researcher_the_scientific_lead(self):

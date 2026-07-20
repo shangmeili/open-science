@@ -314,6 +314,8 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn("MsiPath", verifier)
         self.assertIn("--check nsis-installed-payload", verifier)
         self.assertIn("GetValue('DisplayName')", verifier)
+        self.assertIn("missing=[$($missing -join ', ')]", verifier)
+        self.assertIn("extra=[$($extra -join ', ')]", verifier)
         self.assertNotIn("Where-Object DisplayName", verifier)
 
 
