@@ -186,7 +186,7 @@
   },
   "workspace": {
     "title": "Espace de travail",
-    "hint": "Local par défaut — chaque session travaille dans son propre sous-dossier daté, créé ici",
+    "hint": "Les projets et les conversations indépendantes restent ici ; les fichiers d’un projet sont réutilisables dans ses conversations",
     "unavailable": "disponible dans l'application de bureau",
     "change": "Changer…",
     "reveal": "Afficher"

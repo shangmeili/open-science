@@ -11,7 +11,7 @@ import { useScrollMemory } from "@/lib/scrollMemory";
 import { BlockList, type BlockHandlers } from "@/components/thread/BlockList";
 import { Elapsed } from "@/components/thread/ToolGroup";
 import { Composer } from "@/components/thread/Composer";
-import { baseName } from "@/components/thread/WorkspaceChip";
+import { baseName } from "@/lib/pathName";
 import { HeorStarters } from "@/components/heor/HeorStarters";
 import { FirstRunGuide } from "@/components/heor/FirstRunGuide";
 import { HeorReviewPane } from "@/components/heor/HeorReviewPane";
@@ -37,6 +37,7 @@ export function LiveSessionPage() {
     runningSessions,
     sessions,
     projects,
+    researchScope,
     currentId,
     threads,
     error,
@@ -44,12 +45,14 @@ export function LiveSessionPage() {
     permissions,
     sessionParents,
     workspace,
+    workspacePinned,
     panes,
     commands,
     defaultModel,
     connect,
     openSession,
     startDraft,
+    ensureStandaloneWorkspace,
     sendPrompt,
     runShell,
     runCommand,
@@ -209,10 +212,11 @@ export function LiveSessionPage() {
   const activeArtifact = pane?.artifact ?? null;
   const showFiles = !activeArtifact && !!pane?.showFiles;
   const showRuns = !activeArtifact && !showFiles && !!pane?.showRuns;
-  const activeProject =
-    projects.find((candidate) => candidate.path === workspace) ??
-    (!isTauri ? { id: "ai4heor-demo", name: "First-line NSCLC" } : null);
-
+  const activeProject = !isTauri
+    ? { id: "ai4heor-demo", name: "First-line NSCLC" }
+    : workspacePinned || !!sessionId
+      ? projects.find((candidate) => candidate.path === workspace) ?? researchScope
+      : null;
   // Show the Runs toggle only when this session has runs (like the Files/folder
   // affordance — present when there's content). Cheap count query on open.
   const [hasRuns, setHasRuns] = useState(false);
@@ -274,9 +278,8 @@ export function LiveSessionPage() {
             </button>
           )}
           {/* Left: the session title is the identity anchor. A draft shows no
-              title — the workspace picker lives in the composer until the
-              session exists. min-w-0 lets it truncate instead of shoving the
-              right-side controls off the bar. */}
+              session title until its first message. min-w-0 lets it truncate
+              instead of shoving the right-side controls off the bar. */}
           <div className="flex min-w-0 items-center gap-2">
             <Activity size={14} className="shrink-0 text-accent" />
             <h1 className="truncate font-serif text-[15px] font-semibold text-text">
@@ -365,6 +368,7 @@ export function LiveSessionPage() {
                 <FirstRunGuide onOpenSettings={() => navigate("/settings")} />
                 <HeorStarters
                   onPick={(prompt) => useUiStore.getState().setComposerDraft(prompt)}
+                  ensureWorkspace={ensureStandaloneWorkspace}
                 />
               </>
             )}
@@ -465,6 +469,7 @@ export function LiveSessionPage() {
               }
               approvalMode={approvalMode}
               onApprovalModeChange={(mode) => void setApprovalMode(mode)}
+              beforeWorkspaceWrite={ensureStandaloneWorkspace}
             />
           </div>
         </div>

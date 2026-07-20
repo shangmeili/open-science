@@ -242,13 +242,13 @@ instructions, and cannot change governance, authorize egress, or create approval
 
 `policy.json` is the exact machine-readable companion to `AGENTS.md`. It versions
 the scientific-lead, interaction, provider, external-content, deterministic-calculation,
-approval-store, and default data-classification contract. Before a new project can
-become active, the native shell requires the exact harness resource tree, rejects
+approval-store, and default data-classification contract. Before a new project or
+standalone conversation scope can become active, the native shell requires the exact harness resource tree, rejects
 empty or extra files and source/target symlinks (including linked parent directories),
 validates the policy values and required Human-authority text, copies only missing
 files, and compares every newly copied byte. Any failure removes only the newly
 created incomplete directory and returns a visible error; no active-workspace pointer
-or initial Git snapshot is written. Existing projects are never reseeded or silently
+or initial Git snapshot is written. Existing research scopes are never reseeded or silently
 rewritten. Rust and Python contract tests bind these fail-closed semantics and the
 packaged-resource mapping.
 
@@ -823,6 +823,14 @@ default workspace is `~/Documents/AI4HEOR`. Hidden `.openscience` metadata paths
 storage-schema compatibility boundary; they are not the public product or workspace name.
 
 ## 9. Storage
+
+A named project and a standalone conversation use the same local research-scope
+contract. Both receive an app-issued stable id, harness, provenance, Human review,
+and approval boundary. Only `kind: "heor"` scopes appear in the Projects list and
+can group multiple conversations; `kind: "session"` scopes stay under Standalone
+conversations and own their files and context independently. The historical
+`projectId` field name remains in audit schemas for compatibility and does not mean
+that a standalone conversation must be converted into a project.
 
 ### 9.1 Project structure
 

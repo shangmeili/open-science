@@ -11,7 +11,7 @@
     "settings": "设置"
   },
   "items": {
-    "new": "开始新的研究项目",
+    "new": "新建会话",
     "notebooks": "笔记本",
     "files": "文件",
     "runs": "运行",
@@ -28,8 +28,8 @@
     "renameHint": "双击重命名"
   },
   "history": {
-    "heading": "会话",
-    "empty": "暂无对话。",
+    "heading": "单独会话",
+    "empty": "暂无单独会话。",
     "exampleTag": "示例",
     "deleteAria": "删除 {{title}}"
   },

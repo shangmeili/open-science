@@ -11,7 +11,7 @@
     "settings": "Settings"
   },
   "items": {
-    "new": "Start a research project",
+    "new": "New conversation",
     "notebooks": "Notebooks",
     "files": "Files",
     "runs": "Runs",
@@ -28,8 +28,8 @@
     "renameHint": "Double-click to rename"
   },
   "history": {
-    "heading": "Sessions",
-    "empty": "No conversations yet.",
+    "heading": "Standalone conversations",
+    "empty": "No standalone conversations yet.",
     "exampleTag": "example",
     "deleteAria": "Delete {{title}}"
   },

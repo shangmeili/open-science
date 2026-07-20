@@ -607,7 +607,7 @@ export interface ProjectInfo {
   name: string;
   description?: string;
   createdAt: number;
-  kind: "heor";
+  kind: "heor" | "session";
   /** Absolute workspace folder (canonical, matches session `directory`). */
   path: string;
 }
@@ -625,6 +625,13 @@ export async function listProjects(): Promise<ProjectInfo[]> {
   if (!isTauri) return [];
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<ProjectInfo[]>("list_projects");
+}
+
+/** Active named project or standalone conversation research scope. */
+export async function currentResearchScope(): Promise<ProjectInfo | null> {
+  if (!isTauri) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<ProjectInfo | null>("current_research_scope");
 }
 
 /** Rename a project's display name (the folder never moves). */

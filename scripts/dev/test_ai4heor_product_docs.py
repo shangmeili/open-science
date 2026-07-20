@@ -323,12 +323,11 @@ class AI4HEORProductDocsTests(unittest.TestCase):
         for text in (english, chinese):
             self.assertIn("capabilities/candidates/", text)
             self.assertIn("learning/preferences.json", text)
-            self.assertIn("AI4HEOR_0.1.52_x64.dmg", text)
+            self.assertIn("AI4HEOR_0.1.54_x64.dmg", text)
             self.assertIn(
-                "8f4e2feb2badc36db8372012169f68bbe867403386fc66cd5d0e89075a398138",
+                "2c8c70bd96fc9f78778f0c9653518b23de3d915c2198467c968345fd4b372aff",
                 text,
             )
-            self.assertIn("0b77504", text)
         self.assertIn("app-private `auth.json`", english)
         self.assertIn("separately from endpoint metadata", english)
         self.assertIn("应用私有 `auth.json`", chinese)

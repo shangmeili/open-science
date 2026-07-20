@@ -1,8 +1,9 @@
 // AI4HEOR projects: named HEOR workspace folders under the base dir, marked by
 // the historical compatibility path `<folder>/.openscience/project.json`.
 // The folder IS the workspace — sessions group under a project by their
-// `directory`, so no registry or database exists to drift out of sync. Folders
-// without the marker stay plain dated session workspaces.
+// `directory`, so no registry or database exists to drift out of sync. Dated
+// standalone conversation folders use the same marker with `kind: session` but
+// are deliberately excluded from the Projects list.
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tauri::AppHandle;
@@ -10,6 +11,7 @@ use tauri::AppHandle;
 use crate::runtime::{base_workspace_dir, random_hex};
 
 const HEOR_PROJECT_KIND: &str = "heor";
+const SESSION_SCOPE_KIND: &str = "session";
 
 fn default_project_kind() -> String {
     HEOR_PROJECT_KIND.into()
@@ -53,20 +55,23 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// A corrupt or missing project.json makes the folder a plain workspace again
-/// — never an error the UI has to handle.
+/// A corrupt or missing scope marker is treated as absent. Opening a legacy
+/// standalone folder repairs the missing marker through `set_workspace`.
 fn read_meta(dir: &Path) -> Option<ProjectMeta> {
     let text = std::fs::read_to_string(meta_file(dir)).ok()?;
     serde_json::from_str(&text).ok()
 }
 
-/// The stable identity of the project owning `dir`. Decision-relevant HEOR
-/// state must bind to this marker instead of accepting a caller-selected id.
+/// The stable identity of the research scope owning `dir`. The serialized
+/// field remains `projectId` for compatibility, but both named projects and
+/// standalone conversations have an app-issued identity. This keeps HEOR
+/// review and audit functions available without forcing a conversation into a
+/// project.
 pub(crate) fn require_project_id(dir: &Path) -> Result<String, String> {
     read_meta(dir)
-        .filter(|meta| meta.kind == HEOR_PROJECT_KIND)
+        .filter(|meta| meta.kind == HEOR_PROJECT_KIND || meta.kind == SESSION_SCOPE_KIND)
         .map(|meta| meta.id)
-        .ok_or_else(|| "HEOR work requires the current workspace to be an AI4HEOR project".into())
+        .ok_or_else(|| "HEOR work requires an AI4HEOR research scope".into())
 }
 
 fn write_meta(dir: &Path, meta: &ProjectMeta) -> Result<(), String> {
@@ -76,6 +81,30 @@ fn write_meta(dir: &Path, meta: &ProjectMeta) -> Result<(), String> {
     }
     let json = serde_json::to_string_pretty(meta).map_err(|e| e.to_string())?;
     std::fs::write(&file, json).map_err(|e| e.to_string())
+}
+
+/// Give a standalone conversation the same stable local identity used by the
+/// HEOR audit boundary, without making it appear in the Projects list.
+pub(crate) fn ensure_session_scope(dir: &Path, name: &str) -> Result<String, String> {
+    if let Some(meta) = read_meta(dir) {
+        if meta.kind == HEOR_PROJECT_KIND || meta.kind == SESSION_SCOPE_KIND {
+            return Ok(meta.id);
+        }
+        return Err("workspace metadata has an unsupported research-scope kind".into());
+    }
+    if meta_file(dir).exists() {
+        return Err("workspace research-scope metadata is unreadable".into());
+    }
+    let meta = ProjectMeta {
+        id: random_hex(8),
+        name: name.trim().to_string(),
+        description: None,
+        created_at: now_ms(),
+        kind: SESSION_SCOPE_KIND.into(),
+        version: 2,
+    };
+    write_meta(dir, &meta)?;
+    Ok(meta.id)
 }
 
 /// Project name → folder name: one path segment, no whitespace (the agent runs
@@ -168,8 +197,8 @@ pub fn create_project(app: AppHandle, name: String) -> Result<ProjectInfo, Strin
     Ok(info_of(meta, &dir))
 }
 
-/// Every project under the base dir (first-level folders carrying a readable
-/// project.json), sorted by name for a stable sidebar.
+/// Every named HEOR project under the base dir, sorted by name for a stable
+/// sidebar. Standalone conversation scopes are intentionally excluded.
 #[tauri::command(async)]
 pub fn list_projects(app: AppHandle) -> Result<Vec<ProjectInfo>, String> {
     let base = base_workspace_dir(&app)?;
@@ -180,13 +209,24 @@ pub fn list_projects(app: AppHandle) -> Result<Vec<ProjectInfo>, String> {
             if !dir.is_dir() {
                 continue;
             }
-            if let Some(meta) = read_meta(&dir) {
+            if let Some(meta) = read_meta(&dir).filter(|meta| meta.kind == HEOR_PROJECT_KIND) {
                 out.push(info_of(meta, &dir));
             }
         }
     }
     out.sort_by_key(|project| project.name.to_lowercase());
     Ok(out)
+}
+
+/// The active named project or standalone conversation scope. This is kept
+/// separate from `list_projects`: a standalone conversation can use the full
+/// HEOR review surface without appearing as a project in the sidebar.
+#[tauri::command]
+pub fn current_research_scope(app: AppHandle) -> Result<Option<ProjectInfo>, String> {
+    let dir = crate::runtime::workspace_dir(&app)?;
+    Ok(read_meta(&dir)
+        .filter(|meta| meta.kind == HEOR_PROJECT_KIND || meta.kind == SESSION_SCOPE_KIND)
+        .map(|meta| info_of(meta, &dir)))
 }
 
 /// Rename the project's display name only — the folder never moves, so session
@@ -198,14 +238,19 @@ pub fn rename_project(path: String, name: String) -> Result<(), String> {
         return Err("project name is empty".into());
     }
     let dir = PathBuf::from(&path);
-    let mut meta = read_meta(&dir).ok_or("not a project folder")?;
+    let mut meta = read_meta(&dir)
+        .filter(|meta| meta.kind == HEOR_PROJECT_KIND)
+        .ok_or("not a project folder")?;
     meta.name = name.to_string();
     write_meta(&dir, &meta)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{create_in, folder_slug, read_meta, require_project_id, HEOR_PROJECT_KIND};
+    use super::{
+        create_in, ensure_session_scope, folder_slug, read_meta, require_project_id,
+        HEOR_PROJECT_KIND, SESSION_SCOPE_KIND,
+    };
     use std::fs;
 
     #[test]
@@ -251,6 +296,11 @@ mod tests {
         fs::write(dir.join(".openscience").join("project.json"), "{not json").unwrap();
         assert!(read_meta(&dir).is_none());
         assert!(require_project_id(&dir).is_err());
+        assert!(ensure_session_scope(&dir, "broken").is_err());
+        assert_eq!(
+            fs::read_to_string(dir.join(".openscience").join("project.json")).unwrap(),
+            "{not json"
+        );
         let _ = fs::remove_dir_all(&base);
     }
 
@@ -270,6 +320,23 @@ mod tests {
         let meta = read_meta(&dir).unwrap();
         assert_eq!(meta.kind, HEOR_PROJECT_KIND);
         assert_eq!(require_project_id(&dir).unwrap(), "legacy-id");
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn standalone_conversation_has_a_stable_non_project_research_scope() {
+        let base =
+            std::env::temp_dir().join(format!("ai4heor-session-scope-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+
+        let id = ensure_session_scope(&base, "2026-07-20-1200").unwrap();
+        let meta = read_meta(&base).unwrap();
+        assert_eq!(meta.kind, SESSION_SCOPE_KIND);
+        assert_eq!(meta.name, "2026-07-20-1200");
+        assert_eq!(require_project_id(&base).unwrap(), id);
+        assert_eq!(ensure_session_scope(&base, "ignored").unwrap(), id);
+
         let _ = fs::remove_dir_all(&base);
     }
 }

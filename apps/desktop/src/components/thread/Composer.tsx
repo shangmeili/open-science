@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } 
 import { useTranslation } from "react-i18next";
 import { ArrowUp, Check, ChevronDown, Hand, Paperclip, Square, Terminal, X, Zap } from "lucide-react";
 import { addFilesToWorkspace, addTextToWorkspace, isTauri, type ApprovalMode } from "@/lib/tauri";
-import { WorkspaceChip } from "@/components/thread/WorkspaceChip";
 import { useUiStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
@@ -73,6 +72,7 @@ export function Composer({
   placeholder,
   approvalMode,
   onApprovalModeChange,
+  beforeWorkspaceWrite,
 }: {
   onSend?: (text: string) => void;
   onRunShell?: (command: string) => void;
@@ -88,6 +88,8 @@ export function Composer({
    *  session does; static mock sessions don't). */
   approvalMode?: ApprovalMode;
   onApprovalModeChange?: (mode: ApprovalMode) => void;
+  /** Materialize a draft's private workspace before attachments are copied. */
+  beforeWorkspaceWrite?: () => Promise<boolean>;
 }) {
   const { t } = useTranslation(["session", "common"]);
   const resolvedPlaceholder = placeholder ?? t("composer.placeholder.default");
@@ -325,6 +327,7 @@ export function Composer({
     e.preventDefault();
     void (async () => {
       try {
+        if (beforeWorkspaceWrite && !(await beforeWorkspaceWrite())) return;
         const name = await addTextToWorkspace("pasted.txt", text);
         setFiles((f) => [...f, name]);
       } catch (err) {
@@ -341,6 +344,7 @@ export function Composer({
   const addFiles = async () => {
     setAdding(true);
     try {
+      if (beforeWorkspaceWrite && !(await beforeWorkspaceWrite())) return;
       const names = await addFilesToWorkspace();
       if (names.length > 0) setFiles((f) => [...f, ...names]);
     } catch (err) {
@@ -481,9 +485,6 @@ export function Composer({
             </button>
           )
         )}
-        {/* Folder picker for a fresh draft — renders nothing once the session
-            exists (its folder then shows in the header's Files toggle). */}
-        <WorkspaceChip />
         {approvalMode && onApprovalModeChange && (
           <div className="relative shrink-0" ref={approvalRef}>
             {approvalOpen && (

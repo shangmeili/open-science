@@ -123,6 +123,7 @@ pub fn run() {
             runtime::new_dated_workspace,
             project::create_project,
             project::list_projects,
+            project::current_research_scope,
             project::rename_project,
             runtime::pick_folder,
             runtime::import_opencode_login,

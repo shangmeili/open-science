@@ -11,7 +11,7 @@
     "settings": "Einstellungen"
   },
   "items": {
-    "new": "Forschungsprojekt beginnen",
+    "new": "Neue Unterhaltung",
     "notebooks": "Notebooks",
     "files": "Dateien",
     "runs": "Durchläufe",
@@ -28,8 +28,8 @@
     "renameHint": "Zum Umbenennen doppelklicken"
   },
   "history": {
-    "heading": "Sitzungen",
-    "empty": "Noch keine Unterhaltungen.",
+    "heading": "Eigenständige Unterhaltungen",
+    "empty": "Noch keine eigenständigen Unterhaltungen.",
     "exampleTag": "Beispiel",
     "deleteAria": "{{title}} löschen"
   },

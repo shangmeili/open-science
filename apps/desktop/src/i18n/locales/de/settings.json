@@ -186,7 +186,7 @@
   },
   "workspace": {
     "title": "Arbeitsbereich",
-    "hint": "Local-first — jede Sitzung arbeitet in ihrem eigenen, hier erstellten, datierten Unterordner",
+    "hint": "Projekte und eigenständige Unterhaltungen bleiben hier; Projektdateien können in den zugehörigen Unterhaltungen wiederverwendet werden",
     "unavailable": "in der Desktop-App verfügbar",
     "change": "Ändern…",
     "reveal": "Anzeigen"

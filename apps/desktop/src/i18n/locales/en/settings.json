@@ -200,7 +200,7 @@
   },
   "workspace": {
     "title": "Workspace",
-    "hint": "Local-first — each session works in its own dated subfolder created here",
+    "hint": "Projects and standalone conversations stay here; project files can be reused across its conversations",
     "unavailable": "available in the desktop app",
     "change": "Change…",
     "reveal": "Reveal"

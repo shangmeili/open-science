@@ -186,7 +186,7 @@
   },
   "workspace": {
     "title": "Espacio de trabajo",
-    "hint": "Local-first — cada sesión trabaja en su propia subcarpeta con fecha, creada aquí",
+    "hint": "Los proyectos y las conversaciones independientes se guardan aquí; los archivos de un proyecto se reutilizan en sus conversaciones",
     "unavailable": "disponible en la app de escritorio",
     "change": "Cambiar…",
     "reveal": "Mostrar"

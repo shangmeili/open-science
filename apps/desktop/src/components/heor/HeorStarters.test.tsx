@@ -86,11 +86,13 @@ describe("HeorStarters", () => {
 
   it("installs the example and keeps the deterministic request as an editable draft", async () => {
     const onPick = vi.fn();
-    render(<HeorStarters onPick={onPick} />);
+    const ensureWorkspace = vi.fn().mockResolvedValue(true);
+    render(<HeorStarters onPick={onPick} ensureWorkspace={ensureWorkspace} />);
     await userEvent.click(
       screen.getByRole("button", { name: /Run the cost-effectiveness teaching example/i }),
     );
     await waitFor(() => expect(onPick).toHaveBeenCalledTimes(1));
+    expect(ensureWorkspace).toHaveBeenCalledTimes(1);
     expect(installCalls).toEqual(["heor-cost-effectiveness"]);
     expect(onPick.mock.calls[0][0]).toContain(
       "python run_analysis.py --check expected/base-case-result.json",
@@ -156,5 +158,20 @@ describe("HeorStarters", () => {
     );
     await waitFor(() => expect(installCalls).toHaveLength(1));
     expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it("does not write the example when a standalone scope cannot be prepared", async () => {
+    const onPick = vi.fn();
+    render(
+      <HeorStarters
+        onPick={onPick}
+        ensureWorkspace={vi.fn().mockResolvedValue(false)}
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /Run the cost-effectiveness teaching example/i }),
+    );
+    await waitFor(() => expect(onPick).not.toHaveBeenCalled());
+    expect(installCalls).toHaveLength(0);
   });
 });

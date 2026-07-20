@@ -18,6 +18,7 @@ import {
   detectTools as probeTools,
   commitWorkspaceSnapshot,
   createProject as createProjectFolder,
+  currentResearchScope,
   getApprovalMode,
   isTauri,
   listProjects,
@@ -134,10 +135,15 @@ interface RuntimeState {
   disconnect: () => void;
   refreshSessions: () => Promise<void>;
   startDraft: () => void;
+  /** Materialize the draft's private local research scope before a file write
+   *  or deterministic starter runs. Sending a first message also calls this. */
+  ensureStandaloneWorkspace: () => Promise<boolean>;
   startDraftInCurrentWorkspace: () => void;
   /** AI4HEOR projects: typed HEOR workspace folders under the base dir.
    *  Sessions group under a project by `directory`; multiple sessions share the folder. */
   projects: ProjectInfo[];
+  /** Active named project or standalone conversation research scope. */
+  researchScope: ProjectInfo | null;
   refreshProjects: () => Promise<void>;
   /** Create an AI4HEOR project and move into it with a fresh pinned draft. */
   createProject: (name: string) => Promise<ProjectInfo | null>;
@@ -163,8 +169,8 @@ interface RuntimeState {
    *  output shows inline in the thread — the output IS the result the user
    *  asked for. Agent bash steps stay quiet single-line log entries. */
   shellTurns: Record<string, true>;
-  /** Switch to an existing folder, or (with `dated`) create a new dated one. */
-  switchWorkspace: (target: { path: string } | { dated: string }) => Promise<void>;
+  /** Switch to an existing project or legacy session folder. */
+  switchWorkspace: (target: { path: string }) => Promise<void>;
   openSession: (id: string) => Promise<void>;
   sendPrompt: (text: string) => Promise<string | null>;
   /** Run a "!" shell command directly in the session's workspace folder —
@@ -343,27 +349,15 @@ async function performTurn(
   try {
     let id = get().currentId;
     if (!id) {
-      // Lazy-create the session on the first message (#3). Unless the user
-      // pinned a folder via the workspace switcher, a new session gets its
-      // own fresh dated folder (~/Documents/AI4HEOR/<date-time>) first,
-      // so its files never pile up in the bare base folder.
+      // A standalone conversation gets its own local research scope. Choosing
+      // a project pins the conversation to that project's shared workspace;
+      // neither path changes the assistant, skills, files, or HEOR methods the
+      // researcher can use.
       if (isTauri && !get().workspacePinned) {
-        set({ switching: true });
-        try {
-          await newDatedWorkspace(datedWorkspaceName());
-          await kernelReset().catch(() => {});
-          await get().connectRetry();
-        } finally {
-          set({ switching: false });
-        }
-        if (get().status !== "ready" || !client) {
-          throw new Error("Runtime did not reconnect after creating the session folder.");
+        if (!(await get().ensureStandaloneWorkspace()) || !client) {
+          throw new Error("Runtime did not reconnect after creating the conversation workspace.");
         }
       } else if (isTauri && get().workspacePinned) {
-        // /new and /clear intentionally keep the same folder, but the old
-        // session route may have just torn down/reopened directory-scoped SSE.
-        // Rebuild the scoped client before creating the next session so first
-        // send cannot hang on a stale workspace instance.
         set({ switching: true });
         try {
           await get().connectRetry();
@@ -371,7 +365,7 @@ async function performTurn(
           set({ switching: false });
         }
         if (get().status !== "ready" || !client) {
-          throw new Error("Runtime did not reconnect before creating the session.");
+          throw new Error("Runtime did not reconnect before creating the conversation.");
         }
       }
       id = await withRetry(() => client!.createSession());
@@ -485,6 +479,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   sessionParents: {},
   panes: {},
   projects: [],
+  researchScope: null,
   workspace: null,
   workspacePinned: false,
   switching: false,
@@ -874,7 +869,10 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       void logDebug("connect OK");
       set({ error: null });
       await get().refreshSessions();
-      void get().refreshProjects();
+      // Await the local project scan so the sidebar and active-scope label are
+      // coherent when connect() resolves. Standalone conversations do not
+      // depend on this list.
+      await get().refreshProjects();
       // Catalog (skills/agents/commands) fills in behind the page — a session
       // switch must not wait on it to show the conversation.
       void get().loadCatalog();
@@ -989,8 +987,8 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     }
   },
 
-  // "New" opens a blank draft — no session is created until the first message (#3).
-  // A fresh draft also drops any pinned folder: back to the dated-folder default.
+  // The global "New conversation" action starts a standalone conversation.
+  // A project row has its own + action and uses startDraftInWorkspace instead.
   startDraft: () =>
     set((s) => {
       const threads = { ...s.threads };
@@ -999,6 +997,24 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       delete panes[DRAFT_KEY]; // a fresh draft starts with a closed pane
       return { currentId: null, workspacePinned: false, threads, panes };
     }),
+
+  ensureStandaloneWorkspace: async () => {
+    if (!isTauri || get().currentId || get().workspacePinned) return true;
+    set({ switching: true });
+    try {
+      await newDatedWorkspace(datedWorkspaceName());
+      await kernelReset().catch(() => {});
+      const connected = await get().connectRetry();
+      if (!connected) return false;
+      set({ workspacePinned: true });
+      return true;
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+      return false;
+    } finally {
+      set({ switching: false });
+    }
+  },
 
   // Local /new and /clear: clear the visible chat context, but keep the active
   // folder. The first next message creates a new OpenCode session in that same
@@ -1026,7 +1042,11 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   refreshProjects: async () => {
     if (!isTauri) return;
     try {
-      set({ projects: await listProjects() });
+      const [projects, researchScope] = await Promise.all([
+        listProjects(),
+        currentResearchScope(),
+      ]);
+      set({ projects, researchScope });
     } catch {
       /* ignore transient scan failures */
     }
@@ -1035,7 +1055,10 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   createProject: async (name) => {
     try {
       const project = await createProjectFolder(name);
-      void get().refreshProjects();
+      set((s) => ({
+        projects: [...s.projects.filter((candidate) => candidate.id !== project.id), project]
+          .sort((left, right) => left.name.localeCompare(right.name)),
+      }));
       await get().switchWorkspace({ path: project.path });
       return project;
     } catch (err) {
@@ -1062,8 +1085,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   switchWorkspace: async (target) => {
     set({ switching: true });
     try {
-      if ("dated" in target) await newDatedWorkspace(target.dated);
-      else await setWorkspace(target.path);
+      await setWorkspace(target.path);
       // Reset the local kernel so it respawns in the new folder, then reconnect
       // the event stream scoped to it (connect() re-reads the active folder —
       // the sidecar itself keeps running). An explicit switch pins the folder,
@@ -1328,7 +1350,8 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   },
 }));
 
-/** Dated folder name like `2026-07-04-1615` for a fresh per-session workspace. */
+/** Dated local folder for a standalone conversation. The folder is an
+ * independent research scope, not an AI4HEOR project. */
 export function datedWorkspaceName(now = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}`;

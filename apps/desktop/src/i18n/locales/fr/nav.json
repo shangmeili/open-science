@@ -11,7 +11,7 @@
     "settings": "Paramètres"
   },
   "items": {
-    "new": "Démarrer un projet de recherche",
+    "new": "Nouvelle conversation",
     "notebooks": "Notebooks",
     "files": "Fichiers",
     "runs": "Exécutions",
@@ -28,8 +28,8 @@
     "renameHint": "Double-cliquez pour renommer"
   },
   "history": {
-    "heading": "Sessions",
-    "empty": "Aucune conversation pour le moment.",
+    "heading": "Conversations indépendantes",
+    "empty": "Aucune conversation indépendante pour le moment.",
     "exampleTag": "exemple",
     "deleteAria": "Supprimer {{title}}"
   },

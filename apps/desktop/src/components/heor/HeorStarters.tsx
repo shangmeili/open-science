@@ -20,7 +20,15 @@ import {
 } from "@/lib/tauri";
 import { toast } from "@/lib/toast";
 
-export function HeorStarters({ onPick }: { onPick: (prompt: string) => void }) {
+export function HeorStarters({
+  onPick,
+  ensureWorkspace,
+}: {
+  onPick: (prompt: string) => void;
+  /** A starter that writes files must first materialize the draft's local
+   * research scope. This is not a project requirement. */
+  ensureWorkspace?: () => Promise<boolean>;
+}) {
   const { t, i18n } = useTranslation("heor");
   const [exampleReady, setExampleReady] = useState(false);
   const [confirmRun, setConfirmRun] = useState(false);
@@ -61,6 +69,7 @@ export function HeorStarters({ onPick }: { onPick: (prompt: string) => void }) {
             onClick={() => {
               void (async () => {
                 try {
+                  if (prepare && ensureWorkspace && !(await ensureWorkspace())) return;
                   await prepare?.();
                 } catch (error) {
                   toast.error(

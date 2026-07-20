@@ -959,6 +959,15 @@ pub fn set_workspace(
     }
     std::fs::create_dir_all(&dir).map_err(|e| format!("could not create folder: {e}"))?;
     let canon = dir.canonicalize().map_err(|e| e.to_string())?;
+    let base_dir = base_workspace_dir(&app)?;
+    let base = base_dir.canonicalize().unwrap_or(base_dir);
+    if canon != base {
+        let scope_name = canon
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("conversation");
+        crate::project::ensure_session_scope(&canon, scope_name)?;
+    }
     std::fs::write(
         active_workspace_file(&app)?,
         canon.to_string_lossy().as_bytes(),
@@ -1013,9 +1022,16 @@ pub fn new_dated_workspace(
     if name.is_empty() || name.contains('/') || name.contains('\\') || name.contains("..") {
         return Err("invalid folder name".into());
     }
-    let dir = base_workspace_dir(&app)?.join(&name);
+    let base = base_workspace_dir(&app)?;
+    let mut dir = base.join(&name);
+    for suffix in 2..100 {
+        if !dir.exists() {
+            break;
+        }
+        dir = base.join(format!("{name}-{suffix}"));
+    }
     if dir.exists() {
-        return Err("a workspace with this name already exists".into());
+        return Err("could not allocate a unique conversation folder".into());
     }
     // Seed and verify the product-owned research contract before persisting the
     // folder as active. A partial harness must never become an apparently valid
@@ -1026,6 +1042,21 @@ pub fn new_dated_workspace(
             Ok(()) => format!("could not initialize the AI4HEOR research contract: {error}"),
             Err(cleanup_error) => format!(
                 "could not initialize the AI4HEOR research contract: {error}; \
+                 could not remove incomplete workspace {}: {cleanup_error}",
+                dir.display()
+            ),
+        });
+    }
+    let scope_name = dir
+        .file_name()
+        .and_then(|folder| folder.to_str())
+        .unwrap_or(&name);
+    if let Err(error) = crate::project::ensure_session_scope(&dir, scope_name) {
+        let rollback = std::fs::remove_dir_all(&dir);
+        return Err(match rollback {
+            Ok(()) => format!("could not initialize the conversation research scope: {error}"),
+            Err(cleanup_error) => format!(
+                "could not initialize the conversation research scope: {error}; \
                  could not remove incomplete workspace {}: {cleanup_error}",
                 dir.display()
             ),

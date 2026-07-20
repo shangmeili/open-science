@@ -12,10 +12,12 @@ vi.mock("@/lib/tauri", () => ({
 describe("Composer attachments (desktop)", () => {
   it("adds picked files as removable chips and sends them as a file note", async () => {
     const onSend = vi.fn();
-    render(<Composer onSend={onSend} />);
+    const beforeWorkspaceWrite = vi.fn().mockResolvedValue(true);
+    render(<Composer onSend={onSend} beforeWorkspaceWrite={beforeWorkspaceWrite} />);
 
     fireEvent.click(screen.getByLabelText("Add files"));
     await waitFor(() => expect(screen.getByText("data.csv")).toBeTruthy());
+    expect(beforeWorkspaceWrite).toHaveBeenCalledTimes(1);
 
     // Chip is outside the textarea — typing text is independent of the file.
     const input = screen.getByLabelText("Ask anything");
@@ -39,13 +41,15 @@ describe("Composer attachments (desktop)", () => {
   });
 
   it("turns an oversized paste into a workspace file chip, keeping the box clean", async () => {
-    render(<Composer onSend={vi.fn()} />);
+    const beforeWorkspaceWrite = vi.fn().mockResolvedValue(true);
+    render(<Composer onSend={vi.fn()} beforeWorkspaceWrite={beforeWorkspaceWrite} />);
     const input = screen.getByLabelText("Ask anything") as HTMLTextAreaElement;
 
     fireEvent.paste(input, {
       clipboardData: { getData: () => "x".repeat(3000) },
     });
     await waitFor(() => expect(screen.getByText("pasted.txt")).toBeTruthy());
+    expect(beforeWorkspaceWrite).toHaveBeenCalledTimes(1);
     expect(input.value).toBe("");
 
     // A short paste stays a normal paste (no new chip).

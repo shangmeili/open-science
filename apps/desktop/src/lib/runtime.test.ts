@@ -13,6 +13,13 @@ import {
   type FoldState,
 } from "./runtime";
 
+describe("datedWorkspaceName", () => {
+  it("formats the independent conversation scope name", () => {
+    expect(datedWorkspaceName(new Date(2026, 6, 4, 16, 5))).toBe("2026-07-04-1605");
+    expect(datedWorkspaceName(new Date(2026, 0, 9, 3, 40))).toBe("2026-01-09-0340");
+  });
+});
+
 describe("buildAssetReviewPrompt", () => {
   it("keeps discovery inactive and preserves the app-owned admission boundary", () => {
     const prompt = buildAssetReviewPrompt("https://example.test/candidate");
@@ -95,13 +102,6 @@ describe("toolPresentation", () => {
   it("unknown tools keep the old fallback chain, no verb", () => {
     expect(toolPresentation("mcp_thing", "did something", {})).toEqual({ title: "did something" });
     expect(toolPresentation("mcp_thing", "", {})).toEqual({ title: "mcp_thing" });
-  });
-});
-
-describe("datedWorkspaceName", () => {
-  it("formats a zero-padded YYYY-MM-DD-HHMM folder name", () => {
-    expect(datedWorkspaceName(new Date(2026, 6, 4, 16, 5))).toBe("2026-07-04-1605");
-    expect(datedWorkspaceName(new Date(2026, 0, 9, 3, 40))).toBe("2026-01-09-0340");
   });
 });
 

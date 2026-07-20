@@ -11,7 +11,7 @@
     "settings": "Configuración"
   },
   "items": {
-    "new": "Iniciar un proyecto de investigación",
+    "new": "Nueva conversación",
     "notebooks": "Cuadernos",
     "files": "Archivos",
     "runs": "Ejecuciones",
@@ -28,8 +28,8 @@
     "renameHint": "Doble clic para renombrar"
   },
   "history": {
-    "heading": "Sesiones",
-    "empty": "Aún no hay conversaciones.",
+    "heading": "Conversaciones independientes",
+    "empty": "Aún no hay conversaciones independientes.",
     "exampleTag": "ejemplo",
     "deleteAria": "Eliminar {{title}}"
   },

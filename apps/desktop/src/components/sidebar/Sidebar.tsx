@@ -59,6 +59,7 @@ export function Sidebar() {
     sessions,
     projects,
     workspace,
+    startDraft,
     startDraftInWorkspace,
     createProject,
     refreshProjects,
@@ -103,7 +104,9 @@ export function Sidebar() {
   };
 
   const startNew = () => {
-    setCreatingProject(true);
+    setComposerDraft(null);
+    startDraft();
+    if (!location.pathname.startsWith("/heor")) navigate("/heor");
   };
 
   // ---- Projects: sessions group under a project by workspace folder ----

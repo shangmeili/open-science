@@ -1,10 +1,37 @@
-// Workspace-per-session behavior: a fresh draft's first message creates a new
-// dated folder by default; an explicit switcher choice pins the destination.
+// Project/session behavior: a standalone conversation gets its own local
+// research scope; choosing a project pins the conversation to shared context.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  newDatedWorkspace: vi.fn(async (name: string) => `/ws/${name}`),
-  setWorkspace: vi.fn(async (path: string) => path),
+  activePath: "/ws/base",
+  projects: [
+    {
+      id: "project-1",
+      name: "Test HEOR project",
+      createdAt: 1,
+      kind: "heor" as const,
+      path: "/ws/base",
+    },
+  ],
+  setWorkspace: vi.fn(async (path: string) => {
+    mocks.activePath = path;
+    return path;
+  }),
+  newDatedWorkspace: vi.fn(async (name: string) => {
+    mocks.activePath = `/ws/${name}`;
+    return mocks.activePath;
+  }),
+  createProject: vi.fn(async (name: string) => {
+    const project = {
+      id: "created-project",
+      name,
+      createdAt: 2,
+      kind: "heor" as const,
+      path: "/ws/Created-Project",
+    };
+    mocks.projects.push(project);
+    return project;
+  }),
   commitWorkspaceSnapshot: vi.fn(async () => false),
   kernelReset: vi.fn(async () => {}),
   /** Number of connect() attempts that fail before one succeeds. */
@@ -57,9 +84,19 @@ vi.mock("./tauri", () => ({
   detectTools: async () => [],
   startRuntime: mocks.startRuntime,
   restartRuntime: mocks.restartRuntime,
-  workspacePath: async () => "/ws/base",
+  workspacePath: async () => mocks.activePath,
   setWorkspace: mocks.setWorkspace,
   newDatedWorkspace: mocks.newDatedWorkspace,
+  createProject: mocks.createProject,
+  listProjects: async () => mocks.projects,
+  currentResearchScope: async () =>
+    mocks.projects.find((project) => project.path === mocks.activePath) ?? {
+      id: "standalone-scope",
+      name: mocks.activePath.split("/").pop() ?? "conversation",
+      createdAt: 3,
+      kind: "session" as const,
+      path: mocks.activePath,
+    },
   markSession: async () => {},
   commitWorkspaceSnapshot: mocks.commitWorkspaceSnapshot,
   getApprovalMode: async () => mocks.approvalMode,
@@ -179,8 +216,18 @@ vi.mock("@ai4s/sdk", () => {
 import type { ArtifactBlock } from "@ai4s/shared";
 import { DRAFT_KEY, rootSessionOf, useRuntimeStore } from "./runtime";
 
+const PROJECT = {
+  id: "project-1",
+  name: "Test HEOR project",
+  createdAt: 1,
+  kind: "heor" as const,
+  path: "/ws/base",
+};
+
 beforeEach(async () => {
   vi.clearAllMocks();
+  mocks.activePath = PROJECT.path;
+  mocks.projects = [PROJECT];
   mocks.failConnects = 0;
   mocks.failCreates = 0;
   mocks.failShell = false;
@@ -194,7 +241,10 @@ beforeEach(async () => {
   mocks.failSetModel = false;
   useRuntimeStore.setState({
     currentId: null,
+    workspace: PROJECT.path,
     workspacePinned: false,
+    projects: [PROJECT],
+    researchScope: PROJECT,
     threads: {},
     error: null,
     sending: false,
@@ -243,24 +293,44 @@ describe("runtime authentication", () => {
   });
 });
 
-describe("per-session workspace folders", () => {
-  it("creates a fresh dated folder before the first message of an unpinned draft", async () => {
+describe("project and standalone conversations", () => {
+  it("adds a newly created project before switching into it", async () => {
+    useRuntimeStore.setState({ projects: [], workspacePinned: false });
+    const created = await useRuntimeStore.getState().createProject("Created Project");
+    expect(created?.id).toBe("created-project");
+    expect(useRuntimeStore.getState().projects).toContainEqual(created);
+    expect(mocks.setWorkspace).toHaveBeenCalledWith("/ws/Created-Project");
+    expect(useRuntimeStore.getState().workspacePinned).toBe(true);
+  });
+
+  it("creates a standalone conversation in its own dated research scope", async () => {
+    useRuntimeStore.setState({ projects: [], workspacePinned: false });
     const id = await useRuntimeStore.getState().sendPrompt("hello");
     expect(id).toBe("ses_new");
     expect(mocks.newDatedWorkspace).toHaveBeenCalledTimes(1);
     expect(mocks.newDatedWorkspace.mock.calls[0][0]).toMatch(/^\d{4}-\d{2}-\d{2}-\d{4}$/);
-    // The kernel is reset so it respawns inside the new folder.
     expect(mocks.kernelReset).toHaveBeenCalled();
+    expect(useRuntimeStore.getState().researchScope?.kind).toBe("session");
   });
 
-  it("keeps a pinned folder: no dated folder is created", async () => {
+  it("materializes a standalone scope before a starter or attachment writes files", async () => {
+    useRuntimeStore.setState({ projects: [], workspacePinned: false });
+    expect(await useRuntimeStore.getState().ensureStandaloneWorkspace()).toBe(true);
+    expect(useRuntimeStore.getState().workspacePinned).toBe(true);
+    expect(mocks.newDatedWorkspace).toHaveBeenCalledTimes(1);
+
+    await useRuntimeStore.getState().sendPrompt("continue with the prepared files");
+    expect(mocks.newDatedWorkspace).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates a conversation in the selected project without a dated scope", async () => {
     useRuntimeStore.setState({ workspacePinned: true });
     const id = await useRuntimeStore.getState().sendPrompt("hello");
     expect(id).toBe("ses_new");
     expect(mocks.newDatedWorkspace).not.toHaveBeenCalled();
   });
 
-  it("does not create another folder for later messages in the same session", async () => {
+  it("does not create another scope for later messages in the same conversation", async () => {
     await useRuntimeStore.getState().sendPrompt("first");
     await useRuntimeStore.getState().sendPrompt("second");
     expect(mocks.newDatedWorkspace).toHaveBeenCalledTimes(1);
@@ -495,7 +565,6 @@ describe("per-session workspace folders", () => {
 
     const connectsBeforeNextTurn = mocks.clientOpts.length;
     await useRuntimeStore.getState().sendPrompt("next");
-    expect(mocks.newDatedWorkspace).not.toHaveBeenCalled();
     expect(mocks.clientOpts.length).toBeGreaterThan(connectsBeforeNextTurn);
   });
 
@@ -516,9 +585,8 @@ describe("per-session workspace folders", () => {
     ]);
   });
 
-  it("switchWorkspace pins the chosen folder; startDraft un-pins it", async () => {
-    await useRuntimeStore.getState().switchWorkspace({ path: "/ws/mine" });
-    expect(mocks.setWorkspace).toHaveBeenCalledWith("/ws/mine");
+  it("global startDraft starts standalone; a project can still pin its own draft", async () => {
+    await useRuntimeStore.getState().switchWorkspace({ path: PROJECT.path });
     expect(useRuntimeStore.getState().workspacePinned).toBe(true);
     useRuntimeStore.getState().startDraft();
     expect(useRuntimeStore.getState().workspacePinned).toBe(false);

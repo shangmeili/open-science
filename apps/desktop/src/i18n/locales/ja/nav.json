@@ -11,7 +11,7 @@
     "settings": "設定"
   },
   "items": {
-    "new": "新しい研究プロジェクトを始める",
+    "new": "新しい会話",
     "notebooks": "ノートブック",
     "files": "ファイル",
     "runs": "実行",
@@ -28,8 +28,8 @@
     "renameHint": "ダブルクリックで名前を変更"
   },
   "history": {
-    "heading": "セッション",
-    "empty": "まだ会話がありません。",
+    "heading": "単独の会話",
+    "empty": "単独の会話はまだありません。",
     "exampleTag": "例",
     "deleteAria": "{{title}} を削除"
   },

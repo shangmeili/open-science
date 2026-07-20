@@ -51,6 +51,7 @@ describe("Sidebar projects", () => {
       "/heor/in",
     );
     expect(screen.getByText("quick question")).toBeInTheDocument();
+    expect(screen.getByText("Standalone conversations")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /quick question/i })).toHaveAttribute(
       "href",
       "/heor/out",
@@ -68,9 +69,10 @@ describe("Sidebar projects", () => {
     expect((await screen.findAllByRole("button", { name: "New project" })).length).toBeGreaterThan(0);
     expect(screen.queryByText("Cross-species atlas figure")).not.toBeInTheDocument();
     expect(screen.queryByText("SCVI Hyperparameter Screen")).not.toBeInTheDocument();
+    expect(screen.getByText("Standalone conversations")).toBeInTheDocument();
   });
 
-  it("starts new work as a Human-led HEOR project with a reviewed natural-language draft", async () => {
+  it("starts a standalone conversation without creating or selecting a project", async () => {
     const createProject = vi.fn().mockResolvedValue(PROJECT);
     const startDraft = vi.fn();
     useRuntimeStore.setState({
@@ -85,18 +87,29 @@ describe("Sidebar projects", () => {
     renderAt("/heor");
 
     await userEvent.click(
-      (await screen.findAllByRole("button", { name: "Start a research project" }))[0],
+      await screen.findByRole("button", { name: "New conversation" }),
     );
+
+    expect(startDraft).toHaveBeenCalledTimes(1);
+    expect(createProject).not.toHaveBeenCalled();
+  });
+
+  it("keeps an explicit project flow for work that should share context", async () => {
+    const createProject = vi.fn().mockResolvedValue(PROJECT);
+    useRuntimeStore.setState({
+      projects: [],
+      sessions: [],
+      workspace: null,
+      createProject,
+    });
+    renderAt("/heor");
+
+    await userEvent.click((await screen.findAllByRole("button", { name: "New project" }))[0]);
     const input = screen.getByPlaceholderText("Project name");
     await userEvent.type(input, `${PROJECT.name}{Enter}`);
 
     expect(createProject).toHaveBeenCalledWith(PROJECT.name);
-    expect(startDraft).not.toHaveBeenCalled();
-    expect(await screen.findByRole("heading", { name: "What are you working on?" }))
-      .toBeInTheDocument();
     const draft = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
     expect(draft).toContain("Help me start this HEOR project");
-    expect(draft).toContain("Keep me as the scientific lead");
-    expect(draft).toContain("do not search, select methods, assume inputs, or create approval records");
   });
 });

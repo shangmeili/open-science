@@ -149,7 +149,7 @@ excluded external sources are internal engineering records, not user choices.
 | --- | --- |
 | Desktop shell | Tauri 2 + React + TypeScript + Vite, with macOS, Windows, and Linux desktop builds. |
 | Runtime | Bundled OpenCode sidecar, auto-started by the app, isolated from the user's own OpenCode config/data. |
-| Projects and sessions | New work creates a typed local HEOR project with the researcher-led harness; project sessions stay in the AI4HEOR route, while legacy loose sessions remain readable. Multi-session history, `/` commands, and `!` shell mode remain available. |
+| Projects and conversations | A project is a named local workspace whose files and context are shared by its conversations. A standalone conversation has its own local research scope and the same assistant, Skills, HEOR methods, files, review, and audit functions; it simply does not share them across conversations. Multi-session history, `/` commands, and `!` shell mode remain available. |
 | Files | Global and per-session file browsing, context menu actions, external open/reveal, copy path, and local preview server. |
 | Notebooks | Real `.ipynb` files, Python and R notebook creation, local kernel execution, managed Jupyter environment via bundled `uv`, and an Open JupyterLab action. |
 | Runs | Append-only run logs, global SQLite run index, search/facets/pagination, local/remote surfaces, output links, logs, and reproduce prompts. |
@@ -207,7 +207,7 @@ does not yet exist, AI4HEOR atomically renames the prior default
 exist, it does not merge or delete either one; a base folder explicitly chosen in
 Settings always wins.
 
-The currently verified 0.1.52 local x64 macOS artifact is not code-signed or notarized. The
+The currently verified 0.1.54 local x64 macOS artifact is not code-signed or notarized. The
 `v*` tag pipeline now fails closed unless both macOS targets receive Developer ID and
 Apple notarization credentials and subsequently pass signature, hardened-runtime,
 stapled-ticket, and Gatekeeper checks. No credentialed tag run has produced that evidence
@@ -304,17 +304,31 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.52, and the current first-launch-verified x64 macOS
-candidate is also 0.1.52. The 90,047,182-byte `AI4HEOR_0.1.52_x64.dmg` built from
-`0b77504` has SHA-256
-`8f4e2feb2badc36db8372012169f68bbe867403386fc66cd5d0e89075a398138`.
-Independent read-only verification confirms its x86-64 payload, 0.1.52
+accepted. Current source is 0.1.54, and the current first-launch-verified x64 macOS
+candidate is also 0.1.54. The 90,080,697-byte `AI4HEOR_0.1.54_x64.dmg` has SHA-256
+`2c8c70bd96fc9f78778f0c9653518b23de3d915c2198467c968345fd4b372aff`.
+Independent read-only verification confirms its x86-64 payload, 0.1.54
 identity, OpenCode 1.17.13, uv 0.11.26, all 359 controlled resources, and all
 177 packaged HEOR tests. An exact temporary app copy also passed isolated first
 launch, creation of a fresh `Documents/AI4HEOR`, content-preserving migration from
-`Documents/OpenScience`, and process cleanup while the installed app remained
-running. It supersedes the 0.1.51 candidate and is ready for product-owner testing;
-product-owner acceptance has not yet been recorded.
+`Documents/OpenScience`, and process cleanup. It supersedes the 0.1.53 candidate and
+is ready for product-owner testing; product-owner acceptance has not yet been recorded.
+Version 0.1.54 separates projects from conversations without restricting standalone
+work. A project is a named local workspace shared by its conversations; a standalone
+conversation receives its own private local research scope with the same assistant,
+Skills, HEOR methods, files, review, and audit functions. The global New conversation
+action now starts standalone work, project `+` starts a conversation in that project,
+and the sidebar lists standalone conversations separately. The same distinction ships
+in all seven interface languages. The candidate is installed in `/Applications` and
+has passed packaged-runtime streaming plus a credential-isolated MiniMax-M3 turn.
+Version 0.1.53 makes AI4HEOR the single user-facing research workbench, replaces the
+inherited generic starters with six pharmacoeconomics/HEOR tasks, and keeps legacy
+`/live` links inside the same product surface. It also corrects the MiniMax China
+Token Plan request prefix for the packaged `@ai-sdk/anthropic` adapter to
+`/anthropic/v1`, selects `MiniMax-M3`, and passes both a credential-free packaged
+OpenCode streaming fixture and a real Keychain-supplied model turn. The release proof
+contains no credential or research data, and the isolated credential is removed after
+the test.
 Version 0.1.52 adds a native diagnostic-report export for product testing. It
 contains only the app version, platform/architecture, managed-runtime status and
 aggregate counts from a bounded log tail; it excludes credentials, authentication
@@ -422,8 +436,8 @@ and unnotarized and is for internal product-owner testing only.
 
 ### Intel macOS product-owner acceptance
 
-Use `AI4HEOR_0.1.52_x64.dmg` only on an Intel Mac. Before opening it, verify SHA-256
-`8f4e2feb2badc36db8372012169f68bbe867403386fc66cd5d0e89075a398138`.
+Use `AI4HEOR_0.1.54_x64.dmg` only on an Intel Mac. Before opening it, verify SHA-256
+`2c8c70bd96fc9f78778f0c9653518b23de3d915c2198467c968345fd4b372aff`.
 Because this internal build is unsigned, macOS may require Control-click →
 Open; that exception is not evidence of distribution readiness.
 
@@ -488,7 +502,7 @@ silently acquire those claims. Tagged matrix jobs no longer create or populate a
 only the final job may create a draft after all four evidence files and the cross-platform
 manifest validate, and it uploads exactly those verified installers and records. This gate
 is locally contract-tested and rejects the
-current unsigned 0.1.52 x64 DMG, but it has not been exercised with real Apple credentials.
+current unsigned 0.1.54 x64 DMG, but it has not been exercised with real Apple credentials.
 The AI4HEOR 0.1.30 Linux `.deb` and `.rpm` were built from the same clean commit
 `0beb7b2bcb04a796f256bd8f8528bb787aa77319`. Both packages are payload-verified with all
 282 configured resources matching source bytes and all 177 deterministic HEOR tests
@@ -514,7 +528,7 @@ If you use AI4HEOR in your research, please cite it:
   author  = {{The AI4HEOR Contributors}},
   title   = {AI4HEOR: a local-first, model-agnostic AI workbench for pharmacoeconomics and HEOR},
   year    = {2026},
-  version = {0.1.52},
+  version = {0.1.54},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

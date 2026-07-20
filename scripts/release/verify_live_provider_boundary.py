@@ -176,7 +176,7 @@ def http_json(
     except urllib.error.HTTPError as error:
         # Never echo the provider/server body: it can include request details.
         raise AssertionError(f"{method} {path} returned HTTP {error.code}") from None
-    except urllib.error.URLError:
+    except (urllib.error.URLError, TimeoutError):
         raise AssertionError(f"{method} {path} could not reach the isolated runtime") from None
     if not raw:
         return None

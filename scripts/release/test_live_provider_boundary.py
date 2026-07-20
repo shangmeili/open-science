@@ -9,6 +9,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 def load_verifier():
@@ -24,6 +25,21 @@ verifier = load_verifier()
 
 
 class LiveProviderBoundaryTests(unittest.TestCase):
+    def test_http_timeout_is_treated_as_a_retryable_runtime_probe_failure(self) -> None:
+        with mock.patch.object(
+            verifier.urllib.request,
+            "urlopen",
+            side_effect=TimeoutError("timed out"),
+        ):
+            with self.assertRaisesRegex(AssertionError, "could not reach"):
+                verifier.http_json(
+                    "http://127.0.0.1:1",
+                    "Basic fixture",
+                    "GET",
+                    "/global/config",
+                    timeout=0.01,
+                )
+
     def test_minimax_defaults_match_the_ai_sdk_request_prefix(self) -> None:
         self.assertEqual(
             verifier.DEFAULT_BASE_URL,

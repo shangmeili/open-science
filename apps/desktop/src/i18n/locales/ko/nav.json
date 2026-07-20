@@ -11,7 +11,7 @@
     "settings": "설정"
   },
   "items": {
-    "new": "새 연구 프로젝트 시작",
+    "new": "새 대화",
     "notebooks": "노트북",
     "files": "파일",
     "runs": "실행",
@@ -28,8 +28,8 @@
     "renameHint": "더블 클릭으로 이름 변경"
   },
   "history": {
-    "heading": "세션",
-    "empty": "아직 대화가 없습니다.",
+    "heading": "독립 대화",
+    "empty": "아직 독립 대화가 없습니다.",
     "exampleTag": "예제",
     "deleteAria": "{{title}} 삭제"
   },
