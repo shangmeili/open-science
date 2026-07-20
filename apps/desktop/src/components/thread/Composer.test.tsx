@@ -4,6 +4,15 @@ import { useUiStore } from "@/lib/store";
 import { Composer } from "./Composer";
 
 describe("Composer", () => {
+  it("uses a neutral focus treatment instead of an error-like accent outline", () => {
+    render(<Composer onSend={vi.fn()} />);
+    const input = screen.getByLabelText("Ask anything");
+
+    expect(input).toHaveAttribute("data-focus-style", "neutral");
+    expect(input.parentElement).toHaveClass("focus-within:border-muted/45");
+    expect(input.parentElement).not.toHaveClass("focus-within:border-accent/50");
+  });
+
   it("appends a prepared draft below text the user was already typing", () => {
     useUiStore.setState({ composerDraft: null });
     render(<Composer onSend={vi.fn()} />);

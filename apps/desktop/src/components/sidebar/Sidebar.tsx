@@ -564,6 +564,7 @@ function InlineNameInput({
   return (
     <input
       ref={ref}
+      data-focus-style="neutral"
       defaultValue={defaultValue}
       placeholder={placeholder}
       disabled={busy}
@@ -575,7 +576,7 @@ function InlineNameInput({
         if (!busy) onCancel();
       }}
       className={cn(
-        "w-full min-w-0 rounded-input border border-accent/50 bg-surface px-2 py-[3px] text-[13px] text-text outline-none placeholder:text-muted focus:border-accent",
+        "w-full min-w-0 rounded-input border border-border bg-surface px-2 py-[3px] text-[13px] text-text outline-none transition-[border-color,box-shadow] placeholder:text-muted focus:border-muted/60 focus:ring-2 focus:ring-border/70",
         busy && "animate-pulse opacity-60",
       )}
     />

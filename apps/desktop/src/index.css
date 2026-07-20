@@ -92,6 +92,13 @@ body {
   outline-offset: 2px;
 }
 
+/* The two primary creation fields use a calm, neutral focus treatment. Their
+   parent/input ring remains clearly visible for keyboard users, so the global
+   accent outline would only read as a false validation error here. */
+[data-focus-style="neutral"]:focus-visible {
+  outline: none;
+}
+
 /* Thin, calm scrollbars to match the paper aesthetic. */
 * {
   scrollbar-width: thin;
