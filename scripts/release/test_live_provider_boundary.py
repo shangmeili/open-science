@@ -24,6 +24,13 @@ verifier = load_verifier()
 
 
 class LiveProviderBoundaryTests(unittest.TestCase):
+    def test_minimax_defaults_match_the_ai_sdk_request_prefix(self) -> None:
+        self.assertEqual(
+            verifier.DEFAULT_BASE_URL,
+            "https://api.minimaxi.com/anthropic/v1",
+        )
+        self.assertEqual(verifier.DEFAULT_MODEL, "MiniMax-M3")
+
     def test_assistant_marker_never_matches_the_user_prompt(self) -> None:
         messages = [
             {

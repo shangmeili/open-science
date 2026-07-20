@@ -180,15 +180,15 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
     await client.addCustomProvider("minimax-cn-token-plan", {
       name: "MiniMax CN Token Plan",
       npm: "@ai-sdk/anthropic",
-      baseURL: "https://api.minimaxi.com/anthropic",
-      models: ["MiniMax-M2.7"],
+      baseURL: "https://api.minimaxi.com/anthropic/v1",
+      models: ["MiniMax-M3"],
     });
 
     const payload = JSON.parse(bodies[0]) as {
       provider: Record<string, { options: Record<string, unknown> }>;
     };
     expect(payload.provider["minimax-cn-token-plan"].options).toEqual({
-      baseURL: "https://api.minimaxi.com/anthropic",
+      baseURL: "https://api.minimaxi.com/anthropic/v1",
     });
     expect(bodies[0]).not.toContain("apiKey");
   });

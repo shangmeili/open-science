@@ -58,8 +58,10 @@ import { FIRST_PARTY_HEOR_CONNECTOR } from "@/lib/heorConnectorPolicy";
 
 const MINIMAX_CN_TOKEN_PLAN = {
   npm: "@ai-sdk/anthropic",
-  baseURL: "https://api.minimaxi.com/anthropic",
-  models: "MiniMax-M2.7",
+  // OpenCode uses @ai-sdk/anthropic, whose baseURL is the request prefix and
+  // appends `/messages` directly. MiniMax's raw endpoint is /anthropic/v1/messages.
+  baseURL: "https://api.minimaxi.com/anthropic/v1",
+  models: "MiniMax-M3",
 } as const;
 
 /**

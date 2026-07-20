@@ -221,9 +221,9 @@ describe("Settings model browser integration", () => {
     );
     expect(screen.getByDisplayValue("Anthropic-compatible")).toHaveValue("@ai-sdk/anthropic");
     expect(screen.getByPlaceholderText(/Base URL/)).toHaveValue(
-      "https://api.minimaxi.com/anthropic",
+      "https://api.minimaxi.com/anthropic/v1",
     );
-    expect(screen.getByPlaceholderText("Model ids, comma-separated")).toHaveValue("MiniMax-M2.7");
+    expect(screen.getByPlaceholderText("Model ids, comma-separated")).toHaveValue("MiniMax-M3");
     expect(screen.getByText(/endpoint configuration never contains the API key/i)).toBeVisible();
 
     await userEvent.type(
@@ -236,8 +236,8 @@ describe("Settings model browser integration", () => {
       expect(client.addCustomProvider).toHaveBeenCalledWith("minimax-cn-token-plan", {
         name: "MiniMax CN Token Plan",
         npm: "@ai-sdk/anthropic",
-        baseURL: "https://api.minimaxi.com/anthropic",
-        models: ["MiniMax-M2.7"],
+        baseURL: "https://api.minimaxi.com/anthropic/v1",
+        models: ["MiniMax-M3"],
       }),
     );
     expect(client.setProviderApiKey).toHaveBeenCalledWith(

@@ -38,8 +38,8 @@ class ProviderCredentialContractTests(unittest.TestCase):
     def test_minimax_china_profile_is_explicit_and_contains_no_credential(self) -> None:
         settings = SETTINGS.read_text(encoding="utf-8")
         self.assertIn('npm: "@ai-sdk/anthropic"', settings)
-        self.assertIn('baseURL: "https://api.minimaxi.com/anthropic"', settings)
-        self.assertIn('models: "MiniMax-M2.7"', settings)
+        self.assertIn('baseURL: "https://api.minimaxi.com/anthropic/v1"', settings)
+        self.assertIn('models: "MiniMax-M3"', settings)
         self.assertIsNone(re.search(r"sk-[A-Za-z0-9_-]{40,}", settings))
 
     def test_provider_credential_boundary_is_localized_in_every_ui_language(self) -> None:

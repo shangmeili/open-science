@@ -41,8 +41,8 @@ SCHEMA = "ai4heor-live-provider-verification/v1"
 DEFAULT_PROVIDER_ID = "minimax-cn-token-plan"
 DEFAULT_PROVIDER_NAME = "MiniMax China Token Plan"
 DEFAULT_NPM = "@ai-sdk/anthropic"
-DEFAULT_BASE_URL = "https://api.minimaxi.com/anthropic"
-DEFAULT_MODEL = "MiniMax-M2.7"
+DEFAULT_BASE_URL = "https://api.minimaxi.com/anthropic/v1"
+DEFAULT_MODEL = "MiniMax-M3"
 DEFAULT_MARKER = "AI4HEOR_MINIMAX_LIVE_OK"
 
 SAFE_FAILURE_PATTERNS = (
@@ -116,7 +116,7 @@ def keychain_credential(service: str, account: str) -> bytes:
 
 def provider_catalog_probe(base_url: str, model: str, credential: bytes) -> dict[str, Any]:
     request = urllib.request.Request(
-        f"{base_url.rstrip('/')}/v1/models",
+        f"{base_url.rstrip('/')}/models",
         headers={"X-Api-Key": credential.decode("utf-8")},
         method="GET",
     )
