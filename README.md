@@ -303,12 +303,12 @@ target design as well as historical status notes.
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
 accepted. Current source is 0.1.49; the fully first-launch-verified x64 macOS
-handoff remains 0.1.41. The current 90,027,878-byte
-`AI4HEOR_0.1.48_x64.dmg` candidate built from `a4f08f1` has SHA-256
-`876f1f875eebbd6c8dcc2167cc9ae6a4552ef63acfb0a91a261b97afabf3da5b`.
-Independent read-only verification confirms its x86-64 payload, 0.1.48
-identity, OpenCode 1.17.13, uv 0.11.26, all 354 controlled resources, and all
-177 packaged HEOR tests. It supersedes the 0.1.47 candidate. Exact isolated
+handoff remains 0.1.41. The current 90,082,873-byte
+`AI4HEOR_0.1.49_x64.dmg` candidate built from `d0da1af` has SHA-256
+`691d4c3be8bccca5b133905927b2a0f3b52d3acec06da7b77c1fba7527d17b12`.
+Independent read-only verification confirms its x86-64 payload, 0.1.49
+identity, OpenCode 1.17.13, uv 0.11.26, all 359 controlled resources, and all
+177 packaged HEOR tests. It supersedes the 0.1.48 candidate. Exact isolated
 first launch remains pending because the installed app is still running; this
 candidate does not replace the fully accepted 0.1.41 handoff yet.
 Version 0.1.49 adds a first-party target-journal submission check. It evaluates
