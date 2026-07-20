@@ -1,7 +1,7 @@
 # AI4HEOR source, Skill, plugin, MCP, data, and asset authorization audit
 
-Audit date: 2026-07-20
-Distribution target: Intel macOS internal test build  
+Audit date: 2026-07-21
+Distribution target: Intel macOS and Windows x64 internal test builds
 Decision: **internal testing allowed; public redistribution blocked**
 
 ## Scope and decision rule
@@ -61,5 +61,5 @@ kill-switch evidence before admission.
 3. Record logo rights and trademark clearance.
 4. Rebuild, sign, notarize, and inspect the mounted final DMG; compare every
    executable/resource hash with the release evidence.
-5. Repeat the audit for any later Windows or Linux package; those releases are
-   paused and are not covered by this decision.
+5. Compare the final Intel macOS and Windows x64 package inventories with this
+   source audit. Repeat the audit before adding Linux or Apple Silicon packages.

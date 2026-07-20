@@ -302,9 +302,10 @@ live in [`docs/PRD.md`](./docs/PRD.md) and
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md), but those documents include
 target design as well as historical status notes.
 
-The 0.1.56 internal test delivery targets Intel macOS and Windows x64. Linux and
-Apple-Silicon release work remain outside this test-delivery scope. Current source is 0.1.56,
-and the current first-launch-verified x64 macOS candidate is also 0.1.56.
+The 0.2.2 internal test candidate targets Intel macOS and Windows x64. Linux and
+Apple-Silicon release work remain outside this test-delivery scope. Current source is 0.2.2.
+The last first-launch-verified x64 macOS package is the superseded 0.1.56 candidate;
+it is retained only as historical verification evidence and is not the current delivery.
 The 91,021,588-byte `AI4HEOR_0.1.56_x64.dmg` has SHA-256
 `ed1107407ef6e3c8d46d0c674d368540c82811868a673a0e1c4d2dd3a2962358`.
 Independent read-only verification confirms its x86-64 payload, 0.1.56
@@ -314,15 +315,20 @@ launch, creation of a fresh `Documents/AI4HEOR`, content-preserving migration fr
 `Documents/OpenScience`, and process cleanup. Packaged OpenCode streaming and a
 credential-isolated MiniMax-M3 turn also passed. It supersedes the 0.1.54 candidate and
 is ready for product-owner testing; product-owner acceptance has not yet been recorded.
-Version 0.1.56 presents New task as an unrestricted natural-language entry with four
+Version 0.2.2 presents New task as an unrestricted natural-language entry with four
 HEOR-specific, draft-only shortcuts; Workbench remains the guided project surface.
 Projects are named local workspaces shared by their tasks; a standalone task receives
 its own private local research scope with the same assistant,
 Skills, HEOR methods, files, review, and audit functions. The global New task action
 starts standalone work, project `+` starts a task in that project, and the sidebar lists
 standalone tasks separately. The same distinction ships
-in all seven interface languages. The focused CI profile builds both Windows x64
-installers and reruns Windows package, resource, install, first-launch, and cleanup
+in all seven interface languages. It also removes internal harness files and analysis
+notes from primary navigation, keeps creation-input focus neutral, preserves deliberate
+model changes against stale catalog responses, bounds long-running event memory, and
+uses package-stable nonempty resource sentinels on Windows. These reliability changes
+were selectively adapted after reviewing Open Science 0.2.2 without restoring its
+generic research surface. The focused CI profile builds one Windows x64 NSIS installer
+and reruns Windows package, resource, install, first-launch, and cleanup
 verification; a Windows package is not considered accepted unless that workflow passes.
 Version 0.1.53 makes AI4HEOR the single user-facing research workbench, replaces the
 inherited generic starters with six pharmacoeconomics/HEOR tasks, and keeps legacy

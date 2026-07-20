@@ -1,6 +1,6 @@
 # AI4HEOR Desktop — Product Requirements
 
-> **Status (AI4HEOR 0.1.56 internal test, 2026-07-20).** The runtime is **OpenCode**, bundled as an isolated
+> **Status (AI4HEOR 0.2.2 internal test candidate, 2026-07-21).** The runtime is **OpenCode**, bundled as an isolated
 > sidecar (one-click, auto-started, does not touch a user's own OpenCode). Built: the
 > three-column workbench UI, real multi-session chat with history, a real Skills/Agents
 > view, BYOK key config, Intel macOS and Windows x64 test installers, and the first-party HEOR workflow described
