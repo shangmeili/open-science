@@ -805,6 +805,27 @@
     "generated": "科研表格已生成，等待研究者核对。",
     "repairPrompt": "使用 $research-tables。先在对话中确认这些表格的用途、使用对象、每张表的列、单位和需要呈现的行，再根据当前项目文件创建或修复 deliverables/research-tables.json。每个 evidence 或 analysis_output 行必须引用已有项目文件及其准确 SHA-256，并写明定位；assumption 行必须单独标记并说明。不得猜测数值、单位、来源或审阅状态，human_review.status 保持 awaiting_human_review。"
   },
+  "journalSubmission": {
+    "title": "目标期刊投稿核对",
+    "loading": "正在核对作者指南和投稿文件……",
+    "current": "核对报告与当前指南快照和投稿文件一致",
+    "ready": "投稿核对项已整理，可以生成报告",
+    "missing": "尚未准备目标期刊核对项",
+    "note": "应用只按已保存的作者指南快照和明确记录的规则做机械核对。通过不代表符合期刊要求，也不代表可以投稿；署名、披露、伦理、版权和提交决定仍由研究者负责。",
+    "guideDate": "指南访问日期 {{date}}",
+    "passed": "已通过",
+    "requiredIssues": "必须处理",
+    "reviewIssues": "需要复核",
+    "unresolved": "无法确定",
+    "askPrepare": "和助手一起准备核对项",
+    "generating": "正在生成……",
+    "generate": "生成核对报告",
+    "generated": "投稿核对报告已生成，请按作者指南逐项复核。",
+    "openReport": "打开核对报告",
+    "openResults": "打开结构化结果",
+    "noProject": "请先创建或选择项目。",
+    "repairPrompt": "使用 $journal-submission-check。先在对话中确认目标期刊、文章类型、投稿正文和附件，再根据研究者保存到项目中的当前官方作者指南快照创建或修复 deliverables/journal-submission-check.json。记录官网 HTTPS 地址、访问日期、版本标识、快照路径和准确 SHA-256；每条规则必须使用支持的机械核对类型并写明页码、章节或标题定位。不得根据记忆、搜索摘要或其他期刊猜测要求，不得复制第三方 CSL、模板或清单，human_review.status 保持 awaiting_human_review。"
+  },
   "reproducibility": {
     "title": "可重复性材料包",
     "loading": "正在检查可重复性材料……",

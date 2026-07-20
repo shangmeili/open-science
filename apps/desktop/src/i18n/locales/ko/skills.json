@@ -41,6 +41,7 @@
     "heor-uncertainty-analysis": { "displayName": "불확실성 분석", "description": "상관 DSA, PSA, CEAC, CEAF 및 EVPI를 감사합니다." },
     "heor-utility-inputs": { "displayName": "효용 입력", "description": "건강상태 효용 입력과 일정을 감사합니다." },
     "heor-workbench": { "displayName": "AI4HEOR 연구 워크벤치", "description": "연구자 주도의 감사 가능한 약물경제학·HEOR 업무를 지원합니다." },
+    "journal-submission-check": { "displayName": "대상 학술지 투고 점검", "description": "연구자가 저장한 공식 투고 지침 스냅샷을 기준으로 명시적인 형식 요건을 점검합니다." },
     "large-file": { "displayName": "대용량 파일", "description": "제한된 표본추출로 대형 연구 파일을 안전하게 검사합니다." },
     "literature-review": { "displayName": "참고문헌 라이브러리", "description": "출처가 기록된 RIS, BibTeX, CSL-JSON 서지정보를 로컬에서 가져오고 중복 정리 후 내보냅니다." },
     "citation-formatting": { "displayName": "인용 및 참고문헌", "description": "검증된 로컬 문헌 라이브러리에서 중국 의학 숫자형, Vancouver 숫자형 또는 저자-연도형 인용을 생성합니다." },

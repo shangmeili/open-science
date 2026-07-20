@@ -18,8 +18,9 @@ the exact bytes and preservation of all required notices.
 | Content class | Current evidence | Packaged | Decision |
 | --- | --- | ---: | --- |
 | Inherited Open Science source and AI4HEOR changes | Root MIT license; upstream `master` license is MIT | Yes | Allowed under MIT with notice |
-| First-party core Skills | 50 active Skill directories; project-authored under root MIT | Yes | Allowed; embedded third-party notices preserved |
+| First-party core Skills | 52 active Skill directories; project-authored under root MIT | Yes | Allowed; embedded third-party notices preserved |
 | Citation-formatting renderer | Project-authored Rust/Markdown renderer under root MIT; consumes the bounded CSL-JSON-compatible local library but includes no file from the CC BY-SA 3.0 CSL styles repository | Yes | Allowed; three AI4HEOR-owned profiles, source hashes, metadata warnings, and Human review boundary |
+| Target-journal submission check | Project-authored Rust/Markdown renderer and portable validator under root MIT; official author-guide pages are recorded as links and local researcher-supplied snapshots only | Yes | Allowed; no journal instructions, reporting checklist, CSL style, or submission template is bundled or redistributed |
 | Research-presentation renderer | Project-authored Rust OOXML/ZIP renderer and portable Python validator under root MIT; no Anthropic presentation code or asset is included | Yes | Allowed; macro-free first-party output path |
 | Research-report renderer | Project-authored source-bound DOCX/PDF renderer; `printpdf` 0.11.3 (MIT), its reviewed `lopdf` 0.44.0 chain, and Source Han Sans CN 2.005R (OFL-1.1) are pinned and audited | Yes | Allowed for internal testing; generated documents remain awaiting human review |
 | HEORAgent-informed evidence Skill | First-party rewrite; pinned upstream revision and MIT notice retained | Yes | Allowed; upstream package itself is not shipped |

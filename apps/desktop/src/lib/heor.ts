@@ -38,6 +38,9 @@ export const RESEARCH_REPORT_XLSX_PATH = "deliverables/heor-report.xlsx";
 export const RESEARCH_TABLES_MANIFEST_PATH = "deliverables/research-tables.json";
 export const RESEARCH_TABLES_XLSX_PATH = "deliverables/research-tables.xlsx";
 export const RESEARCH_TABLES_CSV_DIRECTORY = "deliverables/research-tables";
+export const JOURNAL_SUBMISSION_MANIFEST_PATH = "deliverables/journal-submission-check.json";
+export const JOURNAL_SUBMISSION_MARKDOWN_PATH = "deliverables/journal-submission-check.md";
+export const JOURNAL_SUBMISSION_RESULTS_PATH = "deliverables/journal-submission-check.results.json";
 export const CONCEPTUAL_MODEL_LAYOUT_PATH = "deliverables/conceptual-model-layout.json";
 export const CONCEPTUAL_MODEL_SVG_PATH = "deliverables/conceptual-model.svg";
 export const CONCEPTUAL_MODEL_GRAPHML_PATH = "deliverables/conceptual-model.graphml";
@@ -1277,6 +1280,32 @@ export interface ResearchTablesAudit {
   xlsxSha256: string | null;
   humanReviewStatus: string;
   neutralizedTextCount: number;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface JournalSubmissionAudit {
+  complete: boolean;
+  readyToGenerate: boolean;
+  outputsCurrent: boolean;
+  status: "missing" | "invalid" | "ready" | "current";
+  checkId: string;
+  title: string;
+  journalName: string;
+  articleType: string;
+  guideAccessedOn: string;
+  manifestPath: string;
+  markdownPath: string;
+  resultsPath: string;
+  auditPath: string;
+  manifestSha256: string;
+  fileCount: number;
+  ruleCount: number;
+  passedCount: number;
+  failedRequiredCount: number;
+  reviewIssueCount: number;
+  unresolvedCount: number;
+  humanReviewStatus: string;
   errors: string[];
   warnings: string[];
 }
@@ -3909,6 +3938,18 @@ export async function generateResearchTables(): Promise<ResearchTablesAudit> {
   return invoke<ResearchTablesAudit>("generate_research_tables");
 }
 
+export async function auditJournalSubmission(): Promise<JournalSubmissionAudit> {
+  if (!isTauri) return JOURNAL_SUBMISSION_BROWSER_DEMO_AUDIT;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<JournalSubmissionAudit>("audit_journal_submission");
+}
+
+export async function generateJournalSubmission(): Promise<JournalSubmissionAudit> {
+  if (!isTauri) throw new Error("journal submission checking is available only in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<JournalSubmissionAudit>("generate_journal_submission");
+}
+
 export async function auditConceptualModelDiagram(): Promise<ConceptualModelDiagramAudit> {
   if (!isTauri) return CONCEPTUAL_MODEL_DIAGRAM_BROWSER_DEMO_AUDIT;
   const { invoke } = await import("@tauri-apps/api/core");
@@ -4608,6 +4649,32 @@ export const RESEARCH_TABLES_BROWSER_DEMO_AUDIT: ResearchTablesAudit = {
   humanReviewStatus: "awaiting_human_review",
   neutralizedTextCount: 0,
   errors: [`${RESEARCH_TABLES_MANIFEST_PATH} is required`],
+  warnings: [],
+};
+
+export const JOURNAL_SUBMISSION_BROWSER_DEMO_AUDIT: JournalSubmissionAudit = {
+  complete: false,
+  readyToGenerate: false,
+  outputsCurrent: false,
+  status: "missing",
+  checkId: "",
+  title: "",
+  journalName: "",
+  articleType: "",
+  guideAccessedOn: "",
+  manifestPath: JOURNAL_SUBMISSION_MANIFEST_PATH,
+  markdownPath: JOURNAL_SUBMISSION_MARKDOWN_PATH,
+  resultsPath: JOURNAL_SUBMISSION_RESULTS_PATH,
+  auditPath: "deliverables/journal-submission-check.audit.json",
+  manifestSha256: "",
+  fileCount: 0,
+  ruleCount: 0,
+  passedCount: 0,
+  failedRequiredCount: 0,
+  reviewIssueCount: 0,
+  unresolvedCount: 0,
+  humanReviewStatus: "awaiting_human_review",
+  errors: [`${JOURNAL_SUBMISSION_MANIFEST_PATH} is required`],
   warnings: [],
 };
 

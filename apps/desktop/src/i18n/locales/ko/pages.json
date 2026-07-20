@@ -137,7 +137,7 @@
       "sectionTitle": "외부 어댑터",
       "loading": "앱에 포함된 외부 어댑터를 확인하는 중…",
       "unavailable": "외부 어댑터를 확인할 수 없어 모두 비활성 상태로 유지됩니다.",
-      "firstPartyTitle": "AI4HEOR 제1자 Skill 51개 내장",
+      "firstPartyTitle": "AI4HEOR 제1자 Skill 52개 내장",
       "firstPartyBoundary": "라이선스, 보안, 방법론, 패키지 검사를 통과해 실제로 포함된 외부 어댑터만 표시합니다. 재작성 중이거나 제외된 소스는 사용자 선택지로 남기지 않습니다.",
       "groupAdmitted": "승인된 자산({{count}})",
       "admitted": "승인됨",

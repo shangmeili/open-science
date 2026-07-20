@@ -44,6 +44,7 @@ mod heor_uncertainty;
 mod heor_utility_inputs;
 mod heor_validation;
 mod jupyter;
+mod journal_submission;
 mod kernel;
 mod large_file;
 mod modal;
@@ -161,6 +162,8 @@ pub fn run() {
             research_report::generate_research_report,
             research_tables::audit_research_tables,
             research_tables::generate_research_tables,
+            journal_submission::audit_journal_submission,
+            journal_submission::generate_journal_submission,
             startup_audit::audit_startup_environment,
             asset_admission::audit_asset_admission,
             capability_review::audit_skill_candidates,

@@ -217,6 +217,37 @@ class CoreSkillContractTests(unittest.TestCase):
         ):
             self.assertIn(required, contract)
 
+    def test_journal_submission_check_owns_source_bound_mechanical_rules(self):
+        skill_dir = SKILLS_ROOT / "journal-submission-check"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        contract = (
+            skill_dir / "references" / "submission-check-contract.md"
+        ).read_text(encoding="utf-8")
+        template = json.loads(
+            (
+                skill_dir
+                / "assets"
+                / "journal-submission-check.template.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertIn("references/submission-check-contract.md", skill)
+        self.assertIn("deliverables/journal-submission-check.json", skill)
+        self.assertEqual(
+            template["schema_version"],
+            "ai4heor-journal-submission-check/v1",
+        )
+        self.assertEqual(
+            template["human_review"], {"status": "awaiting_human_review"}
+        )
+        for required in (
+            "official author-guide snapshot",
+            "guide_locator",
+            "does not establish journal compliance",
+            "never bundled",
+            "fail closed",
+        ):
+            self.assertIn(required, contract)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Journal Submission Check"
+  short_description: "Prepare a source-bound journal submission check"
+  default_prompt: "Use $journal-submission-check to prepare a source-bound submission check for my target journal."

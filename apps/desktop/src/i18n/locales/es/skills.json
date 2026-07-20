@@ -41,6 +41,7 @@
     "heor-uncertainty-analysis": { "displayName": "Análisis de incertidumbre", "description": "Audita DSA, PSA, CEAC, CEAF y EVPI correlacionados." },
     "heor-utility-inputs": { "displayName": "Entradas de utilidad", "description": "Audita utilidades de estados de salud y calendarios." },
     "heor-workbench": { "displayName": "Banco de trabajo AI4HEOR", "description": "Ayuda al trabajo farmacoeconómico y HEOR auditable dirigido por investigadores." },
+    "journal-submission-check": { "displayName": "Comprobación de la revista objetivo", "description": "Comprueba requisitos formales explícitos con una copia de la guía oficial para autores guardada por la persona investigadora." },
     "large-file": { "displayName": "Archivo grande", "description": "Inspecciona archivos grandes con muestreo acotado y seguro." },
     "literature-review": { "displayName": "Biblioteca de referencias", "description": "Importa, deduplica y exporta metadatos RIS, BibTeX y CSL-JSON vinculados a sus fuentes de forma local." },
     "citation-formatting": { "displayName": "Citas y referencias", "description": "Genera citas verificables en formato médico chino, Vancouver numérico o autor-fecha desde la biblioteca local validada." },

@@ -41,6 +41,7 @@
     "heor-uncertainty-analysis": { "displayName": "Unsicherheitsanalyse", "description": "Prüft korrelierte DSA, PSA, CEAC, CEAF und EVPI." },
     "heor-utility-inputs": { "displayName": "Nutzwerteingaben", "description": "Prüft Gesundheitszustands-Nutzwerte und Zeitpläne." },
     "heor-workbench": { "displayName": "AI4HEOR-Forschungswerkbank", "description": "Unterstützt forschungsgeleitete, prüfbare Pharmakoökonomie und HEOR." },
+    "journal-submission-check": { "displayName": "Prüfung für die Zielzeitschrift", "description": "Prüft ausdrückliche formale Vorgaben anhand einer von Forschenden gespeicherten offiziellen Autorenrichtlinie." },
     "large-file": { "displayName": "Große Datei", "description": "Untersucht große Forschungsdateien sicher durch begrenzte Stichproben." },
     "literature-review": { "displayName": "Literaturverzeichnis", "description": "Importiert, dedupliziert und exportiert quellengebundene RIS-, BibTeX- und CSL-JSON-Metadaten lokal." },
     "citation-formatting": { "displayName": "Zitate und Literatur", "description": "Erzeugt prüfbare chinesisch-medizinische, Vancouver- oder Autor-Jahr-Zitate aus der validierten lokalen Bibliothek." },

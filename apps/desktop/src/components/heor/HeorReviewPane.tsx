@@ -56,6 +56,7 @@ import {
   auditResearchPresentation,
   auditResearchReport,
   auditResearchTables,
+  auditJournalSubmission,
   addHeorLibraryDirectory,
   addHeorLibraryFiles,
   installBundledHeorKnowledgeBase,
@@ -77,6 +78,7 @@ import {
   generateResearchPresentation,
   generateResearchReport,
   generateResearchTables,
+  generateJournalSubmission,
   generateConceptualModelDiagram,
   generateCitationFormatting,
   HEOR_EVIDENCE_SEARCH_REQUEST_PATH,
@@ -187,6 +189,10 @@ import {
   ResearchTablesAssessment,
   type ResearchTablesState,
 } from "./ResearchTablesAssessment";
+import {
+  JournalSubmissionAssessment,
+  type JournalSubmissionState,
+} from "./JournalSubmissionAssessment";
 
 const REVIEW_GATES: HeorGate[] = [
   "decision_problem",
@@ -522,6 +528,8 @@ export function HeorReviewPane({
   const [citationFormattingGenerating, setCitationFormattingGenerating] = useState(false);
   const [researchTables, setResearchTables] = useState<ResearchTablesState>({ kind: "loading" });
   const [researchTablesGenerating, setResearchTablesGenerating] = useState(false);
+  const [journalSubmission, setJournalSubmission] = useState<JournalSubmissionState>({ kind: "loading" });
+  const [journalSubmissionGenerating, setJournalSubmissionGenerating] = useState(false);
   const [evidenceSearch, setEvidenceSearch] = useState<EvidenceSearchState>({ kind: "loading" });
   const [evidenceSynthesis, setEvidenceSynthesis] = useState<EvidenceSynthesisState>({ kind: "loading" });
   const [evidenceSelection, setEvidenceSelection] = useState<EvidenceSelectionState>({ kind: "loading" });
@@ -585,6 +593,7 @@ export function HeorReviewPane({
       setResearchReport({ kind: "invalid", message: t("reportExport.noProject") });
       setCitationFormatting({ kind: "invalid", message: t("citationFormatting.noProject") });
       setResearchTables({ kind: "invalid", message: t("researchTables.noProject") });
+      setJournalSubmission({ kind: "invalid", message: t("journalSubmission.noProject") });
       setEvidenceSearch({ kind: "invalid", message: t("search.noProject") });
       setEvidenceSynthesis({ kind: "invalid", message: t("synthesis.noProject") });
       setEvidenceSelection({ kind: "invalid", message: t("evidence.noProject") });
@@ -616,6 +625,7 @@ export function HeorReviewPane({
     setResearchReport({ kind: "loading" });
     setCitationFormatting({ kind: "loading" });
     setResearchTables({ kind: "loading" });
+    setJournalSubmission({ kind: "loading" });
     setEvidenceSearch({ kind: "loading" });
     setEvidenceSynthesis({ kind: "loading" });
     setEvidenceSelection({ kind: "loading" });
@@ -665,6 +675,14 @@ export function HeorReviewPane({
       setResearchTables({ kind: "ready", audit: await auditResearchTables() });
     } catch (error) {
       setResearchTables({
+        kind: "invalid",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    try {
+      setJournalSubmission({ kind: "ready", audit: await auditJournalSubmission() });
+    } catch (error) {
+      setJournalSubmission({
         kind: "invalid",
         message: error instanceof Error ? error.message : String(error),
       });
@@ -1482,6 +1500,22 @@ export function HeorReviewPane({
     }
   };
 
+  const renderJournalSubmission = async () => {
+    if (!project || journalSubmissionGenerating || !isTauri) return;
+    setJournalSubmissionGenerating(true);
+    try {
+      const audit = await generateJournalSubmission();
+      setJournalSubmission({ kind: "ready", audit });
+      toast.success(t("journalSubmission.generated"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setJournalSubmission({ kind: "invalid", message });
+      toast.error(`${t("toast.actionFailed")}: ${message}`);
+    } finally {
+      setJournalSubmissionGenerating(false);
+    }
+  };
+
   const runUncertainty = async () => {
     if (!project || !isTauri || uncertainty.kind !== "ready"
       || !uncertainty.audit.complete || running) return;
@@ -2008,6 +2042,15 @@ export function HeorReviewPane({
             generating={researchTablesGenerating}
             onRequestPreparation={() => onRequestRevision(t("researchTables.repairPrompt"))}
             onGenerate={() => void renderResearchTables()}
+          />
+        )}
+
+        {project && (
+          <JournalSubmissionAssessment
+            state={journalSubmission}
+            generating={journalSubmissionGenerating}
+            onRequestPreparation={() => onRequestRevision(t("journalSubmission.repairPrompt"))}
+            onGenerate={() => void renderJournalSubmission()}
           />
         )}
 

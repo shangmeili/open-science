@@ -119,7 +119,7 @@ approval, cost-effectiveness, or reimbursement conclusions.
 
 ## Current capabilities
 
-**Research assistance, as bounded HEOR skills.** AI4HEOR's 51 first-party skills
+**Research assistance, as bounded HEOR skills.** AI4HEOR's 52 first-party skills
 route researcher-defined tasks without acquiring approval or method-selection
 authority. Representative admitted workflows are:
 
@@ -137,6 +137,7 @@ authority. Representative admitted workflows are:
 | `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | Validate, report, and package exact current artifacts | Independent-review package, source-bound DOCX/PDF/XLSX report, and replay bundle |
 | `$research-presentation` | Prepare source-bound research presentation content and render it locally | Reviewable macro-free PPTX plus generation audit |
 | `$research-tables` | Structure typed, unit-labelled rows from exact local evidence and analysis outputs | Reviewable formula-free XLSX, one CSV per table, and generation audit |
+| `$journal-submission-check` | Capture explicit mechanical rules from a researcher-saved official author-guide snapshot | Source-bound check report that remains awaiting Human review |
 
 Every first-party Skill name and description ships in all seven interface
 languages while the exact `$skill-id` remains visible. Unfinished rewrites and
@@ -301,7 +302,7 @@ target design as well as historical status notes.
 
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
-accepted. Current source is 0.1.48; the fully first-launch-verified x64 macOS
+accepted. Current source is 0.1.49; the fully first-launch-verified x64 macOS
 handoff remains 0.1.41. The current 90,027,878-byte
 `AI4HEOR_0.1.48_x64.dmg` candidate built from `a4f08f1` has SHA-256
 `876f1f875eebbd6c8dcc2167cc9ae6a4552ef63acfb0a91a261b97afabf3da5b`.
@@ -310,6 +311,11 @@ identity, OpenCode 1.17.13, uv 0.11.26, all 354 controlled resources, and all
 177 packaged HEOR tests. It supersedes the 0.1.47 candidate. Exact isolated
 first launch remains pending because the installed app is still running; this
 candidate does not replace the fully accepted 0.1.41 handoff yet.
+Version 0.1.49 adds a first-party target-journal submission check. It evaluates
+only explicit mechanical rules captured from a researcher-saved current official
+author-guide snapshot, records rule locators and hashes, and leaves the report
+awaiting Human review. No journal guide, checklist, CSL style, or submission
+template is bundled; passing does not establish compliance or permission to submit.
 Version 0.1.48 adds first-party configurable research tables. A bounded manifest
 defines typed, unit-labelled rows, their evidence, analysis-output or assumption
 basis, and exact local source hashes; the native renderer produces a deterministic,

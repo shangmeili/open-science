@@ -805,6 +805,27 @@
     "generated": "The research tables were generated and are awaiting researcher review.",
     "repairPrompt": "Use $research-tables. First confirm the purpose, intended readers, columns, units, and rows for each table with me in the conversation, then create or repair deliverables/research-tables.json from current project files. Every evidence or analysis_output row must reference an existing project file at its exact SHA-256 and include a locator; every assumption row must be identified and explained separately. Do not guess values, units, sources, or review status, and keep human_review.status as awaiting_human_review."
   },
+  "journalSubmission": {
+    "title": "Target-journal submission check",
+    "loading": "Checking the author guide and submission files…",
+    "current": "The check report matches the current guide snapshot and submission files",
+    "ready": "The submission checks are captured and ready to generate",
+    "missing": "Target-journal checks have not been prepared",
+    "note": "The app performs only explicit mechanical checks against a saved author-guide snapshot. A pass does not establish journal compliance or permission to submit; authorship, disclosure, ethics, copyright, and submission decisions remain with the researcher.",
+    "guideDate": "Guide accessed {{date}}",
+    "passed": "Passed",
+    "requiredIssues": "Required issues",
+    "reviewIssues": "Review issues",
+    "unresolved": "Unresolved",
+    "askPrepare": "Prepare checks with the assistant",
+    "generating": "Generating…",
+    "generate": "Generate check report",
+    "generated": "The submission check report was generated. Review every item against the author guide.",
+    "openReport": "Open check report",
+    "openResults": "Open structured results",
+    "noProject": "Create or select a project first.",
+    "repairPrompt": "Use $journal-submission-check. First confirm the target journal, article type, manuscript, and submission files with me, then create or repair deliverables/journal-submission-check.json against the current official author-guide snapshot saved by the researcher inside this project. Record its official HTTPS URL, access date, version label, local path, and exact SHA-256. Every rule must use a supported mechanical check and cite a page, section, or heading locator. Do not infer rules from memory, search snippets, or another journal; do not copy third-party CSL, templates, or checklists; keep human_review.status as awaiting_human_review."
+  },
   "reproducibility": {
     "title": "Reproducibility companion",
     "loading": "Auditing reproducibility evidence…",

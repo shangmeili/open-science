@@ -41,6 +41,7 @@
     "heor-uncertainty-analysis": { "displayName": "Uncertainty Analysis", "description": "Audit correlated DSA, PSA, CEAC, CEAF, and EVPI." },
     "heor-utility-inputs": { "displayName": "Utility Inputs", "description": "Audit health-state utility inputs and schedules." },
     "heor-workbench": { "displayName": "AI4HEOR Research Workbench", "description": "Assist researcher-led, auditable pharmacoeconomics and HEOR work." },
+    "journal-submission-check": { "displayName": "Target-Journal Submission Check", "description": "Check explicit mechanical requirements against a researcher-saved official author-guide snapshot." },
     "large-file": { "displayName": "Large File", "description": "Inspect large research files safely with bounded sampling." },
     "literature-review": { "displayName": "Reference Library", "description": "Import, deduplicate, and export source-bound RIS, BibTeX, and CSL-JSON metadata locally." },
     "citation-formatting": { "displayName": "Citations and References", "description": "Generate reviewable Chinese medical numeric, Vancouver-style numeric, or author-date citations from the validated local library." },

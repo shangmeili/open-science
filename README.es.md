@@ -70,7 +70,7 @@ Este benchmark del proyecto base no demuestra que la ciencia dentro de AI4HEOR d
 
 ## Capacidades actuales
 
-**Asistencia HEOR mediante skills acotadas.** Las 51 skills propias enrutan tareas definidas por la persona investigadora sin adquirir autoridad de aprobación o selección metodológica. Flujos representativos:
+**Asistencia HEOR mediante skills acotadas.** Las 52 skills propias enrutan tareas definidas por la persona investigadora sin adquirir autoridad de aprobación o selección metodológica. Flujos representativos:
 
 | Skill | Rol | Salida principal |
 | --- | --- | --- |
@@ -85,8 +85,9 @@ Este benchmark del proyecto base no demuestra que la ciencia dentro de AI4HEOR d
 | `$heor-model-validation` / `$heor-reporting` / `$heor-reproducibility-package` | Validar, informar y empaquetar artefactos actuales exactos | Paquete de revisión independiente, informe y bundle reproducible |
 | `$research-presentation` | Preparar contenido vinculado a fuentes y generarlo localmente | PPTX sin macros revisable y registro de generación |
 | `$research-tables` | Preparar tablas tipadas con unidades y fuentes explícitas | XLSX sin fórmulas revisable, un CSV por tabla y registro de generación |
+| `$journal-submission-check` | Registrar requisitos formales explícitos desde una guía oficial guardada por la persona investigadora | Informe vinculado a la fuente y pendiente de revisión humana |
 
-Los nombres y descripciones de las 51 skills propias se publican en los siete idiomas de interfaz manteniendo visible el `$skill-id` exacto. Los activos externos permanecen inactivos hasta su admisión individual.
+Los nombres y descripciones de las 52 skills propias se publican en los siete idiomas de interfaz manteniendo visible el `$skill-id` exacto. Los activos externos permanecen inactivos hasta su admisión individual.
 
 ### Plataforma
 

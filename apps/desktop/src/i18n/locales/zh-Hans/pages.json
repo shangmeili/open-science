@@ -215,7 +215,7 @@
       "sectionTitle": "外部适配器",
       "loading": "正在核对随平台发布的外部适配器…",
       "unavailable": "无法核对外部适配器，所有外部能力保持停用。",
-      "firstPartyTitle": "51 个 AI4HEOR 第一方 Skill 已内置",
+      "firstPartyTitle": "52 个 AI4HEOR 第一方 Skill 已内置",
       "firstPartyBoundary": "这里仅显示已经通过授权、安全、方法和打包检查，并实际随平台发布的外部适配器。待改写或已排除的来源不会作为用户选项保留。",
       "admitted": "已准入",
       "groupAdmitted": "已准入第三方资产（{{count}}）",

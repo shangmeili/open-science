@@ -62,6 +62,20 @@ and a hash-bound audit record. Stale inputs, symlinks, missing or extra CSV file
 unknown fields and externally modified outputs fail closed. Generation never
 recalculates the economic model and leaves every table `awaiting_human_review`.
 
+## Source-bound target-journal submission check
+
+`runtime/skills/core/journal-submission-check` owns manifest schema
+`ai4heor-journal-submission-check/v1`. The researcher supplies a current official
+author-guide snapshot, its URL, access date, visible version, exact hash, and a
+locator for every recorded rule. Native Rust independently validates safe local
+paths, immutable hashes, the bounded rule shape, and supported Markdown counters,
+then emits a bilingual Markdown report, structured results, and a hash-bound audit.
+Unknown fields, unsupported rules, stale inputs, symlinks, changed outputs, or an
+Agent-claimed approval fail closed. The runtime bundles no journal instructions,
+reporting checklist, CSL style, or submission template. Mechanical passes never
+establish journal compliance or permission to submit, and every result remains
+`awaiting_human_review`.
+
 ## Bounded model-calibration execution
 
 `runtime/skills/core/heor-model-calibration` owns request/result schema `0.1.0`.
@@ -302,7 +316,7 @@ to pick it up. Keys never enter the user's global OpenCode config, logs, or git.
 
 ```text
 skills/
-  core/      # 51 first-party HEOR, evidence, validation, reporting, and harness Skills
+  core/      # 52 first-party HEOR, evidence, validation, reporting, and harness Skills
   external/  # inactive third-party review cache; never loaded directly
 
 workspace/

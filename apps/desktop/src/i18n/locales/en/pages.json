@@ -215,7 +215,7 @@
       "sectionTitle": "External adapters",
       "loading": "Checking external adapters shipped with the app…",
       "unavailable": "External adapters cannot be verified and remain disabled.",
-      "firstPartyTitle": "51 first-party AI4HEOR Skills are built in",
+      "firstPartyTitle": "52 first-party AI4HEOR Skills are built in",
       "firstPartyBoundary": "Only external adapters that passed license, security, methods, and package checks and actually ship with AI4HEOR appear here. Sources awaiting a rewrite or excluded from the product are not retained as user options.",
       "admitted": "admitted",
       "groupAdmitted": "Admitted third-party assets ({{count}})",
