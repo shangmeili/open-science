@@ -328,12 +328,12 @@ class AI4HEORProductDocsTests(unittest.TestCase):
             )
             self.assertIn("capabilities/candidates/", text)
             self.assertIn("learning/preferences.json", text)
-            self.assertIn("AI4HEOR_0.1.49_x64.dmg", text)
+            self.assertIn("AI4HEOR_0.1.50_x64.dmg", text)
             self.assertIn(
-                "691d4c3be8bccca5b133905927b2a0f3b52d3acec06da7b77c1fba7527d17b12",
+                "327607afb9e1d7e10c90c7ccce4a7355244611b754e3d7a2e75cbf6c38988a86",
                 text,
             )
-            self.assertIn("d0da1af", text)
+            self.assertIn("19ac87b", text)
         self.assertIn("not the macOS Keychain", english)
         self.assertIn("不是 macOS 钥匙串", chinese)
         self.assertNotIn("current verified x64 macOS package remains\n0.1.35", english)

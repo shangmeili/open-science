@@ -303,14 +303,19 @@ target design as well as historical status notes.
 Current development is deliberately scoped to running the product through on Intel macOS;
 Windows, Linux, Apple-Silicon, and cross-platform release work are paused until that path is
 accepted. Current source is 0.1.50; the fully first-launch-verified x64 macOS
-handoff remains 0.1.41. The current 90,082,873-byte
-`AI4HEOR_0.1.49_x64.dmg` candidate built from `d0da1af` has SHA-256
-`691d4c3be8bccca5b133905927b2a0f3b52d3acec06da7b77c1fba7527d17b12`.
-Independent read-only verification confirms its x86-64 payload, 0.1.49
+handoff remains 0.1.41. The current 90,082,675-byte
+`AI4HEOR_0.1.50_x64.dmg` candidate built from `19ac87b` has SHA-256
+`327607afb9e1d7e10c90c7ccce4a7355244611b754e3d7a2e75cbf6c38988a86`.
+Independent read-only verification confirms its x86-64 payload, 0.1.50
 identity, OpenCode 1.17.13, uv 0.11.26, all 359 controlled resources, and all
-177 packaged HEOR tests. It supersedes the 0.1.48 candidate. Exact isolated
+177 packaged HEOR tests. It supersedes the 0.1.49 candidate. Exact isolated
 first launch remains pending because the installed app is still running; this
 candidate does not replace the fully accepted 0.1.41 handoff yet.
+Version 0.1.50 prevents test-generated files from entering release resources.
+Python test entry points no longer write bytecode caches, and Tauri's production
+build fails before compilation if any configured resource is missing, linked,
+generated, irregular, or mapped to a colliding package destination. The mounted
+DMG remains independently checked after packaging.
 Version 0.1.49 adds a first-party target-journal submission check. It evaluates
 only explicit mechanical rules captured from a researcher-saved current official
 author-guide snapshot, records rule locators and hashes, and leaves the report
