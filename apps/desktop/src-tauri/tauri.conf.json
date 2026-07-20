@@ -71,9 +71,6 @@
       "../../../python/heor_core/src/heor_core/component_uncertainty.py": "heor-core/src/heor_core/component_uncertainty.py",
       "../../../python/heor_core/src/heor_core/advanced_voi.py": "heor-core/src/heor_core/advanced_voi.py",
       "../../../python/heor_core/src/heor_core/budget_impact.py": "heor-core/src/heor_core/budget_impact.py",
-      "../../../runtime/skills/core/heor-reference-case/assets/profiles/CN-2020-current.json": "reference-cases/CN-2020-current.json",
-      "../../../runtime/skills/core/heor-reference-case/assets/profiles/CN-2026-draft.json": "reference-cases/CN-2026-draft.json",
-      "../../../runtime/skills/core/heor-reference-case/assets/profiles/NICE-PMG36-2026-current.json": "reference-cases/NICE-PMG36-2026-current.json",
       "../../../examples/heor-cost-effectiveness": "examples/heor-cost-effectiveness/"
     },
     "linux": {

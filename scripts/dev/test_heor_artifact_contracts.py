@@ -1840,15 +1840,22 @@ class ReferenceCaseContractTests(unittest.TestCase):
         self.assertGreaterEqual(len(profile_paths), 3)
         tauri = json.loads((ROOT / "apps/desktop/src-tauri/tauri.conf.json").read_text())
         resources = tauri["bundle"]["resources"]
+        self.assertEqual(
+            resources.get("../../../runtime/skills/core"),
+            "skills-core/",
+        )
         ids: set[str] = set()
         for profile_path in profile_paths:
             profile = json.loads(profile_path.read_text())
             self.assertNotIn(profile["id"], ids)
             ids.add(profile["id"])
             relative = profile_path.relative_to(ROOT).as_posix()
-            self.assertEqual(
-                resources.get(f"../../../{relative}"),
-                f"reference-cases/{profile_path.name}",
+            self.assertNotIn(
+                f"../../../{relative}",
+                resources,
+                "A file already covered by the skills-core directory must not be "
+                "declared twice; the Windows bundler otherwise removes it from the "
+                "installed Skill tree.",
             )
 
     def test_nice_2026_profile_is_current_source_bound_and_packaged(self):
@@ -1875,10 +1882,8 @@ class ReferenceCaseContractTests(unittest.TestCase):
         }.issubset(checks))
         tauri = json.loads((ROOT / "apps/desktop/src-tauri/tauri.conf.json").read_text())
         resources = tauri["bundle"]["resources"]
-        self.assertEqual(
-            resources[f"../../../{relative}"],
-            "reference-cases/NICE-PMG36-2026-current.json",
-        )
+        self.assertEqual(resources["../../../runtime/skills/core"], "skills-core/")
+        self.assertNotIn(f"../../../{relative}", resources)
 
     def fixture(self, root: Path, profile_name: str = "CN-2020-current.json"):
         profile_path = ROOT / (

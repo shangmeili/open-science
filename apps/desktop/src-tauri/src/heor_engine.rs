@@ -156,7 +156,7 @@ pub(crate) fn registered_reference_case_status(
     let profile_path = app
         .path()
         .resolve(
-            format!("reference-cases/{id}.json"),
+            format!("skills-core/heor-reference-case/assets/profiles/{id}.json"),
             BaseDirectory::Resource,
         )
         .map_err(|e| format!("registered reference case unavailable: {e}"))?;

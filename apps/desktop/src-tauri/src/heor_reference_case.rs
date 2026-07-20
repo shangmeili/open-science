@@ -181,7 +181,7 @@ fn load_profile(
     let path = app
         .path()
         .resolve(
-            format!("reference-cases/{expected_id}.json"),
+            format!("skills-core/heor-reference-case/assets/profiles/{expected_id}.json"),
             BaseDirectory::Resource,
         )
         .map_err(|error| format!("registered reference case unavailable: {error}"))?;

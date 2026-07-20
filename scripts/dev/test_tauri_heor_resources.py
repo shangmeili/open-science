@@ -68,6 +68,18 @@ class TauriHeorResourceTests(unittest.TestCase):
             if destination.startswith(("heor-core/", "reference-cases/", "skills-core/")):
                 self.assertTrue((TAURI_DIR / source).resolve().exists(), source)
 
+    def test_skill_files_are_not_redeclared_as_individual_resources(self):
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        resources = config["bundle"]["resources"]
+        skill_root = (ROOT / "runtime/skills/core").resolve()
+        self.assertEqual(resources["../../../runtime/skills/core"], "skills-core/")
+        duplicates = []
+        for source in resources:
+            resolved = (TAURI_DIR / source).resolve()
+            if resolved != skill_root and skill_root in resolved.parents:
+                duplicates.append(source)
+        self.assertEqual(duplicates, [])
+
     def test_bundled_delivery_examples_are_heor_specific(self):
         config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         resources = config["bundle"]["resources"]
