@@ -33,6 +33,7 @@ describe("FilesPage", () => {
   it("lists workspace entries with sizes and opens a file in the previewer", async () => {
     render(<FilesPage />);
     expect(await screen.findByText("figure.png")).toBeInTheDocument();
+    expect(listDir).toHaveBeenCalledWith("", "workspace");
     expect(screen.getByText("2 KB")).toBeInTheDocument();
 
     await userEvent.click(screen.getByText("figure.png"));
@@ -49,10 +50,19 @@ describe("FilesPage", () => {
     render(<FilesPage />);
     await userEvent.click(await screen.findByText("data"));
     expect(await screen.findByText("genes.bed")).toBeInTheDocument();
-    // The page is GLOBAL: every listing resolves in the base folder tree.
-    expect(listDir).toHaveBeenCalledWith("data", "base");
+    expect(listDir).toHaveBeenCalledWith("data", "workspace");
 
-    await userEvent.click(screen.getByRole("button", { name: "Workspace" }));
+    await userEvent.click(screen.getByRole("button", { name: "Research files" }));
     await waitFor(() => expect(screen.getByText("figure.png")).toBeInTheDocument());
+  });
+
+  it("opens the active scope directly instead of showing its dated storage folder", async () => {
+    render(<FilesPage />);
+
+    expect(await screen.findByText("figure.png")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Research files" })).toBeInTheDocument();
+    expect(screen.queryByText("7月20日 14:08 的任务")).not.toBeInTheDocument();
+    expect(screen.queryByText("2026-07-20-1408")).not.toBeInTheDocument();
+    expect(listDir).not.toHaveBeenCalledWith("", "base");
   });
 });

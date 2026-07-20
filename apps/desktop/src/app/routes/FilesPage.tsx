@@ -16,15 +16,13 @@ import {
 } from "lucide-react";
 import { extOf, extToKind, previewKindForName, type PreviewKind } from "@/lib/artifacts";
 import { listDir, type DirEntry } from "@/lib/artifactFile";
-import { isTauri, workspaceBase } from "@/lib/tauri";
+import { isTauri } from "@/lib/tauri";
 import { useRuntimeStore } from "@/lib/runtime";
-import { baseName } from "@/lib/pathName";
 import { NotebookEditor } from "@/components/notebook/NotebookEditor";
 import { FilePreviewInspector } from "@/components/inspector/FilePreviewInspector";
 import { FileContextMenu } from "@/components/files/FileContextMenu";
 import { PaneTitlebarInset } from "@/components/inspector/RightPane";
 import { cn } from "@/lib/cn";
-import { workspaceLabel } from "@/lib/workspaceLabel";
 
 const EXT_LANG: Record<string, string> = {
   py: "python", r: "r", jl: "julia", sh: "bash", tex: "latex", md: "markdown",
@@ -50,30 +48,33 @@ function humanSize(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/**
- * GLOBAL file explorer: browses from the base folder (Settings → Workspace),
- * which holds every session's dated folder — not the active session only.
- * Directories are navigable via a breadcrumb; files open in the same viewers
- * used elsewhere (figures, tables, PDF, molecule, genome tracks, notebooks),
- * so all past work is reachable in one place.
+/** The research files for the active task or project.
+ *
+ * Each standalone task still has its own private folder on disk for isolation
+ * and auditability. That storage boundary is an implementation detail: the
+ * researcher enters the active scope directly and never has to browse dated
+ * task-container folders.
  */
 export function FilesPage() {
-  const { t, i18n } = useTranslation(["pages", "common"]);
-  const [dir, setDir] = useState(""); // base-relative; "" = the base folder
+  const { t } = useTranslation(["pages", "common", "nav"]);
+  const workspace = useRuntimeStore((s) => s.workspace);
+  const [dir, setDir] = useState(""); // workspace-relative; "" = active scope
   const [entries, setEntries] = useState<DirEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<DirEntry | null>(null);
-  // The base folder's path, for the root crumb (name + full path on hover).
-  const [basePath, setBasePath] = useState<string | null>(null);
+
+  // Switching tasks or projects must never leave a file selected from the
+  // previous research scope.
   useEffect(() => {
-    void workspaceBase().then(setBasePath).catch(() => {});
-  }, []);
+    setSelected(null);
+    setDir("");
+  }, [workspace]);
 
   const load = useCallback(async (rel: string) => {
     setEntries(null);
     setError(null);
     try {
-      setEntries(await listDir(rel, "base"));
+      setEntries(await listDir(rel, "workspace"));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setEntries([]);
@@ -102,9 +103,9 @@ export function FilesPage() {
           <button
             className={cn("rounded px-1 hover:bg-surface-2", dir ? "text-link" : "font-medium text-text")}
             onClick={() => setDir("")}
-            title={basePath ?? undefined}
+            title={workspace ?? undefined}
           >
-            {baseName(basePath)}
+            {t("nav:items.files")}
           </button>
           {crumbs.map((part, i) => {
             const to = crumbs.slice(0, i + 1).join("/");
@@ -116,7 +117,7 @@ export function FilesPage() {
                   className={cn("rounded px-1 hover:bg-surface-2", isLast ? "font-medium text-text" : "text-link")}
                   onClick={() => setDir(to)}
                 >
-                  {i === 0 ? workspaceLabel(part, i18n.resolvedLanguage) : part}
+                  {part}
                 </button>
               </span>
             );
@@ -136,7 +137,7 @@ export function FilesPage() {
             </div>
           )}
           {entries?.map((entry) => (
-            <FileContextMenu key={entry.path} entry={entry} root="base">
+            <FileContextMenu key={entry.path} entry={entry} root="workspace">
               <button
                 onClick={() => open(entry)}
                 className={cn(
@@ -145,11 +146,7 @@ export function FilesPage() {
                 )}
               >
                 {iconFor(entry)}
-                <span className="flex-1 truncate">
-                  {dir === "" && entry.isDir
-                    ? workspaceLabel(entry.name, i18n.resolvedLanguage)
-                    : entry.name}
-                </span>
+                <span className="flex-1 truncate">{entry.name}</span>
                 {!entry.isDir && <span className="shrink-0 text-[11px] text-muted">{humanSize(entry.size)}</span>}
                 {entry.isDir && <ChevronRight size={14} className="shrink-0 text-muted" />}
               </button>
@@ -160,7 +157,7 @@ export function FilesPage() {
 
       <div className="min-h-0 flex-1">
         {selected ? (
-          <FilePreview key={selected.path} entry={selected} root="base" onClose={() => setSelected(null)} />
+          <FilePreview key={selected.path} entry={selected} root="workspace" onClose={() => setSelected(null)} />
         ) : (
           <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted">
             {t("files.selectFilePrompt")}
@@ -203,9 +200,8 @@ function FilePreview({
 }
 
 /**
- * Compact browser for the CURRENT session's folder, shown in the right
- * inspector pane beside the conversation (the session-scoped quick entry —
- * the Files page itself is global). Clicking a file swaps the pane to its
+ * Compact browser for the current task or project's files, shown in the right
+ * inspector pane beside the conversation. Clicking a file swaps the pane to its
  * preview; closing the preview returns to the list.
  */
 export function SessionFilesPane({
@@ -216,7 +212,7 @@ export function SessionFilesPane({
   /** Pane-level header buttons (e.g. maximize), rendered before Close. */
   controls?: React.ReactNode;
 }) {
-  const { t } = useTranslation(["pages", "common"]);
+  const { t } = useTranslation(["pages", "common", "nav"]);
   const workspace = useRuntimeStore((s) => s.workspace);
   const [dir, setDir] = useState("");
   const [entries, setEntries] = useState<DirEntry[] | null>(null);
@@ -266,7 +262,7 @@ export function SessionFilesPane({
         <PaneTitlebarInset />
         <Folder size={14} strokeWidth={1.5} className="shrink-0 text-text" />
         <span className="truncate text-sm font-medium text-text" title={workspace ?? undefined}>
-          {baseName(workspace)}
+          {t("nav:items.files")}
         </span>
         <span className="text-xs text-muted">{t("files.pane.subtitle")}</span>
         <div className="flex-1" />
@@ -278,7 +274,7 @@ export function SessionFilesPane({
       {crumbs.length > 0 && (
         <div className="flex flex-wrap items-center gap-0.5 border-b border-border px-3 py-2 text-[12px]">
           <button className="rounded px-1 text-link hover:bg-surface-2" onClick={() => setDir("")}>
-            {baseName(workspace)}
+            {t("nav:items.files")}
           </button>
           {crumbs.map((part, i) => {
             const to = crumbs.slice(0, i + 1).join("/");
