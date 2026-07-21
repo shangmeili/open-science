@@ -1,9 +1,30 @@
 {
+  "nav": {
+    "back": "Retour à l'app",
+    "general": "Général",
+    "appearance": "Apparence",
+    "models": "Modèles",
+    "runtime": "Environnement d'exécution",
+    "connectors": "Connecteurs",
+    "compute": "Calcul",
+    "privacy": "Confidentialité",
+    "browser": "Navigateur",
+    "remote": "Accès distant"
+  },
   "appearance": {
     "title": "Apparence",
+    "themeLabel": "Thème",
     "theme": {
       "light": "Clair",
+      "warm": "Chaud",
       "dark": "Sombre"
+    },
+    "zoom": {
+      "label": "Zoom",
+      "hint": "{{mod}} + / − pour zoomer, {{mod}} 0 pour réinitialiser",
+      "in": "Zoom avant",
+      "out": "Zoom arrière",
+      "reset": "Réinitialiser"
     }
   },
   "language": {
@@ -13,40 +34,27 @@
     "title": "Paramètres",
     "subtitle": "Configurez l’assistant IA, les modèles, les outils de preuve, l’espace de travail et l’environnement d’analyse local."
   },
-  "supportReport": {
-    "title": "Diagnostic des problèmes",
-    "hint": "Exportez un rapport lorsque vous devez signaler un problème",
-    "description": "Le rapport contient uniquement la version de l’application, l’architecture du système, l’état de l’assistant local et des nombres agrégés d’événements. Il exclut les identifiants, les chemins de projet, les fichiers de recherche, les conversations et les journaux bruts.",
-    "export": "Exporter le rapport de diagnostic",
-    "exporting": "Préparation du rapport…",
-    "saved": "Rapport de diagnostic enregistré",
-    "failed": "Impossible d’exporter le rapport de diagnostic"
-  },
-  "readiness": {
-    "title": "Prêt à travailler",
-    "checking": "Vérification de cet ordinateur…",
-    "readyTitle": "Tout est prêt",
-    "readyBody": "Le dossier du projet, les méthodes intégrées et l’assistant local sont disponibles. Connectez un modèle uniquement si nécessaire.",
-    "attentionTitle": "Un élément doit être vérifié",
-    "attentionBody": "Les fichiers du projet restent sur cet ordinateur. Vérifiez l’élément ci-dessous puis réessayez.",
-    "actions": { "recheck": "Revérifier", "restart": "Redémarrer l’assistant local", "restarting": "Redémarrage…", "openSettings": "Vérifier" },
-    "checks": {
-      "needsAttention": "Vérification nécessaire",
-      "workspace": { "title": "Dossier du projet", "ready": "Accessible en écriture" },
-      "skills": { "title": "Skills intégrés", "ready": "{{count}} Skills disponibles" },
-      "heorCore": { "title": "Calculs HEOR locaux", "ready": "Fichiers requis vérifiés" },
-      "harness": { "title": "Harness d’audit du projet", "ready": "Fichiers requis vérifiés" },
-      "runtime": { "title": "Assistant local", "ready": "Prêt", "connecting": "Démarrage…", "error": "Vérification nécessaire", "offline": "Arrêté" },
-      "model": { "title": "Modèle (facultatif)", "optional": "Non connecté — les calculs locaux restent disponibles" }
-    },
-    "scope": "Un modèle, Python et Jupyter ne sont pas requis pour cette vérification ; configurez-les seulement si le travail l’exige. Seule la disponibilité du logiciel est contrôlée, pas l’adéquation méthodologique ni la validité scientifique.",
-    "technical": "Détails techniques"
-  },
   "runtime": {
     "title": "Runtime de l’assistant IA",
     "hint": "Démarré et géré automatiquement par l’application de bureau",
     "connect": "Connecter",
     "disconnect": "Déconnecter",
+    "serverLabel": "Serveur",
+    "serverUrlPlaceholder": "http://127.0.0.1:4096",
+    "proxyLabel": "Proxy réseau",
+    "proxySystem": "Suivre le système",
+    "proxyCustom": "Personnalisé…",
+    "proxyNone": "Direct (sans proxy)",
+    "proxyPlaceholder": "http://127.0.0.1:7890 / socks5://host:port",
+    "proxyDirectHint": "Toutes les connexions du runtime de l’agent sont directes.",
+    "proxyEffective": "Routage via {{url}}",
+    "proxyNoneDetected": "Aucun proxy système détecté — les connexions sont directes.",
+    "mirrorTitle": "Miroirs de paquets",
+    "mirrorPypi": "Index PyPI",
+    "mirrorPython": "Téléchargement Python",
+    "mirrorPypiPlaceholder": "https://pypi.tuna.tsinghua.edu.cn/simple",
+    "mirrorPythonPlaceholder": "https://mirror.example.com/python-build-standalone",
+    "mirrorHint": "Miroirs facultatifs, utilisés uniquement lors de l’installation d’outils Python (Jupyter, bases de données scientifiques) sur les réseaux où pypi.org / github.com sont lents. Laisser vide pour les valeurs par défaut.",
     "status": {
       "ready": "Prêt",
       "connecting": "Connexion…",
@@ -59,42 +67,11 @@
       "engineLabel": "Moteur d’exécution",
       "engineValue": "OpenCode",
       "endpointLabel": "Point d’accès local"
-    },
-    "serverUrlPlaceholder": "http://127.0.0.1:4096",
-    "proxyLabel": "Proxy réseau",
-    "proxySystem": "Suivre le système",
-    "proxyCustom": "Personnalisé…",
-    "proxyNone": "Direct (sans proxy)",
-    "proxyPlaceholder": "http://127.0.0.1:7890 / socks5://host:port",
-    "proxyDirectHint": "Toutes les connexions du runtime de l’agent sont directes.",
-    "proxyEffective": "Routage via {{url}}",
-    "proxyNoneDetected": "Aucun proxy système détecté — les connexions sont directes.",
-    "mirrorPypi": "Index PyPI",
-    "mirrorPython": "Téléchargement Python",
-    "mirrorPypiPlaceholder": "https://pypi.tuna.tsinghua.edu.cn/simple",
-    "mirrorPythonPlaceholder": "https://mirror.example.com/python-build-standalone",
-    "mirrorHint": "Miroirs facultatifs, utilisés uniquement lors de l’installation d’outils Python (Jupyter, bases de données scientifiques) sur les réseaux où pypi.org / github.com sont lents. Laisser vide pour les valeurs par défaut."
-  },
-  "about": {
-    "title": "À propos d’AI4HEOR",
-    "hint": "Positionnement, version et contact",
-    "currentVersion": "Version {{version}}",
-    "developedBy": "AI4HEOR est développé par Codex Agent pour des travaux de pharmacoéconomie et de HEOR dirigés par les chercheurs.",
-    "positioning": "L’espace de travail repose sur la base open source Open Science. Il privilégie le langage naturel, utilise les formulaires en appui, fonctionne d’abord en local et reste indépendant du fournisseur de modèles. Les calculs déterministes, les processus auditables et la confirmation des décisions scientifiques clés par le chercheur sont au cœur du produit.",
-    "openScience": "Voir le projet Open Science",
-    "contactTitle": "Contact et retours",
-    "contactBody": "Pour toute question ou suggestion, veuillez me contacter. Cliquez sur l’adresse pour la copier.",
-    "copyEmail": "Copier l’adresse de contact",
-    "emailCopied": "Adresse de contact copiée",
-    "emailCopyFailed": "Impossible de copier l’adresse ; sélectionnez-la manuellement",
-    "xiaohongshuAlt": "Carte Xiaohongshu de Wild Alchemist Lao M",
-    "xiaohongshuCaption": "Xiaohongshu : 野生炼丹师老M (ID 18669050668)"
+    }
   },
   "updates": {
     "title": "Mises à jour de l'app",
     "hint": "Afficher la version installée et le canal de diffusion",
-    "unavailable": "Les mises à jour en ligne ne sont pas encore disponibles",
-    "unavailableHint": "AI4HEOR ne dispose pas encore d’un canal de diffusion officiel configuré. Cette version ne recherche donc aucune mise à jour en ligne. La comparaison des versions et les notifications seront activées lorsque la source officielle sera établie.",
     "available": "Mise à jour disponible",
     "checking": "Vérification",
     "failed": "Échec de la vérification",
@@ -111,7 +88,9 @@
     "autoCheckHint": "Activé par défaut. L'app vérifie au plus une fois par jour.",
     "showBadge": "Afficher le point dans Paramètres",
     "showBadgeHint": "Affiche un point rouge dans Paramètres lorsqu'une nouvelle release est trouvée.",
-    "privacy": "Seule l'API publique GitHub Releases est contactée. Aucun fichier de workspace ni clé API n'est envoyé."
+    "privacy": "Seule l'API publique GitHub Releases est contactée. Aucun fichier de workspace ni clé API n'est envoyé.",
+    "unavailable": "Les mises à jour en ligne ne sont pas encore disponibles",
+    "unavailableHint": "AI4HEOR ne dispose pas encore d’un canal de diffusion officiel configuré. Cette version ne recherche donc aucune mise à jour en ligne. La comparaison des versions et les notifications seront activées lorsque la source officielle sera établie."
   },
   "model": {
     "title": "Modèle",
@@ -160,9 +139,6 @@
     "pasteCode": "Collez le code depuis le navigateur",
     "customEndpoint": "Point de terminaison personnalisé",
     "customEndpointHint": "auto-hébergé · Ollama local · compatible OpenAI/Anthropic",
-    "minimaxChinaTokenPlanName": "MiniMax China Token Plan",
-    "fillMinimaxChinaTokenPlan": "Renseigner MiniMax China Token Plan",
-    "customCredentialHint": "La configuration du point de terminaison ne contient jamais la clé API. OpenCode conserve les identifiants séparément dans son stockage d’authentification local privé.",
     "customNamePlaceholder": "Nom — p. ex. Ollama, Ma passerelle DeepSeek",
     "openaiCompatible": "Compatible OpenAI",
     "anthropicCompatible": "Compatible Anthropic",
@@ -170,34 +146,74 @@
     "customKeyPlaceholder": "Clé API — facultative, Ollama n'en a besoin d'aucune",
     "customModelsPlaceholder": "Identifiants de modèles, séparés par des virgules",
     "addEndpoint": "Ajouter un point de terminaison",
-    "importLogin": "Importer les identifiants d’une CLI locale compatible"
+    "importLogin": "Importer les identifiants d’une CLI locale compatible",
+    "minimaxChinaTokenPlanName": "MiniMax China Token Plan",
+    "fillMinimaxChinaTokenPlan": "Renseigner MiniMax China Token Plan",
+    "customCredentialHint": "La configuration du point de terminaison ne contient jamais la clé API. OpenCode conserve les identifiants séparément dans son stockage d’authentification local privé."
   },
   "mcp": {
     "title": "Preuves et outils MCP",
     "hint": "Accès HEOR intégré aux preuves et serveurs MCP facultatifs gérés par le chercheur",
     "connectPrompt": "Connectez le runtime pour configurer les serveurs MCP.",
+    "openSource": "open source",
+    "enterKeyFirstTitle": "Entrez d'abord la clé API",
+    "settingUp": "Configuration en cours…",
+    "enable": "Activer",
+    "freeKeySuffix": "(clé gratuite)",
+    "getFreeKey": "Obtenir une clé gratuite",
+    "jupyterLabel": "Jupyter",
+    "jupyterDescription": "permet à l'agent de piloter de véritables notebooks · environnement isolé avec numpy·pandas·matplotlib, ~500 Mo au premier lancement · une fois configuré, le bouton Exécuter de l'application l'utilise aussi, afin que vous et l'agent partagiez le même Python",
+    "setUpAndEnable": "Configurer et activer",
+    "startingDownload": "démarrage du téléchargement…",
+    "typeLocal": "local",
+    "typeRemote": "distant",
+    "namePlaceholder": "Nom — p. ex. jupyter, playwright",
+    "commandPlaceholder": "Commande — p. ex. npx -y @playwright/mcp",
+    "urlPlaceholder": "URL — p. ex. https://example.com/mcp",
+    "addServer": "Ajouter un serveur",
     "builtIn": "intégré",
     "humanAuthorization": "Autorisation humaine",
     "heorEvidenceLabel": "Recherche de preuves HEOR",
     "heorEvidenceDescription": "Récupération des métadonnées PubMed et ClinicalTrials.gov via des points d'accès fixes. L'agent prépare une requête liée par hachage ; seul l'humain peut autoriser l'accès réseau.",
     "heorEvidenceSources": "{{sources}} · ${{id}}",
     "externalBoundary": "Les serveurs ajoutés sont des capacités externes non gérées. Vérifiez leur code, licence, sortie de données et identifiants ; ils n'obtiennent aucun pouvoir scientifique ni d'approbation.",
-    "settingUp": "Configuration en cours…",
-    "enable": "Activer",
-    "jupyterLabel": "Jupyter",
-    "jupyterDescription": "permet à l'agent de piloter de véritables notebooks · environnement isolé avec numpy·pandas·matplotlib, ~500 Mo au premier lancement · une fois configuré, le bouton Exécuter de l'application l'utilise aussi, afin que vous et l'agent partagiez le même Python",
-    "setUpAndEnable": "Configurer et activer",
-    "startingDownload": "démarrage du téléchargement…",
     "setupStarting": "Configuration de Jupyter. Le premier lancement télécharge plusieurs centaines de Mo ; veuillez patienter…",
     "setupComplete": "Jupyter est prêt. L’assistant peut maintenant travailler avec les notebooks.",
     "setupFailed": "Échec de la configuration de Jupyter",
-    "setupIncomplete": "La configuration s’est terminée sans les informations de connexion requises",
-    "typeLocal": "local",
-    "typeRemote": "distant",
-    "namePlaceholder": "Nom — p. ex. jupyter, playwright",
-    "commandPlaceholder": "Commande — p. ex. npx -y @playwright/mcp",
-    "urlPlaceholder": "URL — p. ex. https://example.com/mcp",
-    "addServer": "Ajouter un serveur"
+    "setupIncomplete": "La configuration s’est terminée sans les informations de connexion requises"
+  },
+  "browser": {
+    "label": "Contrôle du navigateur",
+    "title": "Navigateur",
+    "hint": "Laissez l'agent piloter un vrai navigateur — naviguer, cliquer, remplir des formulaires et lire les pages.",
+    "description": "Permet à l'agent d'ouvrir des pages, de cliquer, de remplir des formulaires et de lire le web, en réutilisant votre session Chrome.",
+    "browseAs": "Naviguer en tant que",
+    "isolated": "Isolé — nouveau, déconnecté",
+    "showWindow": "Afficher la fenêtre du navigateur",
+    "headedOffTitle": "Masquer la fenêtre ?",
+    "headedOffBody": "Vous réutilisez votre session Chrome (« {{profile}} »), l'agent pilote donc votre vrai Chrome — même désactivée, une fenêtre s'ouvrira généralement, surtout si Chrome est déjà ouvert. Pour un navigateur réellement sans fenêtre (headless), basculez « Browse as » sur le navigateur privé.",
+    "headedOffConfirm": "Désactiver quand même",
+    "noChrome": "Aucun Chrome trouvé",
+    "download": "Télécharger un navigateur",
+    "noChromeWillDownload": "Aucun Chrome détecté — un navigateur privé sera téléchargé à la première utilisation.",
+    "detected": "Utilise",
+    "privateBrowser": "Navigateur privé (sans connexion)",
+    "privateNote": "Utilise un navigateur téléchargé séparément qui ne touche jamais à votre Chrome. Démarre déconnecté ; téléchargé automatiquement à la première utilisation.",
+    "reuseNote": "Réutilise une copie de « {{name}} ». L'agent agit en tant que ce compte connecté ; votre profil Chrome réel n'est jamais modifié. La navigation suit toujours votre mode d'approbation.",
+    "isolatedNote": "Profil isolé — l'agent démarre déconnecté. Choisissez un compte ci-dessus pour réutiliser ses sessions.",
+    "downloaded": "Navigateur téléchargé — vous pouvez maintenant activer le contrôle du navigateur.",
+    "couldNotDownload": "Impossible de télécharger le navigateur",
+    "enabledStatus": "Activé",
+    "disabledStatus": "Non activé",
+    "disable": "Désactiver",
+    "apply": "Appliquer les modifications",
+    "capabilities": "Capacités",
+    "capCore": "Standard — naviguer, cliquer, lire, capture, exécuter du JS",
+    "capNetwork": "Standard + capture réseau (HAR, inspection des requêtes)",
+    "capAll": "Tout (surface complète d'outils)",
+    "allowedDomains": "Domaines autorisés",
+    "allowedDomainsHint": "Un par ligne. Vide = aucune restriction. Prend en charge des motifs comme *.example.com.",
+    "allowedDomainsPlaceholder": "example.com\n*.github.com"
   },
   "workspace": {
     "title": "Espace de travail",
@@ -225,6 +241,7 @@
     "couldNotSetFolder": "Impossible de définir le dossier",
     "couldNotSetModel": "Impossible de définir le modèle",
     "defaultModelSet": "Modèle par défaut défini sur {{model}}",
+    "defaultModelReset": "Le modèle par défaut {{old}} n'est plus disponible — remplacé par {{model}}",
     "couldNotSaveKey": "Impossible d'enregistrer la clé",
     "providerConnected": "{{providerID}} connecté",
     "couldNotStartLogin": "Impossible de démarrer la connexion",
@@ -317,5 +334,106 @@
       "couldNotCancel": "Impossible d'annuler {{id}}",
       "jobCanceled": "Tâche {{id}} annulée"
     }
+  },
+  "remote": {
+    "title": "Accès distant",
+    "hint": "Transforme ce poste en une API sécurisée : accède à tes sessions et fichiers depuis un téléphone ou un autre ordinateur de ton réseau, une CLI ou un tunnel. Désactivé par défaut.",
+    "enable": "Activer l'accès distant",
+    "enableHint": "Démarre la passerelle authentifiée. Liée à ce seul appareil jusqu'à ce que tu autorises le réseau local ci-dessous.",
+    "loopbackUrl": "Cet appareil",
+    "loopbackUrlHint": "Ouvre-la dans un navigateur sur ce Mac, ou pointe une CLI ici.",
+    "binding": "Accessible depuis",
+    "bindingHint": "Où la passerelle écoute. N'active le réseau local que sur un réseau de confiance.",
+    "bindingLoopback": "Cet appareil uniquement",
+    "bindingLan": "Réseau local",
+    "lanWarn": "Cela expose la passerelle à tout le monde sur ton réseau local. Quiconque possède le jeton peut piloter l'agent et lire les fichiers de ton espace de travail. Ne le fais que sur un réseau de confiance. Continuer ?",
+    "lanActive": "Accessible par d'autres appareils de ton réseau. Garde le jeton secret.",
+    "mode": "Niveau d'accès",
+    "modeFull": "Accès complet",
+    "modeReadonly": "Lecture seule",
+    "modeFullHint": "Les clients peuvent créer des sessions, envoyer des prompts, exécuter des outils et répondre aux approbations.",
+    "modeReadonlyHint": "Les clients peuvent seulement lire les sessions et fichiers — pas de prompts, d'outils ni d'approbations.",
+    "token": "Jeton d'accès",
+    "tokenHint": "Les clients s'authentifient avec ce jeton bearer.",
+    "reveal": "Afficher le jeton",
+    "hide": "Masquer le jeton",
+    "copy": "Copier",
+    "regenerate": "Régénérer le jeton",
+    "regenerated": "Nouveau jeton généré — les clients existants doivent se reconnecter.",
+    "openHint": "Ouvre l'URL ci-dessus dans un navigateur, puis colle ce jeton pour te connecter.",
+    "copied": "Copié dans le presse-papiers",
+    "error": "Échec de la modification de l'accès distant",
+    "connect": "Se connecter",
+    "connectPrompt": "Saisis le jeton d'accès de l'app de bureau → Réglages → Accès distant."
+  },
+  "supportReport": {
+    "title": "Diagnostic des problèmes",
+    "hint": "Exportez un rapport lorsque vous devez signaler un problème",
+    "description": "Le rapport contient uniquement la version de l’application, l’architecture du système, l’état de l’assistant local et des nombres agrégés d’événements. Il exclut les identifiants, les chemins de projet, les fichiers de recherche, les conversations et les journaux bruts.",
+    "export": "Exporter le rapport de diagnostic",
+    "exporting": "Préparation du rapport…",
+    "saved": "Rapport de diagnostic enregistré",
+    "failed": "Impossible d’exporter le rapport de diagnostic"
+  },
+  "readiness": {
+    "title": "Prêt à travailler",
+    "checking": "Vérification de cet ordinateur…",
+    "readyTitle": "Tout est prêt",
+    "readyBody": "Le dossier du projet, les méthodes intégrées et l’assistant local sont disponibles. Connectez un modèle uniquement si nécessaire.",
+    "attentionTitle": "Un élément doit être vérifié",
+    "attentionBody": "Les fichiers du projet restent sur cet ordinateur. Vérifiez l’élément ci-dessous puis réessayez.",
+    "actions": {
+      "recheck": "Revérifier",
+      "restart": "Redémarrer l’assistant local",
+      "restarting": "Redémarrage…",
+      "openSettings": "Vérifier"
+    },
+    "checks": {
+      "needsAttention": "Vérification nécessaire",
+      "workspace": {
+        "title": "Dossier du projet",
+        "ready": "Accessible en écriture"
+      },
+      "skills": {
+        "title": "Skills intégrés",
+        "ready": "{{count}} Skills disponibles"
+      },
+      "heorCore": {
+        "title": "Calculs HEOR locaux",
+        "ready": "Fichiers requis vérifiés"
+      },
+      "harness": {
+        "title": "Harness d’audit du projet",
+        "ready": "Fichiers requis vérifiés"
+      },
+      "runtime": {
+        "title": "Assistant local",
+        "ready": "Prêt",
+        "connecting": "Démarrage…",
+        "error": "Vérification nécessaire",
+        "offline": "Arrêté"
+      },
+      "model": {
+        "title": "Modèle (facultatif)",
+        "optional": "Non connecté — les calculs locaux restent disponibles"
+      }
+    },
+    "scope": "Un modèle, Python et Jupyter ne sont pas requis pour cette vérification ; configurez-les seulement si le travail l’exige. Seule la disponibilité du logiciel est contrôlée, pas l’adéquation méthodologique ni la validité scientifique.",
+    "technical": "Détails techniques"
+  },
+  "about": {
+    "title": "À propos d’AI4HEOR",
+    "hint": "Positionnement, version et contact",
+    "currentVersion": "Version {{version}}",
+    "developedBy": "AI4HEOR est développé par Codex Agent pour des travaux de pharmacoéconomie et de HEOR dirigés par les chercheurs.",
+    "positioning": "L’espace de travail repose sur la base open source Open Science. Il privilégie le langage naturel, utilise les formulaires en appui, fonctionne d’abord en local et reste indépendant du fournisseur de modèles. Les calculs déterministes, les processus auditables et la confirmation des décisions scientifiques clés par le chercheur sont au cœur du produit.",
+    "openScience": "Voir le projet Open Science",
+    "contactTitle": "Contact et retours",
+    "contactBody": "Pour toute question ou suggestion, veuillez me contacter. Cliquez sur l’adresse pour la copier.",
+    "copyEmail": "Copier l’adresse de contact",
+    "emailCopied": "Adresse de contact copiée",
+    "emailCopyFailed": "Impossible de copier l’adresse ; sélectionnez-la manuellement",
+    "xiaohongshuAlt": "Carte Xiaohongshu de Wild Alchemist Lao M",
+    "xiaohongshuCaption": "Xiaohongshu : 野生炼丹师老M (ID 18669050668)"
   }
 }

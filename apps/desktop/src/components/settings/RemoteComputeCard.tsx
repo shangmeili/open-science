@@ -19,6 +19,7 @@ import {
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 import { inputCls } from "./inputCls";
+import { Section } from "./Section";
 
 /** The `t` type the plain (non-component) helpers below take as a parameter. */
 type TFn = TFunction<["settings", "common"]>;
@@ -123,17 +124,12 @@ export function RemoteComputeCard() {
   };
 
   return (
-    <section className="mt-5 rounded-card border border-border bg-surface shadow-card">
-      <header className="border-b border-border px-5 py-3">
-        <h2 className="font-serif text-[15px] text-text">{t("remoteCompute.title")}</h2>
-        <p className="mt-0.5 text-xs text-muted">{t("remoteCompute.subtitle")}</p>
-      </header>
-      <div className="px-5 py-4">
+    <Section title={t("remoteCompute.title")} hint={t("remoteCompute.subtitle")} flush>
         {!isTauri ? (
-          <p className="text-[13px] text-muted">{t("remoteCompute.unavailable")}</p>
+          <p className="px-4 py-3 text-[13px] text-muted">{t("remoteCompute.unavailable")}</p>
         ) : (
           <>
-            <div className="overflow-hidden rounded-input border border-border">
+            <div>
               {machines.length === 0 && (
                 <p className="bg-surface px-3 py-2.5 text-[13px] text-muted">
                   {t("remoteCompute.empty")}
@@ -153,7 +149,7 @@ export function RemoteComputeCard() {
                   onCancel={(id) => void cancel(m.host, id)}
                 />
               ))}
-              <div className={cn("bg-surface-2/50 p-3", machines.length > 0 && "border-t border-border")}>
+              <div className={cn("p-3", machines.length > 0 && "border-t border-faint")}>
                 <div className="flex items-center gap-2">
                   <input
                     list="ssh-hosts"
@@ -182,8 +178,7 @@ export function RemoteComputeCard() {
             </div>
           </>
         )}
-      </div>
-    </section>
+    </Section>
   );
 }
 
@@ -214,7 +209,7 @@ function MachineRow({
   const reachable = !!p?.reachable;
   const chips = p && reachable ? capabilityChips(p, t) : [];
   return (
-    <div className={cn("bg-surface", !first && "border-t border-border")}>
+    <div className={cn("bg-surface", !first && "border-t border-faint")}>
       <div className="flex items-center gap-2.5 px-3 py-2.5 text-[13px]">
         <button
           className="shrink-0 text-muted transition-colors hover:text-text"
@@ -255,7 +250,7 @@ function MachineRow({
         </button>
       </div>
       {expanded && reachable && p && (
-        <div className="border-t border-border bg-surface-2/40 px-3 py-2.5">
+        <div className="border-t border-faint px-3 py-2.5">
           {p.slurm ? (
             <SlurmQueue jobs={jobs} onCancel={onCancel} />
           ) : (

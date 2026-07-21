@@ -3,11 +3,16 @@ import { AgentMessage, DataTable, RunningJobsOverlay, StatusLine, UserMessage } 
 import { ToolCallRow } from "./ToolCallRow";
 import { ToolGroup, groupToolBlocks } from "./ToolGroup";
 import { ReviewerCard } from "./ReviewerCard";
+import { ReasoningRow } from "./ReasoningRow";
 import { StepSummaryRow } from "./StepSummaryRow";
 import { FigureBlock } from "./FigureBlock";
 import { ArtifactCard } from "./ArtifactCard";
 
 export interface BlockHandlers {
+  /** Replace a past user message and continue from the restored workspace. */
+  onMessageEdit?: (messageID: string, text: string) => void;
+  /** Return to a past user message and put its text back in the composer. */
+  onMessageRevert?: (messageID: string, text: string) => void;
   /** Open an artifact in the inspector (live session). */
   onArtifactOpen?: (a: ArtifactBlock) => void;
   /** Forward a figure annotation to the agent (live session). */
@@ -16,24 +21,30 @@ export interface BlockHandlers {
   subagentActivity?: (childSessionId: string) => string | undefined;
 }
 
-export function renderBlock(block: ThreadBlock, i: number, handlers?: BlockHandlers) {
+export function renderBlock(
+  block: ThreadBlock,
+  i: number,
+  handlers?: BlockHandlers,
+  liveReasoningIndex?: number,
+) {
   switch (block.kind) {
     case "user":
-      return <UserMessage key={i} block={block} />;
+      return (
+        <UserMessage
+          key={i}
+          block={block}
+          onEdit={handlers?.onMessageEdit}
+          onRevert={handlers?.onMessageRevert}
+        />
+      );
     case "agent":
       return <AgentMessage key={i} markdown={block.markdown} onOpenArtifact={handlers?.onArtifactOpen} />;
+    case "reasoning":
+      return <ReasoningRow key={i} block={block} streaming={i === liveReasoningIndex} />;
     case "step-summary":
       return <StepSummaryRow key={i} block={block} />;
     case "tool-call":
-      return (
-        <ToolCallRow
-          key={i}
-          block={block}
-          activity={
-            block.childSessionId ? handlers?.subagentActivity?.(block.childSessionId) : undefined
-          }
-        />
-      );
+      return <ToolCallRow key={i} block={block} />;
     case "reviewer":
       return <ReviewerCard key={i} block={block} />;
     case "table":
@@ -52,9 +63,11 @@ export function renderBlock(block: ThreadBlock, i: number, handlers?: BlockHandl
 export function BlockList({
   blocks,
   handlers,
+  liveReasoningIndex,
 }: {
   blocks: ThreadBlock[];
   handlers?: BlockHandlers;
+  liveReasoningIndex?: number;
 }) {
   // Runs of quiet tool steps render as one collapsible group (Codex-style);
   // everything else — text, artifacts, prominent tool cards — on its own.
@@ -65,10 +78,12 @@ export function BlockList({
           <ToolGroup
             key={`group:${item.start}`}
             blocks={item.blocks}
+            start={item.start}
+            liveReasoningIndex={liveReasoningIndex}
             activityFor={handlers?.subagentActivity}
           />
         ) : (
-          renderBlock(item.block, item.index, handlers)
+          renderBlock(item.block, item.index, handlers, liveReasoningIndex)
         ),
       )}
     </>

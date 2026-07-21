@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { StepSummaryBlock } from "@ai4s/shared";
 import { cn } from "@/lib/cn";
 
-export function StepSummaryRow({ block }: { block: StepSummaryBlock }) {
+export const StepSummaryRow = memo(function StepSummaryRow({ block }: { block: StepSummaryBlock }) {
   const { t } = useTranslation(["session", "common"]);
   const [open, setOpen] = useState(false);
   const hasDetails = (block.details?.length ?? 0) > 0;
@@ -33,4 +33,4 @@ export function StepSummaryRow({ block }: { block: StepSummaryBlock }) {
       )}
     </div>
   );
-}
+});

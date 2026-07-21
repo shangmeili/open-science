@@ -3,6 +3,7 @@ import {
   OpenCodeClient,
   DEFAULT_OPENCODE_URL,
   type AgentInfo,
+  type AgentRuntime,
   type CommandInfo,
   type HistoryMessage,
   type OpenCodeEvent,
@@ -10,6 +11,7 @@ import {
   type PermissionReply,
   type QuestionAskedEvent,
   type SessionMeta,
+  type SessionRuntimeStatus,
   type SkillInfo,
   type ToolCallStatus,
 } from "@ai4s/sdk";
@@ -18,6 +20,9 @@ import {
   detectTools as probeTools,
   commitWorkspaceSnapshot,
   createProject as createProjectFolder,
+  importProject as importProjectFolder,
+  setProjectPinned as setProjectPinnedCmd,
+  deleteProject as deleteProjectCmd,
   currentResearchScope,
   getApprovalMode,
   isTauri,
@@ -40,9 +45,11 @@ import {
 import { kernelReset } from "./kernel";
 import { moveScrollMemory } from "./scrollMemory";
 import { deriveArtifact } from "./artifacts";
-import { provenanceInputFromEvent, recordProvenance } from "./provenance";
+import { provenanceInputsFromEvent, recordProvenance } from "./provenance";
 import { recordRun, runInputFromEvent } from "./runs";
 import { splitReview } from "./review";
+import { displayHeorPrompt } from "./heor";
+import { fallbackDefaultModel } from "@/components/settings/modelCatalog";
 import i18n from "@/i18n";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -116,6 +123,8 @@ interface RuntimeState {
    *  its own open artifact / Files browser and gets it back when reopened.
    *  In-memory only: an app restart returns every session to a closed pane. */
   panes: Record<string, PaneState>;
+  sessionAgents: Record<string, AgentMode>;
+  setAgentMode: (mode: AgentMode) => void;
   openArtifact: (a: ArtifactBlock) => void;
   closeArtifact: () => void;
   setShowFiles: (show: boolean) => void;
@@ -150,6 +159,11 @@ interface RuntimeState {
   refreshProjects: () => Promise<void>;
   /** Create an AI4HEOR project and move into it with a fresh pinned draft. */
   createProject: (name: string) => Promise<ProjectInfo | null>;
+  /** Copy an existing folder into AI4HEOR, switch to the copy, and start a
+   *  clean project task without modifying the selected source folder. */
+  importProject: (path: string) => Promise<ProjectInfo | null>;
+  setProjectPinned: (id: string, pinned: boolean) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
   /** Fresh draft pinned inside `path` (a project folder), so the next new
    *  session lands there. Skips the reconnect when the folder is already active. */
   startDraftInWorkspace: (path: string) => Promise<void>;
@@ -168,6 +182,11 @@ interface RuntimeState {
   /** Sessions with an active turn (send accepted, session.idle not yet seen).
    *  Drives the composer lock and the "Working…" indicator. */
   runningSessions: Record<string, true>;
+  /** Honest server-reported phase for each active turn. */
+  sessionProgress: Record<string, SessionRuntimeStatus>;
+  /** Current model-step number for each running session. A changing step is a
+   *  visible liveness signal during long turns with no tool output. */
+  stepCounts: Record<string, number>;
   /** Sessions whose current turn is a user-typed "!" shell command. Their bash
    *  output shows inline in the thread — the output IS the result the user
    *  asked for. Agent bash steps stay quiet single-line log entries. */
@@ -181,6 +200,12 @@ interface RuntimeState {
   runShell: (command: string) => Promise<string | null>;
   /** Run a "/" slash command (config command / skill / MCP prompt). */
   runCommand: (name: string, args?: string) => Promise<string | null>;
+  /** Replace a past user message and continue from that point. The runtime
+   * restores both conversation and workspace files before the edited turn. */
+  editMessage: (messageID: string, runtimeText: string, displayText?: string) => Promise<boolean>;
+  /** Return to a past user message, restoring the workspace and leaving that
+   * message in the composer so the researcher can revise it deliberately. */
+  revertMessage: (messageID: string) => Promise<boolean>;
   /** Interrupt the current session's running turn (Stop button / Esc). */
   interrupt: () => Promise<void>;
   /** Check every session holding a running lock against the server: if its
@@ -194,12 +219,19 @@ interface RuntimeState {
   reviewAssetCandidate: (text: string) => Promise<string | null>;
 }
 
-let client: OpenCodeClient | null = null;
+// Conversation execution depends only on the model/runtime-neutral contract.
+// Settings retains the concrete OpenCode client because provider credentials,
+// OAuth, MCP, and catalogs are implementation-specific configuration surfaces.
+let client: AgentRuntime | null = null;
+let opencodeClient: OpenCodeClient | null = null;
 let openSessionSeq = 0;
 /** Increments when the researcher deliberately changes the model. Catalog
  *  requests capture the value they started with, so a stale response cannot
  *  overwrite a newer selection after the switch has completed. */
 let modelSelectionSeq = 0;
+let lastSwitchModel: string | null = null;
+let lastSwitchAt = 0;
+const SWITCH_HEAL_GRACE_MS = 15_000;
 /** React StrictMode mounts effects twice in development. Share the same boot
  *  promise so duplicate AppShell effects cannot start dueling connect loops. */
 let bootstrapInFlight: Promise<void> | null = null;
@@ -222,11 +254,13 @@ function teardownClient() {
   clearStatusBlip();
   client?.close();
   client = null;
+  opencodeClient = null;
 }
 const emptyThread = (): Thread => ({ blocks: [], index: {}, loaded: false });
 /** Threads key for the draft conversation — its blocks move to the real
  *  session id once the session exists, so the page never visibly resets. */
 export const DRAFT_KEY = "draft";
+export type AgentMode = "build" | "plan";
 /** One bounded retry for the first POSTs after a sidecar restart — the old
  *  connection occasionally dies mid-handshake ("Load failed"). */
 async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
@@ -274,7 +308,21 @@ const interruptedSessions = new Set<string>();
  *  USER message means a turn was accepted but not yet answered — still running. */
 export function turnIsOver(messages: HistoryMessage[]): boolean {
   const last = messages[messages.length - 1];
-  return !!last && last.role === "assistant" && !!last.completed;
+  return !!last && last.role === "assistant" && (!!last.completed || !!last.error);
+}
+
+/** OpenCode 1.17.13 can leave an unfinished assistant message after a provider
+ * failure or sidecar restart even when its final SSE error never reaches the
+ * client. It may be blank, or may contain completed setup steps plus one
+ * orphaned running tool. Two inactive server polls are required before the
+ * caller treats it as stopped. */
+export function turnStoppedWithoutReply(
+  messages: HistoryMessage[],
+  status: SessionRuntimeStatus | undefined,
+): boolean {
+  const last = messages[messages.length - 1];
+  const active = status?.type === "busy" || status?.type === "retry";
+  return !active && !!last && last.role === "assistant" && !last.completed && !last.error;
 }
 
 /** Last SSE arrival per session (monotonic sequence, not wall time). Lets a
@@ -283,6 +331,14 @@ export function turnIsOver(messages: HistoryMessage[]): boolean {
  *  kills any fetch at ~60 s, long before a long agent turn finishes. */
 let sseSeq = 0;
 const sseLast = new Map<string, number>();
+/** Require two consecutive inactive polls before declaring a blank turn dead. */
+const inactiveTurnPolls = new Map<string, number>();
+
+function friendlyRuntimeError(message: string): string {
+  return /rate\s*limit|too many requests|quota|请求过于频繁/i.test(message)
+    ? i18n.t("session:live.status.rateLimited")
+    : message;
+}
 
 /** Coalescing for live bash output: a running tool emits an event per stdout
  *  write (a progress bar redraws dozens of times a second) — fold at most one
@@ -383,7 +439,9 @@ async function performTurn(
       // researcher can use.
       if (isTauri && !get().workspacePinned) {
         if (!(await get().ensureStandaloneWorkspace()) || !client) {
-          throw new Error("Runtime did not reconnect after creating the conversation workspace.");
+          throw new Error(
+            get().error ?? "Runtime did not reconnect after creating the conversation workspace.",
+          );
         }
       } else if (isTauri && get().workspacePinned) {
         set({ switching: true });
@@ -413,10 +471,19 @@ async function performTurn(
     }
     const sid = id;
     interruptedSessions.delete(sid); // a fresh turn folds its events normally
+    inactiveTurnPolls.delete(sid); // inactivity evidence never carries into a new turn
     void logDebug(`turn → ${sid}`);
+    if (get().stepCounts[sid]) {
+      set((s) => {
+        const stepCounts = { ...s.stepCounts };
+        delete stepCounts[sid];
+        return { stepCounts };
+      });
+    }
     if (syncTurn) {
       set((s) => ({
         runningSessions: { ...s.runningSessions, [sid]: true },
+        sessionProgress: { ...s.sessionProgress, [sid]: { type: "busy" } },
         ...(shell ? { shellTurns: { ...s.shellTurns, [sid]: true as const } } : {}),
       }));
       const mark = sseSeq;
@@ -440,20 +507,31 @@ async function performTurn(
         set((s) => {
           const runningSessions = { ...s.runningSessions };
           const shellTurns = { ...s.shellTurns };
+          const sessionProgress = { ...s.sessionProgress };
+          const stepCounts = { ...s.stepCounts };
           delete runningSessions[sid];
           delete shellTurns[sid];
-          return { runningSessions, shellTurns };
+          delete sessionProgress[sid];
+          delete stepCounts[sid];
+          return { runningSessions, shellTurns, sessionProgress, stepCounts };
         });
         throw err;
       }
       set((s) => {
         const runningSessions = { ...s.runningSessions };
+        const sessionProgress = { ...s.sessionProgress };
+        const stepCounts = { ...s.stepCounts };
         delete runningSessions[sid];
-        return { runningSessions };
+        delete sessionProgress[sid];
+        delete stepCounts[sid];
+        return { runningSessions, sessionProgress, stepCounts };
       });
     } else {
       await post(sid);
-      set((s) => ({ runningSessions: { ...s.runningSessions, [sid]: true } }));
+      set((s) => ({
+        runningSessions: { ...s.runningSessions, [sid]: true },
+        sessionProgress: { ...s.sessionProgress, [sid]: { type: "busy" } },
+      }));
     }
     void logDebug("turn OK");
     return sid;
@@ -482,9 +560,91 @@ async function performTurn(
   }
 }
 
+/** Restore the task and its local files to immediately before `messageID`.
+ *
+ * OpenCode may briefly return 404 while its newly accepted message is still
+ * being indexed, so the request is retried a few times. The UI truncates only
+ * after the runtime confirms the rollback. Pending interaction cards and
+ * inspectors belong to the discarded future and must not survive it. */
+async function revertToMessage(
+  set: StoreSet,
+  get: StoreGet,
+  messageID: string,
+): Promise<boolean> {
+  const sid = get().currentId;
+  const c = client;
+  if (!sid || !c) return false;
+
+  if (get().runningSessions[sid]) await get().interrupt();
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      await c.revert(sid, messageID);
+      lastError = undefined;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 4) await sleep(200);
+    }
+  }
+  if (lastError) {
+    const message = lastError instanceof Error ? lastError.message : String(lastError);
+    set({ error: i18n.t("session:message.revertFailed", { message }) });
+    return false;
+  }
+
+  clearLiveFolds(sid);
+  interruptedSessions.delete(sid);
+  inactiveTurnPolls.delete(sid);
+  set((s) => {
+    const current = s.threads[sid] ?? emptyThread();
+    const index = current.blocks.findIndex(
+      (block) => block.kind === "user" && block.messageID === messageID,
+    );
+    const runningSessions = { ...s.runningSessions };
+    const shellTurns = { ...s.shellTurns };
+    const sessionProgress = { ...s.sessionProgress };
+    const stepCounts = { ...s.stepCounts };
+    delete runningSessions[sid];
+    delete shellTurns[sid];
+    delete sessionProgress[sid];
+    delete stepCounts[sid];
+    return {
+      error: null,
+      runningSessions,
+      shellTurns,
+      sessionProgress,
+      stepCounts,
+      questions: s.questions.filter(
+        (question) => rootSessionOf(s.sessionParents, question.sessionId) !== sid,
+      ),
+      permissions: s.permissions.filter(
+        (permission) => rootSessionOf(s.sessionParents, permission.sessionId) !== sid,
+      ),
+      panes: {
+        ...s.panes,
+        [sid]: { artifact: null, showFiles: false, showRuns: false },
+      },
+      threads: {
+        ...s.threads,
+        [sid]: {
+          ...current,
+          blocks: index >= 0 ? current.blocks.slice(0, index) : current.blocks,
+          index: {},
+          loaded: true,
+        },
+      },
+    };
+  });
+  await commitWorkspaceSnapshot(`Return task ${sid} to an earlier message`).catch(() => false);
+  void get().refreshSessions();
+  return true;
+}
+
 /** The live OpenCode client (Settings talks to the runtime's config API directly). */
 export function getClient(): OpenCodeClient | null {
-  return client;
+  return opencodeClient;
 }
 
 export const useRuntimeStore = create<RuntimeState>((set, get) => ({
@@ -507,6 +667,11 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   permissions: [],
   sessionParents: {},
   panes: {},
+  sessionAgents: {},
+  setAgentMode: (mode) =>
+    set((state) => ({
+      sessionAgents: { ...state.sessionAgents, [state.currentId ?? DRAFT_KEY]: mode },
+    })),
   projects: [],
   researchScope: null,
   workspace: null,
@@ -514,6 +679,8 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   switching: false,
   sending: false,
   runningSessions: {},
+  sessionProgress: {},
+  stepCounts: {},
   shellTurns: {},
 
   // These write the CURRENT session's pane (DRAFT_KEY on a draft), keeping the
@@ -598,11 +765,12 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     if (!client) return;
     const selectionSeq = modelSelectionSeq;
     try {
-      const [firstSkills, agents, defaultModel, commands] = await Promise.all([
+      const [firstSkills, agents, defaultModel, commands, providers] = await Promise.all([
         client.listSkills(),
         client.listAgents(),
         client.getDefaultModel().catch(() => null),
         client.listCommands().catch(() => []),
+        client.listProviders().catch(() => []),
       ]);
       // A model switch in flight owns `defaultModel`: this read may predate
       // the switch's config write, and applying it would visibly revert the
@@ -612,6 +780,24 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           ? { agents, commands }
           : { agents, defaultModel, commands },
       );
+      const justSwitched =
+        defaultModel === lastSwitchModel && Date.now() - lastSwitchAt < SWITCH_HEAL_GRACE_MS;
+      if (
+        !get().switching &&
+        selectionSeq === modelSelectionSeq &&
+        !justSwitched &&
+        defaultModel
+      ) {
+        const fallback = fallbackDefaultModel(providers, defaultModel);
+        if (fallback) {
+          try {
+            await get().setDefaultModel(fallback);
+            void logDebug(`[provider] unavailable model ${defaultModel}; selected ${fallback}`);
+          } catch {
+            // The existing send-time error remains visible if recovery fails.
+          }
+        }
+      }
       let skills = firstSkills;
       // The first workspace-scoped /api/skill call triggers OpenCode's lazy
       // instance init and can answer before the scan finishes — poll briefly.
@@ -634,6 +820,14 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   },
 
   setApprovalMode: async (mode) => {
+    // Persisting this setting restarts the sidecar. Refuse the transition while
+    // any turn is active so a settings surface can never kill another
+    // conversation's in-flight model/tool work. The live composer also disables
+    // the control, but this store guard is the authoritative boundary.
+    if (get().sending || Object.keys(get().runningSessions).length > 0) {
+      void logDebug("approval mode change ignored while a task is running");
+      return;
+    }
     // A deliberate restart, like switchWorkspace: `switching` keeps the UI
     // rendering as connected — no status flip, no page flash.
     set({ switching: true });
@@ -660,6 +854,8 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   setDefaultModel: async (model) => {
     if (!client) throw new Error("Not connected to the AI assistant runtime.");
     modelSelectionSeq += 1;
+    lastSwitchModel = model;
+    lastSwitchAt = Date.now();
     // Applying the model PATCHes OpenCode's global config, which closes the
     // event stream server-side. EventSource's own reconnect does not reliably
     // recover from that — it strands the app in "connecting"/disconnected until
@@ -700,6 +896,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       directory: directory ?? undefined,
       password: password ?? undefined,
     });
+    opencodeClient = c;
     client = c;
     clientStatusUnsub = c.onStatus((status) => {
       void logDebug(`status → ${status}`);
@@ -722,6 +919,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       // each one would flood debug.log with an IPC call per event.
       if (
         event.type !== "text.updated" &&
+        event.type !== "reasoning.updated" &&
         !(event.type === "tool.updated" && event.status === "running")
       )
         void logDebug(`event ← ${event.type}${"sessionId" in event ? " " + event.sessionId : ""}`);
@@ -740,15 +938,26 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           set((s) => {
             const cur = s.threads[sid] ?? emptyThread();
             const runningSessions = { ...s.runningSessions };
+            const sessionProgress = { ...s.sessionProgress };
+            const stepCounts = { ...s.stepCounts };
             delete runningSessions[sid];
+            delete sessionProgress[sid];
+            delete stepCounts[sid];
+            inactiveTurnPolls.delete(sid);
             return {
               runningSessions,
+              sessionProgress,
+              stepCounts,
               threads: {
                 ...s.threads,
                 [sid]: {
                   ...cur,
                   loaded: true,
-                  blocks: [...cur.blocks, { kind: "status-line", text: event.message, tone: "error" }],
+                  blocks: [...cur.blocks, {
+                    kind: "status-line",
+                    text: friendlyRuntimeError(event.message),
+                    tone: "error",
+                  }],
                 },
               },
             };
@@ -758,8 +967,41 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         }
         return;
       }
+      if (event.type === "session.status") {
+        set((s) => ({
+          sessionProgress: {
+            ...s.sessionProgress,
+            [event.sessionId]: {
+              type: event.status,
+              attempt: event.attempt,
+              message: event.message,
+              next: event.next,
+            },
+          },
+        }));
+        return;
+      }
       // Interactive requests live outside the thread blocks (transient UI).
       switch (event.type) {
+        case "message.user":
+          set((s) => {
+            const current = s.threads[event.sessionId] ?? emptyThread();
+            const blocks = [...current.blocks];
+            for (let index = blocks.length - 1; index >= 0; index--) {
+              const block = blocks[index];
+              if (block.kind === "user" && !block.messageID) {
+                blocks[index] = { ...block, messageID: event.messageID };
+                break;
+              }
+            }
+            return {
+              threads: {
+                ...s.threads,
+                [event.sessionId]: { ...current, blocks, loaded: true },
+              },
+            };
+          });
+          return;
         case "question.asked":
           set((s) => ({
             questions: [...s.questions.filter((q) => q.requestId !== event.requestId), event],
@@ -779,6 +1021,9 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         case "permission.resolved":
           set((s) => ({ permissions: s.permissions.filter((p) => p.requestId !== event.requestId) }));
           return;
+        case "step.updated":
+          set((s) => ({ stepCounts: { ...s.stepCounts, [event.sessionId]: event.step } }));
+          return;
       }
       const sid = event.sessionId;
       if (!sid) return;
@@ -791,9 +1036,14 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         set((s) => {
           const runningSessions = { ...s.runningSessions };
           const shellTurns = { ...s.shellTurns };
+          const sessionProgress = { ...s.sessionProgress };
+          const stepCounts = { ...s.stepCounts };
           delete runningSessions[sid];
           delete shellTurns[sid];
-          return { runningSessions, shellTurns };
+          delete sessionProgress[sid];
+          delete stepCounts[sid];
+          inactiveTurnPolls.delete(sid);
+          return { runningSessions, shellTurns, sessionProgress, stepCounts };
         });
         void get().refreshSessions();
         return;
@@ -823,13 +1073,20 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           // SSE stream the bash-output event always precedes session.idle.
           const runningSessions = { ...s.runningSessions };
           const shellTurns = { ...s.shellTurns };
+          const sessionProgress = { ...s.sessionProgress };
+          const stepCounts = { ...s.stepCounts };
           if (ev.type === "session.idle") {
             delete runningSessions[sid];
             delete shellTurns[sid];
+            delete sessionProgress[sid];
+            delete stepCounts[sid];
+            inactiveTurnPolls.delete(sid);
           }
           return {
             runningSessions,
             shellTurns,
+            sessionProgress,
+            stepCounts,
             threads: { ...s.threads, [sid]: { ...cur, ...folded, loaded: true } },
           };
         });
@@ -868,11 +1125,13 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         }
       }
       applyFold(event);
-      // A completed live write becomes a provenance version (once per call).
-      if (event.type === "tool.updated" && !recordedProvenance.has(event.callId)) {
-        const input = provenanceInputFromEvent(event);
-        if (input) {
-          rememberBounded(recordedProvenance, event.callId);
+      // apply_patch can update several files in one call. Record and dedupe
+      // every resulting artifact independently so the audit trail is complete.
+      if (event.type === "tool.updated") {
+        for (const input of provenanceInputsFromEvent(event)) {
+          const key = `${event.callId}:${input.path}`;
+          if (recordedProvenance.has(key)) continue;
+          rememberBounded(recordedProvenance, key);
           void recordProvenance(input, sid, get().defaultModel);
         }
       }
@@ -1109,6 +1368,44 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     }
   },
 
+  importProject: async (path) => {
+    try {
+      const project = await importProjectFolder(path);
+      set((state) => ({
+        projects: [...state.projects.filter((candidate) => candidate.id !== project.id), project]
+          .sort((left, right) => left.name.localeCompare(right.name)),
+      }));
+      await get().switchWorkspace({ path: project.path });
+      return project;
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+      return null;
+    }
+  },
+
+  setProjectPinned: async (id, pinned) => {
+    set((state) => ({
+      projects: state.projects.map((project) =>
+        project.id === id ? { ...project, pinned } : project,
+      ),
+    }));
+    try {
+      await setProjectPinnedCmd(id, pinned);
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+    }
+    void get().refreshProjects();
+  },
+
+  deleteProject: async (id) => {
+    try {
+      await deleteProjectCmd(id);
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+    }
+    void get().refreshProjects();
+  },
+
   startDraftInWorkspace: async (path) => {
     if (get().workspace === path) {
       // Already inside the project — a clean pinned draft, no reconnect.
@@ -1238,7 +1535,18 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       set,
       get,
       displayText ?? text,
-      (sid) => withRetry(() => client!.sendPrompt(sid, text)),
+      // Pin every turn to the model currently selected by the researcher.
+      // OpenCode otherwise retains the model attached when an older session
+      // was created, even after the global provider/model is changed.
+      (sid) =>
+        withRetry(() =>
+          client!.sendPrompt(
+            sid,
+            text,
+            get().sessionAgents[get().currentId ?? DRAFT_KEY] ?? "build",
+            get().defaultModel,
+          ),
+        ),
       false,
     ),
 
@@ -1269,6 +1577,14 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     );
   },
 
+  editMessage: async (messageID, runtimeText, displayText) => {
+    if (!(await revertToMessage(set, get, messageID))) return false;
+    await get().sendPrompt(runtimeText, displayText);
+    return true;
+  },
+
+  revertMessage: (messageID) => revertToMessage(set, get, messageID),
+
   interrupt: async () => {
     const sid = get().currentId;
     if (!sid || !client || !get().runningSessions[sid]) return;
@@ -1287,12 +1603,19 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     set((s) => {
       const runningSessions = { ...s.runningSessions };
       const shellTurns = { ...s.shellTurns };
+      const sessionProgress = { ...s.sessionProgress };
+      const stepCounts = { ...s.stepCounts };
       delete runningSessions[sid];
       delete shellTurns[sid];
+      delete sessionProgress[sid];
+      delete stepCounts[sid];
+      inactiveTurnPolls.delete(sid);
       const cur = s.threads[sid] ?? emptyThread();
       return {
         runningSessions,
         shellTurns,
+        sessionProgress,
+        stepCounts,
         threads: {
           ...s.threads,
           [sid]: {
@@ -1309,25 +1632,53 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     const c = client;
     const running = Object.keys(get().runningSessions);
     if (!c || running.length === 0) return;
+    let statuses: Record<string, SessionRuntimeStatus> = {};
+    let statusesKnown = false;
+    try {
+      statuses = await c.getSessionStatuses();
+      statusesKnown = true;
+      set((s) => ({ sessionProgress: { ...s.sessionProgress, ...statuses } }));
+    } catch {
+      // History still provides the normal completed/error recovery path.
+    }
     for (const sid of running) {
       try {
         const messages = await c.getMessages(sid);
+        const stopped = statusesKnown && turnStoppedWithoutReply(messages, statuses[sid]);
+        const inactiveCount = stopped ? (inactiveTurnPolls.get(sid) ?? 0) + 1 : 0;
+        if (stopped) inactiveTurnPolls.set(sid, inactiveCount);
+        else inactiveTurnPolls.delete(sid);
         // Still ours to answer for? The lock may have cleared while we fetched.
-        if (!turnIsOver(messages) || !get().runningSessions[sid]) continue;
+        if ((!turnIsOver(messages) && inactiveCount < 2) || !get().runningSessions[sid]) continue;
         void logDebug(`reconcile: missed idle for ${sid} — unlocking`);
         set((s) => {
           const runningSessions = { ...s.runningSessions };
           const shellTurns = { ...s.shellTurns };
+          const sessionProgress = { ...s.sessionProgress };
+          const stepCounts = { ...s.stepCounts };
           delete runningSessions[sid];
           delete shellTurns[sid];
+          delete sessionProgress[sid];
+          delete stepCounts[sid];
+          inactiveTurnPolls.delete(sid);
+          const recovered = historyToThread(messages, s.commands);
+          if (inactiveCount >= 2) {
+            recovered.blocks.push({
+              kind: "status-line",
+              text: i18n.t("session:live.status.stoppedBeforeReply"),
+              tone: "error",
+            });
+          }
           return {
             runningSessions,
             shellTurns,
+            sessionProgress,
+            stepCounts,
             // The idle was missed, so the tail of the turn was too — replace
             // the thread with the full history rather than leave it stale.
             threads: {
               ...s.threads,
-              [sid]: { ...historyToThread(messages, s.commands), loaded: true },
+              [sid]: { ...recovered, loaded: true },
             },
           };
         });
@@ -1350,12 +1701,19 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       delete threads[id];
       const runningSessions = { ...s.runningSessions };
       delete runningSessions[id];
+      const sessionProgress = { ...s.sessionProgress };
+      delete sessionProgress[id];
+      const stepCounts = { ...s.stepCounts };
+      delete stepCounts[id];
+      inactiveTurnPolls.delete(id);
       const panes = { ...s.panes };
       delete panes[id];
       return {
         sessions: s.sessions.filter((x) => x.id !== id),
         threads,
         runningSessions,
+        sessionProgress,
+        stepCounts,
         panes,
         currentId: s.currentId === id ? null : s.currentId,
       };
@@ -1389,7 +1747,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           },
         };
       });
-      await client.sendPrompt(id, prompt);
+      await client.sendPrompt(id, prompt, undefined, get().defaultModel);
       return id;
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
@@ -1403,6 +1761,26 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
 export function datedWorkspaceName(now = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}`;
+}
+
+const DEFAULT_SESSION_TITLE = /^(?:new session|untitled)(?:\s*-\s*.*)?$/i;
+
+/** Keep OpenCode's useful generated titles, but never expose its English
+ *  timestamp placeholder. While a task is new, its first visible request is a
+ *  clearer local title and works in every locale. */
+export function displaySessionTitle(
+  serverTitle: string | undefined,
+  blocks: ThreadBlock[] | undefined,
+  fallback: string,
+): string {
+  const title = serverTitle?.trim();
+  if (title && !DEFAULT_SESSION_TITLE.test(title)) return title;
+  const request = blocks?.find(
+    (block): block is Extract<ThreadBlock, { kind: "user" }> => block.kind === "user",
+  )?.text;
+  const compact = request?.replace(/\s+/g, " ").trim();
+  if (!compact) return fallback;
+  return compact.length > 30 ? `${compact.slice(0, 30)}…` : compact;
 }
 
 export interface FoldState {
@@ -1474,6 +1852,12 @@ export function toolPresentation(
   const command = str(input?.command);
   const filePath = str(input?.filePath) || str(input?.path);
   const fallback = tidyToolTitle(title?.trim() || command || filePath || tool || "tool");
+  const loadedSkill = /^loaded skill:\s*(.+)$/i.exec(fallback);
+  if (loadedSkill) {
+    return {
+      title: i18n.t("session:live.status.loadedSkill", { skill: loadedSkill[1] }),
+    };
+  }
   const file = filePath ? tidyToolTitle(filePath) : "";
   switch (tool) {
     case "bash":
@@ -1523,6 +1907,15 @@ export function foldEvent(
           blocks.push(review);
           index[rkey] = blocks.length - 1;
         }
+      }
+      return { blocks, index };
+    }
+    case "reasoning.updated": {
+      const key = `reasoning:${event.partId}`;
+      if (key in index) blocks[index[key]] = { kind: "reasoning", text: event.text };
+      else {
+        blocks.push({ kind: "reasoning", text: event.text });
+        index[key] = blocks.length - 1;
       }
       return { blocks, index };
     }
@@ -1604,7 +1997,11 @@ export function foldEvent(
       if (last?.kind === "status-line" && last.tone === "done") {
         return { blocks, index };
       }
-      blocks.push({ kind: "status-line", text: "done", tone: "done" });
+      blocks.push({
+        kind: "status-line",
+        text: i18n.t("session:live.status.completed"),
+        tone: "done",
+      });
       return { blocks, index };
     }
     default:
@@ -1622,6 +2019,7 @@ export function subagentActivity(blocks?: ThreadBlock[]): string {
     const b = blocks![i];
     if (b.kind === "tool-call") return b.title;
     if (b.kind === "agent") return "Writing…";
+    if (b.kind === "reasoning") return i18n.t("session:reasoning.thinking");
   }
   return "Working…";
 }
@@ -1673,15 +2071,19 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
         .map((p) => p.text ?? "")
         .join("")
         .trim();
-      const command = asTypedCommand(text);
-      if (command) blocks.push({ kind: "user", text: command });
-      else if (text) blocks.push({ kind: "user", text });
+      const visibleText = displayHeorPrompt(text);
+      const command = asTypedCommand(visibleText);
+      if (command) blocks.push({ kind: "user", text: command, messageID: m.id });
+      else if (visibleText) blocks.push({ kind: "user", text: visibleText, messageID: m.id });
     } else {
       for (const p of m.parts) {
         if (p.type === "text" && p.text?.trim()) {
           const { clean, review } = splitReview(p.text);
           if (clean) blocks.push({ kind: "agent", markdown: clean });
           if (review) blocks.push(review);
+        }
+        else if (p.type === "reasoning" && p.text?.trim()) {
+          blocks.push({ kind: "reasoning", text: p.text });
         }
         else if (p.type === "tool") {
           // Interactive tools are surfaced by InteractionPrompt, not the thread;
@@ -1735,6 +2137,10 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
           });
           if (artifact) blocks.push(artifact);
         }
+      }
+      if (m.error) {
+        blocks.push({ kind: "status-line", text: friendlyRuntimeError(m.error), tone: "error" });
+        interrupted = false;
       }
       shellTurn = false;
     }

@@ -251,21 +251,23 @@ OS-keychain-backed signature and identity flow is independently reviewed. The
 dedicated desktop review surface is the only initial approval entry point;
 analysis input metadata and agent-authored files can never self-authorize a run.
 
-## Human-authorized public evidence search
+## Auditable public evidence search
 
 The shipped alpha supports a natural-language-first search handoff for PubMed
 and ClinicalTrials.gov. The Agent uses `$heor-evidence-search` to draft and
 portably validate `heor/evidence-search-request.json`; it cannot execute the
-network call. The desktop audits the exact bytes and exposes the query, dates,
-fixed source allowlist, per-source cap, non-sensitive egress declaration, and
-SHA-256 for explicit human authorization.
+app-owned connector. The desktop audits the exact bytes and exposes the query,
+dates, fixed source allowlist, per-source cap, non-sensitive egress declaration,
+and SHA-256. Confirmation mode asks once before network egress. User-selected
+full-access mode proceeds without a second prompt and records the runtime policy,
+not a human scientific approval.
 
 Native execution accepts no caller-controlled URL, header, credential, path, or
 arbitrary provider. It disables redirects, caps time and response size, verifies
 JSON responses, writes a new immutable run under
 `heor/evidence-search-runs/`, and appends a hash-linked authorization event to
-app-owned storage outside the Agent workspace. A changed request requires a new
-authorization.
+app-owned storage outside the Agent workspace. A changed request creates a new
+execution record.
 
 The evidence-synthesis ledger is now a native review surface rather than a
 manual copy step. The desktop re-verifies the app-owned authorization chain,

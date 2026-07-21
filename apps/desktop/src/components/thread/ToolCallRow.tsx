@@ -1,7 +1,9 @@
+import { memo } from "react";
 import { AlertTriangle, Check, Clock, Loader2, ShieldQuestion, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ToolCallBlock, ToolCallStatus } from "@ai4s/shared";
 import { cn } from "@/lib/cn";
+import { SubagentActivity } from "./SubagentActivity";
 
 // Icon + tone per status. The aria-label text is looked up from
 // `session:tool.status.*` at render time (`t(\`tool.status.${status}\`)`) so it
@@ -24,7 +26,10 @@ export const STATUS: Record<ToolCallStatus, { icon: React.ReactNode; className: 
 // stays the fallback for any quiet row rendered outside a group).
 export const PROMINENT = new Set<ToolCallStatus>(["waiting-approval", "warning", "failed"]);
 
-export function ToolCallRow({ block, activity }: { block: ToolCallBlock; activity?: string }) {
+// Memoized on `block`: a fold rebuilds only the changed block's object (the
+// blocks array copy preserves every other block's reference), so an SSE event
+// re-renders just the one row it touched — not the whole conversation (#34).
+export const ToolCallRow = memo(function ToolCallRow({ block }: { block: ToolCallBlock }) {
   const { t } = useTranslation(["session", "common"]);
   const s = STATUS[block.status];
   const prominent = PROMINENT.has(block.status);
@@ -54,16 +59,10 @@ export function ToolCallRow({ block, activity }: { block: ToolCallBlock; activit
         {block.meta && <span className="shrink-0 text-xs text-muted">{block.meta}</span>}
       </div>
       {/* Live pulse of the subagent this task spawned — what it is doing right
-          now, one quiet line. Vanishes when the task settles. */}
-      {activity && block.status === "running" && (
-        <div className="flex items-center gap-2 px-2 pb-0.5 text-xs" data-subagent-activity>
-          <span
-            aria-hidden
-            className="mb-1.5 ml-[6px] h-2 w-2 shrink-0 rounded-bl border-b border-l border-border"
-          />
-          <span aria-hidden className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />
-          <span className="min-w-0 flex-1 truncate font-mono text-muted">{activity}</span>
-        </div>
+          now, one quiet line. Vanishes when the task settles. It self-subscribes
+          to the child thread so its updates never re-render this memoized row. */}
+      {block.status === "running" && block.childSessionId && (
+        <SubagentActivity childId={block.childSessionId} />
       )}
       {/* Output of a user-typed "!" shell command — the result they asked
           for — and of a FAILED step, where the error text is the point. */}
@@ -74,4 +73,4 @@ export function ToolCallRow({ block, activity }: { block: ToolCallBlock; activit
       )}
     </div>
   );
-}
+});

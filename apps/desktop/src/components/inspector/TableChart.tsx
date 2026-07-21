@@ -82,7 +82,7 @@ export function TableChart({ table }: { table: ParsedTable }) {
           <select
             value={xIndex}
             onChange={(e) => setXIndex(Number(e.target.value))}
-            className="rounded-input border border-border bg-surface-2 px-1.5 py-1 text-[12px] text-text"
+            className="select-chrome rounded-input border border-border bg-surface-2 px-1.5 py-1 text-[12px] text-text"
           >
             <option value={-1}>{t("tableChart.rowIndexOption")}</option>
             {cols.map((c) => (

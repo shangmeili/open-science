@@ -1,7 +1,4 @@
 {
-  "accessibility": {
-    "skipToMain": "Skip to HEOR workspace"
-  },
   "sidebar": {
     "collapse": "Collapse sidebar",
     "collapseTitle": "Collapse sidebar ({{shortcut}})",
@@ -16,22 +13,44 @@
     "files": "Research files",
     "runs": "Analysis history",
     "skills": "Research capabilities",
+    "projects": "Projects",
     "heor": "Research workspace"
   },
   "projects": {
     "heading": "Projects",
     "new": "New project",
+    "importedBadge": "imported",
+    "menuScratch": "Start from scratch",
+    "menuExisting": "Use an existing folder",
+    "nameTitle": "Name project",
+    "nameSubtitle": "Keep it short and recognizable",
     "namePlaceholder": "Project name",
-    "intakePrompt": "Help me start this HEOR project. First ask what decision, research, evaluation, or learning question I want to address and its intended use. Then identify only missing information that would materially change the work. Keep me as the scientific lead; do not search, select methods, assume inputs, or create approval records before I define the task.",
     "newSessionAria": "New task in {{name}}",
     "noSessions": "No tasks yet.",
-    "renameHint": "Double-click to rename"
+    "renameHint": "Double-click to rename",
+    "pageSearch": "Search projects",
+    "colName": "Name",
+    "colSources": "Sources",
+    "colUpdated": "Updated",
+    "noResults": "No projects match.",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "rename": "Rename",
+    "remove": "Remove",
+    "more": "More",
+    "removeTitle": "Remove {{name}}?",
+    "removeBody": "This removes the project from the sidebar. Files on disk will not be deleted.",
+    "seeAll": "All projects",
+    "openFolder": "Open {{path}}",
+    "import": "Import existing project",
+    "intakePrompt": "Help me start this HEOR project. First ask what decision, research, evaluation, or learning question I want to address and its intended use. Then identify only missing information that would materially change the work. Keep me as the scientific lead; do not search, select methods, assume inputs, or create approval records before I define the task."
   },
   "history": {
     "heading": "Tasks",
     "empty": "No tasks yet.",
     "exampleTag": "example",
-    "deleteAria": "Delete {{title}}"
+    "deleteAria": "Delete {{title}}",
+    "running": "Working"
   },
   "confirmDelete": {
     "sessionTitle": "Delete task?",
@@ -65,5 +84,8 @@
       "openSettings": "Open settings",
       "toggleTheme": "Toggle light / dark theme"
     }
+  },
+  "accessibility": {
+    "skipToMain": "Skip to HEOR workspace"
   }
 }

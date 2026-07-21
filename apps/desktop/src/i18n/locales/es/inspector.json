@@ -104,7 +104,9 @@
       "schema": "Esquema",
       "datasets": "Conjuntos de datos",
       "sampleIds": "ID de muestras"
-    }
+    },
+    "mobileNoPreview": "No se puede previsualizar este tipo de archivo aquí; descárgalo para verlo.",
+    "download": "Descargar"
   },
   "office": {
     "rendering": "Renderizando…",

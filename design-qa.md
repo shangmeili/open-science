@@ -23,3 +23,38 @@
 - A blank standalone task does not expose `研究与分析`; an established task does.
 
 **Final result: passed.** No broken layout, clipping, unintended send, duplicate primary entry, or missing core control was observed at 1907×981.
+
+## About contact card · 2026-07-21
+
+- Source visual truth: `/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/codex-clipboard-34532d54-751a-459f-b895-b5da7ed595f8.png` (768×362).
+- Supplied image asset: `/Users/magnesium/Downloads/xiaohongshu.png` (1000×1000).
+- Browser-rendered implementation: `artifacts/design-qa/ai4heor-about-contact-full-v3.png` at a 1280×720 viewport, Settings route, Simplified Chinese, light theme.
+- Focused component capture: `artifacts/design-qa/ai4heor-about-contact-card-v3.png`.
+- Same-frame comparison evidence: `artifacts/design-qa/ai4heor-about-contact-comparison-v3.png`.
+
+### Comparison history
+
+1. The previous implementation used a nested contact panel and a narrow 188 px profile image, so it did not reproduce the supplied single-card composition.
+2. The first recreation introduced one bordered container and the new profile image, but the image was vertically centered and left excessive empty space above and below it.
+3. The final recreation uses the source's approximately 60/40 split, bottom-aligned contact details, a full-width email control, a 20 px outer radius, and a top-aligned square profile image. The card's 566×252 rendered proportion closely matches the reference's 694×305 content frame after normalization.
+
+### Required fidelity surfaces
+
+- Fonts and typography: existing AI4HEOR UI fonts and weights are retained; the contact heading, helper text, and monospace email preserve the reference hierarchy without embedding replacement text outside the supplied image.
+- Spacing and layout rhythm: outer proportion, split, contact baseline, input width, image inset, border radius, and lower alignment match the normalized reference. The supplied image's own white space remains intact.
+- Colors and visual tokens: the region uses the existing surface, border, text, muted, and accent tokens; no new palette or decorative effect was introduced.
+- Image quality and asset fidelity: the exact uploaded 1000×1000 PNG is bundled and displayed without cropping, stretching, CSS reconstruction, or placeholder imagery.
+- Copy and content: contact wording and email remain unchanged; the redundant Xiaohongshu caption below the image is absent.
+
+### Functional and browser checks
+
+- The Settings route rendered in the in-app browser with the new card and supplied image.
+- The email remains one accessible button with the address as its accessible name.
+- Responsive stacking remains available below the existing `sm` breakpoint.
+- Browser console errors checked: none.
+
+### Follow-up polish
+
+- P3: at this narrower application content width, the contact heading sits slightly higher than in the source after normalization. Moving it down would reduce the bottom margin below the email control and make the card less balanced, so the current responsive compromise is retained.
+
+**Final result: passed.** No actionable P0, P1, or P2 fidelity or interaction issue remains.

@@ -152,9 +152,9 @@ pub(crate) fn validate_registry(raw: &[u8]) -> (AssetAdmissionAudit, Vec<SkillDe
             .push("release_statuses must contain only validated-adapter".into());
     }
     if text(registry.get("purpose")) != Some("release-eligible-external-adapters-only") {
-        audit.errors.push(
-            "purpose must be release-eligible-external-adapters-only".into(),
-        );
+        audit
+            .errors
+            .push("purpose must be release-eligible-external-adapters-only".into());
     }
 
     let Some(assets) = registry.get("assets").and_then(Value::as_array) else {

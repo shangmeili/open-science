@@ -191,19 +191,35 @@ class ReleaseEvidenceTests(unittest.TestCase):
         }
         release_evidence.validate_evidence(value)
 
-        value["checks"] = sorted([*value["checks"], "workspace-migrated"])
-        with self.assertRaisesRegex(AssertionError, "migration proof is incomplete"):
+        value["checks"] = sorted([*value["checks"], "workspace-isolated"])
+        with self.assertRaisesRegex(AssertionError, "isolation proof is incomplete"):
             release_evidence.validate_evidence(value)
-        value["verification"]["first_launch"]["workspace_migration"] = {
+        value["verification"]["first_launch"]["workspace_isolation"] = {
             "app_process_id": 201,
             "opencode_process_id": 202,
-            "workspace": "/tmp/migration-home/Documents/AI4HEOR",
-            "legacy_workspace": "/tmp/migration-home/Documents/OpenScience",
-            "legacy_workspace_removed": True,
-            "marker_preserved": "2026-07-17-legacy/marker.txt",
+            "workspace": "/tmp/coexistence-home/Documents/AI4HEOR",
+            "open_science_workspace": "/tmp/coexistence-home/Documents/OpenScience",
+            "open_science_workspace_preserved": True,
+            "marker_preserved": "2026-07-17-open-science/marker.txt",
             "cleanup_verified": True,
         }
         release_evidence.validate_evidence(value)
+
+        windows = json.loads(json.dumps(value))
+        windows["platform"] = "windows"
+        windows["target"] = "x86_64-pc-windows-msvc"
+        windows["runner"] = self.runner("windows")
+        windows["artifacts"] = [
+            {"kind": "nsis", "filename": "AI4HEOR_1.0.0_x64-setup.exe", "size": 1, "sha256": "a" * 64}
+        ]
+        windows["verification"]["first_launch"]["workspace"] = r"C:\Users\test\Documents\AI4HEOR"
+        windows["verification"]["first_launch"]["workspace_isolation"].update(
+            {
+                "workspace": r"C:\Users\test\Documents\AI4HEOR",
+                "open_science_workspace": r"C:\Users\test\Documents\OpenScience",
+            }
+        )
+        release_evidence.validate_evidence(windows)
 
         value["checks"] = ["first-launch-process"]
         with self.assertRaisesRegex(AssertionError, "paired checks"):

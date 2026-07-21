@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, Check, ChevronDown, Folder, Hand, Paperclip, Puzzle, Settings2, Square, Terminal, X, Zap } from "lucide-react";
+import { ArrowUp, Check, ChevronDown, ClipboardList, Folder, Hammer, Hand, Paperclip, Puzzle, Settings2, Square, Terminal, X, Zap } from "lucide-react";
 import {
   addBinaryToWorkspace,
   addFilesToWorkspace,
@@ -12,6 +12,7 @@ import {
 import { useUiStore, type ComposerSkillSelection } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
+import type { AgentMode } from "@/lib/runtime";
 
 /** A paste longer than this becomes a workspace file chip instead of raw text. */
 const PASTE_AS_FILE_CHARS = 2000;
@@ -70,6 +71,11 @@ const APPROVAL_OPTIONS: { mode: ApprovalMode; icon: typeof Hand }[] = [
   { mode: "full", icon: Zap },
 ];
 
+const AGENT_OPTIONS: { mode: AgentMode; icon: typeof Hammer }[] = [
+  { mode: "build", icon: Hammer },
+  { mode: "plan", icon: ClipboardList },
+];
+
 /**
  * The "Ask anything" composer. Static mock sessions pass no `onSend`; the live
  * OpenCode session passes one to submit prompts to the runtime. Attached
@@ -93,6 +99,8 @@ export function Composer({
   placeholder,
   approvalMode,
   onApprovalModeChange,
+  agentMode,
+  onAgentModeChange,
   beforeWorkspaceWrite,
   autoFocus = false,
   contextLabel,
@@ -113,6 +121,8 @@ export function Composer({
    *  session does; static mock sessions don't). */
   approvalMode?: ApprovalMode;
   onApprovalModeChange?: (mode: ApprovalMode) => void;
+  agentMode?: AgentMode;
+  onAgentModeChange?: (mode: AgentMode) => void;
   /** Materialize a draft's private workspace before attachments are copied. */
   beforeWorkspaceWrite?: () => Promise<boolean>;
   /** Focus the input when an explicit new-task surface opens. */
@@ -136,6 +146,16 @@ export function Composer({
       description: t("composer.approval.full.description"),
     },
   };
+  const agentCopy: Record<AgentMode, { label: string; description: string }> = {
+    build: {
+      label: t("composer.agent.build.label"),
+      description: t("composer.agent.build.description"),
+    },
+    plan: {
+      label: t("composer.agent.plan.label"),
+      description: t("composer.agent.plan.description"),
+    },
+  };
   const [value, setValue] = useState("");
   const [files, setFiles] = useState<string[]>([]);
   const [adding, setAdding] = useState(false);
@@ -150,8 +170,18 @@ export function Composer({
   const [hist, setHist] = useState<{ index: number; draft: string } | null>(null);
   /** The approval-mode menu is open. */
   const [approvalOpen, setApprovalOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<ComposerSkillSelection | null>(null);
   const approvalRef = useRef<HTMLDivElement>(null);
+  const agentRef = useRef<HTMLDivElement>(null);
+
+  // Changing approval mode restarts the bundled runtime. Never leave that
+  // control live while a turn is running: a mid-turn restart orphans the
+  // current tool call and strands the conversation in a false working state.
+  useEffect(() => {
+    if (disabled) setApprovalOpen(false);
+    if (disabled) setAgentOpen(false);
+  }, [disabled]);
 
   // Dismiss the approval menu on any outside press. (Button blur can't do
   // this: WKWebView never focuses a clicked button, so blur never fires.)
@@ -163,6 +193,14 @@ export function Composer({
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [approvalOpen]);
+  useEffect(() => {
+    if (!agentOpen) return;
+    const onDown = (event: MouseEvent) => {
+      if (!agentRef.current?.contains(event.target as Node)) setAgentOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [agentOpen]);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const composerDraft = useUiStore((s) => s.composerDraft);
   const setComposerDraft = useUiStore((s) => s.setComposerDraft);
@@ -236,8 +274,13 @@ export function Composer({
   // user was already typing is kept, with the draft appended below it.
   useEffect(() => {
     if (composerDraft === null) return;
-    setValue((v) => (v.trim() ? `${v.trimEnd()}\n\n${composerDraft}` : composerDraft));
+    // React StrictMode replays mount effects in development. Consume from the
+    // store before changing local state so the replay cannot append the same
+    // starter a second time while it still holds the first render's snapshot.
+    const draft = useUiStore.getState().composerDraft;
+    if (draft === null) return;
     setComposerDraft(null);
+    setValue((v) => (v.trim() ? `${v.trimEnd()}\n\n${draft}` : draft));
     taRef.current?.focus();
   }, [composerDraft, setComposerDraft]);
 
@@ -472,7 +515,13 @@ export function Composer({
     <div
       className={cn(
         "relative rounded-[14px] border bg-surface px-3 pb-2.5 pt-3 shadow-card transition-[border-color,box-shadow] focus-within:border-muted focus-within:ring-2 focus-within:ring-border",
-        shellMode ? "border-warn/60" : command ? "border-accent/50" : "border-border",
+        shellMode
+          ? "border-warn/60"
+          : command
+            ? "border-accent/50"
+            : agentMode === "plan"
+              ? "border-link/60"
+              : "border-border",
         dragOver && "border-accent ring-2 ring-accent/40",
       )}
     >
@@ -613,6 +662,60 @@ export function Composer({
             </button>
           )
         )}
+        {agentMode && onAgentModeChange && (
+          <div className="relative shrink-0" ref={agentRef}>
+            {agentOpen && (
+              <div
+                role="menu"
+                aria-label={t("composer.agent.menuAria")}
+                className="absolute bottom-full left-0 z-20 mb-2 w-80 rounded-card border border-border bg-surface p-1 shadow-card"
+              >
+                <div className="px-2 pb-1 pt-1.5 text-xs text-muted">
+                  {t("composer.agent.menuTitle")}
+                </div>
+                {AGENT_OPTIONS.map((option) => (
+                  <button
+                    key={option.mode}
+                    role="menuitemradio"
+                    aria-checked={option.mode === agentMode}
+                    className="flex w-full items-start gap-2 rounded-input px-2 py-1.5 text-left hover:bg-surface-2"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      setAgentOpen(false);
+                      if (option.mode !== agentMode) onAgentModeChange(option.mode);
+                    }}
+                  >
+                    <option.icon size={13} className="mt-0.5 shrink-0 text-muted" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs text-text">{agentCopy[option.mode].label}</span>
+                      <span className="block text-xs text-muted">
+                        {agentCopy[option.mode].description}
+                      </span>
+                    </span>
+                    {option.mode === agentMode && (
+                      <Check size={13} className="mt-0.5 shrink-0 text-accent" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              aria-label={t("composer.agent.aria")}
+              title={t("composer.agent.title")}
+              className={cn(
+                "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs",
+                agentMode === "plan"
+                  ? "bg-link/15 text-link hover:bg-link/25"
+                  : "text-muted hover:bg-surface-2 hover:text-text",
+              )}
+              onClick={() => setAgentOpen((open) => !open)}
+            >
+              {agentMode === "plan" ? <ClipboardList size={12} /> : <Hammer size={12} />}
+              <span>{agentCopy[agentMode].label}</span>
+              <ChevronDown size={11} />
+            </button>
+          </div>
+        )}
         {approvalMode && onApprovalModeChange && (
           <div className="relative shrink-0" ref={approvalRef}>
             {approvalOpen && (
@@ -629,7 +732,8 @@ export function Composer({
                     key={opt.mode}
                     role="menuitemradio"
                     aria-checked={opt.mode === approvalMode}
-                    className="flex w-full items-start gap-2 rounded-input px-2 py-1.5 text-left hover:bg-surface-2"
+                    disabled={disabled}
+                    className="flex w-full items-start gap-2 rounded-input px-2 py-1.5 text-left hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
                     // mousedown, not click — a click would blur the textarea first.
                     onMouseDown={(e) => {
                       e.preventDefault();
@@ -654,7 +758,8 @@ export function Composer({
             <button
               aria-label={t("composer.approval.aria")}
               title={t("composer.approval.title")}
-              className="flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs text-muted hover:bg-surface-2 hover:text-text"
+              disabled={disabled}
+              className="flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs text-muted hover:bg-surface-2 hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => setApprovalOpen((o) => !o)}
             >
               {approvalMode === "full" ? <Zap size={12} /> : <Hand size={12} />}

@@ -11,7 +11,7 @@
     "heor-dynamic-budget-impact": { "displayName": "动态预算影响", "description": "建模现患与新发人群、市场份额和治疗持续性。" },
     "heor-economic-inputs": { "displayName": "经济学参数", "description": "检查成本、健康效用值和分析设置，保持输入不依赖具体模型。" },
     "heor-event-disutilities": { "displayName": "事件效用损失", "description": "检查事件相关的 QALY 损失及重复计算问题。" },
-    "heor-evidence-search": { "displayName": "证据检索", "description": "制定 PubMed 和 ClinicalTrials.gov 检索方案，联网前由研究者确认。" },
+    "heor-evidence-search": { "displayName": "证据检索", "description": "准备可审计的 PubMed 和 ClinicalTrials.gov 固定数据源检索，执行遵循当前任务权限。" },
     "heor-evidence-synthesis": { "displayName": "证据综合", "description": "整理可追溯的检索、筛选、质量评价和数据提取记录。" },
     "heor-hazard-ratio-adapter": { "displayName": "风险比转换", "description": "将经复核的恒定 HR 应用于基线累积风险。" },
     "heor-input-provenance": { "displayName": "输入溯源", "description": "把模型输入绑定到精确的已复核证据和假设。" },

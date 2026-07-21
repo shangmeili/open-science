@@ -103,7 +103,9 @@
       "schema": "스키마",
       "datasets": "데이터셋",
       "sampleIds": "샘플 ID"
-    }
+    },
+    "mobileNoPreview": "이 파일 형식은 여기서 미리 볼 수 없습니다 — 다운로드해서 확인하세요.",
+    "download": "다운로드"
   },
   "office": {
     "rendering": "렌더링 중…",

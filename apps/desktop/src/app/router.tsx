@@ -5,6 +5,7 @@ import { SkillsPage } from "./routes/SkillsPage";
 import { NotebooksPage } from "./routes/NotebooksPage";
 import { FilesPage } from "./routes/FilesPage";
 import { RunsPage } from "./routes/RunsPage";
+import { ProjectsPage } from "./routes/ProjectsPage";
 import { SettingsPage } from "./routes/SettingsPage";
 import { NotFound } from "./routes/NotFound";
 
@@ -25,7 +26,9 @@ export const routes: RouteObject[] = [
       { path: "notebooks", element: <NotebooksPage /> },
       { path: "files", element: <FilesPage /> },
       { path: "runs", element: <RunsPage /> },
+      { path: "projects", element: <ProjectsPage /> },
       { path: "settings", element: <SettingsPage /> },
+      { path: "settings/:section", element: <SettingsPage /> },
       { path: "*", element: <NotFound /> },
     ],
   },

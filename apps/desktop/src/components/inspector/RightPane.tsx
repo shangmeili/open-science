@@ -3,6 +3,7 @@ import { Maximize2, Minimize2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { INSPECTOR_MAX, INSPECTOR_MIN, useOverlayTitlebar, useUiStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 /** Dragging the divider below this pane width closes the pane — the same
  *  snap-shut behaviour as the sidebar. Sits below INSPECTOR_MIN for a clear snap. */
@@ -26,6 +27,7 @@ export function RightPane({
 }) {
   const { inspectorWidth, inspectorMaximized, setInspectorWidth, setInspectorMaximized } =
     useUiStore();
+  const isMobile = useIsMobile();
   // While dragging, the live width lives here; the store (and localStorage)
   // are only written on pointer-up.
   const [dragWidth, setDragWidth] = useState<number | null>(null);
@@ -67,9 +69,11 @@ export function RightPane({
     setDragWidth(null);
   };
 
-  if (inspectorMaximized) {
-    // The pane header stays the top row — PaneTitlebarInset (rendered inside
-    // each header) clears the macOS traffic lights, so no extra strip here.
+  if (inspectorMaximized || isMobile) {
+    // Maximized, OR mobile: the split-pane column (`lg:block`, fixed width) has
+    // no room on a phone — show the pane full-screen instead (its own header
+    // carries the close button). Without this the pane is display:none on
+    // mobile, so the folder/runs toggles appear to "do nothing".
     return <div className="fixed inset-0 z-40 bg-surface">{children}</div>;
   }
 

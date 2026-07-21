@@ -104,7 +104,9 @@
       "schema": "Schema",
       "datasets": "Datasets",
       "sampleIds": "Sample ids"
-    }
+    },
+    "mobileNoPreview": "Can't preview this file type here — download it to view.",
+    "download": "Download"
   },
   "office": {
     "rendering": "Rendering…",

@@ -173,6 +173,19 @@ class AI4HEORProductDocsTests(unittest.TestCase):
         ):
             self.assertIn(source, trail)
 
+    def test_anthropic_document_skills_are_not_misclassified_or_fetched(self):
+        revision = "9d2f1ae187231d8199c64b5b762e1bdf2244733d"
+        fetcher = (ROOT / "scripts/dev/fetch-skills.sh").read_text(encoding="utf-8")
+        notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+        audit = (ROOT / "docs/legal/LICENSING_AUDIT.md").read_text(encoding="utf-8")
+
+        self.assertNotIn("anthropics/skills", fetcher)
+        self.assertNotIn("ANTHROPIC_SKILLS_COMMIT", fetcher)
+        for text in (notices, audit):
+            self.assertIn(revision, text)
+            self.assertIn("not Apache-2.0", text)
+            self.assertIn("redistribution", text)
+
     def test_conceptual_model_diagram_is_first_party_source_bound_and_layout_only(self):
         native = (
             ROOT / "apps/desktop/src-tauri/src/conceptual_model_diagram.rs"

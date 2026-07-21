@@ -11,7 +11,7 @@
     "heor-dynamic-budget-impact": { "displayName": "Impacto presupuestario dinámico", "description": "Modela cohortes prevalentes e incidentes, adopción y persistencia." },
     "heor-economic-inputs": { "displayName": "Entradas económicas", "description": "Valida costes, utilidades y ajustes neutrales al modelo." },
     "heor-event-disutilities": { "displayName": "Desutilidades de eventos", "description": "Audita pérdidas de QALY por eventos y solapamientos." },
-    "heor-evidence-search": { "displayName": "Búsqueda de evidencia", "description": "Redacta búsquedas auditables y autorizadas por la persona." },
+    "heor-evidence-search": { "displayName": "Búsqueda de evidencia", "description": "Prepara búsquedas auditables de fuentes fijas en PubMed y registros de ensayos según los permisos de la tarea." },
     "heor-evidence-synthesis": { "displayName": "Síntesis de evidencia", "description": "Crea búsquedas, cribado y extracción HEOR trazables." },
     "heor-hazard-ratio-adapter": { "displayName": "Adaptador de razón de riesgos", "description": "Aplica una HR constante revisada a riesgos acumulados basales." },
     "heor-input-provenance": { "displayName": "Procedencia de entradas", "description": "Vincula entradas del modelo a evidencia y supuestos revisados." },

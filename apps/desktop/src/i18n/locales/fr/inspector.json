@@ -104,7 +104,9 @@
       "schema": "Schéma",
       "datasets": "Jeux de données",
       "sampleIds": "Identifiants d'échantillons"
-    }
+    },
+    "mobileNoPreview": "Impossible de prévisualiser ce type de fichier ici — téléchargez-le pour le consulter.",
+    "download": "Télécharger"
   },
   "office": {
     "rendering": "Rendu en cours…",

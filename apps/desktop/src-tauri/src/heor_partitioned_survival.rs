@@ -739,9 +739,28 @@ pub fn audit_heor_partitioned_survival(app: AppHandle) -> Result<PartitionedSurv
 pub fn run_heor_partitioned_survival(
     app: AppHandle,
     approval_state: tauri::State<crate::heor_approval::HeorApprovalState>,
+    run_state: tauri::State<crate::runs::RunState>,
+    provenance_state: tauri::State<crate::provenance::ProvenanceState>,
     project_id: String,
 ) -> Result<PartitionedSurvivalRunResult, String> {
-    let workspace = crate::runtime::workspace_dir(&app)?;
+    crate::runs::execute_recorded(
+        &app,
+        run_state.inner(),
+        provenance_state.inner(),
+        "python -m heor_core heor/analysis-plan.json --partitioned-survival-plan heor/partitioned-survival-plan.json --survival-curve-materializations heor/survival-curve-materializations.json",
+        || {
+            run_heor_partitioned_survival_inner(&app, approval_state.inner(), project_id)
+                .map(|result| (result, None))
+        },
+    )
+}
+
+fn run_heor_partitioned_survival_inner(
+    app: &AppHandle,
+    approval_state: &crate::heor_approval::HeorApprovalState,
+    project_id: String,
+) -> Result<PartitionedSurvivalRunResult, String> {
+    let workspace = crate::runtime::workspace_dir(app)?;
     if crate::project::require_project_id(&workspace)? != project_id {
         return Err("HEOR projectId does not match the current project".into());
     }
@@ -763,7 +782,7 @@ pub fn run_heor_partitioned_survival(
         .path()
         .resolve("heor-core/src", BaseDirectory::Resource)
         .map_err(|error| format!("bundled HEOR engine unavailable: {error}"))?;
-    let (python, _) = crate::kernel::python_bin(&app)?;
+    let (python, _) = crate::kernel::python_bin(app)?;
     let mut command = crate::runtime::quiet_command(python);
     command
         .args(["-m", "heor_core"])
@@ -864,7 +883,7 @@ pub fn run_heor_partitioned_survival(
         .and_then(serde_json::Value::as_str)
         .ok_or("analysis plan omitted reference-case status")?;
     let reference_case_status = crate::heor_engine::registered_reference_case_status(
-        &app,
+        app,
         reference_case_id,
         claimed_status,
     )?;
@@ -873,7 +892,7 @@ pub fn run_heor_partitioned_survival(
             .0
             .lock()
             .map_err(|_| "HEOR approval lock poisoned")?;
-        crate::heor_approval::verified_log(&app, &project_id)?
+        crate::heor_approval::verified_log(app, &project_id)?
     };
     let conceptual_model_matches_artifact =
         crate::heor_engine::conceptual_model_matches_approval(&workspace, &approval_log);
@@ -885,13 +904,13 @@ pub fn run_heor_partitioned_survival(
         crate::heor_engine::HeorWorkflowAudits {
             evidence: crate::heor_evidence::audit_plan_bytes(&plan_raw)?,
             evidence_selection: crate::heor_evidence::audit_evidence_selection_for_plan(
-                &app,
+                app,
                 &workspace,
                 &project_id,
                 &plan_raw,
             ),
             reference_case: crate::heor_reference_case::audit_reference_case_for_plan(
-                &app, &workspace, &plan_raw,
+                app, &workspace, &plan_raw,
             )?,
             uncertainty: crate::heor_uncertainty::audit_uncertainty_plan_for_plan(
                 &workspace, &plan_raw,
@@ -908,7 +927,7 @@ pub fn run_heor_partitioned_survival(
             )?,
             reporting: crate::heor_reporting::audit_report_package(&workspace)?,
             reproducibility: crate::heor_reproducibility::audit_reproducibility_package(
-                &app, &workspace,
+                app, &workspace,
             )?,
         },
     );

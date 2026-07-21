@@ -37,7 +37,26 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
 
     const types = events.map((e) => e.type);
     expect(types).toContain("text.updated");
+    expect(types).toContain("reasoning.updated");
+    expect(types).toContain("step.updated");
     expect(types).toContain("tool.updated");
+    expect(events).toContainEqual({
+      type: "message.user",
+      sessionId,
+      messageID: "u1",
+    });
+
+    const reasoning = events
+      .filter((e): e is Extract<OpenCodeEvent, { type: "reasoning.updated" }> =>
+        e.type === "reasoning.updated" && e.partId === "r1",
+      )
+      .map((e) => e.text);
+    expect(reasoning).toContain("Checking the evidence. ");
+    expect(
+      events.filter((e): e is Extract<OpenCodeEvent, { type: "step.updated" }> =>
+        e.type === "step.updated",
+      ).map((e) => e.step),
+    ).toEqual([1, 2]);
 
     // Text streams live: each message.part.delta yields the accumulated text,
     // it does not sit silent until the full part arrives at text-end.
@@ -99,11 +118,23 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
     const sessionId = await client.createSession();
     await client.sendPrompt(sessionId, "run a literature review");
     const messages = await client.getMessages(sessionId);
+    expect(messages[0].id).toBe("u1");
     const last = messages[messages.length - 1];
     expect(last.role).toBe("assistant");
     expect(last.completed).toBe(2); // the turn is over — the reconcile signal
     await expect(client.abortSession(sessionId)).resolves.toBeUndefined();
     client.close();
+  });
+
+  it("reverts and unreverts a task through the runtime endpoints", async () => {
+    const client = new OpenCodeClient({ baseUrl: `http://127.0.0.1:${server.port}` });
+    server.requests.length = 0;
+    await client.revert("ses_mock", "u1");
+    await client.unrevert("ses_mock");
+    expect(server.requests).toEqual([
+      "POST /session/ses_mock/revert",
+      "POST /session/ses_mock/unrevert",
+    ]);
   });
 
   it("reports an error status when the server is unreachable", async () => {
@@ -191,6 +222,33 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
       baseURL: "https://api.minimaxi.com/anthropic/v1",
     });
     expect(bodies[0]).not.toContain("apiKey");
+  });
+
+  it("pins a turn to the selected provider/model without exposing it in the text", async () => {
+    const bodies: string[] = [];
+    const fetchImpl: typeof fetch = async (_input, init) => {
+      bodies.push(String(init?.body ?? ""));
+      return new Response("{}", {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+    const client = new OpenCodeClient({ baseUrl: "http://127.0.0.1:1", fetchImpl });
+
+    await client.sendPrompt(
+      "ses_existing",
+      "continue the HEOR analysis",
+      undefined,
+      "minimax-cn-token-plan/MiniMax-M3",
+    );
+
+    expect(JSON.parse(bodies[0])).toEqual({
+      parts: [{ type: "text", text: "continue the HEOR analysis" }],
+      model: {
+        providerID: "minimax-cn-token-plan",
+        modelID: "MiniMax-M3",
+      },
+    });
   });
 
   it("sends Basic auth on API calls when a password is set", async () => {

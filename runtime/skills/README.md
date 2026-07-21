@@ -25,7 +25,10 @@ only as a completed, hash-locked adapter with all release evidence present.
 ## Excluded document sources
 
 The previously reviewed external `docx`, `pdf`, `pptx`, and `xlsx` Skill sources
-are not retained, fetched, or bundled. AI4HEOR uses its first-party
+at revision `9d2f1ae187231d8199c64b5b762e1bdf2244733d` are not retained, fetched, or
+bundled. Their per-directory `LICENSE.txt` files are service-linked
+source-available terms, not Apache-2.0, and prohibit copying, derivatives, and
+redistribution. AI4HEOR uses its first-party
 `research-presentation` implementation for PPTX and builds any DOCX, PDF, or
 XLSX generation independently from product requirements.
 

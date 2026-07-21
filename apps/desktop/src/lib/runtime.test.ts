@@ -3,6 +3,7 @@ import type { OpenCodeEvent, HistoryMessage } from "@ai4s/sdk";
 import {
   buildAssetReviewPrompt,
   datedWorkspaceName,
+  displaySessionTitle,
   foldCarriageReturns,
   foldEvent,
   historyToThread,
@@ -10,13 +11,43 @@ import {
   subagentActivity,
   tidyToolTitle,
   toolPresentation,
+  turnStoppedWithoutReply,
   type FoldState,
 } from "./runtime";
+
+describe("turn recovery", () => {
+  it("recognizes the blank unfinished assistant message left by a stopped provider request", () => {
+    const messages: HistoryMessage[] = [
+      { role: "user", parts: [{ type: "text", text: "run" }] },
+      { role: "assistant", parts: [] },
+    ];
+    expect(turnStoppedWithoutReply(messages, undefined)).toBe(true);
+    expect(turnStoppedWithoutReply(messages, { type: "busy" })).toBe(false);
+  });
+});
 
 describe("datedWorkspaceName", () => {
   it("formats the independent conversation scope name", () => {
     expect(datedWorkspaceName(new Date(2026, 6, 4, 16, 5))).toBe("2026-07-04-1605");
     expect(datedWorkspaceName(new Date(2026, 0, 9, 3, 40))).toBe("2026-01-09-0340");
+  });
+});
+
+describe("displaySessionTitle", () => {
+  it("replaces OpenCode's timestamp placeholder with the visible research request", () => {
+    expect(
+      displaySessionTitle(
+        "New session - 2026-07-21T06:50:49.060Z",
+        [{ kind: "user", text: "评价达格列净用于中国射血分数降低型心力衰竭患者的成本效果" }],
+        "新建任务",
+      ),
+    ).toBe("评价达格列净用于中国射血分数降低型心力衰竭患者的成本效果");
+    expect(displaySessionTitle("New session", [], "新建任务")).toBe("新建任务");
+  });
+
+  it("preserves a useful provider-generated title", () => {
+    expect(displaySessionTitle("Dapagliflozin cost-effectiveness", [], "新建任务"))
+      .toBe("Dapagliflozin cost-effectiveness");
   });
 });
 
@@ -113,6 +144,18 @@ describe("foldEvent", () => {
     ]);
     expect(s.blocks).toHaveLength(1);
     expect(s.blocks[0]).toEqual({ kind: "agent", markdown: "Planning the review" });
+  });
+
+  it("keeps streamed analysis activity separate from the final answer", () => {
+    const s = foldAll([
+      { type: "reasoning.updated", sessionId: S, partId: "r1", text: "Checking" },
+      { type: "reasoning.updated", sessionId: S, partId: "r1", text: "Checking the evidence" },
+      { type: "text.updated", sessionId: S, partId: "p1", text: "The evidence review is complete." },
+    ]);
+    expect(s.blocks).toEqual([
+      { kind: "reasoning", text: "Checking the evidence" },
+      { kind: "agent", markdown: "The evidence review is complete." },
+    ]);
   });
 
   it("upserts a tool call by callId and reflects status transitions", () => {
@@ -280,9 +323,22 @@ describe("subagent activity", () => {
 });
 
 describe("historyToThread", () => {
+  it("restores analysis activity before the final answer", () => {
+    const t = historyToThread([
+      { role: "user", parts: [{ type: "text", text: "review this" }] },
+      {
+        role: "assistant",
+        parts: [
+          { type: "reasoning", text: "Checking the source." },
+          { type: "text", text: "Review complete." },
+        ],
+      },
+    ]);
+    expect(t.blocks.map((b) => b.kind)).toEqual(["user", "reasoning", "agent"]);
+  });
   it("converts user/assistant messages (text + tool parts) into blocks", () => {
     const msgs: HistoryMessage[] = [
-      { role: "user", parts: [{ type: "text", text: "hi" }] },
+      { id: "msg-hi", role: "user", parts: [{ type: "text", text: "hi" }] },
       {
         role: "assistant",
         parts: [
@@ -293,6 +349,7 @@ describe("historyToThread", () => {
     ];
     const t = historyToThread(msgs);
     expect(t.blocks.map((b) => b.kind)).toEqual(["user", "agent", "tool-call"]);
+    expect(t.blocks[0]).toMatchObject({ kind: "user", messageID: "msg-hi" });
     expect(t.blocks[2]).toMatchObject({ kind: "tool-call", status: "success" });
   });
 
@@ -385,6 +442,30 @@ describe("historyToThread", () => {
     ];
     const t = historyToThread(msgs, [{ name: "init", template: "something else" }]);
     expect(t.blocks[0]).toEqual({ kind: "user", text: "a genuinely long pasted question…" });
+  });
+
+  it("does not expose the HEOR runtime preamble after history reload", () => {
+    const msgs: HistoryMessage[] = [
+      {
+        role: "user",
+        parts: [
+          {
+            type: "text",
+            text: [
+              "Use $heor-workbench for this request.",
+              "Preserve the Open Science baseline: continue the requested research, search, coding, and local execution unless a real scientific or safety decision is missing. Treat HEOR artifacts as progressive HEOR outputs, not prerequisites for starting useful work. Work through natural-language dialogue first; never create or claim human approvals.",
+              "",
+              "$heor-model-calibration",
+              "",
+              "检查模型校准结果",
+            ].join("\n"),
+          },
+        ],
+      },
+    ];
+    expect(historyToThread(msgs).blocks).toEqual([
+      { kind: "user", text: "检查模型校准结果" },
+    ]);
   });
 
   it("adds no interrupted line when every step finished", () => {

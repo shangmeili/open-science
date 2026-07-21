@@ -960,15 +960,18 @@ fn apply_current_outputs(
 }
 
 fn audit_at(workspace: &Path) -> (JournalSubmissionAudit, Option<LoadedSubmission>) {
-    let manifest_raw = match std::fs::read(workspace.join(JOURNAL_SUBMISSION_MANIFEST_PATH)) {
+    let manifest_path = workspace.join(JOURNAL_SUBMISSION_MANIFEST_PATH);
+    let manifest_raw = match std::fs::read(&manifest_path) {
         Ok(raw) if raw.len() as u64 <= MANIFEST_CAP_BYTES => raw,
         _ => {
-            return (
-                empty_audit(vec![format!(
-                    "{JOURNAL_SUBMISSION_MANIFEST_PATH} is required"
-                )]),
-                None,
-            )
+            let errors = if manifest_path.exists() {
+                vec![format!(
+                    "{JOURNAL_SUBMISSION_MANIFEST_PATH} must be a readable regular file no larger than 1 MiB"
+                )]
+            } else {
+                Vec::new()
+            };
+            return (empty_audit(errors), None);
         }
     };
     let untyped = match serde_json::from_slice::<serde_json::Value>(&manifest_raw) {
@@ -1257,6 +1260,15 @@ mod tests {
         std::fs::create_dir_all(root.join("references")).unwrap();
         std::fs::create_dir_all(root.join("heor")).unwrap();
         root
+    }
+
+    #[test]
+    fn absent_manifest_is_a_quiet_missing_capability() {
+        let root = fixture_root("missing");
+        let audit = audit_at(&root).0;
+        assert_eq!(audit.status, "missing");
+        assert!(audit.errors.is_empty());
+        assert!(!audit.ready_to_generate);
     }
 
     fn manifest(root: &Path) -> serde_json::Value {

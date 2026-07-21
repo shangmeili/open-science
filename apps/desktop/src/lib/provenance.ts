@@ -5,7 +5,7 @@
 import type { ToolUpdatedEvent } from "@ai4s/sdk";
 import type { ProvenanceRecord } from "@ai4s/shared";
 import { isTauri, logDebug } from "./tauri";
-import { deriveArtifact } from "./artifacts";
+import { deriveArtifact, parsePatchFiles } from "./artifacts";
 
 export interface ProvenanceInput {
   path: string;
@@ -40,6 +40,36 @@ export function provenanceInputFromEvent(event: ToolUpdatedEvent): ProvenanceInp
   // History still shows what changed, rather than "content not captured".
   const diff = artifact.content ? undefined : event.diff;
   return { path: artifact.path, tool: event.tool, content: artifact.content, diff, log };
+}
+
+/** Return every file version produced by a completed tool call. */
+export function provenanceInputsFromEvent(event: ToolUpdatedEvent): ProvenanceInput[] {
+  if (event.status !== "success") return [];
+  if ((event.tool ?? "").toLowerCase() === "apply_patch") {
+    const input = (event.input ?? {}) as Record<string, unknown>;
+    const patchText = typeof input.patchText === "string" ? input.patchText : undefined;
+    if (!patchText) return [];
+    return parsePatchFiles(patchText)
+      .filter((file) => file.op !== "delete")
+      .map((file) => {
+        const filename = file.path.split(/[\\/]/).pop() || file.path;
+        const isAdd = file.op === "add";
+        return {
+          path: file.path,
+          tool: event.tool,
+          content: isAdd
+            ? file.body
+                .split("\n")
+                .map((line) => (line.startsWith("+") ? line.slice(1) : line))
+                .join("\n")
+            : undefined,
+          diff: isAdd ? undefined : file.body,
+          log: `${event.tool} → ${filename}`,
+        };
+      });
+  }
+  const single = provenanceInputFromEvent(event);
+  return single ? [single] : [];
 }
 
 /** Append a version record (desktop only). Recording must never break the chat flow. */

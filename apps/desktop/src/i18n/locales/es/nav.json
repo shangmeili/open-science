@@ -1,7 +1,4 @@
 {
-  "accessibility": {
-    "skipToMain": "Ir al espacio de trabajo HEOR"
-  },
   "sidebar": {
     "collapse": "Contraer barra lateral",
     "collapseTitle": "Contraer barra lateral ({{shortcut}})",
@@ -16,22 +13,44 @@
     "files": "Archivos de investigación",
     "runs": "Historial de análisis",
     "skills": "Capacidades de investigación",
+    "projects": "Proyectos",
     "heor": "Espacio de investigación"
   },
   "projects": {
     "heading": "Proyectos",
     "new": "Nuevo proyecto",
+    "importedBadge": "importado",
+    "menuScratch": "Empezar de cero",
+    "menuExisting": "Usar una carpeta existente",
+    "nameTitle": "Nombrar proyecto",
+    "nameSubtitle": "Que sea corto y reconocible",
     "namePlaceholder": "Nombre del proyecto",
-    "intakePrompt": "Ayúdame a iniciar este proyecto HEOR. Pregunta primero qué cuestión de decisión, investigación, evaluación o aprendizaje quiero abordar y cuál es el uso previsto. Después, identifica solo la información ausente que cambiaría materialmente el trabajo. Yo mantengo el liderazgo científico; no busques, selecciones métodos, supongas datos de entrada ni crees registros de aprobación antes de que defina la tarea.",
     "newSessionAria": "Nueva tarea en «{{name}}»",
     "noSessions": "Aún no hay tareas.",
-    "renameHint": "Doble clic para renombrar"
+    "renameHint": "Doble clic para renombrar",
+    "pageSearch": "Buscar proyectos",
+    "colName": "Nombre",
+    "colSources": "Fuentes",
+    "colUpdated": "Actualizado",
+    "noResults": "No hay proyectos que coincidan.",
+    "pin": "Fijar",
+    "unpin": "Quitar fijación",
+    "rename": "Renombrar",
+    "remove": "Quitar",
+    "more": "Más",
+    "removeTitle": "¿Quitar {{name}}?",
+    "removeBody": "Quita el proyecto de la barra lateral. Los archivos en disco no se eliminarán.",
+    "seeAll": "Todos los proyectos",
+    "openFolder": "Abrir {{path}}",
+    "import": "Importar proyecto existente",
+    "intakePrompt": "Ayúdame a iniciar este proyecto HEOR. Pregunta primero qué cuestión de decisión, investigación, evaluación o aprendizaje quiero abordar y cuál es el uso previsto. Después, identifica solo la información ausente que cambiaría materialmente el trabajo. Yo mantengo el liderazgo científico; no busques, selecciones métodos, supongas datos de entrada ni crees registros de aprobación antes de que defina la tarea."
   },
   "history": {
     "heading": "Tareas",
     "empty": "Aún no hay tareas.",
     "exampleTag": "ejemplo",
-    "deleteAria": "Eliminar {{title}}"
+    "deleteAria": "Eliminar {{title}}",
+    "running": "Trabajando"
   },
   "confirmDelete": {
     "sessionTitle": "¿Eliminar tarea?",
@@ -65,5 +84,8 @@
       "openSettings": "Abrir configuración",
       "toggleTheme": "Alternar tema claro / oscuro"
     }
+  },
+  "accessibility": {
+    "skipToMain": "Ir al espacio de trabajo HEOR"
   }
 }

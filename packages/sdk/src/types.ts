@@ -18,6 +18,17 @@ export interface TextUpdatedEvent {
   partId: string;
   text: string;
 }
+export interface ReasoningUpdatedEvent {
+  type: "reasoning.updated";
+  sessionId: string;
+  partId: string;
+  text: string;
+}
+export interface StepUpdatedEvent {
+  type: "step.updated";
+  sessionId: string;
+  step: number;
+}
 export interface ToolUpdatedEvent {
   type: "tool.updated";
   sessionId: string;
@@ -44,6 +55,29 @@ export interface ToolUpdatedEvent {
 export interface SessionIdleEvent {
   type: "session.idle";
   sessionId: string;
+}
+
+/** The runtime accepted a user message. Its stable id enables explicit
+ * edit/revert actions without exposing runtime transport details to the UI. */
+export interface UserMessageAcceptedEvent {
+  type: "message.user";
+  sessionId: string;
+  messageID: string;
+}
+export interface SessionProgressEvent {
+  type: "session.status";
+  sessionId: string;
+  status: "busy" | "retry";
+  attempt?: number;
+  message?: string;
+  next?: number;
+}
+
+export interface SessionRuntimeStatus {
+  type: "busy" | "retry" | "idle";
+  attempt?: number;
+  message?: string;
+  next?: number;
 }
 
 // ---- Interactive requests (the agent asks; the user must answer) ----
@@ -98,8 +132,12 @@ export interface RuntimeErrorEvent {
 
 export type OpenCodeEvent =
   | TextUpdatedEvent
+  | ReasoningUpdatedEvent
+  | StepUpdatedEvent
   | ToolUpdatedEvent
   | SessionIdleEvent
+  | UserMessageAcceptedEvent
+  | SessionProgressEvent
   | RuntimeErrorEvent
   | QuestionAskedEvent
   | QuestionResolvedEvent
@@ -119,6 +157,9 @@ export interface SessionMeta {
   directory?: string;
   /** Set on subagent sessions: the session whose task tool spawned this one. */
   parentId?: string;
+  /** Epoch milliseconds from the runtime session timestamps. */
+  created?: number;
+  updated?: number;
 }
 
 export interface SkillInfo {
@@ -152,9 +193,13 @@ export interface CommandInfo {
 /** A message loaded from history (GET /session/:id/message). */
 export interface HistoryMessage {
   role: "user" | "assistant";
+  /** Stable runtime id used by the revert endpoint. */
+  id?: string;
   /** Epoch ms when the message finished — unset while it is still streaming.
    *  On the LAST message this is the server's truth for "is the turn over". */
   completed?: number;
+  /** Final assistant failure persisted by OpenCode, when available. */
+  error?: string;
   parts: HistoryPart[];
 }
 export interface HistoryPart {
@@ -264,6 +309,11 @@ export interface OpenCodeTextPart {
   type: "text";
   text: string;
 }
+export interface OpenCodeReasoningPart {
+  id: string;
+  type: "reasoning";
+  text?: string;
+}
 export interface OpenCodeToolPart {
   id: string;
   type: "tool";
@@ -271,4 +321,8 @@ export interface OpenCodeToolPart {
   tool: string;
   state: { status: "pending" | "running" | "completed" | "error"; title?: string };
 }
-export type OpenCodePart = OpenCodeTextPart | OpenCodeToolPart | { type: string };
+export type OpenCodePart =
+  | OpenCodeTextPart
+  | OpenCodeReasoningPart
+  | OpenCodeToolPart
+  | { type: string };

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import {
   Box,
   FileBarChart,
@@ -23,7 +24,7 @@ const ICON: Record<ArtifactKind, React.ReactNode> = {
 };
 
 /** A file the agent produced, surfaced live in the thread and openable in the inspector. */
-export function ArtifactCard({
+export const ArtifactCard = memo(function ArtifactCard({
   block,
   onOpen,
 }: {
@@ -56,4 +57,4 @@ export function ArtifactCard({
       )}
     </div>
   );
-}
+});

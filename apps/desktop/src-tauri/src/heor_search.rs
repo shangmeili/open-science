@@ -1,7 +1,7 @@
-//! Human-authorized, app-owned HEOR evidence search.
+//! App-owned, auditable HEOR evidence search.
 //!
 //! The agent may draft `heor/evidence-search-request.json`, but it cannot
-//! execute this command or create the app-owned authorization event. Endpoints
+//! execute this command or create the app-owned execution event. Endpoints
 //! and returned fields are fixed in code: no caller-controlled URL, header,
 //! credential, file path, or arbitrary HEORAgent tool can cross this boundary.
 
@@ -19,7 +19,9 @@ use tauri::{AppHandle, Manager};
 pub const SEARCH_REQUEST_PATH: &str = "heor/evidence-search-request.json";
 const SEARCH_RUN_DIRECTORY: &str = "heor/evidence-search-runs";
 const SCHEMA_VERSION: &str = "0.1.0";
-const ASSURANCE: &str = "local_human_network_authorization";
+const HUMAN_ASSURANCE: &str = "local_human_network_authorization";
+const FULL_ACCESS_ASSURANCE: &str = "user_selected_runtime_full_access";
+const LOG_ASSURANCE: &str = "app_owned_network_execution_chain";
 const MAX_RESPONSE_BYTES: u64 = 5 * 1024 * 1024;
 const MAX_EVENT_LOG_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_EVENTS: usize = 2_000;
@@ -92,13 +94,26 @@ pub struct SearchRequestAudit {
     pub errors: Vec<String>,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum SearchPermissionMode {
+    #[default]
+    HumanConfirmation,
+    RuntimeFullAccess,
+}
+
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SearchAuthorization {
     project_id: String,
     request_sha256: String,
-    actor_label: String,
-    rationale: String,
+    #[serde(default)]
+    permission_mode: SearchPermissionMode,
+    #[serde(default)]
+    actor_label: Option<String>,
+    #[serde(default)]
+    rationale: Option<String>,
+    #[serde(default)]
     confirmed_no_sensitive_data: bool,
 }
 
@@ -759,10 +774,20 @@ fn validate_authorization(value: &SearchAuthorization) -> Result<(), String> {
     if !is_sha256(&value.request_sha256) {
         return Err("requestSha256 must be 64 lowercase hexadecimal characters".into());
     }
-    validate_text(&value.actor_label, "actorLabel", 120)?;
-    validate_text(&value.rationale, "rationale", 2_000)?;
-    if !value.confirmed_no_sensitive_data {
-        return Err("human confirmation of non-sensitive network egress is required".into());
+    if value.permission_mode == SearchPermissionMode::HumanConfirmation {
+        validate_text(
+            value.actor_label.as_deref().unwrap_or_default(),
+            "actorLabel",
+            120,
+        )?;
+        validate_text(
+            value.rationale.as_deref().unwrap_or_default(),
+            "rationale",
+            2_000,
+        )?;
+        if !value.confirmed_no_sensitive_data {
+            return Err("human confirmation of non-sensitive network egress is required".into());
+        }
     }
     Ok(())
 }
@@ -821,7 +846,10 @@ fn read_verified_events(
         if event.schema_version != 1
             || event.sequence != index as u64 + 1
             || event.project_id != project_id
-            || event.assurance != ASSURANCE
+            || !matches!(
+                event.assurance.as_str(),
+                HUMAN_ASSURANCE | FULL_ACCESS_ASSURANCE
+            )
             || event.previous_hash != previous_hash
             || !is_sha256(&event.request_sha256)
             || !is_sha256(&event.output_sha256)
@@ -938,6 +966,27 @@ fn execute_at(
     event_id: String,
 ) -> Result<SearchExecutionResponse, String> {
     validate_authorization(&authorization)?;
+    let (actor_label, rationale, assurance) = match authorization.permission_mode {
+        SearchPermissionMode::HumanConfirmation => (
+            authorization.actor_label.clone().unwrap_or_default(),
+            authorization.rationale.clone().unwrap_or_default(),
+            HUMAN_ASSURANCE,
+        ),
+        SearchPermissionMode::RuntimeFullAccess => {
+            if crate::runtime::get_approval_mode(app.clone())? != crate::opencode_config::MODE_FULL
+            {
+                return Err(
+                    "runtime full-access evidence search requires the current full-access mode"
+                        .into(),
+                );
+            }
+            (
+                "AI4HEOR runtime policy".into(),
+                "Started under the user-selected full-access runtime mode".into(),
+                FULL_ACCESS_ASSURANCE,
+            )
+        }
+    };
     let workspace = crate::runtime::workspace_dir(app)?;
     if crate::project::require_project_id(&workspace)? != authorization.project_id {
         return Err("search authorization projectId does not match the current project".into());
@@ -1014,12 +1063,12 @@ fn execute_at(
             .iter()
             .map(|source| source.as_str().to_string())
             .collect(),
-        actor_label: authorization.actor_label,
-        rationale: authorization.rationale,
+        actor_label,
+        rationale,
         timestamp,
         output_path,
         output_sha256,
-        assurance: ASSURANCE.into(),
+        assurance: assurance.into(),
         previous_hash: None,
         event_hash: String::new(),
     };
@@ -1195,7 +1244,7 @@ pub fn list_heor_search_authorizations(
         chain_head: events.last().map(|event| event.event_hash.clone()),
         events,
         integrity: "verified_unanchored_sha256_chain",
-        identity_assurance: ASSURANCE,
+        identity_assurance: LOG_ASSURANCE,
     })
 }
 
@@ -1229,6 +1278,27 @@ mod tests {
         let audit = audit_request_bytes(&raw);
         assert!(audit.complete, "{:?}", audit.errors);
         assert_eq!(audit.sources, ["pubmed", "clinicaltrials"]);
+    }
+
+    #[test]
+    fn network_execution_permission_modes_do_not_fabricate_human_review() {
+        let full_access = SearchAuthorization {
+            project_id: "project-1".into(),
+            request_sha256: "a".repeat(64),
+            permission_mode: SearchPermissionMode::RuntimeFullAccess,
+            actor_label: None,
+            rationale: None,
+            confirmed_no_sensitive_data: false,
+        };
+        assert!(validate_authorization(&full_access).is_ok());
+
+        let unconfirmed_human = SearchAuthorization {
+            permission_mode: SearchPermissionMode::HumanConfirmation,
+            actor_label: Some("Researcher".into()),
+            rationale: Some("Reviewed the exact public query".into()),
+            ..full_access
+        };
+        assert!(validate_authorization(&unconfirmed_human).is_err());
     }
 
     #[test]
@@ -1361,7 +1431,7 @@ mod tests {
             timestamp: 1_700_000_000,
             output_path: "heor/evidence-search-runs/run.json".into(),
             output_sha256: "b".repeat(64),
-            assurance: ASSURANCE.into(),
+            assurance: HUMAN_ASSURANCE.into(),
             previous_hash: None,
             event_hash: String::new(),
         };

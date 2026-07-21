@@ -11,7 +11,11 @@ Create a transparent evidence trail, not a citation list or an autonomous system
 
 1. Read the decision question and any existing `heor/evidence-synthesis.json`; preserve valid researcher-authored records and decisions.
 2. Define PICOS plus explicit inclusion and exclusion criteria before searching.
-3. Prefer AI4HEOR's human-authorized search and deterministic candidate import for PubMed and ClinicalTrials.gov. For every search, preserve the exact source, query, search date, result count, and any app-written authorization/run bindings.
+3. For ordinary public retrieval, preserve the exact source, query, search date,
+   and result count. When the researcher explicitly needs structured import,
+   prefer AI4HEOR's task-permission-aware fixed connector and deterministic
+   candidate import for PubMed and ClinicalTrials.gov; preserve every
+   app-written execution/run binding.
 4. Deduplicate records without discarding their source-search links.
 5. Record title/abstract and full-text decisions separately. Keep excluded full-text records with a specific reason.
 6. Extract only values and claims directly supported by included records. Record location, unit, population, follow-up, applicability, and uncertainty when relevant. When an extraction is a candidate model input, encode `extracted_value` as strict JSON (for example `0.74`, `[0.8,0.5,0]`, or a matrix) and keep context in `applicability` rather than mixing commentary into the value.
@@ -30,7 +34,9 @@ Create a transparent evidence trail, not a citation list or an autonomous system
 - Keep unavailable full text, translation limitations, inaccessible databases, and search-date limits visible.
 - Do not pool effects merely because multiple estimates exist. Statistical synthesis requires a separate prespecified method and deterministic implementation.
 - Keep network calls source-specific and disclose them in the conversation. Store artifacts in the active project.
-- Never fabricate `authorization_event_id`, request/run hashes, endpoints, response hashes, or an app-owned run path. Only the desktop app may create those bindings.
+- Never fabricate `authorization_event_id` (the legacy schema field for an
+  app-owned execution event), request/run hashes, endpoints, response hashes,
+  or an app-owned run path. Only the desktop app may create those bindings.
 
 ## Handoff
 

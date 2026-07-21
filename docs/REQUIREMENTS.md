@@ -500,7 +500,7 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
 - **Status.** 🟡 The current AI4HEOR 0.1.52 macOS x64 candidate from
   `0b7750492651d47d9fa3a1763697ceb5eb0c6b82` is structurally and byte-for-byte verified with all 177 packaged HEOR
   tests. An exact temporary app copy also passed fresh-workspace creation,
-  content-preserving legacy-workspace migration, bundled-process proof and cleanup
+  separate Open Science/AI4HEOR workspace coexistence, bundled-process proof and cleanup
   while the installed app remained open. Product-owner use and acceptance, signing,
   and notarization remain open; the cross-built macOS arm64 DMG remains
   at 0.1.31 from clean commit `2834785e057ac54477a9633f07390bc173251644`,

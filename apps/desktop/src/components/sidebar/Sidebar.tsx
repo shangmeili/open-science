@@ -6,6 +6,7 @@ import {
   Files,
   FlaskConical,
   Folder,
+  FolderInput,
   FolderOpen,
   FolderTree,
   PanelLeft,
@@ -14,8 +15,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useRuntimeStore } from "@/lib/runtime";
-import { renameProject, type ProjectInfo } from "@/lib/tauri";
+import { displaySessionTitle, useRuntimeStore } from "@/lib/runtime";
+import { pickFolder, renameProject, type ProjectInfo } from "@/lib/tauri";
 import {
   SIDEBAR_MAX,
   SIDEBAR_MIN,
@@ -31,6 +32,8 @@ interface Row {
   id: string;
   title: string;
   to: string;
+  running: boolean;
+  step: number;
 }
 
 /** Dragging the divider below this pointer x collapses the sidebar; dragging
@@ -50,16 +53,20 @@ function initialCollapsedProjects(): string[] {
 }
 
 export function Sidebar() {
-  const { t } = useTranslation("nav");
+  const { t } = useTranslation(["nav", "session"]);
   const navigate = useNavigate();
   const location = useLocation();
   const {
     sessions,
+    threads,
     projects,
     workspace,
+    runningSessions,
+    stepCounts,
     startDraft,
     startDraftInWorkspace,
     createProject,
+    importProject,
     refreshProjects,
     deleteSession,
   } = useRuntimeStore();
@@ -112,6 +119,7 @@ export function Sidebar() {
     initialCollapsedProjects,
   );
   const [creatingProject, setCreatingProject] = useState(false);
+  const [importingProject, setImportingProject] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
 
@@ -151,7 +159,7 @@ export function Sidebar() {
     const trimmed = name.trim();
     if (!trimmed || trimmed === p.name) return;
     try {
-      await renameProject(p.path, trimmed);
+      await renameProject(p.id, trimmed);
       await refreshProjects();
     } catch {
       /* the sidebar keeps showing the old name */
@@ -169,8 +177,10 @@ export function Sidebar() {
   for (const s of topSessions) {
     const row: Row = {
       id: s.id,
-      title: s.title,
+      title: displaySessionTitle(s.title, threads[s.id]?.blocks, t("items.new")),
       to: `/heor/${s.id}`,
+      running: !!runningSessions[s.id],
+      step: stepCounts[s.id] ?? 0,
     };
     const owner = s.directory ? projectByPath.get(s.directory) : undefined;
     if (owner) {
@@ -179,6 +189,21 @@ export function Sidebar() {
     else looseRows.push(row);
   }
   const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
+
+  const importExistingProject = async () => {
+    if (importingProject) return;
+    setImportingProject(true);
+    try {
+      const path = await pickFolder();
+      if (!path) return;
+      const project = await importProject(path);
+      if (!project) return;
+      setComposerDraft(null);
+      if (location.pathname !== "/heor/new") navigate("/heor/new");
+    } finally {
+      setImportingProject(false);
+    }
+  };
 
   const confirmDelete = () => {
     const row = pendingDelete;
@@ -209,10 +234,17 @@ export function Sidebar() {
         <span
           className={cn(
             "h-1.5 w-1.5 shrink-0 rounded-full",
-            "bg-ok",
+            row.running ? "animate-pulse bg-accent" : "bg-ok",
           )}
         />
         <span className="flex-1 truncate">{row.title}</span>
+        {row.running && (
+          <span className="shrink-0 text-[10px] tabular-nums text-accent">
+            {row.step > 0
+              ? t("session:live.status.step", { count: row.step })
+              : t("history.running")}
+          </span>
+        )}
       </NavLink>
       <button
         onClick={() => setPendingDelete(row)}
@@ -312,14 +344,25 @@ export function Sidebar() {
             <span className="text-xs font-medium uppercase tracking-wider text-muted">
               {t("projects.heading")}
             </span>
-            <button
-              onClick={() => setCreatingProject(true)}
-              aria-label={t("projects.new")}
-              title={t("projects.new")}
-              className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-text"
-            >
-              <Plus size={13} />
-            </button>
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => void importExistingProject()}
+                disabled={importingProject}
+                aria-label={t("projects.import")}
+                title={t("projects.import")}
+                className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-text disabled:opacity-50"
+              >
+                <FolderInput size={13} />
+              </button>
+              <button
+                onClick={() => setCreatingProject(true)}
+                aria-label={t("projects.new")}
+                title={t("projects.new")}
+                className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-text"
+              >
+                <Plus size={13} />
+              </button>
+            </div>
           </div>
           {creatingProject && (
             <div className="px-1 pb-1">

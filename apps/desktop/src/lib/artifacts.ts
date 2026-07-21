@@ -52,7 +52,13 @@ const REF_EXTS = [
   "bed", "bedgraph", "bdg", "gff", "gff3", "gtf", "vcf",
   "stl", "obj", "ply", "gltf", "glb",
 ];
-const REF_RE = new RegExp(`[\\w./-]+\\.(?:${REF_EXTS.join("|")})\\b`, "gi");
+// Unicode letters and numbers are required here: HEOR reports and figures are
+// commonly named in Chinese, and an ASCII-only `\\w` makes those outputs
+// invisible in the conversation even though the files were created correctly.
+const REF_RE = new RegExp(
+  `[\\p{L}\\p{N}_./-]+\\.(?:${REF_EXTS.join("|")})(?![\\p{L}\\p{N}_])`,
+  "giu",
+);
 
 /**
  * Extract workspace file paths mentioned in an agent message so a file produced by
@@ -232,6 +238,48 @@ export function deriveArtifact(event: ToolUpdatedEvent): ArtifactBlock | null {
     content: firstString(input, CONTENT_KEYS),
     language: EXT_LANG[ext.toLowerCase()],
   };
+}
+
+export interface PatchFile {
+  path: string;
+  op: "add" | "update" | "delete";
+  body: string;
+}
+
+const PATCH_HEADER = /^\*\*\* (Add|Update|Delete) File: (.+?)\s*$/;
+const PATCH_MOVE = /^\*\*\* Move to: (.+?)\s*$/;
+
+/** Parse every file named inside an apply_patch request. */
+export function parsePatchFiles(patchText: string): PatchFile[] {
+  const files: PatchFile[] = [];
+  let path: string | null = null;
+  let op: PatchFile["op"] = "update";
+  let lines: string[] = [];
+  const flush = () => {
+    if (path !== null) files.push({ path, op, body: lines.join("\n") });
+    path = null;
+    lines = [];
+  };
+
+  for (const line of patchText.split("\n")) {
+    const header = PATCH_HEADER.exec(line);
+    if (header) {
+      flush();
+      op = header[1].toLowerCase() as PatchFile["op"];
+      path = header[2];
+      continue;
+    }
+    if (path === null) continue;
+    if (line.startsWith("*** End Patch")) break;
+    const move = PATCH_MOVE.exec(line);
+    if (move) {
+      path = move[1];
+      continue;
+    }
+    lines.push(line);
+  }
+  flush();
+  return files;
 }
 
 /** Resolve the content shown for the active version, falling back to inspector-level fields. */

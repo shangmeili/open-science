@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProviderInfo } from "@ai4s/sdk";
 import i18n from "@/i18n";
@@ -38,10 +39,13 @@ async function renderSettings() {
   let view!: ReturnType<typeof render>;
   await act(async () => {
     view = render(
-      <>
-        <SettingsPage />
+      // Models and Providers live in the "models" settings section.
+      <MemoryRouter initialEntries={["/settings/models"]}>
+        <Routes>
+          <Route path="/settings/:section" element={<SettingsPage />} />
+        </Routes>
         <Toaster />
-      </>,
+      </MemoryRouter>,
     );
   });
   activeView = view;

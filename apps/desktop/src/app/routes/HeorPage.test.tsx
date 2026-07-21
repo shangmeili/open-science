@@ -17,6 +17,8 @@ const defaults = {
   projects: useRuntimeStore.getState().projects,
   researchScope: useRuntimeStore.getState().researchScope,
   openSession: useRuntimeStore.getState().openSession,
+  threads: useRuntimeStore.getState().threads,
+  runningSessions: useRuntimeStore.getState().runningSessions,
 };
 
 afterEach(() => {
@@ -106,6 +108,27 @@ describe("AI4HEOR conversation route", () => {
     expect(sendPrompt).not.toHaveBeenCalled();
   });
 
+  it("sends the HEOR contract privately while echoing only the researcher's words", async () => {
+    const sendPrompt = vi.fn().mockResolvedValue("session-1");
+    useRuntimeStore.setState({
+      status: "ready",
+      currentId: null,
+      defaultModel: "openai/gpt-5.2",
+      sendPrompt,
+      workspacePinned: true,
+    });
+    renderNavigableAt("/heor/new");
+
+    const input = await screen.findByRole("textbox");
+    await userEvent.type(input, "评价达格列净的成本效果");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(sendPrompt).toHaveBeenCalledTimes(1);
+    expect(sendPrompt.mock.calls[0][0]).toContain("Use $heor-workbench");
+    expect(sendPrompt.mock.calls[0][0]).toContain("评价达格列净的成本效果");
+    expect(sendPrompt.mock.calls[0][1]).toBe("评价达格列净的成本效果");
+  });
+
   it("shows research tools after a task has an actual session scope", async () => {
     useRuntimeStore.setState({
       status: "ready",
@@ -120,6 +143,35 @@ describe("AI4HEOR conversation route", () => {
 
     expect(await screen.findByRole("button", { name: "Research & analysis" }))
       .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Runs" })).toBeInTheDocument();
+  });
+
+  it("surfaces the HEOR pane when an active task creates a structured search request", async () => {
+    useRuntimeStore.setState({
+      status: "ready",
+      currentId: "session-search",
+      defaultModel: "openai/gpt-5.2",
+      workspacePinned: true,
+      openSession: vi.fn().mockResolvedValue(undefined),
+      runningSessions: { "session-search": true },
+      threads: {
+        "session-search": {
+          loaded: true,
+          index: {},
+          blocks: [{
+            kind: "artifact",
+            path: "heor/evidence-search-request.json",
+            filename: "evidence-search-request.json",
+            artifact: "data",
+            tool: "write",
+          }],
+        },
+      },
+    });
+    renderNavigableAt("/heor/session-search");
+
+    expect(await screen.findByRole("button", { name: "Research & analysis" }))
+      .toHaveAttribute("aria-pressed", "true");
   });
 
   it("uses the AI4HEOR research surface for legacy live links", async () => {
@@ -193,13 +245,13 @@ describe("AI4HEOR conversation route", () => {
 
     await userEvent.click(
       await screen.findByRole("button", {
-        name: /Run the cost-effectiveness teaching example/i,
+        name: /Open the cost-effectiveness teaching example/i,
       }),
     );
 
     const draft = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
     expect(draft).toContain("python run_analysis.py --check expected/base-case-result.json");
-    expect(draft).toContain("ask me whether to continue");
+    expect(draft).toContain("do not ask for a second confirmation");
     expect(sendPrompt).not.toHaveBeenCalled();
   });
 

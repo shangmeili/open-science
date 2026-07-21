@@ -5,6 +5,7 @@ import {
   RESEARCH_TABLES_MANIFEST_PATH,
   type ResearchTablesAudit,
 } from "@/lib/heor";
+import { formatHeorReviewIssue } from "./reviewIssue";
 
 export type ResearchTablesState =
   | { kind: "loading" }
@@ -62,7 +63,9 @@ export function ResearchTablesAssessment({
 
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
-          {issues.slice(0, 6).map((issue) => <li key={issue}>• {issue}</li>)}
+          {issues.slice(0, 6).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
 

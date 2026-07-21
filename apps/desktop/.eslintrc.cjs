@@ -60,6 +60,7 @@ module.exports = {
             "dot",
             "options",
             "fill",
+            "align",
           ],
         },
         "object-properties": {

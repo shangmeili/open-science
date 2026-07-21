@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { StrictMode } from "react";
 import { useUiStore } from "@/lib/store";
 import { Composer } from "./Composer";
 
@@ -27,6 +28,20 @@ describe("Composer", () => {
     fireEvent.change(input, { target: { value: "" } });
     act(() => useUiStore.getState().setComposerDraft("just the draft"));
     expect(input.value).toBe("just the draft");
+  });
+
+  it("consumes a prepared starter only once when StrictMode replays effects", () => {
+    const prompt = "Find public HEOR evidence without stopping at another authorization handoff.";
+    useUiStore.setState({ composerDraft: prompt });
+
+    render(
+      <StrictMode>
+        <Composer onSend={vi.fn()} />
+      </StrictMode>,
+    );
+
+    expect(screen.getByLabelText<HTMLTextAreaElement>("Ask anything")).toHaveValue(prompt);
+    expect(useUiStore.getState().composerDraft).toBeNull();
   });
 
   it("shows a selected Skill as a localized chip while keeping its runtime id out of the input", () => {
@@ -367,6 +382,24 @@ describe("approval mode switch", () => {
       screen.getByRole("menuitemradio", { name: /Approve for me/ }).getAttribute("aria-checked"),
     ).toBe("false");
   });
+
+  it("cannot restart the runtime by changing approval mode while a task is running", () => {
+    const onChange = vi.fn();
+    render(
+      <Composer
+        onSend={vi.fn()}
+        approvalMode="approve"
+        onApprovalModeChange={onChange}
+        disabled
+        working
+      />,
+    );
+    const button = screen.getByLabelText("Approval mode");
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
 
 describe("approval menu dismissal", () => {
@@ -376,5 +409,32 @@ describe("approval menu dismissal", () => {
     expect(screen.queryByRole("menu")).not.toBeNull();
     fireEvent.mouseDown(document.body);
     expect(screen.queryByRole("menu")).toBeNull();
+  });
+});
+
+describe("agent mode switch (Build / Plan)", () => {
+  it("is absent unless the surface provides it (runtime without a plan agent)", () => {
+    render(<Composer onSend={vi.fn()} />);
+    expect(screen.queryByLabelText("Agent mode")).toBeNull();
+  });
+
+  it("shows the current mode and switches on pick", () => {
+    const onChange = vi.fn();
+    render(<Composer onSend={vi.fn()} agentMode="build" onAgentModeChange={onChange} />);
+    const button = screen.getByLabelText("Agent mode");
+    expect(button.textContent).toContain("Build");
+
+    fireEvent.click(button);
+    fireEvent.mouseDown(screen.getByRole("menuitemradio", { name: /Plan/ }));
+    expect(onChange).toHaveBeenCalledWith("plan");
+    expect(screen.queryByRole("menuitemradio", { name: /Plan/ })).toBeNull();
+  });
+
+  it("plan mode tints the composer border and pill blue (read-only must be unmistakable)", () => {
+    const { container } = render(
+      <Composer onSend={vi.fn()} agentMode="plan" onAgentModeChange={vi.fn()} />,
+    );
+    expect(container.firstElementChild?.className).toContain("border-link/60");
+    expect(screen.getByLabelText("Agent mode").className).toContain("text-link");
   });
 });

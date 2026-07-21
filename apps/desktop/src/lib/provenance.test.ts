@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ToolUpdatedEvent } from "@ai4s/sdk";
-import { provenanceInputFromEvent } from "./provenance";
+import { provenanceInputFromEvent, provenanceInputsFromEvent } from "./provenance";
 
 const write = (over: Partial<ToolUpdatedEvent> = {}): ToolUpdatedEvent => ({
   type: "tool.updated",
@@ -49,6 +49,36 @@ describe("provenanceInputFromEvent", () => {
     expect(provenanceInputFromEvent(write({ status: "running" }))).toBeNull();
     expect(provenanceInputFromEvent(write({ tool: "bash" }))).toBeNull();
     expect(provenanceInputFromEvent(write({ input: {} }))).toBeNull();
+  });
+
+  it("records every add and update in a multi-file apply_patch call", () => {
+    const patchText = [
+      "*** Begin Patch",
+      "*** Add File: reports/result.md",
+      "+Result",
+      "*** Update File: analysis/model.R",
+      "@@ -1 +1 @@",
+      "-print(1)",
+      "+print(2)",
+      "*** Delete File: scratch.tmp",
+      "*** End Patch",
+    ].join("\n");
+    const records = provenanceInputsFromEvent(
+      write({ tool: "apply_patch", input: { patchText } }),
+    );
+    expect(records.map((record) => record.path)).toEqual([
+      "reports/result.md",
+      "analysis/model.R",
+    ]);
+    expect(records[0].content).toBe("Result");
+    expect(records[1].diff).toContain("+print(2)");
+  });
+
+  it("wraps one ordinary write and excludes non-writing events", () => {
+    expect(provenanceInputsFromEvent(write()).map((record) => record.path)).toEqual([
+      "fig/plot.py",
+    ]);
+    expect(provenanceInputsFromEvent(write({ tool: "bash" }))).toEqual([]);
   });
 
   it("records mutating jupyter tools but not reads", () => {

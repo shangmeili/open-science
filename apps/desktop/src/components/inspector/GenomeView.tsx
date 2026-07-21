@@ -119,7 +119,7 @@ export function GenomeView({ filename, text }: { filename: string; text: string 
         </span>
         {data.contigs.length > 1 ? (
           <select
-            className="rounded-input border border-border bg-surface px-2 py-1 text-xs text-text outline-none focus:border-accent/50"
+            className="select-chrome rounded-input border border-border bg-surface px-2 py-1 text-xs text-text outline-none focus:border-accent/50"
             value={contigIdx}
             onChange={(e) => setContigIdx(Number(e.target.value))}
             aria-label={t("genome.contigAria")}

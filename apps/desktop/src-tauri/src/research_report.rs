@@ -505,7 +505,14 @@ fn load_manifest(workspace: &Path) -> (ResearchReportAudit, Option<LoadedReport>
     let (_, manifest_raw) =
         match resolve_regular(workspace, REPORT_EXPORT_MANIFEST_PATH, MANIFEST_CAP_BYTES) {
             Ok(value) => value,
-            Err(error) => return (empty_audit(String::new(), vec![error]), None),
+            Err(error) => {
+                let mut audit = empty_audit(String::new(), vec![error]);
+                if !workspace.join(REPORT_EXPORT_MANIFEST_PATH).exists() {
+                    audit.status = "missing";
+                    audit.errors.clear();
+                }
+                return (audit, None);
+            }
         };
     let manifest_sha = sha256(&manifest_raw);
     let manifest: ReportExportManifest = match serde_json::from_slice(&manifest_raw) {
@@ -2267,6 +2274,20 @@ pub fn generate_research_report(app: AppHandle) -> Result<ResearchReportAudit, S
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn absent_manifest_is_a_quiet_missing_capability() {
+        let root = std::env::temp_dir().join(format!(
+            "ai4heor-research-report-missing-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let audit = load_manifest(&root).0;
+        assert_eq!(audit.status, "missing");
+        assert!(audit.errors.is_empty());
+        assert!(!audit.ready_to_generate);
+    }
 
     fn loaded_report(markdown: &str) -> LoadedReport {
         let (blocks, table_count) = parse_markdown(markdown.as_bytes()).unwrap();

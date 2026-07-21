@@ -162,8 +162,8 @@ excluded external sources are internal engineering records, not user choices.
 ## Skills and connectors
 
 Only first-party core skills in `runtime/skills/core/` are bundled by default,
-including the AI4HEOR human-authorized PubMed/ClinicalTrials.gov evidence
-search, evidence synthesis, model-design, reference-case, uncertainty, advanced
+including the AI4HEOR auditable PubMed/ClinicalTrials.gov evidence search,
+evidence synthesis, model-design, reference-case, uncertainty, advanced
 value-of-information, budget-impact, validation, and reporting workflows. Third-party Skills and MCP
 servers are governed by a release-only packaged registry. It contains only
 compatible, reviewed, cross-platform, hash-locked `validated-adapter` assets

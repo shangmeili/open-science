@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 HARNESS_ROOT = ROOT / "runtime" / "harness"
+SKILLS_ROOT = ROOT / "runtime" / "skills" / "core"
 TAURI_CONFIG = ROOT / "apps" / "desktop" / "src-tauri" / "tauri.conf.json"
 
 
@@ -50,6 +51,27 @@ class HeorHarnessContractTests(unittest.TestCase):
             agents,
         )
         self.assertIn("researcher-selected plan", agents)
+        self.assertIn("Preserve the full Open Science baseline", agents)
+        self.assertIn("second scientific-approval prompt", agents)
+        self.assertIn("Git is not a default research input", agents)
+        self.assertIn("Inspect Git only", agents)
+        self.assertIn("language of the researcher's latest request", agents)
+        self.assertIn("reserved machine contracts", agents)
+        self.assertIn("Never invent a schema for a watched", agents)
+        self.assertIn("heor/analysis-plan.md", agents)
+        self.assertIn("End-to-end HEOR completion contract", agents)
+        self.assertIn("pending Human gate is not a reason to omit", agents)
+        self.assertIn("Never call a Python-only result a completed AI4HEOR", agents)
+        self.assertIn("first-party deterministic engine", agents)
+        workbench = (SKILLS_ROOT / "heor-workbench/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("AI4HEOR_FIRST_PARTY_RUNNER", workbench)
+        self.assertIn("portable input-\n   provenance contract", workbench)
+        self.assertTrue(
+            (SKILLS_ROOT / "heor-workbench/scripts/run_first_party_analysis.py").is_file()
+        )
+        self.assertIn("do not begin with `git status`, `.gitignore`", agents)
+        self.assertIn("inspect only files that the requested task", agents)
+        self.assertNotIn("worktree, artifacts", agents)
 
     def test_machine_policy_is_exact_and_model_provider_neutral(self):
         policy = json.loads((HARNESS_ROOT / "policy.json").read_text(encoding="utf-8"))

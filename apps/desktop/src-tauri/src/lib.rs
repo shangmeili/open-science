@@ -2,13 +2,16 @@
 // bundled OpenCode sidecar (isolated config/data + dedicated port; killed on exit).
 mod artifact_file;
 mod asset_admission;
+mod browser;
 mod capability_review;
 mod citation_formatting;
 mod compute;
 mod conceptual_model_diagram;
 mod debug_log;
 mod examples;
+mod gateway;
 mod git_snapshot;
+mod goal;
 mod harness;
 mod heor_advanced_voi;
 mod heor_approval;
@@ -43,10 +46,12 @@ mod heor_treatment_effect_duration;
 mod heor_uncertainty;
 mod heor_utility_inputs;
 mod heor_validation;
-mod jupyter;
 mod journal_submission;
+mod jupyter;
 mod kernel;
 mod large_file;
+#[cfg(target_os = "macos")]
+mod macos;
 mod modal;
 mod opencode_config;
 mod preference_review;
@@ -86,6 +91,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(RuntimeState::default())
         .manage(KernelState::default())
         .manage(JupyterState::default())
@@ -109,10 +115,32 @@ pub fn run() {
         .manage(heor_rwe_causal_analysis::RweCausalAnalysisReviewState::default())
         .manage(heor_evidence_review::HeorEvidenceReviewState::default())
         .manage(runs::RunState::default())
+        .manage(gateway::GatewayState::default())
+        .setup(|app| {
+            if let Ok(workspace) = runtime::workspace_dir(app.handle()) {
+                git_snapshot::watch_workspace(&workspace);
+            }
+            gateway::autostart(app.handle());
+            Ok(())
+        })
+        .on_window_event(|_window, _event| {
+            #[cfg(target_os = "macos")]
+            if matches!(
+                _event,
+                tauri::WindowEvent::Focused(true)
+                    | tauri::WindowEvent::Resized(_)
+                    | tauri::WindowEvent::ThemeChanged(_)
+            ) {
+                macos::reapply_traffic_light_inset(_window);
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             runtime::start_runtime,
             runtime::restart_runtime,
             runtime::runtime_password,
+            gateway::gateway_status,
+            gateway::set_gateway_config,
+            gateway::regenerate_gateway_token,
             runtime::stop_runtime,
             runtime::workspace_path,
             runtime::workspace_base,
@@ -121,10 +149,16 @@ pub fn run() {
             runtime::set_workspace,
             runtime::mark_session,
             runtime::new_dated_workspace,
+            goal::goal_state,
+            goal::goal_update,
             project::create_project,
+            project::import_project,
             project::list_projects,
             project::current_research_scope,
             project::rename_project,
+            project::set_project_pinned,
+            project::delete_project,
+            project::open_project_folder,
             runtime::pick_folder,
             runtime::import_opencode_login,
             runtime::remove_config_entry,
@@ -137,6 +171,10 @@ pub fn run() {
             runtime::set_proxy_setting,
             runtime::get_mirror_setting,
             runtime::set_mirror_setting,
+            browser::agent_browser_bin,
+            browser::agent_browser_profiles,
+            browser::detect_chrome,
+            browser::setup_browser_chrome,
             kernel::kernel_execute,
             kernel::kernel_reset,
             kernel::python_interpreter,
@@ -230,6 +268,7 @@ pub fn run() {
             heor_uncertainty::run_heor_uncertainty,
             heor_validation::audit_heor_model_validation,
             heor_engine::run_heor_markov,
+            heor_engine::inspect_heor_markov_result,
             runs::record_run,
             runs::list_runs,
             runs::read_run_log,
@@ -265,6 +304,7 @@ pub fn run() {
                 runtime::kill_child(&app.state::<RuntimeState>());
                 kernel::kill_kernel(&app.state::<KernelState>());
                 jupyter::kill_jupyter(&app.state::<JupyterState>());
+                gateway::shutdown(app.state::<gateway::GatewayState>().inner());
             }
         });
 }

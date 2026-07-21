@@ -26,6 +26,17 @@ export function flattenModelOptions(providers: ProviderInfo[]): ModelOption[] {
   );
 }
 
+/** Return the nearest available replacement for a stale configured model. */
+export function fallbackDefaultModel(
+  providers: ProviderInfo[],
+  defaultModel: string,
+): string | null {
+  const options = flattenModelOptions(providers);
+  if (options.length === 0 || options.some((model) => model.key === defaultModel)) return null;
+  const providerID = defaultModel.split("/")[0];
+  return (options.find((model) => model.providerID === providerID) ?? options[0]).key;
+}
+
 function baseOptions(
   options: ModelOption[],
   filter: ModelFilter,

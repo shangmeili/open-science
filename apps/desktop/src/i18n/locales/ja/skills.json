@@ -11,7 +11,7 @@
     "heor-dynamic-budget-impact": { "displayName": "動的予算影響", "description": "有病・新規コホート、普及率、治療継続をモデル化します。" },
     "heor-economic-inputs": { "displayName": "経済入力", "description": "モデル中立の費用、効用、分析設定を検証します。" },
     "heor-event-disutilities": { "displayName": "イベント効用損失", "description": "イベント関連 QALY 損失と重複を監査します。" },
-    "heor-evidence-search": { "displayName": "エビデンス検索", "description": "監査可能で人の承認を要する文献・試験検索を作成します。" },
+    "heor-evidence-search": { "displayName": "エビデンス検索", "description": "現在のタスク権限に従い、PubMed と試験登録の監査可能な固定ソース検索を準備します。" },
     "heor-evidence-synthesis": { "displayName": "エビデンス統合", "description": "追跡可能な HEOR 検索、選別、抽出を構築します。" },
     "heor-hazard-ratio-adapter": { "displayName": "ハザード比アダプター", "description": "レビュー済みの一定 HR をベースライン累積ハザードに適用します。" },
     "heor-input-provenance": { "displayName": "入力来歴", "description": "モデル入力を正確なレビュー済みエビデンスと仮定に結び付けます。" },

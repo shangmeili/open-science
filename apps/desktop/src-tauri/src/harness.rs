@@ -5,8 +5,6 @@
 use std::{collections::BTreeSet, path::Path};
 use tauri::{path::BaseDirectory, AppHandle, Manager};
 
-use crate::examples::copy_missing;
-
 const REQUIRED_HARNESS_FILES: &[&str] = &[
     ".gitignore",
     "AGENTS.md",
@@ -32,6 +30,12 @@ fn relative_files(root: &Path) -> Result<BTreeSet<String>, String> {
         {
             let entry = entry.map_err(|error| format!("could not read harness entry: {error}"))?;
             let path = entry.path();
+            // Older development/resource copies used .gitkeep placeholders.
+            // They are not product files and must never enter a research
+            // workspace, but a stale Tauri target must not block every task.
+            if entry.file_name() == ".gitkeep" {
+                continue;
+            }
             let kind = entry
                 .file_type()
                 .map_err(|error| format!("could not inspect {}: {error}", path.display()))?;
@@ -192,13 +196,21 @@ fn validate_policy(raw: &[u8]) -> Result<(), String> {
             "may_modify_governance",
             "may_modify_calculation_engines",
         ],
-    ) || evolution.get("request_interface").and_then(serde_json::Value::as_str)
+    ) || evolution
+        .get("request_interface")
+        .and_then(serde_json::Value::as_str)
         != Some("natural_language")
-        || evolution.get("candidate_store").and_then(serde_json::Value::as_str)
+        || evolution
+            .get("candidate_store")
+            .and_then(serde_json::Value::as_str)
             != Some("capabilities/candidates")
-        || evolution.get("candidate_status").and_then(serde_json::Value::as_str)
+        || evolution
+            .get("candidate_status")
+            .and_then(serde_json::Value::as_str)
             != Some("inactive")
-        || evolution.get("activation_authority").and_then(serde_json::Value::as_str)
+        || evolution
+            .get("activation_authority")
+            .and_then(serde_json::Value::as_str)
             != Some("human_via_app_owned_review")
         || [
             "may_self_activate",
@@ -227,9 +239,13 @@ fn validate_policy(raw: &[u8]) -> Result<(), String> {
             "store_secrets",
             "store_sensitive_content",
         ],
-    ) || learning.get("proposal_store").and_then(serde_json::Value::as_str)
+    ) || learning
+        .get("proposal_store")
+        .and_then(serde_json::Value::as_str)
         != Some("learning/proposals")
-        || learning.get("accepted_store").and_then(serde_json::Value::as_str)
+        || learning
+            .get("accepted_store")
+            .and_then(serde_json::Value::as_str)
             != Some("learning/preferences.json")
         || learning
             .get("minimum_independent_observations")
@@ -239,12 +255,21 @@ fn validate_policy(raw: &[u8]) -> Result<(), String> {
             .get("single_observation_may_become_policy")
             .and_then(serde_json::Value::as_bool)
             != Some(false)
-        || learning.get("activation_authority").and_then(serde_json::Value::as_str)
+        || learning
+            .get("activation_authority")
+            .and_then(serde_json::Value::as_str)
             != Some("human_only")
-        || learning.get("user_can_view_edit_delete").and_then(serde_json::Value::as_bool)
+        || learning
+            .get("user_can_view_edit_delete")
+            .and_then(serde_json::Value::as_bool)
             != Some(true)
-        || learning.get("store_secrets").and_then(serde_json::Value::as_bool) != Some(false)
-        || learning.get("store_sensitive_content").and_then(serde_json::Value::as_bool)
+        || learning
+            .get("store_secrets")
+            .and_then(serde_json::Value::as_bool)
+            != Some(false)
+        || learning
+            .get("store_sensitive_content")
+            .and_then(serde_json::Value::as_bool)
             != Some(false)
     {
         return Err("harness preference-learning contract does not match v2".into());
@@ -258,7 +283,9 @@ fn validate_preferences(raw: &[u8]) -> Result<(), String> {
     if !exact_object_keys(&value, &["schema", "updated_at", "preferences"])
         || value.get("schema").and_then(serde_json::Value::as_str)
             != Some("ai4heor-local-preferences/v1")
-        || !value.get("updated_at").is_some_and(serde_json::Value::is_null)
+        || !value
+            .get("updated_at")
+            .is_some_and(serde_json::Value::is_null)
         || !value
             .get("preferences")
             .and_then(serde_json::Value::as_array)
@@ -394,7 +421,18 @@ fn seed_harness_from(src: &Path, dir: &Path) -> Result<(), String> {
             newly_seeded.push(*relative);
         }
     }
-    copy_missing(src, dir).map_err(|error| format!("could not copy harness: {error}"))?;
+    for relative in REQUIRED_HARNESS_FILES {
+        let destination = dir.join(relative);
+        if destination.exists() {
+            continue;
+        }
+        if let Some(parent) = destination.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|error| format!("could not create harness directory: {error}"))?;
+        }
+        std::fs::copy(src.join(relative), &destination)
+            .map_err(|error| format!("could not copy harness {relative}: {error}"))?;
+    }
     for relative in REQUIRED_HARNESS_FILES {
         if !target_file_exists(dir, relative)? {
             return Err(format!("seeded harness file is missing: {relative}"));
@@ -489,6 +527,22 @@ mod tests {
             .unwrap_err()
             .contains("extra"));
         let _ = std::fs::remove_dir_all(invalid);
+    }
+
+    #[test]
+    fn stale_gitkeep_resource_is_ignored_and_never_seeded() {
+        let resource = temporary("stale-resource");
+        let destination = temporary("stale-destination");
+        copy_missing(&source(), &resource).unwrap();
+        let placeholder = resource.join("notes/.gitkeep");
+        std::fs::write(&placeholder, "legacy placeholder\n").unwrap();
+
+        seed_harness_from(&resource, &destination).unwrap();
+
+        assert!(destination.join("notes/KEEP").is_file());
+        assert!(!destination.join("notes/.gitkeep").exists());
+        let _ = std::fs::remove_dir_all(resource);
+        let _ = std::fs::remove_dir_all(destination);
     }
 
     #[test]

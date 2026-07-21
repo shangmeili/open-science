@@ -18,11 +18,13 @@ The artifact is `heor/evidence-synthesis.json`. It records what was searched, sc
 
 An empty `searches` array is accepted only as an importable preparation state. It is never a complete synthesis.
 
-## App-authorized search binding
+## App-owned search binding
 
 When a search is imported by AI4HEOR, its search entry also contains the complete, indivisible binding below:
 
-- `authorization_event_id`: app-owned local human authorization event ID;
+- `authorization_event_id`: legacy schema field containing the app-owned
+  execution-event ID (its assurance distinguishes confirmation mode from
+  user-selected full-access mode);
 - `request_sha256`: exact reviewed request bytes;
 - `run_path` and `run_sha256`: immutable app-written run location and digest;
 - `endpoint`: fixed first-party source endpoint;

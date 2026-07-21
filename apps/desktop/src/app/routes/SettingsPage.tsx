@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
   ChevronRight,
+  Copy,
   Download,
   ExternalLink,
   FolderOpen,
@@ -54,7 +55,7 @@ import { SupportReportCard } from "@/components/settings/SupportReportCard";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 import { FIRST_PARTY_HEOR_CONNECTOR } from "@/lib/heorConnectorPolicy";
-import xiaohongshuCard from "@/assets/xiaohongshu-shangmei-li.jpg";
+import xiaohongshuCard from "@/assets/xiaohongshu.png";
 
 const AI4HEOR_CONTACT_EMAIL = "shangmei.li@altolix.com";
 const OPEN_SCIENCE_URL = "https://github.com/ai4s-research/open-science";
@@ -1272,48 +1273,63 @@ export function SettingsPage() {
 
         {/* ---- About AI4HEOR and user-facing release information ---- */}
         <Card title={t("about.title")} hint={t("about.hint")}>
-          <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="space-y-5">
             <div className="min-w-0">
-              <span className="inline-flex rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-border">
-                {t("about.currentVersion", { version: currentVersion })}
-              </span>
-              <p className="mt-4 text-sm font-medium leading-6 text-text">{t("about.developedBy")}</p>
-              <p className="mt-2 text-sm leading-6 text-muted">{t("about.positioning")}</p>
-              <button
-                type="button"
-                className={cn(btnGhost("mt-4 gap-1.5"), "w-fit")}
-                onClick={() => void openExternal(OPEN_SCIENCE_URL)}
-              >
-                <ExternalLink size={13} /> {t("about.openScience")}
-              </button>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="inline-flex rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-border">
+                  {t("about.currentVersion", { version: currentVersion })}
+                </span>
+                <button
+                  type="button"
+                  className={cn(btnGhost("gap-1.5"), "w-fit")}
+                  onClick={() => void openExternal(OPEN_SCIENCE_URL)}
+                >
+                  <ExternalLink size={13} /> {t("about.openScience")}
+                </button>
+              </div>
+              <p className="mt-4 max-w-[60ch] text-[15px] font-medium leading-7 text-text">
+                {t("about.developedBy")}
+              </p>
+              <p className="mt-2 max-w-[68ch] text-[13px] leading-6 text-muted">
+                {t("about.positioning")}
+              </p>
+            </div>
 
-              <div className="mt-5 border-t border-faint pt-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-text">
+            <div
+              id="ai4heor-contact-card"
+              className="grid overflow-hidden rounded-[20px] border border-border bg-surface sm:grid-cols-[minmax(0,1fr)_minmax(224px,40%)]"
+            >
+              <section
+                className="flex min-h-[250px] flex-col justify-end p-5 sm:pr-4"
+                aria-labelledby="ai4heor-contact-heading"
+              >
+                <div
+                  id="ai4heor-contact-heading"
+                  className="flex items-center gap-2 text-sm font-medium text-text"
+                >
                   <Mail size={15} className="text-accent" />
                   {t("about.contactTitle")}
                 </div>
                 <p className="mt-2 text-xs leading-5 text-muted">{t("about.contactBody")}</p>
                 <button
                   type="button"
-                  className="mt-2 rounded-input border border-border bg-surface-2 px-3 py-2 font-mono text-xs text-text transition-colors hover:bg-bg"
+                  className="mt-3 flex w-full max-w-[350px] items-center justify-between gap-3 rounded-input border border-border bg-surface px-3 py-2.5 text-left font-mono text-xs text-text shadow-sm transition-colors hover:bg-bg"
                   onClick={() => void copyContactEmail()}
                   title={t("about.copyEmail")}
                 >
-                  {AI4HEOR_CONTACT_EMAIL}
+                  <span className="min-w-0 truncate">{AI4HEOR_CONTACT_EMAIL}</span>
+                  <Copy size={13} className="shrink-0 text-muted" />
                 </button>
-              </div>
-            </div>
+              </section>
 
-            <figure className="mx-auto w-full max-w-[280px]">
-              <img
-                src={xiaohongshuCard}
-                alt={t("about.xiaohongshuAlt")}
-                className="block h-auto w-full rounded-card border border-border bg-white shadow-sm"
-              />
-              <figcaption className="mt-2 text-center text-xs leading-5 text-muted">
-                {t("about.xiaohongshuCaption")}
-              </figcaption>
-            </figure>
+              <figure className="flex items-start justify-center p-3 sm:pl-0">
+                <img
+                  src={xiaohongshuCard}
+                  alt={t("about.xiaohongshuAlt")}
+                  className="block h-auto w-full max-w-[280px] rounded-[18px] bg-white"
+                />
+              </figure>
+            </div>
           </div>
 
           {updateSourceConfigured && (

@@ -1,7 +1,4 @@
 {
-  "accessibility": {
-    "skipToMain": "跳到药物经济学工作区"
-  },
   "sidebar": {
     "collapse": "收起侧边栏",
     "collapseTitle": "收起侧边栏（{{shortcut}}）",
@@ -16,22 +13,44 @@
     "files": "研究资料",
     "runs": "分析记录",
     "skills": "研究能力",
+    "projects": "项目",
     "heor": "研究工作台"
   },
   "projects": {
     "heading": "项目",
     "new": "新建项目",
+    "importedBadge": "导入",
+    "menuScratch": "从零开始",
+    "menuExisting": "使用已有文件夹",
+    "nameTitle": "命名项目",
+    "nameSubtitle": "简短好记即可",
     "namePlaceholder": "项目名称",
-    "intakePrompt": "帮我开始这个药物经济学项目。先问清楚要解决的决策、研究、评价或学习问题，以及结果准备怎么用。只追问会影响后续工作的关键信息。在我确认任务前，不要检索资料、选择方法、假定参数或记录任何批准。",
     "newSessionAria": "在“{{name}}”中新建任务",
     "noSessions": "暂无任务。",
-    "renameHint": "双击重命名"
+    "renameHint": "双击重命名",
+    "pageSearch": "搜索项目",
+    "colName": "名称",
+    "colSources": "来源",
+    "colUpdated": "更新时间",
+    "noResults": "没有匹配的项目。",
+    "pin": "置顶",
+    "unpin": "取消置顶",
+    "rename": "重命名",
+    "remove": "移除",
+    "more": "更多",
+    "removeTitle": "移除 {{name}}?",
+    "removeBody": "这会从侧边栏移除该项目。磁盘上的文件不会被删除。",
+    "seeAll": "全部项目",
+    "openFolder": "打开 {{path}}",
+    "import": "导入现有项目",
+    "intakePrompt": "帮我开始这个药物经济学项目。先问清楚要解决的决策、研究、评价或学习问题，以及结果准备怎么用。只追问会影响后续工作的关键信息。在我确认任务前，不要检索资料、选择方法、假定参数或记录任何批准。"
   },
   "history": {
     "heading": "任务",
     "empty": "暂无任务。",
     "exampleTag": "示例",
-    "deleteAria": "删除 {{title}}"
+    "deleteAria": "删除 {{title}}",
+    "running": "运行中"
   },
   "confirmDelete": {
     "sessionTitle": "删除任务？",
@@ -65,5 +84,8 @@
       "openSettings": "打开设置",
       "toggleTheme": "切换浅色/深色主题"
     }
+  },
+  "accessibility": {
+    "skipToMain": "跳到药物经济学工作区"
   }
 }

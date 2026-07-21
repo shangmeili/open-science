@@ -7,12 +7,16 @@ export interface MockOpenCode {
   port: number;
   /** Every request seen, as "METHOD /path" — lets tests assert call order. */
   requests: string[];
+  /** Parsed prompt_async bodies, in order — lets tests assert the wire shape
+   *  (e.g. the optional agent field is present exactly when passed). */
+  promptBodies: unknown[];
   close: () => Promise<void>;
 }
 
 export function startMockOpenCode(port = 0): Promise<MockOpenCode> {
   const clients = new Set<ServerResponse>();
   const requests: string[] = [];
+  const promptBodies: unknown[] = [];
 
   const send = (res: ServerResponse, obj: unknown) =>
     res.write(`data: ${JSON.stringify(obj)}\n\n`);
@@ -27,17 +31,47 @@ export function startMockOpenCode(port = 0): Promise<MockOpenCode> {
     // message.part.delta events, then the full part again at text-end.
     const D = (partID: string, delta: string) =>
       push({ type: "message.part.delta", properties: { sessionID, messageID: "m1", partID, field: "text", delta } });
+    push({
+      type: "message.updated",
+      properties: { info: { id: "u1", role: "user", sessionID } },
+    });
+    P({ id: "s1", type: "step-start" });
+    P({ id: "r1", type: "reasoning", text: "" });
+    D("r1", "Checking the evidence. ");
+    P({ id: "r1", type: "reasoning", text: "Checking the evidence. " });
     P({ id: "p1", type: "text", text: "" });
     D("p1", "Planning ");
     D("p1", "the analysis. ");
     P({ id: "p1", type: "text", text: "Planning the analysis. " });
     P({ id: "c1", type: "tool", callID: "c1", tool: "literature-search", state: { status: "running", title: "literature-search (OpenAlex)" } });
     P({ id: "c1", type: "tool", callID: "c1", tool: "literature-search", state: { status: "completed", title: "literature-search (OpenAlex, PubMed)" } });
+    P({ id: "s2", type: "step-start" });
     P({ id: "p2", type: "text", text: "Wrote data/corpus.csv and drafted report.md." });
     push({ type: "session.idle", properties: { sessionID } });
     messages[sessionID] = [
-      { info: { role: "user" }, parts: [{ type: "text", text: "run a literature review" }] },
-      { info: { role: "assistant", time: { created: 1, completed: 2 } }, parts: [{ type: "text", text: "Planning the analysis. Wrote data/corpus.csv." }] },
+      { info: { id: "u1", role: "user" }, parts: [{ type: "text", text: "run a literature review" }] },
+      { info: { role: "assistant", time: { created: 1, completed: 2 } }, parts: [
+        { type: "reasoning", text: "Checking the evidence." },
+        { type: "text", text: "Planning the analysis. Wrote data/corpus.csv." },
+      ] },
+    ];
+  };
+
+  // A turn whose model call fails: the server announces the retry via
+  // session.status, gives up with session.error, and the stored assistant
+  // message carries the error (that is all a reloaded history has to show).
+  const streamFlakyTurn = (sessionID: string) => {
+    const push = (obj: unknown) => clients.forEach((c) => send(c, obj));
+    const error = { name: "APICallError", data: { message: "no channel available for this model" } };
+    push({
+      type: "session.status",
+      properties: { sessionID, status: { type: "retry", attempt: 2, message: error.data.message, next: 1234 } },
+    });
+    push({ type: "session.error", properties: { sessionID, error } });
+    push({ type: "session.idle", properties: { sessionID } });
+    messages[sessionID] = [
+      { info: { role: "user" }, parts: [{ type: "text", text: "flaky" }] },
+      { info: { role: "assistant", time: { created: 1, completed: 2 }, error }, parts: [] },
     ];
   };
 
@@ -94,6 +128,11 @@ export function startMockOpenCode(port = 0): Promise<MockOpenCode> {
     if (req.method === "POST" && /^\/session\/[^/]+\/abort$/.test(url)) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end("true");
+      return;
+    }
+    if (req.method === "POST" && /^\/session\/[^/]+\/(un)?revert$/.test(url)) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end("{}");
       return;
     }
     const mm = url.match(/^\/session\/([^/]+)\/message/);
@@ -198,9 +237,19 @@ export function startMockOpenCode(port = 0): Promise<MockOpenCode> {
     }
     const m = url.match(/^\/session\/([^/]+)\/prompt_async/);
     if (req.method === "POST" && m) {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end("{}");
-      setTimeout(() => streamTurn(decodeURIComponent(m[1])), 5);
+      let body = "";
+      req.on("data", (chunk) => (body += chunk));
+      req.on("end", () => {
+        try {
+          promptBodies.push(JSON.parse(body));
+        } catch {
+          promptBodies.push(body);
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end("{}");
+        const turn = body.includes("flaky") ? streamFlakyTurn : streamTurn;
+        setTimeout(() => turn(decodeURIComponent(m[1])), 5);
+      });
       return;
     }
     res.writeHead(404);
@@ -214,6 +263,7 @@ export function startMockOpenCode(port = 0): Promise<MockOpenCode> {
       resolve({
         port: actualPort,
         requests,
+        promptBodies,
         close: () =>
           new Promise((r) => {
             for (const c of clients) c.end();

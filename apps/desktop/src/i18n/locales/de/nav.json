@@ -1,7 +1,4 @@
 {
-  "accessibility": {
-    "skipToMain": "Zum HEOR-Arbeitsbereich springen"
-  },
   "sidebar": {
     "collapse": "Seitenleiste einklappen",
     "collapseTitle": "Seitenleiste einklappen ({{shortcut}})",
@@ -16,22 +13,44 @@
     "files": "Forschungsdateien",
     "runs": "Analyseverlauf",
     "skills": "Forschungsfunktionen",
+    "projects": "Projekte",
     "heor": "Forschungsbereich"
   },
   "projects": {
     "heading": "Projekte",
     "new": "Neues Projekt",
+    "importedBadge": "importiert",
+    "menuScratch": "Bei null anfangen",
+    "menuExisting": "Vorhandenen Ordner verwenden",
+    "nameTitle": "Projekt benennen",
+    "nameSubtitle": "Kurz und einprägsam halten",
     "namePlaceholder": "Projektname",
-    "intakePrompt": "Hilf mir, dieses HEOR-Projekt zu beginnen. Frage zuerst, welche Entscheidungs-, Forschungs-, Bewertungs- oder Lernfrage ich bearbeiten möchte und wofür die Ergebnisse bestimmt sind. Ermittle danach nur fehlende Angaben, die die Arbeit wesentlich verändern würden. Ich behalte die wissenschaftliche Leitung; suche nicht, wähle keine Methoden, nimm keine Eingaben an und erstelle keine Freigaben, bevor ich die Aufgabe definiert habe.",
     "newSessionAria": "Neue Aufgabe in „{{name}}“",
     "noSessions": "Noch keine Aufgaben.",
-    "renameHint": "Zum Umbenennen doppelklicken"
+    "renameHint": "Zum Umbenennen doppelklicken",
+    "pageSearch": "Projekte suchen",
+    "colName": "Name",
+    "colSources": "Quellen",
+    "colUpdated": "Aktualisiert",
+    "noResults": "Keine passenden Projekte.",
+    "pin": "Anheften",
+    "unpin": "Lösen",
+    "rename": "Umbenennen",
+    "remove": "Entfernen",
+    "more": "Mehr",
+    "removeTitle": "{{name}} entfernen?",
+    "removeBody": "Entfernt das Projekt aus der Seitenleiste. Dateien auf der Festplatte werden nicht gelöscht.",
+    "seeAll": "Alle Projekte",
+    "openFolder": "{{path}} öffnen",
+    "import": "Vorhandenes Projekt importieren",
+    "intakePrompt": "Hilf mir, dieses HEOR-Projekt zu beginnen. Frage zuerst, welche Entscheidungs-, Forschungs-, Bewertungs- oder Lernfrage ich bearbeiten möchte und wofür die Ergebnisse bestimmt sind. Ermittle danach nur fehlende Angaben, die die Arbeit wesentlich verändern würden. Ich behalte die wissenschaftliche Leitung; suche nicht, wähle keine Methoden, nimm keine Eingaben an und erstelle keine Freigaben, bevor ich die Aufgabe definiert habe."
   },
   "history": {
     "heading": "Aufgaben",
     "empty": "Noch keine Aufgaben.",
     "exampleTag": "Beispiel",
-    "deleteAria": "{{title}} löschen"
+    "deleteAria": "{{title}} löschen",
+    "running": "Arbeitet"
   },
   "confirmDelete": {
     "sessionTitle": "Aufgabe löschen?",
@@ -65,5 +84,8 @@
       "openSettings": "Einstellungen öffnen",
       "toggleTheme": "Hell-/Dunkelmodus umschalten"
     }
+  },
+  "accessibility": {
+    "skipToMain": "Zum HEOR-Arbeitsbereich springen"
   }
 }

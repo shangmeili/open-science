@@ -403,54 +403,11 @@ fn capped_stderr(bytes: &[u8]) -> String {
         .to_string()
 }
 
-#[tauri::command(async)]
-pub fn run_heor_markov(
-    app: AppHandle,
-    approval_state: tauri::State<HeorApprovalState>,
-    project_id: String,
-    input_path: String,
-) -> Result<HeorRunResult, String> {
-    let root = workspace_dir(&app)?;
-    if crate::project::require_project_id(&root)? != project_id {
-        return Err("HEOR projectId does not match the current project".into());
-    }
-    let input = resolve_workspace_input(&root, &input_path)?;
-    let raw = std::fs::read(&input).map_err(|e| format!("HEOR input read failed: {e}"))?;
-    let input_sha256 = sha256_bytes(&raw);
-    let evidence_audit = audit_plan_bytes(&raw)?;
-    let evidence_selection_audit =
-        audit_evidence_selection_for_plan(&app, &root, &project_id, &raw);
-
-    let package_src = app
-        .path()
-        .resolve("heor-core/src", BaseDirectory::Resource)
-        .map_err(|e| format!("bundled HEOR engine unavailable: {e}"))?;
-    if !package_src.join("heor_core").is_dir() {
-        return Err("bundled HEOR engine source is missing".into());
-    }
-    let (python, _) = crate::kernel::python_bin(&app)?;
-    let output = crate::runtime::quiet_command(python)
-        .args(["-m", "heor_core"])
-        .arg(&input)
-        .current_dir(&root)
-        .env("PYTHONPATH", &package_src)
-        .env("PYTHONDONTWRITEBYTECODE", "1")
-        .env("PYTHONNOUSERSITE", "1")
-        .output()
-        .map_err(|e| format!("HEOR engine failed to start: {e}"))?;
-    if !output.status.success() {
-        let message = capped_stderr(&output.stderr);
-        return Err(if message.is_empty() {
-            format!("HEOR engine exited with {}", output.status)
-        } else {
-            message
-        });
-    }
-    if output.stdout.len() > 25 * 1024 * 1024 {
-        return Err("HEOR engine output exceeds the 25 MB limit".into());
-    }
-    let calculation: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .map_err(|e| format!("HEOR engine returned invalid JSON: {e}"))?;
+fn validate_calculation_binding(
+    plan_raw: &[u8],
+    calculation: &serde_json::Value,
+) -> Result<String, String> {
+    let input_sha256 = sha256_bytes(plan_raw);
     let child_hash = calculation
         .get("input_sha256")
         .and_then(serde_json::Value::as_str)
@@ -458,11 +415,38 @@ pub fn run_heor_markov(
     if child_hash != input_sha256 {
         return Err("HEOR engine input hash does not match the desktop input".into());
     }
-    crate::heor_reporting::write_result(
-        &root,
-        crate::heor_reporting::BASE_CASE_RESULT_PATH,
-        &output.stdout,
-    )?;
+    if calculation
+        .get("engine_version")
+        .and_then(serde_json::Value::as_str)
+        .is_none_or(str::is_empty)
+    {
+        return Err("HEOR result is not a first-party engine result".into());
+    }
+    let plan: serde_json::Value = serde_json::from_slice(plan_raw)
+        .map_err(|error| format!("HEOR analysis plan is invalid: {error}"))?;
+    for key in ["schema_version", "analysis_id"] {
+        let expected = plan.get(key).and_then(serde_json::Value::as_str);
+        let actual = calculation.get(key).and_then(serde_json::Value::as_str);
+        if expected.is_none() || expected != actual {
+            return Err(format!(
+                "HEOR result {key} does not match the analysis plan"
+            ));
+        }
+    }
+    Ok(input_sha256)
+}
+
+fn assemble_run_result(
+    app: &AppHandle,
+    approval_state: &HeorApprovalState,
+    root: &Path,
+    project_id: &str,
+    raw: &[u8],
+    calculation: serde_json::Value,
+) -> Result<HeorRunResult, String> {
+    let input_sha256 = validate_calculation_binding(raw, &calculation)?;
+    let evidence_audit = audit_plan_bytes(raw)?;
+    let evidence_selection_audit = audit_evidence_selection_for_plan(app, root, project_id, raw);
     let reference_case_status = calculation
         .pointer("/reference_case/status")
         .and_then(serde_json::Value::as_str)
@@ -472,25 +456,23 @@ pub fn run_heor_markov(
         .and_then(serde_json::Value::as_str)
         .ok_or("HEOR engine omitted reference-case id")?;
     let reference_case_status =
-        registered_reference_case_status(&app, reference_case_id, reference_case_status)?;
-    let reference_case_audit = audit_reference_case_for_plan(&app, &root, &raw)?;
-    let uncertainty_audit = audit_uncertainty_plan_for_plan(&root, &raw)?;
-    let budget_impact_audit = audit_budget_impact_for_plan(&root, &raw)?;
-    let partitioned_survival_audit = audit_partitioned_survival_for_plan(&root, &raw)?;
-    let survival_review_audit = audit_survival_review_for_plan(&root, &raw);
-    let validation_audit = audit_model_validation_for_plan(&root, &raw)?;
-    let reporting_audit = audit_report_package(&root)?;
-    let reproducibility_audit = audit_reproducibility_package(&app, &root)?;
-    // Evaluate authorization after calculation so a revocation made while the
-    // engine is running cannot leave the returned status stale.
+        registered_reference_case_status(app, reference_case_id, reference_case_status)?;
+    let reference_case_audit = audit_reference_case_for_plan(app, root, raw)?;
+    let uncertainty_audit = audit_uncertainty_plan_for_plan(root, raw)?;
+    let budget_impact_audit = audit_budget_impact_for_plan(root, raw)?;
+    let partitioned_survival_audit = audit_partitioned_survival_for_plan(root, raw)?;
+    let survival_review_audit = audit_survival_review_for_plan(root, raw);
+    let validation_audit = audit_model_validation_for_plan(root, raw)?;
+    let reporting_audit = audit_report_package(root)?;
+    let reproducibility_audit = audit_reproducibility_package(app, root)?;
     let approval_log = {
         let _guard = approval_state
             .0
             .lock()
             .map_err(|_| "HEOR approval lock poisoned")?;
-        crate::heor_approval::verified_log(&app, &project_id)?
+        crate::heor_approval::verified_log(app, project_id)?
     };
-    let conceptual_model_matches_artifact = conceptual_model_matches_approval(&root, &approval_log);
+    let conceptual_model_matches_artifact = conceptual_model_matches_approval(root, &approval_log);
 
     Ok(HeorRunResult {
         workflow: workflow_status(
@@ -515,9 +497,149 @@ pub fn run_heor_markov(
     })
 }
 
+#[tauri::command(async)]
+pub fn run_heor_markov(
+    app: AppHandle,
+    approval_state: tauri::State<HeorApprovalState>,
+    run_state: tauri::State<crate::runs::RunState>,
+    provenance_state: tauri::State<crate::provenance::ProvenanceState>,
+    project_id: String,
+    input_path: String,
+) -> Result<HeorRunResult, String> {
+    let command = format!("python -m heor_core {input_path}");
+    crate::runs::execute_recorded(
+        &app,
+        run_state.inner(),
+        provenance_state.inner(),
+        &command,
+        || {
+            run_heor_markov_inner(&app, approval_state.inner(), project_id, input_path)
+                .map(|result| (result, None))
+        },
+    )
+}
+
+/// Load and independently re-audit a previously persisted first-party base-case
+/// result. Opening the review pane must not erase a completed calculation or
+/// rerun it merely to make it visible.
+#[tauri::command]
+pub fn inspect_heor_markov_result(
+    app: AppHandle,
+    approval_state: tauri::State<HeorApprovalState>,
+    project_id: String,
+) -> Result<Option<HeorRunResult>, String> {
+    let root = workspace_dir(&app)?;
+    if crate::project::require_project_id(&root)? != project_id {
+        return Err("HEOR projectId does not match the current project".into());
+    }
+    let result_path = root.join(crate::heor_reporting::BASE_CASE_RESULT_PATH);
+    if !result_path.is_file() {
+        return Ok(None);
+    }
+    let result_meta = result_path
+        .metadata()
+        .map_err(|error| format!("HEOR result metadata failed: {error}"))?;
+    if result_meta.len() > 25 * 1024 * 1024 {
+        return Err("HEOR engine output exceeds the 25 MB limit".into());
+    }
+    let input = resolve_workspace_input(&root, "heor/analysis-plan.json")?;
+    let raw = std::fs::read(input).map_err(|error| format!("HEOR input read failed: {error}"))?;
+    let result_raw =
+        std::fs::read(result_path).map_err(|error| format!("HEOR result read failed: {error}"))?;
+    let calculation: serde_json::Value = serde_json::from_slice(&result_raw)
+        .map_err(|error| format!("HEOR result is invalid: {error}"))?;
+    assemble_run_result(
+        &app,
+        approval_state.inner(),
+        &root,
+        &project_id,
+        &raw,
+        calculation,
+    )
+    .map(Some)
+}
+
+fn run_heor_markov_inner(
+    app: &AppHandle,
+    approval_state: &HeorApprovalState,
+    project_id: String,
+    input_path: String,
+) -> Result<HeorRunResult, String> {
+    let root = workspace_dir(app)?;
+    if crate::project::require_project_id(&root)? != project_id {
+        return Err("HEOR projectId does not match the current project".into());
+    }
+    let input = resolve_workspace_input(&root, &input_path)?;
+    let raw = std::fs::read(&input).map_err(|e| format!("HEOR input read failed: {e}"))?;
+    let package_src = app
+        .path()
+        .resolve("heor-core/src", BaseDirectory::Resource)
+        .map_err(|e| format!("bundled HEOR engine unavailable: {e}"))?;
+    if !package_src.join("heor_core").is_dir() {
+        return Err("bundled HEOR engine source is missing".into());
+    }
+    let (python, _) = crate::kernel::python_bin(app)?;
+    let output = crate::runtime::quiet_command(python)
+        .args(["-m", "heor_core"])
+        .arg(&input)
+        .current_dir(&root)
+        .env("PYTHONPATH", &package_src)
+        .env("PYTHONDONTWRITEBYTECODE", "1")
+        .env("PYTHONNOUSERSITE", "1")
+        .output()
+        .map_err(|e| format!("HEOR engine failed to start: {e}"))?;
+    if !output.status.success() {
+        let message = capped_stderr(&output.stderr);
+        return Err(if message.is_empty() {
+            format!("HEOR engine exited with {}", output.status)
+        } else {
+            message
+        });
+    }
+    if output.stdout.len() > 25 * 1024 * 1024 {
+        return Err("HEOR engine output exceeds the 25 MB limit".into());
+    }
+    let calculation: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .map_err(|e| format!("HEOR engine returned invalid JSON: {e}"))?;
+    validate_calculation_binding(&raw, &calculation)?;
+    crate::heor_reporting::write_result(
+        &root,
+        crate::heor_reporting::BASE_CASE_RESULT_PATH,
+        &output.stdout,
+    )?;
+    assemble_run_result(app, approval_state, &root, &project_id, &raw, calculation)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stored_result_requires_exact_first_party_plan_binding() {
+        let raw = br#"{"schema_version":"0.8.0","analysis_id":"a1"}"#;
+        let valid = serde_json::json!({
+            "schema_version": "0.8.0",
+            "analysis_id": "a1",
+            "engine_version": "0.8.0",
+            "input_sha256": sha256_bytes(raw),
+        });
+        assert_eq!(
+            validate_calculation_binding(raw, &valid).unwrap(),
+            sha256_bytes(raw)
+        );
+
+        let mut custom = valid.clone();
+        custom.as_object_mut().unwrap().remove("engine_version");
+        assert!(validate_calculation_binding(raw, &custom)
+            .unwrap_err()
+            .contains("not a first-party engine result"));
+
+        let mut stale = valid;
+        stale["input_sha256"] = serde_json::Value::String("0".repeat(64));
+        assert!(validate_calculation_binding(raw, &stale)
+            .unwrap_err()
+            .contains("does not match"));
+    }
 
     fn approval_event(sequence: u64, gate: ApprovalGate, hash: &str) -> ApprovalEvent {
         ApprovalEvent {

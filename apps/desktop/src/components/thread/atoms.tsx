@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Loader2, Paperclip } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Copy, Loader2, Paperclip, Pencil, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
   ArtifactBlock,
@@ -12,11 +12,148 @@ import { cn } from "@/lib/cn";
 import { MarkdownViewer } from "@/components/markdown-viewer/MarkdownViewer";
 import { extractArtifactRefs, refToArtifactBlock } from "@/lib/artifacts";
 import { resolveArtifactPath } from "@/lib/artifactFile";
+import { copyText } from "@/lib/clipboard";
+import { toast } from "@/lib/toast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
-export function UserMessage({ block }: { block: UserMessageBlock }) {
+export function UserMessage({
+  block,
+  onEdit,
+  onRevert,
+}: {
+  block: UserMessageBlock;
+  onEdit?: (messageID: string, text: string) => void;
+  onRevert?: (messageID: string, text: string) => void;
+}) {
+  const { t } = useTranslation("session");
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(block.text);
+  const [copied, setCopied] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const editor = useRef<HTMLTextAreaElement>(null);
+  const actionable = !!block.messageID && !!onEdit && !!onRevert;
+
+  useEffect(() => {
+    setDraft(block.text);
+  }, [block.text]);
+
+  useEffect(() => {
+    if (!editing) return;
+    editor.current?.focus();
+    editor.current?.setSelectionRange(draft.length, draft.length);
+  }, [editing, draft.length]);
+
+  const copy = async () => {
+    try {
+      await copyText(block.text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const submit = () => {
+    const text = draft.trim();
+    if (!text || !block.messageID) return;
+    setEditing(false);
+    onEdit?.(block.messageID, text);
+  };
+
   return (
-    <div className="rounded-card bg-surface-2 px-4 py-3 text-[15px] leading-relaxed text-text">
-      {block.text}
+    <div className="group flex justify-end">
+      <div className="max-w-[92%]">
+        <div className="whitespace-pre-wrap rounded-card bg-surface-2 px-4 py-3 text-[15px] leading-relaxed text-text">
+          {editing ? (
+            <div className="min-w-[320px] space-y-2">
+              <textarea
+                ref={editor}
+                value={draft}
+                rows={Math.min(12, Math.max(3, draft.split("\n").length))}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setDraft(block.text);
+                    setEditing(false);
+                  }
+                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) submit();
+                }}
+                className="w-full resize-y rounded-input border border-border bg-surface px-3 py-2 text-[15px] leading-relaxed text-text outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
+                aria-label={t("message.editField")}
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft(block.text);
+                    setEditing(false);
+                  }}
+                  className="rounded-input border border-border px-3 py-1.5 text-xs text-text hover:bg-surface-2"
+                >
+                  {t("message.cancel")}
+                </button>
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={!draft.trim()}
+                  className="rounded-input bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:opacity-90 disabled:opacity-40"
+                >
+                  {t("message.resend")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            block.text
+          )}
+        </div>
+        {!editing && (
+          <div className="mt-1 flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            <button
+              type="button"
+              onClick={() => void copy()}
+              className="rounded-input p-1.5 text-muted hover:bg-surface-2 hover:text-text"
+              aria-label={copied ? t("message.copied") : t("message.copy")}
+              title={copied ? t("message.copied") : t("message.copy")}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+            {actionable && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="rounded-input p-1.5 text-muted hover:bg-surface-2 hover:text-text"
+                  aria-label={t("message.edit")}
+                  title={t("message.edit")}
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirming(true)}
+                  className="rounded-input p-1.5 text-muted hover:bg-surface-2 hover:text-text"
+                  aria-label={t("message.revert")}
+                  title={t("message.revert")}
+                >
+                  <RotateCcw size={14} />
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {confirming && block.messageID && (
+          <ConfirmDialog
+            title={t("message.confirm.title")}
+            body={t("message.confirm.body")}
+            confirmLabel={t("message.confirm.action")}
+            onCancel={() => setConfirming(false)}
+            onConfirm={() => {
+              setConfirming(false);
+              onRevert?.(block.messageID!, block.text);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import {
   JOURNAL_SUBMISSION_MANIFEST_PATH,
   type JournalSubmissionAudit,
 } from "@/lib/heor";
+import { formatHeorReviewIssue } from "./reviewIssue";
 
 export type JournalSubmissionState =
   | { kind: "loading" }
@@ -67,7 +68,9 @@ export function JournalSubmissionAssessment({
 
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
-          {issues.slice(0, 6).map((issue) => <li key={issue}>• {issue}</li>)}
+          {issues.slice(0, 6).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
 

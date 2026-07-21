@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ProviderInfo } from "@ai4s/sdk";
 import {
+  fallbackDefaultModel,
   filterModelOptions,
   flattenModelOptions,
   type ModelFilter,
@@ -60,5 +61,20 @@ describe("model catalog", () => {
     expect(filterModelOptions(options, filter, "", favorites, recent).map((m) => m.key))
       .toEqual(["openai/gpt-5.2", "openai/o3"]);
     expect(filterModelOptions(options, { kind: "all" }, "", favorites, recent)).toHaveLength(3);
+  });
+});
+
+describe("fallbackDefaultModel", () => {
+  it("keeps an available default unchanged", () => {
+    expect(fallbackDefaultModel(providers, "openai/o3")).toBeNull();
+  });
+
+  it("uses the same provider before falling back across providers", () => {
+    expect(fallbackDefaultModel(providers, "openai/removed-model")).toBe("openai/gpt-5.2");
+    expect(fallbackDefaultModel(providers, "removed/model")).toBe("openai/gpt-5.2");
+  });
+
+  it("does nothing when the provider catalog is unavailable", () => {
+    expect(fallbackDefaultModel([], "openai/o3")).toBeNull();
   });
 });

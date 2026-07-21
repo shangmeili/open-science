@@ -108,6 +108,11 @@ describe("extractArtifactRefs", () => {
     const md = "Wrote project.docx, project.xlsx and project.pptx.";
     expect(extractArtifactRefs(md)).toEqual(["project.docx", "project.xlsx", "project.pptx"]);
   });
+
+  it("finds files named in non-ASCII scripts (deliverables are named in the user's language)", () => {
+    const md = "已交付：青云录_详细剧情梳理.docx，图在 图表/年度趋势.png。";
+    expect(extractArtifactRefs(md)).toEqual(["青云录_详细剧情梳理.docx", "图表/年度趋势.png"]);
+  });
 });
 
 describe("previewKind", () => {

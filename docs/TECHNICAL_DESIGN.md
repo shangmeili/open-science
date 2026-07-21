@@ -32,8 +32,9 @@
 > commit `0beb7b2bcb04a796f256bd8f8528bb787aa77319` in an isolated Ubuntu 22.04 builder.
 > Both extracted packages independently pass all 177 HEOR tests and contain the same 282
 > controlled resources as source. The `.deb` also passes a brand-new Ubuntu 22.04 non-root
-> headless first start; the `.rpm` passes a Fedora 42 start with content-preserving legacy
-> `OpenScience` to `AI4HEOR` workspace migration. Fail-closed native package evidence is wired
+> headless first start; the `.rpm` passes a Fedora 42 start. Current source no longer migrates
+> or reuses the separately installed Open Science product's `OpenScience` workspace: package
+> acceptance now requires that root to remain intact while AI4HEOR creates its own root. Fail-closed native package evidence is wired
 > for macOS arm64/x64, Windows x64, and Linux x64, with a four-target manifest gate;
 > that current-commit CI manifest and native Windows/Apple-Silicon first-start evidence
 > have not yet been produced. The inspected arm64 app has only an ad-hoc linker signature,
@@ -288,8 +289,11 @@ git-ignored and fetched by `scripts/dev/fetch-opencode.sh`). The Rust side
 - runs the **bundled** binary (not the user's `PATH`);
 - on a **dedicated free port** (not the default 4096);
 - with an **app-private** config/data dir via `XDG_CONFIG_HOME`/`XDG_DATA_HOME` under
-  `~/Library/Application Support/com.ai4s.workbench/runtime/` (macOS) — so the user's
-  sessions/config are never touched;
+  `~/Library/Application Support/com.ai4s.ai4heor/runtime/` (macOS) — so an installed
+  Open Science app and the user's own OpenCode never share AI4HEOR sessions or state;
+- on the first launch after the identifier split, imports only provider configuration,
+  authentication, proxy, and mirror settings from the legacy app-private domain. It does
+  not import the legacy session database, active task, goals, caches, or managed runtimes;
 - it does **not silently share the user's login**: Settings offers an explicit import
   action that copies the user's OpenCode CLI `auth.json` into the app-private data
   directory. The source login and the user's OpenCode sessions are never modified.
@@ -817,10 +821,11 @@ the OpenCode server; start an optional Jupyter Gateway; monitor runtime health.
   workspaces/  logs/  cache/  secrets/
 ```
 
-The compatibility identifier remains `com.ai4s.workbench`, so existing app-private
-provider settings and review records stay in place across upgrades. The researcher-visible
-default workspace is `~/Documents/AI4HEOR`. Hidden `.openscience` metadata paths remain a
-storage-schema compatibility boundary; they are not the public product or workspace name.
+AI4HEOR uses `com.ai4s.ai4heor`, independent of Open Science's legacy
+`com.ai4s.workbench` identifier. Existing provider settings are copied once without
+copying sessions or task state. The researcher-visible default workspace is
+`~/Documents/AI4HEOR`. Hidden `.openscience` metadata paths remain a storage-schema
+compatibility boundary; they are not the public product or workspace name.
 
 ## 9. Storage
 

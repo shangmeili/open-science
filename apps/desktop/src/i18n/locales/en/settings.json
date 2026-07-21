@@ -1,9 +1,30 @@
 {
+  "nav": {
+    "back": "Back to app",
+    "general": "General",
+    "appearance": "Appearance",
+    "models": "Models",
+    "runtime": "Runtime",
+    "connectors": "Connectors",
+    "compute": "Compute",
+    "privacy": "Privacy",
+    "browser": "Browser",
+    "remote": "Remote Access"
+  },
   "appearance": {
     "title": "Appearance",
+    "themeLabel": "Theme",
     "theme": {
       "light": "Light",
+      "warm": "Warm",
       "dark": "Dark"
+    },
+    "zoom": {
+      "label": "Zoom",
+      "hint": "{{mod}} + / − to zoom, {{mod}} 0 to reset",
+      "in": "Zoom in",
+      "out": "Zoom out",
+      "reset": "Reset"
     }
   },
   "language": {
@@ -13,54 +34,27 @@
     "title": "Settings",
     "subtitle": "Configure the AI assistant, models, evidence tools, workspace, and local analysis environment."
   },
-  "supportReport": {
-    "title": "Problem diagnostics",
-    "hint": "Export a report when you need to describe a problem",
-    "description": "The report contains the app version, system architecture, local assistant status, and aggregate diagnostic event counts. It does not contain model credentials, project paths, research files, conversations, or raw logs.",
-    "export": "Export diagnostic report",
-    "exporting": "Preparing report…",
-    "saved": "Diagnostic report saved",
-    "failed": "Could not export the diagnostic report"
-  },
-  "readiness": {
-    "title": "Getting ready",
-    "checking": "Checking this computer…",
-    "readyTitle": "Ready to work",
-    "readyBody": "The project folder, built-in methods, and local assistant are available. Connect a model only when you need one.",
-    "attentionTitle": "One item needs attention",
-    "attentionBody": "Your project files remain on this computer. Review the item below and try again.",
-    "actions": {
-      "recheck": "Check again",
-      "restart": "Restart local assistant",
-      "restarting": "Restarting…",
-      "openSettings": "Review"
-    },
-    "checks": {
-      "needsAttention": "Needs attention",
-      "workspace": { "title": "Project folder", "ready": "Writable" },
-      "skills": { "title": "Built-in Skills", "ready": "{{count}} Skills available" },
-      "heorCore": { "title": "Local HEOR calculations", "ready": "Required files available" },
-      "harness": { "title": "Project audit harness", "ready": "Required files available" },
-      "runtime": {
-        "title": "Local assistant",
-        "ready": "Ready",
-        "connecting": "Starting…",
-        "error": "Needs attention",
-        "offline": "Not running"
-      },
-      "model": {
-        "title": "Model (optional)",
-        "optional": "Not connected — local calculations still work"
-      }
-    },
-    "scope": "A model, Python, and Jupyter are not required for this check; set them up only when the work calls for them. This confirms software availability, not methodological suitability or scientific validity.",
-    "technical": "Technical details"
-  },
   "runtime": {
     "title": "AI assistant runtime",
     "hint": "Started and managed automatically by the desktop app",
     "connect": "Connect",
     "disconnect": "Disconnect",
+    "serverLabel": "Server",
+    "serverUrlPlaceholder": "http://127.0.0.1:4096",
+    "proxyLabel": "Network proxy",
+    "proxySystem": "Follow system",
+    "proxyCustom": "Custom…",
+    "proxyNone": "Direct (no proxy)",
+    "proxyPlaceholder": "http://127.0.0.1:7890 / socks5://host:port",
+    "proxyDirectHint": "All agent-runtime connections go direct.",
+    "proxyEffective": "Routing through {{url}}",
+    "proxyNoneDetected": "No system proxy detected — connections go direct.",
+    "mirrorTitle": "Package mirrors",
+    "mirrorPypi": "PyPI index",
+    "mirrorPython": "Python download",
+    "mirrorPypiPlaceholder": "https://pypi.tuna.tsinghua.edu.cn/simple",
+    "mirrorPythonPlaceholder": "https://mirror.example.com/python-build-standalone",
+    "mirrorHint": "Optional mirrors, used only when setting up local Python tools such as Jupyter on networks where pypi.org / github.com are slow. Leave blank for defaults.",
     "status": {
       "ready": "Ready",
       "connecting": "Connecting…",
@@ -73,42 +67,11 @@
       "engineLabel": "Runtime engine",
       "engineValue": "OpenCode",
       "endpointLabel": "Local endpoint"
-    },
-    "serverUrlPlaceholder": "http://127.0.0.1:4096",
-    "proxyLabel": "Network proxy",
-    "proxySystem": "Follow system",
-    "proxyCustom": "Custom…",
-    "proxyNone": "Direct (no proxy)",
-    "proxyPlaceholder": "http://127.0.0.1:7890 / socks5://host:port",
-    "proxyDirectHint": "All agent-runtime connections go direct.",
-    "proxyEffective": "Routing through {{url}}",
-    "proxyNoneDetected": "No system proxy detected — connections go direct.",
-    "mirrorPypi": "PyPI index",
-    "mirrorPython": "Python download",
-    "mirrorPypiPlaceholder": "https://pypi.tuna.tsinghua.edu.cn/simple",
-    "mirrorPythonPlaceholder": "https://mirror.example.com/python-build-standalone",
-    "mirrorHint": "Optional mirrors, used only when setting up local Python tools such as Jupyter on networks where pypi.org / github.com are slow. Leave blank for defaults."
-  },
-  "about": {
-    "title": "About AI4HEOR",
-    "hint": "Product position, version, and contact details",
-    "currentVersion": "Version {{version}}",
-    "developedBy": "AI4HEOR is developed and built by Codex Agent for researcher-led pharmacoeconomics and HEOR work.",
-    "positioning": "Built on the open-source Open Science foundation, the workbench is natural-language first and form assisted, local first, and model-provider independent. Deterministic computation, auditable processes, and researcher confirmation of key scientific judgments remain central.",
-    "openScience": "View the Open Science project",
-    "contactTitle": "Contact and feedback",
-    "contactBody": "For questions or suggestions, please get in touch. Click the email address to copy it.",
-    "copyEmail": "Copy contact email",
-    "emailCopied": "Contact email copied",
-    "emailCopyFailed": "Could not copy the email; select and copy it manually",
-    "xiaohongshuAlt": "Xiaohongshu profile card for Wild Alchemist Lao M",
-    "xiaohongshuCaption": "Xiaohongshu: 野生炼丹师老M (ID 18669050668)"
+    }
   },
   "updates": {
     "title": "App updates",
     "hint": "View the installed version and release channel",
-    "unavailable": "Online updates not available yet",
-    "unavailableHint": "AI4HEOR does not yet have a configured release channel, so this build does not check for updates online. Version comparison and update notices will be enabled after the official release source is established.",
     "available": "Update available",
     "checking": "Checking",
     "failed": "Check failed",
@@ -125,7 +88,9 @@
     "autoCheckHint": "Enabled by default. The app checks at most once per day.",
     "showBadge": "Show Settings badge",
     "showBadgeHint": "Show a red dot on Settings when a newer release is found.",
-    "privacy": "Only the public GitHub Releases API is contacted. No workspace files or API keys are sent."
+    "privacy": "Only the public GitHub Releases API is contacted. No workspace files or API keys are sent.",
+    "unavailable": "Online updates not available yet",
+    "unavailableHint": "AI4HEOR does not yet have a configured release channel, so this build does not check for updates online. Version comparison and update notices will be enabled after the official release source is established."
   },
   "model": {
     "title": "Model",
@@ -174,9 +139,6 @@
     "pasteCode": "Paste the code from the browser",
     "customEndpoint": "Custom endpoint",
     "customEndpointHint": "self-hosted · local Ollama · OpenAI/Anthropic-compatible",
-    "minimaxChinaTokenPlanName": "MiniMax CN Token Plan",
-    "fillMinimaxChinaTokenPlan": "Fill MiniMax China Token Plan",
-    "customCredentialHint": "The endpoint configuration never contains the API key. OpenCode keeps credentials separately in its private local auth store.",
     "customNamePlaceholder": "Name — e.g. Ollama, My DeepSeek gateway",
     "openaiCompatible": "OpenAI-compatible",
     "anthropicCompatible": "Anthropic-compatible",
@@ -184,34 +146,74 @@
     "customKeyPlaceholder": "API key — optional, Ollama needs none",
     "customModelsPlaceholder": "Model ids, comma-separated",
     "addEndpoint": "Add endpoint",
-    "importLogin": "Import credentials from a compatible local CLI"
+    "importLogin": "Import credentials from a compatible local CLI",
+    "minimaxChinaTokenPlanName": "MiniMax CN Token Plan",
+    "fillMinimaxChinaTokenPlan": "Fill MiniMax China Token Plan",
+    "customCredentialHint": "The endpoint configuration never contains the API key. OpenCode keeps credentials separately in its private local auth store."
   },
   "mcp": {
     "title": "Evidence and MCP tools",
     "hint": "Built-in HEOR evidence access plus optional researcher-managed MCP servers",
     "connectPrompt": "Connect the runtime to configure MCP servers.",
+    "openSource": "open source",
+    "enterKeyFirstTitle": "Enter the API key first",
+    "settingUp": "Setting up…",
+    "enable": "Enable",
+    "freeKeySuffix": "(free key)",
+    "getFreeKey": "Get a free key",
+    "jupyterLabel": "Jupyter",
+    "jupyterDescription": "lets the agent drive real notebooks · isolated env w/ numpy·pandas·matplotlib, ~500 MB on first run · once set up, the app's Run button uses it too, so you and the agent share one Python",
+    "setUpAndEnable": "Set up & enable",
+    "startingDownload": "starting download…",
+    "typeLocal": "local",
+    "typeRemote": "remote",
+    "namePlaceholder": "Name — e.g. jupyter, playwright",
+    "commandPlaceholder": "Command — e.g. npx -y @playwright/mcp",
+    "urlPlaceholder": "URL — e.g. https://example.com/mcp",
+    "addServer": "Add server",
     "builtIn": "built in",
     "humanAuthorization": "Human authorization",
     "heorEvidenceLabel": "HEOR evidence search",
     "heorEvidenceDescription": "Search public PubMed and ClinicalTrials.gov metadata. Before a new search task begins, AI4HEOR shows the query, date range, and outgoing fields; pagination within that approved search does not ask again.",
     "heorEvidenceSources": "{{sources}} · ${{id}}",
     "externalBoundary": "Servers you add are unmanaged external capabilities. Review their code, license, data egress, and credentials; they gain no scientific or approval authority.",
-    "settingUp": "Setting up…",
-    "enable": "Enable",
-    "jupyterLabel": "Jupyter",
-    "jupyterDescription": "lets the agent drive real notebooks · isolated env w/ numpy·pandas·matplotlib, ~500 MB on first run · once set up, the app's Run button uses it too, so you and the agent share one Python",
-    "setUpAndEnable": "Set up & enable",
-    "startingDownload": "starting download…",
     "setupStarting": "Setting up Jupyter. The first run downloads a few hundred MB; please wait…",
     "setupComplete": "Jupyter is ready. The assistant can now work with notebooks.",
     "setupFailed": "Jupyter setup failed",
-    "setupIncomplete": "Jupyter setup finished without the required connection details",
-    "typeLocal": "local",
-    "typeRemote": "remote",
-    "namePlaceholder": "Name — e.g. jupyter, playwright",
-    "commandPlaceholder": "Command — e.g. npx -y @playwright/mcp",
-    "urlPlaceholder": "URL — e.g. https://example.com/mcp",
-    "addServer": "Add server"
+    "setupIncomplete": "Jupyter setup finished without the required connection details"
+  },
+  "browser": {
+    "label": "Browser control",
+    "title": "Browser",
+    "hint": "Let the agent drive a real browser — navigate, click, fill forms, and read pages.",
+    "description": "Let the agent open pages, click, fill forms, and read the web — reusing your Chrome login.",
+    "browseAs": "Browse as",
+    "isolated": "Isolated — fresh, logged out",
+    "showWindow": "Show the browser window",
+    "headedOffTitle": "Turn the window off?",
+    "headedOffBody": "You're reusing your Chrome login (“{{profile}}”), so the agent drives your real Chrome — it will usually still open a window even with this off, especially while Chrome is already running. For a true no-window (headless) browser, switch “Browse as” to the private browser.",
+    "headedOffConfirm": "Turn off anyway",
+    "noChrome": "No Chrome found",
+    "download": "Download a browser",
+    "noChromeWillDownload": "No Chrome detected — a private browser will be downloaded on first use.",
+    "detected": "Using",
+    "privateBrowser": "Private browser (no login)",
+    "privateNote": "Uses a separate downloaded browser that never touches your Chrome. Starts logged out; downloaded automatically on first use.",
+    "reuseNote": "Reuses a copy of “{{name}}”. The agent acts as that logged-in account; your real Chrome profile is never modified. Navigation still follows your approval mode.",
+    "isolatedNote": "Isolated profile — the agent starts logged out. Pick an account above to reuse its logins.",
+    "downloaded": "Browser downloaded — you can enable browser control now.",
+    "couldNotDownload": "Could not download the browser",
+    "enabledStatus": "Enabled",
+    "disabledStatus": "Not enabled",
+    "disable": "Disable",
+    "apply": "Apply changes",
+    "capabilities": "Capabilities",
+    "capCore": "Standard — navigate, click, read, screenshot, run JS",
+    "capNetwork": "Standard + network capture (HAR, request inspection)",
+    "capAll": "Everything (full tool surface)",
+    "allowedDomains": "Allowed domains",
+    "allowedDomainsHint": "One per line. Empty means no restriction. Supports patterns like *.example.com.",
+    "allowedDomainsPlaceholder": "example.com\n*.github.com"
   },
   "workspace": {
     "title": "Workspace",
@@ -239,6 +241,7 @@
     "couldNotSetFolder": "Could not set the folder",
     "couldNotSetModel": "Could not set the model",
     "defaultModelSet": "Default model set to {{model}}",
+    "defaultModelReset": "Default model {{old}} is no longer available — switched to {{model}}",
     "couldNotSaveKey": "Could not save the key",
     "providerConnected": "{{providerID}} connected",
     "couldNotStartLogin": "Could not start the login",
@@ -331,5 +334,106 @@
       "couldNotCancel": "Could not cancel {{id}}",
       "jobCanceled": "Job {{id}} canceled"
     }
+  },
+  "remote": {
+    "title": "Remote Access",
+    "hint": "Turn this desktop into a secure API — reach your sessions and files from a phone or another computer on your network, a CLI, or a tunnel. Off by default.",
+    "enable": "Enable remote access",
+    "enableHint": "Start the authenticated gateway. Bound to this device only until you allow the local network below.",
+    "loopbackUrl": "This device",
+    "loopbackUrlHint": "Open in a browser on this Mac, or point a CLI here.",
+    "binding": "Reachable from",
+    "bindingHint": "Where the gateway listens. Only enable the local network on a network you trust.",
+    "bindingLoopback": "This device only",
+    "bindingLan": "Local network",
+    "lanWarn": "This exposes the gateway to everyone on your local network. Anyone with the token can drive the agent and read your workspace files. Only do this on a network you trust. Continue?",
+    "lanActive": "Reachable by other devices on your network. Keep the token secret.",
+    "mode": "Access level",
+    "modeFull": "Full access",
+    "modeReadonly": "Read-only",
+    "modeFullHint": "Clients can create sessions, send prompts, run tools, and answer approvals.",
+    "modeReadonlyHint": "Clients can read sessions and files only — no prompts, tools, or approvals.",
+    "token": "Access token",
+    "tokenHint": "Clients authenticate with this bearer token.",
+    "reveal": "Reveal token",
+    "hide": "Hide token",
+    "copy": "Copy",
+    "regenerate": "Regenerate token",
+    "regenerated": "New token generated — existing clients must reconnect.",
+    "openHint": "Open the URL above in a browser, then paste this token to connect.",
+    "copied": "Copied to clipboard",
+    "error": "Remote access change failed",
+    "connect": "Connect",
+    "connectPrompt": "Enter the access token from the desktop app → Settings → Remote Access."
+  },
+  "supportReport": {
+    "title": "Problem diagnostics",
+    "hint": "Export a report when you need to describe a problem",
+    "description": "The report contains the app version, system architecture, local assistant status, and aggregate diagnostic event counts. It does not contain model credentials, project paths, research files, conversations, or raw logs.",
+    "export": "Export diagnostic report",
+    "exporting": "Preparing report…",
+    "saved": "Diagnostic report saved",
+    "failed": "Could not export the diagnostic report"
+  },
+  "readiness": {
+    "title": "Getting ready",
+    "checking": "Checking this computer…",
+    "readyTitle": "Ready to work",
+    "readyBody": "The project folder, built-in methods, and local assistant are available. Connect a model only when you need one.",
+    "attentionTitle": "One item needs attention",
+    "attentionBody": "Your project files remain on this computer. Review the item below and try again.",
+    "actions": {
+      "recheck": "Check again",
+      "restart": "Restart local assistant",
+      "restarting": "Restarting…",
+      "openSettings": "Review"
+    },
+    "checks": {
+      "needsAttention": "Needs attention",
+      "workspace": {
+        "title": "Project folder",
+        "ready": "Writable"
+      },
+      "skills": {
+        "title": "Built-in Skills",
+        "ready": "{{count}} Skills available"
+      },
+      "heorCore": {
+        "title": "Local HEOR calculations",
+        "ready": "Required files available"
+      },
+      "harness": {
+        "title": "Project audit harness",
+        "ready": "Required files available"
+      },
+      "runtime": {
+        "title": "Local assistant",
+        "ready": "Ready",
+        "connecting": "Starting…",
+        "error": "Needs attention",
+        "offline": "Not running"
+      },
+      "model": {
+        "title": "Model (optional)",
+        "optional": "Not connected — local calculations still work"
+      }
+    },
+    "scope": "A model, Python, and Jupyter are not required for this check; set them up only when the work calls for them. This confirms software availability, not methodological suitability or scientific validity.",
+    "technical": "Technical details"
+  },
+  "about": {
+    "title": "About AI4HEOR",
+    "hint": "Product position, version, and contact details",
+    "currentVersion": "Version {{version}}",
+    "developedBy": "AI4HEOR is developed and built by Codex Agent for researcher-led pharmacoeconomics and HEOR work.",
+    "positioning": "Built on the open-source Open Science foundation, the workbench is natural-language first and form assisted, local first, and model-provider independent. Deterministic computation, auditable processes, and researcher confirmation of key scientific judgments remain central.",
+    "openScience": "View the Open Science project",
+    "contactTitle": "Contact and feedback",
+    "contactBody": "For questions or suggestions, please get in touch. Click the email address to copy it.",
+    "copyEmail": "Copy contact email",
+    "emailCopied": "Contact email copied",
+    "emailCopyFailed": "Could not copy the email; select and copy it manually",
+    "xiaohongshuAlt": "Xiaohongshu profile card for Wild Alchemist Lao M",
+    "xiaohongshuCaption": "Xiaohongshu: 野生炼丹师老M (ID 18669050668)"
   }
 }
