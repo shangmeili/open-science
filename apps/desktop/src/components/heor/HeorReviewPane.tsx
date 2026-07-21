@@ -1975,15 +1975,19 @@ export function HeorReviewPane({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <StageRail
-          currentApprovals={currentApprovals}
-          hasResult={!!result || !!uncertaintyResult || !!advancedVoiResult
-            || !!budgetImpactResult || !!partitionedSurvivalResult}
-        />
+        {artifact.kind === "ready" && (
+          <StageRail
+            currentApprovals={currentApprovals}
+            hasResult={!!result || !!uncertaintyResult || !!advancedVoiResult
+              || !!budgetImpactResult || !!partitionedSurvivalResult}
+          />
+        )}
 
-        {project && <MethodReviewQueue items={methodReviewItems} />}
+        {artifact.kind === "ready" && methodReviewItems.length > 0 && (
+          <MethodReviewQueue items={methodReviewItems} />
+        )}
 
-        {project && (
+        {artifact.kind === "ready" && (
           <EvidenceLibraryAssessment
             state={evidenceLibrary}
             syncing={librarySyncing}
@@ -1995,7 +1999,8 @@ export function HeorReviewPane({
           />
         )}
 
-        {project && (
+        {artifact.kind === "ready" && methodsWatchlist.kind === "ready"
+          && methodsWatchlist.audit.exists && (
           <MethodsWatchlistAssessment
             state={methodsWatchlist}
             onPrepare={() => onRequestRevision(t("methodsWatchlist.preparePrompt"))}
@@ -2003,7 +2008,8 @@ export function HeorReviewPane({
           />
         )}
 
-        {project && (
+        {artifact.kind === "ready" && evidenceSearch.kind === "ready"
+          && evidenceSearch.audit.requestId && (
           <EvidenceSearchAssessment
             state={evidenceSearch}
             result={searchResult}
@@ -2013,7 +2019,8 @@ export function HeorReviewPane({
           />
         )}
 
-        {project && (
+        {artifact.kind === "ready" && evidenceSynthesis.kind === "ready"
+          && evidenceSynthesis.audit.synthesisId && (
           <EvidenceSynthesisAssessment
             state={evidenceSynthesis}
             authorization={searchResult?.authorization ?? latestSearchAuthorization(searchAuthorizations)}
@@ -2027,7 +2034,8 @@ export function HeorReviewPane({
           />
         )}
 
-        {project && (
+        {artifact.kind === "ready" && citationFormatting.kind === "ready"
+          && citationFormatting.audit.status !== "missing" && (
           <CitationFormattingAssessment
             state={citationFormatting}
             generating={citationFormattingGenerating}
@@ -2036,7 +2044,8 @@ export function HeorReviewPane({
           />
         )}
 
-        {project && (
+        {artifact.kind === "ready" && researchTables.kind === "ready"
+          && researchTables.audit.status !== "missing" && (
           <ResearchTablesAssessment
             state={researchTables}
             generating={researchTablesGenerating}
@@ -2045,7 +2054,8 @@ export function HeorReviewPane({
           />
         )}
 
-        {project && (
+        {artifact.kind === "ready" && journalSubmission.kind === "ready"
+          && journalSubmission.audit.status !== "missing" && (
           <JournalSubmissionAssessment
             state={journalSubmission}
             generating={journalSubmissionGenerating}
@@ -2054,7 +2064,8 @@ export function HeorReviewPane({
           />
         )}
 
-        {project && (
+        {artifact.kind === "ready" && networkMetaAnalysis.kind === "ready"
+          && (networkMetaAnalysis.audit.requestSha256 || networkMetaAnalysis.audit.resultSha256) && (
           <NetworkMetaAnalysisAssessment
             state={networkMetaAnalysis}
             currentReview={currentNetworkMetaAnalysisReview}
@@ -2064,7 +2075,8 @@ export function HeorReviewPane({
           />
         )}
 
-        {project && (
+        {artifact.kind === "ready" && populationAdjustedComparison.kind === "ready"
+          && populationAdjustedComparison.audit.resultSha256 && (
           <PopulationAdjustedComparisonAssessment
             state={populationAdjustedComparison}
             currentReview={currentPopulationAdjustedComparisonReview}
@@ -2074,7 +2086,8 @@ export function HeorReviewPane({
           />
         )}
 
-        {project && (
+        {artifact.kind === "ready" && modelCalibration.kind === "ready"
+          && modelCalibration.audit.resultSha256 && (
           <ModelCalibrationAssessment
             state={modelCalibration}
             currentReview={currentModelCalibrationReview}
@@ -2084,7 +2097,8 @@ export function HeorReviewPane({
           />
         )}
 
-        {project && (
+        {artifact.kind === "ready" && microsimulation.kind === "ready"
+          && microsimulation.audit.resultSha256 && (
           <MicrosimulationAssessment
             state={microsimulation}
             currentReview={currentMicrosimulationReview}
@@ -2094,7 +2108,8 @@ export function HeorReviewPane({
           />
         )}
 
-        {project && (
+        {artifact.kind === "ready" && rweCausalAnalysis.kind === "ready"
+          && rweCausalAnalysis.audit.resultSha256 && (
           <RweCausalAnalysisAssessment
             state={rweCausalAnalysis}
             currentReview={currentRweCausalAnalysisReview}

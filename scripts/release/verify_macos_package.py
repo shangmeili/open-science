@@ -517,7 +517,7 @@ def verify_info(app: Path, expected_version: str) -> dict[str, str]:
     expected = {
         "CFBundleDisplayName": "AI4HEOR",
         "CFBundleExecutable": "ai4s-workbench",
-        "CFBundleIdentifier": "com.ai4s.workbench",
+        "CFBundleIdentifier": "com.ai4s.ai4heor",
         "CFBundleShortVersionString": expected_version,
         "CFBundleVersion": expected_version,
     }

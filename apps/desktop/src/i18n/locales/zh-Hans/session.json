@@ -157,7 +157,16 @@
     "status": {
       "paused": "已暂停，请在下方回答后继续",
       "startingSession": "正在任务文件夹中启动…",
-      "working": "正在处理…"
+      "working": "正在处理…",
+      "waitingModel": "正在等待模型响应…",
+      "retrying": "模型请求受限，正在进行第 {{attempt}} 次重试…",
+      "runningStep": "正在执行",
+      "writing": "正在整理答复…",
+      "continuing": "已完成“{{step}}”，正在继续…",
+      "loadedSkill": "已启用研究能力：{{skill}}",
+      "completed": "已完成",
+      "rateLimited": "当前模型请求过于频繁。请稍后重试，或更换模型。",
+      "stoppedBeforeReply": "模型请求已停止，未返回答复。请重试或更换模型。"
     },
     "placeholder": {
       "disconnected": "连接以开始聊天",

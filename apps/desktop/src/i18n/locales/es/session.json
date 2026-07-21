@@ -157,7 +157,16 @@
     "status": {
       "paused": "Pausado — el agente necesita tu respuesta a continuación",
       "startingSession": "Iniciando la tarea en su carpeta…",
-      "working": "Trabajando…"
+      "working": "Trabajando…",
+      "waitingModel": "Esperando la respuesta del modelo…",
+      "retrying": "La solicitud al modelo está limitada; reintento {{attempt}}…",
+      "runningStep": "Ejecutando",
+      "writing": "Preparando la respuesta…",
+      "continuing": "“{{step}}” finalizado; continuando…",
+      "loadedSkill": "Capacidad de investigación cargada: {{skill}}",
+      "completed": "Completado",
+      "rateLimited": "El modelo actual está recibiendo demasiadas solicitudes. Inténtalo más tarde o elige otro modelo.",
+      "stoppedBeforeReply": "La solicitud al modelo se detuvo sin devolver una respuesta. Inténtalo de nuevo o elige otro modelo."
     },
     "placeholder": {
       "disconnected": "Conéctate para chatear",

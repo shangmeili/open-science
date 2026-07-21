@@ -32,7 +32,7 @@ verifier = load_script("verify_macos_package.py")
 
 
 SIGNED_DETAILS = """Executable=/tmp/AI4HEOR.app/Contents/MacOS/ai4s-workbench
-Identifier=com.ai4s.workbench
+Identifier=com.ai4s.ai4heor
 Format=app bundle with Mach-O thin (x86_64)
 CodeDirectory v=20500 size=100 flags=0x10000(runtime) hashes=1+7 location=embedded
 Signature size=9000

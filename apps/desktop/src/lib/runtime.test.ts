@@ -11,8 +11,20 @@ import {
   subagentActivity,
   tidyToolTitle,
   toolPresentation,
+  turnStoppedWithoutReply,
   type FoldState,
 } from "./runtime";
+
+describe("turn recovery", () => {
+  it("recognizes the blank unfinished assistant message left by a stopped provider request", () => {
+    const messages: HistoryMessage[] = [
+      { role: "user", parts: [{ type: "text", text: "run" }] },
+      { role: "assistant", parts: [] },
+    ];
+    expect(turnStoppedWithoutReply(messages, undefined)).toBe(true);
+    expect(turnStoppedWithoutReply(messages, { type: "busy" })).toBe(false);
+  });
+});
 
 describe("datedWorkspaceName", () => {
   it("formats the independent conversation scope name", () => {

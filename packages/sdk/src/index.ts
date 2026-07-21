@@ -6,6 +6,8 @@ export {
   type TextUpdatedEvent,
   type ToolUpdatedEvent,
   type SessionIdleEvent,
+  type SessionProgressEvent,
+  type SessionRuntimeStatus,
   type RuntimeErrorEvent,
   type OpenCodeClientOptions,
   type RuntimeStatus,

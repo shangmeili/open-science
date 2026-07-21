@@ -5,8 +5,6 @@
 use std::{collections::BTreeSet, path::Path};
 use tauri::{path::BaseDirectory, AppHandle, Manager};
 
-use crate::examples::copy_missing;
-
 const REQUIRED_HARNESS_FILES: &[&str] = &[
     ".gitignore",
     "AGENTS.md",
@@ -32,6 +30,12 @@ fn relative_files(root: &Path) -> Result<BTreeSet<String>, String> {
         {
             let entry = entry.map_err(|error| format!("could not read harness entry: {error}"))?;
             let path = entry.path();
+            // Older development/resource copies used .gitkeep placeholders.
+            // They are not product files and must never enter a research
+            // workspace, but a stale Tauri target must not block every task.
+            if entry.file_name() == ".gitkeep" {
+                continue;
+            }
             let kind = entry
                 .file_type()
                 .map_err(|error| format!("could not inspect {}: {error}", path.display()))?;
@@ -394,7 +398,18 @@ fn seed_harness_from(src: &Path, dir: &Path) -> Result<(), String> {
             newly_seeded.push(*relative);
         }
     }
-    copy_missing(src, dir).map_err(|error| format!("could not copy harness: {error}"))?;
+    for relative in REQUIRED_HARNESS_FILES {
+        let destination = dir.join(relative);
+        if destination.exists() {
+            continue;
+        }
+        if let Some(parent) = destination.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|error| format!("could not create harness directory: {error}"))?;
+        }
+        std::fs::copy(src.join(relative), &destination)
+            .map_err(|error| format!("could not copy harness {relative}: {error}"))?;
+    }
     for relative in REQUIRED_HARNESS_FILES {
         if !target_file_exists(dir, relative)? {
             return Err(format!("seeded harness file is missing: {relative}"));
@@ -489,6 +504,22 @@ mod tests {
             .unwrap_err()
             .contains("extra"));
         let _ = std::fs::remove_dir_all(invalid);
+    }
+
+    #[test]
+    fn stale_gitkeep_resource_is_ignored_and_never_seeded() {
+        let resource = temporary("stale-resource");
+        let destination = temporary("stale-destination");
+        copy_missing(&source(), &resource).unwrap();
+        let placeholder = resource.join("notes/.gitkeep");
+        std::fs::write(&placeholder, "legacy placeholder\n").unwrap();
+
+        seed_harness_from(&resource, &destination).unwrap();
+
+        assert!(destination.join("notes/KEEP").is_file());
+        assert!(!destination.join("notes/.gitkeep").exists());
+        let _ = std::fs::remove_dir_all(resource);
+        let _ = std::fs::remove_dir_all(destination);
     }
 
     #[test]

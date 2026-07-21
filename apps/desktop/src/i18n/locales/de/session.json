@@ -157,7 +157,16 @@
     "status": {
       "paused": "Pausiert — der Agent benötigt Ihre Antwort unten",
       "startingSession": "Die Aufgabe wird in ihrem Ordner gestartet…",
-      "working": "Arbeitet…"
+      "working": "Arbeitet…",
+      "waitingModel": "Warte auf die Antwort des Modells…",
+      "retrying": "Die Modellanfrage ist begrenzt; Versuch {{attempt}} läuft…",
+      "runningStep": "Wird ausgeführt",
+      "writing": "Antwort wird vorbereitet…",
+      "continuing": "„{{step}}“ abgeschlossen; die Bearbeitung wird fortgesetzt…",
+      "loadedSkill": "Forschungsfunktion geladen: {{skill}}",
+      "completed": "Abgeschlossen",
+      "rateLimited": "Das aktuelle Modell erhält zu viele Anfragen. Versuchen Sie es später erneut oder wählen Sie ein anderes Modell.",
+      "stoppedBeforeReply": "Die Modellanfrage wurde ohne Antwort beendet. Versuchen Sie es erneut oder wählen Sie ein anderes Modell."
     },
     "placeholder": {
       "disconnected": "Zum Chatten verbinden",

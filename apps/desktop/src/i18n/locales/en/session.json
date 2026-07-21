@@ -157,7 +157,16 @@
     "status": {
       "paused": "Paused — the agent needs your answer below",
       "startingSession": "Starting the task in its folder…",
-      "working": "Working…"
+      "working": "Working…",
+      "waitingModel": "Waiting for the model to respond…",
+      "retrying": "The model request is limited; retrying (attempt {{attempt}})…",
+      "runningStep": "Running",
+      "writing": "Preparing the response…",
+      "continuing": "Finished “{{step}}”; continuing…",
+      "loadedSkill": "Loaded research capability: {{skill}}",
+      "completed": "Done",
+      "rateLimited": "The current model is receiving too many requests. Try again later or choose another model.",
+      "stoppedBeforeReply": "The model request stopped before returning a response. Try again or choose another model."
     },
     "placeholder": {
       "disconnected": "Connect to chat",

@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_EXECUTABLE="$ROOT_DIR/apps/desktop/src-tauri/target/debug/ai4s-workbench"
 APP_WORKDIR="$ROOT_DIR/apps/desktop/src-tauri"
 LOG_FILE="${TMPDIR:-/tmp}/ai4heor-dev-run.log"
-BUNDLE_ID="com.ai4s.workbench"
+BUNDLE_ID="com.ai4s.ai4heor"
 
 dev_app_pids() {
   local cwd

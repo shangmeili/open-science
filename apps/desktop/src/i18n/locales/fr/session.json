@@ -157,7 +157,16 @@
     "status": {
       "paused": "En pause — l'agent attend votre réponse ci-dessous",
       "startingSession": "Démarrage de la tâche dans son dossier…",
-      "working": "En cours…"
+      "working": "En cours…",
+      "waitingModel": "En attente de la réponse du modèle…",
+      "retrying": "La requête au modèle est limitée ; nouvel essai no {{attempt}}…",
+      "runningStep": "Exécution",
+      "writing": "Préparation de la réponse…",
+      "continuing": "« {{step}} » terminé ; poursuite du traitement…",
+      "loadedSkill": "Capacité de recherche chargée : {{skill}}",
+      "completed": "Terminé",
+      "rateLimited": "Le modèle actuel reçoit trop de requêtes. Réessayez plus tard ou choisissez un autre modèle.",
+      "stoppedBeforeReply": "La requête au modèle s’est arrêtée sans réponse. Réessayez ou choisissez un autre modèle."
     },
     "placeholder": {
       "disconnected": "Connectez-vous pour discuter",

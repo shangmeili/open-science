@@ -157,7 +157,16 @@
     "status": {
       "paused": "一時停止中 — エージェントが下で回答を待っています",
       "startingSession": "タスクをそのフォルダで開始しています…",
-      "working": "作業中…"
+      "working": "作業中…",
+      "waitingModel": "モデルの応答を待っています…",
+      "retrying": "モデルへのリクエストが制限されています。{{attempt}} 回目の再試行中…",
+      "runningStep": "実行中",
+      "writing": "回答をまとめています…",
+      "continuing": "「{{step}}」が完了しました。処理を続けています…",
+      "loadedSkill": "研究機能を読み込みました：{{skill}}",
+      "completed": "完了",
+      "rateLimited": "現在のモデルへのリクエストが集中しています。しばらく待つか、別のモデルを選択してください。",
+      "stoppedBeforeReply": "モデルへのリクエストが応答を返さず停止しました。再試行するか、別のモデルを選択してください。"
     },
     "placeholder": {
       "disconnected": "チャットするには接続してください",

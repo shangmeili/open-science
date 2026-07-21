@@ -51,6 +51,7 @@ const mocks = vi.hoisted(() => ({
    *  "aborted" error and one or more session.idle events. Empty by default. */
   abortTrailing: [] as unknown[],
   getMessages: vi.fn(),
+  statuses: {} as Record<string, { type: "busy" | "retry" | "idle"; attempt?: number }>,
   /** Records setDefaultModel calls; `currentModel` is what getDefaultModel returns. */
   setDefaultModelSpy: vi.fn(),
   currentModel: null as string | null,
@@ -204,6 +205,9 @@ vi.mock("@ai4s/sdk", () => {
       if (mocks.failMessages) throw new Error("history hung");
       return mocks.messages;
     }
+    async getSessionStatuses() {
+      return mocks.statuses;
+    }
     async listQuestions() {
       return [];
     }
@@ -241,6 +245,7 @@ beforeEach(async () => {
   mocks.dropCommandPost = false;
   mocks.abortTrailing = [];
   mocks.messages = [];
+  mocks.statuses = {};
   mocks.failMessages = false;
   mocks.approvalMode = "approve";
   mocks.currentModel = null;
@@ -256,6 +261,7 @@ beforeEach(async () => {
     error: null,
     sending: false,
     runningSessions: {},
+    sessionProgress: {},
     permissions: [],
     sessionParents: {},
     panes: {},
@@ -729,6 +735,37 @@ describe("stale running locks and interrupt", () => {
     ];
     await useRuntimeStore.getState().reconcileRunning();
     expect(useRuntimeStore.getState().runningSessions["ses_new"]).toBe(true);
+  });
+
+  it("reconcileRunning unlocks a blank provider failure after two inactive checks", async () => {
+    await useRuntimeStore.getState().sendPrompt("hi");
+    mocks.messages = [
+      { role: "user", parts: [{ type: "text", text: "hi" }] },
+      { role: "assistant", parts: [] },
+    ];
+    await useRuntimeStore.getState().reconcileRunning();
+    expect(useRuntimeStore.getState().runningSessions["ses_new"]).toBe(true);
+    await useRuntimeStore.getState().reconcileRunning();
+    const state = useRuntimeStore.getState();
+    expect(state.runningSessions["ses_new"]).toBeUndefined();
+    expect(state.threads.ses_new.blocks.slice(-1)[0]).toMatchObject({
+      kind: "status-line",
+      tone: "error",
+    });
+  });
+
+  it("shows the server retry phase without unlocking the task", async () => {
+    await useRuntimeStore.getState().sendPrompt("hi");
+    mocks.fireEvent({
+      type: "session.status",
+      sessionId: "ses_new",
+      status: "retry",
+      attempt: 2,
+      message: "Rate Limited",
+    });
+    const state = useRuntimeStore.getState();
+    expect(state.runningSessions.ses_new).toBe(true);
+    expect(state.sessionProgress.ses_new).toMatchObject({ type: "retry", attempt: 2 });
   });
 
   it("connect() reconciles running locks left over from before the reconnect", async () => {

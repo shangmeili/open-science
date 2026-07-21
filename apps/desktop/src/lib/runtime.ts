@@ -10,6 +10,7 @@ import {
   type PermissionReply,
   type QuestionAskedEvent,
   type SessionMeta,
+  type SessionRuntimeStatus,
   type SkillInfo,
   type ToolCallStatus,
 } from "@ai4s/sdk";
@@ -169,6 +170,8 @@ interface RuntimeState {
   /** Sessions with an active turn (send accepted, session.idle not yet seen).
    *  Drives the composer lock and the "Working…" indicator. */
   runningSessions: Record<string, true>;
+  /** Honest server-reported phase for each active turn. */
+  sessionProgress: Record<string, SessionRuntimeStatus>;
   /** Sessions whose current turn is a user-typed "!" shell command. Their bash
    *  output shows inline in the thread — the output IS the result the user
    *  asked for. Agent bash steps stay quiet single-line log entries. */
@@ -275,7 +278,19 @@ const interruptedSessions = new Set<string>();
  *  USER message means a turn was accepted but not yet answered — still running. */
 export function turnIsOver(messages: HistoryMessage[]): boolean {
   const last = messages[messages.length - 1];
-  return !!last && last.role === "assistant" && !!last.completed;
+  return !!last && last.role === "assistant" && (!!last.completed || !!last.error);
+}
+
+/** OpenCode 1.17.13 can persist a blank unfinished assistant message after a
+ * provider failure even when its final SSE error never reaches the client. */
+export function turnStoppedWithoutReply(
+  messages: HistoryMessage[],
+  status: SessionRuntimeStatus | undefined,
+): boolean {
+  const last = messages[messages.length - 1];
+  const active = status?.type === "busy" || status?.type === "retry";
+  return !active && !!last && last.role === "assistant" && !last.completed && !last.error
+    && last.parts.length === 0;
 }
 
 /** Last SSE arrival per session (monotonic sequence, not wall time). Lets a
@@ -284,6 +299,14 @@ export function turnIsOver(messages: HistoryMessage[]): boolean {
  *  kills any fetch at ~60 s, long before a long agent turn finishes. */
 let sseSeq = 0;
 const sseLast = new Map<string, number>();
+/** Require two consecutive inactive polls before declaring a blank turn dead. */
+const inactiveTurnPolls = new Map<string, number>();
+
+function friendlyRuntimeError(message: string): string {
+  return /rate\s*limit|too many requests|quota|请求过于频繁/i.test(message)
+    ? i18n.t("session:live.status.rateLimited")
+    : message;
+}
 
 /** Coalescing for live bash output: a running tool emits an event per stdout
  *  write (a progress bar redraws dozens of times a second) — fold at most one
@@ -384,7 +407,9 @@ async function performTurn(
       // researcher can use.
       if (isTauri && !get().workspacePinned) {
         if (!(await get().ensureStandaloneWorkspace()) || !client) {
-          throw new Error("Runtime did not reconnect after creating the conversation workspace.");
+          throw new Error(
+            get().error ?? "Runtime did not reconnect after creating the conversation workspace.",
+          );
         }
       } else if (isTauri && get().workspacePinned) {
         set({ switching: true });
@@ -418,6 +443,7 @@ async function performTurn(
     if (syncTurn) {
       set((s) => ({
         runningSessions: { ...s.runningSessions, [sid]: true },
+        sessionProgress: { ...s.sessionProgress, [sid]: { type: "busy" } },
         ...(shell ? { shellTurns: { ...s.shellTurns, [sid]: true as const } } : {}),
       }));
       const mark = sseSeq;
@@ -441,20 +467,27 @@ async function performTurn(
         set((s) => {
           const runningSessions = { ...s.runningSessions };
           const shellTurns = { ...s.shellTurns };
+          const sessionProgress = { ...s.sessionProgress };
           delete runningSessions[sid];
           delete shellTurns[sid];
-          return { runningSessions, shellTurns };
+          delete sessionProgress[sid];
+          return { runningSessions, shellTurns, sessionProgress };
         });
         throw err;
       }
       set((s) => {
         const runningSessions = { ...s.runningSessions };
+        const sessionProgress = { ...s.sessionProgress };
         delete runningSessions[sid];
-        return { runningSessions };
+        delete sessionProgress[sid];
+        return { runningSessions, sessionProgress };
       });
     } else {
       await post(sid);
-      set((s) => ({ runningSessions: { ...s.runningSessions, [sid]: true } }));
+      set((s) => ({
+        runningSessions: { ...s.runningSessions, [sid]: true },
+        sessionProgress: { ...s.sessionProgress, [sid]: { type: "busy" } },
+      }));
     }
     void logDebug("turn OK");
     return sid;
@@ -515,6 +548,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   switching: false,
   sending: false,
   runningSessions: {},
+  sessionProgress: {},
   shellTurns: {},
 
   // These write the CURRENT session's pane (DRAFT_KEY on a draft), keeping the
@@ -741,15 +775,23 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           set((s) => {
             const cur = s.threads[sid] ?? emptyThread();
             const runningSessions = { ...s.runningSessions };
+            const sessionProgress = { ...s.sessionProgress };
             delete runningSessions[sid];
+            delete sessionProgress[sid];
+            inactiveTurnPolls.delete(sid);
             return {
               runningSessions,
+              sessionProgress,
               threads: {
                 ...s.threads,
                 [sid]: {
                   ...cur,
                   loaded: true,
-                  blocks: [...cur.blocks, { kind: "status-line", text: event.message, tone: "error" }],
+                  blocks: [...cur.blocks, {
+                    kind: "status-line",
+                    text: friendlyRuntimeError(event.message),
+                    tone: "error",
+                  }],
                 },
               },
             };
@@ -757,6 +799,20 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         } else {
           set({ error: event.message });
         }
+        return;
+      }
+      if (event.type === "session.status") {
+        set((s) => ({
+          sessionProgress: {
+            ...s.sessionProgress,
+            [event.sessionId]: {
+              type: event.status,
+              attempt: event.attempt,
+              message: event.message,
+              next: event.next,
+            },
+          },
+        }));
         return;
       }
       // Interactive requests live outside the thread blocks (transient UI).
@@ -792,9 +848,12 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         set((s) => {
           const runningSessions = { ...s.runningSessions };
           const shellTurns = { ...s.shellTurns };
+          const sessionProgress = { ...s.sessionProgress };
           delete runningSessions[sid];
           delete shellTurns[sid];
-          return { runningSessions, shellTurns };
+          delete sessionProgress[sid];
+          inactiveTurnPolls.delete(sid);
+          return { runningSessions, shellTurns, sessionProgress };
         });
         void get().refreshSessions();
         return;
@@ -824,13 +883,17 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           // SSE stream the bash-output event always precedes session.idle.
           const runningSessions = { ...s.runningSessions };
           const shellTurns = { ...s.shellTurns };
+          const sessionProgress = { ...s.sessionProgress };
           if (ev.type === "session.idle") {
             delete runningSessions[sid];
             delete shellTurns[sid];
+            delete sessionProgress[sid];
+            inactiveTurnPolls.delete(sid);
           }
           return {
             runningSessions,
             shellTurns,
+            sessionProgress,
             threads: { ...s.threads, [sid]: { ...cur, ...folded, loaded: true } },
           };
         });
@@ -1288,12 +1351,16 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     set((s) => {
       const runningSessions = { ...s.runningSessions };
       const shellTurns = { ...s.shellTurns };
+      const sessionProgress = { ...s.sessionProgress };
       delete runningSessions[sid];
       delete shellTurns[sid];
+      delete sessionProgress[sid];
+      inactiveTurnPolls.delete(sid);
       const cur = s.threads[sid] ?? emptyThread();
       return {
         runningSessions,
         shellTurns,
+        sessionProgress,
         threads: {
           ...s.threads,
           [sid]: {
@@ -1310,25 +1377,50 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     const c = client;
     const running = Object.keys(get().runningSessions);
     if (!c || running.length === 0) return;
+    let statuses: Record<string, SessionRuntimeStatus> = {};
+    let statusesKnown = false;
+    try {
+      statuses = await c.getSessionStatuses();
+      statusesKnown = true;
+      set((s) => ({ sessionProgress: { ...s.sessionProgress, ...statuses } }));
+    } catch {
+      // History still provides the normal completed/error recovery path.
+    }
     for (const sid of running) {
       try {
         const messages = await c.getMessages(sid);
+        const stopped = statusesKnown && turnStoppedWithoutReply(messages, statuses[sid]);
+        const inactiveCount = stopped ? (inactiveTurnPolls.get(sid) ?? 0) + 1 : 0;
+        if (stopped) inactiveTurnPolls.set(sid, inactiveCount);
+        else inactiveTurnPolls.delete(sid);
         // Still ours to answer for? The lock may have cleared while we fetched.
-        if (!turnIsOver(messages) || !get().runningSessions[sid]) continue;
+        if ((!turnIsOver(messages) && inactiveCount < 2) || !get().runningSessions[sid]) continue;
         void logDebug(`reconcile: missed idle for ${sid} — unlocking`);
         set((s) => {
           const runningSessions = { ...s.runningSessions };
           const shellTurns = { ...s.shellTurns };
+          const sessionProgress = { ...s.sessionProgress };
           delete runningSessions[sid];
           delete shellTurns[sid];
+          delete sessionProgress[sid];
+          inactiveTurnPolls.delete(sid);
+          const recovered = historyToThread(messages, s.commands);
+          if (inactiveCount >= 2) {
+            recovered.blocks.push({
+              kind: "status-line",
+              text: i18n.t("session:live.status.stoppedBeforeReply"),
+              tone: "error",
+            });
+          }
           return {
             runningSessions,
             shellTurns,
+            sessionProgress,
             // The idle was missed, so the tail of the turn was too — replace
             // the thread with the full history rather than leave it stale.
             threads: {
               ...s.threads,
-              [sid]: { ...historyToThread(messages, s.commands), loaded: true },
+              [sid]: { ...recovered, loaded: true },
             },
           };
         });
@@ -1351,12 +1443,16 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       delete threads[id];
       const runningSessions = { ...s.runningSessions };
       delete runningSessions[id];
+      const sessionProgress = { ...s.sessionProgress };
+      delete sessionProgress[id];
+      inactiveTurnPolls.delete(id);
       const panes = { ...s.panes };
       delete panes[id];
       return {
         sessions: s.sessions.filter((x) => x.id !== id),
         threads,
         runningSessions,
+        sessionProgress,
         panes,
         currentId: s.currentId === id ? null : s.currentId,
       };
@@ -1495,6 +1591,12 @@ export function toolPresentation(
   const command = str(input?.command);
   const filePath = str(input?.filePath) || str(input?.path);
   const fallback = tidyToolTitle(title?.trim() || command || filePath || tool || "tool");
+  const loadedSkill = /^loaded skill:\s*(.+)$/i.exec(fallback);
+  if (loadedSkill) {
+    return {
+      title: i18n.t("session:live.status.loadedSkill", { skill: loadedSkill[1] }),
+    };
+  }
   const file = filePath ? tidyToolTitle(filePath) : "";
   switch (tool) {
     case "bash":
@@ -1625,7 +1727,11 @@ export function foldEvent(
       if (last?.kind === "status-line" && last.tone === "done") {
         return { blocks, index };
       }
-      blocks.push({ kind: "status-line", text: "done", tone: "done" });
+      blocks.push({
+        kind: "status-line",
+        text: i18n.t("session:live.status.completed"),
+        tone: "done",
+      });
       return { blocks, index };
     }
     default:
@@ -1757,6 +1863,10 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
           });
           if (artifact) blocks.push(artifact);
         }
+      }
+      if (m.error) {
+        blocks.push({ kind: "status-line", text: friendlyRuntimeError(m.error), tone: "error" });
+        interrupted = false;
       }
       shellTurn = false;
     }

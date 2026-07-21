@@ -43,6 +43,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
     switching,
     sending,
     runningSessions,
+    sessionProgress,
     sessions,
     projects,
     researchScope,
@@ -180,6 +181,23 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
           b.kind === "tool-call" && b.status === "running",
         )
     : undefined;
+  const progress = currentId ? sessionProgress[currentId] : undefined;
+  const latestActivity = working
+    ? [...(thread?.blocks ?? [])]
+        .reverse()
+        .find((block) => block.kind === "agent" || block.kind === "tool-call")
+    : undefined;
+  const activityLabel = sending && !currentId
+      ? t("live.status.startingSession")
+      : progress?.type === "retry"
+        ? t("live.status.retrying", { attempt: progress.attempt ?? 1 })
+        : currentTool
+          ? t("live.status.runningStep")
+          : latestActivity?.kind === "agent"
+            ? t("live.status.writing")
+            : latestActivity?.kind === "tool-call"
+              ? t("live.status.continuing", { step: latestActivity.title })
+              : t("live.status.waitingModel");
 
   // Esc interrupts the running turn (like a terminal agent). Modals own Esc
   // while open; the composer's palette marks its Esc as handled.
@@ -466,12 +484,8 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
               // just echoed above it, so the user always sees the send is alive.
               <div className="flex min-w-0 items-center gap-2 text-sm text-muted">
                 <Loader2 size={14} className="shrink-0 animate-spin" />
-                <span className="shrink-0">
-                  {activeRequest
-                    ? t("live.status.paused")
-                    : sending && !currentId
-                      ? t("live.status.startingSession")
-                      : t("live.status.working")}
+                <span className={cn("min-w-0", currentTool ? "shrink-0" : "truncate")}>
+                  {activeRequest ? t("live.status.paused") : activityLabel}
                 </span>
                 {!activeRequest && currentTool && (
                   <>

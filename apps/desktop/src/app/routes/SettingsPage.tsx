@@ -55,7 +55,7 @@ import { SupportReportCard } from "@/components/settings/SupportReportCard";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 import { FIRST_PARTY_HEOR_CONNECTOR } from "@/lib/heorConnectorPolicy";
-import xiaohongshuCard from "@/assets/xiaohongshu-shangmei-li.jpg";
+import xiaohongshuCard from "@/assets/xiaohongshu.png";
 
 const AI4HEOR_CONTACT_EMAIL = "shangmei.li@altolix.com";
 const OPEN_SCIENCE_URL = "https://github.com/ai4s-research/open-science";
@@ -1295,9 +1295,12 @@ export function SettingsPage() {
               </p>
             </div>
 
-            <div className="grid gap-4 border-t border-faint pt-5 sm:grid-cols-[minmax(0,1fr)_172px] sm:items-start">
+            <div
+              id="ai4heor-contact-card"
+              className="grid overflow-hidden rounded-[20px] border border-border bg-surface sm:grid-cols-[minmax(0,1fr)_minmax(224px,40%)]"
+            >
               <section
-                className="rounded-card border border-border bg-surface-2/45 p-4"
+                className="flex min-h-[250px] flex-col justify-end p-5 sm:pr-4"
                 aria-labelledby="ai4heor-contact-heading"
               >
                 <div
@@ -1310,7 +1313,7 @@ export function SettingsPage() {
                 <p className="mt-2 text-xs leading-5 text-muted">{t("about.contactBody")}</p>
                 <button
                   type="button"
-                  className="mt-3 flex w-full items-center justify-between gap-3 rounded-input border border-border bg-surface px-3 py-2.5 text-left font-mono text-xs text-text transition-colors hover:bg-bg"
+                  className="mt-3 flex w-full max-w-[350px] items-center justify-between gap-3 rounded-input border border-border bg-surface px-3 py-2.5 text-left font-mono text-xs text-text shadow-sm transition-colors hover:bg-bg"
                   onClick={() => void copyContactEmail()}
                   title={t("about.copyEmail")}
                 >
@@ -1319,15 +1322,12 @@ export function SettingsPage() {
                 </button>
               </section>
 
-              <figure className="mx-auto w-full max-w-[172px]">
+              <figure className="flex items-start justify-center p-3 sm:pl-0">
                 <img
                   src={xiaohongshuCard}
                   alt={t("about.xiaohongshuAlt")}
-                  className="block h-auto w-full rounded-card border border-border bg-white shadow-sm"
+                  className="block h-auto w-full max-w-[280px] rounded-[18px] bg-white"
                 />
-                <figcaption className="mt-2 text-center text-[11px] leading-4 text-muted">
-                  {t("about.xiaohongshuCaption")}
-                </figcaption>
               </figure>
             </div>
           </div>

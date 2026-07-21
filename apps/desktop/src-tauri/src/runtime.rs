@@ -10,6 +10,8 @@ use tauri_plugin_shell::ShellExt;
 
 const DEFAULT_WORKSPACE_FOLDER: &str = "AI4HEOR";
 const LEGACY_WORKSPACE_FOLDERS: [&str; 2] = ["OpenScience", "Open Science"];
+const LEGACY_APP_IDENTIFIER: &str = "com.ai4s.workbench";
+const LEGACY_SETTINGS_MIGRATION_MARKER: &str = "legacy-settings-imported-v1";
 
 #[derive(Default)]
 struct RuntimeLifecycle {
@@ -32,13 +34,62 @@ pub(crate) fn runtime_process_tracked(state: &RuntimeState) -> bool {
     state.lifecycle.lock().unwrap().child.is_some()
 }
 
-/// App-private runtime root, e.g. ~/Library/Application Support/com.ai4s.workbench/runtime
+/// App-private runtime root, e.g. ~/Library/Application Support/com.ai4s.ai4heor/runtime
 fn runtime_root(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?
         .join("runtime"))
+}
+
+/// Import only user configuration needed to keep the existing model setup
+/// working after AI4HEOR moves to its own application identifier. Open Science
+/// sessions, task state, caches, goals and managed environments deliberately
+/// stay in the legacy data domain so the two products cannot see or lock each
+/// other's work.
+fn import_legacy_runtime_settings(app: &AppHandle) -> Result<(), String> {
+    let new_root = runtime_root(app)?;
+    let marker = new_root.join(LEGACY_SETTINGS_MIGRATION_MARKER);
+    if marker.exists() {
+        return Ok(());
+    }
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let Some(parent) = app_data.parent() else {
+        return Err("could not resolve the application data parent".into());
+    };
+    let old_root = parent.join(LEGACY_APP_IDENTIFIER).join("runtime");
+    import_legacy_runtime_settings_between(&old_root, &new_root)?;
+    std::fs::create_dir_all(&new_root).map_err(|e| e.to_string())?;
+    std::fs::write(&marker, b"AI4HEOR settings imported without sessions\n")
+        .map_err(|e| e.to_string())?;
+    tighten_private(&new_root);
+    tighten_private(&marker);
+    Ok(())
+}
+
+fn import_legacy_runtime_settings_between(old_root: &Path, new_root: &Path) -> Result<(), String> {
+    const SETTINGS: [&str; 5] = [
+        "xdg-config/opencode/opencode.jsonc",
+        "xdg-config/opencode/opencode.json",
+        "xdg-data/opencode/auth.json",
+        "proxy.txt",
+        "mirrors.txt",
+    ];
+    for relative in SETTINGS {
+        let source = old_root.join(relative);
+        let destination = new_root.join(relative);
+        if !source.is_file() || destination.exists() {
+            continue;
+        }
+        if let Some(parent) = destination.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            tighten_private(parent);
+        }
+        std::fs::copy(&source, &destination).map_err(|e| e.to_string())?;
+        tighten_private(&destination);
+    }
+    Ok(())
 }
 
 fn xdg_config_home(app: &AppHandle) -> Result<PathBuf, String> {
@@ -752,6 +803,7 @@ fn system_proxy_url() -> Option<String> {
 }
 
 fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
+    import_legacy_runtime_settings(app)?;
     let root = runtime_root(app)?;
     let cfg = root.join("xdg-config");
     let data = root.join("xdg-data");
@@ -1111,9 +1163,9 @@ pub fn kill_child(state: &RuntimeState) {
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_scutil_proxy, prune_stale_skills, random_hex, remove_key_from_config,
-        resolve_default_workspace_with, resolve_proxy_env, rewrite_workspace_pointer,
-        sync_admitted_skill, sync_skill_pack, validate_proxy_url,
+        import_legacy_runtime_settings_between, parse_scutil_proxy, prune_stale_skills, random_hex,
+        remove_key_from_config, resolve_default_workspace_with, resolve_proxy_env,
+        rewrite_workspace_pointer, sync_admitted_skill, sync_skill_pack, validate_proxy_url,
     };
     use std::fs;
 
@@ -1123,6 +1175,29 @@ mod tests {
             std::process::id(),
             random_hex(4)
         ))
+    }
+
+    #[test]
+    fn legacy_settings_import_excludes_sessions_and_runtime_state() {
+        let root = temp_workspace_root("settings-migration");
+        let old = root.join("old/runtime");
+        let new = root.join("new/runtime");
+        fs::create_dir_all(old.join("xdg-config/opencode")).unwrap();
+        fs::create_dir_all(old.join("xdg-data/opencode")).unwrap();
+        fs::write(old.join("xdg-config/opencode/opencode.json"), b"{\"model\":\"kept\"}")
+            .unwrap();
+        fs::write(old.join("xdg-data/opencode/auth.json"), b"{\"token\":\"kept\"}")
+            .unwrap();
+        fs::write(old.join("xdg-data/opencode/opencode.db"), b"legacy sessions").unwrap();
+        fs::write(old.join("active-workspace.txt"), b"legacy task").unwrap();
+
+        import_legacy_runtime_settings_between(&old, &new).unwrap();
+
+        assert!(new.join("xdg-config/opencode/opencode.json").is_file());
+        assert!(new.join("xdg-data/opencode/auth.json").is_file());
+        assert!(!new.join("xdg-data/opencode/opencode.db").exists());
+        assert!(!new.join("active-workspace.txt").exists());
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

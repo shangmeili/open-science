@@ -45,6 +45,21 @@ export interface SessionIdleEvent {
   type: "session.idle";
   sessionId: string;
 }
+export interface SessionProgressEvent {
+  type: "session.status";
+  sessionId: string;
+  status: "busy" | "retry";
+  attempt?: number;
+  message?: string;
+  next?: number;
+}
+
+export interface SessionRuntimeStatus {
+  type: "busy" | "retry" | "idle";
+  attempt?: number;
+  message?: string;
+  next?: number;
+}
 
 // ---- Interactive requests (the agent asks; the user must answer) ----
 // OpenCode blocks the run until answered. Two kinds: a `question` (pick from
@@ -100,6 +115,7 @@ export type OpenCodeEvent =
   | TextUpdatedEvent
   | ToolUpdatedEvent
   | SessionIdleEvent
+  | SessionProgressEvent
   | RuntimeErrorEvent
   | QuestionAskedEvent
   | QuestionResolvedEvent
@@ -155,6 +171,8 @@ export interface HistoryMessage {
   /** Epoch ms when the message finished — unset while it is still streaming.
    *  On the LAST message this is the server's truth for "is the turn over". */
   completed?: number;
+  /** Final assistant failure persisted by OpenCode, when available. */
+  error?: string;
   parts: HistoryPart[];
 }
 export interface HistoryPart {

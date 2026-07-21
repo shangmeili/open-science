@@ -17,6 +17,7 @@ import type {
   PermissionAskedEvent,
   RuntimeStatus,
   SessionMeta,
+  SessionRuntimeStatus,
   SkillInfo,
   ToolCallStatus,
 } from "./types";
@@ -320,14 +321,31 @@ export class OpenCodeClient {
     );
     if (!res.ok) throw await this.apiError(res, "Failed to load messages");
     const arr = (await res.json()) as Array<{
-      info: { role: "user" | "assistant"; time?: { completed?: number } };
+      info: {
+        role: "user" | "assistant";
+        time?: { completed?: number };
+        error?: { name?: string; message?: string; data?: { message?: string } };
+      };
       parts: HistoryMessage["parts"];
     }>;
-    return arr.map((m) => ({
-      role: m.info.role,
-      completed: m.info.time?.completed,
-      parts: m.parts ?? [],
-    }));
+    return arr.map((m) => {
+      const error = m.info.error;
+      return {
+        role: m.info.role,
+        completed: m.info.time?.completed,
+        error: error?.data?.message ?? error?.message ?? error?.name,
+        parts: m.parts ?? [],
+      };
+    });
+  }
+
+  /** Current server-side turn states. Idle sessions are usually omitted. */
+  async getSessionStatuses(): Promise<Record<string, SessionRuntimeStatus>> {
+    const res = await this.fetchWithTimeout(`${this.baseUrl}/session/status${this.dirQuery()}`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) throw await this.apiError(res, "Failed to load session status");
+    return (await res.json()) as Record<string, SessionRuntimeStatus>;
   }
 
   /** Interrupt the session's current turn (POST /session/:id/abort). A no-op
@@ -852,6 +870,26 @@ export class OpenCodeClient {
         for (const [partId, acc] of this.textStreams)
           if (acc.sessionId === sessionId) this.textStreams.delete(partId);
         this.emit({ type: "session.idle", sessionId });
+        break;
+      }
+      case "session.status": {
+        const sessionId = String(props.sessionID ?? "");
+        const status = props.status as SessionRuntimeStatus | undefined;
+        if (!status || !sessionId) return;
+        if (status.type === "idle") {
+          for (const [partId, acc] of this.textStreams)
+            if (acc.sessionId === sessionId) this.textStreams.delete(partId);
+          this.emit({ type: "session.idle", sessionId });
+        } else {
+          this.emit({
+            type: "session.status",
+            sessionId,
+            status: status.type,
+            attempt: status.attempt,
+            message: status.message,
+            next: status.next,
+          });
+        }
         break;
       }
       // Interactive requests — support V2 (this server) and the bare names.
