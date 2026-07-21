@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { readArtifact } from "@/lib/artifactFile";
 import { cn } from "@/lib/cn";
+import { useRuntimeStore } from "@/lib/runtime";
 import {
   appendHeorApproval,
   appendHeorAdvancedVoiReview,
@@ -161,12 +162,17 @@ import {
   syncHeorEvidenceLibrary,
   executeHeorEvidenceSearch,
   importHeorSearchCandidates,
+  inspectHeorMarkovResult,
   verifyHeorEvidenceExtractions,
   runHeorUncertainty,
   sha256Text,
   heorSurvivalReviewBindingsCurrent,
 } from "@/lib/heor";
 import { isTauri } from "@/lib/tauri";
+import { formatHeorReviewIssue } from "./reviewIssue";
+
+const RUNTIME_FULL_ACCESS_PERMISSION = "runtime_full_access" as const;
+const HUMAN_CONFIRMATION_PERMISSION = "human_confirmation" as const;
 import { toast } from "@/lib/toast";
 import { MaximizePaneButton, PaneTitlebarInset } from "@/components/inspector/RightPane";
 import {
@@ -232,6 +238,23 @@ type ArtifactState =
   | { kind: "missing" }
   | { kind: "invalid"; message: string }
   | { kind: "ready"; plan: HeorAnalysisPlan; raw: string; sha256: string };
+
+export interface ExploratoryArtifact {
+  path: string;
+  size: number;
+}
+
+type ExploratoryArtifactState =
+  | { kind: "loading" }
+  | { kind: "empty" }
+  | { kind: "ready"; files: ExploratoryArtifact[] };
+
+const EXPLORATORY_ARTIFACT_PATHS = [
+  "heor/analysis-plan.md",
+  "heor/model/parameters.json",
+  "heor/results/base_case_summary.json",
+  "heor/report.md",
+] as const;
 
 type ConceptualArtifactState =
   | { kind: "loading" }
@@ -476,7 +499,11 @@ export function HeorReviewPane({
   onRequestRevision: (prompt: string) => void;
 }) {
   const { t, i18n } = useTranslation("heor");
+  const approvalMode = useRuntimeStore((state) => state.approvalMode);
   const [artifact, setArtifact] = useState<ArtifactState>({ kind: "loading" });
+  const [exploratoryArtifacts, setExploratoryArtifacts] = useState<ExploratoryArtifactState>({
+    kind: "loading",
+  });
   const [conceptualArtifact, setConceptualArtifact] = useState<ConceptualArtifactState>({
     kind: "loading",
   });
@@ -565,6 +592,7 @@ export function HeorReviewPane({
     setImportResult(null);
     if (!project) {
       setArtifact({ kind: "missing" });
+      setExploratoryArtifacts({ kind: "empty" });
       setConceptualArtifact({ kind: "missing" });
       setConceptualDiagram({ kind: "invalid", message: t("conceptualDiagram.incomplete") });
       setReferenceCase({ kind: "invalid", message: t("reference.noProject") });
@@ -604,6 +632,7 @@ export function HeorReviewPane({
       return;
     }
     setArtifact({ kind: "loading" });
+    setExploratoryArtifacts({ kind: "loading" });
     setConceptualArtifact({ kind: "loading" });
     setConceptualDiagram({ kind: "loading" });
     setReferenceCase({ kind: "loading" });
@@ -772,6 +801,18 @@ export function HeorReviewPane({
       setSearchAuthorizations(EMPTY_SEARCH_LOG);
     }
     try {
+      if (isTauri) {
+        const candidates = await Promise.all(
+          EXPLORATORY_ARTIFACT_PATHS.map(async (path) => {
+            const file = await readArtifact(path);
+            return file ? { path, size: file.size } : null;
+          }),
+        );
+        const files: ExploratoryArtifact[] = candidates.flatMap((file) => file ? [file] : []);
+        setExploratoryArtifacts(files.length > 0 ? { kind: "ready", files } : { kind: "empty" });
+      } else {
+        setExploratoryArtifacts({ kind: "empty" });
+      }
       const raw = isTauri
         ? (await readArtifact(HEOR_PLAN_PATH))?.data ?? null
         : JSON.stringify(HEOR_BROWSER_DEMO_PLAN, null, 2);
@@ -794,6 +835,16 @@ export function HeorReviewPane({
       const plan = parseHeorPlan(raw);
       const sha256 = await sha256Text(raw);
       setArtifact({ kind: "ready", plan, raw, sha256 });
+      if (isTauri) {
+        try {
+          setResult(await inspectHeorMarkovResult(project.id));
+        } catch {
+          // A stale, custom, or partially written result must never be shown as
+          // a first-party calculation. The existing run action remains visible
+          // so the researcher can regenerate it from the current plan.
+          setResult(null);
+        }
+      }
       try {
         setEvidenceSelection({ kind: "ready", audit: await auditHeorEvidenceSelection() });
       } catch (error) {
@@ -1643,7 +1694,13 @@ export function HeorReviewPane({
     }
   };
 
-  const runEvidenceSearch = async (actorLabel: string, rationale: string) => {
+  const runEvidenceSearch = async (
+    permission: { mode: "runtime_full_access" } | {
+      mode: "human_confirmation";
+      actorLabel: string;
+      rationale: string;
+    },
+  ) => {
     if (!project || evidenceSearch.kind !== "ready" || !evidenceSearch.audit.complete
       || searchRunning || !isTauri) return;
     setSearchRunning(true);
@@ -1651,9 +1708,14 @@ export function HeorReviewPane({
       const next = await executeHeorEvidenceSearch({
         projectId: project.id,
         requestSha256: evidenceSearch.audit.requestSha256,
-        actorLabel,
-        rationale,
-        confirmedNoSensitiveData: true,
+        ...(permission.mode === "runtime_full_access"
+          ? { permissionMode: permission.mode }
+          : {
+              permissionMode: permission.mode,
+              actorLabel: permission.actorLabel,
+              rationale: permission.rationale,
+              confirmedNoSensitiveData: true as const,
+            }),
       });
       setSearchResult(next);
       setSearchAuthorizations((current) => ({
@@ -2014,8 +2076,15 @@ export function HeorReviewPane({
             state={evidenceSearch}
             result={searchResult}
             running={searchRunning}
+            requiresConfirmation={approvalMode !== "full"}
             onRequestDraft={() => onRequestRevision(t("search.repairPrompt"))}
-            onAuthorize={() => setSearchDialogOpen(true)}
+            onSearch={() => {
+              if (approvalMode === "full") {
+                void runEvidenceSearch({ mode: RUNTIME_FULL_ACCESS_PERMISSION });
+              } else {
+                setSearchDialogOpen(true);
+              }
+            }}
           />
         )}
 
@@ -2126,13 +2195,27 @@ export function HeorReviewPane({
             <Loader2 size={15} className="animate-spin" /> {t("panel.loading")}
           </div>
         ) : artifact.kind === "missing" ? (
-          <EmptyState title={t("panel.emptyTitle")} body={t("panel.emptyBody")} />
+          exploratoryArtifacts.kind === "ready" ? (
+            <ExploratoryAnalysisState
+              files={exploratoryArtifacts.files}
+              onRequestStructured={() => onRequestRevision(t("panel.exploratoryPrompt"))}
+            />
+          ) : (
+            <EmptyState title={t("panel.emptyTitle")} body={t("panel.emptyBody")} />
+          )
         ) : artifact.kind === "invalid" ? (
           <div className="m-4 rounded-card border border-error/30 bg-error/5 p-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-error">
               <AlertTriangle size={16} /> {t("panel.invalidTitle")}
             </div>
-            <p className="mt-2 break-words font-mono text-xs leading-5 text-muted">{artifact.message}</p>
+            <p className="mt-2 text-xs leading-5 text-muted">{t("panel.invalidBody")}</p>
+            <button
+              type="button"
+              onClick={() => onRequestRevision(t("panel.revisionPrompt"))}
+              className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+            >
+              <MessageSquareText size={13} /> {t("panel.askRevision")}
+            </button>
           </div>
         ) : (
           <>
@@ -2551,7 +2634,11 @@ export function HeorReviewPane({
           audit={evidenceSearch.audit}
           running={searchRunning}
           onCancel={() => setSearchDialogOpen(false)}
-          onSubmit={(actor, rationale) => void runEvidenceSearch(actor, rationale)}
+          onSubmit={(actor, rationale) => void runEvidenceSearch({
+            mode: HUMAN_CONFIRMATION_PERMISSION,
+            actorLabel: actor,
+            rationale,
+          })}
         />
       )}
       {verificationDialogOpen && evidenceSynthesis.kind === "ready" && (
@@ -2962,7 +3049,7 @@ export function MethodReviewQueue({ items }: { items: MethodReviewQueueItem[] })
               {accepted ? <Check size={14} className="shrink-0 text-ok" />
                 : rejected ? <X size={14} className="shrink-0 text-danger" />
                   : awaiting ? <LockKeyhole size={14} className="shrink-0 text-accent" />
-                    : <AlertTriangle size={14} className="shrink-0 text-warning" />}
+                    : <AlertTriangle size={14} className="shrink-0 text-warn" />}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-xs font-medium text-text">{method}</div>
                 <div className="truncate font-mono text-[9px] text-muted">{item.path}</div>
@@ -2971,7 +3058,7 @@ export function MethodReviewQueue({ items }: { items: MethodReviewQueueItem[] })
                 <div className={cn(
                   "text-[10px] font-semibold",
                   accepted ? "text-ok" : rejected ? "text-danger"
-                    : awaiting ? "text-accent" : "text-warning",
+                    : awaiting ? "text-accent" : "text-warn",
                 )}>
                   {t(`methodReviewQueue.status.${item.status}`)}
                 </div>
@@ -3025,12 +3112,12 @@ export function MethodsWatchlistAssessment({
   return (
     <section className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
-        <RefreshCw size={16} className={complete ? "mt-0.5 text-ok" : "mt-0.5 text-warning"} />
+        <RefreshCw size={16} className={complete ? "mt-0.5 text-ok" : "mt-0.5 text-warn"} />
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("methodsWatchlist.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warn")}>
             {state.kind === "loading"
               ? t("methodsWatchlist.loading")
               : !audit?.exists
@@ -3053,8 +3140,10 @@ export function MethodsWatchlistAssessment({
         </div>
       )}
       {issues.length > 0 && (
-        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warn">
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       {!complete && state.kind !== "loading" && (
@@ -3176,7 +3265,7 @@ export function MethodsWatchlistReviewDialog({
             className={cn(
               "rounded-input border px-3 py-2 text-xs font-medium",
               action === "dismiss_change"
-                ? "border-warning bg-warning/10 text-warning"
+                ? "border-warn bg-warn/10 text-warn"
                 : "border-border text-muted",
             )}
           >
@@ -3184,7 +3273,7 @@ export function MethodsWatchlistReviewDialog({
           </button>
         </div>
         {!acceptanceEligible && (
-          <p className="mt-2 text-[10px] leading-4 text-warning">
+          <p className="mt-2 text-[10px] leading-4 text-warn">
             {t("methodsWatchlist.acceptanceUnavailable")}
           </p>
         )}
@@ -3265,7 +3354,7 @@ export function EvidenceLibraryAssessment({
       <div className="flex items-start gap-2">
         <BookOpen
           size={16}
-          className={audit?.searchable ? "mt-0.5 text-ok" : "mt-0.5 text-warning"}
+          className={audit?.searchable ? "mt-0.5 text-ok" : "mt-0.5 text-warn"}
         />
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
@@ -3273,7 +3362,7 @@ export function EvidenceLibraryAssessment({
           </div>
           <div className={cn(
             "mt-1 text-xs font-semibold",
-            audit?.searchable ? "text-ok" : "text-warning",
+            audit?.searchable ? "text-ok" : "text-warn",
           )}>
             {state.kind === "loading"
               ? t("library.loading")
@@ -3303,8 +3392,10 @@ export function EvidenceLibraryAssessment({
         </>
       )}
       {issues.length > 0 && (
-        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
-          {issues.slice(0, 4).map((issue) => <li key={issue}>• {issue}</li>)}
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warn">
+          {issues.slice(0, 4).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       <div className="mt-3 flex flex-wrap gap-3">
@@ -3370,14 +3461,16 @@ function EvidenceSearchAssessment({
   state,
   result,
   running,
+  requiresConfirmation,
   onRequestDraft,
-  onAuthorize,
+  onSearch,
 }: {
   state: EvidenceSearchState;
   result: HeorSearchExecutionResponse | null;
   running: boolean;
+  requiresConfirmation: boolean;
   onRequestDraft: () => void;
-  onAuthorize: () => void;
+  onSearch: () => void;
 }) {
   const { t } = useTranslation("heor");
   const audit = state.kind === "ready" ? state.audit : null;
@@ -3386,12 +3479,12 @@ function EvidenceSearchAssessment({
   return (
     <section className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
-        <Search size={16} className={complete ? "mt-0.5 text-ok" : "mt-0.5 text-warning"} />
+        <Search size={16} className={complete ? "mt-0.5 text-ok" : "mt-0.5 text-warn"} />
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("search.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warn")}>
             {state.kind === "loading"
               ? t("search.loading")
               : complete ? t("search.complete") : t("search.incomplete")}
@@ -3418,8 +3511,10 @@ function EvidenceSearchAssessment({
         </>
       )}
       {issues.length > 0 && (
-        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
-          {issues.slice(0, 4).map((issue) => <li key={issue}>• {issue}</li>)}
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warn">
+          {issues.slice(0, 4).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       <div className="mt-3 flex flex-wrap gap-3">
@@ -3431,11 +3526,15 @@ function EvidenceSearchAssessment({
         {complete && isTauri && (
           <button
             disabled={running}
-            onClick={onAuthorize}
+            onClick={onSearch}
             className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline disabled:opacity-50"
           >
-            {running ? <Loader2 size={13} className="animate-spin" /> : <LockKeyhole size={13} />}
-            {running ? t("search.running") : t("search.authorize")}
+            {running
+              ? <Loader2 size={13} className="animate-spin" />
+              : requiresConfirmation ? <LockKeyhole size={13} /> : <Play size={13} />}
+            {running
+              ? t("search.running")
+              : requiresConfirmation ? t("search.reviewAndStart") : t("search.start")}
           </button>
         )}
       </div>
@@ -3497,7 +3596,7 @@ function EvidenceSynthesisAssessment({
       <div className="flex items-start gap-2">
         <FileJson
           size={16}
-          className={audit?.complete ? "mt-0.5 text-ok" : "mt-0.5 text-warning"}
+          className={audit?.complete ? "mt-0.5 text-ok" : "mt-0.5 text-warn"}
         />
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
@@ -3505,7 +3604,7 @@ function EvidenceSynthesisAssessment({
           </div>
           <div className={cn(
             "mt-1 text-xs font-semibold",
-            audit?.complete ? "text-ok" : "text-warning",
+            audit?.complete ? "text-ok" : "text-warn",
           )}>
             {state.kind === "loading"
               ? t("synthesis.loading")
@@ -3540,8 +3639,10 @@ function EvidenceSynthesisAssessment({
         </>
       )}
       {issues.length > 0 && (
-        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
-          {issues.slice(0, 4).map((issue) => <li key={issue}>• {issue}</li>)}
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warn">
+          {issues.slice(0, 4).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       <div className="mt-3 flex flex-wrap gap-3">
@@ -3654,6 +3755,48 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
+export function ExploratoryAnalysisState({
+  files,
+  onRequestStructured,
+}: {
+  files: ExploratoryArtifact[];
+  onRequestStructured: () => void;
+}) {
+  const { t } = useTranslation("heor");
+  return (
+    <section className="m-4 rounded-card border border-border bg-surface px-4 py-4">
+      <div className="flex items-start gap-2.5">
+        <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warn" />
+        <div>
+          <div className="text-sm font-semibold text-text">{t("panel.exploratoryTitle")}</div>
+          <p className="mt-1 text-xs leading-5 text-muted">{t("panel.exploratoryBody")}</p>
+        </div>
+      </div>
+      <div className="mt-3 divide-y divide-border rounded-input border border-border bg-bg/60">
+        {files.map((file) => (
+          <div key={file.path} className="flex items-center gap-2 px-3 py-2">
+            <FileJson size={13} className="shrink-0 text-muted" />
+            <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-text">
+              {file.path}
+            </span>
+            <span className="shrink-0 text-[10px] tabular-nums text-muted">
+              {t("panel.fileSize", { count: file.size })}
+            </span>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onRequestStructured}
+        className="mt-3 flex items-center gap-1.5 text-xs font-medium text-link hover:underline"
+      >
+        <MessageSquareText size={13} /> {t("panel.prepareStructured")}
+      </button>
+      <p className="mt-2 text-[10px] leading-4 text-muted">{t("panel.exploratoryBoundary")}</p>
+    </section>
+  );
+}
+
 function DecisionSnapshot({ plan }: { plan: HeorAnalysisPlan }) {
   const { t } = useTranslation("heor");
   const d = plan.decision_problem;
@@ -3706,11 +3849,11 @@ function ConceptualModelTraceability({
   return (
     <section className="border-b border-border px-5 py-4">
       <div className="flex items-center gap-2">
-        <ShieldCheck size={15} className={complete ? "text-ok" : "text-warning"} />
+        <ShieldCheck size={15} className={complete ? "text-ok" : "text-warn"} />
         <div className="flex-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
           {t("conceptual.title")}
         </div>
-        <span className={cn("text-[10px] font-medium", complete ? "text-ok" : "text-warning")}>
+        <span className={cn("text-[10px] font-medium", complete ? "text-ok" : "text-warn")}>
           {artifact.kind === "loading"
             ? t("conceptual.loading")
             : complete
@@ -3737,8 +3880,8 @@ function ConceptualModelTraceability({
       {issues.length > 0 && (
         <div className="mt-3 space-y-1">
           {issues.map((issue) => (
-            <div key={issue} className="break-words font-mono text-[10px] leading-4 text-warning">
-              {issue}
+            <div key={issue} className="break-words font-mono text-[10px] leading-4 text-warn">
+              {formatHeorReviewIssue(issue, t("panel.artifactPending"))}
             </div>
           ))}
         </div>
@@ -3876,9 +4019,11 @@ function EvidenceTraceability({
 }) {
   const { t } = useTranslation("heor");
   const gaps = [
-    ...audit.unsupportedInputs.map((path) => t("evidence.unsupported", { path })),
+    ...(audit.invalidMappings.length > 0
+      ? [t("evidence.invalidMappings", { count: audit.invalidMappings.length })]
+      : []),
     ...audit.unresolvedAssumptions.map((id) => t("evidence.unresolved", { id })),
-    ...audit.invalidMappings.slice(0, 3),
+    ...audit.unsupportedInputs.map((path) => t("evidence.unsupported", { path })),
   ];
   const selectionAudit = selection.kind === "ready" ? selection.audit : null;
   const fullyTraceable = audit.complete && selectionAudit?.complete === true;
@@ -3926,7 +4071,9 @@ function EvidenceTraceability({
               <li key={id}>• {t("evidence.unverified", { id })}</li>
             ))}
             {selectionAudit?.invalidSelections.slice(0, 3).map((issue) => (
-              <li key={issue}>• {issue}</li>
+              <li key={issue}>
+                • {formatHeorReviewIssue(issue, t("panel.artifactPending"))}
+              </li>
             ))}
           </ul>
           <button
@@ -3962,13 +4109,13 @@ function SurvivalReviewAssessment({
         {complete ? (
           <ShieldCheck size={16} className="mt-0.5 text-ok" />
         ) : (
-          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+          <AlertTriangle size={16} className="mt-0.5 text-warn" />
         )}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("survivalReview.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warn")}>
             {state.kind === "loading"
               ? t("survivalReview.loading")
               : notRequired
@@ -4041,7 +4188,9 @@ function SurvivalReviewAssessment({
       )}
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       {!complete && state.kind !== "loading" && (
@@ -4089,12 +4238,12 @@ export function PairedBootstrapAssessment({
       <div className="flex items-start gap-2">
         {accepted
           ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
-          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+          : <AlertTriangle size={16} className="mt-0.5 text-warn" />}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("pairedBootstrap.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warn")}>
             {status}
           </div>
           <div className="mt-1 break-all font-mono text-[10px] text-muted">
@@ -4122,7 +4271,7 @@ export function PairedBootstrapAssessment({
       {currentReview && (
         <div className={cn(
           "mt-3 rounded-input border p-3 text-[10px] leading-4",
-          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warning/30 bg-warning/5 text-warning",
+          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warn/30 bg-warn/5 text-warn",
         )}>
           {accepted ? t("pairedBootstrap.currentAccepted") : t("pairedBootstrap.currentRejected")}
           <div className="mt-1 break-all font-mono text-[9px] text-muted">
@@ -4131,8 +4280,10 @@ export function PairedBootstrapAssessment({
         </div>
       )}
       {issues.length > 0 && (
-        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warn">
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       <div className="mt-3 flex flex-wrap gap-3">
@@ -4318,12 +4469,12 @@ export function NetworkMetaAnalysisAssessment({
       <div className="flex items-start gap-2">
         {accepted
           ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
-          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+          : <AlertTriangle size={16} className="mt-0.5 text-warn" />}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("nma.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warn")}>
             {status}
           </div>
           <div className="mt-1 break-all font-mono text-[10px] text-muted">
@@ -4357,7 +4508,7 @@ export function NetworkMetaAnalysisAssessment({
       {currentReview && (
         <div className={cn(
           "mt-3 rounded-input border p-3 text-[10px] leading-4",
-          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warning/30 bg-warning/5 text-warning",
+          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warn/30 bg-warn/5 text-warn",
         )}>
           {accepted ? t("nma.currentAccepted") : t("nma.currentRejected")}
           <div className="mt-1 break-all font-mono text-[9px] text-muted">
@@ -4366,8 +4517,10 @@ export function NetworkMetaAnalysisAssessment({
         </div>
       )}
       {issues.length > 0 && (
-        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warn">
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       <div className="mt-3 flex flex-wrap gap-3">
@@ -4548,12 +4701,12 @@ export function PopulationAdjustedComparisonAssessment({
       <div className="flex items-start gap-2">
         {accepted
           ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
-          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+          : <AlertTriangle size={16} className="mt-0.5 text-warn" />}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("pac.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warn")}>
             {status}
           </div>
           <div className="mt-1 break-all font-mono text-[10px] text-muted">
@@ -4600,7 +4753,7 @@ export function PopulationAdjustedComparisonAssessment({
       {currentReview && (
         <div className={cn(
           "mt-3 rounded-input border p-3 text-[10px] leading-4",
-          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warning/30 bg-warning/5 text-warning",
+          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warn/30 bg-warn/5 text-warn",
         )}>
           {accepted ? t("pac.currentAccepted") : t("pac.currentRejected")}
           <div className="mt-1 break-all font-mono text-[9px] text-muted">
@@ -4609,8 +4762,10 @@ export function PopulationAdjustedComparisonAssessment({
         </div>
       )}
       {issues.length > 0 && (
-        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warn">
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       <div className="mt-3 flex flex-wrap gap-3">
@@ -4791,12 +4946,12 @@ export function ModelCalibrationAssessment({
       <div className="flex items-start gap-2">
         {accepted
           ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
-          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+          : <AlertTriangle size={16} className="mt-0.5 text-warn" />}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("modelCalibration.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warn")}>
             {status}
           </div>
           <div className="mt-1 break-all font-mono text-[10px] text-muted">
@@ -4833,7 +4988,7 @@ export function ModelCalibrationAssessment({
       {currentReview && (
         <div className={cn(
           "mt-3 rounded-input border p-3 text-[10px] leading-4",
-          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warning/30 bg-warning/5 text-warning",
+          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warn/30 bg-warn/5 text-warn",
         )}>
           {accepted ? t("modelCalibration.currentAccepted") : t("modelCalibration.currentRejected")}
           <div className="mt-1 break-all font-mono text-[9px] text-muted">
@@ -4842,8 +4997,10 @@ export function ModelCalibrationAssessment({
         </div>
       )}
       {issues.length > 0 && (
-        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warn">
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       <div className="mt-3 flex flex-wrap gap-3">
@@ -5025,12 +5182,12 @@ export function MicrosimulationAssessment({
       <div className="flex items-start gap-2">
         {accepted
           ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
-          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+          : <AlertTriangle size={16} className="mt-0.5 text-warn" />}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("microsimulation.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warn")}>
             {status}
           </div>
           <div className="mt-1 break-all font-mono text-[10px] text-muted">
@@ -5075,7 +5232,7 @@ export function MicrosimulationAssessment({
       {currentReview && (
         <div className={cn(
           "mt-3 rounded-input border p-3 text-[10px] leading-4",
-          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warning/30 bg-warning/5 text-warning",
+          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warn/30 bg-warn/5 text-warn",
         )}>
           {accepted ? t("microsimulation.currentAccepted") : t("microsimulation.currentRejected")}
           <div className="mt-1 break-all font-mono text-[9px] text-muted">
@@ -5084,8 +5241,10 @@ export function MicrosimulationAssessment({
         </div>
       )}
       {issues.length > 0 && (
-        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warn">
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       <div className="mt-3 flex flex-wrap gap-3">
@@ -5268,12 +5427,12 @@ export function RweCausalAnalysisAssessment({
       <div className="flex items-start gap-2">
         {accepted
           ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
-          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+          : <AlertTriangle size={16} className="mt-0.5 text-warn" />}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("rweCausal.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", accepted ? "text-ok" : "text-warn")}>
             {status}
           </div>
           <div className="mt-1 break-all font-mono text-[10px] text-muted">
@@ -5326,7 +5485,7 @@ export function RweCausalAnalysisAssessment({
       {currentReview && (
         <div className={cn(
           "mt-3 rounded-input border p-3 text-[10px] leading-4",
-          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warning/30 bg-warning/5 text-warning",
+          accepted ? "border-ok/30 bg-ok/5 text-ok" : "border-warn/30 bg-warn/5 text-warn",
         )}>
           {accepted ? t("rweCausal.currentAccepted") : t("rweCausal.currentRejected")}
           <div className="mt-1 break-all font-mono text-[9px] text-muted">
@@ -5335,8 +5494,10 @@ export function RweCausalAnalysisAssessment({
         </div>
       )}
       {issues.length > 0 && (
-        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warn">
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       <div className="mt-3 flex flex-wrap gap-3">
@@ -5509,13 +5670,13 @@ function ReferenceCaseAssessment({
         {complete ? (
           <ShieldCheck size={16} className="mt-0.5 text-ok" />
         ) : (
-          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+          <AlertTriangle size={16} className="mt-0.5 text-warn" />
         )}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("reference.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warn")}>
             {state.kind === "loading"
               ? t("reference.loading")
               : complete ? t("reference.complete") : t("reference.incomplete")}
@@ -5544,7 +5705,9 @@ function ReferenceCaseAssessment({
       )}
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       {!complete && state.kind !== "loading" && (
@@ -5579,13 +5742,13 @@ function UncertaintyAssessment({
         {complete ? (
           <ShieldCheck size={16} className="mt-0.5 text-ok" />
         ) : (
-          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+          <AlertTriangle size={16} className="mt-0.5 text-warn" />
         )}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("uncertainty.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warn")}>
             {state.kind === "loading"
               ? t("uncertainty.loading")
               : complete ? t("uncertainty.complete") : t("uncertainty.incomplete")}
@@ -5609,7 +5772,9 @@ function UncertaintyAssessment({
       )}
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       {!complete && state.kind !== "loading" && (
@@ -5645,12 +5810,12 @@ function AdvancedVoiAssessment({
     <section className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
         {complete ? <ShieldCheck size={16} className="mt-0.5 text-ok" />
-          : <AlertTriangle size={16} className="mt-0.5 text-warning" />}
+          : <AlertTriangle size={16} className="mt-0.5 text-warn" />}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("advancedVoi.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warn")}>
             {state.kind === "loading" ? t("advancedVoi.loading")
               : complete ? t("advancedVoi.complete") : t("advancedVoi.incomplete")}
           </div>
@@ -5673,7 +5838,9 @@ function AdvancedVoiAssessment({
       )}
       {audit?.errors.length ? (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
-          {audit.errors.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+          {audit.errors.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       ) : null}
       {!complete && state.kind !== "loading" && (
@@ -5710,13 +5877,13 @@ function BudgetImpactAssessment({
         {complete ? (
           <ShieldCheck size={16} className="mt-0.5 text-ok" />
         ) : (
-          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+          <AlertTriangle size={16} className="mt-0.5 text-warn" />
         )}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("budgetImpact.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warn")}>
             {state.kind === "loading"
               ? t("budgetImpact.loading")
               : complete ? t("budgetImpact.complete") : t("budgetImpact.incomplete")}
@@ -5743,7 +5910,9 @@ function BudgetImpactAssessment({
       )}
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       {!complete && state.kind !== "loading" && (
@@ -5783,13 +5952,13 @@ function PartitionedSurvivalAssessment({
         {complete ? (
           <ShieldCheck size={16} className="mt-0.5 text-ok" />
         ) : (
-          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+          <AlertTriangle size={16} className="mt-0.5 text-warn" />
         )}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("partitionedSurvival.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", complete ? "text-ok" : "text-warn")}>
             {status}
           </div>
         </div>
@@ -5815,7 +5984,9 @@ function PartitionedSurvivalAssessment({
       )}
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       {(!complete || audit?.required === false) && state.kind !== "loading" && (
@@ -5828,7 +5999,7 @@ function PartitionedSurvivalAssessment({
       )}
       <p className="mt-3 text-[10px] leading-4 text-muted">{t("partitionedSurvival.note")}</p>
       {audit?.required && (
-        <p className="mt-1 text-[10px] leading-4 text-warning">{t("partitionedSurvival.releaseBoundary")}</p>
+        <p className="mt-1 text-[10px] leading-4 text-warn">{t("partitionedSurvival.releaseBoundary")}</p>
       )}
     </section>
   );
@@ -5853,13 +6024,13 @@ function ModelValidationAssessment({
         {approvable ? (
           <ShieldCheck size={16} className="mt-0.5 text-ok" />
         ) : (
-          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+          <AlertTriangle size={16} className="mt-0.5 text-warn" />
         )}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("validation.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", approvable ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", approvable ? "text-ok" : "text-warn")}>
             {state.kind === "loading"
               ? t("validation.loading")
               : approvable
@@ -5896,7 +6067,9 @@ function ModelValidationAssessment({
       )}
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       {!approvable && state.kind !== "loading" && (
@@ -5931,13 +6104,13 @@ function ReportingAssessment({
         {releasable ? (
           <ShieldCheck size={16} className="mt-0.5 text-ok" />
         ) : (
-          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+          <AlertTriangle size={16} className="mt-0.5 text-warn" />
         )}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("reporting.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", releasable ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", releasable ? "text-ok" : "text-warn")}>
             {state.kind === "loading"
               ? t("reporting.loading")
               : releasable
@@ -5972,7 +6145,9 @@ function ReportingAssessment({
       )}
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       {!releasable && state.kind !== "loading" && (
@@ -6005,13 +6180,13 @@ function ReproducibilityAssessment({
         {ready ? (
           <ShieldCheck size={16} className="mt-0.5 text-ok" />
         ) : (
-          <AlertTriangle size={16} className="mt-0.5 text-warning" />
+          <AlertTriangle size={16} className="mt-0.5 text-warn" />
         )}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
             {t("reproducibility.title")}
           </div>
-          <div className={cn("mt-1 text-xs font-semibold", ready ? "text-ok" : "text-warning")}>
+          <div className={cn("mt-1 text-xs font-semibold", ready ? "text-ok" : "text-warn")}>
             {state.kind === "loading"
               ? t("reproducibility.loading")
               : ready
@@ -6048,7 +6223,9 @@ function ReproducibilityAssessment({
       )}
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
       {!ready && state.kind !== "loading" && (
@@ -6168,7 +6345,7 @@ function ResultCard({ result, locale }: { result: HeorRunResult; locale: string 
           {decisionReady ? t("result.releasedNote") : t("result.authorizedNote")}
         </p>
       )}
-      <p className={cn("mt-2 text-[10px] leading-4", basis ? "text-muted" : "text-warning")}>
+      <p className={cn("mt-2 text-[10px] leading-4", basis ? "text-muted" : "text-warn")}>
         {basis
           ? t("result.economicBasis", { currency: basis.currency, year: basis.price_year })
           : t("result.economicBasisMissing")}
@@ -6430,7 +6607,7 @@ export function UncertaintyResultCard({
           "rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase",
           psa.convergence.passed
             ? "border-ok/30 bg-ok/5 text-ok"
-            : "border-warning/30 bg-warning/5 text-warning",
+            : "border-warn/30 bg-warn/5 text-warn",
         )}>
           {psa.convergence.passed
             ? t("uncertaintyResult.converged")
@@ -6438,25 +6615,25 @@ export function UncertaintyResultCard({
         </span>
       </div>
       {partialEconomicOnly && (
-        <div className="mt-3 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-[10px] leading-4 text-warning">
+        <div className="mt-3 rounded-md border border-warn/30 bg-warn/5 px-3 py-2 text-[10px] leading-4 text-warn">
           <div className="font-semibold">{t("uncertaintyResult.partialEconomicOnly")}</div>
           <div>{t("uncertaintyResult.partialEconomicOnlyDetail")}</div>
         </div>
       )}
       {jointSurvival && (
-        <div className="mt-3 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-[10px] leading-4 text-warning">
+        <div className="mt-3 rounded-md border border-warn/30 bg-warn/5 px-3 py-2 text-[10px] leading-4 text-warn">
           <div className="font-semibold">{t("uncertaintyResult.jointSurvival")}</div>
           <div>{t("uncertaintyResult.jointSurvivalDetail")}</div>
         </div>
       )}
       {componentUncertainty && (
-        <div className="mt-3 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-[10px] leading-4 text-warning">
+        <div className="mt-3 rounded-md border border-warn/30 bg-warn/5 px-3 py-2 text-[10px] leading-4 text-warn">
           <div className="font-semibold">{t("uncertaintyResult.componentUncertainty")}</div>
           <div>{t("uncertaintyResult.componentUncertaintyDetail")}</div>
         </div>
       )}
       {jointComponentUncertainty && (
-        <div className="mt-3 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-[10px] leading-4 text-warning">
+        <div className="mt-3 rounded-md border border-warn/30 bg-warn/5 px-3 py-2 text-[10px] leading-4 text-warn">
           <div className="font-semibold">{t("uncertaintyResult.jointComponentUncertainty")}</div>
           <div>{t("uncertaintyResult.jointComponentUncertaintyDetail")}</div>
         </div>
@@ -6592,7 +6769,7 @@ export function AdvancedVoiResultCard({
             <td className="px-2 py-1.5 text-text">{row.sample_size.toLocaleString(locale)}</td>
             <td className="px-2 py-1.5">{amount.format(row.population_evsi)}</td>
             <td className="px-2 py-1.5">{amount.format(row.study_cost)}</td>
-            <td className={cn("px-2 py-1.5 font-medium", row.expected_net_benefit_of_sampling >= 0 ? "text-ok" : "text-warning")}>
+            <td className={cn("px-2 py-1.5 font-medium", row.expected_net_benefit_of_sampling >= 0 ? "text-ok" : "text-warn")}>
               {amount.format(row.expected_net_benefit_of_sampling)}
             </td>
           </tr>)}</tbody>

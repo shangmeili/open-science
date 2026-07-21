@@ -45,6 +45,7 @@ export function ConfirmDialog({
         <p className="mt-1.5 text-sm text-muted">{body}</p>
         <div className="mt-4 flex justify-end gap-2">
           <button
+            autoFocus={tone === "danger"}
             className="rounded-input border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2"
             onClick={onCancel}
           >

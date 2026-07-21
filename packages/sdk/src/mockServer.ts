@@ -27,17 +27,29 @@ export function startMockOpenCode(port = 0): Promise<MockOpenCode> {
     // message.part.delta events, then the full part again at text-end.
     const D = (partID: string, delta: string) =>
       push({ type: "message.part.delta", properties: { sessionID, messageID: "m1", partID, field: "text", delta } });
+    push({
+      type: "message.updated",
+      properties: { info: { id: "u1", role: "user", sessionID } },
+    });
+    P({ id: "s1", type: "step-start" });
+    P({ id: "r1", type: "reasoning", text: "" });
+    D("r1", "Checking the evidence. ");
+    P({ id: "r1", type: "reasoning", text: "Checking the evidence. " });
     P({ id: "p1", type: "text", text: "" });
     D("p1", "Planning ");
     D("p1", "the analysis. ");
     P({ id: "p1", type: "text", text: "Planning the analysis. " });
     P({ id: "c1", type: "tool", callID: "c1", tool: "literature-search", state: { status: "running", title: "literature-search (OpenAlex)" } });
     P({ id: "c1", type: "tool", callID: "c1", tool: "literature-search", state: { status: "completed", title: "literature-search (OpenAlex, PubMed)" } });
+    P({ id: "s2", type: "step-start" });
     P({ id: "p2", type: "text", text: "Wrote data/corpus.csv and drafted report.md." });
     push({ type: "session.idle", properties: { sessionID } });
     messages[sessionID] = [
-      { info: { role: "user" }, parts: [{ type: "text", text: "run a literature review" }] },
-      { info: { role: "assistant", time: { created: 1, completed: 2 } }, parts: [{ type: "text", text: "Planning the analysis. Wrote data/corpus.csv." }] },
+      { info: { id: "u1", role: "user" }, parts: [{ type: "text", text: "run a literature review" }] },
+      { info: { role: "assistant", time: { created: 1, completed: 2 } }, parts: [
+        { type: "reasoning", text: "Checking the evidence." },
+        { type: "text", text: "Planning the analysis. Wrote data/corpus.csv." },
+      ] },
     ];
   };
 
@@ -94,6 +106,11 @@ export function startMockOpenCode(port = 0): Promise<MockOpenCode> {
     if (req.method === "POST" && /^\/session\/[^/]+\/abort$/.test(url)) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end("true");
+      return;
+    }
+    if (req.method === "POST" && /^\/session\/[^/]+\/(un)?revert$/.test(url)) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end("{}");
       return;
     }
     const mm = url.match(/^\/session\/([^/]+)\/message/);

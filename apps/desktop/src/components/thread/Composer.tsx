@@ -153,6 +153,13 @@ export function Composer({
   const [selectedSkill, setSelectedSkill] = useState<ComposerSkillSelection | null>(null);
   const approvalRef = useRef<HTMLDivElement>(null);
 
+  // Changing approval mode restarts the bundled runtime. Never leave that
+  // control live while a turn is running: a mid-turn restart orphans the
+  // current tool call and strands the conversation in a false working state.
+  useEffect(() => {
+    if (disabled) setApprovalOpen(false);
+  }, [disabled]);
+
   // Dismiss the approval menu on any outside press. (Button blur can't do
   // this: WKWebView never focuses a clicked button, so blur never fires.)
   useEffect(() => {
@@ -236,8 +243,13 @@ export function Composer({
   // user was already typing is kept, with the draft appended below it.
   useEffect(() => {
     if (composerDraft === null) return;
-    setValue((v) => (v.trim() ? `${v.trimEnd()}\n\n${composerDraft}` : composerDraft));
+    // React StrictMode replays mount effects in development. Consume from the
+    // store before changing local state so the replay cannot append the same
+    // starter a second time while it still holds the first render's snapshot.
+    const draft = useUiStore.getState().composerDraft;
+    if (draft === null) return;
     setComposerDraft(null);
+    setValue((v) => (v.trim() ? `${v.trimEnd()}\n\n${draft}` : draft));
     taRef.current?.focus();
   }, [composerDraft, setComposerDraft]);
 
@@ -629,7 +641,8 @@ export function Composer({
                     key={opt.mode}
                     role="menuitemradio"
                     aria-checked={opt.mode === approvalMode}
-                    className="flex w-full items-start gap-2 rounded-input px-2 py-1.5 text-left hover:bg-surface-2"
+                    disabled={disabled}
+                    className="flex w-full items-start gap-2 rounded-input px-2 py-1.5 text-left hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
                     // mousedown, not click — a click would blur the textarea first.
                     onMouseDown={(e) => {
                       e.preventDefault();
@@ -654,7 +667,8 @@ export function Composer({
             <button
               aria-label={t("composer.approval.aria")}
               title={t("composer.approval.title")}
-              className="flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs text-muted hover:bg-surface-2 hover:text-text"
+              disabled={disabled}
+              className="flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs text-muted hover:bg-surface-2 hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => setApprovalOpen((o) => !o)}
             >
               {approvalMode === "full" ? <Zap size={12} /> : <Hand size={12} />}

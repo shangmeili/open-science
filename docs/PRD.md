@@ -227,9 +227,11 @@ User options: Approve · Edit Plan · Run Step by Step · Cancel.
 #### 5.1.5 Literature search
 
 AI4HEOR alpha ships a narrower, verified HEOR path: natural-language drafting
-of an exact request followed by app-owned human authorization for fixed PubMed
-and ClinicalTrials.gov metadata endpoints. The Agent cannot make the network
-call. Each run binds request and response hashes, preserves source limitations,
+of an exact request followed by app-owned execution against fixed PubMed and
+ClinicalTrials.gov metadata endpoints. Execution follows the current task
+permission mode: confirmation mode records one human confirmation, while
+user-selected full-access mode records that runtime policy without fabricating
+a human approval. Each run binds request and response hashes, preserves source limitations,
 and imports records only as `not_assessed` candidates for later screening and
 appraisal.
 

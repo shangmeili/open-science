@@ -622,8 +622,18 @@ export interface ProjectInfo {
   description?: string;
   createdAt: number;
   kind: "heor" | "session";
+  imported?: boolean;
+  importedFrom?: string;
   /** Absolute workspace folder (canonical, matches session `directory`). */
   path: string;
+}
+
+/** Copy an existing folder into the app-managed AI4HEOR workspace. The
+ * original folder is never selected as the live runtime workspace. */
+export async function importProject(path: string): Promise<ProjectInfo> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<ProjectInfo>("import_project", { path });
 }
 
 /** Create a project folder (with metadata, harness and an initial git

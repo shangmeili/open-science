@@ -21,6 +21,7 @@ import {
   type ConceptualModelNodePosition,
   type HeorConceptualModel,
 } from "@/lib/heor";
+import { formatHeorReviewIssue } from "./reviewIssue";
 
 const WIDTH = 1280;
 const HEIGHT = 640;
@@ -287,8 +288,10 @@ export function ConceptualModelDiagramAssessment({
       </div>
 
       {issues.length > 0 && (
-        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warning">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+        <ul className="mt-3 space-y-1 text-[10px] leading-4 text-warn">
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
 

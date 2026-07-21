@@ -22,6 +22,7 @@ import type {
   ToolCallStatus,
 } from "./types";
 import { DEFAULT_OPENCODE_URL } from "./types";
+import type { AgentRuntime } from "./runtime";
 
 type EventListener = (event: OpenCodeEvent) => void;
 type StatusListener = (status: RuntimeStatus) => void;
@@ -39,12 +40,25 @@ function mapToolStatus(status: string): ToolCallStatus {
   }
 }
 
+/** Split a configured `provider/model` id into the shape expected by the
+ * OpenCode prompt API. A model id may itself contain additional slashes, so
+ * only the first separator is structural. */
+function parseModel(model?: string | null): { providerID: string; modelID: string } | undefined {
+  if (!model) return undefined;
+  const separator = model.indexOf("/");
+  if (separator <= 0 || separator >= model.length - 1) return undefined;
+  return {
+    providerID: model.slice(0, separator),
+    modelID: model.slice(separator + 1),
+  };
+}
+
 /**
  * The single boundary between the app and the OpenCode agent runtime.
  * Talks to a running `opencode serve` over its HTTP + SSE API. The UI must go
  * through this class, never the transport directly (see AGENTS.md guardrails).
  */
-export class OpenCodeClient {
+export class OpenCodeClient implements AgentRuntime {
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
   private readonly authHeader: string | null;
@@ -77,6 +91,11 @@ export class OpenCodeClient {
    *  arrives as a message.part.delta that must be summed here — otherwise the
    *  app shows nothing until the whole passage is finished. */
   private readonly textStreams = new Map<string, { sessionId: string; text: string }>();
+  /** Reasoning parts use the same delta protocol as text, but are normalized
+   *  separately so working activity never becomes part of the final answer. */
+  private readonly reasoningStreams = new Map<string, { sessionId: string; text: string }>();
+  /** Deduplicated step-start parts for the current turn. */
+  private readonly stepParts = new Map<string, Set<string>>();
 
   constructor(opts: OpenCodeClientOptions = {}) {
     this.baseUrl = (opts.baseUrl ?? DEFAULT_OPENCODE_URL).replace(/\/$/, "");
@@ -322,6 +341,7 @@ export class OpenCodeClient {
     if (!res.ok) throw await this.apiError(res, "Failed to load messages");
     const arr = (await res.json()) as Array<{
       info: {
+        id?: string;
         role: "user" | "assistant";
         time?: { completed?: number };
         error?: { name?: string; message?: string; data?: { message?: string } };
@@ -332,11 +352,32 @@ export class OpenCodeClient {
       const error = m.info.error;
       return {
         role: m.info.role,
+        ...(m.info.id ? { id: m.info.id } : {}),
         completed: m.info.time?.completed,
         error: error?.data?.message ?? error?.message ?? error?.name,
         parts: m.parts ?? [],
       };
     });
+  }
+
+  async revert(sessionId: string, messageID: string, partID?: string): Promise<void> {
+    const res = await this.fetchImpl(
+      `${this.baseUrl}/session/${encodeURIComponent(sessionId)}/revert`,
+      {
+        method: "POST",
+        headers: this.headers(true),
+        body: JSON.stringify({ messageID, ...(partID ? { partID } : {}) }),
+      },
+    );
+    if (!res.ok) throw await this.apiError(res, "Failed to return to the selected message");
+  }
+
+  async unrevert(sessionId: string): Promise<void> {
+    const res = await this.fetchImpl(
+      `${this.baseUrl}/session/${encodeURIComponent(sessionId)}/unrevert`,
+      { method: "POST", headers: this.headers(true), body: "{}" },
+    );
+    if (!res.ok) throw await this.apiError(res, "Failed to restore the reverted task state");
   }
 
   /** Current server-side turn states. Idle sessions are usually omitted. */
@@ -646,14 +687,28 @@ export class OpenCodeClient {
     if (!res.ok) throw await this.apiError(res, `Failed to run /${command}`);
   }
 
-  /** Send a prompt into a session; output streams back via onEvent (SSE). */
-  async sendPrompt(sessionId: string, text: string): Promise<void> {
+  /** Send a prompt into a session; output streams back via onEvent (SSE).
+   *
+   * `model` pins this turn to the Human's current model selection. OpenCode
+   * keeps a session's creation-time model, so omitting this field after a
+   * provider switch can silently run an old task on the wrong model. */
+  async sendPrompt(
+    sessionId: string,
+    text: string,
+    agent?: string,
+    model?: string | null,
+  ): Promise<void> {
+    const selectedModel = parseModel(model);
     const res = await this.fetchWithTimeout(
       `${this.baseUrl}/session/${encodeURIComponent(sessionId)}/prompt_async`,
       {
         method: "POST",
         headers: this.headers(true),
-        body: JSON.stringify({ parts: [{ type: "text", text }] }),
+        body: JSON.stringify({
+          parts: [{ type: "text", text }],
+          ...(agent ? { agent } : {}),
+          ...(selectedModel ? { model: selectedModel } : {}),
+        }),
       },
     );
     if (!res.ok) throw await this.apiError(res, "Failed to send prompt");
@@ -796,8 +851,17 @@ export class OpenCodeClient {
     switch (raw.type) {
       case "message.updated": {
         // Learn each message's role so we can skip the echoed user message parts.
-        const info = props.info as { id?: string; role?: string } | undefined;
+        const info = props.info as
+          | { id?: string; role?: string; sessionID?: string }
+          | undefined;
         if (info?.id && info.role) this.roles.set(info.id, info.role);
+        if (info?.role === "user" && info.id && info.sessionID) {
+          this.emit({
+            type: "message.user",
+            sessionId: String(info.sessionID),
+            messageID: info.id,
+          });
+        }
         break;
       }
       case "message.part.updated": {
@@ -812,6 +876,24 @@ export class OpenCodeClient {
           const t = part as { id: string; text: string };
           this.textStreams.set(t.id, { sessionId, text: t.text ?? "" });
           this.emit({ type: "text.updated", sessionId, partId: t.id, text: t.text ?? "" });
+        } else if (part.type === "reasoning") {
+          const r = part as { id: string; text?: string };
+          this.reasoningStreams.set(r.id, { sessionId, text: r.text ?? "" });
+          this.emit({
+            type: "reasoning.updated",
+            sessionId,
+            partId: r.id,
+            text: r.text ?? "",
+          });
+        } else if (part.type === "step-start") {
+          const step = part as { id?: string };
+          if (!step.id || !sessionId) return;
+          let seen = this.stepParts.get(sessionId);
+          if (!seen) this.stepParts.set(sessionId, (seen = new Set()));
+          if (!seen.has(step.id)) {
+            seen.add(step.id);
+            this.emit({ type: "step.updated", sessionId, step: seen.size });
+          }
         } else if (part.type === "tool") {
           const tp = part as {
             callID: string;
@@ -849,26 +931,37 @@ export class OpenCodeClient {
         break;
       }
       case "message.part.delta": {
-        // One streamed token. Only text parts are accumulated (reasoning parts
-        // never get seeded by message.part.updated, so their deltas fall out).
+        // One streamed token. Text and reasoning use the same wire field; route
+        // it to the stream seeded by message.part.updated above.
         const d = props as { partID?: string; field?: string; delta?: string };
         if (d.field !== "text" || !d.partID || typeof d.delta !== "string") return;
-        const acc = this.textStreams.get(String(d.partID));
-        if (!acc) return;
-        acc.text += d.delta;
-        this.emit({
-          type: "text.updated",
-          sessionId: acc.sessionId,
-          partId: String(d.partID),
-          text: acc.text,
-        });
+        const partId = String(d.partID);
+        const acc = this.textStreams.get(partId);
+        if (acc) {
+          acc.text += d.delta;
+          this.emit({ type: "text.updated", sessionId: acc.sessionId, partId, text: acc.text });
+          return;
+        }
+        const reasoning = this.reasoningStreams.get(partId);
+        if (reasoning) {
+          reasoning.text += d.delta;
+          this.emit({
+            type: "reasoning.updated",
+            sessionId: reasoning.sessionId,
+            partId,
+            text: reasoning.text,
+          });
+        }
         break;
       }
       case "session.idle": {
         const sessionId = String(props.sessionID ?? "");
-        // The turn is over — its text parts can no longer receive deltas.
+        // The turn is over — its streams and step counter cannot receive more updates.
         for (const [partId, acc] of this.textStreams)
           if (acc.sessionId === sessionId) this.textStreams.delete(partId);
+        for (const [partId, acc] of this.reasoningStreams)
+          if (acc.sessionId === sessionId) this.reasoningStreams.delete(partId);
+        this.stepParts.delete(sessionId);
         this.emit({ type: "session.idle", sessionId });
         break;
       }
@@ -879,6 +972,9 @@ export class OpenCodeClient {
         if (status.type === "idle") {
           for (const [partId, acc] of this.textStreams)
             if (acc.sessionId === sessionId) this.textStreams.delete(partId);
+          for (const [partId, acc] of this.reasoningStreams)
+            if (acc.sessionId === sessionId) this.reasoningStreams.delete(partId);
+          this.stepParts.delete(sessionId);
           this.emit({ type: "session.idle", sessionId });
         } else {
           this.emit({

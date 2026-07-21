@@ -77,6 +77,21 @@
       "addFiles": "无法添加文件：{{message}}"
     }
   },
+  "message": {
+    "copy": "复制",
+    "copied": "已复制",
+    "edit": "修改并从这里继续",
+    "revert": "回到这里",
+    "editField": "修改消息",
+    "cancel": "取消",
+    "resend": "保存并继续",
+    "revertFailed": "无法回到该节点：{{message}}",
+    "confirm": {
+      "title": "回到这条消息之前？",
+      "body": "后续对话以及这些回合对任务文件的修改将被移除。回到这里后，可以修改这条消息再继续。",
+      "action": "回到这里"
+    }
+  },
   "localCommand": {
     "newDescription": "在当前文件夹内清空聊天上下文",
     "clearDescription": "等同于 /new；文件仍保留在当前文件夹",
@@ -166,7 +181,8 @@
       "loadedSkill": "已启用研究能力：{{skill}}",
       "completed": "已完成",
       "rateLimited": "当前模型请求过于频繁。请稍后重试，或更换模型。",
-      "stoppedBeforeReply": "模型请求已停止，未返回答复。请重试或更换模型。"
+      "stoppedBeforeReply": "模型请求已停止，未返回答复。请重试或更换模型。",
+      "step": "第 {{count}} 步"
     },
     "placeholder": {
       "disconnected": "连接以开始聊天",
@@ -261,6 +277,10 @@
     "reject": "拒绝",
     "alwaysAllow": "始终允许",
     "allowOnce": "仅允许一次"
+  },
+  "reasoning": {
+    "thinking": "正在分析…",
+    "thought": "分析记录"
   },
   "stepSummary": {
     "steps": "{{count}} 个步骤"

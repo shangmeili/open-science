@@ -77,6 +77,21 @@
       "addFiles": "Could not add files: {{message}}"
     }
   },
+  "message": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "edit": "Edit and continue from here",
+    "revert": "Return to this point",
+    "editField": "Edit message",
+    "cancel": "Cancel",
+    "resend": "Save and continue",
+    "revertFailed": "Could not return to that point: {{message}}",
+    "confirm": {
+      "title": "Return to this point?",
+      "body": "Later messages and their changes to the task files will be removed. You can revise this message before continuing.",
+      "action": "Return here"
+    }
+  },
   "localCommand": {
     "newDescription": "Clear chat context in this folder",
     "clearDescription": "Same as /new; files stay in this folder",
@@ -166,7 +181,8 @@
       "loadedSkill": "Loaded research capability: {{skill}}",
       "completed": "Done",
       "rateLimited": "The current model is receiving too many requests. Try again later or choose another model.",
-      "stoppedBeforeReply": "The model request stopped before returning a response. Try again or choose another model."
+      "stoppedBeforeReply": "The model request stopped before returning a response. Try again or choose another model.",
+      "step": "step {{count}}"
     },
     "placeholder": {
       "disconnected": "Connect to chat",
@@ -269,6 +285,10 @@
     "reject": "Reject",
     "alwaysAllow": "Always allow",
     "allowOnce": "Allow once"
+  },
+  "reasoning": {
+    "thinking": "Analyzing…",
+    "thought": "Analysis notes"
   },
   "stepSummary": {
     "steps": "{{count}} steps"

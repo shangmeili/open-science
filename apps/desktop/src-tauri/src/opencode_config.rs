@@ -17,17 +17,51 @@ pub const MODE_FULL: &str = "full";
 /// that merely end in the token).
 const DANGEROUS_BASH: &[&str] = &[
     // deletion
-    "rm", "rmdir", "shred", "git clean",
+    "rm",
+    "rmdir",
+    "shred",
+    "git clean",
     // privilege / system state
-    "sudo", "su", "chmod", "chown", "kill", "pkill", "killall", "launchctl",
-    "systemctl", "crontab", "osascript", "diskutil", "dd",
+    "sudo",
+    "su",
+    "chmod",
+    "chown",
+    "kill",
+    "pkill",
+    "killall",
+    "launchctl",
+    "systemctl",
+    "crontab",
+    "osascript",
+    "diskutil",
+    "dd",
     // dependency installs
-    "pip install", "pip3 install", "uv add", "uv pip install", "npm install",
-    "npm i", "pnpm add", "pnpm install", "yarn add", "conda install",
-    "mamba install", "brew install", "cargo install", "gem install",
-    "apt install", "apt-get install",
+    "pip install",
+    "pip3 install",
+    "uv add",
+    "uv pip install",
+    "npm install",
+    "npm i",
+    "pnpm add",
+    "pnpm install",
+    "yarn add",
+    "conda install",
+    "mamba install",
+    "brew install",
+    "cargo install",
+    "gem install",
+    "apt install",
+    "apt-get install",
     // remote / outward
-    "ssh", "scp", "sftp", "rsync", "curl", "wget", "nc", "git push", "modal",
+    "ssh",
+    "scp",
+    "sftp",
+    "rsync",
+    "curl",
+    "wget",
+    "nc",
+    "git push",
+    "modal",
     "sbatch",
 ];
 
@@ -121,7 +155,8 @@ mod tests {
 
     #[test]
     fn set_permission_mode_preserves_unrelated_keys() {
-        let existing = r#"{"model":"anthropic/claude","provider":{"openai":{"options":{"apiKey":"k"}}}}"#;
+        let existing =
+            r#"{"model":"anthropic/claude","provider":{"openai":{"options":{"apiKey":"k"}}}}"#;
         let out = set_permission_mode(existing, MODE_APPROVE).unwrap();
         let v: Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["model"], "anthropic/claude");

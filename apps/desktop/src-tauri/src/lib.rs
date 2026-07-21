@@ -43,8 +43,8 @@ mod heor_treatment_effect_duration;
 mod heor_uncertainty;
 mod heor_utility_inputs;
 mod heor_validation;
-mod jupyter;
 mod journal_submission;
+mod jupyter;
 mod kernel;
 mod large_file;
 mod modal;
@@ -122,6 +122,7 @@ pub fn run() {
             runtime::mark_session,
             runtime::new_dated_workspace,
             project::create_project,
+            project::import_project,
             project::list_projects,
             project::current_research_scope,
             project::rename_project,
@@ -230,6 +231,7 @@ pub fn run() {
             heor_uncertainty::run_heor_uncertainty,
             heor_validation::audit_heor_model_validation,
             heor_engine::run_heor_markov,
+            heor_engine::inspect_heor_markov_result,
             runs::record_run,
             runs::list_runs,
             runs::read_run_log,

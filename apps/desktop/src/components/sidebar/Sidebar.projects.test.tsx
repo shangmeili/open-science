@@ -20,6 +20,7 @@ const defaults = {
   workspacePinned: useRuntimeStore.getState().workspacePinned,
   researchScope: useRuntimeStore.getState().researchScope,
   createProject: useRuntimeStore.getState().createProject,
+  importProject: useRuntimeStore.getState().importProject,
   startDraft: useRuntimeStore.getState().startDraft,
 };
 
@@ -72,6 +73,7 @@ describe("Sidebar projects", () => {
     renderAt("/files");
     // Header [+] plus the ghost row — both open the inline name input.
     expect((await screen.findAllByRole("button", { name: "New project" })).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Import existing project" })).toBeInTheDocument();
     expect(screen.queryByText("Cross-species atlas figure")).not.toBeInTheDocument();
     expect(screen.queryByText("SCVI Hyperparameter Screen")).not.toBeInTheDocument();
     expect(screen.getByText("Tasks")).toBeInTheDocument();

@@ -20,7 +20,15 @@ export interface ArtifactFile {
 export async function readArtifact(path: string, root?: FileRoot): Promise<ArtifactFile | null> {
   if (!isTauri) return null;
   const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<ArtifactFile>("read_artifact", { path, root });
+  try {
+    return await invoke<ArtifactFile>("read_artifact", { path, root });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // A watched artifact often does not exist yet while the assistant is still
+    // preparing it. Absence is an ordinary empty state, not a corrupt file.
+    if (/\bfile not found\b/i.test(message)) return null;
+    throw error;
+  }
 }
 
 /** Local-server URL a workspace file is previewable at (desktop only). The tiny

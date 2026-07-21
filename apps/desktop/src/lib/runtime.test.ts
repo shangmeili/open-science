@@ -146,6 +146,18 @@ describe("foldEvent", () => {
     expect(s.blocks[0]).toEqual({ kind: "agent", markdown: "Planning the review" });
   });
 
+  it("keeps streamed analysis activity separate from the final answer", () => {
+    const s = foldAll([
+      { type: "reasoning.updated", sessionId: S, partId: "r1", text: "Checking" },
+      { type: "reasoning.updated", sessionId: S, partId: "r1", text: "Checking the evidence" },
+      { type: "text.updated", sessionId: S, partId: "p1", text: "The evidence review is complete." },
+    ]);
+    expect(s.blocks).toEqual([
+      { kind: "reasoning", text: "Checking the evidence" },
+      { kind: "agent", markdown: "The evidence review is complete." },
+    ]);
+  });
+
   it("upserts a tool call by callId and reflects status transitions", () => {
     const s = foldAll([
       { type: "tool.updated", sessionId: S, callId: "c1", tool: "search", status: "running", title: "search" },
@@ -311,9 +323,22 @@ describe("subagent activity", () => {
 });
 
 describe("historyToThread", () => {
+  it("restores analysis activity before the final answer", () => {
+    const t = historyToThread([
+      { role: "user", parts: [{ type: "text", text: "review this" }] },
+      {
+        role: "assistant",
+        parts: [
+          { type: "reasoning", text: "Checking the source." },
+          { type: "text", text: "Review complete." },
+        ],
+      },
+    ]);
+    expect(t.blocks.map((b) => b.kind)).toEqual(["user", "reasoning", "agent"]);
+  });
   it("converts user/assistant messages (text + tool parts) into blocks", () => {
     const msgs: HistoryMessage[] = [
-      { role: "user", parts: [{ type: "text", text: "hi" }] },
+      { id: "msg-hi", role: "user", parts: [{ type: "text", text: "hi" }] },
       {
         role: "assistant",
         parts: [
@@ -324,6 +349,7 @@ describe("historyToThread", () => {
     ];
     const t = historyToThread(msgs);
     expect(t.blocks.map((b) => b.kind)).toEqual(["user", "agent", "tool-call"]);
+    expect(t.blocks[0]).toMatchObject({ kind: "user", messageID: "msg-hi" });
     expect(t.blocks[2]).toMatchObject({ kind: "tool-call", status: "success" });
   });
 
@@ -427,7 +453,7 @@ describe("historyToThread", () => {
             type: "text",
             text: [
               "Use $heor-workbench for this request.",
-              "Work through natural-language dialogue first. Maintain heor/analysis-plan.json only when the decision problem and inputs are sufficiently defined; never create or claim human approvals.",
+              "Preserve the Open Science baseline: continue the requested research, search, coding, and local execution unless a real scientific or safety decision is missing. Treat HEOR artifacts as progressive HEOR outputs, not prerequisites for starting useful work. Work through natural-language dialogue first; never create or claim human approvals.",
               "",
               "$heor-model-calibration",
               "",

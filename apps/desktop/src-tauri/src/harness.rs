@@ -196,13 +196,21 @@ fn validate_policy(raw: &[u8]) -> Result<(), String> {
             "may_modify_governance",
             "may_modify_calculation_engines",
         ],
-    ) || evolution.get("request_interface").and_then(serde_json::Value::as_str)
+    ) || evolution
+        .get("request_interface")
+        .and_then(serde_json::Value::as_str)
         != Some("natural_language")
-        || evolution.get("candidate_store").and_then(serde_json::Value::as_str)
+        || evolution
+            .get("candidate_store")
+            .and_then(serde_json::Value::as_str)
             != Some("capabilities/candidates")
-        || evolution.get("candidate_status").and_then(serde_json::Value::as_str)
+        || evolution
+            .get("candidate_status")
+            .and_then(serde_json::Value::as_str)
             != Some("inactive")
-        || evolution.get("activation_authority").and_then(serde_json::Value::as_str)
+        || evolution
+            .get("activation_authority")
+            .and_then(serde_json::Value::as_str)
             != Some("human_via_app_owned_review")
         || [
             "may_self_activate",
@@ -231,9 +239,13 @@ fn validate_policy(raw: &[u8]) -> Result<(), String> {
             "store_secrets",
             "store_sensitive_content",
         ],
-    ) || learning.get("proposal_store").and_then(serde_json::Value::as_str)
+    ) || learning
+        .get("proposal_store")
+        .and_then(serde_json::Value::as_str)
         != Some("learning/proposals")
-        || learning.get("accepted_store").and_then(serde_json::Value::as_str)
+        || learning
+            .get("accepted_store")
+            .and_then(serde_json::Value::as_str)
             != Some("learning/preferences.json")
         || learning
             .get("minimum_independent_observations")
@@ -243,12 +255,21 @@ fn validate_policy(raw: &[u8]) -> Result<(), String> {
             .get("single_observation_may_become_policy")
             .and_then(serde_json::Value::as_bool)
             != Some(false)
-        || learning.get("activation_authority").and_then(serde_json::Value::as_str)
+        || learning
+            .get("activation_authority")
+            .and_then(serde_json::Value::as_str)
             != Some("human_only")
-        || learning.get("user_can_view_edit_delete").and_then(serde_json::Value::as_bool)
+        || learning
+            .get("user_can_view_edit_delete")
+            .and_then(serde_json::Value::as_bool)
             != Some(true)
-        || learning.get("store_secrets").and_then(serde_json::Value::as_bool) != Some(false)
-        || learning.get("store_sensitive_content").and_then(serde_json::Value::as_bool)
+        || learning
+            .get("store_secrets")
+            .and_then(serde_json::Value::as_bool)
+            != Some(false)
+        || learning
+            .get("store_sensitive_content")
+            .and_then(serde_json::Value::as_bool)
             != Some(false)
     {
         return Err("harness preference-learning contract does not match v2".into());
@@ -262,7 +283,9 @@ fn validate_preferences(raw: &[u8]) -> Result<(), String> {
     if !exact_object_keys(&value, &["schema", "updated_at", "preferences"])
         || value.get("schema").and_then(serde_json::Value::as_str)
             != Some("ai4heor-local-preferences/v1")
-        || !value.get("updated_at").is_some_and(serde_json::Value::is_null)
+        || !value
+            .get("updated_at")
+            .is_some_and(serde_json::Value::is_null)
         || !value
             .get("preferences")
             .and_then(serde_json::Value::as_array)

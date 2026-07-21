@@ -86,6 +86,48 @@ class CredentialPreflightTests(unittest.TestCase):
 
 
 class DistributionVerifierTests(unittest.TestCase):
+    def test_foreign_architecture_sidecars_are_hash_checked_without_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            app_bin = root / "AI4HEOR.app/Contents/MacOS"
+            source_bin = root / "apps/desktop/src-tauri/binaries"
+            app_bin.mkdir(parents=True)
+            source_bin.mkdir(parents=True)
+            for name, payload in (
+                ("ai4s-workbench", b"main-arm64"),
+                ("opencode", b"opencode-arm64"),
+                ("uv", b"uv-arm64"),
+            ):
+                path = app_bin / name
+                path.write_bytes(payload)
+                path.chmod(0o755)
+            for name in ("opencode", "uv"):
+                source = source_bin / f"{name}-aarch64-apple-darwin"
+                source.write_bytes((app_bin / name).read_bytes())
+                source.chmod(0o755)
+
+            def lipo_only(command: list[str], **_: object):
+                self.assertEqual(command[:2], ["lipo", "-archs"])
+                return subprocess.CompletedProcess(
+                    command, 0, stdout="arm64\n", stderr=""
+                )
+
+            with patch.object(verifier, "run", side_effect=lipo_only), patch.object(
+                verifier.platform, "machine", return_value="x86_64"
+            ):
+                versions = verifier.verify_binaries(
+                    root / "AI4HEOR.app",
+                    "arm64",
+                    "aarch64-apple-darwin",
+                    root,
+                )
+            self.assertEqual(versions["opencode"], "1.17.13")
+            self.assertEqual(versions["uv"], "0.11.26")
+            self.assertEqual(
+                versions["verification"],
+                "static_sha256_against_reviewed_target_sidecars",
+            )
+
     def test_existing_single_instance_socket_is_restored_around_verification(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "com_ai4s_workbench_si.sock"
@@ -276,7 +318,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("--verify-first-launch", workflow)
         self.assertIn("--check first-launch-process", workflow)
         self.assertIn("--check workspace-created", workflow)
-        self.assertIn("--check workspace-migrated", workflow)
+        self.assertIn("--check workspace-isolated", workflow)
         self.assertIn("APPLE_SIGNING_IDENTITY", workflow)
         self.assertIn("developer-id-signature", workflow)
         self.assertIn("notarization-ticket", workflow)
@@ -313,6 +355,9 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn("*.msi", workflow)
         self.assertNotIn("MsiPath", verifier)
         self.assertIn("--check nsis-installed-payload", verifier)
+        self.assertIn("--check workspace-isolated", verifier)
+        self.assertIn("open_science_workspace_preserved", verifier)
+        self.assertIn("Packaged AI4HEOR processes were not cleaned up", verifier)
         self.assertIn("GetValue('DisplayName')", verifier)
         self.assertIn("missing=[$($missing -join ', ')]", verifier)
         self.assertIn("extra=[$($extra -join ', ')]", verifier)

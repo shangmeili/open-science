@@ -30,7 +30,7 @@ MACOS_DISTRIBUTION_CHECKS = {
     "notarization-ticket",
 }
 FIRST_LAUNCH_CHECKS = {"first-launch-process", "workspace-created"}
-MACOS_WORKSPACE_MIGRATION_CHECK = "workspace-migrated"
+MACOS_WORKSPACE_ISOLATION_CHECK = "workspace-isolated"
 
 
 def sha256(path: Path) -> str:
@@ -252,27 +252,27 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
             or not first_launch.get("workspace")
         ):
             raise AssertionError("first-launch process/workspace proof is incomplete")
-    if MACOS_WORKSPACE_MIGRATION_CHECK in value["checks"]:
-        if value["platform"] != "macos":
-            raise AssertionError("workspace migration evidence is currently macOS-only")
-        migration = value["verification"].get("first_launch", {}).get(
-            "workspace_migration"
+    if MACOS_WORKSPACE_ISOLATION_CHECK in value["checks"]:
+        if value["platform"] not in {"macos", "windows"}:
+            raise AssertionError("workspace isolation evidence is supported on macOS and Windows")
+        isolation = value["verification"].get("first_launch", {}).get(
+            "workspace_isolation"
         )
+        isolated_workspace = str(isolation.get("workspace", "")).replace("\\", "/") if isinstance(isolation, dict) else ""
+        open_science_workspace = str(isolation.get("open_science_workspace", "")).replace("\\", "/") if isinstance(isolation, dict) else ""
         if (
-            not isinstance(migration, dict)
-            or not isinstance(migration.get("app_process_id"), int)
-            or migration["app_process_id"] < 1
-            or not isinstance(migration.get("opencode_process_id"), int)
-            or migration["opencode_process_id"] < 1
-            or not str(migration.get("workspace", "")).endswith("/Documents/AI4HEOR")
-            or not str(migration.get("legacy_workspace", "")).endswith(
-                "/Documents/OpenScience"
-            )
-            or migration.get("legacy_workspace_removed") is not True
-            or not migration.get("marker_preserved")
-            or migration.get("cleanup_verified") is not True
+            not isinstance(isolation, dict)
+            or not isinstance(isolation.get("app_process_id"), int)
+            or isolation["app_process_id"] < 1
+            or not isinstance(isolation.get("opencode_process_id"), int)
+            or isolation["opencode_process_id"] < 1
+            or not isolated_workspace.endswith("/Documents/AI4HEOR")
+            or not open_science_workspace.endswith("/Documents/OpenScience")
+            or isolation.get("open_science_workspace_preserved") is not True
+            or not isolation.get("marker_preserved")
+            or isolation.get("cleanup_verified") is not True
         ):
-            raise AssertionError("workspace migration proof is incomplete")
+            raise AssertionError("workspace isolation proof is incomplete")
     if (
         value["platform"] == "macos"
         and value.get("runner", {}).get("GITHUB_REF_TYPE") == "tag"

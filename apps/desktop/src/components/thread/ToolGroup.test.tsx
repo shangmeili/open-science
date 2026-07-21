@@ -38,6 +38,18 @@ describe("groupToolBlocks", () => {
     expect(items[0]).toMatchObject({ kind: "group", start: 0 });
   });
 
+  it("keeps analysis activity and adjacent tools in one progress group", () => {
+    const items = groupToolBlocks([
+      { kind: "reasoning", text: "Checking sources" },
+      tool({ title: "search evidence" }),
+      { kind: "reasoning", text: "Comparing outcomes" },
+      tool({ title: "run model" }),
+    ]);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ kind: "group", start: 0 });
+    expect((items[0] as { blocks: ThreadBlock[] }).blocks).toHaveLength(4);
+  });
+
   it("only a step waiting for the user breaks out of the group", () => {
     const items = groupToolBlocks([
       tool({ title: "a" }),

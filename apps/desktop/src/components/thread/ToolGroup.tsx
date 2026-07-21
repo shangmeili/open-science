@@ -6,6 +6,7 @@ import i18n from "@/i18n";
 import { cn } from "@/lib/cn";
 import { DiffView } from "@/components/code-viewer/DiffView";
 import { STATUS } from "./ToolCallRow";
+import { ReasoningRow } from "./ReasoningRow";
 
 // Codex-style tool activity: consecutive quiet tool steps fold into one
 // summary line ("Ran 3 commands, created a file"); expanding shows the list;
@@ -14,7 +15,7 @@ import { STATUS } from "./ToolCallRow";
 // shows a live output tail — a long training run never looks hung.
 
 export type BlockListItem =
-  | { kind: "group"; start: number; blocks: ToolCallBlock[] }
+  | { kind: "group"; start: number; blocks: ThreadBlock[] }
   | { kind: "block"; index: number; block: ThreadBlock };
 
 /** Fold runs of tool-call blocks into groups. Failures stay IN the group —
@@ -24,13 +25,21 @@ export type BlockListItem =
  *  breaks the run and renders on its own. Pure — exported for tests. */
 export function groupToolBlocks(blocks: ThreadBlock[]): BlockListItem[] {
   const items: BlockListItem[] = [];
-  let group: { start: number; blocks: ToolCallBlock[] } | null = null;
+  let group: { start: number; blocks: ThreadBlock[] } | null = null;
   const flush = () => {
-    if (group) items.push({ kind: "group", start: group.start, blocks: group.blocks });
+    const pending = group;
     group = null;
+    if (!pending) return;
+    if (pending.blocks.some((b) => b.kind === "tool-call")) {
+      items.push({ kind: "group", start: pending.start, blocks: pending.blocks });
+    } else {
+      pending.blocks.forEach((block, offset) =>
+        items.push({ kind: "block", index: pending.start + offset, block }),
+      );
+    }
   };
   blocks.forEach((b, i) => {
-    if (b.kind === "tool-call" && b.status !== "waiting-approval") {
+    if ((b.kind === "tool-call" && b.status !== "waiting-approval") || b.kind === "reasoning") {
       group ??= { start: i, blocks: [] };
       group.blocks.push(b);
     } else {
@@ -43,9 +52,10 @@ export function groupToolBlocks(blocks: ThreadBlock[]): BlockListItem[] {
 }
 
 /** "Ran 3 commands, created a file" — one phrase per verb, in first-seen order. */
-export function summarizeGroup(blocks: ToolCallBlock[]): string {
+export function summarizeGroup(blocks: ThreadBlock[]): string {
   const counts = new Map<string, number>();
   for (const b of blocks) {
+    if (b.kind !== "tool-call") continue;
     const verb = b.verb ?? "";
     counts.set(verb, (counts.get(verb) ?? 0) + 1);
   }
@@ -270,9 +280,13 @@ function ToolRow({ block, activity }: { block: ToolCallBlock; activity?: string 
 
 export function ToolGroup({
   blocks,
+  start = 0,
+  liveReasoningIndex,
   activityFor,
 }: {
-  blocks: ToolCallBlock[];
+  blocks: ThreadBlock[];
+  start?: number;
+  liveReasoningIndex?: number;
   activityFor?: (childSessionId: string) => string | undefined;
 }) {
   const { t } = useTranslation(["session", "common"]);
@@ -280,8 +294,13 @@ export function ToolGroup({
   // once everything settles it folds to the summary. The fold waits a grace
   // period — within a turn the next command follows in seconds, and an
   // open→shut→open flap between steps would be pure jank. A click overrides.
-  const active = blocks.some((b) => b.status === "running" || b.status === "pending");
-  const failed = blocks.filter((b) => b.status === "failed" || b.status === "warning").length;
+  const tools = blocks.filter((b): b is ToolCallBlock => b.kind === "tool-call");
+  const streamingHere =
+    liveReasoningIndex != null &&
+    liveReasoningIndex >= start &&
+    liveReasoningIndex < start + blocks.length;
+  const active = streamingHere || tools.some((b) => b.status === "running" || b.status === "pending");
+  const failed = tools.filter((b) => b.status === "failed" || b.status === "warning").length;
   const [autoOpen, setAutoOpen] = useState(active);
   useEffect(() => {
     if (active) {
@@ -293,14 +312,18 @@ export function ToolGroup({
   }, [active]);
   const [userOpen, setUserOpen] = useState<boolean | null>(null);
   const open = userOpen ?? autoOpen;
-  const rows = blocks.map((b, i) => (
-    <ToolRow
-      key={i}
-      block={b}
-      activity={b.childSessionId ? activityFor?.(b.childSessionId) : undefined}
-    />
-  ));
-  if (blocks.length === 1) return <div>{rows}</div>;
+  const rows = blocks.map((b, i) =>
+    b.kind === "reasoning" ? (
+      <ReasoningRow key={i} block={b} streaming={start + i === liveReasoningIndex} inline />
+    ) : b.kind === "tool-call" ? (
+      <ToolRow
+        key={i}
+        block={b}
+        activity={b.childSessionId ? activityFor?.(b.childSessionId) : undefined}
+      />
+    ) : null,
+  );
+  if (blocks.length === 1 && blocks[0].kind === "tool-call") return <div>{rows}</div>;
   return (
     <div>
       <button

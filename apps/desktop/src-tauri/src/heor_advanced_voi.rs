@@ -1163,9 +1163,26 @@ fn capped_stderr(bytes: &[u8]) -> String {
 #[tauri::command(async)]
 pub fn run_heor_advanced_voi(
     app: AppHandle,
+    run_state: tauri::State<crate::runs::RunState>,
+    provenance_state: tauri::State<crate::provenance::ProvenanceState>,
     project_id: String,
 ) -> Result<AdvancedVoiRunResult, String> {
-    let workspace = crate::runtime::workspace_dir(&app)?;
+    crate::runs::execute_recorded(
+        &app,
+        run_state.inner(),
+        provenance_state.inner(),
+        "python -m heor_core heor/analysis-plan.json --uncertainty-plan heor/uncertainty-plan.json --advanced-voi-plan heor/advanced-voi-plan.json --uncertainty-result heor/results/uncertainty.json",
+        || {
+            run_heor_advanced_voi_inner(&app, project_id).map(|result| (result, None))
+        },
+    )
+}
+
+fn run_heor_advanced_voi_inner(
+    app: &AppHandle,
+    project_id: String,
+) -> Result<AdvancedVoiRunResult, String> {
+    let workspace = crate::runtime::workspace_dir(app)?;
     if crate::project::require_project_id(&workspace)? != project_id {
         return Err("HEOR projectId does not match the current project".into());
     }
@@ -1195,7 +1212,7 @@ pub fn run_heor_advanced_voi(
     if !package_src.join("heor_core/advanced_voi.py").is_file() {
         return Err("bundled advanced VOI engine is missing".into());
     }
-    let (python, _) = crate::kernel::python_bin(&app)?;
+    let (python, _) = crate::kernel::python_bin(app)?;
     let mut command = crate::runtime::quiet_command(python);
     command
         .args(["-m", "heor_core"])

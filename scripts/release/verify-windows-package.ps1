@@ -111,6 +111,9 @@ Assert-True ((Split-Path $NsisPath -Leaf) -match '^AI4HEOR_.+_x64-setup\.exe$') 
 $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) ("ai4heor-windows-verification-" + [guid]::NewGuid())
 $verificationPath = Join-Path $temporaryRoot 'windows-verification.json'
 $workspace = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'AI4HEOR'
+$openScienceWorkspace = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'OpenScience'
+$openScienceExisted = Test-Path -LiteralPath $openScienceWorkspace -PathType Container
+$openScienceMarker = Join-Path $openScienceWorkspace ("ai4heor-isolation-" + [guid]::NewGuid() + ".txt")
 $createdWorkspace = $false
 $installRoot = $null
 $startedProcess = $null
@@ -119,6 +122,8 @@ New-Item -ItemType Directory -Path $temporaryRoot -Force | Out-Null
 
 try {
     Assert-True (-not (Test-Path -LiteralPath $workspace)) "First-launch workspace already exists: $workspace"
+    New-Item -ItemType Directory -Path $openScienceWorkspace -Force | Out-Null
+    Set-Content -LiteralPath $openScienceMarker -Value 'preserve-open-science' -Encoding utf8
 
     $install = Start-Process -FilePath $NsisPath -ArgumentList '/S' -Wait -PassThru
     Assert-True ($install.ExitCode -eq 0) "NSIS silent install failed with exit code $($install.ExitCode)."
@@ -187,7 +192,8 @@ try {
         $appProcesses = @($processes | Where-Object { $_.ExecutablePath -ieq $mainExe })
         $opencodeProcesses = @($processes | Where-Object Name -eq 'opencode.exe')
         $createdWorkspace = Test-Path -LiteralPath $workspace -PathType Container
-        $ready = $appProcesses.Count -eq 1 -and $opencodeProcesses.Count -eq 1 -and $createdWorkspace
+        $openSciencePreserved = (Test-Path -LiteralPath $openScienceMarker -PathType Leaf) -and ((Get-Content -LiteralPath $openScienceMarker -Raw).Trim() -eq 'preserve-open-science')
+        $ready = $appProcesses.Count -eq 1 -and $opencodeProcesses.Count -eq 1 -and $createdWorkspace -and $openSciencePreserved
     } while (-not $ready -and [DateTime]::UtcNow -lt $deadline)
     Assert-True $ready "First launch did not reach one app process, one bundled OpenCode process, and a new workspace within 60 seconds."
     $verification.first_launch = [ordered]@{
@@ -196,7 +202,28 @@ try {
         opencode_process_id = $opencodeProcesses[0].ProcessId
         opencode_executable = $opencodeProcesses[0].ExecutablePath
         workspace = $workspace
+        workspace_isolation = [ordered]@{
+            app_process_id = $appProcesses[0].ProcessId
+            opencode_process_id = $opencodeProcesses[0].ProcessId
+            workspace = $workspace
+            open_science_workspace = $openScienceWorkspace
+            open_science_workspace_preserved = $true
+            marker_preserved = (Split-Path -Leaf $openScienceMarker)
+            cleanup_verified = $false
+        }
     }
+
+    foreach ($process in @($appProcesses + $opencodeProcesses)) {
+        Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+    $cleanupDeadline = [DateTime]::UtcNow.AddSeconds(15)
+    do {
+        Start-Sleep -Milliseconds 250
+        $remaining = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -and ($_.ExecutablePath -ieq $mainExe -or $_.ExecutablePath -ieq $opencodeExe) })
+    } while ($remaining.Count -gt 0 -and [DateTime]::UtcNow -lt $cleanupDeadline)
+    Assert-True ($remaining.Count -eq 0) "Packaged AI4HEOR processes were not cleaned up after first-launch verification."
+    $startedProcess = $null
+    $verification.first_launch.workspace_isolation.cleanup_verified = $true
 
     $verification | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $verificationPath -Encoding utf8
     & python (Join-Path $SourceRoot 'scripts/release/release_evidence.py') record `
@@ -210,6 +237,7 @@ try {
         --check nsis-silent-install `
         --check first-launch-process `
         --check workspace-created `
+        --check workspace-isolated `
         --verification-json $verificationPath `
         --source-root $SourceRoot `
         --output $EvidenceOut
@@ -223,5 +251,7 @@ try {
         if ($uninstaller) { Start-Process -FilePath $uninstaller.FullName -ArgumentList '/S' -Wait | Out-Null }
     }
     if ($createdWorkspace -and (Test-Path -LiteralPath $workspace)) { Remove-Item -LiteralPath $workspace -Recurse -Force }
+    if (Test-Path -LiteralPath $openScienceMarker) { Remove-Item -LiteralPath $openScienceMarker -Force }
+    if (-not $openScienceExisted -and (Test-Path -LiteralPath $openScienceWorkspace) -and (Get-ChildItem -LiteralPath $openScienceWorkspace -Force | Measure-Object).Count -eq 0) { Remove-Item -LiteralPath $openScienceWorkspace -Force }
     if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force }
 }

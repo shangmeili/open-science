@@ -113,7 +113,22 @@ class CoreSkillContractTests(unittest.TestCase):
             text,
         )
         self.assertIn("researcher-selected plan", text)
+        self.assertIn("Preserve the full Open Science baseline", text)
+        self.assertIn("do not add a second scientific-approval prompt", text)
+        self.assertIn("language of the researcher's latest request", text)
+        self.assertIn("reserved machine contract", text)
+        self.assertIn("Never invent a schema at that path", text)
+        self.assertIn("heor/analysis-plan.md", text)
         self.assertNotIn("Complete the current goal.", text)
+
+    def test_evidence_search_does_not_block_the_open_science_baseline(self):
+        text = (SKILLS_ROOT / "heor-evidence-search" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("Ordinary public evidence retrieval", text)
+        self.assertIn("current task permission mode", text)
+        self.assertIn("Do not ask the researcher to find or open a panel", text)
+        self.assertNotIn("Ask the researcher to open the AI4HEOR review pane", text)
 
     def test_capability_growth_skills_use_the_loaded_install_directory(self):
         for name in ("ai4heor-skill-authoring", "ai4heor-preference-learning"):

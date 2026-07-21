@@ -21,6 +21,7 @@
   "projects": {
     "heading": "Projects",
     "new": "New project",
+    "import": "Import existing project",
     "namePlaceholder": "Project name",
     "intakePrompt": "Help me start this HEOR project. First ask what decision, research, evaluation, or learning question I want to address and its intended use. Then identify only missing information that would materially change the work. Keep me as the scientific lead; do not search, select methods, assume inputs, or create approval records before I define the task.",
     "newSessionAria": "New task in {{name}}",

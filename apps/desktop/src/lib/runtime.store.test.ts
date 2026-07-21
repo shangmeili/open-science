@@ -32,6 +32,19 @@ const mocks = vi.hoisted(() => ({
     mocks.projects.push(project);
     return project;
   }),
+  importProject: vi.fn(async (path: string) => {
+    const project = {
+      id: "imported-project",
+      name: "Imported Study",
+      createdAt: 4,
+      kind: "heor" as const,
+      path: "/ws/Imported-Study",
+      imported: true,
+      importedFrom: path,
+    };
+    mocks.projects.push(project);
+    return project;
+  }),
   commitWorkspaceSnapshot: vi.fn(async () => false),
   kernelReset: vi.fn(async () => {}),
   /** Number of connect() attempts that fail before one succeeds. */
@@ -47,6 +60,8 @@ const mocks = vi.hoisted(() => ({
   sendPrompt: vi.fn(),
   replyPermission: vi.fn(),
   abortSession: vi.fn(),
+  revert: vi.fn(),
+  failReverts: 0,
   /** SSE events the real server streams back DURING an abort POST's await — an
    *  "aborted" error and one or more session.idle events. Empty by default. */
   abortTrailing: [] as unknown[],
@@ -55,6 +70,11 @@ const mocks = vi.hoisted(() => ({
   /** Records setDefaultModel calls; `currentModel` is what getDefaultModel returns. */
   setDefaultModelSpy: vi.fn(),
   currentModel: null as string | null,
+  providers: [] as Array<{
+    id: string;
+    name: string;
+    models: Array<{ id: string; name: string }>;
+  }>,
   /** Optional delayed catalog read used to reproduce a stale response race. */
   getDefaultModelDeferred: null as Promise<string | null> | null,
   /** Next setDefaultModel PATCH throws (server unreachable). */
@@ -92,6 +112,7 @@ vi.mock("./tauri", () => ({
   setWorkspace: mocks.setWorkspace,
   newDatedWorkspace: mocks.newDatedWorkspace,
   createProject: mocks.createProject,
+  importProject: mocks.importProject,
   listProjects: async () => mocks.projects,
   currentResearchScope: async () =>
     mocks.projects.find((project) => project.path === mocks.activePath) ?? {
@@ -151,6 +172,9 @@ vi.mock("@ai4s/sdk", () => {
       if (mocks.failSetModel) throw new Error("Load failed");
       mocks.currentModel = model;
     }
+    async listProviders() {
+      return mocks.providers;
+    }
     async createSession() {
       if (mocks.failCreates > 0) {
         mocks.failCreates--;
@@ -158,8 +182,8 @@ vi.mock("@ai4s/sdk", () => {
       }
       return "ses_new";
     }
-    async sendPrompt(sid: string, text: string) {
-      mocks.sendPrompt(sid, text);
+    async sendPrompt(sid: string, text: string, agent?: string, model?: string | null) {
+      mocks.sendPrompt(sid, text, agent, model);
     }
     async listCommands() {
       return [{ name: "init", description: "guided AGENTS.md setup", source: "command" }];
@@ -200,6 +224,14 @@ vi.mock("@ai4s/sdk", () => {
       // the guard must already be set before the await, not after it.
       for (const e of mocks.abortTrailing) mocks.fireEvent(e);
     }
+    async revert(sid: string, messageID: string) {
+      mocks.revert(sid, messageID);
+      if (mocks.failReverts > 0) {
+        mocks.failReverts--;
+        throw new Error("message not ready");
+      }
+    }
+    async unrevert() {}
     async getMessages(sid: string) {
       mocks.getMessages(sid);
       if (mocks.failMessages) throw new Error("history hung");
@@ -244,11 +276,13 @@ beforeEach(async () => {
   mocks.failCommand = false;
   mocks.dropCommandPost = false;
   mocks.abortTrailing = [];
+  mocks.failReverts = 0;
   mocks.messages = [];
   mocks.statuses = {};
   mocks.failMessages = false;
   mocks.approvalMode = "approve";
   mocks.currentModel = null;
+  mocks.providers = [];
   mocks.getDefaultModelDeferred = null;
   mocks.failSetModel = false;
   useRuntimeStore.setState({
@@ -324,6 +358,23 @@ describe("project and standalone conversations", () => {
     expect(useRuntimeStore.getState().workspacePinned).toBe(true);
   });
 
+  it("imports an existing folder as an isolated project copy before switching into it", async () => {
+    useRuntimeStore.setState({ projects: [], workspacePinned: false });
+
+    const imported = await useRuntimeStore.getState().importProject("/external/Study");
+
+    expect(mocks.importProject).toHaveBeenCalledWith("/external/Study");
+    expect(imported).toMatchObject({
+      id: "imported-project",
+      imported: true,
+      importedFrom: "/external/Study",
+      path: "/ws/Imported-Study",
+    });
+    expect(useRuntimeStore.getState().projects).toContainEqual(imported);
+    expect(mocks.setWorkspace).toHaveBeenCalledWith("/ws/Imported-Study");
+    expect(useRuntimeStore.getState().workspacePinned).toBe(true);
+  });
+
   it("creates a standalone conversation in its own dated research scope", async () => {
     useRuntimeStore.setState({ projects: [], workspacePinned: false });
     const id = await useRuntimeStore.getState().sendPrompt("hello");
@@ -344,6 +395,8 @@ describe("project and standalone conversations", () => {
     expect(mocks.sendPrompt).toHaveBeenCalledWith(
       "ses_new",
       "$heor-model-calibration\n\nCheck this model",
+      undefined,
+      null,
     );
     expect(useRuntimeStore.getState().threads[id!].blocks).toContainEqual({
       kind: "user",
@@ -366,6 +419,25 @@ describe("project and standalone conversations", () => {
     const id = await useRuntimeStore.getState().sendPrompt("hello");
     expect(id).toBe("ses_new");
     expect(mocks.newDatedWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("uses the current model for an existing session instead of its stale creation model", async () => {
+    useRuntimeStore.setState({
+      currentId: "ses_existing",
+      defaultModel: "minimax-cn-token-plan/MiniMax-M3",
+      threads: {
+        ses_existing: { blocks: [], index: {}, loaded: true },
+      },
+    });
+
+    await useRuntimeStore.getState().sendPrompt("continue");
+
+    expect(mocks.sendPrompt).toHaveBeenCalledWith(
+      "ses_existing",
+      "continue",
+      undefined,
+      "minimax-cn-token-plan/MiniMax-M3",
+    );
   });
 
   it("does not create another scope for later messages in the same conversation", async () => {
@@ -637,6 +709,17 @@ describe("project and standalone conversations", () => {
 // the child's id, and a sync POST held open for a long turn is killed by
 // WKWebView at ~60 s. Both must not strand the conversation.
 describe("subagent permission asks and long sync turns", () => {
+  it("shows model-step progress during a long turn and clears it on idle", async () => {
+    const id = await useRuntimeStore.getState().sendPrompt("review the evidence");
+    expect(id).toBe("ses_new");
+    if (!id) throw new Error("expected a session id");
+    mocks.fireEvent({ type: "step.updated", sessionId: id, step: 1 });
+    mocks.fireEvent({ type: "step.updated", sessionId: id, step: 2 });
+    expect(useRuntimeStore.getState().stepCounts[id]).toBe(2);
+    mocks.fireEvent({ type: "session.idle", sessionId: id });
+    expect(useRuntimeStore.getState().stepCounts[id]).toBeUndefined();
+  });
+
   it("maps a task tool's child session to the parent conversation", async () => {
     const id = await useRuntimeStore.getState().sendPrompt("explore the repo");
     mocks.fireEvent({
@@ -754,6 +837,34 @@ describe("stale running locks and interrupt", () => {
     });
   });
 
+  it("reconcileRunning unlocks an orphaned nonblank tool turn after a runtime restart", async () => {
+    await useRuntimeStore.getState().sendPrompt("hi");
+    mocks.messages = [
+      { role: "user", parts: [{ type: "text", text: "hi" }] },
+      {
+        role: "assistant",
+        parts: [
+          { type: "reasoning", text: "Inspecting the workspace" },
+          {
+            type: "tool",
+            tool: "bash",
+            state: { status: "running", input: { command: "cat .gitignore" } },
+          },
+        ],
+      },
+    ];
+    mocks.statuses = {};
+    await useRuntimeStore.getState().reconcileRunning();
+    expect(useRuntimeStore.getState().runningSessions["ses_new"]).toBe(true);
+    await useRuntimeStore.getState().reconcileRunning();
+    const state = useRuntimeStore.getState();
+    expect(state.runningSessions["ses_new"]).toBeUndefined();
+    expect(state.threads.ses_new.blocks.slice(-1)[0]).toMatchObject({
+      kind: "status-line",
+      tone: "error",
+    });
+  });
+
   it("shows the server retry phase without unlocking the task", async () => {
     await useRuntimeStore.getState().sendPrompt("hi");
     mocks.fireEvent({
@@ -831,6 +942,75 @@ describe("stale running locks and interrupt", () => {
   it("interrupt does nothing when no turn is running", async () => {
     await useRuntimeStore.getState().interrupt();
     expect(mocks.abortSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("edit and return to a past message", () => {
+  async function acceptedTurn(text: string, messageID: string) {
+    await useRuntimeStore.getState().sendPrompt(text);
+    mocks.fireEvent({ type: "message.user", sessionId: "ses_new", messageID });
+    mocks.fireEvent({ type: "text.updated", sessionId: "ses_new", partId: `${messageID}-a`, text: "answer" });
+    mocks.fireEvent({ type: "session.idle", sessionId: "ses_new" });
+  }
+
+  it("binds the runtime message id to the visible user message", async () => {
+    await acceptedTurn("original", "msg-1");
+    expect(useRuntimeStore.getState().threads.ses_new.blocks[0]).toMatchObject({
+      kind: "user",
+      text: "original",
+      messageID: "msg-1",
+    });
+  });
+
+  it("restores the workspace before resending an edited HEOR prompt", async () => {
+    await acceptedTurn("original", "msg-1");
+    mocks.sendPrompt.mockClear();
+
+    const changed = await useRuntimeStore
+      .getState()
+      .editMessage("msg-1", "runtime HEOR prompt", "revised question");
+
+    expect(changed).toBe(true);
+    expect(mocks.revert).toHaveBeenCalledWith("ses_new", "msg-1");
+    expect(mocks.sendPrompt).toHaveBeenCalledWith(
+      "ses_new",
+      "runtime HEOR prompt",
+      undefined,
+      null,
+    );
+    expect(useRuntimeStore.getState().threads.ses_new.blocks).toContainEqual({
+      kind: "user",
+      text: "revised question",
+    });
+  });
+
+  it("retries a newly indexed message and clears discarded interaction and pane state", async () => {
+    await acceptedTurn("original", "msg-1");
+    mocks.failReverts = 2;
+    useRuntimeStore.setState({
+      questions: [{ type: "question.asked", sessionId: "ses_new", requestId: "q1", questions: [] }],
+      permissions: [{ type: "permission.asked", sessionId: "ses_new", requestId: "p1", action: "write", resources: [] }],
+      panes: { ses_new: { artifact: { kind: "artifact", path: "old.pdf", filename: "old.pdf", artifact: "report", tool: "write" }, showFiles: false, showRuns: false } },
+    });
+
+    expect(await useRuntimeStore.getState().revertMessage("msg-1")).toBe(true);
+    expect(mocks.revert).toHaveBeenCalledTimes(3);
+    const state = useRuntimeStore.getState();
+    expect(state.threads.ses_new.blocks).toEqual([]);
+    expect(state.questions).toEqual([]);
+    expect(state.permissions).toEqual([]);
+    expect(state.panes.ses_new).toEqual({ artifact: null, showFiles: false, showRuns: false });
+  });
+
+  it("keeps the conversation unchanged when the runtime rollback fails", async () => {
+    await acceptedTurn("original", "msg-1");
+    const before = useRuntimeStore.getState().threads.ses_new.blocks;
+    mocks.failReverts = 5;
+
+    expect(await useRuntimeStore.getState().editMessage("msg-1", "new")).toBe(false);
+    expect(mocks.sendPrompt).toHaveBeenCalledTimes(1);
+    expect(useRuntimeStore.getState().threads.ses_new.blocks).toEqual(before);
+    expect(useRuntimeStore.getState().error).toContain("message not ready");
   });
 });
 
@@ -946,6 +1126,48 @@ describe("approval mode", () => {
     const s = useRuntimeStore.getState();
     expect(s.switching).toBe(false);
     expect(s.status).toBe("ready");
+  });
+
+  it("does not restart the runtime when a task is active", async () => {
+    await useRuntimeStore.getState().sendPrompt("hi");
+    mocks.setApprovalMode.mockClear();
+    await useRuntimeStore.getState().setApprovalMode("full");
+    expect(mocks.setApprovalMode).not.toHaveBeenCalled();
+    expect(useRuntimeStore.getState().approvalMode).toBe("approve");
+  });
+
+  it("repairs a configured model that is no longer available", async () => {
+    mocks.providers = [
+      {
+        id: "minimax",
+        name: "MiniMax",
+        models: [{ id: "MiniMax-M3", name: "MiniMax M3" }],
+      },
+    ];
+    mocks.currentModel = "retired/provider-model";
+    useRuntimeStore.setState({ defaultModel: mocks.currentModel, switching: false });
+
+    await useRuntimeStore.getState().loadCatalog();
+
+    expect(mocks.setDefaultModelSpy).toHaveBeenCalledWith("minimax/MiniMax-M3");
+    expect(useRuntimeStore.getState().defaultModel).toBe("minimax/MiniMax-M3");
+  });
+
+  it("leaves an available configured model unchanged", async () => {
+    mocks.providers = [
+      {
+        id: "minimax",
+        name: "MiniMax",
+        models: [{ id: "MiniMax-M3", name: "MiniMax M3" }],
+      },
+    ];
+    mocks.currentModel = "minimax/MiniMax-M3";
+    useRuntimeStore.setState({ defaultModel: mocks.currentModel, switching: false });
+
+    await useRuntimeStore.getState().loadCatalog();
+
+    expect(mocks.setDefaultModelSpy).not.toHaveBeenCalled();
+    expect(useRuntimeStore.getState().defaultModel).toBe("minimax/MiniMax-M3");
   });
 
   it("setDefaultModel applies the model and reconnects seamlessly (no manual Connect)", async () => {

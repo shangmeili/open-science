@@ -5,6 +5,7 @@ import {
   RESEARCH_REPORT_MANIFEST_PATH,
   type ResearchReportAudit,
 } from "@/lib/heor";
+import { formatHeorReviewIssue } from "./reviewIssue";
 
 export type ResearchReportState =
   | { kind: "loading" }
@@ -60,7 +61,9 @@ export function ResearchReportAssessment({
 
       {issues.length > 0 && (
         <ul className="mt-3 space-y-1 text-[10px] leading-4 text-muted">
-          {issues.slice(0, 5).map((issue) => <li key={issue}>• {issue}</li>)}
+          {issues.slice(0, 5).map((issue) => (
+            <li key={issue}>• {formatHeorReviewIssue(issue, t("panel.artifactPending"))}</li>
+          ))}
         </ul>
       )}
 

@@ -77,6 +77,10 @@
       "addFiles": "Dateien konnten nicht hinzugefügt werden: {{message}}"
     }
   },
+  "message": {
+    "copy": "Kopieren", "copied": "Kopiert", "edit": "Bearbeiten und hier fortfahren", "revert": "Zu diesem Punkt zurückkehren", "editField": "Nachricht bearbeiten", "cancel": "Abbrechen", "resend": "Speichern und fortfahren", "revertFailed": "Rückkehr nicht möglich: {{message}}",
+    "confirm": { "title": "Zu diesem Punkt zurückkehren?", "body": "Spätere Nachrichten und ihre Änderungen an den Aufgabendateien werden entfernt.", "action": "Hierher zurückkehren" }
+  },
   "localCommand": {
     "newDescription": "Chat-Kontext in diesem Ordner leeren",
     "clearDescription": "Wie /new; Dateien bleiben in diesem Ordner",
@@ -166,7 +170,8 @@
       "loadedSkill": "Forschungsfunktion geladen: {{skill}}",
       "completed": "Abgeschlossen",
       "rateLimited": "Das aktuelle Modell erhält zu viele Anfragen. Versuchen Sie es später erneut oder wählen Sie ein anderes Modell.",
-      "stoppedBeforeReply": "Die Modellanfrage wurde ohne Antwort beendet. Versuchen Sie es erneut oder wählen Sie ein anderes Modell."
+      "stoppedBeforeReply": "Die Modellanfrage wurde ohne Antwort beendet. Versuchen Sie es erneut oder wählen Sie ein anderes Modell.",
+      "step": "Schritt {{count}}"
     },
     "placeholder": {
       "disconnected": "Zum Chatten verbinden",
@@ -269,6 +274,10 @@
     "reject": "Ablehnen",
     "alwaysAllow": "Immer erlauben",
     "allowOnce": "Einmal erlauben"
+  },
+  "reasoning": {
+    "thinking": "Analyse läuft…",
+    "thought": "Analysenotizen"
   },
   "stepSummary": {
     "steps": "{{count}} Schritte"

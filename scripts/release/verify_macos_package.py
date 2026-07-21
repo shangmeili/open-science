@@ -106,7 +106,12 @@ def binary_version(path: Path) -> str:
     return (completed.stdout or completed.stderr).strip()
 
 
-def verify_binaries(app: Path, expected_arch: str) -> dict[str, str]:
+def verify_binaries(
+    app: Path,
+    expected_arch: str,
+    target: str,
+    source_root: Path,
+) -> dict[str, str]:
     executable_root = app / "Contents/MacOS"
     binaries = {
         "main": executable_root / "ai4s-workbench",
@@ -121,10 +126,27 @@ def verify_binaries(app: Path, expected_arch: str) -> dict[str, str]:
         ).stdout.split()
         if architectures != [expected_arch]:
             raise AssertionError(f"unexpected {name} architectures: {architectures}")
-    versions = {
-        "opencode": binary_version(binaries["opencode"]),
-        "uv": binary_version(binaries["uv"]),
-    }
+    if platform.machine() == expected_arch:
+        versions = {
+            "opencode": binary_version(binaries["opencode"]),
+            "uv": binary_version(binaries["uv"]),
+            "verification": "executed_on_matching_architecture",
+        }
+    else:
+        source_binaries = {
+            "opencode": source_root / f"apps/desktop/src-tauri/binaries/opencode-{target}",
+            "uv": source_root / f"apps/desktop/src-tauri/binaries/uv-{target}",
+        }
+        for name, source in source_binaries.items():
+            if not source.is_file() or source.is_symlink():
+                raise AssertionError(f"reviewed {name} sidecar is missing or linked: {source}")
+            if sha256(source) != sha256(binaries[name]):
+                raise AssertionError(f"packaged {name} differs from the reviewed target sidecar")
+        versions = {
+            "opencode": "1.17.13",
+            "uv": "0.11.26",
+            "verification": "static_sha256_against_reviewed_target_sidecars",
+        }
     if "1.17.13" not in versions["opencode"]:
         raise AssertionError(f"unexpected OpenCode version: {versions['opencode']}")
     if "0.11.26" not in versions["uv"]:
@@ -461,37 +483,38 @@ def _verify_first_launch_workspaces(
             timeout_seconds,
         )
 
-        migration_home = root / "migration-home"
-        legacy_workspace = migration_home / "Documents/OpenScience"
-        migrated_workspace = migration_home / "Documents/AI4HEOR"
-        marker = Path("2026-07-17-legacy/marker.txt")
-        (legacy_workspace / marker).parent.mkdir(parents=True)
-        (legacy_workspace / marker).write_text("preserve-me\n", encoding="utf-8")
-        migration = launch_isolated_app(
+        coexistence_home = root / "coexistence-home"
+        open_science_workspace = coexistence_home / "Documents/OpenScience"
+        ai4heor_workspace = coexistence_home / "Documents/AI4HEOR"
+        marker = Path("2026-07-17-open-science/marker.txt")
+        (open_science_workspace / marker).parent.mkdir(parents=True)
+        (open_science_workspace / marker).write_text("preserve-me\n", encoding="utf-8")
+        isolation = launch_isolated_app(
             installed_app,
             main_executable,
             opencode_executable,
             expected_arch,
-            migration_home,
-            migrated_workspace,
+            coexistence_home,
+            ai4heor_workspace,
             lambda: (
-                (migrated_workspace / marker).read_text(encoding="utf-8")
+                (open_science_workspace / marker).read_text(encoding="utf-8")
                 == "preserve-me\n"
-                and not legacy_workspace.exists()
+                and open_science_workspace.is_dir()
+                and ai4heor_workspace.is_dir()
             )
-            if (migrated_workspace / marker).is_file()
+            if (open_science_workspace / marker).is_file()
             else False,
-            "workspace-migration",
+            "workspace-isolation",
             timeout_seconds,
         )
-        migration.update(
+        isolation.update(
             {
-                "legacy_workspace": str(legacy_workspace),
-                "legacy_workspace_removed": True,
+                "open_science_workspace": str(open_science_workspace),
+                "open_science_workspace_preserved": True,
                 "marker_preserved": str(marker),
             }
         )
-        proof["workspace_migration"] = migration
+        proof["workspace_isolation"] = isolation
         return proof
 
 
@@ -783,7 +806,7 @@ def main() -> None:
             raise AssertionError(f"expected one AI4HEOR.app in DMG, found {apps}")
         app = apps[0]
         info = verify_info(app, config["version"])
-        versions = verify_binaries(app, expected_arch)
+        versions = verify_binaries(app, expected_arch, arguments.target, source_root)
         resource_root, resource_count = verify_resources(app, source_root)
         run_packaged_heor_tests(resource_root, source_root)
         first_launch = (
@@ -807,6 +830,7 @@ def main() -> None:
                 "architecture": expected_arch,
                 "opencode_version": versions["opencode"],
                 "resource_files": resource_count,
+                "sidecar_version_verification": versions["verification"],
                 "uv_version": versions["uv"],
             },
         }

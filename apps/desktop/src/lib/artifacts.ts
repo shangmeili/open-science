@@ -234,6 +234,48 @@ export function deriveArtifact(event: ToolUpdatedEvent): ArtifactBlock | null {
   };
 }
 
+export interface PatchFile {
+  path: string;
+  op: "add" | "update" | "delete";
+  body: string;
+}
+
+const PATCH_HEADER = /^\*\*\* (Add|Update|Delete) File: (.+?)\s*$/;
+const PATCH_MOVE = /^\*\*\* Move to: (.+?)\s*$/;
+
+/** Parse every file named inside an apply_patch request. */
+export function parsePatchFiles(patchText: string): PatchFile[] {
+  const files: PatchFile[] = [];
+  let path: string | null = null;
+  let op: PatchFile["op"] = "update";
+  let lines: string[] = [];
+  const flush = () => {
+    if (path !== null) files.push({ path, op, body: lines.join("\n") });
+    path = null;
+    lines = [];
+  };
+
+  for (const line of patchText.split("\n")) {
+    const header = PATCH_HEADER.exec(line);
+    if (header) {
+      flush();
+      op = header[1].toLowerCase() as PatchFile["op"];
+      path = header[2];
+      continue;
+    }
+    if (path === null) continue;
+    if (line.startsWith("*** End Patch")) break;
+    const move = PATCH_MOVE.exec(line);
+    if (move) {
+      path = move[1];
+      continue;
+    }
+    lines.push(line);
+  }
+  flush();
+  return files;
+}
+
 /** Resolve the content shown for the active version, falling back to inspector-level fields. */
 export function resolveArtifactContent(
   data: ArtifactInspector,

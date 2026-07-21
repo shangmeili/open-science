@@ -30,6 +30,7 @@ export interface Session {
 export type ThreadBlock =
   | UserMessageBlock
   | AgentMessageBlock
+  | ReasoningBlock
   | StepSummaryBlock
   | ToolCallBlock
   | ReviewerBlock
@@ -42,12 +43,23 @@ export type ThreadBlock =
 export interface UserMessageBlock {
   kind: "user";
   text: string;
+  /** Runtime message id used to return to this point in the task. Absent on
+   * synthetic/local echoes and until the runtime confirms a new message. */
+  messageID?: string;
 }
 
 export interface AgentMessageBlock {
   kind: "agent";
   /** Markdown; inline `code` tokens are rendered as blue mono. */
   markdown: string;
+}
+
+/** A model-provided analysis activity stream. It is kept separate from the
+ *  final answer so the UI can show honest progress without mixing working
+ *  notes into the research result. */
+export interface ReasoningBlock {
+  kind: "reasoning";
+  text: string;
 }
 
 export interface StepSummaryBlock {

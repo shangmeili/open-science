@@ -57,7 +57,9 @@ fn parse_probe(stdout: &str) -> ComputeProbe {
     let mut p = ComputeProbe::default();
     for line in stdout.lines() {
         let line = line.trim();
-        let Some((tag, rest)) = line.split_once(' ') else { continue };
+        let Some((tag, rest)) = line.split_once(' ') else {
+            continue;
+        };
         let rest = rest.trim();
         match tag {
             "OS" => p.os = Some(rest.to_string()),
@@ -88,17 +90,15 @@ fn parse_probe(stdout: &str) -> ComputeProbe {
 /// `user@host` or `host` made only of safe characters. Rejects anything that
 /// could smuggle an ssh option (leading `-`) or shell metacharacters.
 fn is_safe_host(host: &str) -> bool {
-    let rest = host.split_once('@').map(|(u, h)| {
-        (!u.is_empty() && u.chars().all(is_host_char)).then_some(h)
-    });
+    let rest = host
+        .split_once('@')
+        .map(|(u, h)| (!u.is_empty() && u.chars().all(is_host_char)).then_some(h));
     let host_part = match rest {
         Some(Some(h)) => h,
         Some(None) => return false,
         None => host,
     };
-    !host_part.is_empty()
-        && !host_part.starts_with('-')
-        && host_part.chars().all(is_host_char)
+    !host_part.is_empty() && !host_part.starts_with('-') && host_part.chars().all(is_host_char)
 }
 
 fn is_host_char(c: char) -> bool {
@@ -147,7 +147,12 @@ fn parse_ssh_hosts(text: &str) -> Vec<String> {
 /// the UI also accepts a free-form `user@host`).
 #[tauri::command]
 pub fn list_ssh_hosts(app: AppHandle) -> Result<Vec<String>, String> {
-    let path = app.path().home_dir().map_err(|e| e.to_string())?.join(".ssh").join("config");
+    let path = app
+        .path()
+        .home_dir()
+        .map_err(|e| e.to_string())?
+        .join(".ssh")
+        .join("config");
     match std::fs::read_to_string(path) {
         Ok(text) => Ok(parse_ssh_hosts(&text)),
         Err(_) => Ok(Vec::new()), // no ssh config is a normal state
@@ -156,7 +161,11 @@ pub fn list_ssh_hosts(app: AppHandle) -> Result<Vec<String>, String> {
 
 /// Run one non-interactive command on the host via the system ssh, with the
 /// user's own keys/config. Returns (exit code, stdout, stderr).
-async fn run_ssh(app: &AppHandle, host: &str, command: &str) -> Result<(i32, String, String), String> {
+async fn run_ssh(
+    app: &AppHandle,
+    host: &str,
+    command: &str,
+) -> Result<(i32, String, String), String> {
     if !is_safe_host(host) {
         return Err("invalid host".into());
     }
@@ -164,13 +173,18 @@ async fn run_ssh(app: &AppHandle, host: &str, command: &str) -> Result<(i32, Str
         .shell()
         .command("ssh")
         .args([
-            "-o", "BatchMode=yes",
-            "-o", "ConnectTimeout=8",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=8",
             // Never trust an unknown host key on the app's behalf (safety
             // default: remote connections need the user's approval) — the
             // user verifies the fingerprint once in their own terminal.
-            "-o", "StrictHostKeyChecking=yes",
-            "--", host, command,
+            "-o",
+            "StrictHostKeyChecking=yes",
+            "--",
+            host,
+            command,
         ])
         .output()
         .await
@@ -234,7 +248,9 @@ struct MachinesFile {
 /// Parse compute.json; malformed content yields an empty list rather than an
 /// error (a hand-broken file must not brick the settings page).
 fn parse_machines(json: &str) -> Vec<Machine> {
-    serde_json::from_str::<MachinesFile>(json).map(|f| f.machines).unwrap_or_default()
+    serde_json::from_str::<MachinesFile>(json)
+        .map(|f| f.machines)
+        .unwrap_or_default()
 }
 
 /// Import a legacy `{"host":"…"}` hpc.json as a single machine (no caps yet).
@@ -242,7 +258,13 @@ fn legacy_to_machines(hpc_json: &str) -> Vec<Machine> {
     serde_json::from_str::<serde_json::Value>(hpc_json)
         .ok()
         .and_then(|v| v.get("host").and_then(|h| h.as_str()).map(str::to_string))
-        .map(|host| vec![Machine { host, label: None, caps: None }])
+        .map(|host| {
+            vec![Machine {
+                host,
+                label: None,
+                caps: None,
+            }]
+        })
         .unwrap_or_default()
 }
 
@@ -254,7 +276,11 @@ fn upsert_machine(list: &mut Vec<Machine>, host: &str, label: Option<String>) {
             m.label = label;
         }
     } else {
-        list.push(Machine { host: host.to_string(), label, caps: None });
+        list.push(Machine {
+            host: host.to_string(),
+            label,
+            caps: None,
+        });
     }
 }
 
@@ -276,7 +302,9 @@ fn compute_path(app: &AppHandle) -> Result<PathBuf, String> {
     // user-level resource shared across every session. Stored once here; the
     // agent reaches it from its session folder via `../.openscience/compute.json`
     // (the seeded harness points at it), so no per-session copies are kept.
-    Ok(base_workspace_dir(app)?.join(".openscience").join(COMPUTE_FILE))
+    Ok(base_workspace_dir(app)?
+        .join(".openscience")
+        .join(COMPUTE_FILE))
 }
 
 /// One SSH round-trip: static identity + a live usage snapshot, one token per
@@ -300,7 +328,9 @@ fn load_machines(app: &AppHandle) -> Result<Vec<Machine>, String> {
         return Ok(parse_machines(&text));
     }
     // Migrate a legacy base-workspace hpc.json exactly once, then remove it.
-    let legacy = base_workspace_dir(app)?.join(".openscience").join("hpc.json");
+    let legacy = base_workspace_dir(app)?
+        .join(".openscience")
+        .join("hpc.json");
     if let Ok(text) = std::fs::read_to_string(&legacy) {
         let machines = legacy_to_machines(&text);
         save_machines(app, &machines)?;
@@ -351,8 +381,10 @@ fn save_machines(app: &AppHandle, machines: &[Machine]) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
-    let body = serde_json::to_string(&MachinesFile { machines: machines.to_vec() })
-        .map_err(|e| e.to_string())?;
+    let body = serde_json::to_string(&MachinesFile {
+        machines: machines.to_vec(),
+    })
+    .map_err(|e| e.to_string())?;
     // Write to a sibling temp file then rename, so a probe writeback racing a
     // concurrent write (or a remove) can't corrupt or truncate compute.json.
     let tmp = path.with_extension("json.tmp");
@@ -374,7 +406,11 @@ pub fn compute_machines(app: AppHandle) -> Result<Vec<Machine>, String> {
 }
 
 #[tauri::command]
-pub fn add_compute_machine(app: AppHandle, host: String, label: Option<String>) -> Result<(), String> {
+pub fn add_compute_machine(
+    app: AppHandle,
+    host: String,
+    label: Option<String>,
+) -> Result<(), String> {
     if !is_safe_host(&host) {
         return Err("invalid host".into());
     }
@@ -401,14 +437,23 @@ pub fn remove_compute_machine(app: AppHandle, host: String) -> Result<(), String
 pub async fn compute_probe(app: AppHandle, host: String) -> Result<ComputeProbe, String> {
     let (code, stdout, stderr) = run_ssh(&app, &host, PROBE_SCRIPT).await?;
     if code == 255 {
-        let mut detail = stderr.lines().last().unwrap_or("connection failed").trim().to_string();
+        let mut detail = stderr
+            .lines()
+            .last()
+            .unwrap_or("connection failed")
+            .trim()
+            .to_string();
         if stderr.contains("Host key verification failed") {
             detail = format!(
                 "host key not verified — run `ssh {host}` once in your terminal to check \
                  and accept its fingerprint, then retry"
             );
         }
-        return Ok(ComputeProbe { reachable: false, message: Some(detail), ..Default::default() });
+        return Ok(ComputeProbe {
+            reachable: false,
+            message: Some(detail),
+            ..Default::default()
+        });
     }
     let mut probe = parse_probe(&stdout);
     probe.reachable = true;
@@ -429,7 +474,12 @@ pub async fn compute_jobs(app: AppHandle, host: String) -> Result<Vec<HpcJob>, S
     let (code, stdout, stderr) =
         run_ssh(&app, &host, "squeue -u \"$USER\" -h -o '%i|%T|%M|%P|%j'").await?;
     if code != 0 {
-        return Err(stderr.lines().last().unwrap_or("squeue failed").trim().to_string());
+        return Err(stderr
+            .lines()
+            .last()
+            .unwrap_or("squeue failed")
+            .trim()
+            .to_string());
     }
     Ok(parse_squeue(&stdout))
 }
@@ -441,7 +491,12 @@ pub async fn compute_cancel(app: AppHandle, host: String, job_id: String) -> Res
     }
     let (code, _, stderr) = run_ssh(&app, &host, &format!("scancel '{job_id}'")).await?;
     if code != 0 {
-        return Err(stderr.lines().last().unwrap_or("scancel failed").trim().to_string());
+        return Err(stderr
+            .lines()
+            .last()
+            .unwrap_or("scancel failed")
+            .trim()
+            .to_string());
     }
     Ok(())
 }
@@ -466,7 +521,14 @@ Host gpu+login \"quoted alias\"
         // Aliases the connect path would reject (is_safe_host) are not suggested.
         assert_eq!(
             parse_ssh_hosts(cfg),
-            vec!["login", "cluster-a", "cluster-b", "lowercase", "good.host", "gpu+login"]
+            vec![
+                "login",
+                "cluster-a",
+                "cluster-b",
+                "lowercase",
+                "good.host",
+                "gpu+login"
+            ]
         );
     }
 
@@ -505,7 +567,8 @@ Host gpu+login \"quoted alias\"
 
     #[test]
     fn parses_squeue_lines_name_last() {
-        let jobs = parse_squeue("42|RUNNING|1:23|gpu|fit model|stage 2\n43|PENDING|0:00|cpu|sim\n\n");
+        let jobs =
+            parse_squeue("42|RUNNING|1:23|gpu|fit model|stage 2\n43|PENDING|0:00|cpu|sim\n\n");
         assert_eq!(jobs.len(), 2);
         assert_eq!(jobs[0].id, "42");
         assert_eq!(jobs[0].state, "RUNNING");
@@ -557,17 +620,27 @@ random junk with no leading token space? nope
         let sess_os = root.join("session-openscience");
         fs::create_dir_all(&base_os).unwrap();
         let src = base_os.join("compute.json");
-        fs::write(&src, r#"{"machines":[{"host":"h","label":null,"caps":null}]}"#).unwrap();
+        fs::write(
+            &src,
+            r#"{"machines":[{"host":"h","label":null,"caps":null}]}"#,
+        )
+        .unwrap();
 
         // Present source → local copy written with identical contents.
         super::write_materialized(&src, &sess_os);
         let dst = sess_os.join("compute.json");
-        assert_eq!(fs::read_to_string(&dst).unwrap(), fs::read_to_string(&src).unwrap());
+        assert_eq!(
+            fs::read_to_string(&dst).unwrap(),
+            fs::read_to_string(&src).unwrap()
+        );
 
         // Source removed (all machines deleted) → stale local copy cleared.
         fs::remove_file(&src).unwrap();
         super::write_materialized(&src, &sess_os);
-        assert!(!dst.exists(), "stale local copy must be removed when base has none");
+        assert!(
+            !dst.exists(),
+            "stale local copy must be removed when base has none"
+        );
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -576,8 +649,14 @@ random junk with no leading token space? nope
         // Must stay one physical line — an embedded newline in the single ssh
         // argument is marshalled inconsistently on Windows. `;` separates
         // statements instead; the remote still emits newline-separated output.
-        assert!(!super::PROBE_SCRIPT.contains('\n'), "PROBE_SCRIPT must be one line");
-        assert!(super::PROBE_SCRIPT.contains("nvidia-smi"), "probe must still query GPUs");
+        assert!(
+            !super::PROBE_SCRIPT.contains('\n'),
+            "PROBE_SCRIPT must be one line"
+        );
+        assert!(
+            super::PROBE_SCRIPT.contains("nvidia-smi"),
+            "probe must still query GPUs"
+        );
     }
 
     #[test]

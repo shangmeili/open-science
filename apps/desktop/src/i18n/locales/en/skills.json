@@ -11,7 +11,7 @@
     "heor-dynamic-budget-impact": { "displayName": "Dynamic Budget Impact", "description": "Model prevalent and incident cohorts, uptake, and persistence." },
     "heor-economic-inputs": { "displayName": "Economic Inputs", "description": "Validate model-neutral costs, utilities, and analysis settings." },
     "heor-event-disutilities": { "displayName": "Event Disutilities", "description": "Audit event-related QALY losses and overlap." },
-    "heor-evidence-search": { "displayName": "Evidence Search", "description": "Draft auditable, Human-authorized PubMed and trial searches." },
+    "heor-evidence-search": { "displayName": "Evidence Search", "description": "Prepare auditable fixed-source PubMed and trial searches under the current task permission mode." },
     "heor-evidence-synthesis": { "displayName": "Evidence Synthesis", "description": "Build traceable HEOR searches, screening, and extraction." },
     "heor-hazard-ratio-adapter": { "displayName": "Hazard Ratio Adapter", "description": "Apply a reviewed constant HR to baseline cumulative hazards." },
     "heor-input-provenance": { "displayName": "Input Provenance", "description": "Bind model inputs to exact reviewed evidence and assumptions." },

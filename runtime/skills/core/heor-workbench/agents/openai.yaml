@@ -1,4 +1,4 @@
 interface:
   display_name: "AI4HEOR Research Workbench"
   short_description: "Assist researcher-led, auditable HEOR work"
-  default_prompt: "Use $heor-workbench to assist with my researcher-defined HEOR question and produce reviewable local artifacts."
+  default_prompt: "Use $heor-workbench for my researcher-defined HEOR question. Preserve Open Science research and coding, and for a full economic evaluation use the matching first-party HEOR Skills, structured artifacts, deterministic engine, provenance, and review surface before calling the task complete."

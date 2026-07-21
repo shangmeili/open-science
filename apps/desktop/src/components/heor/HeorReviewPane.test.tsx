@@ -20,7 +20,9 @@ import {
   AdvancedVoiResultCard,
   AdvancedVoiReviewDialog,
   BudgetImpactResultCard,
+  EvidenceLibraryAssessment,
   EvidenceVerificationDialog,
+  ExploratoryAnalysisState,
   HeorReviewPane,
   MethodReviewQueue,
   MethodsWatchlistAssessment,
@@ -43,6 +45,50 @@ import {
 afterEach(() => useUiStore.getState().setLocale("en"));
 
 describe("AI4HEOR human review pane", () => {
+  it("keeps missing-artifact implementation errors out of the research UI", () => {
+    useUiStore.getState().setLocale("en");
+    render(
+      <EvidenceLibraryAssessment
+        state={{
+          kind: "invalid",
+          message: "heor/evidence-library.json unavailable: No such file or directory (os error 2)",
+        }}
+        syncing={false}
+        onInstallBundled={vi.fn()}
+        onAddFiles={vi.fn()}
+        onAddFolder={vi.fn()}
+        onSync={vi.fn()}
+        onAsk={vi.fn()}
+      />,
+    );
+
+    expect(document.body).toHaveTextContent("This research material has not been created yet.");
+    expect(screen.queryByText(/No such file|os error|unavailable/i)).not.toBeInTheDocument();
+  });
+
+  it("shows exploratory HEOR files as progress rather than a missing-file error", async () => {
+    const onRequestStructured = vi.fn();
+    render(
+      <ExploratoryAnalysisState
+        files={[
+          { path: "heor/analysis-plan.md", size: 7578 },
+          { path: "heor/model/parameters.json", size: 4617 },
+          { path: "heor/results/base_case_summary.json", size: 859 },
+        ]}
+        onRequestStructured={onRequestStructured}
+      />,
+    );
+    expect(screen.getByText("Exploratory analysis exists but is not yet structured for review"))
+      .toBeInTheDocument();
+    expect(screen.getByText("heor/analysis-plan.md")).toBeInTheDocument();
+    expect(screen.getByText("heor/results/base_case_summary.json")).toBeInTheDocument();
+    expect(screen.queryByText(/file not found/i)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", {
+      name: "Ask the assistant to prepare a reviewable analysis",
+    }));
+    expect(onRequestStructured).toHaveBeenCalledOnce();
+  });
+
   it("keeps methods currency review researcher-led and natural-language first", async () => {
     const onPrepare = vi.fn();
     const onReview = vi.fn();
@@ -1038,8 +1084,8 @@ describe("AI4HEOR human review pane", () => {
     expect(
       await screen.findByText("Cost-effectiveness of a new first-line treatment for advanced NSCLC"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Human-authorized evidence search")).toBeInTheDocument();
-    expect(screen.getByText("Exact request is ready for human authorization")).toBeInTheDocument();
+    expect(screen.getByText("Auditable public evidence search")).toBeInTheDocument();
+    expect(screen.getByText("Exact search request is ready")).toBeInTheDocument();
     expect(screen.getByText("semaglutide AND type 2 diabetes AND cost effectiveness")).toBeInTheDocument();
     expect(screen.getByText("Evidence synthesis ledger")).toBeInTheDocument();
     expect(screen.getByText("Local evidence library")).toBeInTheDocument();
@@ -1048,7 +1094,7 @@ describe("AI4HEOR human review pane", () => {
     expect(screen.getByText("Not assessed")).toBeInTheDocument();
     expect(screen.getByText("Reviewer confirmations")).toBeInTheDocument();
     expect(screen.getByText("0/4")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Review and authorize exact search" }))
+    expect(screen.queryByRole("button", { name: "Review and start search" }))
       .not.toBeInTheDocument();
     expect(screen.getByText("Evidence audit incomplete")).toBeInTheDocument();
     expect(screen.getByText("Cohort transition structure")).toBeInTheDocument();

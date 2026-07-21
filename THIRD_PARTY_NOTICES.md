@@ -51,9 +51,14 @@ Pinned hashes and upstream locations are recorded in
   packaged resource.
 - The release-only external-adapter registry is empty. No third-party Skill,
   plugin, MCP, or package is release-eligible or loaded through that registry.
-- The Anthropic document Skills examined during design review use incompatible
-  source-available terms and are permanently absent from AI4HEOR source,
-  package, runtime, and candidate UI.
+- The Anthropic `docx`, `pdf`, `pptx`, and `xlsx` Skills at revision
+  `9d2f1ae187231d8199c64b5b762e1bdf2244733d` were checked using each Skill
+  directory's own `LICENSE.txt`. Those files are not Apache-2.0: they prohibit
+  retaining copies outside Anthropic's Services, reproduction, derivative
+  works, and redistribution. The four upstream Skill trees are therefore
+  absent from AI4HEOR source, package, runtime, and candidate UI. Equivalent
+  document capabilities are implemented independently as first-party
+  workflows and deterministic renderers.
 
 ## Open release blockers
 

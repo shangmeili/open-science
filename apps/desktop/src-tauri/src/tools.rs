@@ -30,15 +30,27 @@ fn probe_with_path(name: &str, bin: &str, version_arg: &str, path: Option<&str>)
         // prints an install hint, and exits non-zero; output alone is not
         // evidence the tool is installed.
         Ok(o) if o.status.success() => {
-            let text = if !o.stdout.is_empty() { o.stdout } else { o.stderr };
+            let text = if !o.stdout.is_empty() {
+                o.stdout
+            } else {
+                o.stderr
+            };
             let version = String::from_utf8_lossy(&text)
                 .lines()
                 .next()
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty());
-            ToolStatus { name: name.to_string(), found: true, version }
+            ToolStatus {
+                name: name.to_string(),
+                found: true,
+                version,
+            }
         }
-        _ => ToolStatus { name: name.to_string(), found: false, version: None },
+        _ => ToolStatus {
+            name: name.to_string(),
+            found: false,
+            version: None,
+        },
     }
 }
 
@@ -64,7 +76,10 @@ mod tests {
         assert_eq!(found.version.as_deref(), Some("mytool 9.9"));
 
         let missing = probe_with_path("MyTool", "mytool", "--version", Some("/nonexistent-dir"));
-        assert!(!missing.found, "tool off the provided PATH must not be found");
+        assert!(
+            !missing.found,
+            "tool off the provided PATH must not be found"
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -78,11 +93,18 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("os-tools-fake-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let tool = dir.join("faketool");
-        std::fs::write(&tool, "#!/bin/sh\necho 'not really installed' >&2\nexit 9\n").unwrap();
+        std::fs::write(
+            &tool,
+            "#!/bin/sh\necho 'not really installed' >&2\nexit 9\n",
+        )
+        .unwrap();
         std::fs::set_permissions(&tool, std::fs::Permissions::from_mode(0o755)).unwrap();
 
         let status = probe_with_path("FakeTool", "faketool", "--version", dir.to_str());
-        assert!(!status.found, "a tool that exits non-zero on --version must not be found");
+        assert!(
+            !status.found,
+            "a tool that exits non-zero on --version must not be found"
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -95,7 +117,11 @@ mod tests {
 pub fn detect_tools() -> Vec<ToolStatus> {
     let python = {
         let p3 = probe("Python", "python3", "--version");
-        if p3.found { p3 } else { probe("Python", "python", "--version") }
+        if p3.found {
+            p3
+        } else {
+            probe("Python", "python", "--version")
+        }
     };
     vec![
         python,

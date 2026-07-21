@@ -64,7 +64,9 @@ fn kill_orphan_jupyter(app: &AppHandle) {
     #[cfg(unix)]
     if let Ok(dir) = env_dir(app) {
         let pattern = format!("{}/bin/jupyter-lab", dir.to_string_lossy());
-        let _ = std::process::Command::new("pkill").args(["-9", "-f", &pattern]).output();
+        let _ = std::process::Command::new("pkill")
+            .args(["-9", "-f", &pattern])
+            .output();
         std::thread::sleep(std::time::Duration::from_millis(400));
     }
     // Windows: taskkill the recorded PID, filtered to python.exe so a recycled
@@ -141,7 +143,9 @@ fn status_of(app: &AppHandle, state: &JupyterState) -> JupyterStatus {
     JupyterStatus {
         installed,
         running,
-        url: meta.as_ref().map(|m| format!("http://127.0.0.1:{}", m.port)),
+        url: meta
+            .as_ref()
+            .map(|m| format!("http://127.0.0.1:{}", m.port)),
         token: meta.map(|m| m.token),
         mcp_command: bin(app, "jupyter-mcp-server")
             .ok()
@@ -184,7 +188,10 @@ pub async fn setup_jupyter(app: AppHandle) -> Result<(), String> {
 
     // Fix port + token once so the MCP config entry stays valid.
     if load_meta(&app).is_none() {
-        let meta = ServerMeta { port: free_port(), token: random_token() };
+        let meta = ServerMeta {
+            port: free_port(),
+            token: random_token(),
+        };
         std::fs::write(
             server_meta_path(&app)?,
             serde_json::to_string(&meta).map_err(|e| e.to_string())?,
@@ -198,7 +205,10 @@ pub async fn setup_jupyter(app: AppHandle) -> Result<(), String> {
 /// so the agent and the app's Notebooks page see the same files. `async`: the
 /// orphan cleanup alone (taskkill + settle delay) would freeze the UI thread.
 #[tauri::command(async)]
-pub fn start_jupyter(app: AppHandle, state: State<'_, JupyterState>) -> Result<JupyterStatus, String> {
+pub fn start_jupyter(
+    app: AppHandle,
+    state: State<'_, JupyterState>,
+) -> Result<JupyterStatus, String> {
     let _guard = state.lifecycle.lock().unwrap();
     if *state.running.lock().unwrap() {
         return Ok(status_of(&app, &state));
@@ -231,7 +241,9 @@ fn spawn_lab(app: &AppHandle, state: &JupyterState) -> Result<JupyterStatus, Str
             format!("--ServerApp.root_dir={}", workspace.to_string_lossy()),
         ])
         .current_dir(workspace);
-    let (mut rx, child) = cmd.spawn().map_err(|e| format!("failed to start jupyter: {e}"))?;
+    let (mut rx, child) = cmd
+        .spawn()
+        .map_err(|e| format!("failed to start jupyter: {e}"))?;
     tauri::async_runtime::spawn(async move { while rx.recv().await.is_some() {} });
     // Record the PID so a future run can kill this process if it is orphaned.
     if let Ok(path) = pid_path(app) {

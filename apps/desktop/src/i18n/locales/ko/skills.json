@@ -11,7 +11,7 @@
     "heor-dynamic-budget-impact": { "displayName": "동적 예산영향", "description": "유병·발생 코호트, 점유율과 치료 지속성을 모형화합니다." },
     "heor-economic-inputs": { "displayName": "경제성 입력", "description": "모형 중립적 비용, 효용 및 분석 설정을 검증합니다." },
     "heor-event-disutilities": { "displayName": "사건 비효용", "description": "사건 관련 QALY 손실과 중복을 감사합니다." },
-    "heor-evidence-search": { "displayName": "근거 검색", "description": "감사 가능하고 Human 승인이 필요한 문헌·임상시험 검색을 작성합니다." },
+    "heor-evidence-search": { "displayName": "근거 검색", "description": "현재 작업 권한에 따라 PubMed와 임상시험 등록의 감사 가능한 고정 소스 검색을 준비합니다." },
     "heor-evidence-synthesis": { "displayName": "근거 합성", "description": "추적 가능한 HEOR 검색, 선별 및 추출을 구축합니다." },
     "heor-hazard-ratio-adapter": { "displayName": "위험비 어댑터", "description": "검토된 일정 HR을 기준 누적위험에 적용합니다." },
     "heor-input-provenance": { "displayName": "입력 출처", "description": "모형 입력을 정확한 검토 근거와 가정에 연결합니다." },

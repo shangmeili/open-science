@@ -32,6 +32,13 @@ const OUTPUT_CAP: usize = 200;
 #[derive(Default)]
 pub struct RunState(pub Mutex<()>);
 
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunRecord {
@@ -87,7 +94,13 @@ pub struct RunArtifact {
 fn is_ignored_dir(name: &str) -> bool {
     matches!(
         name,
-        ".git" | STORE_DIR | "node_modules" | ".venv" | "venv" | "__pycache__" | ".ipynb_checkpoints"
+        ".git"
+            | STORE_DIR
+            | "node_modules"
+            | ".venv"
+            | "venv"
+            | "__pycache__"
+            | ".ipynb_checkpoints"
     ) || name.starts_with('.')
 }
 
@@ -140,7 +153,10 @@ fn rel_key(root: &Path, path: &Path) -> Option<String> {
 /// they're never pulled out of the run's outputs.
 fn is_source_file(name: &str) -> bool {
     matches!(
-        name.rsplit('.').next().map(str::to_ascii_lowercase).as_deref(),
+        name.rsplit('.')
+            .next()
+            .map(str::to_ascii_lowercase)
+            .as_deref(),
         Some("py" | "r" | "jl" | "sh" | "ipynb" | "rmd" | "qmd")
     )
 }
@@ -163,24 +179,35 @@ pub fn parse_code_files(command: &str, root: &Path) -> Vec<RunArtifact> {
         }
         if let Some(key) = rel_key(root, &candidate) {
             let (hash, size) = hash_file(&candidate);
-            return vec![RunArtifact { path: key, hash, size }];
+            return vec![RunArtifact {
+                path: key,
+                hash,
+                size,
+            }];
         }
     }
     Vec::new()
 }
 
 /// Files created or modified in the window [start_ms, end_ms] — a run's
-/// outputs. Millisecond precision (so a file written a fraction of a second
-/// before the command started isn't over-attributed). Bounded, ignoring
-/// VCS/store/cache dirs and cache files.
+/// outputs. OpenCode's terminal event clock can trail the filesystem clock by
+/// a fraction of a second, especially for very short Python/R processes. Use a
+/// one-second grace on both sides so those real outputs are not lost. The scan
+/// remains bounded and excludes the recorded entry script, VCS/store/cache
+/// directories and cache files.
 pub fn changed_outputs(root: &Path, start_ms: u64, end_ms: u64) -> Vec<RunArtifact> {
     let mut out = Vec::new();
     let mut stack = vec![root.to_path_buf()];
     let mut visited = 0usize;
-    // A small grace so a file flushed just after the reported end still counts.
+    // Small symmetric grace for event-delivery / filesystem timestamp skew.
+    // Without the leading grace, a 5 ms script can write its result before the
+    // terminal reports `startedAt`, producing a misleading run with no outputs.
+    let start = start_ms.saturating_sub(1000);
     let end = end_ms + 1000;
     while let Some(dir) = stack.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             if visited >= WALK_CAP || out.len() >= OUTPUT_CAP {
                 return out;
@@ -204,10 +231,14 @@ pub fn changed_outputs(root: &Path, start_ms: u64, end_ms: u64) -> Vec<RunArtifa
                 .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
                 .map(|d| d.as_millis() as u64)
                 .unwrap_or(0);
-            if mtime_ms >= start_ms && mtime_ms <= end {
+            if mtime_ms >= start && mtime_ms <= end {
                 if let Some(key) = rel_key(root, &path) {
                     let (hash, size) = hash_file(&path);
-                    out.push(RunArtifact { path: key, hash, size });
+                    out.push(RunArtifact {
+                        path: key,
+                        hash,
+                        size,
+                    });
                 }
             }
         }
@@ -269,14 +300,20 @@ pub fn read_log(root: &Path, hash: &str) -> Result<String, String> {
     if hash.is_empty() || !hash.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err("invalid log id".into());
     }
-    let path = root.join(STORE_DIR).join(LOGS_DIR).join(format!("{hash}.txt"));
+    let path = root
+        .join(STORE_DIR)
+        .join(LOGS_DIR)
+        .join(format!("{hash}.txt"));
     std::fs::read_to_string(&path).map_err(|e| format!("log unavailable: {e}"))
 }
 
 /// Parse a JSONL run store; missing file or unparseable lines are skipped.
 fn read_run_file(path: &Path) -> Vec<RunRecord> {
     match std::fs::read_to_string(path) {
-        Ok(text) => text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect(),
+        Ok(text) => text
+            .lines()
+            .filter_map(|l| serde_json::from_str(l).ok())
+            .collect(),
         Err(_) => Vec::new(),
     }
 }
@@ -308,7 +345,10 @@ pub fn record_run_inner(
     model: Option<String>,
     env: Option<EnvInfo>,
 ) -> Result<RunRecord, String> {
-    let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
     let start_ms = started_ms.unwrap_or(now_ms);
     let ts = start_ms / 1000;
     // Millisecond precision so two identical commands a second apart don't
@@ -317,7 +357,8 @@ pub fn record_run_inner(
 
     let code = parse_code_files(command, root);
     // Outputs need a time window; without one we can't attribute files.
-    let code_paths: std::collections::HashSet<&str> = code.iter().map(|c| c.path.as_str()).collect();
+    let code_paths: std::collections::HashSet<&str> =
+        code.iter().map(|c| c.path.as_str()).collect();
     let outputs: Vec<RunArtifact> = match (started_ms, ended_ms) {
         (Some(s), Some(e)) => changed_outputs(root, s, e),
         _ => Vec::new(),
@@ -330,7 +371,9 @@ pub fn record_run_inner(
         (Some(s), Some(e)) if e >= s => Some(e - s),
         _ => None,
     };
-    let log_hash = log.filter(|l| !l.is_empty()).and_then(|l| write_log(root, l));
+    let log_hash = log
+        .filter(|l| !l.is_empty())
+        .and_then(|l| write_log(root, l));
 
     let record = RunRecord {
         run_id: run_id.clone(),
@@ -370,6 +413,91 @@ pub fn record_run_inner(
     Ok(record)
 }
 
+/// Execute an app-owned deterministic calculation and make the Open Science
+/// run record part of the same success boundary. A successful calculation is
+/// not returned as successful unless its reproducibility record was persisted.
+/// Failed calculations are also recorded best-effort so the activity history
+/// can explain where work stopped without masking the original error.
+pub fn execute_recorded<T, F>(
+    app: &AppHandle,
+    state: &RunState,
+    prov_state: &ProvenanceState,
+    command: &str,
+    execute: F,
+) -> Result<T, String>
+where
+    F: FnOnce() -> Result<(T, Option<String>), String>,
+{
+    let started_at = now_ms();
+    let execution = execute();
+    let ended_at = now_ms();
+    let (status, log) = match &execution {
+        Ok((_, log)) => ("ok", log.clone()),
+        Err(error) => ("failed", Some(error.clone())),
+    };
+    let record = record_app_owned_run(
+        app,
+        state,
+        prov_state,
+        command,
+        log.as_deref(),
+        started_at,
+        ended_at,
+        status,
+    );
+    match (execution, record) {
+        (Ok((value, _)), Ok(_)) => Ok(value),
+        (Ok(_), Err(error)) => Err(format!(
+            "calculation completed, but its analysis record could not be saved: {error}"
+        )),
+        (Err(error), Ok(_)) => Err(error),
+        (Err(error), Err(record_error)) => Err(format!(
+            "{error}; the failed analysis record could not be saved: {record_error}"
+        )),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn record_app_owned_run(
+    app: &AppHandle,
+    state: &RunState,
+    prov_state: &ProvenanceState,
+    command: &str,
+    log: Option<&str>,
+    started_at: u64,
+    ended_at: u64,
+    status: &str,
+) -> Result<RunRecord, String> {
+    let root = workspace_dir(app)?;
+    let env = capture_env(
+        app,
+        &root,
+        app.package_info().version.to_string(),
+        Some(command),
+    );
+    let _guard = state.0.lock().map_err(|_| "run lock poisoned")?;
+    let _prov_guard = prov_state
+        .0
+        .lock()
+        .map_err(|_| "provenance lock poisoned")?;
+    let record = record_run_inner(
+        &root,
+        command,
+        log,
+        Some(started_at),
+        Some(ended_at),
+        status,
+        Some("local".into()),
+        None,
+        None,
+        Some(env),
+    )?;
+    drop(_prov_guard);
+    drop(_guard);
+    crate::git_snapshot::commit_best_effort(&root, &format!("Record run {}", record.run_id));
+    Ok(record)
+}
+
 /// `async`: capture_env shells out (pip freeze, nvidia-smi) and the output scan
 /// walks the workspace — neither may run on the UI thread.
 #[tauri::command(async)]
@@ -392,12 +520,20 @@ pub fn record_run(
     // to pip freeze / nvidia-smi (seconds), and it writes only the (idempotent,
     // content-addressed) env lockfile — not provenance.jsonl — so holding the
     // provenance lock across it would needlessly block concurrent writes.
-    let env = capture_env(&app, &root, app.package_info().version.to_string());
+    let env = capture_env(
+        &app,
+        &root,
+        app.package_info().version.to_string(),
+        Some(&command),
+    );
     // Now hold RunState (serializes runs.jsonl) AND ProvenanceState (serializes
     // provenance.jsonl, shared with record_provenance) — record_run writes both
     // stores. Only this path takes both, always in this order, so no deadlock.
     let _guard = state.0.lock().map_err(|_| "run lock poisoned")?;
-    let _prov_guard = prov_state.0.lock().map_err(|_| "provenance lock poisoned")?;
+    let _prov_guard = prov_state
+        .0
+        .lock()
+        .map_err(|_| "provenance lock poisoned")?;
     let record = record_run_inner(
         &root,
         &command,
@@ -458,7 +594,10 @@ mod tests {
         std::fs::write(root.join("in.ipynb"), "{}").unwrap();
         std::fs::write(root.join("out.ipynb"), "{}").unwrap();
         let nb = parse_code_files("papermill in.ipynb out.ipynb", &root);
-        assert_eq!(nb.iter().map(|c| c.path.as_str()).collect::<Vec<_>>(), vec!["in.ipynb"]);
+        assert_eq!(
+            nb.iter().map(|c| c.path.as_str()).collect::<Vec<_>>(),
+            vec!["in.ipynb"]
+        );
 
         // Flags, data files, and non-existent tokens are not entry scripts.
         assert!(parse_code_files("python nonexistent.py --lr 3e-4", &root).is_empty());
@@ -468,11 +607,17 @@ mod tests {
         // captured, not dropped by the leading CurDir path component.
         std::fs::write(root.join("run.sh"), "echo hi").unwrap();
         assert_eq!(
-            parse_code_files("./run.sh --flag", &root).iter().map(|c| c.path.as_str()).collect::<Vec<_>>(),
+            parse_code_files("./run.sh --flag", &root)
+                .iter()
+                .map(|c| c.path.as_str())
+                .collect::<Vec<_>>(),
             vec!["run.sh"],
         );
         assert_eq!(
-            parse_code_files("python ./train.py", &root).iter().map(|c| c.path.as_str()).collect::<Vec<_>>(),
+            parse_code_files("python ./train.py", &root)
+                .iter()
+                .map(|c| c.path.as_str())
+                .collect::<Vec<_>>(),
             vec!["train.py"],
         );
 
@@ -492,7 +637,10 @@ mod tests {
 
         // A window up to now (ms) includes the fresh file — but never the store
         // dir or cache files.
-        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
         let outs = changed_outputs(&root, 0, now_ms);
         let paths: Vec<_> = outs.iter().map(|o| o.path.as_str()).collect();
         assert!(paths.contains(&"result.csv"));
@@ -503,12 +651,39 @@ mod tests {
     }
 
     #[test]
+    fn captures_outputs_written_just_before_the_reported_start() {
+        let root = temp_root("leading-grace");
+        let path = root.join("result.json");
+        std::fs::write(&path, "{\"icer\":42457}").unwrap();
+        let written_ms = std::fs::metadata(&path)
+            .unwrap()
+            .modified()
+            .unwrap()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
+        // Reproduces the live failure: the filesystem write landed a few
+        // hundred milliseconds before OpenCode's terminal event start.
+        let outs = changed_outputs(&root, written_ms + 700, written_ms + 705);
+        assert_eq!(
+            outs.iter().map(|o| o.path.as_str()).collect::<Vec<_>>(),
+            vec!["result.json"]
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn records_a_run_and_links_its_outputs_in_provenance() {
         use crate::provenance::versions_for;
         let root = temp_root("record");
         std::fs::write(root.join("train.py"), "print(1)").unwrap();
 
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         // Window: [now-5s, now+5s] in ms, so the fresh metrics.json is an output.
         std::fs::write(root.join("metrics.json"), "{\"acc\":0.9}").unwrap();
         let rec = record_run_inner(
@@ -529,7 +704,10 @@ mod tests {
         assert_eq!(rec.status, "ok");
         assert_eq!(rec.surface.as_deref(), Some("local"));
         assert_eq!(rec.wall_ms, Some(10_000));
-        assert_eq!(rec.code.iter().map(|c| c.path.as_str()).collect::<Vec<_>>(), vec!["train.py"]);
+        assert_eq!(
+            rec.code.iter().map(|c| c.path.as_str()).collect::<Vec<_>>(),
+            vec!["train.py"]
+        );
         assert!(rec.outputs.iter().any(|o| o.path == "metrics.json"));
         // The entry script is an input (code), never counted as its own output,
         // even though it was written just before (and so is inside the window).
@@ -566,7 +744,10 @@ mod tests {
         use crate::provenance::versions_for;
         let root = temp_root("failed");
         std::fs::write(root.join("train.py"), "print(1)").unwrap();
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         std::fs::write(root.join("partial.json"), "{").unwrap(); // partial/corrupt
 
         let rec = record_run_inner(
@@ -596,7 +777,19 @@ mod tests {
     fn read_runs_merges_local_and_remote_stores_newest_first() {
         let root = temp_root("merge");
         // A local run at ts=100.
-        record_run_inner(&root, "python a.py", None, Some(100_000), Some(101_000), "ok", Some("local".into()), None, None, None).unwrap();
+        record_run_inner(
+            &root,
+            "python a.py",
+            None,
+            Some(100_000),
+            Some(101_000),
+            "ok",
+            Some("local".into()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         // A remote run at ts=200, written by the skill into remote-runs.jsonl.
         let dir = root.join(".openscience");
         std::fs::create_dir_all(&dir).unwrap();
@@ -611,7 +804,10 @@ mod tests {
         assert_eq!(runs[0].surface.as_deref(), Some("hpc"));
         assert_eq!(runs[0].host.as_deref(), Some("login-a"));
         assert_eq!(runs[0].job_id.as_deref(), Some("12345"));
-        assert_eq!(runs[0].remote_hardware.as_deref(), Some("1x A100 (node gpu-07), CUDA 12.2"));
+        assert_eq!(
+            runs[0].remote_hardware.as_deref(),
+            Some("1x A100 (node gpu-07), CUDA 12.2")
+        );
         assert_eq!(runs[0].wall_ms, Some(3_600_000));
         assert_eq!(runs[0].outputs[0].path, "slurm/out.csv");
         assert_eq!(runs[1].command, "python a.py");

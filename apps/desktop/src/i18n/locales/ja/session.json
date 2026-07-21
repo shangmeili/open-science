@@ -77,6 +77,10 @@
       "addFiles": "ファイルを追加できませんでした: {{message}}"
     }
   },
+  "message": {
+    "copy": "コピー", "copied": "コピー済み", "edit": "編集してここから続ける", "revert": "この時点に戻る", "editField": "メッセージを編集", "cancel": "キャンセル", "resend": "保存して続ける", "revertFailed": "この時点に戻れませんでした: {{message}}",
+    "confirm": { "title": "この時点に戻りますか？", "body": "以降のメッセージとタスクファイルへの変更は削除されます。", "action": "ここに戻る" }
+  },
   "localCommand": {
     "newDescription": "このフォルダでチャット文脈を消去",
     "clearDescription": "/new と同じ。ファイルはこのフォルダに残ります",
@@ -166,7 +170,8 @@
       "loadedSkill": "研究機能を読み込みました：{{skill}}",
       "completed": "完了",
       "rateLimited": "現在のモデルへのリクエストが集中しています。しばらく待つか、別のモデルを選択してください。",
-      "stoppedBeforeReply": "モデルへのリクエストが応答を返さず停止しました。再試行するか、別のモデルを選択してください。"
+      "stoppedBeforeReply": "モデルへのリクエストが応答を返さず停止しました。再試行するか、別のモデルを選択してください。",
+      "step": "ステップ {{count}}"
     },
     "placeholder": {
       "disconnected": "チャットするには接続してください",
@@ -261,6 +266,10 @@
     "reject": "拒否",
     "alwaysAllow": "常に許可",
     "allowOnce": "今回のみ許可"
+  },
+  "reasoning": {
+    "thinking": "分析中…",
+    "thought": "分析メモ"
   },
   "stepSummary": {
     "steps": "{{count}} ステップ"

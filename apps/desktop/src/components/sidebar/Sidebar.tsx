@@ -6,6 +6,7 @@ import {
   Files,
   FlaskConical,
   Folder,
+  FolderInput,
   FolderOpen,
   FolderTree,
   PanelLeft,
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { displaySessionTitle, useRuntimeStore } from "@/lib/runtime";
-import { renameProject, type ProjectInfo } from "@/lib/tauri";
+import { pickFolder, renameProject, type ProjectInfo } from "@/lib/tauri";
 import {
   SIDEBAR_MAX,
   SIDEBAR_MIN,
@@ -61,6 +62,7 @@ export function Sidebar() {
     startDraft,
     startDraftInWorkspace,
     createProject,
+    importProject,
     refreshProjects,
     deleteSession,
   } = useRuntimeStore();
@@ -113,6 +115,7 @@ export function Sidebar() {
     initialCollapsedProjects,
   );
   const [creatingProject, setCreatingProject] = useState(false);
+  const [importingProject, setImportingProject] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
 
@@ -180,6 +183,21 @@ export function Sidebar() {
     else looseRows.push(row);
   }
   const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
+
+  const importExistingProject = async () => {
+    if (importingProject) return;
+    setImportingProject(true);
+    try {
+      const path = await pickFolder();
+      if (!path) return;
+      const project = await importProject(path);
+      if (!project) return;
+      setComposerDraft(null);
+      if (location.pathname !== "/heor/new") navigate("/heor/new");
+    } finally {
+      setImportingProject(false);
+    }
+  };
 
   const confirmDelete = () => {
     const row = pendingDelete;
@@ -313,14 +331,25 @@ export function Sidebar() {
             <span className="text-xs font-medium uppercase tracking-wider text-muted">
               {t("projects.heading")}
             </span>
-            <button
-              onClick={() => setCreatingProject(true)}
-              aria-label={t("projects.new")}
-              title={t("projects.new")}
-              className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-text"
-            >
-              <Plus size={13} />
-            </button>
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => void importExistingProject()}
+                disabled={importingProject}
+                aria-label={t("projects.import")}
+                title={t("projects.import")}
+                className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-text disabled:opacity-50"
+              >
+                <FolderInput size={13} />
+              </button>
+              <button
+                onClick={() => setCreatingProject(true)}
+                aria-label={t("projects.new")}
+                title={t("projects.new")}
+                className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-text"
+              >
+                <Plus size={13} />
+              </button>
+            </div>
           </div>
           {creatingProject && (
             <div className="px-1 pb-1">

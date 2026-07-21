@@ -6,7 +6,9 @@ The Agent may write `heor/evidence-search-request.json`. The application indepen
 
 - `schema_version`: `0.1.0`.
 - `request_id`: 1–80 ASCII letters, digits, hyphens, or underscores.
-- `status`: `ready_for_human_review` before authorization.
+- `status`: `ready_for_human_review` (a legacy schema token meaning the exact
+  request is ready for the app-owned execution boundary; it does not prove that
+  human review occurred).
 - `purpose`: why the metadata search is needed.
 - `query`: 1–500 characters without control characters.
 - `sources`: a unique non-empty subset of `pubmed` and `clinicaltrials`.
@@ -19,11 +21,19 @@ The Agent may write `heor/evidence-search-request.json`. The application indepen
 
 Unknown fields fail closed. Dynamic URLs, headers, credentials, local paths, provider-specific secrets, output paths, and tool names are not part of the schema.
 
-## Human authorization
+## Task permission and execution record
 
-The review pane shows the exact request SHA-256, query, sources, date range, result cap, and sensitivity declaration. Execution requires a human reviewer label, rationale, and explicit confirmation that the query contains no sensitive data. The app re-reads and re-hashes the request immediately before execution; changed bytes invalidate authorization.
+The review pane shows the exact request SHA-256, query, sources, date range,
+result cap, and sensitivity declaration. In confirmation mode, execution
+requires a human reviewer label, rationale, and explicit confirmation that the
+query contains no sensitive data. In user-selected full-access mode, execution
+does not add a second prompt; the event records the runtime policy and never
+claims a human review. The app re-reads and re-hashes the request immediately
+before execution; changed bytes always require a new execution record.
 
-Authorization events live outside the Agent workspace in an app-owned append-only SHA-256 chain. This detects partial or inconsistent edits but is not OS-backed identity proof.
+Execution events live outside the Agent workspace in an app-owned append-only
+SHA-256 chain. This detects partial or inconsistent edits but is not OS-backed
+identity proof.
 
 ## Fixed network behavior
 
@@ -38,4 +48,7 @@ The app writes a new, never-overwritten JSON artifact under `heor/evidence-searc
 
 The source-selection and bounded-search design was informed by HEORAgent MCP revision `19f5f0eea5764d7a2695c372f3ec8f3aa0f53dd8` (MIT, Copyright 2026 mnaumov). AI4HEOR does not bundle or execute the upstream Node package: its 48-tool authority surface, direct multi-source network access, global default knowledge root, optional PostHog integration, and unresolved dependency vulnerabilities exceed this connector's boundary.
 
-The AI4HEOR implementation is a first-party rewrite around fixed public APIs, app-owned authorization, local artifacts, and no calculation or approval authority. The upstream MIT notice is preserved in `references/heoragent-mit-license.txt`.
+The AI4HEOR implementation is a first-party rewrite around fixed public APIs,
+task-permission-aware app-owned execution, local artifacts, and no calculation
+or scientific-approval authority. The upstream MIT notice is preserved in
+`references/heoragent-mit-license.txt`.

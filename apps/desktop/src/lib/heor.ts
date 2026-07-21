@@ -1363,13 +1363,18 @@ export interface HeorEvidenceSearchResult {
   limitations: string[];
 }
 
-export interface HeorSearchAuthorizationRequest {
+export type HeorSearchAuthorizationRequest = {
   projectId: string;
   requestSha256: string;
+  permissionMode: "runtime_full_access";
+} | {
+  projectId: string;
+  requestSha256: string;
+  permissionMode: "human_confirmation";
   actorLabel: string;
   rationale: string;
   confirmedNoSensitiveData: true;
-}
+};
 
 export interface HeorSearchAuthorizationEvent {
   schemaVersion: number;
@@ -3314,23 +3319,31 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
   const synthesisBindingValid = plan.evidence_synthesis?.path === HEOR_EVIDENCE_SYNTHESIS_PATH
     && validSha256(plan.evidence_synthesis.content_sha256);
 
-  for (const mapping of plan.input_provenance ?? []) {
+  for (const [index, mapping] of (plan.input_provenance ?? []).entries()) {
+    if (!mapping || typeof mapping !== "object") {
+      invalidMappings.push(`input_provenance[${index}]: mapping must be an object`);
+      continue;
+    }
     const reasons: string[] = [];
-    if (!required.has(mapping.path)) reasons.push("path is not a required model input");
-    if (seen.has(mapping.path)) reasons.push("path is duplicated");
-    seen.add(mapping.path);
+    const path = nonempty(mapping.path) ? mapping.path : "";
+    if (!path) reasons.push("path is missing");
+    else if (!required.has(path)) reasons.push("path is not a required model input");
+    if (path && seen.has(path)) reasons.push("path is duplicated");
+    if (path) seen.add(path);
     if (!nonempty(mapping.unit)) reasons.push("unit is missing");
     if (!nonempty(mapping.jurisdiction)) reasons.push("jurisdiction is missing");
     if (!nonempty(mapping.selection_rationale)) reasons.push("selection rationale is missing");
     if (!(["fixed", "range_available", "distribution_available"] as string[])
       .includes(mapping.uncertainty_status)) reasons.push("uncertainty status is invalid");
-    if (mapping.path.endsWith("state_costs") || mapping.path === "willingness_to_pay") {
+    if (path.endsWith("state_costs") || path === "willingness_to_pay") {
       reasons.push(...monetaryAdjustmentReasons(plan, mapping, validBasisIds));
     }
     const sourceIds = (mapping.source_ids ?? []).filter(nonempty);
     const extractionIds = (mapping.extraction_ids ?? []).filter(nonempty);
     const assumptionIds = (mapping.assumption_ids ?? []).filter(nonempty);
-    reasons.push(...derivationReasons(plan, mapping, sourceIds, assumptionIds, extractionIds));
+    if (path) {
+      reasons.push(...derivationReasons(plan, mapping, sourceIds, assumptionIds, extractionIds));
+    }
     if (sourceIds.length === 0 && assumptionIds.length === 0) {
       reasons.push("no evidence source or reviewable assumption is linked");
     }
@@ -3351,8 +3364,8 @@ export function auditHeorEvidence(plan: HeorAnalysisPlan): HeorEvidenceAudit {
     if (assumptionIds.some((id) => statuses.get(id) !== "proposed")) {
       reasons.push("assumption link is missing or is not proposed for human review");
     }
-    if (reasons.length === 0) covered.add(mapping.path);
-    else invalidMappings.push(`${mapping.path || "mapping"}: ${reasons.join("; ")}`);
+    if (reasons.length === 0) covered.add(path);
+    else invalidMappings.push(`${path || `input_provenance[${index}]`}: ${reasons.join("; ")}`);
   }
 
   const unsupportedInputs = requiredPaths.filter((path) => !covered.has(path));
@@ -3380,9 +3393,27 @@ export async function sha256Text(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-const HEOR_PROMPT_PREAMBLE = [
+const LEGACY_HEOR_PROMPT_PREAMBLE = [
   "Use $heor-workbench for this request.",
   "Work through natural-language dialogue first. Maintain heor/analysis-plan.json only when the decision problem and inputs are sufficiently defined; never create or claim human approvals.",
+].join("\n");
+
+const OPEN_SCIENCE_BASELINE_HEOR_PROMPT_PREAMBLE = [
+  "Use $heor-workbench for this request.",
+  "Preserve the Open Science baseline: continue the requested research, search, coding, and local execution unless a real scientific or safety decision is missing. Treat HEOR artifacts as progressive HEOR outputs, not prerequisites for starting useful work. Work through natural-language dialogue first; never create or claim human approvals.",
+].join("\n");
+
+const PREVIOUS_HEOR_PROMPT_PREAMBLE = [
+  "Use $heor-workbench for this request.",
+  "Preserve the Open Science baseline: continue the requested research, search, coding, and local execution unless a real scientific or safety decision is missing. Treat HEOR artifacts as progressive HEOR outputs, not prerequisites for starting useful work. Work through natural-language dialogue first; never create or claim human approvals.",
+  "HEOR review-panel JSON paths are reserved machine contracts: create one only from its bundled first-party template and only after its bundled validator passes. Never invent a schema at heor/analysis-plan.json; use heor/analysis-plan.md for exploratory plans that are not yet eligible for the machine contract.",
+].join("\n");
+
+const HEOR_PROMPT_PREAMBLE = [
+  "Use $heor-workbench for this request.",
+  "Preserve the Open Science baseline: continue the requested research, search, coding, and local execution unless a real scientific or safety decision is missing. Treat HEOR artifacts as progressive HEOR outputs, not prerequisites for starting useful work. Work through natural-language dialogue first; never create or claim human approvals.",
+  "HEOR review-panel JSON paths are reserved machine contracts: create one only from its bundled first-party template and only after its bundled validator passes. Never invent a schema at heor/analysis-plan.json; use heor/analysis-plan.md for exploratory plans that are not yet eligible for the machine contract.",
+  "For a clear research request, start the requested work directly. Do not begin with Git status, .gitignore, README, a recursive directory inventory, or a generic harness/configuration audit; inspect only material the task actually depends on.",
 ].join("\n");
 
 /** Add the domain contract to the provider request. It is runtime context, not
@@ -3396,9 +3427,16 @@ export function buildHeorPrompt(userText: string): string {
  *  by the live composer, so it must not reappear as raw syntax after reload. */
 export function displayHeorPrompt(storedText: string): string {
   const stored = storedText.trim();
-  if (!stored.startsWith(HEOR_PROMPT_PREAMBLE)) return stored;
+  const preamble = [
+    HEOR_PROMPT_PREAMBLE,
+    PREVIOUS_HEOR_PROMPT_PREAMBLE,
+    OPEN_SCIENCE_BASELINE_HEOR_PROMPT_PREAMBLE,
+    LEGACY_HEOR_PROMPT_PREAMBLE,
+  ]
+    .find((candidate) => stored.startsWith(candidate));
+  if (!preamble) return stored;
   return stored
-    .slice(HEOR_PROMPT_PREAMBLE.length)
+    .slice(preamble.length)
     .trim()
     .replace(/^\$[a-z0-9-]+\s*\n+/i, "")
     .trim();
@@ -3425,6 +3463,14 @@ export async function runHeorMarkov(
   if (!isTauri) throw new Error("not running in the desktop app");
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<HeorRunResult>("run_heor_markov", { projectId, inputPath });
+}
+
+export async function inspectHeorMarkovResult(
+  projectId: string,
+): Promise<HeorRunResult | null> {
+  if (!isTauri) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<HeorRunResult | null>("inspect_heor_markov_result", { projectId });
 }
 
 export async function auditHeorReferenceCase(): Promise<HeorReferenceCaseAudit> {
@@ -4105,7 +4151,7 @@ export async function listHeorSearchAuthorizations(
     events: [],
     chainHead: null,
     integrity: "verified_unanchored_sha256_chain",
-    identityAssurance: "local_human_assertion",
+    identityAssurance: "app_owned_network_execution_chain",
   };
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<HeorSearchAuthorizationLog>("list_heor_search_authorizations", { projectId });

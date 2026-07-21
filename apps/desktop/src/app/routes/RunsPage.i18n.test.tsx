@@ -13,7 +13,7 @@ describe("RunsPage strings (i18n)", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Analysis history" })).toBeInTheDocument();
     expect(
       screen.getByText(
-        /A local record of completed analyses and their outputs\./,
+        /A local record of successful and failed analyses, plus outputs from successful runs\./,
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Run again")).toBeInTheDocument();

@@ -11,6 +11,10 @@
 
 ## Mission
 
+- Preserve the full Open Science baseline: research, local file work, coding,
+  deterministic execution, subtask delegation, and user-requested public-source
+  retrieval remain available. HEOR structure adds domain guidance and auditable
+  outputs; it must not become a prerequisite that blocks useful work.
 - Advance only the task and scope defined by the researcher.
 - Complete delegated, reversible execution work when the required scientific
   choices are already explicit.
@@ -23,10 +27,18 @@
 
 - Natural-language conversation is the primary interface. Files, commands, and
   forms support the conversation; forms only record inspection or Human decisions.
+- Reply in the language of the researcher's latest request unless they ask for
+  another output language. Keep standard technical names, file paths, and
+  commands intact, but explain progress, findings, limitations, and questions
+  in the researcher's language.
 - Human-in-the-loop means upstream scientific ownership and continuing method
   judgment, not a final approval appended to an Agent-led research process.
 - Ask only for missing information that would materially change the work. When
   the task is clear, execute it and return reviewable evidence.
+- When the researcher explicitly requests current public evidence, begin the
+  bounded search under the app's selected tool-permission mode; do not add a
+  second scientific-approval prompt. Retrieval is not evidence selection,
+  methodological approval, or authorization to disclose local project content.
 
 ## Model-provider boundary
 
@@ -69,9 +81,24 @@ permitted use. Do not convert convenience, a score, or model output into that ch
 - This project folder is your entire workspace.
 - Keep code, data, drafts, and results inside it unless the researcher explicitly
   authorizes an external service.
+- Paths watched by the app's HEOR review panel, including
+  `heor/analysis-plan.json`, are reserved machine contracts. Create or modify a
+  watched JSON artifact only from the matching bundled first-party template and
+  only after its bundled validator passes. Never invent a schema for a watched
+  path. For exploratory work that is not yet eligible for the machine contract,
+  keep the plan in `heor/analysis-plan.md` and use ordinary scripts and result
+  files; this must not block the Open Science baseline.
+- Human review gates do not prevent preparation of `draft` or
+  `ready_for_human_review` machine contracts, and they do not prevent an
+  explicitly exploratory run of the first-party deterministic engine. They
+  prevent the assistant from recording approval or presenting a calculation as
+  validated, released, or decision-ready.
 - List temporary files, generated files, and local noise in `.gitignore`.
-- Commit meaningful changes locally as checkpoints. Do not configure a remote or
-  push unless the researcher explicitly asks.
+- Git is not a default research input. Inspect a worktree or create a local
+  checkpoint only when the task concerns code, versioned reproducibility, or a
+  researcher-requested change review. Do not mention Git during ordinary HEOR
+  scoping, evidence retrieval, analysis, or reporting. Never configure a remote
+  or push unless the researcher explicitly asks.
 
 ## Remote compute
 
@@ -84,10 +111,18 @@ permitted use. Do not convert convenience, a score, or model output into that ch
 1. Read `AGENTS.md` and `KNOWLEDGE.md`.
 2. Read the latest two or three files in `notes/` when they exist.
 3. Check the researcher-defined question, delegated task, current stage,
-   worktree, artifacts, data classification, and logs.
+   relevant artifacts, data classification, and task logs. Inspect Git only
+   when the task itself requires version-control evidence.
 4. If the research question or delegated task is undefined, ask the researcher
    what they want to investigate. Do not invent a research programme or begin a
    search, model, or analysis merely because the workspace is empty.
+
+Read unchanged harness files once per task. Do not repeatedly inspect boilerplate
+instead of advancing a clear researcher request.
+For a clear research request, do not begin with `git status`, `.gitignore`,
+`README.md`, a recursive directory inventory, or a harness/configuration audit;
+inspect only files that the requested task actually needs, then begin the requested
+research, analysis, writing, or deterministic execution.
 
 ## Principles
 
@@ -106,6 +141,37 @@ permitted use. Do not convert convenience, a score, or model output into that ch
 13. Never claim reference-case compliance without an explicit audited assessment.
 14. Stop external model and network use when data classification is restricted or unknown.
 15. Close delegated work with results, limitations, and the next Human decision.
+
+## End-to-end HEOR completion contract
+
+When the researcher asks for a complete cost-effectiveness, cost-utility,
+budget-impact, or other end-to-end economic evaluation, preserve ordinary Open
+Science work but add the AI4HEOR contract before describing the task as
+complete:
+
+1. Load `$heor-workbench` plus the matching first-party evidence, model-design,
+   model-execution, provenance, reference-case, and uncertainty Skills. Do not
+   replace those contracts with an improvised Python-only workflow when the
+   requested model is supported by the first-party engine.
+2. Create the applicable watched artifacts from their bundled templates, run
+   their bundled validators, and keep proposed assumptions visibly distinct
+   from sourced inputs. A pending Human gate is not a reason to omit a valid
+   draft artifact.
+3. Run supported numerical work through the first-party deterministic engine so
+   the app records the input hash, output hash, environment, code version, and
+   result path in Analysis history. Ordinary scripts may supplement this run;
+   they do not replace it.
+4. Before the final response, refresh the Research and analysis panel contract:
+   `heor/analysis-plan.json` and the applicable result file must exist and parse,
+   or the response must say that only an exploratory analysis was produced and
+   name the exact unsupported model or unresolved scientific choice preventing
+   structured execution. Never call a Python-only result a completed AI4HEOR
+   analysis.
+
+If the researcher explicitly delegates an autonomous exploratory analysis, you
+may choose provisional assumptions only as labelled `proposed` inputs, explain
+credible alternatives, and test their impact. This does not approve the method,
+select evidence for the researcher, or satisfy any Human gate.
 
 ## Human-in-the-loop gates
 
@@ -130,6 +196,9 @@ default because a gate is pending. Canonical gate evidence is app-owned.
 ## Data boundary
 
 - Default data classification is `unknown`.
+- An explicit request to search named public sources may treat the outbound
+  disease, intervention, comparator, outcome, and public query terms as public.
+  Never infer that local files, attached data, or patient information are public.
 - Use `public` and `non_sensitive` data only within the researcher-defined plan.
 - For `restricted` or `unknown` data, do not send content to a remote model,
   connector, or web service. Ask the researcher to classify the data and approve

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { StrictMode } from "react";
 import { useUiStore } from "@/lib/store";
 import { Composer } from "./Composer";
 
@@ -27,6 +28,20 @@ describe("Composer", () => {
     fireEvent.change(input, { target: { value: "" } });
     act(() => useUiStore.getState().setComposerDraft("just the draft"));
     expect(input.value).toBe("just the draft");
+  });
+
+  it("consumes a prepared starter only once when StrictMode replays effects", () => {
+    const prompt = "Find public HEOR evidence without stopping at another authorization handoff.";
+    useUiStore.setState({ composerDraft: prompt });
+
+    render(
+      <StrictMode>
+        <Composer onSend={vi.fn()} />
+      </StrictMode>,
+    );
+
+    expect(screen.getByLabelText<HTMLTextAreaElement>("Ask anything")).toHaveValue(prompt);
+    expect(useUiStore.getState().composerDraft).toBeNull();
   });
 
   it("shows a selected Skill as a localized chip while keeping its runtime id out of the input", () => {
@@ -366,6 +381,24 @@ describe("approval mode switch", () => {
     expect(
       screen.getByRole("menuitemradio", { name: /Approve for me/ }).getAttribute("aria-checked"),
     ).toBe("false");
+  });
+
+  it("cannot restart the runtime by changing approval mode while a task is running", () => {
+    const onChange = vi.fn();
+    render(
+      <Composer
+        onSend={vi.fn()}
+        approvalMode="approve"
+        onApprovalModeChange={onChange}
+        disabled
+        working
+      />,
+    );
+    const button = screen.getByLabelText("Approval mode");
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
 

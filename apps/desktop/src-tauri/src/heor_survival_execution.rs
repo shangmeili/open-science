@@ -562,14 +562,19 @@ fn expected_parameterization(family: &str) -> Option<&'static str> {
     }
 }
 
-fn uncertainty_parameter_contract(family: &str) -> Option<(&'static [&'static str], &'static [&'static str])> {
+fn uncertainty_parameter_contract(
+    family: &str,
+) -> Option<(&'static [&'static str], &'static [&'static str])> {
     match family {
         "exponential" => Some((&["rate"], &["exp"])),
         "weibull" => Some((&["shape", "scale"], &["exp", "exp"])),
         "gompertz" => Some((&["shape", "rate"], &["identity", "exp"])),
         "gamma" => Some((&["shape", "rate"], &["exp", "exp"])),
         "generalized_gamma" => Some((&["mu", "sigma", "Q"], &["identity", "exp", "identity"])),
-        "generalized_f" => Some((&["mu", "sigma", "Q", "P"], &["identity", "exp", "identity", "exp"])),
+        "generalized_f" => Some((
+            &["mu", "sigma", "Q", "P"],
+            &["identity", "exp", "identity", "exp"],
+        )),
         "lognormal" => Some((&["meanlog", "sdlog"], &["identity", "exp"])),
         "loglogistic" => Some((&["shape", "scale"], &["exp", "exp"])),
         _ => None,
@@ -577,7 +582,11 @@ fn uncertainty_parameter_contract(family: &str) -> Option<(&'static [&'static st
 }
 
 fn string_array(value: Option<&serde_json::Value>) -> Option<Vec<&str>> {
-    value?.as_array()?.iter().map(serde_json::Value::as_str).collect()
+    value?
+        .as_array()?
+        .iter()
+        .map(serde_json::Value::as_str)
+        .collect()
 }
 
 fn positive_definite(matrix: &[Vec<f64>]) -> bool {
@@ -615,35 +624,78 @@ fn audit_uncertainty_artifact(
     errors: &mut Vec<String>,
 ) -> bool {
     let initial_errors = errors.len();
-    if !exact_fields(artifact, &[
-        "schema_version", "family", "status", "source_model", "estimation_scale",
-        "parameter_order", "estimates", "covariance_matrix", "inverse_transforms",
-        "covariance_method", "sampling_distribution", "sampling_scope", "reason", "limitations",
-    ]) || artifact.get("schema_version").and_then(serde_json::Value::as_str) != Some(UNCERTAINTY_SCHEMA_VERSION)
+    if !exact_fields(
+        artifact,
+        &[
+            "schema_version",
+            "family",
+            "status",
+            "source_model",
+            "estimation_scale",
+            "parameter_order",
+            "estimates",
+            "covariance_matrix",
+            "inverse_transforms",
+            "covariance_method",
+            "sampling_distribution",
+            "sampling_scope",
+            "reason",
+            "limitations",
+        ],
+    ) || artifact
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        != Some(UNCERTAINTY_SCHEMA_VERSION)
         || text(artifact.get("family")) != Some(family)
     {
         errors.push(format!("{label} fields, schema, or family are invalid"));
         return false;
     }
-    if artifact.get("source_model") != Some(&serde_json::json!({"path": source_path, "sha256": source_sha256})) {
+    if artifact.get("source_model")
+        != Some(&serde_json::json!({"path": source_path, "sha256": source_sha256}))
+    {
         errors.push(format!("{label} source model binding is invalid"));
     }
-    if artifact.get("sampling_scope").and_then(serde_json::Value::as_str) != Some("within_one_absolute_curve_only")
-        || !artifact.get("limitations").and_then(serde_json::Value::as_array).is_some_and(|items| {
-            !items.is_empty() && items.iter().all(|item| text(Some(item)).is_some())
-        })
+    if artifact
+        .get("sampling_scope")
+        .and_then(serde_json::Value::as_str)
+        != Some("within_one_absolute_curve_only")
+        || !artifact
+            .get("limitations")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|items| {
+                !items.is_empty() && items.iter().all(|item| text(Some(item)).is_some())
+            })
     {
         errors.push(format!("{label} scope or limitations are invalid"));
     }
     let status = text(artifact.get("status")).unwrap_or_default();
     if status == "unavailable" {
-        if artifact.get("estimation_scale").is_none_or(|value| !value.is_null())
-            || !artifact.get("parameter_order").and_then(serde_json::Value::as_array).is_some_and(Vec::is_empty)
-            || !artifact.get("estimates").and_then(serde_json::Value::as_array).is_some_and(Vec::is_empty)
-            || !artifact.get("covariance_matrix").and_then(serde_json::Value::as_array).is_some_and(Vec::is_empty)
-            || !artifact.get("inverse_transforms").and_then(serde_json::Value::as_array).is_some_and(Vec::is_empty)
-            || artifact.get("covariance_method").is_none_or(|value| !value.is_null())
-            || artifact.get("sampling_distribution").is_none_or(|value| !value.is_null())
+        if artifact
+            .get("estimation_scale")
+            .is_none_or(|value| !value.is_null())
+            || !artifact
+                .get("parameter_order")
+                .and_then(serde_json::Value::as_array)
+                .is_some_and(Vec::is_empty)
+            || !artifact
+                .get("estimates")
+                .and_then(serde_json::Value::as_array)
+                .is_some_and(Vec::is_empty)
+            || !artifact
+                .get("covariance_matrix")
+                .and_then(serde_json::Value::as_array)
+                .is_some_and(Vec::is_empty)
+            || !artifact
+                .get("inverse_transforms")
+                .and_then(serde_json::Value::as_array)
+                .is_some_and(Vec::is_empty)
+            || artifact
+                .get("covariance_method")
+                .is_none_or(|value| !value.is_null())
+            || artifact
+                .get("sampling_distribution")
+                .is_none_or(|value| !value.is_null())
             || text(artifact.get("reason")).is_none()
         {
             errors.push(format!("{label} unavailable payload is invalid"));
@@ -654,10 +706,21 @@ fn audit_uncertainty_artifact(
         errors.push(format!("{label} status is invalid"));
         return false;
     }
-    if !artifact.get("reason").is_some_and(serde_json::Value::is_null)
-        || artifact.get("estimation_scale").and_then(serde_json::Value::as_str) != Some("unconstrained_real_line")
-        || artifact.get("covariance_method").and_then(serde_json::Value::as_str) != Some("inverse_observed_hessian")
-        || artifact.get("sampling_distribution").and_then(serde_json::Value::as_str) != Some("asymptotic_multivariate_normal")
+    if !artifact
+        .get("reason")
+        .is_some_and(serde_json::Value::is_null)
+        || artifact
+            .get("estimation_scale")
+            .and_then(serde_json::Value::as_str)
+            != Some("unconstrained_real_line")
+        || artifact
+            .get("covariance_method")
+            .and_then(serde_json::Value::as_str)
+            != Some("inverse_observed_hessian")
+        || artifact
+            .get("sampling_distribution")
+            .and_then(serde_json::Value::as_str)
+            != Some("asymptotic_multivariate_normal")
     {
         errors.push(format!("{label} available method metadata is invalid"));
     }
@@ -671,19 +734,36 @@ fn audit_uncertainty_artifact(
         errors.push(format!("{label} parameter order or transforms are invalid"));
         return false;
     }
-    let estimates = artifact.get("estimates").and_then(serde_json::Value::as_array)
-        .map(|values| values.iter().filter_map(|value| finite(Some(value))).collect::<Vec<_>>())
+    let estimates = artifact
+        .get("estimates")
+        .and_then(serde_json::Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(|value| finite(Some(value)))
+                .collect::<Vec<_>>()
+        })
         .unwrap_or_default();
-    let rows = artifact.get("covariance_matrix").and_then(serde_json::Value::as_array);
+    let rows = artifact
+        .get("covariance_matrix")
+        .and_then(serde_json::Value::as_array);
     let size = expected_order.len();
     if estimates.len() != size || !rows.is_some_and(|values| values.len() == size) {
-        errors.push(format!("{label} estimates or covariance dimensions are invalid"));
+        errors.push(format!(
+            "{label} estimates or covariance dimensions are invalid"
+        ));
         return false;
     }
     let mut matrix = Vec::with_capacity(size);
     for row in rows.unwrap() {
-        let values = row.as_array()
-            .map(|items| items.iter().filter_map(|value| finite(Some(value))).collect::<Vec<_>>())
+        let values = row
+            .as_array()
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|value| finite(Some(value)))
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default();
         if values.len() != size {
             errors.push(format!("{label} covariance row is invalid"));
@@ -691,23 +771,36 @@ fn audit_uncertainty_artifact(
         }
         matrix.push(values);
     }
-    if (0..size).any(|row| (0..size).any(|column| (matrix[row][column] - matrix[column][row]).abs() > 1e-10)) {
+    if (0..size).any(|row| {
+        (0..size).any(|column| (matrix[row][column] - matrix[column][row]).abs() > 1e-10)
+    }) {
         errors.push(format!("{label} covariance matrix is not symmetric"));
     } else if !positive_definite(&matrix) {
-        errors.push(format!("{label} covariance matrix is not positive definite"));
+        errors.push(format!(
+            "{label} covariance matrix is not positive definite"
+        ));
     }
-    let natural_parameters = source_model.get("parameters").and_then(serde_json::Value::as_array);
+    let natural_parameters = source_model
+        .get("parameters")
+        .and_then(serde_json::Value::as_array);
     if !natural_parameters.is_some_and(|values| values.len() == size) {
         errors.push(format!("{label} source parameter count is invalid"));
     } else {
         for (index, parameter) in natural_parameters.unwrap().iter().enumerate() {
-            let transformed = if expected_transforms[index] == "exp" { estimates[index].exp() } else { estimates[index] };
+            let transformed = if expected_transforms[index] == "exp" {
+                estimates[index].exp()
+            } else {
+                estimates[index]
+            };
             if text(parameter.get("name")) != Some(expected_order[index])
                 || !finite(parameter.get("estimate")).is_some_and(|value| {
                     (transformed - value).abs() <= 1e-12_f64.max(1e-10 * value.abs())
                 })
             {
-                errors.push(format!("{label} inverse transform does not reproduce source parameter {}", expected_order[index]));
+                errors.push(format!(
+                    "{label} inverse transform does not reproduce source parameter {}",
+                    expected_order[index]
+                ));
             }
         }
     }
@@ -754,19 +847,19 @@ pub(crate) fn audit_survival_fit_execution_path(
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default();
     let mut result_fields = vec![
-            "schema_version",
-            "execution_id",
-            "status",
-            "request",
-            "source_data",
-            "runtime",
-            "model_order",
-            "models",
-            "diagnostics",
-            "cross_implementation",
-            "limitations",
-            "human_gate",
-        ];
+        "schema_version",
+        "execution_id",
+        "status",
+        "request",
+        "source_data",
+        "runtime",
+        "model_order",
+        "models",
+        "diagnostics",
+        "cross_implementation",
+        "limitations",
+        "human_gate",
+    ];
     if result_schema == RESULT_SCHEMA_VERSION {
         result_fields.push("parameter_uncertainty");
     }
@@ -776,7 +869,10 @@ pub(crate) fn audit_survival_fit_execution_path(
             .push("result fields are not the exact contract".into());
         return audit;
     }
-    if !matches!(result_schema, LEGACY_RESULT_SCHEMA_VERSION | RESULT_SCHEMA_VERSION) {
+    if !matches!(
+        result_schema,
+        LEGACY_RESULT_SCHEMA_VERSION | RESULT_SCHEMA_VERSION
+    ) {
         audit
             .errors
             .push("result schema_version is unsupported".into());
@@ -1080,47 +1176,96 @@ pub(crate) fn audit_survival_fit_execution_path(
     }
 
     if result_schema == RESULT_SCHEMA_VERSION {
-        let uncertainty = manifest.get("parameter_uncertainty").unwrap_or(&serde_json::Value::Null);
+        let uncertainty = manifest
+            .get("parameter_uncertainty")
+            .unwrap_or(&serde_json::Value::Null);
         let mut available_families = HashSet::new();
-        if !exact_fields(uncertainty, &[
-            "artifact_schema_version", "scope", "joint_curve_draw_authority", "bindings", "complete",
-        ]) || uncertainty.get("artifact_schema_version").and_then(serde_json::Value::as_str) != Some(UNCERTAINTY_SCHEMA_VERSION)
-            || uncertainty.get("scope").and_then(serde_json::Value::as_str) != Some("within_model_curve_only")
-            || uncertainty.get("joint_curve_draw_authority").and_then(serde_json::Value::as_bool) != Some(false)
+        if !exact_fields(
+            uncertainty,
+            &[
+                "artifact_schema_version",
+                "scope",
+                "joint_curve_draw_authority",
+                "bindings",
+                "complete",
+            ],
+        ) || uncertainty
+            .get("artifact_schema_version")
+            .and_then(serde_json::Value::as_str)
+            != Some(UNCERTAINTY_SCHEMA_VERSION)
+            || uncertainty.get("scope").and_then(serde_json::Value::as_str)
+                != Some("within_model_curve_only")
+            || uncertainty
+                .get("joint_curve_draw_authority")
+                .and_then(serde_json::Value::as_bool)
+                != Some(false)
         {
-            audit.errors.push("parameter_uncertainty fields or scope are invalid".into());
-        } else if let Some(uncertainty_bindings) = uncertainty.get("bindings").and_then(serde_json::Value::as_array) {
+            audit
+                .errors
+                .push("parameter_uncertainty fields or scope are invalid".into());
+        } else if let Some(uncertainty_bindings) = uncertainty
+            .get("bindings")
+            .and_then(serde_json::Value::as_array)
+        {
             if uncertainty_bindings.len() != model_order.len() {
-                audit.errors.push("parameter_uncertainty must bind every requested family".into());
+                audit
+                    .errors
+                    .push("parameter_uncertainty must bind every requested family".into());
             }
-            for (index, (binding, family)) in uncertainty_bindings.iter().zip(model_order.iter()).enumerate() {
+            for (index, (binding, family)) in uncertainty_bindings
+                .iter()
+                .zip(model_order.iter())
+                .enumerate()
+            {
                 let label = format!("parameter_uncertainty.bindings[{index}]");
                 if !exact_fields(binding, &["family", "status", "path", "sha256"])
                     || text(binding.get("family")) != Some(family)
                 {
-                    audit.errors.push(format!("{label} is invalid or out of order"));
+                    audit
+                        .errors
+                        .push(format!("{label} is invalid or out of order"));
                     continue;
                 }
                 let model = models.get(family).unwrap_or(&serde_json::Value::Null);
                 if text(model.get("status")) == Some("failed") {
-                    if binding != &serde_json::json!({"family": family, "status": "fit_failed", "path": null, "sha256": null}) {
-                        audit.errors.push(format!("{label} failed-fit binding is invalid"));
+                    if binding
+                        != &serde_json::json!({"family": family, "status": "fit_failed", "path": null, "sha256": null})
+                    {
+                        audit
+                            .errors
+                            .push(format!("{label} failed-fit binding is invalid"));
                     }
                     continue;
                 }
-                if !matches!(text(binding.get("status")), Some("available" | "unavailable")) {
+                if !matches!(
+                    text(binding.get("status")),
+                    Some("available" | "unavailable")
+                ) {
                     audit.errors.push(format!("{label} status is invalid"));
                     continue;
                 }
                 let Some((_, raw)) = bound_file(
-                    workspace, binding.get("path"), binding.get("sha256"), &label, JSON_CAP, &mut audit.errors,
-                ) else { continue; };
-                let Some(artifact) = json_object(&raw, &label, &mut audit.errors) else { continue; };
+                    workspace,
+                    binding.get("path"),
+                    binding.get("sha256"),
+                    &label,
+                    JSON_CAP,
+                    &mut audit.errors,
+                ) else {
+                    continue;
+                };
+                let Some(artifact) = json_object(&raw, &label, &mut audit.errors) else {
+                    continue;
+                };
                 if text(artifact.get("status")) != text(binding.get("status")) {
-                    audit.errors.push(format!("{label} status does not match artifact"));
+                    audit
+                        .errors
+                        .push(format!("{label} status does not match artifact"));
                     continue;
                 }
-                let source_binding = bindings.and_then(|values| values.get(index)).unwrap_or(&serde_json::Value::Null);
+                let source_binding = bindings
+                    .and_then(|values| values.get(index))
+                    .unwrap_or(&serde_json::Value::Null);
                 if audit_uncertainty_artifact(
                     &artifact,
                     family,
@@ -1134,16 +1279,29 @@ pub(crate) fn audit_survival_fit_execution_path(
                 }
             }
         } else {
-            audit.errors.push("parameter_uncertainty bindings must be a list".into());
+            audit
+                .errors
+                .push("parameter_uncertainty bindings must be a list".into());
         }
-        let converged_families = models.iter()
-            .filter_map(|(family, model)| (text(model.get("status")) == Some("converged")).then_some(family))
+        let converged_families = models
+            .iter()
+            .filter_map(|(family, model)| {
+                (text(model.get("status")) == Some("converged")).then_some(family)
+            })
             .collect::<HashSet<_>>();
         audit.parameter_uncertainty_complete = !converged_families.is_empty()
-            && converged_families.iter().all(|family| available_families.contains(*family))
+            && converged_families
+                .iter()
+                .all(|family| available_families.contains(*family))
             && available_families.len() == converged_families.len();
-        if uncertainty.get("complete").and_then(serde_json::Value::as_bool) != Some(audit.parameter_uncertainty_complete) {
-            audit.errors.push("parameter_uncertainty.complete is incorrect".into());
+        if uncertainty
+            .get("complete")
+            .and_then(serde_json::Value::as_bool)
+            != Some(audit.parameter_uncertainty_complete)
+        {
+            audit
+                .errors
+                .push("parameter_uncertainty.complete is incorrect".into());
         }
     }
 
@@ -1483,7 +1641,10 @@ mod tests {
             .unwrap()
             .as_nanos();
         let sequence = WORKSPACE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!("ai4heor-survhe-{}-{suffix}-{sequence}", std::process::id()));
+        let root = std::env::temp_dir().join(format!(
+            "ai4heor-survhe-{}-{suffix}-{sequence}",
+            std::process::id()
+        ));
         fs::create_dir_all(&root).unwrap();
         root
     }
@@ -1689,11 +1850,25 @@ mod tests {
         manifest["schema_version"] = serde_json::json!(RESULT_SCHEMA_VERSION);
         let base = "heor/survival-fit-executions/os-control/parameter-uncertainty";
         let specifications = [
-            ("exponential", serde_json::json!(["rate"]), serde_json::json!([0.2_f64.ln()]), serde_json::json!([[0.04]]), serde_json::json!(["exp"])),
-            ("weibull", serde_json::json!(["shape", "scale"]), serde_json::json!([1.5_f64.ln(), 4.0_f64.ln()]), serde_json::json!([[0.04, 0.01], [0.01, 0.09]]), serde_json::json!(["exp", "exp"])),
+            (
+                "exponential",
+                serde_json::json!(["rate"]),
+                serde_json::json!([0.2_f64.ln()]),
+                serde_json::json!([[0.04]]),
+                serde_json::json!(["exp"]),
+            ),
+            (
+                "weibull",
+                serde_json::json!(["shape", "scale"]),
+                serde_json::json!([1.5_f64.ln(), 4.0_f64.ln()]),
+                serde_json::json!([[0.04, 0.01], [0.01, 0.09]]),
+                serde_json::json!(["exp", "exp"]),
+            ),
         ];
         let mut uncertainty_bindings = Vec::new();
-        for (index, (family, order, estimates, covariance, transforms)) in specifications.into_iter().enumerate() {
+        for (index, (family, order, estimates, covariance, transforms)) in
+            specifications.into_iter().enumerate()
+        {
             let model_binding = &manifest["models"][index];
             let artifact = serde_json::json!({
                 "schema_version": UNCERTAINTY_SCHEMA_VERSION, "family": family, "status": "available",
@@ -1719,14 +1894,22 @@ mod tests {
         assert!(audit.complete, "{:?}", audit.errors);
         assert!(audit.parameter_uncertainty_complete);
 
-        let covariance_path = manifest["parameter_uncertainty"]["bindings"][1]["path"].as_str().unwrap().to_owned();
-        let mut artifact: serde_json::Value = serde_json::from_slice(&fs::read(root.join(&covariance_path)).unwrap()).unwrap();
+        let covariance_path = manifest["parameter_uncertainty"]["bindings"][1]["path"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let mut artifact: serde_json::Value =
+            serde_json::from_slice(&fs::read(root.join(&covariance_path)).unwrap()).unwrap();
         artifact["covariance_matrix"] = serde_json::json!([[0.04, 0.1], [0.1, 0.09]]);
-        manifest["parameter_uncertainty"]["bindings"][1]["sha256"] = serde_json::json!(write_json(&root, &covariance_path, &artifact));
+        manifest["parameter_uncertainty"]["bindings"][1]["sha256"] =
+            serde_json::json!(write_json(&root, &covariance_path, &artifact));
         write_json(&root, &manifest_path, &manifest);
         let audit = audit_survival_fit_execution_path(&root, &manifest_path);
         assert!(!audit.complete);
-        assert!(audit.errors.iter().any(|error| error.contains("positive definite")));
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("positive definite")));
         fs::remove_dir_all(root).unwrap();
     }
 

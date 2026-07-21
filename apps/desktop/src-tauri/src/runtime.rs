@@ -9,7 +9,6 @@ use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
 const DEFAULT_WORKSPACE_FOLDER: &str = "AI4HEOR";
-const LEGACY_WORKSPACE_FOLDERS: [&str; 2] = ["OpenScience", "Open Science"];
 const LEGACY_APP_IDENTIFIER: &str = "com.ai4s.workbench";
 const LEGACY_SETTINGS_MIGRATION_MARKER: &str = "legacy-settings-imported-v1";
 
@@ -111,13 +110,17 @@ fn base_workspace_file(app: &AppHandle) -> Result<PathBuf, String> {
 /// operate in. Defaults to the base folder (`~/Documents/AI4HEOR`) until the
 /// user opens or creates another one; the choice persists across restarts.
 pub fn workspace_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    // Resolve the base first so a legacy default root is migrated and an active
-    // pointer below it is rewritten before we try to use that pointer.
+    // Resolve the base first so an app-private legacy root can be migrated and
+    // its active pointer rewritten before we try to use that pointer.
     let base = base_workspace_dir(app)?;
+    let docs = documents_dir(app)?;
     if let Ok(f) = active_workspace_file(app) {
         if let Ok(s) = std::fs::read_to_string(&f) {
             let dir = PathBuf::from(s.trim());
-            if dir.is_dir() {
+            // Older AI4HEOR builds could persist an Open Science public folder.
+            // Ignore that pointer: the two installed products must never share
+            // sessions or silently operate on one another's research files.
+            if dir.is_dir() && !is_open_science_workspace(&dir, &docs) {
                 return Ok(dir);
             }
         }
@@ -130,32 +133,42 @@ pub fn workspace_dir(app: &AppHandle) -> Result<PathBuf, String> {
 /// (no space — the agent runs shell commands against this path, and unquoted
 /// spaces break them), falling back to `$HOME/Documents`.
 pub fn base_workspace_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let docs = documents_dir(app)?;
     if let Ok(f) = base_workspace_file(app) {
         if let Ok(s) = std::fs::read_to_string(&f) {
             let dir = PathBuf::from(s.trim());
-            if dir.is_dir() {
+            if dir.is_dir() && !is_open_science_workspace(&dir, &docs) {
                 return Ok(dir);
             }
         }
     }
-    let docs = match app.path().document_dir() {
-        Ok(d) => d,
-        Err(_) => {
-            let home = std::env::var("HOME")
-                .or_else(|_| std::env::var("USERPROFILE"))
-                .map_err(|_| "could not resolve a documents directory".to_string())?;
-            PathBuf::from(home).join("Documents")
-        }
-    };
     let active_file = active_workspace_file(app)?;
     let (dir, migrated_from) =
         resolve_default_workspace(&docs, &runtime_root(app)?.join("workspace"))?;
     if let Some(old) = migrated_from {
-        // Best effort: failure only loses the active selection, never the data;
-        // workspace_dir will safely fall back to the newly migrated base.
+        // Best effort: failure only loses the active selection, never data;
+        // workspace_dir safely falls back to the AI4HEOR base.
         let _ = rewrite_workspace_pointer(&active_file, &old, &dir);
     }
     Ok(dir)
+}
+
+fn documents_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    match app.path().document_dir() {
+        Ok(d) => Ok(d),
+        Err(_) => {
+            let home = std::env::var("HOME")
+                .or_else(|_| std::env::var("USERPROFILE"))
+                .map_err(|_| "could not resolve a documents directory".to_string())?;
+            Ok(PathBuf::from(home).join("Documents"))
+        }
+    }
+}
+
+fn is_open_science_workspace(path: &Path, docs: &Path) -> bool {
+    ["OpenScience", "Open Science"]
+        .iter()
+        .any(|name| path.starts_with(docs.join(name)))
 }
 
 fn resolve_default_workspace(
@@ -186,21 +199,14 @@ where
         ));
     }
 
-    // A public OpenScience root is the immediate predecessor. The spaced name
-    // and app-private root are older migrations retained for existing users.
-    // If rename fails (permissions/cross-volume), keep using the old root and
-    // never create a parallel empty AI4HEOR workspace.
-    let candidates = LEGACY_WORKSPACE_FOLDERS
-        .iter()
-        .map(|name| docs.join(name))
-        .chain(std::iter::once(legacy_private_workspace.to_path_buf()));
-    for old in candidates {
-        if old.is_dir() {
-            return match rename(&old, &target) {
-                Ok(()) => Ok((target, Some(old))),
-                Err(_) => Ok((old, None)),
-            };
-        }
+    // Only the app-private workspace used by earlier AI4HEOR builds is ours to
+    // migrate. Public OpenScience folders belong to the separately installed
+    // Open Science product and are deliberately left untouched.
+    if legacy_private_workspace.is_dir() {
+        return match rename(legacy_private_workspace, &target) {
+            Ok(()) => Ok((target, Some(legacy_private_workspace.to_path_buf()))),
+            Err(_) => Ok((legacy_private_workspace.to_path_buf(), None)),
+        };
     }
 
     std::fs::create_dir_all(&target).map_err(|e| e.to_string())?;
@@ -817,6 +823,19 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
     }
     // Ship the bundled scientific skills into the app-private OpenCode profile.
     deploy_bundled_skills(app);
+    let heor_core = app
+        .path()
+        .resolve("heor-core/src", tauri::path::BaseDirectory::Resource)
+        .map_err(|error| format!("AI4HEOR first-party engine resource missing: {error}"))?;
+    let first_party_runner = cfg
+        .join("opencode")
+        .join("skills")
+        .join("heor-workbench")
+        .join("scripts")
+        .join("run_first_party_analysis.py");
+    if !heor_core.join("heor_core").is_dir() || !first_party_runner.is_file() {
+        return Err("AI4HEOR first-party deterministic command is incomplete".into());
+    }
     // Safety default (AGENTS.md non-negotiable): on first run, seed the
     // "approve" permission mode so dangerous shell commands prompt for
     // approval. A mode the user chose (approve or full) is never overridden.
@@ -861,6 +880,17 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
         .env("XDG_CACHE_HOME", cache.to_string_lossy().to_string())
         .env("XDG_STATE_HOME", state.to_string_lossy().to_string())
         .env("HOME", home)
+        // Agent-accessible deterministic route. The model receives stable
+        // paths; the runner accepts workspace-local input and always writes the
+        // fixed app-watched base-case result path.
+        .env(
+            "AI4HEOR_HEOR_CORE_PATH",
+            heor_core.to_string_lossy().to_string(),
+        )
+        .env(
+            "AI4HEOR_FIRST_PARTY_RUNNER",
+            first_party_runner.to_string_lossy().to_string(),
+        )
         // Lets bundled skill helpers (e.g. remote-compute's record_run.py) stamp
         // the recording app version into provenance — they run outside the app
         // and can't otherwise know it.
@@ -1163,9 +1193,10 @@ pub fn kill_child(state: &RuntimeState) {
 #[cfg(test)]
 mod tests {
     use super::{
-        import_legacy_runtime_settings_between, parse_scutil_proxy, prune_stale_skills, random_hex,
-        remove_key_from_config, resolve_default_workspace_with, resolve_proxy_env,
-        rewrite_workspace_pointer, sync_admitted_skill, sync_skill_pack, validate_proxy_url,
+        import_legacy_runtime_settings_between, is_open_science_workspace, parse_scutil_proxy,
+        prune_stale_skills, random_hex, remove_key_from_config, resolve_default_workspace_with,
+        resolve_proxy_env, rewrite_workspace_pointer, sync_admitted_skill, sync_skill_pack,
+        validate_proxy_url,
     };
     use std::fs;
 
@@ -1184,11 +1215,21 @@ mod tests {
         let new = root.join("new/runtime");
         fs::create_dir_all(old.join("xdg-config/opencode")).unwrap();
         fs::create_dir_all(old.join("xdg-data/opencode")).unwrap();
-        fs::write(old.join("xdg-config/opencode/opencode.json"), b"{\"model\":\"kept\"}")
-            .unwrap();
-        fs::write(old.join("xdg-data/opencode/auth.json"), b"{\"token\":\"kept\"}")
-            .unwrap();
-        fs::write(old.join("xdg-data/opencode/opencode.db"), b"legacy sessions").unwrap();
+        fs::write(
+            old.join("xdg-config/opencode/opencode.json"),
+            b"{\"model\":\"kept\"}",
+        )
+        .unwrap();
+        fs::write(
+            old.join("xdg-data/opencode/auth.json"),
+            b"{\"token\":\"kept\"}",
+        )
+        .unwrap();
+        fs::write(
+            old.join("xdg-data/opencode/opencode.db"),
+            b"legacy sessions",
+        )
+        .unwrap();
         fs::write(old.join("active-workspace.txt"), b"legacy task").unwrap();
 
         import_legacy_runtime_settings_between(&old, &new).unwrap();
@@ -1218,20 +1259,19 @@ mod tests {
     }
 
     #[test]
-    fn legacy_default_is_renamed_and_active_child_pointer_is_rewritten() {
+    fn app_private_default_is_renamed_and_active_child_pointer_is_rewritten() {
         let root = temp_workspace_root("migrate");
         let docs = root.join("Documents");
-        let old = docs.join("OpenScience");
+        let old = root.join("runtime/workspace");
         let child = old.join("2026-07-17-0900");
-        let private = root.join("runtime/workspace");
         let pointer = root.join("runtime/active-workspace.txt");
+        fs::create_dir_all(&docs).unwrap();
         fs::create_dir_all(&child).unwrap();
         fs::create_dir_all(pointer.parent().unwrap()).unwrap();
         fs::write(&pointer, child.to_string_lossy().as_bytes()).unwrap();
 
         let (workspace, migrated) =
-            resolve_default_workspace_with(&docs, &private, |from, to| fs::rename(from, to))
-                .unwrap();
+            resolve_default_workspace_with(&docs, &old, |from, to| fs::rename(from, to)).unwrap();
         rewrite_workspace_pointer(&pointer, migrated.as_ref().unwrap(), &workspace).unwrap();
 
         assert_eq!(workspace, docs.join("AI4HEOR"));
@@ -1242,6 +1282,30 @@ mod tests {
             fs::read_to_string(pointer).unwrap(),
             workspace.join("2026-07-17-0900").to_string_lossy()
         );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn open_science_workspace_is_left_untouched_for_product_coexistence() {
+        let root = temp_workspace_root("coexistence");
+        let docs = root.join("Documents");
+        let open_science = docs.join("OpenScience");
+        fs::create_dir_all(&open_science).unwrap();
+        fs::write(open_science.join("open-science-session.txt"), b"keep").unwrap();
+
+        let (workspace, migrated) =
+            resolve_default_workspace_with(&docs, &root.join("runtime/workspace"), |from, to| {
+                fs::rename(from, to)
+            })
+            .unwrap();
+
+        assert_eq!(workspace, docs.join("AI4HEOR"));
+        assert_eq!(migrated, None);
+        assert!(open_science.join("open-science-session.txt").is_file());
+        assert!(is_open_science_workspace(
+            &open_science.join("2026-07-21-1523"),
+            &docs
+        ));
         let _ = fs::remove_dir_all(root);
     }
 
@@ -1271,7 +1335,7 @@ mod tests {
     fn failed_legacy_rename_reuses_old_root_without_splitting() {
         let root = temp_workspace_root("rename-failure");
         let docs = root.join("Documents");
-        let old = docs.join("OpenScience");
+        let old = root.join("runtime/workspace");
         fs::create_dir_all(&old).unwrap();
 
         let (workspace, migrated) =

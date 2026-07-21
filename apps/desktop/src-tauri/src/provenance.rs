@@ -2,6 +2,7 @@
 // version record to <workspace>/.openscience/provenance.jsonl — append-only,
 // one JSON object per line, so any artifact can reveal its generating code,
 // environment, and originating conversation, per version.
+use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -107,28 +108,37 @@ pub struct PackageSnapshot {
 
 const ENV_DIR: &str = "env";
 
-/// Capture `pip freeze` once per app run — a per-write process spawn would slow
-/// every agent edit. Returns the raw `name==version` list.
-fn pip_freeze(app: &tauri::AppHandle) -> Option<String> {
-    static CACHE: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
-    CACHE
-        .get_or_init(|| {
-            let (bin, _) = crate::kernel::python_bin(app).ok()?;
-            let out = crate::runtime::quiet_command(bin)
-                .args(["-m", "pip", "freeze"])
-                .output()
-                .ok()?;
-            if !out.status.success() {
-                return None;
-            }
-            let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if text.is_empty() {
-                None
-            } else {
-                Some(text)
-            }
-        })
-        .clone()
+fn cached_probe(
+    cache: &Mutex<HashMap<String, Option<String>>>,
+    interpreter: &str,
+    compute: impl FnOnce() -> Option<String>,
+) -> Option<String> {
+    if let Ok(values) = cache.lock() {
+        if let Some(value) = values.get(interpreter) {
+            return value.clone();
+        }
+    }
+    let value = compute();
+    if let Ok(mut values) = cache.lock() {
+        values.insert(interpreter.to_string(), value.clone());
+    }
+    value
+}
+
+fn pip_freeze(interpreter: &str) -> Option<String> {
+    static CACHE: std::sync::OnceLock<Mutex<HashMap<String, Option<String>>>> =
+        std::sync::OnceLock::new();
+    cached_probe(CACHE.get_or_init(Mutex::default), interpreter, || {
+        let out = crate::runtime::quiet_command(interpreter)
+            .args(["-m", "pip", "freeze"])
+            .output()
+            .ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        (!text.is_empty()).then_some(text)
+    })
 }
 
 /// Detect hardware once per app run by shelling out to the OS's own tools —
@@ -140,7 +150,9 @@ pub(crate) fn hardware_info() -> HardwareInfo {
 }
 
 fn probe_hardware() -> HardwareInfo {
-    let cores = std::thread::available_parallelism().ok().map(|n| n.get() as u32);
+    let cores = std::thread::available_parallelism()
+        .ok()
+        .map(|n| n.get() as u32);
     let (cpu, mem_gb) = probe_cpu_mem();
     let gpu = probe_nvidia_gpus();
     let accelerator = if !gpu.is_empty() {
@@ -150,7 +162,13 @@ fn probe_hardware() -> HardwareInfo {
     } else {
         Some("cpu".to_string())
     };
-    HardwareInfo { cpu, cores, mem_gb, gpu, accelerator }
+    HardwareInfo {
+        cpu,
+        cores,
+        mem_gb,
+        gpu,
+        accelerator,
+    }
 }
 
 /// CPU brand + total RAM (GB). macOS via `sysctl`, Linux via `/proc`.
@@ -228,30 +246,128 @@ fn write_lockfile(root: &Path, freeze: &str) -> Result<PackageSnapshot, String> 
     Ok(PackageSnapshot { count, hash })
 }
 
-/// Detect the local Python version once per app run — `python -V` on every
-/// record would add a process spawn to each agent write.
-fn python_version(app: &tauri::AppHandle) -> Option<String> {
-    static CACHE: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
-    CACHE
-        .get_or_init(|| {
-            let (bin, _) = crate::kernel::python_bin(app).ok()?;
-            let out = crate::runtime::quiet_command(bin).arg("--version").output().ok()?;
-            let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            let text = if text.is_empty() {
-                String::from_utf8_lossy(&out.stderr).trim().to_string() // Python 2 printed -V to stderr
-            } else {
-                text
-            };
-            Some(text.strip_prefix("Python ").unwrap_or(&text).to_string())
-        })
-        .clone()
+fn python_version(interpreter: &str) -> Option<String> {
+    static CACHE: std::sync::OnceLock<Mutex<HashMap<String, Option<String>>>> =
+        std::sync::OnceLock::new();
+    cached_probe(CACHE.get_or_init(Mutex::default), interpreter, || {
+        let out = crate::runtime::quiet_command(interpreter)
+            .arg("--version")
+            .output()
+            .ok()?;
+        let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let text = if stdout.is_empty() {
+            String::from_utf8_lossy(&out.stderr).trim().to_string()
+        } else {
+            stdout
+        };
+        Some(text.strip_prefix("Python ").unwrap_or(&text).to_string())
+    })
 }
 
-pub(crate) fn capture_env(app: &tauri::AppHandle, root: &Path, app_version: String) -> EnvInfo {
-    // Package capture is best-effort: no pip / write failure just omits it.
-    let packages = pip_freeze(app).and_then(|f| write_lockfile(root, &f).ok());
+enum RunInterpreter {
+    Explicit(PathBuf),
+    Missing,
+}
+
+fn first_token(segment: &str) -> String {
+    let text = segment.trim_start();
+    for quote in ['"', '\''] {
+        if let Some(rest) = text.strip_prefix(quote) {
+            if let Some(end) = rest.find(quote) {
+                return rest[..end].to_string();
+            }
+        }
+    }
+    text.split_whitespace().next().unwrap_or("").to_string()
+}
+
+fn strip_env_assignment(text: &str) -> Option<&str> {
+    let bytes = text.as_bytes();
+    let mut index = 0;
+    if bytes
+        .first()
+        .is_none_or(|byte| !(byte.is_ascii_alphabetic() || *byte == b'_'))
+    {
+        return None;
+    }
+    while index < bytes.len() && (bytes[index].is_ascii_alphanumeric() || bytes[index] == b'_') {
+        index += 1;
+    }
+    if index >= bytes.len() || bytes[index] != b'=' {
+        return None;
+    }
+    let mut end = index + 1;
+    while end < bytes.len() && !bytes[end].is_ascii_whitespace() {
+        end += 1;
+    }
+    (end < bytes.len()).then(|| text[end..].trim_start())
+}
+
+fn strip_segment_prefixes(segment: &str) -> String {
+    let mut text = segment.trim();
+    loop {
+        if let Some(rest) = text.strip_prefix('&') {
+            text = rest.trim_start();
+            continue;
+        }
+        if let Some(rest) = strip_env_assignment(text) {
+            text = rest;
+            continue;
+        }
+        return text.trim().to_string();
+    }
+}
+
+fn interpreter_from_command(command: &str, root: &Path) -> Option<RunInterpreter> {
+    for segment in command
+        .split('\n')
+        .flat_map(|value| value.split("&&"))
+        .flat_map(|value| value.split(';'))
+        .flat_map(|value| value.split('|'))
+    {
+        let token = first_token(&strip_segment_prefixes(segment));
+        let base = token.rsplit(['/', '\\']).next().unwrap_or(&token);
+        let stem = base
+            .strip_suffix(".exe")
+            .or_else(|| base.strip_suffix(".EXE"))
+            .unwrap_or(base);
+        if (token.contains('/') || token.contains('\\')) && stem.starts_with("python") {
+            let path = Path::new(&token);
+            let resolved = if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                root.join(path)
+            };
+            return Some(if resolved.is_file() {
+                RunInterpreter::Explicit(resolved)
+            } else {
+                RunInterpreter::Missing
+            });
+        }
+    }
+    None
+}
+
+pub(crate) fn capture_env(
+    app: &tauri::AppHandle,
+    root: &Path,
+    app_version: String,
+    command: Option<&str>,
+) -> EnvInfo {
+    let interpreter = match command.and_then(|value| interpreter_from_command(value, root)) {
+        Some(RunInterpreter::Explicit(path)) => Some(path.to_string_lossy().into_owned()),
+        Some(RunInterpreter::Missing) => None,
+        None => crate::kernel::python_bin(app).ok().map(|(path, _)| path),
+    };
+    let (python, packages) = match interpreter {
+        Some(path) => (
+            python_version(&path),
+            pip_freeze(&path).and_then(|freeze| write_lockfile(root, &freeze).ok()),
+        ),
+        None => (None, None),
+    };
     EnvInfo {
-        python: python_version(app),
+        python,
         platform: format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
         app: app_version,
         packages,
@@ -274,9 +390,7 @@ fn normalize_rel(root: &Path, path: &str) -> Result<String, String> {
     } else {
         p.to_path_buf()
     };
-    if rel.as_os_str().is_empty()
-        || rel.components().any(|c| !matches!(c, Component::Normal(_)))
-    {
+    if rel.as_os_str().is_empty() || rel.components().any(|c| !matches!(c, Component::Normal(_))) {
         return Err("path must stay inside the workspace".into());
     }
     Ok(rel
@@ -394,7 +508,10 @@ pub fn link_run_outputs(
         let e = max_ver.entry(r.path).or_insert(0);
         *e = (*e).max(r.version);
     }
-    let ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
     let mut buf = String::new();
     for p in paths {
         let rel = normalize_rel(root, p)?;
@@ -422,7 +539,8 @@ pub fn link_run_outputs(
         .append(true)
         .open(&file)
         .map_err(|e| format!("provenance open failed: {e}"))?;
-    f.write_all(buf.as_bytes()).map_err(|e| format!("provenance write failed: {e}"))?;
+    f.write_all(buf.as_bytes())
+        .map_err(|e| format!("provenance write failed: {e}"))?;
     Ok(())
 }
 
@@ -455,10 +573,21 @@ pub fn record_provenance(
 ) -> Result<ProvenanceRecord, String> {
     let _guard = state.0.lock().map_err(|_| "provenance lock poisoned")?;
     let root = workspace_dir(&app)?;
-    let env = capture_env(&app, &root, app.package_info().version.to_string());
+    let env = capture_env(&app, &root, app.package_info().version.to_string(), None);
     // Writes are authored, not runs — no run_id here (runs.rs sets it for
     // files produced by executing code).
-    let record = append_record(&root, &path, &tool, session_id, model, content, diff, log, Some(env), None)?;
+    let record = append_record(
+        &root,
+        &path,
+        &tool,
+        session_id,
+        model,
+        content,
+        diff,
+        log,
+        Some(env),
+        None,
+    )?;
     drop(_guard);
     crate::git_snapshot::commit_best_effort(&root, &format!("Record {}", record.path));
     Ok(record)
@@ -498,11 +627,47 @@ mod tests {
     #[test]
     fn versions_increment_per_path_and_round_trip() {
         let root = temp_root("versions");
-        let r1 = append_record(&root, "fig/plot.py", "write", Some("ses_1".into()), Some("m".into()), Some("print(1)".into()), None, None, None, None).unwrap();
+        let r1 = append_record(
+            &root,
+            "fig/plot.py",
+            "write",
+            Some("ses_1".into()),
+            Some("m".into()),
+            Some("print(1)".into()),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         // A file produced by a run carries its run_id (link to the recipe).
-        let r2 = append_record(&root, "fig/plot.py", "run", Some("ses_1".into()), None, None, None, None, None, Some("run_abc".into())).unwrap();
+        let r2 = append_record(
+            &root,
+            "fig/plot.py",
+            "run",
+            Some("ses_1".into()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some("run_abc".into()),
+        )
+        .unwrap();
         // An edit records its diff for lineage (no full content).
-        let e = append_record(&root, "fig/plot.py", "edit", None, None, None, Some("@@ -1 +1 @@\n-print(1)\n+print(2)".into()), None, None, None).unwrap();
+        let e = append_record(
+            &root,
+            "fig/plot.py",
+            "edit",
+            None,
+            None,
+            None,
+            Some("@@ -1 +1 @@\n-print(1)\n+print(2)".into()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(e.version, 3);
         assert!(e.content.is_none());
         assert_eq!(e.diff.as_deref(), Some("@@ -1 +1 @@\n-print(1)\n+print(2)"));
@@ -519,7 +684,10 @@ mod tests {
                 python: Some("3.12.4".into()),
                 platform: "macos-aarch64".into(),
                 app: "0.1.0".into(),
-                packages: Some(super::PackageSnapshot { count: 2, hash: "abc123".into() }),
+                packages: Some(super::PackageSnapshot {
+                    count: 2,
+                    hash: "abc123".into(),
+                }),
                 hardware: None,
             }),
             None,
@@ -531,7 +699,10 @@ mod tests {
         assert_eq!(v.len(), 3);
         assert_eq!(v[0].content.as_deref(), Some("print(1)"));
         assert_eq!(v[0].run_id, None); // an authored write has no run
-        assert_eq!(v[2].diff.as_deref(), Some("@@ -1 +1 @@\n-print(1)\n+print(2)"));
+        assert_eq!(
+            v[2].diff.as_deref(),
+            Some("@@ -1 +1 @@\n-print(1)\n+print(2)")
+        );
         assert_eq!(v[1].tool, "run");
         assert_eq!(v[1].run_id.as_deref(), Some("run_abc")); // round-trips
         assert_eq!(v[1].session_id.as_deref(), Some("ses_1"));
@@ -558,7 +729,9 @@ mod tests {
         // Blank lines are not counted as packages.
         assert_eq!(s1.count, 3);
         assert_eq!(s1.hash, content_hash(freeze)); // deterministic addressing
-        let lock = root.join(".openscience/env").join(format!("{}.txt", s1.hash));
+        let lock = root
+            .join(".openscience/env")
+            .join(format!("{}.txt", s1.hash));
         assert_eq!(std::fs::read_to_string(&lock).unwrap(), freeze);
 
         // Same environment -> same hash, no duplicate file rewrite.
@@ -577,7 +750,19 @@ mod tests {
         let root = temp_root("norm");
         // Absolute path under the workspace → same key as the relative form.
         let abs = root.join("a/b.txt");
-        append_record(&root, abs.to_str().unwrap(), "write", None, None, None, None, None, None, None).unwrap();
+        append_record(
+            &root,
+            abs.to_str().unwrap(),
+            "write",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         let v = versions_for(&root, "a/b.txt").unwrap();
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].path, "a/b.txt");
@@ -592,13 +777,22 @@ mod tests {
     #[test]
     fn corrupt_lines_are_skipped_and_content_is_capped() {
         let root = temp_root("corrupt");
-        append_record(&root, "x.py", "write", None, None, None, None, None, None, None).unwrap();
+        append_record(
+            &root, "x.py", "write", None, None, None, None, None, None, None,
+        )
+        .unwrap();
         // A corrupt line must not lose the rest of the history.
         use std::io::Write;
         let file = root.join(".openscience/provenance.jsonl");
-        let mut f = std::fs::OpenOptions::new().append(true).open(&file).unwrap();
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&file)
+            .unwrap();
         writeln!(f, "not json").unwrap();
-        append_record(&root, "x.py", "write", None, None, None, None, None, None, None).unwrap();
+        append_record(
+            &root, "x.py", "write", None, None, None, None, None, None, None,
+        )
+        .unwrap();
         let v = versions_for(&root, "x.py").unwrap();
         assert_eq!(v.iter().map(|r| r.version).collect::<Vec<_>>(), vec![1, 2]);
 
@@ -606,6 +800,34 @@ mod tests {
         let capped = cap_content(big);
         assert!(capped.len() <= CONTENT_CAP + 20);
         assert!(capped.ends_with("[truncated]"));
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn identifies_the_exact_project_python_interpreter() {
+        use super::{interpreter_from_command, RunInterpreter};
+        let root = temp_root("interpreter");
+        let bin = root.join(".venv/bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let python = bin.join("python");
+        std::fs::write(&python, "#!/bin/sh\n").unwrap();
+
+        let explicit = |command: &str| match interpreter_from_command(command, &root) {
+            Some(RunInterpreter::Explicit(path)) => path,
+            _ => panic!("expected explicit interpreter for {command}"),
+        };
+        assert_eq!(explicit(".venv/bin/python model.py"), python);
+        assert_eq!(explicit("ENV=prod .venv/bin/python model.py"), python);
+        assert_eq!(explicit("& \".venv/bin/python\" model.py"), python);
+        assert!(matches!(
+            interpreter_from_command("python model.py", &root),
+            None
+        ));
+        assert!(matches!(
+            interpreter_from_command(".venv/bin/python-missing model.py", &root),
+            Some(RunInterpreter::Missing)
+        ));
 
         let _ = std::fs::remove_dir_all(root);
     }

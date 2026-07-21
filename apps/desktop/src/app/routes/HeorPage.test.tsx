@@ -17,6 +17,8 @@ const defaults = {
   projects: useRuntimeStore.getState().projects,
   researchScope: useRuntimeStore.getState().researchScope,
   openSession: useRuntimeStore.getState().openSession,
+  threads: useRuntimeStore.getState().threads,
+  runningSessions: useRuntimeStore.getState().runningSessions,
 };
 
 afterEach(() => {
@@ -141,6 +143,35 @@ describe("AI4HEOR conversation route", () => {
 
     expect(await screen.findByRole("button", { name: "Research & analysis" }))
       .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Runs" })).toBeInTheDocument();
+  });
+
+  it("surfaces the HEOR pane when an active task creates a structured search request", async () => {
+    useRuntimeStore.setState({
+      status: "ready",
+      currentId: "session-search",
+      defaultModel: "openai/gpt-5.2",
+      workspacePinned: true,
+      openSession: vi.fn().mockResolvedValue(undefined),
+      runningSessions: { "session-search": true },
+      threads: {
+        "session-search": {
+          loaded: true,
+          index: {},
+          blocks: [{
+            kind: "artifact",
+            path: "heor/evidence-search-request.json",
+            filename: "evidence-search-request.json",
+            artifact: "data",
+            tool: "write",
+          }],
+        },
+      },
+    });
+    renderNavigableAt("/heor/session-search");
+
+    expect(await screen.findByRole("button", { name: "Research & analysis" }))
+      .toHaveAttribute("aria-pressed", "true");
   });
 
   it("uses the AI4HEOR research surface for legacy live links", async () => {
@@ -214,13 +245,13 @@ describe("AI4HEOR conversation route", () => {
 
     await userEvent.click(
       await screen.findByRole("button", {
-        name: /Run the cost-effectiveness teaching example/i,
+        name: /Open the cost-effectiveness teaching example/i,
       }),
     );
 
     const draft = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
     expect(draft).toContain("python run_analysis.py --check expected/base-case-result.json");
-    expect(draft).toContain("ask me whether to continue");
+    expect(draft).toContain("do not ask for a second confirmation");
     expect(sendPrompt).not.toHaveBeenCalled();
   });
 

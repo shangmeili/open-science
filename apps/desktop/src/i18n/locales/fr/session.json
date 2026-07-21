@@ -77,6 +77,10 @@
       "addFiles": "Impossible d'ajouter les fichiers : {{message}}"
     }
   },
+  "message": {
+    "copy": "Copier", "copied": "Copié", "edit": "Modifier et continuer ici", "revert": "Revenir à ce point", "editField": "Modifier le message", "cancel": "Annuler", "resend": "Enregistrer et continuer", "revertFailed": "Impossible de revenir à ce point : {{message}}",
+    "confirm": { "title": "Revenir à ce point ?", "body": "Les messages suivants et leurs modifications des fichiers de la tâche seront supprimés.", "action": "Revenir ici" }
+  },
   "localCommand": {
     "newDescription": "Effacer le contexte du chat dans ce dossier",
     "clearDescription": "Identique à /new ; les fichiers restent dans ce dossier",
@@ -166,7 +170,8 @@
       "loadedSkill": "Capacité de recherche chargée : {{skill}}",
       "completed": "Terminé",
       "rateLimited": "Le modèle actuel reçoit trop de requêtes. Réessayez plus tard ou choisissez un autre modèle.",
-      "stoppedBeforeReply": "La requête au modèle s’est arrêtée sans réponse. Réessayez ou choisissez un autre modèle."
+      "stoppedBeforeReply": "La requête au modèle s’est arrêtée sans réponse. Réessayez ou choisissez un autre modèle.",
+      "step": "étape {{count}}"
     },
     "placeholder": {
       "disconnected": "Connectez-vous pour discuter",
@@ -269,6 +274,10 @@
     "reject": "Rejeter",
     "alwaysAllow": "Toujours autoriser",
     "allowOnce": "Autoriser une fois"
+  },
+  "reasoning": {
+    "thinking": "Analyse en cours…",
+    "thought": "Notes d’analyse"
   },
   "stepSummary": {
     "steps": "{{count}} étapes"

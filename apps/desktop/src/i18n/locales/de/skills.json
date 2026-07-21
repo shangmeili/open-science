@@ -11,7 +11,7 @@
     "heor-dynamic-budget-impact": { "displayName": "Dynamische Budgetauswirkung", "description": "Modelliert Prävalenz, Inzidenz, Marktanteile und Persistenz." },
     "heor-economic-inputs": { "displayName": "Ökonomische Eingaben", "description": "Validiert modellneutrale Kosten, Nutzenwerte und Einstellungen." },
     "heor-event-disutilities": { "displayName": "Ereignisbedingte Nutzeneinbußen", "description": "Prüft ereignisbezogene QALY-Verluste und Überschneidungen." },
-    "heor-evidence-search": { "displayName": "Evidenzsuche", "description": "Entwirft prüfbare, Human-autorisierte Literatur- und Studiensuchen." },
+    "heor-evidence-search": { "displayName": "Evidenzsuche", "description": "Bereitet prüfbare PubMed- und Studienregistersuchen mit festen Quellen gemäß der aktuellen Aufgabenberechtigung vor." },
     "heor-evidence-synthesis": { "displayName": "Evidenzsynthese", "description": "Erstellt nachvollziehbare HEOR-Suchen, Screening und Extraktion." },
     "heor-hazard-ratio-adapter": { "displayName": "Hazard-Ratio-Adapter", "description": "Wendet eine geprüfte konstante HR auf Baseline-Hazards an." },
     "heor-input-provenance": { "displayName": "Eingabeprovenienz", "description": "Bindet Modelleingaben an geprüfte Evidenz und Annahmen." },

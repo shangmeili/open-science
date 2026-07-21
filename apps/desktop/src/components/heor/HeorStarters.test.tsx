@@ -78,36 +78,53 @@ describe("HeorStarters", () => {
   it("shows the model-independent HEOR teaching example on the default surface", () => {
     render(<HeorStarters onPick={() => {}} />);
     expect(screen.getAllByRole("button")).toHaveLength(6);
-    expect(screen.getByText("Run the cost-effectiveness teaching example")).toBeInTheDocument();
+    expect(screen.getByText("Open the cost-effectiveness teaching example")).toBeInTheDocument();
     expect(screen.getByText(/reproduce costs, QALYs, and ICER with fixed code/i))
       .toBeInTheDocument();
     expect(screen.queryByText(/climate|materials|weather/i)).not.toBeInTheDocument();
   });
 
-  it("installs the example and keeps the deterministic request as an editable draft", async () => {
+  it("keeps ordinary public evidence retrieval in the conversation", async () => {
+    const onPick = vi.fn();
+    render(<HeorStarters onPick={onPick} />);
+    await userEvent.click(screen.getByRole("button", { name: /Find public evidence/i }));
+    expect(onPick).toHaveBeenCalledTimes(1);
+    const prompt = onPick.mock.calls[0][0] as string;
+    expect(prompt).toContain("available public retrieval tools");
+    expect(prompt).toContain("full-access mode proceeds");
+    expect(prompt).toContain("Do not inspect Git by default");
+    expect(prompt).not.toContain("create heor/evidence-search-request.json for the current");
+    expect(prompt).toContain("Do not inspect Git by default, create heor/evidence-search-request.json, tell me to find a panel");
+  });
+
+  it("installs the example without hiding its local runner behind an agent turn", async () => {
     const onPick = vi.fn();
     const ensureWorkspace = vi.fn().mockResolvedValue(true);
     render(<HeorStarters onPick={onPick} ensureWorkspace={ensureWorkspace} />);
     await userEvent.click(
-      screen.getByRole("button", { name: /Run the cost-effectiveness teaching example/i }),
+      screen.getByRole("button", { name: /Open the cost-effectiveness teaching example/i }),
     );
-    await waitFor(() => expect(onPick).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(installCalls).toEqual(["heor-cost-effectiveness"]));
     expect(ensureWorkspace).toHaveBeenCalledTimes(1);
-    expect(installCalls).toEqual(["heor-cost-effectiveness"]);
+    expect(onPick).not.toHaveBeenCalled();
+    expect(screen.getByText("The local teaching case is ready")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run locally" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review with assistant" })).toBeInTheDocument();
+    expect(runCalls).toBe(0);
+
+    await userEvent.click(screen.getByRole("button", { name: "Review with assistant" }));
+    expect(onPick).toHaveBeenCalledTimes(1);
     expect(onPick.mock.calls[0][0]).toContain(
       "python run_analysis.py --check expected/base-case-result.json",
     );
     expect(onPick.mock.calls[0][0]).toContain("low and high one-way sensitivity scenarios");
-    expect(onPick.mock.calls[0][0]).toContain("ask me whether to continue");
-    expect(screen.getByText("The local teaching case is ready")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Run locally" })).toBeInTheDocument();
-    expect(runCalls).toBe(0);
+    expect(onPick.mock.calls[0][0]).toContain("do not ask for a second confirmation");
   });
 
   it("runs only after the auxiliary confirmation and shows the recorded result", async () => {
     render(<HeorStarters onPick={() => {}} />);
     await userEvent.click(
-      screen.getByRole("button", { name: /Run the cost-effectiveness teaching example/i }),
+      screen.getByRole("button", { name: /Open the cost-effectiveness teaching example/i }),
     );
     await userEvent.click(await screen.findByRole("button", { name: "Run locally" }));
     expect(screen.getByRole("alertdialog", { name: "Run the fixed teaching calculation?" }))
@@ -128,7 +145,7 @@ describe("HeorStarters", () => {
   it("does not run when the researcher cancels the confirmation", async () => {
     render(<HeorStarters onPick={() => {}} />);
     await userEvent.click(
-      screen.getByRole("button", { name: /Run the cost-effectiveness teaching example/i }),
+      screen.getByRole("button", { name: /Open the cost-effectiveness teaching example/i }),
     );
     await userEvent.click(await screen.findByRole("button", { name: "Run locally" }));
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -140,7 +157,7 @@ describe("HeorStarters", () => {
     failRun = true;
     render(<HeorStarters onPick={() => {}} />);
     await userEvent.click(
-      screen.getByRole("button", { name: /Run the cost-effectiveness teaching example/i }),
+      screen.getByRole("button", { name: /Open the cost-effectiveness teaching example/i }),
     );
     await userEvent.click(await screen.findByRole("button", { name: "Run locally" }));
     await userEvent.click(screen.getByRole("button", { name: "Run fixed calculation" }));
@@ -154,7 +171,7 @@ describe("HeorStarters", () => {
     const onPick = vi.fn();
     render(<HeorStarters onPick={onPick} />);
     await userEvent.click(
-      screen.getByRole("button", { name: /Run the cost-effectiveness teaching example/i }),
+      screen.getByRole("button", { name: /Open the cost-effectiveness teaching example/i }),
     );
     await waitFor(() => expect(installCalls).toHaveLength(1));
     expect(onPick).not.toHaveBeenCalled();
@@ -169,7 +186,7 @@ describe("HeorStarters", () => {
       />,
     );
     await userEvent.click(
-      screen.getByRole("button", { name: /Run the cost-effectiveness teaching example/i }),
+      screen.getByRole("button", { name: /Open the cost-effectiveness teaching example/i }),
     );
     await waitFor(() => expect(onPick).not.toHaveBeenCalled());
     expect(installCalls).toHaveLength(0);

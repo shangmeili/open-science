@@ -77,6 +77,10 @@
       "addFiles": "No se pudieron añadir los archivos: {{message}}"
     }
   },
+  "message": {
+    "copy": "Copiar", "copied": "Copiado", "edit": "Editar y continuar desde aquí", "revert": "Volver a este punto", "editField": "Editar mensaje", "cancel": "Cancelar", "resend": "Guardar y continuar", "revertFailed": "No se pudo volver a ese punto: {{message}}",
+    "confirm": { "title": "¿Volver a este punto?", "body": "Se eliminarán los mensajes posteriores y sus cambios en los archivos de la tarea.", "action": "Volver aquí" }
+  },
   "localCommand": {
     "newDescription": "Borrar el contexto del chat en esta carpeta",
     "clearDescription": "Igual que /new; los archivos permanecen aquí",
@@ -166,7 +170,8 @@
       "loadedSkill": "Capacidad de investigación cargada: {{skill}}",
       "completed": "Completado",
       "rateLimited": "El modelo actual está recibiendo demasiadas solicitudes. Inténtalo más tarde o elige otro modelo.",
-      "stoppedBeforeReply": "La solicitud al modelo se detuvo sin devolver una respuesta. Inténtalo de nuevo o elige otro modelo."
+      "stoppedBeforeReply": "La solicitud al modelo se detuvo sin devolver una respuesta. Inténtalo de nuevo o elige otro modelo.",
+      "step": "paso {{count}}"
     },
     "placeholder": {
       "disconnected": "Conéctate para chatear",
@@ -269,6 +274,10 @@
     "reject": "Rechazar",
     "alwaysAllow": "Permitir siempre",
     "allowOnce": "Permitir una vez"
+  },
+  "reasoning": {
+    "thinking": "Analizando…",
+    "thought": "Notas de análisis"
   },
   "stepSummary": {
     "steps": "{{count}} pasos"

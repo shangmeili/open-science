@@ -79,7 +79,11 @@ export function HeorStarters({
                   );
                   return;
                 }
-                onPick(t(`starter.${key}.prompt`));
+                // Installing the teaching case reveals its deterministic local
+                // runner on this surface. Do not immediately navigate away and
+                // hide that runner behind an agent turn; using a model is an
+                // explicit second option below.
+                if (key !== "example" || !isTauri) onPick(t(`starter.${key}.prompt`));
               })();
             }}
             className="group rounded-card border border-border bg-surface p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-card"
@@ -158,19 +162,33 @@ export function HeorStarters({
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              disabled={running}
-              onClick={() => setConfirmRun(true)}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-input border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text transition hover:border-accent/40 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {running ? <Loader2 size={14} className="animate-spin" /> : <PlayCircle size={14} />}
-              {running
-                ? t("starter.local.running")
-                : runResult
-                  ? t("starter.local.runAgain")
-                  : t("starter.local.runAction")}
-            </button>
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <button
+                type="button"
+                disabled={running}
+                onClick={() => setConfirmRun(true)}
+                className="inline-flex items-center gap-1.5 rounded-input border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text transition hover:border-accent/40 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {running ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <PlayCircle size={14} />
+                )}
+                {running
+                  ? t("starter.local.running")
+                  : runResult
+                    ? t("starter.local.runAgain")
+                    : t("starter.local.runAction")}
+              </button>
+              <button
+                type="button"
+                disabled={running}
+                onClick={() => onPick(t("starter.example.prompt"))}
+                className="text-xs font-medium text-accent transition hover:text-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {t("starter.local.discussAction")}
+              </button>
+            </div>
           </div>
         </div>
       )}

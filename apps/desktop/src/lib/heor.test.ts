@@ -30,6 +30,30 @@ describe("AI4HEOR artifact contract", () => {
     expect(() => parseHeorPlan(JSON.stringify(invalid))).toThrow(/decision_problem/);
   });
 
+  it("reports malformed provenance records without crashing the review pane", () => {
+    const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
+    plan.input_provenance = [
+      {
+        path: undefined,
+        unit: "",
+        jurisdiction: "",
+        selection_rationale: "",
+        uncertainty_status: "fixed",
+        source_ids: [],
+        extraction_ids: [],
+        assumption_ids: [],
+        derivation: {},
+      },
+      null,
+    ] as unknown as typeof plan.input_provenance;
+
+    expect(() => auditHeorEvidence(plan)).not.toThrow();
+    expect(auditHeorEvidence(plan).invalidMappings).toEqual(expect.arrayContaining([
+      expect.stringContaining("path is missing"),
+      expect.stringContaining("mapping must be an object"),
+    ]));
+  });
+
   it("parses explicit multi-strategy order and audits every strategy input", () => {
     const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
     const comparator = structuredClone(plan.strategies.comparator);
@@ -105,12 +129,22 @@ describe("AI4HEOR artifact contract", () => {
     const prompt = buildHeorPrompt("Compare treatment A with standard care.");
     expect(prompt).toContain("Use $heor-workbench");
     expect(prompt).toContain("Compare treatment A with standard care.");
+    expect(prompt).toContain("Preserve the Open Science baseline");
+    expect(prompt).toContain("Do not begin with Git status, .gitignore, README");
+    expect(prompt).toContain("progressive HEOR outputs, not prerequisites");
     expect(prompt).toContain("never create or claim human approvals");
   });
 
   it("keeps runtime instructions out of the researcher-visible history", () => {
     const prompt = buildHeorPrompt("$heor-model-calibration\n\n检查模型校准结果");
     expect(displayHeorPrompt(prompt)).toBe("检查模型校准结果");
+    const legacyPrompt = [
+      "Use $heor-workbench for this request.",
+      "Work through natural-language dialogue first. Maintain heor/analysis-plan.json only when the decision problem and inputs are sufficiently defined; never create or claim human approvals.",
+      "",
+      "旧任务也不显示内部指令",
+    ].join("\n");
+    expect(displayHeorPrompt(legacyPrompt)).toBe("旧任务也不显示内部指令");
     expect(displayHeorPrompt("研究者自己的问题")).toBe("研究者自己的问题");
   });
 

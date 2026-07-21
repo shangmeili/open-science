@@ -10,7 +10,6 @@ import {
   subagentActivity,
   useRuntimeStore,
 } from "@/lib/runtime";
-import { queryRuns } from "@/lib/runs";
 import { useOverlayTitlebar, useUiStore, type ComposerSkillSelection } from "@/lib/store";
 import { fileInspectorFromBlock } from "@/lib/artifacts";
 import { useScrollMemory } from "@/lib/scrollMemory";
@@ -22,6 +21,7 @@ import { HeorStarters } from "@/components/heor/HeorStarters";
 import { NewTaskSuggestions } from "@/components/heor/NewTaskSuggestions";
 import { FirstRunGuide } from "@/components/heor/FirstRunGuide";
 import { HeorReviewPane } from "@/components/heor/HeorReviewPane";
+import { HeorReviewBoundary } from "@/components/heor/HeorReviewBoundary";
 import { InteractionPrompt } from "@/components/thread/InteractionPrompt";
 import { InspectorShell } from "@/components/inspector/InspectorShell";
 import { MaximizePaneButton, RightPane } from "@/components/inspector/RightPane";
@@ -44,6 +44,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
     sending,
     runningSessions,
     sessionProgress,
+    stepCounts,
     sessions,
     projects,
     researchScope,
@@ -64,6 +65,8 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
     startDraft,
     ensureStandaloneWorkspace,
     sendPrompt,
+    editMessage,
+    revertMessage,
     runShell,
     runCommand,
     openArtifact,
@@ -80,6 +83,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   } = useRuntimeStore();
   const clearingLocalCommand = useRef(false);
   const [showHeorReview, setShowHeorReview] = useState(false);
+  const [reviewRevision, setReviewRevision] = useState(0);
 
   // A deliberate workspace move restarts the sidecar — expected and brief, so
   // the UI stays "connected" (no badge flip, no Connect button, no help card).
@@ -87,6 +91,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   const connected = status === "ready" || switching;
   const connecting = status === "connecting" && !switching;
   const displayStatus = switching ? "ready" : status;
+  const sessionDir = sessions.find((session) => session.id === sessionId)?.directory;
 
   useEffect(() => {
     if (sessionId) {
@@ -99,7 +104,10 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
       // EventSockets until the connection pool is exhausted and sessions hang.
       if (useRuntimeStore.getState().currentId) startDraft(); // blank draft (#3)
     }
-  }, [sessionId, openSession, startDraft]);
+  // A hard reload can reach this effect before the runtime client and session
+  // directory are ready. Re-run when either arrives; openSession is sequenced
+  // and already-loaded history is a no-op.
+  }, [sessionId, connected, sessionDir, openSession, startDraft]);
 
   // All three composer paths reflect a freshly-created session in the URL.
   const afterTurn = (id: string | null) => {
@@ -139,7 +147,19 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   }, [commands, t]);
 
   // Interactions from the thread/inspector fold back into the conversation as follow-up prompts.
-  const handlers: BlockHandlers = {
+  const handlers: BlockHandlers = useMemo(() => ({
+    onMessageEdit: (messageID, text) => {
+      void editMessage(messageID, buildHeorPrompt(text), text).then((changed) => {
+        if (changed) setReviewRevision((revision) => revision + 1);
+      });
+    },
+    onMessageRevert: (messageID, text) => {
+      void revertMessage(messageID).then((changed) => {
+        if (!changed) return;
+        useUiStore.getState().setComposerDraft(text);
+        setReviewRevision((revision) => revision + 1);
+      });
+    },
     onArtifactOpen: openArtifact,
     onFigureComment: (a, title) =>
       void sendPrompt(t("figure.commentPrompt", {
@@ -148,10 +168,11 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
         y: a.y.toFixed(0),
         note: a.note,
       })),
-    // Subagent events fold into their own thread; a running task row reads
-    // its child's latest step from there.
-    subagentActivity: (childId) => subagentActivity(threads[childId]?.blocks),
-  };
+    // Read child activity at render time without capturing the full threads
+    // object. This keeps the handler reference stable for the memoized list.
+    subagentActivity: (childId) =>
+      subagentActivity(useRuntimeStore.getState().threads[childId]?.blocks),
+  }), [editMessage, openArtifact, revertMessage, sendPrompt, t]);
   const onEvaluate = (expr: string) => void sendPrompt(t("live.notebook.evaluatePrompt", { expr }));
 
   // A draft shows its local thread (the first message echoes there instantly,
@@ -182,10 +203,13 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
         )
     : undefined;
   const progress = currentId ? sessionProgress[currentId] : undefined;
+  const step = currentId ? (stepCounts[currentId] ?? 0) : 0;
   const latestActivity = working
     ? [...(thread?.blocks ?? [])]
         .reverse()
-        .find((block) => block.kind === "agent" || block.kind === "tool-call")
+        .find((block) =>
+          block.kind === "agent" || block.kind === "reasoning" || block.kind === "tool-call",
+        )
     : undefined;
   const activityLabel = sending && !currentId
       ? t("live.status.startingSession")
@@ -193,6 +217,8 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
         ? t("live.status.retrying", { attempt: progress.attempt ?? 1 })
         : currentTool
           ? t("live.status.runningStep")
+          : latestActivity?.kind === "reasoning"
+            ? t("reasoning.thinking")
           : latestActivity?.kind === "agent"
             ? t("live.status.writing")
             : latestActivity?.kind === "tool-call"
@@ -260,18 +286,23 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   useEffect(() => {
     if (!canOpenHeorReview) setShowHeorReview(false);
   }, [canOpenHeorReview]);
-  // Show the Runs toggle only when this session has runs (like the Files/folder
-  // affordance — present when there's content). Cheap count query on open.
-  const [hasRuns, setHasRuns] = useState(false);
-  useEffect(() => {
-    if (!sessionId) return setHasRuns(false);
-    let cancelled = false;
-    void queryRuns({ sessionId, limit: 1 }).then((p) => !cancelled && setHasRuns(p.total > 0));
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId]);
 
+  // A structured fixed-connector request is the rare case where the next
+  // action lives in the HEOR pane. Surface it at creation time; never tell the
+  // researcher to hunt for a hidden panel. Ordinary public retrieval does not
+  // create this artifact and continues in the conversation.
+  const evidenceSearchRequestCount = (thread?.blocks ?? []).filter(
+    (block) => block.kind === "artifact"
+      && block.path.replace(/\\/g, "/").endsWith("heor/evidence-search-request.json"),
+  ).length;
+  const autoOpenedEvidenceSearch = useRef(new Set<string>());
+  useEffect(() => {
+    if (!running || !canOpenHeorReview || evidenceSearchRequestCount === 0) return;
+    const key = `${currentId ?? DRAFT_KEY}:${evidenceSearchRequestCount}`;
+    if (autoOpenedEvidenceSearch.current.has(key)) return;
+    autoOpenedEvidenceSearch.current.add(key);
+    setShowHeorReview(true);
+  }, [canOpenHeorReview, currentId, evidenceSearchRequestCount, running]);
   // Conversation scroll position, per session — restored once history is in.
   const chatRef = useRef<HTMLDivElement>(null);
   const onChatScroll = useScrollMemory(chatRef, `chat:${currentId ?? DRAFT_KEY}`, !historyLoading);
@@ -382,7 +413,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
               </span>
             </button>
           )}
-          {sessionId && hasRuns && (
+          {sessionId && (
             <button
               onClick={() => setShowRuns(!showRuns)}
               className={cn(
@@ -478,15 +509,33 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
               </div>
             )}
             {historyLoading && <ThreadSkeleton />}
-            {!historyLoading && thread && <BlockList blocks={thread.blocks} handlers={handlers} />}
+            {!historyLoading && thread && (
+              <BlockList
+                blocks={thread.blocks}
+                handlers={handlers}
+              />
+            )}
+            {showNewTaskStart && taskComposer}
+          </div>
+        </div>
+
+        <div className="px-8 pb-5 pt-2">
+          <div className="mx-auto max-w-[760px] space-y-3">
             {working && (
-              // Typing-indicator at the bottom of the conversation: the message
-              // just echoed above it, so the user always sees the send is alive.
-              <div className="flex min-w-0 items-center gap-2 text-sm text-muted">
-                <Loader2 size={14} className="shrink-0 animate-spin" />
+              // Keep current progress next to the fixed composer so it remains
+              // visible even when the researcher scrolls through earlier work.
+              // Live provider reasoning stays hidden; only this one product-level
+              // activity line is shown, so “正在分析” never appears twice.
+              <div className="flex min-w-0 items-center gap-2 px-2 text-sm text-muted" role="status" aria-live="polite">
+                <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
                 <span className={cn("min-w-0", currentTool ? "shrink-0" : "truncate")}>
                   {activeRequest ? t("live.status.paused") : activityLabel}
                 </span>
+                {!activeRequest && step >= 2 && (
+                  <span className="shrink-0 text-xs text-muted/70">
+                    {t("live.status.step", { count: step })}
+                  </span>
+                )}
                 {!activeRequest && currentTool && (
                   <>
                     <span
@@ -502,12 +551,6 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
                 )}
               </div>
             )}
-            {showNewTaskStart && taskComposer}
-          </div>
-        </div>
-
-        <div className="px-8 pb-5 pt-2">
-          <div className="mx-auto max-w-[760px] space-y-3">
             {activeRequest && (
               <InteractionPrompt
                 question={activeQuestion}
@@ -528,14 +571,22 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
           onClose={showHeorReview ? () => setShowHeorReview(false) : activeArtifact ? closeArtifact : showRuns ? () => setShowRuns(false) : () => setShowFiles(false)}
         >
           {showHeorReview ? (
-            <HeorReviewPane
-              project={activeProject}
-              onClose={() => setShowHeorReview(false)}
-              onRequestRevision={(prompt) => {
-                useUiStore.getState().setComposerDraft(prompt);
-                setShowHeorReview(false);
-              }}
-            />
+            <HeorReviewBoundary
+              key={`${activeProject?.id ?? "none"}:${reviewRevision}`}
+              title={t("heor:panel.displayErrorTitle")}
+              body={t("heor:panel.displayErrorBody")}
+              retryLabel={t("heor:panel.refresh")}
+              onRetry={() => setReviewRevision((revision) => revision + 1)}
+            >
+              <HeorReviewPane
+                project={activeProject}
+                onClose={() => setShowHeorReview(false)}
+                onRequestRevision={(prompt) => {
+                  useUiStore.getState().setComposerDraft(prompt);
+                  setShowHeorReview(false);
+                }}
+              />
+            </HeorReviewBoundary>
           ) : activeArtifact ? (
             <InspectorShell
               inspector={fileInspectorFromBlock(activeArtifact)}

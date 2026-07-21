@@ -1107,9 +1107,28 @@ fn capped_stderr(bytes: &[u8]) -> String {
 pub fn run_heor_budget_impact(
     app: AppHandle,
     approval_state: tauri::State<crate::heor_approval::HeorApprovalState>,
+    run_state: tauri::State<crate::runs::RunState>,
+    provenance_state: tauri::State<crate::provenance::ProvenanceState>,
     project_id: String,
 ) -> Result<BudgetImpactRunResult, String> {
-    let workspace = crate::runtime::workspace_dir(&app)?;
+    crate::runs::execute_recorded(
+        &app,
+        run_state.inner(),
+        provenance_state.inner(),
+        "python -m heor_core heor/analysis-plan.json --budget-impact-plan heor/budget-impact-plan.json",
+        || {
+            run_heor_budget_impact_inner(&app, approval_state.inner(), project_id)
+                .map(|result| (result, None))
+        },
+    )
+}
+
+fn run_heor_budget_impact_inner(
+    app: &AppHandle,
+    approval_state: &crate::heor_approval::HeorApprovalState,
+    project_id: String,
+) -> Result<BudgetImpactRunResult, String> {
+    let workspace = crate::runtime::workspace_dir(app)?;
     if crate::project::require_project_id(&workspace)? != project_id {
         return Err("HEOR projectId does not match the current project".into());
     }
@@ -1126,7 +1145,7 @@ pub fn run_heor_budget_impact(
     if !package_src.join("heor_core").is_dir() {
         return Err("bundled HEOR engine source is missing".into());
     }
-    let (python, _) = crate::kernel::python_bin(&app)?;
+    let (python, _) = crate::kernel::python_bin(app)?;
     let output = crate::runtime::quiet_command(python)
         .args(["-m", "heor_core"])
         .arg(&plan_path)
@@ -1182,21 +1201,21 @@ pub fn run_heor_budget_impact(
         .and_then(serde_json::Value::as_str)
         .ok_or("analysis plan omitted reference-case status")?;
     let reference_case_status = crate::heor_engine::registered_reference_case_status(
-        &app,
+        app,
         reference_case_id,
         claimed_reference_case_status,
     )?;
     let reference_case_audit =
-        crate::heor_reference_case::audit_reference_case_for_plan(&app, &workspace, &plan_raw)?;
+        crate::heor_reference_case::audit_reference_case_for_plan(app, &workspace, &plan_raw)?;
     let uncertainty_audit =
         crate::heor_uncertainty::audit_uncertainty_plan_for_plan(&workspace, &plan_raw)?;
     let validation_audit =
         crate::heor_validation::audit_model_validation_for_plan(&workspace, &plan_raw)?;
     let reporting_audit = crate::heor_reporting::audit_report_package(&workspace)?;
     let reproducibility_audit =
-        crate::heor_reproducibility::audit_reproducibility_package(&app, &workspace)?;
+        crate::heor_reproducibility::audit_reproducibility_package(app, &workspace)?;
     let evidence_selection = crate::heor_evidence::audit_evidence_selection_for_plan(
-        &app,
+        app,
         &workspace,
         &project_id,
         &plan_raw,
@@ -1206,7 +1225,7 @@ pub fn run_heor_budget_impact(
             .0
             .lock()
             .map_err(|_| "HEOR approval lock poisoned")?;
-        crate::heor_approval::verified_log(&app, &project_id)?
+        crate::heor_approval::verified_log(app, &project_id)?
     };
     let conceptual_model_matches_artifact =
         crate::heor_engine::conceptual_model_matches_approval(&workspace, &approval_log);
