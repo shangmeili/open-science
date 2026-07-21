@@ -61,6 +61,7 @@ runtime/skills/external/
 
 # Bundled goal plugin (fetched by scripts/dev/fetch-goal-plugin.sh)
 runtime/goal-plugin/
+runtime/agent-browser/
 
 # Local demo recordings (too large for git)
 videos/
