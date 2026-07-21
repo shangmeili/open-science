@@ -10,6 +10,7 @@
     "beforeBuildCommand": "pnpm --filter @ai4s/desktop build && node ../../scripts/release/preflight_resources.mjs"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "title": "AI4HEOR",
