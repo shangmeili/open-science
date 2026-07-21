@@ -3,6 +3,7 @@ import {
   auditHeorConceptualModel,
   auditHeorEvidence,
   buildHeorPrompt,
+  displayHeorPrompt,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_BUDGET_IMPACT_AUDIT,
   HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT,
@@ -105,6 +106,12 @@ describe("AI4HEOR artifact contract", () => {
     expect(prompt).toContain("Use $heor-workbench");
     expect(prompt).toContain("Compare treatment A with standard care.");
     expect(prompt).toContain("never create or claim human approvals");
+  });
+
+  it("keeps runtime instructions out of the researcher-visible history", () => {
+    const prompt = buildHeorPrompt("$heor-model-calibration\n\n检查模型校准结果");
+    expect(displayHeorPrompt(prompt)).toBe("检查模型校准结果");
+    expect(displayHeorPrompt("研究者自己的问题")).toBe("研究者自己的问题");
   });
 
   it("fails closed when model inputs lack provenance", () => {

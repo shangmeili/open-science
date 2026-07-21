@@ -106,6 +106,27 @@ describe("AI4HEOR conversation route", () => {
     expect(sendPrompt).not.toHaveBeenCalled();
   });
 
+  it("sends the HEOR contract privately while echoing only the researcher's words", async () => {
+    const sendPrompt = vi.fn().mockResolvedValue("session-1");
+    useRuntimeStore.setState({
+      status: "ready",
+      currentId: null,
+      defaultModel: "openai/gpt-5.2",
+      sendPrompt,
+      workspacePinned: true,
+    });
+    renderNavigableAt("/heor/new");
+
+    const input = await screen.findByRole("textbox");
+    await userEvent.type(input, "评价达格列净的成本效果");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(sendPrompt).toHaveBeenCalledTimes(1);
+    expect(sendPrompt.mock.calls[0][0]).toContain("Use $heor-workbench");
+    expect(sendPrompt.mock.calls[0][0]).toContain("评价达格列净的成本效果");
+    expect(sendPrompt.mock.calls[0][1]).toBe("评价达格列净的成本效果");
+  });
+
   it("shows research tools after a task has an actual session scope", async () => {
     useRuntimeStore.setState({
       status: "ready",

@@ -3,7 +3,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Activity, FlaskConical, FolderOpen, Loader2, NotebookPen, PanelLeft, PlugZap } from "lucide-react";
 import type { RuntimeStatus } from "@ai4s/shared";
-import { DRAFT_KEY, rootSessionOf, subagentActivity, useRuntimeStore } from "@/lib/runtime";
+import {
+  DRAFT_KEY,
+  displaySessionTitle,
+  rootSessionOf,
+  subagentActivity,
+  useRuntimeStore,
+} from "@/lib/runtime";
 import { queryRuns } from "@/lib/runs";
 import { useOverlayTitlebar, useUiStore, type ComposerSkillSelection } from "@/lib/store";
 import { fileInspectorFromBlock } from "@/lib/artifacts";
@@ -107,7 +113,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
     const runtimeText = skill ? `$${skill.id}\n\n${text}` : text;
     const displayText = skill
       ? t("composer.skill.echo", { skill: skill.label, task: text })
-      : undefined;
+      : text;
     afterTurn(await sendPrompt(buildHeorPrompt(runtimeText), displayText));
   };
   const onRunShell = async (command: string) => afterTurn(await runShell(command));
@@ -153,8 +159,13 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   // Opening a session fetches its history (cross-folder opens also restart the
   // sidecar) — show skeleton shapes meanwhile, never a blank page.
   const historyLoading = connected && !!sessionId && !thread?.loaded;
-  const title = sessions.find((s) => s.id === currentId)?.title;
+  const serverTitle = sessions.find((s) => s.id === currentId)?.title;
   const isEmpty = !thread || thread.blocks.length === 0;
+  const title = displaySessionTitle(
+    serverTitle,
+    thread?.blocks,
+    t("session:newTask.title"),
+  );
   // The turn lifecycle: `sending` covers click → POST accepted (incl. the
   // dated-folder setup on a first message); `running` covers the agent
   // working until session.idle. Together they lock the composer and show the
@@ -267,6 +278,33 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   const { sidebarCollapsed, setSidebarCollapsed } = useUiStore();
   const isMac = navigator.userAgent.includes("Mac");
   const overlayTitlebar = useOverlayTitlebar();
+  const showNewTaskStart = isEmpty && !sessionId && !isWorkbench;
+  const taskComposer = (
+    <Composer
+      key={sessionId ?? `task:${draftEpoch}`}
+      onSend={onSend}
+      onRunShell={(c) => void onRunShell(c)}
+      onRunCommand={(n, a) => void onRunCommand(n, a)}
+      commands={composerCommands}
+      disabled={!connected || working || !defaultModel}
+      working={running}
+      onStop={() => void interrupt()}
+      placeholder={
+        working
+          ? t("live.placeholder.waiting")
+          : connected
+            ? t("heor:placeholder")
+            : t("live.placeholder.disconnected")
+      }
+      modelRequired={connected && !defaultModel}
+      onOpenModelSettings={() => navigate("/settings")}
+      approvalMode={approvalMode}
+      onApprovalModeChange={(mode) => void setApprovalMode(mode)}
+      beforeWorkspaceWrite={ensureStandaloneWorkspace}
+      autoFocus={!sessionId}
+      contextLabel={taskProject?.name}
+    />
+  );
 
   return (
     <div className="flex h-full min-w-0">
@@ -303,7 +341,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
                   ? t("heor:brand")
                   : t("session:newTask.title")}
             </h1>
-            {sessionId && title && <span className="truncate text-xs text-muted">/ {title}</span>}
+            {sessionId && <span className="truncate text-xs text-muted">/ {title}</span>}
           </div>
           <div data-tauri-drag-region={overlayTitlebar || undefined} className="flex-1" />
           {/* Right: quiet ghost controls — no border or fill until hovered or
@@ -382,7 +420,12 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
         </div>
 
         <div ref={chatRef} onScroll={onChatScroll} className="flex-1 overflow-y-auto">
-          <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-8 py-6">
+          <div
+            className={cn(
+              "mx-auto flex w-full max-w-[760px] flex-col gap-4 px-8 py-6",
+              showNewTaskStart && "gap-6 py-10",
+            )}
+          >
             {isEmpty && !sessionId && isWorkbench && (
               <>
                 <FirstRunGuide onOpenSettings={() => navigate("/settings")} />
@@ -395,7 +438,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
                 />
               </>
             )}
-            {isEmpty && !sessionId && !isWorkbench && (
+            {showNewTaskStart && (
               <NewTaskSuggestions
                 onPick={(prompt) => useUiStore.getState().setComposerDraft(prompt)}
               />
@@ -445,6 +488,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
                 )}
               </div>
             )}
+            {showNewTaskStart && taskComposer}
           </div>
         </div>
 
@@ -460,32 +504,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
                 onPermission={(id, reply) => void replyPermission(id, reply)}
               />
             )}
-            {!isWorkbench && (
-              <Composer
-                key={sessionId ?? `task:${draftEpoch}`}
-                onSend={onSend}
-                onRunShell={(c) => void onRunShell(c)}
-                onRunCommand={(n, a) => void onRunCommand(n, a)}
-                commands={composerCommands}
-                disabled={!connected || working || !defaultModel}
-                working={running}
-                onStop={() => void interrupt()}
-                placeholder={
-                  working
-                    ? t("live.placeholder.waiting")
-                    : connected
-                      ? t("heor:placeholder")
-                      : t("live.placeholder.disconnected")
-                }
-                modelRequired={connected && !defaultModel}
-                onOpenModelSettings={() => navigate("/settings")}
-                approvalMode={approvalMode}
-                onApprovalModeChange={(mode) => void setApprovalMode(mode)}
-                beforeWorkspaceWrite={ensureStandaloneWorkspace}
-                autoFocus={!sessionId}
-                contextLabel={taskProject?.name}
-              />
-            )}
+            {!isWorkbench && !showNewTaskStart && taskComposer}
           </div>
         </div>
       </div>

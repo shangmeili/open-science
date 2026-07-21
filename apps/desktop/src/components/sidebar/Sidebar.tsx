@@ -14,7 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useRuntimeStore } from "@/lib/runtime";
+import { displaySessionTitle, useRuntimeStore } from "@/lib/runtime";
 import { renameProject, type ProjectInfo } from "@/lib/tauri";
 import {
   SIDEBAR_MAX,
@@ -55,6 +55,7 @@ export function Sidebar() {
   const location = useLocation();
   const {
     sessions,
+    threads,
     projects,
     workspace,
     startDraft,
@@ -169,7 +170,7 @@ export function Sidebar() {
   for (const s of topSessions) {
     const row: Row = {
       id: s.id,
-      title: s.title,
+      title: displaySessionTitle(s.title, threads[s.id]?.blocks, t("items.new")),
       to: `/heor/${s.id}`,
     };
     const owner = s.directory ? projectByPath.get(s.directory) : undefined;

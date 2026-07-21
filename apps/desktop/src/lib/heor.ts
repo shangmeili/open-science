@@ -3380,15 +3380,28 @@ export async function sha256Text(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/** Add the domain skill explicitly without hiding the workbench contract from
- *  the conversation history. The provider can vary; the artifact contract does not. */
+const HEOR_PROMPT_PREAMBLE = [
+  "Use $heor-workbench for this request.",
+  "Work through natural-language dialogue first. Maintain heor/analysis-plan.json only when the decision problem and inputs are sufficiently defined; never create or claim human approvals.",
+].join("\n");
+
+/** Add the domain contract to the provider request. It is runtime context, not
+ *  researcher-authored content, so the conversation UI removes it again. */
 export function buildHeorPrompt(userText: string): string {
-  return [
-    "Use $heor-workbench for this request.",
-    "Work through natural-language dialogue first. Maintain heor/analysis-plan.json only when the decision problem and inputs are sufficiently defined; never create or claim human approvals.",
-    "",
-    userText.trim(),
-  ].join("\n");
+  return [HEOR_PROMPT_PREAMBLE, "", userText.trim()].join("\n");
+}
+
+/** Recover only the text the researcher entered from a stored provider prompt.
+ *  An optional leading skill id is execution metadata and is shown separately
+ *  by the live composer, so it must not reappear as raw syntax after reload. */
+export function displayHeorPrompt(storedText: string): string {
+  const stored = storedText.trim();
+  if (!stored.startsWith(HEOR_PROMPT_PREAMBLE)) return stored;
+  return stored
+    .slice(HEOR_PROMPT_PREAMBLE.length)
+    .trim()
+    .replace(/^\$[a-z0-9-]+\s*\n+/i, "")
+    .trim();
 }
 
 export async function listHeorApprovals(projectId: string): Promise<HeorApprovalLog> {

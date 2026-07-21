@@ -3,6 +3,7 @@ import type { OpenCodeEvent, HistoryMessage } from "@ai4s/sdk";
 import {
   buildAssetReviewPrompt,
   datedWorkspaceName,
+  displaySessionTitle,
   foldCarriageReturns,
   foldEvent,
   historyToThread,
@@ -17,6 +18,24 @@ describe("datedWorkspaceName", () => {
   it("formats the independent conversation scope name", () => {
     expect(datedWorkspaceName(new Date(2026, 6, 4, 16, 5))).toBe("2026-07-04-1605");
     expect(datedWorkspaceName(new Date(2026, 0, 9, 3, 40))).toBe("2026-01-09-0340");
+  });
+});
+
+describe("displaySessionTitle", () => {
+  it("replaces OpenCode's timestamp placeholder with the visible research request", () => {
+    expect(
+      displaySessionTitle(
+        "New session - 2026-07-21T06:50:49.060Z",
+        [{ kind: "user", text: "评价达格列净用于中国射血分数降低型心力衰竭患者的成本效果" }],
+        "新建任务",
+      ),
+    ).toBe("评价达格列净用于中国射血分数降低型心力衰竭患者的成本效果");
+    expect(displaySessionTitle("New session", [], "新建任务")).toBe("新建任务");
+  });
+
+  it("preserves a useful provider-generated title", () => {
+    expect(displaySessionTitle("Dapagliflozin cost-effectiveness", [], "新建任务"))
+      .toBe("Dapagliflozin cost-effectiveness");
   });
 });
 
@@ -385,6 +404,30 @@ describe("historyToThread", () => {
     ];
     const t = historyToThread(msgs, [{ name: "init", template: "something else" }]);
     expect(t.blocks[0]).toEqual({ kind: "user", text: "a genuinely long pasted question…" });
+  });
+
+  it("does not expose the HEOR runtime preamble after history reload", () => {
+    const msgs: HistoryMessage[] = [
+      {
+        role: "user",
+        parts: [
+          {
+            type: "text",
+            text: [
+              "Use $heor-workbench for this request.",
+              "Work through natural-language dialogue first. Maintain heor/analysis-plan.json only when the decision problem and inputs are sufficiently defined; never create or claim human approvals.",
+              "",
+              "$heor-model-calibration",
+              "",
+              "检查模型校准结果",
+            ].join("\n"),
+          },
+        ],
+      },
+    ];
+    expect(historyToThread(msgs).blocks).toEqual([
+      { kind: "user", text: "检查模型校准结果" },
+    ]);
   });
 
   it("adds no interrupted line when every step finished", () => {

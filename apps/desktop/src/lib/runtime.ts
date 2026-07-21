@@ -43,6 +43,7 @@ import { deriveArtifact } from "./artifacts";
 import { provenanceInputFromEvent, recordProvenance } from "./provenance";
 import { recordRun, runInputFromEvent } from "./runs";
 import { splitReview } from "./review";
+import { displayHeorPrompt } from "./heor";
 import i18n from "@/i18n";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -1405,6 +1406,26 @@ export function datedWorkspaceName(now = new Date()): string {
   return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}`;
 }
 
+const DEFAULT_SESSION_TITLE = /^(?:new session|untitled)(?:\s*-\s*.*)?$/i;
+
+/** Keep OpenCode's useful generated titles, but never expose its English
+ *  timestamp placeholder. While a task is new, its first visible request is a
+ *  clearer local title and works in every locale. */
+export function displaySessionTitle(
+  serverTitle: string | undefined,
+  blocks: ThreadBlock[] | undefined,
+  fallback: string,
+): string {
+  const title = serverTitle?.trim();
+  if (title && !DEFAULT_SESSION_TITLE.test(title)) return title;
+  const request = blocks?.find(
+    (block): block is Extract<ThreadBlock, { kind: "user" }> => block.kind === "user",
+  )?.text;
+  const compact = request?.replace(/\s+/g, " ").trim();
+  if (!compact) return fallback;
+  return compact.length > 30 ? `${compact.slice(0, 30)}…` : compact;
+}
+
 export interface FoldState {
   blocks: ThreadBlock[];
   index: Record<string, number>;
@@ -1673,9 +1694,10 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
         .map((p) => p.text ?? "")
         .join("")
         .trim();
-      const command = asTypedCommand(text);
+      const visibleText = displayHeorPrompt(text);
+      const command = asTypedCommand(visibleText);
       if (command) blocks.push({ kind: "user", text: command });
-      else if (text) blocks.push({ kind: "user", text });
+      else if (visibleText) blocks.push({ kind: "user", text: visibleText });
     } else {
       for (const p of m.parts) {
         if (p.type === "text" && p.text?.trim()) {

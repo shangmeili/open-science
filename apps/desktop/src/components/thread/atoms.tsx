@@ -15,8 +15,10 @@ import { resolveArtifactPath } from "@/lib/artifactFile";
 
 export function UserMessage({ block }: { block: UserMessageBlock }) {
   return (
-    <div className="rounded-card bg-surface-2 px-4 py-3 text-[15px] leading-relaxed text-text">
-      {block.text}
+    <div className="flex justify-end">
+      <div className="max-w-[92%] whitespace-pre-wrap rounded-card bg-surface-2 px-4 py-3 text-[15px] leading-relaxed text-text">
+        {block.text}
+      </div>
     </div>
   );
 }
