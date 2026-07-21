@@ -22,7 +22,7 @@ FIXTURE_BUILDER = ROOT / "scripts/dev/create_heor_acceptance_fixture.py"
 class FirstPartyRunnerTests(unittest.TestCase):
     def prepare_valid_workspace(self, workspace: Path) -> None:
         completed = subprocess.run(
-            [sys.executable, str(FIXTURE_BUILDER), str(workspace)],
+            [sys.executable, "-B", str(FIXTURE_BUILDER), str(workspace)],
             capture_output=True,
             text=True,
             check=False,
@@ -33,7 +33,7 @@ class FirstPartyRunnerTests(unittest.TestCase):
         env = os.environ.copy()
         env["AI4HEOR_HEOR_CORE_PATH"] = str(CORE)
         return subprocess.run(
-            [sys.executable, str(RUNNER), "--plan", "heor/analysis-plan.json"],
+            [sys.executable, "-B", str(RUNNER), "--plan", "heor/analysis-plan.json"],
             cwd=workspace,
             env=env,
             capture_output=True,
@@ -68,7 +68,7 @@ class FirstPartyRunnerTests(unittest.TestCase):
 
             completed = self.run_runner(workspace)
             self.assertNotEqual(completed.returncode, 0)
-            self.assertIn("mapping omitted path", completed.stderr)
+            self.assertIn("legacy input_provenance.input_path contract", completed.stderr)
             self.assertFalse((workspace / "heor/results/base-case.json").exists())
 
     def test_invalid_plan_does_not_create_a_result(self) -> None:
