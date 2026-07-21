@@ -75,6 +75,21 @@
     "mirrorPythonPlaceholder": "https://mirror.example.com/python-build-standalone",
     "mirrorHint": "선택적 미러로, Python 도구(Jupyter, 과학 데이터베이스)를 설정할 때 pypi.org / github.com이 느린 네트워크에서 다운로드에만 사용됩니다. 비워 두면 기본값을 사용합니다."
   },
+  "about": {
+    "title": "AI4HEOR 소개",
+    "hint": "제품 방향, 버전 및 연락처",
+    "currentVersion": "버전 {{version}}",
+    "developedBy": "AI4HEOR는 연구자 주도의 약물경제학 및 HEOR 업무를 위해 Codex Agent가 개발합니다.",
+    "positioning": "이 워크벤치는 오픈소스 Open Science 기반 위에 구축되었습니다. 자연어 상호작용을 중심으로 하고 양식은 보조적으로 사용하며, 로컬 우선 및 모델 제공자 독립성을 지향합니다. 결정론적 계산, 감사 가능한 과정, 주요 과학적 판단에 대한 연구자 확인을 핵심으로 합니다.",
+    "openScience": "Open Science 프로젝트 보기",
+    "contactTitle": "문의 및 의견",
+    "contactBody": "질문이나 제안이 있으면 연락해 주세요. 이메일 주소를 클릭하면 복사됩니다.",
+    "copyEmail": "연락처 이메일 복사",
+    "emailCopied": "연락처 이메일을 복사했습니다",
+    "emailCopyFailed": "이메일을 복사할 수 없습니다. 직접 선택해 복사하세요",
+    "xiaohongshuAlt": "Wild Alchemist Lao M의 Xiaohongshu 프로필 카드",
+    "xiaohongshuCaption": "Xiaohongshu: 野生炼丹师老M (ID 18669050668)"
+  },
   "updates": {
     "title": "앱 업데이트",
     "hint": "현재 버전과 배포 채널을 확인합니다",

@@ -155,7 +155,10 @@
       "ready": "使用可能",
       "optional": "必要なときに設定",
       "configure": "設定を開く",
-      "note": "Python と R はローカル計算に使用します。Jupyter は任意で、必要な場合に AI4HEOR が個別に管理します。"
+      "installLocal": "インストール",
+      "installing": "インストール中…",
+      "getR": "R を入手",
+      "note": "AI4HEOR は独立した Python・Jupyter 環境をインストールできます。初回は約 500 MB をダウンロードします。R は任意で、R 公式サイトから別途インストールする必要があります。"
     },
     "agentsSection": {
       "sectionTitle": "エージェント ({{count}})",
@@ -169,6 +172,8 @@
     "skillsListSection": {
       "sectionTitle": "スキル ({{count}})",
       "empty": "まだスキルが読み込まれていません。",
+      "use": "使用",
+      "usePrompt": "{{skill}} を使用して、次の作業を行います：\n\n",
       "source": {
         "builtin": "組み込み",
         "project": "ワークスペース・未管理",

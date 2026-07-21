@@ -29,6 +29,33 @@ describe("Composer", () => {
     expect(input.value).toBe("just the draft");
   });
 
+  it("shows a selected Skill as a localized chip while keeping its runtime id out of the input", () => {
+    const onSend = vi.fn();
+    useUiStore.setState({
+      composerDraft: null,
+      composerSkill: { id: "heor-model-calibration", label: "Model calibration" },
+    });
+    render(<Composer onSend={onSend} />);
+
+    const input = screen.getByLabelText<HTMLTextAreaElement>("Ask anything");
+    expect(input).toHaveValue("");
+    expect(input).toHaveAttribute(
+      "placeholder",
+      "Describe what you want Model calibration to help with",
+    );
+    expect(screen.queryByText("$heor-model-calibration")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Model calibration" })).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "Check this model against observed outcomes" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onSend).toHaveBeenCalledWith(
+      "Check this model against observed outcomes",
+      { id: "heor-model-calibration", label: "Model calibration" },
+    );
+    expect(screen.queryByRole("button", { name: "Remove Model calibration" }))
+      .not.toBeInTheDocument();
+  });
+
   it("sends on Enter but never during IME composition", () => {
     const onSend = vi.fn();
     render(<Composer onSend={onSend} />);

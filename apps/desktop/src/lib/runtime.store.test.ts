@@ -44,6 +44,7 @@ const mocks = vi.hoisted(() => ({
   fireStatus: (_s: string) => {},
   runShell: vi.fn(),
   runCommand: vi.fn(),
+  sendPrompt: vi.fn(),
   replyPermission: vi.fn(),
   abortSession: vi.fn(),
   /** SSE events the real server streams back DURING an abort POST's await — an
@@ -156,7 +157,9 @@ vi.mock("@ai4s/sdk", () => {
       }
       return "ses_new";
     }
-    async sendPrompt() {}
+    async sendPrompt(sid: string, text: string) {
+      mocks.sendPrompt(sid, text);
+    }
     async listCommands() {
       return [{ name: "init", description: "guided AGENTS.md setup", source: "command" }];
     }
@@ -323,6 +326,23 @@ describe("project and standalone conversations", () => {
     expect(mocks.newDatedWorkspace.mock.calls[0][0]).toMatch(/^\d{4}-\d{2}-\d{2}-\d{4}$/);
     expect(mocks.kernelReset).toHaveBeenCalled();
     expect(useRuntimeStore.getState().researchScope?.kind).toBe("session");
+  });
+
+  it("can keep runtime-only Skill syntax out of the visible researcher message", async () => {
+    useRuntimeStore.setState({ projects: [], workspacePinned: false });
+    const id = await useRuntimeStore.getState().sendPrompt(
+      "$heor-model-calibration\n\nCheck this model",
+      "Skill: Model calibration\n\nCheck this model",
+    );
+
+    expect(mocks.sendPrompt).toHaveBeenCalledWith(
+      "ses_new",
+      "$heor-model-calibration\n\nCheck this model",
+    );
+    expect(useRuntimeStore.getState().threads[id!].blocks).toContainEqual({
+      kind: "user",
+      text: "Skill: Model calibration\n\nCheck this model",
+    });
   });
 
   it("materializes a standalone scope before a starter or attachment writes files", async () => {

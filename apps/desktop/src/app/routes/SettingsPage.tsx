@@ -6,6 +6,7 @@ import {
   ExternalLink,
   FolderOpen,
   Loader2,
+  Mail,
   NotebookPen,
   RefreshCw,
   Search,
@@ -53,6 +54,10 @@ import { SupportReportCard } from "@/components/settings/SupportReportCard";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 import { FIRST_PARTY_HEOR_CONNECTOR } from "@/lib/heorConnectorPolicy";
+import xiaohongshuCard from "@/assets/xiaohongshu-shangmei-li.jpg";
+
+const AI4HEOR_CONTACT_EMAIL = "shangmei.li@altolix.com";
+const OPEN_SCIENCE_URL = "https://github.com/ai4s-research/open-science";
 
 const MINIMAX_CN_TOKEN_PLAN = {
   npm: "@ai-sdk/anthropic",
@@ -167,6 +172,15 @@ export function SettingsPage() {
     setCUrl(MINIMAX_CN_TOKEN_PLAN.baseURL);
     setCModels(MINIMAX_CN_TOKEN_PLAN.models);
     setCKey("");
+  };
+
+  const copyContactEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(AI4HEOR_CONTACT_EMAIL);
+      toast.success(t("about.emailCopied"));
+    } catch {
+      toast.error(t("about.emailCopyFailed"));
+    }
   };
 
   // Connect-a-provider flow state.
@@ -1256,127 +1270,161 @@ export function SettingsPage() {
           </div>
         </Card>
 
-        {/* ---- App updates ---- */}
-        <Card title={t("updates.title")} hint={t("updates.hint")}>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1",
-                updateTone === "muted"
-                  ? "bg-surface-2 text-muted ring-border"
-                  : updateTone === "error"
-                  ? "bg-error/10 text-error ring-error/20"
-                  : updateTone === "accent"
-                    ? "bg-accent/10 text-accent ring-accent/20"
-                    : "bg-ok/10 text-ok ring-ok/20",
-              )}
-            >
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  updateTone === "muted"
-                    ? "bg-muted"
-                    : updateTone === "error"
-                      ? "bg-error"
-                      : updateTone === "accent"
-                        ? "bg-accent"
-                        : "bg-ok",
-                )}
-              />
-              {updateLabel}
-            </span>
-            <span className="text-xs text-muted">
-              {t("updates.currentVersion", { version: currentVersion })}
-            </span>
-            {updateSourceConfigured && latestUpdate && (
-              <span className="text-xs text-muted">
-                {t("updates.latestVersion", { version: latestUpdate.version })}
+        {/* ---- About AI4HEOR and user-facing release information ---- */}
+        <Card title={t("about.title")} hint={t("about.hint")}>
+          <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="min-w-0">
+              <span className="inline-flex rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-border">
+                {t("about.currentVersion", { version: currentVersion })}
               </span>
-            )}
+              <p className="mt-4 text-sm font-medium leading-6 text-text">{t("about.developedBy")}</p>
+              <p className="mt-2 text-sm leading-6 text-muted">{t("about.positioning")}</p>
+              <button
+                type="button"
+                className={cn(btnGhost("mt-4 gap-1.5"), "w-fit")}
+                onClick={() => void openExternal(OPEN_SCIENCE_URL)}
+              >
+                <ExternalLink size={13} /> {t("about.openScience")}
+              </button>
+
+              <div className="mt-5 border-t border-faint pt-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-text">
+                  <Mail size={15} className="text-accent" />
+                  {t("about.contactTitle")}
+                </div>
+                <p className="mt-2 text-xs leading-5 text-muted">{t("about.contactBody")}</p>
+                <button
+                  type="button"
+                  className="mt-2 rounded-input border border-border bg-surface-2 px-3 py-2 font-mono text-xs text-text transition-colors hover:bg-bg"
+                  onClick={() => void copyContactEmail()}
+                  title={t("about.copyEmail")}
+                >
+                  {AI4HEOR_CONTACT_EMAIL}
+                </button>
+              </div>
+            </div>
+
+            <figure className="mx-auto w-full max-w-[280px]">
+              <img
+                src={xiaohongshuCard}
+                alt={t("about.xiaohongshuAlt")}
+                className="block h-auto w-full rounded-card border border-border bg-white shadow-sm"
+              />
+              <figcaption className="mt-2 text-center text-xs leading-5 text-muted">
+                {t("about.xiaohongshuCaption")}
+              </figcaption>
+            </figure>
           </div>
 
-          {!updateSourceConfigured && (
-            <p className="mt-3 text-xs leading-relaxed text-muted">{t("updates.unavailableHint")}</p>
-          )}
-
-          {updateSourceConfigured && latestUpdate?.publishedAt && (
-            <div className="mt-2 text-xs text-muted">
-              {t("updates.publishedAt", {
-                date: new Date(latestUpdate.publishedAt).toLocaleString(locale),
-              })}
-            </div>
-          )}
-          {updateSourceConfigured && lastCheckedAt && (
-            <div className="mt-1 text-xs text-muted">
-              {t("updates.lastChecked", { date: new Date(lastCheckedAt).toLocaleString(locale) })}
-            </div>
-          )}
-          {updateSourceConfigured && updateStatus === "error" && updateError && (
-            <div className="mt-2 text-xs text-error">
-              {t("updates.checkFailed", { message: updateError })}
-            </div>
-          )}
-
           {updateSourceConfigured && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                className={btnAccent("gap-1.5")}
-                onClick={() => void checkForUpdates({ manual: true })}
-                disabled={updateStatus === "checking"}
-              >
-                {updateStatus === "checking" ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <RefreshCw size={13} />
-                )}
-                {t("updates.checkNow")}
-              </button>
-              {latestUpdate?.url && (
-                <button
-                  className={btnGhost("gap-1.5")}
-                  onClick={() => void openExternal(latestUpdate.url)}
+            <section className="mt-6 border-t border-faint pt-5" aria-labelledby="app-update-heading">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 id="app-update-heading" className="mr-1 text-sm font-medium text-text">
+                  {t("updates.title")}
+                </h3>
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1",
+                    updateTone === "error"
+                      ? "bg-error/10 text-error ring-error/20"
+                      : updateTone === "accent"
+                        ? "bg-accent/10 text-accent ring-accent/20"
+                        : "bg-ok/10 text-ok ring-ok/20",
+                  )}
                 >
-                  <ExternalLink size={13} /> {t("updates.openRelease")}
-                </button>
-              )}
-              {showUpdateBadge && (
-                <button className={btnGhost()} onClick={dismissUpdateBadge}>
-                  {t("updates.hideBadge")}
-                </button>
-              )}
-            </div>
-          )}
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      updateTone === "error"
+                        ? "bg-error"
+                        : updateTone === "accent"
+                          ? "bg-accent"
+                          : "bg-ok",
+                    )}
+                  />
+                  {updateLabel}
+                </span>
+                {latestUpdate && (
+                  <span className="text-xs text-muted">
+                    {t("updates.latestVersion", { version: latestUpdate.version })}
+                  </span>
+                )}
+              </div>
 
-          {updateSourceConfigured && (
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <label className="flex items-start gap-2 rounded-input border border-border bg-surface-2 px-3 py-2">
-                <input
-                  type="checkbox"
-                  checked={updateEnabled}
-                  onChange={(e) => setUpdateEnabled(e.target.checked)}
-                  className="mt-0.5 accent-[var(--color-accent)]"
-                />
-                <span>
-                  <span className="block text-[13px] font-medium text-text">{t("updates.autoCheck")}</span>
-                  <span className="block text-xs leading-relaxed text-muted">{t("updates.autoCheckHint")}</span>
-                </span>
-              </label>
-              <label className="flex items-start gap-2 rounded-input border border-border bg-surface-2 px-3 py-2">
-                <input
-                  type="checkbox"
-                  checked={updateBadgeEnabled}
-                  onChange={(e) => setUpdateBadgeEnabled(e.target.checked)}
-                  className="mt-0.5 accent-[var(--color-accent)]"
-                />
-                <span>
-                  <span className="block text-[13px] font-medium text-text">{t("updates.showBadge")}</span>
-                  <span className="block text-xs leading-relaxed text-muted">{t("updates.showBadgeHint")}</span>
-                </span>
-              </label>
-            </div>
-          )}
-          {updateSourceConfigured && (
-            <p className="mt-3 text-xs leading-relaxed text-muted">{t("updates.privacy")}</p>
+              {latestUpdate?.publishedAt && (
+                <div className="mt-2 text-xs text-muted">
+                  {t("updates.publishedAt", {
+                    date: new Date(latestUpdate.publishedAt).toLocaleString(locale),
+                  })}
+                </div>
+              )}
+              {lastCheckedAt && (
+                <div className="mt-1 text-xs text-muted">
+                  {t("updates.lastChecked", { date: new Date(lastCheckedAt).toLocaleString(locale) })}
+                </div>
+              )}
+              {updateStatus === "error" && updateError && (
+                <div className="mt-2 text-xs text-error">
+                  {t("updates.checkFailed", { message: updateError })}
+                </div>
+              )}
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  className={btnAccent("gap-1.5")}
+                  onClick={() => void checkForUpdates({ manual: true })}
+                  disabled={updateStatus === "checking"}
+                >
+                  {updateStatus === "checking" ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={13} />
+                  )}
+                  {t("updates.checkNow")}
+                </button>
+                {latestUpdate?.url && (
+                  <button
+                    className={btnGhost("gap-1.5")}
+                    onClick={() => void openExternal(latestUpdate.url)}
+                  >
+                    <ExternalLink size={13} /> {t("updates.openRelease")}
+                  </button>
+                )}
+                {showUpdateBadge && (
+                  <button className={btnGhost()} onClick={dismissUpdateBadge}>
+                    {t("updates.hideBadge")}
+                  </button>
+                )}
+              </div>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <label className="flex items-start gap-2 rounded-input border border-border bg-surface-2 px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={updateEnabled}
+                    onChange={(e) => setUpdateEnabled(e.target.checked)}
+                    className="mt-0.5 accent-[var(--color-accent)]"
+                  />
+                  <span>
+                    <span className="block text-[13px] font-medium text-text">{t("updates.autoCheck")}</span>
+                    <span className="block text-xs leading-relaxed text-muted">{t("updates.autoCheckHint")}</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 rounded-input border border-border bg-surface-2 px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={updateBadgeEnabled}
+                    onChange={(e) => setUpdateBadgeEnabled(e.target.checked)}
+                    className="mt-0.5 accent-[var(--color-accent)]"
+                  />
+                  <span>
+                    <span className="block text-[13px] font-medium text-text">{t("updates.showBadge")}</span>
+                    <span className="block text-xs leading-relaxed text-muted">{t("updates.showBadgeHint")}</span>
+                  </span>
+                </label>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-muted">{t("updates.privacy")}</p>
+            </section>
           )}
         </Card>
       </div>

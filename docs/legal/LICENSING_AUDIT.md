@@ -1,7 +1,7 @@
 # AI4HEOR source, Skill, plugin, MCP, data, and asset authorization audit
 
 Audit date: 2026-07-21
-Distribution target: Intel macOS and Windows x64 internal test builds
+Distribution target: AI4HEOR 1.0.0 Intel macOS and Windows x64 internal test builds
 Decision: **internal testing allowed; public redistribution blocked**
 
 ## Scope and decision rule
@@ -9,7 +9,7 @@ Decision: **internal testing allowed; public redistribution blocked**
 The audit covers tracked source, packaged first-party Skills, reviewed external
 source decisions, npm and Cargo dependencies, bundled
 OpenCode and uv executables, fonts, the HEOR knowledge base, examples, screenshots,
-and the supplied AI4HEOR logo. A public URL or open repository is treated as a
+and the supplied AI4HEOR logo and product-owner contact card. A public URL or open repository is treated as a
 locator only. Distribution requires an applicable license or rights record for
 the exact bytes and preservation of all required notices.
 
@@ -37,6 +37,7 @@ the exact bytes and preservation of all required notices.
 | App and report fonts | Fontsource packages for Inter, JetBrains Mono, Source Serif 4 declare OFL-1.1; Source Han Sans CN 2.005R is pinned and its exact OFL-1.1 text is bundled | Yes | Source Han report-font notice is complete; remaining UI font notice corpus is a public-release task |
 | Documentation screenshots/showcase images | Tracked in the MIT source history; no separate third-party attribution found | Repository only | Keep under source license; re-audit before public marketing reuse |
 | AI4HEOR logo | Product owner supplied and explicitly requested project use | Yes | Internal test authorized; public rights record missing |
+| Product-owner contact card | Product owner supplied and explicitly requested inclusion in the About page | Yes | Internal test authorized; public redistribution and third-party mark rights require confirmation |
 
 ## Skills, plugins, and MCP controls
 

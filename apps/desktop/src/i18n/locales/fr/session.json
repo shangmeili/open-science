@@ -36,6 +36,12 @@
       "chipTitle": "Exécute cette commande — saisissez des arguments, ou appuyez sur Retour arrière pour modifier le nom",
       "removeAria": "Supprimer la commande"
     },
+    "skill": {
+      "placeholder": "Décrivez ce que vous souhaitez accomplir avec {{skill}}",
+      "chipTitle": "Cette tâche utilisera {{skill}} ; vous pouvez le retirer avant l’envoi",
+      "removeAria": "Retirer {{skill}}",
+      "echo": "Skill : {{skill}}\n\n{{task}}"
+    },
     "shellMode": {
       "badge": "shell",
       "title": "S'exécute directement dans le dossier de l'espace de travail de la tâche"

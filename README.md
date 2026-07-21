@@ -296,14 +296,14 @@ pnpm lint
 
 ## Status
 
-The project is a working desktop MVP in active development. The most reliable current
+The project is an installable desktop product in active development. The most reliable current
 implementation log is [`PROGRESS.md`](./PROGRESS.md). Product and architecture notes
 live in [`docs/PRD.md`](./docs/PRD.md) and
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md), but those documents include
 target design as well as historical status notes.
 
-The 0.2.2 internal test candidate targets Intel macOS and Windows x64. Linux and
-Apple-Silicon release work remain outside this test-delivery scope. Current source is 0.2.2.
+The 1.0.0 industrial test candidate targets Intel macOS and Windows x64. Linux and
+Apple-Silicon release work remain outside this delivery scope. Current source is 1.0.0.
 The last first-launch-verified x64 macOS package is the superseded 0.1.56 candidate;
 it is retained only as historical verification evidence and is not the current delivery.
 The 91,021,588-byte `AI4HEOR_0.1.56_x64.dmg` has SHA-256
@@ -315,7 +315,7 @@ launch, creation of a fresh `Documents/AI4HEOR`, content-preserving migration fr
 `Documents/OpenScience`, and process cleanup. Packaged OpenCode streaming and a
 credential-isolated MiniMax-M3 turn also passed. It supersedes the 0.1.54 candidate and
 is ready for product-owner testing; product-owner acceptance has not yet been recorded.
-Version 0.2.2 presents New task as an unrestricted natural-language entry with four
+Version 1.0.0 presents New task as an unrestricted natural-language entry with four
 HEOR-specific, draft-only shortcuts; Workbench remains the guided project surface.
 Projects are named local workspaces shared by their tasks; a standalone task receives
 its own private local research scope with the same assistant,

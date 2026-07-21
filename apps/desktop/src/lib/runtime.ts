@@ -175,7 +175,7 @@ interface RuntimeState {
   /** Switch to an existing project or legacy session folder. */
   switchWorkspace: (target: { path: string }) => Promise<void>;
   openSession: (id: string) => Promise<void>;
-  sendPrompt: (text: string) => Promise<string | null>;
+  sendPrompt: (text: string, displayText?: string) => Promise<string | null>;
   /** Run a "!" shell command directly in the session's workspace folder —
    *  no model turn; the output folds into the thread as a bash tool row. */
   runShell: (command: string) => Promise<string | null>;
@@ -1233,8 +1233,14 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
 
   // The send lifecycle (new → input → send → response) is shared by plain
   // prompts, "!" shell commands and "/" slash commands — see performTurn.
-  sendPrompt: (text) =>
-    performTurn(set, get, text, (sid) => withRetry(() => client!.sendPrompt(sid, text)), false),
+  sendPrompt: (text, displayText) =>
+    performTurn(
+      set,
+      get,
+      displayText ?? text,
+      (sid) => withRetry(() => client!.sendPrompt(sid, text)),
+      false,
+    ),
 
   // No retry for shell/command: re-POSTing would run the command twice.
   runShell: (command) => {

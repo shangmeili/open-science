@@ -1,6 +1,6 @@
 # AI4HEOR Desktop — Product Requirements
 
-> **Status (AI4HEOR 0.2.2 internal test candidate, 2026-07-21).** The runtime is **OpenCode**, bundled as an isolated
+> **Status (AI4HEOR 1.0.0 industrial test candidate, 2026-07-21).** The runtime is **OpenCode**, bundled as an isolated
 > sidecar (one-click, auto-started, does not touch a user's own OpenCode). Built: the
 > three-column workbench UI, real multi-session chat with history, a real Skills/Agents
 > view, BYOK key config, Intel macOS and Windows x64 test installers, and the first-party HEOR workflow described
@@ -11,9 +11,9 @@
 
 **AI4HEOR** is a natural-language-first, local-first, model-agnostic desktop
 workbench for pharmacoeconomics and HEOR on macOS, Windows, and Linux. Codex
-Agent builds and verifies the product; inside the product, the Human researcher
-leads the scientific work and the configured model/runtime assists under
-explicit Human-in-the-loop gates.
+builds and verifies the product; inside the product, the researcher leads the
+scientific work and the configured model/runtime assists at explicit review
+and confirmation points.
 
 It is not an ordinary paper-summarization tool. It is a local-first, model-agnostic,
 reproducible, auditable research agent workbench that helps researchers do:
@@ -30,9 +30,9 @@ reproducible, auditable research agent workbench that helps researchers do:
 
 Product definition:
 
-> AI4HEOR is developed by Codex Agent for Human-led pharmacoeconomic and HEOR
-> research: natural-language first, local first, model agnostic, and
-> Human-in-the-loop.
+> AI4HEOR is developed by Codex for researcher-led pharmacoeconomic and HEOR
+> work: natural-language first, local first, model-provider agnostic, and
+> auditable at every required researcher review point.
 
 ## 2. Goals
 

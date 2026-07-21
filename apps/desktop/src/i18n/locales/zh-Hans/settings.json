@@ -89,6 +89,21 @@
     "mirrorPythonPlaceholder": "https://mirror.example.com/python-build-standalone",
     "mirrorHint": "可选。仅在下载 Python、Jupyter 等分析工具时使用；如果访问 pypi.org 或 github.com 较慢，可以填写镜像地址。留空则使用默认下载源。"
   },
+  "about": {
+    "title": "关于 AI4HEOR",
+    "hint": "产品定位、版本和联系方式",
+    "currentVersion": "版本 {{version}}",
+    "developedBy": "AI4HEOR 由 Codex 负责开发建设，服务于人类研究者主导的药物经济学与 HEOR 科研工作。",
+    "positioning": "工作台基于 Open Science 开源底座搭建，以自然语言交互为主、表单交互为辅，坚持本地优先、模型提供商无关，并以确定性计算、过程可追溯和关键研究判断由研究者确认为核心。",
+    "openScience": "查看 Open Science 开源项目",
+    "contactTitle": "联系与反馈",
+    "contactBody": "如有任何问题与建议，请与我联系。点击邮箱即可复制。",
+    "copyEmail": "复制联系邮箱",
+    "emailCopied": "联系邮箱已复制",
+    "emailCopyFailed": "无法复制邮箱，请手动选择复制",
+    "xiaohongshuAlt": "野生炼丹师老M的小红书名片",
+    "xiaohongshuCaption": "小红书：野生炼丹师老M（小红书号 18669050668）"
+  },
   "updates": {
     "title": "应用更新",
     "hint": "查看当前版本和发布渠道",

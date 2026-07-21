@@ -4,6 +4,11 @@ import { isMacUA, isTauri, trafficLightsPresent } from "./tauri";
 
 export type Theme = "light" | "dark";
 
+export interface ComposerSkillSelection {
+  id: string;
+  label: string;
+}
+
 const THEME_KEY = "ai4s.theme";
 const SIDEBAR_WIDTH_KEY = "ai4s.sidebar.width";
 const SIDEBAR_COLLAPSED_KEY = "ai4s.sidebar.collapsed";
@@ -57,6 +62,10 @@ interface UiState {
   /** One-shot text placed into the composer by another surface (e.g. the
    *  provenance Reproduce action) — consumed on the next composer render. */
   composerDraft: string | null;
+  /** One-shot Skill selection prepared by the capability catalog. The
+   *  composer renders the localized label while keeping the runtime id out of
+   *  the editable research request. */
+  composerSkill: ComposerSkillSelection | null;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
   setLocale: (locale: string) => void;
@@ -69,6 +78,7 @@ interface UiState {
   setIsFullscreen: (fullscreen: boolean) => void;
   setPaletteOpen: (open: boolean) => void;
   setComposerDraft: (draft: string | null) => void;
+  setComposerSkill: (skill: ComposerSkillSelection | null) => void;
 }
 
 export const useUiStore = create<UiState>((set, get) => ({
@@ -115,6 +125,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   composerDraft: null,
   setComposerDraft: (composerDraft) => set({ composerDraft }),
+  composerSkill: null,
+  setComposerSkill: (composerSkill) => set({ composerSkill }),
 }));
 
 /** Whether headers should inset for the macOS overlay-titlebar traffic lights.

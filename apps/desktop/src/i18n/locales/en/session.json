@@ -36,6 +36,12 @@
       "chipTitle": "Runs this command — type arguments, or press Backspace to edit the name",
       "removeAria": "Remove command"
     },
+    "skill": {
+      "placeholder": "Describe what you want {{skill}} to help with",
+      "chipTitle": "This task will use {{skill}}; you can remove it before sending",
+      "removeAria": "Remove {{skill}}",
+      "echo": "Skill: {{skill}}\n\n{{task}}"
+    },
     "shellMode": {
       "badge": "shell",
       "title": "Runs directly in the task's workspace folder"

@@ -75,6 +75,21 @@
     "mirrorPythonPlaceholder": "https://mirror.example.com/python-build-standalone",
     "mirrorHint": "任意のミラー。Python ツール(Jupyter・科学データベース)のセットアップ時のダウンロードにのみ使用され、pypi.org / github.com が遅いネットワーク向けです。空欄でデフォルト。"
   },
+  "about": {
+    "title": "AI4HEOR について",
+    "hint": "製品の位置づけ、バージョン、連絡先",
+    "currentVersion": "バージョン {{version}}",
+    "developedBy": "AI4HEOR は、研究者が主導する薬剤経済学・HEOR 業務のために Codex Agent が開発しています。",
+    "positioning": "本ワークベンチはオープンソースの Open Science 基盤上に構築されています。自然言語を中心にフォームを補助的に用い、ローカルファーストかつモデル提供者に依存しません。決定論的計算、監査可能なプロセス、重要な科学的判断の研究者確認を中核とします。",
+    "openScience": "Open Science プロジェクトを見る",
+    "contactTitle": "お問い合わせ・ご意見",
+    "contactBody": "ご質問やご提案があればご連絡ください。メールアドレスをクリックするとコピーできます。",
+    "copyEmail": "連絡先メールをコピー",
+    "emailCopied": "連絡先メールをコピーしました",
+    "emailCopyFailed": "メールをコピーできませんでした。手動で選択してください",
+    "xiaohongshuAlt": "野生炼丹师老M の小紅書プロフィールカード",
+    "xiaohongshuCaption": "小紅書：野生炼丹师老M（ID 18669050668）"
+  },
   "updates": {
     "title": "アプリの更新",
     "hint": "現在のバージョンとリリースチャネルを確認します",

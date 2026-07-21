@@ -5,7 +5,7 @@ import { Activity, FlaskConical, FolderOpen, Loader2, NotebookPen, PanelLeft, Pl
 import type { RuntimeStatus } from "@ai4s/shared";
 import { DRAFT_KEY, rootSessionOf, subagentActivity, useRuntimeStore } from "@/lib/runtime";
 import { queryRuns } from "@/lib/runs";
-import { useOverlayTitlebar, useUiStore } from "@/lib/store";
+import { useOverlayTitlebar, useUiStore, type ComposerSkillSelection } from "@/lib/store";
 import { fileInspectorFromBlock } from "@/lib/artifacts";
 import { useScrollMemory } from "@/lib/scrollMemory";
 import { BlockList, type BlockHandlers } from "@/components/thread/BlockList";
@@ -98,12 +98,17 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   const afterTurn = (id: string | null) => {
     if (id && !sessionId) navigate(`/heor/${id}`);
   };
-  const onSend = async (text: string) => {
+  const onSend = async (text: string, skill?: ComposerSkillSelection) => {
     if (!defaultModel) {
       useUiStore.getState().setComposerDraft(text);
+      if (skill) useUiStore.getState().setComposerSkill(skill);
       return;
     }
-    afterTurn(await sendPrompt(buildHeorPrompt(text)));
+    const runtimeText = skill ? `$${skill.id}\n\n${text}` : text;
+    const displayText = skill
+      ? t("composer.skill.echo", { skill: skill.label, task: text })
+      : undefined;
+    afterTurn(await sendPrompt(buildHeorPrompt(runtimeText), displayText));
   };
   const onRunShell = async (command: string) => afterTurn(await runShell(command));
   const onRunCommand = async (name: string, args: string) => {
@@ -221,7 +226,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
       ? projects.find((candidate) => candidate.path === workspace) ?? researchScope
       : null;
   const taskProject = projects.find((candidate) => candidate.path === workspace)
-    ?? (workspacePinned ? researchScope : null);
+    ?? (workspacePinned && researchScope?.kind === "heor" ? researchScope : null);
   const canOpenHeorReview = !!sessionId || !!taskProject || workspacePinned;
   useEffect(() => {
     if (!canOpenHeorReview) setShowHeorReview(false);

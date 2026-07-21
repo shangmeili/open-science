@@ -36,6 +36,12 @@
       "chipTitle": "このコマンドを実行 — 引数を入力するか、Backspace で名前を編集",
       "removeAria": "コマンドを削除"
     },
+    "skill": {
+      "placeholder": "{{skill}} で行いたい作業を説明してください",
+      "chipTitle": "このタスクでは {{skill}} を使用します。送信前に解除できます",
+      "removeAria": "{{skill}} を解除",
+      "echo": "スキル：{{skill}}\n\n{{task}}"
+    },
     "shellMode": {
       "badge": "シェル",
       "title": "タスクのワークスペースフォルダで直接実行"

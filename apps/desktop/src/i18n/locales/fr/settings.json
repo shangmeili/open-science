@@ -75,6 +75,21 @@
     "mirrorPythonPlaceholder": "https://mirror.example.com/python-build-standalone",
     "mirrorHint": "Miroirs facultatifs, utilisés uniquement lors de l’installation d’outils Python (Jupyter, bases de données scientifiques) sur les réseaux où pypi.org / github.com sont lents. Laisser vide pour les valeurs par défaut."
   },
+  "about": {
+    "title": "À propos d’AI4HEOR",
+    "hint": "Positionnement, version et contact",
+    "currentVersion": "Version {{version}}",
+    "developedBy": "AI4HEOR est développé par Codex Agent pour des travaux de pharmacoéconomie et de HEOR dirigés par les chercheurs.",
+    "positioning": "L’espace de travail repose sur la base open source Open Science. Il privilégie le langage naturel, utilise les formulaires en appui, fonctionne d’abord en local et reste indépendant du fournisseur de modèles. Les calculs déterministes, les processus auditables et la confirmation des décisions scientifiques clés par le chercheur sont au cœur du produit.",
+    "openScience": "Voir le projet Open Science",
+    "contactTitle": "Contact et retours",
+    "contactBody": "Pour toute question ou suggestion, veuillez me contacter. Cliquez sur l’adresse pour la copier.",
+    "copyEmail": "Copier l’adresse de contact",
+    "emailCopied": "Adresse de contact copiée",
+    "emailCopyFailed": "Impossible de copier l’adresse ; sélectionnez-la manuellement",
+    "xiaohongshuAlt": "Carte Xiaohongshu de Wild Alchemist Lao M",
+    "xiaohongshuCaption": "Xiaohongshu : 野生炼丹师老M (ID 18669050668)"
+  },
   "updates": {
     "title": "Mises à jour de l'app",
     "hint": "Afficher la version installée et le canal de diffusion",

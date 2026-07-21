@@ -155,7 +155,10 @@
       "ready": "einsatzbereit",
       "optional": "bei Bedarf einrichten",
       "configure": "Einstellungen öffnen",
-      "note": "Python und R unterstützen lokale Berechnungen. Jupyter ist optional und wird bei Bedarf separat von AI4HEOR verwaltet."
+      "installLocal": "Installieren",
+      "installing": "Wird installiert…",
+      "getR": "R herunterladen",
+      "note": "AI4HEOR kann eine isolierte Python- und Jupyter-Umgebung installieren. Beim ersten Mal werden etwa 500 MB heruntergeladen. R ist optional und muss separat von der offiziellen R-Website installiert werden."
     },
     "agentsSection": {
       "sectionTitle": "Agenten ({{count}})",
@@ -169,6 +172,8 @@
     "skillsListSection": {
       "sectionTitle": "Skills ({{count}})",
       "empty": "Noch keine Skills geladen.",
+      "use": "Verwenden",
+      "usePrompt": "Verwende {{skill}} für die folgende Aufgabe:\n\n",
       "source": {
         "builtin": "integriert",
         "project": "Arbeitsbereich · nicht verwaltet",

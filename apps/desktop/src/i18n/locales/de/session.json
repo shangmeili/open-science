@@ -36,6 +36,12 @@
       "chipTitle": "Führt diesen Befehl aus — Argumente eingeben oder Rücktaste drücken, um den Namen zu bearbeiten",
       "removeAria": "Befehl entfernen"
     },
+    "skill": {
+      "placeholder": "Beschreiben Sie, wobei {{skill}} helfen soll",
+      "chipTitle": "Diese Aufgabe verwendet {{skill}}; vor dem Senden kann die Auswahl entfernt werden",
+      "removeAria": "{{skill}} entfernen",
+      "echo": "Skill: {{skill}}\n\n{{task}}"
+    },
     "shellMode": {
       "badge": "shell",
       "title": "Läuft direkt im Arbeitsbereichsordner der Aufgabe"

@@ -36,6 +36,12 @@
       "chipTitle": "运行这条命令；可以输入参数，或按 Backspace 修改名称",
       "removeAria": "移除命令"
     },
+    "skill": {
+      "placeholder": "请描述希望“{{skill}}”帮助完成的工作",
+      "chipTitle": "本任务将使用“{{skill}}”；发送前可以移除",
+      "removeAria": "不使用“{{skill}}”",
+      "echo": "使用技能：{{skill}}\n\n{{task}}"
+    },
     "shellMode": {
       "badge": "shell",
       "title": "直接在当前任务的工作区文件夹中运行"

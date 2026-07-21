@@ -69,6 +69,23 @@ describe("Settings model browser integration", () => {
     useRuntimeStore.setState(initialRuntime, true);
   });
 
+  it("shows user-facing AI4HEOR positioning and contact details without internal release-channel copy", async () => {
+    await i18n.changeLanguage("zh-Hans");
+    await renderSettings();
+
+    expect(screen.getByRole("heading", { name: "关于 AI4HEOR" })).toBeInTheDocument();
+    expect(screen.getByText(/由 Codex 负责开发建设/)).toBeInTheDocument();
+    expect(screen.getByText(/基于 Open Science 开源底座搭建/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看 Open Science 开源项目" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "shangmei.li@altolix.com" }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "野生炼丹师老M的小红书名片" }))
+      .toBeInTheDocument();
+    expect(screen.queryByText(/尚未配置正式发布渠道/)).not.toBeInTheDocument();
+    expect(screen.queryByText("暂未开放在线更新")).not.toBeInTheDocument();
+  });
+
   it("shows the connect prompt when the runtime errors before any model switch happened", async () => {
     // First boot with a dead sidecar: status "error", defaultModel null,
     // modelSwitchError null. The browser must NOT appear (the old page-local

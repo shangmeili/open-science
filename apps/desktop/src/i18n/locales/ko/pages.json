@@ -155,7 +155,10 @@
       "ready": "사용 가능",
       "optional": "필요할 때 설정",
       "configure": "설정 열기",
-      "note": "Python과 R은 로컬 계산에 사용됩니다. Jupyter는 선택 사항이며 필요할 때 AI4HEOR가 별도로 관리합니다."
+      "installLocal": "설치",
+      "installing": "설치 중…",
+      "getR": "R 받기",
+      "note": "AI4HEOR는 격리된 Python 및 Jupyter 환경을 설치할 수 있습니다. 최초 설치 시 약 500MB를 다운로드합니다. R은 선택 사항이며 R 공식 웹사이트에서 별도로 설치해야 합니다."
     },
     "agentsSection": {
       "sectionTitle": "에이전트 ({{count}})",
@@ -169,6 +172,8 @@
     "skillsListSection": {
       "sectionTitle": "스킬 ({{count}})",
       "empty": "아직 로드된 스킬이 없습니다.",
+      "use": "사용",
+      "usePrompt": "{{skill}}을 사용하여 다음 작업을 수행합니다:\n\n",
       "source": {
         "builtin": "기본 제공",
         "project": "작업공간 · 비관리",

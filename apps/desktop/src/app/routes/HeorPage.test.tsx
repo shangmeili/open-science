@@ -132,7 +132,7 @@ describe("AI4HEOR conversation route", () => {
 
     expect(await screen.findByRole("heading", { name: "What are you working on?" }))
       .toBeInTheDocument();
-    expect(screen.getByText("Learn from my local HEOR library")).toBeInTheDocument();
+    expect(screen.getByText("Learn pharmacoeconomics fundamentals")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByText(/climate trends|end-to-end demo/i)).not.toBeInTheDocument();
   });
@@ -169,12 +169,14 @@ describe("AI4HEOR conversation route", () => {
     renderNavigableAt("/heor");
 
     await userEvent.click(
-      await screen.findByRole("button", { name: /Learn from my local HEOR library/i }),
+      await screen.findByRole("button", { name: /Learn pharmacoeconomics fundamentals/i }),
     );
 
     const draft = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
     expect(draft).toContain("$heor-local-evidence");
-    expect(draft).toContain("First ask what I want to learn and my current level");
+    expect(draft).toContain(
+      "First ask what I want to learn, what I already know, and how much time I want to spend",
+    );
     expect(draft).toContain("Do not use the network");
     expect(sendPrompt).not.toHaveBeenCalled();
   });

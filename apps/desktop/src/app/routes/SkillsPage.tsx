@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Bot, Boxes, Check, Package, Puzzle, RefreshCw, Settings2, ShieldCheck, X } from "lucide-react";
+import { Bot, Boxes, Check, Loader2, Package, Puzzle, RefreshCw, Settings2, ShieldCheck, X } from "lucide-react";
 import { useRuntimeStore } from "@/lib/runtime";
+import { useSetupStore } from "@/lib/setup";
+import { useUiStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
 import { localizeSkill } from "@/i18n/skillLocalization";
 import { PreferenceLearningSection } from "@/components/skills/PreferenceLearningSection";
@@ -18,6 +20,7 @@ import {
   type JupyterStatus,
   isTauri,
   jupyterStatus,
+  openExternal,
 } from "@/lib/tauri";
 
 /**
@@ -51,12 +54,25 @@ export function SkillsPage() {
   const [reviewAction, setReviewAction] = useState<SkillCandidateReviewAction>("activate");
   const [reviewRunning, setReviewRunning] = useState(false);
   const [jupyter, setJupyter] = useState<JupyterStatus | null>(null);
+  const jupyterBusy = useSetupStore((state) => state.jupyterBusy);
+  const setupGeneration = useSetupStore((state) => state.generation);
 
   useEffect(() => {
     if (connected) void loadCatalog();
     void detectTools();
     if (isTauri) void jupyterStatus().then(setJupyter).catch(() => setJupyter(null));
-  }, [connected, loadCatalog, detectTools]);
+  }, [connected, loadCatalog, detectTools, setupGeneration]);
+
+  const openSkillTask = (name: string, label: string) => {
+    const runtime = useRuntimeStore.getState();
+    const currentProject = runtime.projects.find((project) => project.path === runtime.workspace);
+    if (currentProject) void runtime.startDraftInWorkspace(currentProject.path);
+    else runtime.startDraft();
+    useUiStore.getState().setComposerDraft(null);
+    useUiStore.getState().setComposerSkill({ id: name, label });
+    navigate("/heor/new");
+  };
+  const visibleSkills = skills.filter((skill) => sourceOf(skill.location) !== "builtin");
 
   useEffect(() => {
     let current = true;
@@ -236,6 +252,28 @@ export function SkillsPage() {
               <span className="flex-1 text-xs text-muted">
                 {tool.found ? t("skills.environment.found") : t("skills.environment.notFound")}
               </span>
+              {!tool.found && isTauri && tool.name === "Python" && (
+                <button
+                  type="button"
+                  onClick={() => void useSetupStore.getState().enableJupyter()}
+                  disabled={jupyterBusy}
+                  className="inline-flex items-center gap-1.5 rounded-input border border-border px-2 py-1 text-xs text-text hover:bg-surface-2 disabled:opacity-40"
+                >
+                  {jupyterBusy && <Loader2 size={12} className="animate-spin" />}
+                  {jupyterBusy
+                    ? t("skills.environment.installing")
+                    : t("skills.environment.installLocal")}
+                </button>
+              )}
+              {!tool.found && isTauri && tool.name === "R" && (
+                <button
+                  type="button"
+                  onClick={() => void openExternal("https://cran.r-project.org/")}
+                  className="rounded-input border border-border px-2 py-1 text-xs text-text hover:bg-surface-2"
+                >
+                  {t("skills.environment.getR")}
+                </button>
+              )}
             </div>
           ))}
           {isTauri && (
@@ -252,10 +290,14 @@ export function SkillsPage() {
               {!jupyter?.installed && (
                 <button
                   type="button"
-                  onClick={() => navigate("/settings")}
-                  className="rounded-input border border-border px-2 py-1 text-xs text-text hover:bg-surface-2"
+                  onClick={() => void useSetupStore.getState().enableJupyter()}
+                  disabled={jupyterBusy}
+                  className="inline-flex items-center gap-1.5 rounded-input border border-border px-2 py-1 text-xs text-text hover:bg-surface-2 disabled:opacity-40"
                 >
-                  {t("skills.environment.configure")}
+                  {jupyterBusy && <Loader2 size={12} className="animate-spin" />}
+                  {jupyterBusy
+                    ? t("skills.environment.installing")
+                    : t("skills.environment.installLocal")}
                 </button>
               )}
             </div>
@@ -273,19 +315,21 @@ export function SkillsPage() {
                 return <RowItem key={a.name} name={a.name} desc={a.description} tag={modeLabel} />;
               })}
             </Section>
-            <Section title={t("skills.skillsListSection.sectionTitle", { count: skills.length })} icon={<Puzzle size={15} />}>
-              {skills.length === 0 && <Empty>{t("skills.skillsListSection.empty")}</Empty>}
-              {skills.map((s) => {
+            <Section
+              title={t("skills.skillsListSection.sectionTitle", {
+                count: visibleSkills.length,
+              })}
+              icon={<Puzzle size={15} />}
+            >
+              {visibleSkills.length === 0 && (
+                <Empty>{t("skills.skillsListSection.empty")}</Empty>
+              )}
+              {visibleSkills.map((s) => {
                 const copy = localizeSkill(s.name, s.description, i18n.resolvedLanguage);
                 const source = sourceOf(s.location);
-                const sourceLabel =
-                  source === "builtin"
-                    ? t("skills.skillsListSection.source.builtin")
-                    : source === "project"
-                      ? t("skills.skillsListSection.source.project")
-                      : source === "bundled"
-                        ? t("skills.skillsListSection.source.bundled")
-                        : undefined;
+                const sourceLabel = source === "project"
+                  ? t("skills.skillsListSection.source.project")
+                  : undefined;
                 return (
                   <RowItem
                     key={s.name}
@@ -293,6 +337,8 @@ export function SkillsPage() {
                     code={copy.localized ? `$${s.name}` : undefined}
                     desc={copy.description}
                     tag={sourceLabel}
+                    actionLabel={t("skills.skillsListSection.use")}
+                    onAction={() => openSkillTask(s.name, copy.displayName)}
                   />
                 );
               })}
@@ -608,7 +654,21 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
   );
 }
 
-function RowItem({ name, desc, tag, code }: { name: string; desc: string; tag?: string; code?: string }) {
+function RowItem({
+  name,
+  desc,
+  tag,
+  code,
+  actionLabel,
+  onAction,
+}: {
+  name: string;
+  desc: string;
+  tag?: string;
+  code?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
   return (
     <div className="flex items-start gap-3 px-4 py-3">
       <Package size={16} className="mt-0.5 shrink-0 text-muted" />
@@ -623,6 +683,15 @@ function RowItem({ name, desc, tag, code }: { name: string; desc: string; tag?: 
         <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted ring-1 ring-border">
           {tag}
         </span>
+      )}
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          onClick={onAction}
+          className="shrink-0 rounded-input border border-border px-2.5 py-1 text-xs font-medium text-text hover:border-accent/40 hover:bg-surface-2"
+        >
+          {actionLabel}
+        </button>
       )}
     </div>
   );

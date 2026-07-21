@@ -15,8 +15,18 @@ public redistribution not yet cleared**.
 | Transformation | Local deterministic alpha crop, proportional resize, transparent square padding, and Tauri icon generation |
 | External upload | None |
 
-The product owner's instruction authorizes use in this project and internal
-test packages. It does not independently establish original authorship,
-exclusive rights, trademark clearance, or permission for public redistribution.
+| Field | Record |
+| --- | --- |
+| Asset | Product owner contact card shown in About AI4HEOR |
+| Provided by | Product owner in the local Codex project task |
+| Instruction date | 2026-07-21 |
+| Requested use | Add the product owner's Xiaohongshu contact card to the application |
+| Supplied JPEG SHA-256 | `d91b77e6f3a682880b09fbce0daa9d364c2c39502ec4f8722f151976af6638a8` |
+| Transformation | Copied byte-for-byte into the local frontend asset tree |
+| External upload | None |
+
+The product owner's instructions authorize both supplied assets for use in this
+project and internal test packages. They do not independently establish original
+authorship, exclusive rights, trademark clearance, or permission for public redistribution.
 Before a public release, record the rights holder, source/design agreement,
 license or assignment, permitted territories and uses, and trademark decision.

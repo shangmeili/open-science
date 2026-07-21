@@ -1,16 +1,31 @@
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
-import { renderAt } from "@/test/render";
+import { renderAt, renderNavigableAt } from "@/test/render";
 import { useUiStore } from "@/lib/store";
 import { useRuntimeStore } from "@/lib/runtime";
 
 // COPYCAT RULE: useUiStore is module-global; reset the locale after each test
 // so this suite never bleeds a non-English locale into other test files.
-afterEach(() => useUiStore.getState().setLocale("en"));
+afterEach(() => {
+  useUiStore.getState().setLocale("en");
+  useUiStore.getState().setComposerDraft(null);
+  useUiStore.getState().setComposerSkill(null);
+});
 
 // COPYCAT RULE: useRuntimeStore is also module-global — restore the
 // disconnected default after any test that fakes a "ready" runtime.
-const RUNTIME_DEFAULTS = { status: useRuntimeStore.getState().status, agents: useRuntimeStore.getState().agents };
+const RUNTIME_DEFAULTS = {
+  status: useRuntimeStore.getState().status,
+  agents: useRuntimeStore.getState().agents,
+  skills: useRuntimeStore.getState().skills,
+  currentId: useRuntimeStore.getState().currentId,
+  draftEpoch: useRuntimeStore.getState().draftEpoch,
+  workspace: useRuntimeStore.getState().workspace,
+  workspacePinned: useRuntimeStore.getState().workspacePinned,
+  projects: useRuntimeStore.getState().projects,
+  researchScope: useRuntimeStore.getState().researchScope,
+};
 afterEach(() => useRuntimeStore.setState(RUNTIME_DEFAULTS));
 
 describe("NotebooksPage strings (i18n)", () => {
@@ -60,5 +75,45 @@ describe("SkillsPage strings (i18n)", () => {
     expect(screen.getByText("primary")).toBeInTheDocument();
     // Unknown mode values (outside the closed set OpenCode emits) render raw, unmodified.
     expect(screen.getByText("future-mode")).toBeInTheDocument();
+  });
+
+  it("shows only user-facing AI4HEOR skills and opens a ready-to-edit task when Use is clicked", async () => {
+    useRuntimeStore.setState({
+      status: "ready",
+      skills: [
+        {
+          name: "customize-opencode",
+          description: "Edit OpenCode configuration.",
+          location: "/runtime/builtin/customize-opencode/SKILL.md",
+        },
+        {
+          name: "heor-workbench",
+          description: "Support HEOR research work.",
+          location: "/app/skills/heor-workbench/SKILL.md",
+        },
+      ],
+      workspace: "/research/2026-07-20-1408",
+      workspacePinned: true,
+      projects: [],
+      researchScope: {
+        id: "standalone-task",
+        name: "2026-07-20-1408",
+        createdAt: 1,
+        kind: "session",
+        path: "/research/2026-07-20-1408",
+      },
+    });
+
+    renderNavigableAt("/skills");
+    expect(await screen.findByText("AI4HEOR Research Workbench")).toBeInTheDocument();
+    expect(screen.queryByText("customize-opencode")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Use" }));
+    expect(await screen.findByLabelText("Ask anything")).toHaveValue("");
+    expect(screen.getByPlaceholderText("Describe what you want AI4HEOR Research Workbench to help with"))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove AI4HEOR Research Workbench" }))
+      .toBeInTheDocument();
+    expect(screen.queryByText("2026-07-20-1408")).not.toBeInTheDocument();
+    expect(useRuntimeStore.getState().workspacePinned).toBe(false);
   });
 });

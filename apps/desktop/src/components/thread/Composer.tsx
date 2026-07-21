@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, Check, ChevronDown, Folder, Hand, Paperclip, Settings2, Square, Terminal, X, Zap } from "lucide-react";
+import { ArrowUp, Check, ChevronDown, Folder, Hand, Paperclip, Puzzle, Settings2, Square, Terminal, X, Zap } from "lucide-react";
 import {
   addBinaryToWorkspace,
   addFilesToWorkspace,
@@ -9,7 +9,7 @@ import {
   isTauri,
   type ApprovalMode,
 } from "@/lib/tauri";
-import { useUiStore } from "@/lib/store";
+import { useUiStore, type ComposerSkillSelection } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 
@@ -99,7 +99,7 @@ export function Composer({
   modelRequired = false,
   onOpenModelSettings,
 }: {
-  onSend?: (text: string) => void;
+  onSend?: (text: string, skill?: ComposerSkillSelection) => void;
   onRunShell?: (command: string) => void;
   onRunCommand?: (name: string, args: string) => void;
   commands?: ComposerCommand[];
@@ -124,7 +124,6 @@ export function Composer({
   onOpenModelSettings?: () => void;
 }) {
   const { t } = useTranslation(["session", "common"]);
-  const resolvedPlaceholder = placeholder ?? t("composer.placeholder.default");
   // Approval-mode copy keyed by mode — APPROVAL_OPTIONS itself stays static
   // (icons only) so it can live at module scope outside the component.
   const approvalCopy: Record<ApprovalMode, { label: string; description: string }> = {
@@ -151,6 +150,7 @@ export function Composer({
   const [hist, setHist] = useState<{ index: number; draft: string } | null>(null);
   /** The approval-mode menu is open. */
   const [approvalOpen, setApprovalOpen] = useState(false);
+  const [selectedSkill, setSelectedSkill] = useState<ComposerSkillSelection | null>(null);
   const approvalRef = useRef<HTMLDivElement>(null);
 
   // Dismiss the approval menu on any outside press. (Button blur can't do
@@ -166,6 +166,11 @@ export function Composer({
   const taRef = useRef<HTMLTextAreaElement>(null);
   const composerDraft = useUiStore((s) => s.composerDraft);
   const setComposerDraft = useUiStore((s) => s.setComposerDraft);
+  const composerSkill = useUiStore((s) => s.composerSkill);
+  const setComposerSkill = useUiStore((s) => s.setComposerSkill);
+  const resolvedPlaceholder = selectedSkill
+    ? t("composer.skill.placeholder", { skill: selectedSkill.label })
+    : placeholder ?? t("composer.placeholder.default");
 
   useEffect(() => {
     if (autoFocus) taRef.current?.focus();
@@ -236,6 +241,16 @@ export function Composer({
     taRef.current?.focus();
   }, [composerDraft, setComposerDraft]);
 
+  // The capability catalog passes the runtime id separately from the editable
+  // request. Researchers see a localized Skill chip; the id is added only to
+  // the runtime prompt when they send the task.
+  useEffect(() => {
+    if (composerSkill === null) return;
+    setSelectedSkill(composerSkill);
+    setComposerSkill(null);
+    taRef.current?.focus();
+  }, [composerSkill, setComposerSkill]);
+
   // Auto-grow with the content, scroll internally beyond the cap.
   useEffect(() => {
     const el = taRef.current;
@@ -279,10 +294,13 @@ export function Composer({
     if (!text && files.length === 0) return;
     const fileNote =
       files.length > 0 ? `Files added to the workspace: ${files.join(", ")}` : "";
-    onSend?.(text && fileNote ? `${text}\n\n${fileNote}` : text || fileNote);
+    const payload = text && fileNote ? `${text}\n\n${fileNote}` : text || fileNote;
+    if (selectedSkill) onSend?.(payload, selectedSkill);
+    else onSend?.(payload);
     if (text) recordHistory(text);
     setValue("");
     setFiles([]);
+    setSelectedSkill(null);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -496,6 +514,25 @@ export function Composer({
               )}
             </button>
           ))}
+        </div>
+      )}
+      {selectedSkill && (
+        <div className="flex flex-wrap gap-1.5 px-1 pb-2">
+          <span
+            className="flex items-center gap-1.5 rounded-input bg-accent/10 py-1 pl-2 pr-1 text-xs font-medium text-text ring-1 ring-accent/20"
+            title={t("composer.skill.chipTitle", { skill: selectedSkill.label })}
+          >
+            <Puzzle size={12} className="shrink-0 text-accent" />
+            <span className="max-w-[260px] truncate">{selectedSkill.label}</span>
+            <button
+              type="button"
+              className="rounded p-0.5 text-muted hover:bg-accent/15 hover:text-text"
+              aria-label={t("composer.skill.removeAria", { skill: selectedSkill.label })}
+              onClick={() => setSelectedSkill(null)}
+            >
+              <X size={11} />
+            </button>
+          </span>
         </div>
       )}
       {files.length > 0 && (

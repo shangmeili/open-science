@@ -233,7 +233,10 @@
       "ready": "可以使用",
       "optional": "按需设置",
       "configure": "前往设置",
-      "note": "Python 和 R 用于本地计算；Jupyter 仅在需要交互式笔记本或 JupyterLab 时启用，由 AI4HEOR 单独管理。"
+      "installLocal": "安装",
+      "installing": "正在安装…",
+      "getR": "获取 R",
+      "note": "AI4HEOR 可以安装独立的 Python 与 Jupyter 环境；首次安装约需下载 500 MB。R 按需使用，需要从 R 官方网站单独安装。"
     },
     "agentsSection": {
       "sectionTitle": "助手（{{count}}）",
@@ -247,6 +250,8 @@
     "skillsListSection": {
       "sectionTitle": "技能（{{count}}）",
       "empty": "尚未加载任何技能。",
+      "use": "使用",
+      "usePrompt": "使用 {{skill}} 处理以下工作：\n\n",
       "source": {
         "builtin": "内置",
         "project": "工作区 · 未托管",
