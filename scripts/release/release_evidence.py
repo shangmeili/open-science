@@ -31,6 +31,7 @@ MACOS_DISTRIBUTION_CHECKS = {
 }
 FIRST_LAUNCH_CHECKS = {"first-launch-process", "workspace-created"}
 MACOS_WORKSPACE_ISOLATION_CHECK = "workspace-isolated"
+PLATFORM_VARIANT_RESOURCES = {"goal-plugin/goal-plugin.server.js"}
 
 
 def sha256(path: Path) -> str:
@@ -333,6 +334,39 @@ def validate_downloaded_artifacts(value: dict[str, Any], artifact_root: Path) ->
             raise AssertionError(f"downloaded artifact bytes changed: {path}")
 
 
+def cross_platform_resource_digest(values: list[dict[str, Any]]) -> str:
+    inventories = [
+        {
+            (item["destination"], item["source"]): item
+            for item in value["resources"]["files"]
+        }
+        for value in values
+    ]
+    keys = set(inventories[0])
+    if any(set(inventory) != keys for inventory in inventories[1:]):
+        raise AssertionError("release evidence does not bind one resource file set")
+
+    normalized: list[dict[str, Any]] = []
+    for key in sorted(keys):
+        items = [inventory[key] for inventory in inventories]
+        destination, source = key
+        if destination in PLATFORM_VARIANT_RESOURCES:
+            normalized.append(
+                {
+                    "destination": destination,
+                    "platform_variant": True,
+                    "source": source,
+                }
+            )
+            continue
+        if any(item != items[0] for item in items[1:]):
+            raise AssertionError(
+                f"release evidence has an undeclared platform-variant resource: {destination}"
+            )
+        normalized.append(items[0])
+    return canonical_sha256(normalized)
+
+
 def record(arguments: argparse.Namespace) -> None:
     root = arguments.source_root.resolve()
     commit, version = source_identity(root)
@@ -374,9 +408,9 @@ def assemble(arguments: argparse.Namespace) -> None:
     if len(targets) != len(set(targets)):
         raise AssertionError("release manifest requires unique target evidence")
     sources = {json.dumps(value["source"], sort_keys=True) for value in values}
-    resources = {value["resources"]["aggregate_sha256"] for value in values}
-    if len(sources) != 1 or len(resources) != 1:
-        raise AssertionError("release evidence does not bind one source and resource inventory")
+    if len(sources) != 1:
+        raise AssertionError("release evidence does not bind one source")
+    resource_inventory_sha256 = cross_platform_resource_digest(values)
     run_keys = ("GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "GITHUB_WORKFLOW_REF")
     run_identities = {
         tuple(value.get("runner", {}).get(key) for key in run_keys) for value in values
@@ -410,12 +444,14 @@ def assemble(arguments: argparse.Namespace) -> None:
                 "evidence_filename": path.name,
                 "evidence_sha256": sha256(path),
                 "platform": value["platform"],
+                "resource_inventory_sha256": value["resources"]["aggregate_sha256"],
                 "target": value["target"],
             }
         )
     manifest = {
         "evidence": records,
-        "resource_inventory_sha256": next(iter(resources)),
+        "platform_variant_resources": sorted(PLATFORM_VARIANT_RESOURCES),
+        "resource_inventory_sha256": resource_inventory_sha256,
         "schema": MANIFEST_SCHEMA,
         "source": values[0]["source"],
     }
