@@ -2,7 +2,7 @@
   "schema": "ai4heor-cargo-license-inventory/v1",
   "generated_on": "2026-07-21",
   "scope": "Cargo.lock package universe; conservative superset of one target build",
-  "lockfile_sha256": "6bb2522870a3e876fd8760669670647532e7b9b1fce08e8d2b86cbcfc62e15c3",
+  "lockfile_sha256": "59bba22c52a18d21d9a13a5744c0a4cc5cb7d85e9f8df0b0e1ed51c9f82e5166",
   "components": [
     {
       "name": "adler2",
@@ -943,6 +943,13 @@
       "repository": "https://github.com/Diggsey/rust-field-offset"
     },
     {
+      "name": "filetime",
+      "version": "0.2.29",
+      "license": "MIT/Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/alexcrichton/filetime"
+    },
+    {
       "name": "find-msvc-tools",
       "version": "0.1.9",
       "license": "MIT OR Apache-2.0",
@@ -1025,6 +1032,13 @@
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/servo/rust-url"
+    },
+    {
+      "name": "fsevent-sys",
+      "version": "4.1.0",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/octplane/fsevent-rust/tree/master/fsevent-sys"
     },
     {
       "name": "futures-channel",
@@ -1503,6 +1517,20 @@
       "repository": "https://github.com/bojand/infer"
     },
     {
+      "name": "inotify",
+      "version": "0.9.6",
+      "license": "ISC",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/hannobraun/inotify"
+    },
+    {
+      "name": "inotify-sys",
+      "version": "0.1.8",
+      "license": "ISC",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/hannobraun/inotify-sys"
+    },
+    {
       "name": "inout",
       "version": "0.1.4",
       "license": "MIT OR Apache-2.0",
@@ -1615,6 +1643,20 @@
       "repository": "https://github.com/pyfisch/keyboard-types"
     },
     {
+      "name": "kqueue",
+      "version": "1.2.0",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://gitlab.com/rust-kqueue/rust-kqueue"
+    },
+    {
+      "name": "kqueue-sys",
+      "version": "1.1.2",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://gitlab.com/rust-kqueue/rust-kqueue-sys"
+    },
+    {
       "name": "libappindicator",
       "version": "0.9.0",
       "license": "Apache-2.0 OR MIT",
@@ -1706,6 +1748,13 @@
       "repository": "https://github.com/J-F-Liu/lopdf.git"
     },
     {
+      "name": "mac-notification-sys",
+      "version": "0.6.15",
+      "license": "MIT/Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/h4llow3En/mac-notification-sys"
+    },
+    {
       "name": "markup5ever",
       "version": "0.38.0",
       "license": "MIT OR Apache-2.0",
@@ -1753,6 +1802,13 @@
       "license": "MIT OR Zlib OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide"
+    },
+    {
+      "name": "mio",
+      "version": "0.8.11",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/tokio-rs/mio"
     },
     {
       "name": "mio",
@@ -1816,6 +1872,20 @@
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/dylni/normpath"
+    },
+    {
+      "name": "notify",
+      "version": "6.1.1",
+      "license": "CC0-1.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/notify-rs/notify.git"
+    },
+    {
+      "name": "notify-rust",
+      "version": "4.18.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/hoodie/notify-rust"
     },
     {
       "name": "num-conv",
@@ -2231,6 +2301,13 @@
       "repository": "https://github.com/jhpratt/powerfmt"
     },
     {
+      "name": "ppv-lite86",
+      "version": "0.2.21",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/cryptocorrosion/cryptocorrosion"
+    },
+    {
       "name": "precomputed-hash",
       "version": "0.1.1",
       "license": "MIT",
@@ -2350,11 +2427,32 @@
       "repository": "https://github.com/rust-random/rand"
     },
     {
+      "name": "rand",
+      "version": "0.9.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/rust-random/rand"
+    },
+    {
+      "name": "rand_chacha",
+      "version": "0.9.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/rust-random/rand"
+    },
+    {
       "name": "rand_core",
       "version": "0.10.1",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/rust-random/rand_core"
+    },
+    {
+      "name": "rand_core",
+      "version": "0.9.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/rust-random/rand"
     },
     {
       "name": "rangemap",
@@ -2917,6 +3015,13 @@
       "repository": "https://github.com/tauri-apps/plugins-workspace"
     },
     {
+      "name": "tauri-plugin-notification",
+      "version": "2.3.3",
+      "license": "Apache-2.0 OR MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/tauri-apps/plugins-workspace"
+    },
+    {
       "name": "tauri-plugin-shell",
       "version": "2.3.5",
       "license": "Apache-2.0 OR MIT",
@@ -2957,6 +3062,13 @@
       "license": "MIT",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/tauri-apps/winres"
+    },
+    {
+      "name": "tauri-winrt-notification",
+      "version": "0.7.3",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/tauri-apps/winrt-notification"
     },
     {
       "name": "tempfile",
@@ -3737,6 +3849,13 @@
     },
     {
       "name": "windows-sys",
+      "version": "0.48.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/microsoft/windows-rs"
+    },
+    {
+      "name": "windows-sys",
       "version": "0.59.0",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -3759,6 +3878,13 @@
     {
       "name": "windows-targets",
       "version": "0.42.2",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/microsoft/windows-rs"
+    },
+    {
+      "name": "windows-targets",
+      "version": "0.48.5",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/microsoft/windows-rs"
@@ -3800,6 +3926,13 @@
     },
     {
       "name": "windows_aarch64_gnullvm",
+      "version": "0.48.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/microsoft/windows-rs"
+    },
+    {
+      "name": "windows_aarch64_gnullvm",
       "version": "0.52.6",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -3821,6 +3954,13 @@
     },
     {
       "name": "windows_aarch64_msvc",
+      "version": "0.48.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/microsoft/windows-rs"
+    },
+    {
+      "name": "windows_aarch64_msvc",
       "version": "0.52.6",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -3842,6 +3982,13 @@
     },
     {
       "name": "windows_i686_gnu",
+      "version": "0.48.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/microsoft/windows-rs"
+    },
+    {
+      "name": "windows_i686_gnu",
       "version": "0.52.6",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -3877,6 +4024,13 @@
     },
     {
       "name": "windows_i686_msvc",
+      "version": "0.48.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/microsoft/windows-rs"
+    },
+    {
+      "name": "windows_i686_msvc",
       "version": "0.52.6",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -3898,6 +4052,13 @@
     },
     {
       "name": "windows_x86_64_gnu",
+      "version": "0.48.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/microsoft/windows-rs"
+    },
+    {
+      "name": "windows_x86_64_gnu",
       "version": "0.52.6",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -3919,6 +4080,13 @@
     },
     {
       "name": "windows_x86_64_gnullvm",
+      "version": "0.48.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/microsoft/windows-rs"
+    },
+    {
+      "name": "windows_x86_64_gnullvm",
       "version": "0.52.6",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -3934,6 +4102,13 @@
     {
       "name": "windows_x86_64_msvc",
       "version": "0.42.2",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/microsoft/windows-rs"
+    },
+    {
+      "name": "windows_x86_64_msvc",
+      "version": "0.48.5",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/microsoft/windows-rs"
