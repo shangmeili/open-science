@@ -34,12 +34,18 @@ pub(crate) fn runtime_process_tracked(state: &RuntimeState) -> bool {
 }
 
 /// App-private runtime root, e.g. ~/Library/Application Support/com.ai4s.ai4heor/runtime
-fn runtime_root(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn runtime_root(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?
         .join("runtime"))
+}
+
+/// The running sidecar's base URL. The local gateway uses this to proxy the
+/// same OpenCode runtime as the desktop UI instead of starting a second agent.
+pub(crate) fn sidecar_url(state: &RuntimeState) -> Option<String> {
+    state.lifecycle.lock().unwrap().url.clone()
 }
 
 /// Import only user configuration needed to keep the existing model setup
@@ -93,6 +99,11 @@ fn import_legacy_runtime_settings_between(old_root: &Path, new_root: &Path) -> R
 
 fn xdg_config_home(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(runtime_root(app)?.join("xdg-config"))
+}
+
+/// OpenCode's app-private data directory, also used by the bundled goal plugin.
+pub(crate) fn xdg_data_home(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(runtime_root(app)?.join("xdg-data"))
 }
 
 /// File recording the user's chosen active workspace folder (absolute path).
@@ -368,6 +379,29 @@ fn deploy_bundled_skills(app: &AppHandle) {
     if core_ok {
         prune_stale_skills(&dst, &bundled);
     }
+}
+
+/// Deploy the bundled goal plugin into the app-private OpenCode profile. A dev
+/// run without the fetched resource simply leaves goal mode unavailable.
+fn deploy_goal_plugin(app: &AppHandle) -> Option<PathBuf> {
+    let src = app
+        .path()
+        .resolve(
+            "goal-plugin/goal-plugin.server.js",
+            tauri::path::BaseDirectory::Resource,
+        )
+        .ok()
+        .filter(|path| path.is_file())?;
+    let dst = xdg_config_home(app)
+        .ok()?
+        .join("opencode")
+        .join("goal-plugin.server.js");
+    std::fs::create_dir_all(dst.parent()?).ok()?;
+    if let Err(error) = std::fs::copy(&src, &dst) {
+        eprintln!("failed to deploy goal plugin: {error}");
+        return None;
+    }
+    Some(dst)
 }
 
 fn sync_admitted_skill(
@@ -766,6 +800,12 @@ pub(crate) fn uv_network_env(app: &AppHandle) -> Vec<(&'static str, String)> {
     env
 }
 
+/// Proxy environment for bundled sidecars other than OpenCode.
+pub(crate) fn sidecar_proxy_env(app: &AppHandle) -> Vec<(&'static str, String)> {
+    let (mode, url) = read_proxy_setting(app);
+    resolve_proxy_env(&mode, &url)
+}
+
 /// The system-configured proxy as a URL, if one is enabled (macOS: scutil).
 /// HTTP(S) proxies are preferred — an HTTPS proxy endpoint still speaks plain
 /// HTTP CONNECT, hence the http:// scheme — with SOCKS as the fallback.
@@ -846,6 +886,13 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         }
         std::fs::write(&cfg_file, seeded).map_err(|e| e.to_string())?;
+    }
+    if let Some(plugin_path) = deploy_goal_plugin(app) {
+        let existing = std::fs::read_to_string(&cfg_file).unwrap_or_default();
+        let path = plugin_path.to_string_lossy().replace('\\', "/");
+        if let Some(updated) = crate::opencode_config::ensure_goal_plugin(&existing, &path) {
+            std::fs::write(&cfg_file, updated).map_err(|e| e.to_string())?;
+        }
     }
     // Secrets live under the runtime root (provider credentials in auth.json;
     // researcher-managed connector secrets may exist in opencode.jsonc) —
@@ -1012,6 +1059,8 @@ pub fn set_workspace_base(app: AppHandle, path: String) -> Result<String, String
         canon.to_string_lossy().as_bytes(),
     )
     .map_err(|e| e.to_string())?;
+
+    crate::git_snapshot::watch_workspace(&canon);
     Ok(canon.to_string_lossy().to_string())
 }
 

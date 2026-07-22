@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Code2, Eye, ExternalLink, FileSearch, History, Loader2, X } from "lucide-react";
+import { Code2, Download, Eye, ExternalLink, FileSearch, History, Loader2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { FilePreviewInspector as FilePreviewInspectorT, FileRoot } from "@ai4s/shared";
 import { previewKindForName, type PreviewKind } from "@/lib/artifacts";
@@ -11,6 +11,8 @@ import {
   readArtifact,
   type LargeFilePointer,
 } from "@/lib/artifactFile";
+import { isGatewayWeb } from "@/lib/webMode";
+import { useRuntimeStore } from "@/lib/runtime";
 import { parseTableFile } from "@/lib/csv";
 import { formatNumber } from "@/i18n/format";
 import { CodeViewer } from "@/components/code-viewer/CodeViewer";
@@ -51,6 +53,11 @@ export function FilePreviewInspector({
   controls?: React.ReactNode;
 }) {
   const { t } = useTranslation(["inspector", "common"]);
+  // Web client: scope file reads to the VIEWED session's folder (from its
+  // SessionMeta) — over the network that isn't the host's active workspace.
+  const sessionDir = useRuntimeStore(
+    (s) => (data.root === "base" ? undefined : s.sessions.find((x) => x.id === s.currentId)?.directory ?? s.workspace ?? undefined),
+  );
   const kind = previewKindForName(data.filename);
   const needsUrl = kind === "pdf" || kind === "image" || kind === "html" || kind === "video";
   const needsText =
@@ -64,6 +71,9 @@ export function FilePreviewInspector({
   const [url, setUrl] = useState<string | null>(null);
   const [text, setText] = useState<string | null>(data.content ?? null);
   const [bytes, setBytes] = useState<ArrayBuffer | null>(null);
+  // Web client: a direct gateway URL for the file — powers img/iframe previews,
+  // the text/bytes fetch, and the open/download action.
+  const [dl, setDl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"preview" | "code">(kind === "text" ? "code" : "preview");
@@ -80,8 +90,32 @@ export function FilePreviewInspector({
     setText(data.content ?? null);
     setUrl(null);
     setBytes(null);
+    setDl(null);
     (async () => {
       try {
+        // Web client: everything flows from one gateway file URL — image/pdf via
+        // <img>/<iframe>, text/bytes fetched from it, and it doubles as the
+        // open/download link. (readArtifact/preview_url are Tauri-only.)
+        if (isGatewayWeb) {
+          const u = await previewUrl(data.path, data.root, sessionDir);
+          if (cancelled) return;
+          setDl(u);
+          if (needsUrl) setUrl(u);
+          if (needsText && data.content === undefined) {
+            const r = u ? await fetch(u) : null;
+            if (cancelled) return;
+            if (r && r.ok) setText(await r.text());
+            else if (kind !== "html" && kind !== "markdown") setError(t("filePreview.mobileNoPreview"));
+          }
+          if (needsBytes) {
+            const r = u ? await fetch(u) : null;
+            if (cancelled) return;
+            if (r && r.ok) setBytes(await r.arrayBuffer());
+            else setError(t("filePreview.mobileNoPreview"));
+          }
+          return;
+        }
+
         if (needsUrl) {
           const u = await previewUrl(data.path, data.root);
           if (cancelled) return;
@@ -120,7 +154,16 @@ export function FilePreviewInspector({
     // locale switch mid-load shouldn't re-trigger a network/disk read to refresh
     // an error string.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.path, data.content, data.root, kind, needsUrl, needsText, needsBytes]);
+  }, [data.path, data.content, data.root, kind, needsUrl, needsText, needsBytes, sessionDir]);
+
+  // Open in the OS app on desktop; open/download via the browser in web.
+  const openOrDownload = () => {
+    if (isGatewayWeb) {
+      if (dl) window.open(dl, "_blank", "noopener");
+    } else {
+      void openArtifactExternally(data.path, data.root);
+    }
+  };
 
   const canToggle =
     kind === "html" || kind === "markdown" || kind === "molecule" || kind === "genome";
@@ -166,11 +209,11 @@ export function FilePreviewInspector({
         </button>
         <button
           className="text-text hover:opacity-60"
-          aria-label={t("filePreview.openExternally")}
-          title={t("filePreview.openExternallyTitle")}
-          onClick={() => void openArtifactExternally(data.path, data.root)}
+          aria-label={isGatewayWeb ? t("filePreview.download") : t("filePreview.openExternally")}
+          title={isGatewayWeb ? t("filePreview.download") : t("filePreview.openExternallyTitle")}
+          onClick={openOrDownload}
         >
-          <ExternalLink size={14} strokeWidth={1.5} />
+          {isGatewayWeb ? <Download size={14} strokeWidth={1.5} /> : <ExternalLink size={14} strokeWidth={1.5} />}
         </button>
         {controls}
         <button className="text-text hover:opacity-60" aria-label={t("shell.closeInspector")} onClick={onClose}>
@@ -191,7 +234,7 @@ export function FilePreviewInspector({
             filename={data.filename}
             path={data.path}
             root={data.root}
-            onOpenExternally={() => void openArtifactExternally(data.path, data.root)}
+            onOpenExternally={openOrDownload}
           />
         )}
         {!showHistory && !loading && !error && (

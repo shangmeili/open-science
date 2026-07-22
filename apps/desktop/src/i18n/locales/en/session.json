@@ -1,15 +1,4 @@
 {
-  "workbench": { "title": "Research workspace" },
-  "newTask": {
-    "title": "New task",
-    "heading": "What HEOR work would you like to tackle today?",
-    "suggestions": {
-      "scope": { "title": "Frame the research question", "prompt": "Help me frame this pharmacoeconomic or HEOR decision problem. Start from what I provide and confirm the population, intervention, comparator, outcomes, perspective, time horizon, and intended decision use. Ask only for information that would materially change the study." },
-      "evidence": { "title": "Find and organize evidence", "prompt": "Help me find and organize the evidence needed for this pharmacoeconomic study. First clarify the decision problem and evidence gaps, then identify useful local sources, searches that may be needed, provenance, and limitations. Before any network access, show the exact query and fields that would leave this computer." },
-      "model": { "title": "Design or review a model", "prompt": "Help me design or review this health economic model. Start from the decision problem and examine model structure, parameter evidence, key assumptions, uncertainty, and validation requirements. Keep calculation errors separate from issues that require researcher judgment." },
-      "deliverable": { "title": "Analyze data or prepare a briefing", "prompt": "Help me with this pharmacoeconomic or HEOR task. I can provide data, a model, a report, or briefing requirements. First inventory the available materials and expected deliverable, then propose a reviewable analysis or production path." }
-    }
-  },
   "notFound": {
     "title": "Task not found",
     "hint": "Pick a task from the sidebar."
@@ -18,7 +7,8 @@
     "placeholder": {
       "default": "Ask anything",
       "arguments": "Arguments (optional) — Enter to run",
-      "shell": "Run a shell command in the workspace folder"
+      "shell": "Run a shell command in the workspace folder",
+      "plan": "Describe what to plan — no files will be changed"
     },
     "commandsAria": "Commands",
     "source": {
@@ -36,12 +26,6 @@
       "chipTitle": "Runs this command — type arguments, or press Backspace to edit the name",
       "removeAria": "Remove command"
     },
-    "skill": {
-      "placeholder": "Describe what you want {{skill}} to help with",
-      "chipTitle": "This task will use {{skill}}; you can remove it before sending",
-      "removeAria": "Remove {{skill}}",
-      "echo": "Skill: {{skill}}\n\n{{task}}"
-    },
     "shellMode": {
       "badge": "shell",
       "title": "Runs directly in the task's workspace folder"
@@ -53,10 +37,19 @@
     "send": {
       "aria": "Send"
     },
-    "modelRequired": {
-      "action": "Choose a model",
-      "description": "Choose the model for this task",
-      "sendHint": "Choose a model before sending"
+    "agent": {
+      "aria": "Agent mode",
+      "title": "Plan first or build right away",
+      "menuAria": "Agent modes",
+      "menuTitle": "How should the agent work?",
+      "build": {
+        "label": "Build",
+        "description": "Edits files and runs commands"
+      },
+      "plan": {
+        "label": "Plan",
+        "description": "Read-only: researches and writes a plan file first"
+      }
     },
     "approval": {
       "aria": "Approval mode",
@@ -75,21 +68,17 @@
     "error": {
       "paste": "Could not save paste: {{message}}",
       "addFiles": "Could not add files: {{message}}"
-    }
-  },
-  "message": {
-    "copy": "Copy",
-    "copied": "Copied",
-    "edit": "Edit and continue from here",
-    "revert": "Return to this point",
-    "editField": "Edit message",
-    "cancel": "Cancel",
-    "resend": "Save and continue",
-    "revertFailed": "Could not return to that point: {{message}}",
-    "confirm": {
-      "title": "Return to this point?",
-      "body": "Later messages and their changes to the task files will be removed. You can revise this message before continuing.",
-      "action": "Return here"
+    },
+    "skill": {
+      "placeholder": "Describe what you want {{skill}} to help with",
+      "chipTitle": "This task will use {{skill}}; you can remove it before sending",
+      "removeAria": "Remove {{skill}}",
+      "echo": "Skill: {{skill}}\n\n{{task}}"
+    },
+    "modelRequired": {
+      "action": "Choose a model",
+      "description": "Choose the model for this task",
+      "sendHint": "Choose a model before sending"
     }
   },
   "localCommand": {
@@ -97,26 +86,13 @@
     "clearDescription": "Same as /new; files stay in this folder",
     "cleared": "Chat context cleared. Files stay in the same folder."
   },
-  "firstRun": {
-    "title": "Before you begin",
-    "body": "Under your direction, AI4HEOR can organize evidence, carry out analyses, and check results. You review the study plan, key assumptions, evidence choices, and use of the conclusions.",
-    "points": {
-      "local": { "title": "Local by default", "body": "Projects and research files stay on this device unless you explicitly use an external service." },
-      "provider": { "title": "Your choice of model", "body": "Choose any supported provider or local endpoint. Nothing is sent until you send a research request." },
-      "approval": { "title": "Actions remain reviewable", "body": "The default approval mode asks before deletion, installation, network, remote, or privileged actions." },
-      "human": { "title": "You review key research decisions", "body": "Model output remains a working draft. You review the study plan, key assumptions, evidence choices, and use of the conclusions." }
-    },
-    "continue": "Enter the HEOR workspace",
-    "settings": "Review model and privacy settings"
-  },
   "starters": {
     "newSession": "New task",
     "heading": "What HEOR question should we work on?",
     "subheading": "Describe your pharmacoeconomic question — or begin with a researcher-led workflow.",
-    "design": {
-      "title": "Start a pharmacoeconomic study",
-      "description": "Define the decision problem, conceptual model, evidence needs, and Human review points.",
-      "prompt": "Help me start a researcher-led pharmacoeconomic or HEOR study. Use $heor-workbench and $heor-model-design. First ask concise questions about the population, intervention, comparators, outcomes, perspective, jurisdiction, time horizon, decision context, available evidence, and intended use. Then prepare reviewable local artifacts and an explicit plan. Do not choose scientific methods, assumptions, evidence, thresholds, or approvals for the human researcher."
+    "demo": {
+      "title": "Run a demo analysis, end to end",
+      "description": "Simulate a dataset, fit a model, and produce a figure and a traceable report."
     },
     "analyze": {
       "title": "Analyze my HEOR evidence or data",
@@ -128,18 +104,29 @@
       "description": "Check methods, inputs, model-result bindings, reporting, limitations, and reproducibility.",
       "prompt": "Audit the current HEOR model, analysis, or report using the relevant AI4HEOR validation, reporting, reproducibility, and traceability Skills. Ask me which artifact graph to review if it is ambiguous. Separate deterministic defects from scientific judgments, bind every finding to exact local evidence, and never create Human approval or claim methodological validity."
     },
+    "example-climate": {
+      "title": "Explore an example: climate trends",
+      "description": "Real NASA GISTEMP data — trend, decadal comparison, figure, and report."
+    },
+    "error": {
+      "setup": "Could not set up the example: {{message}}"
+    },
+    "design": {
+      "title": "Start a pharmacoeconomic study",
+      "description": "Define the decision problem, conceptual model, evidence needs, and Human review points.",
+      "prompt": "Help me start a researcher-led pharmacoeconomic or HEOR study. Use $heor-workbench and $heor-model-design. First ask concise questions about the population, intervention, comparators, outcomes, perspective, jurisdiction, time horizon, decision context, available evidence, and intended use. Then prepare reviewable local artifacts and an explicit plan. Do not choose scientific methods, assumptions, evidence, thresholds, or approvals for the human researcher."
+    },
     "example-cea": {
       "title": "Explore an example: cost-effectiveness analysis",
       "description": "Synthetic two-strategy cohort inputs for an auditable cost-utility workflow.",
       "prompt": "Use $heor-workbench to explore the synthetic demonstration files under heor-cost-effectiveness/. Treat every number as a proposed teaching assumption, not clinical or economic evidence. Explain the decision problem, review the three-state cohort structure, reproduce the base-case cost and QALY calculation with deterministic code, run one transparent sensitivity check, and prepare a local report with limitations and Human review points. Do not create approvals or reimbursement conclusions."
-    },
-    "error": {
-      "setup": "Could not set up the example: {{message}}"
     }
   },
   "live": {
     "runtime": {
       "title": "AI assistant unavailable",
+      "bodyPrefix": "The desktop app runs a bundled OpenCode automatically. In the browser, start one with",
+      "bodySuffix": " and connect.",
       "body": "Reconnect, or check the AI assistant runtime in Settings. Your local project files remain available."
     },
     "connect": "Connect",
@@ -172,17 +159,17 @@
     "status": {
       "paused": "Paused — the agent needs your answer below",
       "startingSession": "Starting the task in its folder…",
-      "working": "Working…",
-      "waitingModel": "Waiting for the model to respond…",
       "retrying": "The model request is limited; retrying (attempt {{attempt}})…",
+      "working": "Working…",
+      "step": "step {{count}}",
+      "waitingModel": "Waiting for the model to respond…",
       "runningStep": "Running",
       "writing": "Preparing the response…",
       "continuing": "Finished “{{step}}”; continuing…",
       "loadedSkill": "Loaded research capability: {{skill}}",
       "completed": "Done",
       "rateLimited": "The current model is receiving too many requests. Try again later or choose another model.",
-      "stoppedBeforeReply": "The model request stopped before returning a response. Try again or choose another model.",
-      "step": "step {{count}}"
+      "stoppedBeforeReply": "The model request stopped before returning a response. Try again or choose another model."
     },
     "placeholder": {
       "disconnected": "Connect to chat",
@@ -306,5 +293,88 @@
   },
   "agentMessage": {
     "previewTitle": "Preview {{path}}"
+  },
+  "goal": {
+    "label": "Goal",
+    "running": "running",
+    "runningTurns": "auto-turn {{count}}",
+    "paused": "paused",
+    "done": "done",
+    "pauseAria": "Pause the goal (stops auto-continuation)",
+    "resumeAria": "Resume the goal",
+    "clearAria": "Clear the goal",
+    "unmet": "blocked",
+    "limited": "limit reached"
+  },
+  "message": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Could not copy to the clipboard.",
+    "edit": "Edit and continue from here",
+    "editing": {
+      "cancel": "Cancel",
+      "send": "Send"
+    },
+    "revert": "Return to this point",
+    "confirm": {
+      "title": "Return to this point?",
+      "body": "Later messages and their changes to the task files will be removed. You can revise this message before continuing.",
+      "edit": "Edit & resend",
+      "revert": "Revert here",
+      "action": "Return here"
+    },
+    "editField": "Edit message",
+    "cancel": "Cancel",
+    "resend": "Save and continue",
+    "revertFailed": "Could not return to that point: {{message}}"
+  },
+  "workbench": {
+    "title": "Research workspace"
+  },
+  "newTask": {
+    "title": "New task",
+    "heading": "What HEOR work would you like to tackle today?",
+    "suggestions": {
+      "scope": {
+        "title": "Frame the research question",
+        "prompt": "Help me frame this pharmacoeconomic or HEOR decision problem. Start from what I provide and confirm the population, intervention, comparator, outcomes, perspective, time horizon, and intended decision use. Ask only for information that would materially change the study."
+      },
+      "evidence": {
+        "title": "Find and organize evidence",
+        "prompt": "Help me find and organize the evidence needed for this pharmacoeconomic study. First clarify the decision problem and evidence gaps, then identify useful local sources, searches that may be needed, provenance, and limitations. Before any network access, show the exact query and fields that would leave this computer."
+      },
+      "model": {
+        "title": "Design or review a model",
+        "prompt": "Help me design or review this health economic model. Start from the decision problem and examine model structure, parameter evidence, key assumptions, uncertainty, and validation requirements. Keep calculation errors separate from issues that require researcher judgment."
+      },
+      "deliverable": {
+        "title": "Analyze data or prepare a briefing",
+        "prompt": "Help me with this pharmacoeconomic or HEOR task. I can provide data, a model, a report, or briefing requirements. First inventory the available materials and expected deliverable, then propose a reviewable analysis or production path."
+      }
+    }
+  },
+  "firstRun": {
+    "title": "Before you begin",
+    "body": "Under your direction, AI4HEOR can organize evidence, carry out analyses, and check results. You review the study plan, key assumptions, evidence choices, and use of the conclusions.",
+    "points": {
+      "local": {
+        "title": "Local by default",
+        "body": "Projects and research files stay on this device unless you explicitly use an external service."
+      },
+      "provider": {
+        "title": "Your choice of model",
+        "body": "Choose any supported provider or local endpoint. Nothing is sent until you send a research request."
+      },
+      "approval": {
+        "title": "Actions remain reviewable",
+        "body": "The default approval mode asks before deletion, installation, network, remote, or privileged actions."
+      },
+      "human": {
+        "title": "You review key research decisions",
+        "body": "Model output remains a working draft. You review the study plan, key assumptions, evidence choices, and use of the conclusions."
+      }
+    },
+    "continue": "Enter the HEOR workspace",
+    "settings": "Review model and privacy settings"
   }
 }

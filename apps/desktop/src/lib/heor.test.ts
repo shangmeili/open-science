@@ -130,6 +130,11 @@ describe("AI4HEOR artifact contract", () => {
     expect(prompt).toContain("Use $heor-workbench");
     expect(prompt).toContain("Compare treatment A with standard care.");
     expect(prompt).toContain("Preserve the Open Science baseline");
+    expect(prompt).toContain("Evidence claims must be auditable");
+    expect(prompt).toContain("report them as exploratory scenarios");
+    expect(prompt).toContain("Describe data flow precisely");
+    expect(prompt).toContain("If the configured model provider is remote");
+    expect(prompt).toContain("never call the whole task fully local");
     expect(prompt).toContain("Do not begin with Git status, .gitignore, README");
     expect(prompt).toContain("progressive HEOR outputs, not prerequisites");
     expect(prompt).toContain("never create or claim human approvals");

@@ -1,9 +1,30 @@
 {
+  "nav": {
+    "back": "アプリに戻る",
+    "general": "一般",
+    "appearance": "外観",
+    "models": "モデル",
+    "runtime": "ランタイム",
+    "connectors": "コネクタ",
+    "compute": "コンピューティング",
+    "privacy": "プライバシー",
+    "browser": "ブラウザ",
+    "remote": "リモートアクセス"
+  },
   "appearance": {
     "title": "外観",
+    "themeLabel": "テーマ",
     "theme": {
       "light": "ライト",
+      "warm": "ウォーム",
       "dark": "ダーク"
+    },
+    "zoom": {
+      "label": "ズーム",
+      "hint": "{{mod}} + / − でズーム、{{mod}} 0 でリセット",
+      "in": "拡大",
+      "out": "縮小",
+      "reset": "リセット"
     }
   },
   "language": {
@@ -13,40 +34,27 @@
     "title": "設定",
     "subtitle": "AI アシスタント、モデル、エビデンスツール、ワークスペース、ローカル分析環境を設定します。"
   },
-  "supportReport": {
-    "title": "問題の診断",
-    "hint": "問題を報告するときにレポートを書き出します",
-    "description": "レポートには、アプリのバージョン、システム構成、ローカルアシスタントの状態、診断イベントの集計値だけが含まれます。モデルの認証情報、プロジェクトパス、研究ファイル、会話、生ログは含まれません。",
-    "export": "診断レポートを書き出す",
-    "exporting": "レポートを作成中…",
-    "saved": "診断レポートを保存しました",
-    "failed": "診断レポートを書き出せませんでした"
-  },
-  "readiness": {
-    "title": "利用準備",
-    "checking": "このコンピューターの環境を確認しています…",
-    "readyTitle": "作業を始められます",
-    "readyBody": "プロジェクトフォルダー、組み込み手法、ローカルアシスタントを利用できます。モデルは必要なときに接続してください。",
-    "attentionTitle": "対応が必要な項目があります",
-    "attentionBody": "プロジェクト資料はこのコンピューターに残っています。下の項目を確認し、再度チェックしてください。",
-    "actions": { "recheck": "再チェック", "restart": "ローカルアシスタントを再起動", "restarting": "再起動中…", "openSettings": "確認" },
-    "checks": {
-      "needsAttention": "対応が必要",
-      "workspace": { "title": "プロジェクトフォルダー", "ready": "書き込み可能" },
-      "skills": { "title": "組み込み Skill", "ready": "{{count}} 個の Skill を利用可能" },
-      "heorCore": { "title": "薬剤経済学のローカル計算", "ready": "必要なファイルを確認済み" },
-      "harness": { "title": "プロジェクト監査 harness", "ready": "必要なファイルを確認済み" },
-      "runtime": { "title": "ローカルアシスタント", "ready": "準備完了", "connecting": "起動中…", "error": "対応が必要", "offline": "停止中" },
-      "model": { "title": "モデル（任意）", "optional": "未接続でもローカル計算は利用できます" }
-    },
-    "scope": "このチェックにモデル、Python、Jupyter は必要ありません。実際の作業で必要なときだけ設定します。確認するのはソフトウェアの利用可否であり、方法の適切性や科学的妥当性ではありません。",
-    "technical": "技術情報"
-  },
   "runtime": {
     "title": "AI アシスタント実行環境",
     "hint": "デスクトップアプリが自動的に起動・管理します",
     "connect": "接続",
     "disconnect": "切断",
+    "serverLabel": "サーバー",
+    "serverUrlPlaceholder": "http://127.0.0.1:4096",
+    "proxyLabel": "ネットワークプロキシ",
+    "proxySystem": "システムに従う",
+    "proxyCustom": "カスタム…",
+    "proxyNone": "直接接続(プロキシなし)",
+    "proxyPlaceholder": "http://127.0.0.1:7890 / socks5://host:port",
+    "proxyDirectHint": "エージェントランタイムの通信はすべて直接接続されます。",
+    "proxyEffective": "{{url}} 経由で接続",
+    "proxyNoneDetected": "システムプロキシが見つかりません — 直接接続されます。",
+    "mirrorTitle": "パッケージミラー",
+    "mirrorPypi": "PyPI インデックス",
+    "mirrorPython": "Python ダウンロード",
+    "mirrorPypiPlaceholder": "https://pypi.tuna.tsinghua.edu.cn/simple",
+    "mirrorPythonPlaceholder": "https://mirror.example.com/python-build-standalone",
+    "mirrorHint": "任意のミラー。Python ツール(Jupyter・科学データベース)のセットアップ時のダウンロードにのみ使用され、pypi.org / github.com が遅いネットワーク向けです。空欄でデフォルト。",
     "status": {
       "ready": "準備完了",
       "connecting": "接続中…",
@@ -59,42 +67,11 @@
       "engineLabel": "実行エンジン",
       "engineValue": "OpenCode",
       "endpointLabel": "ローカルエンドポイント"
-    },
-    "serverUrlPlaceholder": "http://127.0.0.1:4096",
-    "proxyLabel": "ネットワークプロキシ",
-    "proxySystem": "システムに従う",
-    "proxyCustom": "カスタム…",
-    "proxyNone": "直接接続(プロキシなし)",
-    "proxyPlaceholder": "http://127.0.0.1:7890 / socks5://host:port",
-    "proxyDirectHint": "エージェントランタイムの通信はすべて直接接続されます。",
-    "proxyEffective": "{{url}} 経由で接続",
-    "proxyNoneDetected": "システムプロキシが見つかりません — 直接接続されます。",
-    "mirrorPypi": "PyPI インデックス",
-    "mirrorPython": "Python ダウンロード",
-    "mirrorPypiPlaceholder": "https://pypi.tuna.tsinghua.edu.cn/simple",
-    "mirrorPythonPlaceholder": "https://mirror.example.com/python-build-standalone",
-    "mirrorHint": "任意のミラー。Python ツール(Jupyter・科学データベース)のセットアップ時のダウンロードにのみ使用され、pypi.org / github.com が遅いネットワーク向けです。空欄でデフォルト。"
-  },
-  "about": {
-    "title": "AI4HEOR について",
-    "hint": "製品の位置づけ、バージョン、連絡先",
-    "currentVersion": "バージョン {{version}}",
-    "developedBy": "AI4HEOR は、研究者が主導する薬剤経済学・HEOR 業務のために Codex Agent が開発しています。",
-    "positioning": "本ワークベンチはオープンソースの Open Science 基盤上に構築されています。自然言語を中心にフォームを補助的に用い、ローカルファーストかつモデル提供者に依存しません。決定論的計算、監査可能なプロセス、重要な科学的判断の研究者確認を中核とします。",
-    "openScience": "Open Science プロジェクトを見る",
-    "contactTitle": "お問い合わせ・ご意見",
-    "contactBody": "ご質問やご提案があればご連絡ください。メールアドレスをクリックするとコピーできます。",
-    "copyEmail": "連絡先メールをコピー",
-    "emailCopied": "連絡先メールをコピーしました",
-    "emailCopyFailed": "メールをコピーできませんでした。手動で選択してください",
-    "xiaohongshuAlt": "野生炼丹师老M の小紅書プロフィールカード",
-    "xiaohongshuCaption": "小紅書：野生炼丹师老M（ID 18669050668）"
+    }
   },
   "updates": {
     "title": "アプリの更新",
     "hint": "現在のバージョンとリリースチャネルを確認します",
-    "unavailable": "オンライン更新はまだ利用できません",
-    "unavailableHint": "AI4HEOR の正式なリリース元はまだ設定されていないため、このビルドはオンラインで更新を確認しません。正式な配布元の確定後にバージョン比較と通知を有効にします。",
     "available": "更新があります",
     "checking": "確認中",
     "failed": "確認失敗",
@@ -111,7 +88,9 @@
     "autoCheckHint": "既定で有効です。アプリは 1 日 1 回まで確認します。",
     "showBadge": "設定バッジを表示",
     "showBadgeHint": "新しいリリースが見つかったら、設定に赤い点を表示します。",
-    "privacy": "公開 GitHub Releases API だけに接続します。ワークスペースのファイルや API キーは送信しません。"
+    "privacy": "公開 GitHub Releases API だけに接続します。ワークスペースのファイルや API キーは送信しません。",
+    "unavailable": "オンライン更新はまだ利用できません",
+    "unavailableHint": "AI4HEOR の正式なリリース元はまだ設定されていないため、このビルドはオンラインで更新を確認しません。正式な配布元の確定後にバージョン比較と通知を有効にします。"
   },
   "model": {
     "title": "モデル",
@@ -159,9 +138,6 @@
     "pasteCode": "ブラウザからコードを貼り付け",
     "customEndpoint": "カスタムエンドポイント",
     "customEndpointHint": "セルフホスト・ローカル Ollama・OpenAI/Anthropic 互換",
-    "minimaxChinaTokenPlanName": "MiniMax 中国版 Token Plan",
-    "fillMinimaxChinaTokenPlan": "MiniMax 中国版 Token Plan を入力",
-    "customCredentialHint": "エンドポイント設定には API キーを保存しません。OpenCode が認証情報をローカルの非公開認証ストアに分けて保存します。",
     "customNamePlaceholder": "名前 — 例: Ollama、My DeepSeek gateway",
     "openaiCompatible": "OpenAI 互換",
     "anthropicCompatible": "Anthropic 互換",
@@ -169,34 +145,74 @@
     "customKeyPlaceholder": "API キー — 任意、Ollama では不要です",
     "customModelsPlaceholder": "モデル ID（カンマ区切り）",
     "addEndpoint": "エンドポイントを追加",
-    "importLogin": "互換性のあるローカル CLI から認証情報をインポート"
+    "importLogin": "互換性のあるローカル CLI から認証情報をインポート",
+    "minimaxChinaTokenPlanName": "MiniMax 中国版 Token Plan",
+    "fillMinimaxChinaTokenPlan": "MiniMax 中国版 Token Plan を入力",
+    "customCredentialHint": "エンドポイント設定には API キーを保存しません。OpenCode が認証情報をローカルの非公開認証ストアに分けて保存します。"
   },
   "mcp": {
     "title": "エビデンスと MCP ツール",
     "hint": "組み込み HEOR エビデンス検索と、研究者が管理する任意の MCP サーバー",
     "connectPrompt": "MCP サーバーを設定するには、ランタイムに接続してください。",
+    "openSource": "オープンソース",
+    "enterKeyFirstTitle": "先に API キーを入力してください",
+    "settingUp": "セットアップ中…",
+    "enable": "有効化",
+    "freeKeySuffix": "（無料キー）",
+    "getFreeKey": "無料キーを取得",
+    "jupyterLabel": "Jupyter",
+    "jupyterDescription": "エージェントが実際のノートブックを操作できるようにします · numpy・pandas・matplotlib を含む独立環境、初回実行時に約 500 MB · 設定後はアプリの実行ボタンもこれを使うため、あなたとエージェントで同じ Python を共有します",
+    "setUpAndEnable": "セットアップして有効化",
+    "startingDownload": "ダウンロードを開始中…",
+    "typeLocal": "ローカル",
+    "typeRemote": "リモート",
+    "namePlaceholder": "名前 — 例: jupyter、playwright",
+    "commandPlaceholder": "コマンド — 例: npx -y @playwright/mcp",
+    "urlPlaceholder": "URL — 例: https://example.com/mcp",
+    "addServer": "サーバーを追加",
     "builtIn": "組み込み",
     "humanAuthorization": "人間の承認が必要",
     "heorEvidenceLabel": "HEOR エビデンス検索",
     "heorEvidenceDescription": "固定エンドポイントで PubMed と ClinicalTrials.gov のメタデータのみを取得します。エージェントはハッシュに結び付いた要求を準備し、ネットワークアクセスを承認できるのは人間だけです。",
     "heorEvidenceSources": "{{sources}} · ${{id}}",
     "externalBoundary": "追加したサーバーは管理対象外の外部機能です。コード、ライセンス、データ送信、認証情報を確認してください。科学的判断権や承認権は付与されません。",
-    "settingUp": "セットアップ中…",
-    "enable": "有効化",
-    "jupyterLabel": "Jupyter",
-    "jupyterDescription": "エージェントが実際のノートブックを操作できるようにします · numpy・pandas・matplotlib を含む独立環境、初回実行時に約 500 MB · 設定後はアプリの実行ボタンもこれを使うため、あなたとエージェントで同じ Python を共有します",
-    "setUpAndEnable": "セットアップして有効化",
-    "startingDownload": "ダウンロードを開始中…",
     "setupStarting": "Jupyter を設定しています。初回は数百 MB をダウンロードします。しばらくお待ちください…",
     "setupComplete": "Jupyter の準備ができました。アシスタントがノートブックを操作できます。",
     "setupFailed": "Jupyter の設定に失敗しました",
-    "setupIncomplete": "Jupyter の設定は終了しましたが、必要な接続情報がありません",
-    "typeLocal": "ローカル",
-    "typeRemote": "リモート",
-    "namePlaceholder": "名前 — 例: jupyter、playwright",
-    "commandPlaceholder": "コマンド — 例: npx -y @playwright/mcp",
-    "urlPlaceholder": "URL — 例: https://example.com/mcp",
-    "addServer": "サーバーを追加"
+    "setupIncomplete": "Jupyter の設定は終了しましたが、必要な接続情報がありません"
+  },
+  "browser": {
+    "label": "ブラウザ制御",
+    "title": "ブラウザ",
+    "hint": "エージェントに実際のブラウザを操作させます — ページの移動、クリック、フォーム入力、読み取り。",
+    "description": "エージェントがページを開き、クリックし、フォームに入力し、Web を読み取れるようにします — あなたの Chrome ログインを再利用します。",
+    "browseAs": "使用するプロフィール",
+    "isolated": "分離 — 新規・未ログイン",
+    "showWindow": "ブラウザウィンドウを表示",
+    "headedOffTitle": "ウィンドウを非表示にしますか？",
+    "headedOffBody": "お使いの Chrome ログイン（「{{profile}}」）を再利用しているため、エージェントは実際の Chrome を操作します。これをオフにしても、特に Chrome が既に起動している場合は通常ウィンドウが開きます。完全にウィンドウなし（ヘッドレス）で動かすには、「Browse as」をプライベートブラウザーに切り替えてください。",
+    "headedOffConfirm": "それでもオフにする",
+    "noChrome": "Chrome が見つかりません",
+    "download": "ブラウザをダウンロード",
+    "noChromeWillDownload": "Chrome が見つかりません — 初回使用時に専用ブラウザをダウンロードします。",
+    "detected": "使用中",
+    "privateBrowser": "プライベートブラウザ(未ログイン)",
+    "privateNote": "あなたの Chrome に一切触れない、別途ダウンロードしたブラウザを使用します。未ログインで開始し、初回使用時に自動ダウンロードされます。",
+    "reuseNote": "「{{name}}」のコピーを再利用します。エージェントはそのログイン済みアカウントとして操作します。実際の Chrome プロファイルは変更されません。ナビゲーションは承認モードに従います。",
+    "isolatedNote": "分離プロファイル — エージェントは未ログイン状態で開始します。ログインを再利用するには上でアカウントを選択してください。",
+    "downloaded": "ブラウザをダウンロードしました — ブラウザ制御を有効にできます。",
+    "couldNotDownload": "ブラウザをダウンロードできませんでした",
+    "enabledStatus": "有効",
+    "disabledStatus": "無効",
+    "disable": "無効にする",
+    "apply": "変更を適用",
+    "capabilities": "機能",
+    "capCore": "標準 — 移動、クリック、読み取り、スクリーンショット、JS 実行",
+    "capNetwork": "標準 + ネットワークキャプチャ(HAR、リクエスト検査)",
+    "capAll": "すべて(全ツール)",
+    "allowedDomains": "許可するドメイン",
+    "allowedDomainsHint": "1 行に 1 つ。空欄で制限なし。*.example.com のようなパターンに対応。",
+    "allowedDomainsPlaceholder": "example.com\n*.github.com"
   },
   "workspace": {
     "title": "ワークスペース",
@@ -212,6 +228,13 @@
     "sourceAppManaged": "アプリ管理",
     "sourceAutoDetected": "自動検出",
     "checking": "確認中…",
+    "installTitle": "AI4HEOR 分析環境をインストール",
+    "installHint": "システムの Python を変更せず、アプリデータ内に独立した Python 3.12、Jupyter、一般的な研究用パッケージをインストールします。初回は約 500 MB をダウンロードします。",
+    "installManaged": "ローカル環境をインストール",
+    "installing": "インストール中…",
+    "installStarting": "ローカル Python と研究用依存関係をインストールしています。",
+    "installComplete": "ローカル分析環境をインストールし、既定の Python に設定しました。",
+    "installFailed": "ローカル分析環境をインストールできませんでした",
     "pathPlaceholder": "インタープリタのパス — 例: /opt/anaconda3/bin/python3 または C:\\ProgramData\\anaconda3\\python.exe",
     "useThisPython": "この Python を使用",
     "clearOverride": "上書き設定を解除"
@@ -224,6 +247,7 @@
     "couldNotSetFolder": "フォルダを設定できませんでした",
     "couldNotSetModel": "モデルを設定できませんでした",
     "defaultModelSet": "デフォルトモデルを {{model}} に設定しました",
+    "defaultModelReset": "デフォルトモデル {{old}} は利用できなくなったため、{{model}} に切り替えました",
     "couldNotSaveKey": "キーを保存できませんでした",
     "providerConnected": "{{providerID}} を接続しました",
     "couldNotStartLogin": "ログインを開始できませんでした",
@@ -315,5 +339,106 @@
       "couldNotCancel": "{{id}} をキャンセルできませんでした",
       "jobCanceled": "ジョブ {{id}} をキャンセルしました"
     }
+  },
+  "remote": {
+    "title": "リモートアクセス",
+    "hint": "このデスクトップを安全な API に。スマホやネットワーク上の別のPC、CLI、トンネル経由でセッションとファイルにアクセスできます。既定はオフ。",
+    "enable": "リモートアクセスを有効化",
+    "enableHint": "認証付きゲートウェイを起動します。下でローカルネットワークを許可するまでは、この端末のみにバインドされます。",
+    "loopbackUrl": "この端末",
+    "loopbackUrlHint": "この Mac のブラウザで開くか、CLI をここに向けます。",
+    "binding": "アクセス範囲",
+    "bindingHint": "ゲートウェイが待ち受ける場所。信頼できるネットワークでのみローカルネットワークを有効にしてください。",
+    "bindingLoopback": "この端末のみ",
+    "bindingLan": "ローカルネットワーク",
+    "lanWarn": "これによりゲートウェイがローカルネットワーク上の全員に公開されます。トークンを持つ人は誰でもエージェントを操作し、ワークスペースのファイルを読み取れます。信頼できるネットワークでのみ実行してください。続行しますか?",
+    "lanActive": "ネットワーク上の他の端末からアクセス可能です。トークンは秘密にしてください。",
+    "mode": "アクセスレベル",
+    "modeFull": "フルアクセス",
+    "modeReadonly": "読み取り専用",
+    "modeFullHint": "クライアントはセッション作成、プロンプト送信、ツール実行、承認への応答ができます。",
+    "modeReadonlyHint": "クライアントはセッションとファイルの閲覧のみ——プロンプト・ツール・承認は不可。",
+    "token": "アクセストークン",
+    "tokenHint": "クライアントはこの Bearer トークンで認証します。",
+    "reveal": "トークンを表示",
+    "hide": "トークンを隠す",
+    "copy": "コピー",
+    "regenerate": "トークンを再生成",
+    "regenerated": "新しいトークンを生成しました——既存のクライアントは再接続が必要です。",
+    "openHint": "上の URL をブラウザで開き、このトークンを貼り付けて接続します。",
+    "copied": "クリップボードにコピーしました",
+    "error": "リモートアクセスの変更に失敗しました",
+    "connect": "接続",
+    "connectPrompt": "デスクトップアプリのアクセストークンを入力:設定 → リモートアクセス。"
+  },
+  "supportReport": {
+    "title": "問題の診断",
+    "hint": "問題を報告するときにレポートを書き出します",
+    "description": "レポートには、アプリのバージョン、システム構成、ローカルアシスタントの状態、診断イベントの集計値だけが含まれます。モデルの認証情報、プロジェクトパス、研究ファイル、会話、生ログは含まれません。",
+    "export": "診断レポートを書き出す",
+    "exporting": "レポートを作成中…",
+    "saved": "診断レポートを保存しました",
+    "failed": "診断レポートを書き出せませんでした"
+  },
+  "readiness": {
+    "title": "利用準備",
+    "checking": "このコンピューターの環境を確認しています…",
+    "readyTitle": "作業を始められます",
+    "readyBody": "プロジェクトフォルダー、組み込み手法、ローカルアシスタントを利用できます。モデルは必要なときに接続してください。",
+    "attentionTitle": "対応が必要な項目があります",
+    "attentionBody": "プロジェクト資料はこのコンピューターに残っています。下の項目を確認し、再度チェックしてください。",
+    "actions": {
+      "recheck": "再チェック",
+      "restart": "ローカルアシスタントを再起動",
+      "restarting": "再起動中…",
+      "openSettings": "確認"
+    },
+    "checks": {
+      "needsAttention": "対応が必要",
+      "workspace": {
+        "title": "プロジェクトフォルダー",
+        "ready": "書き込み可能"
+      },
+      "skills": {
+        "title": "組み込み Skill",
+        "ready": "{{count}} 個の Skill を利用可能"
+      },
+      "heorCore": {
+        "title": "薬剤経済学のローカル計算",
+        "ready": "必要なファイルを確認済み"
+      },
+      "harness": {
+        "title": "プロジェクト監査 harness",
+        "ready": "必要なファイルを確認済み"
+      },
+      "runtime": {
+        "title": "ローカルアシスタント",
+        "ready": "準備完了",
+        "connecting": "起動中…",
+        "error": "対応が必要",
+        "offline": "停止中"
+      },
+      "model": {
+        "title": "モデル（任意）",
+        "optional": "未接続でもローカル計算は利用できます"
+      }
+    },
+    "scope": "このチェックにモデル、Python、Jupyter は必要ありません。実際の作業で必要なときだけ設定します。確認するのはソフトウェアの利用可否であり、方法の適切性や科学的妥当性ではありません。",
+    "technical": "技術情報"
+  },
+  "about": {
+    "title": "AI4HEOR について",
+    "hint": "製品の位置づけ、バージョン、連絡先",
+    "currentVersion": "バージョン {{version}}",
+    "developedBy": "AI4HEOR は、研究者が主導する薬剤経済学・HEOR 業務のために Codex Agent が開発しています。",
+    "positioning": "本ワークベンチはオープンソースの Open Science 基盤上に構築されています。自然言語を中心にフォームを補助的に用い、ローカルファーストかつモデル提供者に依存しません。決定論的計算、監査可能なプロセス、重要な科学的判断の研究者確認を中核とします。",
+    "openScience": "Open Science プロジェクトを見る",
+    "contactTitle": "お問い合わせ・ご意見",
+    "contactBody": "ご質問やご提案があればご連絡ください。メールアドレスをクリックするとコピーできます。",
+    "copyEmail": "連絡先メールをコピー",
+    "emailCopied": "連絡先メールをコピーしました",
+    "emailCopyFailed": "メールをコピーできませんでした。手動で選択してください",
+    "xiaohongshuAlt": "野生炼丹师老M の小紅書プロフィールカード",
+    "xiaohongshuCaption": "小紅書：野生炼丹师老M（ID 18669050668）"
   }
 }

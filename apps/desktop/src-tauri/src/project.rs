@@ -35,6 +35,8 @@ pub struct ProjectMeta {
         skip_serializing_if = "Option::is_none"
     )]
     pub imported_from: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pinned: Option<bool>,
     pub version: u32,
 }
 
@@ -51,6 +53,7 @@ pub struct ProjectInfo {
     pub imported: bool,
     #[serde(rename = "importedFrom", skip_serializing_if = "Option::is_none")]
     pub imported_from: Option<String>,
+    pub pinned: bool,
     /// Absolute workspace folder (canonical, matches session `directory`).
     pub path: String,
 }
@@ -113,6 +116,7 @@ pub(crate) fn ensure_session_scope(dir: &Path, name: &str) -> Result<String, Str
         created_at: now_ms(),
         kind: SESSION_SCOPE_KIND.into(),
         imported_from: None,
+        pinned: None,
         version: 2,
     };
     write_meta(dir, &meta)?;
@@ -156,6 +160,7 @@ fn info_of(meta: ProjectMeta, dir: &Path) -> ProjectInfo {
         kind: meta.kind,
         imported,
         imported_from: meta.imported_from,
+        pinned: meta.pinned.unwrap_or(false),
         path: canon.to_string_lossy().to_string(),
     }
 }
@@ -185,6 +190,7 @@ fn create_in(base: &Path, name: &str) -> Result<(PathBuf, ProjectMeta), String> 
         created_at: now_ms(),
         kind: HEOR_PROJECT_KIND.into(),
         imported_from: None,
+        pinned: None,
         version: 2,
     };
     write_meta(&dir, &meta)?;
@@ -364,6 +370,16 @@ pub fn list_projects(app: AppHandle) -> Result<Vec<ProjectInfo>, String> {
     Ok(out)
 }
 
+fn project_dir_by_id(base: &Path, id: &str) -> Option<PathBuf> {
+    std::fs::read_dir(base).ok()?.flatten().find_map(|entry| {
+        let dir = entry.path();
+        match read_meta(&dir) {
+            Some(meta) if meta.kind == HEOR_PROJECT_KIND && meta.id == id => Some(dir),
+            _ => None,
+        }
+    })
+}
+
 /// The active named project or standalone conversation scope. This is kept
 /// separate from `list_projects`: a standalone conversation can use the full
 /// HEOR review surface without appearing as a project in the sidebar.
@@ -378,17 +394,57 @@ pub fn current_research_scope(app: AppHandle) -> Result<Option<ProjectInfo>, Str
 /// Rename the project's display name only — the folder never moves, so session
 /// `directory` grouping stays intact.
 #[tauri::command(async)]
-pub fn rename_project(path: String, name: String) -> Result<(), String> {
+pub fn rename_project(app: AppHandle, id: String, name: String) -> Result<(), String> {
     let name = name.trim();
     if name.is_empty() {
         return Err("project name is empty".into());
     }
-    let dir = PathBuf::from(&path);
+    let base = base_workspace_dir(&app)?;
+    let dir = project_dir_by_id(&base, &id).ok_or("project not found")?;
     let mut meta = read_meta(&dir)
         .filter(|meta| meta.kind == HEOR_PROJECT_KIND)
         .ok_or("not a project folder")?;
     meta.name = name.to_string();
     write_meta(&dir, &meta)
+}
+
+#[tauri::command(async)]
+pub fn set_project_pinned(app: AppHandle, id: String, pinned: bool) -> Result<(), String> {
+    let base = base_workspace_dir(&app)?;
+    let dir = project_dir_by_id(&base, &id).ok_or("project not found")?;
+    let mut meta = read_meta(&dir).ok_or("not a project folder")?;
+    meta.pinned = pinned.then_some(true);
+    write_meta(&dir, &meta)
+}
+
+#[tauri::command(async)]
+pub fn delete_project(app: AppHandle, id: String) -> Result<(), String> {
+    let base = base_workspace_dir(&app)?;
+    let dir = project_dir_by_id(&base, &id).ok_or("project not found")?;
+    let meta = read_meta(&dir).ok_or("not a project folder")?;
+    let base_canonical = base.canonicalize().unwrap_or_else(|_| base.clone());
+    let dir_canonical = dir
+        .canonicalize()
+        .map_err(|error| format!("could not resolve project folder: {error}"))?;
+    if !dir_canonical.starts_with(&base_canonical) {
+        return Err("refusing to remove a project outside the AI4HEOR workspace".into());
+    }
+    if meta.imported_from.is_some() {
+        remove_tree(&dir).map_err(|error| error.to_string())
+    } else {
+        let marker = meta_file(&dir);
+        if marker.exists() {
+            std::fs::remove_file(marker).map_err(|error| error.to_string())?;
+        }
+        Ok(())
+    }
+}
+
+#[tauri::command(async)]
+pub fn open_project_folder(app: AppHandle, id: String) -> Result<(), String> {
+    let base = base_workspace_dir(&app)?;
+    let dir = project_dir_by_id(&base, &id).ok_or("project not found")?;
+    crate::artifact_file::os_open(&dir)
 }
 
 #[cfg(test)]

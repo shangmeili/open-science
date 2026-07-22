@@ -1,15 +1,4 @@
 {
-  "workbench": { "title": "Forschungsbereich" },
-  "newTask": {
-    "title": "Neue Aufgabe",
-    "heading": "Welche HEOR-Arbeit möchten Sie heute angehen?",
-    "suggestions": {
-      "scope": { "title": "Forschungsfrage klären", "prompt": "Helfen Sie mir, diese pharmakoökonomische oder HEOR-Entscheidungsfrage zu klären. Bestätigen Sie Population, Intervention, Vergleich, Endpunkte, Perspektive, Zeithorizont und Verwendungszweck und fragen Sie nur nach Informationen, die die Studie wesentlich verändern." },
-      "evidence": { "title": "Evidenz suchen und ordnen", "prompt": "Helfen Sie mir, die für diese pharmakoökonomische Studie benötigte Evidenz zu finden und zu ordnen. Klären Sie zuerst Entscheidungsfrage und Evidenzlücken und nennen Sie lokale Quellen, erforderliche Suchen, Herkunft und Grenzen. Zeigen Sie vor jedem Netzwerkzugriff die genaue Suchanfrage und die zu sendenden Felder." },
-      "model": { "title": "Modell entwerfen oder prüfen", "prompt": "Helfen Sie mir, dieses gesundheitsökonomische Modell zu entwerfen oder zu prüfen. Untersuchen Sie Modellstruktur, Parameterevidenz, zentrale Annahmen, Unsicherheit und Validierung und trennen Sie Rechenfehler von Fragen, die eine fachliche Entscheidung erfordern." },
-      "deliverable": { "title": "Daten analysieren oder Bericht vorbereiten", "prompt": "Helfen Sie mir bei dieser pharmakoökonomischen oder HEOR-Aufgabe. Ich kann Daten, ein Modell, einen Bericht oder Anforderungen an eine Präsentation bereitstellen. Erfassen Sie zuerst vorhandene Materialien und das erwartete Ergebnis und schlagen Sie dann einen prüfbaren Arbeitsweg vor." }
-    }
-  },
   "notFound": {
     "title": "Aufgabe nicht gefunden",
     "hint": "Wählen Sie eine Aufgabe aus der Seitenleiste."
@@ -18,7 +7,8 @@
     "placeholder": {
       "default": "Fragen Sie irgendetwas",
       "arguments": "Argumente (optional) — Enter zum Ausführen",
-      "shell": "Einen Shell-Befehl im Arbeitsbereichsordner ausführen"
+      "shell": "Einen Shell-Befehl im Arbeitsbereichsordner ausführen",
+      "plan": "Beschreibe, was geplant werden soll — keine Dateien werden geändert"
     },
     "commandsAria": "Befehle",
     "source": {
@@ -36,12 +26,6 @@
       "chipTitle": "Führt diesen Befehl aus — Argumente eingeben oder Rücktaste drücken, um den Namen zu bearbeiten",
       "removeAria": "Befehl entfernen"
     },
-    "skill": {
-      "placeholder": "Beschreiben Sie, wobei {{skill}} helfen soll",
-      "chipTitle": "Diese Aufgabe verwendet {{skill}}; vor dem Senden kann die Auswahl entfernt werden",
-      "removeAria": "{{skill}} entfernen",
-      "echo": "Skill: {{skill}}\n\n{{task}}"
-    },
     "shellMode": {
       "badge": "shell",
       "title": "Läuft direkt im Arbeitsbereichsordner der Aufgabe"
@@ -53,10 +37,19 @@
     "send": {
       "aria": "Senden"
     },
-    "modelRequired": {
-      "action": "Modell auswählen",
-      "description": "Modell für diese Aufgabe auswählen",
-      "sendHint": "Vor dem Senden ein Modell auswählen"
+    "agent": {
+      "aria": "Agentenmodus",
+      "title": "Erst planen oder direkt umsetzen",
+      "menuAria": "Agentenmodi",
+      "menuTitle": "Wie soll der Agent arbeiten?",
+      "build": {
+        "label": "Umsetzen",
+        "description": "Bearbeitet Dateien und führt Befehle aus"
+      },
+      "plan": {
+        "label": "Planen",
+        "description": "Nur lesen: recherchiert und schreibt zuerst einen Plan"
+      }
     },
     "approval": {
       "aria": "Genehmigungsmodus",
@@ -75,37 +68,31 @@
     "error": {
       "paste": "Einfügen konnte nicht gespeichert werden: {{message}}",
       "addFiles": "Dateien konnten nicht hinzugefügt werden: {{message}}"
+    },
+    "skill": {
+      "placeholder": "Beschreiben Sie, wobei {{skill}} helfen soll",
+      "chipTitle": "Diese Aufgabe verwendet {{skill}}; vor dem Senden kann die Auswahl entfernt werden",
+      "removeAria": "{{skill}} entfernen",
+      "echo": "Skill: {{skill}}\n\n{{task}}"
+    },
+    "modelRequired": {
+      "action": "Modell auswählen",
+      "description": "Modell für diese Aufgabe auswählen",
+      "sendHint": "Vor dem Senden ein Modell auswählen"
     }
-  },
-  "message": {
-    "copy": "Kopieren", "copied": "Kopiert", "edit": "Bearbeiten und hier fortfahren", "revert": "Zu diesem Punkt zurückkehren", "editField": "Nachricht bearbeiten", "cancel": "Abbrechen", "resend": "Speichern und fortfahren", "revertFailed": "Rückkehr nicht möglich: {{message}}",
-    "confirm": { "title": "Zu diesem Punkt zurückkehren?", "body": "Spätere Nachrichten und ihre Änderungen an den Aufgabendateien werden entfernt.", "action": "Hierher zurückkehren" }
   },
   "localCommand": {
     "newDescription": "Chat-Kontext in diesem Ordner leeren",
     "clearDescription": "Wie /new; Dateien bleiben in diesem Ordner",
     "cleared": "Chat-Kontext geleert. Dateien bleiben im selben Ordner."
   },
-  "firstRun": {
-    "title": "Starten Sie mit voller Kontrolle",
-    "body": "AI4HEOR unterstützt Ihre Forschung; es leitet die Studie nicht und trifft keine wissenschaftlichen Entscheidungen für Sie.",
-    "points": {
-      "local": { "title": "Standardmäßig lokal", "body": "Projekte und Forschungsdateien bleiben auf diesem Gerät, sofern Sie nicht ausdrücklich einen externen Dienst nutzen." },
-      "provider": { "title": "Sie wählen das Modell", "body": "Wählen Sie einen unterstützten Anbieter oder lokalen Endpunkt. Erst beim Senden eines Forschungsauftrags werden Inhalte übertragen." },
-      "approval": { "title": "Aktionen bleiben prüfbar", "body": "Der Standardmodus fragt vor Löschen, Installation, Netzwerkzugriff, Remotezugriff oder Rechteerweiterung nach." },
-      "human": { "title": "Wissenschaftliche Hoheit beim Menschen", "body": "Modellausgaben sind Entwürfe. Methoden, Evidenz, Annahmen, Interpretation, Validierung und Freigabe bleiben menschliche Entscheidungen." }
-    },
-    "continue": "HEOR-Arbeitsbereich öffnen",
-    "settings": "Modell- und Datenschutzeinstellungen prüfen"
-  },
   "starters": {
     "newSession": "Neue Aufgabe",
     "heading": "Welche HEOR-Frage sollen wir bearbeiten?",
     "subheading": "Beschreiben Sie Ihre pharmakoökonomische Frage oder beginnen Sie mit einem forschungsgeleiteten Arbeitsablauf.",
-    "design": {
-      "title": "Eine pharmakoökonomische Studie beginnen",
-      "description": "Entscheidungsproblem, konzeptionelles Modell, Evidenzbedarf und Human-Prüfpunkte festlegen.",
-      "prompt": "Helfen Sie mir, eine von einem menschlichen Forschenden geleitete pharmakoökonomische oder HEOR-Studie zu beginnen. Verwenden Sie $heor-workbench und $heor-model-design. Klären Sie zuerst Population, Intervention, Vergleich, Endpunkte, Perspektive, Rechtsraum, Zeithorizont, Entscheidungskontext, Evidenz und Verwendungszweck. Erstellen Sie danach prüfbare lokale Artefakte und einen Plan. Wählen Sie keine wissenschaftlichen Methoden, Annahmen, Evidenz, Schwellenwerte oder Genehmigungen für den Menschen aus."
+    "demo": {
+      "title": "Eine Demo-Analyse End-to-End ausführen",
+      "description": "Einen Datensatz simulieren, ein Modell anpassen und eine Abbildung sowie einen nachvollziehbaren Bericht erstellen."
     },
     "analyze": {
       "title": "Meine HEOR-Evidenz oder Daten analysieren",
@@ -117,18 +104,29 @@
       "description": "Methoden, Eingaben, Modell-Ergebnis-Bindung, Bericht, Grenzen und Reproduzierbarkeit prüfen.",
       "prompt": "Auditieren Sie das aktuelle HEOR-Modell, die Analyse oder den Bericht mit den passenden AI4HEOR-Skills für Validierung, Berichterstattung, Reproduzierbarkeit und Nachvollziehbarkeit. Fragen Sie bei Mehrdeutigkeit nach dem Artefaktgraphen. Trennen Sie deterministische Fehler von wissenschaftlichen Urteilen und erzeugen Sie keine Human-Genehmigung."
     },
+    "example-climate": {
+      "title": "Ein Beispiel erkunden: Klimatrends",
+      "description": "Echte NASA-GISTEMP-Daten — Trend, Dekadenvergleich, Abbildung und Bericht."
+    },
+    "error": {
+      "setup": "Das Beispiel konnte nicht eingerichtet werden: {{message}}"
+    },
+    "design": {
+      "title": "Eine pharmakoökonomische Studie beginnen",
+      "description": "Entscheidungsproblem, konzeptionelles Modell, Evidenzbedarf und Human-Prüfpunkte festlegen.",
+      "prompt": "Helfen Sie mir, eine von einem menschlichen Forschenden geleitete pharmakoökonomische oder HEOR-Studie zu beginnen. Verwenden Sie $heor-workbench und $heor-model-design. Klären Sie zuerst Population, Intervention, Vergleich, Endpunkte, Perspektive, Rechtsraum, Zeithorizont, Entscheidungskontext, Evidenz und Verwendungszweck. Erstellen Sie danach prüfbare lokale Artefakte und einen Plan. Wählen Sie keine wissenschaftlichen Methoden, Annahmen, Evidenz, Schwellenwerte oder Genehmigungen für den Menschen aus."
+    },
     "example-cea": {
       "title": "Beispiel erkunden: Kosten-Effektivitäts-Analyse",
       "description": "Synthetische Zwei-Strategien-Kohorteneingaben für einen auditierbaren Kosten-Nutzwert-Ablauf.",
       "prompt": "Erkunden Sie mit $heor-workbench die synthetischen Demonstrationsdateien unter heor-cost-effectiveness/. Behandeln Sie alle Zahlen als Lehrannahmen, nicht als Evidenz. Erläutern Sie das Entscheidungsproblem, prüfen Sie das Drei-Zustands-Kohortenmodell, reproduzieren Sie Kosten und QALYs deterministisch, führen Sie eine transparente Sensitivitätsprüfung aus und erstellen Sie einen Bericht mit Grenzen und Human-Prüfpunkten. Keine Genehmigungs- oder Erstattungsentscheidung."
-    },
-    "error": {
-      "setup": "Das Beispiel konnte nicht eingerichtet werden: {{message}}"
     }
   },
   "live": {
     "runtime": {
       "title": "KI-Assistent nicht verfügbar",
+      "bodyPrefix": "Die Desktop-App führt automatisch eine gebündelte OpenCode-Instanz aus. Starten Sie im Browser eine mit",
+      "bodySuffix": " und verbinden Sie sich.",
       "body": "Stellen Sie die Verbindung erneut her oder prüfen Sie die Laufzeit des KI-Assistenten in den Einstellungen. Ihre lokalen Projektdateien bleiben verfügbar."
     },
     "connect": "Verbinden",
@@ -161,17 +159,17 @@
     "status": {
       "paused": "Pausiert — der Agent benötigt Ihre Antwort unten",
       "startingSession": "Die Aufgabe wird in ihrem Ordner gestartet…",
-      "working": "Arbeitet…",
-      "waitingModel": "Warte auf die Antwort des Modells…",
       "retrying": "Die Modellanfrage ist begrenzt; Versuch {{attempt}} läuft…",
+      "working": "Arbeitet…",
+      "step": "Schritt {{count}}",
+      "waitingModel": "Warte auf die Antwort des Modells…",
       "runningStep": "Wird ausgeführt",
       "writing": "Antwort wird vorbereitet…",
       "continuing": "„{{step}}“ abgeschlossen; die Bearbeitung wird fortgesetzt…",
       "loadedSkill": "Forschungsfunktion geladen: {{skill}}",
       "completed": "Abgeschlossen",
       "rateLimited": "Das aktuelle Modell erhält zu viele Anfragen. Versuchen Sie es später erneut oder wählen Sie ein anderes Modell.",
-      "stoppedBeforeReply": "Die Modellanfrage wurde ohne Antwort beendet. Versuchen Sie es erneut oder wählen Sie ein anderes Modell.",
-      "step": "Schritt {{count}}"
+      "stoppedBeforeReply": "Die Modellanfrage wurde ohne Antwort beendet. Versuchen Sie es erneut oder wählen Sie ein anderes Modell."
     },
     "placeholder": {
       "disconnected": "Zum Chatten verbinden",
@@ -295,5 +293,88 @@
   },
   "agentMessage": {
     "previewTitle": "Vorschau von {{path}}"
+  },
+  "goal": {
+    "label": "Ziel",
+    "running": "läuft",
+    "runningTurns": "Auto-Runde {{count}}",
+    "paused": "pausiert",
+    "done": "fertig",
+    "pauseAria": "Ziel pausieren (stoppt die Auto-Fortsetzung)",
+    "resumeAria": "Ziel fortsetzen",
+    "clearAria": "Ziel entfernen",
+    "unmet": "blockiert",
+    "limited": "Limit erreicht"
+  },
+  "message": {
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "copyFailed": "Konnte nicht in die Zwischenablage kopieren.",
+    "edit": "Bearbeiten und hier fortfahren",
+    "editing": {
+      "cancel": "Abbrechen",
+      "send": "Senden"
+    },
+    "revert": "Zu diesem Punkt zurückkehren",
+    "confirm": {
+      "title": "Zu diesem Punkt zurückkehren?",
+      "body": "Spätere Nachrichten und ihre Änderungen an den Aufgabendateien werden entfernt.",
+      "edit": "Bearbeiten & erneut senden",
+      "revert": "Hierher zurücksetzen",
+      "action": "Hierher zurückkehren"
+    },
+    "editField": "Nachricht bearbeiten",
+    "cancel": "Abbrechen",
+    "resend": "Speichern und fortfahren",
+    "revertFailed": "Rückkehr nicht möglich: {{message}}"
+  },
+  "workbench": {
+    "title": "Forschungsbereich"
+  },
+  "newTask": {
+    "title": "Neue Aufgabe",
+    "heading": "Welche HEOR-Arbeit möchten Sie heute angehen?",
+    "suggestions": {
+      "scope": {
+        "title": "Forschungsfrage klären",
+        "prompt": "Helfen Sie mir, diese pharmakoökonomische oder HEOR-Entscheidungsfrage zu klären. Bestätigen Sie Population, Intervention, Vergleich, Endpunkte, Perspektive, Zeithorizont und Verwendungszweck und fragen Sie nur nach Informationen, die die Studie wesentlich verändern."
+      },
+      "evidence": {
+        "title": "Evidenz suchen und ordnen",
+        "prompt": "Helfen Sie mir, die für diese pharmakoökonomische Studie benötigte Evidenz zu finden und zu ordnen. Klären Sie zuerst Entscheidungsfrage und Evidenzlücken und nennen Sie lokale Quellen, erforderliche Suchen, Herkunft und Grenzen. Zeigen Sie vor jedem Netzwerkzugriff die genaue Suchanfrage und die zu sendenden Felder."
+      },
+      "model": {
+        "title": "Modell entwerfen oder prüfen",
+        "prompt": "Helfen Sie mir, dieses gesundheitsökonomische Modell zu entwerfen oder zu prüfen. Untersuchen Sie Modellstruktur, Parameterevidenz, zentrale Annahmen, Unsicherheit und Validierung und trennen Sie Rechenfehler von Fragen, die eine fachliche Entscheidung erfordern."
+      },
+      "deliverable": {
+        "title": "Daten analysieren oder Bericht vorbereiten",
+        "prompt": "Helfen Sie mir bei dieser pharmakoökonomischen oder HEOR-Aufgabe. Ich kann Daten, ein Modell, einen Bericht oder Anforderungen an eine Präsentation bereitstellen. Erfassen Sie zuerst vorhandene Materialien und das erwartete Ergebnis und schlagen Sie dann einen prüfbaren Arbeitsweg vor."
+      }
+    }
+  },
+  "firstRun": {
+    "title": "Starten Sie mit voller Kontrolle",
+    "body": "AI4HEOR unterstützt Ihre Forschung; es leitet die Studie nicht und trifft keine wissenschaftlichen Entscheidungen für Sie.",
+    "points": {
+      "local": {
+        "title": "Standardmäßig lokal",
+        "body": "Projekte und Forschungsdateien bleiben auf diesem Gerät, sofern Sie nicht ausdrücklich einen externen Dienst nutzen."
+      },
+      "provider": {
+        "title": "Sie wählen das Modell",
+        "body": "Wählen Sie einen unterstützten Anbieter oder lokalen Endpunkt. Erst beim Senden eines Forschungsauftrags werden Inhalte übertragen."
+      },
+      "approval": {
+        "title": "Aktionen bleiben prüfbar",
+        "body": "Der Standardmodus fragt vor Löschen, Installation, Netzwerkzugriff, Remotezugriff oder Rechteerweiterung nach."
+      },
+      "human": {
+        "title": "Wissenschaftliche Hoheit beim Menschen",
+        "body": "Modellausgaben sind Entwürfe. Methoden, Evidenz, Annahmen, Interpretation, Validierung und Freigabe bleiben menschliche Entscheidungen."
+      }
+    },
+    "continue": "HEOR-Arbeitsbereich öffnen",
+    "settings": "Modell- und Datenschutzeinstellungen prüfen"
   }
 }

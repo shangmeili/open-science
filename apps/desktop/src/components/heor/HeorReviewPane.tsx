@@ -17,7 +17,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { readArtifact } from "@/lib/artifactFile";
+import { listDir, readArtifact } from "@/lib/artifactFile";
 import { cn } from "@/lib/cn";
 import { useRuntimeStore } from "@/lib/runtime";
 import {
@@ -256,6 +256,39 @@ const EXPLORATORY_ARTIFACT_PATHS = [
   "heor/report.md",
 ] as const;
 
+const RESEARCH_FILE_RE = /\.(?:md|json|jsonl|csv|tsv|py|r|ipynb|svg|png|pdf|docx|xlsx|pptx)$/i;
+
+async function discoverExploratoryArtifacts(): Promise<ExploratoryArtifact[]> {
+  const discovered: ExploratoryArtifact[] = [];
+  const walk = async (directory: string, depth: number): Promise<void> => {
+    if (depth > 3 || discovered.length >= 40) return;
+    const entries = await listDir(directory, "workspace");
+    for (const entry of entries) {
+      if (discovered.length >= 40) break;
+      if (entry.isDir) {
+        await walk(entry.path, depth + 1);
+      } else if (RESEARCH_FILE_RE.test(entry.path)
+        && entry.path !== HEOR_PLAN_PATH) {
+        discovered.push({ path: entry.path, size: entry.size });
+      }
+    }
+  };
+  try {
+    await walk("heor", 0);
+  } catch {
+    // An absent heor/ directory is a normal new-task state. Older runtimes may
+    // also lack recursive listing, so keep the small compatibility probe.
+    const candidates = await Promise.all(
+      EXPLORATORY_ARTIFACT_PATHS.map(async (path) => {
+        const file = await readArtifact(path);
+        return file ? { path, size: file.size } : null;
+      }),
+    );
+    discovered.push(...candidates.flatMap((file) => file ? [file] : []));
+  }
+  return discovered.sort((left, right) => left.path.localeCompare(right.path));
+}
+
 type ConceptualArtifactState =
   | { kind: "loading" }
   | { kind: "missing" }
@@ -491,14 +524,16 @@ function validationBindingsCurrent(
 
 export function HeorReviewPane({
   project,
+  activity,
   onClose,
   onRequestRevision,
 }: {
   project: ProjectIdentity | null;
+  activity?: { label: string; detail?: string; step: number };
   onClose: () => void;
   onRequestRevision: (prompt: string) => void;
 }) {
-  const { t, i18n } = useTranslation("heor");
+  const { t, i18n } = useTranslation(["heor", "session"]);
   const approvalMode = useRuntimeStore((state) => state.approvalMode);
   const [artifact, setArtifact] = useState<ArtifactState>({ kind: "loading" });
   const [exploratoryArtifacts, setExploratoryArtifacts] = useState<ExploratoryArtifactState>({
@@ -802,13 +837,7 @@ export function HeorReviewPane({
     }
     try {
       if (isTauri) {
-        const candidates = await Promise.all(
-          EXPLORATORY_ARTIFACT_PATHS.map(async (path) => {
-            const file = await readArtifact(path);
-            return file ? { path, size: file.size } : null;
-          }),
-        );
-        const files: ExploratoryArtifact[] = candidates.flatMap((file) => file ? [file] : []);
+        const files = await discoverExploratoryArtifacts();
         setExploratoryArtifacts(files.length > 0 ? { kind: "ready", files } : { kind: "empty" });
       } else {
         setExploratoryArtifacts({ kind: "empty" });
@@ -2037,6 +2066,28 @@ export function HeorReviewPane({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {activity && (
+          <section
+            className="border-b border-border bg-accent/5 px-5 py-3"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex min-w-0 items-center gap-2 text-xs text-text">
+              <Loader2 size={14} className="shrink-0 animate-spin text-accent" aria-hidden />
+              <span className="shrink-0 font-medium">{activity.label}</span>
+              {activity.step > 0 && (
+                <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] tabular-nums text-muted">
+                  {t("session:live.status.step", { count: activity.step })}
+                </span>
+              )}
+              {activity.detail && (
+                <span className="min-w-0 truncate font-mono text-[10px] text-muted">
+                  {activity.detail}
+                </span>
+              )}
+            </div>
+          </section>
+        )}
         {artifact.kind === "ready" && (
           <StageRail
             currentApprovals={currentApprovals}
@@ -2276,18 +2327,23 @@ export function HeorReviewPane({
               onRequestHazardRatio={() => onRequestRevision(t("transition.hazardRatioPrompt"))}
             />
 
-            <SurvivalReviewAssessment
-              state={survivalReview}
-              onRequestRepair={() => onRequestRevision(t("survivalReview.repairPrompt"))}
-            />
+            {survivalReview.kind === "ready" && survivalReview.audit.required && (
+              <SurvivalReviewAssessment
+                state={survivalReview}
+                onRequestRepair={() => onRequestRevision(t("survivalReview.repairPrompt"))}
+              />
+            )}
 
-            <PairedBootstrapAssessment
-              state={pairedBootstrap}
-              currentReview={currentPairedBootstrapReview}
-              accepted={pairedBootstrapCurrentResultAccepted}
-              onRequestPreparation={() => onRequestRevision(t("pairedBootstrap.preparePrompt"))}
-              onReview={() => setPairedBootstrapDialogOpen(true)}
-            />
+            {pairedBootstrap.kind === "ready"
+              && (pairedBootstrap.audit.requestSha256 || pairedBootstrap.audit.resultSha256) && (
+              <PairedBootstrapAssessment
+                state={pairedBootstrap}
+                currentReview={currentPairedBootstrapReview}
+                accepted={pairedBootstrapCurrentResultAccepted}
+                onRequestPreparation={() => onRequestRevision(t("pairedBootstrap.preparePrompt"))}
+                onReview={() => setPairedBootstrapDialogOpen(true)}
+              />
+            )}
 
             <EvidenceTraceability
               audit={evidenceAudit!}
@@ -2295,54 +2351,81 @@ export function HeorReviewPane({
               onRequestRepair={() => onRequestRevision(t("evidence.repairPrompt"))}
             />
 
-            <ReferenceCaseAssessment
-              state={referenceCase}
-              onRequestRepair={() => onRequestRevision(t("reference.repairPrompt"))}
-            />
+            {referenceCase.kind === "ready" && referenceCase.audit.assessmentSha256 && (
+              <ReferenceCaseAssessment
+                state={referenceCase}
+                onRequestRepair={() => onRequestRevision(t("reference.repairPrompt"))}
+              />
+            )}
 
-            <UncertaintyAssessment
-              state={uncertainty}
-              onRequestRepair={() => onRequestRevision(t("uncertainty.repairPrompt"))}
-            />
-            <AdvancedVoiAssessment
-              state={advancedVoi}
-              accepted={advancedVoiAccepted}
-              reviewAction={advancedVoiReviewAction}
-              onRequestPreparation={() => onRequestRevision(t("advancedVoi.preparePrompt"))}
-              onReview={() => setAdvancedVoiDialogOpen(true)}
-            />
-            <BudgetImpactAssessment
-              state={budgetImpact}
-              onRequestRepair={() => onRequestRevision(t("budgetImpact.repairPrompt"))}
-            />
-            <PartitionedSurvivalAssessment
-              state={partitionedSurvival}
-              onRequestRepair={() => onRequestRevision(t("partitionedSurvival.repairPrompt"))}
-            />
-            <ModelValidationAssessment
-              state={modelValidation}
-              onRequestPreparation={() => onRequestRevision(t("validation.repairPrompt"))}
-            />
-            <ReportingAssessment
-              state={reporting}
-              onRequestPreparation={() => onRequestRevision(t("reporting.repairPrompt"))}
-            />
-            <ResearchPresentationAssessment
-              state={researchPresentation}
-              generating={presentationGenerating}
-              onRequestPreparation={() => onRequestRevision(t("presentation.repairPrompt"))}
-              onGenerate={() => void renderResearchPresentation()}
-            />
-            <ResearchReportAssessment
-              state={researchReport}
-              generating={reportGenerating}
-              onRequestPreparation={() => onRequestRevision(t("reportExport.repairPrompt"))}
-              onGenerate={() => void renderResearchReport()}
-            />
-            <ReproducibilityAssessment
-              state={reproducibility}
-              onRequestPreparation={() => onRequestRevision(t("reproducibility.repairPrompt"))}
-            />
+            {uncertainty.kind === "ready" && uncertainty.audit.uncertaintyId
+              && uncertainty.audit.uncertaintySha256 && (
+              <UncertaintyAssessment
+                state={uncertainty}
+                onRequestRepair={() => onRequestRevision(t("uncertainty.repairPrompt"))}
+              />
+            )}
+            {advancedVoi.kind === "ready" && advancedVoi.audit.voiId
+              && advancedVoi.audit.advancedVoiPlanSha256 && (
+              <AdvancedVoiAssessment
+                state={advancedVoi}
+                accepted={advancedVoiAccepted}
+                reviewAction={advancedVoiReviewAction}
+                onRequestPreparation={() => onRequestRevision(t("advancedVoi.preparePrompt"))}
+                onReview={() => setAdvancedVoiDialogOpen(true)}
+              />
+            )}
+            {budgetImpact.kind === "ready" && budgetImpact.audit.biaId
+              && budgetImpact.audit.budgetImpactSha256 && (
+              <BudgetImpactAssessment
+                state={budgetImpact}
+                onRequestRepair={() => onRequestRevision(t("budgetImpact.repairPrompt"))}
+              />
+            )}
+            {partitionedSurvival.kind === "ready" && partitionedSurvival.audit.required && (
+              <PartitionedSurvivalAssessment
+                state={partitionedSurvival}
+                onRequestRepair={() => onRequestRevision(t("partitionedSurvival.repairPrompt"))}
+              />
+            )}
+            {modelValidation.kind === "ready" && modelValidation.audit.validationId
+              && modelValidation.audit.validationSha256 && (
+              <ModelValidationAssessment
+                state={modelValidation}
+                onRequestPreparation={() => onRequestRevision(t("validation.repairPrompt"))}
+              />
+            )}
+            {reporting.kind === "ready" && reporting.audit.packageId
+              && reporting.audit.reportPackageSha256 && (
+              <ReportingAssessment
+                state={reporting}
+                onRequestPreparation={() => onRequestRevision(t("reporting.repairPrompt"))}
+              />
+            )}
+            {researchPresentation.kind === "ready"
+              && researchPresentation.audit.status !== "missing" && (
+              <ResearchPresentationAssessment
+                state={researchPresentation}
+                generating={presentationGenerating}
+                onRequestPreparation={() => onRequestRevision(t("presentation.repairPrompt"))}
+                onGenerate={() => void renderResearchPresentation()}
+              />
+            )}
+            {researchReport.kind === "ready" && researchReport.audit.status !== "missing" && (
+              <ResearchReportAssessment
+                state={researchReport}
+                generating={reportGenerating}
+                onRequestPreparation={() => onRequestRevision(t("reportExport.repairPrompt"))}
+                onGenerate={() => void renderResearchReport()}
+              />
+            )}
+            {reproducibility.kind === "ready" && reproducibility.audit.packageId
+              && reproducibility.audit.packageSha256 && (
+              <ReproducibilityAssessment
+                state={reproducibility}
+                onRequestPreparation={() => onRequestRevision(t("reproducibility.repairPrompt"))}
+              />
+            )}
 
             <section className="border-b border-border px-5 py-4">
               <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted">

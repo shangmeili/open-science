@@ -35,6 +35,7 @@ actually depends on.
 - Never add an `approvals` field to an analysis file or claim that a gate is approved. Approval is app-owned and requires a human action in the review panel.
 - Treat deterministic calculations as calculations, not decisions. Do not label a result decision-ready.
 - Use the configured model provider only for research assistance, synthesis, coding, and explanation. Keep numeric execution deterministic and reproducible.
+- Describe data flow precisely. A local deterministic calculation means only that the numerical engine ran on this computer. When the configured model provider is remote, the conversation and any project excerpts visible to the model are processed by that provider. Report evidence-search or other network-tool use separately; never claim that the whole task was fully local or that no remote model call occurred merely because the numerical engine ran locally.
 - Keep data and artifacts inside the active project unless the researcher explicitly authorizes an external service.
 
 ## Natural-language workflow
@@ -84,6 +85,12 @@ Before reporting a requested end-to-end economic evaluation as complete:
    `heor/results/base-case.json`, and lets the desktop record the command,
    environment, input, and output. Do not search the app bundle for another
    engine, copy the engine into the project, or substitute a custom script.
+   When this command returns `status: calculation_only`, read the watched result,
+   explain it with its limitations and Human-review status, and finish the turn;
+   do not inspect the runner, validator, or engine source afterward. If it fails,
+   use the exact reported plan or provenance gaps to repair only the workspace
+   artifacts from the bundled template, then rerun it. A runner failure never
+   authorizes source-code inspection or ad-hoc changes to the bundled engine.
 4. If the structured route cannot be completed, label the output
    `exploratory_only`, name the exact unsupported model or unresolved scientific
    choice, list the missing watched artifacts, and do not say the AI4HEOR task is

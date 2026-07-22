@@ -28,6 +28,27 @@ describe("groupToolBlocks", () => {
     expect(items[2]).toMatchObject({ kind: "group", start: 3 });
   });
 
+  it("folds reasoning into the adjacent tool run so consecutive tools still merge", () => {
+    const items = groupToolBlocks([
+      { kind: "reasoning", text: "let me look at the data" },
+      tool({ title: "a" }),
+      { kind: "reasoning", text: "now transform it" },
+      tool({ title: "b" }),
+    ]);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ kind: "group", start: 0 });
+    expect((items[0] as { blocks: ThreadBlock[] }).blocks).toHaveLength(4);
+  });
+
+  it("renders reasoning that precedes the final answer on its own (nothing to group)", () => {
+    const items = groupToolBlocks([
+      { kind: "reasoning", text: "concluding" },
+      { kind: "agent", markdown: "the answer" },
+    ]);
+    expect(items.map((i) => i.kind)).toEqual(["block", "block"]);
+    expect(items[0]).toMatchObject({ kind: "block", index: 0 });
+  });
+
   it("failures stay in the group (routine agent trial-and-error, counted in the summary)", () => {
     const items = groupToolBlocks([
       tool({ title: "a" }),

@@ -395,7 +395,7 @@ describe("project and standalone conversations", () => {
     expect(mocks.sendPrompt).toHaveBeenCalledWith(
       "ses_new",
       "$heor-model-calibration\n\nCheck this model",
-      undefined,
+      "build",
       null,
     );
     expect(useRuntimeStore.getState().threads[id!].blocks).toContainEqual({
@@ -435,7 +435,7 @@ describe("project and standalone conversations", () => {
     expect(mocks.sendPrompt).toHaveBeenCalledWith(
       "ses_existing",
       "continue",
-      undefined,
+      "build",
       "minimax-cn-token-plan/MiniMax-M3",
     );
   });
@@ -975,7 +975,7 @@ describe("edit and return to a past message", () => {
     expect(mocks.sendPrompt).toHaveBeenCalledWith(
       "ses_new",
       "runtime HEOR prompt",
-      undefined,
+      "build",
       null,
     );
     expect(useRuntimeStore.getState().threads.ses_new.blocks).toContainEqual({

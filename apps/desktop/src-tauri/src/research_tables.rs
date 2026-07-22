@@ -661,11 +661,13 @@ fn audit_at(workspace: &Path) -> (ResearchTablesAudit, Option<LoadedTables>) {
     let manifest_raw =
         match resolve_regular(workspace, RESEARCH_TABLES_MANIFEST_PATH, MANIFEST_CAP_BYTES) {
             Ok(raw) => raw,
-            Err(_) => {
-                return (
-                    empty_audit(vec![format!("{RESEARCH_TABLES_MANIFEST_PATH} is required")]),
-                    None,
-                )
+            Err(error) => {
+                let errors = if workspace.join(RESEARCH_TABLES_MANIFEST_PATH).exists() {
+                    vec![error]
+                } else {
+                    Vec::new()
+                };
+                return (empty_audit(errors), None);
             }
         };
     let manifest = match serde_json::from_slice::<ResearchTablesManifest>(&manifest_raw) {
@@ -1080,6 +1082,15 @@ mod tests {
         std::fs::create_dir_all(root.join("deliverables")).unwrap();
         std::fs::create_dir_all(root.join("heor/results")).unwrap();
         root
+    }
+
+    #[test]
+    fn absent_manifest_is_a_quiet_missing_capability() {
+        let root = fixture_root("missing");
+        let audit = audit_at(&root).0;
+        assert_eq!(audit.status, "missing");
+        assert!(audit.errors.is_empty());
+        assert!(!audit.ready_to_generate);
     }
 
     fn write_fixture(root: &Path) {

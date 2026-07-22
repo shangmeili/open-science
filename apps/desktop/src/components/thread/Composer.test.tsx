@@ -411,3 +411,30 @@ describe("approval menu dismissal", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 });
+
+describe("agent mode switch (Build / Plan)", () => {
+  it("is absent unless the surface provides it (runtime without a plan agent)", () => {
+    render(<Composer onSend={vi.fn()} />);
+    expect(screen.queryByLabelText("Agent mode")).toBeNull();
+  });
+
+  it("shows the current mode and switches on pick", () => {
+    const onChange = vi.fn();
+    render(<Composer onSend={vi.fn()} agentMode="build" onAgentModeChange={onChange} />);
+    const button = screen.getByLabelText("Agent mode");
+    expect(button.textContent).toContain("Build");
+
+    fireEvent.click(button);
+    fireEvent.mouseDown(screen.getByRole("menuitemradio", { name: /Plan/ }));
+    expect(onChange).toHaveBeenCalledWith("plan");
+    expect(screen.queryByRole("menuitemradio", { name: /Plan/ })).toBeNull();
+  });
+
+  it("plan mode tints the composer border and pill blue (read-only must be unmistakable)", () => {
+    const { container } = render(
+      <Composer onSend={vi.fn()} agentMode="plan" onAgentModeChange={vi.fn()} />,
+    );
+    expect(container.firstElementChild?.className).toContain("border-link/60");
+    expect(screen.getByLabelText("Agent mode").className).toContain("text-link");
+  });
+});

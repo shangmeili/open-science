@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useRuntimeStore } from "@/lib/runtime";
@@ -16,12 +16,15 @@ const PROJECT = {
 const defaults = {
   status: useRuntimeStore.getState().status,
   defaultModel: useRuntimeStore.getState().defaultModel,
+  currentId: useRuntimeStore.getState().currentId,
   draftEpoch: useRuntimeStore.getState().draftEpoch,
+  panes: useRuntimeStore.getState().panes,
   workspacePinned: useRuntimeStore.getState().workspacePinned,
   researchScope: useRuntimeStore.getState().researchScope,
   createProject: useRuntimeStore.getState().createProject,
   importProject: useRuntimeStore.getState().importProject,
   startDraft: useRuntimeStore.getState().startDraft,
+  openSession: useRuntimeStore.getState().openSession,
 };
 
 afterEach(() => {
@@ -67,6 +70,48 @@ describe("Sidebar projects", () => {
     expect(
       screen.getByRole("button", { name: "New task in Cost Effectiveness Study" }),
     ).toBeInTheDocument();
+  });
+
+  it("uses an AI4HEOR task menu instead of the browser link menu", async () => {
+    useRuntimeStore.setState({
+      projects: [],
+      sessions: [{ id: "task-1", title: "CEA review", directory: "/base/task-1" }],
+    });
+    renderAt("/files");
+
+    const task = await screen.findByRole("link", { name: /CEA review/i });
+    fireEvent.contextMenu(task);
+
+    expect(await screen.findByRole("menuitem", { name: "Open task" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Delete task" })).toBeInTheDocument();
+    expect(screen.queryByText("Open link in new window")).not.toBeInTheDocument();
+  });
+
+  it("switches the single task side pane between research review and analysis history", async () => {
+    const openSession = vi.fn(async () => {});
+    useRuntimeStore.setState({
+      status: "ready",
+      currentId: "task-1",
+      workspace: "/base/task-1",
+      sessions: [{ id: "task-1", title: "CEA review", directory: "/base/task-1" }],
+      panes: {
+        "task-1": { artifact: null, showFiles: false, showRuns: false },
+      },
+      openSession,
+    });
+    renderNavigableAt("/heor/task-1");
+
+    const review = await screen.findByRole("button", { name: "Research & analysis" });
+    await userEvent.click(review);
+    expect(review).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByText("Research materials, analysis records, and decisions awaiting your review")).toBeInTheDocument();
+
+    const runs = screen.getByRole("button", { name: "Runs" });
+    await userEvent.click(runs);
+    expect(runs).toHaveAttribute("aria-pressed", "true");
+    expect(review).toHaveAttribute("aria-pressed", "false");
+    expect((await screen.findAllByText("Analysis history")).length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText("Research materials, analysis records, and decisions awaiting your review")).not.toBeInTheDocument();
   });
 
   it("offers a new-project entry when no projects exist yet", async () => {

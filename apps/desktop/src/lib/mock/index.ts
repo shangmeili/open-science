@@ -1,5 +1,12 @@
 import type { Project, Session } from "@ai4s/shared";
-import { citationScatter, umapAtlas, umapBySite } from "./figures";
+import {
+  ariCurve,
+  biorxivShot,
+  citationScatter,
+  subfieldBars,
+  umapAtlas,
+  umapBySite,
+} from "./figures";
 
 // ---- Session 1: figure canvas + artifact inspector (reference shot 1) ----
 
@@ -249,10 +256,367 @@ const litSession: Session = {
   },
 };
 
+// ---- Session 4: browser control — live web harvest into a reproducible dataset ----
+
+const preprintsCsv = `doi,posted,subfield,title,authors
+10.1101/2026.07.18.601234,2026-07-20,Systems,Thalamocortical loops shape cortical state transitions,"Okafor, Lindqvist, Zhao"
+10.1101/2026.07.18.601210,2026-07-20,Cellular,Astrocyte calcium waves gate synaptic pruning in vivo,"Berg, Nakamura, Ruiz"
+10.1101/2026.07.17.600998,2026-07-19,Circuits,A midbrain circuit for approach-avoidance decisions,"Haddad, Iversen"
+10.1101/2026.07.17.600881,2026-07-19,Computation,Predictive coding emerges in recurrent spiking networks,"Sato, O'Neill, Krause"
+10.1101/2026.07.16.600742,2026-07-18,Developmental,Timed neurogenesis sets interneuron ratios in cortex,"Meyer, Abadi"`;
+
+const browserSession: Session = {
+  id: "browser-harvest",
+  projectId: "cross-species",
+  title: "Live web harvest — new preprints",
+  group: "Examples",
+  status: "done",
+  blocks: [
+    {
+      kind: "user",
+      text: "Every Monday I skim new bioRxiv neuroscience preprints. Pull this week's, tag them by subfield, and give me a chart plus a CSV I can sort.",
+    },
+    {
+      kind: "step-summary",
+      summary: "Drove browser-control through bioRxiv, extracted 60 preprints, wrote a CSV",
+      steps: 9,
+      details: [
+        "browser-control MCP · your Chrome profile (headed)",
+        "biorxiv.org/collection/neuroscience",
+        "paged 'Load more' ×3 — results are client-rendered",
+        "environment: web-harvest (local)",
+      ],
+    },
+    {
+      kind: "agent",
+      markdown:
+        "bioRxiv's collection page renders results client-side and offers no clean feed, so I'm driving your Chrome through `browser-control` instead of fetching HTML. I snapshot the accessibility tree, page to the end, then read titles, authors, and subject tags straight off the DOM.",
+    },
+    {
+      kind: "tool-call",
+      tool: "browser-control",
+      verb: "Fetched",
+      title: "navigate → biorxiv.org/collection/neuroscience",
+      status: "success",
+      meta: "200 · 1.8s",
+    },
+    {
+      kind: "tool-call",
+      tool: "browser-control",
+      verb: "Fetched",
+      title: "snapshot → accessibility tree",
+      status: "success",
+      meta: "42 nodes",
+      output:
+        "region 'Search results' @e7\n  list @e9\n    listitem @e10  link 'Thalamocortical loops…' @e11\n    listitem @e14  link 'Astrocyte calcium waves…' @e15\n  button 'Load more' @e41",
+    },
+    {
+      kind: "tool-call",
+      tool: "browser-control",
+      verb: "Ran",
+      title: "click @e41 'Load more' · pages 2–4",
+      status: "success",
+      meta: "60 rows",
+    },
+    {
+      kind: "tool-call",
+      tool: "browser-control",
+      verb: "Fetched",
+      title: "eval → extract {title, authors, subject, doi}",
+      status: "success",
+      meta: "60 objects",
+      content:
+        '[{"title":"Thalamocortical loops shape cortical state transitions",\n  "subject":"Systems","doi":"10.1101/2026.07.18.601234"},\n { "title":"Astrocyte calcium waves gate synaptic pruning in vivo",\n  "subject":"Cellular","doi":"10.1101/2026.07.18.601210"}, … 58 more]',
+    },
+    {
+      kind: "figure",
+      title: "biorxiv_neuro.png",
+      src: biorxivShot,
+      caption: "browser-control · your Chrome profile · headed — the page as the agent read it",
+    },
+    {
+      kind: "table",
+      columns: ["Subfield", "New this week", "Most-discussed preprint"],
+      rows: [
+        ["Systems", "14", "Thalamocortical loops shape cortical state transitions"],
+        ["Cellular", "11", "Astrocyte calcium waves gate synaptic pruning in vivo"],
+        ["Circuits", "9", "A midbrain circuit for approach–avoidance decisions"],
+        ["Cognitive", "8", "Replay compresses during offline consolidation"],
+        ["Computation", "7", "Predictive coding emerges in recurrent spiking networks"],
+        ["Developmental", "5", "Timed neurogenesis sets interneuron ratios in cortex"],
+        ["Molecular", "4", "A presynaptic sensor tunes release probability"],
+        ["Disease", "2", "Tau seeding maps onto connectome hubs"],
+      ],
+    },
+    {
+      kind: "figure",
+      title: "subfield_mix.png",
+      src: subfieldBars,
+      caption: "60 new neuroscience preprints, tagged by subject — Systems and Cellular lead this week",
+    },
+    {
+      kind: "tool-call",
+      tool: "write",
+      verb: "Created",
+      title: "preprints_2026-07-20.csv",
+      status: "success",
+      meta: "60 rows",
+      content: preprintsCsv,
+    },
+    { kind: "status-line", text: "60 preprints · 8 subfields · CSV + chart written", tone: "done" },
+  ],
+  inspector: {
+    variant: "artifact",
+    title: "chart_subfields.py",
+    filename: "chart_subfields.py",
+    versions: [{ label: "v1", reviewPassed: true }],
+    activeVersion: "v1",
+    reviewPassed: true,
+    inputs: ["preprints_2026-07-20.csv"],
+    language: "python",
+    code: `import pandas as pd
+import matplotlib.pyplot as plt
+plt.style.use("openscience.mplstyle")  # bundled palette
+
+df = pd.read_csv("preprints_2026-07-20.csv", parse_dates=["posted"])
+counts = df["subfield"].value_counts().sort_values(ascending=False)
+
+fig, ax = plt.subplots(figsize=(6.5, 3.6))
+counts.plot.bar(ax=ax, color=plt.rcParams["axes.prop_cycle"].by_key()["color"])
+ax.set_ylabel("new this week"); ax.set_xlabel("")
+ax.set_title("New neuroscience preprints by subfield · this week")
+fig.tight_layout()
+fig.savefig("subfield_mix.png", dpi=200)`,
+    executionLog:
+      "$ python chart_subfields.py\n[ok] read 60 rows from preprints_2026-07-20.csv\n[ok] 8 subfields\n[ok] wrote subfield_mix.png  148 KB  1300x720\nfinished in 1.9s",
+    environment:
+      "python 3.11 · pandas 2.2 · matplotlib 3.9\nbrowser-control · agent-browser (Chrome 126, your profile, headed)\nkernel: web-harvest (local)",
+    messages: [
+      "pull this week's neuroscience preprints, tag them by subfield",
+      "make the subfield bar chart and save the CSV",
+    ],
+  },
+};
+
+// ---- Session 5: reproduce a published benchmark on GPU (provenance + review) ----
+
+const reproSession: Session = {
+  id: "repro-scvi",
+  projectId: "cross-species",
+  title: "Reproduce scVI benchmark (A100)",
+  group: "Examples",
+  status: "done",
+  blocks: [
+    {
+      kind: "user",
+      text: "Reproduce the scVI integration benchmark from the methods paper on our A100 and tell me whether the ARI matches within tolerance.",
+    },
+    {
+      kind: "step-summary",
+      summary: "Pinned the environment, trained scVI on 1× A100, scored ARI against the paper",
+      steps: 12,
+      details: [
+        "uv sync --frozen · lockfile pinned",
+        "seed fixed to 0 — the original run left it unset",
+        "1× NVIDIA A100-SXM4-40GB · CUDA 12.2",
+        "environment: scvi-repro (remote)",
+      ],
+    },
+    {
+      kind: "agent",
+      markdown:
+        "Cloning the benchmark, pinning the exact package set with `uv sync --frozen`, and launching training on the A100. I fix `scvi.settings.seed = 0` up front — the published script leaves it unset, which is the most likely source of any drift — and record the full environment and hardware to provenance so the run can be regenerated.",
+    },
+    {
+      kind: "tool-call",
+      tool: "bash",
+      verb: "Ran",
+      title: "uv sync --frozen",
+      status: "success",
+      meta: "3.2s",
+      command: "uv sync --frozen",
+      output: "Resolved 214 packages · installed 0 (lockfile satisfied)\nscvi-tools 1.1.2 · torch 2.3.1+cu122 · scanpy 1.10.2",
+    },
+    {
+      kind: "tool-call",
+      tool: "bash",
+      verb: "Ran",
+      title: "python train_scvi.py --seed 0 --epochs 50",
+      status: "success",
+      meta: "22m 14s",
+      command:
+        'python train_scvi.py --data covid_pbmc_40k_hvg.h5ad --batch-key sample_id --seed 0 --epochs 50',
+      output:
+        "Epoch 50/50 | elbo -812.4 | 1x A100-SXM4-40GB\n[ok] latent written (40,213 x 30)\n[ok] ARI vs author labels = 0.790\n[ok] wrote scvi_benchmark_ari.png",
+    },
+    {
+      kind: "figure",
+      title: "scvi_benchmark_ari.png",
+      src: ariCurve,
+      caption: "ARI vs. epoch · 1× A100 · seed 0 — dashed line is the published 0.80",
+    },
+    {
+      kind: "reviewer",
+      note: "The reproducibility gate ran before the result was accepted.",
+      findings: [
+        {
+          level: "ok",
+          check: "integrity",
+          tag: "stats · repro",
+          title: "Seed pinned before training; original benchmark left it unset",
+          evidence:
+            "train_scvi.py sets scvi.settings.seed = 0 and torch.use_deterministic_algorithms(True). The published script has no seed call, so its ARI varies run-to-run — the 0.010 gap is within that unseeded spread.",
+        },
+        {
+          level: "warn",
+          check: "number",
+          title: "scvi-tools 1.1.2 vs the paper's 1.0.4",
+          evidence:
+            "Exact 1.0.4 wheels are no longer on PyPI for CUDA 12.2. Pinned the nearest reproducible build (1.1.2); changelog lists no training-path changes affecting the ELBO. Flagged so the version delta is on the record.",
+        },
+      ],
+    },
+    {
+      kind: "agent",
+      markdown:
+        "Reproduced. Final **ARI 0.790** vs. published **0.80** (Δ 0.010, inside the ±0.02 tolerance). The gap traces to the pinned seed. Full environment, hardware, and the exact command are recorded to `.openscience/runs.jsonl` — one click regenerates it.",
+    },
+    { kind: "status-line", text: "reproduced · ARI 0.790 (Δ 0.010) · within tolerance", tone: "done" },
+  ],
+  inspector: {
+    variant: "artifact",
+    title: "train_scvi.py",
+    filename: "train_scvi.py",
+    versions: [{ label: "v1", reviewPassed: true }],
+    activeVersion: "v1",
+    reviewPassed: true,
+    inputs: ["covid_pbmc_40k_hvg.h5ad"],
+    language: "python",
+    code: `import scvi, scanpy as sc, torch
+from sklearn.metrics import adjusted_rand_score
+
+scvi.settings.seed = 0                       # original left this unset
+torch.use_deterministic_algorithms(True)
+
+adata = sc.read_h5ad("covid_pbmc_40k_hvg.h5ad")
+scvi.model.SCVI.setup_anndata(adata, batch_key="sample_id")
+model = scvi.model.SCVI(adata, n_latent=30, n_layers=2)
+model.train(max_epochs=50, accelerator="gpu", devices=1)
+
+adata.obsm["X_scVI"] = model.get_latent_representation()
+sc.pp.neighbors(adata, use_rep="X_scVI"); sc.tl.leiden(adata)
+ari = adjusted_rand_score(adata.obs["author_cell_type"], adata.obs["leiden"])
+print(f"ARI vs author labels = {ari:.3f}")   # -> 0.790`,
+    executionLog:
+      "$ python train_scvi.py --seed 0 --epochs 50\nGPU: 1x NVIDIA A100-SXM4-40GB (CUDA 12.2)\nEpoch 50/50 | elbo -812.4\n[ok] ARI vs author labels = 0.790\n[ok] wrote scvi_benchmark_ari.png\nrun_a100_scvi · 22m 14s",
+    environment:
+      "python 3.11 · scvi-tools 1.1.2 · scanpy 1.10.2 · torch 2.3.1 (CUDA 12.2)\nhardware: 1× NVIDIA A100-SXM4-40GB · 32 vCPU · 216 GB\nrun: run_a100_scvi · seed 0 · 22m 14s",
+    messages: [
+      "reproduce the scVI benchmark on our A100",
+      "does the ARI match the paper within tolerance?",
+    ],
+  },
+};
+
+// ---- Session 6: multi-agent literature survey compiled to a PDF ----
+
+const surveySession: Session = {
+  id: "protein-lm-survey",
+  projectId: "cross-species",
+  title: "Research landscape — protein LMs",
+  group: "Examples",
+  status: "done",
+  blocks: [
+    {
+      kind: "user",
+      text: "Survey protein language models for function prediction. Fan out the search across sources, sanity-check the citations, and compile a short PDF.",
+    },
+    {
+      kind: "step-summary",
+      summary: "Ran 5 parallel search agents, loaded 3 skills, deduped, checked citations, compiled the PDF",
+      steps: 14,
+      details: [
+        "literature-survey + citation-reviewer skills loaded",
+        "PubMed / arXiv / OpenAlex / bioRxiv / benchmarks",
+        "24 papers after dedup across 5 tracks",
+        "environment: latex-report (local)",
+      ],
+    },
+    {
+      kind: "agent",
+      markdown:
+        "Dispatching five parallel retrieval tracks — PubMed/UniProt primary methods, arXiv preprints, OpenAlex citation counts, bioRxiv, and benchmark leaderboards (CAFA-5, ProteinGym) — then merging, de-duplicating by DOI, and auditing every citation before it goes in the report.",
+    },
+    {
+      kind: "tool-call",
+      tool: "task",
+      verb: "Ran",
+      title: "5 sub-agents · PubMed arXiv OpenAlex bioRxiv benchmarks",
+      status: "success",
+      meta: "318 lines",
+    },
+    {
+      kind: "reviewer",
+      note: "The citation gate ran before anything was written into the report.",
+      findings: [
+        {
+          level: "ok",
+          check: "citation",
+          title: "All 24 DOIs resolve; 2 arXiv preprints matched to published venues",
+          evidence:
+            "OpenAlex resolved 24/24 DOIs. arXiv:2206.13517 → Nat. Methods 2023 (10.1038/s41592-023-01886-z); arXiv:2304.02311 → ICML 2023. Citation counts refreshed from OpenAlex on retrieval.",
+        },
+      ],
+    },
+    {
+      kind: "agent",
+      markdown:
+        "Report compiled. Six model families span 2019–2025; ESM-1b remains the most-cited, with structure-aware adapters (ESM-3, SaProt) the recent frontier. Benchmarks converge on CAFA-5 and ProteinGym. Draft is in the PDF on the right.",
+    },
+    { kind: "status-line", text: "5 agents done · 24 papers · report.pdf compiled", tone: "done" },
+  ],
+  inspector: {
+    variant: "pdf",
+    title: "report.pdf",
+    doc: {
+      title: "Protein language models for function prediction",
+      subtitle: "from ESM to structure-aware adapters",
+      summaryTable: {
+        kind: "table",
+        columns: ["Papers", "Years", "Model families", "Benchmarks", "Top-cited", "Most recent"],
+        rows: [
+          ["24", "2019–2025", "6", "CAFA-5 · ProteinGym", "ESM-1b (7,842 cit.)", "ESM-3 (2024)"],
+        ],
+      },
+      figure: {
+        kind: "figure",
+        title: "Figure 1",
+        src: citationScatter,
+        caption:
+          "Twenty-four methods (2019–2025) coloured by model family; OpenAlex citation counts on a log scale.",
+      },
+      sections: [
+        {
+          heading: "1  Problem statement",
+          body: "Predicting a protein's function from sequence alone remains open where homology is weak. Protein language models learn residue-level representations from hundreds of millions of unlabelled sequences, then transfer to function prediction with light supervision — sidestepping the alignment step that homology methods depend on.",
+        },
+        {
+          heading: "2  Sequence-only models",
+          body: "ESM-1b and ESM-2 train masked language models over UniRef and expose per-residue embeddings that linear probes turn into GO-term predictions. ProtTrans confirms the recipe transfers across architectures. Gains track scale, but plateau where function depends on structure rather than sequence context.",
+        },
+        {
+          heading: "3  Structure-aware models",
+          body: "SaProt folds a discrete structural alphabet into the token stream, and ESM-3 co-models sequence, structure, and function in one generative backbone. On ProteinGym and CAFA-5 these narrow the gap to alignment methods on remote homologs while keeping single-sequence inference.",
+        },
+      ],
+    },
+  },
+};
+
 export const mockProject: Project = {
   id: "cross-species",
   name: "Cross-species scRNA-seq",
-  sessions: [figureSession, sweepSession, litSession],
+  sessions: [figureSession, browserSession, reproSession, surveySession, sweepSession, litSession],
 };
 
 export const mockProjects: Project[] = [mockProject];

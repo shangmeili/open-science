@@ -1098,8 +1098,8 @@ describe("AI4HEOR human review pane", () => {
       .not.toBeInTheDocument();
     expect(screen.getByText("Evidence audit incomplete")).toBeInTheDocument();
     expect(screen.getByText("Cohort transition structure")).toBeInTheDocument();
-    expect(screen.getByText("Survival fitting and extrapolation")).toBeInTheDocument();
-    expect(screen.getByText("No parametric survival target in this plan")).toBeInTheDocument();
+    expect(screen.queryByText("Survival fitting and extrapolation")).not.toBeInTheDocument();
+    expect(screen.queryByText("No parametric survival target in this plan")).not.toBeInTheDocument();
     expect(screen.getAllByText("Static")).toHaveLength(2);
     expect(await screen.findByText("Structural audit complete")).toBeInTheDocument();
     expect(screen.getAllByText("0/14")).toHaveLength(2);
@@ -1131,11 +1131,11 @@ describe("AI4HEOR human review pane", () => {
       />,
     );
     await screen.findByText("Evidence audit incomplete");
-    expect(screen.getByText("Reference-case audit incomplete")).toBeInTheDocument();
-    expect(screen.getByText("Uncertainty audit incomplete")).toBeInTheDocument();
-    expect(screen.getByText("Budget impact audit incomplete")).toBeInTheDocument();
-    expect(screen.getByText("Validation package is incomplete")).toBeInTheDocument();
-    expect(screen.getByText("Report package is incomplete")).toBeInTheDocument();
+    expect(screen.queryByText("Reference-case audit incomplete")).not.toBeInTheDocument();
+    expect(screen.queryByText("Uncertainty audit incomplete")).not.toBeInTheDocument();
+    expect(screen.queryByText("Budget impact audit incomplete")).not.toBeInTheDocument();
+    expect(screen.queryByText("Validation package is incomplete")).not.toBeInTheDocument();
+    expect(screen.queryByText("Report package is incomplete")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Review Analysis plan" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ask agent to resolve evidence gaps" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", {
@@ -1212,46 +1212,6 @@ describe("AI4HEOR human review pane", () => {
     expect(onRequestRevision).toHaveBeenCalledWith(
       expect.stringContaining("$heor-local-evidence"),
     );
-    await userEvent.click(screen.getByRole("button", {
-      name: "Ask agent to assess or repair reference-case gaps",
-    }));
-    expect(onRequestRevision).toHaveBeenCalledWith(expect.stringContaining("$heor-reference-case"));
-    await userEvent.click(screen.getByRole("button", {
-      name: "Ask agent to create or repair uncertainty analysis",
-    }));
-    expect(onRequestRevision).toHaveBeenCalledWith(
-      expect.stringContaining("$heor-uncertainty-analysis"),
-    );
-    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("uncertainty 0.9.0");
-    await userEvent.click(screen.getByRole("button", {
-      name: "Ask the Agent to build or repair budget impact",
-    }));
-    expect(onRequestRevision).toHaveBeenCalledWith(
-      expect.stringContaining("$heor-budget-impact"),
-    );
-    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("$heor-dynamic-budget-impact");
-    expect(onRequestRevision.mock.calls[onRequestRevision.mock.calls.length - 1]?.[0]).toContain("strategy_order");
-    await userEvent.click(screen.getByRole("button", {
-      name: "Ask Agent to prepare validation evidence",
-    }));
-    expect(onRequestRevision).toHaveBeenCalledWith(
-      expect.stringContaining("$heor-model-validation"),
-    );
-    await userEvent.click(screen.getByRole("button", {
-      name: "Ask Agent to prepare or repair the report package",
-    }));
-    expect(onRequestRevision).toHaveBeenCalledWith(
-      expect.stringContaining("$heor-reporting"),
-    );
-    await userEvent.click(screen.getByRole("button", {
-      name: "Ask Agent to prepare or repair reproducibility evidence",
-    }));
-    const reproducibilityPrompt = onRequestRevision.mock.calls[
-      onRequestRevision.mock.calls.length - 1
-    ]?.[0];
-    expect(reproducibilityPrompt).toContain("$heor-reproducibility-package");
-    expect(reproducibilityPrompt).toContain("exact current report package");
-    expect(reproducibilityPrompt).toContain("Do not create a new approval gate");
   });
 
   it("runs the browser fixture as an explicitly exploratory calculation", async () => {

@@ -356,6 +356,50 @@ export async function setApprovalMode(mode: ApprovalMode): Promise<void> {
   await invoke("set_approval_mode", { mode });
 }
 
+// ---- Browser control (bundled agent-browser sidecar) ----
+
+export interface BrowserProfile {
+  directory: string;
+  name: string;
+}
+
+export interface ChromeInfo {
+  path: string;
+  kind: "chrome" | "chromium" | "edge" | "brave" | string;
+}
+
+export async function agentBrowserBin(): Promise<string> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string>("agent_browser_bin");
+}
+
+export async function agentBrowserProfiles(): Promise<BrowserProfile[]> {
+  if (!isTauri) return [];
+  const { invoke } = await import("@tauri-apps/api/core");
+  try {
+    return await invoke<BrowserProfile[]>("agent_browser_profiles");
+  } catch {
+    return [];
+  }
+}
+
+export async function detectChrome(): Promise<ChromeInfo | null> {
+  if (!isTauri) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  try {
+    return await invoke<ChromeInfo | null>("detect_chrome");
+  } catch {
+    return null;
+  }
+}
+
+export async function setupBrowserChrome(): Promise<void> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("setup_browser_chrome");
+}
+
 /** Network proxy for the sidecar: follow the OS, a fixed URL, or direct. */
 export type ProxyMode = "system" | "custom" | "none";
 export interface ProxySetting {
@@ -378,6 +422,68 @@ export async function setProxySetting(mode: ProxyMode, url: string): Promise<voi
   if (!isTauri) return;
   const { invoke } = await import("@tauri-apps/api/core");
   await invoke("set_proxy_setting", { mode, url });
+}
+
+export type GatewayMode = "full" | "read-only";
+export interface GatewayStatus {
+  enabled: boolean;
+  lan: boolean;
+  mode: GatewayMode;
+  running: boolean;
+  port: number | null;
+  loopbackUrl: string | null;
+  lanUrl: string | null;
+  token: string;
+}
+
+export async function getGatewayStatus(): Promise<GatewayStatus | null> {
+  if (!isTauri) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<GatewayStatus>("gateway_status");
+}
+
+export async function setGatewayConfig(
+  enabled: boolean,
+  lan: boolean,
+  mode: GatewayMode,
+): Promise<GatewayStatus | null> {
+  if (!isTauri) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<GatewayStatus>("set_gateway_config", { enabled, lan, mode });
+}
+
+export async function regenerateGatewayToken(): Promise<GatewayStatus | null> {
+  if (!isTauri) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<GatewayStatus>("regenerate_gateway_token");
+}
+
+export interface GoalState {
+  objective: string;
+  status: "active" | "paused" | "budgetLimited" | "usageLimited" | "complete" | "unmet" | string;
+  autoTurns?: number | null;
+  blocker?: string | null;
+  completionEvidence?: string | null;
+  lastStatus?: string | null;
+}
+
+export async function goalState(sessionId: string): Promise<GoalState | null> {
+  if (!isTauri) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  try {
+    return await invoke<GoalState | null>("goal_state", { sessionId });
+  } catch {
+    return null;
+  }
+}
+
+export async function goalUpdate(
+  sessionId: string,
+  action: "pause" | "resume" | "clear",
+): Promise<GoalState | null> {
+  if (!isTauri) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<GoalState | null>("goal_update", { sessionId, action });
 }
 
 /** uv download mirrors used only when provisioning Python tools (empty ⇒ default). */
@@ -621,9 +727,11 @@ export interface ProjectInfo {
   name: string;
   description?: string;
   createdAt: number;
-  kind: "heor" | "session";
+  kind?: "heor" | "session";
   imported?: boolean;
   importedFrom?: string;
+  /** Whether this named project stays visible in the project navigation. */
+  pinned?: boolean;
   /** Absolute workspace folder (canonical, matches session `directory`). */
   path: string;
 }
@@ -659,10 +767,28 @@ export async function currentResearchScope(): Promise<ProjectInfo | null> {
 }
 
 /** Rename a project's display name (the folder never moves). */
-export async function renameProject(path: string, name: string): Promise<void> {
+export async function renameProject(id: string, name: string): Promise<void> {
   if (!isTauri) throw new Error("not running in the desktop app");
   const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("rename_project", { path, name });
+  await invoke("rename_project", { id, name });
+}
+
+export async function openProjectFolder(id: string): Promise<void> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("open_project_folder", { id });
+}
+
+export async function setProjectPinned(id: string, pinned: boolean): Promise<void> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("set_project_pinned", { id, pinned });
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("delete_project", { id });
 }
 
 /** Native folder picker; null on cancel or in the browser. */
@@ -839,6 +965,26 @@ export async function logDebug(message: string): Promise<void> {
     await invoke("log_debug", { message });
   } catch {
     /* never let diagnostics break the app */
+  }
+}
+
+export async function setWindowTheme(dark: boolean): Promise<void> {
+  if (!isTauri) return;
+  try {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().setTheme(dark ? "dark" : "light");
+  } catch (error) {
+    console.warn("setWindowTheme failed:", error);
+  }
+}
+
+export async function setWebviewZoom(factor: number): Promise<void> {
+  if (!isTauri) return;
+  try {
+    const { getCurrentWebview } = await import("@tauri-apps/api/webview");
+    await getCurrentWebview().setZoom(factor);
+  } catch (error) {
+    console.warn("setWebviewZoom failed:", error);
   }
 }
 

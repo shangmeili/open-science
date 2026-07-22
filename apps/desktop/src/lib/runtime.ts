@@ -21,6 +21,8 @@ import {
   commitWorkspaceSnapshot,
   createProject as createProjectFolder,
   importProject as importProjectFolder,
+  setProjectPinned as setProjectPinnedCmd,
+  deleteProject as deleteProjectCmd,
   currentResearchScope,
   getApprovalMode,
   isTauri,
@@ -121,6 +123,8 @@ interface RuntimeState {
    *  its own open artifact / Files browser and gets it back when reopened.
    *  In-memory only: an app restart returns every session to a closed pane. */
   panes: Record<string, PaneState>;
+  sessionAgents: Record<string, AgentMode>;
+  setAgentMode: (mode: AgentMode) => void;
   openArtifact: (a: ArtifactBlock) => void;
   closeArtifact: () => void;
   setShowFiles: (show: boolean) => void;
@@ -158,6 +162,8 @@ interface RuntimeState {
   /** Copy an existing folder into AI4HEOR, switch to the copy, and start a
    *  clean project task without modifying the selected source folder. */
   importProject: (path: string) => Promise<ProjectInfo | null>;
+  setProjectPinned: (id: string, pinned: boolean) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
   /** Fresh draft pinned inside `path` (a project folder), so the next new
    *  session lands there. Skips the reconnect when the folder is already active. */
   startDraftInWorkspace: (path: string) => Promise<void>;
@@ -254,6 +260,7 @@ const emptyThread = (): Thread => ({ blocks: [], index: {}, loaded: false });
 /** Threads key for the draft conversation — its blocks move to the real
  *  session id once the session exists, so the page never visibly resets. */
 export const DRAFT_KEY = "draft";
+export type AgentMode = "build" | "plan";
 /** One bounded retry for the first POSTs after a sidecar restart — the old
  *  connection occasionally dies mid-handshake ("Load failed"). */
 async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
@@ -660,6 +667,11 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   permissions: [],
   sessionParents: {},
   panes: {},
+  sessionAgents: {},
+  setAgentMode: (mode) =>
+    set((state) => ({
+      sessionAgents: { ...state.sessionAgents, [state.currentId ?? DRAFT_KEY]: mode },
+    })),
   projects: [],
   researchScope: null,
   workspace: null,
@@ -1371,6 +1383,29 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     }
   },
 
+  setProjectPinned: async (id, pinned) => {
+    set((state) => ({
+      projects: state.projects.map((project) =>
+        project.id === id ? { ...project, pinned } : project,
+      ),
+    }));
+    try {
+      await setProjectPinnedCmd(id, pinned);
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+    }
+    void get().refreshProjects();
+  },
+
+  deleteProject: async (id) => {
+    try {
+      await deleteProjectCmd(id);
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+    }
+    void get().refreshProjects();
+  },
+
   startDraftInWorkspace: async (path) => {
     if (get().workspace === path) {
       // Already inside the project — a clean pinned draft, no reconnect.
@@ -1503,7 +1538,15 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       // Pin every turn to the model currently selected by the researcher.
       // OpenCode otherwise retains the model attached when an older session
       // was created, even after the global provider/model is changed.
-      (sid) => withRetry(() => client!.sendPrompt(sid, text, undefined, get().defaultModel)),
+      (sid) =>
+        withRetry(() =>
+          client!.sendPrompt(
+            sid,
+            text,
+            get().sessionAgents[get().currentId ?? DRAFT_KEY] ?? "build",
+            get().defaultModel,
+          ),
+        ),
       false,
     ),
 

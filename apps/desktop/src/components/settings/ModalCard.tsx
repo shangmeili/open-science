@@ -3,6 +3,7 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { isTauri, modalStatus, type ModalStatus } from "@/lib/tauri";
 import { cn } from "@/lib/cn";
+import { Section } from "./Section";
 
 /**
  * Cloud compute (Modal) status (P2-2). Like the HPC card, the app never handles
@@ -34,15 +35,13 @@ export function ModalCard() {
   const dot = ok ? "bg-ok" : status?.installed ? "bg-warn" : "bg-muted";
 
   return (
-    <section className="mt-5 rounded-card border border-border bg-surface shadow-card">
-      <header className="flex items-center gap-2 border-b border-border px-5 py-3">
-        <div className="min-w-0 flex-1">
-          <h2 className="font-serif text-[15px] text-text">{t("modal.title")}</h2>
-          <p className="mt-0.5 text-xs text-muted">{t("modal.subtitle")}</p>
-        </div>
-        {isTauri && (
+    <Section
+      title={t("modal.title")}
+      hint={t("modal.subtitle")}
+      action={
+        isTauri ? (
           <button
-            className="inline-flex items-center gap-1 rounded-input border border-border px-2 py-1 text-[12px] text-muted hover:text-text"
+            className="inline-flex items-center gap-1 rounded-input border border-transparent bg-surface-2 px-2.5 py-1 text-[12px] text-muted transition-colors hover:bg-border/50 hover:text-text"
             onClick={() => void check()}
             disabled={checking}
             title={t("modal.recheck")}
@@ -50,9 +49,10 @@ export function ModalCard() {
             {checking ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}{" "}
             {t("modal.recheck")}
           </button>
-        )}
-      </header>
-      <div className="px-5 py-4 text-[13px]">
+        ) : undefined
+      }
+    >
+      <div className="text-[13px]">
         {!isTauri ? (
           <p className="text-muted">{t("modal.unavailable")}</p>
         ) : (
@@ -78,6 +78,6 @@ export function ModalCard() {
           </div>
         )}
       </div>
-    </section>
+    </Section>
   );
 }

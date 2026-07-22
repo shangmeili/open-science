@@ -6,6 +6,7 @@ import i18n from "@/i18n";
 import { cn } from "@/lib/cn";
 import { DiffView } from "@/components/code-viewer/DiffView";
 import { STATUS } from "./ToolCallRow";
+import { SubagentActivity } from "./SubagentActivity";
 import { ReasoningRow } from "./ReasoningRow";
 
 // Codex-style tool activity: consecutive quiet tool steps fold into one
@@ -261,7 +262,9 @@ function ToolRow({ block, activity }: { block: ToolCallBlock; activity?: string 
         {block.meta && <span className="shrink-0 text-xs text-muted">{block.meta}</span>}
       </div>
       {/* Live pulse of the subagent this task spawned. */}
-      {activity && running && (
+      {running && block.childSessionId ? (
+        <SubagentActivity childId={block.childSessionId} />
+      ) : activity && running ? (
         <div className="flex items-center gap-2 px-2 pb-0.5 text-xs" data-subagent-activity>
           <span
             aria-hidden
@@ -270,7 +273,7 @@ function ToolRow({ block, activity }: { block: ToolCallBlock; activity?: string 
           <span aria-hidden className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />
           <span className="min-w-0 flex-1 truncate font-mono text-muted">{activity}</span>
         </div>
-      )}
+      ) : null}
       {/* While running, the output tail is always visible — no click needed. */}
       {running && block.partialOutput && <LiveTail text={block.partialOutput} />}
       {detail && <Collapse open={open}>{detail}</Collapse>}

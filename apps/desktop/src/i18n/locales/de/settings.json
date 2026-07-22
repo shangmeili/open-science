@@ -1,9 +1,30 @@
 {
+  "nav": {
+    "back": "Zurück zur App",
+    "general": "Allgemein",
+    "appearance": "Erscheinungsbild",
+    "models": "Modelle",
+    "runtime": "Laufzeit",
+    "connectors": "Konnektoren",
+    "compute": "Rechenleistung",
+    "privacy": "Datenschutz",
+    "browser": "Browser",
+    "remote": "Fernzugriff"
+  },
   "appearance": {
     "title": "Erscheinungsbild",
+    "themeLabel": "Design",
     "theme": {
       "light": "Hell",
+      "warm": "Warm",
       "dark": "Dunkel"
+    },
+    "zoom": {
+      "label": "Zoom",
+      "hint": "{{mod}} + / − zum Zoomen, {{mod}} 0 zum Zurücksetzen",
+      "in": "Vergrößern",
+      "out": "Verkleinern",
+      "reset": "Zurücksetzen"
     }
   },
   "language": {
@@ -13,40 +34,27 @@
     "title": "Einstellungen",
     "subtitle": "KI-Assistent, Modelle, Evidenzwerkzeuge, Arbeitsbereich und lokale Analyseumgebung konfigurieren."
   },
-  "supportReport": {
-    "title": "Problemdiagnose",
-    "hint": "Bei einer Problemmeldung einen Bericht exportieren",
-    "description": "Der Bericht enthält nur App-Version, Systemarchitektur, Status des lokalen Assistenten und zusammengefasste Ereigniszahlen. Modellzugänge, Projektpfade, Forschungsdateien, Gespräche und Rohprotokolle sind ausgeschlossen.",
-    "export": "Diagnosebericht exportieren",
-    "exporting": "Bericht wird erstellt…",
-    "saved": "Diagnosebericht gespeichert",
-    "failed": "Diagnosebericht konnte nicht exportiert werden"
-  },
-  "readiness": {
-    "title": "Arbeitsbereitschaft",
-    "checking": "Dieser Computer wird geprüft…",
-    "readyTitle": "Bereit zum Arbeiten",
-    "readyBody": "Projektordner, integrierte Methoden und lokaler Assistent sind verfügbar. Ein Modell muss nur bei Bedarf verbunden werden.",
-    "attentionTitle": "Ein Punkt muss geprüft werden",
-    "attentionBody": "Die Projektdateien bleiben auf diesem Computer. Prüfen Sie den folgenden Punkt und versuchen Sie es erneut.",
-    "actions": { "recheck": "Erneut prüfen", "restart": "Lokalen Assistenten neu starten", "restarting": "Neustart…", "openSettings": "Prüfen" },
-    "checks": {
-      "needsAttention": "Prüfung erforderlich",
-      "workspace": { "title": "Projektordner", "ready": "Beschreibbar" },
-      "skills": { "title": "Integrierte Skills", "ready": "{{count}} Skills verfügbar" },
-      "heorCore": { "title": "Lokale HEOR-Berechnungen", "ready": "Erforderliche Dateien geprüft" },
-      "harness": { "title": "Projekt-Audit-Harness", "ready": "Erforderliche Dateien geprüft" },
-      "runtime": { "title": "Lokaler Assistent", "ready": "Bereit", "connecting": "Wird gestartet…", "error": "Prüfung erforderlich", "offline": "Nicht aktiv" },
-      "model": { "title": "Modell (optional)", "optional": "Nicht verbunden — lokale Berechnungen funktionieren weiterhin" }
-    },
-    "scope": "Modell, Python und Jupyter sind für diese Prüfung nicht erforderlich; richten Sie sie nur bei Bedarf ein. Geprüft wird die Verfügbarkeit der Software, nicht die methodische Eignung oder wissenschaftliche Validität.",
-    "technical": "Technische Details"
-  },
   "runtime": {
     "title": "Laufzeit des KI-Assistenten",
     "hint": "Wird von der Desktop-App automatisch gestartet und verwaltet",
     "connect": "Verbinden",
     "disconnect": "Trennen",
+    "serverLabel": "Server",
+    "serverUrlPlaceholder": "http://127.0.0.1:4096",
+    "proxyLabel": "Netzwerk-Proxy",
+    "proxySystem": "System folgen",
+    "proxyCustom": "Benutzerdefiniert…",
+    "proxyNone": "Direkt (kein Proxy)",
+    "proxyPlaceholder": "http://127.0.0.1:7890 / socks5://host:port",
+    "proxyDirectHint": "Alle Verbindungen der Agent-Laufzeit erfolgen direkt.",
+    "proxyEffective": "Weiterleitung über {{url}}",
+    "proxyNoneDetected": "Kein System-Proxy erkannt — Verbindungen erfolgen direkt.",
+    "mirrorTitle": "Paket-Spiegel",
+    "mirrorPypi": "PyPI-Index",
+    "mirrorPython": "Python-Download",
+    "mirrorPypiPlaceholder": "https://pypi.tuna.tsinghua.edu.cn/simple",
+    "mirrorPythonPlaceholder": "https://mirror.example.com/python-build-standalone",
+    "mirrorHint": "Optionale Spiegelserver, nur beim Einrichten von Python-Tools (Jupyter, Wissenschaftsdatenbanken) in Netzwerken verwendet, in denen pypi.org / github.com langsam sind. Leer lassen für Standardwerte.",
     "status": {
       "ready": "Bereit",
       "connecting": "Verbindung wird hergestellt…",
@@ -59,42 +67,11 @@
       "engineLabel": "Laufzeit-Engine",
       "engineValue": "OpenCode",
       "endpointLabel": "Lokaler Endpunkt"
-    },
-    "serverUrlPlaceholder": "http://127.0.0.1:4096",
-    "proxyLabel": "Netzwerk-Proxy",
-    "proxySystem": "System folgen",
-    "proxyCustom": "Benutzerdefiniert…",
-    "proxyNone": "Direkt (kein Proxy)",
-    "proxyPlaceholder": "http://127.0.0.1:7890 / socks5://host:port",
-    "proxyDirectHint": "Alle Verbindungen der Agent-Laufzeit erfolgen direkt.",
-    "proxyEffective": "Weiterleitung über {{url}}",
-    "proxyNoneDetected": "Kein System-Proxy erkannt — Verbindungen erfolgen direkt.",
-    "mirrorPypi": "PyPI-Index",
-    "mirrorPython": "Python-Download",
-    "mirrorPypiPlaceholder": "https://pypi.tuna.tsinghua.edu.cn/simple",
-    "mirrorPythonPlaceholder": "https://mirror.example.com/python-build-standalone",
-    "mirrorHint": "Optionale Spiegelserver, nur beim Einrichten von Python-Tools (Jupyter, Wissenschaftsdatenbanken) in Netzwerken verwendet, in denen pypi.org / github.com langsam sind. Leer lassen für Standardwerte."
-  },
-  "about": {
-    "title": "Über AI4HEOR",
-    "hint": "Produktprofil, Version und Kontakt",
-    "currentVersion": "Version {{version}}",
-    "developedBy": "AI4HEOR wird von Codex Agent für eine von Forschenden geleitete Arbeit in Pharmakoökonomie und HEOR entwickelt.",
-    "positioning": "Die Arbeitsumgebung basiert auf dem quelloffenen Open-Science-Fundament. Sie ist auf natürliche Sprache ausgerichtet, nutzt Formulare ergänzend, arbeitet lokal zuerst und unabhängig vom Modellanbieter. Deterministische Berechnungen, nachvollziehbare Abläufe und die Bestätigung zentraler wissenschaftlicher Entscheidungen durch Forschende stehen im Mittelpunkt.",
-    "openScience": "Open-Science-Projekt ansehen",
-    "contactTitle": "Kontakt und Feedback",
-    "contactBody": "Bei Fragen oder Anregungen nehmen Sie bitte Kontakt auf. Klicken Sie auf die E-Mail-Adresse, um sie zu kopieren.",
-    "copyEmail": "Kontakt-E-Mail kopieren",
-    "emailCopied": "Kontakt-E-Mail kopiert",
-    "emailCopyFailed": "E-Mail konnte nicht kopiert werden; bitte manuell auswählen",
-    "xiaohongshuAlt": "Xiaohongshu-Profilkarte von Wild Alchemist Lao M",
-    "xiaohongshuCaption": "Xiaohongshu: 野生炼丹师老M (ID 18669050668)"
+    }
   },
   "updates": {
     "title": "App-Updates",
     "hint": "Installierte Version und Veröffentlichungskanal anzeigen",
-    "unavailable": "Online-Updates sind noch nicht verfügbar",
-    "unavailableHint": "Für AI4HEOR ist noch kein offizieller Veröffentlichungskanal eingerichtet. Dieser Build sucht daher nicht online nach Updates. Versionsvergleich und Hinweise werden nach Festlegung der offiziellen Quelle aktiviert.",
     "available": "Update verfügbar",
     "checking": "Wird geprüft",
     "failed": "Prüfung fehlgeschlagen",
@@ -111,7 +88,9 @@
     "autoCheckHint": "Standardmäßig aktiv. Die App prüft höchstens einmal pro Tag.",
     "showBadge": "Punkt in Einstellungen anzeigen",
     "showBadgeHint": "Zeigt einen roten Punkt in den Einstellungen, wenn ein neues Release gefunden wurde.",
-    "privacy": "Es wird nur die öffentliche GitHub-Releases-API kontaktiert. Workspace-Dateien und API-Schlüssel werden nicht gesendet."
+    "privacy": "Es wird nur die öffentliche GitHub-Releases-API kontaktiert. Workspace-Dateien und API-Schlüssel werden nicht gesendet.",
+    "unavailable": "Online-Updates sind noch nicht verfügbar",
+    "unavailableHint": "Für AI4HEOR ist noch kein offizieller Veröffentlichungskanal eingerichtet. Dieser Build sucht daher nicht online nach Updates. Versionsvergleich und Hinweise werden nach Festlegung der offiziellen Quelle aktiviert."
   },
   "model": {
     "title": "Modell",
@@ -160,9 +139,6 @@
     "pasteCode": "Den Code aus dem Browser einfügen",
     "customEndpoint": "Benutzerdefinierter Endpunkt",
     "customEndpointHint": "selbst gehostet · lokales Ollama · OpenAI-/Anthropic-kompatibel",
-    "minimaxChinaTokenPlanName": "MiniMax China Token Plan",
-    "fillMinimaxChinaTokenPlan": "MiniMax China Token Plan eintragen",
-    "customCredentialHint": "Die Endpunktkonfiguration speichert niemals den API-Schlüssel. OpenCode verwahrt Zugangsdaten getrennt in seinem privaten lokalen Authentifizierungsspeicher.",
     "customNamePlaceholder": "Name — z. B. Ollama, Mein DeepSeek-Gateway",
     "openaiCompatible": "OpenAI-kompatibel",
     "anthropicCompatible": "Anthropic-kompatibel",
@@ -170,34 +146,74 @@
     "customKeyPlaceholder": "API-Schlüssel — optional, für Ollama nicht erforderlich",
     "customModelsPlaceholder": "Modell-IDs, durch Kommas getrennt",
     "addEndpoint": "Endpunkt hinzufügen",
-    "importLogin": "Zugangsdaten aus einer kompatiblen lokalen CLI importieren"
+    "importLogin": "Zugangsdaten aus einer kompatiblen lokalen CLI importieren",
+    "minimaxChinaTokenPlanName": "MiniMax China Token Plan",
+    "fillMinimaxChinaTokenPlan": "MiniMax China Token Plan eintragen",
+    "customCredentialHint": "Die Endpunktkonfiguration speichert niemals den API-Schlüssel. OpenCode verwahrt Zugangsdaten getrennt in seinem privaten lokalen Authentifizierungsspeicher."
   },
   "mcp": {
     "title": "Evidenz- und MCP-Werkzeuge",
     "hint": "Integrierter HEOR-Evidenzzugang plus optionale, von Forschenden verwaltete MCP-Server",
     "connectPrompt": "Verbinden Sie die Runtime, um MCP-Server zu konfigurieren.",
+    "openSource": "Open Source",
+    "enterKeyFirstTitle": "Zuerst den API-Schlüssel eingeben",
+    "settingUp": "Wird eingerichtet…",
+    "enable": "Aktivieren",
+    "freeKeySuffix": "(kostenloser Schlüssel)",
+    "getFreeKey": "Kostenlosen Schlüssel anfordern",
+    "jupyterLabel": "Jupyter",
+    "jupyterDescription": "ermöglicht dem Agenten die Steuerung echter Notebooks · isolierte Umgebung mit numpy·pandas·matplotlib, ~500 MB beim ersten Ausführen · nach der Einrichtung nutzt auch die „Ausführen“-Schaltfläche der App sie, sodass Sie und der Agent sich ein Python teilen",
+    "setUpAndEnable": "Einrichten & aktivieren",
+    "startingDownload": "Download wird gestartet…",
+    "typeLocal": "lokal",
+    "typeRemote": "remote",
+    "namePlaceholder": "Name — z. B. jupyter, playwright",
+    "commandPlaceholder": "Befehl — z. B. npx -y @playwright/mcp",
+    "urlPlaceholder": "URL — z. B. https://example.com/mcp",
+    "addServer": "Server hinzufügen",
     "builtIn": "integriert",
     "humanAuthorization": "Freigabe durch Menschen",
     "heorEvidenceLabel": "HEOR-Evidenzsuche",
     "heorEvidenceDescription": "Metadatenabruf von PubMed und ClinicalTrials.gov über feste Endpunkte. Der Agent bereitet eine hashgebundene Anfrage vor; nur der Mensch darf den Netzwerkzugriff freigeben.",
     "heorEvidenceSources": "{{sources}} · ${{id}}",
     "externalBoundary": "Hinzugefügte Server sind nicht verwaltete externe Fähigkeiten. Prüfen Sie Code, Lizenz, Datenabfluss und Zugangsdaten; sie erhalten weder wissenschaftliche Entscheidungs- noch Freigaberechte.",
-    "settingUp": "Wird eingerichtet…",
-    "enable": "Aktivieren",
-    "jupyterLabel": "Jupyter",
-    "jupyterDescription": "ermöglicht dem Agenten die Steuerung echter Notebooks · isolierte Umgebung mit numpy·pandas·matplotlib, ~500 MB beim ersten Ausführen · nach der Einrichtung nutzt auch die „Ausführen“-Schaltfläche der App sie, sodass Sie und der Agent sich ein Python teilen",
-    "setUpAndEnable": "Einrichten & aktivieren",
-    "startingDownload": "Download wird gestartet…",
     "setupStarting": "Jupyter wird eingerichtet. Beim ersten Mal werden einige hundert MB heruntergeladen; bitte warten…",
     "setupComplete": "Jupyter ist bereit. Der Assistent kann jetzt mit Notebooks arbeiten.",
     "setupFailed": "Jupyter konnte nicht eingerichtet werden",
-    "setupIncomplete": "Die Einrichtung wurde ohne die erforderlichen Verbindungsdaten beendet",
-    "typeLocal": "lokal",
-    "typeRemote": "remote",
-    "namePlaceholder": "Name — z. B. jupyter, playwright",
-    "commandPlaceholder": "Befehl — z. B. npx -y @playwright/mcp",
-    "urlPlaceholder": "URL — z. B. https://example.com/mcp",
-    "addServer": "Server hinzufügen"
+    "setupIncomplete": "Die Einrichtung wurde ohne die erforderlichen Verbindungsdaten beendet"
+  },
+  "browser": {
+    "label": "Browsersteuerung",
+    "title": "Browser",
+    "hint": "Lässt den Agenten einen echten Browser steuern – navigieren, klicken, Formulare ausfüllen und Seiten lesen.",
+    "description": "Lässt den Agenten Seiten öffnen, klicken, Formulare ausfüllen und das Web lesen – unter Wiederverwendung deiner Chrome-Anmeldung.",
+    "browseAs": "Surfen als",
+    "isolated": "Isoliert – neu, abgemeldet",
+    "showWindow": "Browserfenster anzeigen",
+    "headedOffTitle": "Fenster ausblenden?",
+    "headedOffBody": "Du verwendest deine Chrome-Anmeldung erneut („{{profile}}“), daher steuert der Agent dein echtes Chrome – selbst wenn dies aus ist, öffnet sich meist trotzdem ein Fenster, besonders wenn Chrome bereits läuft. Für einen echten fensterlosen (Headless-)Browser stelle „Browse as“ auf den privaten Browser um.",
+    "headedOffConfirm": "Trotzdem ausschalten",
+    "noChrome": "Kein Chrome gefunden",
+    "download": "Browser herunterladen",
+    "noChromeWillDownload": "Kein Chrome erkannt – beim ersten Gebrauch wird ein privater Browser heruntergeladen.",
+    "detected": "Verwendet",
+    "privateBrowser": "Privater Browser (ohne Anmeldung)",
+    "privateNote": "Verwendet einen separat heruntergeladenen Browser, der dein Chrome nie berührt. Startet abgemeldet; wird beim ersten Gebrauch automatisch heruntergeladen.",
+    "reuseNote": "Verwendet eine Kopie von „{{name}}“. Der Agent handelt als dieses angemeldete Konto; dein echtes Chrome-Profil wird nie verändert. Die Navigation folgt weiterhin deinem Genehmigungsmodus.",
+    "isolatedNote": "Isoliertes Profil – der Agent startet abgemeldet. Wähle oben ein Konto, um dessen Anmeldungen wiederzuverwenden.",
+    "downloaded": "Browser heruntergeladen – du kannst die Browsersteuerung jetzt aktivieren.",
+    "couldNotDownload": "Browser konnte nicht heruntergeladen werden",
+    "enabledStatus": "Aktiviert",
+    "disabledStatus": "Nicht aktiviert",
+    "disable": "Deaktivieren",
+    "apply": "Änderungen übernehmen",
+    "capabilities": "Funktionen",
+    "capCore": "Standard – navigieren, klicken, lesen, Screenshot, JS ausführen",
+    "capNetwork": "Standard + Netzwerkaufzeichnung (HAR, Anfrageinspektion)",
+    "capAll": "Alles (vollständiger Funktionsumfang)",
+    "allowedDomains": "Erlaubte Domains",
+    "allowedDomainsHint": "Eine pro Zeile. Leer = keine Einschränkung. Unterstützt Muster wie *.example.com.",
+    "allowedDomainsPlaceholder": "example.com\n*.github.com"
   },
   "workspace": {
     "title": "Arbeitsbereich",
@@ -213,6 +229,13 @@
     "sourceAppManaged": "app-verwaltet",
     "sourceAutoDetected": "automatisch erkannt",
     "checking": "wird geprüft…",
+    "installTitle": "AI4HEOR-Analyseumgebung installieren",
+    "installHint": "Installiert isoliert Python 3.12, Jupyter und gängige Forschungspakete in den App-Daten, ohne das System-Python zu ändern. Der erste Download umfasst etwa 500 MB.",
+    "installManaged": "Lokale Umgebung installieren",
+    "installing": "Wird installiert…",
+    "installStarting": "Lokales Python und Forschungsabhängigkeiten werden installiert.",
+    "installComplete": "Die lokale Analyseumgebung ist installiert und jetzt das Standard-Python.",
+    "installFailed": "Die lokale Analyseumgebung konnte nicht installiert werden",
     "pathPlaceholder": "Interpreter-Pfad — z. B. /opt/anaconda3/bin/python3 oder C:\\ProgramData\\anaconda3\\python.exe",
     "useThisPython": "Dieses Python verwenden",
     "clearOverride": "Überschreibung zurücksetzen"
@@ -225,6 +248,7 @@
     "couldNotSetFolder": "Der Ordner konnte nicht festgelegt werden",
     "couldNotSetModel": "Das Modell konnte nicht festgelegt werden",
     "defaultModelSet": "Standardmodell auf {{model}} gesetzt",
+    "defaultModelReset": "Standardmodell {{old}} ist nicht mehr verfügbar — auf {{model}} umgestellt",
     "couldNotSaveKey": "Der Schlüssel konnte nicht gespeichert werden",
     "providerConnected": "{{providerID}} verbunden",
     "couldNotStartLogin": "Die Anmeldung konnte nicht gestartet werden",
@@ -317,5 +341,106 @@
       "couldNotCancel": "{{id}} konnte nicht abgebrochen werden",
       "jobCanceled": "Job {{id}} abgebrochen"
     }
+  },
+  "remote": {
+    "title": "Fernzugriff",
+    "hint": "Macht diesen Desktop zu einer sicheren API – erreiche deine Sitzungen und Dateien vom Handy oder einem anderen Rechner im Netzwerk, per CLI oder Tunnel. Standardmäßig aus.",
+    "enable": "Fernzugriff aktivieren",
+    "enableHint": "Startet das authentifizierte Gateway. Nur an dieses Gerät gebunden, bis du unten das lokale Netzwerk erlaubst.",
+    "loopbackUrl": "Dieses Gerät",
+    "loopbackUrlHint": "In einem Browser auf diesem Mac öffnen oder eine CLI hierher zeigen lassen.",
+    "binding": "Erreichbar von",
+    "bindingHint": "Wo das Gateway lauscht. Aktiviere das lokale Netzwerk nur in einem vertrauenswürdigen Netz.",
+    "bindingLoopback": "Nur dieses Gerät",
+    "bindingLan": "Lokales Netzwerk",
+    "lanWarn": "Damit ist das Gateway für alle in deinem lokalen Netzwerk erreichbar. Jeder mit dem Token kann den Agenten steuern und deine Arbeitsbereichsdateien lesen. Tu dies nur in einem vertrauenswürdigen Netz. Fortfahren?",
+    "lanActive": "Von anderen Geräten in deinem Netzwerk erreichbar. Halte das Token geheim.",
+    "mode": "Zugriffsebene",
+    "modeFull": "Vollzugriff",
+    "modeReadonly": "Nur lesen",
+    "modeFullHint": "Clients können Sitzungen erstellen, Prompts senden, Tools ausführen und Freigaben beantworten.",
+    "modeReadonlyHint": "Clients können nur Sitzungen und Dateien lesen – keine Prompts, Tools oder Freigaben.",
+    "token": "Zugriffstoken",
+    "tokenHint": "Clients authentifizieren sich mit diesem Bearer-Token.",
+    "reveal": "Token anzeigen",
+    "hide": "Token verbergen",
+    "copy": "Kopieren",
+    "regenerate": "Token neu erzeugen",
+    "regenerated": "Neues Token erzeugt – bestehende Clients müssen sich neu verbinden.",
+    "openHint": "Öffne die obige URL in einem Browser und füge dieses Token zum Verbinden ein.",
+    "copied": "In die Zwischenablage kopiert",
+    "error": "Ändern des Fernzugriffs fehlgeschlagen",
+    "connect": "Verbinden",
+    "connectPrompt": "Gib das Zugriffstoken aus der Desktop-App ein → Einstellungen → Fernzugriff."
+  },
+  "supportReport": {
+    "title": "Problemdiagnose",
+    "hint": "Bei einer Problemmeldung einen Bericht exportieren",
+    "description": "Der Bericht enthält nur App-Version, Systemarchitektur, Status des lokalen Assistenten und zusammengefasste Ereigniszahlen. Modellzugänge, Projektpfade, Forschungsdateien, Gespräche und Rohprotokolle sind ausgeschlossen.",
+    "export": "Diagnosebericht exportieren",
+    "exporting": "Bericht wird erstellt…",
+    "saved": "Diagnosebericht gespeichert",
+    "failed": "Diagnosebericht konnte nicht exportiert werden"
+  },
+  "readiness": {
+    "title": "Arbeitsbereitschaft",
+    "checking": "Dieser Computer wird geprüft…",
+    "readyTitle": "Bereit zum Arbeiten",
+    "readyBody": "Projektordner, integrierte Methoden und lokaler Assistent sind verfügbar. Ein Modell muss nur bei Bedarf verbunden werden.",
+    "attentionTitle": "Ein Punkt muss geprüft werden",
+    "attentionBody": "Die Projektdateien bleiben auf diesem Computer. Prüfen Sie den folgenden Punkt und versuchen Sie es erneut.",
+    "actions": {
+      "recheck": "Erneut prüfen",
+      "restart": "Lokalen Assistenten neu starten",
+      "restarting": "Neustart…",
+      "openSettings": "Prüfen"
+    },
+    "checks": {
+      "needsAttention": "Prüfung erforderlich",
+      "workspace": {
+        "title": "Projektordner",
+        "ready": "Beschreibbar"
+      },
+      "skills": {
+        "title": "Integrierte Skills",
+        "ready": "{{count}} Skills verfügbar"
+      },
+      "heorCore": {
+        "title": "Lokale HEOR-Berechnungen",
+        "ready": "Erforderliche Dateien geprüft"
+      },
+      "harness": {
+        "title": "Projekt-Audit-Harness",
+        "ready": "Erforderliche Dateien geprüft"
+      },
+      "runtime": {
+        "title": "Lokaler Assistent",
+        "ready": "Bereit",
+        "connecting": "Wird gestartet…",
+        "error": "Prüfung erforderlich",
+        "offline": "Nicht aktiv"
+      },
+      "model": {
+        "title": "Modell (optional)",
+        "optional": "Nicht verbunden — lokale Berechnungen funktionieren weiterhin"
+      }
+    },
+    "scope": "Modell, Python und Jupyter sind für diese Prüfung nicht erforderlich; richten Sie sie nur bei Bedarf ein. Geprüft wird die Verfügbarkeit der Software, nicht die methodische Eignung oder wissenschaftliche Validität.",
+    "technical": "Technische Details"
+  },
+  "about": {
+    "title": "Über AI4HEOR",
+    "hint": "Produktprofil, Version und Kontakt",
+    "currentVersion": "Version {{version}}",
+    "developedBy": "AI4HEOR wird von Codex Agent für eine von Forschenden geleitete Arbeit in Pharmakoökonomie und HEOR entwickelt.",
+    "positioning": "Die Arbeitsumgebung basiert auf dem quelloffenen Open-Science-Fundament. Sie ist auf natürliche Sprache ausgerichtet, nutzt Formulare ergänzend, arbeitet lokal zuerst und unabhängig vom Modellanbieter. Deterministische Berechnungen, nachvollziehbare Abläufe und die Bestätigung zentraler wissenschaftlicher Entscheidungen durch Forschende stehen im Mittelpunkt.",
+    "openScience": "Open-Science-Projekt ansehen",
+    "contactTitle": "Kontakt und Feedback",
+    "contactBody": "Bei Fragen oder Anregungen nehmen Sie bitte Kontakt auf. Klicken Sie auf die E-Mail-Adresse, um sie zu kopieren.",
+    "copyEmail": "Kontakt-E-Mail kopieren",
+    "emailCopied": "Kontakt-E-Mail kopiert",
+    "emailCopyFailed": "E-Mail konnte nicht kopiert werden; bitte manuell auswählen",
+    "xiaohongshuAlt": "Xiaohongshu-Profilkarte von Wild Alchemist Lao M",
+    "xiaohongshuCaption": "Xiaohongshu: 野生炼丹师老M (ID 18669050668)"
   }
 }

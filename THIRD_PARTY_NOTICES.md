@@ -10,6 +10,9 @@ texts and copyright notices.
   checksum and runs in an app-private profile.
 - uv 0.11.26, `astral-sh/uv`, Apache-2.0 OR MIT. The executable is pinned by
   checksum and provisions local Python tools only after a user action.
+- agent-browser 0.32.1, `vercel-labs/agent-browser`, Apache-2.0. The
+  platform-specific executable is fetched from the versioned upstream release;
+  its license is bundled under `legal/agent-browser/LICENSE.txt`.
 
 ## Adapted components retained inside first-party Skills
 

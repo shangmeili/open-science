@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import * as ContextMenu from "@radix-ui/react-context-menu";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
+  ArrowLeft,
+  ArrowUpRight,
   ChevronRight,
   Files,
   FlaskConical,
@@ -24,6 +27,8 @@ import {
   useUiStore,
 } from "@/lib/store";
 import { useUpdateStore } from "@/lib/update";
+import { visibleSections, resolveSection } from "@/components/settings/sections";
+import { isGatewayWeb } from "@/lib/webMode";
 import { StatusPills } from "./StatusPills";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import logo from "@/assets/logo.webp";
@@ -32,6 +37,8 @@ interface Row {
   id: string;
   title: string;
   to: string;
+  running: boolean;
+  step: number;
 }
 
 /** Dragging the divider below this pointer x collapses the sidebar; dragging
@@ -51,14 +58,18 @@ function initialCollapsedProjects(): string[] {
 }
 
 export function Sidebar() {
-  const { t } = useTranslation("nav");
+  const { t } = useTranslation(["nav", "session", "settings"]);
   const navigate = useNavigate();
   const location = useLocation();
+  const inSettings = location.pathname.startsWith("/settings");
+  const activeSection = resolveSection(location.pathname.split("/")[2]);
   const {
     sessions,
     threads,
     projects,
     workspace,
+    runningSessions,
+    stepCounts,
     startDraft,
     startDraftInWorkspace,
     createProject,
@@ -90,7 +101,7 @@ export function Sidebar() {
     if (!dragging) return;
     // The sidebar starts at the window's left edge, so clientX is the width.
     const x = e.clientX;
-    if (x < COLLAPSE_BELOW) {
+    if (x < COLLAPSE_BELOW && !inSettings) {
       if (!sidebarCollapsed) setSidebarCollapsed(true);
       return;
     }
@@ -155,7 +166,7 @@ export function Sidebar() {
     const trimmed = name.trim();
     if (!trimmed || trimmed === p.name) return;
     try {
-      await renameProject(p.path, trimmed);
+      await renameProject(p.id, trimmed);
       await refreshProjects();
     } catch {
       /* the sidebar keeps showing the old name */
@@ -175,6 +186,8 @@ export function Sidebar() {
       id: s.id,
       title: displaySessionTitle(s.title, threads[s.id]?.blocks, t("items.new")),
       to: `/heor/${s.id}`,
+      running: !!runningSessions[s.id],
+      step: stepCounts[s.id] ?? 0,
     };
     const owner = s.directory ? projectByPath.get(s.directory) : undefined;
     if (owner) {
@@ -215,7 +228,9 @@ export function Sidebar() {
   const width = dragWidth ?? sidebarWidth;
 
   const sessionRow = (row: Row) => (
-    <div key={row.to} className="group relative">
+    <ContextMenu.Root key={row.to}>
+      <ContextMenu.Trigger asChild>
+    <div className="group relative">
       <NavLink
         to={row.to}
         className={cn(
@@ -228,10 +243,17 @@ export function Sidebar() {
         <span
           className={cn(
             "h-1.5 w-1.5 shrink-0 rounded-full",
-            "bg-ok",
+            row.running ? "animate-pulse bg-accent" : "bg-ok",
           )}
         />
         <span className="flex-1 truncate">{row.title}</span>
+        {row.running && (
+          <span className="shrink-0 text-[10px] tabular-nums text-accent">
+            {row.step > 0
+              ? t("session:live.status.step", { count: row.step })
+              : t("history.running")}
+          </span>
+        )}
       </NavLink>
       <button
         onClick={() => setPendingDelete(row)}
@@ -241,6 +263,27 @@ export function Sidebar() {
         <Trash2 size={13} />
       </button>
     </div>
+      </ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content className="z-50 min-w-[180px] rounded-card border border-border bg-surface p-1 text-[13px] text-text shadow-pop">
+          <ContextMenu.Item
+            onSelect={() => navigate(row.to)}
+            className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[highlighted]:bg-surface-2"
+          >
+            <ArrowUpRight size={14} className="shrink-0 text-muted" />
+            {t("history.open")}
+          </ContextMenu.Item>
+          <ContextMenu.Separator className="my-1 h-px bg-border" />
+          <ContextMenu.Item
+            onSelect={() => setPendingDelete(row)}
+            className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 text-error outline-none data-[highlighted]:bg-error/10"
+          >
+            <Trash2 size={14} className="shrink-0" />
+            {t("history.delete")}
+          </ContextMenu.Item>
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   );
 
   return (
@@ -262,16 +305,49 @@ export function Sidebar() {
             data-tauri-drag-region
             className="flex h-12 shrink-0 items-center pl-[78px]"
           >
-            <button
-              onClick={toggleSidebar}
-              aria-label={t("sidebar.collapse")}
-              title={t("sidebar.collapseTitle", { shortcut: "⌘B" })}
-              className="rounded p-1 text-text hover:bg-surface-2"
-            >
-              <PanelLeft size={14} strokeWidth={1.5} />
-            </button>
+            {!inSettings && (
+              <button
+                onClick={toggleSidebar}
+                aria-label={t("sidebar.collapse")}
+                title={t("sidebar.collapseTitle", { shortcut: "⌘B" })}
+                className="rounded p-1 text-text hover:bg-surface-2"
+              >
+                <PanelLeft size={14} strokeWidth={1.5} />
+              </button>
+            )}
           </div>
         )}
+        {inSettings ? (
+          <>
+            <div className={cn("px-3 pb-2", overlayTitlebar ? "pt-0" : "pt-3")}>
+              <button
+                onClick={() => navigate("/heor")}
+                className="flex w-full items-center gap-2 rounded-input px-2 py-1.5 text-[13px] text-muted transition-colors hover:bg-surface-2 hover:text-text"
+              >
+                <ArrowLeft size={15} />
+                {t("settings:nav.back")}
+              </button>
+            </div>
+            <nav className="flex flex-col gap-0.5 px-3">
+              {visibleSections(isGatewayWeb).map(({ key, icon: Icon }) => (
+                <NavLink
+                  key={key}
+                  to={`/settings/${key}`}
+                  className={cn(
+                    "flex items-center gap-2 rounded-input px-2 py-1.5 text-[13px]",
+                    activeSection === key
+                      ? "bg-surface-2 text-text"
+                      : "text-text/90 hover:bg-surface-2",
+                  )}
+                >
+                  <Icon size={15} className={activeSection === key ? "text-text" : "text-muted"} />
+                  {t(`settings:nav.${key}`)}
+                </NavLink>
+              ))}
+            </nav>
+          </>
+        ) : (
+        <>
         <div className={cn("px-4 pb-3", overlayTitlebar ? "pt-1" : "pt-4")}>
           <div className="flex items-center gap-1.5">
             <button
@@ -511,6 +587,8 @@ export function Sidebar() {
             onConfirm={confirmDelete}
             onCancel={() => setPendingDelete(null)}
           />
+        )}
+        </>
         )}
       </aside>
 

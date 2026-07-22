@@ -68,6 +68,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Fetch bundled goal plugin
+        shell: bash
+        run: bash scripts/dev/fetch-goal-plugin.sh
+
+      - name: Fetch bundled browser sidecar and license
+        shell: bash
+        run: bash scripts/dev/fetch-agent-browser.sh ${{ matrix.target }}
+
       - name: Validate pinned sidecar archive integrity
         run: python scripts/dev/test_sidecar_integrity.py -v
 

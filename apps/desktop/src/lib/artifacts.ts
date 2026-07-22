@@ -52,7 +52,13 @@ const REF_EXTS = [
   "bed", "bedgraph", "bdg", "gff", "gff3", "gtf", "vcf",
   "stl", "obj", "ply", "gltf", "glb",
 ];
-const REF_RE = new RegExp(`[\\w./-]+\\.(?:${REF_EXTS.join("|")})\\b`, "gi");
+// Unicode letters and numbers are required here: HEOR reports and figures are
+// commonly named in Chinese, and an ASCII-only `\\w` makes those outputs
+// invisible in the conversation even though the files were created correctly.
+const REF_RE = new RegExp(
+  `[\\p{L}\\p{N}_./-]+\\.(?:${REF_EXTS.join("|")})(?![\\p{L}\\p{N}_])`,
+  "giu",
+);
 
 /**
  * Extract workspace file paths mentioned in an agent message so a file produced by

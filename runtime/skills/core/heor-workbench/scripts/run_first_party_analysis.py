@@ -64,6 +64,19 @@ def _validate_research_contract(root: Path, plan: Path) -> None:
     specification.loader.exec_module(validator)
 
     plan_payload = json.loads(plan.read_bytes())
+    mappings = plan_payload.get("input_provenance")
+    if isinstance(mappings, list):
+        legacy = [
+            item for item in mappings
+            if isinstance(item, dict) and "input_path" in item and "path" not in item
+        ]
+        if legacy:
+            raise ValueError(
+                "analysis plan uses the legacy input_provenance.input_path contract; "
+                "migrate the existing values and evidence links to the current bundled "
+                "analysis-plan template before running. Do not inspect or modify the "
+                "bundled engine source"
+            )
     synthesis_path = root / "heor/evidence-synthesis.json"
     if synthesis_path.is_file():
         synthesis_raw = synthesis_path.read_bytes()

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import hljs from "highlight.js/lib/common";
-import "highlight.js/styles/github.css";
+// Token colors are theme-scoped in index.css (.hljs-* on --hl-* variables) —
+// a stylesheet import here would hardcode one theme for all three.
 
 interface Props {
   code: string;

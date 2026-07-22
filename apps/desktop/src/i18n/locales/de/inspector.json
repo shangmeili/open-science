@@ -104,7 +104,9 @@
       "schema": "Schema",
       "datasets": "Datensätze",
       "sampleIds": "Proben-IDs"
-    }
+    },
+    "mobileNoPreview": "Dieser Dateityp lässt sich hier nicht anzeigen – zum Ansehen herunterladen.",
+    "download": "Herunterladen"
   },
   "office": {
     "rendering": "Wird gerendert…",

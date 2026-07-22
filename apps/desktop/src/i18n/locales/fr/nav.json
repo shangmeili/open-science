@@ -1,7 +1,4 @@
 {
-  "accessibility": {
-    "skipToMain": "Aller à l’espace de travail HEOR"
-  },
   "sidebar": {
     "collapse": "Réduire la barre latérale",
     "collapseTitle": "Réduire la barre latérale ({{shortcut}})",
@@ -16,23 +13,46 @@
     "files": "Fichiers de recherche",
     "runs": "Historique des analyses",
     "skills": "Capacités de recherche",
+    "projects": "Projets",
     "heor": "Espace de recherche"
   },
   "projects": {
     "heading": "Projets",
     "new": "Nouveau projet",
-    "import": "Importer un projet existant",
+    "importedBadge": "importé",
+    "menuScratch": "Partir de zéro",
+    "menuExisting": "Utiliser un dossier existant",
+    "nameTitle": "Nommer le projet",
+    "nameSubtitle": "Court et reconnaissable",
     "namePlaceholder": "Nom du projet",
-    "intakePrompt": "Aide-moi à démarrer ce projet HEOR. Demande d’abord quelle question de décision, de recherche, d’évaluation ou d’apprentissage je veux traiter et quel en est l’usage prévu. Identifie ensuite uniquement les informations manquantes qui modifieraient réellement le travail. Je conserve la direction scientifique ; ne lance aucune recherche, ne choisis aucune méthode, ne suppose aucune donnée d’entrée et ne crée aucun enregistrement d’approbation avant que j’aie défini la tâche.",
     "newSessionAria": "Nouvelle tâche dans « {{name}} »",
     "noSessions": "Aucune tâche pour l’instant.",
-    "renameHint": "Double-cliquez pour renommer"
+    "renameHint": "Double-cliquez pour renommer",
+    "pageSearch": "Rechercher des projets",
+    "colName": "Nom",
+    "colSources": "Sources",
+    "colUpdated": "Mis à jour",
+    "noResults": "Aucun projet correspondant.",
+    "pin": "Épingler",
+    "unpin": "Détacher",
+    "rename": "Renommer",
+    "remove": "Retirer",
+    "more": "Plus",
+    "removeTitle": "Retirer {{name}} ?",
+    "removeBody": "Retire le projet de la barre latérale. Les fichiers sur le disque ne seront pas supprimés.",
+    "seeAll": "Tous les projets",
+    "openFolder": "Ouvrir {{path}}",
+    "import": "Importer un projet existant",
+    "intakePrompt": "Aide-moi à démarrer ce projet HEOR. Demande d’abord quelle question de décision, de recherche, d’évaluation ou d’apprentissage je veux traiter et quel en est l’usage prévu. Identifie ensuite uniquement les informations manquantes qui modifieraient réellement le travail. Je conserve la direction scientifique ; ne lance aucune recherche, ne choisis aucune méthode, ne suppose aucune donnée d’entrée et ne crée aucun enregistrement d’approbation avant que j’aie défini la tâche."
   },
   "history": {
     "heading": "Tâches",
     "empty": "Aucune tâche pour le moment.",
     "exampleTag": "exemple",
-    "deleteAria": "Supprimer {{title}}"
+    "open": "Ouvrir la tâche",
+    "delete": "Supprimer la tâche",
+    "deleteAria": "Supprimer {{title}}",
+    "running": "En cours"
   },
   "confirmDelete": {
     "sessionTitle": "Supprimer la tâche ?",
@@ -66,5 +86,8 @@
       "openSettings": "Ouvrir les paramètres",
       "toggleTheme": "Basculer entre thème clair et sombre"
     }
+  },
+  "accessibility": {
+    "skipToMain": "Aller à l’espace de travail HEOR"
   }
 }

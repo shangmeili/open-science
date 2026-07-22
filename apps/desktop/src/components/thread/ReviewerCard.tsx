@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { ChevronDown, ShieldCheck, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { FindingLevel, ReviewerBlock } from "@ai4s/shared";
@@ -12,7 +12,7 @@ const BADGE: Record<FindingLevel, { className: string }> = {
 
 /** Structured reviewer findings. Dismissal is a session-local reading aid —
  *  the underlying review text stays in the conversation. */
-export function ReviewerCard({ block }: { block: ReviewerBlock }) {
+export const ReviewerCard = memo(function ReviewerCard({ block }: { block: ReviewerBlock }) {
   const { t } = useTranslation(["session", "common"]);
   const [open, setOpen] = useState(true);
   const [dismissed, setDismissed] = useState<ReadonlySet<number>>(new Set());
@@ -84,4 +84,4 @@ export function ReviewerCard({ block }: { block: ReviewerBlock }) {
       )}
     </div>
   );
-}
+});

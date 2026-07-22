@@ -157,6 +157,9 @@ export interface SessionMeta {
   directory?: string;
   /** Set on subagent sessions: the session whose task tool spawned this one. */
   parentId?: string;
+  /** Epoch milliseconds from the runtime session timestamps. */
+  created?: number;
+  updated?: number;
 }
 
 export interface SkillInfo {

@@ -14,7 +14,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# macos-private-api keeps the inherited translucent macOS titlebar behavior.
+# It is a no-op on Windows and Linux.
+tauri = { version = "2", features = ["macos-private-api"] }
 tauri-plugin-shell = "2"
 tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
@@ -23,6 +25,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["time"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-clipboard-manager = "2"
+tauri-plugin-notification = "2"
 getrandom = "0.4.3"
 opener = { version = "0.8.5", features = ["reveal"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
@@ -30,3 +33,15 @@ reqwest = { version = "0.13", default-features = false, features = ["blocking", 
 sha2 = "0.10"
 pdf-extract = "0.12.0"
 printpdf = { version = "=0.11.3", default-features = false }
+# Preserve Open Science's external-workspace snapshot watcher.
+notify = "6"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+    "std",
+    "NSButton",
+    "NSControl",
+    "NSResponder",
+    "NSView",
+    "NSWindow",
+] }

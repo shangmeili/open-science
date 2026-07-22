@@ -75,13 +75,15 @@ fn approve_permission() -> Value {
 }
 
 /// Set the approval mode in OpenCode config JSON. "approve" installs the ask
-/// rules; "full" writes `"permission": {}` — zero rules (builtin defaults),
-/// with the key's presence marking that the user made a choice (so startup
-/// seeding never overrides it). Other keys are preserved.
+/// rules; "full" writes an explicit allow-all rule. An empty object is not
+/// equivalent: OpenCode still applies builtin prompts such as
+/// `external_directory`, which can leave an unattended test task stuck in a
+/// generic "running" state. The key's presence also marks that the user made
+/// a choice (so startup seeding never overrides it). Other keys are preserved.
 pub fn set_permission_mode(existing: &str, mode: &str) -> Result<String, String> {
     let permission = match mode {
         MODE_APPROVE => approve_permission(),
-        MODE_FULL => json!({}),
+        MODE_FULL => json!({ "*": "allow" }),
         other => return Err(format!("unknown approval mode \"{other}\"")),
     };
     let mut root: Value = if existing.trim().is_empty() {
@@ -98,13 +100,60 @@ pub fn set_permission_mode(existing: &str, mode: &str) -> Result<String, String>
     serde_json::to_string_pretty(&root).map_err(|e| e.to_string())
 }
 
-/// Seed the "approve" default on first run (no `permission` key yet).
-/// Returns None when the user already chose a mode — never overrides it.
+/// Seed the "approve" default on first run (no `permission` key yet). Also
+/// migrate the legacy full-access marker (`"permission": {}`) to the explicit
+/// allow-all rule required by current OpenCode. This preserves the user's
+/// existing full-access choice instead of silently reverting to approval mode.
 pub fn seed_default_permission(existing: &str) -> Option<String> {
-    if permission_mode_of(existing).is_some() {
+    match permission_mode_of(existing) {
+        Some(MODE_FULL) => {
+            let root: Value = serde_json::from_str(existing).ok()?;
+            if root.get("permission").is_some_and(|value| {
+                value.as_object().is_some_and(|rules| rules.is_empty())
+            }) {
+                return set_permission_mode(existing, MODE_FULL).ok();
+            }
+            None
+        }
+        Some(_) => None,
+        None => set_permission_mode(existing, MODE_APPROVE).ok(),
+    }
+}
+
+/// Point OpenCode at the deployed goal plugin while preserving user plugins.
+/// Stale AI4HEOR goal-plugin paths are replaced after an application upgrade.
+pub fn ensure_goal_plugin(existing: &str, plugin_path: &str) -> Option<String> {
+    let mut root: Value = if existing.trim().is_empty() {
+        json!({})
+    } else {
+        serde_json::from_str(existing).ok()?
+    };
+    if !root.is_object() {
+        root = json!({});
+    }
+    let plugins = root
+        .as_object_mut()?
+        .entry("plugin")
+        .or_insert_with(|| json!([]));
+    if !plugins.is_array() {
+        *plugins = json!([]);
+    }
+    let entries = plugins.as_array_mut()?;
+    let ours = |value: &Value| {
+        value
+            .as_str()
+            .is_some_and(|path| path.ends_with("goal-plugin.server.js"))
+    };
+    if entries
+        .iter()
+        .any(|value| value.as_str() == Some(plugin_path))
+        && entries.iter().filter(|value| ours(value)).count() == 1
+    {
         return None;
     }
-    set_permission_mode(existing, MODE_APPROVE).ok()
+    entries.retain(|value| !ours(value));
+    entries.push(json!(plugin_path));
+    serde_json::to_string_pretty(&root).ok()
 }
 
 /// The approval mode a config encodes: None when the `permission` key was
@@ -144,13 +193,13 @@ mod tests {
     }
 
     #[test]
-    fn full_mode_writes_empty_permission_marker() {
+    fn full_mode_writes_explicit_allow_all_rule() {
         let approved = set_permission_mode("", MODE_APPROVE).unwrap();
         let out = set_permission_mode(&approved, MODE_FULL).unwrap();
         let v: Value = serde_json::from_str(&out).unwrap();
-        // {} = zero rules = OpenCode builtin defaults; the key's presence
-        // marks "user chose this" so startup never re-seeds approve mode.
-        assert_eq!(v["permission"], json!({}));
+        // Explicitly override builtin asks (notably external_directory) so a
+        // full-access or automated test task never waits for confirmation.
+        assert_eq!(v["permission"], json!({ "*": "allow" }));
     }
 
     #[test]
@@ -178,6 +227,12 @@ mod tests {
         assert!(seed_default_permission(&seeded).is_none());
         let full = set_permission_mode(&seeded, MODE_FULL).unwrap();
         assert!(seed_default_permission(&full).is_none());
+        // Versions before 1.0.0 used an empty object for full access. Keep the
+        // user's choice while upgrading it to the effective allow-all rule.
+        let migrated = seed_default_permission(r#"{"model":"m","permission":{}}"#).unwrap();
+        let migrated_value: Value = serde_json::from_str(&migrated).unwrap();
+        assert_eq!(migrated_value["permission"], json!({ "*": "allow" }));
+        assert_eq!(migrated_value["model"], "m");
         // Other keys survive seeding.
         let seeded2 = seed_default_permission(r#"{"model":"m"}"#).unwrap();
         let v2: Value = serde_json::from_str(&seeded2).unwrap();

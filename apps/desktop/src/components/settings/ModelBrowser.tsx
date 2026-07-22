@@ -93,20 +93,20 @@ export function ModelBrowser({ providers, defaultModel, busy, onSelect, onManage
         <p className="mb-3 text-xs text-muted">{t("model.notSet")}</p>
       )}
       {options.length === 0 ? (
-        <div className="rounded-input border border-dashed border-border px-4 py-6 text-center">
+        <div className="px-4 py-8 text-center">
           <p className="text-[13px] text-muted">{t("model.noModels")}</p>
           <button className="mt-2 text-xs font-medium text-accent hover:underline" onClick={onManageProviders}>
             {t("model.manageProviders")}
           </button>
         </div>
       ) : (
-        <div className="grid overflow-hidden rounded-input border border-border sm:grid-cols-[148px_minmax(0,1fr)]">
-          <nav aria-label={t("model.filtersLabel")} className="border-b border-border bg-surface-2 p-2 sm:border-b-0 sm:border-r">
+        <div className="grid sm:grid-cols-[148px_minmax(0,1fr)]">
+          <nav aria-label={t("model.filtersLabel")} className="border-b border-faint p-2 sm:border-b-0 sm:border-r sm:border-faint">
             {filters.map((item) => (
               <FilterButton key={item.filter.kind} label={item.label} count={item.count} recent={item.recent}
                 active={sameFilter(filter, item.filter)} onClick={() => setFilter(item.filter)} />
             ))}
-            <div className="my-2 h-px bg-border" />
+            <div className="my-2 h-px bg-faint" />
             {providers.map((provider) => {
               // eslint-disable-next-line i18next/no-literal-string -- discriminated-union key, not display text
               const providerFilter: ModelFilter = { kind: "provider", providerID: provider.id };
@@ -135,7 +135,7 @@ export function ModelBrowser({ providers, defaultModel, busy, onSelect, onManage
                 const pending = model.key === pendingModel;
                 const favorite = preferences.favorites.includes(model.key);
                 return (
-                  <div role="listitem" key={model.key} className={cn("flex rounded-input border transition-colors", current ? "border-accent bg-accent/10" : "border-border bg-surface hover:bg-surface-2")}>
+                  <div role="listitem" key={model.key} className={cn("flex rounded-input transition-colors", current ? "bg-accent/10" : "hover:bg-surface-2")}>
                     {/* Never DOM-disable the rows: a disabled element leaves the
                         tab order and the browser drops focus to <body>, so a
                         keyboard user would lose their place on every switch.
@@ -170,7 +170,7 @@ export function ModelBrowser({ providers, defaultModel, busy, onSelect, onManage
 
 function FilterButton({ label, count, active, recent = false, onClick }: { label: string; count: number; active: boolean; recent?: boolean; onClick: () => void }) {
   return <button aria-pressed={active} onClick={onClick}
-    className={cn("flex w-full items-center gap-2 rounded-input px-2.5 py-2 text-left text-xs transition-colors", active ? "bg-surface text-text shadow-sm" : "text-muted hover:bg-surface hover:text-text")}>
+    className={cn("flex w-full items-center gap-2 rounded-input px-2.5 py-2 text-left text-xs transition-colors", active ? "bg-accent/10 text-accent" : "text-muted hover:bg-surface-2 hover:text-text")}>
     {recent && <Clock3 size={12} />}
     <span className="min-w-0 flex-1 truncate">{label}</span><span className="text-[10px] text-muted">{count}</span>
   </button>;

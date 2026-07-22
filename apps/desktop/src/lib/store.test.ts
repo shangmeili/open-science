@@ -4,16 +4,20 @@ import { useUiStore } from "./store";
 describe("uiStore theme", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    useUiStore.setState({ theme: "light" });
+    useUiStore.setState({ theme: "warm" });
   });
 
-  it("toggles theme and persists to localStorage", () => {
+  it("cycles theme and persists to localStorage", () => {
     useUiStore.getState().toggleTheme();
     expect(useUiStore.getState().theme).toBe("dark");
-    expect(window.localStorage.getItem("ai4s.theme")).toBe("dark");
+    expect(window.localStorage.getItem("ai4s.theme.v2")).toBe("dark");
 
     useUiStore.getState().toggleTheme();
     expect(useUiStore.getState().theme).toBe("light");
-    expect(window.localStorage.getItem("ai4s.theme")).toBe("light");
+    expect(window.localStorage.getItem("ai4s.theme.v2")).toBe("light");
+
+    useUiStore.getState().toggleTheme();
+    expect(useUiStore.getState().theme).toBe("warm");
+    expect(window.localStorage.getItem("ai4s.theme.v2")).toBe("warm");
   });
 });

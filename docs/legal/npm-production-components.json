@@ -2,7 +2,7 @@
   "schema": "ai4heor-npm-license-inventory/v1",
   "generated_on": "2026-07-21",
   "scope": "pnpm production dependency universe resolved from the lockfile",
-  "lockfile_sha256": "011824d232b845c601b87a18845f5170011c445ceb1370616aff98ec469883b0",
+  "lockfile_sha256": "f3fe115adad991838f9e2d0c01000a2e4f41638c45d348695e1bc87968913e28",
   "components": [
     {
       "name": "3dmol",
@@ -431,6 +431,15 @@
       "name": "@tauri-apps/plugin-clipboard-manager",
       "versions": [
         "2.3.2"
+      ],
+      "license": "MIT OR Apache-2.0",
+      "author": null,
+      "homepage": "https://github.com/tauri-apps/plugins-workspace#readme"
+    },
+    {
+      "name": "@tauri-apps/plugin-notification",
+      "versions": [
+        "2.3.3"
       ],
       "license": "MIT OR Apache-2.0",
       "author": null,

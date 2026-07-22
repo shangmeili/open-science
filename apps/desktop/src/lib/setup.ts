@@ -7,24 +7,61 @@
 // means the download is unaffected by which page is open.
 import { create } from "zustand";
 import { getClient, useRuntimeStore } from "./runtime";
-import { setupJupyter, startJupyter, watchSetupProgress } from "./tauri";
+import {
+  agentBrowserBin,
+  detectChrome,
+  getProxySetting,
+  removeConfigEntry,
+  setupJupyter,
+  startJupyter,
+  watchSetupProgress,
+} from "./tauri";
+import { BROWSER_MCP_ID, buildBrowserMcpConfig } from "./browser";
 import { toast } from "./toast";
 import i18n from "../i18n";
 
 interface SetupState {
   /** True while the isolated Jupyter env is being provisioned. */
   jupyterBusy: boolean;
+  browserBusy: boolean;
   /** Latest live uv output line — reassurance during a hundreds-of-MB download. */
   line: string | null;
   /** Bumped when any provisioning run finishes, so open pages re-read status. */
   generation: number;
+  installManagedPython: () => Promise<void>;
   enableJupyter: () => Promise<void>;
+  enableBrowser: (opts: EnableBrowserOptions) => Promise<void>;
+}
+
+export interface EnableBrowserOptions {
+  profileDir?: string;
+  headed?: boolean;
+  tools?: string;
+  allowedDomains?: string[];
+  useSystemChrome?: boolean;
 }
 
 export const useSetupStore = create<SetupState>((set, get) => ({
   jupyterBusy: false,
+  browserBusy: false,
   line: null,
   generation: 0,
+
+  installManagedPython: async () => {
+    if (get().jupyterBusy) return;
+    set({ jupyterBusy: true, line: null });
+    try {
+      toast.success(i18n.t("settings:python.installStarting"));
+      await setupJupyter();
+      toast.success(i18n.t("settings:python.installComplete"));
+    } catch (e) {
+      toast.error(
+        `${i18n.t("settings:python.installFailed")}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    } finally {
+      set((st) => ({ jupyterBusy: false, line: null, generation: st.generation + 1 }));
+    }
+  },
 
   enableJupyter: async () => {
     // One provisioning run at a time: a second `uv venv` / `pip install` into
@@ -52,6 +89,38 @@ export const useSetupStore = create<SetupState>((set, get) => ({
       );
     } finally {
       set((st) => ({ jupyterBusy: false, line: null, generation: st.generation + 1 }));
+    }
+  },
+
+  enableBrowser: async (opts) => {
+    if (get().browserBusy) return;
+    set({ browserBusy: true, line: null });
+    try {
+      const bin = await agentBrowserBin();
+      const chrome = opts.useSystemChrome === false ? null : await detectChrome();
+      const proxy = (await getProxySetting())?.effective ?? null;
+      const config = buildBrowserMcpConfig({
+        bin,
+        profileDir: opts.profileDir,
+        executablePath: chrome?.path,
+        headed: opts.headed,
+        proxy,
+        tools: opts.tools,
+        allowedDomains: opts.allowedDomains,
+      });
+      const hadEntry = await removeConfigEntry("mcp", BROWSER_MCP_ID)
+        .then(() => true)
+        .catch(() => false);
+      if (hadEntry) await useRuntimeStore.getState().connectRetry();
+      await getClient()!.addMcpServer(BROWSER_MCP_ID, config);
+      toast.success(i18n.t("settings:browser.enabledStatus"));
+      await useRuntimeStore.getState().loadCatalog();
+    } catch (e) {
+      toast.error(
+        `${i18n.t("settings:browser.label")}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    } finally {
+      set((st) => ({ browserBusy: false, line: null, generation: st.generation + 1 }));
     }
   },
 

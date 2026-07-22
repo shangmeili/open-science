@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Activity, FlaskConical, FolderOpen, Loader2, NotebookPen, PanelLeft, PlugZap } from "lucide-react";
@@ -59,6 +59,9 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
     workspacePinned,
     panes,
     commands,
+    agents,
+    sessionAgents,
+    setAgentMode,
     defaultModel,
     connect,
     openSession,
@@ -84,6 +87,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   const clearingLocalCommand = useRef(false);
   const [showHeorReview, setShowHeorReview] = useState(false);
   const [reviewRevision, setReviewRevision] = useState(0);
+  const reviewWasWorking = useRef(false);
 
   // A deliberate workspace move restarts the sidecar — expected and brief, so
   // the UI stays "connected" (no badge flip, no Connect button, no help card).
@@ -137,6 +141,40 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
     if (localClear) navigate("/heor", { replace: true });
     else afterTurn(id);
   };
+  // The right side is one pane with four possible contents. Keep the states
+  // mutually exclusive: previously "research & analysis" had render priority,
+  // so clicking Runs while that pane was open changed a hidden boolean but did
+  // not change what the researcher saw.
+  const toggleFilesPane = () => {
+    const next = !showFiles;
+    setShowFiles(next);
+    if (!next) return;
+    setShowRuns(false);
+    setShowHeorReview(false);
+    closeArtifact();
+  };
+  const toggleRunsPane = () => {
+    const next = !showRuns;
+    setShowRuns(next);
+    if (!next) return;
+    setShowFiles(false);
+    setShowHeorReview(false);
+    closeArtifact();
+  };
+  const toggleHeorReviewPane = () => {
+    const next = !showHeorReview;
+    setShowHeorReview(next);
+    if (!next) return;
+    setShowFiles(false);
+    setShowRuns(false);
+    closeArtifact();
+  };
+  const openArtifactPane = useCallback((artifact: Parameters<typeof openArtifact>[0]) => {
+    setShowFiles(false);
+    setShowRuns(false);
+    setShowHeorReview(false);
+    openArtifact(artifact);
+  }, [openArtifact, setShowFiles, setShowRuns]);
   const composerCommands = useMemo(() => {
     const local = [
       { name: "new", description: t("localCommand.newDescription"), source: "local" },
@@ -160,7 +198,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
         setReviewRevision((revision) => revision + 1);
       });
     },
-    onArtifactOpen: openArtifact,
+    onArtifactOpen: openArtifactPane,
     onFigureComment: (a, title) =>
       void sendPrompt(t("figure.commentPrompt", {
         title,
@@ -172,7 +210,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
     // object. This keeps the handler reference stable for the memoized list.
     subagentActivity: (childId) =>
       subagentActivity(useRuntimeStore.getState().threads[childId]?.blocks),
-  }), [editMessage, openArtifact, revertMessage, sendPrompt, t]);
+  }), [editMessage, openArtifactPane, revertMessage, sendPrompt, t]);
   const onEvaluate = (expr: string) => void sendPrompt(t("live.notebook.evaluatePrompt", { expr }));
 
   // A draft shows its local thread (the first message echoes there instantly,
@@ -194,6 +232,15 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   // working indicator, so a sent message is never silently "nowhere".
   const running = !!(currentId && runningSessions[currentId]);
   const working = sending || running;
+  useEffect(() => {
+    if (reviewWasWorking.current && !working) {
+      // The HEOR pane reads files from disk. Recreate it once the turn has
+      // actually ended so newly written plans, results, and reports replace
+      // the loading/empty state without requiring a manual refresh.
+      setReviewRevision((revision) => revision + 1);
+    }
+    reviewWasWorking.current = working;
+  }, [working]);
   // What the agent is doing right now — the newest still-running tool call.
   const currentTool = working
     ? [...(thread?.blocks ?? [])]
@@ -328,6 +375,8 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   const isMac = navigator.userAgent.includes("Mac");
   const overlayTitlebar = useOverlayTitlebar();
   const showNewTaskStart = isEmpty && !sessionId && !isWorkbench;
+  const planAvailable = agents.some((agent) => agent.name === "plan");
+  const agentMode = sessionAgents[currentId ?? DRAFT_KEY] ?? "build";
   const taskComposer = (
     <Composer
       key={sessionId ?? `task:${draftEpoch}`}
@@ -349,6 +398,8 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
       onOpenModelSettings={() => navigate("/settings")}
       approvalMode={approvalMode}
       onApprovalModeChange={(mode) => void setApprovalMode(mode)}
+      agentMode={planAvailable ? agentMode : undefined}
+      onAgentModeChange={planAvailable ? setAgentMode : undefined}
       beforeWorkspaceWrite={ensureStandaloneWorkspace}
       autoFocus={!sessionId}
       contextLabel={taskProject?.name}
@@ -399,7 +450,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
               names this session's folder; a draft has none yet. */}
           {sessionId && (
             <button
-              onClick={() => setShowFiles(!showFiles)}
+              onClick={toggleFilesPane}
               className={cn(
                 "flex items-center gap-1 rounded-md px-1.5 py-1 text-xs transition-colors hover:bg-surface-2",
                 showFiles ? "bg-surface-2 text-text" : "text-muted",
@@ -415,7 +466,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
           )}
           {sessionId && (
             <button
-              onClick={() => setShowRuns(!showRuns)}
+              onClick={toggleRunsPane}
               className={cn(
                 "flex items-center gap-1 rounded-md px-1.5 py-1 text-xs transition-colors hover:bg-surface-2",
                 showRuns ? "bg-surface-2 text-text" : "text-muted",
@@ -429,7 +480,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
           )}
           {canOpenHeorReview && (
             <button
-              onClick={() => setShowHeorReview((open) => !open)}
+              onClick={toggleHeorReviewPane}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors hover:bg-surface-2",
                 showHeorReview ? "bg-surface-2 text-text" : "text-muted",
@@ -445,7 +496,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
           {uniqueNotebooks.map((nb) => (
             <button
               key={nb.path}
-              onClick={() => openArtifact(nb)}
+              onClick={() => openArtifactPane(nb)}
               className={cn(
                 "flex items-center gap-1 rounded-md px-1.5 py-1 font-mono text-xs transition-colors hover:bg-surface-2",
                 activeArtifact?.path === nb.path ? "bg-surface-2 text-text" : "text-muted",
@@ -580,6 +631,11 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
             >
               <HeorReviewPane
                 project={activeProject}
+                activity={working ? {
+                  label: activeRequest ? t("live.status.paused") : activityLabel,
+                  detail: currentTool?.title,
+                  step,
+                } : undefined}
                 onClose={() => setShowHeorReview(false)}
                 onRequestRevision={(prompt) => {
                   useUiStore.getState().setComposerDraft(prompt);

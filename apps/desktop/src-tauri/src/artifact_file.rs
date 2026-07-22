@@ -426,7 +426,7 @@ pub fn list_dir(
     dir_entries(&scope_root(&app, root.as_deref())?, &rel)
 }
 
-fn dir_entries(root: &Path, rel: &str) -> Result<Vec<DirEntry>, String> {
+pub(crate) fn dir_entries(root: &Path, rel: &str) -> Result<Vec<DirEntry>, String> {
     let root = root.canonicalize().map_err(|e| e.to_string())?;
     let dir = resolve_under(&root, rel)?;
     if !dir.is_dir() {

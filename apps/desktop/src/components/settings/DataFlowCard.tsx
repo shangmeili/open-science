@@ -1,5 +1,8 @@
+import type { ReactNode } from "react";
 import { HardDrive, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/cn";
+import { Section } from "./Section";
 
 /**
  * Plain-language disclosure of what stays local vs. what is sent to the model
@@ -8,42 +11,59 @@ import { useTranslation } from "react-i18next";
  */
 export function DataFlowCard({ model, workspace }: { model: string | null; workspace: string | null }) {
   const { t } = useTranslation(["settings", "common"]);
+  /* eslint-disable i18next/no-literal-string -- `tone` is an internal enum for the dot color, not display text */
   return (
-    <section className="mt-5 rounded-card border border-border bg-surface shadow-card">
-      <header className="border-b border-border px-5 py-3">
-        <h2 className="font-serif text-[15px] text-text">{t("dataFlow.title")}</h2>
-        <p className="mt-0.5 text-xs text-muted">{t("dataFlow.subtitle")}</p>
-      </header>
-      <div className="grid gap-5 px-5 py-4 sm:grid-cols-2">
-        <div>
-          <div className="flex items-center gap-1.5 text-[13px] font-medium text-text">
-            <HardDrive size={14} className="text-ok" /> {t("dataFlow.local.heading")}
+    <Section title={t("dataFlow.title")} hint={t("dataFlow.subtitle")}>
+      <div className="grid gap-x-6 py-1 sm:grid-cols-2">
+        <div className="sm:pr-6">
+          <div className="mb-1 flex items-center gap-2.5">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[9px] bg-ok/15 text-ok">
+              <HardDrive size={15} />
+            </span>
+            <span className="text-[13px] font-semibold text-text">{t("dataFlow.local.heading")}</span>
           </div>
-          <ul className="mt-2 list-disc space-y-1.5 pl-4 text-[13px] leading-relaxed text-muted">
-            <li>
-              {t("dataFlow.local.workspaceFiles")}
-              {workspace && <span className="font-mono text-xs"> ({workspace})</span>}.
-            </li>
-            <li>{t("dataFlow.local.codeExecution")}</li>
-            <li>{t("dataFlow.local.sessionHistory")}</li>
-            <li>{t("dataFlow.local.providerKeys")}</li>
-          </ul>
+          <Item tone="ok">
+            {t("dataFlow.local.workspaceFiles")}
+            {workspace && <span className="font-mono text-[11px]"> ({workspace})</span>}.
+          </Item>
+          <Item tone="ok">{t("dataFlow.local.codeExecution")}</Item>
+          <Item tone="ok">{t("dataFlow.local.sessionHistory")}</Item>
+          <Item tone="ok">{t("dataFlow.local.providerKeys")}</Item>
         </div>
-        <div>
-          <div className="flex items-center gap-1.5 text-[13px] font-medium text-text">
-            <Send size={14} className="text-warn" /> {t("dataFlow.remote.heading")}
-            <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-muted">
+        <div className="mt-5 border-t border-faint pt-4 sm:mt-0 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[9px] bg-warn/15 text-warn">
+              <Send size={15} />
+            </span>
+            <span className="text-[13px] font-semibold text-text">{t("dataFlow.remote.heading")}</span>
+          </div>
+          <div className="mb-1 mt-1.5">
+            <span className="inline-block max-w-full break-all rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-muted">
               {model ?? t("dataFlow.remote.noModel")}
             </span>
           </div>
-          <ul className="mt-2 list-disc space-y-1.5 pl-4 text-[13px] leading-relaxed text-muted">
-            <li>{t("dataFlow.remote.messages")}</li>
-            <li>{t("dataFlow.remote.notBackground")}</li>
-            <li>{t("dataFlow.remote.providerPolicy")}</li>
-          </ul>
-          <p className="mt-2 text-xs text-muted">{t("dataFlow.skillsHint")}</p>
+          <Item tone="warn">{t("dataFlow.remote.messages")}</Item>
+          <Item tone="warn">{t("dataFlow.remote.notBackground")}</Item>
+          <Item tone="warn">{t("dataFlow.remote.providerPolicy")}</Item>
+          <Item tone="muted">{t("dataFlow.skillsHint")}</Item>
         </div>
       </div>
-    </section>
+    </Section>
+  );
+  /* eslint-enable i18next/no-literal-string */
+}
+
+/** One data-flow line: a semantic dot + text, hairline-separated from its sibling. */
+function Item({ tone, children }: { tone: "ok" | "warn" | "muted"; children: ReactNode }) {
+  return (
+    <div className="flex gap-2.5 py-2.5 text-[12.5px] leading-relaxed text-muted [&+&]:border-t [&+&]:border-faint">
+      <span
+        className={cn(
+          "mt-[7px] h-[5px] w-[5px] shrink-0 rounded-full",
+          tone === "ok" ? "bg-ok" : tone === "warn" ? "bg-warn" : "bg-muted",
+        )}
+      />
+      <span>{children}</span>
+    </div>
   );
 }

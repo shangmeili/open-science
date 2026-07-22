@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from "react";
+import { memo, useState, type MouseEvent } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { Download } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -10,7 +10,7 @@ import { saveTextWithFeedback } from "@/lib/download";
  * pin and leave a note; `onComment` (when a live session backs it) forwards the
  * note to the agent. Existing pins open a popover showing their note.
  */
-export function FigureBlock({
+export const FigureBlock = memo(function FigureBlock({
   block,
   onComment,
 }: {
@@ -127,7 +127,7 @@ export function FigureBlock({
       </div>
     </figure>
   );
-}
+});
 
 const clamp = (n: number) => Math.min(100, Math.max(0, n));
 

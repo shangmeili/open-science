@@ -8,13 +8,13 @@ import { shippedLocales } from "@/i18n/config";
 
 describe("Settings language selector", () => {
   it("shows a Language control with one button per shipped locale", async () => {
-    renderAt("/settings");
+    renderAt("/settings/appearance");
     const group = await screen.findByRole("group", { name: "Language" });
     expect(within(group).getAllByRole("button")).toHaveLength(shippedLocales().length);
   });
 
   it("updates the store locale on change", async () => {
-    renderAt("/settings");
+    renderAt("/settings/appearance");
     const group = await screen.findByRole("group", { name: "Language" });
     await userEvent.click(within(group).getByRole("button", { name: /日本語/ }));
     expect(useUiStore.getState().locale).toBe("ja");
@@ -23,21 +23,16 @@ describe("Settings language selector", () => {
 });
 
 describe("Settings page strings (i18n)", () => {
-  it("renders the page title, subtitle, and card titles in English", async () => {
+  it("renders the general section without flattening controls from other settings sections", async () => {
     renderAt("/settings");
-    expect(await screen.findByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Configure the AI assistant, models, evidence tools, workspace, and local analysis environment.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText("AI assistant runtime")).toBeInTheDocument();
-    expect(screen.getByText("Evidence and MCP tools")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "General" })).toBeInTheDocument();
     expect(screen.getByText("Workspace")).toBeInTheDocument();
+    expect(screen.queryByText("AI assistant runtime")).not.toBeInTheDocument();
+    expect(screen.queryByText("Evidence and MCP tools")).not.toBeInTheDocument();
   });
 
   it("keeps the OpenCode engine and local endpoint inside closed advanced diagnostics", async () => {
-    renderAt("/settings");
+    renderAt("/settings/runtime");
     const summary = await screen.findByText("Advanced diagnostics");
     const details = summary.closest("details");
     expect(details).not.toHaveAttribute("open");
@@ -47,11 +42,18 @@ describe("Settings page strings (i18n)", () => {
     expect(details).toHaveAttribute("open");
   });
 
-  it("renders the disconnected-runtime prompts and the Workspace fallback text", async () => {
-    renderAt("/settings");
+  it("renders disconnected-runtime prompts in their matching sections", async () => {
+    const models = renderAt("/settings/models");
     expect(await screen.findByText("Connect the runtime to configure models.")).toBeInTheDocument();
-    expect(screen.getByText("Connect the runtime to configure MCP servers.")).toBeInTheDocument();
-    expect(screen.getByText("available in the desktop app")).toBeInTheDocument();
+    expect(screen.queryByText("Connect the runtime to configure MCP servers.")).not.toBeInTheDocument();
+    models.unmount();
+
+    const connectors = renderAt("/settings/connectors");
+    expect(await screen.findByText("Connect the runtime to configure MCP servers.")).toBeInTheDocument();
+    connectors.unmount();
+
+    renderAt("/settings/general");
+    expect(await screen.findByText("available in the desktop app")).toBeInTheDocument();
   });
 
   it("renders separate model browsing and provider management surfaces when connected", async () => {
@@ -59,16 +61,20 @@ describe("Settings page strings (i18n)", () => {
     let view: ReturnType<typeof renderAt> | undefined;
     try {
       useRuntimeStore.setState({ status: "ready", defaultModel: null });
-      view = renderAt("/settings");
+      view = renderAt("/settings/models");
       // No client behind this render: the Models card sits in its loading
       // state while the separate Providers card is already on screen.
       expect(await screen.findByText("Loading the model catalog…")).toBeInTheDocument();
       expect(screen.getByRole("heading", { level: 2, name: "Providers" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Manage" })).toHaveAttribute("aria-expanded", "false");
-      expect(screen.getByText("HEOR evidence search")).toBeInTheDocument();
-      expect(screen.getByText(/PubMed · ClinicalTrials\.gov · \$heor-evidence-search/)).toBeInTheDocument();
+      expect(screen.queryByText("HEOR evidence search")).not.toBeInTheDocument();
       expect(screen.queryByText("Materials Project")).not.toBeInTheDocument();
       expect(screen.queryByText("FRED economic data")).not.toBeInTheDocument();
+      view.unmount();
+
+      view = renderAt("/settings/connectors");
+      expect(await screen.findByText("HEOR evidence search")).toBeInTheDocument();
+      expect(screen.getByText(/PubMed · ClinicalTrials\.gov · \$heor-evidence-search/)).toBeInTheDocument();
     } finally {
       view?.unmount();
       useRuntimeStore.setState({ status: original.status, defaultModel: original.defaultModel });

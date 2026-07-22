@@ -59,6 +59,10 @@ apps/desktop/src-tauri/binaries/
 # Third-party skill packs (fetched by scripts/dev/fetch-skills.sh)
 runtime/skills/external/
 
+# Bundled goal plugin (fetched by scripts/dev/fetch-goal-plugin.sh)
+runtime/goal-plugin/
+runtime/agent-browser/
+
 # Local demo recordings (too large for git)
 videos/
 

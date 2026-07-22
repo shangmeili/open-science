@@ -103,7 +103,9 @@
       "schema": "スキーマ",
       "datasets": "データセット",
       "sampleIds": "サンプル ID"
-    }
+    },
+    "mobileNoPreview": "このファイル形式はここでプレビューできません——ダウンロードしてご覧ください。",
+    "download": "ダウンロード"
   },
   "office": {
     "rendering": "レンダリング中…",

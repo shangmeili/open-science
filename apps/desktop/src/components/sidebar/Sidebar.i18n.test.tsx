@@ -22,4 +22,24 @@ describe("Sidebar i18n", () => {
     expect(screen.getByText("Tasks")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
   });
+
+  it("restores the Open Science section navigation inside settings", async () => {
+    renderAt("/settings/connectors");
+
+    const nav = await screen.findByRole("navigation");
+    for (const label of [
+      "General",
+      "Appearance",
+      "Models",
+      "Runtime",
+      "Connectors",
+      "Browser",
+      "Compute",
+      "Remote Access",
+      "Privacy",
+    ]) {
+      expect(within(nav).getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Back to app" })).toBeInTheDocument();
+  });
 });

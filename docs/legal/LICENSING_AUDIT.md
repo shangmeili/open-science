@@ -33,6 +33,7 @@ the exact bytes and preservation of all required notices.
 | Cargo locked dependency universe | 564 third-party packages plus the workspace crate; declared expressions recorded in inventory | Compiled as target requires | Internal test only until exact shipped-target notice corpus is bundled |
 | OpenCode 1.17.13 | Pinned sidecar; upstream tag declares MIT | Yes | Allowed with exact license notice still to bundle |
 | uv 0.11.26 | Pinned sidecar; upstream tag offers Apache-2.0 OR MIT | Yes | Allowed after selected license and notice are bundled |
+| agent-browser 0.32.1 | Versioned platform sidecar from `vercel-labs/agent-browser`; Apache-2.0 license is bundled with the app | Yes | Allowed with the bundled license and third-party notice |
 | Bundled Chinese HEOR knowledge base | 25 first-party Markdown learning documents plus manifest; sources are cited/linked, not copied wholesale | Yes | Allowed as project-authored synthesis; current-source verification remains a scientific requirement |
 | App and report fonts | Fontsource packages for Inter, JetBrains Mono, Source Serif 4 declare OFL-1.1; Source Han Sans CN 2.005R is pinned and its exact OFL-1.1 text is bundled | Yes | Source Han report-font notice is complete; remaining UI font notice corpus is a public-release task |
 | Documentation screenshots/showcase images | Tracked in the MIT source history; no separate third-party attribution found | Repository only | Keep under source license; re-audit before public marketing reuse |

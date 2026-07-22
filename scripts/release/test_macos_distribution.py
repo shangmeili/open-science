@@ -336,6 +336,13 @@ class WorkflowContractTests(unittest.TestCase):
             )
         )
         self.assertIs(config["bundle"]["macOS"]["hardenedRuntime"], True)
+        self.assertIs(config["app"]["macOSPrivateApi"], True)
+        mac_config = json.loads(
+            (ROOT / "apps/desktop/src-tauri/tauri.macos.conf.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertNotIn("macOSPrivateApi", mac_config["app"])
 
     def test_test_builds_do_not_expose_empty_apple_signing_environment(self) -> None:
         workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")

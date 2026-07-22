@@ -44,15 +44,7 @@ export function renderBlock(
     case "step-summary":
       return <StepSummaryRow key={i} block={block} />;
     case "tool-call":
-      return (
-        <ToolCallRow
-          key={i}
-          block={block}
-          activity={
-            block.childSessionId ? handlers?.subagentActivity?.(block.childSessionId) : undefined
-          }
-        />
-      );
+      return <ToolCallRow key={i} block={block} />;
     case "reviewer":
       return <ReviewerCard key={i} block={block} />;
     case "table":

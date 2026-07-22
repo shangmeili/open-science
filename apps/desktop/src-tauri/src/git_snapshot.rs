@@ -4,6 +4,7 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
+use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tauri::AppHandle;
 
 use crate::runtime::quiet_command;
@@ -352,6 +353,53 @@ fn snapshot_loop(receiver: Receiver<PathBuf>) {
 /// one background commit after a quiet window instead of blocking every write.
 pub fn commit_best_effort(root: &Path, _message: &str) {
     let _ = snapshot_sender().send(root.to_path_buf());
+}
+
+#[allow(clippy::type_complexity)]
+fn workspace_watcher() -> &'static Mutex<Option<(RecommendedWatcher, PathBuf)>> {
+    static WATCHER: OnceLock<Mutex<Option<(RecommendedWatcher, PathBuf)>>> = OnceLock::new();
+    WATCHER.get_or_init(|| Mutex::new(None))
+}
+
+/// Watch the active workspace so work produced by external editors or detached
+/// analysis processes is included in the same debounced local provenance log.
+pub fn watch_workspace(root: &Path) {
+    let Ok(mut slot) = workspace_watcher().lock() else {
+        return;
+    };
+    if slot.as_ref().is_some_and(|(_, current)| current == root) {
+        return;
+    }
+    let callback_root = root.to_path_buf();
+    let handler = move |result: notify::Result<notify::Event>| {
+        let Ok(event) = result else { return };
+        if matches!(event.kind, EventKind::Access(_)) {
+            return;
+        }
+        if event
+            .paths
+            .iter()
+            .any(|path| path.components().any(|part| part.as_os_str() == ".git"))
+        {
+            return;
+        }
+        commit_best_effort(&callback_root, "Snapshot workspace changes");
+    };
+    let mut watcher = match notify::recommended_watcher(handler) {
+        Ok(watcher) => watcher,
+        Err(error) => {
+            eprintln!("workspace watcher unavailable: {error}");
+            return;
+        }
+    };
+    if let Err(error) = watcher.watch(root, RecursiveMode::Recursive) {
+        eprintln!(
+            "workspace watcher could not watch {}: {error}",
+            root.display()
+        );
+        return;
+    }
+    *slot = Some((watcher, root.to_path_buf()));
 }
 
 #[tauri::command(async)]

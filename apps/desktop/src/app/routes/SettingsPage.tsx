@@ -20,6 +20,7 @@ import type {
   ProviderInfo,
 } from "@ai4s/sdk";
 import { useTranslation } from "react-i18next";
+import { useParams } from "react-router-dom";
 import { useUiStore } from "@/lib/store";
 import { shippedLocales } from "@/i18n/config";
 import { getClient, useRuntimeStore } from "@/lib/runtime";
@@ -46,12 +47,17 @@ import {
   type MirrorSetting,
 } from "@/lib/tauri";
 import { useSetupStore } from "@/lib/setup";
+import { RemoteComputeCard } from "@/components/settings/RemoteComputeCard";
+import { RemoteAccessCard } from "@/components/settings/RemoteAccessCard";
+import { ModalCard } from "@/components/settings/ModalCard";
+import { BrowserSettingsCard } from "@/components/settings/BrowserSettingsCard";
 import { DataFlowCard } from "@/components/settings/DataFlowCard";
 import { ModelBrowser } from "@/components/settings/ModelBrowser";
 import { ProviderManagerCard } from "@/components/settings/ProviderManagerCard";
 import { inputCls } from "@/components/settings/inputCls";
 import { StartupReadiness } from "@/components/settings/StartupReadiness";
 import { SupportReportCard } from "@/components/settings/SupportReportCard";
+import { resolveSection } from "@/components/settings/sections";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 import { FIRST_PARTY_HEOR_CONNECTOR } from "@/lib/heorConnectorPolicy";
@@ -73,6 +79,7 @@ const MINIMAX_CN_TOKEN_PLAN = {
  * OpenCode's own config/auth API — no separate "model key" concept.
  */
 export function SettingsPage() {
+  const section = resolveSection(useParams().section);
   const theme = useUiStore((s) => s.theme);
   const setTheme = useUiStore((s) => s.setTheme);
   const locale = useUiStore((s) => s.locale);
@@ -572,12 +579,12 @@ export function SettingsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-2xl px-8 pb-16 pt-8">
-        <h1 className="font-serif text-xl text-text">{t("page.title")}</h1>
-        <p className="mt-0.5 text-xs text-muted">{t("page.subtitle")}</p>
+        <h1 className="font-serif text-xl text-text">{t(`nav.${section}`)}</h1>
 
-        <StartupReadiness />
+        {section === "general" && <StartupReadiness />}
 
         {/* ---- AI assistant runtime ---- */}
+        {section === "runtime" && (
         <Card title={t("runtime.title")} hint={t("runtime.hint")}>
           <div className="flex items-center gap-2">
             <div className="flex flex-1 items-center gap-1.5 text-xs text-muted">
@@ -708,8 +715,11 @@ export function SettingsPage() {
           )}
           </details>
         </Card>
+        )}
 
         {/* ---- Models ---- */}
+        {section === "models" && (
+        <>
         <Card title={t("model.title")} hint={t("model.hint")}>
           {!modelSurfaceAvailable ? (
             <p className="text-[13px] text-muted">{t("model.connectPrompt")}</p>
@@ -988,8 +998,11 @@ export function SettingsPage() {
             </>
           )}
         </ProviderManagerCard>
+        </>
+        )}
 
         {/* ---- MCP servers ---- */}
+        {section === "connectors" && (
         <Card title={t("mcp.title")} hint={t("mcp.hint")}>
           {!connected ? (
             <p className="text-[13px] text-muted">{t("mcp.connectPrompt")}</p>
@@ -1101,23 +1114,23 @@ export function SettingsPage() {
                 <p className="text-[11px] leading-relaxed text-muted">
                   {t("mcp.externalBoundary")}
                 </p>
-                <div className="flex gap-2">
+                <div data-testid="mcp-server-name-row" className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_7.5rem]">
                   <input
                     value={mName}
                     onChange={(e) => setMName(e.target.value)}
                     placeholder={t("mcp.namePlaceholder")}
-                    className={inputCls("flex-1")}
+                    className={inputCls("min-w-0 w-full")}
                   />
                   <select
                     value={mType}
                     onChange={(e) => setMType(e.target.value as "local" | "remote")}
-                    className={inputCls("w-[110px]")}
+                    className={inputCls("w-full")}
                   >
                     <option value="local">{t("mcp.typeLocal")}</option>
                     <option value="remote">{t("mcp.typeRemote")}</option>
                   </select>
                 </div>
-                <div className="flex gap-2">
+                <div data-testid="mcp-server-command-row" className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_7.5rem]">
                   <input
                     value={mTarget}
                     onChange={(e) => setMTarget(e.target.value)}
@@ -1126,9 +1139,9 @@ export function SettingsPage() {
                         ? t("mcp.commandPlaceholder")
                         : t("mcp.urlPlaceholder")
                     }
-                    className={inputCls("flex-1 font-mono")}
+                    className={inputCls("min-w-0 w-full font-mono")}
                   />
-                  <button className={btnAccent()} onClick={() => void addMcp()} disabled={busy}>
+                  <button className={btnAccent("w-full justify-center")} onClick={() => void addMcp()} disabled={busy}>
                     {t("mcp.addServer")}
                   </button>
                 </div>
@@ -1136,8 +1149,10 @@ export function SettingsPage() {
             </div>
           )}
         </Card>
+        )}
 
         {/* ---- Workspace ---- */}
+        {section === "general" && (
         <Card title={t("workspace.title")} hint={t("workspace.hint")}>
           <div className="flex items-center gap-2">
             <span
@@ -1160,9 +1175,10 @@ export function SettingsPage() {
             )}
           </div>
         </Card>
+        )}
 
         {/* ---- Local Python kernel ---- */}
-        {isTauri && (
+        {section === "runtime" && isTauri && (
           <Card title={t("python.title")} hint={t("python.hint")}>
             <div className="flex items-center gap-2 text-[13px]">
               <span
@@ -1190,6 +1206,39 @@ export function SettingsPage() {
                 </span>
               )}
             </div>
+            {!pyInfo?.resolved && (
+              <div className="mt-3 rounded-input border border-border bg-surface-2 px-3 py-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-medium text-text">
+                      {t("python.installTitle")}
+                    </div>
+                    <p className="mt-0.5 text-xs leading-relaxed text-muted">
+                      {t("python.installHint")}
+                    </p>
+                  </div>
+                  <button
+                    className={btnAccent("justify-center")}
+                    onClick={() => void useSetupStore.getState().installManagedPython()}
+                    disabled={jupyterBusy}
+                  >
+                    {jupyterBusy ? (
+                      <>
+                        <Loader2 size={12} className="animate-spin" /> {t("python.installing")}
+                      </>
+                    ) : (
+                      t("python.installManaged")
+                    )}
+                  </button>
+                </div>
+                {jupyterBusy && setupLine && (
+                  <div className="mt-2 flex items-center gap-2 font-mono text-[11px] text-muted">
+                    <Loader2 size={11} className="shrink-0 animate-spin" />
+                    <span className="min-w-0 truncate">{setupLine}</span>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="mt-3 flex gap-2">
               <input
                 value={pyPath}
@@ -1218,13 +1267,27 @@ export function SettingsPage() {
           </Card>
         )}
 
+        {section === "compute" && (
+          <>
+            <RemoteComputeCard />
+            <ModalCard />
+          </>
+        )}
+
+        {section === "remote" && <RemoteAccessCard />}
+
+        {section === "browser" && <BrowserSettingsCard connected={connected} />}
 
         {/* ---- Privacy & data flow ---- */}
-        <DataFlowCard model={defaultModel} workspace={wsPath} />
-
-        <SupportReportCard />
+        {section === "privacy" && (
+          <>
+            <DataFlowCard model={defaultModel} workspace={wsPath} />
+            <SupportReportCard />
+          </>
+        )}
 
         {/* ---- Appearance ---- */}
+        {section === "appearance" && (
         <Card title={t("appearance.title")}>
           <div className="inline-flex rounded-input border border-border bg-surface-2 p-0.5">
             {/* eslint-disable-next-line i18next/no-literal-string -- internal theme-mode keys, not display text (the visible label is t(`appearance.theme.${mode}`)) */}
@@ -1270,8 +1333,10 @@ export function SettingsPage() {
             </div>
           </div>
         </Card>
+        )}
 
         {/* ---- About AI4HEOR and user-facing release information ---- */}
+        {section === "general" && (
         <Card title={t("about.title")} hint={t("about.hint")}>
           <div className="space-y-5">
             <div className="min-w-0">
@@ -1443,6 +1508,7 @@ export function SettingsPage() {
             </section>
           )}
         </Card>
+        )}
       </div>
     </div>
   );

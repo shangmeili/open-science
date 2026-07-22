@@ -89,7 +89,7 @@ class AcceptanceFixtureTests(unittest.TestCase):
             "PYTHONDONTWRITEBYTECODE": "1",
             "PYTHONNOUSERSITE": "1",
         }
-        command = [sys.executable, "-m", "heor_core", str(plan_path)]
+        command = [sys.executable, "-B", "-m", "heor_core", str(plan_path)]
         first = subprocess.run(command, cwd=self.workspace, env=env, check=True, capture_output=True)
         second = subprocess.run(command, cwd=self.workspace, env=env, check=True, capture_output=True)
         self.assertEqual(first.stdout, second.stdout)

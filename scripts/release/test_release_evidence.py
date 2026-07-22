@@ -389,6 +389,40 @@ class ReleaseEvidenceTests(unittest.TestCase):
             with self.assertRaisesRegex(AssertionError, "one complete workflow run"):
                 release_evidence.assemble(arguments)
 
+    def test_manifest_allows_only_declared_platform_variant_resources(self) -> None:
+        stable = {
+            "destination": "knowledge-base/stable.md",
+            "source": "runtime/knowledge-base/stable.md",
+            "size": 6,
+            "sha256": "a" * 64,
+        }
+        generated = {
+            "destination": "goal-plugin/goal-plugin.server.js",
+            "source": "runtime/goal-plugin/goal-plugin.server.js",
+            "size": 10,
+            "sha256": "b" * 64,
+        }
+        base = [stable, generated]
+        values = []
+        for platform in ("macos", "windows"):
+            files = json.loads(json.dumps(base))
+            if platform == "windows":
+                files[1].update(size=11, sha256="c" * 64)
+            values.append(
+                {
+                    "resources": {
+                        "aggregate_sha256": release_evidence.canonical_sha256(files),
+                        "files": files,
+                    }
+                }
+            )
+        digest = release_evidence.cross_platform_resource_digest(values)
+        self.assertRegex(digest, r"^[0-9a-f]{64}$")
+
+        values[1]["resources"]["files"][0]["sha256"] = "d" * 64
+        with self.assertRaisesRegex(AssertionError, "undeclared platform-variant"):
+            release_evidence.cross_platform_resource_digest(values)
+
 
 if __name__ == "__main__":
     unittest.main()

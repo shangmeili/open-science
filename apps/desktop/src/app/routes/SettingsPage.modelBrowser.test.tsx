@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProviderInfo } from "@ai4s/sdk";
 import i18n from "@/i18n";
@@ -34,14 +35,17 @@ function catalogClient(listProviders = vi.fn().mockResolvedValue(providers)) {
   } as unknown as NonNullable<ReturnType<typeof runtime.getClient>>;
 }
 
-async function renderSettings() {
+async function renderSettings(section = "models") {
   let view!: ReturnType<typeof render>;
   await act(async () => {
     view = render(
-      <>
-        <SettingsPage />
+      // Models and Providers live in the "models" settings section.
+      <MemoryRouter initialEntries={[`/settings/${section}`]}>
+        <Routes>
+          <Route path="/settings/:section" element={<SettingsPage />} />
+        </Routes>
         <Toaster />
-      </>,
+      </MemoryRouter>,
     );
   });
   activeView = view;
@@ -71,7 +75,7 @@ describe("Settings model browser integration", () => {
 
   it("shows user-facing AI4HEOR positioning and contact details without internal release-channel copy", async () => {
     await i18n.changeLanguage("zh-Hans");
-    await renderSettings();
+    await renderSettings("general");
 
     expect(screen.getByRole("heading", { name: "关于 AI4HEOR" })).toBeInTheDocument();
     expect(screen.getByText(/由 Codex 负责开发建设/)).toBeInTheDocument();
@@ -84,6 +88,17 @@ describe("Settings model browser integration", () => {
       .toBeInTheDocument();
     expect(screen.queryByText(/尚未配置正式发布渠道/)).not.toBeInTheDocument();
     expect(screen.queryByText("暂未开放在线更新")).not.toBeInTheDocument();
+  });
+
+  it("shows one settings section at a time and keeps both MCP rows on the same grid", async () => {
+    await renderSettings("connectors");
+
+    expect(screen.getByRole("heading", { level: 1, name: "Connectors" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Model" })).not.toBeInTheDocument();
+    const nameRow = screen.getByTestId("mcp-server-name-row");
+    const commandRow = screen.getByTestId("mcp-server-command-row");
+    expect(nameRow.className).toContain("sm:grid-cols-[minmax(0,1fr)_7.5rem]");
+    expect(commandRow.className).toContain("sm:grid-cols-[minmax(0,1fr)_7.5rem]");
   });
 
   it("shows the connect prompt when the runtime errors before any model switch happened", async () => {
