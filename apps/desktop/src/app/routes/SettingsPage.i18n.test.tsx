@@ -7,6 +7,21 @@ import { useRuntimeStore } from "@/lib/runtime";
 import { shippedLocales } from "@/i18n/config";
 
 describe("Settings language selector", () => {
+  it("uses the same selected-state treatment for theme and language controls", async () => {
+    renderAt("/settings/appearance");
+    const themeGroup = await screen.findByRole("group", { name: "Theme" });
+    const languageGroup = screen.getByRole("group", { name: "Language" });
+    const light = within(themeGroup).getByRole("button", { name: "Light" });
+    const english = within(languageGroup).getByRole("button", { name: /English/ });
+
+    expect(light).toHaveAttribute("aria-pressed", "true");
+    expect(english).toHaveAttribute("aria-pressed", "true");
+    expect(light).toHaveClass("bg-surface-2", "text-text");
+    expect(english).toHaveClass("bg-surface-2", "text-text");
+    expect(light).not.toHaveClass("shadow-card");
+    expect(english).not.toHaveClass("shadow-sm");
+  });
+
   it("shows a Language control with one button per shipped locale", async () => {
     renderAt("/settings/appearance");
     const group = await screen.findByRole("group", { name: "Language" });
@@ -16,8 +31,11 @@ describe("Settings language selector", () => {
   it("updates the store locale on change", async () => {
     renderAt("/settings/appearance");
     const group = await screen.findByRole("group", { name: "Language" });
-    await userEvent.click(within(group).getByRole("button", { name: /日本語/ }));
+    const japanese = within(group).getByRole("button", { name: /日本語/ });
+    await userEvent.click(japanese);
     expect(useUiStore.getState().locale).toBe("ja");
+    expect(japanese).toHaveClass("border-border", "bg-surface-2", "outline-none");
+    expect(japanese).not.toHaveClass("border-accent", "shadow-sm");
     useUiStore.getState().setLocale("en");
   });
 });

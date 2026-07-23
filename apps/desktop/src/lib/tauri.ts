@@ -587,9 +587,9 @@ export async function setPythonPath(path: string): Promise<void> {
   await invoke("set_python_path", { path });
 }
 
-/** One live output line from the Jupyter uv provisioning run. */
+/** One live output line from a managed scientific environment setup. */
 export interface SetupProgress {
-  task: "jupyter";
+  task: "jupyter" | "science" | "browser";
   line: string;
 }
 
@@ -600,6 +600,20 @@ export async function watchSetupProgress(
   if (!isTauri) return () => {};
   const { listen } = await import("@tauri-apps/api/event");
   return listen<SetupProgress>("setup-progress", (e) => cb(e.payload));
+}
+
+/** Managed interpreter for the isolated Open Science connector environment. */
+export async function scienceMcpPython(): Promise<string | null> {
+  if (!isTauri) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string | null>("science_mcp_python");
+}
+
+/** Install one curated connector package into the app-managed environment. */
+export async function setupScienceMcp(pkg: string): Promise<string> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string>("setup_science_mcp", { package: pkg });
 }
 
 /** Auto-start Jupyter on launch when it was enabled before. Silent no-op otherwise. */

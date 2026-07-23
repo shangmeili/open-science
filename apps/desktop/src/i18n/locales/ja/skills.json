@@ -2,6 +2,13 @@
   "catalog": {
     "ai4heor-preference-learning": { "displayName": "作業設定の提案", "description": "2回以上の独立した対話で繰り返された非機密の作業パターンを、確認・編集・削除できるローカル提案にまとめます。" },
     "ai4heor-skill-authoring": { "displayName": "AI4HEOR Skill 作成", "description": "研究者の自然言語の要望を、英語と簡体中国語の説明を備えた検証済み・未有効の Skill 候補にします。" },
+    "ai4s-agent": { "displayName": "Open Science 研究パイプライン", "description": "一般研究の探索、文献レビュー、実験、論文草稿を調整します。HEOR は AI4HEOR の方法契約に従います。" },
+    "experiment-suite": { "displayName": "実験スイート", "description": "一般的な実験設計、実行可能コード、明示された結果、図、レポートを作成します。" },
+    "integrity-auditor": { "displayName": "研究公正性監査", "description": "画像、数値、論理を点検し、不正の断定ではなくレビュー可能な所見を作成します。" },
+    "literature-survey": { "displayName": "文献調査", "description": "検証済みソース、表、図、引用による構造化文献調査を作成します。" },
+    "mindmap-render": { "displayName": "マインドマップ出力", "description": "Markdown アウトラインをインタラクティブ HTML と高解像度 PNG または PDF に出力します。" },
+    "paper-writer": { "displayName": "研究論文草稿", "description": "検証済み資料、方法、結果、限界をレビュー可能な論文草稿に整理します。" },
+    "research-explorer": { "displayName": "研究方向の探索", "description": "広い分野の候補課題、ギャップ、実行可能性、次のエビデンスを整理します。" },
     "domain-check": { "displayName": "科学領域チェック", "description": "科学分析コードの決定論的な領域エラーを検出します。" },
     "heor-advanced-value-of-information": { "displayName": "高度な情報価値", "description": "集団 EVPI、EVPPI、EVSI、ENBS を監査します。" },
     "heor-background-mortality": { "displayName": "背景死亡率", "description": "レビュー済みの一般集団死亡率と超過死亡率を統合します。" },

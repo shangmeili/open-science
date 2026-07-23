@@ -224,7 +224,7 @@ export function SkillsPage() {
                 {admission.complete
                   ? admission.admittedCount === 0
                     ? t("skills.assetAdmission.noneAdmitted")
-                    : t("skills.assetAdmission.registryValid", { count: admission.admittedCount })
+                    : t("skills.assetAdmission.registryValid")
                   : t("skills.assetAdmission.failClosed")}
               </p>
               {admission.errors.map((error) => (
@@ -233,7 +233,7 @@ export function SkillsPage() {
               {admission.assets.length > 0 && (
                 <div>
                   <div className="bg-surface-2 px-4 py-2 text-xs font-medium text-text">
-                    {t("skills.assetAdmission.groupAdmitted", { count: admission.assets.length })}
+                    {t("skills.assetAdmission.groupAdmitted")}
                   </div>
                   {admission.assets.map((asset) => <AdmissionRow key={asset.assetId} asset={asset} />)}
                 </div>
@@ -307,7 +307,7 @@ export function SkillsPage() {
 
         {connected ? (
           <>
-            <Section title={t("skills.agentsSection.sectionTitle", { count: agents.length })} icon={<Bot size={15} />}>
+            <Section title={t("skills.agentsSection.sectionTitle")} icon={<Bot size={15} />}>
               {agents.length === 0 && <Empty>{t("skills.agentsSection.empty")}</Empty>}
               {agents.map((a) => {
                 const mode = modeOf(a.mode);
@@ -315,12 +315,7 @@ export function SkillsPage() {
                 return <RowItem key={a.name} name={a.name} desc={a.description} tag={modeLabel} />;
               })}
             </Section>
-            <Section
-              title={t("skills.skillsListSection.sectionTitle", {
-                count: visibleSkills.length,
-              })}
-              icon={<Puzzle size={15} />}
-            >
+            <Section title={t("skills.skillsListSection.sectionTitle")} icon={<Puzzle size={15} />}>
               {visibleSkills.length === 0 && (
                 <Empty>{t("skills.skillsListSection.empty")}</Empty>
               )}

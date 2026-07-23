@@ -78,14 +78,17 @@ describe("Settings model browser integration", () => {
     await renderSettings("general");
 
     expect(screen.getByRole("heading", { name: "关于 AI4HEOR" })).toBeInTheDocument();
-    expect(screen.getByText(/由Codex负责开发建设/)).toBeInTheDocument();
+    expect(screen.getByText(/由Codex协助开发建设/)).toBeInTheDocument();
     expect(screen.getByText(/基于Open Science开源底座搭建/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "查看 Open Science 开源项目" }))
       .toBeInTheDocument();
     expect(screen.getByRole("button", { name: "shangmei.li@altolix.com" }))
       .toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "野生炼丹师老M的小红书名片" }))
-      .toBeInTheDocument();
+    const contactImage = screen.getByRole("img", { name: "野生炼丹师老M的小红书名片" });
+    expect(contactImage).toBeInTheDocument();
+    expect(contactImage).not.toHaveClass("border", "rounded-[14px]");
+    expect(contactImage.parentElement).toHaveClass("items-end");
+    expect(screen.getByText(/如有任何问题与建议/)).toHaveClass("whitespace-pre-line");
     expect(screen.queryByText(/尚未配置正式发布渠道/)).not.toBeInTheDocument();
     expect(screen.queryByText("暂未开放在线更新")).not.toBeInTheDocument();
   });

@@ -140,7 +140,7 @@
       "title": "在聊天旁浏览当前任务的文件夹"
     },
     "runsToggle": {
-      "label": "运行",
+      "label": "运行记录",
       "title": "在对话旁查看当前任务的分析运行"
     },
     "notebook": {

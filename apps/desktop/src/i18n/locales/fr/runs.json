@@ -1,5 +1,5 @@
 {
-  "title": "Historique des analyses",
+  "title": "Historique des exécutions",
   "description": {
     "prefix": "Historique local des analyses terminées et de leurs résultats. Utilisez ",
     "suffix": " lorsqu'un résultat doit être vérifié."

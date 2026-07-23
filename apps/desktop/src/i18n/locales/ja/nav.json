@@ -10,9 +10,9 @@
   "items": {
     "new": "新しいタスク",
     "notebooks": "分析ノート",
-    "files": "研究資料",
-    "runs": "分析履歴",
-    "skills": "研究機能",
+    "files": "タスクファイル",
+    "runs": "実行履歴",
+    "skills": "プラグインとスキル",
     "projects": "プロジェクト",
     "heor": "研究ワークスペース"
   },
@@ -66,7 +66,7 @@
     "hideAction": "非表示"
   },
   "status": {
-    "runtime": "ランタイム",
+    "runtime": "ローカルサービス",
     "model": "モデル",
     "modelNotSet": "未設定",
     "values": {

@@ -10,9 +10,9 @@
   "items": {
     "new": "Nouvelle tâche",
     "notebooks": "Notes d’analyse",
-    "files": "Fichiers de recherche",
-    "runs": "Historique des analyses",
-    "skills": "Capacités de recherche",
+    "files": "Fichiers de tâche",
+    "runs": "Historique des exécutions",
+    "skills": "Extensions et compétences",
     "projects": "Projets",
     "heor": "Espace de recherche"
   },
@@ -66,7 +66,7 @@
     "hideAction": "Masquer"
   },
   "status": {
-    "runtime": "Runtime",
+    "runtime": "Service local",
     "model": "Modèle",
     "modelNotSet": "non défini",
     "values": {

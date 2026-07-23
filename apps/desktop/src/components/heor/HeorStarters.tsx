@@ -48,6 +48,7 @@ export function HeorStarters({
     {
       key: "learn" as const,
       icon: GraduationCap,
+      tone: "text-[var(--series-1)]",
       prepare: async () => {
         if (!isTauri) return;
         const scope = await currentResearchScope();
@@ -55,13 +56,14 @@ export function HeorStarters({
         await installBundledHeorKnowledgeBase(scope.id);
       },
     },
-    { key: "scope" as const, icon: Route, prepare: undefined },
-    { key: "search" as const, icon: Search, prepare: undefined },
-    { key: "inputs" as const, icon: FileSearch, prepare: undefined },
-    { key: "audit" as const, icon: BookOpenCheck, prepare: undefined },
+    { key: "scope" as const, icon: Route, tone: "text-[var(--series-5)]", prepare: undefined },
+    { key: "search" as const, icon: Search, tone: "text-[var(--series-3)]", prepare: undefined },
+    { key: "inputs" as const, icon: FileSearch, tone: "text-[var(--series-6)]", prepare: undefined },
+    { key: "audit" as const, icon: BookOpenCheck, tone: "text-[var(--series-2)]", prepare: undefined },
     {
       key: "example" as const,
       icon: HeartPulse,
+      tone: "text-[var(--series-7)]",
       prepare: async () => {
         if (isTauri) {
           await installExample("heor-cost-effectiveness");
@@ -81,7 +83,7 @@ export function HeorStarters({
       </h1>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{t("starter.body")}</p>
       <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
-        {items.map(({ key, icon: Icon, prepare }) => (
+        {items.map(({ key, icon: Icon, tone, prepare }) => (
           <button
             key={key}
             type="button"
@@ -103,7 +105,7 @@ export function HeorStarters({
             }}
             className="group rounded-card border border-border bg-surface p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-card"
           >
-            <Icon size={18} strokeWidth={1.6} className="text-accent" />
+            <Icon size={18} strokeWidth={1.6} className={tone} />
             <div className="mt-3 text-sm font-semibold text-text">{t(`starter.${key}.title`)}</div>
             <p className="mt-1.5 text-xs leading-5 text-muted">{t(`starter.${key}.body`)}</p>
           </button>

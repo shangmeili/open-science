@@ -28,25 +28,22 @@ export function ProviderManagerCard({
     <Section
       title={t("providers.title")}
       hint={t("providers.hint")}
-      action={
-        /* The toggle only shows/hides content — it must stay clickable in
-           every runtime state, or a disconnect strands an expanded panel. */
+      flush
+    >
+      <div className="flex min-h-12 items-center gap-3 px-4 py-2">
+        <p className="min-w-0 flex-1 truncate text-[13px] text-muted">{summary}</p>
+        {/* This only shows or hides settings, so it remains a secondary action
+            and stays available even while the local service is disconnected. */}
         <button
           aria-expanded={expanded}
           onClick={() => onExpandedChange(!expanded)}
-          className="flex h-8 shrink-0 items-center gap-1 rounded-input border border-transparent bg-surface-2 px-3 text-[13px] text-text transition-colors hover:bg-border/50 disabled:text-muted"
+          className="flex h-9 shrink-0 items-center gap-1 rounded-input border border-border bg-surface px-3.5 text-[13px] text-text transition-colors hover:bg-surface-2 disabled:text-muted"
         >
           <ChevronRight size={13} className={cn("transition-transform", expanded && "rotate-90")} />
           {t(expanded ? "providers.collapse" : "providers.manage")}
         </button>
-      }
-      flush
-    >
-      {expanded ? (
-        children
-      ) : (
-        <p className="truncate px-4 py-3 text-[13px] text-muted">{summary}</p>
-      )}
+      </div>
+      {expanded && <div className="border-t border-border">{children}</div>}
     </Section>
   );
 }

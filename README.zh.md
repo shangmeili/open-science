@@ -95,8 +95,7 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 
 ## 当前能力
 
-**把科研辅助收敛为有边界的 HEOR Skills。** AI4HEOR 的 52 个第一方 Skill
-只路由研究者界定的任务，不取得批准权或方法选择权。代表性已准入工作流包括：
+**保留完整 Open Science 基础，并增加有边界的 HEOR 方法。** AI4HEOR 打包 52 个第一方 Skill 和 7 个哈希锁定的 Open Science 通用科研 Skill，都不取得批准权或方法选择权。代表性 HEOR 工作流包括：
 
 | 技能 | 职责 | 主要产出 |
 | --- | --- | --- |
@@ -113,9 +112,7 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 | `$research-tables` | 根据当前本地来源整理带类型、单位和依据性质的科研表格 | 可逐表核对的无公式 XLSX、每表一份 CSV 和生成审计记录 |
 | `$journal-submission-check` | 从研究者保存的官方投稿指南快照中记录明确的机械性要求 | 有来源绑定、仍等待研究者复核的核对报告 |
 
-全部第一方 Skill 的名称与说明均随七种界面语言发布，同时保留精确
-`$skill-id`；尚未完成的改写和已排除的外部来源只作为内部工程记录，不再
-作为用户选项。
+全部 59 个打包 Skill 的名称与说明均随七种界面语言发布，同时保留精确 `$skill-id`；未完成和已排除的来源不作为用户选项。
 
 ### 平台
 
@@ -131,15 +128,11 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 | 审查 | 内置 traceability、stats-integrity、domain-check、large-file、publication-figure、remote-compute、Modal run 等第一方技能。 |
 | 查看器 | PDF、图片、视频、HTML、Markdown、代码、CSV/TSV 表格与图表、DOCX、XLSX、PPTX、分子、3D mesh、基因组轨道、FITS、DOS/DOSCAR、EIGENVAL bands、qcode、异常图和 phase 文件。 |
 | 模型 | OpenCode 提供方目录、OAuth/API key 连接、自定义 OpenAI-compatible endpoint，以及 OpenCode 支持的本地/云模型选项。 |
-| 界面语言 | English、简体中文、日本語、Español、Deutsch、Français、한국어。第一方 Skill 名称与说明在 7 种语言中发布，同时保留精确 `$skill-id`。Portuguese (Brazil) 和 Arabic 已注册，但还不可选。 |
+| 界面语言 | English、简体中文、日本語、Español、Deutsch、Français、한국어。全部打包 Skill 名称与说明在 7 种语言中发布，同时保留精确 `$skill-id`。Portuguese (Brazil) 和 Arabic 已注册，但还不可选。 |
 
 ## 技能与连接器
 
-默认只打包 `runtime/skills/core/` 中的第一方技能，包括 AI4HEOR 的证据、
-模型设计、参考案例、不确定性、预算影响、验证和报告工作流。第三方 Skill
-与 MCP 由仅面向发布的包内登记表控制：登记表只包含授权兼容、完成审查、
-通过跨平台检查、锁定精确哈希并实际随包发布的 `validated-adapter`，不保留
-未完成或已排除的来源。当前登记表为空，因此没有第三方工具随 AI4HEOR 打包。
+应用打包 `runtime/skills/core/` 的 52 个第一方 Skill，以及来自固定 `ai4s-research/ai4s-skills` 提交的 7 个 MIT Open Science Skill。后者以隔离适配器形式运行，精确目录由发布登记表哈希锁定。HEOR 任务优先使用第一方证据、模型、溯源、确定性计算、复核和报告合约；通用 Skill 只能补充，不能替代。
 
 此前外部审查中有价值的能力意图改写为有边界的 AI4HEOR 第一方能力。许可证
 不兼容的文档来源已从运行时和候选界面永久移除。PPTX 已由
@@ -155,10 +148,7 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 科研基础能力的已交付、部分交付与待建设边界见
 [`docs/RESEARCH_FOUNDATION_CAPABILITIES.zh-CN.md`](./docs/RESEARCH_FOUNDATION_CAPABILITIES.zh-CN.md)。
 
-默认界面不启动未经审查的第三方一键 MCP。第一方 `$heor-evidence-search`
-只在 Human 明确授权后访问固定的 PubMed 与 ClinicalTrials.gov 元数据端点；
-Jupyter 是唯一的一键托管本地计算工具。研究者仍可在 Settings 添加本地或远程
-MCP，但它们会明确标为不受托管的外部能力，不获得科学判断或批准权。参见
+连接器界面保留 Open Science 的文献检索、BioMCP、Materials Project、FRED、空间天气、Open-Meteo 和 USGS Water，选定后才安装到应用独立环境。第一方 `$heor-evidence-search` 仍是 PubMed 与 ClinicalTrials.gov 的可审计 HEOR 固定端点路径。研究者也可在 Settings 添加自管的本地或远程 MCP。参见
 [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md)。
 
 中立定位对比见
@@ -264,7 +254,8 @@ pnpm lint
 助手、Skill、HEOR 方法、文件、复核和审计能力相同。七种界面语言采用同一逻辑。一级导航不再显示“分析笔记”，
 研究资料不再展示内部 harness 文件，新建任务和项目输入框使用中性焦点样式；模型切换不会再被过期读取覆盖，
 长时间运行的事件记录有明确内存上限，Windows 资源目录也不再依赖安装器可能漏掉的空占位文件。这些改进是在
-核对 Open Science 0.2.2 后按 AI4HEOR 产品边界选择性纳入，没有恢复通用科研入口。聚焦 CI 只生成一个 Windows x64
+核对 Open Science 0.2.2 后按 AI4HEOR 产品边界选择性纳入。1.0.0 同时修复此前遗漏 7 个 Open Science 通用科研 Skill
+和 7 个科研连接器的严重回归；构建门禁现在要求完整科研底座与 HEOR 增强同时存在。聚焦 CI 只生成一个 Windows x64
 NSIS 安装程序，并在 Windows 上
 复核安装包、资源、安装、首次启动和清理；该工作流未通过时，不把 Windows 包写成已验收。
 0.1.53 将 AI4HEOR 统一为唯一的用户研究工作台，删除继承的通用科研入口，首页只保留六项药物经济学与 HEOR

@@ -70,7 +70,7 @@ Formerly Open Science. Claude Science 및 유사한 AI-for-science 워크벤치�
 
 ## 현재 기능
 
-**범위가 명확한 HEOR Skill 기반 지원.** 52개 자체 Skill은 연구자가 정의한 작업을 라우팅하지만 승인 권한이나 방법 선택 권한을 갖지 않습니다. 대표 워크플로:
+**Open Science 연구 기반을 온전히 유지하고 범위가 명확한 HEOR Skill로 강화합니다.** 52개 자체 HEOR Skill과 해시로 고정된 MIT Open Science 범용 연구 Skill 7개를 함께 배포합니다. 어느 것도 승인 권한이나 방법 선택 권한을 갖지 않습니다.
 
 | 스킬 | 역할 | 주요 산출물 |
 | --- | --- | --- |
@@ -87,7 +87,7 @@ Formerly Open Science. Claude Science 및 유사한 AI-for-science 워크벤치�
 | `$research-tables` | 형식, 단위, 출처가 명시된 연구 표 준비 | 검토 가능한 수식 없는 XLSX, 표별 CSV, 생성 감사 기록 |
 | `$journal-submission-check` | 연구자가 저장한 공식 투고 지침에서 명시적인 형식 요건 기록 | 출처에 연결되고 연구자 검토를 기다리는 점검 보고서 |
 
-52개 자체 Skill의 이름과 설명은 정확한 `$skill-id`를 유지한 채 7개 UI 언어로 제공됩니다. 외부 자산은 개별 승인 전까지 비활성입니다.
+59개 모든 Skill의 이름과 설명은 정확한 `$skill-id`를 유지한 채 7개 UI 언어로 제공됩니다.
 
 ### 플랫폼
 
@@ -105,9 +105,9 @@ Formerly Open Science. Claude Science 및 유사한 AI-for-science 워크벤치�
 
 ## 스킬과 커넥터
 
-기본 배포에는 `runtime/skills/core/`의 자체 Skill만 포함됩니다. 외부 자산은 라이선스, 경계, 테스트, 검토, 크로스 플랫폼 증거와 정확한 해시를 통과할 때까지 비활성입니다. Anthropic 문서 Skill은 재배포 금지 라이선스로 인해 거부되었습니다.
+`runtime/skills/core/`의 자체 HEOR Skill 52개와 고정 커밋에서 가져와 MIT 라이선스와 트리 해시를 검증한 Open Science 범용 연구 Skill 7개를 함께 배포합니다. Anthropic 문서 Skill은 재배포 금지 라이선스로 인해 포함하지 않습니다.
 
-기본 화면은 검토되지 않은 외부 MCP를 원클릭으로 시작하지 않습니다. `$heor-evidence-search`는 Human이 명시적으로 승인한 뒤 고정된 PubMed·ClinicalTrials.gov 메타데이터 엔드포인트만 사용하며, Jupyter만 관리형 원클릭 로컬 계산 도구입니다. Settings에서 추가한 MCP는 관리되지 않는 외부 기능으로 표시되고 과학적 판단이나 승인 권한을 얻지 않습니다. [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md)를 참조하세요.
+Open Science 연구 커넥터 7개(Paper Search, BioMCP, Materials Project, FRED, Space Weather, Open-Meteo, USGS Water)는 앱 관리 환경에 필요할 때 설치됩니다. `$heor-evidence-search`는 감사 가능한 HEOR 근거 검색 경로로 유지되며, 범용 커넥터 결과가 자동으로 채택 근거가 되지는 않습니다. [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md)를 참조하세요.
 
 ## 설치
 
@@ -177,7 +177,7 @@ pnpm lint
   author  = {{The Open Science Desktop Contributors}},
   title   = {Open Science Desktop: a local-first, model-agnostic AI research workbench},
   year    = {2026},
-  version = {0.1.52},
+  version = {1.0.0},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

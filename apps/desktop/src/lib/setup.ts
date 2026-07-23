@@ -13,16 +13,19 @@ import {
   getProxySetting,
   removeConfigEntry,
   setupJupyter,
+  setupScienceMcp,
   startJupyter,
   watchSetupProgress,
 } from "./tauri";
 import { BROWSER_MCP_ID, buildBrowserMcpConfig } from "./browser";
+import { SCIENCE_CONNECTORS, connectorConfig } from "./scienceConnectors";
 import { toast } from "./toast";
 import i18n from "../i18n";
 
 interface SetupState {
   /** True while the isolated Jupyter env is being provisioned. */
   jupyterBusy: boolean;
+  connectorId: string | null;
   browserBusy: boolean;
   /** Latest live uv output line — reassurance during a hundreds-of-MB download. */
   line: string | null;
@@ -30,6 +33,7 @@ interface SetupState {
   generation: number;
   installManagedPython: () => Promise<void>;
   enableJupyter: () => Promise<void>;
+  enableConnector: (id: string, apiKey?: string) => Promise<void>;
   enableBrowser: (opts: EnableBrowserOptions) => Promise<void>;
 }
 
@@ -43,6 +47,7 @@ export interface EnableBrowserOptions {
 
 export const useSetupStore = create<SetupState>((set, get) => ({
   jupyterBusy: false,
+  connectorId: null,
   browserBusy: false,
   line: null,
   generation: 0,
@@ -89,6 +94,33 @@ export const useSetupStore = create<SetupState>((set, get) => ({
       );
     } finally {
       set((st) => ({ jupyterBusy: false, line: null, generation: st.generation + 1 }));
+    }
+  },
+
+  enableConnector: async (id, apiKey) => {
+    if (get().connectorId) return;
+    const connector = SCIENCE_CONNECTORS.find((item) => item.id === id);
+    if (!connector) return;
+    set({ connectorId: id, line: null });
+    try {
+      toast.success(`${connector.label}: ${i18n.t("settings:mcp.setupStarting")}`);
+      const python = await setupScienceMcp(connector.pkg);
+      await getClient()!.addMcpServer(
+        connector.id,
+        connectorConfig(connector, python, apiKey),
+      );
+      toast.success(`${connector.label}: ${i18n.t("settings:mcp.setupComplete")}`);
+      await useRuntimeStore.getState().loadCatalog();
+    } catch (error) {
+      toast.error(
+        `${connector.label}: ${i18n.t("settings:mcp.setupFailed")}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      set((state) => ({
+        connectorId: null,
+        line: null,
+        generation: state.generation + 1,
+      }));
     }
   },
 

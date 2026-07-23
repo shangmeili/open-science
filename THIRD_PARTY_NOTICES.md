@@ -24,6 +24,26 @@ texts and copyright notices.
   notice is retained at
   `runtime/skills/core/heor-local-evidence/references/pdf-extract-MIT.txt`.
 
+## Bundled Open Science Skill adapters
+
+The following seven Skills are copied without method edits from
+`ai4s-research/ai4s-skills` revision
+`8fa2ab0523082c135598909b227ed8feb48263ad` under the MIT License:
+
+- `ai4s-agent`;
+- `experiment-suite`;
+- `integrity-auditor`;
+- `literature-survey`;
+- `mindmap-render`;
+- `paper-writer`;
+- `research-explorer`.
+
+Each packaged Skill directory contains the upstream repository's exact MIT text
+as `LICENSE.txt`. The release registry records the revision and exact tree hash
+for each deployed directory. These Skills run as isolated adapters under the
+application's workspace, network, scientific-authority, and HEOR workflow
+boundaries.
+
 ## UI, Rust, fonts, and transitive packages
 
 The current resolved package inventories are generated into:
@@ -50,10 +70,11 @@ Pinned hashes and upstream locations are recorded in
 
 ## Not distributed or loaded
 
-- `runtime/skills/external/` is an ignored local discovery cache and is not a
-  packaged resource.
-- The release-only external-adapter registry is empty. No third-party Skill,
-  plugin, MCP, or package is release-eligible or loaded through that registry.
+- No unreviewed external Skill cache is packaged. Only the seven hash-locked
+  entries named above are copied from the admitted resource pack.
+- The curated science MCP catalog provisions selected open-source servers only
+  after a user action into an app-managed environment. Those server packages
+  and credentials are not prebundled in the installer.
 - The Anthropic `docx`, `pdf`, `pptx`, and `xlsx` Skills at revision
   `9d2f1ae187231d8199c64b5b762e1bdf2244733d` were checked using each Skill
   directory's own `LICENSE.txt`. Those files are not Apache-2.0: they prohibit

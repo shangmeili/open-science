@@ -72,7 +72,7 @@
     }
   },
   "skills": {
-    "title": "スキルとツール",
+    "title": "プラグインとスキル",
     "description": {
       "prefix": "このタスクで利用できる研究手法、分析ツール、拡張機能を確認・管理します。",
       "suffix": " にあるものすべて。"
@@ -137,13 +137,13 @@
       "sectionTitle": "外部アダプター",
       "loading": "アプリに同梱された外部アダプターを確認しています…",
       "unavailable": "外部アダプターを確認できないため、すべて無効のままです。",
-      "firstPartyTitle": "AI4HEOR のファーストパーティ Skill 52 件を内蔵",
+      "firstPartyTitle": "AI4HEOR の研究機能を内蔵",
       "firstPartyBoundary": "ライセンス、セキュリティ、方法、パッケージの確認を完了し、実際に同梱された外部アダプターだけを表示します。改修中または除外済みの提供元は選択肢として残しません。",
-      "groupAdmitted": "承認済み（{{count}}）",
+      "groupAdmitted": "承認済みの外部アセット",
       "admitted": "承認済み",
       "adapterBoundary": "宣言済みのワークスペース、ネットワーク、権限、Human-in-the-loop の範囲内でのみ実行できます。",
       "noneAdmitted": "現在、AI4HEOR に第三者ツールは同梱されていません。必要な機能はファーストパーティ Skill が提供し、改修中または除外済みの提供元は表示しません。",
-      "registryValid": "外部アダプター台帳は有効で、{{count}} 件を利用できます。",
+      "registryValid": "外部アダプター台帳は有効で、確認済みのアダプターを利用できます。",
       "failClosed": "外部アダプター台帳の検証に失敗しました。すべての外部機能は無効のままです。"
     },
     "environment": {
@@ -161,7 +161,7 @@
       "note": "AI4HEOR は独立した Python・Jupyter 環境をインストールできます。初回は約 500 MB をダウンロードします。R は任意で、R 公式サイトから別途インストールする必要があります。"
     },
     "agentsSection": {
-      "sectionTitle": "エージェント ({{count}})",
+      "sectionTitle": "エージェント",
       "empty": "エージェントが報告されていません。",
       "agentMode": {
         "primary": "プライマリ",
@@ -170,7 +170,7 @@
       }
     },
     "skillsListSection": {
-      "sectionTitle": "スキル ({{count}})",
+      "sectionTitle": "スキル",
       "empty": "まだスキルが読み込まれていません。",
       "use": "使用",
       "usePrompt": "{{skill}} を使用して、次の作業を行います：\n\n",

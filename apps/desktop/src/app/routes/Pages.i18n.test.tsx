@@ -48,7 +48,7 @@ describe("FilesPage strings (i18n)", () => {
 describe("SkillsPage strings (i18n)", () => {
   it("uses research-facing copy and hides implementation paths in English", async () => {
     renderAt("/skills");
-    expect(await screen.findByRole("heading", { level: 1, name: "Research capabilities" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Plugins & skills" })).toBeInTheDocument();
     expect(screen.getByText("Add a research capability")).toBeInTheDocument();
     expect(screen.queryByText(/\.opencode\/skills/)).not.toBeInTheDocument();
     expect(screen.queryByText("Node.js")).not.toBeInTheDocument();

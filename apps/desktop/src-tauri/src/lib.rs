@@ -64,6 +64,7 @@ mod research_tables;
 mod runs;
 mod runs_index;
 mod runtime;
+mod science_mcp;
 mod startup_audit;
 mod support_report;
 mod tools;
@@ -165,6 +166,8 @@ pub fn run() {
             jupyter::jupyter_status,
             jupyter::setup_jupyter,
             jupyter::start_jupyter,
+            science_mcp::science_mcp_python,
+            science_mcp::setup_science_mcp,
             runtime::get_approval_mode,
             runtime::set_approval_mode,
             runtime::get_proxy_setting,

@@ -4,7 +4,7 @@
     "general": "일반",
     "appearance": "화면 모드",
     "models": "모델",
-    "runtime": "런타임",
+    "runtime": "로컬 서비스",
     "connectors": "커넥터",
     "compute": "컴퓨팅",
     "privacy": "개인정보",
@@ -35,7 +35,7 @@
     "subtitle": "AI 도우미, 모델, 근거 도구, 작업 공간 및 로컬 분석 환경을 설정합니다."
   },
   "runtime": {
-    "title": "AI 도우미 실행 환경",
+    "title": "로컬 도우미 서비스",
     "hint": "데스크톱 앱이 자동으로 시작하고 관리합니다",
     "connect": "연결",
     "disconnect": "연결 해제",
@@ -401,7 +401,7 @@
       },
       "skills": {
         "title": "내장 Skill",
-        "ready": "Skill {{count}}개 사용 가능"
+        "ready": "연구 기능 사용 가능"
       },
       "heorCore": {
         "title": "약물경제학 로컬 계산",
@@ -430,7 +430,7 @@
     "title": "AI4HEOR 소개",
     "hint": "제품 방향, 버전 및 연락처",
     "currentVersion": "버전 {{version}}",
-    "developedBy": "AI4HEOR는 연구자 주도의 약물경제학 및 HEOR 업무를 위해 Codex Agent가 개발합니다.",
+    "developedBy": "AI4HEOR는 연구자 주도의 약물경제학 연구를 위해 Codex의 지원을 받아 개발됩니다.",
     "positioning": "이 워크벤치는 오픈소스 Open Science 기반 위에 구축되었습니다. 자연어 상호작용을 중심으로 하고 양식은 보조적으로 사용하며, 로컬 우선 및 모델 제공자 독립성을 지향합니다. 결정론적 계산, 감사 가능한 과정, 주요 과학적 판단에 대한 연구자 확인을 핵심으로 합니다.",
     "openScience": "Open Science 프로젝트 보기",
     "contactTitle": "문의 및 의견",

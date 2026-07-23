@@ -708,7 +708,7 @@ The authoritative current decision is in `docs/CONNECT_YOUR_TOOLS.md` and
 | P0-6 | Large files: reference, don't load | P0 | ✅ Done — memory-pointer probe (table/parquet/hdf5/fits/netcdf/log + genomics FASTQ/FASTA/VCF/BAM, GRIB, ROOT) + one-click "Inspect without loading" in the too-large-preview card |
 | **P0-7** | **Safety-defaults compliance + audit debt** | **P0** | 🟡 **Partial — ALL critical items addressed (approval modes, sidecar/preview auth, kernel deadlock, Windows injection, owner-only key files); keychain-at-rest deferred to signed releases (P2-3); moderate/cleanup backlog remains** |
 | P1-1 | Multi-discipline platform lineage | P1 | 🟡 Pluggable, but generic examples are not part of the AI4HEOR delivery |
-| P1-2 | Domain + literature connectors | P1 | Superseded for AI4HEOR — governed HEOR evidence + Jupyter + unmanaged BYO MCP; no generic one-click catalog |
+| P1-2 | Domain + literature connectors | P1 | ✅ Retained — seven Open Science research connectors install on demand in an app-managed environment; governed HEOR evidence remains the auditable inclusion path |
 | P1-3 | Scientific renderers | P1 | 🟡 Partial — base + 3D structure + genome + FITS + DOS + band + phase + qualitative-coding + anomaly map (all 4 disciplines; materials trio complete); ternary/coastlines next |
 | P1-4 | Windows + macOS installers | P1 | 🟡 Partial — 0.1.52 macOS x64 is structurally, byte-for-byte and isolated-first-launch verified and is ready for product-owner testing; 0.1.31 arm64 is cross-host content-inspected, and Linux x64 remains verified at 0.1.30; cross-platform work is paused for Intel macOS product acceptance; product-owner acceptance, Windows/native-arm execution and signing remain open |
 | P1-5 | Interaction & visualization craft | P1 | 🟡 Partial — chart system + palette + command palette + native table→chart surface shipped |
@@ -726,9 +726,9 @@ discipline-specific 20% and the one cross-cutting gap this revision adds:
    ships with five gates (physics/earth/biology/chemistry/social science); next
    is the remaining library round-trip (POSCAR→pymatgen validity — SMILES→RDKit
    now ships).
-2. **AI4HEOR connectors + viewers** — admit HEOR evidence sources one bounded
-   adapter at a time; retain useful inherited viewers without reintroducing a
-   generic Open Science connector catalog.
+2. **AI4HEOR connectors + viewers** — preserve the seven inherited research
+   connectors and viewers as the Open Science foundation, while admitting HEOR
+   evidence sources through bounded first-party contracts.
 3. **Deepen the shipped gates** — P0-5 (library round-trip + social science),
    P1-6 (in-app prereg artifact + Stata/SPSS UI). **P0-6 is now ✅ Done** — the
    probe covers genomics/GRIB/ROOT and the UI exposes it as one-click "Inspect

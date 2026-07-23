@@ -761,15 +761,18 @@ AI4HEOR separates product-owned capabilities from arbitrary MCP processes:
 1. `$heor-evidence-search` is a native fixed-endpoint PubMed and
    ClinicalTrials.gov metadata route with request-hash binding and Human network
    authorization. It is not MCP passthrough.
-2. Jupyter is the only one-click managed local computation server.
-3. Local or remote MCP servers manually added by a researcher remain compatible
+2. Jupyter is the managed local notebook server.
+3. The retained Open Science catalog exposes Paper Search, BioMCP, Materials
+   Project, FRED, Space Weather, Open-Meteo, and USGS Water as on-demand
+   connectors installed into an app-managed environment.
+4. Local or remote MCP servers manually added by a researcher remain compatible
    but unmanaged. Existing configured legacy servers are preserved on upgrade.
 
-No third-party MCP is a default until a pinned, per-tool adapter passes license,
-egress, rights, methods, adversarial, cross-platform, and kill-switch admission.
-Paper Search MCP and BioMCP are absent from the release registry and user-facing
-candidate surface. The generic Materials Project, FRED, space-weather,
-Open-Meteo, and USGS entries are retired from the AI4HEOR default catalog.
+Catalog presence is not scientific admission. Each connector exposes its source,
+credential and network boundary before installation, receives no HEOR method or
+approval authority, and cannot move a result into the governed evidence library.
+The first-party HEOR evidence contract remains authoritative for auditable HEOR
+search, inclusion and provenance.
 
 ## 7. Execution layer
 

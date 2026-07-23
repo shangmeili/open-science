@@ -4,7 +4,7 @@
     "general": "通用",
     "appearance": "外观",
     "models": "模型",
-    "runtime": "运行时",
+    "runtime": "本地服务",
     "connectors": "连接器",
     "compute": "计算",
     "privacy": "隐私",
@@ -401,7 +401,7 @@
       },
       "skills": {
         "title": "内置 Skill",
-        "ready": "已找到 {{count}} 个 Skill"
+        "ready": "研究能力可以使用"
       },
       "heorCore": {
         "title": "药物经济学本地计算",
@@ -430,11 +430,11 @@
     "title": "关于 AI4HEOR",
     "hint": "产品定位、版本和联系方式",
     "currentVersion": "版本 {{version}}",
-    "developedBy": "AI4HEOR由Codex负责开发建设，服务于人类研究者主导的药物经济学与HEOR科研工作。",
+    "developedBy": "AI4HEOR由Codex协助开发建设，服务于研究者主导的药物经济学科研工作。",
     "positioning": "工作台基于Open Science开源底座搭建，以自然语言交互为主、表单交互为辅，坚持本地优先、模型提供商无关，并以确定性计算、过程可追溯和关键研究判断由研究者确认为核心。",
     "openScience": "查看 Open Science 开源项目",
     "contactTitle": "联系与反馈",
-    "contactBody": "如有任何问题与建议，请与我联系。点击邮箱即可复制。",
+    "contactBody": "如有任何问题与建议，请与我联系。\n点击邮箱即可复制。",
     "copyEmail": "复制联系邮箱",
     "emailCopied": "联系邮箱已复制",
     "emailCopyFailed": "无法复制邮箱，请手动选择复制",

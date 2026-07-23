@@ -17,7 +17,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { listDir, readArtifact } from "@/lib/artifactFile";
+import { listDir, openArtifactExternally, readArtifact } from "@/lib/artifactFile";
 import { cn } from "@/lib/cn";
 import { useRuntimeStore } from "@/lib/runtime";
 import {
@@ -200,14 +200,20 @@ import {
   type JournalSubmissionState,
 } from "./JournalSubmissionAssessment";
 
-const REVIEW_GATES: HeorGate[] = [
+const RESEARCH_DECISION_GATES: readonly HeorGate[] = [
   "decision_problem",
   "conceptual_model",
   "analysis_plan",
+];
+const ACCOUNTABILITY_GATES: readonly HeorGate[] = [
   "independent_validation",
   "release",
 ];
-const ALL_GATES: HeorGate[] = REVIEW_GATES;
+const REVIEW_GATES: readonly HeorGate[] = [
+  ...RESEARCH_DECISION_GATES,
+  ...ACCOUNTABILITY_GATES,
+];
+const ALL_GATES: HeorGate[] = [...REVIEW_GATES];
 const EVIDENCE_REVIEW_DECISIONS = ["confirmed", "rejected"] as const;
 const PAIRED_BOOTSTRAP_REVIEW_ACTIONS = ["accept", "reject"] as const;
 const NMA_REVIEW_ACTIONS = ["accept", "reject"] as const;
@@ -469,6 +475,10 @@ type ReviewIntent = {
   artifactSha256: string;
   expectedActor?: string;
 };
+
+function isResearchDecisionGate(gate: HeorGate): boolean {
+  return RESEARCH_DECISION_GATES.includes(gate);
+}
 
 function gateArtifactHash(
   gate: HeorGate,
@@ -2527,7 +2537,7 @@ export function HeorReviewPane({
                     && gate === nextGate
                     && (reproducibility.kind !== "ready"
                       || !reproducibility.audit.releaseCompanionReady);
-                  const waiting = gate === nextGate && !stale && !conceptualBlocked
+                  const waiting = gate === nextGate && !conceptualBlocked
                     && !evidenceBlocked && !referenceBlocked && !uncertaintyBlocked
                     && !budgetImpactBlocked && !survivalReviewBlocked
                     && !pairedBootstrapBlocked
@@ -2550,7 +2560,7 @@ export function HeorReviewPane({
                         <div className="flex-1 text-xs font-medium text-text">{t(`gate.${gate}`)}</div>
                         <span className={cn("text-[10px]", approved ? "text-ok" : stale ? "text-error" : "text-muted")}>
                           {approved
-                            ? t("status.approved")
+                            ? t(`status.completedByGate.${gate}`)
                             : stale
                               ? t("status.stale")
                               : conceptualBlocked
@@ -2574,24 +2584,30 @@ export function HeorReviewPane({
                               : reproducibilityBlocked
                                 ? t("status.reproducibilityRequired")
                               : waiting
-                                ? t("status.awaiting")
+                                ? t(`status.awaitingByGate.${gate}`)
                                 : t("status.locked")}
                         </span>
                       </div>
-                      {stale && gateEvent ? (
-                        <button
-                          onClick={() =>
-                            setIntent({
-                              action: "revoke",
-                              gate,
-                              artifactSha256: gateEvent.artifactSha256,
-                            })
-                          }
-                          className="mt-2 text-xs font-medium text-error hover:underline"
-                        >
-                          {t("action.revokeStale")}
-                        </button>
-                      ) : waiting ? (
+                      {gate === "analysis_plan" && (
+                        <details className="mt-2 rounded-input border border-border bg-surface px-2.5 py-2">
+                          <summary className="cursor-pointer text-[10px] font-medium text-link">
+                            {t("dialog.viewPlan")}
+                          </summary>
+                          <div className="mt-2">
+                            <AnalysisPlanReviewSummary plan={artifact.plan} compact />
+                            {isTauri && (
+                              <button
+                                type="button"
+                                onClick={() => void openArtifactExternally(HEOR_PLAN_PATH, "workspace")}
+                                className="mt-2 text-[10px] font-medium text-link hover:underline"
+                              >
+                                {t("dialog.openSource")}
+                              </button>
+                            )}
+                          </div>
+                        </details>
+                      )}
+                      {waiting ? (
                         <button
                           onClick={() =>
                             setIntent({
@@ -2608,7 +2624,9 @@ export function HeorReviewPane({
                           }
                           className="mt-2 text-xs font-medium text-accent hover:underline"
                         >
-                          {t("action.approve", { gate: t(`gate.${gate}`) })}
+                          {stale
+                            ? t("action.reviewCurrent", { gate: t(`gate.${gate}`) })
+                            : t("action.approve", { gate: t(`gate.${gate}`) })}
                         </button>
                       ) : null}
                       {index === REVIEW_GATES.length - 1 && approved && artifactSha256 && (
@@ -2687,18 +2705,18 @@ export function HeorReviewPane({
             )}
 
             <section className="px-5 py-4 text-[10px] leading-5 text-muted">
-              <div className="flex justify-between gap-3">
-                <span>{t("panel.hash")}</span>
-                <span className="max-w-[65%] truncate font-mono" title={artifact.sha256}>{artifact.sha256}</span>
-              </div>
-              <div className="mt-1 flex justify-between gap-3">
-                <span>{t("panel.chain")}</span>
-                <span>{approvals.chainHead ? t("panel.unanchored") : "—"}</span>
-              </div>
-              <div className="mt-1 flex justify-between gap-3">
-                <span>{t("panel.identity")}</span>
-                <span className="font-mono">{approvals.identityAssurance}</span>
-              </div>
+              <details>
+                <summary className="cursor-pointer font-medium text-text">{t("panel.technicalRecords")}</summary>
+                <p className="mt-2 leading-4">{t("panel.recordBoundary")}</p>
+                <div className="mt-2 flex justify-between gap-3">
+                  <span>{t("panel.hash")}</span>
+                  <span className="max-w-[65%] truncate font-mono" title={artifact.sha256}>{artifact.sha256}</span>
+                </div>
+                <div className="mt-1 flex justify-between gap-3">
+                  <span>{t("panel.chain")}</span>
+                  <span>{approvals.chainHead ? t("panel.unanchored") : t("panel.noRecord")}</span>
+                </div>
+              </details>
             </section>
           </>
         )}
@@ -2709,7 +2727,18 @@ export function HeorReviewPane({
           intent={intent}
           artifactHash={intent.artifactSha256}
           plan={artifact.plan}
+          conceptualModel={conceptualArtifact.kind === "ready" ? conceptualArtifact.model : undefined}
+          validationAudit={modelValidation.kind === "ready" ? modelValidation.audit : undefined}
+          reportingAudit={reporting.kind === "ready" ? reporting.audit : undefined}
+          reproducibilityAudit={reproducibility.kind === "ready" ? reproducibility.audit : undefined}
           onCancel={() => setIntent(null)}
+          onRequestRevision={() => {
+            const prompt = intent.gate === "conceptual_model"
+              ? t("conceptual.repairPrompt")
+              : t("panel.revisionPrompt");
+            setIntent(null);
+            onRequestRevision(prompt);
+          }}
           onSubmit={(actor, rationale) => void submitReview(actor, rationale)}
         />
       )}
@@ -6329,20 +6358,41 @@ export function ApprovalDialog({
   intent,
   artifactHash,
   plan,
+  conceptualModel,
+  validationAudit,
+  reportingAudit,
+  reproducibilityAudit,
   onCancel,
+  onRequestRevision,
   onSubmit,
 }: {
   intent: ReviewIntent;
   artifactHash: string;
   plan: HeorAnalysisPlan;
+  conceptualModel?: HeorConceptualModel;
+  validationAudit?: HeorModelValidationAudit;
+  reportingAudit?: HeorReportingAudit;
+  reproducibilityAudit?: HeorReproducibilityAudit;
   onCancel: () => void;
+  onRequestRevision?: () => void;
   onSubmit: (actor: string, rationale: string) => void;
 }) {
   const { t } = useTranslation("heor");
-  const [actor, setActor] = useState(intent.expectedActor ?? "");
+  const [actor, setActor] = useState("");
   const [rationale, setRationale] = useState("");
   const [confirmed, setConfirmed] = useState(false);
-  const valid = actor.trim().length > 0 && rationale.trim().length > 1 && confirmed;
+  const isResearchDecision = intent.action === "approve" && isResearchDecisionGate(intent.gate);
+  const expectedActorMatches = !intent.expectedActor || actor.trim() === intent.expectedActor;
+  const valid = isResearchDecision
+    ? confirmed
+    : actor.trim().length > 0 && expectedActorMatches && rationale.trim().length > 1 && confirmed;
+  const submit = () => {
+    if (isResearchDecision) {
+      onSubmit("local_interactive_confirmation", `confirmed_in_app:${intent.gate}`);
+      return;
+    }
+    onSubmit(actor.trim(), rationale.trim());
+  };
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onCancel();
     document.addEventListener("keydown", onKey);
@@ -6354,37 +6404,61 @@ export function ApprovalDialog({
         role="dialog"
         aria-modal="true"
         aria-label={intent.action === "approve"
-          ? t("dialog.approveTitle", { gate: t(`gate.${intent.gate}`) })
+          ? t(`dialog.titleByGate.${intent.gate}`)
           : t("dialog.revokeTitle")}
-        className="w-full max-w-md rounded-card border border-border bg-surface p-5 shadow-card"
+        className="max-h-[min(780px,calc(100vh-2rem))] w-full max-w-lg overflow-y-auto rounded-card border border-border bg-surface p-5 shadow-card"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center gap-2 text-sm font-semibold text-text">
-          <ShieldCheck size={17} className="text-accent" />
+          <Check size={17} className="text-accent" />
           {intent.action === "approve"
-            ? t("dialog.approveTitle", { gate: t(`gate.${intent.gate}`) })
+            ? t(`dialog.titleByGate.${intent.gate}`)
             : t("dialog.revokeTitle")}
         </div>
-        <p className="mt-2 text-xs leading-5 text-muted">{t("dialog.body")}</p>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          {intent.action === "approve" ? t(`dialog.bodyByGate.${intent.gate}`) : t("dialog.revokeBody")}
+        </p>
         {intent.action === "approve" && intent.gate === "decision_problem" && (
           <DecisionProblemReviewSummary plan={plan} />
         )}
-        <p className="mt-3 text-[10px] leading-4 text-muted">
-          {t("dialog.hashNote", { hash: `${artifactHash.slice(0, 12)}…` })}
-        </p>
-        <label className="mt-4 block text-xs font-medium text-text">
-          {t("dialog.actor")}
-          <input value={actor} onChange={(event) => setActor(event.target.value)} readOnly={Boolean(intent.expectedActor)} autoFocus placeholder={t("dialog.actorPlaceholder")} className="mt-1.5 w-full rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent read-only:text-muted" />
-        </label>
-        {intent.expectedActor && (
-          <p className="mt-1.5 text-[10px] leading-4 text-muted">
-            {t("dialog.expectedReviewer")}
-          </p>
+        {intent.action === "approve" && intent.gate === "conceptual_model" && conceptualModel && (
+          <ConceptualModelReviewSummary model={conceptualModel} />
         )}
-        <label className="mt-3 block text-xs font-medium text-text">
-          {t("dialog.rationale")}
-          <textarea value={rationale} onChange={(event) => setRationale(event.target.value)} placeholder={t("dialog.rationalePlaceholder")} rows={3} className="mt-1.5 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent" />
-        </label>
+        {intent.action === "approve" && intent.gate === "analysis_plan" && (
+          <AnalysisPlanReviewSummary plan={plan} />
+        )}
+        {intent.action === "approve" && intent.gate === "independent_validation" && validationAudit && (
+          <IndependentValidationReviewSummary audit={validationAudit} />
+        )}
+        {intent.action === "approve" && intent.gate === "release" && reportingAudit && (
+          <ReleaseReviewSummary audit={reportingAudit} reproducibility={reproducibilityAudit} />
+        )}
+        <details className="mt-3 text-[10px] leading-4 text-muted">
+          <summary className="cursor-pointer font-medium">{t("dialog.technicalDetails")}</summary>
+          <p className="mt-1.5">{t("dialog.hashNote", { hash: `${artifactHash.slice(0, 12)}…` })}</p>
+        </details>
+        {isResearchDecision ? (
+          <p className="mt-3 rounded-input bg-bg px-3 py-2 text-[10px] leading-4 text-muted">
+            {t("dialog.localDecisionBoundary")}
+          </p>
+        ) : (
+          <>
+            <label className="mt-4 block text-xs font-medium text-text">
+              {t("dialog.actor")}
+              <input value={actor} onChange={(event) => setActor(event.target.value)} autoFocus placeholder={t("dialog.actorPlaceholder")} className="mt-1.5 w-full rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent" />
+            </label>
+            {intent.expectedActor && (
+              <p className={cn("mt-1.5 text-[10px] leading-4", actor && !expectedActorMatches ? "text-error" : "text-muted")}>
+                {t("dialog.expectedReviewer", { reviewer: intent.expectedActor })}
+              </p>
+            )}
+            <label className="mt-3 block text-xs font-medium text-text">
+              {t("dialog.rationale")}
+              <textarea value={rationale} onChange={(event) => setRationale(event.target.value)} placeholder={t("dialog.rationalePlaceholder")} rows={3} className="mt-1.5 w-full resize-none rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent" />
+            </label>
+            <p className="mt-2 text-[10px] leading-4 text-muted">{t("dialog.identityBoundary")}</p>
+          </>
+        )}
         <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-text">
           <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 accent-[var(--color-accent)]" />
           <span>
@@ -6395,9 +6469,18 @@ export function ApprovalDialog({
               : t("dialog.confirm")}
           </span>
         </label>
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
           <button onClick={onCancel} className="rounded-input border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-surface-2">{t("dialog.cancel")}</button>
-          <button disabled={!valid} onClick={() => onSubmit(actor.trim(), rationale.trim())} className={cn("rounded-input px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40", intent.action === "approve" ? "bg-accent" : "bg-error")}>{intent.action === "approve" ? t("dialog.approve") : t("dialog.revoke")}</button>
+          {isResearchDecision && onRequestRevision && (
+            <button onClick={onRequestRevision} className="rounded-input border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-surface-2">
+              {t("dialog.returnToRevise")}
+            </button>
+          )}
+          <button disabled={!valid} onClick={submit} className={cn("rounded-input px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40", intent.action === "approve" ? "bg-accent" : "bg-error")}>
+            {intent.action === "approve"
+              ? isResearchDecision ? t("dialog.confirmCurrent") : t("dialog.recordStatement")
+              : t("dialog.revoke")}
+          </button>
         </div>
       </div>
     </div>
@@ -6433,6 +6516,103 @@ function DecisionProblemReviewSummary({ plan }: { plan: HeorAnalysisPlan }) {
         ))}
       </dl>
     </section>
+  );
+}
+
+function ConceptualModelReviewSummary({ model }: { model: HeorConceptualModel }) {
+  const { t } = useTranslation("heor");
+  return (
+    <section className="mt-4 rounded-input border border-border bg-bg px-3 py-3">
+      <div className="text-xs font-semibold text-text">{model.objective}</div>
+      <dl className="mt-3 grid grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] gap-x-3 gap-y-1.5">
+        <ReviewValue label={t("conceptual.modelType")} value={model.model_type.proposed} />
+        <ReviewValue label={t("conceptual.states")} value={model.states.map((state) => state.label).join(" · ")} />
+        <ReviewValue label={t("conceptual.transitions")} value={String(model.transitions.length)} />
+        <ReviewValue label={t("conceptual.alternatives")} value={String(model.structural_alternatives.length)} />
+      </dl>
+      {model.structural_assumptions.length > 0 && (
+        <div className="mt-3 border-t border-border pt-2">
+          <div className="text-[10px] font-medium text-muted">{t("dialog.structuralAssumptions")}</div>
+          <ul className="mt-1.5 space-y-1 text-[11px] leading-4 text-text">
+            {model.structural_assumptions.map((assumption) => (
+              <li key={assumption.id}>• {assumption.statement} <span className="text-muted">· {assumption.status}</span></li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AnalysisPlanReviewSummary({ plan, compact = false }: { plan: HeorAnalysisPlan; compact?: boolean }) {
+  const { t } = useTranslation("heor");
+  const strategyOrder = plan.strategy_order ?? Object.keys(plan.strategies);
+  const strategies = strategyOrder
+    .map((id) => plan.strategies[id]?.name ?? id)
+    .join(" · ");
+  const values = [
+    [t("snapshot.referenceCase"), `${plan.reference_case.id} · ${plan.reference_case.status}`],
+    [t("dialog.strategies"), strategies],
+    [t("snapshot.states"), plan.states.join(" · ")],
+    [t("dialog.modelTiming"), t("dialog.modelTimingValue", {
+      cycles: plan.cycles,
+      length: plan.cycle_length_years,
+    })],
+    [t("snapshot.discount"), `${(plan.discount_rates.costs * 100).toFixed(1)}% / ${(plan.discount_rates.outcomes * 100).toFixed(1)}%`],
+    [t("snapshot.evidence"), String(plan.evidence_sources?.length ?? 0)],
+    [t("snapshot.assumptions"), String(plan.assumptions?.filter((item) => item.status === "unresolved").length ?? 0)],
+  ];
+  return (
+    <section className={cn(compact ? "" : "mt-4 rounded-input border border-border bg-bg px-3 py-3")}>
+      {!compact && <div className="text-xs font-semibold text-text">{plan.decision_problem.title}</div>}
+      <dl className={cn("grid grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] gap-x-3 gap-y-1.5", !compact && "mt-3")}>
+        {values.map(([label, value]) => <ReviewValue key={label} label={label} value={value} />)}
+      </dl>
+    </section>
+  );
+}
+
+function IndependentValidationReviewSummary({ audit }: { audit: HeorModelValidationAudit }) {
+  const { t } = useTranslation("heor");
+  return (
+    <section className="mt-4 rounded-input border border-border bg-bg px-3 py-3">
+      <dl className="grid grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] gap-x-3 gap-y-1.5">
+        <ReviewValue label={t("dialog.declaredReviewer")} value={audit.reviewerLabel} />
+        <ReviewValue label={t("dialog.recommendation")} value={audit.recommendation} />
+        <ReviewValue label={t("dialog.validationCoverage")} value={`${audit.coveredRequirementCount}/${audit.requiredCoverageCount}`} />
+        <ReviewValue label={t("dialog.blockingIssues")} value={String(audit.openBlockingIssueCount)} />
+        <ReviewValue label={t("snapshot.evidence")} value={String(audit.evidenceCount)} />
+      </dl>
+    </section>
+  );
+}
+
+function ReleaseReviewSummary({
+  audit,
+  reproducibility,
+}: {
+  audit: HeorReportingAudit;
+  reproducibility?: HeorReproducibilityAudit;
+}) {
+  const { t } = useTranslation("heor");
+  return (
+    <section className="mt-4 rounded-input border border-border bg-bg px-3 py-3">
+      <dl className="grid grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] gap-x-3 gap-y-1.5">
+        <ReviewValue label={t("dialog.releaseOwner")} value={audit.releaseOwnerLabel} />
+        <ReviewValue label={t("dialog.reportPackage")} value={audit.packageId} />
+        <ReviewValue label={t("dialog.reportingCoverage")} value={`${audit.coveredItemCount}/${audit.requiredItemCount}`} />
+        <ReviewValue label={t("dialog.reproducibility")} value={reproducibility?.releaseCompanionReady ? t("dialog.ready") : t("dialog.notReady")} />
+      </dl>
+    </section>
+  );
+}
+
+function ReviewValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="contents">
+      <dt className="text-[11px] text-muted">{label}</dt>
+      <dd className="min-w-0 break-words text-right text-[11px] font-medium text-text">{value || "—"}</dd>
+    </div>
   );
 }
 

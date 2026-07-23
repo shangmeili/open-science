@@ -72,7 +72,7 @@
     }
   },
   "skills": {
-    "title": "Compétences et outils",
+    "title": "Extensions et compétences",
     "description": {
       "prefix": "Consultez et gérez les méthodes de recherche, les outils d’analyse et les extensions disponibles pour cette tâche.",
       "suffix": " dans votre espace de travail."
@@ -137,13 +137,13 @@
       "sectionTitle": "Adaptateurs externes",
       "loading": "Vérification des adaptateurs externes fournis…",
       "unavailable": "Les adaptateurs externes ne peuvent pas être vérifiés et restent désactivés.",
-      "firstPartyTitle": "52 Skills AI4HEOR internes sont intégrées",
+      "firstPartyTitle": "Les capacités de recherche AI4HEOR sont intégrées",
       "firstPartyBoundary": "Seuls les adaptateurs externes ayant réussi les contrôles de licence, de sécurité, de méthode et de paquet, puis réellement distribués avec AI4HEOR, apparaissent ici. Les sources à réécrire ou exclues ne restent pas des options utilisateur.",
-      "groupAdmitted": "Actifs admis ({{count}})",
+      "groupAdmitted": "Actifs externes admis",
       "admitted": "admis",
       "adapterBoundary": "Cet adaptateur ne peut fonctionner que dans les limites déclarées d’espace de travail, de réseau, d’autorisations et de Human-in-the-loop.",
       "noneAdmitted": "Aucun outil tiers n’est actuellement distribué avec AI4HEOR. Les fonctions nécessaires sont assurées par des Skills internes ; les réécritures inachevées et les sources exclues ne sont pas affichées ici.",
-      "registryValid": "Le registre des adaptateurs externes est valide et {{count}} adaptateur est disponible.",
+      "registryValid": "Le registre des adaptateurs externes est valide et les adaptateurs examinés sont disponibles.",
       "failClosed": "La validation du registre a échoué. Toutes les capacités externes restent désactivées."
     },
     "environment": {
@@ -161,7 +161,7 @@
       "note": "AI4HEOR peut installer un environnement Python et Jupyter isolé. La première installation télécharge environ 500 Mo. R est facultatif et doit être installé séparément depuis le site officiel de R."
     },
     "agentsSection": {
-      "sectionTitle": "Agents ({{count}})",
+      "sectionTitle": "Agents",
       "empty": "Aucun agent signalé.",
       "agentMode": {
         "primary": "principal",
@@ -170,7 +170,7 @@
       }
     },
     "skillsListSection": {
-      "sectionTitle": "Compétences ({{count}})",
+      "sectionTitle": "Compétences",
       "empty": "Aucune compétence chargée pour le moment.",
       "use": "Utiliser",
       "usePrompt": "Utilisez {{skill}} pour le travail suivant :\n\n",

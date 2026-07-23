@@ -10,9 +10,9 @@
   "items": {
     "new": "새 작업",
     "notebooks": "분석 노트",
-    "files": "연구 자료",
-    "runs": "분석 기록",
-    "skills": "연구 기능",
+    "files": "작업 파일",
+    "runs": "실행 기록",
+    "skills": "플러그인 및 스킬",
     "projects": "프로젝트",
     "heor": "연구 작업공간"
   },
@@ -66,7 +66,7 @@
     "hideAction": "숨기기"
   },
   "status": {
-    "runtime": "런타임",
+    "runtime": "로컬 서비스",
     "model": "모델",
     "modelNotSet": "설정 안 됨",
     "values": {

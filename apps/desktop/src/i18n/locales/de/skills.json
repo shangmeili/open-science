@@ -2,6 +2,13 @@
   "catalog": {
     "ai4heor-preference-learning": { "displayName": "Vorschläge für Arbeitspräferenzen", "description": "Fasst ein nicht sensibles Muster aus mindestens zwei unabhängigen Interaktionen als lokalen Vorschlag zusammen, den Forschende prüfen, bearbeiten oder löschen können." },
     "ai4heor-skill-authoring": { "displayName": "AI4HEOR Skill-Erstellung", "description": "Wandelt eine natürlichsprachliche Anfrage in einen zweisprachigen, validierten, aber noch inaktiven Skill-Kandidaten um." },
+    "ai4s-agent": { "displayName": "Open-Science-Forschungsablauf", "description": "Koordiniert allgemeine Exploration, Literaturarbeit, Experimente und Manuskriptentwürfe; HEOR folgt den AI4HEOR-Methodenverträgen." },
+    "experiment-suite": { "displayName": "Experiment-Suite", "description": "Erstellt allgemeines Versuchsdesign, ausführbaren Code, gekennzeichnete Ergebnisse, Abbildungen und Bericht." },
+    "integrity-auditor": { "displayName": "Integritätsprüfung", "description": "Prüft Bilder, Zahlen und Argumente und liefert nachprüfbare Befunde ohne Fehlverhaltensurteil." },
+    "literature-survey": { "displayName": "Literaturübersicht", "description": "Erstellt eine strukturierte Übersicht mit geprüften Quellen, Tabellen, Abbildungen und Zitaten." },
+    "mindmap-render": { "displayName": "Mindmap-Ausgabe", "description": "Rendert eine Markdown-Gliederung als interaktives HTML sowie hochauflösendes PNG oder PDF." },
+    "paper-writer": { "displayName": "Forschungsmanuskript", "description": "Ordnet geprüfte Materialien, Methoden, Ergebnisse und Grenzen zu einem prüfbaren Manuskriptentwurf." },
+    "research-explorer": { "displayName": "Forschungsrichtung erkunden", "description": "Ordnet Kandidatenfragen, Lücken, Machbarkeit und nächsten Evidenzbedarf eines breiten Feldes." },
     "domain-check": { "displayName": "Wissenschaftlicher Domänencheck", "description": "Erkennt deterministische Domänenfehler in wissenschaftlichem Analysecode." },
     "heor-advanced-value-of-information": { "displayName": "Erweiterter Informationswert", "description": "Prüft Populations-EVPI, EVPPI, EVSI und ENBS." },
     "heor-background-mortality": { "displayName": "Hintergrundmortalität", "description": "Kombiniert geprüfte Bevölkerungs- und Exzessmortalität." },

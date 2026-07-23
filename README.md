@@ -121,9 +121,10 @@ create scientific approval, cost-effectiveness, reimbursement, or policy conclus
 
 ## Current capabilities
 
-**Research assistance, as bounded HEOR skills.** AI4HEOR's 52 first-party skills
-route researcher-defined tasks without acquiring approval or method-selection
-authority. Representative admitted workflows are:
+**Research assistance, with a complete Open Science foundation and bounded HEOR
+methods.** AI4HEOR ships 52 first-party Skills and 7 hash-locked Open Science
+general research Skills. None acquires approval or method-selection authority.
+Representative HEOR workflows are:
 
 | Skill | Role | Primary output |
 | --- | --- | --- |
@@ -141,9 +142,9 @@ authority. Representative admitted workflows are:
 | `$research-tables` | Structure typed, unit-labelled rows from exact local evidence and analysis outputs | Reviewable formula-free XLSX, one CSV per table, and generation audit |
 | `$journal-submission-check` | Capture explicit mechanical rules from a researcher-saved official author-guide snapshot | Source-bound check report that remains awaiting Human review |
 
-Every first-party Skill name and description ships in all seven interface
-languages while the exact `$skill-id` remains visible. Unfinished rewrites and
-excluded external sources are internal engineering records, not user choices.
+All 59 bundled Skill names and descriptions ship in all seven interface
+languages while the exact `$skill-id` remains visible. Unfinished adapters and
+excluded sources are internal engineering records, not user choices.
 
 ### Platform
 
@@ -159,18 +160,16 @@ excluded external sources are internal engineering records, not user choices.
 | Review | Traceability, statistics-integrity, domain-check, large-file, publication-figure, remote-compute, and Modal run skills are bundled as first-party skills. |
 | Viewers | PDF, image, video, HTML, Markdown, code, CSV/TSV tables with charts, DOCX, XLSX, PPTX, molecules, 3D meshes, genome tracks, FITS, DOS/DOSCAR, EIGENVAL bands, qcode, anomaly maps, and phase files. |
 | Models | OpenCode provider catalog, OAuth/API-key provider flows, custom OpenAI-compatible endpoints, and local/provider-specific options supported by OpenCode. |
-| Interface languages | English, Simplified Chinese, Japanese, Spanish, German, French, and Korean. First-party Skill names and descriptions ship in all seven languages while exact `$skill-id` values remain visible. Portuguese (Brazil) and Arabic are registered but not selectable yet. |
+| Interface languages | English, Simplified Chinese, Japanese, Spanish, German, French, and Korean. All bundled Skill names and descriptions ship in all seven languages while exact `$skill-id` values remain visible. Portuguese (Brazil) and Arabic are registered but not selectable yet. |
 
 ## Skills and connectors
 
-Only first-party core skills in `runtime/skills/core/` are bundled by default,
-including the AI4HEOR auditable PubMed/ClinicalTrials.gov evidence search,
-evidence synthesis, model-design, reference-case, uncertainty, advanced
-value-of-information, budget-impact, validation, and reporting workflows. Third-party Skills and MCP
-servers are governed by a release-only packaged registry. It contains only
-compatible, reviewed, cross-platform, hash-locked `validated-adapter` assets
-that actually ship with the app; it does not retain unfinished or excluded
-sources. The current registry is empty, so no third-party tool is bundled.
+The app bundles the 52 first-party Skills in `runtime/skills/core/` and seven
+MIT Open Science Skills from a pinned `ai4s-research/ai4s-skills` revision.
+The latter are isolated adapters whose exact trees are hash-locked in the
+release registry. HEOR work uses the first-party evidence, model, provenance,
+deterministic-computation, review, and reporting contracts first; a general
+Skill may supplement but never replace them.
 
 Useful behavior identified in earlier external reviews is rebuilt as bounded
 first-party AI4HEOR capabilities. License-incompatible document sources are
@@ -182,13 +181,12 @@ formula-free XLSX plus one CSV per table. Neither XLSX path performs hidden
 spreadsheet model recalculation. The read-only decision trail is in
 [`docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md`](./docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md).
 
-The default connector surface contains no unreviewed third-party one-click MCP
-process. Built-in `$heor-evidence-search` performs fixed-endpoint,
-Human-authorized PubMed and ClinicalTrials.gov metadata retrieval; Jupyter is
-the sole one-click managed local computation tool. Researchers can still add
-local or remote MCP servers from Settings, where they are explicitly labelled
-as unmanaged external capabilities. Inherited Paper Search MCP and BioMCP
-definitions are removed rather than retained as product candidates. See
+The connector surface retains the Open Science catalog for literature search,
+BioMCP, Materials Project, FRED, space weather, Open-Meteo, and USGS water.
+Each is installed only on request into an app-managed environment. Built-in
+`$heor-evidence-search` remains the auditable fixed-endpoint HEOR route for
+PubMed and ClinicalTrials.gov. Researchers can also add their own local or
+remote MCP servers; those remain unmanaged external capabilities. See
 [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md).
 
 For a neutral positioning note, see
@@ -328,8 +326,9 @@ in all seven interface languages. It also removes internal harness files and ana
 notes from primary navigation, keeps creation-input focus neutral, preserves deliberate
 model changes against stale catalog responses, bounds long-running event memory, and
 uses package-stable nonempty resource sentinels on Windows. These reliability changes
-were selectively adapted after reviewing Open Science 0.2.2 without restoring its
-generic research surface. The focused CI profile builds one Windows x64 NSIS installer
+were selectively adapted after reviewing Open Science 0.2.2. Version 1.0.0 also
+corrects the serious earlier regression that omitted seven general Open Science Skills
+and seven research connectors from the deliverable runtime. The focused CI profile builds one Windows x64 NSIS installer
 and reruns Windows package, resource, install, first-launch, and cleanup
 verification; a Windows package is not considered accepted unless that workflow passes.
 Version 0.1.53 makes AI4HEOR the single user-facing research workbench, replaces the
@@ -432,10 +431,10 @@ model-free teaching case preserves one successful Run and three Provenance entri
 rejects a subsequently changed governed input without altering prior result bytes. A
 seven-language first-use guide explains local storage, model choice, approval boundaries,
 and Human scientific authority without collecting a scientific form or hiding the research
-conversation. OpenCode implementation details remain under Settings → Advanced diagnostics;
-the default Settings surface contains governed first-party HEOR evidence access, managed
-Jupyter, and explicitly unmanaged user-added MCP servers rather than the inherited generic
-Open Science connector catalog.
+conversation. OpenCode implementation details remain under Settings → Advanced diagnostics.
+Version 1.0.0 restores the inherited seven-connector Open Science catalog as an
+on-demand app-managed foundation alongside governed first-party HEOR evidence,
+managed Jupyter, and explicitly unmanaged user-added MCP servers.
 The 81,600,567-byte AI4HEOR 0.1.41 x64 macOS DMG has SHA-256
 `9fc18e035748a2aa67e06443409dce9ffbd2aed83496ab9f1003138391c18ee6` and was locally
 built from tracked source commit `38e061708e56ee82d53ea3d68a79b95dd25ea5dc`. All 340

@@ -12,21 +12,22 @@
 
 :root,
 [data-theme="light"] {
-  --bg: #f7f7f5;
+  --bg: #fbfbfc;
   --surface: #ffffff;
-  --surface-2: #f0f0ed;
-  --border: #e3e3df;
-  --border-faint: #ececea;
-  --text: #242422;
-  /* Small supporting copy must remain readable on both the paper background
+  --surface-2: #f1f2f4;
+  --sidebar: #f5f6f7;
+  --border: #e1e2e6;
+  --border-faint: #ececef;
+  --text: #202124;
+  /* Small supporting copy must remain readable on both the neutral background
      and white cards. These pairs clear WCAG AA normal-text contrast. */
-  --muted: #70706c;
-  --accent: #b34f32;
+  --muted: #696d75;
+  --accent: #33353a;
   --accent-fg: #ffffff;
-  --link: #2a6fdb;
-  --warn: #a86d17;
-  --ok: #428250;
-  --error: #b94d45;
+  --link: #2563b8;
+  --warn: #966408;
+  --ok: #367a50;
+  --error: #bd4050;
   /* Chart design system (P1-5) — validated categorical hues + chart chrome,
      the single source of truth shared with @ai4s/shared and the matplotlib
      style. Light surface = --surface (#ffffff). */
@@ -43,19 +44,20 @@
 }
 
 [data-theme="dark"] {
-  --bg: #1b1b1a;
-  --surface: #232322;
-  --surface-2: #2d2d2b;
-  --border: #3a3a37;
-  --border-faint: #30302e;
-  --text: #f0f0ed;
-  --muted: #a2a29d;
-  --accent: #d46d4d;
-  --accent-fg: #191918;
-  --link: #7aa5f0;
-  --warn: #d7a24a;
-  --ok: #6bb07d;
-  --error: #d47a70;
+  --bg: #1d1e22;
+  --surface: #25262b;
+  --surface-2: #303138;
+  --sidebar: #222329;
+  --border: #3b3d45;
+  --border-faint: #32343b;
+  --text: #f1f2f4;
+  --muted: #a7aab2;
+  --accent: #e8e9ec;
+  --accent-fg: #1d1e22;
+  --link: #8ab4f8;
+  --warn: #d7a341;
+  --ok: #6aba86;
+  --error: #e16f7c;
   /* Same hues stepped for the dark chart surface (--surface #1e1d24). */
   --series-1: #3987e5;
   --series-2: #199e70;
@@ -79,7 +81,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", Inter, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -92,14 +94,17 @@ body {
   outline-offset: 2px;
 }
 
-/* The two primary creation fields use a calm, neutral focus treatment. Their
-   parent/input ring remains clearly visible for keyboard users, so the global
-   accent outline would only read as a false validation error here. */
-[data-focus-style="neutral"]:focus-visible {
-  outline: none;
+/* Text-entry controls already expose the caret. Keep their frame unchanged on
+   focus so a neutral field never turns into a dark validation-like box. This
+   applies product-wide; buttons and other controls retain the keyboard ring. */
+:where(input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="url"], input[type="tel"], input[type="password"], input[type="number"], textarea, [contenteditable="true"]):focus,
+:where(input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="url"], input[type="tel"], input[type="password"], input[type="number"], textarea, [contenteditable="true"]):focus-visible {
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
-/* Thin, calm scrollbars to match the paper aesthetic. */
+/* Thin, calm scrollbars to match the desktop chrome. */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;

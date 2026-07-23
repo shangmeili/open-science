@@ -17,9 +17,9 @@ export interface LocalizedSkillCopy {
 }
 
 /**
- * Localize only app-owned first-party Skills. Unknown runtime, project, and
- * third-party Skills keep the exact metadata supplied by OpenCode, so the app
- * never invents or mistranslates external capabilities.
+ * Localize app-owned Skills and the exact hash-locked adapters shipped by the
+ * product. Unknown runtime and project Skills keep the metadata supplied by
+ * OpenCode, so the app never invents or mistranslates unreviewed capabilities.
  */
 export function localizeSkill(
   name: string,

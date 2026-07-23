@@ -4,7 +4,7 @@
     "general": "General",
     "appearance": "Appearance",
     "models": "Models",
-    "runtime": "Runtime",
+    "runtime": "Local service",
     "connectors": "Connectors",
     "compute": "Compute",
     "privacy": "Privacy",
@@ -35,7 +35,7 @@
     "subtitle": "Configure the AI assistant, models, evidence tools, workspace, and local analysis environment."
   },
   "runtime": {
-    "title": "AI assistant runtime",
+    "title": "Local assistant service",
     "hint": "Started and managed automatically by the desktop app",
     "connect": "Connect",
     "disconnect": "Disconnect",
@@ -403,7 +403,7 @@
       },
       "skills": {
         "title": "Built-in Skills",
-        "ready": "{{count}} Skills available"
+        "ready": "Research capabilities available"
       },
       "heorCore": {
         "title": "Local HEOR calculations",
@@ -432,7 +432,7 @@
     "title": "About AI4HEOR",
     "hint": "Product position, version, and contact details",
     "currentVersion": "Version {{version}}",
-    "developedBy": "AI4HEOR is developed and built by Codex Agent for researcher-led pharmacoeconomics and HEOR work.",
+    "developedBy": "AI4HEOR is developed with assistance from Codex for researcher-led pharmacoeconomics research.",
     "positioning": "Built on the open-source Open Science foundation, the workbench is natural-language first and form assisted, local first, and model-provider independent. Deterministic computation, auditable processes, and researcher confirmation of key scientific judgments remain central.",
     "openScience": "View the Open Science project",
     "contactTitle": "Contact and feedback",

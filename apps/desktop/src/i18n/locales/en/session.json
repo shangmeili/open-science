@@ -140,7 +140,7 @@
       "title": "Browse this task's folder beside the chat"
     },
     "runsToggle": {
-      "label": "Runs",
+      "label": "Run history",
       "title": "This task's analysis runs — beside the chat"
     },
     "notebook": {

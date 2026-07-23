@@ -61,7 +61,8 @@ import { resolveSection } from "@/components/settings/sections";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 import { FIRST_PARTY_HEOR_CONNECTOR } from "@/lib/heorConnectorPolicy";
-import xiaohongshuCard from "@/assets/xiaohongshu.png";
+import { SCIENCE_CONNECTORS } from "@/lib/scienceConnectors";
+import contactCard from "@/assets/contact.png";
 
 const AI4HEOR_CONTACT_EMAIL = "shangmei.li@altolix.com";
 const OPEN_SCIENCE_URL = "https://github.com/ai4s-research/open-science";
@@ -134,6 +135,7 @@ export function SettingsPage() {
   // Long-running uv provisioning lives in a store, not here: navigating away
   // must not discard the "setting up…" state or sever the progress stream.
   const jupyterBusy = useSetupStore((s) => s.jupyterBusy);
+  const enablingConnector = useSetupStore((s) => s.connectorId);
   const setupLine = useSetupStore((s) => s.line);
   const setupGeneration = useSetupStore((s) => s.generation);
 
@@ -146,6 +148,7 @@ export function SettingsPage() {
   const [catalog, setCatalog] = useState<ProviderCatalogEntry[]>([]);
   const [customIds, setCustomIds] = useState<string[]>([]);
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
+  const [connectorKeys, setConnectorKeys] = useState<Record<string, string>>({});
   const [jupyter, setJupyter] = useState<JupyterStatus | null>(null);
   // The interpreter local Python kernels resolve to + the manual override input.
   const [pyInfo, setPyInfo] = useState<PythonInterpreter | null>(null);
@@ -1008,6 +1011,75 @@ export function SettingsPage() {
             <p className="text-[13px] text-muted">{t("mcp.connectPrompt")}</p>
           ) : (
             <div className="overflow-hidden rounded-input border border-border">
+              {isTauri &&
+                SCIENCE_CONNECTORS.filter(
+                  (connector) => !mcpServers.some((server) => server.name === connector.id),
+                ).map((connector) => {
+                  const keyMissing = Boolean(connector.apiKeyEnv)
+                    && !connectorKeys[connector.id]?.trim();
+                  return (
+                    <div
+                      key={connector.id}
+                      className="border-b border-border bg-surface px-3 py-2.5 text-[13px]"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Search size={14} className="shrink-0 text-[var(--series-1)]" />
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium text-text">{connector.label}</span>
+                          <span className="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
+                            {connector.discipline}
+                          </span>
+                          <span className="ml-1.5 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
+                            {t("mcp.openSource")}
+                          </span>
+                          <div className="truncate text-xs text-muted">{connector.description}</div>
+                          <div className="truncate font-mono text-[11px] text-muted/70">
+                            {connector.source}
+                            {connector.installNote ? ` · ${connector.installNote}` : ""}
+                          </div>
+                        </div>
+                        <button
+                          className={btnAccent("h-8")}
+                          onClick={() => void useSetupStore.getState().enableConnector(
+                            connector.id,
+                            connectorKeys[connector.id],
+                          )}
+                          disabled={enablingConnector !== null || busy || keyMissing}
+                          title={keyMissing ? t("mcp.enterKeyFirstTitle") : undefined}
+                        >
+                          {enablingConnector === connector.id ? (
+                            <><Loader2 size={12} className="animate-spin" /> {t("mcp.settingUp")}</>
+                          ) : (
+                            t("mcp.enable")
+                          )}
+                        </button>
+                      </div>
+                      {connector.apiKeyEnv && (
+                        <div className="mt-2 flex items-center gap-2 pl-6">
+                          <input
+                            type="password"
+                            value={connectorKeys[connector.id] ?? ""}
+                            onChange={(event) => setConnectorKeys((keys) => ({
+                              ...keys,
+                              [connector.id]: event.target.value,
+                            }))}
+                            placeholder={`${connector.apiKeyEnv} ${t("mcp.freeKeySuffix")}`}
+                            className={inputCls("min-w-0 flex-1 font-mono")}
+                          />
+                          {connector.apiKeyUrl && (
+                            <button
+                              type="button"
+                              onClick={() => void openExternal(connector.apiKeyUrl!)}
+                              className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] text-link hover:underline"
+                            >
+                              <ExternalLink size={11} /> {t("mcp.getFreeKey")}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               <div className="flex items-start gap-2.5 border-b border-border bg-surface px-3 py-2.5 text-[13px]">
                 <Search size={14} className="mt-0.5 shrink-0 text-accent" />
                 <div className="min-w-0 flex-1">
@@ -1058,7 +1130,7 @@ export function SettingsPage() {
               )}
               {/* Live uv output while a provisioning run is in flight — a
                   300 MB download must never look like a frozen spinner. */}
-              {jupyterBusy && (
+              {(jupyterBusy || enablingConnector !== null) && (
                 <div className="flex items-center gap-2 border-b border-border bg-surface-2/50 px-3 py-1.5">
                   <Loader2 size={11} className="shrink-0 animate-spin text-muted" />
                   <span className="truncate font-mono text-[11px] text-muted">
@@ -1289,15 +1361,20 @@ export function SettingsPage() {
         {/* ---- Appearance ---- */}
         {section === "appearance" && (
         <Card title={t("appearance.title")}>
-          <div className="inline-flex rounded-input border border-border bg-surface-2 p-0.5">
+          <div
+            role="group"
+            aria-label={t("appearance.themeLabel")}
+            className="inline-flex rounded-input border border-border bg-surface p-0.5"
+          >
             {/* eslint-disable-next-line i18next/no-literal-string -- internal theme-mode keys, not display text (the visible label is t(`appearance.theme.${mode}`)) */}
             {(["light", "dark"] as const).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setTheme(mode)}
+                aria-pressed={theme === mode}
                 className={cn(
                   "rounded-[5px] px-4 py-1.5 text-[13px] transition-colors",
-                  theme === mode ? "bg-surface text-text shadow-card" : "text-muted hover:text-text",
+                  theme === mode ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2/50 hover:text-text",
                 )}
               >
                 {t(`appearance.theme.${mode}`)}
@@ -1318,9 +1395,9 @@ export function SettingsPage() {
                     key={l.code}
                     onClick={() => setLocale(l.code)}
                     className={cn(
-                      "rounded-input border px-2.5 py-2 text-left text-[13px] transition-colors",
+                      "rounded-input border px-2.5 py-2 text-left text-[13px] outline-none transition-colors focus-visible:outline-none focus-visible:ring-0",
                       active
-                        ? "border-accent bg-accent/10 text-text shadow-sm"
+                        ? "border-border bg-surface-2 text-text"
                         : "border-border bg-surface text-muted hover:bg-surface-2 hover:text-text",
                     )}
                     aria-pressed={active}
@@ -1362,10 +1439,10 @@ export function SettingsPage() {
 
             <div
               id="ai4heor-contact-card"
-              className="grid overflow-hidden rounded-[20px] border border-border bg-surface sm:grid-cols-[minmax(0,1fr)_minmax(224px,40%)]"
+              className="grid items-end gap-5 overflow-hidden rounded-[20px] border border-border bg-surface p-5 sm:grid-cols-[minmax(0,1fr)_minmax(300px,46%)]"
             >
               <section
-                className="flex min-h-[250px] flex-col justify-end p-5 sm:pr-4"
+                className="flex h-full min-w-0 flex-col"
                 aria-labelledby="ai4heor-contact-heading"
               >
                 <div
@@ -1375,10 +1452,12 @@ export function SettingsPage() {
                   <Mail size={15} className="text-accent" />
                   {t("about.contactTitle")}
                 </div>
-                <p className="mt-2 text-xs leading-5 text-muted">{t("about.contactBody")}</p>
+                <p className="mt-1 whitespace-pre-line text-xs leading-[18px] text-muted">
+                  {t("about.contactBody")}
+                </p>
                 <button
                   type="button"
-                  className="mt-3 flex w-full max-w-[350px] items-center justify-between gap-3 rounded-input border border-border bg-surface px-3 py-2.5 text-left font-mono text-xs text-text shadow-sm transition-colors hover:bg-bg"
+                  className="mt-auto flex w-full max-w-[350px] items-center justify-between gap-3 rounded-input border border-border bg-surface px-3 py-2.5 text-left font-mono text-[11px] text-text shadow-sm transition-colors hover:bg-bg"
                   onClick={() => void copyContactEmail()}
                   title={t("about.copyEmail")}
                 >
@@ -1387,11 +1466,11 @@ export function SettingsPage() {
                 </button>
               </section>
 
-              <figure className="flex items-start justify-center p-3 sm:pl-0">
+              <figure className="flex items-end justify-center">
                 <img
-                  src={xiaohongshuCard}
+                  src={contactCard}
                   alt={t("about.xiaohongshuAlt")}
-                  className="block h-auto w-full max-w-[280px] rounded-[18px] bg-white"
+                  className="block h-auto w-full max-w-[360px] bg-white"
                 />
               </figure>
             </div>

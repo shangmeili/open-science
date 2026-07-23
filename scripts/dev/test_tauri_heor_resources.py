@@ -65,7 +65,7 @@ class TauriHeorResourceTests(unittest.TestCase):
     def test_declared_heor_resources_exist(self):
         config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         for source, destination in config["bundle"]["resources"].items():
-            if destination.startswith(("heor-core/", "reference-cases/", "skills-core/")):
+            if destination.startswith(("heor-core/", "reference-cases/", "skills-core/", "skills-admitted-")):
                 self.assertTrue((TAURI_DIR / source).resolve().exists(), source)
 
     def test_skill_files_are_not_redeclared_as_individual_resources(self):
@@ -79,6 +79,24 @@ class TauriHeorResourceTests(unittest.TestCase):
             if resolved != skill_root and skill_root in resolved.parents:
                 duplicates.append(source)
         self.assertEqual(duplicates, [])
+
+    def test_admitted_open_science_skills_are_packaged_as_one_hash_locked_pack(self):
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        resources = config["bundle"]["resources"]
+        self.assertEqual(
+            resources["../../../runtime/skills/external/ai4s-skills"],
+            "skills-admitted-ai4s/",
+        )
+        registry = json.loads(
+            (ROOT / "runtime/assets/asset-admission-registry.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(len(registry["assets"]), 7)
+        self.assertTrue(
+            all(
+                asset["distribution"]["resource_pack"] == "skills-admitted-ai4s"
+                for asset in registry["assets"]
+            )
+        )
 
     def test_bundled_delivery_examples_are_heor_specific(self):
         config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
@@ -196,7 +214,8 @@ class TauriHeorResourceTests(unittest.TestCase):
             [component for component in cargo["components"] if component["license"] == "Unknown"]
         )
         destinations = set(resources.values())
-        self.assertFalse(any("skills-external" in value for value in destinations))
+        self.assertNotIn("skills-external/", destinations)
+        self.assertIn("skills-admitted-ai4s/", destinations)
         self.assertFalse(any(value.startswith("mcp/") for value in destinations))
 
         report_assets = (LEGAL_DIR / "REPORT_RENDERER_ASSETS.md").read_text(

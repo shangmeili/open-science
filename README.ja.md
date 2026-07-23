@@ -70,7 +70,7 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 
 ## 現在の機能
 
-**境界を持つ HEOR Skill による研究支援。** 52 個のファーストパーティ Skill は研究者が定義した作業を支援しますが、承認権や手法選択権を取得しません。代表的なワークフローは次のとおりです。
+**Open Science の研究基盤を維持し、境界を持つ HEOR Skill で強化します。** 52 個のファーストパーティ HEOR Skill と、ハッシュで固定された 7 個の MIT Open Science 汎用研究 Skill を同梱します。いずれも承認権や手法選択権を取得しません。
 
 | スキル | 役割 | 主な成果物 |
 | --- | --- | --- |
@@ -87,7 +87,7 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 | `$research-tables` | 型、単位、出典を明示した研究用表を準備 | 確認可能な数式なし XLSX、表ごとの CSV、生成監査記録 |
 | `$journal-submission-check` | 研究者が保存した公式投稿規定から明示的な形式要件を記録 | 出典に結び付き、研究者の確認待ちの点検報告 |
 
-全ファーストパーティ Skill の名称と説明は 7 言語で提供され、正確な `$skill-id` も表示されます。外部資産は個別に承認されるまで無効です。
+59 個すべての Skill の名称と説明は 7 言語で提供され、正確な `$skill-id` も表示されます。
 
 ### プラットフォーム
 
@@ -105,9 +105,9 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 
 ## スキルとコネクタ
 
-デフォルトで配布されるのは `runtime/skills/core/` のファーストパーティ Skill のみです。第三者資産はライセンス、境界、テスト、レビュー、クロスプラットフォーム証拠、正確なハッシュを満たすまで無効です。Anthropic の文書 Skill は再配布不可のため拒否されています。
+`runtime/skills/core/` の 52 個のファーストパーティ HEOR Skill と、固定コミットから取得して MIT ライセンスとツリーハッシュを検証した 7 個の Open Science 汎用研究 Skill を配布します。Anthropic の文書 Skill は再配布不可のため同梱しません。
 
-既定画面は未審査の第三者 MCP をワンクリック起動しません。`$heor-evidence-search` は Human の明示的承認後に固定された PubMed/ClinicalTrials.gov メタデータ端点だけへ接続し、Jupyter だけが管理対象のワンクリックローカル計算ツールです。Settings で追加する MCP は管理外の外部機能として明示され、科学的判断権や承認権を持ちません。詳細は [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md) を参照してください。
+Open Science の 7 個の研究コネクタ（Paper Search、BioMCP、Materials Project、FRED、Space Weather、Open-Meteo、USGS Water）は Settings からアプリ専用環境へ必要時にインストールできます。`$heor-evidence-search` は監査可能な HEOR 証拠検索経路として維持され、汎用コネクタの結果が自動的に採用証拠になることはありません。詳細は [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md) を参照してください。
 
 ## インストール
 
@@ -177,7 +177,7 @@ pnpm lint
   author  = {{The Open Science Desktop Contributors}},
   title   = {Open Science Desktop: a local-first, model-agnostic AI research workbench},
   year    = {2026},
-  version = {0.1.52},
+  version = {1.0.0},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

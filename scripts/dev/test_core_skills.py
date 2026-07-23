@@ -90,7 +90,11 @@ class CoreSkillContractTests(unittest.TestCase):
                 payload = json.loads(path.read_text(encoding="utf-8"))
                 self.assertEqual(set(payload), {"catalog"})
                 catalog = payload["catalog"]
-                self.assertEqual(set(catalog), skill_names)
+                # The shipped catalog also contains separately admitted Open
+                # Science Skills. This core contract owns the 52 first-party
+                # entries; the exact 52+7 union is checked by the foundation
+                # and product-documentation contracts.
+                self.assertTrue(skill_names.issubset(set(catalog)))
                 for name, entry in catalog.items():
                     self.assertEqual(set(entry), {"displayName", "description"})
                     self.assertTrue(entry["displayName"].strip(), name)

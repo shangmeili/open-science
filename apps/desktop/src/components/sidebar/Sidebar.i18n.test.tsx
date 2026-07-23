@@ -12,11 +12,11 @@ describe("Sidebar i18n", () => {
     renderAt("/files");
 
     const nav = await screen.findByRole("navigation");
-    expect(within(nav).getByText("Research files")).toBeInTheDocument();
+    expect(within(nav).getByText("Task files")).toBeInTheDocument();
     expect(within(nav).queryByText("Analysis notes")).not.toBeInTheDocument();
-    expect(within(nav).getByText("Analysis history")).toBeInTheDocument();
+    expect(within(nav).queryByText("Analysis history")).not.toBeInTheDocument();
     expect(within(nav).getByText("New task")).toBeInTheDocument();
-    expect(within(nav).getByText("Research capabilities")).toBeInTheDocument();
+    expect(within(nav).getByText("Plugins & skills")).toBeInTheDocument();
     expect(within(nav).queryByText("Research workspace")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Research workspace" })).toBeInTheDocument();
     expect(screen.getByText("Tasks")).toBeInTheDocument();
@@ -31,7 +31,7 @@ describe("Sidebar i18n", () => {
       "General",
       "Appearance",
       "Models",
-      "Runtime",
+      "Local service",
       "Connectors",
       "Browser",
       "Compute",

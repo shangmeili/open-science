@@ -2,6 +2,13 @@
   "catalog": {
     "ai4heor-preference-learning": { "displayName": "Propuestas de preferencias", "description": "Convierte un patrón no sensible repetido en al menos dos interacciones independientes en una propuesta local que el investigador puede revisar, editar o eliminar." },
     "ai4heor-skill-authoring": { "displayName": "Creación de Skills AI4HEOR", "description": "Convierte la solicitud en lenguaje natural del investigador en un candidato Skill bilingüe, validado y todavía inactivo." },
+    "ai4s-agent": { "displayName": "Flujo de investigación Open Science", "description": "Coordina exploración, revisión, experimentos y borradores generales; HEOR sigue los contratos metodológicos de AI4HEOR." },
+    "experiment-suite": { "displayName": "Suite de experimentos", "description": "Prepara diseño experimental general, código ejecutable, resultados etiquetados, figuras e informe." },
+    "integrity-auditor": { "displayName": "Auditoría de integridad", "description": "Revisa imágenes, cifras y argumentos y presenta hallazgos revisables sin emitir un veredicto de mala conducta." },
+    "literature-survey": { "displayName": "Revisión bibliográfica", "description": "Crea una revisión estructurada con fuentes verificadas, tablas, figuras y citas." },
+    "mindmap-render": { "displayName": "Generador de mapas mentales", "description": "Convierte un esquema Markdown en HTML interactivo y PNG o PDF de alta resolución." },
+    "paper-writer": { "displayName": "Borrador de artículo", "description": "Organiza materiales, métodos, resultados y limitaciones verificados en un borrador revisable." },
+    "research-explorer": { "displayName": "Explorador de investigación", "description": "Organiza preguntas candidatas, vacíos, viabilidad y evidencia siguiente en un campo amplio." },
     "domain-check": { "displayName": "Comprobación del dominio científico", "description": "Detecta errores deterministas de dominio en código científico." },
     "heor-advanced-value-of-information": { "displayName": "Valor avanzado de la información", "description": "Audita EVPI poblacional, EVPPI, EVSI y ENBS." },
     "heor-background-mortality": { "displayName": "Mortalidad de fondo", "description": "Combina mortalidad poblacional y exceso de mortalidad revisados." },

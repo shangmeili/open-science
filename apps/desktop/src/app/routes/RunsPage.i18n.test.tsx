@@ -10,7 +10,7 @@ afterEach(() => useUiStore.getState().setLocale("en"));
 describe("RunsPage strings (i18n)", () => {
   it("renders the page heading and description in English", async () => {
     renderAt("/runs");
-    expect(await screen.findByRole("heading", { level: 1, name: "Analysis history" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Run history" })).toBeInTheDocument();
     expect(
       screen.getByText(
         /A local record of successful and failed analyses, plus outputs from successful runs\./,

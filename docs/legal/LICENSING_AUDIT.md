@@ -1,6 +1,6 @@
 # AI4HEOR source, Skill, plugin, MCP, data, and asset authorization audit
 
-Audit date: 2026-07-21
+Audit date: 2026-07-24
 Distribution target: AI4HEOR 1.0.0 Intel macOS and Windows x64 internal test builds
 Decision: **internal testing allowed; public redistribution blocked**
 
@@ -19,14 +19,15 @@ the exact bytes and preservation of all required notices.
 | --- | --- | ---: | --- |
 | Inherited Open Science source and AI4HEOR changes | Root MIT license; upstream `master` license is MIT | Yes | Allowed under MIT with notice |
 | First-party core Skills | 52 active Skill directories; project-authored under root MIT | Yes | Allowed; embedded third-party notices preserved |
+| Open Science general Skills | Seven directories from `ai4s-research/ai4s-skills` revision `8fa2ab0523082c135598909b227ed8feb48263ad`; repository MIT license copied into every directory; per-tree hashes recorded in the release registry | Yes | Allowed as isolated adapters; HEOR first-party contracts and application permissions take precedence |
 | Citation-formatting renderer | Project-authored Rust/Markdown renderer under root MIT; consumes the bounded CSL-JSON-compatible local library but includes no file from the CC BY-SA 3.0 CSL styles repository | Yes | Allowed; three AI4HEOR-owned profiles, source hashes, metadata warnings, and Human review boundary |
 | Target-journal submission check | Project-authored Rust/Markdown renderer and portable validator under root MIT; official author-guide pages are recorded as links and local researcher-supplied snapshots only | Yes | Allowed; no journal instructions, reporting checklist, CSL style, or submission template is bundled or redistributed |
 | Research-presentation renderer | Project-authored Rust OOXML/ZIP renderer and portable Python validator under root MIT; no Anthropic presentation code or asset is included | Yes | Allowed; macro-free first-party output path |
 | Research-report renderer | Project-authored source-bound DOCX/PDF renderer; `printpdf` 0.11.3 (MIT), its reviewed `lopdf` 0.44.0 chain, and Source Han Sans CN 2.005R (OFL-1.1) are pinned and audited | Yes | Allowed for internal testing; generated documents remain awaiting human review |
 | HEORAgent-informed evidence Skill | First-party rewrite; pinned upstream revision and MIT notice retained | Yes | Allowed; upstream package itself is not shipped |
-| External Skill cache | Removed after the source review; no `runtime/skills/external/` tree remains | No | External source is not retained |
-| External-adapter release registry | Schema 1.1.0, release-only, empty | Registry only | No external code loaded; unfinished and excluded sources are not user options |
-| MCP servers | No third-party MCP config, binary, source tree, or dependency is mapped as a resource | No | Native bounded connectors only |
+| External Skill cache | Fetch directory is ignored in source control and recreated from the pinned revision during release builds | Seven admitted entries only | Content outside the release registry is not loaded or packaged |
+| External-adapter release registry | Schema 1.1.0, release-only, seven hash-locked MIT Skill entries | Yes | Only validated adapters are loaded; unfinished and excluded sources are not user options |
+| MCP servers | Seven curated connector definitions are built into the UI; selected third-party server packages are installed on demand into an app-managed `uv` environment and are not prebundled | Definitions only | Available after an explicit setup action; task permissions, credentials and scientific review remain separate |
 | Anthropic `docx` / `pdf` / `pptx` / `xlsx` Skills | Revision `9d2f1ae187231d8199c64b5b762e1bdf2244733d` was checked directory by directory. Each `LICENSE.txt` is an Anthropic service-linked source-available license, not Apache-2.0, and expressly prohibits retaining copies outside the Services, reproduction, derivative works, and redistribution. The local source cache is removed | No | The four upstream Skill trees cannot be copied into AI4HEOR. Preserve the corresponding capability through independently authored, first-party document workflows and deterministic renderers |
 | npm production dependency universe | 266 packages: 227 MIT, 15 ISC, 6 BSD-3-Clause, 6 Apache-2.0, 3 OFL-1.1, 8 other compatible/multi-license expressions, 1 unresolved | Compiled/bundled as applicable | Internal test only until full notices and unresolved item are closed |
 | `buffers@0.1.1` | Package metadata contains no license field or license file; pulled through `exceljs > unzipper > binary` | Potentially | Public-release blocker |
@@ -42,8 +43,9 @@ the exact bytes and preservation of all required notices.
 
 ## Skills, plugins, and MCP controls
 
-First-party Skills are the only Skill pack mapped into Tauri resources. The app
-validates the core pack, and the admission registry fails closed. The new
+The first-party core pack and the seven hash-locked Open Science adapters are
+mapped into Tauri resources. The app validates both packs, and the admission
+registry fails closed. The new
 capability-authoring harness creates candidates only under
 `capabilities/candidates/`; instruction-only candidates deny network, secrets,
 commands, and outside-workspace access and remain inactive. No assistant or

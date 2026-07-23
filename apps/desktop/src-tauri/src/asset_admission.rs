@@ -536,13 +536,16 @@ mod tests {
     }
 
     #[test]
-    fn production_registry_is_valid_and_contains_no_external_candidate_rows() {
+    fn production_registry_is_valid_and_contains_only_admitted_skill_rows() {
         let (audit, deployments) = validate_registry(REGISTRY);
         assert!(audit.complete, "{:?}", audit.errors);
         assert!(!audit.fail_closed);
-        assert_eq!(audit.total_count, 0);
-        assert_eq!(audit.admitted_count, 0);
-        assert!(deployments.is_empty());
+        assert_eq!(audit.total_count, 7);
+        assert_eq!(audit.admitted_count, 7);
+        assert_eq!(deployments.len(), 7);
+        assert!(deployments
+            .iter()
+            .all(|deployment| deployment.resource_pack == "skills-admitted-ai4s"));
     }
 
     #[test]

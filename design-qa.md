@@ -1,60 +1,12 @@
-# AI4HEOR design QA
+# AI4HEOR design QA — 2026-07-24
 
-## New task surface · 2026-07-20
+- Reference asset: `/Users/magnesium/Downloads/A4.png`
+- Rendered capture: `artifacts/design-qa/ai4heor-wordmark-and-starters-20260724.png`
+- Side-by-side comparison: `artifacts/design-qa/ai4heor-wordmark-comparison-20260724.png`
+- The shipped wordmark is byte-identical to the supplied `A4.png`.
+- The sidebar and new-task heading use the complete wordmark without an additional crop.
+- The browser tab uses the supplied square `AI4HEOR logo.png`, not the wordmark.
+- The six task-entry icons use the existing shared chart palette; their card structure and copy were not changed during the color repair.
+- Visual inspection at 1280 × 720 found no clipping, overlap, broken spacing, or unintended focus outline.
 
-- Reference: `/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/codex-clipboard-a481fc1d-ff9a-4ccf-bf68-03f2d5638ca9.png` (1905×981).
-- Implementation: `artifacts/design-qa/ai4heor-0.1.56-new-task-final.png` (1907×981, SHA-256 `0a9149ce55e6443af4e0673f9720a82676d59b0a525c634e2b2ccf5d6b67bef6`).
-- Same-frame comparison: `artifacts/design-qa/new-task-reference-comparison.png` (SHA-256 `6e31c280d5b61f303eaa2c2efd27bb00557e18a26d26beb7c1d6bc7d03a6b635`).
-- Interaction evidence: `artifacts/design-qa/ai4heor-0.1.56-new-task-prefill.png` (SHA-256 `5d1b2e70a6a583232228cd062ca4db249bb740ece25368782bdfa4865c75f416`).
-
-### Comparison history
-
-1. The first implementation placed the suggestion group near the top of the content area. At the reference viewport this was materially higher than the Codex task entry.
-2. The empty-task section was changed to use the available task height. The final heading and four-card group now occupy the same central band as the reference, while the composer remains fixed near the bottom.
-3. The large missing-model warning was removed from the blank task. Model state remains visible in the sidebar and in the composer placeholder; the user can still type freely, but Send remains disabled until a model is selected.
-4. The reference's generic coding suggestions were replaced with four HEOR actions. Existing AI4HEOR typography, color tokens, Lucide icons, supplied logo, and sidebar were retained rather than cloning Codex branding.
-
-### Functional checks
-
-- `新建任务` resolves to `/heor/new` and renders one free-form textbox.
-- All four suggestion cards are visible at the reference viewport.
-- Clicking `查找与整理证据` fills the textbox with an editable Chinese HEOR request.
-- The click does not create a task, change the route, or send a model request.
-- A blank standalone task does not expose `研究与分析`; an established task does.
-
-**Final result: passed.** No broken layout, clipping, unintended send, duplicate primary entry, or missing core control was observed at 1907×981.
-
-## About contact card · 2026-07-21
-
-- Source visual truth: `/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/codex-clipboard-34532d54-751a-459f-b895-b5da7ed595f8.png` (768×362).
-- Supplied image asset: `/Users/magnesium/Downloads/xiaohongshu.png` (1000×1000).
-- Browser-rendered implementation: `artifacts/design-qa/ai4heor-about-contact-full-v3.png` at a 1280×720 viewport, Settings route, Simplified Chinese, light theme.
-- Focused component capture: `artifacts/design-qa/ai4heor-about-contact-card-v3.png`.
-- Same-frame comparison evidence: `artifacts/design-qa/ai4heor-about-contact-comparison-v3.png`.
-
-### Comparison history
-
-1. The previous implementation used a nested contact panel and a narrow 188 px profile image, so it did not reproduce the supplied single-card composition.
-2. The first recreation introduced one bordered container and the new profile image, but the image was vertically centered and left excessive empty space above and below it.
-3. The final recreation uses the source's approximately 60/40 split, bottom-aligned contact details, a full-width email control, a 20 px outer radius, and a top-aligned square profile image. The card's 566×252 rendered proportion closely matches the reference's 694×305 content frame after normalization.
-
-### Required fidelity surfaces
-
-- Fonts and typography: existing AI4HEOR UI fonts and weights are retained; the contact heading, helper text, and monospace email preserve the reference hierarchy without embedding replacement text outside the supplied image.
-- Spacing and layout rhythm: outer proportion, split, contact baseline, input width, image inset, border radius, and lower alignment match the normalized reference. The supplied image's own white space remains intact.
-- Colors and visual tokens: the region uses the existing surface, border, text, muted, and accent tokens; no new palette or decorative effect was introduced.
-- Image quality and asset fidelity: the exact uploaded 1000×1000 PNG is bundled and displayed without cropping, stretching, CSS reconstruction, or placeholder imagery.
-- Copy and content: contact wording and email remain unchanged; the redundant Xiaohongshu caption below the image is absent.
-
-### Functional and browser checks
-
-- The Settings route rendered in the in-app browser with the new card and supplied image.
-- The email remains one accessible button with the address as its accessible name.
-- Responsive stacking remains available below the existing `sm` breakpoint.
-- Browser console errors checked: none.
-
-### Follow-up polish
-
-- P3: at this narrower application content width, the contact heading sits slightly higher than in the source after normalization. Moving it down would reduce the bottom margin below the email control and make the card less balanced, so the current responsive compromise is retained.
-
-**Final result: passed.** No actionable P0, P1, or P2 fidelity or interaction issue remains.
+final result: passed

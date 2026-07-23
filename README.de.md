@@ -70,7 +70,7 @@ Dieser Benchmark der Upstream-Plattform belegt weder, dass Forschung in AI4HEOR 
 
 ## Aktuelle Funktionen
 
-**HEOR-Unterstützung als begrenzte Skills.** Die 52 First-Party-Skills routen Aufgaben, die Forschende definiert haben, ohne Freigabe- oder Methodenwahl-Autorität zu übernehmen. Repräsentative Workflows:
+**Vollständige Open-Science-Grundlage, ergänzt durch klar begrenzte HEOR-Skills.** Ausgeliefert werden 52 First-Party-HEOR-Skills und 7 hash-fixierte allgemeine Open-Science-Skills unter MIT. Keiner übernimmt Freigabe- oder Methodenwahl-Autorität.
 
 | Skill | Rolle | Hauptausgabe |
 | --- | --- | --- |
@@ -87,7 +87,7 @@ Dieser Benchmark der Upstream-Plattform belegt weder, dass Forschung in AI4HEOR 
 | `$research-tables` | Typisierte, einheiten- und quellengebundene Forschungstabellen vorbereiten | Prüfbare formelfreie XLSX, CSV je Tabelle und Generierungsnachweis |
 | `$journal-submission-check` | Explizite formale Vorgaben aus einer von Forschenden gespeicherten offiziellen Autorenrichtlinie erfassen | Quellengebundener Prüfbericht, der auf die menschliche Prüfung wartet |
 
-Namen und Beschreibungen aller 52 First-Party-Skills werden in sieben UI-Sprachen ausgeliefert; die exakte `$skill-id` bleibt sichtbar. Externe Assets bleiben bis zur Einzelzulassung inaktiv.
+Namen und Beschreibungen aller 59 Skills werden in sieben UI-Sprachen ausgeliefert; die exakte `$skill-id` bleibt sichtbar.
 
 ### Plattform
 
@@ -105,9 +105,9 @@ Namen und Beschreibungen aller 52 First-Party-Skills werden in sieben UI-Sprache
 
 ## Skills und Konnektoren
 
-Standardmäßig werden nur First-Party-Skills aus `runtime/skills/core/` ausgeliefert. Drittanbieter-Assets bleiben bis zu Lizenz-, Grenz-, Test-, Review-, Plattform- und Hash-Nachweisen inaktiv. Anthropics Dokument-Skills sind wegen ihres Weitergabeverbots abgelehnt.
+Ausgeliefert werden 52 First-Party-HEOR-Skills aus `runtime/skills/core/` sowie 7 allgemeine Open-Science-Skills aus einem festen Commit mit geprüfter MIT-Lizenz und Baum-Hash. Anthropics Dokument-Skills werden wegen ihres Weitergabeverbots nicht gebündelt.
 
-Die Standardoberfläche startet keine ungeprüften Third-Party-MCPs. `$heor-evidence-search` greift nur nach ausdrücklicher Human-Freigabe auf feste PubMed- und ClinicalTrials.gov-Metadatenendpunkte zu; Jupyter ist das einzige verwaltete lokale Ein-Klick-Werkzeug. In Settings ergänzte MCPs werden als nicht verwaltete externe Fähigkeiten markiert und erhalten keine wissenschaftliche oder Freigabeautorität. Siehe [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md).
+Die sieben Open-Science-Forschungskonnektoren Paper Search, BioMCP, Materials Project, FRED, Space Weather, Open-Meteo und USGS Water werden bei Bedarf in einer app-verwalteten Umgebung installiert. `$heor-evidence-search` bleibt der auditierbare HEOR-Evidenzweg; Ergebnisse allgemeiner Konnektoren werden nicht automatisch eingeschlossene Evidenz. Siehe [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md).
 
 ## Installation
 
@@ -177,7 +177,7 @@ Wenn Sie Open Science Desktop in Ihrer Forschung verwenden, zitieren Sie es bitt
   author  = {{The Open Science Desktop Contributors}},
   title   = {Open Science Desktop: a local-first, model-agnostic AI research workbench},
   year    = {2026},
-  version = {0.1.52},
+  version = {1.0.0},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

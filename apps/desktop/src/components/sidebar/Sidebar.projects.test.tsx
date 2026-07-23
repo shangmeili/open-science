@@ -131,12 +131,11 @@ describe("Sidebar projects", () => {
     expect(review).toHaveAttribute("aria-pressed", "true");
     expect(await screen.findByText("Research materials, analysis records, and decisions awaiting your review")).toBeInTheDocument();
 
-    const runs = screen.getByRole("button", { name: "Runs" });
+    const runs = screen.getByRole("button", { name: "Run history" });
     await userEvent.click(runs);
     expect(runs).toHaveAttribute("aria-pressed", "true");
     expect(review).toHaveAttribute("aria-pressed", "false");
-    expect(await screen.findByText("Run history")).toBeInTheDocument();
-    expect(screen.getByText("Analysis history")).toBeInTheDocument();
+    expect((await screen.findAllByText("Run history")).length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText("Research materials, analysis records, and decisions awaiting your review")).not.toBeInTheDocument();
   });
 
@@ -196,10 +195,11 @@ describe("Sidebar projects", () => {
     renderNavigableAt("/heor/new");
 
     expect(await screen.findByRole("heading", { name: "What HEOR work would you like to tackle today?" })).toBeInTheDocument();
-    expect(screen.getByTestId("ai4heor-brand-icon")).toHaveAttribute(
+    expect(screen.getByTestId("ai4heor-brand-wordmark")).toHaveAttribute(
       "src",
-      expect.stringContaining("ai4heor-app-icon.png"),
+      expect.stringContaining("ai4heor-wordmark-light.svg"),
     );
+    expect(screen.getByTestId("ai4heor-brand-wordmark")).toHaveClass("w-[100px]");
     await userEvent.click(screen.getByRole("button", { name: "Research workspace" }));
     expect(await screen.findByRole("heading", { name: "What are you working on?" })).toBeInTheDocument();
     expect(screen.queryByText("Beta")).not.toBeInTheDocument();
@@ -217,9 +217,14 @@ describe("Sidebar projects", () => {
 
     await userEvent.click((await screen.findAllByRole("button", { name: "New project" }))[0]);
     const input = screen.getByPlaceholderText("Project name");
-    expect(input).toHaveAttribute("data-focus-style", "neutral");
-    expect(input).toHaveClass("border-border", "focus:border-muted", "focus:ring-border");
-    expect(input).not.toHaveClass("border-accent/50", "focus:border-accent");
+    expect(input).not.toHaveAttribute("data-focus-style");
+    expect(input).toHaveClass("border-border");
+    expect(input).not.toHaveClass(
+      "border-accent/50",
+      "focus:border-accent",
+      "focus:border-muted",
+      "focus:ring-border",
+    );
     await userEvent.type(input, `${PROJECT.name}{Enter}`);
 
     expect(createProject).toHaveBeenCalledWith(PROJECT.name);

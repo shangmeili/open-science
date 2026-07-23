@@ -72,7 +72,7 @@
     }
   },
   "skills": {
-    "title": "Skills und Werkzeuge",
+    "title": "Plugins und Skills",
     "description": {
       "prefix": "Forschungsmethoden, Analysewerkzeuge und Erweiterungen für diese Aufgabe anzeigen und verwalten.",
       "suffix": " in Ihrem Arbeitsbereich."
@@ -137,13 +137,13 @@
       "sectionTitle": "Externe Adapter",
       "loading": "Mitgelieferte externe Adapter werden geprüft…",
       "unavailable": "Externe Adapter können nicht geprüft werden und bleiben deaktiviert.",
-      "firstPartyTitle": "52 AI4HEOR-Skills aus erster Hand sind integriert",
+      "firstPartyTitle": "AI4HEOR-Forschungsfunktionen sind integriert",
       "firstPartyBoundary": "Hier erscheinen nur externe Adapter, die Lizenz-, Sicherheits-, Methoden- und Paketprüfungen bestanden haben und tatsächlich mit AI4HEOR ausgeliefert werden. Noch umzuschreibende oder ausgeschlossene Quellen bleiben keine Benutzeroptionen.",
-      "groupAdmitted": "Zugelassene Assets ({{count}})",
+      "groupAdmitted": "Zugelassene externe Assets",
       "admitted": "zugelassen",
       "adapterBoundary": "Dieser Adapter darf nur innerhalb der festgelegten Arbeitsbereichs-, Netzwerk-, Berechtigungs- und Human-in-the-loop-Grenzen ausgeführt werden.",
       "noneAdmitted": "Derzeit wird kein Drittanbieter-Werkzeug mit AI4HEOR ausgeliefert. Benötigte Funktionen stammen aus First-Party-Skills; unfertige Umschreibungen und ausgeschlossene Quellen werden hier nicht angezeigt.",
-      "registryValid": "Das Register externer Adapter ist gültig; {{count}} Adapter ist verfügbar.",
+      "registryValid": "Das Register externer Adapter ist gültig; geprüfte Adapter sind verfügbar.",
       "failClosed": "Die Prüfung des Adapterregisters ist fehlgeschlagen. Alle externen Funktionen bleiben deaktiviert."
     },
     "environment": {
@@ -161,7 +161,7 @@
       "note": "AI4HEOR kann eine isolierte Python- und Jupyter-Umgebung installieren. Beim ersten Mal werden etwa 500 MB heruntergeladen. R ist optional und muss separat von der offiziellen R-Website installiert werden."
     },
     "agentsSection": {
-      "sectionTitle": "Agenten ({{count}})",
+      "sectionTitle": "Agenten",
       "empty": "Keine Agenten gemeldet.",
       "agentMode": {
         "primary": "primär",
@@ -170,7 +170,7 @@
       }
     },
     "skillsListSection": {
-      "sectionTitle": "Skills ({{count}})",
+      "sectionTitle": "Skills",
       "empty": "Noch keine Skills geladen.",
       "use": "Verwenden",
       "usePrompt": "Verwende {{skill}} für die folgende Aufgabe:\n\n",

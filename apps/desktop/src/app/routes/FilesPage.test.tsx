@@ -69,7 +69,7 @@ describe("FilesPage", () => {
     expect(await screen.findByText("genes.bed")).toBeInTheDocument();
     expect(listDir).toHaveBeenCalledWith("data", "workspace");
 
-    await userEvent.click(screen.getByRole("button", { name: "Research files" }));
+    await userEvent.click(screen.getByRole("button", { name: "Task files" }));
     await waitFor(() => expect(screen.getByText("figure.png")).toBeInTheDocument());
   });
 
@@ -77,7 +77,7 @@ describe("FilesPage", () => {
     render(<FilesPage />);
 
     expect(await screen.findByText("figure.png")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Research files" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Task files" })).toBeInTheDocument();
     expect(screen.queryByText("7月20日 14:08 的任务")).not.toBeInTheDocument();
     expect(screen.queryByText("2026-07-20-1408")).not.toBeInTheDocument();
     expect(listDir).not.toHaveBeenCalledWith("", "base");

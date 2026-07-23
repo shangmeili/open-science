@@ -1,5 +1,5 @@
 {
-  "title": "Historial de análisis",
+  "title": "Historial de ejecuciones",
   "description": {
     "prefix": "Registro local de los análisis terminados y sus resultados. Usa ",
     "suffix": " cuando necesites comprobar un resultado."

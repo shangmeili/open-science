@@ -104,6 +104,13 @@ jobs:
         shell: bash
         run: bash scripts/dev/fetch-opencode.sh ${{ matrix.target }}
 
+      - name: Fetch pinned Open Science Skill pack
+        shell: bash
+        run: bash scripts/dev/fetch-skills.sh
+
+      - name: Block releases that regress the Open Science foundation
+        run: python scripts/dev/test_open_science_foundation.py -v
+
       - name: Validate third-party asset admission registry
         run: python scripts/dev/test_asset_admission.py -v
 

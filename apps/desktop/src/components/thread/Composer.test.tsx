@@ -5,13 +5,19 @@ import { useUiStore } from "@/lib/store";
 import { Composer } from "./Composer";
 
 describe("Composer", () => {
-  it("uses a neutral focus treatment instead of an error-like accent outline", () => {
+  it("does not restyle the composer frame when the input is focused", () => {
     render(<Composer onSend={vi.fn()} />);
     const input = screen.getByLabelText("Ask anything");
 
-    expect(input).toHaveAttribute("data-focus-style", "neutral");
-    expect(input.parentElement).toHaveClass("focus-within:border-muted", "focus-within:ring-border");
-    expect(input.parentElement).not.toHaveClass("focus-within:border-accent/50");
+    expect(input).not.toHaveAttribute("data-focus-style");
+    expect(input.parentElement).not.toHaveClass(
+      "focus-within:border-muted",
+      "focus-within:border-accent/50",
+      "focus-within:border-border",
+      "focus-within:ring-1",
+      "focus-within:ring-2",
+      "focus-within:ring-border/60",
+    );
   });
 
   it("appends a prepared draft below text the user was already typing", () => {

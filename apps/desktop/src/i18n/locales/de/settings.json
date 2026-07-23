@@ -4,7 +4,7 @@
     "general": "Allgemein",
     "appearance": "Erscheinungsbild",
     "models": "Modelle",
-    "runtime": "Laufzeit",
+    "runtime": "Lokaler Dienst",
     "connectors": "Konnektoren",
     "compute": "Rechenleistung",
     "privacy": "Datenschutz",
@@ -35,7 +35,7 @@
     "subtitle": "KI-Assistent, Modelle, Evidenzwerkzeuge, Arbeitsbereich und lokale Analyseumgebung konfigurieren."
   },
   "runtime": {
-    "title": "Laufzeit des KI-Assistenten",
+    "title": "Lokaler KI-Assistentendienst",
     "hint": "Wird von der Desktop-App automatisch gestartet und verwaltet",
     "connect": "Verbinden",
     "disconnect": "Trennen",
@@ -403,7 +403,7 @@
       },
       "skills": {
         "title": "Integrierte Skills",
-        "ready": "{{count}} Skills verfügbar"
+        "ready": "Forschungsfunktionen verfügbar"
       },
       "heorCore": {
         "title": "Lokale HEOR-Berechnungen",
@@ -432,7 +432,7 @@
     "title": "Über AI4HEOR",
     "hint": "Produktprofil, Version und Kontakt",
     "currentVersion": "Version {{version}}",
-    "developedBy": "AI4HEOR wird von Codex Agent für eine von Forschenden geleitete Arbeit in Pharmakoökonomie und HEOR entwickelt.",
+    "developedBy": "AI4HEOR wird mit Unterstützung von Codex für forschungsgeleitete Pharmakoökonomieforschung entwickelt.",
     "positioning": "Die Arbeitsumgebung basiert auf dem quelloffenen Open-Science-Fundament. Sie ist auf natürliche Sprache ausgerichtet, nutzt Formulare ergänzend, arbeitet lokal zuerst und unabhängig vom Modellanbieter. Deterministische Berechnungen, nachvollziehbare Abläufe und die Bestätigung zentraler wissenschaftlicher Entscheidungen durch Forschende stehen im Mittelpunkt.",
     "openScience": "Open-Science-Projekt ansehen",
     "contactTitle": "Kontakt und Feedback",

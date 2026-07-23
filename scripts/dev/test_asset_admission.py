@@ -62,9 +62,22 @@ class AssetAdmissionTests(unittest.TestCase):
             "blockers": ["Not production ready"],
         }
 
-    def test_registry_is_valid_and_has_no_external_candidate_rows(self) -> None:
+    def test_registry_is_valid_and_contains_only_release_eligible_adapters(self) -> None:
         self.assertEqual(validate_registry(self.registry), [])
-        self.assertEqual(self.registry["assets"], [])
+        self.assertEqual(len(self.registry["assets"]), 7)
+        self.assertEqual(
+            {asset["distribution"]["entry"] for asset in self.registry["assets"]},
+            {
+                "ai4s-agent",
+                "experiment-suite",
+                "integrity-auditor",
+                "literature-survey",
+                "mindmap-render",
+                "paper-writer",
+                "research-explorer",
+            },
+        )
+        self.assertTrue(all(asset["release_eligible"] for asset in self.registry["assets"]))
 
     def test_unresolved_or_excluded_source_cannot_enter_release_registry(self) -> None:
         registry = self.changed()

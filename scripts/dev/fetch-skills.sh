@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Fetch a pinned external skill pack into a git-ignored review cache.
-# This does NOT make the skills deployable or add them to an installer. A
-# third-party asset is bundled only after its own hash-locked registry entry
-# reaches `validated-adapter` and the runtime admission tests pass.
+# Fetch Open Science's pinned MIT scientific Skill pack. Packaging remains
+# fail-closed: every shipped entry must also have a hash-locked
+# `validated-adapter` row in the release admission registry.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -23,6 +22,11 @@ SRC="$(find "$TMP" -maxdepth 1 -type d -name 'ai4s-skills-*' | head -1)"
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 cp -R "$SRC/skills/." "$OUT_DIR/"
+[ -f "$SRC/LICENSE" ] || { echo "No repository LICENSE in archive" >&2; exit 1; }
+for skill_dir in "$OUT_DIR"/*; do
+  [ -f "$skill_dir/SKILL.md" ] || continue
+  cp "$SRC/LICENSE" "$skill_dir/LICENSE.txt"
+done
 echo "$AI4S_SKILLS_COMMIT" > "$OUT_DIR/.commit"
 rm -rf "$TMP"
 

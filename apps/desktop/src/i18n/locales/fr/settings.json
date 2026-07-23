@@ -4,7 +4,7 @@
     "general": "Général",
     "appearance": "Apparence",
     "models": "Modèles",
-    "runtime": "Environnement d'exécution",
+    "runtime": "Service local",
     "connectors": "Connecteurs",
     "compute": "Calcul",
     "privacy": "Confidentialité",
@@ -35,7 +35,7 @@
     "subtitle": "Configurez l’assistant IA, les modèles, les outils de preuve, l’espace de travail et l’environnement d’analyse local."
   },
   "runtime": {
-    "title": "Runtime de l’assistant IA",
+    "title": "Service local de l’assistant IA",
     "hint": "Démarré et géré automatiquement par l’application de bureau",
     "connect": "Connecter",
     "disconnect": "Déconnecter",
@@ -403,7 +403,7 @@
       },
       "skills": {
         "title": "Skills intégrés",
-        "ready": "{{count}} Skills disponibles"
+        "ready": "Capacités de recherche disponibles"
       },
       "heorCore": {
         "title": "Calculs HEOR locaux",
@@ -432,7 +432,7 @@
     "title": "À propos d’AI4HEOR",
     "hint": "Positionnement, version et contact",
     "currentVersion": "Version {{version}}",
-    "developedBy": "AI4HEOR est développé par Codex Agent pour des travaux de pharmacoéconomie et de HEOR dirigés par les chercheurs.",
+    "developedBy": "AI4HEOR est développé avec l’aide de Codex pour la recherche en pharmacoéconomie dirigée par les chercheurs.",
     "positioning": "L’espace de travail repose sur la base open source Open Science. Il privilégie le langage naturel, utilise les formulaires en appui, fonctionne d’abord en local et reste indépendant du fournisseur de modèles. Les calculs déterministes, les processus auditables et la confirmation des décisions scientifiques clés par le chercheur sont au cœur du produit.",
     "openScience": "Voir le projet Open Science",
     "contactTitle": "Contact et retours",

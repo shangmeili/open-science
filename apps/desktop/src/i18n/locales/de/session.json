@@ -140,7 +140,7 @@
       "title": "Den Ordner dieser Aufgabe neben dem Chat durchsuchen"
     },
     "runsToggle": {
-      "label": "Durchläufe",
+      "label": "Ausführungsverlauf",
       "title": "Die Analyseläufe dieser Aufgabe — neben dem Chat"
     },
     "notebook": {

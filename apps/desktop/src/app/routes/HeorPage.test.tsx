@@ -86,6 +86,10 @@ describe("AI4HEOR conversation route", () => {
     expect(
       await screen.findByRole("heading", { name: "What HEOR work would you like to tackle today?" }),
     ).toBeInTheDocument();
+    expect(screen.getByTestId("ai4heor-new-task-wordmark")).toHaveAttribute(
+      "src",
+      expect.stringContaining("ai4heor-wordmark-light.svg"),
+    );
     expect(screen.getByRole("button", { name: "Frame the research question" }))
       .toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Find and organize evidence" }))
@@ -94,12 +98,16 @@ describe("AI4HEOR conversation route", () => {
       .toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Analyze data or prepare a briefing" }))
       .toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Learn pharmacoeconomics fundamentals" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open the complete cost–utility teaching case" }))
+      .not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Research & analysis" }))
       .not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Find and organize evidence" }));
     const input = screen.getByRole("textbox") as HTMLTextAreaElement;
-    expect(input.value).toContain("Help me find and organize the evidence");
+    expect(input.value).toContain("Help me find and organize the evidence needed");
     expect(sendPrompt).not.toHaveBeenCalled();
 
     await userEvent.clear(input);
@@ -143,7 +151,7 @@ describe("AI4HEOR conversation route", () => {
 
     expect(await screen.findByRole("button", { name: "Research & analysis" }))
       .toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Runs" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run history" })).toBeInTheDocument();
   });
 
   it("surfaces the HEOR pane when an active task creates a structured search request", async () => {

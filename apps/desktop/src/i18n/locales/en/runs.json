@@ -1,5 +1,5 @@
 {
-  "title": "Analysis history",
+  "title": "Run history",
   "description": {
     "prefix": "A local record of successful and failed analyses, plus outputs from successful runs. Use ",
     "suffix": " when a result needs to be checked."

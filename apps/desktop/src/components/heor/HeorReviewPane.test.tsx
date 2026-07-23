@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HEOR_BROWSER_DEMO_PLAN,
+  HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT,
   type HeorAdvancedVoiAudit,
   type HeorAdvancedVoiRunResult,
@@ -62,12 +63,94 @@ describe("AI4HEOR human review pane", () => {
       />,
     );
 
-    expect(screen.getByRole("dialog", { name: "Review Decision problem" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Confirm the decision problem" })).toBeInTheDocument();
     expect(screen.getByText("Adults with untreated advanced NSCLC")).toBeInTheDocument();
     expect(screen.getByText("New treatment")).toBeInTheDocument();
     expect(screen.getByText("QALY")).toBeInTheDocument();
     expect(screen.getByText(/File fingerprint a{12}/)).toBeInTheDocument();
     expect(screen.queryByText(/app-owned event/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the conceptual model itself and does not require a performative reviewer form", async () => {
+    const onSubmit = vi.fn();
+    render(
+      <ApprovalDialog
+        intent={{
+          action: "approve",
+          gate: "conceptual_model",
+          artifactSha256: "b".repeat(64),
+        }}
+        artifactHash={"b".repeat(64)}
+        plan={HEOR_BROWSER_DEMO_PLAN}
+        conceptualModel={HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL}
+        onCancel={vi.fn()}
+        onRequestRevision={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    expect(screen.getByText(HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL.objective)).toBeInTheDocument();
+    expect(screen.getByText("cohort_state_transition")).toBeInTheDocument();
+    expect(screen.getByText("Stable · Progressed · Dead")).toBeInTheDocument();
+    expect(screen.getByText(/Transition risk depends only on current state/)).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Name or local reviewer label")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/What you checked/)).not.toBeInTheDocument();
+
+    const confirm = screen.getByRole("button", { name: "Confirm current definition" });
+    expect(confirm).toBeDisabled();
+    await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(confirm);
+    expect(onSubmit).toHaveBeenCalledWith(
+      "local_interactive_confirmation",
+      "confirmed_in_app:conceptual_model",
+    );
+  });
+
+  it("shows the analysis-plan content and provides a direct route back to revision", async () => {
+    const onRequestRevision = vi.fn();
+    render(
+      <ApprovalDialog
+        intent={{
+          action: "approve",
+          gate: "analysis_plan",
+          artifactSha256: "c".repeat(64),
+        }}
+        artifactHash={"c".repeat(64)}
+        plan={HEOR_BROWSER_DEMO_PLAN}
+        conceptualModel={HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL}
+        onCancel={vi.fn()}
+        onRequestRevision={onRequestRevision}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("CN-2020-current · current")).toBeInTheDocument();
+    expect(screen.getByText("standard_care · new_treatment")).toBeInTheDocument();
+    expect(screen.getByText("3 cycles · 1 year per cycle")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Return to conversation to revise" }));
+    expect(onRequestRevision).toHaveBeenCalledOnce();
+  });
+
+  it("keeps named accountability and written rationale for independent validation", () => {
+    render(
+      <ApprovalDialog
+        intent={{
+          action: "approve",
+          gate: "independent_validation",
+          artifactSha256: "d".repeat(64),
+          expectedActor: "Independent reviewer",
+        }}
+        artifactHash={"d".repeat(64)}
+        plan={HEOR_BROWSER_DEMO_PLAN}
+        onCancel={vi.fn()}
+        onRequestRevision={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText("Name or local reviewer label")).toHaveValue("");
+    expect(screen.getByText(/package declares Independent reviewer/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/What you checked/)).toBeInTheDocument();
   });
 
   it("keeps missing-artifact implementation errors out of the research UI", () => {
@@ -1131,20 +1214,14 @@ describe("AI4HEOR human review pane", () => {
     await userEvent.click(screen.getByRole("button", { name: "Review Decision problem" }));
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    const submit = screen.getByRole("button", { name: "Record confirmation" });
+    const submit = screen.getByRole("button", { name: "Confirm current definition" });
     expect(submit).toBeDisabled();
-
-    await userEvent.type(screen.getByPlaceholderText("Name or local reviewer label"), "Local reviewer");
-    await userEvent.type(
-      screen.getByPlaceholderText("What you checked and why the current definition can proceed"),
-      "Decision context checked against the project question.",
-    );
     await userEvent.click(screen.getByRole("checkbox", {
       name: "I checked the content shown above and confirm it can proceed",
     }));
     await userEvent.click(submit);
 
-    expect(await screen.findByText("Confirmed for the current file")).toBeInTheDocument();
+    expect(await screen.findByText("Current decision problem confirmed")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review Conceptual model" })).toBeInTheDocument();
   });
 
@@ -1249,7 +1326,7 @@ describe("AI4HEOR human review pane", () => {
         onRequestRevision={vi.fn()}
       />,
     );
-    await screen.findByText("Decision and model snapshot");
+    await screen.findByText("Analysis plan summary");
     await userEvent.click(screen.getByRole("button", { name: "Run deterministic analysis" }));
     expect(await screen.findByText("Exploratory")).toBeInTheDocument();
     expect(screen.getByText("Not decision-ready")).toBeInTheDocument();

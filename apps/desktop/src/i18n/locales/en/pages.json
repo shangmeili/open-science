@@ -72,7 +72,7 @@
     }
   },
   "skills": {
-    "title": "Research capabilities",
+    "title": "Plugins & skills",
     "description": {
       "prefix": "View and manage the research methods, analysis tools, and extensions available to this task.",
       "suffix": " in your workspace."
@@ -215,13 +215,13 @@
       "sectionTitle": "External adapters",
       "loading": "Checking external adapters shipped with the app…",
       "unavailable": "External tools could not be checked, so none were enabled.",
-      "firstPartyTitle": "52 first-party AI4HEOR Skills are built in",
+      "firstPartyTitle": "AI4HEOR research capabilities are built in",
       "firstPartyBoundary": "Only external adapters that passed license, security, methods, and package checks and actually ship with AI4HEOR appear here. Sources awaiting a rewrite or excluded from the product are not retained as user options.",
       "admitted": "admitted",
-      "groupAdmitted": "Admitted third-party assets ({{count}})",
+      "groupAdmitted": "Admitted third-party assets",
       "adapterBoundary": "This adapter can run only inside its declared workspace, network, permission, and Human-in-the-loop boundary.",
       "noneAdmitted": "No third-party tool currently ships with AI4HEOR. Required capabilities are first-party Skills; unfinished rewrites and excluded sources are not shown here.",
-      "registryValid": "The external-adapter registry is valid and {{count}} adapter is available.",
+      "registryValid": "The external-adapter registry is valid and the reviewed adapters are available.",
       "failClosed": "The external-adapter registry failed validation. All external capabilities remain disabled."
     },
     "environment": {
@@ -239,7 +239,7 @@
       "note": "AI4HEOR can install an isolated Python and Jupyter environment. The first installation downloads about 500 MB. R is optional and must be installed separately from the official R website."
     },
     "agentsSection": {
-      "sectionTitle": "Agents ({{count}})",
+      "sectionTitle": "Agents",
       "empty": "No agents reported.",
       "agentMode": {
         "primary": "primary",
@@ -248,7 +248,7 @@
       }
     },
     "skillsListSection": {
-      "sectionTitle": "Skills ({{count}})",
+      "sectionTitle": "Skills",
       "empty": "No skills loaded yet.",
       "use": "Use",
       "usePrompt": "Use {{skill}} for the following work:\n\n",

@@ -72,7 +72,7 @@
     }
   },
   "skills": {
-    "title": "研究能力",
+    "title": "插件与技能",
     "description": {
       "prefix": "查看和管理当前任务可使用的研究方法、分析工具和扩展能力。",
       "suffix": " 下的所有内容。"
@@ -215,13 +215,13 @@
       "sectionTitle": "外部适配器",
       "loading": "正在核对随平台发布的外部适配器…",
       "unavailable": "未能完成外部工具检查，因此没有启用任何外部工具。",
-      "firstPartyTitle": "52 个 AI4HEOR 第一方 Skill 已内置",
+      "firstPartyTitle": "AI4HEOR 研究能力已内置",
       "firstPartyBoundary": "这里仅显示已经通过授权、安全、方法和打包检查，并实际随平台发布的外部适配器。待改写或已排除的来源不会作为用户选项保留。",
       "admitted": "已准入",
-      "groupAdmitted": "已准入第三方资产（{{count}}）",
+      "groupAdmitted": "已准入的第三方资产",
       "adapterBoundary": "该适配器只能在已声明的工作区、网络、权限和人工复核边界内运行。",
       "noneAdmitted": "当前没有随 AI4HEOR 发布的第三方工具。所需能力由第一方 Skill 提供；未完成改写或已排除的来源不在这里展示。",
-      "registryValid": "外部适配器清单校验通过，已有 {{count}} 个适配器可以使用。",
+      "registryValid": "外部适配器清单校验通过，已复核的适配器可以使用。",
       "failClosed": "外部适配器清单校验失败，所有外部能力保持停用。"
     },
     "environment": {
@@ -239,7 +239,7 @@
       "note": "AI4HEOR 可以安装独立的 Python 与 Jupyter 环境；首次安装约需下载 500 MB。R 按需使用，需要从 R 官方网站单独安装。"
     },
     "agentsSection": {
-      "sectionTitle": "助手（{{count}}）",
+      "sectionTitle": "助手",
       "empty": "没有可用的助手。",
       "agentMode": {
         "primary": "主助手",
@@ -248,7 +248,7 @@
       }
     },
     "skillsListSection": {
-      "sectionTitle": "技能（{{count}}）",
+      "sectionTitle": "技能",
       "empty": "尚未加载任何技能。",
       "use": "使用",
       "usePrompt": "使用 {{skill}} 处理以下工作：\n\n",

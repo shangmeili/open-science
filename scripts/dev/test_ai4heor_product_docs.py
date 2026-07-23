@@ -11,6 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SKILLS_ROOT = ROOT / "runtime" / "skills" / "core"
+ADMITTED_SKILLS_ROOT = ROOT / "runtime" / "skills" / "external" / "ai4s-skills"
 LOCALES_ROOT = ROOT / "apps" / "desktop" / "src" / "i18n" / "locales"
 README_BY_LOCALE = {
     "en": "README.md",
@@ -45,19 +46,8 @@ CURRENT_SCREENSHOTS = (
     "docs/audits/2026-07-17-first-use/08-natural-language-draft-final.png",
 )
 RETIRED_PUBLIC_DEFAULTS = (
-    "`ai4s-agent`",
-    "`research-explorer`",
-    "`literature-survey`",
-    "`experiment-suite`",
-    "`paper-writer`",
-    "`mindmap-render`",
-    "`integrity-auditor`",
-    "Materials Project",
-    "Open-Meteo",
-    "USGS water data",
     "/Applications/Open Science.app",
     "docs/assets/showcase-workflow.webp",
-    "scripts/dev/fetch-skills.sh",
 )
 BENCHMARK_BOUNDARY_BY_LOCALE = {
     "en": "not evidence",
@@ -73,14 +63,20 @@ BENCHMARK_BOUNDARY_BY_LOCALE = {
 class AI4HEORProductDocsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.skill_names = {
+        cls.first_party_skill_names = {
             path.parent.name for path in SKILLS_ROOT.glob("*/SKILL.md")
         }
+        cls.admitted_skill_names = {
+            path.parent.name for path in ADMITTED_SKILLS_ROOT.glob("*/SKILL.md")
+        }
+        cls.skill_names = cls.first_party_skill_names | cls.admitted_skill_names
         if not cls.skill_names:
-            raise AssertionError("no bundled first-party Skills found")
+            raise AssertionError("no bundled Skills found")
 
     def test_localized_skill_catalogs_match_the_bundled_runtime(self):
-        self.assertEqual(len(self.skill_names), 52)
+        self.assertEqual(len(self.first_party_skill_names), 52)
+        self.assertEqual(len(self.admitted_skill_names), 7)
+        self.assertEqual(len(self.skill_names), 59)
         for locale in README_BY_LOCALE:
             with self.subTest(locale=locale):
                 payload = json.loads(
@@ -117,7 +113,7 @@ class AI4HEORProductDocsTests(unittest.TestCase):
                 for retired in RETIRED_PUBLIC_DEFAULTS:
                     self.assertNotIn(retired, text)
 
-    def test_external_release_inventory_has_no_unfinished_or_excluded_options(self):
+    def test_external_release_inventory_has_only_admitted_open_science_options(self):
         registry = json.loads(
             (ROOT / "runtime/assets/asset-admission-registry.json").read_text(
                 encoding="utf-8"
@@ -127,8 +123,10 @@ class AI4HEORProductDocsTests(unittest.TestCase):
         self.assertEqual(
             registry["purpose"], "release-eligible-external-adapters-only"
         )
-        self.assertEqual(registry["assets"], [])
-        self.assertFalse((ROOT / "runtime/skills/external").exists())
+        self.assertEqual(len(registry["assets"]), 7)
+        self.assertTrue(all(asset["status"] == "validated-adapter" for asset in registry["assets"]))
+        self.assertTrue(all(asset["release_eligible"] for asset in registry["assets"]))
+        self.assertTrue((ROOT / "runtime/skills/external/ai4s-skills").is_dir())
 
         surface = (ROOT / "apps/desktop/src/app/routes/SkillsPage.tsx").read_text(
             encoding="utf-8"

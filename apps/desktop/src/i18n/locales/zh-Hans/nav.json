@@ -10,9 +10,9 @@
   "items": {
     "new": "新建任务",
     "notebooks": "分析笔记",
-    "files": "研究资料",
-    "runs": "分析记录",
-    "skills": "研究能力",
+    "files": "任务文件",
+    "runs": "运行记录",
+    "skills": "插件与技能",
     "projects": "项目",
     "heor": "研究工作台"
   },

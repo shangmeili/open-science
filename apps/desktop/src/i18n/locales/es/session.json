@@ -140,7 +140,7 @@
       "title": "Explora la carpeta de esta tarea junto al chat"
     },
     "runsToggle": {
-      "label": "Ejecuciones",
+      "label": "Historial de ejecuciones",
       "title": "Las ejecuciones de análisis de esta tarea — junto al chat"
     },
     "notebook": {

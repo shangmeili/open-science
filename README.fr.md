@@ -70,7 +70,7 @@ Ce benchmark de la plateforme amont ne prouve ni que la recherche dans AI4HEOR d
 
 ## Fonctionnalités actuelles
 
-**Assistance HEOR sous forme de skills bornés.** Les 52 skills internes routent les tâches définies par le chercheur sans acquérir d'autorité d'approbation ou de choix méthodologique. Workflows représentatifs :
+**Socle Open Science complet, renforcé par des skills HEOR bornés.** L'application distribue 52 skills HEOR internes et 7 skills généraux Open Science sous licence MIT et verrouillés par hash. Aucun n'acquiert d'autorité d'approbation ou de choix méthodologique.
 
 | Skill | Rôle | Sortie principale |
 | --- | --- | --- |
@@ -87,7 +87,7 @@ Ce benchmark de la plateforme amont ne prouve ni que la recherche dans AI4HEOR d
 | `$research-tables` | Préparer des tableaux typés avec unités et sources explicites | XLSX sans formule vérifiable, un CSV par tableau et audit de génération |
 | `$journal-submission-check` | Consigner les exigences formelles explicites depuis un guide officiel conservé par le chercheur | Rapport lié à la source et en attente de revue humaine |
 
-Les noms et descriptions des 52 skills internes sont fournis dans les sept langues de l'interface avec le `$skill-id` exact visible. Les actifs externes restent inactifs jusqu'à leur admission individuelle.
+Les noms et descriptions des 59 skills sont fournis dans les sept langues de l'interface avec le `$skill-id` exact visible.
 
 ### Plateforme
 
@@ -105,9 +105,9 @@ Les noms et descriptions des 52 skills internes sont fournis dans les sept langu
 
 ## Skills et connecteurs
 
-Par défaut, seuls les skills internes de `runtime/skills/core/` sont distribués. Les actifs tiers restent inactifs jusqu'aux preuves de licence, limites, tests, revues, plateformes et hash exact. Les skills documentaires d'Anthropic sont rejetés car leur licence interdit la redistribution.
+L'application distribue 52 skills HEOR internes depuis `runtime/skills/core/` ainsi que 7 skills généraux Open Science issus d'un commit fixe, avec licence MIT et hash d'arborescence vérifiés. Les skills documentaires d'Anthropic ne sont pas inclus car leur licence interdit la redistribution.
 
-La surface par défaut ne démarre aucun MCP tiers non évalué. `$heor-evidence-search` accède uniquement aux métadonnées PubMed et ClinicalTrials.gov après autorisation Human explicite ; Jupyter est le seul outil local géré en un clic. Les MCP ajoutés dans Settings sont étiquetés comme capacités externes non gérées, sans autorité scientifique ni d'approbation. Voir [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md).
+Les sept connecteurs de recherche Open Science — Paper Search, BioMCP, Materials Project, FRED, Space Weather, Open-Meteo et USGS Water — s'installent à la demande dans un environnement géré par l'application. `$heor-evidence-search` reste le parcours auditable pour les preuves HEOR ; un résultat de connecteur général ne devient pas automatiquement une preuve incluse. Voir [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md).
 
 ## Installation
 
@@ -177,7 +177,7 @@ Si vous utilisez Open Science Desktop dans vos recherches, merci de le citer ain
   author  = {{The Open Science Desktop Contributors}},
   title   = {Open Science Desktop: a local-first, model-agnostic AI research workbench},
   year    = {2026},
-  version = {0.1.52},
+  version = {1.0.0},
   url     = {https://github.com/ai4s-research/open-science},
   license = {MIT}
 }

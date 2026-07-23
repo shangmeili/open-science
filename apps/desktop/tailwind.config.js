@@ -8,6 +8,7 @@ export default {
         bg: "var(--bg)",
         surface: "var(--surface)",
         "surface-2": "var(--surface-2)",
+        sidebar: "var(--sidebar)",
         border: "var(--border)",
         faint: "var(--border-faint)",
         text: "var(--text)",
@@ -21,7 +22,7 @@ export default {
       },
       fontFamily: {
         serif: ["'Source Serif 4'", "Georgia", "serif"],
-        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "'SF Pro Text'", "'Segoe UI'", "'PingFang SC'", "'Microsoft YaHei'", "system-ui", "sans-serif"],
+        sans: ["-apple-system", "BlinkMacSystemFont", "'SF Pro Text'", "'Segoe UI'", "'PingFang SC'", "'Microsoft YaHei'", "Inter", "system-ui", "sans-serif"],
         mono: ["'JetBrains Mono'", "ui-monospace", "monospace"],
       },
       borderRadius: {
@@ -29,8 +30,8 @@ export default {
         input: "8px",
       },
       boxShadow: {
-        card: "0 1px 2px rgba(24, 24, 22, 0.04), 0 3px 12px rgba(24, 24, 22, 0.04)",
-        pop: "0 10px 30px rgba(24, 24, 22, 0.14)",
+        card: "0 1px 2px rgba(24, 25, 31, 0.04), 0 3px 12px rgba(24, 25, 31, 0.05)",
+        pop: "0 10px 30px rgba(24, 25, 31, 0.15)",
       },
     },
   },

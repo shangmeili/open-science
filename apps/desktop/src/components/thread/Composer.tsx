@@ -453,10 +453,21 @@ export function Composer({
     void addWorkspaceFiles(() => addTextToWorkspace("pasted.txt", text));
   };
 
+  // Keep the current drop action in a ref so the native Tauri listener can be
+  // registered exactly once. Re-subscribing on every render leaks listeners
+  // during streaming and can copy one dropped file many times.
+  const onDropRef = useRef<((paths: string[]) => void) | null>(null);
+  onDropRef.current =
+    isTauri && onSend
+      ? (paths) => {
+          if (paths.length > 0) void addWorkspaceFiles(() => addPathsToWorkspace(paths));
+        }
+      : null;
+
   // OS file drops are native Tauri events; DOM drop events do not receive the
   // absolute paths needed to copy files into the local research workspace.
   useEffect(() => {
-    if (!isTauri || !onSend) return;
+    if (!isTauri) return;
     let unlisten: (() => void) | undefined;
     let cancelled = false;
     void import("@tauri-apps/api/webview")
@@ -466,9 +477,7 @@ export function Composer({
         if (payload.type === "leave") setDragOver(false);
         if (payload.type === "drop") {
           setDragOver(false);
-          if (payload.paths.length > 0) {
-            void addWorkspaceFiles(() => addPathsToWorkspace(payload.paths));
-          }
+          onDropRef.current?.(payload.paths);
         }
       }))
       .then((stop) => {
@@ -480,9 +489,7 @@ export function Composer({
       cancelled = true;
       unlisten?.();
     };
-    // The native listener must remain stable while this composer is mounted.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onSend]);
+  }, []);
 
   // Copy local files into the agent workspace; they appear as chips.
   const addFiles = async () => {
@@ -514,7 +521,7 @@ export function Composer({
   return (
     <div
       className={cn(
-        "relative rounded-[14px] border bg-surface px-3 pb-2.5 pt-3 shadow-card transition-[border-color,box-shadow] focus-within:border-muted focus-within:ring-2 focus-within:ring-border",
+        "relative rounded-[14px] border bg-surface px-3 pb-2.5 pt-3 shadow-card",
         shellMode
           ? "border-warn/60"
           : command
@@ -606,7 +613,6 @@ export function Composer({
       )}
       <textarea
         ref={taRef}
-        data-focus-style="neutral"
         rows={1}
         value={value}
         onChange={(e) => onChange(e.target.value)}

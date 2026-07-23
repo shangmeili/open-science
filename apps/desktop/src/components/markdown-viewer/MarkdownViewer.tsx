@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -60,6 +61,19 @@ const STYLES: Record<Variant, Record<string, string>> = {
   },
 };
 
+// remark-math supports dollar delimiters, while many scientific model outputs
+// use the equivalent LaTeX bracket forms. Normalize only prose regions so code
+// examples and \\[2pt]-style row spacing keep their literal meaning.
+const CODE_OR_BRACKET_MATH =
+  /(```|~~~)[\s\S]*?(?:\1|$)|`[^`\n]*`|(?<!\\)\\\[([\s\S]*?)(?<!\\)\\\]|(?<!\\)\\\(([\s\S]*?)(?<!\\)\\\)/g;
+
+function normalizeMathDelimiters(markdown: string): string {
+  if (!markdown.includes("\\[") && !markdown.includes("\\(")) return markdown;
+  return markdown.replace(CODE_OR_BRACKET_MATH, (match, _fence, display, inline) =>
+    display !== undefined ? `$$${display}$$` : inline !== undefined ? `$${inline}$` : match,
+  );
+}
+
 export function MarkdownViewer({
   children,
   className,
@@ -70,6 +84,7 @@ export function MarkdownViewer({
   variant?: Variant;
 }) {
   const s = STYLES[variant];
+  const normalized = useMemo(() => normalizeMathDelimiters(children), [children]);
   return (
     <div className={cn(s.root, className)}>
       <ReactMarkdown
@@ -105,7 +120,7 @@ export function MarkdownViewer({
           td: ({ children }) => <td className={s.td}>{children}</td>,
         }}
       >
-        {children}
+        {normalized}
       </ReactMarkdown>
     </div>
   );

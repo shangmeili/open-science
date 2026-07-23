@@ -1,5 +1,5 @@
 {
-  "title": "分析记录",
+  "title": "运行记录",
   "description": {
     "prefix": "这里记录本地分析的成功或失败，以及成功分析的输出。需要复核结果时，可以选择",
     "suffix": "。"
@@ -16,14 +16,14 @@
     "anytime": "任意时间",
     "clear": "清除"
   },
-  "loading": "正在加载分析记录…",
+  "loading": "正在加载运行记录…",
   "loadingMore": "正在加载更多…",
   "empty": {
-    "title": "还没有分析记录",
+    "title": "还没有运行记录",
     "bodyPrefix": "成本－效果模型、敏感性分析及其他本地计算完成后，会在这里留下记录。",
     "bodyExample": "",
     "bodySuffix": "",
-    "noMatch": "没有符合筛选条件的分析记录。"
+    "noMatch": "没有符合筛选条件的运行记录。"
   },
   "status": {
     "succeeded": "成功",

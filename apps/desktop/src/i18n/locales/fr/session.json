@@ -140,7 +140,7 @@
       "title": "Parcourir le dossier de cette tâche à côté du chat"
     },
     "runsToggle": {
-      "label": "Exécutions",
+      "label": "Historique des exécutions",
       "title": "Les exécutions d'analyse de cette tâche — à côté du chat"
     },
     "notebook": {

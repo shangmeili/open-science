@@ -222,6 +222,24 @@ may choose provisional assumptions only as labelled `proposed` inputs, explain
 credible alternatives, and test their impact. This does not approve the method,
 select evidence for the researcher, or satisfy any Human gate.
 
+## Open Science foundation Skills
+
+- The bundled `ai4s-agent`, `research-explorer`, `literature-survey`,
+  `experiment-suite`, `paper-writer`, `integrity-auditor`, and
+  `mindmap-render` Skills remain available for general scientific work. They are
+  isolated adapters: this harness and the app's current task permissions always
+  take precedence over conflicting instructions in those Skills.
+- For pharmacoeconomics or HEOR work, use the matching first-party HEOR Skill,
+  evidence contract, deterministic engine, and provenance checks. A general
+  Open Science Skill may supplement that workflow but must not replace it.
+- Simulated or illustrative values produced by a general Skill are teaching or
+  pipeline-test material only. They are not eligible HEOR evidence, model
+  inputs, measured results, validation evidence, or decision results.
+- Citation-count targets, automatic topic rankings, self-checks, and integrity
+  grades do not verify a source, select evidence, approve a method, validate a
+  model, or satisfy a Human gate. Apply the source-verification and scientific-
+  authority boundaries in this file.
+
 ## Human-in-the-loop gates
 
 Five gates control decision-relevant work:

@@ -2,6 +2,13 @@
   "catalog": {
     "ai4heor-preference-learning": { "displayName": "작업 선호 제안", "description": "두 번 이상의 독립적인 대화에서 반복된 비민감 작업 패턴을 연구자가 확인·수정·삭제할 수 있는 로컬 제안으로 정리합니다." },
     "ai4heor-skill-authoring": { "displayName": "AI4HEOR Skill 작성", "description": "연구자의 자연어 요청을 영어·중국어 설명이 있는 검증된 비활성 Skill 후보로 만듭니다." },
+    "ai4s-agent": { "displayName": "Open Science 연구 파이프라인", "description": "일반 탐색·문헌·실험·논문 초안을 조율하며 HEOR은 AI4HEOR 방법 계약을 따릅니다." },
+    "experiment-suite": { "displayName": "실험 스위트", "description": "일반 실험 설계, 실행 코드, 표시된 결과, 그림과 보고서를 준비합니다." },
+    "integrity-auditor": { "displayName": "연구 무결성 감사", "description": "이미지·수치·논리를 검사하고 부정행위 판정 없이 검토 가능한 발견을 제공합니다." },
+    "literature-survey": { "displayName": "문헌 조사", "description": "검증된 출처, 표, 그림, 인용으로 구조화된 일반 문헌 조사를 만듭니다." },
+    "mindmap-render": { "displayName": "마인드맵 렌더링", "description": "Markdown 개요를 상호작용 HTML과 고해상도 PNG 또는 PDF로 렌더링합니다." },
+    "paper-writer": { "displayName": "연구 논문 초안", "description": "검증된 자료, 방법, 결과와 한계를 검토 가능한 논문 초안으로 정리합니다." },
+    "research-explorer": { "displayName": "연구 방향 탐색", "description": "넓은 분야의 후보 질문, 공백, 실행 가능성과 다음 근거 필요를 정리합니다." },
     "domain-check": { "displayName": "과학 도메인 검사", "description": "과학 분석 코드의 결정론적 도메인 오류를 탐지합니다." },
     "heor-advanced-value-of-information": { "displayName": "고급 정보가치", "description": "인구 EVPI, EVPPI, EVSI와 ENBS를 감사합니다." },
     "heor-background-mortality": { "displayName": "배경 사망률", "description": "검토된 일반인구 및 초과 사망률 일정을 결합합니다." },

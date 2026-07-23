@@ -4,7 +4,7 @@
     "general": "一般",
     "appearance": "外観",
     "models": "モデル",
-    "runtime": "ランタイム",
+    "runtime": "ローカルサービス",
     "connectors": "コネクタ",
     "compute": "コンピューティング",
     "privacy": "プライバシー",
@@ -35,7 +35,7 @@
     "subtitle": "AI アシスタント、モデル、エビデンスツール、ワークスペース、ローカル分析環境を設定します。"
   },
   "runtime": {
-    "title": "AI アシスタント実行環境",
+    "title": "ローカルアシスタントサービス",
     "hint": "デスクトップアプリが自動的に起動・管理します",
     "connect": "接続",
     "disconnect": "切断",
@@ -401,7 +401,7 @@
       },
       "skills": {
         "title": "組み込み Skill",
-        "ready": "{{count}} 個の Skill を利用可能"
+        "ready": "研究機能を利用可能"
       },
       "heorCore": {
         "title": "薬剤経済学のローカル計算",
@@ -430,7 +430,7 @@
     "title": "AI4HEOR について",
     "hint": "製品の位置づけ、バージョン、連絡先",
     "currentVersion": "バージョン {{version}}",
-    "developedBy": "AI4HEOR は、研究者が主導する薬剤経済学・HEOR 業務のために Codex Agent が開発しています。",
+    "developedBy": "AI4HEOR は、研究者主導の薬剤経済学研究のために、Codex の支援を受けて開発されています。",
     "positioning": "本ワークベンチはオープンソースの Open Science 基盤上に構築されています。自然言語を中心にフォームを補助的に用い、ローカルファーストかつモデル提供者に依存しません。決定論的計算、監査可能なプロセス、重要な科学的判断の研究者確認を中核とします。",
     "openScience": "Open Science プロジェクトを見る",
     "contactTitle": "お問い合わせ・ご意見",

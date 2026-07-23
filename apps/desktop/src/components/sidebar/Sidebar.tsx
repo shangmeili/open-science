@@ -6,14 +6,13 @@ import {
   ArrowLeft,
   ChevronRight,
   Files,
-  FlaskConical,
   Folder,
   FolderInput,
   FolderOpen,
-  FolderTree,
   PanelLeft,
   Pencil,
   Plus,
+  Puzzle,
   Settings,
   Trash2,
 } from "lucide-react";
@@ -32,11 +31,11 @@ import {
   useUiStore,
 } from "@/lib/store";
 import { useUpdateStore } from "@/lib/update";
+import { BrandWordmark } from "@/components/brand/BrandWordmark";
 import { visibleSections, resolveSection } from "@/components/settings/sections";
 import { isGatewayWeb } from "@/lib/webMode";
 import { StatusPills } from "./StatusPills";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import appIcon from "@/assets/ai4heor-app-icon.png";
 
 interface Row {
   id: string;
@@ -319,7 +318,7 @@ export function Sidebar() {
       style={{ width: sidebarCollapsed ? 0 : width }}
     >
       <aside
-        className="flex h-full flex-col border-r border-border bg-surface"
+        className="flex h-full flex-col border-r border-border bg-sidebar"
         style={{ width }}
       >
         {/* The strip clears the traffic lights and hosts the collapse button just
@@ -379,18 +378,13 @@ export function Sidebar() {
               onClick={() => navigate("/heor")}
               aria-label={t("items.heor")}
               title={t("items.heor")}
-              className="flex items-baseline gap-1.5 rounded px-0.5 py-1 text-left hover:bg-surface-2"
+              className="flex items-baseline rounded px-0.5 py-1 text-left hover:bg-surface-2"
             >
-              <img
-                src={appIcon}
-                alt=""
-                data-testid="ai4heor-brand-icon"
-                className="h-5 w-5 shrink-0 self-center rounded-[5px] object-contain"
+              <BrandWordmark
+                alt={t("items.heor")}
+                data-testid="ai4heor-brand-wordmark"
+                className="h-auto w-[100px] object-contain"
               />
-              {/* eslint-disable-next-line i18next/no-literal-string -- product brand name, not translated across locales */}
-              <span className="text-[15px] font-semibold leading-none tracking-[-0.01em] text-text">
-                AI4HEOR
-              </span>
             </button>
             {!overlayTitlebar && (
               <button
@@ -415,17 +409,12 @@ export function Sidebar() {
             active={location.pathname === "/heor/new"}
           />
           <NavRow
-            icon={<FolderTree size={16} />}
+            icon={<Files size={16} />}
             label={t("items.files")}
             onClick={() => navigate("/files")}
           />
           <NavRow
-            icon={<FlaskConical size={16} />}
-            label={t("items.runs")}
-            onClick={() => navigate("/runs")}
-          />
-          <NavRow
-            icon={<Files size={16} />}
+            icon={<Puzzle size={16} />}
             label={t("items.skills")}
             onClick={() => navigate("/skills")}
           />
@@ -742,7 +731,6 @@ function InlineNameInput({
   return (
     <input
       ref={ref}
-      data-focus-style="neutral"
       defaultValue={defaultValue}
       placeholder={placeholder}
       disabled={busy}
@@ -754,7 +742,7 @@ function InlineNameInput({
         if (!busy) onCancel();
       }}
       className={cn(
-        "w-full min-w-0 rounded-input border border-border bg-surface px-2 py-[3px] text-[13px] text-text outline-none transition-[border-color,box-shadow] placeholder:text-muted focus:border-muted focus:ring-2 focus:ring-border",
+        "w-full min-w-0 rounded-input border border-border bg-surface px-2 py-[3px] text-[13px] text-text outline-none placeholder:text-muted",
         busy && "animate-pulse opacity-60",
       )}
     />

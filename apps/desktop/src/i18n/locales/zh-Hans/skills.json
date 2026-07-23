@@ -2,6 +2,13 @@
   "catalog": {
     "ai4heor-preference-learning": { "displayName": "工作偏好建议", "description": "根据至少两次独立交互中重复出现的非敏感习惯，整理成可查看、可修改、可删除的本地偏好建议。" },
     "ai4heor-skill-authoring": { "displayName": "AI4HEOR Skill 创建", "description": "把研究者的自然语言需求整理为中英文描述完整、可验证但尚未启用的 Skill 候选项。" },
+    "ai4s-agent": { "displayName": "Open Science 科研流程", "description": "协调通用的方向探索、文献综述、实验和论文草稿；HEOR 任务仍遵循 AI4HEOR 方法合约。" },
+    "experiment-suite": { "displayName": "实验套件", "description": "准备通用实验设计、可运行代码、明确标注的结果、图表和报告。" },
+    "integrity-auditor": { "displayName": "研究完整性检查", "description": "检查图像、数字和论证链，形成可复核的发现，不作学术不端定性。" },
+    "literature-survey": { "displayName": "文献综述", "description": "根据已核验来源整理通用文献综述、表格、图形和引用。" },
+    "mindmap-render": { "displayName": "思维导图生成", "description": "将 Markdown 大纲生成可交互 HTML 和高清 PNG 或 PDF。" },
+    "paper-writer": { "displayName": "科研论文草稿", "description": "将已核验的研究资料、方法、结果和局限整理为可复核的论文草稿。" },
+    "research-explorer": { "displayName": "研究方向探索", "description": "梳理宽泛领域中的候选问题、证据空白、可行性和后续证据需求。" },
     "domain-check": { "displayName": "分析代码检查", "description": "检查科学分析代码中可明确判定的领域错误。" },
     "heor-advanced-value-of-information": { "displayName": "高级信息价值分析", "description": "计算并检查人群 EVPI、EVPPI、EVSI 和 ENBS。" },
     "heor-background-mortality": { "displayName": "背景死亡率", "description": "组合经复核的一般人群死亡率与超额死亡率。" },

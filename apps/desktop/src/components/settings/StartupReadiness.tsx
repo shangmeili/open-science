@@ -96,7 +96,7 @@ export function StartupReadiness({ compact = false, onOpenSettings }: StartupRea
       case "workspace":
         return check.detail;
       case "skills":
-        return t("readiness.checks.skills.ready", { count: Number(check.detail) });
+        return t("readiness.checks.skills.ready");
       case "heorCore":
         return t("readiness.checks.heorCore.ready");
       case "harness":

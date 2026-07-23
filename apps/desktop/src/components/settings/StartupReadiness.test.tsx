@@ -56,7 +56,7 @@ describe("StartupReadiness", () => {
     render(<StartupReadiness />);
 
     expect(await screen.findByText("Ready to work")).toBeInTheDocument();
-    expect(screen.getByText("48 Skills available")).toBeInTheDocument();
+    expect(screen.getByText("Research capabilities available")).toBeInTheDocument();
     expect(screen.getByText("Model (optional)")).toBeInTheDocument();
     expect(screen.getByText("Not connected — local calculations still work")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Restart local assistant" })).not.toBeInTheDocument();

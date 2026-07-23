@@ -15,6 +15,7 @@ import { resolveArtifactPath } from "@/lib/artifactFile";
 import { copyText } from "@/lib/clipboard";
 import { toast } from "@/lib/toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useThrottledValue } from "@/lib/useThrottledValue";
 
 export function UserMessage({
   block,
@@ -166,11 +167,12 @@ export function AgentMessage({
   onOpenArtifact?: (a: ArtifactBlock) => void;
 }) {
   const { t } = useTranslation(["session", "common"]);
+  const shown = useThrottledValue(markdown, 90);
   // Files the agent mentions (e.g. a PDF produced by running code) become clickable.
   // Each mention is resolved to a real workspace path first — prose often names a
   // bare filename ("index.html") whose file lives in a subdirectory; mentions of
   // files that don't exist get no chip.
-  const mentioned = onOpenArtifact ? extractArtifactRefs(markdown) : [];
+  const mentioned = onOpenArtifact ? extractArtifactRefs(shown) : [];
   const [refs, setRefs] = useState<string[]>([]);
   const mentionedKey = mentioned.join("\n");
   useEffect(() => {
@@ -191,7 +193,7 @@ export function AgentMessage({
   }, [mentionedKey]);
   return (
     <div>
-      <MarkdownViewer>{markdown}</MarkdownViewer>
+      <MarkdownViewer>{shown}</MarkdownViewer>
       {refs.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {refs.map((path) => (

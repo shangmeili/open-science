@@ -554,15 +554,22 @@ pub fn add_text_to_workspace(
     Ok(name)
 }
 
-/// Copy explicit local file paths into the workspace. Native drag-and-drop
-/// supplies OS paths; directories and unreadable entries are ignored.
+/// Copy explicit local file paths into the workspace. A file already inside
+/// the workspace is attached in place instead of being duplicated at root.
+/// Native drag-and-drop supplies OS paths; directories are ignored.
 #[tauri::command]
 pub fn add_paths_to_workspace(app: AppHandle, paths: Vec<String>) -> Result<Vec<String>, String> {
     let ws = workspace_dir(&app)?;
+    let ws_canon = ws.canonicalize().unwrap_or_else(|_| ws.clone());
     let mut added = Vec::new();
+    let mut copied = false;
     for path in paths {
         let src = Path::new(&path);
         if !src.is_file() {
+            continue;
+        }
+        if let Some(relative) = workspace_relative(&ws_canon, src) {
+            added.push(relative);
             continue;
         }
         let name = src
@@ -573,11 +580,18 @@ pub fn add_paths_to_workspace(app: AppHandle, paths: Vec<String>) -> Result<Vec<
         let dst = unique_name(&ws, &name);
         std::fs::copy(src, ws.join(&dst)).map_err(|e| format!("copy failed: {e}"))?;
         added.push(dst);
+        copied = true;
     }
-    if !added.is_empty() {
+    if copied {
         crate::git_snapshot::commit_best_effort(&ws, "Add workspace files");
     }
     Ok(added)
+}
+
+fn workspace_relative(workspace: &Path, source: &Path) -> Option<String> {
+    let canonical = source.canonicalize().ok()?;
+    let relative = canonical.strip_prefix(workspace).ok()?;
+    Some(relative.to_string_lossy().replace('\\', "/"))
 }
 
 /// Write base64-encoded binary content into the workspace. This is used for a
@@ -721,8 +735,9 @@ fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
 mod tests {
     use super::{
         base64_decode, base64_encode, dir_entries, encode_for_preview, exceeds_preview_cap,
-        locate_under, mime_for, open_url, unique_name,
+        locate_under, mime_for, open_url, unique_name, workspace_relative,
     };
+    use std::path::Path;
 
     #[test]
     fn base64_round_trips_binary_bytes() {
@@ -738,6 +753,21 @@ mod tests {
         }
         assert_eq!(base64_decode("Zm9v\nYmFy").unwrap(), b"foobar");
         assert!(base64_decode("not base64!@#").is_err());
+    }
+
+    #[test]
+    fn workspace_relative_attaches_existing_workspace_files_in_place() {
+        let root = std::env::temp_dir().join(format!("ai4heor-wsrel-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("results")).unwrap();
+        std::fs::write(root.join("results/model.csv"), "a,b").unwrap();
+        let workspace = root.canonicalize().unwrap();
+        assert_eq!(
+            workspace_relative(&workspace, &root.join("results/model.csv")).as_deref(),
+            Some("results/model.csv")
+        );
+        assert_eq!(workspace_relative(&workspace, Path::new("/no/such/file")), None);
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

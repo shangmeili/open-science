@@ -10,9 +10,9 @@
   "items": {
     "new": "Nueva tarea",
     "notebooks": "Notas de análisis",
-    "files": "Archivos de investigación",
-    "runs": "Historial de análisis",
-    "skills": "Capacidades de investigación",
+    "files": "Archivos de tarea",
+    "runs": "Historial de ejecuciones",
+    "skills": "Plugins y habilidades",
     "projects": "Proyectos",
     "heor": "Espacio de investigación"
   },
@@ -66,7 +66,7 @@
     "hideAction": "Ocultar"
   },
   "status": {
-    "runtime": "Entorno de ejecución",
+    "runtime": "Servicio local",
     "model": "Modelo",
     "modelNotSet": "sin configurar",
     "values": {

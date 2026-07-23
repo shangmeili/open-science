@@ -38,23 +38,25 @@ User-added servers are unmanaged external capabilities: the researcher must
 review their code, license, data egress, credentials, and source-specific rights.
 Adding one does not admit it as an AI4HEOR product asset.
 
-## Why there is no generic one-click connector catalog
+## 4. Open Science research connector catalog
 
-The inherited Open Science catalog has been retired from the AI4HEOR default
-surface. Existing configured servers remain visible, runnable, and removable so
-upgrades do not destroy researcher configuration; new installations do not
-re-offer those entries.
+AI4HEOR retains the Open Science connector catalog as an optional research
+foundation. Settings lists seven connectors: Paper Search, BioMCP, Materials
+Project, FRED, Space Weather, Open-Meteo, and USGS Water. Selecting one installs
+it on demand into the app-managed `runtime/science-mcp-env`; the packages are not
+preinstalled in the application bundle and do not modify the researcher's system
+Python.
 
-- [Paper Search MCP](https://github.com/openags/paper-search-mcp) was removed
-  from the product list. Its useful official-source metadata pattern is handled
-  by the bounded, Human-authorized first-party evidence route; its broad
-  multi-host download and optional Sci-Hub surfaces are not retained.
-- [BioMCP](https://github.com/genomoncology/biomcp) was removed from the product
-  list. Trial and literature needs are handled by first-party HEOR evidence
-  capabilities; any future source-specific need must be implemented and reviewed
-  independently rather than reactivating the broad upstream package.
+The catalog is a discovery and provisioning surface, not blanket admission of
+every upstream data source. Before enabling a connector, the UI shows its source,
+required credential, network scope, and command. The connector receives no HEOR
+method-selection, evidence-inclusion, scientific-approval, or release authority.
 
-Neither package is bundled, provisioned, or offered as an AI4HEOR candidate.
+Paper Search and BioMCP are available for general research work, while the
+first-party `$heor-evidence-search` remains the governed path for auditable
+PubMed and ClinicalTrials.gov HEOR evidence requests. A general connector result
+does not become included HEOR evidence until it passes the relevant first-party
+evidence and provenance workflow.
 
 ### Minimal local MCP server (Python)
 
@@ -82,8 +84,9 @@ scripts/templates it needs. The **Skills** page evaluates an external candidate
 through natural-language review but does not install or enable it. Advanced
 users may place their own content under the workspace's `.opencode/skills/`;
 the app labels that content unmanaged, and it never becomes a bundled product
-asset automatically. AI4HEOR bundles only first-party skills plus any future
-third-party adapter that passes the packaged, hash-locked admission registry.
+asset automatically. AI4HEOR bundles first-party HEOR Skills plus seven pinned
+MIT Open Science general research Skills that pass the packaged, hash-locked
+admission registry. Future third-party adapters must pass the same boundary.
 
 ## Safety
 

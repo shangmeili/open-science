@@ -31,4 +31,13 @@ describe("light-theme accessibility tokens", () => {
     expect(contrast(token("muted"), token("surface"))).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token("accent-fg"), token("accent"))).toBeGreaterThanOrEqual(4.5);
   });
+
+  it("keeps text-entry frames unchanged instead of drawing a dark focus box", () => {
+    expect(css).toContain('input:not([type]), input[type="text"], input[type="search"]');
+    expect(css).toContain('textarea, [contenteditable="true"]):focus');
+    expect(css).toContain("border-color: var(--border) !important");
+    expect(css).toContain("box-shadow: none !important");
+    expect(css).toContain("outline: none !important");
+    expect(css).not.toContain('textarea, select, [contenteditable="true"]');
+  });
 });

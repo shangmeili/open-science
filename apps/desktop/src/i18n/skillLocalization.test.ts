@@ -46,4 +46,11 @@ describe("localizeSkill", () => {
     expect(copy.displayName).not.toBe("ai4heor-preference-learning");
     expect(copy.description).not.toBe("Runtime fallback");
   });
+
+  it.each(shippedLocales())("localizes admitted Open Science Skills in $nativeName", ({ code }) => {
+    const copy = localizeSkill("literature-survey", "Runtime fallback", code);
+    expect(copy.localized).toBe(true);
+    expect(copy.displayName).not.toBe("literature-survey");
+    expect(copy.description).not.toBe("Runtime fallback");
+  });
 });

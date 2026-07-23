@@ -1,9 +1,269 @@
 {
   "schema_version": "1.1.0",
-  "policy_revision": "2026-07-20",
+  "policy_revision": "2026-07-24",
   "purpose": "release-eligible-external-adapters-only",
   "release_statuses": [
     "validated-adapter"
   ],
-  "assets": []
+  "assets": [
+    {
+      "asset_id": "ai4s-research/ai4s-agent",
+      "display_name": "AI4S Agent",
+      "kind": "skill",
+      "status": "validated-adapter",
+      "release_eligible": true,
+      "source": {
+        "repository": "https://github.com/ai4s-research/ai4s-skills",
+        "revision": "8fa2ab0523082c135598909b227ed8feb48263ad",
+        "license_spdx": "MIT",
+        "license_evidence_url": "https://github.com/ai4s-research/ai4s-skills/blob/8fa2ab0523082c135598909b227ed8feb48263ad/LICENSE",
+        "license_compatible": true
+      },
+      "capability_boundary": {
+        "workspace_access": "current-project-only",
+        "network_egress": "current-task-permission-mode-only",
+        "execution": "instruction-only-under-existing-tool-permissions",
+        "authority": "no-approval-or-decision-authority"
+      },
+      "industrialization": {
+        "adaptation_mode": "isolated-adapter",
+        "delta_record": "docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md",
+        "contract_tests": ["scripts/dev/test_open_science_foundation.py"],
+        "adversarial_tests": ["harness-precedence-and-hash-lock"],
+        "platforms": ["macos", "windows", "linux"],
+        "security_review": "passed",
+        "methods_review": "passed",
+        "kill_switch": true,
+        "upstream_evidence": ["Pinned source revision", "Per-skill MIT license copy", "Content tree SHA-256"]
+      },
+      "distribution": {
+        "resource_pack": "skills-admitted-ai4s",
+        "entry": "ai4s-agent",
+        "content_sha256": "592d07ea7843b019169a7eac07637534efcf6bb2295f18744557005615ae2235"
+      },
+      "blockers": []
+    },
+    {
+      "asset_id": "ai4s-research/experiment-suite",
+      "display_name": "AI4S Experiment Suite",
+      "kind": "skill",
+      "status": "validated-adapter",
+      "release_eligible": true,
+      "source": {
+        "repository": "https://github.com/ai4s-research/ai4s-skills",
+        "revision": "8fa2ab0523082c135598909b227ed8feb48263ad",
+        "license_spdx": "MIT",
+        "license_evidence_url": "https://github.com/ai4s-research/ai4s-skills/blob/8fa2ab0523082c135598909b227ed8feb48263ad/LICENSE",
+        "license_compatible": true
+      },
+      "capability_boundary": {
+        "workspace_access": "current-project-only",
+        "network_egress": "current-task-permission-mode-only",
+        "execution": "instruction-and-local-utility-only-under-existing-tool-permissions",
+        "authority": "no-approval-or-decision-authority"
+      },
+      "industrialization": {
+        "adaptation_mode": "isolated-adapter",
+        "delta_record": "docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md",
+        "contract_tests": ["scripts/dev/test_open_science_foundation.py"],
+        "adversarial_tests": ["simulated-results-cannot-satisfy-heor-contract"],
+        "platforms": ["macos", "windows", "linux"],
+        "security_review": "passed",
+        "methods_review": "passed",
+        "kill_switch": true,
+        "upstream_evidence": ["Pinned source revision", "Per-skill MIT license copy", "Content tree SHA-256"]
+      },
+      "distribution": {
+        "resource_pack": "skills-admitted-ai4s",
+        "entry": "experiment-suite",
+        "content_sha256": "826ab1194626f6733e537a649e565118801e342422fe6a0b8fffdec97d90fc90"
+      },
+      "blockers": []
+    },
+    {
+      "asset_id": "ai4s-research/integrity-auditor",
+      "display_name": "AI4S Integrity Auditor",
+      "kind": "skill",
+      "status": "validated-adapter",
+      "release_eligible": true,
+      "source": {
+        "repository": "https://github.com/ai4s-research/ai4s-skills",
+        "revision": "8fa2ab0523082c135598909b227ed8feb48263ad",
+        "license_spdx": "MIT",
+        "license_evidence_url": "https://github.com/ai4s-research/ai4s-skills/blob/8fa2ab0523082c135598909b227ed8feb48263ad/LICENSE",
+        "license_compatible": true
+      },
+      "capability_boundary": {
+        "workspace_access": "current-project-only",
+        "network_egress": "current-task-permission-mode-only",
+        "execution": "instruction-and-local-forensics-only-under-existing-tool-permissions",
+        "authority": "no-approval-or-decision-authority"
+      },
+      "industrialization": {
+        "adaptation_mode": "isolated-adapter",
+        "delta_record": "docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md",
+        "contract_tests": ["integrity-auditor/tests/smoketest.sh"],
+        "adversarial_tests": ["no-fraud-verdict-or-heor-validation-authority"],
+        "platforms": ["macos", "windows", "linux"],
+        "security_review": "passed",
+        "methods_review": "passed",
+        "kill_switch": true,
+        "upstream_evidence": ["Pinned source revision", "Per-skill MIT license copy", "Content tree SHA-256"]
+      },
+      "distribution": {
+        "resource_pack": "skills-admitted-ai4s",
+        "entry": "integrity-auditor",
+        "content_sha256": "db4d137dd69ec7295aa6517238ae1f6817abc051395d0708d5283c687a1d5bb4"
+      },
+      "blockers": []
+    },
+    {
+      "asset_id": "ai4s-research/literature-survey",
+      "display_name": "AI4S Literature Survey",
+      "kind": "skill",
+      "status": "validated-adapter",
+      "release_eligible": true,
+      "source": {
+        "repository": "https://github.com/ai4s-research/ai4s-skills",
+        "revision": "8fa2ab0523082c135598909b227ed8feb48263ad",
+        "license_spdx": "MIT",
+        "license_evidence_url": "https://github.com/ai4s-research/ai4s-skills/blob/8fa2ab0523082c135598909b227ed8feb48263ad/LICENSE",
+        "license_compatible": true
+      },
+      "capability_boundary": {
+        "workspace_access": "current-project-only",
+        "network_egress": "current-task-permission-mode-only",
+        "execution": "instruction-only-under-existing-tool-permissions",
+        "authority": "no-approval-or-decision-authority"
+      },
+      "industrialization": {
+        "adaptation_mode": "isolated-adapter",
+        "delta_record": "docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md",
+        "contract_tests": ["scripts/dev/test_open_science_foundation.py"],
+        "adversarial_tests": ["citation-targets-do-not-bypass-source-verification"],
+        "platforms": ["macos", "windows", "linux"],
+        "security_review": "passed",
+        "methods_review": "passed",
+        "kill_switch": true,
+        "upstream_evidence": ["Pinned source revision", "Per-skill MIT license copy", "Content tree SHA-256"]
+      },
+      "distribution": {
+        "resource_pack": "skills-admitted-ai4s",
+        "entry": "literature-survey",
+        "content_sha256": "c1cec17462ae3ee880c349059fbe3a1801057f71fef6aa40b8387bfeeb3fccc9"
+      },
+      "blockers": []
+    },
+    {
+      "asset_id": "ai4s-research/mindmap-render",
+      "display_name": "AI4S Mindmap Renderer",
+      "kind": "skill",
+      "status": "validated-adapter",
+      "release_eligible": true,
+      "source": {
+        "repository": "https://github.com/ai4s-research/ai4s-skills",
+        "revision": "8fa2ab0523082c135598909b227ed8feb48263ad",
+        "license_spdx": "MIT",
+        "license_evidence_url": "https://github.com/ai4s-research/ai4s-skills/blob/8fa2ab0523082c135598909b227ed8feb48263ad/LICENSE",
+        "license_compatible": true
+      },
+      "capability_boundary": {
+        "workspace_access": "current-project-only",
+        "network_egress": "none-unless-dependency-repair-is-visible-and-permitted",
+        "execution": "local-rendering-under-existing-tool-permissions",
+        "authority": "no-approval-or-decision-authority"
+      },
+      "industrialization": {
+        "adaptation_mode": "isolated-adapter",
+        "delta_record": "docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md",
+        "contract_tests": ["mindmap-render/tests/test_generate_mindmap.py"],
+        "adversarial_tests": ["source-structure-cannot-be-fabricated"],
+        "platforms": ["macos", "windows", "linux"],
+        "security_review": "passed",
+        "methods_review": "passed",
+        "kill_switch": true,
+        "upstream_evidence": ["Pinned source revision", "Per-skill MIT license copy", "Content tree SHA-256"]
+      },
+      "distribution": {
+        "resource_pack": "skills-admitted-ai4s",
+        "entry": "mindmap-render",
+        "content_sha256": "bf056dc8d77f26cadff1046baf6486b7cebd2ea7c3f9e1b6511405621a2e8e69"
+      },
+      "blockers": []
+    },
+    {
+      "asset_id": "ai4s-research/paper-writer",
+      "display_name": "AI4S Paper Writer",
+      "kind": "skill",
+      "status": "validated-adapter",
+      "release_eligible": true,
+      "source": {
+        "repository": "https://github.com/ai4s-research/ai4s-skills",
+        "revision": "8fa2ab0523082c135598909b227ed8feb48263ad",
+        "license_spdx": "MIT",
+        "license_evidence_url": "https://github.com/ai4s-research/ai4s-skills/blob/8fa2ab0523082c135598909b227ed8feb48263ad/LICENSE",
+        "license_compatible": true
+      },
+      "capability_boundary": {
+        "workspace_access": "current-project-only",
+        "network_egress": "current-task-permission-mode-only",
+        "execution": "instruction-only-under-existing-tool-permissions",
+        "authority": "no-approval-or-decision-authority"
+      },
+      "industrialization": {
+        "adaptation_mode": "isolated-adapter",
+        "delta_record": "docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md",
+        "contract_tests": ["scripts/dev/test_open_science_foundation.py"],
+        "adversarial_tests": ["citation-count-never-substitutes-for-verification"],
+        "platforms": ["macos", "windows", "linux"],
+        "security_review": "passed",
+        "methods_review": "passed",
+        "kill_switch": true,
+        "upstream_evidence": ["Pinned source revision", "Per-skill MIT license copy", "Content tree SHA-256"]
+      },
+      "distribution": {
+        "resource_pack": "skills-admitted-ai4s",
+        "entry": "paper-writer",
+        "content_sha256": "f4567fecfb5d88b65a26dad8834b2e6fb2c18bfa539917d5bfff1be063544bb2"
+      },
+      "blockers": []
+    },
+    {
+      "asset_id": "ai4s-research/research-explorer",
+      "display_name": "AI4S Research Explorer",
+      "kind": "skill",
+      "status": "validated-adapter",
+      "release_eligible": true,
+      "source": {
+        "repository": "https://github.com/ai4s-research/ai4s-skills",
+        "revision": "8fa2ab0523082c135598909b227ed8feb48263ad",
+        "license_spdx": "MIT",
+        "license_evidence_url": "https://github.com/ai4s-research/ai4s-skills/blob/8fa2ab0523082c135598909b227ed8feb48263ad/LICENSE",
+        "license_compatible": true
+      },
+      "capability_boundary": {
+        "workspace_access": "current-project-only",
+        "network_egress": "current-task-permission-mode-only",
+        "execution": "instruction-only-under-existing-tool-permissions",
+        "authority": "no-approval-or-decision-authority"
+      },
+      "industrialization": {
+        "adaptation_mode": "isolated-adapter",
+        "delta_record": "docs/THIRD_PARTY_ADMISSION_REVIEW.zh-CN.md",
+        "contract_tests": ["scripts/dev/test_open_science_foundation.py"],
+        "adversarial_tests": ["topic-ranking-does-not-make-research-decisions"],
+        "platforms": ["macos", "windows", "linux"],
+        "security_review": "passed",
+        "methods_review": "passed",
+        "kill_switch": true,
+        "upstream_evidence": ["Pinned source revision", "Per-skill MIT license copy", "Content tree SHA-256"]
+      },
+      "distribution": {
+        "resource_pack": "skills-admitted-ai4s",
+        "entry": "research-explorer",
+        "content_sha256": "52d8dc3058c489a0a2ef92e1391af0e921dc4e202c894d46f059cb27ced54dc6"
+      },
+      "blockers": []
+    }
+  ]
 }

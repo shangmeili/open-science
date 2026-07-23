@@ -2,6 +2,13 @@
   "catalog": {
     "ai4heor-preference-learning": { "displayName": "Work Preference Proposals", "description": "Turn a repeated, non-sensitive pattern from at least two independent interactions into a local preference proposal the researcher can inspect, edit, or delete." },
     "ai4heor-skill-authoring": { "displayName": "AI4HEOR Skill Authoring", "description": "Turn a researcher's natural-language request into a bilingual, validated, but inactive Skill candidate." },
+    "ai4s-agent": { "displayName": "Open Science Research Pipeline", "description": "Coordinate general research exploration, literature review, experiments, and paper drafting; HEOR work remains governed by AI4HEOR methods." },
+    "experiment-suite": { "displayName": "Experiment Suite", "description": "Prepare a general experiment design, runnable code, labelled results, figures, and a report." },
+    "integrity-auditor": { "displayName": "Research Integrity Audit", "description": "Check images, numbers, and argument chains and produce reviewable findings without issuing a misconduct verdict." },
+    "literature-survey": { "displayName": "Literature Survey", "description": "Build a structured general literature survey with verified sources, tables, figures, and citations." },
+    "mindmap-render": { "displayName": "Mind Map Renderer", "description": "Render a Markdown outline as interactive HTML and high-resolution PNG or PDF output." },
+    "paper-writer": { "displayName": "Research Paper Drafting", "description": "Organize verified research materials, methods, results, and limitations into a reviewable paper draft." },
+    "research-explorer": { "displayName": "Research Direction Explorer", "description": "Explore a broad field and organize candidate questions, gaps, feasibility, and next-step evidence." },
     "domain-check": { "displayName": "Scientific Domain Check", "description": "Detect deterministic domain errors in scientific analysis code." },
     "heor-advanced-value-of-information": { "displayName": "Advanced Value of Information", "description": "Audit population EVPI, EVPPI, EVSI, and ENBS analyses." },
     "heor-background-mortality": { "displayName": "Background Mortality", "description": "Combine reviewed population and excess mortality schedules." },

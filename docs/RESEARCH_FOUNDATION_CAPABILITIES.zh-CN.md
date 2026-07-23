@@ -1,12 +1,26 @@
 # AI4HEOR 科研基础能力验收清单
 
-**基线版本：** 0.1.51 源码候选
+**基线版本：** 1.0.0 源码候选
 
-**核对日期：** 2026-07-20
+**核对日期：** 2026-07-24
 
 **适用范围：** 人类研究者主导的药物经济学与 HEOR 科研工作台
 
 本清单只回答一个问题：即使不调用任何 HEOR 专属计算方法，AI4HEOR 是否已具备支撑日常科研项目的基础能力。
+
+## 严重产品回归与发布阻断规则
+
+过去的 AI4HEOR 构建只打包第一方 HEOR Skill，没有把 Open Science 的 7 个 MIT 通用科研 Skill 和 7 个科研连接器带入可交付运行时。这是**严重失误**，不是可接受的产品取舍：它把“HEOR 专业增强”错误实现成了“替换 Open Science 科研底座”，导致 AI4HEOR 的通用科研能力反而弱于上游。
+
+从 1.0.0 起，下列条件是 **release blocker（发布阻断项）**：
+
+- 52 个第一方 HEOR Skill 与 7 个哈希锁定的 Open Science 通用科研 Skill 必须同时存在；总数少于 59 时不得构建安装包。
+- Paper Search、BioMCP、Materials Project、FRED、Space Weather、Open-Meteo 和 USGS Water 这 7 个科研连接器必须保留为按需安装能力；缺少任一目录项时不得发布。
+- `packages/shared` 的共享领域类型和图表色板必须继续被桌面端与 SDK 实际引用，并与 UI、出版图表色板保持一致。
+- 7 个 Open Science Skill 必须来自固定提交，逐目录保留 MIT 许可证并通过 SHA-256 树哈希准入；不能用“已下载”代替“已打包且运行时可发现”。
+- HEOR Skill、工作流、证据溯源、确定性计算与复核能力只能在上述基础上增加，不能删除或降级 Open Science 的通用科研能力。
+
+构建流水线必须执行 `scripts/dev/test_open_science_foundation.py`。该门禁失败时，macOS、Windows 和 Linux 安装包都不得生成。
 
 状态口径：
 

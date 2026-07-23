@@ -112,6 +112,24 @@ describe("HeorStarters", () => {
     expect(screen.queryByText(/climate|materials|weather/i)).not.toBeInTheDocument();
   });
 
+  it("uses distinct chart-palette colors for the six research-workbench icons", () => {
+    render(<HeorStarters onPick={() => {}} />);
+
+    const classes = [
+      ["Learn pharmacoeconomics fundamentals", "text-[var(--series-1)]"],
+      ["Frame a cost-effectiveness study", "text-[var(--series-5)]"],
+      ["Find public evidence", "text-[var(--series-3)]"],
+      ["Research model inputs", "text-[var(--series-6)]"],
+      ["Audit an existing plan", "text-[var(--series-2)]"],
+      ["Open the complete cost–utility teaching case", "text-[var(--series-7)]"],
+    ] as const;
+
+    for (const [name, className] of classes) {
+      expect(screen.getByRole("button", { name: new RegExp(`^${name}`) }).querySelector("svg"))
+        .toHaveClass(className);
+    }
+  });
+
   it("keeps ordinary public evidence retrieval in the conversation", async () => {
     const onPick = vi.fn();
     render(<HeorStarters onPick={onPick} />);
