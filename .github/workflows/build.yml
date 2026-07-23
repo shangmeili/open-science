@@ -82,9 +82,6 @@ jobs:
       - name: Test release evidence contracts
         run: python scripts/release/test_release_evidence.py -v
 
-      - name: Test release-resource preflight contracts
-        run: python scripts/release/test_resource_preflight.py -v
-
       - name: Test macOS distribution contracts
         if: startsWith(matrix.platform, 'macos')
         run: python scripts/release/test_macos_distribution.py -v
@@ -107,6 +104,9 @@ jobs:
       - name: Fetch pinned Open Science Skill pack
         shell: bash
         run: bash scripts/dev/fetch-skills.sh
+
+      - name: Test release-resource preflight contracts
+        run: python scripts/release/test_resource_preflight.py -v
 
       - name: Block releases that regress the Open Science foundation
         run: python scripts/dev/test_open_science_foundation.py -v
