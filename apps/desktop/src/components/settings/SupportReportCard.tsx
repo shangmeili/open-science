@@ -32,7 +32,7 @@ export function SupportReportCard() {
   return (
     <section className="mt-5 rounded-card border border-border bg-surface shadow-card">
       <header className="border-b border-border px-5 py-3">
-        <h2 className="font-serif text-[15px] text-text">{t("supportReport.title")}</h2>
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-text">{t("supportReport.title")}</h2>
         <p className="mt-0.5 text-xs text-muted">{t("supportReport.hint")}</p>
       </header>
       <div className="px-5 py-4">

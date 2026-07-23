@@ -149,7 +149,7 @@ export function SkillsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl px-8 py-8">
-        <h1 className="font-serif text-xl text-text">{t("skills.title")}</h1>
+        <h1 className="text-xl font-semibold tracking-[-0.02em] text-text">{t("skills.title")}</h1>
         <p className="mt-1 text-sm text-muted">{t("skills.description.prefix")}</p>
 
         {/* Natural-language work first: review and adapt, never install directly. */}

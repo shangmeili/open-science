@@ -114,7 +114,7 @@ export function ProjectsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-4xl px-8 py-8">
-        <h1 className="font-serif text-2xl leading-tight text-text">{t("projects.heading")}</h1>
+        <h1 className="text-2xl font-semibold leading-tight tracking-[-0.02em] text-text">{t("projects.heading")}</h1>
 
         <div className="relative mt-5">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />

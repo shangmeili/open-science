@@ -12,21 +12,21 @@
 
 :root,
 [data-theme="light"] {
-  --bg: #f7f5ef;
+  --bg: #f7f7f5;
   --surface: #ffffff;
-  --surface-2: #f2efe7;
-  --border: #e7e3da;
-  --border-faint: #efece5;
-  --text: #2a2723;
+  --surface-2: #f0f0ed;
+  --border: #e3e3df;
+  --border-faint: #ececea;
+  --text: #242422;
   /* Small supporting copy must remain readable on both the paper background
      and white cards. These pairs clear WCAG AA normal-text contrast. */
-  --muted: #746f67;
-  --accent: #ad5335;
+  --muted: #70706c;
+  --accent: #b34f32;
   --accent-fg: #ffffff;
   --link: #2a6fdb;
-  --warn: #c98a2b;
-  --ok: #4b8b5b;
-  --error: #c0564b;
+  --warn: #a86d17;
+  --ok: #428250;
+  --error: #b94d45;
   /* Chart design system (P1-5) — validated categorical hues + chart chrome,
      the single source of truth shared with @ai4s/shared and the matplotlib
      style. Light surface = --surface (#ffffff). */
@@ -38,20 +38,20 @@
   --series-6: #e34948;
   --series-7: #e87ba4;
   --series-8: #eb6834;
-  --chart-grid: #e7e3da;
-  --chart-axis: #cbc6bb;
+  --chart-grid: #e3e3df;
+  --chart-axis: #c8c8c3;
 }
 
 [data-theme="dark"] {
-  --bg: #16151a;
-  --surface: #1e1d24;
-  --surface-2: #26252d;
-  --border: #33313c;
-  --border-faint: #25242b;
-  --text: #ece9e2;
-  --muted: #9a958c;
-  --accent: #d0764f;
-  --accent-fg: #16151a;
+  --bg: #1b1b1a;
+  --surface: #232322;
+  --surface-2: #2d2d2b;
+  --border: #3a3a37;
+  --border-faint: #30302e;
+  --text: #f0f0ed;
+  --muted: #a2a29d;
+  --accent: #d46d4d;
+  --accent-fg: #191918;
   --link: #7aa5f0;
   --warn: #d7a24a;
   --ok: #6bb07d;
@@ -65,8 +65,8 @@
   --series-6: #e66767;
   --series-7: #d55181;
   --series-8: #d95926;
-  --chart-grid: #33313c;
-  --chart-axis: #4a4753;
+  --chart-grid: #3a3a37;
+  --chart-axis: #51514d;
 }
 
 html,
@@ -79,7 +79,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: Inter, system-ui, sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }

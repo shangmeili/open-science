@@ -579,7 +579,7 @@ export function SettingsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-2xl px-8 pb-16 pt-8">
-        <h1 className="font-serif text-xl text-text">{t(`nav.${section}`)}</h1>
+        <h1 className="text-xl font-semibold tracking-[-0.02em] text-text">{t(`nav.${section}`)}</h1>
 
         {section === "general" && <StartupReadiness />}
 
@@ -1550,7 +1550,7 @@ function Card({
   return (
     <section className="mt-5 rounded-card border border-border bg-surface shadow-card">
       <header className="border-b border-border px-5 py-3">
-        <h2 className="font-serif text-[15px] text-text">{title}</h2>
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-text">{title}</h2>
         {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
       </header>
       <div className="px-5 py-4">{children}</div>

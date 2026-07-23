@@ -21,16 +21,16 @@ export default {
       },
       fontFamily: {
         serif: ["'Source Serif 4'", "Georgia", "serif"],
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "'SF Pro Text'", "'Segoe UI'", "'PingFang SC'", "'Microsoft YaHei'", "system-ui", "sans-serif"],
         mono: ["'JetBrains Mono'", "ui-monospace", "monospace"],
       },
       borderRadius: {
-        card: "14px",
-        input: "10px",
+        card: "12px",
+        input: "8px",
       },
       boxShadow: {
-        card: "0 1px 2px rgba(40, 39, 35, 0.04), 0 4px 16px rgba(40, 39, 35, 0.05)",
-        pop: "0 8px 30px rgba(40, 39, 35, 0.14)",
+        card: "0 1px 2px rgba(24, 24, 22, 0.04), 0 3px 12px rgba(24, 24, 22, 0.04)",
+        pop: "0 10px 30px rgba(24, 24, 22, 0.14)",
       },
     },
   },

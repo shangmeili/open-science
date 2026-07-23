@@ -196,6 +196,10 @@ describe("Sidebar projects", () => {
     renderNavigableAt("/heor/new");
 
     expect(await screen.findByRole("heading", { name: "What HEOR work would you like to tackle today?" })).toBeInTheDocument();
+    expect(screen.getByTestId("ai4heor-brand-icon")).toHaveAttribute(
+      "src",
+      expect.stringContaining("ai4heor-app-icon.png"),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Research workspace" }));
     expect(await screen.findByRole("heading", { name: "What are you working on?" })).toBeInTheDocument();
     expect(screen.queryByText("Beta")).not.toBeInTheDocument();

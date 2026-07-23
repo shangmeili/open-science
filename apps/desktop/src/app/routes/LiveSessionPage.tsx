@@ -16,7 +16,6 @@ import { useScrollMemory } from "@/lib/scrollMemory";
 import { BlockList, type BlockHandlers } from "@/components/thread/BlockList";
 import { Elapsed } from "@/components/thread/ToolGroup";
 import { Composer } from "@/components/thread/Composer";
-import { baseName } from "@/lib/pathName";
 import { HeorStarters } from "@/components/heor/HeorStarters";
 import { NewTaskSuggestions } from "@/components/heor/NewTaskSuggestions";
 import { FirstRunGuide } from "@/components/heor/FirstRunGuide";
@@ -434,7 +433,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
               instead of shoving the right-side controls off the bar. */}
           <div className="flex min-w-0 items-center gap-2">
             <Activity size={14} className="shrink-0 text-accent" />
-            <h1 className="truncate font-serif text-[15px] font-semibold text-text">
+            <h1 className="truncate text-[14px] font-semibold tracking-[-0.01em] text-text">
               {isWorkbench
                 ? t("session:workbench.title")
                 : sessionId
@@ -460,7 +459,9 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
             >
               <FolderOpen size={13} />
               <span className="max-w-[160px] truncate">
-                {workspace ? baseName(workspace) : t("live.filesToggle.default")}
+                {taskProject?.kind === "heor"
+                  ? taskProject.name
+                  : title || t("live.filesToggle.default")}
               </span>
             </button>
           )}

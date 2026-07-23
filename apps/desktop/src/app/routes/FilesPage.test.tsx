@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DirEntry } from "@/lib/artifactFile";
+import { useRuntimeStore } from "@/lib/runtime";
 import { FilesPage } from "./FilesPage";
 
 const listDir = vi.fn();
@@ -18,6 +19,7 @@ vi.mock("@/components/notebook/NotebookEditor", () => ({
 }));
 
 const root: DirEntry[] = [
+  { path: "heor", name: "heor", isDir: true, size: 0, modified: 2 },
   { path: "data", name: "data", isDir: true, size: 0, modified: 2 },
   { path: "figure.png", name: "figure.png", isDir: false, size: 2048, modified: 3 },
   { path: "run.ipynb", name: "run.ipynb", isDir: false, size: 500, modified: 1 },
@@ -34,6 +36,13 @@ const sub: DirEntry[] = [{ path: "data/genes.bed", name: "genes.bed", isDir: fal
 
 describe("FilesPage", () => {
   beforeEach(() => {
+    useRuntimeStore.setState({
+      currentId: null,
+      projects: [],
+      sessions: [],
+      researchScope: null,
+      workspace: null,
+    });
     listDir.mockReset();
     listDir.mockImplementation((rel: string) => Promise.resolve(rel === "data" ? sub : root));
   });
@@ -72,6 +81,31 @@ describe("FilesPage", () => {
     expect(screen.queryByText("7月20日 14:08 的任务")).not.toBeInTheDocument();
     expect(screen.queryByText("2026-07-20-1408")).not.toBeInTheDocument();
     expect(listDir).not.toHaveBeenCalledWith("", "base");
+  });
+
+  it("names the research scope by project and task instead of its internal HEOR folder", async () => {
+    useRuntimeStore.setState({
+      currentId: "task-1",
+      workspace: "/research/Gansu-insulin",
+      projects: [{
+        id: "project-1",
+        name: "甘精胰岛素经济学评价",
+        createdAt: 1,
+        kind: "heor",
+        path: "/research/Gansu-insulin",
+      }],
+      sessions: [{
+        id: "task-1",
+        title: "检索成本参数",
+        directory: "/research/Gansu-insulin",
+      }],
+    });
+
+    render(<FilesPage />);
+
+    expect(await screen.findByRole("button", { name: "甘精胰岛素经济学评价" })).toBeInTheDocument();
+    expect(screen.getByText("检索成本参数")).toBeInTheDocument();
+    expect(screen.getByText("heor")).toBeInTheDocument();
   });
 
   it("does not expose harness files as research material", async () => {

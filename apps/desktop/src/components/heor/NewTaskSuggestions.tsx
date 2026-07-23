@@ -1,6 +1,6 @@
 import { ChartNoAxesCombined, FileSearch, Presentation, Route } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import logo from "@/assets/logo.webp";
+import appIcon from "@/assets/ai4heor-app-icon.png";
 
 const suggestions = [
   { key: "scope", icon: Route, tone: "text-info" },
@@ -17,8 +17,8 @@ export function NewTaskSuggestions({ onPick }: { onPick: (prompt: string) => voi
 
   return (
     <section className="flex w-full flex-col items-center">
-      <img src={logo} alt="" className="h-12 w-12 object-contain" />
-      <h2 className="mt-5 text-center font-serif text-3xl font-semibold tracking-tight text-text">
+      <img src={appIcon} alt="" className="h-11 w-11 rounded-[11px] object-contain" />
+      <h2 className="mt-5 text-center text-3xl font-semibold tracking-[-0.025em] text-text">
         {t("newTask.heading")}
       </h2>
       <div className="mt-6 grid w-full grid-cols-2 gap-3 md:grid-cols-4">

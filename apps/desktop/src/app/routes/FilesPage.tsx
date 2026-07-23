@@ -23,6 +23,7 @@ import { FilePreviewInspector } from "@/components/inspector/FilePreviewInspecto
 import { FileContextMenu } from "@/components/files/FileContextMenu";
 import { PaneTitlebarInset } from "@/components/inspector/RightPane";
 import { cn } from "@/lib/cn";
+import { workspaceLabel } from "@/lib/workspaceLabel";
 
 const EXT_LANG: Record<string, string> = {
   py: "python", r: "r", jl: "julia", sh: "bash", tex: "latex", md: "markdown",
@@ -77,8 +78,12 @@ function humanSize(n: number): string {
  * task-container folders.
  */
 export function FilesPage() {
-  const { t } = useTranslation(["pages", "common", "nav"]);
+  const { t, i18n } = useTranslation(["pages", "common", "nav"]);
   const workspace = useRuntimeStore((s) => s.workspace);
+  const currentId = useRuntimeStore((s) => s.currentId);
+  const projects = useRuntimeStore((s) => s.projects);
+  const sessions = useRuntimeStore((s) => s.sessions);
+  const researchScope = useRuntimeStore((s) => s.researchScope);
   const [dir, setDir] = useState(""); // workspace-relative; "" = active scope
   const [entries, setEntries] = useState<DirEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -116,33 +121,48 @@ export function FilesPage() {
   };
 
   const crumbs = dir ? dir.split("/") : [];
+  const currentProject = projects.find((project) => project.path === workspace);
+  const currentTask = sessions.find((session) => session.id === currentId);
+  const scopeName = currentProject?.name
+    ?? currentTask?.title
+    ?? (researchScope?.path === workspace
+      ? workspaceLabel(researchScope.name, i18n.resolvedLanguage)
+      : t("nav:items.files"));
+  const taskName = currentProject && currentTask ? currentTask.title : null;
 
   return (
     <div className="flex h-full min-h-0">
       <div className="flex w-72 shrink-0 flex-col border-r border-border">
-        <div className="flex flex-wrap items-center gap-0.5 border-b border-border px-3 py-2.5 text-[13px]">
-          <button
-            className={cn("rounded px-1 hover:bg-surface-2", dir ? "text-link" : "font-medium text-text")}
-            onClick={() => setDir("")}
-            title={workspace ?? undefined}
-          >
-            {t("nav:items.files")}
-          </button>
-          {crumbs.map((part, i) => {
-            const to = crumbs.slice(0, i + 1).join("/");
-            const isLast = i === crumbs.length - 1;
-            return (
-              <span key={to} className="flex items-center gap-0.5">
-                <ChevronRight size={13} className="text-muted" />
-                <button
-                  className={cn("rounded px-1 hover:bg-surface-2", isLast ? "font-medium text-text" : "text-link")}
-                  onClick={() => setDir(to)}
-                >
-                  {part}
-                </button>
-              </span>
-            );
-          })}
+        <div className="border-b border-border px-3 py-2.5 text-[13px]">
+          <div className="flex flex-wrap items-center gap-0.5">
+            <button
+              className={cn("min-w-0 truncate rounded px-1 hover:bg-surface-2", dir ? "text-link" : "font-medium text-text")}
+              onClick={() => setDir("")}
+              title={workspace ?? undefined}
+            >
+              {scopeName}
+            </button>
+            {crumbs.map((part, i) => {
+              const to = crumbs.slice(0, i + 1).join("/");
+              const isLast = i === crumbs.length - 1;
+              return (
+                <span key={to} className="flex items-center gap-0.5">
+                  <ChevronRight size={13} className="text-muted" />
+                  <button
+                    className={cn("rounded px-1 hover:bg-surface-2", isLast ? "font-medium text-text" : "text-link")}
+                    onClick={() => setDir(to)}
+                  >
+                    {part}
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+          {taskName && !dir && (
+            <div className="mt-0.5 truncate px-1 text-[11px] text-muted" title={taskName}>
+              {taskName}
+            </div>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -233,8 +253,12 @@ export function SessionFilesPane({
   /** Pane-level header buttons (e.g. maximize), rendered before Close. */
   controls?: React.ReactNode;
 }) {
-  const { t } = useTranslation(["pages", "common", "nav"]);
+  const { t, i18n } = useTranslation(["pages", "common", "nav"]);
   const workspace = useRuntimeStore((s) => s.workspace);
+  const currentId = useRuntimeStore((s) => s.currentId);
+  const projects = useRuntimeStore((s) => s.projects);
+  const sessions = useRuntimeStore((s) => s.sessions);
+  const researchScope = useRuntimeStore((s) => s.researchScope);
   const [dir, setDir] = useState("");
   const [entries, setEntries] = useState<DirEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -277,15 +301,27 @@ export function SessionFilesPane({
   }
 
   const crumbs = dir ? dir.split("/") : [];
+  const currentProject = projects.find((project) => project.path === workspace);
+  const currentTask = sessions.find((session) => session.id === currentId);
+  const scopeName = currentProject?.name
+    ?? currentTask?.title
+    ?? (researchScope?.path === workspace
+      ? workspaceLabel(researchScope.name, i18n.resolvedLanguage)
+      : t("nav:items.files"));
+  const taskName = currentProject && currentTask ? currentTask.title : null;
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
         <PaneTitlebarInset />
         <Folder size={14} strokeWidth={1.5} className="shrink-0 text-text" />
-        <span className="truncate text-sm font-medium text-text" title={workspace ?? undefined}>
-          {t("nav:items.files")}
-        </span>
-        <span className="text-xs text-muted">{t("files.pane.subtitle")}</span>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium text-text" title={workspace ?? undefined}>
+            {scopeName}
+          </div>
+          <div className="truncate text-[11px] text-muted">
+            {taskName ?? t("files.pane.subtitle")}
+          </div>
+        </div>
         <div className="flex-1" />
         {controls}
         <button className="text-text hover:opacity-60" aria-label={t("files.pane.closeAria")} onClick={onClose}>
@@ -295,7 +331,7 @@ export function SessionFilesPane({
       {crumbs.length > 0 && (
         <div className="flex flex-wrap items-center gap-0.5 border-b border-border px-3 py-2 text-[12px]">
           <button className="rounded px-1 text-link hover:bg-surface-2" onClick={() => setDir("")}>
-            {t("nav:items.files")}
+            {scopeName}
           </button>
           {crumbs.map((part, i) => {
             const to = crumbs.slice(0, i + 1).join("/");

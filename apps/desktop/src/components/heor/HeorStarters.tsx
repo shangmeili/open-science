@@ -76,7 +76,7 @@ export function HeorStarters({
       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
         {t("starter.eyebrow")}
       </div>
-      <h1 className="mt-2 font-serif text-3xl font-semibold tracking-tight text-text">
+      <h1 className="mt-2 text-3xl font-semibold tracking-[-0.025em] text-text">
         {t("starter.title")}
       </h1>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{t("starter.body")}</p>

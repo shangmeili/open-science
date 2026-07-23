@@ -36,7 +36,7 @@ import { visibleSections, resolveSection } from "@/components/settings/sections"
 import { isGatewayWeb } from "@/lib/webMode";
 import { StatusPills } from "./StatusPills";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import logo from "@/assets/logo.webp";
+import appIcon from "@/assets/ai4heor-app-icon.png";
 
 interface Row {
   id: string;
@@ -381,9 +381,14 @@ export function Sidebar() {
               title={t("items.heor")}
               className="flex items-baseline gap-1.5 rounded px-0.5 py-1 text-left hover:bg-surface-2"
             >
-              <img src={logo} alt="" className="h-[18px] w-auto self-center" />
+              <img
+                src={appIcon}
+                alt=""
+                data-testid="ai4heor-brand-icon"
+                className="h-5 w-5 shrink-0 self-center rounded-[5px] object-contain"
+              />
               {/* eslint-disable-next-line i18next/no-literal-string -- product brand name, not translated across locales */}
-              <span className="font-serif text-[17px] font-semibold leading-none tracking-tight text-text">
+              <span className="text-[15px] font-semibold leading-none tracking-[-0.01em] text-text">
                 AI4HEOR
               </span>
             </button>

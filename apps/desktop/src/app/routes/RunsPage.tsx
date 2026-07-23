@@ -269,7 +269,7 @@ export function RunsPage() {
             <FlaskConical size={17} strokeWidth={1.75} />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="font-serif text-xl leading-tight text-text">{t("title")}</h1>
+            <h1 className="text-xl font-semibold leading-tight tracking-[-0.02em] text-text">{t("title")}</h1>
             <p className="mt-0.5 text-sm text-muted">
               {t("description.prefix")}
               <span className="text-text/70">{t("action.reproduce")}</span>

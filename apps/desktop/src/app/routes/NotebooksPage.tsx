@@ -102,7 +102,7 @@ export function NotebooksPage() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl px-8 py-6">
         <div className="flex items-center gap-3">
-          <h1 className="font-serif text-xl text-text">{t("notebooks.title")}</h1>
+          <h1 className="text-xl font-semibold tracking-[-0.02em] text-text">{t("notebooks.title")}</h1>
           <div className="flex-1" />
           {isTauri && jupyterInstalled && (
             <button
