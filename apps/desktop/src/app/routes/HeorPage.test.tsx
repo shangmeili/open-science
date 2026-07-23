@@ -225,11 +225,12 @@ describe("AI4HEOR conversation route", () => {
     );
 
     const draft = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
-    expect(draft).toContain("$heor-local-evidence");
+    expect(draft).toContain("prepared AI4HEOR learning library");
     expect(draft).toContain(
-      "First ask what I want to learn, what I already know, and how much time I want to spend",
+      "First ask about the topic I want to study, what I already know, and the time I have available",
     );
-    expect(draft).toContain("Do not use the network");
+    expect(draft).toContain("instead of offering uncited model knowledge");
+    expect(draft).not.toContain("SHA-256");
     expect(sendPrompt).not.toHaveBeenCalled();
   });
 
@@ -245,13 +246,15 @@ describe("AI4HEOR conversation route", () => {
 
     await userEvent.click(
       await screen.findByRole("button", {
-        name: /Open the cost-effectiveness teaching example/i,
+        name: /Open the cost–utility teaching case/i,
       }),
     );
 
     const draft = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
-    expect(draft).toContain("python run_analysis.py --check expected/base-case-result.json");
-    expect(draft).toContain("do not ask for a second confirmation");
+    expect(draft).toContain("Explain the installed cost–utility teaching case in plain language");
+    expect(draft).toContain("three health states");
+    expect(draft).not.toContain("run_analysis.py");
+    expect(draft).not.toContain("SHA-256");
     expect(sendPrompt).not.toHaveBeenCalled();
   });
 

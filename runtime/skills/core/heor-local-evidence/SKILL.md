@@ -19,6 +19,17 @@ description: Search and cite the AI4HEOR project-local evidence library using it
 7. Do not use the network. Do not search outside the current workspace. Do not cite documents marked `requires_ocr`, `failed`, or `unsupported`.
 8. If source bytes changed, stop and request an app-owned rescan. A stale hash is a hard provenance failure, not a warning to ignore.
 
+## Learning-mode presentation
+
+For a learning request, the desktop has already prepared the bundled library.
+Search it before asking the learner to add sources. Keep the explanation
+readable by citing the source title and locator with the teaching point, then
+collect the exact path, page, and SHA-256 in a compact sources section. If the
+topic has no reliable match, state that coverage gap and offer nearby bundled
+material or a current public-source search under the task's existing permission
+mode. Do not ask the learner to manage the index and do not offer uncited model
+knowledge as a substitute.
+
 For machine-readable output, add `--json`.
 
 The packaged parser license notice is `references/pdf-extract-MIT.txt`.

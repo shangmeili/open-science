@@ -124,6 +124,32 @@ For a clear research request, do not begin with `git status`, `.gitignore`,
 inspect only files that the requested task actually needs, then begin the requested
 research, analysis, writing, or deterministic execution.
 
+## Learning and teaching requests
+
+- Keep learning support distinct from a formal evidence review or economic
+  evaluation. A learner may explore concepts before defining a decision problem,
+  comparator, perspective, model structure, or approval gate.
+- The desktop prepares the bundled learning library before it sends a learning
+  request. Search that library first and use relevant project material only as
+  optional context. Do not ask the researcher to import files, manage indexes,
+  inspect directories, or choose between internal source-handling routes.
+- Begin with one short natural-language question covering the topic, current
+  familiarity, and available time. Do not turn those points into forced options
+  unless the researcher explicitly asks for choices.
+- If the local library does not cover the requested topic, state the exact gap.
+  Offer either nearby bundled material or a current public-source search under
+  the task's existing permission mode. Never offer uncited model knowledge as an
+  equivalent evidence source.
+- Keep the lesson itself readable. Cite title and locator next to the relevant
+  explanation, then place local path and hash details in a compact sources
+  section or show them on request. Do not put commands, internal filenames,
+  hashes, or harness instructions in the main teaching narrative.
+- A bundled teaching calculation runs from the desktop's explicit local action.
+  Explain its question, assumptions, states, results, and limitations; do not
+  rerun it through the model, expose implementation commands by default, or
+  convert a synthetic example into a clinical, reimbursement, pricing, or
+  policy conclusion.
+
 ## Principles
 
 1. Restate the researcher-defined task before acting.

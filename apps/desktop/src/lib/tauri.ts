@@ -947,8 +947,8 @@ export interface TeachingExampleRunResult {
   limitations: string[];
 }
 
-/** Run the exact installed synthetic teaching case locally after the auxiliary
- * Human confirmation. No model provider receives project content. */
+/** Run the exact installed synthetic teaching case after the researcher clicks
+ * the local-run action. No model provider receives project content. */
 export async function runHeorTeachingExample(): Promise<TeachingExampleRunResult> {
   if (!isTauri) throw new Error("not running in the desktop app");
   const { invoke } = await import("@tauri-apps/api/core");

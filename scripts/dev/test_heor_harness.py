@@ -73,6 +73,27 @@ class HeorHarnessContractTests(unittest.TestCase):
         self.assertIn("inspect only files that the requested task", agents)
         self.assertNotIn("worktree, artifacts", agents)
 
+    def test_learning_flow_is_source_grounded_without_formal_research_gates(self):
+        agents = (HARNESS_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        workbench = (SKILLS_ROOT / "heor-workbench/SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        local_evidence = (SKILLS_ROOT / "heor-local-evidence/SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        combined = "\n".join((agents, workbench, local_evidence))
+        for required in (
+            "Learning and teaching requests",
+            "Learning and teaching mode",
+            "Do not require a\n  decision problem",
+            "Do not ask the\n  researcher to import files",
+            "uncited model knowledge",
+            "Do not ask the learner to manage the index",
+            "Do not rerun the case through agent",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, combined)
+
     def test_machine_policy_is_exact_and_model_provider_neutral(self):
         policy = json.loads((HARNESS_ROOT / "policy.json").read_text(encoding="utf-8"))
         self.assertEqual(

@@ -40,6 +40,29 @@ actually depends on.
 
 ## Natural-language workflow
 
+### Learning and teaching mode
+
+Learning is not a shortened formal research workflow. When the researcher asks
+to learn a method or understand the bundled teaching case:
+
+- Ask one concise question about topic, current familiarity, and available time,
+  then teach from the prepared AI4HEOR learning library. Do not require a
+  decision problem, analysis plan, or Human gate before explaining a concept.
+- Use relevant project sources only as optional context. Do not ask the
+  researcher to import files, operate an index, inspect internal directories, or
+  choose between those implementation routes.
+- If the library has no reliable coverage, state the gap and offer a nearby
+  lesson or a public-source search under the current task permission mode. Do
+  not present uncited model knowledge as an equivalent alternative.
+- Keep explanations natural: cite source title and locator in the lesson and
+  collect path and SHA-256 details in a compact sources section. Separate stable
+  methods from dated updates.
+- For the bundled synthetic teaching case, explain the three-state structure,
+  assumptions, incremental cost, incremental QALYs, ICER, and sensitivity
+  result already produced by the desktop. Do not rerun the case through agent
+  commands or expose internal filenames and commands unless the researcher asks
+  for technical details.
+
 1. Restate the decision question in one concise paragraph. Identify population, all relevant strategies, perspective, horizon, outcome, jurisdiction, and decision context.
 2. List material unknowns before searching or modeling. Ask only questions that would change the model or interpretation.
 3. Use `$heor-local-evidence` for project-local PDF or text knowledge-base retrieval. Require the app-owned hash manifest and cite the exact path, SHA-256, and page; never treat OCR-required or failed extraction as reviewed evidence.
