@@ -15,7 +15,7 @@ const runResult = {
   interpreterSource: "system" as const,
   expectedResultSha256: "8daa00",
   baseCase: {
-    path: "heor-cost-effectiveness/outputs/base-case-result.json",
+    path: "heor-cost-effectiveness/outputs/complete-case-result.json",
     sha256: "8daa00",
     scenario: "base_case" as const,
     scenarioValue: null,
@@ -44,6 +44,21 @@ const runResult = {
     icerPerQaly: 78188.46,
     incrementalNetMonetaryBenefitPerPerson: 28990.97,
   },
+  sensitivityParameterCount: 8,
+  structuralScenarioCount: 3,
+  probabilisticIterations: 1000,
+  representedParameterCount: 8,
+  probabilityPositiveIncrementalNmb: 0.862,
+  mechanicalChecksPassed: 6,
+  mechanicalChecksTotal: 6,
+  humanReviewStatus: "awaiting_human_review" as const,
+  pendingHumanReviewItems: ["decision_problem", "conceptual_model"],
+  reportPath: "heor-cost-effectiveness/outputs/teaching-report.md",
+  reportSha256: "report00",
+  evidenceRegisterPath: "heor-cost-effectiveness/evidence/assumptions-register.csv",
+  evidenceRegisterSha256: "evidence00",
+  reviewChecklistPath: "heor-cost-effectiveness/review/researcher-review-checklist.md",
+  reviewChecklistSha256: "review00",
   limitations: ["Synthetic teaching assumptions only."],
 };
 vi.mock("@/lib/tauri", () => ({
@@ -91,8 +106,8 @@ describe("HeorStarters", () => {
   it("shows the model-independent HEOR teaching example on the default surface", () => {
     render(<HeorStarters onPick={() => {}} />);
     expect(screen.getAllByRole("button")).toHaveLength(6);
-    expect(screen.getByText("Open the cost–utility teaching case")).toBeInTheDocument();
-    expect(screen.getByText(/three-state model and its teaching assumptions/i))
+    expect(screen.getByText("Open the complete cost–utility teaching case")).toBeInTheDocument();
+    expect(screen.getByText(/research question, assumptions, model, uncertainty analysis/i))
       .toBeInTheDocument();
     expect(screen.queryByText(/climate|materials|weather/i)).not.toBeInTheDocument();
   });
@@ -134,23 +149,27 @@ describe("HeorStarters", () => {
     const ensureWorkspace = vi.fn().mockResolvedValue(true);
     render(<HeorStarters onPick={onPick} ensureWorkspace={ensureWorkspace} />);
     await userEvent.click(
-      screen.getByRole("button", { name: /Open the cost–utility teaching case/i }),
+      screen.getByRole("button", { name: /Open the complete cost–utility teaching case/i }),
     );
     await waitFor(() => expect(installCalls).toEqual(["heor-cost-effectiveness"]));
     expect(ensureWorkspace).toHaveBeenCalledTimes(1);
     expect(onPick).not.toHaveBeenCalled();
-    expect(screen.getByText("The local teaching case is ready")).toBeInTheDocument();
+    expect(screen.getByText("The complete local teaching case is ready")).toBeInTheDocument();
     expect(screen.getByText(/hypothetical population/i)).toBeInTheDocument();
     expect(screen.getByText("Stable")).toBeInTheDocument();
     expect(screen.getByText("Progressed")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Run and view results" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ask the assistant to explain" }))
+    expect(screen.getByText("Evidence gaps and assumptions")).toBeInTheDocument();
+    expect(screen.getByText("Draft report and researcher review")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run the complete case" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ask the assistant to explain the case" }))
       .toBeInTheDocument();
     expect(runCalls).toBe(0);
 
-    await userEvent.click(screen.getByRole("button", { name: "Ask the assistant to explain" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Ask the assistant to explain the case" }),
+    );
     expect(onPick).toHaveBeenCalledTimes(1);
-    expect(onPick.mock.calls[0][0]).toContain("three health states");
+    expect(onPick.mock.calls[0][0]).toContain("three-state conceptual model");
     expect(onPick.mock.calls[0][0]).toContain("plain language");
     expect(onPick.mock.calls[0][0]).not.toContain("run_analysis.py");
     expect(onPick.mock.calls[0][0]).not.toContain("SHA-256");
@@ -159,18 +178,27 @@ describe("HeorStarters", () => {
   it("runs from the explicit local action and keeps technical details collapsed", async () => {
     render(<HeorStarters onPick={() => {}} />);
     await userEvent.click(
-      screen.getByRole("button", { name: /Open the cost–utility teaching case/i }),
+      screen.getByRole("button", { name: /Open the complete cost–utility teaching case/i }),
     );
-    await userEvent.click(await screen.findByRole("button", { name: "Run and view results" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Run the complete case" }));
 
-    expect(await screen.findByText("Fixed calculation completed")).toBeInTheDocument();
+    expect(await screen.findByText("Complete teaching case calculated")).toBeInTheDocument();
     expect(runCalls).toBe(1);
     expect(screen.getByText("69,954.05")).toBeInTheDocument();
     expect(screen.getByText("61,719.64 – 78,188.46")).toBeInTheDocument();
+    expect(screen.getByText("8 parameters")).toBeInTheDocument();
+    expect(screen.getByText("3 scenarios")).toBeInTheDocument();
+    expect(screen.getByText("1,000 draws · 8 parameters")).toBeInTheDocument();
+    expect(screen.getByText("6 of 6 passed")).toBeInTheDocument();
+    expect(screen.getByText("86.2%")).toBeInTheDocument();
+    expect(screen.getByText("Researcher review is still required")).toBeInTheDocument();
     expect(screen.getByText(runResult.baseCase.path)).not.toBeVisible();
     await userEvent.click(screen.getByText("View run details"));
     expect(screen.getByText(runResult.baseCase.path)).toBeVisible();
     expect(screen.getByText(runResult.baseCase.sha256)).toBeVisible();
+    expect(screen.getByText(runResult.reportPath)).toBeVisible();
+    expect(screen.getByText(runResult.evidenceRegisterPath)).toBeVisible();
+    expect(screen.getByText(runResult.reviewChecklistPath)).toBeVisible();
     expect(screen.getByText(runResult.runId)).toBeVisible();
   });
 
@@ -178,9 +206,9 @@ describe("HeorStarters", () => {
     failRun = true;
     render(<HeorStarters onPick={() => {}} />);
     await userEvent.click(
-      screen.getByRole("button", { name: /Open the cost–utility teaching case/i }),
+      screen.getByRole("button", { name: /Open the complete cost–utility teaching case/i }),
     );
-    await userEvent.click(await screen.findByRole("button", { name: "Run and view results" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Run the complete case" }));
     await waitFor(() => expect(toastState.errors).toHaveLength(1));
     expect(toastState.errors[0]).toMatch(/The fixed inputs have been edited/i);
     expect(toastState.errors[0]).not.toMatch(/differs from the bundled teaching example/i);
@@ -191,7 +219,7 @@ describe("HeorStarters", () => {
     const onPick = vi.fn();
     render(<HeorStarters onPick={onPick} />);
     await userEvent.click(
-      screen.getByRole("button", { name: /Open the cost–utility teaching case/i }),
+      screen.getByRole("button", { name: /Open the complete cost–utility teaching case/i }),
     );
     await waitFor(() => expect(installCalls).toHaveLength(1));
     expect(onPick).not.toHaveBeenCalled();
@@ -206,7 +234,7 @@ describe("HeorStarters", () => {
       />,
     );
     await userEvent.click(
-      screen.getByRole("button", { name: /Open the cost–utility teaching case/i }),
+      screen.getByRole("button", { name: /Open the complete cost–utility teaching case/i }),
     );
     await waitFor(() => expect(onPick).not.toHaveBeenCalled());
     expect(installCalls).toHaveLength(0);

@@ -99,17 +99,19 @@ in one continuous, auditable session.
 **A Human-led HEOR request -> reviewable, traceable local work.** A new task
 starts with pharmacoeconomic study design, HEOR evidence/data analysis,
 model/report audit, or a synthetic cost-effectiveness example. The bundled
-`examples/heor-cost-effectiveness/` project demonstrates a two-strategy,
-three-state cohort workflow. The default HEOR surface installs it only after the
-researcher selects the example and keeps the request unsent for review. Its
-dependency-free `run_analysis.py` binds the exact script, specification, and CSV
-hashes, reproduces `expected/base-case-result.json`, and exposes declared low and
-high cost sensitivity values without asking a model to perform the arithmetic.
-After a separate Human confirmation, the desktop app can run this exact fixed
-case without a configured model, write all three local result files, and add run
-and provenance records; no case content is sent to a model provider. Its numbers are
-teaching assumptions, not clinical or economic evidence, and it cannot create
-approval, cost-effectiveness, or reimbursement conclusions.
+`examples/heor-cost-effectiveness/` is a complete synthetic teaching workflow:
+decision problem, assumptions register and evidence gaps, conceptual model, base
+case, eight-parameter one-way sensitivity analysis, three structural scenarios,
+a fixed-seed 1,000-draw probabilistic analysis, mechanical checks, a draft report,
+and a researcher review checklist. The dependency-free `run_analysis.py` binds
+the exact script, specification, and CSV hashes and reproduces
+`expected/base-case-result.json` byte for byte. After the researcher chooses the
+local-run action, the desktop app can run the complete case without a configured
+model, write `outputs/complete-case-result.json`, `outputs/teaching-report.md`,
+and the two declared compatibility sensitivity outputs, then add run and
+provenance records. No case content is sent to a model provider. All numbers are
+teaching assumptions, not clinical or economic evidence, and the software cannot
+create scientific approval, cost-effectiveness, reimbursement, or policy conclusions.
 
 ![AI4HEOR first-use guide with local, model, approval, and Human-authority boundaries](./docs/audits/2026-07-17-first-use/06-skip-link-stable.png)
 

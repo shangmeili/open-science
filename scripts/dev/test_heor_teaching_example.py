@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import csv
 import shutil
 import subprocess
 import sys
@@ -37,6 +38,29 @@ class HeorTeachingExampleTests(unittest.TestCase):
         self.assertIsNone(
             result["incremental_vs_comparator"]["cost_effectiveness_claim"]
         )
+        self.assertEqual(
+            result["deterministic_sensitivity_analysis"]["parameter_count"], 8
+        )
+        self.assertEqual(result["structural_scenario_analysis"]["scenario_count"], 3)
+        self.assertEqual(result["probabilistic_analysis"]["iterations"], 1000)
+        self.assertEqual(result["probabilistic_analysis"]["seed"], 20260723)
+        self.assertEqual(
+            result["probabilistic_analysis"]["represented_parameter_count"], 8
+        )
+        self.assertTrue(
+            result["probabilistic_analysis"]["convergence"]
+            ["passed_teaching_tolerances"]
+        )
+        self.assertEqual(result["mechanical_validation"]["checks_passed"], 6)
+        self.assertEqual(result["mechanical_validation"]["checks_total"], 6)
+        self.assertEqual(
+            result["mechanical_validation"]["human_review_status"],
+            "awaiting_human_review",
+        )
+        self.assertEqual(
+            result["mechanical_validation"]["independent_validation_status"],
+            "not_performed",
+        )
 
     def test_two_runs_are_byte_identical(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ai4heor-teaching-output-") as temporary:
@@ -47,6 +71,59 @@ class HeorTeachingExampleTests(unittest.TestCase):
                 self.assertEqual(completed.returncode, 0, completed.stderr)
             self.assertEqual(first.read_bytes(), second.read_bytes())
             self.assertEqual(first.read_bytes(), EXPECTED.read_bytes())
+
+    def test_report_is_deterministic_and_keeps_the_research_boundary(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ai4heor-teaching-report-") as temporary:
+            reports = [Path(temporary) / "first.md", Path(temporary) / "second.md"]
+            for index, report in enumerate(reports):
+                output = Path(temporary) / f"result-{index}.json"
+                completed = run(
+                    "--output",
+                    str(output),
+                    "--report-output",
+                    str(report),
+                )
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(reports[0].read_bytes(), reports[1].read_bytes())
+            text = reports[0].read_text(encoding="utf-8")
+            for heading in (
+                "## 1. Decision problem",
+                "## 2. Evidence and assumptions",
+                "## 3. Base-case calculation",
+                "## 4. Deterministic sensitivity analysis",
+                "## 5. Structural scenario analysis",
+                "## 6. Probabilistic teaching analysis",
+                "## 7. Mechanical validation and Human review",
+            ):
+                self.assertIn(heading, text)
+            self.assertIn("draft for Human review", text)
+            self.assertIn("No cost-effectiveness", text)
+
+    def test_assumptions_register_covers_every_model_input(self) -> None:
+        register = EXAMPLE / "evidence/assumptions-register.csv"
+        with register.open(encoding="utf-8", newline="") as source:
+            rows = list(csv.DictReader(source))
+        self.assertEqual(len(rows), 27)
+        self.assertTrue(all(row["status"] for row in rows))
+        self.assertTrue(all(row["basis"] for row in rows))
+        self.assertTrue(all(row["limitation"] for row in rows))
+        self.assertTrue(all(row["human_review"] == "required" for row in rows))
+
+    def test_sensitivity_report_request_fails_before_writing_any_output(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ai4heor-teaching-invalid-") as temporary:
+            output = Path(temporary) / "result.json"
+            report = Path(temporary) / "report.md"
+            completed = run(
+                "--intervention-stable-cost",
+                "14400",
+                "--output",
+                str(output),
+                "--report-output",
+                str(report),
+            )
+            self.assertNotEqual(completed.returncode, 0)
+            self.assertFalse(output.exists())
+            self.assertFalse(report.exists())
 
     def test_declared_cost_sensitivity_changes_cost_but_not_qalys(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ai4heor-teaching-sensitivity-") as temporary:

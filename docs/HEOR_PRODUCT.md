@@ -625,32 +625,35 @@ engine-returned currency instead of a hard-coded jurisdiction.
 
 The default HEOR surface includes a sixth, explicitly local teaching starter for
 `examples/heor-cost-effectiveness`. Selecting the card copies the bundled example
-without overwriting an existing researcher-edited copy, then fills an unsent
-natural-language request. The request first asks the researcher whether to retain
-the proposed decision problem and never creates an approval by selecting the card.
+without overwriting an existing researcher-edited copy and reveals the complete
+local-run action. Asking the assistant to explain the case remains a separate,
+optional natural-language action.
 
 The two-strategy, three-state example has a dependency-free, versioned Python
 runner, `run_analysis.py`. It verifies the exact model-input SHA-256 declared by the analysis spec,
 validates complete stochastic transition rows, an absorbing death state, complete
 costs and utilities, and cohort mass conservation, then uses Decimal arithmetic
-with trapezoidal state occupancy and end-of-cycle discounting. The base case must
-match `expected/base-case-result.json` byte for byte; the result binds the exact
-runner, specification, and CSV hashes and retains cycle traces. The only bounded
-command-line sensitivity input changes the intervention stable-state cost, so it
-cannot silently alter effects or utilities. This proves reproducibility of the
-teaching arithmetic, not input validity, model validity, an official Chinese
-threshold, cost-effectiveness, reimbursement, pricing, or policy suitability.
+with trapezoidal state occupancy and end-of-cycle discounting. The complete result
+must match `expected/base-case-result.json` byte for byte; it binds the exact
+runner, specification, and CSV hashes and retains cycle traces. The case includes
+an assumptions register and evidence-gap log, conceptual model, base case,
+eight-parameter one-way sensitivity analysis, three structural scenarios, a
+fixed-seed 1,000-draw bounded probabilistic analysis, six declared mechanical
+checks, deterministic draft reporting, and a researcher review checklist. The
+legacy bounded command-line sensitivity input remains for exact low/high stable
+cost reproduction. This proves reproducibility of the teaching arithmetic, not
+input validity, model validity, an official Chinese threshold, cost-effectiveness,
+reimbursement, pricing, or policy suitability.
 
-The desktop also provides a deliberately narrow auxiliary **Run locally** action.
-It is available only after the starter has installed the example and requires a
-separate researcher confirmation. The native command verifies the installed
-runner, analysis specification, CSV, and expected result against bundled bytes,
-then runs the base case and the declared stable-cost low and high values. It writes
-`outputs/base-case-result.json`, `outputs/stable-cost-low-result.json`, and
-`outputs/stable-cost-high-result.json`, and reuses the local Runs and Provenance
-records. It does not require a configured model and sends no case content to a
-model provider. Any changed governed input or conflicting existing output fails
-closed without overwriting the researcher's files.
+The desktop provides an explicit **Run complete case** action after installation.
+The native command verifies the installed runner, analysis specification, CSV,
+expected result, assumptions register, evidence-gap log, conceptual model,
+validation notes, reporting plan, and researcher checklist against bundled bytes.
+It writes `outputs/complete-case-result.json`, `outputs/teaching-report.md`,
+`outputs/stable-cost-low-result.json`, and `outputs/stable-cost-high-result.json`,
+then reuses the local Runs and Provenance records. It does not require a configured
+model and sends no case content to a model provider. Any changed governed input or
+conflicting existing output fails closed without overwriting the researcher's files.
 
 ## Local evidence library
 

@@ -244,7 +244,15 @@ class AI4HEORProductDocsTests(unittest.TestCase):
         spec_path = example / "inputs/analysis-spec.json"
         inputs = example / "inputs/model-inputs.csv"
         expected_path = example / "expected/base-case-result.json"
-        for path in (runner, spec_path, inputs, expected_path):
+        complete_case_assets = (
+            example / "evidence/assumptions-register.csv",
+            example / "evidence/evidence-gap-log.md",
+            example / "model/conceptual-model.md",
+            example / "validation/model-validation.md",
+            example / "reporting/reporting-plan.md",
+            example / "review/researcher-review-checklist.md",
+        )
+        for path in (runner, spec_path, inputs, expected_path, *complete_case_assets):
             self.assertTrue(path.is_file(), path)
 
         digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
@@ -257,6 +265,18 @@ class AI4HEORProductDocsTests(unittest.TestCase):
         self.assertIsNone(
             expected["incremental_vs_comparator"]["cost_effectiveness_claim"]
         )
+        self.assertEqual(
+            expected["deterministic_sensitivity_analysis"]["parameter_count"], 8
+        )
+        self.assertEqual(
+            expected["structural_scenario_analysis"]["scenario_count"], 3
+        )
+        self.assertEqual(expected["probabilistic_analysis"]["iterations"], 1000)
+        self.assertEqual(expected["mechanical_validation"]["checks_total"], 6)
+        self.assertEqual(
+            expected["mechanical_validation"]["human_review_status"],
+            "awaiting_human_review",
+        )
 
         for relative in ("README.md", "README.zh.md", "docs/PRD.md", "docs/HEOR_PRODUCT.md"):
             text = (ROOT / relative).read_text(encoding="utf-8")
@@ -265,7 +285,8 @@ class AI4HEORProductDocsTests(unittest.TestCase):
 
         product_contract = (ROOT / "docs/HEOR_PRODUCT.md").read_text(encoding="utf-8")
         for output in (
-            "outputs/base-case-result.json",
+            "outputs/complete-case-result.json",
+            "outputs/teaching-report.md",
             "outputs/stable-cost-low-result.json",
             "outputs/stable-cost-high-result.json",
         ):

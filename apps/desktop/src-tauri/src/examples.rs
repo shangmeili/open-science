@@ -13,10 +13,17 @@ use crate::runtime::workspace_dir;
 const EXAMPLES: &[&str] = &["heor-cost-effectiveness"];
 const TEACHING_EXAMPLE: &str = "heor-cost-effectiveness";
 const EXECUTION_INPUTS: &[&str] = &[
+    "decision-problem.md",
     "run_analysis.py",
     "inputs/analysis-spec.json",
     "inputs/model-inputs.csv",
     "expected/base-case-result.json",
+    "evidence/assumptions-register.csv",
+    "evidence/evidence-gap-log.md",
+    "model/conceptual-model.md",
+    "validation/model-validation.md",
+    "review/researcher-review-checklist.md",
+    "reporting/reporting-plan.md",
 ];
 const RESULT_CAP_BYTES: u64 = 10 * 1024 * 1024;
 static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
@@ -44,6 +51,21 @@ pub struct TeachingExampleRunResult {
     base_case: TeachingExampleOutput,
     sensitivity_low: TeachingExampleOutput,
     sensitivity_high: TeachingExampleOutput,
+    sensitivity_parameter_count: u64,
+    structural_scenario_count: u64,
+    probabilistic_iterations: u64,
+    represented_parameter_count: u64,
+    probability_positive_incremental_nmb: f64,
+    mechanical_checks_passed: u64,
+    mechanical_checks_total: u64,
+    human_review_status: String,
+    pending_human_review_items: Vec<String>,
+    report_path: String,
+    report_sha256: String,
+    evidence_register_path: String,
+    evidence_register_sha256: String,
+    review_checklist_path: String,
+    review_checklist_sha256: String,
     limitations: Vec<String>,
 }
 
@@ -53,7 +75,26 @@ struct TeachingExecution {
     base_case: TeachingExampleOutput,
     sensitivity_low: TeachingExampleOutput,
     sensitivity_high: TeachingExampleOutput,
+    complete_summary: TeachingCompleteSummary,
     log: String,
+}
+
+struct TeachingCompleteSummary {
+    sensitivity_parameter_count: u64,
+    structural_scenario_count: u64,
+    probabilistic_iterations: u64,
+    represented_parameter_count: u64,
+    probability_positive_incremental_nmb: f64,
+    mechanical_checks_passed: u64,
+    mechanical_checks_total: u64,
+    human_review_status: String,
+    pending_human_review_items: Vec<String>,
+    report_path: String,
+    report_sha256: String,
+    evidence_register_path: String,
+    evidence_register_sha256: String,
+    review_checklist_path: String,
+    review_checklist_sha256: String,
 }
 
 fn sha256(raw: &[u8]) -> String {
@@ -163,6 +204,130 @@ fn number_at(value: &serde_json::Value, pointer: &str, label: &str) -> Result<f6
         .and_then(serde_json::Value::as_f64)
         .filter(|number| number.is_finite())
         .ok_or_else(|| format!("teaching result omitted {label}"))
+}
+
+fn unsigned_at(value: &serde_json::Value, pointer: &str, label: &str) -> Result<u64, String> {
+    value
+        .pointer(pointer)
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| format!("teaching result omitted {label}"))
+}
+
+fn string_at(value: &serde_json::Value, pointer: &str, label: &str) -> Result<String, String> {
+    value
+        .pointer(pointer)
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+        .ok_or_else(|| format!("teaching result omitted {label}"))
+}
+
+fn strings_at(
+    value: &serde_json::Value,
+    pointer: &str,
+    label: &str,
+) -> Result<Vec<String>, String> {
+    value
+        .pointer(pointer)
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| format!("teaching result omitted {label}"))?
+        .iter()
+        .map(|item| {
+            item.as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| format!("teaching result contains an invalid {label}"))
+        })
+        .collect()
+}
+
+fn summarize_complete_case(
+    raw: &[u8],
+    report: (&str, &[u8]),
+    evidence_register: (&str, &[u8]),
+    review_checklist: (&str, &[u8]),
+) -> Result<TeachingCompleteSummary, String> {
+    let value: serde_json::Value = serde_json::from_slice(raw)
+        .map_err(|error| format!("complete teaching result is invalid JSON: {error}"))?;
+    if value.get("schema").and_then(serde_json::Value::as_str)
+        != Some("ai4heor-teaching-cea-result/v1")
+    {
+        return Err("complete teaching result has an unsupported schema".into());
+    }
+    if value
+        .pointer("/probabilistic_analysis/convergence/passed_teaching_tolerances")
+        .and_then(serde_json::Value::as_bool)
+        != Some(true)
+    {
+        return Err("complete teaching result did not pass its declared convergence checks".into());
+    }
+    if value
+        .pointer("/mechanical_validation/independent_validation_status")
+        .and_then(serde_json::Value::as_str)
+        != Some("not_performed")
+    {
+        return Err("complete teaching result misstates independent validation".into());
+    }
+    let mechanical_checks_passed = unsigned_at(
+        &value,
+        "/mechanical_validation/checks_passed",
+        "the passed mechanical-check count",
+    )?;
+    let mechanical_checks_total = unsigned_at(
+        &value,
+        "/mechanical_validation/checks_total",
+        "the mechanical-check count",
+    )?;
+    if mechanical_checks_passed != mechanical_checks_total {
+        return Err("complete teaching result did not pass all declared mechanical checks".into());
+    }
+    let human_review_status = string_at(
+        &value,
+        "/mechanical_validation/human_review_status",
+        "the Human review status",
+    )?;
+    if human_review_status != "awaiting_human_review" {
+        return Err("complete teaching result misstates Human review".into());
+    }
+    Ok(TeachingCompleteSummary {
+        sensitivity_parameter_count: unsigned_at(
+            &value,
+            "/deterministic_sensitivity_analysis/parameter_count",
+            "the sensitivity parameter count",
+        )?,
+        structural_scenario_count: unsigned_at(
+            &value,
+            "/structural_scenario_analysis/scenario_count",
+            "the structural scenario count",
+        )?,
+        probabilistic_iterations: unsigned_at(
+            &value,
+            "/probabilistic_analysis/iterations",
+            "the probabilistic iteration count",
+        )?,
+        represented_parameter_count: unsigned_at(
+            &value,
+            "/probabilistic_analysis/represented_parameter_count",
+            "the probabilistic parameter count",
+        )?,
+        probability_positive_incremental_nmb: number_at(
+            &value,
+            "/probabilistic_analysis/convergence/probability_positive_incremental_nmb",
+            "the probability of positive incremental net monetary benefit",
+        )?,
+        mechanical_checks_passed,
+        mechanical_checks_total,
+        human_review_status,
+        pending_human_review_items: strings_at(
+            &value,
+            "/mechanical_validation/pending_human_review_items",
+            "pending Human review item",
+        )?,
+        report_path: report.0.to_owned(),
+        report_sha256: sha256(report.1),
+        evidence_register_path: evidence_register.0.to_owned(),
+        evidence_register_sha256: sha256(evidence_register.1),
+        review_checklist_path: review_checklist.0.to_owned(),
+        review_checklist_sha256: sha256(review_checklist.1),
+    })
 }
 
 fn summarize_result(
@@ -303,7 +468,7 @@ fn execute_teaching_example(app: &AppHandle) -> Result<TeachingExecution, String
     let scenarios = [
         (
             "base-case",
-            "base-case-result.json",
+            "complete-case-result.json",
             None,
             "base_case",
             None,
@@ -324,6 +489,8 @@ fn execute_teaching_example(app: &AppHandle) -> Result<TeachingExecution, String
         ),
     ];
     let mut summaries = Vec::new();
+    let mut base_raw = None;
+    let mut report_artifact = None;
     for (label, filename, stable_cost, scenario, scenario_value) in scenarios {
         let temp = temporary_output(&output, label);
         let relative_temp = format!(
@@ -333,6 +500,19 @@ fn execute_teaching_example(app: &AppHandle) -> Result<TeachingExecution, String
                 .to_string_lossy()
         );
         let mut arguments = vec!["run_analysis.py".into(), "--output".into(), relative_temp];
+        let report_temp = if stable_cost.is_none() {
+            let temp = temporary_output(&output, "teaching-report");
+            let relative = format!(
+                "outputs/{}",
+                temp.file_name()
+                    .ok_or("temporary teaching report has no filename")?
+                    .to_string_lossy()
+            );
+            arguments.extend(["--report-output".into(), relative]);
+            Some(temp)
+        } else {
+            None
+        };
         if let Some(stable_cost) = stable_cost {
             arguments.extend(["--intervention-stable-cost".into(), stable_cost.into()]);
         }
@@ -340,6 +520,9 @@ fn execute_teaching_example(app: &AppHandle) -> Result<TeachingExecution, String
             Ok(stdout) => stdout,
             Err(error) => {
                 let _ = std::fs::remove_file(&temp);
+                if let Some(report_temp) = &report_temp {
+                    let _ = std::fs::remove_file(report_temp);
+                }
                 return Err(error);
             }
         };
@@ -348,6 +531,16 @@ fn execute_teaching_example(app: &AppHandle) -> Result<TeachingExecution, String
         let raw = commit_output(&temp, &final_path)?;
         let relative = format!("{TEACHING_EXAMPLE}/outputs/{filename}");
         summaries.push(summarize_result(&raw, &relative, scenario, scenario_value)?);
+        if stable_cost.is_none() {
+            let report_temp = report_temp.ok_or("complete teaching report is missing")?;
+            let report_path = output.join("teaching-report.md");
+            let report_raw = commit_output(&report_temp, &report_path)?;
+            report_artifact = Some((
+                format!("{TEACHING_EXAMPLE}/outputs/teaching-report.md"),
+                report_raw,
+            ));
+            base_raw = Some(raw);
+        }
     }
     let expected = read_regular_file(
         &installed.join("expected/base-case-result.json"),
@@ -356,6 +549,29 @@ fn execute_teaching_example(app: &AppHandle) -> Result<TeachingExecution, String
     if summaries[0].sha256 != sha256(&expected) {
         return Err("base-case output no longer matches the expected result".into());
     }
+    let evidence_register = read_regular_file(
+        &installed.join("evidence/assumptions-register.csv"),
+        "teaching assumptions register",
+    )?;
+    let review_checklist = read_regular_file(
+        &installed.join("review/researcher-review-checklist.md"),
+        "teaching researcher review checklist",
+    )?;
+    let report_artifact = report_artifact.ok_or("complete teaching report is missing")?;
+    let complete_summary = summarize_complete_case(
+        base_raw
+            .as_deref()
+            .ok_or("complete teaching result is missing")?,
+        (&report_artifact.0, &report_artifact.1),
+        (
+            &format!("{TEACHING_EXAMPLE}/evidence/assumptions-register.csv"),
+            &evidence_register,
+        ),
+        (
+            &format!("{TEACHING_EXAMPLE}/review/researcher-review-checklist.md"),
+            &review_checklist,
+        ),
+    )?;
     let mut summaries = summaries.into_iter();
     Ok(TeachingExecution {
         interpreter_source,
@@ -367,6 +583,7 @@ fn execute_teaching_example(app: &AppHandle) -> Result<TeachingExecution, String
         sensitivity_high: summaries
             .next()
             .ok_or("high sensitivity result is missing")?,
+        complete_summary,
         log: log.join("\n"),
     })
 }
@@ -406,9 +623,9 @@ pub fn install_example(app: AppHandle, name: String) -> Result<String, String> {
     Ok(name)
 }
 
-/// Run only the exact installed deterministic teaching example after an
-/// explicit auxiliary Human confirmation. The model provider is deliberately
-/// absent from this boundary; all outputs remain synthetic teaching artifacts.
+/// Run the exact installed deterministic teaching example after the researcher
+/// chooses the local-run action. The model provider is deliberately absent from
+/// this boundary; all outputs remain synthetic teaching artifacts.
 #[tauri::command(async)]
 pub fn run_heor_teaching_example(
     app: AppHandle,
@@ -424,7 +641,7 @@ pub fn run_heor_teaching_example(
     let started_at = now_ms();
     let execution = execute_teaching_example(&app);
     let ended_at = now_ms();
-    let command = "python heor-cost-effectiveness/run_analysis.py --check expected/base-case-result.json && python heor-cost-effectiveness/run_analysis.py --output outputs/base-case-result.json && python heor-cost-effectiveness/run_analysis.py --intervention-stable-cost 14400 --output outputs/stable-cost-low-result.json && python heor-cost-effectiveness/run_analysis.py --intervention-stable-cost 21600 --output outputs/stable-cost-high-result.json";
+    let command = "python heor-cost-effectiveness/run_analysis.py --check expected/base-case-result.json && python heor-cost-effectiveness/run_analysis.py --output outputs/complete-case-result.json --report-output outputs/teaching-report.md && python heor-cost-effectiveness/run_analysis.py --intervention-stable-cost 14400 --output outputs/stable-cost-low-result.json && python heor-cost-effectiveness/run_analysis.py --intervention-stable-cost 21600 --output outputs/stable-cost-high-result.json";
     match execution {
         Ok(execution) => {
             let record = crate::runs::record_run(
@@ -448,6 +665,27 @@ pub fn run_heor_teaching_example(
                 base_case: execution.base_case,
                 sensitivity_low: execution.sensitivity_low,
                 sensitivity_high: execution.sensitivity_high,
+                sensitivity_parameter_count: execution.complete_summary.sensitivity_parameter_count,
+                structural_scenario_count: execution.complete_summary.structural_scenario_count,
+                probabilistic_iterations: execution.complete_summary.probabilistic_iterations,
+                represented_parameter_count: execution.complete_summary.represented_parameter_count,
+                probability_positive_incremental_nmb: execution
+                    .complete_summary
+                    .probability_positive_incremental_nmb,
+                mechanical_checks_passed: execution.complete_summary.mechanical_checks_passed,
+                mechanical_checks_total: execution.complete_summary.mechanical_checks_total,
+                human_review_status: execution.complete_summary.human_review_status,
+                pending_human_review_items: execution
+                    .complete_summary
+                    .pending_human_review_items,
+                report_path: execution.complete_summary.report_path,
+                report_sha256: execution.complete_summary.report_sha256,
+                evidence_register_path: execution.complete_summary.evidence_register_path,
+                evidence_register_sha256: execution
+                    .complete_summary
+                    .evidence_register_sha256,
+                review_checklist_path: execution.complete_summary.review_checklist_path,
+                review_checklist_sha256: execution.complete_summary.review_checklist_sha256,
                 limitations: vec![
                     "All inputs are synthetic teaching assumptions, not evidence.".into(),
                     "The illustrative threshold is not an official Chinese threshold.".into(),
@@ -477,7 +715,9 @@ pub fn run_heor_teaching_example(
 
 #[cfg(test)]
 mod tests {
-    use super::{copy_missing, summarize_result, verify_installed_inputs, EXAMPLES};
+    use super::{
+        copy_missing, summarize_complete_case, summarize_result, verify_installed_inputs, EXAMPLES,
+    };
 
     #[test]
     fn bundled_examples_are_heor_specific() {
@@ -554,5 +794,52 @@ mod tests {
             serde_json::json!("cost effective");
         let raw = serde_json::to_vec(&value).unwrap();
         assert!(summarize_result(&raw, "result.json", "base_case", None).is_err());
+    }
+
+    #[test]
+    fn complete_summary_keeps_scientific_review_pending() {
+        let mut value = serde_json::json!({
+            "schema": "ai4heor-teaching-cea-result/v1",
+            "deterministic_sensitivity_analysis": {"parameter_count": 8},
+            "structural_scenario_analysis": {"scenario_count": 3},
+            "probabilistic_analysis": {
+                "iterations": 1000,
+                "represented_parameter_count": 8,
+                "convergence": {
+                    "probability_positive_incremental_nmb": 0.862,
+                    "passed_teaching_tolerances": true
+                }
+            },
+            "mechanical_validation": {
+                "checks_passed": 6,
+                "checks_total": 6,
+                "human_review_status": "awaiting_human_review",
+                "pending_human_review_items": ["decision_problem", "independent_validation"],
+                "independent_validation_status": "not_performed"
+            }
+        });
+        let raw = serde_json::to_vec(&value).unwrap();
+        let summary = summarize_complete_case(
+            &raw,
+            ("report.md", b"report"),
+            ("assumptions.csv", b"assumptions"),
+            ("review.md", b"review"),
+        )
+        .unwrap();
+        assert_eq!(summary.sensitivity_parameter_count, 8);
+        assert_eq!(summary.probabilistic_iterations, 1000);
+        assert_eq!(summary.human_review_status, "awaiting_human_review");
+        assert_eq!(summary.pending_human_review_items.len(), 2);
+
+        value["mechanical_validation"]["independent_validation_status"] =
+            serde_json::json!("passed");
+        let raw = serde_json::to_vec(&value).unwrap();
+        assert!(summarize_complete_case(
+            &raw,
+            ("report.md", b"report"),
+            ("assumptions.csv", b"assumptions"),
+            ("review.md", b"review"),
+        )
+        .is_err());
     }
 }

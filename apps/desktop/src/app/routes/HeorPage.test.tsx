@@ -246,13 +246,16 @@ describe("AI4HEOR conversation route", () => {
 
     await userEvent.click(
       await screen.findByRole("button", {
-        name: /Open the cost–utility teaching case/i,
+        name: /Open the complete cost–utility teaching case/i,
       }),
     );
 
     const draft = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
-    expect(draft).toContain("Explain the installed cost–utility teaching case in plain language");
-    expect(draft).toContain("three health states");
+    expect(draft).toContain(
+      "Explain the installed complete cost–utility teaching case in plain language",
+    );
+    expect(draft).toContain("three-state conceptual model");
+    expect(draft).toContain("probabilistic analysis");
     expect(draft).not.toContain("run_analysis.py");
     expect(draft).not.toContain("SHA-256");
     expect(sendPrompt).not.toHaveBeenCalled();

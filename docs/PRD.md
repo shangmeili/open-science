@@ -443,18 +443,18 @@ Two-strategy, three-state cohort cost-effectiveness analysis
 
 The bundled `examples/heor-cost-effectiveness/` inputs are teaching assumptions,
 not clinical or economic evidence. The implemented default HEOR entry exposes
-this example directly. Selecting it explicitly installs a local copy and fills an
-unsent natural-language request; it never starts an Agent turn. The dependency-free,
-versioned `run_analysis.py` verifies exact script, analysis-specification, and CSV hashes,
-reproduces `expected/base-case-result.json` byte for byte, writes cycle traces,
-and accepts only the declared intervention stable-state cost as its bounded
-one-way sensitivity input. The conversational workflow must explain the decision
-problem and ask the researcher whether to retain the teaching settings before
-running that fixed code. As an auxiliary path, the desktop app may run only the
-exact bundled case after a separate Human confirmation. That path must verify the
-installed runner, specification, CSV, and expected-result bytes; write the base
-case plus both declared sensitivity results; retain local run and provenance
-records; require no configured model; and send no case content to a model provider.
+this example directly and installs a local copy only when the researcher selects
+it. The dependency-free, versioned `run_analysis.py` verifies exact script,
+analysis-specification, and CSV hashes, reproduces
+`expected/base-case-result.json` byte for byte, and runs a complete teaching
+workflow: decision problem, assumption and evidence-gap records, conceptual
+model, base case, eight-parameter deterministic sensitivity analysis, three
+structural scenarios, a fixed-seed 1,000-draw probabilistic analysis, mechanical
+checks, draft reporting, and a researcher review checklist. The explicit local
+action must verify all governed inputs; write `outputs/complete-case-result.json`,
+`outputs/teaching-report.md`, and both declared compatibility sensitivity outputs;
+retain local run and provenance records; require no configured model; and send no
+case content to a model provider.
 Changed governed files fail closed and remain untouched. Neither path may substitute
 model arithmetic or create
 scientific approval, cost-effectiveness, reimbursement, or policy conclusions.

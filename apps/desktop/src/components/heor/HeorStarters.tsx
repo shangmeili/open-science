@@ -2,6 +2,7 @@ import {
   ArrowRight,
   BookOpenCheck,
   CheckCircle2,
+  Circle,
   FileSearch,
   GraduationCap,
   HeartPulse,
@@ -35,6 +36,14 @@ export function HeorStarters({
   const [exampleReady, setExampleReady] = useState(false);
   const [running, setRunning] = useState(false);
   const [runResult, setRunResult] = useState<TeachingExampleRunResult | null>(null);
+  const workflowStages = [
+    "workflowDecision",
+    "workflowEvidence",
+    "workflowModel",
+    "workflowUncertainty",
+    "workflowValidation",
+    "workflowReporting",
+  ] as const;
   const items = [
     {
       key: "learn" as const,
@@ -128,25 +137,49 @@ export function HeorStarters({
                   {t("starter.local.caseAssumptions")}
                 </p>
               </div>
+              <div className="mt-3">
+                <div className="text-xs font-medium text-text">
+                  {t("starter.local.workflowTitle")}
+                </div>
+                <div className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-2">
+                  {workflowStages.map((stage) => (
+                    <div key={stage} className="flex items-center gap-2 text-xs text-muted">
+                      <Circle
+                        size={11}
+                        strokeWidth={1.8}
+                        className="text-accent"
+                        aria-hidden={true}
+                      />
+                      <span>{t(`starter.local.${stage}`)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
               {runResult && (
-                <div className="mt-3 grid gap-2 text-xs text-muted sm:grid-cols-3">
-                  <ResultValue
-                    label={t("starter.local.incrementalCost")}
-                    value={formatNumber(runResult.baseCase.incrementalCostPerPerson, i18n.language)}
-                  />
-                  <ResultValue
-                    label={t("starter.local.incrementalQalys")}
-                    value={formatNumber(runResult.baseCase.incrementalQalysPerPerson, i18n.language, 6)}
-                  />
-                  <ResultValue
-                    label={t("starter.local.icer")}
-                    value={
-                      runResult.baseCase.icerPerQaly === null
-                        ? t("starter.local.notCalculated")
-                      : formatNumber(runResult.baseCase.icerPerQaly, i18n.language)
-                    }
-                  />
-                  <div className="sm:col-span-3">
+                <div className="mt-4 space-y-3 text-xs text-muted">
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <ResultValue
+                      label={t("starter.local.incrementalCost")}
+                      value={formatNumber(runResult.baseCase.incrementalCostPerPerson, i18n.language)}
+                    />
+                    <ResultValue
+                      label={t("starter.local.incrementalQalys")}
+                      value={formatNumber(
+                        runResult.baseCase.incrementalQalysPerPerson,
+                        i18n.language,
+                        6,
+                      )}
+                    />
+                    <ResultValue
+                      label={t("starter.local.icer")}
+                      value={
+                        runResult.baseCase.icerPerQaly === null
+                          ? t("starter.local.notCalculated")
+                          : formatNumber(runResult.baseCase.icerPerQaly, i18n.language)
+                      }
+                    />
+                  </div>
+                  <div>
                     <span className="font-medium text-text">
                       {t("starter.local.sensitivityRange")}:{" "}
                     </span>
@@ -164,7 +197,55 @@ export function HeorStarters({
                       )}
                     </span>
                   </div>
-                  <details className="sm:col-span-3 rounded-input border border-border px-3 py-2">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <SummaryValue
+                      label={t("starter.local.dsaSummary")}
+                      value={t("starter.local.dsaValue", {
+                        count: runResult.sensitivityParameterCount,
+                      })}
+                    />
+                    <SummaryValue
+                      label={t("starter.local.scenarioSummary")}
+                      value={t("starter.local.scenarioValue", {
+                        count: runResult.structuralScenarioCount,
+                      })}
+                    />
+                    <SummaryValue
+                      label={t("starter.local.psaSummary")}
+                      value={t("starter.local.psaValue", {
+                        iterations: formatInteger(
+                          runResult.probabilisticIterations,
+                          i18n.language,
+                        ),
+                        count: runResult.representedParameterCount,
+                      })}
+                    />
+                    <SummaryValue
+                      label={t("starter.local.validationSummary")}
+                      value={t("starter.local.validationValue", {
+                        passed: runResult.mechanicalChecksPassed,
+                        total: runResult.mechanicalChecksTotal,
+                      })}
+                    />
+                  </div>
+                  <div className="rounded-input bg-surface-2 px-3 py-2.5">
+                    <div className="font-medium text-text">{t("starter.local.positiveNmb")}</div>
+                    <div className="mt-1 font-mono text-sm text-text">
+                      {formatPercent(
+                        runResult.probabilityPositiveIncrementalNmb,
+                        i18n.language,
+                      )}
+                    </div>
+                  </div>
+                  <div className="rounded-input border border-accent/25 bg-accent/5 px-3 py-2.5">
+                    <div className="font-medium text-text">
+                      {t("starter.local.humanReviewTitle")}
+                    </div>
+                    <p className="mt-1 leading-5 text-muted">
+                      {t("starter.local.humanReviewBody")}
+                    </p>
+                  </div>
+                  <details className="rounded-input border border-border px-3 py-2">
                     <summary className="cursor-pointer select-none font-medium text-text">
                       {t("starter.local.technicalDetails")}
                     </summary>
@@ -179,6 +260,24 @@ export function HeorStarters({
                         </span>
                         <code className="break-all">{runResult.baseCase.sha256}</code>
                       </div>
+                      <TechnicalArtifact
+                        label={t("starter.local.report")}
+                        path={runResult.reportPath}
+                        sha256={runResult.reportSha256}
+                        checksumLabel={t("starter.local.checksum")}
+                      />
+                      <TechnicalArtifact
+                        label={t("starter.local.evidenceRegister")}
+                        path={runResult.evidenceRegisterPath}
+                        sha256={runResult.evidenceRegisterSha256}
+                        checksumLabel={t("starter.local.checksum")}
+                      />
+                      <TechnicalArtifact
+                        label={t("starter.local.reviewChecklist")}
+                        path={runResult.reviewChecklistPath}
+                        sha256={runResult.reviewChecklistSha256}
+                        checksumLabel={t("starter.local.checksum")}
+                      />
                       <div>
                         <span className="font-medium text-text">{t("starter.local.runRecord")}: </span>
                         <code>{runResult.runId}</code>
@@ -260,6 +359,37 @@ function ResultValue({ label, value }: { label: string; value: string }) {
   );
 }
 
+function SummaryValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-input bg-surface-2 px-3 py-2.5">
+      <div className="font-medium text-text">{label}</div>
+      <div className="mt-1 text-muted">{value}</div>
+    </div>
+  );
+}
+
+function TechnicalArtifact({
+  label,
+  path,
+  sha256,
+  checksumLabel,
+}: {
+  label: string;
+  path: string;
+  sha256: string;
+  checksumLabel: string;
+}) {
+  return (
+    <div>
+      <span className="font-medium text-text">{label}: </span>
+      <code className="break-all">{path}</code>
+      <div className="mt-0.5 break-all font-mono text-[11px] text-muted">
+        {checksumLabel}: {sha256}
+      </div>
+    </div>
+  );
+}
+
 function formatNumber(value: number, language: string, digits = 2): string {
   return new Intl.NumberFormat(language, {
     maximumFractionDigits: digits,
@@ -273,4 +403,16 @@ function formatNullableNumber(
   notCalculated: string,
 ): string {
   return value === null ? notCalculated : formatNumber(value, language);
+}
+
+function formatPercent(value: number, language: string): string {
+  return new Intl.NumberFormat(language, {
+    style: "percent",
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 1,
+  }).format(value);
+}
+
+function formatInteger(value: number, language: string): string {
+  return new Intl.NumberFormat(language, { maximumFractionDigits: 0 }).format(value);
 }

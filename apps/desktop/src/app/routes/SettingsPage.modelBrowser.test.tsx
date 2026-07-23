@@ -78,8 +78,8 @@ describe("Settings model browser integration", () => {
     await renderSettings("general");
 
     expect(screen.getByRole("heading", { name: "关于 AI4HEOR" })).toBeInTheDocument();
-    expect(screen.getByText(/由 Codex 负责开发建设/)).toBeInTheDocument();
-    expect(screen.getByText(/基于 Open Science 开源底座搭建/)).toBeInTheDocument();
+    expect(screen.getByText(/由Codex负责开发建设/)).toBeInTheDocument();
+    expect(screen.getByText(/基于Open Science开源底座搭建/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "查看 Open Science 开源项目" }))
       .toBeInTheDocument();
     expect(screen.getByRole("button", { name: "shangmei.li@altolix.com" }))

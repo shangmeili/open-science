@@ -28,9 +28,125 @@
   "price_year": 2026,
   "illustrative_threshold_per_qaly": 150000,
   "sensitivity": {
-    "parameter": "intervention.stable.state_cost",
-    "low": 14400,
-    "high": 21600,
-    "basis": "synthetic_plus_or_minus_20_percent"
+    "parameters": [
+      {
+        "id": "intervention_stable_cost",
+        "label": "Intervention stable-state annual cost",
+        "target": "costs.intervention.stable",
+        "low": 14400,
+        "high": 21600,
+        "unit": "CNY_2026_per_year",
+        "basis": "synthetic_teaching_range"
+      },
+      {
+        "id": "comparator_stable_cost",
+        "label": "Comparator stable-state annual cost",
+        "target": "costs.comparator.stable",
+        "low": 8000,
+        "high": 12000,
+        "unit": "CNY_2026_per_year",
+        "basis": "synthetic_teaching_range"
+      },
+      {
+        "id": "stable_utility",
+        "label": "Stable-state utility",
+        "target": "utilities.stable",
+        "low": 0.70,
+        "high": 0.85,
+        "unit": "QALY_weight",
+        "basis": "synthetic_teaching_range"
+      },
+      {
+        "id": "progressed_utility",
+        "label": "Progressed-state utility",
+        "target": "utilities.progressed",
+        "low": 0.48,
+        "high": 0.65,
+        "unit": "QALY_weight",
+        "basis": "synthetic_teaching_range"
+      },
+      {
+        "id": "comparator_stable_stay",
+        "label": "Comparator stable-to-stable probability",
+        "target": "transitions.comparator.stable.stable",
+        "low": 0.65,
+        "high": 0.75,
+        "unit": "probability_per_cycle",
+        "basis": "synthetic_teaching_range"
+      },
+      {
+        "id": "intervention_stable_stay",
+        "label": "Intervention stable-to-stable probability",
+        "target": "transitions.intervention.stable.stable",
+        "low": 0.72,
+        "high": 0.80,
+        "unit": "probability_per_cycle",
+        "basis": "synthetic_teaching_range"
+      },
+      {
+        "id": "comparator_progressed_death",
+        "label": "Comparator progressed-to-dead probability",
+        "target": "transitions.comparator.progressed.dead",
+        "low": 0.20,
+        "high": 0.30,
+        "unit": "probability_per_cycle",
+        "basis": "synthetic_teaching_range"
+      },
+      {
+        "id": "intervention_progressed_death",
+        "label": "Intervention progressed-to-dead probability",
+        "target": "transitions.intervention.progressed.dead",
+        "low": 0.18,
+        "high": 0.27,
+        "unit": "probability_per_cycle",
+        "basis": "synthetic_teaching_range"
+      }
+    ],
+    "probabilistic_analysis": {
+      "iterations": 1000,
+      "seed": 20260723,
+      "distribution": "bounded_uniform_teaching_distribution",
+      "decision_thresholds_per_qaly": [
+        0,
+        50000,
+        100000,
+        150000,
+        200000,
+        300000
+      ],
+      "correlation_handling": "not_modelled_in_this_teaching_case"
+    },
+    "structural_scenarios": [
+      {
+        "id": "five_year_horizon",
+        "label": "Five-year time horizon"
+      },
+      {
+        "id": "zero_discounting",
+        "label": "No discounting"
+      },
+      {
+        "id": "no_transition_benefit",
+        "label": "No intervention transition benefit"
+      }
+    ]
+  },
+  "validation_plan": {
+    "mechanical_checks": [
+      "input_hash_binding",
+      "transition_rows_sum_to_one",
+      "dead_state_is_absorbing",
+      "utilities_within_bounds",
+      "cohort_mass_conservation",
+      "deterministic_repeatability"
+    ],
+    "human_review_items": [
+      "decision_problem",
+      "conceptual_model",
+      "parameter_sources_and_ranges",
+      "structural_scenarios",
+      "interpretation_and_limitations",
+      "independent_validation"
+    ]
   }
 }

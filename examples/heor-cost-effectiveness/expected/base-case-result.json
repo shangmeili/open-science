@@ -7,9 +7,9 @@
   },
   "bindings": {
     "runner_path": "run_analysis.py",
-    "runner_sha256": "eb79774eb48a86ee58c979bdfe9421a259efabd298963702e974a646f6b8b81d",
+    "runner_sha256": "6cf627bf499a5d00132e77a14020cd326cbde0ad228c6a3b50e25b53251e0a52",
     "analysis_spec_path": "inputs/analysis-spec.json",
-    "analysis_spec_sha256": "49d1d841aa1527d16bb1994096be3c887036aa019e0115b082139ea724ef855d",
+    "analysis_spec_sha256": "a38065d042bcf325380165c682d26c900e8a12e72e6adb8ab6726016b4d98369",
     "model_inputs_path": "inputs/model-inputs.csv",
     "model_inputs_sha256": "c9f2fd47bc22c8c33565f1fb775c81b809b6cf789eb66c8d67d76a14786395bf"
   },
@@ -239,9 +239,430 @@
     "cost_effectiveness_claim": null
   },
   "limitations": [
-    "All inputs are synthetic teaching assumptions, not evidence.",
+    "All inputs and uncertainty ranges are synthetic teaching assumptions, not evidence.",
     "The illustrative threshold is not an official Chinese threshold.",
-    "This deterministic calculation does not validate the model structure or inputs.",
+    "Mechanical checks and deterministic repeatability do not validate the model structure or inputs.",
     "No reimbursement, pricing, coverage, or policy conclusion is produced."
-  ]
+  ],
+  "workflow": [
+    {
+      "stage": "decision_problem",
+      "status": "prepared_for_human_review"
+    },
+    {
+      "stage": "evidence_and_assumptions",
+      "status": "synthetic_register_complete"
+    },
+    {
+      "stage": "conceptual_model",
+      "status": "prepared_for_human_review"
+    },
+    {
+      "stage": "base_case",
+      "status": "calculated"
+    },
+    {
+      "stage": "uncertainty_analysis",
+      "status": "calculated"
+    },
+    {
+      "stage": "mechanical_validation",
+      "status": "passed"
+    },
+    {
+      "stage": "reporting",
+      "status": "draft_for_human_review"
+    }
+  ],
+  "evidence_and_assumptions": {
+    "register_path": "evidence/assumptions-register.csv",
+    "evidence_gap_log_path": "evidence/evidence-gap-log.md",
+    "all_values_are_synthetic": true,
+    "source_evidence_count": 0,
+    "parameter_range_count": 8
+  },
+  "deterministic_sensitivity_analysis": {
+    "parameter_count": 8,
+    "parameters": [
+      {
+        "id": "intervention_stable_cost",
+        "label": "Intervention stable-state annual cost",
+        "target": "costs.intervention.stable",
+        "unit": "CNY_2026_per_year",
+        "basis": "synthetic_teaching_range",
+        "low": {
+          "value": 14400,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 17748.092436,
+          "discounted_incremental_qalys_per_person": 0.403709,
+          "icer_per_qaly": 43962.587993,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 42808.257564,
+          "cost_effectiveness_claim": null
+        },
+        "high": {
+          "value": 21600,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 38734.064889,
+          "discounted_incremental_qalys_per_person": 0.403709,
+          "icer_per_qaly": 95945.507504,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 21822.285111,
+          "cost_effectiveness_claim": null
+        }
+      },
+      {
+        "id": "comparator_stable_cost",
+        "label": "Comparator stable-state annual cost",
+        "target": "costs.comparator.stable",
+        "unit": "CNY_2026_per_year",
+        "basis": "synthetic_teaching_range",
+        "low": {
+          "value": 8000,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 33013.991231,
+          "discounted_incremental_qalys_per_person": 0.403709,
+          "icer_per_qaly": 81776.703593,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 27542.358769,
+          "cost_effectiveness_claim": null
+        },
+        "high": {
+          "value": 12000,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 23468.166093,
+          "discounted_incremental_qalys_per_person": 0.403709,
+          "icer_per_qaly": 58131.391901,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 37088.183907,
+          "cost_effectiveness_claim": null
+        }
+      },
+      {
+        "id": "stable_utility",
+        "label": "Stable-state utility",
+        "target": "utilities.stable",
+        "unit": "QALY_weight",
+        "basis": "synthetic_teaching_range",
+        "low": {
+          "value": 0.7,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 28241.078662,
+          "discounted_incremental_qalys_per_person": 0.361448,
+          "icer_per_qaly": 78133.171748,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 25976.121338,
+          "cost_effectiveness_claim": null
+        },
+        "high": {
+          "value": 0.85,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 28241.078662,
+          "discounted_incremental_qalys_per_person": 0.440688,
+          "icer_per_qaly": 64084.065511,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 37862.121338,
+          "cost_effectiveness_claim": null
+        }
+      },
+      {
+        "id": "progressed_utility",
+        "label": "Progressed-state utility",
+        "target": "utilities.progressed",
+        "unit": "QALY_weight",
+        "basis": "synthetic_teaching_range",
+        "low": {
+          "value": 0.48,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 28241.078662,
+          "discounted_incremental_qalys_per_person": 0.405146,
+          "icer_per_qaly": 69705.929867,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 32530.821338,
+          "cost_effectiveness_claim": null
+        },
+        "high": {
+          "value": 0.65,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 28241.078662,
+          "discounted_incremental_qalys_per_person": 0.402703,
+          "icer_per_qaly": 70128.80128,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 32164.371338,
+          "cost_effectiveness_claim": null
+        }
+      },
+      {
+        "id": "comparator_stable_stay",
+        "label": "Comparator stable-to-stable probability",
+        "target": "transitions.comparator.stable.stable",
+        "unit": "probability_per_cycle",
+        "basis": "synthetic_teaching_range",
+        "low": {
+          "value": 0.65,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 26440.053054,
+          "discounted_incremental_qalys_per_person": 0.548794,
+          "icer_per_qaly": 48178.465971,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 55879.046946,
+          "cost_effectiveness_claim": null
+        },
+        "high": {
+          "value": 0.75,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 30694.820844,
+          "discounted_incremental_qalys_per_person": 0.225337,
+          "icer_per_qaly": 136217.402575,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 3105.729156,
+          "cost_effectiveness_claim": null
+        }
+      },
+      {
+        "id": "intervention_stable_stay",
+        "label": "Intervention stable-to-stable probability",
+        "target": "transitions.intervention.stable.stable",
+        "unit": "probability_per_cycle",
+        "basis": "synthetic_teaching_range",
+        "low": {
+          "value": 0.72,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 27482.71696,
+          "discounted_incremental_qalys_per_person": 0.252551,
+          "icer_per_qaly": 108820.463827,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 10399.93304,
+          "cost_effectiveness_claim": null
+        },
+        "high": {
+          "value": 0.8,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 28988.786851,
+          "discounted_incremental_qalys_per_person": 0.583402,
+          "icer_per_qaly": 49689.214043,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 58521.513149,
+          "cost_effectiveness_claim": null
+        }
+      },
+      {
+        "id": "comparator_progressed_death",
+        "label": "Comparator progressed-to-dead probability",
+        "target": "transitions.comparator.progressed.dead",
+        "unit": "probability_per_cycle",
+        "basis": "synthetic_teaching_range",
+        "low": {
+          "value": 0.2,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 22366.862029,
+          "discounted_incremental_qalys_per_person": 0.267427,
+          "icer_per_qaly": 83637.261866,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 17747.187971,
+          "cost_effectiveness_claim": null
+        },
+        "high": {
+          "value": 0.3,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 33075.732615,
+          "discounted_incremental_qalys_per_person": 0.515873,
+          "icer_per_qaly": 64116.037503,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 44305.217385,
+          "cost_effectiveness_claim": null
+        }
+      },
+      {
+        "id": "intervention_progressed_death",
+        "label": "Intervention progressed-to-dead probability",
+        "target": "transitions.intervention.progressed.dead",
+        "unit": "probability_per_cycle",
+        "basis": "synthetic_teaching_range",
+        "low": {
+          "value": 0.18,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 32859.211659,
+          "discounted_incremental_qalys_per_person": 0.51085,
+          "icer_per_qaly": 64322.622412,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 43768.288341,
+          "cost_effectiveness_claim": null
+        },
+        "high": {
+          "value": 0.27,
+          "intervention_id": "intervention",
+          "comparator_id": "comparator",
+          "discounted_incremental_cost_per_person": 23384.293295,
+          "discounted_incremental_qalys_per_person": 0.291032,
+          "icer_per_qaly": 80349.560512,
+          "illustrative_threshold_per_qaly": 150000,
+          "incremental_net_monetary_benefit_per_person": 20270.506705,
+          "cost_effectiveness_claim": null
+        }
+      }
+    ]
+  },
+  "structural_scenario_analysis": {
+    "scenario_count": 3,
+    "scenarios": [
+      {
+        "id": "five_year_horizon",
+        "label": "Five-year time horizon",
+        "intervention_id": "intervention",
+        "comparator_id": "comparator",
+        "discounted_incremental_cost_per_person": 19917.78565,
+        "discounted_incremental_qalys_per_person": 0.187717,
+        "icer_per_qaly": 106105.390828,
+        "illustrative_threshold_per_qaly": 150000,
+        "incremental_net_monetary_benefit_per_person": 8239.76435,
+        "cost_effectiveness_claim": null
+      },
+      {
+        "id": "zero_discounting",
+        "label": "No discounting",
+        "intervention_id": "intervention",
+        "comparator_id": "comparator",
+        "discounted_incremental_cost_per_person": 34722.301412,
+        "discounted_incremental_qalys_per_person": 0.540123,
+        "icer_per_qaly": 64285.915267,
+        "illustrative_threshold_per_qaly": 150000,
+        "incremental_net_monetary_benefit_per_person": 46296.148588,
+        "cost_effectiveness_claim": null
+      },
+      {
+        "id": "no_transition_benefit",
+        "label": "No intervention transition benefit",
+        "intervention_id": "intervention",
+        "comparator_id": "comparator",
+        "discounted_incremental_cost_per_person": 19091.650276,
+        "discounted_incremental_qalys_per_person": 0.0,
+        "icer_per_qaly": null,
+        "illustrative_threshold_per_qaly": 150000,
+        "incremental_net_monetary_benefit_per_person": -19091.650276,
+        "cost_effectiveness_claim": null
+      }
+    ]
+  },
+  "probabilistic_analysis": {
+    "iterations": 1000,
+    "seed": 20260723,
+    "distribution": "bounded_uniform_teaching_distribution",
+    "represented_parameter_count": 8,
+    "correlation_handling": "not_modelled_in_this_teaching_case",
+    "mean_incremental_cost_per_person": 27879.676603,
+    "mean_incremental_qalys_per_person": 0.383521,
+    "incremental_cost_interval_95_percent": [
+      13112.025879,
+      42372.511775
+    ],
+    "incremental_qaly_interval_95_percent": [
+      0.066625,
+      0.714503
+    ],
+    "icer_interval_95_percent": [
+      29512.910928,
+      342634.572089
+    ],
+    "decision_uncertainty": {
+      "threshold_results": [
+        {
+          "threshold_per_qaly": 0,
+          "probability_positive_incremental_nmb": 0.0
+        },
+        {
+          "threshold_per_qaly": 50000,
+          "probability_positive_incremental_nmb": 0.212
+        },
+        {
+          "threshold_per_qaly": 100000,
+          "probability_positive_incremental_nmb": 0.715
+        },
+        {
+          "threshold_per_qaly": 150000,
+          "probability_positive_incremental_nmb": 0.862
+        },
+        {
+          "threshold_per_qaly": 200000,
+          "probability_positive_incremental_nmb": 0.93
+        },
+        {
+          "threshold_per_qaly": 300000,
+          "probability_positive_incremental_nmb": 0.962
+        }
+      ]
+    },
+    "convergence": {
+      "primary_threshold_per_qaly": 150000,
+      "probability_positive_incremental_nmb": 0.862,
+      "monte_carlo_standard_error": 0.010907,
+      "first_half_probability_drift": 0.01,
+      "passed_teaching_tolerances": true
+    },
+    "omitted_uncertainty": [
+      "Parameter correlations are not represented.",
+      "Alternative model structures are reported separately rather than averaged.",
+      "No evidence-synthesis or calibration uncertainty is represented."
+    ]
+  },
+  "mechanical_validation": {
+    "checks_passed": 6,
+    "checks_total": 6,
+    "checks": [
+      {
+        "id": "input_hash_binding",
+        "status": "passed"
+      },
+      {
+        "id": "transition_rows_sum_to_one",
+        "status": "passed"
+      },
+      {
+        "id": "dead_state_is_absorbing",
+        "status": "passed"
+      },
+      {
+        "id": "utilities_within_bounds",
+        "status": "passed"
+      },
+      {
+        "id": "cohort_mass_conservation",
+        "status": "passed"
+      },
+      {
+        "id": "deterministic_repeatability",
+        "status": "passed"
+      }
+    ],
+    "human_review_status": "awaiting_human_review",
+    "pending_human_review_items": [
+      "decision_problem",
+      "conceptual_model",
+      "parameter_sources_and_ranges",
+      "structural_scenarios",
+      "interpretation_and_limitations",
+      "independent_validation"
+    ],
+    "independent_validation_status": "not_performed"
+  },
+  "reporting": {
+    "draft_report_path": "outputs/teaching-report.md",
+    "researcher_review_checklist_path": "review/researcher-review-checklist.md",
+    "status": "draft_for_human_review"
+  }
 }

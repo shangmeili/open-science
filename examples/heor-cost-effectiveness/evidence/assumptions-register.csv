@@ -1,0 +1,28 @@
+parameter_id,section,strategy,from_state,to_state,base_value,unit,status,basis,limitation,human_review
+comparator_stable_stable,transition,comparator,stable,stable,0.70,probability_per_cycle,synthetic_assumption,teaching_only,No source evidence,required
+comparator_stable_progressed,transition,comparator,stable,progressed,0.20,probability_per_cycle,synthetic_assumption,teaching_only,No source evidence,required
+comparator_stable_dead,transition,comparator,stable,dead,0.10,probability_per_cycle,synthetic_assumption,teaching_only,No source evidence,required
+comparator_progressed_stable,transition,comparator,progressed,stable,0.00,probability_per_cycle,structural_zero,model_structure,Irreversibility is unvalidated,required
+comparator_progressed_progressed,transition,comparator,progressed,progressed,0.75,probability_per_cycle,synthetic_assumption,teaching_only,No source evidence,required
+comparator_progressed_dead,transition,comparator,progressed,dead,0.25,probability_per_cycle,synthetic_assumption,teaching_only,No source evidence,required
+comparator_dead_stable,transition,comparator,dead,stable,0.00,probability_per_cycle,absorbing_state,model_structure,Structure only,required
+comparator_dead_progressed,transition,comparator,dead,progressed,0.00,probability_per_cycle,absorbing_state,model_structure,Structure only,required
+comparator_dead_dead,transition,comparator,dead,dead,1.00,probability_per_cycle,absorbing_state,model_structure,Structure only,required
+intervention_stable_stable,transition,intervention,stable,stable,0.76,probability_per_cycle,synthetic_assumption,teaching_only,No source evidence,required
+intervention_stable_progressed,transition,intervention,stable,progressed,0.16,probability_per_cycle,synthetic_assumption,teaching_only,No source evidence,required
+intervention_stable_dead,transition,intervention,stable,dead,0.08,probability_per_cycle,synthetic_assumption,teaching_only,No source evidence,required
+intervention_progressed_stable,transition,intervention,progressed,stable,0.00,probability_per_cycle,structural_zero,model_structure,Irreversibility is unvalidated,required
+intervention_progressed_progressed,transition,intervention,progressed,progressed,0.78,probability_per_cycle,synthetic_assumption,teaching_only,No source evidence,required
+intervention_progressed_dead,transition,intervention,progressed,dead,0.22,probability_per_cycle,synthetic_assumption,teaching_only,No source evidence,required
+intervention_dead_stable,transition,intervention,dead,stable,0.00,probability_per_cycle,absorbing_state,model_structure,Structure only,required
+intervention_dead_progressed,transition,intervention,dead,progressed,0.00,probability_per_cycle,absorbing_state,model_structure,Structure only,required
+intervention_dead_dead,transition,intervention,dead,dead,1.00,probability_per_cycle,absorbing_state,model_structure,Structure only,required
+comparator_stable_cost,state_cost,comparator,stable,,10000,CNY_2026_per_year,synthetic_assumption,teaching_only,No unit-cost source,required
+comparator_progressed_cost,state_cost,comparator,progressed,,25000,CNY_2026_per_year,synthetic_assumption,teaching_only,No unit-cost source,required
+comparator_dead_cost,state_cost,comparator,dead,,0,CNY_2026_per_year,structural_zero,model_structure,Excludes terminal costs,required
+intervention_stable_cost,state_cost,intervention,stable,,18000,CNY_2026_per_year,synthetic_assumption,teaching_only,No acquisition or administration source,required
+intervention_progressed_cost,state_cost,intervention,progressed,,25000,CNY_2026_per_year,synthetic_assumption,teaching_only,No unit-cost source,required
+intervention_dead_cost,state_cost,intervention,dead,,0,CNY_2026_per_year,structural_zero,model_structure,Excludes terminal costs,required
+stable_utility,state_utility,all,stable,,0.78,QALY_weight,synthetic_assumption,teaching_only,No preference-based source,required
+progressed_utility,state_utility,all,progressed,,0.58,QALY_weight,synthetic_assumption,teaching_only,No preference-based source,required
+dead_utility,state_utility,all,dead,,0.00,QALY_weight,dead_anchor,model_structure,Conventional anchor only,required

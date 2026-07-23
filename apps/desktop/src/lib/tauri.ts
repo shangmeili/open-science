@@ -944,6 +944,21 @@ export interface TeachingExampleRunResult {
   baseCase: TeachingExampleOutput;
   sensitivityLow: TeachingExampleOutput;
   sensitivityHigh: TeachingExampleOutput;
+  sensitivityParameterCount: number;
+  structuralScenarioCount: number;
+  probabilisticIterations: number;
+  representedParameterCount: number;
+  probabilityPositiveIncrementalNmb: number;
+  mechanicalChecksPassed: number;
+  mechanicalChecksTotal: number;
+  humanReviewStatus: "awaiting_human_review";
+  pendingHumanReviewItems: string[];
+  reportPath: string;
+  reportSha256: string;
+  evidenceRegisterPath: string;
+  evidenceRegisterSha256: string;
+  reviewChecklistPath: string;
+  reviewChecklistSha256: string;
   limitations: string[];
 }
 
