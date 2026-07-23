@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   addMcpServer: vi.fn(async () => {}),
   loadCatalog: vi.fn(async () => {}),
+  restartLocalRuntime: vi.fn(async () => true),
   /** Resolver for the in-flight setupJupyter promise, so tests hold it open. */
   resolveSetup: (() => {}) as () => void,
   setupJupyter: vi.fn(),
@@ -23,7 +24,12 @@ mocks.setupJupyter.mockImplementation(
 
 vi.mock("./runtime", () => ({
   getClient: () => ({ addMcpServer: mocks.addMcpServer }),
-  useRuntimeStore: { getState: () => ({ loadCatalog: mocks.loadCatalog }) },
+  useRuntimeStore: {
+    getState: () => ({
+      loadCatalog: mocks.loadCatalog,
+      restartLocalRuntime: mocks.restartLocalRuntime,
+    }),
+  },
 }));
 vi.mock("./tauri", () => ({
   setupJupyter: mocks.setupJupyter,
@@ -61,6 +67,7 @@ describe("setup store", () => {
     expect(s.line).toBeNull();
     expect(s.generation).toBe(gen0 + 1);
     expect(mocks.addMcpServer).toHaveBeenCalledWith("jupyter", expect.anything());
+    expect(mocks.restartLocalRuntime).toHaveBeenCalledTimes(1);
   });
 
   it("ignores a second concurrent enableJupyter — no colliding provisioning run", async () => {

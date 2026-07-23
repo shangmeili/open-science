@@ -146,8 +146,6 @@
     "customModelsPlaceholder": "モデル ID（カンマ区切り）",
     "addEndpoint": "エンドポイントを追加",
     "importLogin": "互換性のあるローカル CLI から認証情報をインポート",
-    "minimaxChinaTokenPlanName": "MiniMax 中国版 Token Plan",
-    "fillMinimaxChinaTokenPlan": "MiniMax 中国版 Token Plan を入力",
     "customCredentialHint": "エンドポイント設定には API キーを保存しません。OpenCode が認証情報をローカルの非公開認証ストアに分けて保存します。"
   },
   "mcp": {
@@ -179,7 +177,8 @@
     "setupStarting": "Jupyter を設定しています。初回は数百 MB をダウンロードします。しばらくお待ちください…",
     "setupComplete": "Jupyter の準備ができました。アシスタントがノートブックを操作できます。",
     "setupFailed": "Jupyter の設定に失敗しました",
-    "setupIncomplete": "Jupyter の設定は終了しましたが、必要な接続情報がありません"
+    "setupIncomplete": "Jupyter の設定は終了しましたが、必要な接続情報がありません",
+    "runtimeRestartFailed": "ツールは設定されましたが、ローカルサービスを再起動できませんでした"
   },
   "browser": {
     "label": "ブラウザ制御",

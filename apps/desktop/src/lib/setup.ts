@@ -86,6 +86,8 @@ export const useSetupStore = create<SetupState>((set, get) => ({
         enabled: true,
         environment: { JUPYTER_URL: s.url, JUPYTER_TOKEN: s.token, ALLOW_IMG_OUTPUT: "true" },
       });
+      const restarted = await useRuntimeStore.getState().restartLocalRuntime();
+      if (!restarted) throw new Error(i18n.t("settings:mcp.runtimeRestartFailed"));
       toast.success(i18n.t("settings:mcp.setupComplete"));
       await useRuntimeStore.getState().loadCatalog();
     } catch (e) {
@@ -109,6 +111,8 @@ export const useSetupStore = create<SetupState>((set, get) => ({
         connector.id,
         connectorConfig(connector, python, apiKey),
       );
+      const restarted = await useRuntimeStore.getState().restartLocalRuntime();
+      if (!restarted) throw new Error(i18n.t("settings:mcp.runtimeRestartFailed"));
       toast.success(`${connector.label}: ${i18n.t("settings:mcp.setupComplete")}`);
       await useRuntimeStore.getState().loadCatalog();
     } catch (error) {
@@ -140,11 +144,10 @@ export const useSetupStore = create<SetupState>((set, get) => ({
         tools: opts.tools,
         allowedDomains: opts.allowedDomains,
       });
-      const hadEntry = await removeConfigEntry("mcp", BROWSER_MCP_ID)
-        .then(() => true)
-        .catch(() => false);
-      if (hadEntry) await useRuntimeStore.getState().connectRetry();
+      await removeConfigEntry("mcp", BROWSER_MCP_ID).catch(() => undefined);
       await getClient()!.addMcpServer(BROWSER_MCP_ID, config);
+      const restarted = await useRuntimeStore.getState().restartLocalRuntime();
+      if (!restarted) throw new Error(i18n.t("settings:mcp.runtimeRestartFailed"));
       toast.success(i18n.t("settings:browser.enabledStatus"));
       await useRuntimeStore.getState().loadCatalog();
     } catch (e) {

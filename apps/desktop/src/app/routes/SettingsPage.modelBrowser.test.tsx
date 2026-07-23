@@ -104,6 +104,37 @@ describe("Settings model browser integration", () => {
     expect(commandRow.className).toContain("sm:grid-cols-[minmax(0,1fr)_7.5rem]");
   });
 
+  it("refreshes an MCP startup snapshot instead of leaving healthy servers marked failed", async () => {
+    const client = catalogClient();
+    const listMcpServers = vi
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          name: "paper-search",
+          status: "failed",
+          config: { type: "local", command: ["python", "-m", "paper_search_mcp.server"] },
+        },
+      ])
+      .mockResolvedValue([
+        {
+          name: "paper-search",
+          status: "connected",
+          config: { type: "local", command: ["python", "-m", "paper_search_mcp.server"] },
+        },
+      ]);
+    (client as unknown as { listMcpServers: typeof listMcpServers }).listMcpServers = listMcpServers;
+    vi.spyOn(runtime, "getClient").mockReturnValue(client);
+
+    await renderSettings("connectors");
+
+    expect(await screen.findByText("local · failed")).toBeInTheDocument();
+    await waitFor(
+      () => expect(screen.getByText("local · connected")).toBeInTheDocument(),
+      { timeout: 2_500 },
+    );
+    expect(listMcpServers).toHaveBeenCalledTimes(2);
+  });
+
   it("shows the connect prompt when the runtime errors before any model switch happened", async () => {
     // First boot with a dead sidecar: status "error", defaultModel null,
     // modelSwitchError null. The browser must NOT appear (the old page-local
@@ -236,7 +267,7 @@ describe("Settings model browser integration", () => {
     expect(screen.queryByRole("button", { name: /^o3/ })).not.toBeInTheDocument();
   });
 
-  it("prefills MiniMax China without placing its key in endpoint config", async () => {
+  it("opens a blank provider-neutral custom endpoint form and keeps its key out of config", async () => {
     const client = catalogClient() as ReturnType<typeof catalogClient> & {
       addCustomProvider: ReturnType<typeof vi.fn>;
       setProviderApiKey: ReturnType<typeof vi.fn>;
@@ -249,18 +280,20 @@ describe("Settings model browser integration", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Manage" }));
     await userEvent.click(screen.getByRole("button", { name: /Custom endpoint/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Fill MiniMax China Token Plan" }));
+    expect(screen.queryByText(/MiniMax China Token Plan/i)).not.toBeInTheDocument();
 
-    expect(screen.getByPlaceholderText("Name — e.g. Ollama, My DeepSeek gateway")).toHaveValue(
-      "MiniMax CN Token Plan",
-    );
-    expect(screen.getByDisplayValue("Anthropic-compatible")).toHaveValue("@ai-sdk/anthropic");
-    expect(screen.getByPlaceholderText(/Base URL/)).toHaveValue(
-      "https://api.minimaxi.com/anthropic/v1",
-    );
-    expect(screen.getByPlaceholderText("Model ids, comma-separated")).toHaveValue("MiniMax-M3");
+    const name = screen.getByPlaceholderText("Name — e.g. Ollama, My DeepSeek gateway");
+    const url = screen.getByPlaceholderText(/Base URL/);
+    const models = screen.getByPlaceholderText("Model ids, comma-separated");
+    expect(name).toHaveValue("");
+    expect(url).toHaveValue("");
+    expect(models).toHaveValue("");
+    expect(screen.getByDisplayValue("OpenAI-compatible")).toHaveValue("@ai-sdk/openai-compatible");
     expect(screen.getByText(/endpoint configuration never contains the API key/i)).toBeVisible();
 
+    await userEvent.type(name, "Local research gateway");
+    await userEvent.type(url, "http://127.0.0.1:11434/v1");
+    await userEvent.type(models, "local-model");
     await userEvent.type(
       screen.getByPlaceholderText("API key — optional, Ollama needs none"),
       "local-test-key",
@@ -268,15 +301,15 @@ describe("Settings model browser integration", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add endpoint" }));
 
     await waitFor(() =>
-      expect(client.addCustomProvider).toHaveBeenCalledWith("minimax-cn-token-plan", {
-        name: "MiniMax CN Token Plan",
-        npm: "@ai-sdk/anthropic",
-        baseURL: "https://api.minimaxi.com/anthropic/v1",
-        models: ["MiniMax-M3"],
+      expect(client.addCustomProvider).toHaveBeenCalledWith("local-research-gateway", {
+        name: "Local research gateway",
+        npm: "@ai-sdk/openai-compatible",
+        baseURL: "http://127.0.0.1:11434/v1",
+        models: ["local-model"],
       }),
     );
     expect(client.setProviderApiKey).toHaveBeenCalledWith(
-      "minimax-cn-token-plan",
+      "local-research-gateway",
       "local-test-key",
     );
     expect(client.addCustomProvider.mock.invocationCallOrder[0]).toBeLessThan(

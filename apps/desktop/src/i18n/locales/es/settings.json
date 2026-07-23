@@ -147,8 +147,6 @@
     "customModelsPlaceholder": "ID de modelos, separados por comas",
     "addEndpoint": "Añadir endpoint",
     "importLogin": "Importar credenciales desde una CLI local compatible",
-    "minimaxChinaTokenPlanName": "MiniMax China Token Plan",
-    "fillMinimaxChinaTokenPlan": "Rellenar MiniMax China Token Plan",
     "customCredentialHint": "La configuración del endpoint nunca guarda la clave de API. OpenCode conserva las credenciales por separado en su almacén de autenticación local privado."
   },
   "mcp": {
@@ -180,7 +178,8 @@
     "setupStarting": "Configurando Jupyter. La primera vez se descargarán varios cientos de MB; espera un momento…",
     "setupComplete": "Jupyter está listo. El asistente ya puede trabajar con cuadernos.",
     "setupFailed": "No se pudo configurar Jupyter",
-    "setupIncomplete": "La configuración terminó sin los datos de conexión necesarios"
+    "setupIncomplete": "La configuración terminó sin los datos de conexión necesarios",
+    "runtimeRestartFailed": "La herramienta se configuró, pero el servicio local no pudo reiniciarse"
   },
   "browser": {
     "label": "Control del navegador",

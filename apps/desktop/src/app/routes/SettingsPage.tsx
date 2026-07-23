@@ -67,14 +67,6 @@ import contactCard from "@/assets/contact.png";
 const AI4HEOR_CONTACT_EMAIL = "shangmei.li@altolix.com";
 const OPEN_SCIENCE_URL = "https://github.com/ai4s-research/open-science";
 
-const MINIMAX_CN_TOKEN_PLAN = {
-  npm: "@ai-sdk/anthropic",
-  // OpenCode uses @ai-sdk/anthropic, whose baseURL is the request prefix and
-  // appends `/messages` directly. MiniMax's raw endpoint is /anthropic/v1/messages.
-  baseURL: "https://api.minimaxi.com/anthropic/v1",
-  models: "MiniMax-M3",
-} as const;
-
 /**
  * Settings. ONE configuration surface: everything talks to the bundled
  * OpenCode's own config/auth API — no separate "model key" concept.
@@ -175,15 +167,7 @@ export function SettingsPage() {
   const [cUrl, setCUrl] = useState("");
   const [cKey, setCKey] = useState("");
   const [cModels, setCModels] = useState("");
-
-  const fillMiniMaxChinaTokenPlan = () => {
-    setShowCustom(true);
-    setCName(t("providers.minimaxChinaTokenPlanName"));
-    setCNpm(MINIMAX_CN_TOKEN_PLAN.npm);
-    setCUrl(MINIMAX_CN_TOKEN_PLAN.baseURL);
-    setCModels(MINIMAX_CN_TOKEN_PLAN.models);
-    setCKey("");
-  };
+  const mcpRefreshAttempts = useRef(0);
 
   const copyContactEmail = async () => {
     try {
@@ -244,6 +228,36 @@ export function SettingsPage() {
   useEffect(() => {
     if (connected) void refresh();
   }, [connected, refresh, setupGeneration]);
+  // OpenCode starts configured MCP servers asynchronously after a runtime
+  // reconnect. A single immediate read can therefore report every healthy
+  // server as failed and leave that stale snapshot on screen. Retry only the
+  // MCP status read for a short bounded window; genuine failures remain
+  // visible after the retries instead of being masked.
+  useEffect(() => {
+    if (!connected) {
+      mcpRefreshAttempts.current = 0;
+      return;
+    }
+    const waiting = mcpServers.some((server) =>
+      server.status === "failed" || server.status === "pending",
+    );
+    if (!waiting) {
+      mcpRefreshAttempts.current = 0;
+      return;
+    }
+    if (mcpRefreshAttempts.current >= 5) return;
+    const timer = window.setTimeout(() => {
+      mcpRefreshAttempts.current += 1;
+      void getClient()
+        ?.listMcpServers()
+        .then(setMcpServers)
+        .catch(() => undefined);
+    }, 1_500);
+    return () => window.clearTimeout(timer);
+  }, [connected, mcpServers]);
+  useEffect(() => {
+    mcpRefreshAttempts.current = 0;
+  }, [serverUrl, setupGeneration]);
   // A different server URL means a different runtime: drop the cached catalog
   // so its models can never be shown against (or written to) the new server.
   useEffect(() => {
@@ -540,6 +554,8 @@ export function SettingsPage() {
           ? { type: "local", command: target.split(/\s+/), enabled: true }
           : { type: "remote", url: target, enabled: true },
       );
+      const restarted = await useRuntimeStore.getState().restartLocalRuntime();
+      if (!restarted) throw new Error(t("toast.couldNotAddMcp"));
       toast.success(t("toast.mcpAdded", { name }));
       setMName("");
       setMTarget("");
@@ -933,13 +949,6 @@ export function SettingsPage() {
                   </button>
                   {showCustom && (
                     <div className="space-y-2 px-3 pb-3">
-                      <button
-                        type="button"
-                        className="text-xs text-accent underline underline-offset-2"
-                        onClick={fillMiniMaxChinaTokenPlan}
-                      >
-                        {t("providers.fillMinimaxChinaTokenPlan")}
-                      </button>
                       <div className="flex gap-2">
                         <input
                           value={cName}

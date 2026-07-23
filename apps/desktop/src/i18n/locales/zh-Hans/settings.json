@@ -146,8 +146,6 @@
     "customModelsPlaceholder": "模型 ID，以逗号分隔",
     "addEndpoint": "添加模型接口",
     "importLogin": "从兼容的本地 CLI 导入凭据",
-    "minimaxChinaTokenPlanName": "MiniMax 中国区 Token Plan",
-    "fillMinimaxChinaTokenPlan": "使用 MiniMax 中国区 Token Plan",
     "customCredentialHint": "密钥不会写入接口配置；OpenCode 会将其单独保存在本机，且仅当前账户可读。"
   },
   "mcp": {
@@ -179,7 +177,8 @@
     "setupStarting": "正在设置 Jupyter。首次使用需要下载数百 MB，请稍候…",
     "setupComplete": "Jupyter 已可使用，助手现在可以处理笔记本。",
     "setupFailed": "Jupyter 设置失败",
-    "setupIncomplete": "Jupyter 设置已结束，但缺少必要的连接信息"
+    "setupIncomplete": "Jupyter 设置已结束，但缺少必要的连接信息",
+    "runtimeRestartFailed": "工具已写入配置，但本地服务未能重新启动"
   },
   "browser": {
     "label": "浏览器控制",

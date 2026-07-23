@@ -70,6 +70,10 @@ describe("Sidebar projects", () => {
     expect(
       screen.getByRole("button", { name: "New task in Cost Effectiveness Study" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "More: Cost Effectiveness Study" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "More: paper search" })).toBeInTheDocument();
   });
 
   it("uses the Codex-style task actions instead of the browser link menu", async () => {
@@ -143,10 +147,14 @@ describe("Sidebar projects", () => {
     renderAt("/files");
     // Header [+] plus the ghost row — both open the inline name input.
     expect((await screen.findAllByRole("button", { name: "New project" })).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Import existing project" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    expect(await screen.findByRole("menuitem", { name: "Import existing project" })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
     expect(screen.queryByText("Cross-species atlas figure")).not.toBeInTheDocument();
     expect(screen.queryByText("SCVI Hyperparameter Screen")).not.toBeInTheDocument();
     expect(screen.getByText("Tasks")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "More: Tasks" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "New task" }).length).toBeGreaterThan(1);
   });
 
   it("opens a visible clean task, focuses it, and resets it on every click", async () => {
@@ -163,9 +171,7 @@ describe("Sidebar projects", () => {
     });
     renderNavigableAt("/heor");
 
-    await userEvent.click(
-      await screen.findByRole("button", { name: "New task" }),
-    );
+    await userEvent.click((await screen.findAllByRole("button", { name: "New task" }))[0]);
 
     expect(startDraft).toHaveBeenCalledTimes(1);
     expect(createProject).not.toHaveBeenCalled();
@@ -177,7 +183,7 @@ describe("Sidebar projects", () => {
     await userEvent.type(firstInput, "draft that must be cleared");
     expect(firstInput.value).toBe("draft that must be cleared");
 
-    await userEvent.click(screen.getByRole("button", { name: "New task" }));
+    await userEvent.click(screen.getAllByRole("button", { name: "New task" })[0]);
     const resetInput = screen.getByRole("textbox") as HTMLTextAreaElement;
     expect(startDraft).toHaveBeenCalledTimes(2);
     expect(resetInput.value).toBe("");

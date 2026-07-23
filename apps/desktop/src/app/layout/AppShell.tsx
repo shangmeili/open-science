@@ -9,7 +9,7 @@ import { Toaster } from "@/components/ui/Toaster";
 import { useRuntimeStore } from "@/lib/runtime";
 import { ensureSetupProgressListener } from "@/lib/setup";
 import { useOverlayTitlebar, useUiStore } from "@/lib/store";
-import { ensureJupyter, openExternal, watchFullscreen } from "@/lib/tauri";
+import { ensureJupyter, isTauri, openExternal, watchFullscreen } from "@/lib/tauri";
 import { useUpdateStore } from "@/lib/update";
 
 export function AppShell() {
@@ -68,6 +68,16 @@ export function AppShell() {
     };
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
+  }, []);
+
+  // The packaged app is a desktop workspace, not a web page. Suppress the
+  // host webview's Back/Reload/Open Link menu everywhere; component-owned
+  // Radix menus still receive the event and provide the app's real actions.
+  useEffect(() => {
+    if (!isTauri) return;
+    const onContextMenu = (event: MouseEvent) => event.preventDefault();
+    document.addEventListener("contextmenu", onContextMenu);
+    return () => document.removeEventListener("contextmenu", onContextMenu);
   }, []);
 
   // The live session page's own header doubles as the titlebar when the

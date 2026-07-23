@@ -147,8 +147,6 @@
     "customModelsPlaceholder": "Identifiants de modèles, séparés par des virgules",
     "addEndpoint": "Ajouter un point de terminaison",
     "importLogin": "Importer les identifiants d’une CLI locale compatible",
-    "minimaxChinaTokenPlanName": "MiniMax China Token Plan",
-    "fillMinimaxChinaTokenPlan": "Renseigner MiniMax China Token Plan",
     "customCredentialHint": "La configuration du point de terminaison ne contient jamais la clé API. OpenCode conserve les identifiants séparément dans son stockage d’authentification local privé."
   },
   "mcp": {
@@ -180,7 +178,8 @@
     "setupStarting": "Configuration de Jupyter. Le premier lancement télécharge plusieurs centaines de Mo ; veuillez patienter…",
     "setupComplete": "Jupyter est prêt. L’assistant peut maintenant travailler avec les notebooks.",
     "setupFailed": "Échec de la configuration de Jupyter",
-    "setupIncomplete": "La configuration s’est terminée sans les informations de connexion requises"
+    "setupIncomplete": "La configuration s’est terminée sans les informations de connexion requises",
+    "runtimeRestartFailed": "L’outil a été configuré, mais le service local n’a pas pu redémarrer"
   },
   "browser": {
     "label": "Contrôle du navigateur",

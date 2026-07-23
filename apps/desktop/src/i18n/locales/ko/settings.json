@@ -146,8 +146,6 @@
     "customModelsPlaceholder": "모델 ID, 쉼표로 구분",
     "addEndpoint": "엔드포인트 추가",
     "importLogin": "호환되는 로컬 CLI에서 자격 증명 가져오기",
-    "minimaxChinaTokenPlanName": "MiniMax 중국 Token Plan",
-    "fillMinimaxChinaTokenPlan": "MiniMax 중국 Token Plan 입력",
     "customCredentialHint": "엔드포인트 설정에는 API 키가 저장되지 않습니다. OpenCode가 자격 증명을 별도의 로컬 비공개 인증 저장소에 보관합니다."
   },
   "mcp": {
@@ -179,7 +177,8 @@
     "setupStarting": "Jupyter를 설정하는 중입니다. 처음에는 수백 MB를 다운로드하므로 잠시 기다려 주세요…",
     "setupComplete": "Jupyter가 준비되었습니다. 이제 어시스턴트가 노트북을 작업할 수 있습니다.",
     "setupFailed": "Jupyter 설정에 실패했습니다",
-    "setupIncomplete": "설정이 끝났지만 필요한 연결 정보가 없습니다"
+    "setupIncomplete": "설정이 끝났지만 필요한 연결 정보가 없습니다",
+    "runtimeRestartFailed": "도구가 구성되었지만 로컬 서비스를 다시 시작하지 못했습니다"
   },
   "browser": {
     "label": "브라우저 제어",

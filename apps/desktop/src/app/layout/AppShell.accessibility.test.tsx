@@ -26,6 +26,7 @@ vi.mock("@/lib/store", () => ({
 }));
 vi.mock("@/lib/tauri", () => ({
   ensureJupyter: vi.fn(),
+  isTauri: true,
   openExternal: vi.fn(),
   watchFullscreen: vi.fn().mockResolvedValue(() => {}),
 }));
@@ -51,5 +52,25 @@ describe("AppShell accessibility", () => {
     );
     expect(screen.getByRole("main")).toHaveAttribute("id", "ai4heor-main");
     expect(screen.getByRole("main")).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("suppresses the packaged webview's native context menu", () => {
+    render(
+      <MemoryRouter>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route index element={<a href="https://example.com">External source</a>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    screen.getByRole("link", { name: "External source" }).dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+
+    const blankEvent = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    screen.getByRole("main").dispatchEvent(blankEvent);
+    expect(blankEvent.defaultPrevented).toBe(true);
   });
 });
