@@ -20,8 +20,8 @@ public redistribution not yet cleared**.
 | Provided by | Product owner in the local Codex project task |
 | Instruction date | 2026-07-23 |
 | Requested use | Replace the AI4HEOR application icon on macOS and Windows |
-| Original supplied PNG SHA-256 | `18b159cd77bcf117e3ef71336d25ee06dfba567c46426f92eab6fc79b97474e6` |
-| Normalized 1024 px icon source SHA-256 | `991c8f54035bb7207e006974aff364f6d6ea68ab8b87dd2c19c319bb235f101f` |
+| Original supplied PNG SHA-256 | `3f79cea56308f82b23b806044d3a62a56e4860bc96418c46ad3074ce0f7ce287` |
+| Normalized 1024 px icon source SHA-256 | `e637188a35f11a50a83a566b628f311bd07fdbd56a2ff17889c454d44b02ed2e` |
 | Transformation | Local proportional resize followed by standard Tauri PNG, ICNS, and ICO generation |
 | External upload | None |
 
