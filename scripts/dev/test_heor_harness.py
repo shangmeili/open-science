@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 HARNESS_ROOT = ROOT / "runtime" / "harness"
 SKILLS_ROOT = ROOT / "runtime" / "skills" / "core"
+LOCALES_ROOT = ROOT / "apps" / "desktop" / "src" / "i18n" / "locales"
 TAURI_CONFIG = ROOT / "apps" / "desktop" / "src-tauri" / "tauri.conf.json"
 
 
@@ -73,6 +74,24 @@ class HeorHarnessContractTests(unittest.TestCase):
         self.assertIn("inspect only files that the requested task", agents)
         self.assertNotIn("worktree, artifacts", agents)
 
+    def test_researcher_facing_contract_hides_internal_workflow_mechanics(self):
+        agents = (HARNESS_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        workbench = (SKILLS_ROOT / "heor-workbench/SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        combined = "\n".join((agents, workbench))
+        for required in (
+            "Researcher-facing communication contract",
+            "System execution is assistant work",
+            "Researcher decisions are scientific judgments",
+            "Never label evidence retrieval, local import, extraction ledgers",
+            "Do not present internal artifact paths, schema names, commands, hashes",
+            "Technical details or Run records",
+            "Do not write internal operation checklists to `notes/`",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, combined)
+
     def test_learning_flow_is_source_grounded_without_formal_research_gates(self):
         agents = (HARNESS_ROOT / "AGENTS.md").read_text(encoding="utf-8")
         workbench = (SKILLS_ROOT / "heor-workbench/SKILL.md").read_text(
@@ -93,6 +112,18 @@ class HeorHarnessContractTests(unittest.TestCase):
         ):
             with self.subTest(required=required):
                 self.assertIn(required, combined)
+
+    def test_task_starters_keep_execution_with_the_assistant(self):
+        zh = json.loads(
+            (LOCALES_ROOT / "zh-Hans/session.json").read_text(encoding="utf-8")
+        )
+        en = json.loads((LOCALES_ROOT / "en/session.json").read_text(encoding="utf-8"))
+        self.assertIn("由助手完成", zh["starters"]["analyze"]["prompt"])
+        self.assertIn("只追问会实质改变研究的问题", zh["starters"]["design"]["prompt"])
+        self.assertIn("测试环境直接继续", zh["newTask"]["suggestions"]["evidence"]["prompt"])
+        self.assertIn("assistant work", en["starters"]["design"]["prompt"])
+        self.assertIn("Ask me only", en["starters"]["analyze"]["prompt"])
+        self.assertIn("test mode", en["newTask"]["suggestions"]["evidence"]["prompt"])
 
     def test_machine_policy_is_exact_and_model_provider_neutral(self):
         policy = json.loads((HARNESS_ROOT / "policy.json").read_text(encoding="utf-8"))

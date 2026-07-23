@@ -97,7 +97,7 @@
     "analyze": {
       "title": "Analyze my HEOR evidence or data",
       "description": "Inventory local evidence and data, clarify the estimand, then propose an auditable analysis.",
-      "prompt": "Help me analyze the HEOR evidence or data in this project. Use $heor-workbench to inventory relevant local files first, identify what each file can and cannot support, and ask me to confirm the decision question, estimand, population, comparator, outcomes, and method before execution. Keep computation deterministic where supported, preserve provenance, and stop at Human-in-the-loop method and interpretation decisions."
+      "prompt": "Help me analyze the HEOR evidence or data in this project. Use $heor-workbench to inventory relevant local material, explain what it can support and what is missing, and proceed with evidence organization, structured records, reproducible computation, and report preparation. Ask me only about an unresolved decision question, estimand, method, material assumption, or interpretation that could change the result."
     },
     "audit": {
       "title": "Audit an HEOR model or report",
@@ -114,7 +114,7 @@
     "design": {
       "title": "Start a pharmacoeconomic study",
       "description": "Define the decision problem, conceptual model, evidence needs, and Human review points.",
-      "prompt": "Help me start a researcher-led pharmacoeconomic or HEOR study. Use $heor-workbench and $heor-model-design. First ask concise questions about the population, intervention, comparators, outcomes, perspective, jurisdiction, time horizon, decision context, available evidence, and intended use. Then prepare reviewable local artifacts and an explicit plan. Do not choose scientific methods, assumptions, evidence, thresholds, or approvals for the human researcher."
+      "prompt": "Help me start a researcher-led pharmacoeconomic or HEOR study. Use $heor-workbench and $heor-model-design. Start from the information I have already provided, clarify only gaps that could materially change the study, and then prepare the research record and checks. Evidence organization, structured records, and execution are assistant work; I decide scientific methods, material assumptions, evidence choices, thresholds, interpretation, and intended use."
     },
     "example-cea": {
       "title": "Explore an example: cost-effectiveness analysis",
@@ -341,7 +341,7 @@
       },
       "evidence": {
         "title": "Find and organize evidence",
-        "prompt": "Help me find and organize the evidence needed for this pharmacoeconomic study. First clarify the decision problem and evidence gaps, then identify useful local sources, searches that may be needed, provenance, and limitations. Before any network access, show the exact query and fields that would leave this computer."
+        "prompt": "Help me find and organize the evidence needed for this pharmacoeconomic study. First clarify the decision problem and evidence gaps, then identify useful local sources, searches that may be needed, provenance, and limitations. Follow the current task permission mode for network retrieval: explain the query and outbound fields once when confirmation is required, and proceed directly in full-access or test mode."
       },
       "model": {
         "title": "Design or review a model",

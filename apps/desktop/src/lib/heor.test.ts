@@ -138,6 +138,10 @@ describe("AI4HEOR artifact contract", () => {
     expect(prompt).toContain("Do not begin with Git status, .gitignore, README");
     expect(prompt).toContain("progressive HEOR outputs, not prerequisites");
     expect(prompt).toContain("never create or claim human approvals");
+    expect(prompt).toContain("System execution is assistant work");
+    expect(prompt).toContain("Researcher decisions are scientific judgments");
+    expect(prompt).toContain("Do not expose internal artifact paths, schema names, commands, hashes");
+    expect(prompt).toContain("Run records");
   });
 
   it("keeps runtime instructions out of the researcher-visible history", () => {

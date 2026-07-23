@@ -38,6 +38,27 @@ actually depends on.
 - Describe data flow precisely. A local deterministic calculation means only that the numerical engine ran on this computer. When the configured model provider is remote, the conversation and any project excerpts visible to the model are processed by that provider. Report evidence-search or other network-tool use separately; never claim that the whole task was fully local or that no remote model call occurred merely because the numerical engine ran locally.
 - Keep data and artifacts inside the active project unless the researcher explicitly authorizes an external service.
 
+## Researcher-facing communication contract
+
+- System execution is assistant work. The assistant or desktop performs evidence
+  retrieval, local import, extraction ledgers, provenance mapping, deterministic
+  execution, validation commands, and report packaging. Never label evidence
+  retrieval, local import, extraction ledgers, provenance mapping, deterministic
+  execution, validation commands, or report packaging as work the researcher
+  must perform.
+- Researcher decisions are scientific judgments: scope and intended use,
+  evidence eligibility and applicability, model structure, material assumptions,
+  parameter-source choices when alternatives matter, interpretation, and
+  permitted use. Ask only for a missing judgment that can change the work.
+- Do not present internal artifact paths, schema names, commands, hashes,
+  environment variables, Skill identifiers, validators, panel mechanics, or
+  approval-state implementation in the ordinary response or research report.
+  Preserve them under Technical details or Run records and show them only on
+  request or through the corresponding disclosure.
+- Never turn the internal artifact pipeline into a researcher checklist. Report
+  completed work, supported findings, material limitations, and the next
+  substantive research judgment in natural HEOR language.
+
 ## Natural-language workflow
 
 ### Learning and teaching mode
@@ -78,9 +99,9 @@ to learn a method or understand the bundled teaching case:
 13. Use `$heor-model-validation` after the analysis artifacts are stable to prepare or audit `heor/model-validation.json` and local evidence. Never fill the independent reviewer's declaration or recommendation, identify Agent work as independent review, or create validation approval.
 14. After all three app-written release result artifacts and a current independent-validation approval exist, use `$heor-reporting` to prepare or audit the separate CHEERS 2022 cost-effectiveness matrix, ISPOR BIA matrix, report, exact result summary, disclosures, and hash-bound release package. Advanced VOI remains a separate research-prioritization artifact in schema `0.1.0`; do not add it to the release graph implicitly. Never edit result files, invent the release owner, score reporting quality, or create release approval.
 15. After the report package is structurally complete, use `$heor-reproducibility-package` to derive the exact release companion: report graph, deterministic replay recipes, current environment, source availability, exhibits, and claim links. Do not copy restricted data, add unrelated attachments, or create a separate approval gate.
-16. Tell the researcher exactly what changed, which model and BIA inputs, reference-case requirements, uncertainty components, advanced-VOI assumptions, validation checks, reporting items, and reproducibility links remain unsupported, and which review gate is ready for human inspection.
+16. Tell the researcher what changed and which model inputs, reference-case requirements, uncertainty components, validation checks, reporting items, and reproducibility elements remain unsupported. Describe the next substantive scientific judgment in domain language; keep internal paths and gate identifiers in Technical details or Run records.
 17. For budget impact, use `$heor-budget-impact` only for a static eligible-population question and `$heor-dynamic-budget-impact` when annual population flow, displacement, persistence, mortality, or start capacity is material. Run deterministic base-case, uncertainty, advanced VOI, or budget impact calculations only through the workbench review panel or its documented local command. Never recreate approval state in the workspace.
-18. Interpret results in the conversation with the result classification, exact input hashes, Monte Carlo or budget diagnostics, limitations, Human method-review status, validation, reporting, reproducibility-companion, and release status. Explain CEAC and CEAF separately. The base uncertainty result contains only per-person EVPI; population EVPI, EVPPI, EVSI, and ENBS may be reported only from an exact advanced-VOI result/replay pair and must remain conditional research-prioritization calculations rather than research funding, study-design, reimbursement, or policy advice.
+18. Interpret results in the conversation with the result classification, decision-relevant diagnostics, limitations, method-review status, validation, reporting, reproducibility, and release status. Keep exact hashes and internal identifiers in Technical details or Run records. Explain CEAC and CEAF separately. The base uncertainty result contains only per-person EVPI; population EVPI, EVPPI, EVSI, and ENBS may be reported only from an exact advanced-VOI result/replay pair and must remain conditional research-prioritization calculations rather than research funding, study-design, reimbursement, or policy advice.
 
 ## Completion check for full economic evaluations
 
@@ -114,10 +135,10 @@ Before reporting a requested end-to-end economic evaluation as complete:
    use the exact reported plan or provenance gaps to repair only the workspace
    artifacts from the bundled template, then rerun it. A runner failure never
    authorizes source-code inspection or ad-hoc changes to the bundled engine.
-4. If the structured route cannot be completed, label the output
-   `exploratory_only`, name the exact unsupported model or unresolved scientific
-   choice, list the missing watched artifacts, and do not say the AI4HEOR task is
-   complete.
+4. If the structured route cannot be completed, state that the result is
+   exploratory, name the unsupported model or unresolved scientific choice in
+   domain language, record missing watched artifacts in Technical details, and
+   do not say the AI4HEOR task is complete.
 
 ## Evidence discipline
 
@@ -132,11 +153,16 @@ Before reporting a requested end-to-end economic evaluation as complete:
 
 The app watches `heor/evidence-search-request.json`, app-written search runs, `heor/evidence-synthesis.json`, `heor/network-meta-analysis-request.json`, NMA result/review artifacts, `heor/population-adjusted-comparison-request.json`, anchored-MAIC result/review artifacts, `heor/rwe-causal-analysis-request.json`, RWE causal result/review artifacts, `heor/analysis-plan.json`, `heor/conceptual-model.json`, `heor/reference-case-assessment.json`, `heor/partitioned-survival-plan.json`, `heor/survival-curve-materializations.json`, `heor/treatment-effect-duration.json`, `heor/cost-input-normalization.json`, `heor/utility-inputs.json`, `heor/event-disutilities.json`, uncertainty and joint-survival artifacts, `heor/advanced-voi-plan.json`, advanced-VOI result/replay/review artifacts, budget impact, validation, reporting, reproducibility, and app-written result files. Keep JSON and JSONL valid; changing a hash-bound artifact requires renewed review.
 
-After writing the plan, report:
+After writing the plan, record in Technical details or Run records:
 
 - artifact path;
 - unresolved inputs and assumptions;
 - evidence gaps;
-- recommended next human gate: decision problem, conceptual model, analysis plan, independent validation, or release.
+- the internal review state.
+
+In the ordinary response, report completed work, evidence gaps, limitations, and
+only the next substantive scientific judgment. Do not expose the artifact list
+or internal review-state identifiers unless the researcher asks for technical
+details.
 
 Do not ask the researcher to edit JSON unless they explicitly prefer that. Offer natural-language revisions such as “change the perspective to the Chinese healthcare system” and update the artifact yourself.
