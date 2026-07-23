@@ -72,19 +72,44 @@ describe("Sidebar projects", () => {
     ).toBeInTheDocument();
   });
 
-  it("uses an AI4HEOR task menu instead of the browser link menu", async () => {
+  it("uses the Codex-style task actions instead of the browser link menu", async () => {
+    const renameSession = vi.fn(async () => {});
     useRuntimeStore.setState({
       projects: [],
       sessions: [{ id: "task-1", title: "CEA review", directory: "/base/task-1" }],
+      renameSession,
     });
     renderAt("/files");
 
     const task = await screen.findByRole("link", { name: /CEA review/i });
     fireEvent.contextMenu(task);
 
-    expect(await screen.findByRole("menuitem", { name: "Open task" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitem", { name: "Rename task" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Delete task" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Open task" })).not.toBeInTheDocument();
     expect(screen.queryByText("Open link in new window")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("menuitem", { name: "Rename task" }));
+    const input = screen.getByDisplayValue("CEA review");
+    await userEvent.clear(input);
+    await userEvent.type(input, "Updated CEA review{Enter}");
+    expect(renameSession).toHaveBeenCalledWith("task-1", "Updated CEA review");
+  });
+
+  it("uses a Codex-style project menu instead of the host browser menu", async () => {
+    useRuntimeStore.setState({ projects: [PROJECT], sessions: [] });
+    renderAt("/files");
+
+    const projectButton = (await screen.findByText(PROJECT.name)).closest("button");
+    expect(projectButton).not.toBeNull();
+    fireEvent.contextMenu(projectButton!);
+
+    expect(await screen.findByRole("menuitem", { name: "New task" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Rename" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Show in file manager" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Remove" })).toBeInTheDocument();
+    expect(screen.queryByText("Back")).not.toBeInTheDocument();
+    expect(screen.queryByText("Reload")).not.toBeInTheDocument();
   });
 
   it("switches the single task side pane between research review and analysis history", async () => {
@@ -110,7 +135,8 @@ describe("Sidebar projects", () => {
     await userEvent.click(runs);
     expect(runs).toHaveAttribute("aria-pressed", "true");
     expect(review).toHaveAttribute("aria-pressed", "false");
-    expect((await screen.findAllByText("Analysis history")).length).toBeGreaterThanOrEqual(2);
+    expect(await screen.findByText("Run history")).toBeInTheDocument();
+    expect(screen.getByText("Analysis history")).toBeInTheDocument();
     expect(screen.queryByText("Research materials, analysis records, and decisions awaiting your review")).not.toBeInTheDocument();
   });
 

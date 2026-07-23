@@ -300,7 +300,7 @@ export function RunsPane({
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
         <PaneTitlebarInset />
         <FlaskConical size={14} strokeWidth={1.5} className="shrink-0 text-text" />
-        <span className="text-sm font-medium text-text">{t("title")}</span>
+        <span className="text-sm font-medium text-text">{t("pane.title")}</span>
         <span className="text-xs text-muted">{t("pane.subtitle")}</span>
         <div className="flex-1" />
         {controls}

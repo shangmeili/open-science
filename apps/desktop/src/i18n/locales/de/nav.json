@@ -36,6 +36,7 @@
     "pin": "Anheften",
     "unpin": "Lösen",
     "rename": "Umbenennen",
+    "reveal": "Im Dateimanager anzeigen",
     "remove": "Entfernen",
     "more": "Mehr",
     "removeTitle": "{{name}} entfernen?",
@@ -50,6 +51,8 @@
     "empty": "Noch keine Aufgaben.",
     "exampleTag": "Beispiel",
     "open": "Aufgabe öffnen",
+    "rename": "Aufgabe umbenennen",
+    "renamePlaceholder": "Aufgabenname",
     "delete": "Aufgabe löschen",
     "deleteAria": "{{title}} löschen",
     "running": "Arbeitet"

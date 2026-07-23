@@ -5,6 +5,7 @@
     "suffix": "。"
   },
   "pane": {
+    "title": "运行记录",
     "subtitle": "当前任务",
     "closeAria": "关闭运行面板"
   },

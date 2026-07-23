@@ -5,6 +5,7 @@
     "suffix": " lorsqu'un résultat doit être vérifié."
   },
   "pane": {
+    "title": "Historique d’exécution",
     "subtitle": "cette tâche",
     "closeAria": "Fermer les exécutions"
   },

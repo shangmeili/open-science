@@ -30,6 +30,7 @@ export interface AgentRuntime {
 
   createSession(): Promise<string>;
   listSessions(): Promise<SessionMeta[]>;
+  renameSession(sessionId: string, title: string): Promise<void>;
   deleteSession(sessionId: string): Promise<void>;
   getMessages(sessionId: string): Promise<HistoryMessage[]>;
   getSessionStatuses(): Promise<Record<string, SessionRuntimeStatus>>;

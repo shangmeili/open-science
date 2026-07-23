@@ -2708,6 +2708,7 @@ export function HeorReviewPane({
         <ApprovalDialog
           intent={intent}
           artifactHash={intent.artifactSha256}
+          plan={artifact.plan}
           onCancel={() => setIntent(null)}
           onSubmit={(actor, rationale) => void submitReview(actor, rationale)}
         />
@@ -6324,14 +6325,16 @@ function ReproducibilityAssessment({
   );
 }
 
-function ApprovalDialog({
+export function ApprovalDialog({
   intent,
   artifactHash,
+  plan,
   onCancel,
   onSubmit,
 }: {
   intent: ReviewIntent;
   artifactHash: string;
+  plan: HeorAnalysisPlan;
   onCancel: () => void;
   onSubmit: (actor: string, rationale: string) => void;
 }) {
@@ -6347,14 +6350,28 @@ function ApprovalDialog({
   }, [onCancel]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onCancel} role="presentation">
-      <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-card border border-border bg-surface p-5 shadow-card" onClick={(event) => event.stopPropagation()}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={intent.action === "approve"
+          ? t("dialog.approveTitle", { gate: t(`gate.${intent.gate}`) })
+          : t("dialog.revokeTitle")}
+        className="w-full max-w-md rounded-card border border-border bg-surface p-5 shadow-card"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="flex items-center gap-2 text-sm font-semibold text-text">
           <ShieldCheck size={17} className="text-accent" />
           {intent.action === "approve"
             ? t("dialog.approveTitle", { gate: t(`gate.${intent.gate}`) })
             : t("dialog.revokeTitle")}
         </div>
-        <p className="mt-2 text-xs leading-5 text-muted">{t("dialog.body", { hash: `${artifactHash.slice(0, 12)}…` })}</p>
+        <p className="mt-2 text-xs leading-5 text-muted">{t("dialog.body")}</p>
+        {intent.action === "approve" && intent.gate === "decision_problem" && (
+          <DecisionProblemReviewSummary plan={plan} />
+        )}
+        <p className="mt-3 text-[10px] leading-4 text-muted">
+          {t("dialog.hashNote", { hash: `${artifactHash.slice(0, 12)}…` })}
+        </p>
         <label className="mt-4 block text-xs font-medium text-text">
           {t("dialog.actor")}
           <input value={actor} onChange={(event) => setActor(event.target.value)} readOnly={Boolean(intent.expectedActor)} autoFocus placeholder={t("dialog.actorPlaceholder")} className="mt-1.5 w-full rounded-input border border-border bg-bg px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent read-only:text-muted" />
@@ -6384,6 +6401,38 @@ function ApprovalDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+function DecisionProblemReviewSummary({ plan }: { plan: HeorAnalysisPlan }) {
+  const { t } = useTranslation("heor");
+  const decision = plan.decision_problem;
+  const values = [
+    [t("snapshot.population"), decision.population],
+    [t("snapshot.intervention"), decision.intervention],
+    [t("snapshot.comparator"), decision.comparator],
+    [t("snapshot.outcome"), decision.outcome],
+    [t("snapshot.perspective"), decision.perspective],
+    [t("snapshot.horizon"), t("snapshot.horizonValue", { count: decision.time_horizon_years })],
+    [t("snapshot.jurisdiction"), decision.jurisdiction ?? "—"],
+  ];
+  return (
+    <section className="mt-4 rounded-input border border-border bg-bg px-3 py-3">
+      <div className="text-xs font-semibold text-text">{decision.title}</div>
+      <div className="mt-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted">
+        {t("dialog.reviewFocus")}
+      </div>
+      <dl className="mt-2 grid grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] gap-x-3 gap-y-1.5">
+        {values.map(([label, value]) => (
+          <div key={label} className="contents">
+            <dt className="text-[11px] text-muted">{label}</dt>
+            <dd className="min-w-0 break-words text-right text-[11px] font-medium text-text">
+              {value || "—"}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 

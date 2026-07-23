@@ -36,6 +36,7 @@
     "pin": "置顶",
     "unpin": "取消置顶",
     "rename": "重命名",
+    "reveal": "在文件管理器中显示",
     "remove": "移除",
     "more": "更多",
     "removeTitle": "移除 {{name}}?",
@@ -50,6 +51,8 @@
     "empty": "暂无任务。",
     "exampleTag": "示例",
     "open": "打开任务",
+    "rename": "重命名任务",
+    "renamePlaceholder": "任务名称",
     "delete": "删除任务",
     "deleteAria": "删除 {{title}}",
     "running": "运行中"

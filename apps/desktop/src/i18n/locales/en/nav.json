@@ -36,6 +36,7 @@
     "pin": "Pin",
     "unpin": "Unpin",
     "rename": "Rename",
+    "reveal": "Show in file manager",
     "remove": "Remove",
     "more": "More",
     "removeTitle": "Remove {{name}}?",
@@ -50,6 +51,8 @@
     "empty": "No tasks yet.",
     "exampleTag": "example",
     "open": "Open task",
+    "rename": "Rename task",
+    "renamePlaceholder": "Task name",
     "delete": "Delete task",
     "deleteAria": "Delete {{title}}",
     "running": "Working"

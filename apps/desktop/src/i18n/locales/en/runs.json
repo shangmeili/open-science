@@ -5,6 +5,7 @@
     "suffix": " when a result needs to be checked."
   },
   "pane": {
+    "title": "Run history",
     "subtitle": "this task",
     "closeAria": "Close runs"
   },

@@ -36,6 +36,7 @@
     "pin": "Épingler",
     "unpin": "Détacher",
     "rename": "Renommer",
+    "reveal": "Afficher dans le gestionnaire de fichiers",
     "remove": "Retirer",
     "more": "Plus",
     "removeTitle": "Retirer {{name}} ?",
@@ -50,6 +51,8 @@
     "empty": "Aucune tâche pour le moment.",
     "exampleTag": "exemple",
     "open": "Ouvrir la tâche",
+    "rename": "Renommer la tâche",
+    "renamePlaceholder": "Nom de la tâche",
     "delete": "Supprimer la tâche",
     "deleteAria": "Supprimer {{title}}",
     "running": "En cours"

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  HEOR_BROWSER_DEMO_PLAN,
   HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT,
   type HeorAdvancedVoiAudit,
   type HeorAdvancedVoiRunResult,
@@ -19,6 +20,7 @@ import {
   CeacChart,
   AdvancedVoiResultCard,
   AdvancedVoiReviewDialog,
+  ApprovalDialog,
   BudgetImpactResultCard,
   EvidenceLibraryAssessment,
   EvidenceVerificationDialog,
@@ -45,6 +47,29 @@ import {
 afterEach(() => useUiStore.getState().setLocale("en"));
 
 describe("AI4HEOR human review pane", () => {
+  it("shows the actual decision definition before recording researcher confirmation", () => {
+    render(
+      <ApprovalDialog
+        intent={{
+          action: "approve",
+          gate: "decision_problem",
+          artifactSha256: "a".repeat(64),
+        }}
+        artifactHash={"a".repeat(64)}
+        plan={HEOR_BROWSER_DEMO_PLAN}
+        onCancel={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("dialog", { name: "Review Decision problem" })).toBeInTheDocument();
+    expect(screen.getByText("Adults with untreated advanced NSCLC")).toBeInTheDocument();
+    expect(screen.getByText("New treatment")).toBeInTheDocument();
+    expect(screen.getByText("QALY")).toBeInTheDocument();
+    expect(screen.getByText(/File fingerprint a{12}/)).toBeInTheDocument();
+    expect(screen.queryByText(/app-owned event/i)).not.toBeInTheDocument();
+  });
+
   it("keeps missing-artifact implementation errors out of the research UI", () => {
     useUiStore.getState().setLocale("en");
     render(
@@ -1106,18 +1131,20 @@ describe("AI4HEOR human review pane", () => {
     await userEvent.click(screen.getByRole("button", { name: "Review Decision problem" }));
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    const submit = screen.getByRole("button", { name: "Record approval" });
+    const submit = screen.getByRole("button", { name: "Record confirmation" });
     expect(submit).toBeDisabled();
 
     await userEvent.type(screen.getByPlaceholderText("Name or local reviewer label"), "Local reviewer");
     await userEvent.type(
-      screen.getByPlaceholderText("What you checked and why this gate can proceed"),
+      screen.getByPlaceholderText("What you checked and why the current definition can proceed"),
       "Decision context checked against the project question.",
     );
-    await userEvent.click(screen.getByRole("checkbox", { name: "I performed this review myself" }));
+    await userEvent.click(screen.getByRole("checkbox", {
+      name: "I checked the content shown above and confirm it can proceed",
+    }));
     await userEvent.click(submit);
 
-    expect(await screen.findByText("Approved for this artifact")).toBeInTheDocument();
+    expect(await screen.findByText("Confirmed for the current file")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review Conceptual model" })).toBeInTheDocument();
   });
 

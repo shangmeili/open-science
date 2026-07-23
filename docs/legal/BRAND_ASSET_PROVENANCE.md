@@ -8,11 +8,21 @@ public redistribution not yet cleared**.
 | Asset | AI4HEOR cloud / terminal / outcome-graph mark |
 | Provided by | Product owner in the local Codex project task |
 | Instruction date | 2026-07-19 |
-| Requested use | Replace the inherited Open Science UI logo and application icons |
+| Requested use | Replace the inherited Open Science UI logo |
 | Original supplied PNG SHA-256 | `e609c30638405db1044cdd5a5d18bf3174b48cb4c941a597aeec7cd541648dfb` |
 | Normalized UI WebP SHA-256 | `263cafd7f330a29f27d1669ddb8fded4534aaf9e25fdd4a43ebba9929c288516` |
-| Normalized 1024 px icon source SHA-256 | `31def11563b8988d16e4544570df24327a6fb408be6ee077c35eedeaa753c2cf` |
-| Transformation | Local deterministic alpha crop, proportional resize, transparent square padding, and Tauri icon generation |
+| Transformation | Local deterministic alpha crop, proportional resize, and transparent padding |
+| External upload | None |
+
+| Field | Record |
+| --- | --- |
+| Asset | AI4HEOR gradient evidence-stack application icon |
+| Provided by | Product owner in the local Codex project task |
+| Instruction date | 2026-07-23 |
+| Requested use | Replace the AI4HEOR application icon on macOS and Windows |
+| Original supplied PNG SHA-256 | `18b159cd77bcf117e3ef71336d25ee06dfba567c46426f92eab6fc79b97474e6` |
+| Normalized 1024 px icon source SHA-256 | `991c8f54035bb7207e006974aff364f6d6ea68ab8b87dd2c19c319bb235f101f` |
+| Transformation | Local proportional resize followed by standard Tauri PNG, ICNS, and ICO generation |
 | External upload | None |
 
 | Field | Record |

@@ -5,6 +5,7 @@
     "suffix": " を使用します。"
   },
   "pane": {
+    "title": "実行履歴",
     "subtitle": "このタスク",
     "closeAria": "実行を閉じる"
   },

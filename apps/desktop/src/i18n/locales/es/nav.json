@@ -36,6 +36,7 @@
     "pin": "Fijar",
     "unpin": "Quitar fijación",
     "rename": "Renombrar",
+    "reveal": "Mostrar en el administrador de archivos",
     "remove": "Quitar",
     "more": "Más",
     "removeTitle": "¿Quitar {{name}}?",
@@ -50,6 +51,8 @@
     "empty": "Aún no hay tareas.",
     "exampleTag": "ejemplo",
     "open": "Abrir tarea",
+    "rename": "Cambiar nombre de la tarea",
+    "renamePlaceholder": "Nombre de la tarea",
     "delete": "Eliminar tarea",
     "deleteAria": "Eliminar {{title}}",
     "running": "Trabajando"

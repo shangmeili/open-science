@@ -136,7 +136,7 @@
     "release": "Release"
   },
   "status": {
-    "approved": "Approved for this artifact",
+    "approved": "Confirmed for the current file",
     "awaiting": "Awaiting human review",
     "locked": "Previous gate required",
     "stale": "Prior approval targets an older artifact",
@@ -159,7 +159,9 @@
     "population": "Population",
     "intervention": "Intervention",
     "comparator": "Comparator",
+    "outcome": "Health outcome",
     "perspective": "Perspective",
+    "jurisdiction": "Jurisdiction",
     "horizon": "Time horizon",
     "horizonValue": "{{count}} years",
     "referenceCase": "Reference case",
@@ -944,18 +946,20 @@
     "runPartitionedSurvival": "Run partitioned survival"
   },
   "dialog": {
-    "approveTitle": "Approve {{gate}}?",
+    "approveTitle": "Review {{gate}}",
     "revokeTitle": "Revoke the stale artifact approval?",
-    "body": "This app-owned event records a local human assertion for artifact {{hash}}. The agent cannot create it.",
+    "body": "Check the research definition below before allowing the workflow to continue.",
+    "reviewFocus": "Confirm these items",
+    "hashNote": "File fingerprint {{hash}} only ensures that the reviewed content is not replaced afterward.",
     "actor": "Human reviewer",
     "actorPlaceholder": "Name or local reviewer label",
     "expectedReviewer": "The reviewer label is bound by the signed validation declaration. Correct the validation report if this identity is wrong.",
     "rationale": "Review rationale",
-    "rationalePlaceholder": "What you checked and why this gate can proceed",
-    "confirm": "I performed this review myself",
+    "rationalePlaceholder": "What you checked and why the current definition can proceed",
+    "confirm": "I checked the content shown above and confirm it can proceed",
     "confirmIndependent": "I am the declared independent reviewer and personally verified this package for its stated intended use",
     "confirmRelease": "I am the named release owner, reviewed the complete bound report and reproduced results, and accept this local release decision",
-    "approve": "Record approval",
+    "approve": "Record confirmation",
     "revoke": "Record revocation",
     "cancel": "Cancel"
   },
@@ -1051,7 +1055,7 @@
   },
   "toast": {
     "evidenceVerified": "Evidence review decision was recorded in the app-owned chain",
-    "approvalRecorded": "Human approval recorded",
+    "approvalRecorded": "Researcher confirmation recorded",
     "approvalRevoked": "Stale approval revoked",
     "runComplete": "Deterministic analysis complete",
     "uncertaintyRunComplete": "Uncertainty analysis complete",

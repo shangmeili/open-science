@@ -36,6 +36,7 @@
     "pin": "ピン留め",
     "unpin": "ピン留めを解除",
     "rename": "名前を変更",
+    "reveal": "ファイルマネージャーで表示",
     "remove": "削除",
     "more": "その他",
     "removeTitle": "{{name}} を削除しますか?",
@@ -50,6 +51,8 @@
     "empty": "タスクはまだありません。",
     "exampleTag": "例",
     "open": "タスクを開く",
+    "rename": "タスク名を変更",
+    "renamePlaceholder": "タスク名",
     "delete": "タスクを削除",
     "deleteAria": "{{title}} を削除",
     "running": "実行中"

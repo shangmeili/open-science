@@ -36,6 +36,7 @@
     "pin": "고정",
     "unpin": "고정 해제",
     "rename": "이름 바꾸기",
+    "reveal": "파일 관리자에서 보기",
     "remove": "제거",
     "more": "더 보기",
     "removeTitle": "{{name}} 제거?",
@@ -50,6 +51,8 @@
     "empty": "아직 작업이 없습니다.",
     "exampleTag": "예제",
     "open": "작업 열기",
+    "rename": "작업 이름 바꾸기",
+    "renamePlaceholder": "작업 이름",
     "delete": "작업 삭제",
     "deleteAria": "{{title}} 삭제",
     "running": "작업 중"

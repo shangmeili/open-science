@@ -5,6 +5,7 @@
     "suffix": " 기능을 사용합니다."
   },
   "pane": {
+    "title": "실행 기록",
     "subtitle": "이 작업",
     "closeAria": "실행 닫기"
   },

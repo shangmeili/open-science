@@ -4,7 +4,6 @@ import * as ContextMenu from "@radix-ui/react-context-menu";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
-  ArrowUpRight,
   ChevronRight,
   Files,
   FlaskConical,
@@ -13,13 +12,19 @@ import {
   FolderOpen,
   FolderTree,
   PanelLeft,
+  Pencil,
   Plus,
   Settings,
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { displaySessionTitle, useRuntimeStore } from "@/lib/runtime";
-import { pickFolder, renameProject, type ProjectInfo } from "@/lib/tauri";
+import {
+  openProjectFolder,
+  pickFolder,
+  renameProject,
+  type ProjectInfo,
+} from "@/lib/tauri";
 import {
   SIDEBAR_MAX,
   SIDEBAR_MIN,
@@ -76,6 +81,8 @@ export function Sidebar() {
     importProject,
     refreshProjects,
     deleteSession,
+    renameSession,
+    deleteProject,
   } = useRuntimeStore();
   const showUpdateBadge = useUpdateStore((s) => s.showBadge);
   const {
@@ -129,6 +136,7 @@ export function Sidebar() {
   const [importingProject, setImportingProject] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renamingTaskId, setRenamingTaskId] = useState<string | null>(null);
 
   const toggleProject = (id: string) =>
     setCollapsedProjects((prev) => {
@@ -196,6 +204,7 @@ export function Sidebar() {
     else looseRows.push(row);
   }
   const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
+  const [pendingProjectRemove, setPendingProjectRemove] = useState<ProjectInfo | null>(null);
 
   const importExistingProject = async () => {
     if (importingProject) return;
@@ -220,6 +229,19 @@ export function Sidebar() {
     if (location.pathname === row.to) navigate("/heor");
   };
 
+  const submitTaskRename = async (row: Row, name: string) => {
+    setRenamingTaskId(null);
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === row.title) return;
+    await renameSession(row.id, trimmed);
+  };
+
+  const confirmProjectRemove = () => {
+    const project = pendingProjectRemove;
+    setPendingProjectRemove(null);
+    if (project) void deleteProject(project.id);
+  };
+
   // With the overlay titlebar (macOS), reserve a draggable strip at the top so
   // the traffic lights don't overlap the logo and the window stays movable.
   const isMac = navigator.userAgent.includes("Mac");
@@ -227,14 +249,23 @@ export function Sidebar() {
 
   const width = dragWidth ?? sidebarWidth;
 
-  const sessionRow = (row: Row) => (
+  const sessionRow = (row: Row) => renamingTaskId === row.id ? (
+    <div key={row.to} className="py-0.5 pl-2 pr-1">
+      <InlineNameInput
+        defaultValue={row.title}
+        placeholder={t("history.renamePlaceholder")}
+        onSubmit={(value) => void submitTaskRename(row, value)}
+        onCancel={() => setRenamingTaskId(null)}
+      />
+    </div>
+  ) : (
     <ContextMenu.Root key={row.to}>
       <ContextMenu.Trigger asChild>
     <div className="group relative">
       <NavLink
         to={row.to}
         className={cn(
-          "flex items-center gap-2 rounded-input py-1 pl-2 pr-8 text-[13px] hover:bg-surface-2",
+          "flex items-center gap-2 rounded-input py-1 pl-2 pr-2 text-[13px] hover:bg-surface-2",
           location.pathname === row.to
             ? "bg-surface-2 text-text"
             : "text-text/90",
@@ -255,23 +286,16 @@ export function Sidebar() {
           </span>
         )}
       </NavLink>
-      <button
-        onClick={() => setPendingDelete(row)}
-        aria-label={t("history.deleteAria", { title: row.title })}
-        className="absolute right-1.5 top-1/2 hidden -translate-y-1/2 rounded p-1 text-muted hover:bg-border hover:text-error group-hover:block"
-      >
-        <Trash2 size={13} />
-      </button>
     </div>
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
         <ContextMenu.Content className="z-50 min-w-[180px] rounded-card border border-border bg-surface p-1 text-[13px] text-text shadow-pop">
           <ContextMenu.Item
-            onSelect={() => navigate(row.to)}
+            onSelect={() => setRenamingTaskId(row.id)}
             className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[highlighted]:bg-surface-2"
           >
-            <ArrowUpRight size={14} className="shrink-0 text-muted" />
-            {t("history.open")}
+            <Pencil size={14} className="shrink-0 text-muted" />
+            {t("history.rename")}
           </ContextMenu.Item>
           <ContextMenu.Separator className="my-1 h-px bg-border" />
           <ContextMenu.Item
@@ -464,6 +488,8 @@ export function Sidebar() {
                     />
                   </div>
                 ) : (
+                  <ContextMenu.Root>
+                  <ContextMenu.Trigger asChild>
                   <div className="group/project relative">
                     <button
                       onClick={() => toggleProject(p.id)}
@@ -523,6 +549,42 @@ export function Sidebar() {
                       </button>
                     </div>
                   </div>
+                  </ContextMenu.Trigger>
+                  <ContextMenu.Portal>
+                    <ContextMenu.Content className="z-50 min-w-[190px] rounded-card border border-border bg-surface p-1 text-[13px] text-text shadow-pop">
+                      <ContextMenu.Item
+                        onSelect={() => void newSessionIn(p)}
+                        className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[highlighted]:bg-surface-2"
+                      >
+                        <Plus size={14} className="shrink-0 text-muted" />
+                        {t("items.new")}
+                      </ContextMenu.Item>
+                      <ContextMenu.Item
+                        onSelect={() => setRenamingId(p.id)}
+                        className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[highlighted]:bg-surface-2"
+                      >
+                        <Pencil size={14} className="shrink-0 text-muted" />
+                        {t("projects.rename")}
+                      </ContextMenu.Item>
+                      <ContextMenu.Item
+                        disabled={isGatewayWeb}
+                        onSelect={() => void openProjectFolder(p.id)}
+                        className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[disabled]:opacity-40 data-[highlighted]:bg-surface-2"
+                      >
+                        <FolderOpen size={14} className="shrink-0 text-muted" />
+                        {t("projects.reveal")}
+                      </ContextMenu.Item>
+                      <ContextMenu.Separator className="my-1 h-px bg-border" />
+                      <ContextMenu.Item
+                        onSelect={() => setPendingProjectRemove(p)}
+                        className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 text-error outline-none data-[highlighted]:bg-error/10"
+                      >
+                        <Trash2 size={14} className="shrink-0" />
+                        {t("projects.remove")}
+                      </ContextMenu.Item>
+                    </ContextMenu.Content>
+                  </ContextMenu.Portal>
+                  </ContextMenu.Root>
                 )}
                 <div
                   className={cn(
@@ -586,6 +648,15 @@ export function Sidebar() {
             }
             onConfirm={confirmDelete}
             onCancel={() => setPendingDelete(null)}
+          />
+        )}
+        {pendingProjectRemove && (
+          <ConfirmDialog
+            title={t("projects.removeTitle", { name: pendingProjectRemove.name })}
+            body={t("projects.removeBody")}
+            confirmLabel={t("projects.remove")}
+            onConfirm={confirmProjectRemove}
+            onCancel={() => setPendingProjectRemove(null)}
           />
         )}
         </>

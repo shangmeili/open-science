@@ -60,6 +60,7 @@ const mocks = vi.hoisted(() => ({
   sendPrompt: vi.fn(),
   replyPermission: vi.fn(),
   abortSession: vi.fn(),
+  renameSession: vi.fn(),
   revert: vi.fn(),
   failReverts: 0,
   /** SSE events the real server streams back DURING an abort POST's await — an
@@ -224,6 +225,9 @@ vi.mock("@ai4s/sdk", () => {
       // the guard must already be set before the await, not after it.
       for (const e of mocks.abortTrailing) mocks.fireEvent(e);
     }
+    async renameSession(sid: string, title: string) {
+      mocks.renameSession(sid, title);
+    }
     async revert(sid: string, messageID: string) {
       mocks.revert(sid, messageID);
       if (mocks.failReverts > 0) {
@@ -290,6 +294,7 @@ beforeEach(async () => {
     workspace: PROJECT.path,
     workspacePinned: false,
     projects: [PROJECT],
+    sessions: [],
     researchScope: PROJECT,
     threads: {},
     error: null,
@@ -349,6 +354,21 @@ describe("runtime authentication", () => {
 });
 
 describe("project and standalone conversations", () => {
+  it("renames a task through the runtime and updates its sidebar metadata", async () => {
+    useRuntimeStore.setState({
+      sessions: [{ id: "ses_1", title: "Old title", directory: PROJECT.path }],
+    });
+
+    await useRuntimeStore.getState().renameSession("ses_1", "Updated CEA review");
+
+    expect(mocks.renameSession).toHaveBeenCalledWith("ses_1", "Updated CEA review");
+    expect(useRuntimeStore.getState().sessions).toContainEqual({
+      id: "ses_1",
+      title: "Updated CEA review",
+      directory: PROJECT.path,
+    });
+  });
+
   it("adds a newly created project before switching into it", async () => {
     useRuntimeStore.setState({ projects: [], workspacePinned: false });
     const created = await useRuntimeStore.getState().createProject("Created Project");

@@ -194,6 +194,7 @@ interface RuntimeState {
   /** Switch to an existing project or legacy session folder. */
   switchWorkspace: (target: { path: string }) => Promise<void>;
   openSession: (id: string) => Promise<void>;
+  renameSession: (id: string, title: string) => Promise<void>;
   sendPrompt: (text: string, displayText?: string) => Promise<string | null>;
   /** Run a "!" shell command directly in the session's workspace folder —
    *  no model turn; the output folds into the thread as a bash tool row. */
@@ -1524,6 +1525,30 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
             blocks: [{ kind: "status-line", text: `Failed to load messages: ${msg}`, tone: "error" }],
           },
         },
+      }));
+    }
+  },
+
+  renameSession: async (id, title) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const previous = get().sessions.find((session) => session.id === id)?.title;
+    set((state) => ({
+      sessions: state.sessions.map((session) =>
+        session.id === id ? { ...session, title: trimmed } : session,
+      ),
+    }));
+    if (!client) return;
+    try {
+      await client.renameSession(id, trimmed);
+    } catch (error) {
+      set((state) => ({
+        sessions: state.sessions.map((session) =>
+          session.id === id && previous !== undefined
+            ? { ...session, title: previous }
+            : session,
+        ),
+        error: error instanceof Error ? error.message : String(error),
       }));
     }
   },

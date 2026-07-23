@@ -323,6 +323,16 @@ export class OpenCodeClient implements AgentRuntime {
     }));
   }
 
+  /** Rename a session through OpenCode's session-properties endpoint. */
+  async renameSession(sessionId: string, title: string): Promise<void> {
+    const res = await this.fetchImpl(`${this.baseUrl}/session/${encodeURIComponent(sessionId)}`, {
+      method: "PATCH",
+      headers: this.headers(true),
+      body: JSON.stringify({ title }),
+    });
+    if (!res.ok) throw await this.apiError(res, "Failed to rename session");
+  }
+
   /** Delete a session. */
   async deleteSession(sessionId: string): Promise<void> {
     const res = await this.fetchImpl(`${this.baseUrl}/session/${encodeURIComponent(sessionId)}`, {

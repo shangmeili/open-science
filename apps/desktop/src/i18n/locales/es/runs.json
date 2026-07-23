@@ -5,6 +5,7 @@
     "suffix": " cuando necesites comprobar un resultado."
   },
   "pane": {
+    "title": "Historial de ejecuciones",
     "subtitle": "esta tarea",
     "closeAria": "Cerrar ejecuciones"
   },
