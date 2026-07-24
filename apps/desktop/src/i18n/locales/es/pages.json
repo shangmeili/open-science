@@ -167,6 +167,15 @@
         "primary": "principal",
         "subagent": "subagente",
         "all": "todos"
+      },
+      "catalog": {
+        "build": "Ejecuta la tarea actual y puede leer archivos, usar herramientas y modificar el proyecto dentro de los permisos configurados.",
+        "compaction": "Resume el contexto de una tarea larga conservando su objetivo, decisiones clave y progreso para los pasos posteriores.",
+        "explore": "Busca archivos, código y estructura del proyecto en modo de solo lectura para orientarse con rapidez; no realiza cambios.",
+        "general": "Gestiona tareas generales de investigación, análisis y varios pasos, y puede coordinar subtareas cuando sea necesario.",
+        "plan": "Aclara el objetivo, las dependencias y los pasos de ejecución sin modificar archivos.",
+        "summary": "Resume los resultados, evidencias, cuestiones pendientes y próximos pasos de la tarea.",
+        "title": "Genera un título breve y reconocible a partir del contenido de la tarea."
       }
     },
     "skillsListSection": {

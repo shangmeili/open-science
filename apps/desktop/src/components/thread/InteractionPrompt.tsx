@@ -53,6 +53,14 @@ export function InteractionPrompt({
 /** "external_directory" → "external directory" — readable, still explicit. */
 const actionLabel = (action: string) => action.replace(/[_-]+/g, " ");
 
+// Question options are tool arguments authored by the active model, not app
+// copy. Keep the raw event in runtime state for audit, but do not render an
+// obviously corrupted description as if it were a meaningful Human choice.
+const repeatedPunctuation = /([\\`~|,，、.。;；:：'"“”‘’])(?:\s*\1){7,}/u;
+const usableOptionDescription = (value?: string) => (
+  Boolean(value?.trim()) && value!.length <= 2_000 && !repeatedPunctuation.test(value!)
+);
+
 function QuestionCard({
   question,
   origin,
@@ -115,6 +123,7 @@ function QuestionCard({
               <div className="flex flex-col gap-1.5">
                 {it.options.map((opt) => {
                   const on = selected[qi]?.has(opt.label) ?? false;
+                  const descriptionUsable = usableOptionDescription(opt.description);
                   const act = () =>
                     isQuickPick
                       ? onAnswer(question.requestId, [[opt.label]])
@@ -140,9 +149,14 @@ function QuestionCard({
                       </span>
                       <span className="min-w-0">
                         <span className="block text-[13px] font-medium text-text">{opt.label}</span>
-                        {opt.description && (
+                        {descriptionUsable && (
                           <span className="mt-0.5 block text-xs leading-snug text-muted">
                             {opt.description}
+                          </span>
+                        )}
+                        {opt.description && !descriptionUsable && (
+                          <span className="mt-0.5 block text-xs leading-snug text-warn">
+                            {t("interaction.question.invalidDescription")}
                           </span>
                         )}
                       </span>

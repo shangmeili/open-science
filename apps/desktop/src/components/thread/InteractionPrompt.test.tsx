@@ -53,6 +53,26 @@ describe("InteractionPrompt — question", () => {
     await userEvent.click(screen.getByText("Skip"));
     expect(onReject).toHaveBeenCalledWith("que_1");
   });
+
+  it("hides a corrupted model-generated option description without changing its label", () => {
+    const corrupted: QuestionAskedEvent = {
+      ...singleQ,
+      requestId: "que_corrupted",
+      questions: [{
+        ...singleQ.questions[0],
+        options: [{
+          label: "Natural-history comparator",
+          description: "\\ ".repeat(40),
+        }],
+      }],
+    };
+
+    render(<InteractionPrompt question={corrupted} onAnswer={noop} onReject={noop} onPermission={noop} />);
+
+    expect(screen.getByText("Natural-history comparator")).toBeInTheDocument();
+    expect(screen.queryByText(corrupted.questions[0].options[0].description!)).not.toBeInTheDocument();
+    expect(screen.getByText("The model returned an invalid option description, so it was hidden.")).toBeInTheDocument();
+  });
 });
 
 describe("InteractionPrompt — permission", () => {

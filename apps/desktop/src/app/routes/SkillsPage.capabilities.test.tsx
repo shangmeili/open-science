@@ -41,6 +41,41 @@ afterEach(async () => {
 });
 
 describe("SkillsPage project capability review", () => {
+  it("explains each admitted Open Science skill instead of repeating only a generic boundary", async () => {
+    await act(async () => {
+      useUiStore.getState().setLocale("zh-Hans");
+      await i18n.changeLanguage("zh-Hans");
+    });
+    mocks.auditAssetAdmission.mockResolvedValue({
+      complete: true,
+      failClosed: false,
+      schemaVersion: "1.1.0",
+      policyRevision: "2026-07-20",
+      totalCount: 1,
+      admittedCount: 1,
+      assets: [{
+        assetId: "ai4s-research/ai4s-agent",
+        displayName: "AI4S Agent",
+        kind: "skill",
+        status: "validated-adapter",
+        releaseEligible: true,
+        repository: "https://github.com/ai4s-research/ai4s-skills",
+        revision: "8fa2ab0",
+        licenseSpdx: "MIT",
+        licenseCompatible: true,
+        networkEgress: "current-task-permission-mode-only",
+        execution: "instruction-only-under-existing-tool-permissions",
+        blockers: [],
+      }],
+      errors: [],
+    });
+
+    renderAt("/skills");
+
+    expect(await screen.findByText("AI4S Agent")).toBeInTheDocument();
+    expect(screen.getByText(/协调通用的方向探索、文献综述、实验和论文草稿/)).toBeInTheDocument();
+  });
+
   it("shows only completed external adapters and no retired source options", async () => {
     mocks.auditSkillCandidates.mockResolvedValue({
       projectAvailable: false,

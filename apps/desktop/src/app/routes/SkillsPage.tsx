@@ -235,7 +235,13 @@ export function SkillsPage() {
                   <div className="bg-surface-2 px-4 py-2 text-xs font-medium text-text">
                     {t("skills.assetAdmission.groupAdmitted")}
                   </div>
-                  {admission.assets.map((asset) => <AdmissionRow key={asset.assetId} asset={asset} />)}
+                  {admission.assets.map((asset) => (
+                    <AdmissionRow
+                      key={asset.assetId}
+                      asset={asset}
+                      locale={i18n.resolvedLanguage}
+                    />
+                  ))}
                 </div>
               )}
             </>
@@ -312,7 +318,10 @@ export function SkillsPage() {
               {agents.map((a) => {
                 const mode = modeOf(a.mode);
                 const modeLabel = mode ? t(`skills.agentsSection.agentMode.${mode}`) : a.mode;
-                return <RowItem key={a.name} name={a.name} desc={a.description} tag={modeLabel} />;
+                const description = t(`skills.agentsSection.catalog.${a.name}`, {
+                  defaultValue: a.description,
+                });
+                return <RowItem key={a.name} name={a.name} desc={description} tag={modeLabel} />;
               })}
             </Section>
             <Section title={t("skills.skillsListSection.sectionTitle")} icon={<Puzzle size={15} />}>
@@ -692,8 +701,16 @@ function RowItem({
   );
 }
 
-function AdmissionRow({ asset }: { asset: AssetAdmissionRecord }) {
+function AdmissionRow({
+  asset,
+  locale,
+}: {
+  asset: AssetAdmissionRecord;
+  locale: string | null | undefined;
+}) {
   const { t } = useTranslation("pages");
+  const skillName = asset.assetId.split("/").slice(-1)[0] ?? asset.assetId;
+  const copy = localizeSkill(skillName, "", locale);
   return (
     <div className="flex items-start gap-3 px-4 py-3">
       <Check size={16} className="mt-0.5 shrink-0 text-ok" />
@@ -705,7 +722,10 @@ function AdmissionRow({ asset }: { asset: AssetAdmissionRecord }) {
           </span>
           <span className="font-mono text-[11px] text-muted">{asset.licenseSpdx}</span>
         </div>
-        <p className="mt-2 text-xs leading-5 text-muted">{t("skills.assetAdmission.adapterBoundary")}</p>
+        <p className="mt-1 text-xs leading-5 text-muted">{copy.description}</p>
+        <p className="mt-1 text-[11px] leading-5 text-muted/80">
+          {t("skills.assetAdmission.adapterBoundary")}
+        </p>
       </div>
     </div>
   );

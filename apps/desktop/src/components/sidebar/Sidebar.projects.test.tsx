@@ -100,6 +100,36 @@ describe("Sidebar projects", () => {
     expect(renameSession).toHaveBeenCalledWith("task-1", "Updated CEA review");
   });
 
+  it("opens a task action menu at the visible more button instead of the window origin", async () => {
+    useRuntimeStore.setState({
+      projects: [],
+      sessions: [{ id: "task-1", title: "CEA review", directory: "/base/task-1" }],
+    });
+    renderAt("/files");
+
+    const button = await screen.findByRole("button", { name: "More: CEA review" });
+    vi.spyOn(button, "getBoundingClientRect").mockReturnValue({
+      x: 190,
+      y: 260,
+      left: 190,
+      top: 260,
+      right: 214,
+      bottom: 284,
+      width: 24,
+      height: 24,
+      toJSON: () => ({}),
+    });
+    const anchor = button.closest("[data-sidebar-context-anchor]");
+    const contextEvent = vi.fn();
+    anchor?.addEventListener("contextmenu", contextEvent);
+
+    await userEvent.click(button);
+
+    expect(contextEvent).toHaveBeenCalledTimes(1);
+    expect(contextEvent.mock.calls[0][0]).toMatchObject({ clientX: 214, clientY: 284 });
+    expect(await screen.findByRole("menuitem", { name: "Rename task" })).toBeInTheDocument();
+  });
+
   it("uses a Codex-style project menu instead of the host browser menu", async () => {
     useRuntimeStore.setState({ projects: [PROJECT], sessions: [] });
     renderAt("/files");
@@ -114,6 +144,33 @@ describe("Sidebar projects", () => {
     expect(screen.getByRole("menuitem", { name: "Remove" })).toBeInTheDocument();
     expect(screen.queryByText("Back")).not.toBeInTheDocument();
     expect(screen.queryByText("Reload")).not.toBeInTheDocument();
+  });
+
+  it("opens a project action menu at the visible more button instead of the window origin", async () => {
+    useRuntimeStore.setState({ projects: [PROJECT], sessions: [] });
+    renderAt("/files");
+
+    const button = await screen.findByRole("button", { name: `More: ${PROJECT.name}` });
+    vi.spyOn(button, "getBoundingClientRect").mockReturnValue({
+      x: 188,
+      y: 206,
+      left: 188,
+      top: 206,
+      right: 212,
+      bottom: 230,
+      width: 24,
+      height: 24,
+      toJSON: () => ({}),
+    });
+    const anchor = button.closest("[data-sidebar-context-anchor]");
+    const contextEvent = vi.fn();
+    anchor?.addEventListener("contextmenu", contextEvent);
+
+    await userEvent.click(button);
+
+    expect(contextEvent).toHaveBeenCalledTimes(1);
+    expect(contextEvent.mock.calls[0][0]).toMatchObject({ clientX: 212, clientY: 230 });
+    expect(await screen.findByRole("menuitem", { name: "Rename" })).toBeInTheDocument();
   });
 
   it("switches the single task side pane between research review and analysis history", async () => {

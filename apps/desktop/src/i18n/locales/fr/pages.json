@@ -167,6 +167,15 @@
         "primary": "principal",
         "subagent": "sous-agent",
         "all": "tous"
+      },
+      "catalog": {
+        "build": "Exécute la tâche en cours et peut lire des fichiers, utiliser des outils et modifier le projet dans les limites des autorisations configurées.",
+        "compaction": "Condense le contexte d’une tâche longue tout en conservant son objectif, ses décisions clés et son avancement pour la suite.",
+        "explore": "Recherche en lecture seule des fichiers, du code et la structure du projet pour s’orienter rapidement ; aucune modification n’est effectuée.",
+        "general": "Traite les travaux généraux de recherche, d’analyse et en plusieurs étapes, et peut coordonner des sous-tâches si nécessaire.",
+        "plan": "Clarifie l’objectif, les dépendances et les étapes d’exécution sans modifier les fichiers.",
+        "summary": "Résume les principaux résultats, les éléments probants, les questions en suspens et les prochaines actions.",
+        "title": "Génère un titre court et identifiable à partir du contenu de la tâche."
       }
     },
     "skillsListSection": {

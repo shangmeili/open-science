@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -38,6 +38,20 @@ import { visibleSections, resolveSection } from "@/components/settings/sections"
 import { isGatewayWeb } from "@/lib/webMode";
 import { StatusPills } from "./StatusPills";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+
+function openContextMenuFromButton(event: ReactMouseEvent<HTMLButtonElement>) {
+  event.preventDefault();
+  event.stopPropagation();
+  const anchor = event.currentTarget.closest("[data-sidebar-context-anchor]");
+  if (!anchor) return;
+  const rect = event.currentTarget.getBoundingClientRect();
+  anchor.dispatchEvent(new MouseEvent("contextmenu", {
+    bubbles: true,
+    cancelable: true,
+    clientX: rect.right,
+    clientY: rect.bottom,
+  }));
+}
 
 interface Row {
   id: string;
@@ -262,7 +276,7 @@ export function Sidebar() {
   ) : (
     <ContextMenu.Root key={row.to}>
       <ContextMenu.Trigger asChild>
-    <div className="group relative">
+    <div className="group relative" data-sidebar-context-anchor>
       <NavLink
         to={row.to}
         className={cn(
@@ -287,40 +301,15 @@ export function Sidebar() {
           </span>
         )}
       </NavLink>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <button
-            type="button"
-            aria-label={`${t("projects.more")}: ${row.title}`}
-            title={t("projects.more")}
-            className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-1 text-muted hover:bg-border hover:text-text group-hover:block focus:block"
-          >
-            <MoreHorizontal size={14} />
-          </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content
-            align="start"
-            className="z-50 min-w-[180px] rounded-card border border-border bg-surface p-1 text-[13px] text-text shadow-pop"
-          >
-            <DropdownMenu.Item
-              onSelect={() => setRenamingTaskId(row.id)}
-              className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[highlighted]:bg-surface-2"
-            >
-              <Pencil size={14} className="shrink-0 text-muted" />
-              {t("history.rename")}
-            </DropdownMenu.Item>
-            <DropdownMenu.Separator className="my-1 h-px bg-border" />
-            <DropdownMenu.Item
-              onSelect={() => setPendingDelete(row)}
-              className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 text-error outline-none data-[highlighted]:bg-error/10"
-            >
-              <Trash2 size={14} className="shrink-0" />
-              {t("history.delete")}
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+      <button
+        type="button"
+        aria-label={`${t("projects.more")}: ${row.title}`}
+        title={t("projects.more")}
+        onClick={openContextMenuFromButton}
+        className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-1 text-muted hover:bg-border hover:text-text group-hover:block focus:block"
+      >
+        <MoreHorizontal size={14} />
+      </button>
     </div>
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
@@ -538,7 +527,7 @@ export function Sidebar() {
                 ) : (
                   <ContextMenu.Root>
                   <ContextMenu.Trigger asChild>
-                  <div className="group/project relative">
+                  <div className="group/project relative" data-sidebar-context-anchor>
                     <button
                       onClick={() => toggleProject(p.id)}
                       aria-expanded={open}
@@ -595,55 +584,15 @@ export function Sidebar() {
                       >
                         <Plus size={13} />
                       </button>
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                          <button
-                            type="button"
-                            aria-label={`${t("projects.more")}: ${p.name}`}
-                            title={t("projects.more")}
-                            className="hidden rounded p-1 text-muted hover:bg-border hover:text-text group-hover/project:block focus:block"
-                          >
-                            <MoreHorizontal size={13} />
-                          </button>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Portal>
-                          <DropdownMenu.Content
-                            align="end"
-                            className="z-50 min-w-[190px] rounded-card border border-border bg-surface p-1 text-[13px] text-text shadow-pop"
-                          >
-                            <DropdownMenu.Item
-                              onSelect={() => void newSessionIn(p)}
-                              className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[highlighted]:bg-surface-2"
-                            >
-                              <Plus size={14} className="shrink-0 text-muted" />
-                              {t("items.new")}
-                            </DropdownMenu.Item>
-                            <DropdownMenu.Item
-                              onSelect={() => setRenamingId(p.id)}
-                              className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[highlighted]:bg-surface-2"
-                            >
-                              <Pencil size={14} className="shrink-0 text-muted" />
-                              {t("projects.rename")}
-                            </DropdownMenu.Item>
-                            <DropdownMenu.Item
-                              disabled={isGatewayWeb}
-                              onSelect={() => void openProjectFolder(p.id)}
-                              className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[disabled]:opacity-40 data-[highlighted]:bg-surface-2"
-                            >
-                              <FolderOpen size={14} className="shrink-0 text-muted" />
-                              {t("projects.reveal")}
-                            </DropdownMenu.Item>
-                            <DropdownMenu.Separator className="my-1 h-px bg-border" />
-                            <DropdownMenu.Item
-                              onSelect={() => setPendingProjectRemove(p)}
-                              className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 text-error outline-none data-[highlighted]:bg-error/10"
-                            >
-                              <Trash2 size={14} className="shrink-0" />
-                              {t("projects.remove")}
-                            </DropdownMenu.Item>
-                          </DropdownMenu.Content>
-                        </DropdownMenu.Portal>
-                      </DropdownMenu.Root>
+                      <button
+                        type="button"
+                        aria-label={`${t("projects.more")}: ${p.name}`}
+                        title={t("projects.more")}
+                        onClick={openContextMenuFromButton}
+                        className="hidden rounded p-1 text-muted hover:bg-border hover:text-text group-hover/project:block focus:block"
+                      >
+                        <MoreHorizontal size={13} />
+                      </button>
                     </div>
                   </div>
                   </ContextMenu.Trigger>

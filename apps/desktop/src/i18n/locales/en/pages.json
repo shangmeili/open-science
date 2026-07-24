@@ -245,6 +245,15 @@
         "primary": "primary",
         "subagent": "subagent",
         "all": "all"
+      },
+      "catalog": {
+        "build": "Executes the current task and may read files, run tools, and modify project content within the configured permissions.",
+        "compaction": "Condenses the context of a long task while preserving its goal, key decisions, and current progress for later steps.",
+        "explore": "Finds files, code, and project structure in read-only mode for fast orientation; it does not make changes.",
+        "general": "Handles general research, analysis, and multi-step work and may coordinate subtasks when needed.",
+        "plan": "Clarifies the goal, dependencies, and execution steps without modifying files.",
+        "summary": "Summarizes the task's key results, evidence, unresolved questions, and next actions.",
+        "title": "Generates a concise task title from the task content."
       }
     },
     "skillsListSection": {

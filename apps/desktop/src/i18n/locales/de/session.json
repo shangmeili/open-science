@@ -261,7 +261,8 @@
   "interaction": {
     "question": {
       "heading": "Der Agent benötigt Ihre Eingabe",
-      "customPlaceholder": "Oder geben Sie Ihre eigene Antwort ein…"
+      "customPlaceholder": "Oder geben Sie Ihre eigene Antwort ein…",
+      "invalidDescription": "Das Modell lieferte eine ungültige Optionsbeschreibung; sie wurde ausgeblendet."
     },
     "permission": {
       "heading": "Der Agent bittet um Erlaubnis:"

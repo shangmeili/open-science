@@ -167,6 +167,15 @@
         "primary": "primär",
         "subagent": "Subagent",
         "all": "alle"
+      },
+      "catalog": {
+        "build": "Führt die aktuelle Aufgabe aus und darf innerhalb der konfigurierten Berechtigungen Dateien lesen, Werkzeuge ausführen und Projektinhalte ändern.",
+        "compaction": "Verdichtet den Kontext einer langen Aufgabe und bewahrt Ziel, wichtige Entscheidungen und aktuellen Fortschritt für weitere Schritte.",
+        "explore": "Sucht schreibgeschützt nach Dateien, Code und Projektstruktur zur schnellen Orientierung; es nimmt keine Änderungen vor.",
+        "general": "Bearbeitet allgemeine Forschungs-, Analyse- und mehrstufige Aufgaben und kann bei Bedarf Teilaufgaben koordinieren.",
+        "plan": "Klärt Ziel, Abhängigkeiten und Ausführungsschritte, ohne Dateien zu ändern.",
+        "summary": "Fasst zentrale Ergebnisse, Belege, offene Fragen und nächste Schritte der Aufgabe zusammen.",
+        "title": "Erzeugt aus dem Aufgabeninhalt einen kurzen, gut erkennbaren Titel."
       }
     },
     "skillsListSection": {

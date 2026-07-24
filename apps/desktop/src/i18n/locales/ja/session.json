@@ -253,7 +253,8 @@
   "interaction": {
     "question": {
       "heading": "エージェントが入力を必要としています",
-      "customPlaceholder": "または自分で回答を入力…"
+      "customPlaceholder": "または自分で回答を入力…",
+      "invalidDescription": "モデルが不正な選択肢の説明を返したため、非表示にしました。"
     },
     "permission": {
       "heading": "エージェントが許可を求めています："

@@ -153,6 +153,24 @@
     "hint": "使用内置证据检索，也可以连接自己管理的 MCP 工具",
     "connectPrompt": "连接本地服务后即可配置 MCP 工具。",
     "openSource": "开源",
+    "serverSummary": "{{type}} · {{status}}",
+    "serverStatus": {
+      "connected": "已连接",
+      "failed": "连接失败",
+      "pending": "正在连接",
+      "disabled": "已停用"
+    },
+    "customServerDescription": "这是您自行添加的 MCP 服务。可用能力、发送的数据和凭据使用方式由该服务及当前权限共同决定。",
+    "connectorCatalog": {
+      "paper-search": { "label": "文献检索", "discipline": "通用科研", "description": "检索并获取 arXiv、PubMed、Crossref、Semantic Scholar、bioRxiv 和 medRxiv 的论文元数据。" },
+      "biomcp": { "label": "生物医学数据库", "discipline": "生物医学", "description": "查询 PubMed 文献、ClinicalTrials.gov 试验及 MyVariant、ClinVar 变异信息。" },
+      "materials-project": { "label": "材料数据库", "discipline": "材料科学", "description": "查询 Materials Project 的材料性质、晶体结构和相图。", "installNote": "首次启用会安装 pymatgen 和 mp-api，下载量较大" },
+      "fred": { "label": "FRED 经济数据", "discipline": "经济学", "description": "查询美联储公开经济时间序列，包括 GDP、通胀、失业率和利率；需要免费的 FRED API 密钥。" },
+      "spaceweather": { "label": "空间天气", "discipline": "空间物理", "description": "查询太阳风、耀斑、地磁指数、辐射风暴和极光预报。" },
+      "open-meteo": { "label": "天气与气候", "discipline": "地球与气候", "description": "查询 Open-Meteo 当前及历史天气、空气质量和时区数据。" },
+      "usgs-water": { "label": "USGS 水文数据", "discipline": "地球与气候", "description": "查询美国地质调查局的流量、洪水水位、峰值事件和监测站点。" },
+      "browser-control": { "label": "浏览器控制", "discipline": "浏览器", "description": "让助手在受控浏览器中打开网页、点击、填写表单和读取页面；是否复用登录状态由浏览器设置决定。" }
+    },
     "enterKeyFirstTitle": "请先输入 API 密钥",
     "settingUp": "正在设置…",
     "enable": "启用",

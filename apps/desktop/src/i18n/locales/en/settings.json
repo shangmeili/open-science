@@ -154,6 +154,24 @@
     "hint": "Built-in HEOR evidence access plus optional researcher-managed MCP servers",
     "connectPrompt": "Connect the runtime to configure MCP servers.",
     "openSource": "open source",
+    "serverSummary": "{{type}} · {{status}}",
+    "serverStatus": {
+      "connected": "connected",
+      "failed": "connection failed",
+      "pending": "connecting",
+      "disabled": "disabled"
+    },
+    "customServerDescription": "This MCP service was added by you. Its provider and the current permissions determine its capabilities, transmitted data, and credential use.",
+    "connectorCatalog": {
+      "paper-search": { "label": "Paper search", "discipline": "general research", "description": "Search and retrieve paper metadata from arXiv, PubMed, Crossref, Semantic Scholar, bioRxiv, and medRxiv." },
+      "biomcp": { "label": "Biomedical databases", "discipline": "biomedicine", "description": "Query PubMed papers, ClinicalTrials.gov studies, and MyVariant and ClinVar variant records." },
+      "materials-project": { "label": "Materials database", "discipline": "materials science", "description": "Query Materials Project properties, crystal structures, and phase diagrams.", "installNote": "First setup installs pymatgen and mp-api and requires a larger download" },
+      "fred": { "label": "FRED economic data", "discipline": "economics", "description": "Query public Federal Reserve time series including GDP, inflation, unemployment, and interest rates; a free FRED API key is required." },
+      "spaceweather": { "label": "Space weather", "discipline": "space physics", "description": "Query solar wind, flares, geomagnetic indices, radiation storms, and aurora forecasts." },
+      "open-meteo": { "label": "Weather and climate", "discipline": "earth and climate", "description": "Query Open-Meteo current and historical weather, air quality, and timezone data." },
+      "usgs-water": { "label": "USGS water data", "discipline": "earth and climate", "description": "Query USGS streamflow, flood stages, peak events, and monitoring sites." },
+      "browser-control": { "label": "Browser control", "discipline": "browser", "description": "Let the assistant open pages, click, fill forms, and read content in a controlled browser; browser settings determine whether login state is reused." }
+    },
     "enterKeyFirstTitle": "Enter the API key first",
     "settingUp": "Setting up…",
     "enable": "Enable",

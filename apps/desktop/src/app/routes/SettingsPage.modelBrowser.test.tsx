@@ -127,12 +127,31 @@ describe("Settings model browser integration", () => {
 
     await renderSettings("connectors");
 
-    expect(await screen.findByText("local · failed")).toBeInTheDocument();
+    expect(await screen.findByText("local · connection failed")).toBeInTheDocument();
     await waitFor(
       () => expect(screen.getByText("local · connected")).toBeInTheDocument(),
       { timeout: 2_500 },
     );
     expect(listMcpServers).toHaveBeenCalledTimes(2);
+  });
+
+  it("explains a connected Open Science connector in the selected language", async () => {
+    await i18n.changeLanguage("zh-Hans");
+    const client = catalogClient();
+    (client as unknown as { listMcpServers: ReturnType<typeof vi.fn> }).listMcpServers = vi.fn().mockResolvedValue([
+      {
+        name: "biomcp",
+        status: "connected",
+        config: { type: "local", command: ["python", "-m", "biomcp"] },
+      },
+    ]);
+    vi.spyOn(runtime, "getClient").mockReturnValue(client);
+
+    await renderSettings("connectors");
+
+    expect(await screen.findByText("生物医学数据库")).toBeInTheDocument();
+    expect(screen.getByText("本地 · 已连接")).toBeInTheDocument();
+    expect(screen.getByText(/查询 PubMed 文献、ClinicalTrials\.gov 试验/)).toBeInTheDocument();
   });
 
   it("shows the connect prompt when the runtime errors before any model switch happened", async () => {

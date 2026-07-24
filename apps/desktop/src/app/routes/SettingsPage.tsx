@@ -1026,6 +1026,20 @@ export function SettingsPage() {
                 ).map((connector) => {
                   const keyMissing = Boolean(connector.apiKeyEnv)
                     && !connectorKeys[connector.id]?.trim();
+                  const label = t(`mcp.connectorCatalog.${connector.id}.label`, {
+                    defaultValue: connector.label,
+                  });
+                  const discipline = t(`mcp.connectorCatalog.${connector.id}.discipline`, {
+                    defaultValue: connector.discipline,
+                  });
+                  const description = t(`mcp.connectorCatalog.${connector.id}.description`, {
+                    defaultValue: connector.description,
+                  });
+                  const installNote = connector.installNote
+                    ? t(`mcp.connectorCatalog.${connector.id}.installNote`, {
+                        defaultValue: connector.installNote,
+                      })
+                    : undefined;
                   return (
                     <div
                       key={connector.id}
@@ -1034,17 +1048,17 @@ export function SettingsPage() {
                       <div className="flex items-center gap-2.5">
                         <Search size={14} className="shrink-0 text-[var(--series-1)]" />
                         <div className="min-w-0 flex-1">
-                          <span className="font-medium text-text">{connector.label}</span>
+                          <span className="font-medium text-text">{label}</span>
                           <span className="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
-                            {connector.discipline}
+                            {discipline}
                           </span>
                           <span className="ml-1.5 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
                             {t("mcp.openSource")}
                           </span>
-                          <div className="truncate text-xs text-muted">{connector.description}</div>
+                          <div className="text-xs leading-5 text-muted">{description}</div>
                           <div className="truncate font-mono text-[11px] text-muted/70">
                             {connector.source}
-                            {connector.installNote ? ` · ${connector.installNote}` : ""}
+                            {installNote ? ` · ${installNote}` : ""}
                           </div>
                         </div>
                         <button
@@ -1147,44 +1161,68 @@ export function SettingsPage() {
                   </span>
                 </div>
               )}
-              {mcpServers.map((s, i) => (
-                <div
-                  key={s.name}
-                  className={cn(
-                    "flex h-10 items-center gap-2.5 bg-surface px-3 text-[13px]",
-                    i > 0 && "border-t border-border",
-                  )}
-                >
-                  <span
+              {mcpServers.map((s, i) => {
+                const connector = SCIENCE_CONNECTORS.find((item) => item.id === s.name);
+                const fallbackDescription = s.name === "jupyter"
+                  ? t("mcp.jupyterDescription")
+                  : t("mcp.customServerDescription");
+                const label = t(`mcp.connectorCatalog.${s.name}.label`, {
+                  defaultValue: connector?.label ?? s.name,
+                });
+                const description = t(`mcp.connectorCatalog.${s.name}.description`, {
+                  defaultValue: connector?.description ?? fallbackDescription,
+                });
+                const type = s.config?.type === "local"
+                  ? t("mcp.typeLocal")
+                  : s.config?.type === "remote"
+                    ? t("mcp.typeRemote")
+                    : "?";
+                const status = t(`mcp.serverStatus.${s.status}`, { defaultValue: s.status });
+                const target = s.config?.type === "local"
+                  ? s.config.command.join(" ")
+                  : s.config?.type === "remote"
+                    ? s.config.url
+                    : "";
+                return (
+                  <div
+                    key={s.name}
                     className={cn(
-                      "h-1.5 w-1.5 shrink-0 rounded-full",
-                      s.status === "connected"
-                        ? "bg-ok"
-                        : s.status === "failed"
-                          ? "bg-error"
-                          : "bg-muted",
+                      "flex min-h-14 items-start gap-2.5 bg-surface px-3 py-2.5 text-[13px]",
+                      i > 0 && "border-t border-border",
                     )}
-                  />
-                  <span className="font-medium text-text">{s.name}</span>
-                  <span className="text-xs text-muted">
-                    {s.config?.type ?? "?"} · {s.status}
-                  </span>
-                  <span className="max-w-[260px] flex-1 truncate text-right font-mono text-[11px] text-muted/70">
-                    {s.config?.type === "local"
-                      ? s.config.command.join(" ")
-                      : s.config?.type === "remote"
-                        ? s.config.url
-                        : ""}
-                  </span>
-                  <button
-                    className="shrink-0 text-xs text-muted transition-colors hover:text-error"
-                    onClick={() => void removeMcp(s.name)}
-                    disabled={busy}
                   >
-                    {t("common:actions.remove")}
-                  </button>
-                </div>
-              ))}
+                    <span
+                      className={cn(
+                        "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
+                        s.status === "connected"
+                          ? "bg-ok"
+                          : s.status === "failed"
+                            ? "bg-error"
+                            : "bg-muted",
+                      )}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className="font-medium text-text">{label}</span>
+                        <span className="text-xs text-muted">
+                          {t("mcp.serverSummary", { type, status })}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs leading-5 text-muted">{description}</p>
+                      {target && (
+                        <p className="truncate font-mono text-[11px] text-muted/70">{target}</p>
+                      )}
+                    </div>
+                    <button
+                      className="mt-0.5 shrink-0 text-xs text-muted transition-colors hover:text-error"
+                      onClick={() => void removeMcp(s.name)}
+                      disabled={busy}
+                    >
+                      {t("common:actions.remove")}
+                    </button>
+                  </div>
+                );
+              })}
 
               <div
                 className={cn(
