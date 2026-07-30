@@ -1,35 +1,35 @@
 {
   "bundle": {
-    "dmg_sha256": "ed1107407ef6e3c8d46d0c674d368540c82811868a673a0e1c4d2dd3a2962358",
+    "dmg_sha256": "6f10367d3a77ea5d8403ce7b37e1907353b159b1336ecdb643cd0a1c747cdf47",
     "filename": "AI4HEOR_0.1.56_x64.dmg",
     "target": "x86_64-apple-darwin"
   },
   "first_launch": {
-    "app_executable": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-u51futvu/Applications/AI4HEOR.app/Contents/MacOS/ai4s-workbench",
-    "app_process_id": 83364,
+    "app_executable": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-0nvczxdt/Applications/AI4HEOR.app/Contents/MacOS/ai4s-workbench",
+    "app_process_id": 90651,
     "cleanup_verified": true,
-    "existing_single_instance_socket_isolated": false,
+    "existing_single_instance_socket_isolated": true,
     "install_mode": "temporary-app-copy",
-    "installed_app": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-u51futvu/Applications/AI4HEOR.app",
+    "installed_app": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-0nvczxdt/Applications/AI4HEOR.app",
     "launch_mode": "launch-services",
-    "opencode_executable": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-u51futvu/Applications/AI4HEOR.app/Contents/MacOS/opencode",
-    "opencode_parent_process_id": 83364,
-    "opencode_process_id": 83395,
-    "workspace": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-u51futvu/fresh-home/Documents/AI4HEOR",
+    "opencode_executable": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-0nvczxdt/Applications/AI4HEOR.app/Contents/MacOS/opencode",
+    "opencode_parent_process_id": 90651,
+    "opencode_process_id": 90674,
+    "workspace": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-0nvczxdt/fresh-home/Documents/AI4HEOR",
     "workspace_migration": {
-      "app_executable": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-u51futvu/Applications/AI4HEOR.app/Contents/MacOS/ai4s-workbench",
-      "app_process_id": 83402,
+      "app_executable": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-0nvczxdt/Applications/AI4HEOR.app/Contents/MacOS/ai4s-workbench",
+      "app_process_id": 90682,
       "cleanup_verified": true,
       "install_mode": "temporary-app-copy",
-      "installed_app": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-u51futvu/Applications/AI4HEOR.app",
+      "installed_app": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-0nvczxdt/Applications/AI4HEOR.app",
       "launch_mode": "launch-services",
-      "legacy_workspace": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-u51futvu/migration-home/Documents/OpenScience",
+      "legacy_workspace": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-0nvczxdt/migration-home/Documents/OpenScience",
       "legacy_workspace_removed": true,
       "marker_preserved": "2026-07-17-legacy/marker.txt",
-      "opencode_executable": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-u51futvu/Applications/AI4HEOR.app/Contents/MacOS/opencode",
-      "opencode_parent_process_id": 83402,
-      "opencode_process_id": 83419,
-      "workspace": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-u51futvu/migration-home/Documents/AI4HEOR"
+      "opencode_executable": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-0nvczxdt/Applications/AI4HEOR.app/Contents/MacOS/opencode",
+      "opencode_parent_process_id": 90682,
+      "opencode_process_id": 90698,
+      "workspace": "/private/var/folders/s1/c77rbrwj7_q6ppzdb394z2rw0000gn/T/ai4heor-macos-first-launch-0nvczxdt/migration-home/Documents/AI4HEOR"
     }
   },
   "info_plist": {

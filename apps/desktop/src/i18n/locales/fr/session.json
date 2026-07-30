@@ -10,7 +10,7 @@
       "shell": "Exécuter une commande shell dans le dossier de l'espace de travail",
       "plan": "Décrivez quoi planifier — aucun fichier ne sera modifié"
     },
-    "commandsAria": "Commandes",
+    "commandsAria": "Commandes et compétences",
     "source": {
       "skill": "compétence",
       "mcp": "mcp"
@@ -79,6 +79,17 @@
       "action": "Choisir un modèle",
       "description": "Choisir le modèle pour cette tâche",
       "sendHint": "Choisissez un modèle avant l’envoi"
+    },
+    "queue": {
+      "title": "En attente d'envoi",
+      "next": "Suivant",
+      "addAria": "Ajouter à la file d'envoi",
+      "addTitle": "Envoyer après la réponse en cours",
+      "moveUp": "Remonter le message {{position}}",
+      "moveDown": "Descendre le message {{position}}",
+      "remove": "Supprimer le message en attente {{position}}",
+      "skill": "Compétence : {{skill}}",
+      "placeholder": "Continuez à saisir ; les messages envoyés patienteront dans la file"
     }
   },
   "localCommand": {
@@ -97,7 +108,7 @@
     "analyze": {
       "title": "Analyser mes données ou preuves HEOR",
       "description": "Inventorier les éléments locaux, préciser l'estimand et proposer une analyse auditable.",
-      "prompt": "Aidez-moi à analyser les données ou preuves HEOR de ce projet. Utilisez $heor-workbench pour inventorier d'abord les fichiers locaux, puis confirmez avec moi la question de décision, l'estimand, la population, le comparateur, les résultats et la méthode avant exécution. Préservez la provenance et le calcul déterministe et arrêtez-vous aux décisions Human-in-the-loop de méthode et d'interprétation."
+      "prompt": "Aidez-moi à analyser les données ou preuves HEOR de ce projet. Commencez par inventorier les documents locaux pertinents et expliquez ce qu'ils permettent d'étayer et ce qui manque. Organisez ensuite les preuves et les données, préservez leur traçabilité et proposez des étapes d'analyse vérifiables. Ne me demandez que les choix non résolus susceptibles de modifier sensiblement le résultat."
     },
     "audit": {
       "title": "Auditer un modèle ou rapport HEOR",
@@ -114,12 +125,12 @@
     "design": {
       "title": "Démarrer une étude pharmacoéconomique",
       "description": "Définir le problème de décision, le modèle conceptuel, les besoins en données et les revues humaines.",
-      "prompt": "Aidez-moi à démarrer une étude pharmacoéconomique ou HEOR dirigée par le chercheur humain. Utilisez $heor-workbench et $heor-model-design. Clarifiez d'abord population, intervention, comparateurs, résultats, perspective, juridiction, horizon, contexte de décision, données disponibles et usage prévu. Préparez ensuite des artefacts locaux révisables et un plan explicite. Ne choisissez pas les méthodes, hypothèses, données, seuils ou approbations à la place du chercheur."
+      "prompt": "Aidez-moi à concevoir une étude pharmacoéconomique ou HEOR dirigée par le chercheur. Partez des informations déjà fournies et ne clarifiez que les lacunes susceptibles de modifier sensiblement l'étude. Séparez les décisions confirmées, les questions ouvertes, les besoins de preuves et les hypothèses. Ne choisissez pas les méthodes, hypothèses, preuves, seuils ou interprétations à la place du chercheur."
     },
     "example-cea": {
       "title": "Explorer un exemple : analyse coût-efficacité",
       "description": "Entrées synthétiques de cohorte à deux stratégies pour un flux coût-utilité auditable.",
-      "prompt": "Utilisez $heor-workbench pour explorer les fichiers synthétiques sous heor-cost-effectiveness/. Traitez chaque nombre comme une hypothèse pédagogique, non comme une preuve. Expliquez le problème de décision, examinez la cohorte à trois états, reproduisez coûts et QALY par code déterministe, réalisez une sensibilité transparente et préparez un rapport avec limites et points de revue humaine. Aucune approbation ni conclusion de remboursement."
+      "prompt": "Ouvrez et expliquez le cas pédagogique complet d'analyse coût-utilité intégré. Traitez chaque nombre comme une hypothèse pédagogique, non comme une preuve. Expliquez le problème de décision, la cohorte à trois états, les coûts et QALY du cas de base et une analyse de sensibilité transparente, puis indiquez les limites et questions restant à examiner. Ne formulez aucune conclusion de remboursement, de prix ou de politique."
     }
   },
   "live": {
@@ -165,7 +176,7 @@
       "waitingModel": "En attente de la réponse du modèle…",
       "runningStep": "Exécution",
       "writing": "Préparation de la réponse…",
-      "continuing": "« {{step}} » terminé ; poursuite du traitement…",
+      "continuing": "Poursuite du traitement…",
       "loadedSkill": "Capacité de recherche chargée : {{skill}}",
       "completed": "Terminé",
       "rateLimited": "Le modèle actuel reçoit trop de requêtes. Réessayez plus tard ou choisissez un autre modèle.",
@@ -261,8 +272,13 @@
   "interaction": {
     "question": {
       "heading": "L'agent a besoin de votre réponse",
+      "customLabel": "Aucune option ne convient ? Saisissez directement votre réponse.",
       "customPlaceholder": "Ou saisissez votre propre réponse…",
-      "invalidDescription": "Le modèle a renvoyé une description d’option non valide ; elle a été masquée."
+      "invalidDescription": "Le modèle a renvoyé une description d’option non valide ; elle a été masquée.",
+      "missingContextDescription": "Cette explication renvoie à un contenu absent du formulaire actuel ; elle a donc été masquée. Saisissez directement votre réponse ou choisissez une autre option claire.",
+      "sourcedMedicineFact": "Cette question concerne des publications ou données publiques que l’assistant doit d’abord rechercher et vérifier. Les options générées par le modèle ne constituent pas des preuves et ont été masquées. Une source non publique ou une hypothèse exploratoire ne doit être demandée qu’après une recherche publique documentée laissant une lacune réelle.",
+      "sourcedAnswerLabel": "Ajoutez ici une source non publique si vous en disposez ; sinon, passez cette étape et laissez l’assistant poursuivre la recherche.",
+      "sourcedAnswerPlaceholder": "Si vous disposez d’une source non publique, ajoutez-la ici…"
     },
     "permission": {
       "heading": "L'agent demande une autorisation :"
@@ -342,7 +358,7 @@
       },
       "evidence": {
         "title": "Trouver et organiser les preuves",
-        "prompt": "Aidez-moi à trouver et organiser les preuves nécessaires à cette étude pharmaco-économique. Clarifiez d'abord la question de décision et les lacunes, puis identifiez les sources locales, les recherches nécessaires, la provenance et les limites. Avant tout accès réseau, affichez la requête exacte et les champs qui seraient envoyés."
+        "prompt": "Aidez-moi à trouver et organiser les preuves nécessaires à cette étude pharmaco-économique. Clarifiez d’abord la question de décision et les lacunes, puis identifiez les sources locales, les recherches nécessaires, la provenance et les limites. RIS, BibTeX ou CSL-JSON peuvent être importés, dédupliqués et vérifiés. Récupérez un texte intégral ouvert disponible légalement uniquement si je le demande explicitement et ne contournez aucun accès payant. Le réseau suit les autorisations actuelles."
       },
       "model": {
         "title": "Concevoir ou examiner un modèle",

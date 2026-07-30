@@ -30,6 +30,25 @@ describe("AI4HEOR artifact contract", () => {
     expect(() => parseHeorPlan(JSON.stringify(invalid))).toThrow(/decision_problem/);
   });
 
+  it("normalizes legacy decision-problem strategy arrays for review", () => {
+    const legacy = structuredClone(HEOR_BROWSER_DEMO_PLAN) as unknown as Record<string, unknown>;
+    const decision = legacy.decision_problem as Record<string, unknown>;
+    decision.intervention = ["Treatment A", "Treatment B"];
+    decision.comparator = ["Standard care"];
+
+    const parsed = parseHeorPlan(JSON.stringify(legacy));
+    expect(parsed.decision_problem.intervention).toBe("Treatment A; Treatment B");
+    expect(parsed.decision_problem.comparator).toBe("Standard care");
+  });
+
+  it("rejects malformed decision-problem text instead of rendering it implicitly", () => {
+    const invalid = structuredClone(HEOR_BROWSER_DEMO_PLAN) as unknown as Record<string, unknown>;
+    const decision = invalid.decision_problem as Record<string, unknown>;
+    decision.population = ["Adults"];
+
+    expect(() => parseHeorPlan(JSON.stringify(invalid))).toThrow(/decision_problem.population/);
+  });
+
   it("reports malformed provenance records without crashing the review pane", () => {
     const plan = structuredClone(HEOR_BROWSER_DEMO_PLAN);
     plan.input_provenance = [
@@ -131,6 +150,18 @@ describe("AI4HEOR artifact contract", () => {
     expect(prompt).toContain("Compare treatment A with standard care.");
     expect(prompt).toContain("Preserve the Open Science baseline");
     expect(prompt).toContain("Evidence claims must be auditable");
+    expect(prompt).toContain("Do not use model training knowledge as a source of scientific facts");
+    expect(prompt).toContain("retrieve and read a current public source during this task");
+    expect(prompt).toContain("Never infer an indication or approval from a brand name");
+    expect(prompt).toContain("Never present model-generated medicine facts as answer options");
+    expect(prompt).toContain("retrieve-then-confirm sequence");
+    expect(prompt).toContain("use the question tool to present a compact form");
+    expect(prompt).toContain("Do not ask the researcher to restate public facts in a free-text sentence");
+    expect(prompt).toContain("Preserve the requested outcome and quality floor");
+    expect(prompt).toContain("A failed URL, unavailable PDF, or missing single source");
+    expect(prompt).toContain("Separate source-access failure from evidence absence");
+    expect(prompt).toContain("Do not offer or automatically adopt an exploratory assumption");
+    expect(prompt).not.toContain("wants a clearly labelled exploratory assumption");
     expect(prompt).toContain("report them as exploratory scenarios");
     expect(prompt).toContain("Describe data flow precisely");
     expect(prompt).toContain("If the configured model provider is remote");
@@ -140,12 +171,17 @@ describe("AI4HEOR artifact contract", () => {
     expect(prompt).toContain("never create or claim human approvals");
     expect(prompt).toContain("System execution is assistant work");
     expect(prompt).toContain("Researcher decisions are scientific judgments");
+    expect(prompt).toContain("without ending a turn to ask whether to continue");
+    expect(prompt).toContain("run its matching validator");
+    expect(prompt).toContain("Do not add unknown fields");
     expect(prompt).toContain("Do not expose internal artifact paths, schema names, commands, hashes");
     expect(prompt).toContain("Run records");
   });
 
   it("keeps runtime instructions out of the researcher-visible history", () => {
-    const prompt = buildHeorPrompt("$heor-model-calibration\n\n检查模型校准结果");
+    const prompt = buildHeorPrompt("$heor-model-calibration\n\n检查模型校准结果", "zh-Hans");
+    expect(prompt).toContain("Response language contract: Simplified Chinese.");
+    expect(prompt).toContain("Do not switch response language");
     expect(displayHeorPrompt(prompt)).toBe("检查模型校准结果");
     const legacyPrompt = [
       "Use $heor-workbench for this request.",
@@ -155,6 +191,14 @@ describe("AI4HEOR artifact contract", () => {
     ].join("\n");
     expect(displayHeorPrompt(legacyPrompt)).toBe("旧任务也不显示内部指令");
     expect(displayHeorPrompt("研究者自己的问题")).toBe("研究者自己的问题");
+  });
+
+  it("locks responses to every shipped interface language", () => {
+    expect(buildHeorPrompt("任务", "ja-JP")).toContain("Response language contract: Japanese.");
+    expect(buildHeorPrompt("Aufgabe", "de")).toContain("Response language contract: German.");
+    expect(buildHeorPrompt("Tâche", "fr-FR")).toContain("Response language contract: French.");
+    expect(buildHeorPrompt("작업", "ko")).toContain("Response language contract: Korean.");
+    expect(buildHeorPrompt("Tarea", "es")).toContain("Response language contract: Spanish.");
   });
 
   it("fails closed when model inputs lack provenance", () => {

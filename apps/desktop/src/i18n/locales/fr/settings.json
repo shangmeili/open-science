@@ -422,8 +422,8 @@
         "ready": "Fichiers requis vérifiés"
       },
       "harness": {
-        "title": "Harness d’audit du projet",
-        "ready": "Fichiers requis vérifiés"
+        "title": "Ressources d’initialisation du projet",
+        "ready": "Règles et modèles du projet vérifiés"
       },
       "runtime": {
         "title": "Assistant local",

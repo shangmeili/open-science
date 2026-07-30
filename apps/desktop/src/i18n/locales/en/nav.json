@@ -53,9 +53,13 @@
     "open": "Open task",
     "rename": "Rename task",
     "renamePlaceholder": "Task name",
+    "moveTo": "Move to",
+    "standalone": "Standalone tasks",
     "delete": "Delete task",
     "deleteAria": "Delete {{title}}",
-    "running": "Working"
+    "running": "Working",
+    "idle": "Ready",
+    "error": "Needs attention"
   },
   "confirmDelete": {
     "sessionTitle": "Delete task?",

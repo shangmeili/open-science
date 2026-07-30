@@ -26,11 +26,15 @@ import { toast } from "@/lib/toast";
 export function HeorStarters({
   onPick,
   ensureWorkspace,
+  desktopRuntime = isTauri,
 }: {
   onPick: (prompt: string) => void;
   /** A starter that writes files must first materialize the draft's local
    * research scope. This is not a project requirement. */
   ensureWorkspace?: () => Promise<boolean>;
+  /** Allows the browser preview and tests to render the honest non-installing
+   * case outline even when the surrounding host provides compatibility shims. */
+  desktopRuntime?: boolean;
 }) {
   const { t, i18n } = useTranslation("heor");
   const [exampleReady, setExampleReady] = useState(false);
@@ -49,27 +53,15 @@ export function HeorStarters({
       key: "learn" as const,
       icon: GraduationCap,
       tone: "text-[var(--series-1)]",
-      prepare: async () => {
-        if (!isTauri) return;
-        const scope = await currentResearchScope();
-        if (!scope) throw new Error("research scope unavailable");
-        await installBundledHeorKnowledgeBase(scope.id);
-      },
     },
-    { key: "scope" as const, icon: Route, tone: "text-[var(--series-5)]", prepare: undefined },
-    { key: "search" as const, icon: Search, tone: "text-[var(--series-3)]", prepare: undefined },
-    { key: "inputs" as const, icon: FileSearch, tone: "text-[var(--series-6)]", prepare: undefined },
-    { key: "audit" as const, icon: BookOpenCheck, tone: "text-[var(--series-2)]", prepare: undefined },
+    { key: "scope" as const, icon: Route, tone: "text-[var(--series-5)]" },
+    { key: "search" as const, icon: Search, tone: "text-[var(--series-3)]" },
+    { key: "inputs" as const, icon: FileSearch, tone: "text-[var(--series-6)]" },
+    { key: "audit" as const, icon: BookOpenCheck, tone: "text-[var(--series-2)]" },
     {
       key: "example" as const,
       icon: HeartPulse,
       tone: "text-[var(--series-7)]",
-      prepare: async () => {
-        if (isTauri) {
-          await installExample("heor-cost-effectiveness");
-          setExampleReady(true);
-        }
-      },
     },
   ];
 
@@ -83,24 +75,34 @@ export function HeorStarters({
       </h1>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{t("starter.body")}</p>
       <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
-        {items.map(({ key, icon: Icon, tone, prepare }) => (
+        {items.map(({ key, icon: Icon, tone }) => (
           <button
             key={key}
             type="button"
             onClick={() => {
+              if (key === "example" && !desktopRuntime) {
+                setExampleReady(true);
+                return;
+              }
               void (async () => {
                 try {
-                  if (prepare && ensureWorkspace && !(await ensureWorkspace())) return;
-                  await prepare?.();
+                  if (key === "learn" && desktopRuntime) {
+                    if (ensureWorkspace && !(await ensureWorkspace())) return;
+                    const scope = await currentResearchScope();
+                    if (!scope) throw new Error("research scope unavailable");
+                    await installBundledHeorKnowledgeBase(scope.id);
+                  }
+                  if (key === "example") {
+                    if (ensureWorkspace && !(await ensureWorkspace())) return;
+                    await installExample("heor-cost-effectiveness");
+                    setExampleReady(true);
+                    return;
+                  }
                 } catch {
                   toast.error(t(key === "learn" ? "starter.error.learnSetup" : "starter.error.setup"));
                   return;
                 }
-                // Installing the teaching case reveals its deterministic local
-                // runner on this surface. Do not immediately navigate away and
-                // hide that runner behind an agent turn; using a model is an
-                // explicit second option below.
-                if (key !== "example" || !isTauri) onPick(t(`starter.${key}.prompt`));
+                onPick(t(`starter.${key}.prompt`));
               })();
             }}
             className="group rounded-card border border-border bg-surface p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-card"
@@ -111,7 +113,7 @@ export function HeorStarters({
           </button>
         ))}
       </div>
-      {isTauri && exampleReady && (
+      {exampleReady && (
         <div className="mt-4 rounded-card border border-border bg-surface p-4 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
             {runResult ? (
@@ -121,10 +123,18 @@ export function HeorStarters({
             )}
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-text">
-                {runResult ? t("starter.local.completedTitle") : t("starter.local.readyTitle")}
+                {runResult
+                  ? t("starter.local.completedTitle")
+                  : desktopRuntime
+                    ? t("starter.local.readyTitle")
+                    : t("starter.local.previewTitle")}
               </div>
               <p className="mt-1 text-xs leading-5 text-muted">
-                {runResult ? t("starter.local.completedBody") : t("starter.local.readyBody")}
+                {runResult
+                  ? t("starter.local.completedBody")
+                  : desktopRuntime
+                    ? t("starter.local.readyBody")
+                    : t("starter.local.previewBody")}
               </p>
               <div className="mt-3 rounded-input bg-surface-2 px-3 py-2.5">
                 <div className="text-xs font-medium text-text">{t("starter.local.caseQuestion")}</div>
@@ -290,34 +300,40 @@ export function HeorStarters({
               )}
             </div>
             <div className="flex w-full shrink-0 items-center justify-between gap-3 sm:w-auto sm:flex-col sm:items-end">
-              <button
-                type="button"
-                disabled={running}
-                onClick={() => {
-                  setRunning(true);
-                  void runHeorTeachingExample()
-                    .then((result) => {
-                      setRunResult(result);
-                      toast.success(t("starter.local.success"));
-                    })
-                    .catch((error) => {
-                      toast.error(t(localRunErrorKey(error)));
-                    })
-                    .finally(() => setRunning(false));
-                }}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-input bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {running ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <PlayCircle size={14} />
-                )}
-                {running
-                  ? t("starter.local.running")
-                  : runResult
-                    ? t("starter.local.runAgain")
-                    : t("starter.local.runAction")}
-              </button>
+              {desktopRuntime ? (
+                <button
+                  type="button"
+                  disabled={running}
+                  onClick={() => {
+                    setRunning(true);
+                    void runHeorTeachingExample()
+                      .then((result) => {
+                        setRunResult(result);
+                        toast.success(t("starter.local.success"));
+                      })
+                      .catch((error) => {
+                        toast.error(t(localRunErrorKey(error)));
+                      })
+                      .finally(() => setRunning(false));
+                  }}
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-input bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {running ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <PlayCircle size={14} />
+                  )}
+                  {running
+                    ? t("starter.local.running")
+                    : runResult
+                      ? t("starter.local.runAgain")
+                      : t("starter.local.runAction")}
+                </button>
+              ) : (
+                <div className="whitespace-nowrap rounded-input bg-surface-2 px-3 py-1.5 text-xs font-medium text-muted">
+                  {t("starter.local.desktopOnly")}
+                </div>
+              )}
               <button
                 type="button"
                 disabled={running}

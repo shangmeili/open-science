@@ -53,6 +53,10 @@ fn nonempty_string_array(value: Option<&serde_json::Value>) -> bool {
         })
 }
 
+fn nonempty_decision_strategy(value: Option<&serde_json::Value>) -> bool {
+    nonempty(value) || nonempty_string_array(value)
+}
+
 fn uncertainty_paths_valid(plan: &serde_json::Value, pointer: &str, probabilistic: bool) -> bool {
     let eligible = plan
         .get("input_provenance")
@@ -224,19 +228,22 @@ fn automatic_check(
             [
                 "title",
                 "population",
-                "intervention",
-                "comparator",
                 "perspective",
                 "outcome",
                 "jurisdiction",
             ]
             .iter()
             .all(|field| nonempty(plan.pointer(&format!("/decision_problem/{field}"))))
+                && ["intervention", "comparator"].iter().all(|field| {
+                    nonempty_decision_strategy(plan.pointer(&format!("/decision_problem/{field}")))
+                })
                 && horizon.is_finite()
                 && horizon > 0.0
         }
         "perspective_declared" => nonempty(plan.pointer("/decision_problem/perspective")),
-        "comparator_declared" => nonempty(plan.pointer("/decision_problem/comparator")),
+        "comparator_declared" => {
+            nonempty_decision_strategy(plan.pointer("/decision_problem/comparator"))
+        }
         "jurisdiction_england" => text_at(plan, "/decision_problem/jurisdiction")
             .is_some_and(|value| value.eq_ignore_ascii_case("england")),
         "nice_nhs_pss_perspective" => {
@@ -974,6 +981,15 @@ mod tests {
             true,
             true
         ));
+        plan["decision_problem"]["intervention"] = serde_json::json!(["New treatment"]);
+        plan["decision_problem"]["comparator"] = serde_json::json!(["Established NHS practice"]);
+        assert!(automatic_check(
+            "decision_scope_declared",
+            &plan,
+            true,
+            true
+        ));
+        assert!(automatic_check("comparator_declared", &plan, true, true));
         assert!(automatic_check("jurisdiction_england", &plan, true, true));
         assert!(automatic_check(
             "nice_nhs_pss_perspective",

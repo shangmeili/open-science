@@ -422,8 +422,8 @@
         "ready": "Archivos necesarios verificados"
       },
       "harness": {
-        "title": "Harness de auditoría del proyecto",
-        "ready": "Archivos necesarios verificados"
+        "title": "Recursos de configuración del proyecto",
+        "ready": "Reglas y plantillas del proyecto verificadas"
       },
       "runtime": {
         "title": "Asistente local",

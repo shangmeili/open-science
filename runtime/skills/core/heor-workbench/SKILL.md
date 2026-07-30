@@ -28,6 +28,9 @@ actually depends on.
 - Treat the human researcher as the scientific lead, decision owner, and human reviewer. Assist with proposals, preparation, execution, checking, and explanation; never direct the research programme or silently make a decision-relevant methodological choice.
 - Treat Human-in-the-loop as upstream scientific ownership and continuing method judgment, not a final approval appended to an Agent-led research process.
 - Inspect local state, run deterministic checks, draft labelled alternatives, and execute a researcher-selected plan without asking the researcher to operate tools. Stop for a missing research question, method, evidence choice, model structure, substantive assumption, interpretation, or permitted-use decision.
+- Once the necessary scientific choices are defined, continue the selected route through retrieval, provenance, deterministic derivation, validation, and packaging. Do not end a turn to ask whether to continue, choose the order of implementation steps, or obtain permission for system execution. Reopen a settled choice only when new evidence creates a material scientific conflict.
+- Preserve the researcher's requested outcome and quality floor. A failed URL or unavailable PDF is a retrieval-path failure, not permission to replace a complete analysis with a narrative, tutorial, provisional hypothesis, or exploratory result. Try reasonable authorized authoritative alternatives and continue every independent part of the work.
+- When an exhausted evidence gap blocks an essential input, keep the requested task incomplete and ask only for that exact scientific judgment or non-public evidence. Do not offer or automatically adopt an exploratory assumption unless the researcher explicitly requested exploratory, teaching, or sensitivity-analysis work.
 - Never invent clinical inputs, prices, utilities, transition probabilities, comparators, thresholds, or citations.
 - Never silently combine monetary inputs with different currencies or price years. Declare one calculation basis and preserve every adjustment as a reproducible, sourced transformation.
 - Never copy an extracted value into a model input without an executable derivation. Direct evidence must be strict JSON equal to the model value; unsupported transformations remain blocked.
@@ -58,8 +61,20 @@ actually depends on.
 - Never turn the internal artifact pipeline into a researcher checklist. Report
   completed work, supported findings, material limitations, and the next
   substantive research judgment in natural HEOR language.
+- Before writing a reserved panel artifact, copy its exact matching bundled template and run the matching validator. Do not add unknown fields, leave a newly written reserved artifact invalid for the panel to discover, or treat a panel warning as a substitute for pre-write validation.
 
 ## Natural-language workflow
+
+For decision-problem intake involving a named medicine, use a
+retrieve-then-confirm sequence. First search authoritative public sources for
+the medicine identity, approved indications, dosage forms and strengths,
+labelled population, jurisdiction, and evidence-supported comparator context.
+Summarize the retrieved candidates with exact source locators and retrieval
+dates, then use the question tool to present a compact form for the
+researcher's study-specific selection, correction, or supplementation. Do not
+ask the researcher to restate public facts in a free-text sentence. If reliable
+sources conflict or retrieval leaves a genuine gap, show that conflict or gap
+and ask only for the unresolved scientific choice or non-public evidence.
 
 ### Learning and teaching mode
 
@@ -135,14 +150,17 @@ Before reporting a requested end-to-end economic evaluation as complete:
    use the exact reported plan or provenance gaps to repair only the workspace
    artifacts from the bundled template, then rerun it. A runner failure never
    authorizes source-code inspection or ad-hoc changes to the bundled engine.
-4. If the structured route cannot be completed, state that the result is
-   exploratory, name the unsupported model or unresolved scientific choice in
-   domain language, record missing watched artifacts in Technical details, and
-   do not say the AI4HEOR task is complete.
+4. If the structured route cannot be completed, preserve the requested outcome
+   as incomplete, name the exact unsupported model, unresolved scientific
+   choice, or exhausted evidence gap in domain language, and record missing
+   watched artifacts in Technical details. Do not silently substitute an
+   exploratory result or say the AI4HEOR task is complete. Produce exploratory
+   output only when the researcher explicitly requested that mode.
 
 ## Evidence discipline
 
 - Prefer guidelines, regulator or HTA sources, peer-reviewed methods papers, trial reports, registries, and official price or reimbursement sources.
+- Separate source-access failure from evidence absence. If one URL or format fails, try reasonable authorized landing pages, HTML/XML/PDF variants, DOI/PMID records, indexes, regulator or HTA records, trial registries, lawful repositories, procurement notices, and manufacturer sources before declaring a gap. A snippet is not evidence, and one failed route does not lower the requested deliverable.
 - Quote sparingly. Attach each numeric input to a source or mark it explicitly as an assumption.
 - Map every required engine input through approvable portable schema `0.3.0` through `0.15.0`, including an exact derivation snapshot. Schemas `0.12.0` through `0.15.0` map common PSM economic inputs; component artifacts retain their own evidence links. Review bases remain evidence or proposed assumptions and never act as approval.
 - Record conflicting sources instead of silently selecting one.
@@ -151,7 +169,7 @@ Before reporting a requested end-to-end economic evaluation as complete:
 
 ## Analysis-plan handoff
 
-The app watches `heor/evidence-search-request.json`, app-written search runs, `heor/evidence-synthesis.json`, `heor/network-meta-analysis-request.json`, NMA result/review artifacts, `heor/population-adjusted-comparison-request.json`, anchored-MAIC result/review artifacts, `heor/rwe-causal-analysis-request.json`, RWE causal result/review artifacts, `heor/analysis-plan.json`, `heor/conceptual-model.json`, `heor/reference-case-assessment.json`, `heor/partitioned-survival-plan.json`, `heor/survival-curve-materializations.json`, `heor/treatment-effect-duration.json`, `heor/cost-input-normalization.json`, `heor/utility-inputs.json`, `heor/event-disutilities.json`, uncertainty and joint-survival artifacts, `heor/advanced-voi-plan.json`, advanced-VOI result/replay/review artifacts, budget impact, validation, reporting, reproducibility, and app-written result files. Keep JSON and JSONL valid; changing a hash-bound artifact requires renewed review.
+The app watches `heor/evidence-search-request.json`, app-written search runs, `heor/evidence-synthesis.json`, `heor/network-meta-analysis-request.json`, NMA result/review artifacts, `heor/population-adjusted-comparison-request.json`, anchored-MAIC result/review artifacts, `heor/rwe-causal-analysis-request.json`, RWE causal result/review artifacts, `heor/analysis-plan.json`, `heor/conceptual-model.json`, `heor/reference-case-assessment.json`, `heor/partitioned-survival-plan.json`, `heor/survival-curve-materializations.json`, `heor/treatment-effect-duration.json`, `heor/cost-input-normalization.json`, `heor/utility-inputs.json`, `heor/event-disutilities.json`, uncertainty and joint-survival artifacts, `heor/advanced-voi-plan.json`, advanced-VOI result/replay/review artifacts, budget impact, validation, reporting, reproducibility, and app-written result files. Keep JSON and JSONL valid; serialize calculated values as finite JSON number literals rather than expressions or formula strings. `heor/event-disutilities.json` is permitted only with analysis schema `0.15.0` and passing utility-input and event-disutility validators; otherwise use an ordinary Markdown draft. Changing a hash-bound artifact requires renewed review.
 
 After writing the plan, record in Technical details or Run records:
 

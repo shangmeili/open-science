@@ -53,9 +53,13 @@
     "open": "Aufgabe öffnen",
     "rename": "Aufgabe umbenennen",
     "renamePlaceholder": "Aufgabenname",
+    "moveTo": "Verschieben nach",
+    "standalone": "Eigenständige Aufgaben",
     "delete": "Aufgabe löschen",
     "deleteAria": "{{title}} löschen",
-    "running": "Arbeitet"
+    "running": "Arbeitet",
+    "idle": "Bereit",
+    "error": "Aktion erforderlich"
   },
   "confirmDelete": {
     "sessionTitle": "Aufgabe löschen?",

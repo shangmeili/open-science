@@ -9,12 +9,12 @@ Prepare an auditable event ledger that remains separate from health-state utilit
 
 ## Workflow
 
-1. Read `heor/analysis-plan.json`, `heor/utility-inputs.json`, their linked evidence, and [references/method-boundary.md](references/method-boundary.md). Require analysis schema `0.15.0` and validated utility inputs.
+1. Read `heor/analysis-plan.json`, `heor/utility-inputs.json`, their linked evidence, and [references/method-boundary.md](references/method-boundary.md). Require analysis schema `0.15.0` and validated utility inputs. If either condition is not met, do not create or repair the reserved `heor/event-disutilities.json` path; keep any exploratory event-loss notes in `heor/event-disutilities.md` or another ordinary draft instead.
 2. Ask the Human only about unresolved material choices: event inclusion and severity, affected strategy/states, mode, incidence or exposure schedule, absolute decrement, duration, day count, source transferability, and overlap policy.
 3. Copy [assets/event-disutilities.template.json](assets/event-disutilities.template.json) to `heor/event-disutilities.json`. Bind the exact analysis and utility bytes with SHA-256.
 4. Record terminology, severity, eligible states, occurrence schedule, health impact, and analysis-linked evidence for every item. Use `one_time`, `recurrent`, or `continuous_exposure` only as defined by the method boundary.
 5. For every eligible utility item, add the exact `event_id` to its `excluded_effects`, keep it out of `captured_effects`, and name that utility item in `reviewed_utility_item_ids`. Stop if overlap remains unresolved.
-6. Reproduce per-occurrence and per-cycle losses, then add item losses into `cycle_state_qaly_losses`. Do not silently repair arithmetic or allow the implied utility to fall below -1.
+6. Reproduce per-occurrence and per-cycle losses, then add item losses into `cycle_state_qaly_losses`. Evaluate every calculation before serialization and write only finite JSON number literals; never place arithmetic expressions, formula strings, `NaN`, or `Infinity` in numeric fields. Do not silently repair arithmetic or allow the implied utility to fall below -1.
 7. Run the portable validator before Human review:
 
 ```bash

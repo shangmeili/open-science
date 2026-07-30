@@ -136,11 +136,10 @@ describe("HeorStarters", () => {
     await userEvent.click(screen.getByRole("button", { name: /Find public evidence/i }));
     expect(onPick).toHaveBeenCalledTimes(1);
     const prompt = onPick.mock.calls[0][0] as string;
-    expect(prompt).toContain("available public retrieval tools");
-    expect(prompt).toContain("full-access mode proceeds");
-    expect(prompt).toContain("Do not inspect Git by default");
-    expect(prompt).not.toContain("create heor/evidence-search-request.json for the current");
-    expect(prompt).toContain("Do not inspect Git by default, create heor/evidence-search-request.json, tell me to find a panel");
+    expect(prompt).toContain("literature databases, trial registries, and authoritative methods sources");
+    expect(prompt).toContain("reference library for deduplication and metadata review");
+    expect(prompt).toContain("lawfully available open versions");
+    expect(prompt).not.toMatch(/Git|\.json|panel|permission mode|\$heor-/i);
   });
 
   it("prepares the bundled library before drafting a learning task", async () => {
@@ -187,6 +186,8 @@ describe("HeorStarters", () => {
       screen.getByRole("button", { name: "Ask the assistant to explain the case" }),
     );
     expect(onPick).toHaveBeenCalledTimes(1);
+    expect(onPick.mock.calls[0][0]).toContain("built-in complete cost–utility teaching case");
+    expect(onPick.mock.calls[0][0]).not.toContain("installed");
     expect(onPick.mock.calls[0][0]).toContain("three-state conceptual model");
     expect(onPick.mock.calls[0][0]).toContain("plain language");
     expect(onPick.mock.calls[0][0]).not.toContain("run_analysis.py");

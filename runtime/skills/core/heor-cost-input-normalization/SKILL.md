@@ -9,7 +9,7 @@ Turn natural-language costing evidence into a deterministic, reviewable annual s
 
 ## Workflow
 
-1. Read [references/cost-input-normalization-contract.md](references/cost-input-normalization-contract.md), the decision problem, economic basis, evidence synthesis, assumptions, and input provenance.
+1. Read [references/cost-input-normalization-contract.md](references/cost-input-normalization-contract.md), the decision problem, economic basis, evidence synthesis, assumptions, and input provenance. Require analysis schema `0.12.0`, `0.13.0`, `0.14.0`, or `0.15.0`. For any other analysis schema, do not create or repair the reserved `heor/cost-input-normalization.json` path; preserve exploratory costing work in an ordinary Markdown draft instead.
 2. Confirm that the requested values are annual state-cost rates. Stop for event costs, one-time costs, time-varying prices, capital annualization, dynamic budget impact, or other unsupported structures.
 3. Ask the researcher to resolve the cost perspective, included categories, price source, price basis, tax treatment, inflation index, exchange-rate method, and alternatives when evidence does not determine them. Never choose these from a plausible default.
 4. Copy [assets/cost-input-normalization.template.json](assets/cost-input-normalization.template.json) to `heor/cost-input-normalization.json`. Replace every placeholder and bind the exact current `heor/analysis-plan.json` bytes.

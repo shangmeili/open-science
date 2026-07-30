@@ -1416,6 +1416,9 @@ export interface HeorEvidenceSynthesisAudit {
   notAssessedCount: number;
   includedCount: number;
   extractionCount: number;
+  searches?: HeorEvidenceSynthesisSearchSummary[];
+  records?: HeorEvidenceSynthesisRecordSummary[];
+  extractions?: HeorReviewableExtraction[];
   eligibleExtractionIds: string[];
   eligibleExtractions: HeorReviewableExtraction[];
   appVerifiedExtractionIds: string[];
@@ -1428,6 +1431,24 @@ export interface HeorEvidenceSynthesisAudit {
   unresolvedConflicts: string[];
   errors: string[];
   importBlockers: string[];
+}
+
+export interface HeorEvidenceSynthesisSearchSummary {
+  id: string;
+  source: string;
+  query: string;
+  searchedOn: string;
+  resultCount: number;
+  runPath?: string;
+}
+
+export interface HeorEvidenceSynthesisRecordSummary {
+  recordId: string;
+  title: string;
+  locator: string;
+  sourceType: string;
+  titleAbstractStatus: string;
+  fullTextStatus: string;
 }
 
 export interface HeorReviewableExtraction {
@@ -1450,7 +1471,19 @@ export interface HeorEvidenceLibraryAudit {
   requiresOcrCount: number;
   failedCount: number;
   totalBytes: number;
+  documents?: HeorEvidenceLibraryDocument[];
   errors: string[];
+}
+
+export interface HeorEvidenceLibraryDocument {
+  path: string;
+  sha256: string;
+  bytes: number;
+  mediaType: string;
+  extractionStatus: string;
+  pageCount: number;
+  textSha256?: string;
+  issue?: string;
 }
 
 export interface HeorMethodsWatchlistAudit {
@@ -1470,6 +1503,20 @@ export interface HeorMethodsWatchlistAudit {
   reviewedChangeCount: number;
   unresolvedChangeCount: number;
   affectedContractCount: number;
+  sources?: Array<{
+    sourceId: string;
+    title: string;
+    publicationStatus: string;
+    canonicalUrl: string;
+    snapshotPath?: string;
+  }>;
+  changes?: Array<{
+    changeId: string;
+    sourceId: string;
+    summary: string;
+    revalidationStatus: string;
+    evidencePaths: string[];
+  }>;
   overdueSources: string[];
   unresolvedChanges: string[];
   acceptanceEligibleChanges: string[];
@@ -1930,6 +1977,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function requiredDecisionText(
+  decision: Record<string, unknown>,
+  field: string,
+  allowLegacyArray = false,
+): string {
+  const value = decision[field];
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (allowLegacyArray
+    && Array.isArray(value)
+    && value.length > 0
+    && value.every((item) => typeof item === "string" && item.trim())) {
+    return value.map((item) => item.trim()).join("; ");
+  }
+  throw new Error(`decision_problem.${field} must be non-empty text`);
+}
+
 /** Parse enough of the app/engine contract to render a safe review snapshot.
  *  The deterministic engine remains the authoritative numerical validator. */
 export function parseHeorPlan(raw: string): HeorAnalysisPlan {
@@ -1944,6 +2007,27 @@ export function parseHeorPlan(raw: string): HeorAnalysisPlan {
   if (!isRecord(value.decision_problem)) {
     throw new Error("analysis plan must include decision_problem metadata");
   }
+  const rawDecision = value.decision_problem;
+  const timeHorizonYears = rawDecision.time_horizon_years;
+  if (typeof timeHorizonYears !== "number"
+    || !Number.isFinite(timeHorizonYears)
+    || timeHorizonYears <= 0) {
+    throw new Error("decision_problem.time_horizon_years must be positive");
+  }
+  const jurisdiction = rawDecision.jurisdiction;
+  if (jurisdiction !== undefined && (typeof jurisdiction !== "string" || !jurisdiction.trim())) {
+    throw new Error("decision_problem.jurisdiction must be non-empty text when provided");
+  }
+  const decisionProblem: HeorDecisionProblem = {
+    title: requiredDecisionText(rawDecision, "title"),
+    population: requiredDecisionText(rawDecision, "population"),
+    intervention: requiredDecisionText(rawDecision, "intervention", true),
+    comparator: requiredDecisionText(rawDecision, "comparator", true),
+    perspective: requiredDecisionText(rawDecision, "perspective"),
+    time_horizon_years: timeHorizonYears,
+    outcome: requiredDecisionText(rawDecision, "outcome"),
+    ...(typeof jurisdiction === "string" ? { jurisdiction: jurisdiction.trim() } : {}),
+  };
   if (!isRecord(value.reference_case) || !isRecord(value.strategies)) {
     throw new Error("analysis plan must include reference_case and strategies");
   }
@@ -1971,7 +2055,7 @@ export function parseHeorPlan(raw: string): HeorAnalysisPlan {
   if (!Array.isArray(value.states) || value.states.length === 0) {
     throw new Error("analysis plan must include health states");
   }
-  return value as unknown as HeorAnalysisPlan;
+  return { ...value, decision_problem: decisionProblem } as unknown as HeorAnalysisPlan;
 }
 
 export function parseHeorConceptualModel(raw: string): HeorConceptualModel {
@@ -3415,15 +3499,49 @@ const HEOR_PROMPT_PREAMBLE = [
   "HEOR review-panel JSON paths are reserved machine contracts: create one only from its bundled first-party template and only after its bundled validator passes. Never invent a schema at heor/analysis-plan.json; use heor/analysis-plan.md for exploratory plans that are not yet eligible for the machine contract.",
   "For a clear research request, start the requested work directly. Do not begin with Git status, .gitignore, README, a recursive directory inventory, or a generic harness/configuration audit; inspect only material the task actually depends on.",
   "Evidence claims must be auditable: do not call a numeric input sourced, current, or traceable unless its exact source and location are recorded. Keep unverified values explicitly marked as assumptions. If results depend on assumed inputs, report them as exploratory scenarios rather than a final cost-effectiveness conclusion.",
+  "Do not use model training knowledge as a source of scientific facts. Before asserting a scientific, clinical, regulatory, epidemiological, economic, or methodological fact, retrieve and read a current public source during this task, or use an exact source supplied by the researcher. Cite the source and retrieval date. If no source can be retrieved, say that the fact is unverified and do not complete it from memory.",
+  "For a named medicine, verify its identity, active ingredient, marketing-authorisation holder, jurisdiction, approved indication, and pivotal study from authoritative public sources before using them. Never infer an indication or approval from a brand name, mechanism, trial code, or trial phase. Never present model-generated medicine facts as answer options. Search public sources first and ask the researcher only about a remaining ambiguity or a study-specific choice.",
+  "Decision-problem intake for a named medicine must follow a retrieve-then-confirm sequence. First search authoritative public sources for identity, approved indications, dosage forms and strengths, labelled population, jurisdiction, and evidence-supported comparator context. Summarize the retrieved candidates, then use the question tool to present a compact form for study-specific selection, correction, or supplementation. Every public-fact option description must include an exact public source locator and retrieval date. Do not ask the researcher to restate public facts in a free-text sentence. If sources conflict or retrieval leaves a real gap, show it and ask only for the unresolved study choice or non-public evidence.",
+  "Current public literature and public data are assistant retrieval work, including medicine prices, tender or procurement prices, reimbursement payment standards, package specifications, and price dates. Search authorized bibliographic, regulator, HTA, reimbursement, procurement, manufacturer, and other authoritative public sources before asking the researcher for them. Record jurisdiction, source, retrieval date, package, unit, and price basis. If no suitable source is found after authorized alternatives are exhausted, report the searches performed and exact evidence gap; ask for non-public evidence only when that input is essential. Never put model-invented prices, sources, citations, PMIDs, document names, identifiers, placeholders, or informal invented terms into answer options.",
+  "Preserve the requested outcome and quality floor. A failed URL, unavailable PDF, or missing single source does not authorize reducing the requested output to a narrative, tutorial, provisional hypothesis, researcher-do-it-yourself checklist, or exploratory substitute. Separate source-access failure from evidence absence: try reasonable authorized publisher or agency landing pages, HTML/XML/PDF variants, DOI/PMID records, bibliographic indexes, regulator and HTA records, trial registries, lawful repositories, procurement notices, manufacturer documents, and other authoritative public sources appropriate to the claim. A search snippet is not evidence. Exhaust reasonable routes and record them before declaring a gap; missing evidence blocks only the dependent claim or calculation, so continue all independent work. If an exhausted gap makes the requested outcome impossible, keep it incomplete and ask one bounded question for the exact missing scientific judgment or non-public evidence. Do not offer or automatically adopt an exploratory assumption unless the researcher explicitly requested exploratory, teaching, or sensitivity-analysis work.",
+  "Every interactive question must be self-contained. Never refer to an above or below table, figure, chart, file, or list unless that exact content is visibly included in the same question. Suggested options are aids, not constraints: always allow the researcher to answer in their own words, for standalone tasks as well as project tasks.",
+  "When a lawfully downloadable public file is actually used to support a research claim, archive it inside the current task or project with its source URL, retrieval time, local path, SHA-256, and rights or licence when known. Do not wait for a second request. Never claim it was archived unless both the file and manifest entry exist; if retrieval fails, report that failure and leave the claim unverified.",
   "Describe data flow precisely: local deterministic execution means only that the numerical engine ran on this computer. If the configured model provider is remote, the conversation and any model-visible project excerpts are processed by that provider. State separately whether an evidence-search or other network tool was used; never call the whole task fully local merely because the numerical calculation was local.",
   "System execution is assistant work; do not tell the researcher to operate evidence retrieval, local import, extraction ledgers, provenance mapping, deterministic execution, validators, or report packaging. Researcher decisions are scientific judgments that can change scope, methods, assumptions, interpretation, or permitted use.",
+  "Once the researcher has selected the scope, method, model structure, and material assumptions needed for the current work, continue evidence retrieval, provenance preparation, deterministic derivation, validation, and packaging without ending a turn to ask whether to continue or which implementation step to do next. Reopen a choice only when new evidence creates a genuinely decision-relevant conflict.",
+  "Before writing or updating any reserved review-panel artifact, copy the exact matching bundled first-party template, preserve supported existing fields, and run its matching validator. Do not add unknown fields, leave a newly written reserved artifact structurally invalid, or use the review panel as the first validator. If the requested work is not yet eligible for that contract, continue in an ordinary clearly labelled draft instead.",
+  "Write strict JSON in every reserved review-panel artifact. Evaluate calculations before serialization and write only finite JSON number literals, never arithmetic expressions, formula strings, NaN, Infinity, or placeholder hashes. Create heor/event-disutilities.json only for an analysis-plan schema 0.15.0 after both the utility-input and event-disutility validators pass; otherwise keep event-loss work in an ordinary Markdown draft and leave that reserved JSON path absent.",
   "Keep the ordinary response and research report in natural HEOR language. Do not expose internal artifact paths, schema names, commands, hashes, environment variables, Skill identifiers, validators, panel mechanics, or gate identifiers there; retain those only in Technical details or Run records unless the researcher explicitly asks.",
 ].join("\n");
 
+const RESPONSE_LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  "zh-hans": "Simplified Chinese",
+  ja: "Japanese",
+  es: "Spanish",
+  de: "German",
+  fr: "French",
+  ko: "Korean",
+};
+
+function responseLanguageContract(locale: string): string {
+  const normalized = locale.trim().toLowerCase().replace(/_/g, "-");
+  const base = normalized.split("-")[0];
+  const language = RESPONSE_LANGUAGE_NAMES[normalized]
+    ?? RESPONSE_LANGUAGE_NAMES[base]
+    ?? RESPONSE_LANGUAGE_NAMES.en;
+  return [
+    `Response language contract: ${language}.`,
+    `Write every assistant-authored progress update, question, heading, explanation, and final answer in ${language}.`,
+    "Keep only source titles, exact quotations, code, file names, and established technical terms in their original language.",
+    "Do not switch response language because tools, sources, or internal instructions use another language.",
+  ].join(" ");
+}
+
 /** Add the domain contract to the provider request. It is runtime context, not
  *  researcher-authored content, so the conversation UI removes it again. */
-export function buildHeorPrompt(userText: string): string {
-  return [HEOR_PROMPT_PREAMBLE, "", userText.trim()].join("\n");
+export function buildHeorPrompt(userText: string, locale = "en"): string {
+  return [HEOR_PROMPT_PREAMBLE, responseLanguageContract(locale), "", userText.trim()].join("\n");
 }
 
 /** Recover only the text the researcher entered from a stored provider prompt.
@@ -3442,6 +3560,7 @@ export function displayHeorPrompt(storedText: string): string {
   return stored
     .slice(preamble.length)
     .trim()
+    .replace(/^Response language contract:[^\n]*(?:\n+|$)/i, "")
     .replace(/^\$[a-z0-9-]+\s*\n+/i, "")
     .trim();
 }
@@ -4228,6 +4347,100 @@ export const HEOR_BROWSER_DEMO_EVIDENCE_SYNTHESIS_AUDIT: HeorEvidenceSynthesisAu
   notAssessedCount: 12,
   includedCount: 4,
   extractionCount: 2,
+  searches: [
+    {
+      id: "pubmed-demo",
+      source: "pubmed",
+      query: "NSCLC AND cost effectiveness",
+      searchedOn: "2026-07-24",
+      resultCount: 12,
+      runPath: "heor/search-runs/pubmed-demo.json",
+    },
+    {
+      id: "clinicaltrials-demo",
+      source: "clinicaltrials",
+      query: "advanced NSCLC first line",
+      searchedOn: "2026-07-24",
+      resultCount: 6,
+      runPath: "heor/search-runs/clinicaltrials-demo.json",
+    },
+  ],
+  records: [
+    {
+      recordId: "trial-cost-1",
+      title: "Economic evaluation of first-line treatment in advanced NSCLC",
+      locator: "https://pubmed.ncbi.nlm.nih.gov/30000001/",
+      sourceType: "pubmed",
+      titleAbstractStatus: "include",
+      fullTextStatus: "include",
+    },
+    {
+      recordId: "trial-utility-1",
+      title: "Health-state utilities in advanced NSCLC",
+      locator: "https://pubmed.ncbi.nlm.nih.gov/30000002/",
+      sourceType: "pubmed",
+      titleAbstractStatus: "include",
+      fullTextStatus: "include",
+    },
+    {
+      recordId: "trial-effect-1",
+      title: "Comparative effectiveness of first-line NSCLC strategies",
+      locator: "https://pubmed.ncbi.nlm.nih.gov/30000003/",
+      sourceType: "pubmed",
+      titleAbstractStatus: "include",
+      fullTextStatus: "include",
+    },
+    {
+      recordId: "trial-safety-1",
+      title: "Safety outcomes in advanced NSCLC treatment",
+      locator: "https://pubmed.ncbi.nlm.nih.gov/30000004/",
+      sourceType: "pubmed",
+      titleAbstractStatus: "include",
+      fullTextStatus: "include",
+    },
+    ...Array.from({ length: 12 }, (_, index) => ({
+      recordId: `candidate-${index + 1}`,
+      title: `Public evidence candidate ${index + 1}`,
+      locator: `https://clinicaltrials.gov/study/NCT${String(index + 1).padStart(8, "0")}`,
+      sourceType: "clinicaltrials",
+      titleAbstractStatus: "not_assessed",
+      fullTextStatus: "not_assessed",
+    })),
+    {
+      recordId: "excluded-1",
+      title: "Excluded evidence record 1",
+      locator: "https://pubmed.ncbi.nlm.nih.gov/30000017/",
+      sourceType: "pubmed",
+      titleAbstractStatus: "exclude",
+      fullTextStatus: "exclude",
+    },
+    {
+      recordId: "excluded-2",
+      title: "Excluded evidence record 2",
+      locator: "https://pubmed.ncbi.nlm.nih.gov/30000018/",
+      sourceType: "pubmed",
+      titleAbstractStatus: "exclude",
+      fullTextStatus: "exclude",
+    },
+  ],
+  extractions: [
+    {
+      extractionId: "extract-cost",
+      recordId: "trial-cost-1",
+      target: "strategies.intervention.state_costs",
+      extractedValue: "12500",
+      sourceLocation: "Table 3, intervention arm",
+      applicability: "CNY per cycle; Chinese payer setting; 2026 price year adjustment pending",
+    },
+    {
+      extractionId: "extract-utility",
+      recordId: "trial-utility-1",
+      target: "strategies.intervention.state_utilities",
+      extractedValue: "0.74",
+      sourceLocation: "Supplement, Table S8",
+      applicability: "Progression-free utility; advanced NSCLC population",
+    },
+  ],
   eligibleExtractionIds: ["extract-cost", "extract-utility"],
   eligibleExtractions: [
     {
@@ -4284,6 +4497,35 @@ export const HEOR_BROWSER_DEMO_EVIDENCE_LIBRARY_AUDIT: HeorEvidenceLibraryAudit 
   requiresOcrCount: 0,
   failedCount: 0,
   totalBytes: 1_280_000,
+  documents: [
+    {
+      path: "heor/library/clinical-guideline.pdf",
+      sha256: "a".repeat(64),
+      bytes: 640_000,
+      mediaType: "application/pdf",
+      extractionStatus: "indexed",
+      pageCount: 48,
+      textSha256: "1".repeat(64),
+    },
+    {
+      path: "heor/library/economic-evaluation.pdf",
+      sha256: "b".repeat(64),
+      bytes: 480_000,
+      mediaType: "application/pdf",
+      extractionStatus: "indexed",
+      pageCount: 16,
+      textSha256: "2".repeat(64),
+    },
+    {
+      path: "heor/library/price-source.html",
+      sha256: "c".repeat(64),
+      bytes: 160_000,
+      mediaType: "text/html",
+      extractionStatus: "indexed",
+      pageCount: 1,
+      textSha256: "3".repeat(64),
+    },
+  ],
   errors: [],
 };
 

@@ -75,6 +75,7 @@ pub struct LibraryAudit {
     pub requires_ocr_count: usize,
     pub failed_count: usize,
     pub total_bytes: u64,
+    pub documents: Vec<LibraryDocument>,
     pub errors: Vec<String>,
 }
 
@@ -938,6 +939,7 @@ fn empty_audit(error: String) -> LibraryAudit {
         requires_ocr_count: 0,
         failed_count: 0,
         total_bytes: 0,
+        documents: Vec::new(),
         errors: vec![error],
     }
 }
@@ -1092,6 +1094,7 @@ fn audit_library(workspace: &Path) -> LibraryAudit {
             .iter()
             .map(|document| document.bytes)
             .sum(),
+        documents: manifest.documents,
         errors,
     }
 }

@@ -255,16 +255,16 @@ describe("foldEvent", () => {
       { type: "text.updated", sessionId: S, partId: "p2", text: "done" },
       { type: "session.idle", sessionId: S },
     ]);
-    expect(s.blocks.map((b) => b.kind)).toEqual(["agent", "tool-call", "agent", "status-line"]);
+    expect(s.blocks.map((b) => b.kind)).toEqual(["agent", "tool-call", "agent"]);
   });
 
-  it("deduplicates repeated session idle events", () => {
+  it("does not render repeated session idle events as completed research steps", () => {
     const s = foldAll([
       { type: "text.updated", sessionId: S, partId: "p1", text: "done" },
       { type: "session.idle", sessionId: S },
       { type: "session.idle", sessionId: S },
     ]);
-    expect(s.blocks.filter((b) => b.kind === "status-line" && b.tone === "done")).toHaveLength(1);
+    expect(s.blocks.filter((b) => b.kind === "status-line")).toHaveLength(0);
   });
 });
 
@@ -414,8 +414,8 @@ describe("historyToThread", () => {
       },
     ];
     const t = historyToThread(msgs);
-    expect(t.blocks[1]).toMatchObject({ kind: "tool-call", status: "pending" });
-    expect(t.blocks[2]).toMatchObject({ kind: "tool-call", status: "pending" });
+    expect(t.blocks[1]).toMatchObject({ kind: "tool-call", status: "failed" });
+    expect(t.blocks[2]).toMatchObject({ kind: "tool-call", status: "failed" });
     const last = t.blocks[t.blocks.length - 1];
     expect(last).toMatchObject({ kind: "status-line", tone: "error" });
   });

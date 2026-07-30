@@ -23,7 +23,9 @@ fn python_bin(app: &AppHandle) -> Result<PathBuf, String> {
 #[tauri::command]
 pub fn science_mcp_python(app: AppHandle) -> Result<Option<String>, String> {
     let python = python_bin(&app)?;
-    Ok(python.exists().then(|| python.to_string_lossy().to_string()))
+    Ok(python
+        .exists()
+        .then(|| python.to_string_lossy().to_string()))
 }
 
 #[tauri::command]
@@ -54,15 +56,18 @@ pub async fn setup_science_mcp(app: AppHandle, package: String) -> Result<String
 }
 
 fn is_safe_package(package: &str) -> bool {
-    let core = package.split_once("==").map(|(name, _)| name).unwrap_or(package);
+    let core = package
+        .split_once("==")
+        .map(|(name, _)| name)
+        .unwrap_or(package);
     !core.is_empty()
         && !core.starts_with('-')
-        && core
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-'))
-        && package
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-' | '='))
+        && core.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-')
+        })
+        && package.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-' | '=')
+        })
 }
 
 #[cfg(test)]
@@ -78,7 +83,14 @@ mod tests {
 
     #[test]
     fn rejects_argument_and_shell_injection() {
-        for package in ["", "--upgrade", "pkg; rm", "pkg && echo", "pkg --index-url x", "pkg\nother"] {
+        for package in [
+            "",
+            "--upgrade",
+            "pkg; rm",
+            "pkg && echo",
+            "pkg --index-url x",
+            "pkg\nother",
+        ] {
             assert!(!is_safe_package(package));
         }
     }

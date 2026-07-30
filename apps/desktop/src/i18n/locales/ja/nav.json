@@ -53,9 +53,13 @@
     "open": "タスクを開く",
     "rename": "タスク名を変更",
     "renamePlaceholder": "タスク名",
+    "moveTo": "移動先",
+    "standalone": "独立したタスク",
     "delete": "タスクを削除",
     "deleteAria": "{{title}} を削除",
-    "running": "実行中"
+    "running": "実行中",
+    "idle": "準備完了",
+    "error": "要確認"
   },
   "confirmDelete": {
     "sessionTitle": "タスクを削除しますか？",

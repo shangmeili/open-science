@@ -347,6 +347,15 @@ fn validate_harness_source(src: &Path) -> Result<(), String> {
         "A candidate is inert",
         "at least two independent\n  interactions",
         "cannot store secrets",
+        "Model training knowledge is not a scientific source",
+        "Never turn model-generated medicine identities, indications",
+        "Public facts are assistant retrieval work",
+        "Treat current public literature and public data as assistant retrieval work",
+        "Never put\n  model-invented prices, sources, citations",
+        "Every interactive question must be self-contained",
+        "Suggested options are\n  aids, not constraints",
+        "When a lawfully downloadable public file is actually used",
+        "do not wait for a second request",
     ] {
         if !agents.contains(required) {
             return Err(format!(

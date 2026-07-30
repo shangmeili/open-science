@@ -10,12 +10,18 @@ import {
   subagentActivity,
   useRuntimeStore,
 } from "@/lib/runtime";
-import { useOverlayTitlebar, useUiStore, type ComposerSkillSelection } from "@/lib/store";
+import {
+  REPLACE_COMPOSER_DRAFT,
+  useOverlayTitlebar,
+  useUiStore,
+  type ComposerSkillSelection,
+} from "@/lib/store";
 import { fileInspectorFromBlock } from "@/lib/artifacts";
 import { useScrollMemory } from "@/lib/scrollMemory";
 import { BlockList, type BlockHandlers } from "@/components/thread/BlockList";
 import { Elapsed } from "@/components/thread/ToolGroup";
 import { Composer } from "@/components/thread/Composer";
+import { PromptQueue } from "@/components/thread/PromptQueue";
 import { HeorStarters } from "@/components/heor/HeorStarters";
 import { NewTaskSuggestions } from "@/components/heor/NewTaskSuggestions";
 import { FirstRunGuide } from "@/components/heor/FirstRunGuide";
@@ -33,7 +39,7 @@ import { isTauri } from "@/lib/tauri";
 /** AI4HEOR research task backed by the local assistant runtime. The runtime
  * session is created lazily on the first message, then the URL gains its id. */
 export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) {
-  const { t } = useTranslation(["session", "common", "heor"]);
+  const { t, i18n } = useTranslation(["session", "common", "heor"]);
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const isWorkbench = workbench && !sessionId;
@@ -60,7 +66,13 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
     commands,
     agents,
     sessionAgents,
+    promptQueues,
     setAgentMode,
+    enqueuePrompt,
+    removeQueuedPrompt,
+    moveQueuedPrompt,
+    takeNextQueuedPrompt,
+    requeuePromptFront,
     defaultModel,
     connect,
     openSession,
@@ -83,10 +95,16 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
     approvalMode,
     setApprovalMode,
   } = useRuntimeStore();
+  const {
+    sidebarCollapsed,
+    setSidebarCollapsed,
+    taskProjectPlacement,
+  } = useUiStore();
   const clearingLocalCommand = useRef(false);
   const [showHeorReview, setShowHeorReview] = useState(false);
   const [reviewRevision, setReviewRevision] = useState(0);
   const reviewWasWorking = useRef(false);
+  const drainingQueue = useRef(false);
 
   // A deliberate workspace move restarts the sidecar — expected and brief, so
   // the UI stays "connected" (no badge flip, no Connect button, no help card).
@@ -95,6 +113,8 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   const connecting = status === "connecting" && !switching;
   const displayStatus = switching ? "ready" : status;
   const sessionDir = sessions.find((session) => session.id === sessionId)?.directory;
+  const running = !!(currentId && runningSessions[currentId]);
+  const working = sending || running;
 
   useEffect(() => {
     if (sessionId) {
@@ -113,20 +133,32 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   }, [sessionId, connected, sessionDir, openSession, startDraft]);
 
   // All three composer paths reflect a freshly-created session in the URL.
-  const afterTurn = (id: string | null) => {
+  const afterTurn = useCallback((id: string | null) => {
     if (id && !sessionId) navigate(`/heor/${id}`);
-  };
-  const onSend = async (text: string, skill?: ComposerSkillSelection) => {
+  }, [navigate, sessionId]);
+  const sendNow = useCallback(async (text: string, skill?: ComposerSkillSelection) => {
     if (!defaultModel) {
       useUiStore.getState().setComposerDraft(text);
       if (skill) useUiStore.getState().setComposerSkill(skill);
-      return;
+      return null;
     }
     const runtimeText = skill ? `$${skill.id}\n\n${text}` : text;
     const displayText = skill
       ? t("composer.skill.echo", { skill: skill.label, task: text })
       : text;
-    afterTurn(await sendPrompt(buildHeorPrompt(runtimeText), displayText));
+    const id = await sendPrompt(
+      buildHeorPrompt(runtimeText, i18n.resolvedLanguage ?? i18n.language),
+      displayText,
+    );
+    afterTurn(id);
+    return id;
+  }, [afterTurn, defaultModel, i18n.language, i18n.resolvedLanguage, sendPrompt, t]);
+  const onSend = async (text: string, skill?: ComposerSkillSelection) => {
+    if (working) {
+      enqueuePrompt(text, skill);
+      return;
+    }
+    await sendNow(text, skill);
   };
   const onRunShell = async (command: string) => afterTurn(await runShell(command));
   const onRunCommand = async (name: string, args: string) => {
@@ -186,7 +218,11 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   // Interactions from the thread/inspector fold back into the conversation as follow-up prompts.
   const handlers: BlockHandlers = useMemo(() => ({
     onMessageEdit: (messageID, text) => {
-      void editMessage(messageID, buildHeorPrompt(text), text).then((changed) => {
+      void editMessage(
+        messageID,
+        buildHeorPrompt(text, i18n.resolvedLanguage ?? i18n.language),
+        text,
+      ).then((changed) => {
         if (changed) setReviewRevision((revision) => revision + 1);
       });
     },
@@ -198,19 +234,30 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
       });
     },
     onArtifactOpen: openArtifactPane,
-    onFigureComment: (a, title) =>
-      void sendPrompt(t("figure.commentPrompt", {
+    onFigureComment: (a, title) => {
+      const prompt = t("figure.commentPrompt", {
         title,
         x: a.x.toFixed(0),
         y: a.y.toFixed(0),
         note: a.note,
-      })),
+      });
+      void sendPrompt(
+        buildHeorPrompt(prompt, i18n.resolvedLanguage ?? i18n.language),
+        prompt,
+      );
+    },
     // Read child activity at render time without capturing the full threads
     // object. This keeps the handler reference stable for the memoized list.
     subagentActivity: (childId) =>
       subagentActivity(useRuntimeStore.getState().threads[childId]?.blocks),
-  }), [editMessage, openArtifactPane, revertMessage, sendPrompt, t]);
-  const onEvaluate = (expr: string) => void sendPrompt(t("live.notebook.evaluatePrompt", { expr }));
+  }), [editMessage, i18n.language, i18n.resolvedLanguage, openArtifactPane, revertMessage, sendPrompt, t]);
+  const onEvaluate = (expr: string) => {
+    const prompt = t("live.notebook.evaluatePrompt", { expr });
+    void sendPrompt(
+      buildHeorPrompt(prompt, i18n.resolvedLanguage ?? i18n.language),
+      prompt,
+    );
+  };
 
   // A draft shows its local thread (the first message echoes there instantly,
   // before any session exists) — it is grafted onto the session id on create.
@@ -227,10 +274,9 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   );
   // The turn lifecycle: `sending` covers click → POST accepted (incl. the
   // dated-folder setup on a first message); `running` covers the agent
-  // working until session.idle. Together they lock the composer and show the
-  // working indicator, so a sent message is never silently "nowhere".
-  const running = !!(currentId && runningSessions[currentId]);
-  const working = sending || running;
+  // working until session.idle. Together they mark the active turn while the
+  // composer remains available for queued natural-language follow-ups, so a
+  // sent message is never silently "nowhere".
   useEffect(() => {
     if (reviewWasWorking.current && !working) {
       // The HEOR pane reads files from disk. Recreate it once the turn has
@@ -265,10 +311,10 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
           ? t("live.status.runningStep")
           : latestActivity?.kind === "reasoning"
             ? t("reasoning.thinking")
-          : latestActivity?.kind === "agent"
-            ? t("live.status.writing")
+            : latestActivity?.kind === "agent"
+              ? t("live.status.writing")
             : latestActivity?.kind === "tool-call"
-              ? t("live.status.continuing", { step: latestActivity.title })
+              ? t("live.status.continuing")
               : t("live.status.waitingModel");
 
   // Esc interrupts the running turn (like a terminal agent). Modals own Esc
@@ -306,6 +352,38 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
     activeRequest && activeRequest.sessionId !== currentId
       ? (sessions.find((s) => s.id === activeRequest.sessionId)?.title ?? t("live.subagentFallback"))
       : undefined;
+  const queueKey = currentId ?? DRAFT_KEY;
+  const currentQueue = useMemo(
+    () => promptQueues[queueKey] ?? [],
+    [promptQueues, queueKey],
+  );
+
+  // Drain exactly one queued message only after the current turn is truly
+  // idle. A pending question or permission remains a conversational blocker;
+  // the queue resumes after the researcher answers it and the turn completes.
+  useEffect(() => {
+    if (!connected || !defaultModel || working || activeRequest || currentQueue.length === 0) return;
+    if (drainingQueue.current) return;
+    const next = takeNextQueuedPrompt();
+    if (!next) return;
+    drainingQueue.current = true;
+    void sendNow(next.text, next.skill)
+      .then((id) => {
+        if (!id) requeuePromptFront(next);
+      })
+      .finally(() => {
+        drainingQueue.current = false;
+      });
+  }, [
+    activeRequest,
+    connected,
+    currentQueue,
+    defaultModel,
+    requeuePromptFront,
+    sendNow,
+    takeNextQueuedPrompt,
+    working,
+  ]);
 
   // Notebooks the agent touched in THIS session — the conversation ↔ notebook map.
   const sessionNotebooks = (thread?.blocks ?? []).filter(
@@ -321,13 +399,26 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   const activeArtifact = pane?.artifact ?? null;
   const showFiles = !activeArtifact && !!pane?.showFiles;
   const showRuns = !activeArtifact && !showFiles && !!pane?.showRuns;
+  // A global New task deliberately unpins the previous project before its
+  // standalone folder is materialized on first use. Do not keep presenting
+  // the previous workspace's project as this draft's context in that gap.
+  const workspaceProject = projects.find((candidate) => candidate.path === workspace);
+  const pinnedResearchProject = researchScope?.kind === "heor" ? researchScope : null;
+  const hasExplicitPlacement = !!sessionId
+    && Object.prototype.hasOwnProperty.call(taskProjectPlacement, sessionId);
+  const explicitlyPlacedProject = sessionId && hasExplicitPlacement
+    ? projects.find((candidate) => candidate.id === taskProjectPlacement[sessionId])
+    : undefined;
+  const taskProject = sessionId
+    ? hasExplicitPlacement
+      ? explicitlyPlacedProject ?? null
+      : workspaceProject ?? pinnedResearchProject
+    : workspacePinned
+      ? workspaceProject ?? pinnedResearchProject
+      : null;
   const activeProject = !isTauri
     ? { id: "ai4heor-demo", name: "First-line NSCLC" }
-    : workspacePinned || !!sessionId
-      ? projects.find((candidate) => candidate.path === workspace) ?? researchScope
-      : null;
-  const taskProject = projects.find((candidate) => candidate.path === workspace)
-    ?? (workspacePinned && researchScope?.kind === "heor" ? researchScope : null);
+    : taskProject;
   const canOpenHeorReview = !!sessionId || !!taskProject || workspacePinned;
   useEffect(() => {
     if (!canOpenHeorReview) setShowHeorReview(false);
@@ -370,12 +461,18 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   // With the sidebar collapsed this header doubles as the titlebar (macOS
   // overlay): it clears the traffic lights, hosts the sidebar expand button,
   // and empty stretches drag the window — one row, never two.
-  const { sidebarCollapsed, setSidebarCollapsed } = useUiStore();
   const isMac = navigator.userAgent.includes("Mac");
   const overlayTitlebar = useOverlayTitlebar();
   const showNewTaskStart = isEmpty && !sessionId && !isWorkbench;
   const planAvailable = agents.some((agent) => agent.name === "plan");
   const agentMode = sessionAgents[currentId ?? DRAFT_KEY] ?? "build";
+  const queuePanel = (
+    <PromptQueue
+      items={currentQueue}
+      onMove={moveQueuedPrompt}
+      onRemove={removeQueuedPrompt}
+    />
+  );
   const taskComposer = (
     <Composer
       key={sessionId ?? `task:${draftEpoch}`}
@@ -383,12 +480,12 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
       onRunShell={(c) => void onRunShell(c)}
       onRunCommand={(n, a) => void onRunCommand(n, a)}
       commands={composerCommands}
-      disabled={!connected || working || !defaultModel}
-      working={running}
+      disabled={!connected || !defaultModel}
+      working={working}
       onStop={() => void interrupt()}
       placeholder={
         working
-          ? t("live.placeholder.waiting")
+          ? t("composer.queue.placeholder")
           : connected
             ? t("heor:placeholder")
             : t("live.placeholder.disconnected")
@@ -532,7 +629,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
                 <FirstRunGuide onOpenSettings={() => navigate("/settings")} />
                 <HeorStarters
                   onPick={(prompt) => {
-                    useUiStore.getState().setComposerDraft(prompt);
+                    useUiStore.getState().setComposerDraft(prompt, REPLACE_COMPOSER_DRAFT);
                     navigate("/heor/new");
                   }}
                   ensureWorkspace={ensureStandaloneWorkspace}
@@ -540,9 +637,14 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
               </>
             )}
             {showNewTaskStart && (
-              <NewTaskSuggestions
-                onPick={(prompt) => useUiStore.getState().setComposerDraft(prompt)}
-              />
+              <>
+                <NewTaskSuggestions
+                  onPick={(prompt) =>
+                    useUiStore.getState().setComposerDraft(prompt, REPLACE_COMPOSER_DRAFT)
+                  }
+                />
+                {queuePanel}
+              </>
             )}
             {/* Deliberate workspace switches don't render anything at all (they're
                 masked as connected); a genuine boot/reconnect shows only the
@@ -613,6 +715,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
                 onPermission={(id, reply) => void replyPermission(id, reply)}
               />
             )}
+            {!isWorkbench && !showNewTaskStart && queuePanel}
             {!isWorkbench && !showNewTaskStart && taskComposer}
           </div>
         </div>

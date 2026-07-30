@@ -53,9 +53,13 @@
     "open": "Abrir tarea",
     "rename": "Cambiar nombre de la tarea",
     "renamePlaceholder": "Nombre de la tarea",
+    "moveTo": "Mover a",
+    "standalone": "Tareas independientes",
     "delete": "Eliminar tarea",
     "deleteAria": "Eliminar {{title}}",
-    "running": "Trabajando"
+    "running": "Trabajando",
+    "idle": "Listo",
+    "error": "Requiere atención"
   },
   "confirmDelete": {
     "sessionTitle": "¿Eliminar tarea?",

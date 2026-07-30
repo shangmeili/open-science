@@ -1196,6 +1196,8 @@ describe("AI4HEOR human review pane", () => {
     expect(screen.getByText("Exact search request is ready")).toBeInTheDocument();
     expect(screen.getByText("semaglutide AND type 2 diabetes AND cost effectiveness")).toBeInTheDocument();
     expect(screen.getByText("Evidence synthesis ledger")).toBeInTheDocument();
+    expect(screen.getByText("In-text citations and references")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Organise citations with the Agent" })).toBeInTheDocument();
     expect(screen.getByText("Local evidence library")).toBeInTheDocument();
     expect(screen.getByText("Local sources are hash-bound and searchable")).toBeInTheDocument();
     expect(screen.getByText("Evidence synthesis needs human-guided work")).toBeInTheDocument();
@@ -1223,6 +1225,69 @@ describe("AI4HEOR human review pane", () => {
 
     expect(await screen.findByText("Current decision problem confirmed")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review Conceptual model" })).toBeInTheDocument();
+  });
+
+  it("keeps the research panel view-only while the assistant updates project files", async () => {
+    render(
+      <HeorReviewPane
+        project={{ id: "ai4heor-demo", name: "Demo" }}
+        activity={{ label: "Continuing…", detail: "python internal-step.py", step: 4 }}
+        onClose={vi.fn()}
+        onRequestRevision={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText(/This panel is view-only until the turn ends/))
+      .toBeInTheDocument();
+    expect(screen.queryByText("python internal-step.py")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Organise citations with the Agent" }))
+      .toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", {
+      name: /View the source of Documents, current value 3/,
+    }));
+    expect(await screen.findByTestId("metric-provenance"))
+      .toHaveTextContent("heor/evidence-library.json");
+
+  });
+
+  it("opens provenance for every metric card from the current section artifact", async () => {
+    render(
+      <HeorReviewPane
+        project={{ id: "ai4heor-demo", name: "Demo" }}
+        onClose={vi.fn()}
+        onRequestRevision={vi.fn()}
+      />,
+    );
+
+    const documentsMetric = await screen.findByRole("button", {
+      name: /View the source of Documents, current value 3/,
+    });
+    expect(documentsMetric.closest("section")).toHaveTextContent("heor/evidence-library.json");
+    await userEvent.click(documentsMetric);
+    expect(await screen.findByText("Value provenance")).toBeInTheDocument();
+    const provenance = screen.getByTestId("metric-provenance");
+    expect(provenance).toHaveTextContent("heor/evidence-library.json");
+    expect(provenance).toHaveTextContent("documents[*]");
+    expect(provenance).toHaveTextContent("clinical-guideline.pdf");
+    expect(provenance).toHaveTextContent("economic-evaluation.pdf");
+    expect(provenance).toHaveTextContent("price-source.html");
+    expect(provenance).toHaveTextContent("Saved locally and indexed");
+    expect(provenance).toHaveTextContent(/not generated ad hoc in the interface/);
+
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByRole("button", {
+      name: /View the source of Records, current value 18/,
+    }));
+    const recordProvenance = await screen.findByTestId("metric-provenance");
+    expect(recordProvenance).toHaveTextContent("records[*]");
+    expect(recordProvenance).toHaveTextContent("Economic evaluation of first-line treatment");
+    expect(recordProvenance).toHaveTextContent("pubmed.ncbi.nlm.nih.gov/30000001");
+
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByRole("button", { name: /View the source of States/ }));
+    expect(await screen.findByTestId("metric-provenance"))
+      .toHaveTextContent("heor/conceptual-model.json");
   });
 
   it("keeps analysis-plan approval locked until evidence traceability is complete", async () => {

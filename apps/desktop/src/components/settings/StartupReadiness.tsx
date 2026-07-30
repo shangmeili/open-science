@@ -150,7 +150,13 @@ export function StartupReadiness({ compact = false, onOpenSettings }: StartupRea
     );
   }
 
-  const nativeChecks = state.phase === "ready" ? state.audit.checks : [];
+  // The bundled harness is an internal project-initialization resource, not a
+  // researcher-facing capability or a scientific audit. Keep a healthy check
+  // out of the everyday readiness summary; surface it only when it is missing
+  // so the researcher still gets an actionable setup failure.
+  const nativeChecks = state.phase === "ready"
+    ? state.audit.checks.filter((check) => check.id !== "harness" || !check.ready)
+    : [];
   return (
     <section
       aria-labelledby="startup-readiness-title"

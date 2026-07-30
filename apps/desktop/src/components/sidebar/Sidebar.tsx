@@ -5,6 +5,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
+  Check,
   ChevronRight,
   Files,
   Folder,
@@ -57,8 +58,8 @@ interface Row {
   id: string;
   title: string;
   to: string;
-  running: boolean;
-  step: number;
+  status: "running" | "idle" | "error";
+  projectId?: string;
 }
 
 /** Dragging the divider below this pointer x collapses the sidebar; dragging
@@ -89,7 +90,6 @@ export function Sidebar() {
     projects,
     workspace,
     runningSessions,
-    stepCounts,
     startDraft,
     startDraftInWorkspace,
     createProject,
@@ -107,6 +107,9 @@ export function Sidebar() {
     setSidebarCollapsed,
     setSidebarWidth,
     toggleSidebar,
+    taskProjectPlacement,
+    moveTaskToProject,
+    forgetTaskProjectPlacement,
   } = useUiStore();
   // While dragging, the live width lives here; the store (and localStorage)
   // are only written on pointer-up.
@@ -152,7 +155,6 @@ export function Sidebar() {
   const [createBusy, setCreateBusy] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renamingTaskId, setRenamingTaskId] = useState<string | null>(null);
-
   const toggleProject = (id: string) =>
     setCollapsedProjects((prev) => {
       const next = prev.includes(id)
@@ -205,16 +207,28 @@ export function Sidebar() {
   );
   const looseRows: Row[] = [];
   for (const s of topSessions) {
+    const taskBlocks = threads[s.id]?.blocks ?? [];
+    const tail = taskBlocks[taskBlocks.length - 1];
+    const status: Row["status"] = runningSessions[s.id]
+      ? "running"
+      : tail?.kind === "status-line" && tail.tone === "error"
+        ? "error"
+        : "idle";
+    const naturalOwner = s.directory ? projectByPath.get(s.directory) : undefined;
+    const hasPlacement = Object.prototype.hasOwnProperty.call(taskProjectPlacement, s.id);
+    const requestedProjectId = hasPlacement ? taskProjectPlacement[s.id] : naturalOwner?.id;
+    const placedProject = requestedProjectId
+      ? projects.find((project) => project.id === requestedProjectId)
+      : undefined;
     const row: Row = {
       id: s.id,
       title: displaySessionTitle(s.title, threads[s.id]?.blocks, t("items.new")),
       to: `/heor/${s.id}`,
-      running: !!runningSessions[s.id],
-      step: stepCounts[s.id] ?? 0,
+      status,
+      projectId: placedProject?.id,
     };
-    const owner = s.directory ? projectByPath.get(s.directory) : undefined;
-    if (owner) {
-      sessionsByProject.get(owner.id)!.push({ ...row, to: `/heor/${s.id}` });
+    if (placedProject) {
+      sessionsByProject.get(placedProject.id)!.push(row);
     }
     else looseRows.push(row);
   }
@@ -240,6 +254,7 @@ export function Sidebar() {
     const row = pendingDelete;
     setPendingDelete(null);
     if (!row) return;
+    forgetTaskProjectPlacement(row.id);
     void deleteSession(row.id);
     if (location.pathname === row.to) navigate("/heor");
   };
@@ -276,7 +291,11 @@ export function Sidebar() {
   ) : (
     <ContextMenu.Root key={row.to}>
       <ContextMenu.Trigger asChild>
-    <div className="group relative" data-sidebar-context-anchor>
+    <div
+      className="group relative"
+      data-sidebar-context-anchor
+      data-task-id={row.id}
+    >
       <NavLink
         to={row.to}
         className={cn(
@@ -287,19 +306,16 @@ export function Sidebar() {
         )}
       >
         <span
+          data-task-status={row.status}
+          aria-label={t(`history.${row.status}`)}
           className={cn(
             "h-1.5 w-1.5 shrink-0 rounded-full",
-            row.running ? "animate-pulse bg-accent" : "bg-ok",
+            row.status === "running" && "animate-pulse bg-ok",
+            row.status === "idle" && "bg-ok",
+            row.status === "error" && "bg-error",
           )}
         />
         <span className="flex-1 truncate">{row.title}</span>
-        {row.running && (
-          <span className="shrink-0 text-[10px] tabular-nums text-accent">
-            {row.step > 0
-              ? t("session:live.status.step", { count: row.step })
-              : t("history.running")}
-          </span>
-        )}
       </NavLink>
       <button
         type="button"
@@ -321,6 +337,48 @@ export function Sidebar() {
             <Pencil size={14} className="shrink-0 text-muted" />
             {t("history.rename")}
           </ContextMenu.Item>
+          {(projects.length > 0 || row.projectId) && (
+            <ContextMenu.Sub>
+              <ContextMenu.SubTrigger className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[highlighted]:bg-surface-2 data-[state=open]:bg-surface-2">
+                <FolderInput size={14} className="shrink-0 text-muted" />
+                <span className="flex-1">{t("history.moveTo")}</span>
+                <ChevronRight size={12} className="shrink-0 text-muted" />
+              </ContextMenu.SubTrigger>
+              <ContextMenu.Portal>
+                <ContextMenu.SubContent
+                  sideOffset={4}
+                  className="z-50 min-w-[180px] rounded-card border border-border bg-surface p-1 text-[13px] text-text shadow-pop"
+                >
+                  <ContextMenu.Item
+                    onSelect={() => moveTaskToProject(row.id, null)}
+                    className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[highlighted]:bg-surface-2"
+                  >
+                    <span className="grid h-4 w-4 shrink-0 place-items-center">
+                      {!row.projectId && <Check size={13} className="text-accent" />}
+                    </span>
+                    {t("history.standalone")}
+                  </ContextMenu.Item>
+                  {projects.length > 0 && (
+                    <ContextMenu.Separator className="my-1 h-px bg-border" />
+                  )}
+                  {projects.map((project) => (
+                    <ContextMenu.Item
+                      key={project.id}
+                      onSelect={() => moveTaskToProject(row.id, project.id)}
+                      className="flex cursor-default items-center gap-2 rounded-input px-2 py-1.5 outline-none data-[highlighted]:bg-surface-2"
+                    >
+                      <span className="grid h-4 w-4 shrink-0 place-items-center">
+                        {row.projectId === project.id && (
+                          <Check size={13} className="text-accent" />
+                        )}
+                      </span>
+                      <span className="truncate">{project.name}</span>
+                    </ContextMenu.Item>
+                  ))}
+                </ContextMenu.SubContent>
+              </ContextMenu.Portal>
+            </ContextMenu.Sub>
+          )}
           <ContextMenu.Separator className="my-1 h-px bg-border" />
           <ContextMenu.Item
             onSelect={() => setPendingDelete(row)}
@@ -450,7 +508,15 @@ export function Sidebar() {
             <span className="text-xs font-medium uppercase tracking-wider text-muted">
               {t("projects.heading")}
             </span>
-            <div className="flex items-center gap-0.5">
+            <div data-sidebar-section-actions="projects" className="flex items-center gap-0.5">
+              <button
+                onClick={() => setCreatingProject(true)}
+                aria-label={t("projects.new")}
+                title={t("projects.new")}
+                className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-text"
+              >
+                <Plus size={13} />
+              </button>
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                   <button
@@ -478,14 +544,6 @@ export function Sidebar() {
                   </DropdownMenu.Content>
                 </DropdownMenu.Portal>
               </DropdownMenu.Root>
-              <button
-                onClick={() => setCreatingProject(true)}
-                aria-label={t("projects.new")}
-                title={t("projects.new")}
-                className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-text"
-              >
-                <Plus size={13} />
-              </button>
             </div>
           </div>
           {creatingProject && (
@@ -514,7 +572,7 @@ export function Sidebar() {
             const active = p.path === workspace;
             const rows = sessionsByProject.get(p.id) ?? [];
             return (
-              <div key={p.id}>
+              <div key={p.id} data-project-id={p.id}>
                 {renamingId === p.id ? (
                   <div className="py-0.5 pl-5 pr-1">
                     <InlineNameInput
@@ -568,7 +626,10 @@ export function Sidebar() {
                         {p.name}
                       </span>
                     </button>
-                    <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center">
+                    <div
+                      data-project-actions={p.id}
+                      className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center"
+                    >
                       {rows.length > 0 && (
                         <span className="px-1 text-[10px] tabular-nums text-muted group-hover/project:hidden">
                           {rows.length}
@@ -656,7 +717,16 @@ export function Sidebar() {
             <span className="text-xs font-medium uppercase tracking-wider text-muted">
               {t("history.heading")}
             </span>
-            <div className="flex items-center gap-0.5">
+            <div data-sidebar-section-actions="tasks" className="flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={startNew}
+                aria-label={t("items.new")}
+                title={t("items.new")}
+                className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-text"
+              >
+                <Plus size={13} />
+              </button>
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                   <button
@@ -683,15 +753,6 @@ export function Sidebar() {
                   </DropdownMenu.Content>
                 </DropdownMenu.Portal>
               </DropdownMenu.Root>
-              <button
-                type="button"
-                onClick={startNew}
-                aria-label={t("items.new")}
-                title={t("items.new")}
-                className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-text"
-              >
-                <Plus size={13} />
-              </button>
             </div>
           </div>
           {looseRows.length === 0 && (

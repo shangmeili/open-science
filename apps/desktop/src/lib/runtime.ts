@@ -83,6 +83,17 @@ export interface PaneState {
   showRuns: boolean;
 }
 
+export interface QueuedPromptSkill {
+  id: string;
+  label: string;
+}
+
+export interface QueuedPrompt {
+  id: string;
+  text: string;
+  skill?: QueuedPromptSkill;
+}
+
 interface RuntimeState {
   status: RuntimeStatus;
   serverUrl: string;
@@ -124,7 +135,15 @@ interface RuntimeState {
    *  In-memory only: an app restart returns every session to a closed pane. */
   panes: Record<string, PaneState>;
   sessionAgents: Record<string, AgentMode>;
+  /** Natural-language messages waiting behind the active turn, isolated by
+   * task id (DRAFT_KEY before the first turn creates a real session). */
+  promptQueues: Record<string, QueuedPrompt[]>;
   setAgentMode: (mode: AgentMode) => void;
+  enqueuePrompt: (text: string, skill?: QueuedPromptSkill) => string;
+  removeQueuedPrompt: (id: string) => void;
+  moveQueuedPrompt: (id: string, direction: "up" | "down") => void;
+  takeNextQueuedPrompt: () => QueuedPrompt | null;
+  requeuePromptFront: (prompt: QueuedPrompt) => void;
   openArtifact: (a: ArtifactBlock) => void;
   closeArtifact: () => void;
   setShowFiles: (show: boolean) => void;
@@ -225,6 +244,12 @@ interface RuntimeState {
 // OAuth, MCP, and catalogs are implementation-specific configuration surfaces.
 let client: AgentRuntime | null = null;
 let opencodeClient: OpenCodeClient | null = null;
+let queuedPromptSequence = 0;
+
+function nextQueuedPromptId(): string {
+  queuedPromptSequence += 1;
+  return `queued-${Date.now().toString(36)}-${queuedPromptSequence.toString(36)}`;
+}
 let openSessionSeq = 0;
 /** Increments when the researcher deliberately changes the model. Catalog
  *  requests capture the value they started with, so a stale response cannot
@@ -421,6 +446,9 @@ async function performTurn(
   }
   if (get().sending) return null; // one send at a time
   const echoKey = get().currentId ?? DRAFT_KEY;
+  // Keep the turn attached to the task that started it. The researcher may
+  // open another task while the provider request is still in flight.
+  let turnKey = echoKey;
   set((s) => {
     const cur = s.threads[echoKey] ?? emptyThread();
     return {
@@ -456,6 +484,7 @@ async function performTurn(
         }
       }
       id = await withRetry(() => client!.createSession());
+      turnKey = id;
       set((s) => {
         // Graft the draft conversation (and its pane) onto the real session id.
         const threads = { ...s.threads, [id!]: s.threads[DRAFT_KEY] ?? emptyThread() };
@@ -465,7 +494,12 @@ async function performTurn(
           panes[id!] = panes[DRAFT_KEY];
           delete panes[DRAFT_KEY];
         }
-        return { currentId: id, threads, panes };
+        const promptQueues = { ...s.promptQueues };
+        if (promptQueues[DRAFT_KEY]?.length) {
+          promptQueues[id!] = promptQueues[DRAFT_KEY];
+        }
+        delete promptQueues[DRAFT_KEY];
+        return { currentId: id, threads, panes, promptQueues };
       });
       moveScrollMemory(`chat:${DRAFT_KEY}`, `chat:${id}`);
       void get().refreshSessions();
@@ -540,14 +574,12 @@ async function performTurn(
     const msg = err instanceof Error ? err.message : String(err);
     void logDebug(`turn FAILED: ${msg}`);
     // The failure belongs next to the message that caused it.
-    const key = get().currentId ?? DRAFT_KEY;
     set((s) => {
-      const cur = s.threads[key] ?? emptyThread();
+      const cur = s.threads[turnKey] ?? emptyThread();
       return {
-        error: msg,
         threads: {
           ...s.threads,
-          [key]: {
+          [turnKey]: {
             ...cur,
             loaded: true,
             blocks: [...cur.blocks, { kind: "status-line", text: `Send failed: ${msg}`, tone: "error" }],
@@ -555,7 +587,7 @@ async function performTurn(
         },
       };
     });
-    return get().currentId;
+    return turnKey === DRAFT_KEY ? null : turnKey;
   } finally {
     set({ sending: false });
   }
@@ -669,10 +701,64 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   sessionParents: {},
   panes: {},
   sessionAgents: {},
+  promptQueues: {},
   setAgentMode: (mode) =>
     set((state) => ({
       sessionAgents: { ...state.sessionAgents, [state.currentId ?? DRAFT_KEY]: mode },
     })),
+  enqueuePrompt: (text, skill) => {
+    const id = nextQueuedPromptId();
+    const prompt: QueuedPrompt = { id, text: text.trim(), ...(skill ? { skill } : {}) };
+    set((state) => {
+      const key = state.currentId ?? DRAFT_KEY;
+      return {
+        promptQueues: {
+          ...state.promptQueues,
+          [key]: [...(state.promptQueues[key] ?? []), prompt],
+        },
+      };
+    });
+    return id;
+  },
+  removeQueuedPrompt: (id) =>
+    set((state) => {
+      const key = state.currentId ?? DRAFT_KEY;
+      return {
+        promptQueues: {
+          ...state.promptQueues,
+          [key]: (state.promptQueues[key] ?? []).filter((prompt) => prompt.id !== id),
+        },
+      };
+    }),
+  moveQueuedPrompt: (id, direction) =>
+    set((state) => {
+      const key = state.currentId ?? DRAFT_KEY;
+      const queue = [...(state.promptQueues[key] ?? [])];
+      const index = queue.findIndex((prompt) => prompt.id === id);
+      const target = direction === "up" ? index - 1 : index + 1;
+      if (index < 0 || target < 0 || target >= queue.length) return state;
+      [queue[index], queue[target]] = [queue[target], queue[index]];
+      return { promptQueues: { ...state.promptQueues, [key]: queue } };
+    }),
+  takeNextQueuedPrompt: () => {
+    const state = get();
+    const key = state.currentId ?? DRAFT_KEY;
+    const queue = state.promptQueues[key] ?? [];
+    const prompt = queue[0] ?? null;
+    if (!prompt) return null;
+    set({ promptQueues: { ...state.promptQueues, [key]: queue.slice(1) } });
+    return prompt;
+  },
+  requeuePromptFront: (prompt) =>
+    set((state) => {
+      const key = state.currentId ?? DRAFT_KEY;
+      return {
+        promptQueues: {
+          ...state.promptQueues,
+          [key]: [prompt, ...(state.promptQueues[key] ?? [])],
+        },
+      };
+    }),
   projects: [],
   researchScope: null,
   workspace: null,
@@ -1291,12 +1377,15 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       delete threads[DRAFT_KEY]; // leftovers from an aborted first message
       const panes = { ...s.panes };
       delete panes[DRAFT_KEY]; // a fresh draft starts with a closed pane
+      const promptQueues = { ...s.promptQueues };
+      delete promptQueues[DRAFT_KEY];
       return {
         currentId: null,
         draftEpoch: s.draftEpoch + 1,
         workspacePinned: false,
         threads,
         panes,
+        promptQueues,
       };
     }),
 
@@ -1338,7 +1427,9 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       };
       const panes = { ...s.panes };
       delete panes[DRAFT_KEY];
-      return { currentId: null, workspacePinned: true, threads, panes };
+      const promptQueues = { ...s.promptQueues };
+      delete promptQueues[DRAFT_KEY];
+      return { currentId: null, workspacePinned: true, threads, panes, promptQueues };
     }),
 
   refreshProjects: async () => {
@@ -1415,7 +1506,9 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         delete threads[DRAFT_KEY];
         const panes = { ...s.panes };
         delete panes[DRAFT_KEY];
-        return { currentId: null, workspacePinned: true, threads, panes };
+        const promptQueues = { ...s.promptQueues };
+        delete promptQueues[DRAFT_KEY];
+        return { currentId: null, workspacePinned: true, threads, panes, promptQueues };
       });
       return;
     }
@@ -1436,7 +1529,9 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         // files from the previous folder. Session panes keep their memory.
         const panes = { ...s.panes };
         delete panes[DRAFT_KEY];
-        return { currentId: null, panes, workspacePinned: true };
+        const promptQueues = { ...s.promptQueues };
+        delete promptQueues[DRAFT_KEY];
+        return { currentId: null, panes, promptQueues, workspacePinned: true };
       });
       await get().connectRetry();
       await Promise.all([get().refreshSessions(), get().loadCatalog()]);
@@ -1568,7 +1663,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           client!.sendPrompt(
             sid,
             text,
-            get().sessionAgents[get().currentId ?? DRAFT_KEY] ?? "build",
+            get().sessionAgents[sid] ?? "build",
             get().defaultModel,
           ),
         ),
@@ -1669,7 +1764,15 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     for (const sid of running) {
       try {
         const messages = await c.getMessages(sid);
-        const stopped = statusesKnown && turnStoppedWithoutReply(messages, statuses[sid]);
+        const sessionDirectory = get().sessions.find((session) => session.id === sid)?.directory;
+        // The status endpoint is scoped to the currently active workspace.
+        // Absence means "idle" only for a task in that workspace; for another
+        // task it means "not observable here" and must never be turned into a
+        // false provider failure while the researcher is viewing elsewhere.
+        const statusCoversSession = !sessionDirectory || sessionDirectory === get().workspace;
+        const stopped = statusesKnown
+          && statusCoversSession
+          && turnStoppedWithoutReply(messages, statuses[sid]);
         const inactiveCount = stopped ? (inactiveTurnPolls.get(sid) ?? 0) + 1 : 0;
         if (stopped) inactiveTurnPolls.set(sid, inactiveCount);
         else inactiveTurnPolls.delete(sid);
@@ -1687,7 +1790,10 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           delete stepCounts[sid];
           inactiveTurnPolls.delete(sid);
           const recovered = historyToThread(messages, s.commands);
-          if (inactiveCount >= 2) {
+          const recoveredTail = recovered.blocks[recovered.blocks.length - 1];
+          const alreadyShowsFailure = recoveredTail?.kind === "status-line"
+            && recoveredTail.tone === "error";
+          if (inactiveCount >= 2 && !alreadyShowsFailure) {
             recovered.blocks.push({
               kind: "status-line",
               text: i18n.t("session:live.status.stoppedBeforeReply"),
@@ -1733,6 +1839,8 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       inactiveTurnPolls.delete(id);
       const panes = { ...s.panes };
       delete panes[id];
+      const promptQueues = { ...s.promptQueues };
+      delete promptQueues[id];
       return {
         sessions: s.sessions.filter((x) => x.id !== id),
         threads,
@@ -1740,6 +1848,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         sessionProgress,
         stepCounts,
         panes,
+        promptQueues,
         currentId: s.currentId === id ? null : s.currentId,
       };
     });
@@ -2018,15 +2127,10 @@ export function foldEvent(
       return { blocks, index };
     }
     case "session.idle": {
-      const last = blocks[blocks.length - 1];
-      if (last?.kind === "status-line" && last.tone === "done") {
-        return { blocks, index };
-      }
-      blocks.push({
-        kind: "status-line",
-        text: i18n.t("session:live.status.completed"),
-        tone: "done",
-      });
+      // Idle closes the live activity indicator; it is not evidence that a
+      // scientific step or the task itself is complete. Normal completion is
+      // intentionally silent in the conversation, while stopped/error/waiting
+      // states remain visible because they require interpretation or action.
       return { blocks, index };
     }
     default:
@@ -2135,7 +2239,7 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
           blocks.push({
             kind: "tool-call",
             title,
-            status: frozen ? "pending" : status,
+            status: frozen ? "failed" : status,
             tool: p.tool,
             ...(verb ? { verb } : {}),
             ...(command ? { command } : {}),
@@ -2173,7 +2277,7 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
   if (interrupted) {
     blocks.push({
       kind: "status-line",
-      text: "Interrupted — this turn did not finish. Send a new message to continue.",
+      text: i18n.t("session:live.status.stoppedBeforeReply"),
       tone: "error",
     });
   }

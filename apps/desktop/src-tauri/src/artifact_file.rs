@@ -766,7 +766,10 @@ mod tests {
             workspace_relative(&workspace, &root.join("results/model.csv")).as_deref(),
             Some("results/model.csv")
         );
-        assert_eq!(workspace_relative(&workspace, Path::new("/no/such/file")), None);
+        assert_eq!(
+            workspace_relative(&workspace, Path::new("/no/such/file")),
+            None
+        );
         let _ = std::fs::remove_dir_all(&root);
     }
 

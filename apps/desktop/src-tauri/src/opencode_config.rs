@@ -108,9 +108,10 @@ pub fn seed_default_permission(existing: &str) -> Option<String> {
     match permission_mode_of(existing) {
         Some(MODE_FULL) => {
             let root: Value = serde_json::from_str(existing).ok()?;
-            if root.get("permission").is_some_and(|value| {
-                value.as_object().is_some_and(|rules| rules.is_empty())
-            }) {
+            if root
+                .get("permission")
+                .is_some_and(|value| value.as_object().is_some_and(|rules| rules.is_empty()))
+            {
                 return set_permission_mode(existing, MODE_FULL).ok();
             }
             None

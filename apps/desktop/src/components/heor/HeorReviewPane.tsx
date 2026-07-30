@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import * as Popover from "@radix-ui/react-popover";
 import {
   AlertTriangle,
   BookOpen,
@@ -64,7 +65,11 @@ import {
   browserDemoRun,
   HEOR_BROWSER_DEMO_CONCEPTUAL_MODEL,
   HEOR_BROWSER_DEMO_PLAN,
+  HEOR_BASE_CASE_RESULT_PATH,
+  HEOR_UNCERTAINTY_RESULT_PATH,
   HEOR_ADVANCED_VOI_RESULT_PATH,
+  HEOR_BUDGET_IMPACT_RESULT_PATH,
+  HEOR_PARTITIONED_SURVIVAL_RESULT_PATH,
   HEOR_CONCEPTUAL_MODEL_PATH,
   HEOR_BUDGET_IMPACT_PLAN_PATH,
   HEOR_PARTITIONED_SURVIVAL_PLAN_PATH,
@@ -138,6 +143,7 @@ import {
   type HeorMethodsWatchlistReviewAction,
   type HeorEvidenceSelectionAudit,
   type HeorEvidenceSynthesisAudit,
+  type HeorEvidenceSynthesisRecordSummary,
   type HeorImportCandidatesResponse,
   type HeorSearchAuthorizationLog,
   type HeorSearchExecutionResponse,
@@ -172,6 +178,44 @@ import { isTauri } from "@/lib/tauri";
 import { formatHeorReviewIssue } from "./reviewIssue";
 
 const RUNTIME_FULL_ACCESS_PERMISSION = "runtime_full_access" as const;
+
+const PROVENANCE_FIELD = {
+  blockingGaps: "blockingGaps[*]",
+  changes: "changes[*]",
+  correlationGroups: "correlation_groups[*]",
+  dateRange: "dateFrom + dateTo",
+  decisionThresholds: "decision_thresholds[*]",
+  documents: "documents[*]",
+  indexedDocuments: "documents[extractionStatus=indexed]",
+  ocrDocuments: "documents[extractionStatus=requires_ocr]",
+  extractionReviewConfirmations: "eligibleExtractionIds + review confirmations",
+  extractionVerificationLog: "eligibleExtractionIds + verification log",
+  evidenceSources: "evidence_sources[*]",
+  extractions: "extractions[*]",
+  inputProvenance: "input_provenance[*]",
+  inputProvenanceMappings: "input_provenance[*].source_ids/extraction_ids",
+  iterations: "iterations",
+  maxResultsPerSource: "maxResultsPerSource",
+  parameters: "parameters[*]",
+  recommendedGaps: "recommendedGaps[*]",
+  records: "records[*]",
+  notAssessedRecords: "records[screening contains not_assessed]",
+  includedRecords: "records[screening.fullText=include]",
+  requiredRequirements: "requirements[importance=required]",
+  searches: "searches[*]",
+  selectedExtractionVerification: "selected extraction IDs + verification log",
+  sourceRuns: "sourceRuns[*]",
+  sources: "sources[*]",
+  currentSources: "sources[publicationStatus=current]",
+  states: "states[*]",
+  structuralAlternatives: "structural_alternatives[*]",
+  structuralScenarios: "structural_scenarios[*]",
+  candidateModels: "targets[*].candidateModels",
+  convergedModels: "targets[*].convergedModels",
+  scenarioCount: "targets[*].scenarioCount",
+  transitions: "transitions[*]",
+  unresolvedConflicts: "unresolvedConflicts[*]",
+} as const;
 const HUMAN_CONFIRMATION_PERMISSION = "human_confirmation" as const;
 import { toast } from "@/lib/toast";
 import { MaximizePaneButton, PaneTitlebarInset } from "@/components/inspector/RightPane";
@@ -544,6 +588,8 @@ export function HeorReviewPane({
   onRequestRevision: (prompt: string) => void;
 }) {
   const { t, i18n } = useTranslation(["heor", "session"]);
+  const reviewContentRef = useRef<HTMLFieldSetElement>(null);
+  const panelReadOnly = Boolean(activity);
   const approvalMode = useRuntimeStore((state) => state.approvalMode);
   const [artifact, setArtifact] = useState<ArtifactState>({ kind: "loading" });
   const [exploratoryArtifacts, setExploratoryArtifacts] = useState<ExploratoryArtifactState>({
@@ -626,6 +672,29 @@ export function HeorReviewPane({
   const [partitionedSurvivalResult, setPartitionedSurvivalResult] = useState<HeorPartitionedSurvivalRunResult | null>(null);
   const [running, setRunning] = useState(false);
   const [intent, setIntent] = useState<ReviewIntent | null>(null);
+
+  useEffect(() => {
+    const root = reviewContentRef.current;
+    if (!panelReadOnly || !root) return;
+    const disableActions = () => {
+      root.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
+        if (button.disabled) return;
+        button.dataset.ai4heorReadOnlyDisabled = "true";
+        button.disabled = true;
+      });
+    };
+    disableActions();
+    const observer = new MutationObserver(disableActions);
+    observer.observe(root, { attributes: true, childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      root.querySelectorAll<HTMLButtonElement>("button[data-ai4heor-read-only-disabled]")
+        .forEach((button) => {
+          button.disabled = false;
+          delete button.dataset.ai4heorReadOnlyDisabled;
+        });
+    };
+  }, [panelReadOnly]);
 
   const refresh = useCallback(async () => {
     setResult(null);
@@ -2090,14 +2159,20 @@ export function HeorReviewPane({
                   {t("session:live.status.step", { count: activity.step })}
                 </span>
               )}
-              {activity.detail && (
-                <span className="min-w-0 truncate font-mono text-[10px] text-muted">
-                  {activity.detail}
-                </span>
-              )}
             </div>
+            <p className="mt-1 pl-[22px] text-[10px] leading-4 text-muted">
+              {t("panel.readOnlyDuringRun")}
+            </p>
           </section>
         )}
+        <fieldset
+          ref={reviewContentRef}
+          aria-readonly={panelReadOnly}
+          className={cn(
+            "m-0 min-w-0 border-0 p-0",
+            activity && "[&_button]:cursor-not-allowed [&_button]:opacity-50",
+          )}
+        >
         {artifact.kind === "ready" && (
           <StageRail
             currentApprovals={currentApprovals}
@@ -2164,8 +2239,7 @@ export function HeorReviewPane({
           />
         )}
 
-        {artifact.kind === "ready" && citationFormatting.kind === "ready"
-          && citationFormatting.audit.status !== "missing" && (
+        {artifact.kind === "ready" && citationFormatting.kind === "ready" && (
           <CitationFormattingAssessment
             state={citationFormatting}
             generating={citationFormattingGenerating}
@@ -2356,6 +2430,7 @@ export function HeorReviewPane({
             )}
 
             <EvidenceTraceability
+              plan={artifact.plan}
               audit={evidenceAudit!}
               selection={evidenceSelection}
               onRequestRepair={() => onRequestRevision(t("evidence.repairPrompt"))}
@@ -2720,6 +2795,7 @@ export function HeorReviewPane({
             </section>
           </>
         )}
+        </fieldset>
       </div>
 
       {intent && artifact.kind === "ready" && (
@@ -3244,9 +3320,35 @@ export function MethodsWatchlistAssessment({
       <div className="mt-1 font-mono text-[10px] text-muted">{HEOR_METHODS_WATCHLIST_PATH}</div>
       {audit?.exists && (
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <Metric label={t("methodsWatchlist.sources")} value={String(audit.sourceCount)} />
-          <Metric label={t("methodsWatchlist.current")} value={String(audit.currentCount)} />
           <Metric
+            source={HEOR_METHODS_WATCHLIST_PATH}
+                        sourceField={PROVENANCE_FIELD.sources}
+            items={audit.sources?.map((source) => ({
+              label: `${source.sourceId} · ${source.title}`,
+              detail: `${source.publicationStatus} · ${source.canonicalUrl}`,
+              path: source.snapshotPath,
+            }))}
+            label={t("methodsWatchlist.sources")}
+            value={String(audit.sourceCount)}
+          />
+          <Metric
+            source={HEOR_METHODS_WATCHLIST_PATH}
+                        sourceField={PROVENANCE_FIELD.currentSources}
+            items={audit.sources?.filter((source) => source.publicationStatus === "current").map((source) => ({
+              label: `${source.sourceId} · ${source.title}`,
+              detail: source.canonicalUrl,
+              path: source.snapshotPath,
+            }))}
+            label={t("methodsWatchlist.current")}
+            value={String(audit.currentCount)}
+          />
+          <Metric
+            source={HEOR_METHODS_WATCHLIST_PATH}
+                        sourceField={PROVENANCE_FIELD.changes}
+            items={audit.changes?.map((change) => ({
+              label: `${change.changeId} · ${change.sourceId}`,
+              detail: `${change.revalidationStatus} · ${change.summary}`,
+            }))}
             label={t("methodsWatchlist.changes")}
             value={`${audit.unresolvedChangeCount}/${audit.changeCount}`}
           />
@@ -3462,6 +3564,18 @@ export function EvidenceLibraryAssessment({
   const { t } = useTranslation("heor");
   const audit = state.kind === "ready" ? state.audit : null;
   const issues = audit?.errors ?? (state.kind === "invalid" ? [state.message] : []);
+  const documentItems = (audit?.documents ?? []).map((document) => ({
+    label: document.path.split("/").pop() ?? document.path,
+    path: document.path,
+    detail: t("metricProvenance.libraryDocumentDetail", {
+      status: t(`metricProvenance.extractionStatus.${document.extractionStatus}`, {
+        defaultValue: document.extractionStatus,
+      }),
+      pages: document.pageCount,
+      size: formatMetricBytes(document.bytes),
+    }),
+    sha256: document.sha256,
+  }));
   return (
     <section className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
@@ -3493,9 +3607,27 @@ export function EvidenceLibraryAssessment({
       {audit && (
         <>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <Metric label={t("library.documents")} value={String(audit.documentCount)} />
-            <Metric label={t("library.indexed")} value={String(audit.indexedCount)} />
-            <Metric label={t("library.ocr")} value={String(audit.requiresOcrCount)} />
+            <Metric
+              source={HEOR_EVIDENCE_LIBRARY_PATH}
+                          sourceField={PROVENANCE_FIELD.documents}
+              items={documentItems}
+              label={t("library.documents")}
+              value={String(audit.documentCount)}
+            />
+            <Metric
+              source={HEOR_EVIDENCE_LIBRARY_PATH}
+                          sourceField={PROVENANCE_FIELD.indexedDocuments}
+              items={documentItems.filter((_, index) => audit.documents?.[index]?.extractionStatus === "indexed")}
+              label={t("library.indexed")}
+              value={String(audit.indexedCount)}
+            />
+            <Metric
+              source={HEOR_EVIDENCE_LIBRARY_PATH}
+                          sourceField={PROVENANCE_FIELD.ocrDocuments}
+              items={documentItems.filter((_, index) => audit.documents?.[index]?.extractionStatus === "requires_ocr")}
+              label={t("library.ocr")}
+              value={String(audit.requiresOcrCount)}
+            />
           </div>
           {audit.manifestSha256 && (
             <div className="mt-2 break-all font-mono text-[9px] text-muted">
@@ -3611,12 +3743,25 @@ function EvidenceSearchAssessment({
         <>
           <p className="mt-3 break-words text-xs leading-5 text-text">{audit.query}</p>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <Metric label={t("search.sources")} value={audit.sources.join(" + ")} />
             <Metric
+              source={HEOR_EVIDENCE_SEARCH_REQUEST_PATH}
+                          sourceField={PROVENANCE_FIELD.sources}
+              items={audit.sources.map((sourceName) => ({ label: sourceName }))}
+              label={t("search.sources")}
+              value={audit.sources.join(" + ")}
+            />
+            <Metric
+              source={HEOR_EVIDENCE_SEARCH_REQUEST_PATH}
+                          sourceField={PROVENANCE_FIELD.dateRange}
               label={t("search.range")}
               value={`${audit.dateFrom ?? "—"} → ${audit.dateTo ?? "—"}`}
             />
-            <Metric label={t("search.cap")} value={String(audit.maxResultsPerSource ?? "—")} />
+            <Metric
+              source={HEOR_EVIDENCE_SEARCH_REQUEST_PATH}
+                          sourceField={PROVENANCE_FIELD.maxResultsPerSource}
+              label={t("search.cap")}
+              value={String(audit.maxResultsPerSource ?? "—")}
+            />
           </div>
           <div className="mt-2 break-all font-mono text-[9px] text-muted">
             {t("search.hash")} {audit.requestSha256}
@@ -3655,8 +3800,23 @@ function EvidenceSearchAssessment({
         <div className="mt-4 rounded-input border border-ok/30 bg-ok/5 p-3">
           <div className="text-xs font-semibold text-ok">{t("search.result")}</div>
           <div className="mt-2 grid grid-cols-2 gap-2 text-center">
-            <Metric label={t("search.records")} value={String(result.result.records.length)} />
             <Metric
+              source={result.result.outputPath}
+                          sourceField={PROVENANCE_FIELD.records}
+              items={result.result.records.map((record) => ({
+                label: record.title,
+                detail: `${record.sourceType} · ${record.locator}`,
+              }))}
+              label={t("search.records")}
+              value={String(result.result.records.length)}
+            />
+            <Metric
+              source={result.result.outputPath}
+                          sourceField={PROVENANCE_FIELD.sourceRuns}
+              items={result.result.sourceRuns.map((run) => ({
+                label: run.source,
+                detail: `${run.fetchedCount}/${run.totalCount} · ${run.endpoint}`,
+              }))}
               label={t("search.sourceRuns")}
               value={result.result.sourceRuns.map((run) => `${run.source}: ${run.fetchedCount}`).join(" · ")}
             />
@@ -3731,17 +3891,73 @@ function EvidenceSynthesisAssessment({
       {audit && audit.synthesisSha256 && (
         <>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <Metric label={t("synthesis.searches")} value={String(audit.searchCount)} />
-            <Metric label={t("synthesis.records")} value={String(audit.recordCount)} />
-            <Metric label={t("synthesis.notAssessed")} value={String(audit.notAssessedCount)} />
-            <Metric label={t("synthesis.included")} value={String(audit.includedCount)} />
-            <Metric label={t("synthesis.extractions")} value={String(audit.extractionCount)} />
-            <Metric label={t("synthesis.conflicts")} value={String(audit.unresolvedConflicts.length)} />
             <Metric
+              source={HEOR_EVIDENCE_SYNTHESIS_PATH}
+                          sourceField={PROVENANCE_FIELD.searches}
+              items={(audit.searches ?? []).map((search) => ({
+                label: `${search.source} · ${search.id}`,
+                detail: `${search.searchedOn} · ${search.resultCount} · ${search.query}`,
+                path: search.runPath,
+              }))}
+              label={t("synthesis.searches")}
+              value={String(audit.searchCount)}
+            />
+            <Metric
+              source={HEOR_EVIDENCE_SYNTHESIS_PATH}
+                          sourceField={PROVENANCE_FIELD.records}
+              items={synthesisRecordItems(audit.records ?? [])}
+              label={t("synthesis.records")}
+              value={String(audit.recordCount)}
+            />
+            <Metric
+              source={HEOR_EVIDENCE_SYNTHESIS_PATH}
+                          sourceField={PROVENANCE_FIELD.notAssessedRecords}
+              items={synthesisRecordItems((audit.records ?? []).filter((record) =>
+                record.titleAbstractStatus === "not_assessed" || record.fullTextStatus === "not_assessed"))}
+              label={t("synthesis.notAssessed")}
+              value={String(audit.notAssessedCount)}
+            />
+            <Metric
+              source={HEOR_EVIDENCE_SYNTHESIS_PATH}
+                          sourceField={PROVENANCE_FIELD.includedRecords}
+              items={synthesisRecordItems((audit.records ?? []).filter((record) => record.fullTextStatus === "include"))}
+              label={t("synthesis.included")}
+              value={String(audit.includedCount)}
+            />
+            <Metric
+              source={HEOR_EVIDENCE_SYNTHESIS_PATH}
+                          sourceField={PROVENANCE_FIELD.extractions}
+              items={(audit.extractions ?? []).map((extraction) => ({
+                label: `${extraction.extractionId} · ${extraction.target}`,
+                detail: `${extraction.recordId} · ${extraction.sourceLocation} · ${extraction.extractedValue}`,
+              }))}
+              label={t("synthesis.extractions")}
+              value={String(audit.extractionCount)}
+            />
+            <Metric
+              source={HEOR_EVIDENCE_SYNTHESIS_PATH}
+                          sourceField={PROVENANCE_FIELD.unresolvedConflicts}
+              items={audit.unresolvedConflicts.map((conflict) => ({ label: conflict }))}
+              label={t("synthesis.conflicts")}
+              value={String(audit.unresolvedConflicts.length)}
+            />
+            <Metric
+              source={HEOR_EVIDENCE_SYNTHESIS_PATH}
+                          sourceField={PROVENANCE_FIELD.extractionVerificationLog}
+              items={audit.eligibleExtractions.map((extraction) => ({
+                label: extraction.extractionId,
+                detail: `${extraction.recordId} · ${extraction.target} · ${audit.appVerifiedExtractionIds.includes(extraction.extractionId) ? t("metricProvenance.verified") : t("metricProvenance.notVerified")}`,
+              }))}
               label={t("synthesis.dualVerified")}
               value={`${audit.appVerifiedExtractionIds.length}/${audit.eligibleExtractionIds.length}`}
             />
             <Metric
+              source={HEOR_EVIDENCE_SYNTHESIS_PATH}
+                          sourceField={PROVENANCE_FIELD.extractionReviewConfirmations}
+              items={audit.eligibleExtractions.map((extraction) => ({
+                label: extraction.extractionId,
+                detail: `${extraction.recordId} · ${extraction.sourceLocation}`,
+              }))}
               label={t("synthesis.confirmations")}
               value={`${audit.reviewConfirmationCount}/${audit.eligibleExtractionIds.length * audit.requiredReviewersPerExtraction}`}
             />
@@ -3978,9 +4194,36 @@ function ConceptualModelTraceability({
       {ready && (
         <>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <Metric label={t("conceptual.states")} value={String(artifact.audit.stateCount)} />
-            <Metric label={t("conceptual.transitions")} value={String(artifact.audit.transitionCount)} />
-            <Metric label={t("conceptual.alternatives")} value={String(artifact.audit.alternativeCount)} />
+            <Metric
+              source={HEOR_CONCEPTUAL_MODEL_PATH}
+                          sourceField={PROVENANCE_FIELD.states}
+              items={artifact.model.states.map((state) => ({
+                label: `${state.id} · ${state.label}`,
+                detail: state.definition,
+              }))}
+              label={t("conceptual.states")}
+              value={String(artifact.audit.stateCount)}
+            />
+            <Metric
+              source={HEOR_CONCEPTUAL_MODEL_PATH}
+                          sourceField={PROVENANCE_FIELD.transitions}
+              items={artifact.model.transitions.map((transition) => ({
+                label: `${transition.from} → ${transition.to}`,
+                detail: `${transition.id} · ${transition.trigger}`,
+              }))}
+              label={t("conceptual.transitions")}
+              value={String(artifact.audit.transitionCount)}
+            />
+            <Metric
+              source={HEOR_CONCEPTUAL_MODEL_PATH}
+                          sourceField={PROVENANCE_FIELD.structuralAlternatives}
+              items={artifact.model.structural_alternatives.map((alternative) => ({
+                label: `${alternative.id} · ${alternative.description}`,
+                detail: alternative.rationale,
+              }))}
+              label={t("conceptual.alternatives")}
+              value={String(artifact.audit.alternativeCount)}
+            />
           </div>
           <div className="mt-2 text-[10px] text-muted">
             {t("conceptual.modelType")}: {artifact.model.model_type.proposed}
@@ -4122,10 +4365,12 @@ function CohortTransitionSummary({
 }
 
 function EvidenceTraceability({
+  plan,
   audit,
   selection,
   onRequestRepair,
 }: {
+  plan: HeorAnalysisPlan;
   audit: ReturnType<typeof auditHeorEvidence>;
   selection: EvidenceSelectionState;
   onRequestRepair: () => void;
@@ -4139,6 +4384,20 @@ function EvidenceTraceability({
     ...audit.unsupportedInputs.map((path) => t("evidence.unsupported", { path })),
   ];
   const selectionAudit = selection.kind === "ready" ? selection.audit : null;
+  const inputItems = (plan.input_provenance ?? []).map((input) => ({
+    label: input.path,
+    detail: `${input.derivation.method} · ${[
+      ...(input.source_ids ?? []),
+      ...(input.extraction_ids ?? []),
+      ...(input.assumption_ids ?? []),
+    ].join(" · ") || "—"}`,
+  }));
+  const sourceItems = (plan.evidence_sources ?? []).map((source) => ({
+    label: `${source.id} · ${source.title}`,
+    detail: source.local_path ?? source.url ?? source.source_type,
+    path: source.local_path,
+    sha256: source.content_sha256,
+  }));
   const fullyTraceable = audit.complete && selectionAudit?.complete === true;
   return (
     <section className="border-b border-border px-5 py-4">
@@ -4161,10 +4420,45 @@ function EvidenceTraceability({
         </span>
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <Metric label={t("evidence.inputs")} value={`${audit.coveredInputs}/${audit.requiredInputs}`} />
-        <Metric label={t("evidence.sources")} value={String(audit.sourceCount)} />
-        <Metric label={t("evidence.mappings")} value={String(audit.mappingCount)} />
         <Metric
+          source={HEOR_PLAN_PATH}
+                      sourceField={PROVENANCE_FIELD.inputProvenance}
+          items={inputItems}
+          label={t("evidence.inputs")}
+          value={`${audit.coveredInputs}/${audit.requiredInputs}`}
+        />
+        <Metric
+          source={HEOR_PLAN_PATH}
+                      sourceField={PROVENANCE_FIELD.evidenceSources}
+          items={sourceItems}
+          label={t("evidence.sources")}
+          value={String(audit.sourceCount)}
+        />
+        <Metric
+          source={HEOR_PLAN_PATH}
+                      sourceField={PROVENANCE_FIELD.inputProvenanceMappings}
+          items={inputItems.filter((_, index) => {
+            const input = plan.input_provenance?.[index];
+            return Boolean(input?.source_ids?.length || input?.extraction_ids?.length);
+          })}
+          label={t("evidence.mappings")}
+          value={String(audit.mappingCount)}
+        />
+        <Metric
+          source={HEOR_EVIDENCE_SYNTHESIS_PATH}
+                      sourceField={PROVENANCE_FIELD.selectedExtractionVerification}
+          items={selectionAudit
+            ? [
+                ...selectionAudit.unverifiedExtractionIds.map((id) => ({
+                  label: id,
+                  detail: t("metricProvenance.notVerified"),
+                })),
+                ...selectionAudit.rejectedExtractionIds.map((id) => ({
+                  label: id,
+                  detail: t("metricProvenance.rejected"),
+                })),
+              ]
+            : undefined}
           label={t("evidence.verified")}
           value={selectionAudit
             ? `${selectionAudit.verifiedExtractionCount}/${selectionAudit.selectedExtractionCount}`
@@ -4262,9 +4556,42 @@ function SurvivalReviewAssessment({
       </div>
       {audit?.required && (
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <Metric label={t("survivalReview.candidates")} value={String(audit.candidateModels)} />
-          <Metric label={t("survivalReview.converged")} value={String(audit.convergedModels)} />
-          <Metric label={t("survivalReview.scenarios")} value={String(audit.scenarioCount)} />
+          <Metric
+            source={audit.targetCount > 1 ? HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH : HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH}
+                        sourceField={PROVENANCE_FIELD.candidateModels}
+            items={audit.targets.map((target) => ({
+              label: target.targetPath,
+              detail: `${target.candidateModels} · ${target.reviewPath}`,
+              path: target.reviewPath,
+              sha256: target.reviewSha256,
+            }))}
+            label={t("survivalReview.candidates")}
+            value={String(audit.candidateModels)}
+          />
+          <Metric
+            source={audit.targetCount > 1 ? HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH : HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH}
+                        sourceField={PROVENANCE_FIELD.convergedModels}
+            items={audit.targets.map((target) => ({
+              label: target.targetPath,
+              detail: `${target.convergedModels}/${target.candidateModels} · ${target.selectedFamily}`,
+              path: target.reviewPath,
+              sha256: target.reviewSha256,
+            }))}
+            label={t("survivalReview.converged")}
+            value={String(audit.convergedModels)}
+          />
+          <Metric
+            source={audit.targetCount > 1 ? HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_INDEX_PATH : HEOR_SURVIVAL_EXTRAPOLATION_REVIEW_PATH}
+                        sourceField={PROVENANCE_FIELD.scenarioCount}
+            items={audit.targets.map((target) => ({
+              label: target.targetPath,
+              detail: `${target.scenarioCount} · ${target.reviewPath}`,
+              path: target.reviewPath,
+              sha256: target.reviewSha256,
+            }))}
+            label={t("survivalReview.scenarios")}
+            value={String(audit.scenarioCount)}
+          />
         </div>
       )}
       {audit?.recommendedFamily && (
@@ -5811,9 +6138,31 @@ function ReferenceCaseAssessment({
       </div>
       {audit && (
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <Metric label={t("reference.required")} value={`${resolvedRequired}/${audit.requiredCount}`} />
-          <Metric label={t("reference.blocking")} value={String(audit.blockingGaps.length)} />
-          <Metric label={t("reference.recommended")} value={String(audit.recommendedGaps.length)} />
+          <Metric
+            source={HEOR_REFERENCE_CASE_ASSESSMENT_PATH}
+                        sourceField={PROVENANCE_FIELD.requiredRequirements}
+            items={[
+              ...audit.blockingGaps.map((id) => ({ label: id, detail: t("metricProvenance.blocking") })),
+              ...audit.unresolvedRequirements.map((id) => ({ label: id, detail: t("metricProvenance.unresolved") })),
+              ...audit.notApplicableRequirements.map((id) => ({ label: id, detail: t("metricProvenance.notApplicable") })),
+            ]}
+            label={t("reference.required")}
+            value={`${resolvedRequired}/${audit.requiredCount}`}
+          />
+          <Metric
+            source={HEOR_REFERENCE_CASE_ASSESSMENT_PATH}
+                        sourceField={PROVENANCE_FIELD.blockingGaps}
+            items={audit.blockingGaps.map((id) => ({ label: id }))}
+            label={t("reference.blocking")}
+            value={String(audit.blockingGaps.length)}
+          />
+          <Metric
+            source={HEOR_REFERENCE_CASE_ASSESSMENT_PATH}
+                        sourceField={PROVENANCE_FIELD.recommendedGaps}
+            items={audit.recommendedGaps.map((id) => ({ label: id }))}
+            label={t("reference.recommended")}
+            value={String(audit.recommendedGaps.length)}
+          />
         </div>
       )}
       {issues.length > 0 && (
@@ -5876,11 +6225,11 @@ function UncertaintyAssessment({
       <div className="mt-1 font-mono text-[10px] text-muted">{HEOR_UNCERTAINTY_PLAN_PATH}</div>
       {audit && (
         <div className="mt-3 grid grid-cols-2 gap-2 text-center">
-          <Metric label={t("uncertainty.parameters")} value={String(audit.parameterCount)} />
-          <Metric label={t("uncertainty.correlations")} value={String(audit.correlationGroupCount)} />
-          <Metric label={t("uncertainty.iterations")} value={audit.iterations?.toLocaleString() ?? "—"} />
-          <Metric label={t("uncertainty.thresholds")} value={String(audit.thresholdCount)} />
-          <Metric label={t("uncertainty.scenarios")} value={String(audit.scenarioCount)} />
+          <Metric source={HEOR_UNCERTAINTY_PLAN_PATH} sourceField={PROVENANCE_FIELD.parameters} label={t("uncertainty.parameters")} value={String(audit.parameterCount)} />
+          <Metric source={HEOR_UNCERTAINTY_PLAN_PATH} sourceField={PROVENANCE_FIELD.correlationGroups} label={t("uncertainty.correlations")} value={String(audit.correlationGroupCount)} />
+          <Metric source={HEOR_UNCERTAINTY_PLAN_PATH} sourceField={PROVENANCE_FIELD.iterations} label={t("uncertainty.iterations")} value={audit.iterations?.toLocaleString() ?? "—"} />
+          <Metric source={HEOR_UNCERTAINTY_PLAN_PATH} sourceField={PROVENANCE_FIELD.decisionThresholds} label={t("uncertainty.thresholds")} value={String(audit.thresholdCount)} />
+          <Metric source={HEOR_UNCERTAINTY_PLAN_PATH} sourceField={PROVENANCE_FIELD.structuralScenarios} label={t("uncertainty.scenarios")} value={String(audit.scenarioCount)} />
         </div>
       )}
       {issues.length > 0 && (
@@ -6637,7 +6986,7 @@ function ResultCard({ result, locale }: { result: HeorRunResult; locale: string 
   const frontierRows = result.calculation.fully_incremental_analysis;
   const incremental = result.calculation.incremental;
   return (
-    <section className="border-b border-border px-5 py-4">
+    <section data-metric-source={HEOR_BASE_CASE_RESULT_PATH} className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
         <ShieldCheck size={16} className={authorized ? "text-ok" : "text-accent"} />
         <div className="min-w-0 flex-1">
@@ -6903,7 +7252,7 @@ export function UncertaintyResultCard({
     ? tiedStrategies.join(" = ")
     : null);
   return (
-    <section className="border-b border-border px-5 py-4">
+    <section data-metric-source={HEOR_UNCERTAINTY_RESULT_PATH} className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
         <ShieldCheck size={16} className={authorized ? "text-ok" : "text-accent"} />
         <div className="min-w-0 flex-1">
@@ -7041,7 +7390,7 @@ export function AdvancedVoiResultCard({
   });
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
   return (
-    <section className="border-b border-border px-5 py-4">
+    <section data-metric-source={HEOR_ADVANCED_VOI_RESULT_PATH} className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
         <ShieldCheck size={16} className="mt-0.5 text-accent" />
         <div>
@@ -7117,7 +7466,7 @@ export function BudgetImpactResultCard({
   const leadingDriver = [...calculation.one_way_sensitivity]
     .sort((left, right) => right.cumulative_span - left.cumulative_span)[0];
   return (
-    <section className="border-b border-border px-5 py-4">
+    <section data-metric-source={HEOR_BUDGET_IMPACT_RESULT_PATH} className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
         <ShieldCheck size={16} className={authorized ? "text-ok" : "text-accent"} />
         <div className="min-w-0 flex-1">
@@ -7227,7 +7576,7 @@ function PartitionedSurvivalResultCard({
   const qaly = new Intl.NumberFormat(locale, { maximumFractionDigits: 3 });
   const authorized = result.workflow.classification !== "exploratory";
   return (
-    <section className="border-b border-border px-5 py-4">
+    <section data-metric-source={HEOR_PARTITIONED_SURVIVAL_RESULT_PATH} className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
         <ShieldCheck size={16} className={authorized ? "text-ok" : "text-accent"} />
         <div className="min-w-0 flex-1">
@@ -7301,8 +7650,213 @@ function PartitionedSurvivalResultCard({
   );
 }
 
-function Metric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
-  return <div className="rounded-input bg-bg px-2 py-2"><div className="text-[9px] text-muted">{label}</div><div className={cn("mt-1 truncate font-mono text-[11px] font-semibold", accent ? "text-accent" : "text-text")} title={value}>{value}</div></div>;
+// textContent joins adjacent blocks without spaces, so word boundaries around
+// a visible path are unreliable (for example, "readyheor/file.jsonMetric").
+const METRIC_ARTIFACT_PATTERN = /(?:heor|references)\/[A-Za-z0-9._/-]+\.(?:json|jsonl|md|csv|tsv|xlsx|docx|pdf)/;
+
+type MetricSourceItem = {
+  label: string;
+  detail?: string;
+  path?: string;
+  sha256?: string;
+};
+
+function formatMetricBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function synthesisRecordItems(
+  records: HeorEvidenceSynthesisRecordSummary[],
+): MetricSourceItem[] {
+  return records.map((record) => ({
+    label: record.title || record.recordId,
+    detail: `${record.sourceType} · ${record.locator} · ${record.recordId}`,
+  }));
+}
+
+function metricSourceFromElement(element: HTMLElement): string | null {
+  const section = element.closest("section");
+  const declaredSource = section?.getAttribute("data-metric-source")?.trim();
+  if (declaredSource) return declaredSource;
+  return section?.textContent?.match(METRIC_ARTIFACT_PATTERN)?.[0] ?? null;
+}
+
+function Metric({
+  label,
+  value,
+  accent = false,
+  source,
+  sourceField,
+  items,
+  basis,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+  source?: string;
+  sourceField?: string;
+  items?: MetricSourceItem[];
+  basis?: string;
+}) {
+  const { t } = useTranslation("heor");
+  const [resolvedSource, setResolvedSource] = useState<string | null>(source ?? null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const resolveSource = (element: HTMLElement) => {
+    setResolvedSource(source ?? metricSourceFromElement(element));
+  };
+  useEffect(() => {
+    if (triggerRef.current) resolveSource(triggerRef.current);
+    // The source is stable for the lifetime of one rendered metric. A panel
+    // refresh recreates the metric after its watched artifact changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source]);
+  return (
+    <Popover.Root
+      onOpenChange={(open) => {
+        if (open && triggerRef.current) resolveSource(triggerRef.current);
+      }}
+    >
+      <Popover.Trigger asChild>
+        <div
+          ref={triggerRef}
+          role="button"
+          tabIndex={0}
+          aria-label={t("metricProvenance.aria", { label, value })}
+          onClick={(event) => resolveSource(event.currentTarget)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            resolveSource(event.currentTarget);
+            event.currentTarget.click();
+          }}
+          className="group relative cursor-pointer rounded-input bg-bg px-2 py-2 text-center outline-none transition-colors hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent/35"
+        >
+          <Search
+            size={10}
+            aria-hidden
+            className="absolute right-1.5 top-1.5 text-muted/55 transition-colors group-hover:text-link"
+          />
+          <div className="pr-3 text-[9px] text-muted">{label}</div>
+          <div
+            className={cn(
+              "mt-1 truncate font-mono text-[11px] font-semibold",
+              accent ? "text-accent" : "text-text",
+            )}
+            title={value}
+          >
+            {value}
+          </div>
+        </div>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          data-testid="metric-provenance"
+          align="start"
+          sideOffset={6}
+          collisionPadding={12}
+          className="z-50 w-[min(320px,calc(100vw-24px))] rounded-card border border-border bg-surface p-3 text-left shadow-pop outline-none"
+        >
+          <div className="text-xs font-semibold text-text">{t("metricProvenance.title")}</div>
+          <dl className="mt-2 grid grid-cols-[72px_minmax(0,1fr)] gap-x-2 gap-y-1.5 text-[10px] leading-4">
+            <dt className="text-muted">{t("metricProvenance.metric")}</dt>
+            <dd className="break-words text-text">{label}</dd>
+            <dt className="text-muted">{t("metricProvenance.value")}</dt>
+            <dd className="break-words font-mono font-semibold text-text">{value}</dd>
+            <dt className="text-muted">{t("metricProvenance.source")}</dt>
+            <dd className="break-all font-mono text-text">
+              {resolvedSource ?? t("metricProvenance.sourceUnknown")}
+            </dd>
+            {sourceField && (
+              <>
+                <dt className="text-muted">{t("metricProvenance.location")}</dt>
+                <dd className="break-all font-mono text-text">{sourceField}</dd>
+              </>
+            )}
+            <dt className="text-muted">{t("metricProvenance.basis")}</dt>
+            <dd className="text-text">
+              {basis ?? t("metricProvenance.defaultBasis")}
+            </dd>
+          </dl>
+          {items && (
+            <div className="mt-3 border-t border-border pt-2.5">
+              <div className="text-[10px] font-semibold text-text">
+                {t("metricProvenance.items", { count: items.length })}
+              </div>
+              {items.length > 0 ? (
+                <div className="mt-2 max-h-56 space-y-1.5 overflow-y-auto pr-1">
+                  {items.map((item, index) => {
+                    const content = (
+                      <>
+                        <div className="break-words text-[10px] font-medium leading-4 text-text">
+                          {index + 1}. {item.label}
+                        </div>
+                        {item.path && (
+                          <div className="mt-0.5 break-all font-mono text-[9px] leading-4 text-link">
+                            {item.path}
+                          </div>
+                        )}
+                        {item.detail && (
+                          <div className="mt-0.5 break-all text-[9px] leading-4 text-muted">
+                            {item.detail}
+                          </div>
+                        )}
+                        {item.sha256 && (
+                          <div className="mt-0.5 break-all font-mono text-[8px] leading-3 text-muted/75">
+                            {t("metricProvenance.sha256", { value: item.sha256 })}
+                          </div>
+                        )}
+                      </>
+                    );
+                    return item.path && isTauri ? (
+                      <button
+                        key={`${item.path}-${index}`}
+                        type="button"
+                        onClick={() => {
+                          void openArtifactExternally(item.path!).catch((error) => {
+                            toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+                          });
+                        }}
+                        className="block w-full rounded-input border border-border bg-bg px-2.5 py-2 text-left hover:bg-surface-2"
+                      >
+                        {content}
+                      </button>
+                    ) : (
+                      <div
+                        key={`${item.label}-${index}`}
+                        className="rounded-input border border-border bg-bg px-2.5 py-2"
+                      >
+                        {content}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mt-1.5 text-[9px] leading-4 text-muted">
+                  {t("metricProvenance.noItems")}
+                </div>
+              )}
+            </div>
+          )}
+          {resolvedSource && isTauri && (
+            <button
+              type="button"
+              onClick={() => {
+                void openArtifactExternally(resolvedSource).catch((error) => {
+                  toast.error(`${t("toast.actionFailed")}: ${error instanceof Error ? error.message : String(error)}`);
+                });
+              }}
+              className="mt-3 text-[10px] font-medium text-link hover:underline"
+            >
+              {t("metricProvenance.openSource")}
+            </button>
+          )}
+          <Popover.Arrow className="fill-[var(--surface)]" />
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
 }
 
 function latestByGate(events: HeorApprovalEvent[]): Map<HeorGate, HeorApprovalEvent> {

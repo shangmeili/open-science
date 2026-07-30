@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { renderAt, renderNavigableAt } from "@/test/render";
@@ -25,6 +25,8 @@ afterEach(() => {
   useRuntimeStore.setState(defaults);
   useUiStore.getState().setComposerDraft(null);
   useUiStore.getState().setLocale("en");
+  useUiStore.setState({ taskProjectPlacement: {} });
+  window.localStorage.removeItem("ai4s.taskProjectPlacement");
   window.localStorage.removeItem(AI4HEOR_FIRST_RUN_KEY);
 });
 
@@ -88,7 +90,7 @@ describe("AI4HEOR conversation route", () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId("ai4heor-new-task-wordmark")).toHaveAttribute(
       "src",
-      expect.stringContaining("ai4heor-wordmark-light.svg"),
+      expect.stringContaining("ai4heor-wordmark-light.png"),
     );
     expect(screen.getByRole("button", { name: "Frame the research question" }))
       .toBeInTheDocument();
@@ -110,10 +112,77 @@ describe("AI4HEOR conversation route", () => {
     expect(input.value).toContain("Help me find and organize the evidence needed");
     expect(sendPrompt).not.toHaveBeenCalled();
 
+    await userEvent.click(screen.getByRole("button", { name: "Design or review a model" }));
+    expect(input.value).toContain("Help me design or review this health economic model");
+    expect(input.value).not.toContain("Help me find and organize the evidence needed");
+
     await userEvent.clear(input);
     await userEvent.type(input, "A completely different task");
     expect(input.value).toBe("A completely different task");
     expect(sendPrompt).not.toHaveBeenCalled();
+  });
+
+  it("does not carry the previous project label into a standalone new task", async () => {
+    useRuntimeStore.setState({
+      status: "ready",
+      currentId: null,
+      defaultModel: "openai/gpt-5.2",
+      workspace: "/research/dapagliflozin",
+      workspacePinned: false,
+      projects: [{
+        id: "project-dapagliflozin",
+        name: "Dapagliflozin",
+        path: "/research/dapagliflozin",
+        createdAt: 1,
+        pinned: true,
+      }],
+      researchScope: {
+        id: "project-dapagliflozin",
+        name: "Dapagliflozin",
+        path: "/research/dapagliflozin",
+        createdAt: 1,
+        kind: "heor",
+      },
+    });
+    renderNavigableAt("/heor/new");
+
+    const input = await screen.findByRole("textbox");
+    expect(within(input.parentElement!).queryByText("Dapagliflozin"))
+      .not.toBeInTheDocument();
+
+    useRuntimeStore.setState({ workspacePinned: true });
+    expect(await within(input.parentElement!).findByText("Dapagliflozin"))
+      .toBeInTheDocument();
+  });
+
+  it("uses explicit task placement instead of a stale session directory for project context", async () => {
+    useRuntimeStore.setState({
+      status: "ready",
+      currentId: "session-1",
+      defaultModel: "openai/gpt-5.2",
+      workspace: "/research/project-a",
+      workspacePinned: true,
+      sessions: [{ id: "session-1", title: "CEA", directory: "/research/project-a" }],
+      projects: [{
+        id: "project-a",
+        name: "Project A",
+        path: "/research/project-a",
+        createdAt: 1,
+        pinned: true,
+      }],
+      openSession: vi.fn().mockResolvedValue(undefined),
+      threads: {
+        "session-1": { loaded: true, blocks: [], index: {} },
+      },
+    });
+    useUiStore.setState({ taskProjectPlacement: { "session-1": null } });
+    renderNavigableAt("/heor/session-1");
+
+    const input = await screen.findByRole("textbox");
+    expect(within(input.parentElement!).queryByText("Project A")).not.toBeInTheDocument();
+
+    useUiStore.getState().moveTaskToProject("session-1", "project-a");
+    expect(await within(input.parentElement!).findByText("Project A")).toBeInTheDocument();
   });
 
   it("sends the HEOR contract privately while echoing only the researcher's words", async () => {
@@ -242,7 +311,7 @@ describe("AI4HEOR conversation route", () => {
     expect(sendPrompt).not.toHaveBeenCalled();
   });
 
-  it("prepares the deterministic teaching example without starting an agent turn", async () => {
+  it("previews the teaching example in place without claiming a desktop install", async () => {
     const sendPrompt = vi.fn().mockResolvedValue("session-1");
     useRuntimeStore.setState({
       status: "ready",
@@ -258,14 +327,14 @@ describe("AI4HEOR conversation route", () => {
       }),
     );
 
-    const draft = (screen.getByRole("textbox") as HTMLTextAreaElement).value;
-    expect(draft).toContain(
-      "Explain the installed complete cost–utility teaching case in plain language",
-    );
-    expect(draft).toContain("three-state conceptual model");
-    expect(draft).toContain("probabilistic analysis");
-    expect(draft).not.toContain("run_analysis.py");
-    expect(draft).not.toContain("SHA-256");
+    expect(
+      await screen.findByText("Preview of the complete teaching case"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/hypothetical population/i)).toBeInTheDocument();
+    expect(screen.getByText("Available in the desktop app")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Run the complete case" }))
+      .not.toBeInTheDocument();
     expect(sendPrompt).not.toHaveBeenCalled();
   });
 

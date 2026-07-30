@@ -58,6 +58,7 @@ const mocks = vi.hoisted(() => ({
   runShell: vi.fn(),
   runCommand: vi.fn(),
   sendPrompt: vi.fn(),
+  sendPromptDeferred: null as Promise<void> | null,
   replyPermission: vi.fn(),
   abortSession: vi.fn(),
   renameSession: vi.fn(),
@@ -185,6 +186,7 @@ vi.mock("@ai4s/sdk", () => {
     }
     async sendPrompt(sid: string, text: string, agent?: string, model?: string | null) {
       mocks.sendPrompt(sid, text, agent, model);
+      if (mocks.sendPromptDeferred) await mocks.sendPromptDeferred;
     }
     async listCommands() {
       return [{ name: "init", description: "guided AGENTS.md setup", source: "command" }];
@@ -289,6 +291,7 @@ beforeEach(async () => {
   mocks.providers = [];
   mocks.getDefaultModelDeferred = null;
   mocks.failSetModel = false;
+  mocks.sendPromptDeferred = null;
   useRuntimeStore.setState({
     currentId: null,
     workspace: PROJECT.path,
@@ -304,6 +307,7 @@ beforeEach(async () => {
     permissions: [],
     sessionParents: {},
     panes: {},
+    promptQueues: {},
   });
   await useRuntimeStore.getState().connect();
   expect(useRuntimeStore.getState().status).toBe("ready");
@@ -552,13 +556,13 @@ describe("project and standalone conversations", () => {
     expect(useRuntimeStore.getState().threads["ses_new"].blocks).toHaveLength(1);
   });
 
-  it("session.idle ends the turn: running cleared, done line folded in", async () => {
+  it("session.idle ends the turn without claiming that the research is complete", async () => {
     await useRuntimeStore.getState().sendPrompt("hi");
     expect(useRuntimeStore.getState().runningSessions["ses_new"]).toBe(true);
     mocks.fireEvent({ type: "session.idle", sessionId: "ses_new" });
     const s = useRuntimeStore.getState();
     expect(s.runningSessions["ses_new"]).toBeUndefined();
-    expect(s.threads["ses_new"].blocks.slice(-1)[0]).toMatchObject({ kind: "status-line", tone: "done" });
+    expect(s.threads["ses_new"].blocks).toEqual([{ kind: "user", text: "hi" }]);
   });
 
   it("a session error lands as a red line in the thread and unlocks the turn", async () => {
@@ -590,6 +594,38 @@ describe("project and standalone conversations", () => {
       kind: "status-line",
       tone: "error",
     });
+  });
+
+  it("keeps a delayed send failure on the task that started the request", async () => {
+    let rejectSend!: (error: Error) => void;
+    mocks.sendPromptDeferred = new Promise<void>((_resolve, reject) => {
+      rejectSend = reject;
+    });
+    useRuntimeStore.setState({
+      currentId: "ses_a",
+      sessions: [
+        { id: "ses_a", title: "A", directory: PROJECT.path },
+        { id: "ses_b", title: "B", directory: PROJECT.path },
+      ] as never,
+      threads: {
+        ses_a: { blocks: [], index: {}, loaded: true },
+        ses_b: { blocks: [{ kind: "user", text: "existing B" }], index: {}, loaded: true },
+      },
+    });
+
+    const pending = useRuntimeStore.getState().sendPrompt("request from A");
+    useRuntimeStore.setState({ currentId: "ses_b" });
+    rejectSend(new Error("provider stopped"));
+    await pending;
+
+    const state = useRuntimeStore.getState();
+    expect(state.error).toBe(null);
+    expect(state.threads.ses_a.blocks[state.threads.ses_a.blocks.length - 1]).toMatchObject({
+      kind: "status-line",
+      text: "Send failed: provider stopped",
+      tone: "error",
+    });
+    expect(state.threads.ses_b.blocks).toEqual([{ kind: "user", text: "existing B" }]);
   });
 
   it("marks a deliberate switch as `switching` for its whole duration", async () => {
@@ -840,6 +876,26 @@ describe("stale running locks and interrupt", () => {
     expect(useRuntimeStore.getState().runningSessions["ses_new"]).toBe(true);
   });
 
+  it("does not mark a running task in another workspace as stopped", async () => {
+    useRuntimeStore.setState({
+      workspace: "/ws/B",
+      sessions: [{ id: "ses_a", title: "A", directory: "/ws/A" }] as never,
+      runningSessions: { ses_a: true },
+      threads: { ses_a: { blocks: [], index: {}, loaded: true } },
+    });
+    mocks.messages = [
+      { role: "user", parts: [{ type: "text", text: "continue" }] },
+      { role: "assistant", parts: [{ type: "text", text: "working" }] },
+    ];
+    mocks.statuses = {};
+
+    await useRuntimeStore.getState().reconcileRunning();
+    await useRuntimeStore.getState().reconcileRunning();
+
+    expect(useRuntimeStore.getState().runningSessions.ses_a).toBe(true);
+    expect(useRuntimeStore.getState().threads.ses_a.blocks).toEqual([]);
+  });
+
   it("reconcileRunning unlocks a blank provider failure after two inactive checks", async () => {
     await useRuntimeStore.getState().sendPrompt("hi");
     mocks.messages = [
@@ -883,6 +939,10 @@ describe("stale running locks and interrupt", () => {
       kind: "status-line",
       tone: "error",
     });
+    expect(state.threads.ses_new.blocks.filter((block) => block.kind === "status-line")).toHaveLength(1);
+    expect(state.threads.ses_new.blocks.some(
+      (block) => block.kind === "tool-call" && block.status === "pending",
+    )).toBe(false);
   });
 
   it("shows the server retry phase without unlocking the task", async () => {
@@ -956,7 +1016,7 @@ describe("stale running locks and interrupt", () => {
     mocks.fireEvent({ type: "session.idle", sessionId: "ses_new" });
     const s = useRuntimeStore.getState();
     expect(s.runningSessions["ses_new"]).toBeUndefined();
-    expect(s.threads["ses_new"].blocks.slice(-1)[0]).toMatchObject({ kind: "status-line", tone: "done" });
+    expect(s.threads["ses_new"].blocks.slice(-1)[0]).toEqual({ kind: "user", text: "again" });
   });
 
   it("interrupt does nothing when no turn is running", async () => {
@@ -1090,6 +1150,36 @@ describe("per-session right pane", () => {
     expect(s.panes["ses_new"]?.artifact?.path).toBe("notes.md");
   });
 
+  it("keeps queued prompts ordered and isolated by task", () => {
+    const store = useRuntimeStore.getState();
+    const first = store.enqueuePrompt("first follow-up");
+    const second = store.enqueuePrompt("second follow-up", { id: "audit", label: "Audit" });
+    expect(useRuntimeStore.getState().promptQueues[DRAFT_KEY].map((item) => item.id))
+      .toEqual([first, second]);
+
+    useRuntimeStore.getState().moveQueuedPrompt(second, "up");
+    expect(useRuntimeStore.getState().promptQueues[DRAFT_KEY].map((item) => item.text))
+      .toEqual(["second follow-up", "first follow-up"]);
+    expect(useRuntimeStore.getState().takeNextQueuedPrompt()).toMatchObject({
+      id: second,
+      skill: { id: "audit", label: "Audit" },
+    });
+
+    useRuntimeStore.setState({ currentId: "ses_other" });
+    useRuntimeStore.getState().enqueuePrompt("other task");
+    expect(useRuntimeStore.getState().promptQueues[DRAFT_KEY]).toHaveLength(1);
+    expect(useRuntimeStore.getState().promptQueues.ses_other).toHaveLength(1);
+  });
+
+  it("grafts messages queued during first-session creation onto the real task", async () => {
+    useRuntimeStore.getState().enqueuePrompt("send after the first reply");
+    await useRuntimeStore.getState().sendPrompt("start the task");
+    const state = useRuntimeStore.getState();
+    expect(state.promptQueues[DRAFT_KEY]).toBeUndefined();
+    expect(state.promptQueues.ses_new?.map((item) => item.text))
+      .toEqual(["send after the first reply"]);
+  });
+
   it("startDraft resets the draft pane; session panes keep their memory", () => {
     useRuntimeStore.setState({ currentId: "ses_1" });
     useRuntimeStore.getState().openArtifact(artifact("report.pdf"));
@@ -1112,11 +1202,13 @@ describe("per-session right pane", () => {
     expect(s.panes["ses_1"]?.artifact?.path).toBe("report.pdf");
   });
 
-  it("deleteSession forgets the session's pane", async () => {
+  it("deleteSession forgets the session's pane and queued messages", async () => {
     useRuntimeStore.setState({ currentId: "ses_1" });
     useRuntimeStore.getState().openArtifact(artifact("report.pdf"));
+    useRuntimeStore.getState().enqueuePrompt("stale follow-up");
     await useRuntimeStore.getState().deleteSession("ses_1");
     expect(useRuntimeStore.getState().panes["ses_1"]).toBeUndefined();
+    expect(useRuntimeStore.getState().promptQueues["ses_1"]).toBeUndefined();
   });
 });
 

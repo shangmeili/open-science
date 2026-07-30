@@ -53,9 +53,13 @@
     "open": "작업 열기",
     "rename": "작업 이름 바꾸기",
     "renamePlaceholder": "작업 이름",
+    "moveTo": "이동",
+    "standalone": "독립 작업",
     "delete": "작업 삭제",
     "deleteAria": "{{title}} 삭제",
-    "running": "작업 중"
+    "running": "작업 중",
+    "idle": "준비됨",
+    "error": "확인 필요"
   },
   "confirmDelete": {
     "sessionTitle": "작업을 삭제하시겠습니까?",

@@ -47,8 +47,28 @@ CSL-JSON export.
   10,000 records.
 - Existing different export bytes are preserved. Library updates use an atomic
   same-directory replacement after parsing and validation succeeds.
-- The tool does not call a network service, resolve a DOI, fetch full text,
-  apply a citation style, screen a record, or approve scientific use.
+- `reference_library.py` does not call a network service, resolve a DOI, fetch
+  full text, apply a citation style, screen a record, or approve scientific
+  use. `open_full_text.py` is a separate, explicit network step.
+- The open-full-text queue uses schema `ai4heor-full-text-queue/v1` and binds
+  the exact current `references/library.json` SHA-256. It tries Europe PMC open
+  article XML, then (for DOI records) Unpaywall's reported best open PDF. It
+  records source, licence/version when provided, retrieval time, local path,
+  and downloaded SHA-256. It does not persist the Unpaywall email.
+- A direct public PDF that is actually used to support a claim is stored under
+  `references/source-files/` and registered in
+  `references/source-files.json` with schema
+  `ai4heor-source-file-archive/v1`. Its identity binds the original source URL
+  to the downloaded content SHA-256, so changed bytes at the same URL create a
+  new immutable record. The manifest records original and final URL, title,
+  publisher and licence when known, rights basis, retrieval time, local path,
+  reported and verified media type, and SHA-256.
+- Downloads are capped at 50 MiB, must resolve only to public HTTP(S) hosts,
+  validate redirects, refuse symbolic links and workspace escape, verify XML
+  or PDF signatures, and never overwrite different existing bytes.
+- `queued`, `running`, `needs_input`, `downloaded`, `unavailable`, and `failed`
+  are execution states. None is a screening decision, evidence appraisal,
+  scientific confirmation, or Human approval.
 - The researcher remains responsible for metadata correction, duplicate review,
   inclusion decisions, citation style selection, and external release.
 
@@ -61,3 +81,7 @@ CSL-JSON export.
   <https://webofscience.help.clarivate.com/en-us/Content/wos-researcher-profile-adding-removing-publications.html>
 - BibTeX user documentation distributed by CTAN:
   <https://ctan.org/tex-archive/biblio/bibtex/contrib/doc>
+- Europe PMC REST web service and open-access downloads:
+  <https://europepmc.org/RestfulWebService> and <https://europepmc.org/downloads>
+- Unpaywall API and response data format:
+  <https://unpaywall.org/api> and <https://unpaywall.org/data-format>

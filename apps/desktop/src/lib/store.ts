@@ -11,12 +11,16 @@ export interface ComposerSkillSelection {
   label: string;
 }
 
+export type ComposerDraftMode = "append" | "replace";
+export const REPLACE_COMPOSER_DRAFT: ComposerDraftMode = "replace";
+
 const THEME_KEY = "ai4s.theme.v2";
 const LEGACY_THEME_KEY = "ai4s.theme";
 const SIDEBAR_WIDTH_KEY = "ai4s.sidebar.width";
 const SIDEBAR_COLLAPSED_KEY = "ai4s.sidebar.collapsed";
 const INSPECTOR_WIDTH_KEY = "ai4s.inspector.width";
 const ZOOM_KEY = "ai4s.zoom";
+const TASK_PROJECT_PLACEMENT_KEY = "ai4s.taskProjectPlacement";
 
 export const ZOOM_MIN = 0.5;
 export const ZOOM_MAX = 3;
@@ -66,6 +70,25 @@ function initialInspectorWidth(): number {
   return Math.min(INSPECTOR_MAX, Math.max(INSPECTOR_MIN, saved));
 }
 
+export type TaskProjectPlacement = Record<string, string | null>;
+
+function initialTaskProjectPlacement(): TaskProjectPlacement {
+  if (typeof window === "undefined") return {};
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(TASK_PROJECT_PLACEMENT_KEY) ?? "{}",
+    );
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([, value]) =>
+        typeof value === "string" || value === null,
+      ),
+    ) as TaskProjectPlacement;
+  } catch {
+    return {};
+  }
+}
+
 interface UiState {
   theme: Theme;
   /** Active UI locale (BCP-47). Persisted; mirrors the `theme` pattern. */
@@ -85,10 +108,16 @@ interface UiState {
   /** One-shot text placed into the composer by another surface (e.g. the
    *  provenance Reproduce action) — consumed on the next composer render. */
   composerDraft: string | null;
+  /** Prepared task starters replace one another; provenance and review
+   *  follow-ups keep the historical append behavior. */
+  composerDraftMode: ComposerDraftMode;
   /** One-shot Skill selection prepared by the capability catalog. The
    *  composer renders the localized label while keeping the runtime id out of
    *  the editable research request. */
   composerSkill: ComposerSkillSelection | null;
+  /** Explicit sidebar project placement. null means deliberately standalone;
+   *  absence falls back to the session's original workspace directory. */
+  taskProjectPlacement: TaskProjectPlacement;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
   setLocale: (locale: string) => void;
@@ -103,8 +132,10 @@ interface UiState {
   setZoom: (zoom: number) => void;
   zoomBy: (steps: number) => void;
   resetZoom: () => void;
-  setComposerDraft: (draft: string | null) => void;
+  setComposerDraft: (draft: string | null, mode?: ComposerDraftMode) => void;
   setComposerSkill: (skill: ComposerSkillSelection | null) => void;
+  moveTaskToProject: (taskId: string, projectId: string | null) => void;
+  forgetTaskProjectPlacement: (taskId: string) => void;
 }
 
 export const useUiStore = create<UiState>((set, get) => ({
@@ -158,9 +189,34 @@ export const useUiStore = create<UiState>((set, get) => ({
   zoomBy: (steps) => get().setZoom(get().zoom + steps * ZOOM_STEP),
   resetZoom: () => get().setZoom(1),
   composerDraft: null,
-  setComposerDraft: (composerDraft) => set({ composerDraft }),
+  composerDraftMode: "append",
+  setComposerDraft: (composerDraft, composerDraftMode = "append") =>
+    set({ composerDraft, composerDraftMode }),
   composerSkill: null,
   setComposerSkill: (composerSkill) => set({ composerSkill }),
+  taskProjectPlacement: initialTaskProjectPlacement(),
+  moveTaskToProject: (taskId, projectId) => {
+    const taskProjectPlacement = { ...get().taskProjectPlacement, [taskId]: projectId };
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        TASK_PROJECT_PLACEMENT_KEY,
+        JSON.stringify(taskProjectPlacement),
+      );
+    }
+    set({ taskProjectPlacement });
+  },
+  forgetTaskProjectPlacement: (taskId) => {
+    const taskProjectPlacement = { ...get().taskProjectPlacement };
+    if (!Object.prototype.hasOwnProperty.call(taskProjectPlacement, taskId)) return;
+    delete taskProjectPlacement[taskId];
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        TASK_PROJECT_PLACEMENT_KEY,
+        JSON.stringify(taskProjectPlacement),
+      );
+    }
+    set({ taskProjectPlacement });
+  },
 }));
 
 /** Whether headers should inset for the macOS overlay-titlebar traffic lights.

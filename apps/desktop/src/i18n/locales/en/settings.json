@@ -427,8 +427,8 @@
         "ready": "Required files available"
       },
       "harness": {
-        "title": "Project audit harness",
-        "ready": "Required files available"
+        "title": "Project setup resources",
+        "ready": "Project rules and record templates available"
       },
       "runtime": {
         "title": "Local assistant",

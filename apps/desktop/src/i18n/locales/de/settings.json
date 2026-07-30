@@ -422,8 +422,8 @@
         "ready": "Erforderliche Dateien geprüft"
       },
       "harness": {
-        "title": "Projekt-Audit-Harness",
-        "ready": "Erforderliche Dateien geprüft"
+        "title": "Ressourcen zur Projekteinrichtung",
+        "ready": "Projektregeln und Vorlagen geprüft"
       },
       "runtime": {
         "title": "Lokaler Assistent",

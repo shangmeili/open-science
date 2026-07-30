@@ -53,9 +53,13 @@
     "open": "打开任务",
     "rename": "重命名任务",
     "renamePlaceholder": "任务名称",
+    "moveTo": "移动到",
+    "standalone": "独立任务",
     "delete": "删除任务",
     "deleteAria": "删除 {{title}}",
-    "running": "运行中"
+    "running": "处理中",
+    "idle": "已就绪",
+    "error": "需要处理"
   },
   "confirmDelete": {
     "sessionTitle": "删除任务？",

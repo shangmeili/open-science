@@ -59,6 +59,7 @@ describe("StartupReadiness", () => {
     expect(screen.getByText("Research capabilities available")).toBeInTheDocument();
     expect(screen.getByText("Model (optional)")).toBeInTheDocument();
     expect(screen.getByText("Not connected — local calculations still work")).toBeInTheDocument();
+    expect(screen.queryByText("Project setup resources")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Restart local assistant" })).not.toBeInTheDocument();
   });
 
@@ -99,5 +100,24 @@ describe("StartupReadiness", () => {
     expect(screen.getByText("Needs attention")).toBeInTheDocument();
     await userEvent.click(screen.getByText("Technical details"));
     expect(screen.getByText("required Skill is unavailable: heor-workbench")).toBeInTheDocument();
+  });
+
+  it("surfaces the internal project setup resources only when they are missing", async () => {
+    mocks.audit.mockResolvedValue({
+      ...readyAudit,
+      requiredReady: false,
+      checks: readyAudit.checks.map((check) =>
+        check.id === "harness"
+          ? { ...check, ready: false, detail: "required resource is unavailable: policy.json" }
+          : check,
+      ),
+    });
+
+    render(<StartupReadiness />);
+
+    expect(await screen.findByText("Project setup resources")).toBeInTheDocument();
+    expect(screen.getByText("Needs attention")).toBeInTheDocument();
+    await userEvent.click(screen.getByText("Technical details"));
+    expect(screen.getByText("required resource is unavailable: policy.json")).toBeInTheDocument();
   });
 });

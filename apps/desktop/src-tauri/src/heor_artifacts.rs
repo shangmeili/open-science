@@ -38,6 +38,10 @@ fn nonempty_string_array(value: Option<&serde_json::Value>) -> bool {
         })
 }
 
+fn nonempty_decision_strategy(value: Option<&serde_json::Value>) -> bool {
+    nonempty(value) || nonempty_string_array(value)
+}
+
 fn current_artifact(
     workspace: &Path,
     relative_path: &str,
@@ -68,15 +72,13 @@ pub fn require_decision_problem_approvable(
         .get("decision_problem")
         .and_then(serde_json::Value::as_object)
         .ok_or("analysis plan must include decision_problem metadata")?;
-    for field in [
-        "title",
-        "population",
-        "intervention",
-        "comparator",
-        "perspective",
-        "outcome",
-    ] {
+    for field in ["title", "population", "perspective", "outcome"] {
         if !nonempty(problem.get(field)) {
+            return Err(format!("decision_problem.{field} is required"));
+        }
+    }
+    for field in ["intervention", "comparator"] {
+        if !nonempty_decision_strategy(problem.get(field)) {
             return Err(format!("decision_problem.{field} is required"));
         }
     }
@@ -528,6 +530,14 @@ mod tests {
         let hash = format!("{:x}", Sha256::digest(&raw));
         require_decision_problem_approvable(&root, &hash).unwrap();
 
+        let mut legacy = plan.clone();
+        legacy["decision_problem"]["intervention"] = serde_json::json!(["A"]);
+        legacy["decision_problem"]["comparator"] = serde_json::json!(["B"]);
+        let legacy_raw = serde_json::to_vec_pretty(&legacy).unwrap();
+        std::fs::write(root.join("heor/analysis-plan.json"), &legacy_raw).unwrap();
+        let legacy_hash = format!("{:x}", Sha256::digest(&legacy_raw));
+        require_decision_problem_approvable(&root, &legacy_hash).unwrap();
+
         let mut invalid = plan;
         invalid["decision_problem"]["population"] = serde_json::json!("");
         let invalid_raw = serde_json::to_vec_pretty(&invalid).unwrap();
@@ -536,6 +546,36 @@ mod tests {
         assert!(require_decision_problem_approvable(&root, &invalid_hash)
             .unwrap_err()
             .contains("population"));
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn packaged_analysis_plan_templates_match_the_decision_contract() {
+        let templates = [
+            include_str!(
+                "../../../../runtime/skills/core/heor-workbench/assets/analysis-plan.template.json"
+            ),
+            include_str!(
+                "../../../../runtime/skills/core/heor-workbench/assets/multi-strategy-analysis-plan.template.json"
+            ),
+            include_str!(
+                "../../../../runtime/skills/core/heor-economic-inputs/assets/partitioned-survival-analysis-plan.template.json"
+            ),
+        ];
+        let root = std::env::temp_dir().join(format!(
+            "heor-decision-template-contract-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("heor")).unwrap();
+
+        for template in templates {
+            let raw = template.as_bytes();
+            std::fs::write(root.join("heor/analysis-plan.json"), raw).unwrap();
+            let hash = format!("{:x}", Sha256::digest(raw));
+            require_decision_problem_approvable(&root, &hash).unwrap();
+        }
 
         let _ = std::fs::remove_dir_all(root);
     }

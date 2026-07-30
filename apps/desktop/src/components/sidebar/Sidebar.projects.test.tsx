@@ -37,6 +37,8 @@ afterEach(() => {
     researchScope: null,
   });
   useUiStore.getState().setComposerDraft(null);
+  useUiStore.setState({ taskProjectPlacement: {} });
+  window.localStorage.removeItem("ai4s.taskProjectPlacement");
 });
 
 describe("Sidebar projects", () => {
@@ -76,6 +78,57 @@ describe("Sidebar projects", () => {
     expect(screen.getByRole("button", { name: "More: paper search" })).toBeInTheDocument();
   });
 
+  it("moves a task between standalone tasks and a project without losing it", async () => {
+    useRuntimeStore.setState({
+      projects: [PROJECT],
+      sessions: [{ id: "task-1", title: "Independent review", directory: "/base/task-1" }],
+    });
+    renderAt("/files");
+
+    let task = await screen.findByRole("link", { name: /Independent review/i });
+    expect(document.querySelector('[data-project-id="p1"] [data-task-id="task-1"]')).toBeNull();
+
+    fireEvent.contextMenu(task);
+    const moveToProject = await screen.findByRole("menuitem", { name: "Move to" });
+    await userEvent.hover(moveToProject);
+    await userEvent.click(await screen.findByRole("menuitem", { name: PROJECT.name }));
+
+    expect(document.querySelector('[data-project-id="p1"] [data-task-id="task-1"]')).not.toBeNull();
+    expect(useUiStore.getState().taskProjectPlacement).toEqual({ "task-1": "p1" });
+
+    task = screen.getByRole("link", { name: /Independent review/i });
+    fireEvent.contextMenu(task);
+    await userEvent.hover(await screen.findByRole("menuitem", { name: "Move to" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Standalone tasks" }));
+
+    expect(document.querySelector('[data-project-id="p1"] [data-task-id="task-1"]')).toBeNull();
+    expect(screen.getByRole("link", { name: /Independent review/i })).toBeInTheDocument();
+    expect(useUiStore.getState().taskProjectPlacement).toEqual({ "task-1": null });
+  });
+
+  it("keeps new before more for project, project-folder, and task actions", async () => {
+    useRuntimeStore.setState({ projects: [PROJECT], sessions: [] });
+    renderAt("/files");
+    await screen.findByText(PROJECT.name);
+
+    const labels = (selector: string) =>
+      Array.from(document.querySelectorAll(`${selector} > button`))
+        .map((button) => button.getAttribute("aria-label"));
+
+    expect(labels('[data-sidebar-section-actions="projects"]')).toEqual([
+      "New project",
+      "More",
+    ]);
+    expect(labels('[data-project-actions="p1"]')).toEqual([
+      "New task in Cost Effectiveness Study",
+      "More: Cost Effectiveness Study",
+    ]);
+    expect(labels('[data-sidebar-section-actions="tasks"]')).toEqual([
+      "New task",
+      "More: Tasks",
+    ]);
+  });
+
   it("uses the Codex-style task actions instead of the browser link menu", async () => {
     const renameSession = vi.fn(async () => {});
     useRuntimeStore.setState({
@@ -98,6 +151,20 @@ describe("Sidebar projects", () => {
     await userEvent.clear(input);
     await userEvent.type(input, "Updated CEA review{Enter}");
     expect(renameSession).toHaveBeenCalledWith("task-1", "Updated CEA review");
+  });
+
+  it("shows only the quiet task status and never exposes runtime step counts", async () => {
+    useRuntimeStore.setState({
+      projects: [],
+      sessions: [{ id: "task-1", title: "Evidence review", directory: "/base/task-1" }],
+      runningSessions: { "task-1": true },
+      stepCounts: { "task-1": 70 },
+    });
+    renderAt("/files");
+
+    const task = await screen.findByRole("link", { name: /Evidence review/i });
+    expect(task.querySelector('[data-task-status="running"]')).not.toBeNull();
+    expect(screen.queryByText(/Step 70|第\s*70\s*步/i)).not.toBeInTheDocument();
   });
 
   it("opens a task action menu at the visible more button instead of the window origin", async () => {
@@ -260,7 +327,7 @@ describe("Sidebar projects", () => {
     expect(await screen.findByRole("heading", { name: "What HEOR work would you like to tackle today?" })).toBeInTheDocument();
     expect(screen.getByTestId("ai4heor-brand-wordmark")).toHaveAttribute(
       "src",
-      expect.stringContaining("ai4heor-wordmark-light.svg"),
+      expect.stringContaining("ai4heor-wordmark-light.png"),
     );
     expect(screen.getByTestId("ai4heor-brand-wordmark")).toHaveClass("w-[100px]");
     await userEvent.click(screen.getByRole("button", { name: "Research workspace" }));

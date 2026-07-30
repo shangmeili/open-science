@@ -53,6 +53,15 @@ secrets/
 *.exe
 *.msi
 
+# Local acceptance-run output. Curated design evidence under
+# artifacts/design-qa remains versionable; raw browser traces and per-run
+# release directories are reproducible local/CI output, not source.
+.playwright-cli/
+/output/
+artifacts/release/*/
+artifacts/release/*.verification*.json
+artifacts/release/AI4HEOR_0.1.55_x64.*.json
+
 # Bundled sidecar binaries (fetched per-platform; too large for git)
 apps/desktop/src-tauri/binaries/
 

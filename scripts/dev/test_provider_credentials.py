@@ -35,19 +35,22 @@ class ProviderCredentialContractTests(unittest.TestCase):
         custom_provider = custom_provider[: custom_provider.index("async listCustomProviderIds")]
         self.assertNotIn("apiKey", custom_provider)
 
-    def test_minimax_china_profile_is_explicit_and_contains_no_credential(self) -> None:
+    def test_custom_provider_profile_is_general_and_contains_no_credential(self) -> None:
         settings = SETTINGS.read_text(encoding="utf-8")
-        self.assertIn('npm: "@ai-sdk/anthropic"', settings)
-        self.assertIn('baseURL: "https://api.minimaxi.com/anthropic/v1"', settings)
-        self.assertIn('models: "MiniMax-M3"', settings)
+        self.assertIn('const [cNpm, setCNpm] = useState("@ai-sdk/openai-compatible")', settings)
+        self.assertIn("npm: cNpm", settings)
         self.assertIsNone(re.search(r"sk-[A-Za-z0-9_-]{40,}", settings))
 
     def test_provider_credential_boundary_is_localized_in_every_ui_language(self) -> None:
         for locale in LOCALES:
             path = ROOT / f"apps/desktop/src/i18n/locales/{locale}/settings.json"
             providers = json.loads(path.read_text(encoding="utf-8"))["providers"]
-            self.assertTrue(providers["minimaxChinaTokenPlanName"].strip(), locale)
-            self.assertTrue(providers["fillMinimaxChinaTokenPlan"].strip(), locale)
+            self.assertTrue(providers["customEndpoint"].strip(), locale)
+            self.assertTrue(providers["customEndpointHint"].strip(), locale)
+            self.assertTrue(providers["customNamePlaceholder"].strip(), locale)
+            self.assertTrue(providers["customUrlPlaceholder"].strip(), locale)
+            self.assertTrue(providers["customKeyPlaceholder"].strip(), locale)
+            self.assertTrue(providers["customModelsPlaceholder"].strip(), locale)
             self.assertTrue(providers["customCredentialHint"].strip(), locale)
 
 

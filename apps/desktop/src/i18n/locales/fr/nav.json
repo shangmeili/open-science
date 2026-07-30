@@ -53,9 +53,13 @@
     "open": "Ouvrir la tâche",
     "rename": "Renommer la tâche",
     "renamePlaceholder": "Nom de la tâche",
+    "moveTo": "Déplacer vers",
+    "standalone": "Tâches indépendantes",
     "delete": "Supprimer la tâche",
     "deleteAria": "Supprimer {{title}}",
-    "running": "En cours"
+    "running": "En cours",
+    "idle": "Prêt",
+    "error": "À vérifier"
   },
   "confirmDelete": {
     "sessionTitle": "Supprimer la tâche ?",

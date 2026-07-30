@@ -9,7 +9,7 @@ Prepare one auditable health-state utility item for every strategy and state, th
 
 ## Workflow
 
-1. Read the current `heor/analysis-plan.json`, its linked evidence, [references/method-boundary.md](references/method-boundary.md), and the applicable versioned reference-case profile. Do not assume a newly published or consulted value set is current guidance.
+1. Read the current `heor/analysis-plan.json`, its linked evidence, [references/method-boundary.md](references/method-boundary.md), and the applicable versioned reference-case profile. Require analysis schema `0.14.0` or `0.15.0`; for any other analysis schema, do not create or repair the reserved `heor/utility-inputs.json` path and keep exploratory utility work in an ordinary Markdown draft instead. Do not assume a newly published or consulted value set is current guidance.
 2. Ask the Human only for unresolved choices that materially change the result: target jurisdiction/population, instrument and version, respondent, valuation source or value set, mapping algorithm, adjustment method, captured effects, and overlap with separate event disutilities.
 3. Create analysis schema `0.15.0` by retaining the cost link and adding the utility plus event-disutility links. Keep `state_utilities` equal to the first cycle of the declared schedule.
 4. Copy [assets/utility-inputs.template.json](assets/utility-inputs.template.json) to `heor/utility-inputs.json`. Create exactly one item per `strategy_id` and `state_id`; use the unadjusted QALY anchor zero for every dead state.

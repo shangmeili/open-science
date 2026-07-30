@@ -10,7 +10,7 @@
       "shell": "Run a shell command in the workspace folder",
       "plan": "Describe what to plan — no files will be changed"
     },
-    "commandsAria": "Commands",
+    "commandsAria": "Commands and skills",
     "source": {
       "skill": "skill",
       "mcp": "mcp"
@@ -79,6 +79,17 @@
       "action": "Choose a model",
       "description": "Choose the model for this task",
       "sendHint": "Choose a model before sending"
+    },
+    "queue": {
+      "title": "Waiting to send",
+      "next": "Next",
+      "addAria": "Add to send queue",
+      "addTitle": "Send after the current reply finishes",
+      "moveUp": "Move message {{position}} up",
+      "moveDown": "Move message {{position}} down",
+      "remove": "Remove queued message {{position}}",
+      "skill": "Skill: {{skill}}",
+      "placeholder": "Keep typing; sent messages will wait in the queue"
     }
   },
   "localCommand": {
@@ -97,7 +108,7 @@
     "analyze": {
       "title": "Analyze my HEOR evidence or data",
       "description": "Inventory local evidence and data, clarify the estimand, then propose an auditable analysis.",
-      "prompt": "Help me analyze the HEOR evidence or data in this project. Use $heor-workbench to inventory relevant local material, explain what it can support and what is missing, and proceed with evidence organization, structured records, reproducible computation, and report preparation. Ask me only about an unresolved decision question, estimand, method, material assumption, or interpretation that could change the result."
+      "prompt": "Help me analyze the HEOR evidence or data in this project. First inventory the relevant local material and explain what it can support and what is missing. Then organize the evidence and data, preserve traceability, and propose auditable analysis steps. Ask me only about an unresolved decision question, estimand, method, material assumption, or interpretation that could change the result."
     },
     "audit": {
       "title": "Audit an HEOR model or report",
@@ -114,12 +125,12 @@
     "design": {
       "title": "Start a pharmacoeconomic study",
       "description": "Define the decision problem, conceptual model, evidence needs, and Human review points.",
-      "prompt": "Help me start a researcher-led pharmacoeconomic or HEOR study. Use $heor-workbench and $heor-model-design. Start from the information I have already provided, clarify only gaps that could materially change the study, and then prepare the research record and checks. Evidence organization, structured records, and execution are assistant work; I decide scientific methods, material assumptions, evidence choices, thresholds, interpretation, and intended use."
+      "prompt": "Help me start a researcher-led pharmacoeconomic or HEOR study. Start from the information I have already provided. For a named medicine, search authoritative public sources first for its identity, approved indications, dosage forms and strengths, labelled population, and comparator context; then use a form so I can select, correct, or supplement the retrieved candidates. Clarify only gaps that could materially change the study. Evidence organization, research-plan preparation, record-keeping, and checks are assistant work. Keep confirmed decisions, open questions, evidence needs, and assumptions separate. I decide scientific methods, material assumptions, evidence choices, thresholds, interpretation, and intended use."
     },
     "example-cea": {
       "title": "Explore an example: cost-effectiveness analysis",
       "description": "Synthetic two-strategy cohort inputs for an auditable cost-utility workflow.",
-      "prompt": "Use $heor-workbench to explore the synthetic demonstration files under heor-cost-effectiveness/. Treat every number as a proposed teaching assumption, not clinical or economic evidence. Explain the decision problem, review the three-state cohort structure, reproduce the base-case cost and QALY calculation with deterministic code, run one transparent sensitivity check, and prepare a local report with limitations and Human review points. Do not create approvals or reimbursement conclusions."
+      "prompt": "Open and explain the built-in complete cost-utility teaching case. Treat every number as a teaching assumption, not clinical or economic evidence. Explain the decision problem, review the three-state cohort structure, reproduce the base-case cost and QALY calculation, run one transparent sensitivity check, and state the limitations and questions that still need researcher review. Do not make reimbursement, pricing, or policy conclusions."
     }
   },
   "live": {
@@ -165,7 +176,7 @@
       "waitingModel": "Waiting for the model to respond…",
       "runningStep": "Running",
       "writing": "Preparing the response…",
-      "continuing": "Finished “{{step}}”; continuing…",
+      "continuing": "Continuing…",
       "loadedSkill": "Loaded research capability: {{skill}}",
       "completed": "Done",
       "rateLimited": "The current model is receiving too many requests. Try again later or choose another model.",
@@ -261,8 +272,13 @@
   "interaction": {
     "question": {
       "heading": "The agent needs your input",
+      "customLabel": "None of these fit? Type your answer directly.",
       "customPlaceholder": "Or type your own answer…",
-      "invalidDescription": "The model returned an invalid option description, so it was hidden."
+      "invalidDescription": "The model returned an invalid option description, so it was hidden.",
+      "missingContextDescription": "This explanation refers to content that is not shown in the current form, so it was hidden. Type your answer directly or choose another clear option.",
+      "sourcedMedicineFact": "This concerns public literature or data that the assistant should search and verify first. Model-generated options are not evidence and have been hidden. Only after a documented public search leaves a real gap should you be asked for a non-public source or an exploratory assumption.",
+      "sourcedAnswerLabel": "Add a non-public source here if you have one; otherwise skip this and let the assistant continue searching.",
+      "sourcedAnswerPlaceholder": "If you have a non-public source, add it here…"
     },
     "permission": {
       "heading": "The agent asks permission:"
@@ -338,11 +354,11 @@
     "suggestions": {
       "scope": {
         "title": "Frame the research question",
-        "prompt": "Help me frame this pharmacoeconomic or HEOR decision problem. Start from what I provide and confirm the population, intervention, comparator, outcomes, perspective, time horizon, and intended decision use. Ask only for information that would materially change the study."
+        "prompt": "Help me frame this pharmacoeconomic or HEOR decision problem. Start from what I provide. For a named medicine, search authoritative public sources first for its identity, approved indications, dosage forms and strengths, labelled population, and comparator context; then use a form so I can select, correct, or supplement the retrieved candidates. After that, confirm outcomes, perspective, time horizon, and intended decision use. Ask only for information that would materially change the study."
       },
       "evidence": {
         "title": "Find and organize evidence",
-        "prompt": "Help me find and organize the evidence needed for this pharmacoeconomic study. First clarify the decision problem and evidence gaps, then identify useful local sources, searches that may be needed, provenance, and limitations. Follow the current task permission mode for network retrieval: explain the query and outbound fields once when confirmation is required, and proceed directly in full-access or test mode."
+        "prompt": "Help me find and organize the evidence needed for this pharmacoeconomic study. First clarify the decision problem, population, intervention and comparator, outcomes, jurisdiction, time range, and evidence gaps, then identify useful local sources and the literature, trial registries, and methods sources that need to be searched. Record search dates, sources, queries, inclusion judgments, and limitations. When confirmation is required, disclose outbound search content once before the first retrieval; proceed directly when this task is already authorized or test mode is active. You may import RIS, BibTeX, or CSL-JSON for deduplication and metadata review. For a lawfully downloadable public PDF actually used to support a claim, archive the file in the current task and record its source, retrieval date, and checksum. If I explicitly request journal full text, download only lawfully available open versions. Do not describe an ordinary search as a complete systematic review."
       },
       "model": {
         "title": "Design or review a model",

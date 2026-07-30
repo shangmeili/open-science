@@ -36,10 +36,32 @@ pub struct MethodsWatchlistAudit {
     pub reviewed_change_count: usize,
     pub unresolved_change_count: usize,
     pub affected_contract_count: usize,
+    pub sources: Vec<MethodsWatchlistSourceSummary>,
+    pub changes: Vec<MethodsWatchlistChangeSummary>,
     pub overdue_sources: Vec<String>,
     pub unresolved_changes: Vec<String>,
     pub acceptance_eligible_changes: Vec<String>,
     pub errors: Vec<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MethodsWatchlistSourceSummary {
+    pub source_id: String,
+    pub title: String,
+    pub publication_status: String,
+    pub canonical_url: String,
+    pub snapshot_path: Option<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MethodsWatchlistChangeSummary {
+    pub change_id: String,
+    pub source_id: String,
+    pub summary: String,
+    pub revalidation_status: String,
+    pub evidence_paths: Vec<String>,
 }
 
 impl MethodsWatchlistAudit {
@@ -61,6 +83,8 @@ impl MethodsWatchlistAudit {
             reviewed_change_count: 0,
             unresolved_change_count: 0,
             affected_contract_count: 0,
+            sources: Vec::new(),
+            changes: Vec::new(),
             overdue_sources: Vec::new(),
             unresolved_changes: Vec::new(),
             acceptance_eligible_changes: Vec::new(),
@@ -392,6 +416,16 @@ fn audit_value(
                 "source {source_id} has an invalid publication status"
             )),
         }
+        audit.sources.push(MethodsWatchlistSourceSummary {
+            source_id: source_id.clone(),
+            title: source.title.clone(),
+            publication_status: source.publication_status.clone(),
+            canonical_url: source.canonical_url.clone(),
+            snapshot_path: source
+                .snapshot
+                .as_ref()
+                .map(|snapshot| snapshot.path.clone()),
+        });
         if !source.canonical_url.starts_with("https://")
             || source.canonical_url[8..]
                 .split('/')
@@ -482,6 +516,13 @@ fn audit_value(
         let Some(change) = watchlist.changes.get(change_id) else {
             continue;
         };
+        audit.changes.push(MethodsWatchlistChangeSummary {
+            change_id: change_id.clone(),
+            source_id: change.source_id.clone(),
+            summary: change.summary.clone(),
+            revalidation_status: change.revalidation_status.clone(),
+            evidence_paths: change.evidence_paths.clone(),
+        });
         if !is_safe_id(change_id)
             || change.change_id != *change_id
             || !watchlist.sources.contains_key(&change.source_id)

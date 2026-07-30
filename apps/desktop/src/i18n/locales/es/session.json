@@ -10,7 +10,7 @@
       "shell": "Ejecuta un comando de shell en la carpeta del espacio de trabajo",
       "plan": "Describe qué planificar — no se modificará ningún archivo"
     },
-    "commandsAria": "Comandos",
+    "commandsAria": "Comandos y habilidades",
     "source": {
       "skill": "habilidad",
       "mcp": "mcp"
@@ -79,6 +79,17 @@
       "action": "Elegir modelo",
       "description": "Elegir el modelo para esta tarea",
       "sendHint": "Elige un modelo antes de enviar"
+    },
+    "queue": {
+      "title": "Pendientes de envío",
+      "next": "Siguiente",
+      "addAria": "Añadir a la cola de envío",
+      "addTitle": "Enviar al terminar la respuesta actual",
+      "moveUp": "Subir el mensaje {{position}}",
+      "moveDown": "Bajar el mensaje {{position}}",
+      "remove": "Eliminar el mensaje en cola {{position}}",
+      "skill": "Habilidad: {{skill}}",
+      "placeholder": "Sigue escribiendo; los mensajes enviados quedarán en la cola"
     }
   },
   "localCommand": {
@@ -97,7 +108,7 @@
     "analyze": {
       "title": "Analizar mi evidencia o datos de HEOR",
       "description": "Inventariar la evidencia local, aclarar el estimando y proponer un análisis auditable.",
-      "prompt": "Ayúdame a analizar la evidencia o los datos de HEOR del proyecto. Usa $heor-workbench para inventariar primero los archivos locales y confirma conmigo la pregunta de decisión, el estimando, la población, el comparador, los resultados y el método antes de ejecutar. Conserva la procedencia y el cálculo determinista, y detente en las decisiones Human-in-the-loop de método e interpretación."
+      "prompt": "Ayúdame a analizar la evidencia o los datos de HEOR del proyecto. Primero inventaría el material local pertinente y explica qué puede sustentar y qué falta. Después organiza la evidencia y los datos, conserva la trazabilidad y propone pasos de análisis verificables. Pregúntame solo por decisiones no resueltas que puedan cambiar materialmente el resultado."
     },
     "audit": {
       "title": "Auditar un modelo o informe de HEOR",
@@ -114,12 +125,12 @@
     "design": {
       "title": "Iniciar un estudio farmacoeconómico",
       "description": "Definir el problema de decisión, el modelo conceptual, la evidencia y los puntos de revisión humana.",
-      "prompt": "Ayúdame a iniciar un estudio farmacoeconómico o de HEOR dirigido por la persona investigadora. Usa $heor-workbench y $heor-model-design. Primero aclara población, intervención, comparadores, resultados, perspectiva, jurisdicción, horizonte, contexto de decisión, evidencia y uso previsto. Después prepara artefactos locales revisables y un plan explícito. No elijas métodos, supuestos, evidencia, umbrales ni aprobaciones por la persona investigadora."
+      "prompt": "Ayúdame a diseñar un estudio farmacoeconómico o de HEOR dirigido por la persona investigadora. Parte de la información ya proporcionada y aclara solo las lagunas que puedan cambiar materialmente el estudio. Separa las decisiones confirmadas, las preguntas abiertas, las necesidades de evidencia y los supuestos. No elijas métodos, supuestos, evidencia, umbrales ni interpretaciones por la persona investigadora."
     },
     "example-cea": {
       "title": "Explorar un ejemplo: análisis de coste-efectividad",
       "description": "Entradas sintéticas de cohorte con dos estrategias para un flujo auditable de coste-utilidad.",
-      "prompt": "Usa $heor-workbench para explorar los archivos sintéticos de demostración en heor-cost-effectiveness/. Trata cada cifra como un supuesto didáctico, no como evidencia. Explica el problema de decisión, revisa la estructura de cohorte de tres estados, reproduce costes y QALY con código determinista, ejecuta una sensibilidad transparente y prepara un informe con limitaciones y puntos de revisión humana. No crees aprobaciones ni conclusiones de reembolso."
+      "prompt": "Abre y explica el caso didáctico completo de coste-utilidad incluido. Trata cada cifra como un supuesto didáctico, no como evidencia. Explica el problema de decisión, revisa la estructura de cohorte de tres estados, reproduce los costes y QALY del caso base, ejecuta una sensibilidad transparente e indica las limitaciones y cuestiones pendientes de revisión. No formules conclusiones de reembolso, precio o política."
     }
   },
   "live": {
@@ -165,7 +176,7 @@
       "waitingModel": "Esperando la respuesta del modelo…",
       "runningStep": "Ejecutando",
       "writing": "Preparando la respuesta…",
-      "continuing": "“{{step}}” finalizado; continuando…",
+      "continuing": "Continuando…",
       "loadedSkill": "Capacidad de investigación cargada: {{skill}}",
       "completed": "Completado",
       "rateLimited": "El modelo actual está recibiendo demasiadas solicitudes. Inténtalo más tarde o elige otro modelo.",
@@ -261,8 +272,13 @@
   "interaction": {
     "question": {
       "heading": "El agente necesita tu opinión",
+      "customLabel": "¿Ninguna opción encaja? Escribe tu respuesta directamente.",
       "customPlaceholder": "O escribe tu propia respuesta…",
-      "invalidDescription": "El modelo devolvió una descripción de opción no válida y se ha ocultado."
+      "invalidDescription": "El modelo devolvió una descripción de opción no válida y se ha ocultado.",
+      "missingContextDescription": "Esta explicación hace referencia a contenido que no aparece en el formulario actual, por lo que se ha ocultado. Escribe tu respuesta directamente o elige otra opción clara.",
+      "sourcedMedicineFact": "Esto se refiere a literatura o datos públicos que el asistente debe buscar y verificar primero. Las opciones generadas por el modelo no son evidencia y se han ocultado. Solo si una búsqueda pública documentada deja una laguna real se debe pedir una fuente no pública o una hipótesis exploratoria.",
+      "sourcedAnswerLabel": "Si dispone de una fuente no pública, añádala aquí; de lo contrario, omita este paso y deje que el asistente siga buscando.",
+      "sourcedAnswerPlaceholder": "Si dispone de una fuente no pública, añádala aquí…"
     },
     "permission": {
       "heading": "El agente solicita permiso:"
@@ -342,7 +358,7 @@
       },
       "evidence": {
         "title": "Buscar y organizar evidencia",
-        "prompt": "Ayúdame a buscar y organizar la evidencia necesaria para este estudio farmacoeconómico. Primero aclara el problema de decisión y las lagunas, y después identifica fuentes locales, búsquedas necesarias, procedencia y limitaciones. Antes de usar la red, muestra la consulta exacta y los campos que se enviarían."
+        "prompt": "Ayúdame a buscar y organizar la evidencia necesaria para este estudio farmacoeconómico. Primero aclara el problema de decisión y las lagunas, y después identifica fuentes locales, búsquedas necesarias, procedencia y limitaciones. Se pueden importar RIS, BibTeX o CSL-JSON y revisar duplicados y metadatos. Solo si solicito expresamente el texto completo, recupera texto abierto disponible legalmente y no eludas barreras de pago. La red sigue el modo de permisos actual."
       },
       "model": {
         "title": "Diseñar o revisar un modelo",

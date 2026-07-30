@@ -36,6 +36,9 @@ pub struct SynthesisAudit {
     pub not_assessed_count: usize,
     pub included_count: usize,
     pub extraction_count: usize,
+    pub searches: Vec<SynthesisSearchSummary>,
+    pub records: Vec<SynthesisRecordSummary>,
+    pub extractions: Vec<ReviewableExtraction>,
     pub eligible_extraction_ids: Vec<String>,
     pub eligible_extractions: Vec<ReviewableExtraction>,
     pub app_verified_extraction_ids: Vec<String>,
@@ -48,6 +51,28 @@ pub struct SynthesisAudit {
     pub unresolved_conflicts: Vec<String>,
     pub errors: Vec<String>,
     pub import_blockers: Vec<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SynthesisSearchSummary {
+    pub id: String,
+    pub source: String,
+    pub query: String,
+    pub searched_on: String,
+    pub result_count: u64,
+    pub run_path: Option<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SynthesisRecordSummary {
+    pub record_id: String,
+    pub title: String,
+    pub locator: String,
+    pub source_type: String,
+    pub title_abstract_status: String,
+    pub full_text_status: String,
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
@@ -164,6 +189,9 @@ fn audit_value(
         not_assessed_count: 0,
         included_count: 0,
         extraction_count: 0,
+        searches: Vec::new(),
+        records: Vec::new(),
+        extractions: Vec::new(),
         eligible_extraction_ids: Vec::new(),
         eligible_extractions: Vec::new(),
         app_verified_extraction_ids: Vec::new(),
@@ -331,6 +359,32 @@ fn audit_value(
                 ) {
                     audit.errors.push(format!("{label}.access is invalid"));
                 }
+                audit.searches.push(SynthesisSearchSummary {
+                    id: id.to_string(),
+                    source: search
+                        .get("source")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    query: search
+                        .get("query")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    searched_on: search
+                        .get("searched_on")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    result_count: search
+                        .get("result_count")
+                        .and_then(Value::as_u64)
+                        .unwrap_or(0),
+                    run_path: search
+                        .get("run_path")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                });
                 let binding_fields = [
                     "authorization_event_id",
                     "request_sha256",
@@ -506,6 +560,26 @@ fn audit_value(
                 ));
                 let title = screening.get("title_abstract").and_then(Value::as_str);
                 let full = screening.get("full_text").and_then(Value::as_str);
+                audit.records.push(SynthesisRecordSummary {
+                    record_id: id.to_string(),
+                    title: record
+                        .get("title")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    locator: record
+                        .get("locator")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    source_type: record
+                        .get("source_type")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    title_abstract_status: title.unwrap_or_default().to_string(),
+                    full_text_status: full.unwrap_or_default().to_string(),
+                });
                 let valid_decision = |decision| {
                     matches!(
                         decision,
@@ -646,32 +720,34 @@ fn audit_value(
                         .errors
                         .push(format!("{label}.verified_by is required"));
                 }
+                let extraction_summary = ReviewableExtraction {
+                    extraction_id: id.to_string(),
+                    record_id: record_id.to_string(),
+                    target: extraction
+                        .get("target")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    extracted_value: extraction
+                        .get("extracted_value")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    source_location: extraction
+                        .get("source_location")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    applicability: extraction
+                        .get("applicability")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                };
+                audit.extractions.push(extraction_summary.clone());
                 if !id.trim().is_empty() && status != Some("conflict") {
                     audit.eligible_extraction_ids.push(id.to_string());
-                    audit.eligible_extractions.push(ReviewableExtraction {
-                        extraction_id: id.to_string(),
-                        record_id: record_id.to_string(),
-                        target: extraction
-                            .get("target")
-                            .and_then(Value::as_str)
-                            .unwrap_or_default()
-                            .to_string(),
-                        extracted_value: extraction
-                            .get("extracted_value")
-                            .and_then(Value::as_str)
-                            .unwrap_or_default()
-                            .to_string(),
-                        source_location: extraction
-                            .get("source_location")
-                            .and_then(Value::as_str)
-                            .unwrap_or_default()
-                            .to_string(),
-                        applicability: extraction
-                            .get("applicability")
-                            .and_then(Value::as_str)
-                            .unwrap_or_default()
-                            .to_string(),
-                    });
+                    audit.eligible_extractions.push(extraction_summary);
                 }
             }
         }
@@ -805,6 +881,9 @@ pub(crate) fn audit_bytes(raw: &[u8]) -> SynthesisAudit {
             not_assessed_count: 0,
             included_count: 0,
             extraction_count: 0,
+            searches: Vec::new(),
+            records: Vec::new(),
+            extractions: Vec::new(),
             eligible_extraction_ids: Vec::new(),
             eligible_extractions: Vec::new(),
             app_verified_extraction_ids: Vec::new(),
@@ -1131,6 +1210,9 @@ pub fn audit_heor_evidence_synthesis(app: AppHandle) -> Result<SynthesisAudit, S
             not_assessed_count: 0,
             included_count: 0,
             extraction_count: 0,
+            searches: Vec::new(),
+            records: Vec::new(),
+            extractions: Vec::new(),
             eligible_extraction_ids: Vec::new(),
             eligible_extractions: Vec::new(),
             app_verified_extraction_ids: Vec::new(),

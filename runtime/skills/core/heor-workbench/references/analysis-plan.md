@@ -44,6 +44,7 @@ The constant-HR portable contract computes `p=-expm1(-HR*(H0(i)-H0(i-1)))`, with
 ## Review metadata
 
 Keep the `decision_problem`, `evidence_sources`, `assumptions`, `input_provenance`, and `input_status` metadata. The numerical engine ignores these fields, while the app independently audits them before analysis-plan approval.
+Write every `decision_problem` text field as a JSON string. This includes `intervention` and `comparator` even when either description names multiple strategies; describe those strategies in one string and keep their machine-readable identities under `strategy_order` and `strategies`. Do not write arrays into `decision_problem`.
 
 Use `$heor-input-provenance` and its reference contract for exact fields. Each required model input must map to valid evidence or an explicit `proposed` analyst assumption and preserve an exact `derivation.model_value` snapshot. Direct evidence must parse as strict JSON and equal the current model value. Every state cost and non-null willingness-to-pay value must also declare the plan currency and price year, reproduce each model value from a recorded source value and adjustment factor, and bind source values to selected extraction elements. `unresolved` assumptions or unexecutable transformations block analysis-plan approval. Never write `accepted`; canonical acceptance exists only in the app-owned human approval chain.
 

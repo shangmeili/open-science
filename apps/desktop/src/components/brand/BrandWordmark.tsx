@@ -1,5 +1,5 @@
-import wordmarkDark from "@/assets/ai4heor-wordmark-dark.svg";
-import wordmarkLight from "@/assets/ai4heor-wordmark-light.svg";
+import wordmarkDark from "@/assets/ai4heor-wordmark-dark.png";
+import wordmarkLight from "@/assets/ai4heor-wordmark-light.png";
 import { useUiStore } from "@/lib/store";
 
 interface BrandWordmarkProps {

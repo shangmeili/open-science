@@ -425,8 +425,8 @@
         "ready": "所需文件可用"
       },
       "harness": {
-        "title": "项目审计 harness",
-        "ready": "所需文件可用"
+        "title": "项目初始化组件",
+        "ready": "项目规则和记录模板可用"
       },
       "runtime": {
         "title": "本地助手",

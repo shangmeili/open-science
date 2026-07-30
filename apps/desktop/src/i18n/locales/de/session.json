@@ -10,7 +10,7 @@
       "shell": "Einen Shell-Befehl im Arbeitsbereichsordner ausführen",
       "plan": "Beschreibe, was geplant werden soll — keine Dateien werden geändert"
     },
-    "commandsAria": "Befehle",
+    "commandsAria": "Befehle und Skills",
     "source": {
       "skill": "skill",
       "mcp": "mcp"
@@ -79,6 +79,17 @@
       "action": "Modell auswählen",
       "description": "Modell für diese Aufgabe auswählen",
       "sendHint": "Vor dem Senden ein Modell auswählen"
+    },
+    "queue": {
+      "title": "Wartet auf Versand",
+      "next": "Als Nächstes",
+      "addAria": "Zur Sendewarteschlange hinzufügen",
+      "addTitle": "Nach Abschluss der aktuellen Antwort senden",
+      "moveUp": "Nachricht {{position}} nach oben verschieben",
+      "moveDown": "Nachricht {{position}} nach unten verschieben",
+      "remove": "Wartende Nachricht {{position}} entfernen",
+      "skill": "Skill: {{skill}}",
+      "placeholder": "Weiterschreiben; gesendete Nachrichten warten in der Warteschlange"
     }
   },
   "localCommand": {
@@ -97,7 +108,7 @@
     "analyze": {
       "title": "Meine HEOR-Evidenz oder Daten analysieren",
       "description": "Lokale Evidenz inventarisieren, das Estimand klären und eine auditierbare Analyse vorschlagen.",
-      "prompt": "Helfen Sie mir, die HEOR-Evidenz oder Daten in diesem Projekt zu analysieren. Inventarisieren Sie mit $heor-workbench zuerst die lokalen Dateien und klären Sie mit mir Entscheidungsfrage, Estimand, Population, Vergleich, Endpunkte und Methode vor der Ausführung. Bewahren Sie Provenienz und deterministische Berechnung und stoppen Sie bei Human-in-the-loop-Entscheidungen zu Methode und Interpretation."
+      "prompt": "Helfen Sie mir, die HEOR-Evidenz oder Daten in diesem Projekt zu analysieren. Inventarisieren Sie zuerst das relevante lokale Material und erläutern Sie, was es stützen kann und was fehlt. Ordnen Sie danach Evidenz und Daten, bewahren Sie die Nachvollziehbarkeit und schlagen Sie prüfbare Analyseschritte vor. Fragen Sie nur nach offenen Entscheidungen, die das Ergebnis wesentlich verändern könnten."
     },
     "audit": {
       "title": "Ein HEOR-Modell oder einen Bericht auditieren",
@@ -114,12 +125,12 @@
     "design": {
       "title": "Eine pharmakoökonomische Studie beginnen",
       "description": "Entscheidungsproblem, konzeptionelles Modell, Evidenzbedarf und Human-Prüfpunkte festlegen.",
-      "prompt": "Helfen Sie mir, eine von einem menschlichen Forschenden geleitete pharmakoökonomische oder HEOR-Studie zu beginnen. Verwenden Sie $heor-workbench und $heor-model-design. Klären Sie zuerst Population, Intervention, Vergleich, Endpunkte, Perspektive, Rechtsraum, Zeithorizont, Entscheidungskontext, Evidenz und Verwendungszweck. Erstellen Sie danach prüfbare lokale Artefakte und einen Plan. Wählen Sie keine wissenschaftlichen Methoden, Annahmen, Evidenz, Schwellenwerte oder Genehmigungen für den Menschen aus."
+      "prompt": "Helfen Sie mir, eine forschungsgeleitete pharmakoökonomische oder HEOR-Studie zu entwerfen. Gehen Sie von den bereits bereitgestellten Informationen aus und klären Sie nur Lücken, die die Studie wesentlich verändern könnten. Trennen Sie bestätigte Entscheidungen, offene Fragen, Evidenzbedarf und Annahmen. Wählen Sie Methoden, Annahmen, Evidenz, Schwellenwerte oder Interpretationen nicht für die Forschenden aus."
     },
     "example-cea": {
       "title": "Beispiel erkunden: Kosten-Effektivitäts-Analyse",
       "description": "Synthetische Zwei-Strategien-Kohorteneingaben für einen auditierbaren Kosten-Nutzwert-Ablauf.",
-      "prompt": "Erkunden Sie mit $heor-workbench die synthetischen Demonstrationsdateien unter heor-cost-effectiveness/. Behandeln Sie alle Zahlen als Lehrannahmen, nicht als Evidenz. Erläutern Sie das Entscheidungsproblem, prüfen Sie das Drei-Zustands-Kohortenmodell, reproduzieren Sie Kosten und QALYs deterministisch, führen Sie eine transparente Sensitivitätsprüfung aus und erstellen Sie einen Bericht mit Grenzen und Human-Prüfpunkten. Keine Genehmigungs- oder Erstattungsentscheidung."
+      "prompt": "Öffnen und erläutern Sie den integrierten vollständigen Lehrfall zur Kosten-Nutzwert-Analyse. Behandeln Sie alle Zahlen als Lehrannahmen, nicht als Evidenz. Erläutern Sie Entscheidungsproblem, Drei-Zustands-Kohortenmodell, Basiskosten und QALYs sowie eine transparente Sensitivitätsprüfung und nennen Sie Grenzen und offene Prüffragen. Treffen Sie keine Erstattungs-, Preis- oder Politikentscheidung."
     }
   },
   "live": {
@@ -165,7 +176,7 @@
       "waitingModel": "Warte auf die Antwort des Modells…",
       "runningStep": "Wird ausgeführt",
       "writing": "Antwort wird vorbereitet…",
-      "continuing": "„{{step}}“ abgeschlossen; die Bearbeitung wird fortgesetzt…",
+      "continuing": "Die Bearbeitung wird fortgesetzt…",
       "loadedSkill": "Forschungsfunktion geladen: {{skill}}",
       "completed": "Abgeschlossen",
       "rateLimited": "Das aktuelle Modell erhält zu viele Anfragen. Versuchen Sie es später erneut oder wählen Sie ein anderes Modell.",
@@ -261,8 +272,13 @@
   "interaction": {
     "question": {
       "heading": "Der Agent benötigt Ihre Eingabe",
+      "customLabel": "Keine Option passt? Geben Sie Ihre Antwort direkt ein.",
       "customPlaceholder": "Oder geben Sie Ihre eigene Antwort ein…",
-      "invalidDescription": "Das Modell lieferte eine ungültige Optionsbeschreibung; sie wurde ausgeblendet."
+      "invalidDescription": "Das Modell lieferte eine ungültige Optionsbeschreibung; sie wurde ausgeblendet.",
+      "missingContextDescription": "Diese Erklärung verweist auf Inhalte, die im aktuellen Formular nicht sichtbar sind, und wurde daher ausgeblendet. Geben Sie Ihre Antwort direkt ein oder wählen Sie eine andere eindeutige Option.",
+      "sourcedMedicineFact": "Dies betrifft öffentliche Literatur oder Daten, die der Assistent zuerst suchen und prüfen muss. Modellgenerierte Optionen sind keine Belege und wurden ausgeblendet. Erst wenn eine dokumentierte öffentliche Suche eine echte Lücke lässt, sollten nicht öffentliche Quellen oder eine explorative Annahme erfragt werden.",
+      "sourcedAnswerLabel": "Falls Sie eine nicht öffentliche Quelle haben, fügen Sie sie hier hinzu; andernfalls überspringen Sie dies und lassen den Assistenten weitersuchen.",
+      "sourcedAnswerPlaceholder": "Falls Sie eine nicht öffentliche Quelle haben, hier ergänzen…"
     },
     "permission": {
       "heading": "Der Agent bittet um Erlaubnis:"
@@ -342,7 +358,7 @@
       },
       "evidence": {
         "title": "Evidenz suchen und ordnen",
-        "prompt": "Helfen Sie mir, die für diese pharmakoökonomische Studie benötigte Evidenz zu finden und zu ordnen. Klären Sie zuerst Entscheidungsfrage und Evidenzlücken und nennen Sie lokale Quellen, erforderliche Suchen, Herkunft und Grenzen. Zeigen Sie vor jedem Netzwerkzugriff die genaue Suchanfrage und die zu sendenden Felder."
+        "prompt": "Helfen Sie mir, die für diese pharmakoökonomische Studie benötigte Evidenz zu finden und zu ordnen. Klären Sie zuerst Entscheidungsfrage und Evidenzlücken und nennen Sie lokale Quellen, erforderliche Suchen, Herkunft und Grenzen. RIS, BibTeX oder CSL-JSON können importiert, dedupliziert und geprüft werden. Rufen Sie rechtmäßig verfügbaren Open-Access-Volltext nur auf ausdrückliche Anforderung ab und umgehen Sie keine Bezahlschranke. Netzwerkabrufe folgen dem aktuellen Berechtigungsmodus."
       },
       "model": {
         "title": "Modell entwerfen oder prüfen",

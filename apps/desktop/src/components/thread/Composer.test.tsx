@@ -36,6 +36,51 @@ describe("Composer", () => {
     expect(input.value).toBe("just the draft");
   });
 
+  it("replaces one unsent task starter with the next selected starter", () => {
+    useUiStore.getState().setComposerDraft(null);
+    render(<Composer onSend={vi.fn()} />);
+    const input = screen.getByLabelText<HTMLTextAreaElement>("Ask anything");
+
+    act(() => useUiStore.getState().setComposerDraft("First starter", "replace"));
+    expect(input).toHaveValue("First starter");
+
+    act(() => useUiStore.getState().setComposerDraft("Second starter", "replace"));
+    expect(input).toHaveValue("Second starter");
+  });
+
+  it("selects an installed Skill with $ and sends it as a Skill chip", () => {
+    const onSend = vi.fn();
+    render(
+      <Composer
+        onSend={onSend}
+        commands={[
+          {
+            name: "heor-evidence-search",
+            description: "Search public HEOR evidence",
+            source: "skill",
+          },
+          { name: "clear", description: "Clear the task", source: "command" },
+        ]}
+      />,
+    );
+    const input = screen.getByLabelText<HTMLTextAreaElement>("Ask anything");
+
+    fireEvent.change(input, { target: { value: "$heor-evidence" } });
+    const option = screen.getByRole("option", { name: /\$heor-evidence-search/i });
+    fireEvent.mouseDown(option);
+
+    expect(input).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Remove heor-evidence-search" }))
+      .toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "Find current evidence" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onSend).toHaveBeenCalledWith("Find current evidence", {
+      id: "heor-evidence-search",
+      label: "heor-evidence-search",
+    });
+  });
+
   it("consumes a prepared starter only once when StrictMode replays effects", () => {
     const prompt = "Find public HEOR evidence without stopping at another authorization handoff.";
     useUiStore.setState({ composerDraft: prompt });
@@ -127,18 +172,45 @@ describe("Composer", () => {
     expect(screen.getByLabelText("Send")).toHaveAttribute("title", "Choose a model before sending");
   });
 
-  it("turns the send button into Stop while working, back to Send when done", () => {
+  it("keeps natural-language input available while working and queues on Enter", () => {
     const onStop = vi.fn();
-    const { rerender } = render(<Composer onSend={vi.fn()} disabled working onStop={onStop} />);
-    // The send arrow is gone; in its place a live Stop button (the composer
-    // itself stays disabled while the agent works).
+    const onSend = vi.fn();
+    const { rerender } = render(<Composer onSend={onSend} working onStop={onStop} />);
     expect(screen.queryByLabelText("Send")).toBeNull();
+    const input = screen.getByLabelText("Ask anything");
+    fireEvent.change(input, { target: { value: "Please compare the subgroup results next" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onSend).toHaveBeenCalledWith("Please compare the subgroup results next");
+    expect(input).toHaveValue("");
+
     fireEvent.click(screen.getByLabelText("Stop"));
     expect(onStop).toHaveBeenCalledTimes(1);
 
-    rerender(<Composer onSend={vi.fn()} onStop={onStop} />);
+    rerender(<Composer onSend={onSend} onStop={onStop} />);
     expect(screen.queryByLabelText("Stop")).toBeNull();
     expect(screen.getByLabelText("Send")).toBeInTheDocument();
+  });
+
+  it("queues working input as plain language instead of deferred shell or slash actions", () => {
+    const onSend = vi.fn();
+    const onRunShell = vi.fn();
+    const onRunCommand = vi.fn();
+    render(
+      <Composer
+        onSend={onSend}
+        onRunShell={onRunShell}
+        onRunCommand={onRunCommand}
+        commands={COMMANDS}
+        working
+        onStop={vi.fn()}
+      />,
+    );
+    const input = screen.getByLabelText("Ask anything");
+    fireEvent.change(input, { target: { value: "!do not run this later" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onSend).toHaveBeenCalledWith("!do not run this later");
+    expect(onRunShell).not.toHaveBeenCalled();
+    expect(onRunCommand).not.toHaveBeenCalled();
   });
 });
 
