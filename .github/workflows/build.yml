@@ -68,6 +68,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Enforce reviewed JavaScript dependency security pins
+        run: python scripts/dev/test_js_security_policy.py -v
+
       - name: Fetch bundled goal plugin
         shell: bash
         run: bash scripts/dev/fetch-goal-plugin.sh

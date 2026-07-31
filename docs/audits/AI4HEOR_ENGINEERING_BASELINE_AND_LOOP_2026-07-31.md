@@ -25,7 +25,8 @@
 | 编号 | 优先级 | 状态 | 证据与影响 |
 | --- | --- | --- | --- |
 | P0-SEC-001 | P0 | 本轮已修复 | `FilePreviewInspector` 原先向不可信 HTML 授予 `allow-scripts`，本地预览响应无 CSP，可能导致脚本执行和研究数据外发 |
-| P1-SEC-002 | P1 | 待单独处理 | 生产依赖存在已知安全通告，需要先做可达性和兼容性分析，不能强制整树升级 |
+| P1-SEC-002a | P1 | 已修复 | `brace-expansion 1.1.15 / 2.1.1` 受 CPU 拒绝服务通告影响；已同主版本升级并加入发布门禁 |
+| P1-SEC-002b | P1 | 待单独处理 | `brace-expansion` OOM 通告当前只标记 5.0.8 为修复版；旧主版本跨版替换需独立兼容性决策，漏洞代码未进入当前 Tauri 前端产物 |
 | P1-TEST-001 | P1 | 待单独处理 | 缺少安装后真实 Tauri/OpenCode/权限/导入到导出的自动化 E2E |
 | P1-SCI-001 | P1 | 待单独处理 | 尚缺独立的确定性决策树模块及人工可核算固定案例合同 |
 | P1-SCI-002 | P1 | 待单独处理 | 亚组分析尚缺完整的预设、来源绑定、逐亚组结果与复核合同 |
@@ -36,7 +37,7 @@
 
 1. P0-SEC-001：完成 HTML 被动预览边界并建立回归合同（已完成）。
 2. P1-TEST-001：建立最小真实桌面 E2E，覆盖启动、任务、HTML 预览、OpenCode 连接与导出。
-3. P1-SEC-002：按实际可达路径处置依赖通告，每个升级独立验证。
+3. P1-SEC-002：CPU 型通告已完成同主版本修复；OOM、ECharts、UUID 和 React Router 通告继续按实际可达路径逐个处置，不强制整树升级。
 4. P1-SCI-001 / P1-SCI-002：分别建立人工可核算基准后再实现，禁止与界面修复混做。
 5. P1-AI-001：在不记录密钥和敏感输入的前提下补齐模型调用审计合同。
 6. P2-SEC-003：评估主应用全局 CSP；仅在不破坏本地服务和模型流式连接时实施。
@@ -57,6 +58,10 @@
 | 生产构建 | `pnpm build` | 通过；保留既有 3Dmol `eval` 与大包告警 |
 | 发布资源预检 | `pnpm preflight:resources` | 39 个来源、440 个文件通过 |
 | 浏览器界面回归 | `/heor` 加载并展开“打开一个教学案例” | 标题与主要内容正确；无错误遮罩、无控制台错误 |
+| JS 依赖安全门禁 | `python3 scripts/dev/test_js_security_policy.py -v` | 2/2 通过 |
+| CPU DoS 通告复审 | `pnpm audit --prod --json` | `GHSA-3jxr-9vmj-r5cp` 由 2 条降为 0 条；其他通告未隐藏 |
+| XLSX 定向兼容性 | `pnpm --filter @ai4s/desktop exec vitest run src/lib/xlsx.test.ts` | 3/3 通过 |
+| 生产产物可达性 | 在 `apps/desktop/dist/**/*.js` 查找 `brace-expansion` 及其 Node 归档依赖 | 0 命中 |
 
 ## Loop P0-SEC-001
 
@@ -90,3 +95,24 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 回滚方式：仅回滚本轮提交；不需要数据迁移，也不改变研究产物格式。
 - 剩余风险：尚未用正式安装后的 WKWebView/WebView2 自动化 E2E 验证 CSP 控制台事件；这是 P1-TEST-001 的一部分。该缺口不改变 sandbox 与响应头的机器可验证限制。
 
+## Loop P1-SEC-002a
+
+### 发现与复现
+
+- 当前行为：`pnpm audit --prod --json` 报告 `brace-expansion 1.1.15 / 2.1.1` 命中 [GHSA-3jxr-9vmj-r5cp](https://github.com/advisories/GHSA-3jxr-9vmj-r5cp) / CVE-2026-13149。
+- 依赖路径：`exceljs 4.4.0 -> archiver/unzipper -> glob/readdir-glob -> minimatch -> brace-expansion`。
+- 可达性：AI4HEOR 前端只使用 `ExcelJS.Workbook().xlsx.load()` 读取工作簿；Tauri 只打包 Vite `dist` 与明示资源，产物中无 `brace-expansion`、`glob`、`archiver` 或 `unzipper` 代码。因此当前安装包不可达，但开发/构建依赖树仍应清除已有同主版本补丁的高危项。
+- 失败测试：新建 `scripts/dev/test_js_security_policy.py`，修复前同时证明缺少安全锁定且锁文件仍含两个受影响版本。
+
+### 根因与最小修复
+
+- 根因：`exceljs` 的间接依赖范围允许安全补丁，但旧锁文件没有重新解析到维护者已发布的补丁版。
+- 修复：使用 pnpm 精确 override，仅把 `1.1.15 -> 1.1.16` 与 `2.1.1 -> 2.1.2`；不跨主版本，不改 `exceljs`、`minimatch` 或业务代码。
+- 门禁：锁定规则已接入发布工作流，后续回退到受影响版本会直接阻断构建。
+
+### 验收、回滚与剩余风险
+
+- 验收结果：新门禁 2/2、XLSX 3/3、前端 762/762、Rust 368 通过/1 既有忽略，类型检查、lint、Rust 格式、生产构建和资源预检全部通过。
+- 审计结果：`GHSA-3jxr-9vmj-r5cp` 为 0 条；保留并显式记录其他 6 个通告，未用 ignore 或降低审计阈值隐藏。
+- 回滚方式：回滚本 loop 的独立提交；无数据迁移、无研究产物格式变化。
+- 剩余风险：[GHSA-mh99-v99m-4gvg](https://github.com/advisories/GHSA-mh99-v99m-4gvg) 于 2026-07-24 标记所有 `<=5.0.7` 版本受 OOM 影响，官方只标记 `5.0.8` 为修复版。跨主版本强制替换可能破坏旧 `minimatch` 调用，必须在 P1-SEC-002b 中独立处置；当前产物检查确认漏洞代码未进入 Tauri 前端资源。
