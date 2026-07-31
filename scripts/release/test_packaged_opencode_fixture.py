@@ -11,6 +11,17 @@ import verify_packaged_opencode_fixture as fixture
 
 
 class PackagedOpenCodeFixtureTests(unittest.TestCase):
+    def test_fixture_can_emit_exactly_one_bash_tool_reply(self) -> None:
+        state = fixture.FixtureState()
+        state.bash_next_main_reply()
+        main = {"tools": [{"name": "bash"}]}
+        self.assertEqual(state.take_reply_kind(True, main), "bash")
+        self.assertEqual(state.take_reply_kind(True, main), "text")
+        self.assertEqual(state.take_reply_kind(False, main), "text")
+        payload = fixture.anthropic_bash_stream().decode("utf-8")
+        self.assertIn('"name":"bash"', payload)
+        self.assertIn(fixture.BASH_COMMAND, payload)
+
     def test_fixture_can_emit_exactly_one_question_tool_reply(self) -> None:
         state = fixture.FixtureState()
         state.question_next_main_reply()

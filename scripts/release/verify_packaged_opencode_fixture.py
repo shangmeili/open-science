@@ -30,6 +30,7 @@ QUESTION_TEXT = "Which checked continuation should AI4HEOR use?"
 QUESTION_HEADER = "E2E check"
 QUESTION_OPTION = "Continue safely"
 QUESTION_DESCRIPTION = "Continue the local deterministic E2E run."
+BASH_COMMAND = "rm -f ai4heor-e2e-permission-sentinel"
 
 
 class FixtureState:
@@ -78,6 +79,12 @@ class FixtureState:
             if self._next_main_reply_kind is not None:
                 raise RuntimeError("a fixture main reply is already configured")
             self._next_main_reply_kind = "question"
+
+    def bash_next_main_reply(self) -> None:
+        with self.lock:
+            if self._next_main_reply_kind is not None:
+                raise RuntimeError("a fixture main reply is already configured")
+            self._next_main_reply_kind = "bash"
 
     def take_reply_kind(self, stream: bool, body: dict[str, Any]) -> str:
         if not stream or not isinstance(body.get("tools"), list) or not body["tools"]:
@@ -217,6 +224,68 @@ def anthropic_question_stream() -> bytes:
     )
 
 
+def anthropic_bash_stream() -> bytes:
+    events = [
+        (
+            "message_start",
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "msg_fixture_bash",
+                    "type": "message",
+                    "role": "assistant",
+                    "model": MODEL_ID,
+                    "content": [],
+                    "stop_reason": None,
+                    "stop_sequence": None,
+                    "usage": {"input_tokens": 8, "output_tokens": 0},
+                },
+            },
+        ),
+        (
+            "content_block_start",
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {
+                    "type": "tool_use",
+                    "id": "toolu_fixture_bash",
+                    "name": "bash",
+                    "input": {},
+                },
+            },
+        ),
+        (
+            "content_block_delta",
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "delta": {
+                    "type": "input_json_delta",
+                    "partial_json": json.dumps(
+                        {"command": BASH_COMMAND},
+                        separators=(",", ":"),
+                    ),
+                },
+            },
+        ),
+        ("content_block_stop", {"type": "content_block_stop", "index": 0}),
+        (
+            "message_delta",
+            {
+                "type": "message_delta",
+                "delta": {"stop_reason": "tool_use", "stop_sequence": None},
+                "usage": {"output_tokens": 1},
+            },
+        ),
+        ("message_stop", {"type": "message_stop"}),
+    ]
+    return b"".join(
+        b"event: " + name.encode() + b"\ndata: " + json_bytes(payload) + b"\n\n"
+        for name, payload in events
+    )
+
+
 def handler(state: FixtureState):
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -275,11 +344,12 @@ def handler(state: FixtureState):
                 self.send_payload(504, b"{}", "application/json")
                 return
             if stream:
-                payload = (
-                    anthropic_question_stream()
-                    if reply_kind == "question"
-                    else anthropic_stream()
-                )
+                if reply_kind == "question":
+                    payload = anthropic_question_stream()
+                elif reply_kind == "bash":
+                    payload = anthropic_bash_stream()
+                else:
+                    payload = anthropic_stream()
                 self.send_payload(200, payload, "text/event-stream")
                 return
             self.send_payload(

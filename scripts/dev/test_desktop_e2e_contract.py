@@ -163,6 +163,9 @@ class DesktopE2EContractTests(unittest.TestCase):
             "active-workspace.txt",
             "question_next_main_reply",
             "QUESTION_QUEUED_PROMPT",
+            "bash_next_main_reply",
+            "PERMISSION_QUEUED_PROMPT",
+            "FIXTURE_BASH_COMMAND",
             "assert_prompt_not_sent",
         ):
             self.assertIn(required, source)
