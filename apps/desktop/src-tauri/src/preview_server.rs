@@ -15,6 +15,26 @@ use crate::runtime::workspace_dir;
 #[derive(Default)]
 pub struct PreviewState(Mutex<Option<(u16, String)>>);
 
+// HTML previews are passive documents. Scripts, requests, frames, forms and
+// plugins are blocked; same-server static assets remain available so reports
+// can still render their local styles, figures, fonts and media.
+const HTML_PREVIEW_SECURITY_HEADER: &str = concat!(
+    "Content-Security-Policy: default-src 'none'; ",
+    "script-src 'none'; connect-src 'none'; ",
+    "img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; ",
+    "font-src 'self' data:; media-src 'self' data: blob:; ",
+    "object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'\r\n",
+    "Referrer-Policy: no-referrer\r\n",
+);
+
+fn preview_security_headers(mime: &str) -> &'static str {
+    if mime.split(';').next() == Some("text/html") {
+        HTML_PREVIEW_SECURITY_HEADER
+    } else {
+        ""
+    }
+}
+
 /// Percent-decode a URL path (%XX and '+' are the only forms we accept).
 fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
@@ -65,8 +85,9 @@ fn encode_segment(seg: &str) -> String {
 // (never cross-origin fetch), so advertising CORS would only let a foreign
 // page that learned a URL read workspace files.
 fn write_response(stream: &mut TcpStream, status: &str, mime: &str, body: &[u8], head_only: bool) {
+    let security_headers = preview_security_headers(mime);
     let header = format!(
-        "HTTP/1.1 {status}\r\nContent-Type: {mime}\r\nContent-Length: {}\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 {status}\r\nContent-Type: {mime}\r\nContent-Length: {}\r\nX-Content-Type-Options: nosniff\r\n{security_headers}Connection: close\r\n\r\n",
         body.len()
     );
     let _ = stream.write_all(header.as_bytes());
@@ -272,8 +293,9 @@ fn serve_file(
             );
             return;
         }
+        let security_headers = preview_security_headers(mime);
         let header = format!(
-            "HTTP/1.1 206 Partial Content\r\nContent-Type: {mime}\r\nContent-Length: {len}\r\nContent-Range: bytes {start}-{end}/{total}\r\nAccept-Ranges: bytes\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n"
+            "HTTP/1.1 206 Partial Content\r\nContent-Type: {mime}\r\nContent-Length: {len}\r\nContent-Range: bytes {start}-{end}/{total}\r\nAccept-Ranges: bytes\r\nX-Content-Type-Options: nosniff\r\n{security_headers}Connection: close\r\n\r\n"
         );
         let _ = stream.write_all(header.as_bytes());
         if !head_only {
@@ -284,8 +306,9 @@ fn serve_file(
 
     match std::fs::read(path) {
         Ok(body) => {
+            let security_headers = preview_security_headers(mime);
             let header = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: {mime}\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n",
+                "HTTP/1.1 200 OK\r\nContent-Type: {mime}\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nX-Content-Type-Options: nosniff\r\n{security_headers}Connection: close\r\n\r\n",
                 body.len()
             );
             let _ = stream.write_all(header.as_bytes());
@@ -467,6 +490,34 @@ mod tests {
     }
 
     #[test]
+    fn html_responses_disable_scripts_and_external_network_access() {
+        let root =
+            std::env::temp_dir().join(format!("ai4s-preview-html-csp-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(
+            root.join("untrusted.html"),
+            b"<script>fetch('/leak')</script>",
+        )
+        .unwrap();
+
+        let port = serve("tok", {
+            let root = root.clone();
+            move |scope| (scope == "w").then(|| root.clone())
+        })
+        .unwrap();
+
+        let (headers, _) = get(port, "/tok/w/untrusted.html");
+        assert!(
+            headers.contains("Content-Security-Policy:"),
+            "HTML responses must carry a restrictive CSP: {headers}"
+        );
+        assert!(headers.contains("script-src 'none'"), "{headers}");
+        assert!(headers.contains("connect-src 'none'"), "{headers}");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn relativize_maps_absolute_workspace_paths_and_rejects_escapes() {
         let root =
             std::env::temp_dir().join(format!("ai4s-relativize-test-{}", std::process::id()));
@@ -594,6 +645,7 @@ mod tests {
         let (h, body) = get(port, "/tok/w/sub/a.pdf");
         assert!(h.starts_with("HTTP/1.1 200"), "{h}");
         assert!(h.contains("Content-Type: application/pdf"), "{h}");
+        assert!(!h.contains("Content-Security-Policy"), "{h}");
         assert_eq!(body, b"%PDF-1.4 fake");
 
         let (h, _) = get(port, "/tok/w/b.html");

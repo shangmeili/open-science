@@ -35,6 +35,36 @@ import { useScrollMemory } from "@/lib/scrollMemory";
 import { cn } from "@/lib/cn";
 import { PaneTitlebarInset } from "./RightPane";
 
+const INLINE_HTML_PREVIEW_CSP = [
+  "default-src 'none'",
+  "script-src 'none'",
+  "connect-src 'none'",
+  "img-src data: blob:",
+  "style-src 'unsafe-inline'",
+  "font-src data:",
+  "media-src data: blob:",
+  "object-src 'none'",
+  "frame-src 'none'",
+  "form-action 'none'",
+  "base-uri 'none'",
+].join("; ");
+
+/**
+ * Browser development and the remote gateway render HTML through srcdoc.
+ * Wrap rather than mutate the imported document so our CSP is always parsed
+ * before any untrusted markup, including malformed documents with content
+ * before their own <head>.
+ */
+function securedInlineHtml(html: string): string {
+  return (
+    '<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="' +
+    INLINE_HTML_PREVIEW_CSP +
+    '"></head><body>' +
+    html +
+    "</body></html>"
+  );
+}
+
 /**
  * Right-pane preview for any workspace file. Strategy (no format conversion):
  * pdf / image / html — served from the local file server (http://127.0.0.1)
@@ -395,13 +425,16 @@ function Body({
     );
   }
   if (kind === "html") {
-    // Served URL preferred (relative assets resolve); srcdoc as browser fallback.
-    if (url) {
+    // Desktop URLs come from the loopback preview server, which applies the
+    // same no-script/no-connect policy while still resolving local assets.
+    // Gateway HTML is fetched as text and rendered through secured srcdoc so
+    // a remote response can never become a live page inside the workbench.
+    if (url && !isGatewayWeb) {
       return (
         <iframe
           title={t("filePreview.htmlPreviewTitle")}
           src={url}
-          sandbox="allow-scripts"
+          sandbox=""
           className="h-full min-h-[480px] w-full bg-white"
         />
       );
@@ -410,8 +443,8 @@ function Body({
       return (
         <iframe
           title={t("filePreview.htmlPreviewTitle")}
-          srcDoc={text}
-          sandbox="allow-scripts"
+          srcDoc={securedInlineHtml(text)}
+          sandbox=""
           className="h-full min-h-[480px] w-full bg-white"
         />
       );
