@@ -158,6 +158,10 @@ jobs:
         shell: bash
         run: bash scripts/dev/fetch-uv.sh ${{ matrix.target }}
 
+      - name: Run native desktop E2E smoke
+        if: matrix.platform == 'macos-15-intel'
+        run: pnpm test:e2e:desktop
+
       - name: Build the unsigned test app (Tauri)
         if: github.ref_type != 'tag'
         uses: tauri-apps/tauri-action@v0

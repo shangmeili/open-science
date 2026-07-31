@@ -1,8 +1,8 @@
 {
   "schema": "ai4heor-cargo-license-inventory/v1",
   "generated_on": "2026-07-31",
-  "scope": "Cargo.lock package universe; conservative superset of one target build",
-  "lockfile_sha256": "59bba22c52a18d21d9a13a5744c0a4cc5cb7d85e9f8df0b0e1ed51c9f82e5166",
+  "scope": "Cargo.lock package universe with all workspace features; conservative superset of one target build",
+  "lockfile_sha256": "9f86c883ba46301edbeea0eee34e3466ec1aa0f24507fc16b94370c1b78ce94b",
   "components": [
     {
       "name": "adler2",
@@ -199,6 +199,20 @@
       "license": "Apache-2.0 OR MIT",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/cuviper/autocfg"
+    },
+    {
+      "name": "axum",
+      "version": "0.8.9",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/tokio-rs/axum"
+    },
+    {
+      "name": "axum-core",
+      "version": "0.5.6",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/tokio-rs/axum"
     },
     {
       "name": "base64",
@@ -434,6 +448,13 @@
     {
       "name": "cfg-expr",
       "version": "0.15.8",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/EmbarkStudios/cfg-expr"
+    },
+    {
+      "name": "cfg-expr",
+      "version": "0.20.8",
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/EmbarkStudios/cfg-expr"
@@ -1202,8 +1223,22 @@
       "repository": "https://github.com/gtk-rs/gtk-rs-core"
     },
     {
+      "name": "gio-sys",
+      "version": "0.21.5",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/gtk-rs/gtk-rs-core"
+    },
+    {
       "name": "glib",
       "version": "0.18.5",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/gtk-rs/gtk-rs-core"
+    },
+    {
+      "name": "glib",
+      "version": "0.21.5",
       "license": "MIT",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/gtk-rs/gtk-rs-core"
@@ -1216,8 +1251,22 @@
       "repository": "https://github.com/gtk-rs/gtk-rs-core"
     },
     {
+      "name": "glib-macros",
+      "version": "0.21.5",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/gtk-rs/gtk-rs-core"
+    },
+    {
       "name": "glib-sys",
       "version": "0.18.1",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/gtk-rs/gtk-rs-core"
+    },
+    {
+      "name": "glib-sys",
+      "version": "0.21.5",
       "license": "MIT",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/gtk-rs/gtk-rs-core"
@@ -1239,6 +1288,13 @@
     {
       "name": "gobject-sys",
       "version": "0.18.0",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/gtk-rs/gtk-rs-core"
+    },
+    {
+      "name": "gobject-sys",
+      "version": "0.21.5",
       "license": "MIT",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/gtk-rs/gtk-rs-core"
@@ -1368,6 +1424,13 @@
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/seanmonstar/httparse"
+    },
+    {
+      "name": "httpdate",
+      "version": "1.0.3",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/pyfisch/httpdate"
     },
     {
       "name": "hybrid-array",
@@ -1762,6 +1825,13 @@
       "repository": "https://github.com/servo/html5ever"
     },
     {
+      "name": "matchit",
+      "version": "0.8.4",
+      "license": "MIT AND BSD-3-Clause",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/ibraheemdev/matchit"
+    },
+    {
       "name": "md-5",
       "version": "0.10.6",
       "license": "MIT OR Apache-2.0",
@@ -1979,6 +2049,13 @@
       "repository": "https://github.com/madsmtm/objc2"
     },
     {
+      "name": "objc2-core-video",
+      "version": "0.3.2",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/madsmtm/objc2"
+    },
+    {
       "name": "objc2-encode",
       "version": "4.1.0",
       "license": "MIT",
@@ -2007,7 +2084,21 @@
       "repository": "https://github.com/madsmtm/objc2"
     },
     {
+      "name": "objc2-javascript-core",
+      "version": "0.3.2",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/madsmtm/objc2"
+    },
+    {
       "name": "objc2-quartz-core",
+      "version": "0.3.2",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/madsmtm/objc2"
+    },
+    {
+      "name": "objc2-security",
       "version": "0.3.2",
       "license": "Zlib OR Apache-2.0 OR MIT",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -2574,6 +2665,13 @@
       "repository": "https://github.com/dtolnay/rustversion"
     },
     {
+      "name": "ryu",
+      "version": "1.0.23",
+      "license": "Apache-2.0 OR BSL-1.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/dtolnay/ryu"
+    },
+    {
       "name": "same-file",
       "version": "1.0.6",
       "license": "Unlicense/MIT",
@@ -2693,6 +2791,13 @@
       "repository": "https://github.com/serde-rs/json"
     },
     {
+      "name": "serde_path_to_error",
+      "version": "0.1.20",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/dtolnay/path-to-error"
+    },
+    {
       "name": "serde_repr",
       "version": "0.1.20",
       "license": "MIT OR Apache-2.0",
@@ -2712,6 +2817,13 @@
       "license": "MIT OR Apache-2.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/toml-rs/toml"
+    },
+    {
+      "name": "serde_urlencoded",
+      "version": "0.7.1",
+      "license": "MIT/Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/nox/serde_urlencoded"
     },
     {
       "name": "serde_with",
@@ -2917,6 +3029,13 @@
       "repository": "https://github.com/dtolnay/syn"
     },
     {
+      "name": "syn",
+      "version": "3.0.3",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/dtolnay/syn"
+    },
+    {
       "name": "sync_wrapper",
       "version": "1.0.2",
       "license": "Apache-2.0",
@@ -2938,6 +3057,13 @@
       "repository": "https://github.com/gdesmott/system-deps"
     },
     {
+      "name": "system-deps",
+      "version": "7.0.8",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/gdesmott/system-deps"
+    },
+    {
       "name": "tao",
       "version": "0.35.3",
       "license": "Apache-2.0",
@@ -2954,6 +3080,13 @@
     {
       "name": "target-lexicon",
       "version": "0.12.16",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/bytecodealliance/target-lexicon"
+    },
+    {
+      "name": "target-lexicon",
+      "version": "0.13.5",
       "license": "Apache-2.0 WITH LLVM-exception",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/bytecodealliance/target-lexicon"
@@ -3034,6 +3167,13 @@
       "license": "Apache-2.0 OR MIT",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/tauri-apps/plugins-workspace"
+    },
+    {
+      "name": "tauri-plugin-wdio-webdriver",
+      "version": "1.2.0",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/webdriverio/desktop-mobile"
     },
     {
       "name": "tauri-runtime",
@@ -3164,6 +3304,13 @@
     {
       "name": "tokio",
       "version": "1.52.3",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/tokio-rs/tokio"
+    },
+    {
+      "name": "tokio-macros",
+      "version": "2.7.2",
       "license": "MIT",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/tokio-rs/tokio"

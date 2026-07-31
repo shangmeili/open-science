@@ -52,6 +52,7 @@ def cargo_inventory() -> dict:
             "metadata",
             "--format-version=1",
             "--locked",
+            "--all-features",
             "--manifest-path",
             "apps/desktop/src-tauri/Cargo.toml",
         )
@@ -71,7 +72,7 @@ def cargo_inventory() -> dict:
     return {
         "schema": "ai4heor-cargo-license-inventory/v1",
         "generated_on": date.today().isoformat(),
-        "scope": "Cargo.lock package universe; conservative superset of one target build",
+        "scope": "Cargo.lock package universe with all workspace features; conservative superset of one target build",
         "lockfile_sha256": file_hash(ROOT / "apps" / "desktop" / "src-tauri" / "Cargo.lock"),
         "components": components,
     }

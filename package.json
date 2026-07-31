@@ -8,6 +8,7 @@
     "dev": "pnpm --filter @ai4s/desktop dev",
     "build": "pnpm --filter @ai4s/desktop build",
     "test": "pnpm --filter @ai4s/desktop test",
+    "test:e2e:desktop": "pnpm --filter @ai4s/desktop exec tauri build --debug --no-bundle --features desktop-e2e && python3 scripts/e2e/verify_desktop_webdriver.py",
     "test:heor": "uv run --project python/heor_core python -B -m unittest discover -s python/heor_core/tests -v",
     "preflight:resources": "node scripts/release/preflight_resources.mjs",
     "typecheck": "pnpm --filter @ai4s/desktop typecheck",

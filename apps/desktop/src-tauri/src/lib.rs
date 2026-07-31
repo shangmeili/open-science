@@ -80,7 +80,7 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         // Single instance MUST be the first plugin. A second launch (or a reinstall
         // while the app is still running) focuses the existing window instead of
         // starting a second OpenCode on the same data dir (which deadlocks the DB).
@@ -89,7 +89,14 @@ pub fn run() {
                 let _ = w.show();
                 let _ = w.set_focus();
             }
-        }))
+        }));
+
+    // Test-only native WebDriver endpoint. The feature is absent from normal and
+    // release builds, so a distributable AI4HEOR app never exposes this server.
+    #[cfg(feature = "desktop-e2e")]
+    let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
+
+    builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())

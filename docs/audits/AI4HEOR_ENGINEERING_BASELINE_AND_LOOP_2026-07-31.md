@@ -3,7 +3,7 @@
 ## 基线
 
 - 分支：`codex/heor-workbench`
-- P1-AI-001b2 开始前的已提交基线：`38babd9`；P1-AI-001b3 实施前的已提交基线：`bc71b1b`。更早已完成业务修复均保留为独立提交，本轮不重复修改。
+- P1-AI-001b2 开始前的已提交基线：`38babd9`；P1-AI-001b3 实施前的已提交基线：`bc71b1b`；P1-TEST-001b1 实施前的已提交基线：`38a5687`。更早已完成业务修复均保留为独立提交，本轮不重复修改。
 - 基线原则：在现有 Open Science/Tauri 技术栈上增量推进；AI 负责辅助推理，正式研究计算由可验证的确定性模块完成；科学、隐私、兼容性和公开接口决策保留 Human-in-the-loop。
 - 已完成 loop 范围：不可信 HTML 预览边界、同主版本 JavaScript CPU 拒绝服务补丁、安装后 OpenCode 的鉴权 HTTP 就绪证据、安装后前端 bootstrap 证据合同、经研究者确认的两策略 PSA 零 INMB 并列口径、PPTX 预览中 ECharts `lines` 系列通告的不可达性门禁、经研究者确认后实现的首版短期确定性决策树内核、不含对话正文的模型调用用量/费用元数据账本，以及应用固定 HEOR 前导提示的精确指纹和回复语言记录。实际工作区 Harness 指纹、模型调用与研究产物关联、决策树 DSA/PSA、桌面审查、报告和 UI 集成未在本轮扩展。
 
@@ -18,7 +18,7 @@
 | Human-in-the-loop | 关键科学定义、证据采用、结构与发布决策由研究者确认 | PSA 并列口径在研究者同意后才实施 |
 | 文件预览 | React inspector + Tauri loopback preview server | HTML 改为被动展示；源码查看和外部打开保留 |
 
-当前仓库已有主要单元/组件、确定性 HEOR、Rust 原生与资源门禁测试。macOS 与 Windows 发布脚本已有真实主机级安装、进程、工作区和清理检查，并已补上 OpenCode 鉴权 HTTP 与前端 bootstrap 合同；但完整的安装后可视交互、任务执行、导入到导出 E2E 仍未建立，不能由 Vitest/jsdom、进程或 bootstrap 结果替代。
+当前仓库已有主要单元/组件、确定性 HEOR、Rust 原生与资源门禁测试。macOS 与 Windows 发布脚本已有真实主机级安装、进程、工作区和清理检查，并已补上 OpenCode 鉴权 HTTP 与前端 bootstrap 合同。新的测试专用 macOS WebDriver 变体已在真实 Tauri/WKWebView 中点击“新建任务”和“插件与技能”，但完整的安装后任务执行、HTML 预览、权限交互和导入到导出 E2E 仍未建立，不能由基础导航冒烟、Vitest/jsdom、进程或 bootstrap 结果替代。
 
 ## 问题与风险清单
 
@@ -29,7 +29,7 @@
 | P1-SEC-002a | P1 | 已修复 | `brace-expansion 1.1.15 / 2.1.1` 受 CPU 拒绝服务通告影响；已同主版本升级并加入发布门禁 |
 | P1-SEC-002b | P1 | 待单独处理 | `brace-expansion` OOM 通告当前只标记 5.0.8 为修复版；旧主版本跨版替换需独立兼容性决策，漏洞代码未进入当前 Tauri 前端产物 |
 | P1-TEST-001a | P1 | macOS x64 原生执行通过；Windows 待执行 | 安装包首启过去只证明 OpenCode 进程存在；现要求未授权健康请求返回 401，且证据不保存端口或密码 |
-| P1-TEST-001b | P1 | 待单独处理 | 缺少安装后真实 Tauri 可视交互、任务、HTML 预览、权限和导入到导出的自动化 E2E |
+| P1-TEST-001b | P1 | 基础原生导航已完成；完整流程待后续 loop | 测试专用 macOS Tauri WebDriver 已验证 IPC 桥接与两个真实侧边栏点击；任务执行、HTML 预览、权限和导入到导出仍缺安装后自动化 E2E |
 | P1-TEST-001c | P1 | macOS x64 原生执行通过；Windows 待执行 | 安装包首启过去没有证明 WebView 已挂载 AppShell、执行 JavaScript 并通过 Tauri IPC 取得本地服务地址；现从隔离首启的应用私有日志生成无正文、无端口的布尔证据 |
 | P1-SCI-001 | P1 | 首版确定性内核已完成；端到端流程待后续 loop | 已有独立 schema、黄金案例、输入溯源、逐节点计算轨迹、增量前沿、CLI 哈希重放与安装包资源映射；Skill、桌面复核、报告和复现包尚未连接 |
 | P1-SCI-002 | P1 | 待单独处理 | 亚组分析尚缺完整的预设、来源绑定、逐亚组结果与复核合同 |
@@ -47,7 +47,7 @@
 
 1. P0-SEC-001：完成 HTML 被动预览边界并建立回归合同（已完成）。
 2. P1-TEST-001a：首启 OpenCode 鉴权 HTTP 就绪合同已在新 macOS x64 DMG 原生执行通过；Windows 仍需在原生 runner 产生证据。
-3. P1-TEST-001b：建立最小真实桌面可视 E2E，覆盖任务、HTML 预览、权限与导入。
+3. P1-TEST-001b：基础原生导航冒烟已完成；后续分别补任务执行、HTML 预览、权限与导入到导出，不用一个过大 E2E 隐藏失败点。
 4. P1-TEST-001c：安装后前端 bootstrap 合同已在新 macOS x64 DMG 原生执行通过；Windows 待执行，且不得据此宣称完整可视 E2E 已完成。
 5. P1-SEC-002：CPU 型通告已完成同主版本修复；OOM、UUID 和 React Router 通告继续按实际可达路径逐个处置，不强制整树升级。ECharts `lines` 系列通告已证明当前 PPTX 路径不可达。
 6. P1-SCI-003：统一两策略 PSA 的零 INMB 并列口径（已完成）。
@@ -386,3 +386,16 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 验收结果：定向前端 43/43、Rust provenance 6/6、Rust runs 9/9；完整前端 770/770、Rust 377 通过/1 项既有公网测试忽略、HEOR 188/188、开发合同 380/380、发布合同 46/46；类型检查、ESLint、Rust 格式、生产构建和 41 来源/445 文件资源预检全部通过。既有 React `act(...)`、Router、Vite 大包和 Node `url.parse` 告警未隐藏，也非本轮引入。
 - 回滚方式：回退本 loop 独立提交；不删除或改写用户已有 JSONL 和研究文件。旧代码会忽略已写入的新可选字段。
 - 剩余风险：内部记录已经具备准确连接键，但当前 `ProvenancePanel`、`RunsPage` 和对话线程仍没有面向研究者的消息锚点、来源详情与可解释导航；该产品层工作继续保留为 P1-AI-001c。provenance/run 与 model-call 账本是不同的本地追加存储，关联键解决准确连接，不提供跨文件事务或外部可信签名，因此不得宣传为不可否认审计。
+
+## Loop P1-TEST-001b1：测试专用 macOS 原生导航 E2E
+
+- 当前行为与复现：既有 macOS 验证能确认进程、OpenCode 鉴权 HTTP、AppShell bootstrap 和 Tauri IPC，但没有对真实 WKWebView DOM 定位或点击任何用户控件。修复前 4 项契约分别缺少根命令、Cargo 测试特性/依赖、原生驱动脚本和 CI 门禁，结果为 3 项失败、1 项错误。
+- 目标行为：仅在显式 `desktop-e2e` 测试变体中启动 W3C WebDriver，用隔离 HOME/XDG 的真实 Tauri 窗口验证 IPC 桥接，并点击进入“新建任务”和“插件与技能”。普通与发布构建不得包含 WebDriver 服务器。
+- 根因：macOS 过去无法直接使用 [`tauri-driver`](https://v2.tauri.app/develop/tests/webdriver/)；仓库因而只建立进程/日志证据，没有随后补入 WebdriverIO 官方记录的 [macOS 嵌入式 WebDriver 路径](https://webdriver.io/docs/desktop-testing/tauri/plugin-setup/)。
+- 最小修复：精确锁定可选的 MIT `tauri-plugin-wdio-webdriver 1.2.0`，只由 Cargo `desktop-e2e` 特性注册；新增纯 Python 标准库驱动脚本，临时隔离已运行安装版的单实例 socket，限时等待 WebDriver 和 Tauri 桥接，通过 W3C 元素端点点击中/英文导航项，最后删除 session 并终止测试进程。CI 在 Intel macOS 打包前执行该冒烟。
+- 稳定性修正：首次真实执行发现隔离环境按系统语言启动为英文，因而定位器改为匹配已发布的中/英文标签；又发现 WebDriver `/status` 可早于 React/Tauri 桥接挂载，因而改为有界等待，超时仍 fail-closed。修复后原生驱动连续 3 次通过。
+- 生产隔离证据：普通 `cargo tree -e normal` 不含 WebDriver；只有 `--features desktop-e2e` 的依赖树包含 1.2.0。既有单实例插件仍第一个注册，不改生产 capability、界面、业务逻辑、模型调用或科学计算。
+- 许可完整性：复核发现既有 Cargo 清单生成器会漏掉可选特性依赖。先加失败合同，再将清单改为 `--all-features`；当前清单登记 641 个第三方 Cargo 包加 1 个工作区包，明确包含该 MIT 测试依赖，同时许可审计声明其不随产品分发。
+- 验收结果：原生 E2E 完整命令通过，且直接驱动连续 3/3 通过；定向契约 5/5，完整前端 770/770、Rust 377 通过/1 项既有忽略、HEOR 188/188、开发合同 385/385、发布合同 46/46，类型检查、ESLint、Rust 格式、普通/测试特性 `cargo check`、生产构建和 41 来源/445 文件资源预检全部通过。
+- 回滚方式：回退本 loop 的独立提交；无数据迁移、研究文件修改或用户配置变更。
+- 剩余风险：该测试驱动开发构建，不是当前 DMG 中的安装后产品字节；当前 CI 只在 Intel macOS 运行该冒烟。它只证明 Tauri 桥接和两个基础导航操作，不证明模型任务、消息队列、Human-in-the-loop、HTML 预览、权限交互、导入/导出或科学计算流程已完成端到端验证。这些必须作为 P1-TEST-001b 的后续独立 loop。
