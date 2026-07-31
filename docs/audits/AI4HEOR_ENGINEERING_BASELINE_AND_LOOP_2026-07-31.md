@@ -3,7 +3,7 @@
 ## 基线
 
 - 分支：`codex/heor-workbench`
-- P1-AI-001b2 开始前的已提交基线：`38babd9`；P1-AI-001b3 实施前的已提交基线：`bc71b1b`；P1-TEST-001b1 实施前的已提交基线：`38a5687`。更早已完成业务修复均保留为独立提交，本轮不重复修改。
+- P1-AI-001b2 开始前的已提交基线：`38babd9`；P1-AI-001b3 实施前的已提交基线：`bc71b1b`；P1-TEST-001b1 实施前的已提交基线：`38a5687`；P1-TEST-001b2 实施前的已提交基线：`076180f`。更早已完成业务修复均保留为独立提交，本轮不重复修改。
 - 基线原则：在现有 Open Science/Tauri 技术栈上增量推进；AI 负责辅助推理，正式研究计算由可验证的确定性模块完成；科学、隐私、兼容性和公开接口决策保留 Human-in-the-loop。
 - 已完成 loop 范围：不可信 HTML 预览边界、同主版本 JavaScript CPU 拒绝服务补丁、安装后 OpenCode 的鉴权 HTTP 就绪证据、安装后前端 bootstrap 证据合同、经研究者确认的两策略 PSA 零 INMB 并列口径、PPTX 预览中 ECharts `lines` 系列通告的不可达性门禁、经研究者确认后实现的首版短期确定性决策树内核、不含对话正文的模型调用用量/费用元数据账本，以及应用固定 HEOR 前导提示的精确指纹和回复语言记录。实际工作区 Harness 指纹、模型调用与研究产物关联、决策树 DSA/PSA、桌面审查、报告和 UI 集成未在本轮扩展。
 
@@ -18,7 +18,7 @@
 | Human-in-the-loop | 关键科学定义、证据采用、结构与发布决策由研究者确认 | PSA 并列口径在研究者同意后才实施 |
 | 文件预览 | React inspector + Tauri loopback preview server | HTML 改为被动展示；源码查看和外部打开保留 |
 
-当前仓库已有主要单元/组件、确定性 HEOR、Rust 原生与资源门禁测试。macOS 与 Windows 发布脚本已有真实主机级安装、进程、工作区和清理检查，并已补上 OpenCode 鉴权 HTTP 与前端 bootstrap 合同。新的测试专用 macOS WebDriver 变体已在真实 Tauri/WKWebView 中点击“新建任务”和“插件与技能”，但完整的安装后任务执行、HTML 预览、权限交互和导入到导出 E2E 仍未建立，不能由基础导航冒烟、Vitest/jsdom、进程或 bootstrap 结果替代。
+当前仓库已有主要单元/组件、确定性 HEOR、Rust 原生与资源门禁测试。macOS 与 Windows 发布脚本已有真实主机级安装、进程、工作区和清理检查，并已补上 OpenCode 鉴权 HTTP 与前端 bootstrap 合同。测试专用 macOS WebDriver 变体已在真实 Tauri/WKWebView 中完成基础导航和被动 HTML 预览边界验证；安装后任务执行、权限交互和导入到导出 E2E 仍未建立，且调试构建证据不能替代安装包字节的原生验收。
 
 ## 问题与风险清单
 
@@ -29,8 +29,9 @@
 | P1-SEC-002a | P1 | 已修复 | `brace-expansion 1.1.15 / 2.1.1` 受 CPU 拒绝服务通告影响；已同主版本升级并加入发布门禁 |
 | P1-SEC-002b | P1 | 待单独处理 | `brace-expansion` OOM 通告当前只标记 5.0.8 为修复版；旧主版本跨版替换需独立兼容性决策，漏洞代码未进入当前 Tauri 前端产物 |
 | P1-TEST-001a | P1 | macOS x64 原生执行通过；Windows 待执行 | 安装包首启过去只证明 OpenCode 进程存在；现要求未授权健康请求返回 401，且证据不保存端口或密码 |
-| P1-TEST-001b | P1 | 基础原生导航已完成；完整流程待后续 loop | 测试专用 macOS Tauri WebDriver 已验证 IPC 桥接与两个真实侧边栏点击；任务执行、HTML 预览、权限和导入到导出仍缺安装后自动化 E2E |
+| P1-TEST-001b | P1 | 基础导航与被动 HTML 原生测试已完成；完整流程待后续 loop | 测试专用 macOS Tauri WebDriver 已验证 IPC 桥接、真实侧边栏/文件操作、HTML iframe 空 sandbox、实际响应 CSP/Referrer-Policy 和外部脚本零请求；任务执行、权限和导入到导出仍缺安装后自动化 E2E |
 | P1-TEST-001c | P1 | macOS x64 原生执行通过；Windows 待执行 | 安装包首启过去没有证明 WebView 已挂载 AppShell、执行 JavaScript 并通过 Tauri IPC 取得本地服务地址；现从隔离首启的应用私有日志生成无正文、无端口的布尔证据 |
+| P1-TEST-002 | P1 | 新发现，待单独处理 | 复用 `target/debug` 资源目录时，测试生成的 Python `__pycache__` 曾残留在 `integrity-auditor` 副本中，使树哈希失配并触发 fail-closed 不部署；源码树、已安装应用和当前 x64 发布资源哈希均正确，但调试构建清洁性与日志门禁尚未形成独立合同 |
 | P1-SCI-001 | P1 | 首版确定性内核已完成；端到端流程待后续 loop | 已有独立 schema、黄金案例、输入溯源、逐节点计算轨迹、增量前沿、CLI 哈希重放与安装包资源映射；Skill、桌面复核、报告和复现包尚未连接 |
 | P1-SCI-002 | P1 | 待单独处理 | 亚组分析尚缺完整的预设、来源绑定、逐亚组结果与复核合同 |
 | P1-SCI-003 | P1 | 已修复 | 两策略 PSA 旧汇总使用 `INMB >= 0`，将零值并列同时计入干预成本效果概率，与同一输出中单独报告并列的决策不确定性表冲突 |
@@ -47,15 +48,16 @@
 
 1. P0-SEC-001：完成 HTML 被动预览边界并建立回归合同（已完成）。
 2. P1-TEST-001a：首启 OpenCode 鉴权 HTTP 就绪合同已在新 macOS x64 DMG 原生执行通过；Windows 仍需在原生 runner 产生证据。
-3. P1-TEST-001b：基础原生导航冒烟已完成；后续分别补任务执行、HTML 预览、权限与导入到导出，不用一个过大 E2E 隐藏失败点。
+3. P1-TEST-001b：基础导航与被动 HTML 原生 E2E 已完成；后续分别补任务执行、权限与导入到导出，不用一个过大 E2E 隐藏失败点。
 4. P1-TEST-001c：安装后前端 bootstrap 合同已在新 macOS x64 DMG 原生执行通过；Windows 待执行，且不得据此宣称完整可视 E2E 已完成。
-5. P1-SEC-002：CPU 型通告已完成同主版本修复；OOM、UUID 和 React Router 通告继续按实际可达路径逐个处置，不强制整树升级。ECharts `lines` 系列通告已证明当前 PPTX 路径不可达。
-6. P1-SCI-003：统一两策略 PSA 的零 INMB 并列口径（已完成）。
-7. P1-SCI-001：首版确定性内核已完成；后续分别为 Skill、桌面审查、报告与复现包建立独立合同。P1-SCI-002 仍需先建立人工可核算基准，禁止与界面修复混做。
-8. P0-AI-002：产品 Harness 已改为每次运行必定校验和叠加加载，用户/项目指令保留但不得替代产品治理边界（已完成）。
-9. P1-AI-001a、P1-AI-001b1、P1-AI-001b2 和 P1-AI-001b3：内容无关模型调用账本、固定 HEOR 前导提示指纹、当次实际最终系统块指纹及模型调用到具体工具产物/运行的准确关联已完成；P1-AI-001c 单独建立研究者可见审计界面，不以内部标识符替代可解释产品界面。
-10. P2-SEC-003：评估主应用全局 CSP；仅在不破坏本地服务和模型流式连接时实施。
-11. P1-LEGAL-001：依赖锁文件变更后必须重生成许可证清单，其锁文件 SHA-256 不一致时由现有打包资源合同 fail-closed（已完成）。
+5. P1-TEST-002：单独复现并修复调试构建资源目录残留 Python 缓存的问题；要求构建前后资源树可重复、哈希一致，且原生 E2E 对资源部署失败日志 fail-closed。本轮只移走已确认的生成缓存以恢复验证，没有修改业务实现。
+6. P1-SEC-002：CPU 型通告已完成同主版本修复；OOM、UUID 和 React Router 通告继续按实际可达路径逐个处置，不强制整树升级。ECharts `lines` 系列通告已证明当前 PPTX 路径不可达。
+7. P1-SCI-003：统一两策略 PSA 的零 INMB 并列口径（已完成）。
+8. P1-SCI-001：首版确定性内核已完成；后续分别为 Skill、桌面审查、报告与复现包建立独立合同。P1-SCI-002 仍需先建立人工可核算基准，禁止与界面修复混做。
+9. P0-AI-002：产品 Harness 已改为每次运行必定校验和叠加加载，用户/项目指令保留但不得替代产品治理边界（已完成）。
+10. P1-AI-001a、P1-AI-001b1、P1-AI-001b2 和 P1-AI-001b3：内容无关模型调用账本、固定 HEOR 前导提示指纹、当次实际最终系统块指纹及模型调用到具体工具产物/运行的准确关联已完成；P1-AI-001c 单独建立研究者可见审计界面，不以内部标识符替代可解释产品界面。
+11. P2-SEC-003：评估主应用全局 CSP；仅在不破坏本地服务和模型流式连接时实施。
+12. P1-LEGAL-001：依赖锁文件变更后必须重生成许可证清单，其锁文件 SHA-256 不一致时由现有打包资源合同 fail-closed（已完成）。
 
 ## 验证矩阵
 
@@ -113,6 +115,11 @@
 | 固定 OpenCode 补丁与实际 sidecar | `python3 scripts/dev/test_patched_opencode.py -v` + 固定 Bun 1.3.14 执行 `build-opencode.sh` | 补丁合同 4/4；固定源码与补丁哈希校验通过；上游 19/19、上游类型检查、x64 构建和 `1.17.13-ai4heor.1` 版本冒烟通过；只接受 1–1024 个系统块 |
 | 系统上下文 SDK/账本定向回归 | `vitest run src/lib/modelCalls.test.ts src/test/opencode-client.node.test.ts` + `cargo test ... model_calls::tests` | 21/21 与 4/4 通过；只转发合同、SHA-256 和块数，旧消息/旧账本仍可读，非法或不完整上下文拒绝 |
 | 系统上下文全量回归 | 前端、Rust、HEOR、开发合同、发布合同、类型、ESLint、Rust 格式、生产构建、资源预检 | 前端 113 个文件、768/768；Rust 376 通过/1 项既有忽略；HEOR 188/188；本轮相关开发合同 234 项、发布合同 33 项通过；其余全部通过；41 个来源/445 个文件 |
+| 被动 HTML 原生 E2E 修复前复现 | `python3 scripts/dev/test_desktop_e2e_contract.py -v` | 先后因缺少 `untrusted-e2e.html`、稳定文件元素等待和本地请求观察器而按预期失败 |
+| 被动 HTML 原生 E2E 定向稳定性 | `python3 scripts/e2e/verify_desktop_webdriver.py` 连续执行 | 3/3 通过；真实 WKWebView 完成任务文件选择、HTML iframe 加载、响应头检查且未请求测试脚本 |
+| 被动 HTML 原生 E2E 完整命令 | `pnpm test:e2e:desktop` | 通过；包含前端构建、41 来源/445 文件资源预检、Rust 测试变体构建、Tauri 桥接、导航、任务文件和被动 HTML 预览 |
+| 被动 HTML loop 全量回归 | 前端、Rust、HEOR、开发合同、发布合同、类型、ESLint、Rust 格式、资源预检及定向预览测试 | 前端 113 文件/770 项、Rust 377 通过/1 项既有忽略、HEOR 188/188、开发合同 386/386、发布合同 46/46；类型、lint、格式、资源预检、前端 10/10 和 Rust 7/7 预览测试通过 |
+| 调试资源污染只读核对 | 对比源码、已安装应用、x64 发布资源与 `target/debug` 的 `integrity-auditor` 内容哈希 | 前三者均为 `db4d...`；复用的调试副本曾因生成的 `forensics_tools/__pycache__` 变为 `6b844...`。移走该缓存后本轮验证恢复，根治合同留作 P1-TEST-002 |
 | 系统上下文安装包执行门禁 | `verify_packaged_opencode_fixture.py` + macOS 构建工作流 | 单元合同 2/2 与 CI 接线合同通过；当前 1.0.0 x64 DMG 实际执行通过：2 次本地 provider 请求、主请求流式响应、回复标记命中，实际 system 块与对应助手消息的 `ai4heor.system-context/v1` 指纹一致 |
 | 当前 macOS x64 DMG | `tauri build --target x86_64-apple-darwin --bundles dmg` + `verify_macos_package.py --verify-first-launch` | 由干净提交 `feffae7` 构建；96,464,683 字节，SHA-256 `eb8f43c403335457c153c4ebb7e07d847669bc2810886df848e9ce34da22bfba`；445 个资源逐字节一致，包内 HEOR 188/188，OpenCode `1.17.13-ai4heor.1`，隔离首启、HTTP 401、AppShell/JavaScript/Tauri IPC 和工作区隔离通过；发布证据已在同一干净提交上生成并校验；无可用 Developer ID 签名，仅供内部测试 |
 | 产物关联修复前复现 | SDK、provenance、run 定向测试及 Rust 定向编译 | 前端 7 项失败；Rust 10 处编译失败，准确证明工具事件、桥接和持久记录均缺少关联字段 |
@@ -398,4 +405,17 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 许可完整性：复核发现既有 Cargo 清单生成器会漏掉可选特性依赖。先加失败合同，再将清单改为 `--all-features`；当前清单登记 641 个第三方 Cargo 包加 1 个工作区包，明确包含该 MIT 测试依赖，同时许可审计声明其不随产品分发。
 - 验收结果：原生 E2E 完整命令通过，且直接驱动连续 3/3 通过；定向契约 5/5，完整前端 770/770、Rust 377 通过/1 项既有忽略、HEOR 188/188、开发合同 385/385、发布合同 46/46，类型检查、ESLint、Rust 格式、普通/测试特性 `cargo check`、生产构建和 41 来源/445 文件资源预检全部通过。
 - 回滚方式：回退本 loop 的独立提交；无数据迁移、研究文件修改或用户配置变更。
-- 剩余风险：该测试驱动开发构建，不是当前 DMG 中的安装后产品字节；当前 CI 只在 Intel macOS 运行该冒烟。它只证明 Tauri 桥接和两个基础导航操作，不证明模型任务、消息队列、Human-in-the-loop、HTML 预览、权限交互、导入/导出或科学计算流程已完成端到端验证。这些必须作为 P1-TEST-001b 的后续独立 loop。
+- 剩余风险：该测试驱动开发构建，不是当前 DMG 中的安装后产品字节；当前 CI 只在 Intel macOS 运行该冒烟。HTML 被动预览已由 P1-TEST-001b2 补齐，但模型任务、消息队列、Human-in-the-loop、权限交互、导入/导出或科学计算流程仍未完成端到端验证。这些必须作为 P1-TEST-001b 的后续独立 loop。
+
+## Loop P1-TEST-001b2：真实 WKWebView 被动 HTML 预览 E2E
+
+- 当前行为：前端与 Rust 单元测试已经固定被动 HTML 预览合同，但测试专用原生 E2E 只点击“新建任务”和“插件与技能”，没有在真实 WKWebView 中打开任务文件，也没有观察实际 iframe、loopback 响应头或不可信脚本请求。
+- 目标行为：在隔离 HOME/XDG 的真实 Tauri 测试窗口中打开一个本地 HTML 文件，确认实际 iframe 使用空 sandbox、实际 loopback 响应包含 `script-src 'none'`、`connect-src 'none'` 与 `Referrer-Policy: no-referrer`，且页面加载期间不会请求外部脚本。
+- 根因：P0-SEC-001 的验证停留在 jsdom 与 Rust HTTP 单元层；P1-TEST-001b1 为控制范围只完成基础导航，没有把两层安全合同串到真实 WebView。
+- 修改前失败测试：先扩展 `test_desktop_e2e_contract.py`，分别观察到缺少 HTML 夹具、稳定元素定位和本地请求观察器的预期失败；这些测试没有通过放宽断言或跳过检查转绿。
+- 最小修改范围：只修改测试契约与标准库原生驱动。驱动在临时工作区写入可见静态内容、内联脚本标记及指向随机 loopback 端口的外部脚本，使用真实侧边栏进入“任务文件”，等待同一 DOM 文件按钮稳定后只点击一次；随后检查 iframe 属性、真实 HEAD 响应头、顶层可观察的 iframe `load` 事件和本地观察器零请求。未修改产品业务、UI、科研计算、模型调用、研究数据或发布包。
+- 稳定性边界：启动阶段工作区状态可能合法替换文件列表 DOM；直接保存一次 WebDriver 元素 ID 会产生竞态。修复采用页面内 DOM 节点身份连续稳定 1 秒后再获取元素并点击，有界超时仍 fail-closed。沙箱 iframe 禁止 WebDriver 通过 JavaScript 进入其内部是正确安全行为，因此测试不以绕过沙箱读取内部 DOM 作为验收条件。
+- 验收结果：测试契约 6/6；直接原生驱动最终连续 3/3；`pnpm test:e2e:desktop` 完整通过。全量回归为前端 113 文件/770 项、Rust 377 通过/1 项既有忽略、HEOR 188/188、开发合同 386/386、发布合同 46/46；类型检查、ESLint、Rust 格式、41 来源/445 文件资源预检、前端 10/10 与 Rust 7/7 定向预览测试均通过。
+- 隔离与隐私：测试只使用 `/private/tmp` 下临时 HOME 和随机本地端口；不访问公网，不读取用户 API key，不保存研究内容，结束后删除 WebDriver session、终止测试进程并清理临时目录。本轮确认无遗留测试进程。
+- 回滚方式：回退本 loop 的两个测试文件和本节记录；无数据迁移、用户文件或产品接口变化。
+- 剩余风险：这是测试特性构建的真实 WKWebView 证据，不是已安装 DMG 字节证据；它证明 iframe 加载、安全属性、实际响应头与测试脚本零请求，不宣称覆盖所有 HTML 子资源、视觉排版或任意恶意内容。任务执行、队列、Human-in-the-loop、权限与导入/导出仍待独立 E2E。另行发现的调试资源缓存污染记录为 P1-TEST-002，不在本轮顺便修复。

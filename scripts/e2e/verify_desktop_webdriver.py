@@ -2,8 +2,9 @@
 """Drive real AI4HEOR controls through the test-only embedded WebDriver.
 
 This smoke test intentionally uses only Python's standard library. It launches
-the debug binary with an isolated user home, clicks two rendered sidebar items,
-and proves that the page is running inside Tauri rather than a browser preview.
+the debug binary with an isolated user home, drives rendered sidebar and file
+controls, and proves that navigation and passive HTML preview run inside Tauri
+rather than a browser preview.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import socket
 import stat
 import subprocess
 import tempfile
+import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -33,6 +35,47 @@ def free_local_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.bind(("127.0.0.1", 0))
         return int(listener.getsockname()[1])
+
+
+class LocalRequestObserver:
+    def __init__(self) -> None:
+        self.requested = threading.Event()
+        self._stop = threading.Event()
+        self._listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._listener.bind(("127.0.0.1", 0))
+        self._listener.listen()
+        self._listener.settimeout(0.2)
+        self.port = int(self._listener.getsockname()[1])
+        self._thread = threading.Thread(target=self._serve, daemon=True)
+        self._thread.start()
+
+    def _serve(self) -> None:
+        while not self._stop.is_set():
+            try:
+                connection, _ = self._listener.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                return
+            with connection:
+                self.requested.set()
+                try:
+                    connection.recv(4096)
+                    connection.sendall(
+                        b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n"
+                    )
+                except OSError:
+                    pass
+
+    def close(self) -> None:
+        self._stop.set()
+        self._listener.close()
+        self._thread.join(timeout=1.0)
+
+
+def local_request_observer() -> LocalRequestObserver:
+    return LocalRequestObserver()
 
 
 def request_json(
@@ -94,11 +137,20 @@ def wait_for_script_value(
 ) -> None:
     deadline = time.monotonic() + timeout
     last_value: Any = None
+    last_error: Exception | None = None
     while time.monotonic() < deadline:
-        last_value = execute(base_url, session_id, script)
-        if last_value == expected:
-            return
+        try:
+            last_value = execute(base_url, session_id, script)
+            last_error = None
+            if last_value == expected:
+                return
+        except (AssertionError, URLError, TimeoutError, ConnectionError) as error:
+            last_error = error
         time.sleep(0.2)
+    if last_error is not None:
+        raise AssertionError(
+            f"script did not return {expected!r} before timeout; last error was {last_error}"
+        ) from last_error
     raise AssertionError(
         f"script did not return {expected!r} before timeout; last value was {last_value!r}"
     )
@@ -123,12 +175,55 @@ def find_element(base_url: str, session_id: str, xpath: str, timeout: float = 15
     raise AssertionError(f"element not found for {xpath}: {last_error}")
 
 
+def find_stable_element(
+    base_url: str,
+    session_id: str,
+    xpath: str,
+    stable_for: float = 1.0,
+    timeout: float = 15.0,
+) -> str:
+    deadline = time.monotonic() + timeout
+    script = (
+        "const node = document.evaluate("
+        + json.dumps(xpath)
+        + ", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; "
+        "const now = Date.now(); "
+        "const state = window.__ai4heorE2EStableElement; "
+        "if (!node) { window.__ai4heorE2EStableElement = null; return false; } "
+        "if (!state || state.node !== node) { "
+        "window.__ai4heorE2EStableElement = { node: node, since: now }; return false; } "
+        f"return now - state.since >= {int(stable_for * 1000)};"
+    )
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            if execute(base_url, session_id, script) is True:
+                return find_element(base_url, session_id, xpath, timeout=2.0)
+            last_error = None
+        except (AssertionError, URLError, TimeoutError, ConnectionError) as error:
+            last_error = error
+        time.sleep(0.2)
+    if last_error is not None:
+        raise AssertionError(
+            f"element did not remain stable for {stable_for:.1f}s; last error: {last_error}"
+        ) from last_error
+    raise AssertionError(f"element did not remain stable for {stable_for:.1f}s: {xpath}")
+
+
 def click(base_url: str, session_id: str, element_id: str) -> None:
     request_json(
         base_url,
         "POST",
         f"/session/{session_id}/element/{element_id}/click",
         {},
+    )
+
+
+def element_attribute(base_url: str, session_id: str, element_id: str, name: str) -> Any:
+    return request_json(
+        base_url,
+        "GET",
+        f"/session/{session_id}/element/{element_id}/attribute/{name}",
     )
 
 
@@ -188,6 +283,17 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="ai4heor-desktop-e2e-", dir="/private/tmp") as temporary:
         home = Path(temporary).resolve()
+        blocked_request = local_request_observer()
+        workspace = home / "Documents" / "AI4HEOR"
+        workspace.mkdir(parents=True)
+        (workspace / "untrusted-e2e.html").write_text(
+            "<!doctype html><html><head><title>Passive preview fixture</title></head>"
+            '<body><h1 id="passive-preview-sentinel">Passive preview content</h1>'
+            f'<script src="http://127.0.0.1:{blocked_request.port}/should-not-load.js"></script>'
+            '<script>document.documentElement.setAttribute('
+            '"data-ai4heor-script-executed", "true")</script></body></html>',
+            encoding="utf-8",
+        )
         env = os.environ.copy()
         env.update(
             {
@@ -252,7 +358,81 @@ def main() -> int:
                 ):
                     raise AssertionError("skills page did not render its researcher-facing heading")
 
-                print("native desktop E2E passed: Tauri bridge, new task, plugins and skills")
+                files_xpath = (
+                    '//button[.//span[normalize-space()="任务文件" '
+                    'or normalize-space()="Task files"]]'
+                )
+                click(base_url, session_id, find_element(base_url, session_id, files_xpath))
+                wait_for_location(base_url, session_id, "/files")
+
+                fixture_xpath = (
+                    '//button[.//span[normalize-space()="untrusted-e2e.html"]]'
+                )
+                fixture_id = find_stable_element(base_url, session_id, fixture_xpath)
+                execute(
+                    base_url,
+                    session_id,
+                    "window.__ai4heorE2ELastClick = null; "
+                    "document.addEventListener('click', function capture(event) { "
+                    "window.__ai4heorE2ELastClick = "
+                    "event.target instanceof Element ? event.target.outerHTML : String(event.target); "
+                    "}, { once: true }); return true;",
+                )
+                click(base_url, session_id, fixture_id)
+                frame_xpath = '//iframe[@title="HTML 预览" or @title="HTML preview"]'
+                try:
+                    frame_id = find_element(base_url, session_id, frame_xpath)
+                except AssertionError as error:
+                    visible = execute(base_url, session_id, "return document.body.innerText")
+                    excerpt = visible[-2000:] if isinstance(visible, str) else repr(visible)
+                    click_target = execute(
+                        base_url,
+                        session_id,
+                        "return window.__ai4heorE2ELastClick || ''",
+                    )
+                    raise AssertionError(
+                        "HTML preview frame did not appear; "
+                        f"captured click target: {click_target}; visible UI excerpt: {excerpt}"
+                    ) from error
+                if element_attribute(base_url, session_id, frame_id, "sandbox") != "":
+                    raise AssertionError("HTML preview iframe unexpectedly grants sandbox capabilities")
+                frame_src = element_attribute(base_url, session_id, frame_id, "src")
+                if not isinstance(frame_src, str) or not frame_src.startswith("http://127.0.0.1:"):
+                    raise AssertionError("HTML preview did not use its loopback file server")
+                with urlopen(Request(frame_src, method="HEAD"), timeout=5.0) as response:
+                    csp = response.headers.get("Content-Security-Policy", "")
+                    referrer_policy = response.headers.get("Referrer-Policy", "")
+                if "script-src 'none'" not in csp or "connect-src 'none'" not in csp:
+                    raise AssertionError("HTML preview response is missing its passive-document CSP")
+                if referrer_policy != "no-referrer":
+                    raise AssertionError("HTML preview response may disclose its source URL")
+
+                load_listener_installed = execute(
+                    base_url,
+                    session_id,
+                    "const frame = document.querySelector("
+                    "'iframe[title=\"HTML preview\"], iframe[title=\"HTML 预览\"]'); "
+                    "if (!frame) return false; "
+                    "window.__ai4heorE2EHtmlLoaded = false; "
+                    "frame.addEventListener('load', () => { "
+                    "window.__ai4heorE2EHtmlLoaded = true; }, { once: true }); "
+                    "frame.setAttribute('src', frame.getAttribute('src')); return true;",
+                )
+                if load_listener_installed is not True:
+                    raise AssertionError("could not observe the HTML preview frame load")
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "return window.__ai4heorE2EHtmlLoaded === true",
+                    True,
+                )
+                if blocked_request.requested.wait(timeout=1.0):
+                    raise AssertionError("untrusted HTML requested an external script")
+
+                print(
+                    "native desktop E2E passed: Tauri bridge, navigation, "
+                    "task files and passive HTML preview"
+                )
         except Exception as error:
             tail = ""
             if log_path.is_file():
@@ -266,6 +446,7 @@ def main() -> int:
                     pass
             if process is not None:
                 terminate(process)
+            blocked_request.close()
     return 0
 
 

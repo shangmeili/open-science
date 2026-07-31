@@ -62,6 +62,24 @@ class DesktopE2EContractTests(unittest.TestCase):
             self.assertIn(required, text)
         self.assertNotRegex(text, re.compile(r"api[_-]?key|sk-[A-Za-z0-9]", re.I))
 
+    def test_verifier_drives_passive_html_preview_in_real_webview(self) -> None:
+        text = VERIFY.read_text(encoding="utf-8")
+        for required in (
+            "untrusted-e2e.html",
+            'normalize-space()="任务文件"',
+            'normalize-space()="Task files"',
+            "passive-preview-sentinel",
+            "local_request_observer",
+            "should-not-load.js",
+            '"Content-Security-Policy"',
+            "script-src 'none'",
+            "connect-src 'none'",
+            "data-ai4heor-script-executed",
+            "__ai4heorE2EHtmlLoaded",
+            "find_stable_element",
+        ):
+            self.assertIn(required, text)
+
     def test_macos_ci_runs_the_native_harness_before_packaging(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("Run native desktop E2E smoke", workflow)
