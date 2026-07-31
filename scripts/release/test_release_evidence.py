@@ -163,6 +163,7 @@ class ReleaseEvidenceTests(unittest.TestCase):
             release_evidence.FIRST_LAUNCH_CHECKS,
             {
                 "first-launch-process",
+                "frontend-bootstrap",
                 "opencode-authenticated-http",
                 "workspace-created",
             },
@@ -178,6 +179,7 @@ class ReleaseEvidenceTests(unittest.TestCase):
             ],
             "checks": [
                 "first-launch-process",
+                "frontend-bootstrap",
                 "opencode-authenticated-http",
                 "workspace-created",
             ],
@@ -204,9 +206,29 @@ class ReleaseEvidenceTests(unittest.TestCase):
                 "path": "/global/health",
                 "unauthenticated_status": 401,
             },
+            "frontend_bootstrap": {
+                "app_shell_mounted": True,
+                "javascript_executed": True,
+                "tauri_runtime_command_returned": True,
+            },
             "workspace": "/tmp/home/Documents/AI4HEOR",
         }
         release_evidence.validate_evidence(value)
+
+        value["verification"]["first_launch"]["frontend_bootstrap"][
+            "javascript_executed"
+        ] = False
+        with self.assertRaisesRegex(AssertionError, "proof is incomplete"):
+            release_evidence.validate_evidence(value)
+        value["verification"]["first_launch"]["frontend_bootstrap"][
+            "javascript_executed"
+        ] = True
+        value["verification"]["first_launch"]["frontend_bootstrap"][
+            "raw_log"
+        ] = "must not be recorded"
+        with self.assertRaisesRegex(AssertionError, "proof is incomplete"):
+            release_evidence.validate_evidence(value)
+        del value["verification"]["first_launch"]["frontend_bootstrap"]["raw_log"]
 
         value["checks"] = sorted([*value["checks"], "workspace-isolated"])
         with self.assertRaisesRegex(AssertionError, "isolation proof is incomplete"):

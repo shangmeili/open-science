@@ -228,6 +228,45 @@ class DistributionVerifierTests(unittest.TestCase):
         with patch("http.client.HTTPConnection", return_value=connection):
             self.assertIsNone(verifier.probe_authenticated_opencode_http(43123))
 
+    def test_frontend_bootstrap_requires_app_shell_and_tauri_ipc_log(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            log = Path(temporary) / "debug.log"
+            self.assertIsNone(verifier.frontend_bootstrap_proof(log))
+
+            log.write_text(
+                "100 bootstrap: starting bundled runtime\n",
+                encoding="utf-8",
+            )
+            self.assertIsNone(verifier.frontend_bootstrap_proof(log))
+
+            log.write_text(
+                "100 bootstrap: starting bundled runtime\n"
+                "101 bootstrap: runtime at http://127.0.0.1:43123\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                verifier.frontend_bootstrap_proof(log),
+                {
+                    "app_shell_mounted": True,
+                    "javascript_executed": True,
+                    "tauri_runtime_command_returned": True,
+                },
+            )
+
+            log.write_text(
+                "100 bootstrap: starting bundled runtime\n"
+                "101 bootstrap: runtime at http://127.0.0.1:99999\n",
+                encoding="utf-8",
+            )
+            self.assertIsNone(verifier.frontend_bootstrap_proof(log))
+
+            log.write_text(
+                "100 bootstrap: starting bundled runtime\n"
+                "101 bootstrap FAILED: unavailable\n",
+                encoding="utf-8",
+            )
+            self.assertIsNone(verifier.frontend_bootstrap_proof(log))
+
     def test_signature_parser_and_validator_require_distribution_properties(self) -> None:
         details = verifier.parse_codesign_details(SIGNED_DETAILS)
         team, authority = verifier.validate_signature_details(
@@ -345,6 +384,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("--verify-first-launch", workflow)
         self.assertIn("--check first-launch-process", workflow)
         self.assertIn("--check opencode-authenticated-http", workflow)
+        self.assertIn("--check frontend-bootstrap", workflow)
         self.assertIn("--check workspace-created", workflow)
         self.assertIn("--check workspace-isolated", workflow)
         self.assertIn("APPLE_SIGNING_IDENTITY", workflow)
@@ -393,6 +433,8 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("--check workspace-isolated", verifier)
         self.assertIn("--check opencode-authenticated-http", verifier)
         self.assertIn("opencode_http", verifier)
+        self.assertIn("frontend_bootstrap", verifier)
+        self.assertIn("frontend-bootstrap", verifier)
         self.assertIn("open_science_workspace_preserved", verifier)
         self.assertIn("Packaged AI4HEOR processes were not cleaned up", verifier)
         self.assertIn("GetValue('DisplayName')", verifier)

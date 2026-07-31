@@ -111,6 +111,7 @@ Assert-True ((Split-Path $NsisPath -Leaf) -match '^AI4HEOR_.+_x64-setup\.exe$') 
 $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) ("ai4heor-windows-verification-" + [guid]::NewGuid())
 $verificationPath = Join-Path $temporaryRoot 'windows-verification.json'
 $workspace = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'AI4HEOR'
+$frontendBootstrapLog = Join-Path (Join-Path $env:APPDATA ([string]$config.identifier)) 'debug.log'
 $openScienceWorkspace = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'OpenScience'
 $openScienceExisted = Test-Path -LiteralPath $openScienceWorkspace -PathType Container
 $openScienceMarker = Join-Path $openScienceWorkspace ("ai4heor-isolation-" + [guid]::NewGuid() + ".txt")
@@ -122,6 +123,7 @@ New-Item -ItemType Directory -Path $temporaryRoot -Force | Out-Null
 
 try {
     Assert-True (-not (Test-Path -LiteralPath $workspace)) "First-launch workspace already exists: $workspace"
+    Assert-True (-not (Test-Path -LiteralPath $frontendBootstrapLog)) "Frontend bootstrap log already exists: $frontendBootstrapLog"
     New-Item -ItemType Directory -Path $openScienceWorkspace -Force | Out-Null
     Set-Content -LiteralPath $openScienceMarker -Value 'preserve-open-science' -Encoding utf8
 
@@ -187,6 +189,7 @@ try {
     $appProcesses = @()
     $opencodeProcesses = @()
     $opencodeHttpProof = $null
+    $frontendBootstrapProof = $null
     do {
         Start-Sleep -Milliseconds 500
         $processes = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($installRoot, [StringComparison]::OrdinalIgnoreCase) })
@@ -195,6 +198,7 @@ try {
         $createdWorkspace = Test-Path -LiteralPath $workspace -PathType Container
         $openSciencePreserved = (Test-Path -LiteralPath $openScienceMarker -PathType Leaf) -and ((Get-Content -LiteralPath $openScienceMarker -Raw).Trim() -eq 'preserve-open-science')
         $opencodeHttpProof = $null
+        $frontendBootstrapProof = $null
         if ($opencodeProcesses.Count -eq 1) {
             $portMatch = [regex]::Match([string]$opencodeProcesses[0].CommandLine, '(?:^|\s)--port\s+([0-9]{1,5})(?:\s|$)')
             if ($portMatch.Success) {
@@ -215,15 +219,31 @@ try {
                 }
             }
         }
-        $ready = $appProcesses.Count -eq 1 -and $opencodeProcesses.Count -eq 1 -and $null -ne $opencodeHttpProof -and $createdWorkspace -and $openSciencePreserved
+        if (Test-Path -LiteralPath $frontendBootstrapLog -PathType Leaf) {
+            $frontendLogTail = (Get-Content -LiteralPath $frontendBootstrapLog -Tail 256) -join "`n"
+            $frontendStarted = [regex]::IsMatch($frontendLogTail, '(?m)^\d+ bootstrap: starting bundled runtime$')
+            $frontendReady = [regex]::Match($frontendLogTail, '(?m)^\d+ bootstrap: runtime at http://127\.0\.0\.1:(\d+)$')
+            if ($frontendStarted -and $frontendReady.Success) {
+                $frontendPort = [int]$frontendReady.Groups[1].Value
+                if ($frontendPort -ge 1 -and $frontendPort -le 65535) {
+                    $frontendBootstrapProof = [ordered]@{
+                        app_shell_mounted = $true
+                        javascript_executed = $true
+                        tauri_runtime_command_returned = $true
+                    }
+                }
+            }
+        }
+        $ready = $appProcesses.Count -eq 1 -and $opencodeProcesses.Count -eq 1 -and $null -ne $opencodeHttpProof -and $null -ne $frontendBootstrapProof -and $createdWorkspace -and $openSciencePreserved
     } while (-not $ready -and [DateTime]::UtcNow -lt $deadline)
-    Assert-True $ready "First launch did not reach one app process, one bundled OpenCode process with authenticated HTTP readiness, and a new workspace within 60 seconds."
+    Assert-True $ready "First launch did not reach one app process, one bundled OpenCode process with authenticated HTTP readiness, frontend bootstrap through Tauri IPC, and a new workspace within 60 seconds."
     $verification.first_launch = [ordered]@{
         app_process_id = $appProcesses[0].ProcessId
         app_executable = $appProcesses[0].ExecutablePath
         opencode_process_id = $opencodeProcesses[0].ProcessId
         opencode_executable = $opencodeProcesses[0].ExecutablePath
         opencode_http = $opencodeHttpProof
+        frontend_bootstrap = $frontendBootstrapProof
         workspace = $workspace
         workspace_isolation = [ordered]@{
             app_process_id = $appProcesses[0].ProcessId
@@ -259,6 +279,7 @@ try {
         --check bundled-sidecars `
         --check nsis-silent-install `
         --check first-launch-process `
+        --check frontend-bootstrap `
         --check opencode-authenticated-http `
         --check workspace-created `
         --check workspace-isolated `

@@ -3,9 +3,9 @@
 ## 基线
 
 - 分支：`codex/heor-workbench`
-- 决策树实现 loop 的已提交基线：`8b0c1fd`；更早已完成业务修复均保留为独立提交，本轮不重复修改。
+- 本轮开始前的已提交基线：`7c39c93`；更早已完成业务修复均保留为独立提交，本轮不重复修改。
 - 基线原则：在现有 Open Science/Tauri 技术栈上增量推进；AI 负责辅助推理，正式研究计算由可验证的确定性模块完成；科学、隐私、兼容性和公开接口决策保留 Human-in-the-loop。
-- 已完成 loop 范围：不可信 HTML 预览边界、同主版本 JavaScript CPU 拒绝服务补丁、安装后 OpenCode 的鉴权 HTTP 就绪证据、经研究者确认的两策略 PSA 零 INMB 并列口径、PPTX 预览中 ECharts `lines` 系列通告的不可达性门禁，以及经研究者确认后实现的首版短期确定性决策树内核。决策树 DSA/PSA、桌面审查、报告和 UI 集成未在本轮扩展。
+- 已完成 loop 范围：不可信 HTML 预览边界、同主版本 JavaScript CPU 拒绝服务补丁、安装后 OpenCode 的鉴权 HTTP 就绪证据、安装后前端 bootstrap 证据合同、经研究者确认的两策略 PSA 零 INMB 并列口径、PPTX 预览中 ECharts `lines` 系列通告的不可达性门禁，以及经研究者确认后实现的首版短期确定性决策树内核。决策树 DSA/PSA、桌面审查、报告和 UI 集成未在本轮扩展。
 
 ## 当前架构与完成度
 
@@ -18,7 +18,7 @@
 | Human-in-the-loop | 关键科学定义、证据采用、结构与发布决策由研究者确认 | PSA 并列口径在研究者同意后才实施 |
 | 文件预览 | React inspector + Tauri loopback preview server | HTML 改为被动展示；源码查看和外部打开保留 |
 
-当前仓库已有主要单元/组件、确定性 HEOR、Rust 原生与资源门禁测试。macOS 与 Windows 发布脚本已有真实主机级安装、进程、工作区和清理检查，并已补上 OpenCode 鉴权 HTTP 就绪合同；但完整的安装后可视交互、任务执行、导入到导出 E2E 仍未建立，不能由 Vitest/jsdom 或仅有进程的结果替代。
+当前仓库已有主要单元/组件、确定性 HEOR、Rust 原生与资源门禁测试。macOS 与 Windows 发布脚本已有真实主机级安装、进程、工作区和清理检查，并已补上 OpenCode 鉴权 HTTP 与前端 bootstrap 合同；但完整的安装后可视交互、任务执行、导入到导出 E2E 仍未建立，不能由 Vitest/jsdom、进程或 bootstrap 结果替代。
 
 ## 问题与风险清单
 
@@ -29,6 +29,7 @@
 | P1-SEC-002b | P1 | 待单独处理 | `brace-expansion` OOM 通告当前只标记 5.0.8 为修复版；旧主版本跨版替换需独立兼容性决策，漏洞代码未进入当前 Tauri 前端产物 |
 | P1-TEST-001a | P1 | 实现与合同已修复；新包执行待打包轮 | 安装包首启过去只证明 OpenCode 进程存在；现要求未授权健康请求返回 401，且证据不保存端口或密码 |
 | P1-TEST-001b | P1 | 待单独处理 | 缺少安装后真实 Tauri 可视交互、任务、HTML 预览、权限和导入到导出的自动化 E2E |
+| P1-TEST-001c | P1 | 实现与合同已修复；原生执行待打包轮 | 安装包首启过去没有证明 WebView 已挂载 AppShell、执行 JavaScript 并通过 Tauri IPC 取得本地服务地址；现从隔离首启的应用私有日志生成无正文、无端口的布尔证据 |
 | P1-SCI-001 | P1 | 首版确定性内核已完成；端到端流程待后续 loop | 已有独立 schema、黄金案例、输入溯源、逐节点计算轨迹、增量前沿、CLI 哈希重放与安装包资源映射；Skill、桌面复核、报告和复现包尚未连接 |
 | P1-SCI-002 | P1 | 待单独处理 | 亚组分析尚缺完整的预设、来源绑定、逐亚组结果与复核合同 |
 | P1-SCI-003 | P1 | 已修复 | 两策略 PSA 旧汇总使用 `INMB >= 0`，将零值并列同时计入干预成本效果概率，与同一输出中单独报告并列的决策不确定性表冲突 |
@@ -42,12 +43,13 @@
 1. P0-SEC-001：完成 HTML 被动预览边界并建立回归合同（已完成）。
 2. P1-TEST-001a：首启 OpenCode 鉴权 HTTP 就绪合同已完成；下一次新包必须在原生 macOS/Windows 验证器中产生该证据。
 3. P1-TEST-001b：建立最小真实桌面可视 E2E，覆盖任务、HTML 预览、权限与导入。
-4. P1-SEC-002：CPU 型通告已完成同主版本修复；OOM、UUID 和 React Router 通告继续按实际可达路径逐个处置，不强制整树升级。ECharts `lines` 系列通告已证明当前 PPTX 路径不可达。
-5. P1-SCI-003：统一两策略 PSA 的零 INMB 并列口径（已完成）。
-6. P1-SCI-001：首版确定性内核已完成；后续分别为 Skill、桌面审查、报告与复现包建立独立合同。P1-SCI-002 仍需先建立人工可核算基准，禁止与界面修复混做。
-7. P1-AI-001：在不记录密钥和敏感输入的前提下补齐模型调用审计合同。
-8. P2-SEC-003：评估主应用全局 CSP；仅在不破坏本地服务和模型流式连接时实施。
-9. P1-LEGAL-001：依赖锁文件变更后必须重生成许可证清单，其锁文件 SHA-256 不一致时由现有打包资源合同 fail-closed（已完成）。
+4. P1-TEST-001c：已补齐安装后前端 bootstrap 证据合同；下一次新包必须在原生 macOS/Windows 验证器中产生证据，但不得据此宣称完整可视 E2E 已完成。
+5. P1-SEC-002：CPU 型通告已完成同主版本修复；OOM、UUID 和 React Router 通告继续按实际可达路径逐个处置，不强制整树升级。ECharts `lines` 系列通告已证明当前 PPTX 路径不可达。
+6. P1-SCI-003：统一两策略 PSA 的零 INMB 并列口径（已完成）。
+7. P1-SCI-001：首版确定性内核已完成；后续分别为 Skill、桌面审查、报告与复现包建立独立合同。P1-SCI-002 仍需先建立人工可核算基准，禁止与界面修复混做。
+8. P1-AI-001：在不记录密钥和敏感输入的前提下补齐模型调用审计合同。
+9. P2-SEC-003：评估主应用全局 CSP；仅在不破坏本地服务和模型流式连接时实施。
+10. P1-LEGAL-001：依赖锁文件变更后必须重生成许可证清单，其锁文件 SHA-256 不一致时由现有打包资源合同 fail-closed（已完成）。
 
 ## 验证矩阵
 
@@ -84,6 +86,11 @@
 | 决策树打包资源合同 | `test_every_python_module_is_bundled_once_at_the_expected_path` + `preflight_resources.mjs` | 通过；40 个来源、441 个文件 |
 | 许可证清单漂移复现 | `test_legal_boundary_and_inventories_are_packaged` | 失败：npm 清单哈希 `f3fe...` 与当前锁文件 `c44a...` 不一致 |
 | 许可证与资源回归 | `test_tauri_heor_resources.py -v` + `test_js_security_policy.py -v` + `preflight_resources.mjs` | 10/10、3/3 与 40 来源/441 文件通过 |
+| 前端 bootstrap 修复前复现 | 4 项定向发布契约测试 | 3 项失败、1 项错误：缺少日志解析器、发布证据字段、macOS CI 检查和 Windows 检查 |
+| 前端 bootstrap 定向回归 | 同一组 4 项定向发布契约测试 | 4/4 通过 |
+| 发布层完整回归（bootstrap 后） | `python3 -m unittest discover -s scripts/release -p 'test_*.py' -v` | 44/44 通过 |
+| 前端完整回归（bootstrap 后） | `pnpm test` | 112 个文件、762 项通过；既有 React `act(...)` 与 Router 告警未新增、未屏蔽 |
+| 静态与构建回归（bootstrap 后） | `pnpm typecheck`、`pnpm lint`、`pnpm build`、`pnpm preflight:resources` | 全部通过；40 个来源、441 个文件 |
 
 ## Loop P0-SEC-001
 
@@ -253,3 +260,14 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 验收标准与结果：清单哈希等于当前锁文件，安全补丁版本准确，未解决许可证边界不变；资源合同 10/10、JavaScript 安全门禁 3/3 和资源预检通过。
 - 回滚方式：回退本 loop 的两个生成清单；无业务代码、依赖锁文件或研究数据变更。
 - 剩余风险：这是清单与锁文件的一致性证据，不替代对每个依赖条款的独立法务意见。
+
+## Loop P1-TEST-001c
+
+- 当前行为：现有安装包验证已证明应用进程、OpenCode 鉴权 HTTP 和工作区，但应用主进程即使没有成功挂载 AppShell、执行前端 JavaScript 或完成 `start_runtime` Tauri IPC，旧门禁仍可能通过。
+- 目标行为：在隔离的首次启动环境中，必须同时出现 AppShell 调用 bootstrap 的起始记录和 Tauri IPC 返回 loopback 本地服务地址的就绪记录，才能生成发布证据。
+- 根因：发布门禁只观察进程、HTTP 与文件系统，没有把现有前端启动链路的两条应用私有诊断记录纳入证据合同。
+- 失败测试：修改前 4 项定向测试稳定出现 3 项失败和 1 项错误，分别对应缺少日志解析器、macOS 工作流声明、Windows 验证器实现与发布证据字段。
+- 最小修改：macOS 和 Windows 验证器只读取新鲜隔离首启产生的 `debug.log` 尾部，要求固定格式的启动与就绪记录以及有效 loopback 端口；发布证据仅保存 `app_shell_mounted`、`javascript_executed`、`tauri_runtime_command_returned` 三个真值，不保存日志、端口或路径。应用业务代码、模型调用、科研计算与研究数据均未修改。
+- 验收结果：定向 4/4、发布层 44/44、前端 762/762、类型检查、ESLint、生产构建和 40 来源/441 文件资源预检通过；`git diff --check` 在提交前执行。
+- 回滚方式：回退本 loop 的发布脚本、工作流、契约测试和记录；无数据迁移、业务接口或研究产物变化。
+- 剩余风险：本机没有 PowerShell，Windows 脚本只能由文本合同覆盖，仍需 Windows runner 原生执行；新 macOS DMG 尚未构建，因此也没有当前提交对应的安装后证据。该门禁只证明前端启动与 Tauri IPC，不证明窗口可见、任务操作、权限交互、HTML 预览或导入到导出；完整可视 E2E 仍是 P1-TEST-001b。

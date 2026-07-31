@@ -29,6 +29,12 @@ TARGET_ARCH = {
     "aarch64-apple-darwin": ("arm64", "aarch64"),
     "x86_64-apple-darwin": ("x86_64", "x64"),
 }
+FRONTEND_BOOTSTRAP_START = re.compile(
+    r"^\d+ bootstrap: starting bundled runtime$", re.MULTILINE
+)
+FRONTEND_BOOTSTRAP_READY = re.compile(
+    r"^\d+ bootstrap: runtime at http://127\.0\.0\.1:(\d+)$", re.MULTILINE
+)
 
 
 def run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[Any]:
@@ -254,6 +260,27 @@ def probe_authenticated_opencode_http(
         connection.close()
 
 
+def frontend_bootstrap_proof(log_path: Path) -> dict[str, bool] | None:
+    """Return bounded proof that the installed webview reached Tauri runtime IPC."""
+
+    if not log_path.is_file() or log_path.is_symlink():
+        return None
+    with log_path.open("rb") as handle:
+        handle.seek(max(0, log_path.stat().st_size - 65536))
+        text = handle.read(65536).decode("utf-8", errors="replace")
+    ready = FRONTEND_BOOTSTRAP_READY.search(text)
+    if FRONTEND_BOOTSTRAP_START.search(text) is None or ready is None:
+        return None
+    port = int(ready.group(1))
+    if not 1 <= port <= 65535:
+        return None
+    return {
+        "app_shell_mounted": True,
+        "javascript_executed": True,
+        "tauri_runtime_command_returned": True,
+    }
+
+
 def classify_first_launch_processes(
     rows: list[dict[str, Any]],
     main_executable: Path,
@@ -333,6 +360,7 @@ def launch_isolated_app(
     opencode_executable: Path,
     expected_arch: str,
     home: Path,
+    frontend_log: Path,
     workspace: Path,
     readiness: Callable[[], bool],
     label: str,
@@ -362,6 +390,10 @@ def launch_isolated_app(
     proof: dict[str, Any] | None = None
     executables = {str(main_executable), str(opencode_executable)}
     try:
+        if frontend_log.exists():
+            raise AssertionError(
+                f"isolated frontend bootstrap log already exists: {frontend_log}"
+            )
         launch = [
             "open",
             "-F",
@@ -410,8 +442,14 @@ def launch_isolated_app(
                     if port is not None
                     else None
                 )
-                if opencode_http is not None and readiness():
+                frontend_bootstrap = frontend_bootstrap_proof(frontend_log)
+                if (
+                    opencode_http is not None
+                    and frontend_bootstrap is not None
+                    and readiness()
+                ):
                     proof["opencode_http"] = opencode_http
+                    proof["frontend_bootstrap"] = frontend_bootstrap
                     break
             if seen_main and not main_rows:
                 stderr = (
@@ -426,8 +464,8 @@ def launch_isolated_app(
         else:
             raise AssertionError(
                 f"{label} did not reach one installed app process, one bundled "
-                "OpenCode process with authenticated HTTP readiness, and the required "
-                "workspace state before timeout"
+                "OpenCode process with authenticated HTTP readiness, frontend bootstrap "
+                "through Tauri IPC, and the required workspace state before timeout"
             )
     except Exception as error:
         detail = "\n".join(
@@ -500,7 +538,10 @@ def isolate_single_instance_socket(socket_path: Path) -> Iterator[bool]:
 
 
 def _verify_first_launch_workspaces(
-    source_app: Path, expected_arch: str, timeout_seconds: float = 60.0
+    source_app: Path,
+    expected_arch: str,
+    bundle_identifier: str,
+    timeout_seconds: float = 60.0,
 ) -> dict[str, Any]:
     host_arch = platform.machine()
     if host_arch != expected_arch:
@@ -523,6 +564,9 @@ def _verify_first_launch_workspaces(
             raise AssertionError("temporary app copy is missing required executables")
 
         fresh_home = root / "fresh-home"
+        fresh_frontend_log = (
+            fresh_home / "Library/Application Support" / bundle_identifier / "debug.log"
+        )
         fresh_workspace = fresh_home / "Documents/AI4HEOR"
         if fresh_workspace.exists():
             raise AssertionError(
@@ -534,6 +578,7 @@ def _verify_first_launch_workspaces(
             opencode_executable,
             expected_arch,
             fresh_home,
+            fresh_frontend_log,
             fresh_workspace,
             fresh_workspace.is_dir,
             "first-launch",
@@ -541,6 +586,12 @@ def _verify_first_launch_workspaces(
         )
 
         coexistence_home = root / "coexistence-home"
+        coexistence_frontend_log = (
+            coexistence_home
+            / "Library/Application Support"
+            / bundle_identifier
+            / "debug.log"
+        )
         open_science_workspace = coexistence_home / "Documents/OpenScience"
         ai4heor_workspace = coexistence_home / "Documents/AI4HEOR"
         marker = Path("2026-07-17-open-science/marker.txt")
@@ -552,6 +603,7 @@ def _verify_first_launch_workspaces(
             opencode_executable,
             expected_arch,
             coexistence_home,
+            coexistence_frontend_log,
             ai4heor_workspace,
             lambda: (
                 (open_science_workspace / marker).read_text(encoding="utf-8")
@@ -585,7 +637,7 @@ def verify_first_launch(
     socket_path = single_instance_socket_path(bundle_identifier)
     with isolate_single_instance_socket(socket_path) as isolated_existing_socket:
         proof = _verify_first_launch_workspaces(
-            source_app, expected_arch, timeout_seconds
+            source_app, expected_arch, bundle_identifier, timeout_seconds
         )
     proof["existing_single_instance_socket_isolated"] = isolated_existing_socket
     return proof

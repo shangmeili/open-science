@@ -31,6 +31,7 @@ MACOS_DISTRIBUTION_CHECKS = {
 }
 FIRST_LAUNCH_CHECKS = {
     "first-launch-process",
+    "frontend-bootstrap",
     "opencode-authenticated-http",
     "workspace-created",
 }
@@ -251,6 +252,11 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
             if isinstance(first_launch, dict)
             else None
         )
+        frontend_bootstrap = (
+            first_launch.get("frontend_bootstrap")
+            if isinstance(first_launch, dict)
+            else None
+        )
         if (
             not isinstance(first_launch, dict)
             or not isinstance(first_launch.get("app_process_id"), int)
@@ -264,8 +270,18 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
             or opencode_http.get("authentication_enforced") is not True
             or opencode_http.get("path") != "/global/health"
             or opencode_http.get("unauthenticated_status") != 401
+            or not isinstance(frontend_bootstrap, dict)
+            or set(frontend_bootstrap)
+            != {
+                "app_shell_mounted",
+                "javascript_executed",
+                "tauri_runtime_command_returned",
+            }
+            or any(value is not True for value in frontend_bootstrap.values())
         ):
-            raise AssertionError("first-launch process/HTTP/workspace proof is incomplete")
+            raise AssertionError(
+                "first-launch process/frontend/HTTP/workspace proof is incomplete"
+            )
     if MACOS_WORKSPACE_ISOLATION_CHECK in value["checks"]:
         if value["platform"] not in {"macos", "windows"}:
             raise AssertionError("workspace isolation evidence is supported on macOS and Windows")
