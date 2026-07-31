@@ -349,3 +349,27 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 验收结果：固定补丁合同 4/4、上游 19/19、SDK/桥接 21/21、Rust 账本 4/4、前端 768/768、Rust 376 通过/1 项既有忽略、HEOR 188/188、本轮相关开发合同 234 项与发布合同 33 项通过；类型、ESLint、Rust 格式、生产构建和 41 来源/445 文件资源预检通过。固定 Bun 1.3.14 已从最终补丁重新构建 x64 Mach-O sidecar，版本冒烟为 `1.17.13-ai4heor.1`；新 1.0.0 x64 DMG 完成 445 个资源和包内 HEOR 188/188 校验、隔离首启，并通过实际 provider 请求、持久化助手消息与重算指纹三方一致性夹具。
 - 回滚方式：回退本 loop 独立提交；不改写或删除已形成的本地账本和研究产物。回滚后新字段会被旧客户端忽略，旧消息与旧账本仍可读取。
 - 剩余风险：macOS x64 安装包证据已完成，但 Windows、Apple Silicon 和 Linux 二进制仍需各自原生 CI 重建与执行；当前 DMG 未经 Developer ID 签名和公证，只能作内部测试包。指纹证明当次系统块字节一致，不证明指令本身科学正确，也不建立模型调用到研究产物的因果来源；后两项分别保留在 P1-AI-001b3 与 P1-AI-001c。
+
+## Loop P1-AI-001b3 调查与待确认边界
+
+### 当前行为、复现证据与根因
+
+- `.openscience/model-calls.jsonl` 已以助手消息 `messageId` 为幂等键记录一次具体模型调用；`.openscience/provenance.jsonl` 和 `.openscience/runs.jsonl` 目前只记录 `sessionId`。同一任务可包含多次助手模型调用和多次工具循环，因此会话级字段不能证明某个文件或运行结果来自哪一次调用。
+- OpenCode 的 `message.part.updated` 工具部分同时提供稳定的 `part.messageID` 和 `callID`。当前 `OpenCodeClient.normalize` 已读取前者来排除用户消息，却在生成 `ToolUpdatedEvent` 时只保留 `callID`，丢弃了助手消息 ID。后续 `runtime.ts -> recordProvenance/recordRun -> Tauri` 因而没有可传递的准确关联键。
+- 直接写入、编辑和 `apply_patch` 形成的产物通过工具事件写入 provenance；本地 Python/R 等执行先写入 run，再由 `link_run_outputs` 给每个输出写入 provenance。两条路径都能在事件发生时取得准确工具调用 ID；本地模型发起的工具事件还可取得对应助手消息 ID，不需要按时间或顺序猜测。
+- 当前 `ProvenancePanel` 和 `RunsPage` 只能打开 `/heor/{sessionId}`，线程块也没有助手消息锚点。它们不能精确跳到生成产物的模型调用。这属于 P1-AI-001c 的研究者可见审计界面，不作为本轮持久化关联合同的替代品。
+
+### 目标合同与建议方案
+
+- 建议方案 A：给规范化 `ToolUpdatedEvent` 增加可选 `messageId`；给 `ProvenanceRecord` 和 `RunRecord` 增加可选 `assistantMessageId` 与 `toolCallId`。模型发起的直接文件工具、运行记录及运行输出都原样传播这两个 ID；`assistantMessageId` 与模型调用账本的 `messageId` 精确连接，`toolCallId` 证明具体执行动作。同一助手消息的多个工具调用可区分，同一运行的多个输出共享同一组来源键。
+- 用户直接执行的 shell、应用自有确定性计算或旧版记录可能没有助手消息；这些记录保持字段缺席，不伪造模型来源。历史 JSONL 不迁移、不按时间回填，也不把缺失关联误报为已建立。
+- 新字段仅是本地有界标识符，不保存提示词、回答、文件正文、URL、API key 或供应商请求，也不发送给模型供应商。模型调用账本仍以自身哈希链保持完整性；本轮不把 provenance/runs 改称不可否认审计。
+- 备选方案 B：在模型调用完成后另建 `artifact-model-links.jsonl`。它需要暂存尚未完成调用的工具关系、维护第三个并发追加账本并处理两个账本之间的部分失败，复杂度更高且仍需改动现有记录读取端，因此不建议。
+
+### 兼容性、失败测试、预计修改与验收
+
+- 兼容性影响：`ProvenanceRecord`、`RunRecord` 和 `ToolUpdatedEvent` 是共享/可移植数据合同；方案 A 只增加 `serde(default, skip_serializing_if = "Option::is_none")` 的可选字段。旧 JSONL、远程 Skill 生成的 run 记录和没有模型参与的确定性运行继续可读；旧应用会忽略新 JSON 字段。由于这是持久化和公开类型合同变更，按项目规则先等待研究者确认。
+- 失败测试计划：先让 SDK 模拟服务在助手工具部分携带 `messageID`，断言规范化事件必须保留；断言直接 provenance、`apply_patch`、本地 run 和 run 输出均保存相同的助手消息/工具调用 ID；断言旧记录缺字段仍可读、字段不会被猜测、用户 shell/应用自有计算不伪造模型来源；断言异常空值、控制字符或超长 ID 被拒绝。
+- 预计最小修改文件：`packages/sdk/src/types.ts`、`packages/sdk/src/OpenCodeClient.ts`、`packages/sdk/src/mockServer.ts`、`apps/desktop/src/test/opencode-client.node.test.ts`、`apps/desktop/src/lib/runtime.ts`、`apps/desktop/src/lib/provenance.ts`、`apps/desktop/src/lib/runs.ts`、`packages/shared/src/index.ts`、`apps/desktop/src-tauri/src/provenance.rs`、`apps/desktop/src-tauri/src/runs.rs` 及各自定向测试。不得同时修改模型提示、HEOR 公式、研究 schema、现有研究结果或界面。
+- 验收标准：一条模型工具调用形成的直接产物和本地运行输出都能通过 `assistantMessageId` 唯一连接到对应 `ModelCallRecord.messageId`，并由 `toolCallId` 连接到具体工具动作；并发工具循环不串联；旧记录、非模型运行和远程 Skill 记录兼容；新增字段内容受限且不进入供应商请求；定向失败测试转绿后，完整前端、Rust、HEOR、类型、lint、构建与资源门禁全部通过。
+- 回滚方式：回退本 loop 的可选字段、传播路径与测试；既有 JSONL 和研究文件不迁移、不删除。回滚后的旧客户端会忽略已写入的新可选字段。
