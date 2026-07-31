@@ -33,6 +33,7 @@
 | P1-SCI-002 | P1 | 待单独处理 | 亚组分析尚缺完整的预设、来源绑定、逐亚组结果与复核合同 |
 | P1-SCI-003 | P1 | 已修复 | 两策略 PSA 旧汇总使用 `INMB >= 0`，将零值并列同时计入干预成本效果概率，与同一输出中单独报告并列的决策不确定性表冲突 |
 | P1-AI-001 | P1 | 待单独处理 | 模型调用的提示词版本、token/费用和产物关联追踪仍不完整 |
+| P1-LEGAL-001 | P1 | 已修复 | `brace-expansion` 锁文件升级后，打包的 npm 许可证清单仍绑定旧锁文件哈希和旧版本；现已从当前锁文件重生成并通过资源合同 |
 | P2-SEC-003 | P2 | 待评估 | Tauri 主应用全局 CSP 仍为空；本轮已在不可信 HTML 的两个实际渲染入口建立独立限制。全局 CSP 会影响 loopback、SSE 和资源加载，需另行做兼容性测试 |
 | P2-SEC-004 | P2 | 已评估；当前不可达 | ECharts 5.6.0 命中 `GHSA-fgmj-fm8m-jvvx`，但通告需要 `lines` 系列；当前 `pptx-preview` 只从导入文件构造 `line` / `bar` / `pie`，已用发布门禁防止未复审的可达性变化 |
 
@@ -46,6 +47,7 @@
 6. P1-SCI-001：首版确定性内核已完成；后续分别为 Skill、桌面审查、报告与复现包建立独立合同。P1-SCI-002 仍需先建立人工可核算基准，禁止与界面修复混做。
 7. P1-AI-001：在不记录密钥和敏感输入的前提下补齐模型调用审计合同。
 8. P2-SEC-003：评估主应用全局 CSP；仅在不破坏本地服务和模型流式连接时实施。
+9. P1-LEGAL-001：依赖锁文件变更后必须重生成许可证清单，其锁文件 SHA-256 不一致时由现有打包资源合同 fail-closed（已完成）。
 
 ## 验证矩阵
 
@@ -80,6 +82,8 @@
 | 决策树定向回归 | `python -B -m unittest python/heor_core/tests/test_decision_tree.py -v` | 10/10 通过；包括人工核算、拓扑、来源、fail-closed 字段、零增量效果和 CLI 哈希重放 |
 | HEOR 完整回归（决策树后） | `pnpm test:heor` | 188/188 通过 |
 | 决策树打包资源合同 | `test_every_python_module_is_bundled_once_at_the_expected_path` + `preflight_resources.mjs` | 通过；40 个来源、441 个文件 |
+| 许可证清单漂移复现 | `test_legal_boundary_and_inventories_are_packaged` | 失败：npm 清单哈希 `f3fe...` 与当前锁文件 `c44a...` 不一致 |
+| 许可证与资源回归 | `test_tauri_heor_resources.py -v` + `test_js_security_policy.py -v` + `preflight_resources.mjs` | 10/10、3/3 与 40 来源/441 文件通过 |
 
 ## Loop P0-SEC-001
 
@@ -239,3 +243,13 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 验证结果：定向 10/10、HEOR 188/188、前端 762/762、Rust 368 通过/1 项既有忽略，类型检查、ESLint、Rust 格式、生产构建、打包资源合同和 40 来源/441 文件资源预检通过。
 - 回滚方式：回退本 loop 提交即可；无数据迁移，无现有 schema 或公式修改。
 - 剩余风险：首版内核尚未进入桌面审查、证据账本、报告和复现包；不得在这些端到端合同完成前宣称用户已可从 UI 完成正式决策树研究。DSA/PSA 仍为明确未实现范围。
+
+## Loop P1-LEGAL-001
+
+- 当前行为与复现：运行完整 Tauri HEOR 资源合同时，许可证清单检查失败；`pnpm-lock.yaml` 当前 SHA-256 为 `c44ada400a37260ea0940a0df523f3bfe31e8c63ea70c0084369ca5f100a82af`，而已打包清单仍记录 `f3fe115adad991838f9e2d0c01000a2e4f41638c45d348695e1bc87968913e28`。
+- 目标行为：对外分发的许可证清单必须与当前锁文件字节绑定，并准确记录已锁定的 `brace-expansion` 1.1.16 和 2.1.2。
+- 根因：上一个依赖安全修复更新了锁文件，但遗漏运行仓库自带的许可证清单生成器。
+- 最小修改：使用 `scripts/dev/generate_license_inventory.py` 从当前本地锁定依赖重生成 npm 清单；Cargo 组件和哈希未变，仅同步生成日期。
+- 验收标准与结果：清单哈希等于当前锁文件，安全补丁版本准确，未解决许可证边界不变；资源合同 10/10、JavaScript 安全门禁 3/3 和资源预检通过。
+- 回滚方式：回退本 loop 的两个生成清单；无业务代码、依赖锁文件或研究数据变更。
+- 剩余风险：这是清单与锁文件的一致性证据，不替代对每个依赖条款的独立法务意见。

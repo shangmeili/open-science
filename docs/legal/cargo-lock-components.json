@@ -1,6 +1,6 @@
 {
   "schema": "ai4heor-cargo-license-inventory/v1",
-  "generated_on": "2026-07-21",
+  "generated_on": "2026-07-31",
   "scope": "Cargo.lock package universe; conservative superset of one target build",
   "lockfile_sha256": "59bba22c52a18d21d9a13a5744c0a4cc5cb7d85e9f8df0b0e1ed51c9f82e5166",
   "components": [
