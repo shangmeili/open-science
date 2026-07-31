@@ -26,11 +26,11 @@ export function startMockOpenCode(port = 0): Promise<MockOpenCode> {
   const streamTurn = (sessionID: string) => {
     const push = (obj: unknown) => clients.forEach((c) => send(c, obj));
     const P = (part: Record<string, unknown>) =>
-      push({ type: "message.part.updated", properties: { part: { sessionID, ...part } } });
+      push({ type: "message.part.updated", properties: { part: { sessionID, messageID: "a1", ...part } } });
     // Real OpenCode streams text as an empty part at text-start, per-token
     // message.part.delta events, then the full part again at text-end.
     const D = (partID: string, delta: string) =>
-      push({ type: "message.part.delta", properties: { sessionID, messageID: "m1", partID, field: "text", delta } });
+      push({ type: "message.part.delta", properties: { sessionID, messageID: "a1", partID, field: "text", delta } });
     push({
       type: "message.updated",
       properties: { info: { id: "u1", role: "user", sessionID } },
@@ -245,6 +245,7 @@ export function startMockOpenCode(port = 0): Promise<MockOpenCode> {
         properties: {
           part: {
             sessionID,
+            messageID: "ash1",
             id: "psh",
             type: "tool",
             callID: "csh",

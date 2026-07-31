@@ -1,11 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunRecord } from "@ai4s/shared";
 import type { ToolUpdatedEvent } from "@ai4s/sdk";
-import { looksLikeExecution, reproduceRunPrompt, runInputFromEvent, surfaceForCommand } from "./runs";
+import { looksLikeExecution, recordRun, reproduceRunPrompt, runInputFromEvent, surfaceForCommand } from "./runs";
+
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), logDebug: vi.fn() }));
+vi.mock("./tauri", () => ({ isTauri: true, logDebug: mocks.logDebug }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
+
+beforeEach(() => {
+  mocks.invoke.mockReset();
+  mocks.logDebug.mockReset();
+});
 
 const bash = (over: Partial<ToolUpdatedEvent> = {}): ToolUpdatedEvent => ({
   type: "tool.updated",
   sessionId: "ses_1",
+  messageId: "msg_assistant_1",
   callId: "call_1",
   tool: "bash",
   status: "success",
@@ -111,6 +121,27 @@ describe("runInputFromEvent", () => {
       endedAt: 9_000,
       status: "ok",
       surface: "local",
+      assistantMessageId: "msg_assistant_1",
+      toolCallId: "call_1",
+    });
+  });
+
+  it("passes exact assistant-message and tool-call ids to the native run store", async () => {
+    mocks.invoke.mockResolvedValue({ runId: "run_1" });
+    const input = runInputFromEvent(bash())!;
+    await recordRun(input, "ses_1", "mock/model");
+
+    expect(mocks.invoke).toHaveBeenCalledWith("record_run", {
+      command: "python train.py --lr 3e-4",
+      log: "epoch 1 done\naccuracy 0.93\n",
+      startedAt: 1_000,
+      endedAt: 9_000,
+      status: "ok",
+      surface: "local",
+      sessionId: "ses_1",
+      model: "mock/model",
+      assistantMessageId: "msg_assistant_1",
+      toolCallId: "call_1",
     });
   });
 

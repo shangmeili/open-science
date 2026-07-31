@@ -10,6 +10,10 @@ import { deriveArtifact, parsePatchFiles } from "./artifacts";
 export interface ProvenanceInput {
   path: string;
   tool: string;
+  /** Exact runtime origin; optional because app-owned and legacy records do
+   *  not necessarily originate from an assistant tool part. */
+  assistantMessageId?: string;
+  toolCallId?: string;
   /** Text the tool wrote, when it carried it (write). */
   content?: string;
   /** Unified diff of an edit, when the full content wasn't in the event — the
@@ -39,7 +43,15 @@ export function provenanceInputFromEvent(event: ToolUpdatedEvent): ProvenanceInp
   // When the tool didn't carry full content (an edit), keep its diff so the
   // History still shows what changed, rather than "content not captured".
   const diff = artifact.content ? undefined : event.diff;
-  return { path: artifact.path, tool: event.tool, content: artifact.content, diff, log };
+  return {
+    path: artifact.path,
+    tool: event.tool,
+    content: artifact.content,
+    diff,
+    log,
+    assistantMessageId: event.messageId,
+    toolCallId: event.callId,
+  };
 }
 
 /** Return every file version produced by a completed tool call. */
@@ -57,6 +69,8 @@ export function provenanceInputsFromEvent(event: ToolUpdatedEvent): ProvenanceIn
         return {
           path: file.path,
           tool: event.tool,
+          assistantMessageId: event.messageId,
+          toolCallId: event.callId,
           content: isAdd
             ? file.body
                 .split("\n")
@@ -89,6 +103,8 @@ export async function recordProvenance(
       log: input.log,
       sessionId: sessionId ?? null,
       model: model ?? null,
+      assistantMessageId: input.assistantMessageId ?? null,
+      toolCallId: input.toolCallId ?? null,
     });
     void logDebug(`provenance ✓ ${input.path}`);
   } catch (e) {

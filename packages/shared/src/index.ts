@@ -341,6 +341,10 @@ export interface ProvenanceRecord {
   /** Tool that produced this version, e.g. "write". */
   tool: string;
   sessionId?: string;
+  /** Exact assistant message whose tool call produced this version. */
+  assistantMessageId?: string;
+  /** Exact tool call that produced this version. */
+  toolCallId?: string;
   /** Model configured when the version was recorded. */
   model?: string;
   /** Text the tool wrote (capped); absent for binary or indirect writes. */
@@ -397,6 +401,10 @@ export interface RunRecord {
   /** Seconds since the epoch (run start). */
   ts: number;
   sessionId?: string;
+  /** Exact assistant message whose tool call started this run. */
+  assistantMessageId?: string;
+  /** Exact tool call that started this run. */
+  toolCallId?: string;
   /** Model configured when the run was recorded. */
   model?: string;
   /** The exact command that ran, e.g. "python train.py --lr 3e-4". */

@@ -656,6 +656,8 @@ pub fn run_heor_teaching_example(
                 Some("local".into()),
                 None,
                 None,
+                None,
+                None,
             )?;
             Ok(TeachingExampleRunResult {
                 schema: "ai4heor-teaching-cea-desktop-run/v1",
@@ -705,6 +707,8 @@ pub fn run_heor_teaching_example(
                 Some(ended_at),
                 "failed".into(),
                 Some("local".into()),
+                None,
+                None,
                 None,
                 None,
             );

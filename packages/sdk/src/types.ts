@@ -32,6 +32,9 @@ export interface StepUpdatedEvent {
 export interface ToolUpdatedEvent {
   type: "tool.updated";
   sessionId: string;
+  /** Assistant message that owns this tool part. Absent only when the runtime
+   *  did not provide one; never inferred from timing or event order. */
+  messageId?: string;
   callId: string;
   tool: string;
   status: ToolCallStatus;

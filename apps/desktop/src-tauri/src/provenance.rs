@@ -14,6 +14,7 @@ const STORE_DIR: &str = ".openscience";
 const STORE_FILE: &str = "provenance.jsonl";
 /// Per-record content cap: keeps the store bounded; larger writes are truncated.
 const CONTENT_CAP: usize = 100_000;
+const ORIGIN_ID_MAX: usize = 256;
 
 /// Serializes appends so two tool events can't interleave lines or race versions.
 #[derive(Default)]
@@ -32,6 +33,12 @@ pub struct ProvenanceRecord {
     pub tool: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
+    /// Exact assistant message and tool call that produced this version.
+    /// Optional for app-owned, legacy, and non-model records.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assistant_message_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
     /// Text the tool wrote (capped); absent for binary or indirect writes.
@@ -427,6 +434,17 @@ fn cap_content(mut c: String) -> String {
     c
 }
 
+pub(crate) fn validate_origin_id(label: &str, value: &Option<String>) -> Result<(), String> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    if value.trim().is_empty() || value.len() > ORIGIN_ID_MAX || value.chars().any(char::is_control)
+    {
+        return Err(format!("invalid provenance {label}"));
+    }
+    Ok(())
+}
+
 /// Append one version record for `path`, assigning the next version number.
 #[allow(clippy::too_many_arguments)]
 pub fn append_record(
@@ -440,7 +458,11 @@ pub fn append_record(
     log: Option<String>,
     env: Option<EnvInfo>,
     run_id: Option<String>,
+    assistant_message_id: Option<String>,
+    tool_call_id: Option<String>,
 ) -> Result<ProvenanceRecord, String> {
+    validate_origin_id("assistantMessageId", &assistant_message_id)?;
+    validate_origin_id("toolCallId", &tool_call_id)?;
     let rel = normalize_rel(root, path)?;
     let file = store_file(root);
     if let Some(dir) = file.parent() {
@@ -462,6 +484,8 @@ pub fn append_record(
             .as_secs(),
         tool: tool.to_string(),
         session_id,
+        assistant_message_id,
+        tool_call_id,
         model,
         content: content.map(cap_content),
         diff: diff.map(cap_content),
@@ -494,7 +518,11 @@ pub fn link_run_outputs(
     log: Option<String>,
     env: Option<EnvInfo>,
     run_id: String,
+    assistant_message_id: Option<String>,
+    tool_call_id: Option<String>,
 ) -> Result<(), String> {
+    validate_origin_id("assistantMessageId", &assistant_message_id)?;
+    validate_origin_id("toolCallId", &tool_call_id)?;
     if paths.is_empty() {
         return Ok(());
     }
@@ -523,6 +551,8 @@ pub fn link_run_outputs(
             ts,
             tool: "run".to_string(),
             session_id: session_id.clone(),
+            assistant_message_id: assistant_message_id.clone(),
+            tool_call_id: tool_call_id.clone(),
             model: model.clone(),
             content: None,
             diff: None,
@@ -570,6 +600,8 @@ pub fn record_provenance(
     content: Option<String>,
     diff: Option<String>,
     log: Option<String>,
+    assistant_message_id: Option<String>,
+    tool_call_id: Option<String>,
 ) -> Result<ProvenanceRecord, String> {
     let _guard = state.0.lock().map_err(|_| "provenance lock poisoned")?;
     let root = workspace_dir(&app)?;
@@ -587,6 +619,8 @@ pub fn record_provenance(
         log,
         Some(env),
         None,
+        assistant_message_id,
+        tool_call_id,
     )?;
     drop(_guard);
     crate::git_snapshot::commit_best_effort(&root, &format!("Record {}", record.path));
@@ -638,6 +672,8 @@ mod tests {
             None,
             None,
             None,
+            Some("msg_assistant_1".into()),
+            Some("call_write_1".into()),
         )
         .unwrap();
         // A file produced by a run carries its run_id (link to the recipe).
@@ -652,6 +688,8 @@ mod tests {
             None,
             None,
             Some("run_abc".into()),
+            None,
+            None,
         )
         .unwrap();
         // An edit records its diff for lineage (no full content).
@@ -663,6 +701,8 @@ mod tests {
             None,
             None,
             Some("@@ -1 +1 @@\n-print(1)\n+print(2)".into()),
+            None,
+            None,
             None,
             None,
             None,
@@ -691,6 +731,8 @@ mod tests {
                 hardware: None,
             }),
             None,
+            None,
+            None,
         )
         .unwrap();
         assert_eq!((r1.version, r2.version, other.version), (1, 2, 1));
@@ -699,6 +741,11 @@ mod tests {
         assert_eq!(v.len(), 3);
         assert_eq!(v[0].content.as_deref(), Some("print(1)"));
         assert_eq!(v[0].run_id, None); // an authored write has no run
+        assert_eq!(
+            v[0].assistant_message_id.as_deref(),
+            Some("msg_assistant_1")
+        );
+        assert_eq!(v[0].tool_call_id.as_deref(), Some("call_write_1"));
         assert_eq!(
             v[2].diff.as_deref(),
             Some("@@ -1 +1 @@\n-print(1)\n+print(2)")
@@ -717,6 +764,44 @@ mod tests {
         let pkgs = env.packages.as_ref().expect("packages recorded");
         assert_eq!((pkgs.count, pkgs.hash.as_str()), (2, "abc123"));
 
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn origin_ids_are_bounded_and_reject_control_characters() {
+        let root = temp_root("origin-ids");
+        let bad = append_record(
+            &root,
+            "report.md",
+            "write",
+            Some("ses_1".into()),
+            None,
+            Some("report".into()),
+            None,
+            None,
+            None,
+            None,
+            Some("msg_bad\nid".into()),
+            Some("call_1".into()),
+        );
+        assert!(bad.is_err());
+
+        let too_long = append_record(
+            &root,
+            "report.md",
+            "write",
+            Some("ses_1".into()),
+            None,
+            Some("report".into()),
+            None,
+            None,
+            None,
+            None,
+            Some("m".repeat(257)),
+            Some("call_1".into()),
+        );
+        assert!(too_long.is_err());
+        assert!(versions_for(&root, "report.md").unwrap().is_empty());
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -761,6 +846,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            None,
         )
         .unwrap();
         let v = versions_for(&root, "a/b.txt").unwrap();
@@ -778,7 +865,7 @@ mod tests {
     fn corrupt_lines_are_skipped_and_content_is_capped() {
         let root = temp_root("corrupt");
         append_record(
-            &root, "x.py", "write", None, None, None, None, None, None, None,
+            &root, "x.py", "write", None, None, None, None, None, None, None, None, None,
         )
         .unwrap();
         // A corrupt line must not lose the rest of the history.
@@ -790,7 +877,7 @@ mod tests {
             .unwrap();
         writeln!(f, "not json").unwrap();
         append_record(
-            &root, "x.py", "write", None, None, None, None, None, None, None,
+            &root, "x.py", "write", None, None, None, None, None, None, None, None, None,
         )
         .unwrap();
         let v = versions_for(&root, "x.py").unwrap();

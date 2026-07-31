@@ -97,6 +97,7 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
         e.type === "tool.updated" && e.status === "success",
     );
     expect(toolDone?.title).toContain("literature-search");
+    expect(toolDone?.messageId).toBe("a1");
 
     client.close();
     expect(client.getStatus()).toBe("offline");
@@ -122,6 +123,7 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
     );
     expect(bash?.status).toBe("success");
     expect(bash?.output).toContain("/ws/mock");
+    expect(bash?.messageId).toBe("ash1");
     client.close();
   });
 

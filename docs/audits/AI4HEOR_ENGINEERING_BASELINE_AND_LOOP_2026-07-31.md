@@ -3,7 +3,7 @@
 ## 基线
 
 - 分支：`codex/heor-workbench`
-- P1-AI-001b2 开始前的已提交基线：`38babd9`；更早已完成业务修复均保留为独立提交，本轮不重复修改。
+- P1-AI-001b2 开始前的已提交基线：`38babd9`；P1-AI-001b3 实施前的已提交基线：`bc71b1b`。更早已完成业务修复均保留为独立提交，本轮不重复修改。
 - 基线原则：在现有 Open Science/Tauri 技术栈上增量推进；AI 负责辅助推理，正式研究计算由可验证的确定性模块完成；科学、隐私、兼容性和公开接口决策保留 Human-in-the-loop。
 - 已完成 loop 范围：不可信 HTML 预览边界、同主版本 JavaScript CPU 拒绝服务补丁、安装后 OpenCode 的鉴权 HTTP 就绪证据、安装后前端 bootstrap 证据合同、经研究者确认的两策略 PSA 零 INMB 并列口径、PPTX 预览中 ECharts `lines` 系列通告的不可达性门禁、经研究者确认后实现的首版短期确定性决策树内核、不含对话正文的模型调用用量/费用元数据账本，以及应用固定 HEOR 前导提示的精确指纹和回复语言记录。实际工作区 Harness 指纹、模型调用与研究产物关联、决策树 DSA/PSA、桌面审查、报告和 UI 集成未在本轮扩展。
 
@@ -14,7 +14,7 @@
 | 桌面与前端 | Tauri 2 + React/TypeScript/Vite | 保持原架构；HTML 预览安全边界已修复 |
 | AI 调用与任务执行 | OpenCode 本地 sidecar，HTTP/SSE，模型提供商可配置 | 使用固定上游源码、补丁与 Bun 构建 `1.17.13-ai4heor.1`；主模型请求在插件完成 system 转换后、供应商调用前，将精确有序系统块的内容无关 SHA-256 与块数绑定到对应助手消息；完成调用的提供商、模型、时间、token、缓存 token、结束原因和运行时报告费用已归一化；新的 HEOR 调用记录固定前导提示的精确 SHA-256 与回复语言；sidecar 每次启动都校验并额外加载应用自有产品 Harness，项目原有指令文件不被覆盖 |
 | HEOR 确定性计算 | Python 版本化计算模块 + Rust 授权、审计和哈希绑定 | 新增独立决策树 schema 0.1.0 与 CLI 重放；既有 Markov/PSM 公式、参数和随机数列不变 |
-| 数据与溯源 | 本地 JSON/JSONL/SQLite、证据与参数来源、运行记录和报告导出 | 新增工作区内 `.openscience/model-calls.jsonl` 内容无关、追加式、哈希链调用账本；实时事件和历史补记共享幂等合同 |
+| 数据与溯源 | 本地 JSON/JSONL/SQLite、证据与参数来源、运行记录和报告导出 | 工作区内 `.openscience/model-calls.jsonl` 保存内容无关、追加式、哈希链调用账本；新的模型工具产物和本地运行记录以可选 `assistantMessageId` 精确连接对应调用，并以 `toolCallId` 区分具体工具动作；旧记录和非模型运行不伪造关联 |
 | Human-in-the-loop | 关键科学定义、证据采用、结构与发布决策由研究者确认 | PSA 并列口径在研究者同意后才实施 |
 | 文件预览 | React inspector + Tauri loopback preview server | HTML 改为被动展示；源码查看和外部打开保留 |
 
@@ -37,7 +37,7 @@
 | P1-AI-001a | P1 | 本轮已修复 | OpenCode 已返回提供商、模型、时间、token、缓存 token、结束原因和运行时报告费用，但 AI4HEOR 原先丢弃；现已建立内容无关、幂等、哈希链本地账本 |
 | P1-AI-001b1 | P1 | 本轮已修复 | 新的 HEOR 调用现在记录应用固定前导提示的精确 SHA-256、模板 ID 和回复语言；研究者文本及其哈希都不进入账本 |
 | P1-AI-001b2 | P1 | 已修复并通过 macOS x64 安装包验证 | 研究者已同意方案 A 和本地派生数据边界；固定 OpenCode 1.17.13 源码的最小补丁在供应商请求前把插件处理后的最终系统块指纹写入准确助手消息；当前 DMG 已完成实际 provider 请求、持久化助手消息和重算指纹的三方一致性校验 |
-| P1-AI-001b3 | P1 | 待单独处理 | 模型调用与其后形成的具体研究产物之间尚无明确、可验证的关联合同 |
+| P1-AI-001b3 | P1 | 已修复 | OpenCode 工具事件现在保留准确助手消息与工具调用 ID；直接产物、本地运行及其输出原样持久化可选关联键，不按时间猜测或回填历史 |
 | P1-AI-001c | P1 | 待单独处理 | 账本尚无面向研究者的可见审计界面；不得以内部 JSONL 代替产品层可解释性 |
 | P1-LEGAL-001 | P1 | 已修复 | `brace-expansion` 锁文件升级后，打包的 npm 许可证清单仍绑定旧锁文件哈希和旧版本；现已从当前锁文件重生成并通过资源合同 |
 | P2-SEC-003 | P2 | 待评估 | Tauri 主应用全局 CSP 仍为空；本轮已在不可信 HTML 的两个实际渲染入口建立独立限制。全局 CSP 会影响 loopback、SSE 和资源加载，需另行做兼容性测试 |
@@ -53,7 +53,7 @@
 6. P1-SCI-003：统一两策略 PSA 的零 INMB 并列口径（已完成）。
 7. P1-SCI-001：首版确定性内核已完成；后续分别为 Skill、桌面审查、报告与复现包建立独立合同。P1-SCI-002 仍需先建立人工可核算基准，禁止与界面修复混做。
 8. P0-AI-002：产品 Harness 已改为每次运行必定校验和叠加加载，用户/项目指令保留但不得替代产品治理边界（已完成）。
-9. P1-AI-001a、P1-AI-001b1 和 P1-AI-001b2：内容无关模型调用账本、固定 HEOR 前导提示指纹和当次实际最终系统块指纹已完成，并在当前 macOS x64 DMG 通过打包夹具；P1-AI-001b3 继续补齐研究产物关联，P1-AI-001c 单独建立研究者可见审计界面。
+9. P1-AI-001a、P1-AI-001b1、P1-AI-001b2 和 P1-AI-001b3：内容无关模型调用账本、固定 HEOR 前导提示指纹、当次实际最终系统块指纹及模型调用到具体工具产物/运行的准确关联已完成；P1-AI-001c 单独建立研究者可见审计界面，不以内部标识符替代可解释产品界面。
 10. P2-SEC-003：评估主应用全局 CSP；仅在不破坏本地服务和模型流式连接时实施。
 11. P1-LEGAL-001：依赖锁文件变更后必须重生成许可证清单，其锁文件 SHA-256 不一致时由现有打包资源合同 fail-closed（已完成）。
 
@@ -115,6 +115,9 @@
 | 系统上下文全量回归 | 前端、Rust、HEOR、开发合同、发布合同、类型、ESLint、Rust 格式、生产构建、资源预检 | 前端 113 个文件、768/768；Rust 376 通过/1 项既有忽略；HEOR 188/188；本轮相关开发合同 234 项、发布合同 33 项通过；其余全部通过；41 个来源/445 个文件 |
 | 系统上下文安装包执行门禁 | `verify_packaged_opencode_fixture.py` + macOS 构建工作流 | 单元合同 2/2 与 CI 接线合同通过；当前 1.0.0 x64 DMG 实际执行通过：2 次本地 provider 请求、主请求流式响应、回复标记命中，实际 system 块与对应助手消息的 `ai4heor.system-context/v1` 指纹一致 |
 | 当前 macOS x64 DMG | `tauri build --target x86_64-apple-darwin --bundles dmg` + `verify_macos_package.py --verify-first-launch` | 由干净提交 `feffae7` 构建；96,464,683 字节，SHA-256 `eb8f43c403335457c153c4ebb7e07d847669bc2810886df848e9ce34da22bfba`；445 个资源逐字节一致，包内 HEOR 188/188，OpenCode `1.17.13-ai4heor.1`，隔离首启、HTTP 401、AppShell/JavaScript/Tauri IPC 和工作区隔离通过；发布证据已在同一干净提交上生成并校验；无可用 Developer ID 签名，仅供内部测试 |
+| 产物关联修复前复现 | SDK、provenance、run 定向测试及 Rust 定向编译 | 前端 7 项失败；Rust 10 处编译失败，准确证明工具事件、桥接和持久记录均缺少关联字段 |
+| 产物关联定向回归 | `vitest run opencode-client.node.test.ts provenance.test.ts runs.test.ts` + `cargo test ... provenance::tests` + `cargo test ... runs::tests` | 前端 43/43、Rust 6/6 与 9/9 通过；覆盖直接写入、`apply_patch`、本地运行、运行输出、Tauri 参数、旧/远程记录兼容及异常标识拒绝 |
+| 产物关联全量回归 | 前端、Rust、HEOR、开发合同、发布合同、类型、ESLint、Rust 格式、生产构建、资源预检 | 前端 113 个文件、770/770；Rust 377 通过/1 项既有忽略；HEOR 188/188；开发合同 380/380；发布合同 46/46；其余全部通过；41 个来源/445 个文件 |
 
 ## Loop P0-SEC-001
 
@@ -350,7 +353,7 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 回滚方式：回退本 loop 独立提交；不改写或删除已形成的本地账本和研究产物。回滚后新字段会被旧客户端忽略，旧消息与旧账本仍可读取。
 - 剩余风险：macOS x64 安装包证据已完成，但 Windows、Apple Silicon 和 Linux 二进制仍需各自原生 CI 重建与执行；当前 DMG 未经 Developer ID 签名和公证，只能作内部测试包。指纹证明当次系统块字节一致，不证明指令本身科学正确，也不建立模型调用到研究产物的因果来源；后两项分别保留在 P1-AI-001b3 与 P1-AI-001c。
 
-## Loop P1-AI-001b3 调查与待确认边界
+## Loop P1-AI-001b3 调查、研究者确认与实现
 
 ### 当前行为、复现证据与根因
 
@@ -373,3 +376,13 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 预计最小修改文件：`packages/sdk/src/types.ts`、`packages/sdk/src/OpenCodeClient.ts`、`packages/sdk/src/mockServer.ts`、`apps/desktop/src/test/opencode-client.node.test.ts`、`apps/desktop/src/lib/runtime.ts`、`apps/desktop/src/lib/provenance.ts`、`apps/desktop/src/lib/runs.ts`、`packages/shared/src/index.ts`、`apps/desktop/src-tauri/src/provenance.rs`、`apps/desktop/src-tauri/src/runs.rs` 及各自定向测试。不得同时修改模型提示、HEOR 公式、研究 schema、现有研究结果或界面。
 - 验收标准：一条模型工具调用形成的直接产物和本地运行输出都能通过 `assistantMessageId` 唯一连接到对应 `ModelCallRecord.messageId`，并由 `toolCallId` 连接到具体工具动作；并发工具循环不串联；旧记录、非模型运行和远程 Skill 记录兼容；新增字段内容受限且不进入供应商请求；定向失败测试转绿后，完整前端、Rust、HEOR、类型、lint、构建与资源门禁全部通过。
 - 回滚方式：回退本 loop 的可选字段、传播路径与测试；既有 JSONL 和研究文件不迁移、不删除。回滚后的旧客户端会忽略已写入的新可选字段。
+
+### 研究者确认、最小修复与验证结果
+
+- 研究者决策：已明确同意方案 A，即在既有事件与记录合同中加入可选关联字段；不另建第三个关联账本，不按时间、顺序或最近消息推断来源。
+- 失败测试：实现前先扩充 SDK 模拟服务、事件归一化、直接 provenance、`apply_patch`、run、run 输出及 Tauri 桥接断言；前端 7 项失败，Rust 因字段和函数参数尚不存在出现 10 处预期编译失败。最小实现后，完整 Rust 编译又发现教学案例两个应用自有运行调用仍使用旧签名；它们被明确补为无模型关联，而非伪造助手消息。
+- 最小修改：OpenCode SDK 原样转发工具 part 的 `messageID`；前端将它与既有 `callID` 传播到 provenance/run 输入；共享 TypeScript 类型和 Rust JSONL 记录增加 `assistantMessageId`、`toolCallId` 可选字段；直接文件工具、`apply_patch`、本地运行及成功运行的输出记录保留同一组键。Rust 拒绝空白、控制字符或超过 256 字节的来源标识。应用自有确定性教学运行、用户/远程运行和历史记录保持字段缺席。
+- 隐私与兼容性：新增内容只有本地有界标识符，不包含提示词、回答、研究正文、URL、API key 或供应商请求，也不发送给模型供应商。JSON 字段可选且缺省不序列化；旧 JSONL、远程 Skill 记录和旧应用保持兼容，不迁移、不猜测、不回填历史。
+- 验收结果：定向前端 43/43、Rust provenance 6/6、Rust runs 9/9；完整前端 770/770、Rust 377 通过/1 项既有公网测试忽略、HEOR 188/188、开发合同 380/380、发布合同 46/46；类型检查、ESLint、Rust 格式、生产构建和 41 来源/445 文件资源预检全部通过。既有 React `act(...)`、Router、Vite 大包和 Node `url.parse` 告警未隐藏，也非本轮引入。
+- 回滚方式：回退本 loop 独立提交；不删除或改写用户已有 JSONL 和研究文件。旧代码会忽略已写入的新可选字段。
+- 剩余风险：内部记录已经具备准确连接键，但当前 `ProvenancePanel`、`RunsPage` 和对话线程仍没有面向研究者的消息锚点、来源详情与可解释导航；该产品层工作继续保留为 P1-AI-001c。provenance/run 与 model-call 账本是不同的本地追加存储，关联键解决准确连接，不提供跨文件事务或外部可信签名，因此不得宣传为不可否认审计。

@@ -1,10 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ToolUpdatedEvent } from "@ai4s/sdk";
-import { provenanceInputFromEvent, provenanceInputsFromEvent } from "./provenance";
+import { provenanceInputFromEvent, provenanceInputsFromEvent, recordProvenance } from "./provenance";
+
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), logDebug: vi.fn() }));
+vi.mock("./tauri", () => ({ isTauri: true, logDebug: mocks.logDebug }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
+
+beforeEach(() => {
+  mocks.invoke.mockReset();
+  mocks.logDebug.mockReset();
+});
 
 const write = (over: Partial<ToolUpdatedEvent> = {}): ToolUpdatedEvent => ({
   type: "tool.updated",
   sessionId: "ses_1",
+  messageId: "msg_assistant_1",
   callId: "call_1",
   tool: "write",
   status: "success",
@@ -20,6 +30,8 @@ describe("provenanceInputFromEvent", () => {
       tool: "write",
       content: "print(1)",
       log: "Rewrote the plotting helper",
+      assistantMessageId: "msg_assistant_1",
+      toolCallId: "call_1",
     });
   });
 
@@ -72,6 +84,8 @@ describe("provenanceInputFromEvent", () => {
     ]);
     expect(records[0].content).toBe("Result");
     expect(records[1].diff).toContain("+print(2)");
+    expect(records.every((record) => record.assistantMessageId === "msg_assistant_1")).toBe(true);
+    expect(records.every((record) => record.toolCallId === "call_1")).toBe(true);
   });
 
   it("wraps one ordinary write and excludes non-writing events", () => {
@@ -88,5 +102,23 @@ describe("provenanceInputFromEvent", () => {
     expect(provenanceInputFromEvent(jupyter("jupyter_execute_cell"))?.path).toBe("analysis.ipynb");
     expect(provenanceInputFromEvent(jupyter("jupyter_read_cells"))).toBeNull();
     expect(provenanceInputFromEvent(jupyter("jupyter_list_files"))).toBeNull();
+  });
+
+  it("passes exact assistant-message and tool-call ids to the native provenance store", async () => {
+    mocks.invoke.mockResolvedValue({ version: 1 });
+    const input = provenanceInputFromEvent(write())!;
+    await recordProvenance(input, "ses_1", "mock/model");
+
+    expect(mocks.invoke).toHaveBeenCalledWith("record_provenance", {
+      path: "fig/plot.py",
+      tool: "write",
+      content: "print(1)",
+      diff: null,
+      log: "write → fig/plot.py",
+      sessionId: "ses_1",
+      model: "mock/model",
+      assistantMessageId: "msg_assistant_1",
+      toolCallId: "call_1",
+    });
   });
 });

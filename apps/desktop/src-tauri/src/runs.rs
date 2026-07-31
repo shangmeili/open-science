@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::AppHandle;
 
-use crate::provenance::{capture_env, content_hash, EnvInfo, ProvenanceState};
+use crate::provenance::{capture_env, content_hash, validate_origin_id, EnvInfo, ProvenanceState};
 use crate::runtime::workspace_dir;
 
 const STORE_DIR: &str = ".openscience";
@@ -46,6 +46,12 @@ pub struct RunRecord {
     pub ts: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
+    /// Exact assistant message and tool call that started this run. Optional
+    /// for app-owned, legacy, and remote-skill records.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assistant_message_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
     pub command: String,
@@ -344,7 +350,11 @@ pub fn record_run_inner(
     session_id: Option<String>,
     model: Option<String>,
     env: Option<EnvInfo>,
+    assistant_message_id: Option<String>,
+    tool_call_id: Option<String>,
 ) -> Result<RunRecord, String> {
+    validate_origin_id("assistantMessageId", &assistant_message_id)?;
+    validate_origin_id("toolCallId", &tool_call_id)?;
     let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -379,6 +389,8 @@ pub fn record_run_inner(
         run_id: run_id.clone(),
         ts,
         session_id: session_id.clone(),
+        assistant_message_id: assistant_message_id.clone(),
+        tool_call_id: tool_call_id.clone(),
         model: model.clone(),
         command: command.to_string(),
         surface,
@@ -408,6 +420,8 @@ pub fn record_run_inner(
             Some(command.to_string()),
             env.clone(),
             run_id.clone(),
+            assistant_message_id.clone(),
+            tool_call_id.clone(),
         );
     }
     Ok(record)
@@ -491,6 +505,8 @@ fn record_app_owned_run(
         None,
         None,
         Some(env),
+        None,
+        None,
     )?;
     drop(_prov_guard);
     drop(_guard);
@@ -514,6 +530,8 @@ pub fn record_run(
     surface: Option<String>,
     session_id: Option<String>,
     model: Option<String>,
+    assistant_message_id: Option<String>,
+    tool_call_id: Option<String>,
 ) -> Result<RunRecord, String> {
     let root = workspace_dir(&app)?;
     // Capture the environment BEFORE taking any lock: the first call shells out
@@ -545,6 +563,8 @@ pub fn record_run(
         session_id,
         model,
         Some(env),
+        assistant_message_id,
+        tool_call_id,
     )?;
     drop(_prov_guard);
     drop(_guard);
@@ -697,12 +717,16 @@ mod tests {
             Some("ses_1".into()),
             Some("kimi".into()),
             None,
+            Some("msg_assistant_1".into()),
+            Some("call_bash_1".into()),
         )
         .unwrap();
 
         assert!(rec.run_id.starts_with("run_"));
         assert_eq!(rec.status, "ok");
         assert_eq!(rec.surface.as_deref(), Some("local"));
+        assert_eq!(rec.assistant_message_id.as_deref(), Some("msg_assistant_1"));
+        assert_eq!(rec.tool_call_id.as_deref(), Some("call_bash_1"));
         assert_eq!(rec.wall_ms, Some(10_000));
         assert_eq!(
             rec.code.iter().map(|c| c.path.as_str()).collect::<Vec<_>>(),
@@ -724,6 +748,11 @@ mod tests {
         assert_eq!(prov.len(), 1);
         assert_eq!(prov[0].tool, "run");
         assert_eq!(prov[0].run_id.as_deref(), Some(rec.run_id.as_str()));
+        assert_eq!(
+            prov[0].assistant_message_id.as_deref(),
+            Some("msg_assistant_1")
+        );
+        assert_eq!(prov[0].tool_call_id.as_deref(), Some("call_bash_1"));
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -761,6 +790,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            None,
         )
         .unwrap();
 
@@ -785,6 +816,8 @@ mod tests {
             Some(101_000),
             "ok",
             Some("local".into()),
+            None,
+            None,
             None,
             None,
             None,

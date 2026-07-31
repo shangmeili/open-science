@@ -26,6 +26,9 @@ export interface RunInput {
   status: "ok" | "failed";
   /** The compute surface the command targeted. */
   surface: RunSurface;
+  /** Exact runtime origin; optional for app-owned deterministic calculations. */
+  assistantMessageId?: string;
+  toolCallId?: string;
 }
 
 /** Local interpreter/build commands, anchored at a segment head. A conservative
@@ -125,6 +128,8 @@ export function runInputFromEvent(event: ToolUpdatedEvent): RunInput | null {
     endedAt: event.endedAt,
     status: event.status === "success" ? "ok" : "failed",
     surface: "local",
+    assistantMessageId: event.messageId,
+    toolCallId: event.callId,
   };
 }
 
@@ -218,6 +223,8 @@ export async function recordRun(
       surface: input.surface,
       sessionId: sessionId ?? null,
       model: model ?? null,
+      assistantMessageId: input.assistantMessageId ?? null,
+      toolCallId: input.toolCallId ?? null,
     });
     void logDebug(`run ✓ ${input.command.slice(0, 60)}`);
   } catch (e) {

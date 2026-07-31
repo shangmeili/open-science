@@ -1070,6 +1070,7 @@ export class OpenCodeClient implements AgentRuntime {
           this.emit({
             type: "tool.updated",
             sessionId,
+            messageId: part.messageID ? String(part.messageID) : undefined,
             callId: tp.callID,
             tool: tp.tool,
             status: mapToolStatus(tp.state?.status ?? "pending"),
