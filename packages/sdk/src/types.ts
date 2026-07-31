@@ -64,6 +64,29 @@ export interface UserMessageAcceptedEvent {
   sessionId: string;
   messageID: string;
 }
+export interface ModelUsageTokens {
+  input: number;
+  output: number;
+  reasoning: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+/** Completed assistant-call metadata reported by the runtime. Prompt and
+ * response content are deliberately excluded from this event. */
+export interface MessageUsageEvent {
+  type: "message.usage";
+  sessionId: string;
+  messageId: string;
+  parentMessageId: string;
+  providerId: string;
+  modelId: string;
+  agent: string;
+  createdAt: number;
+  completedAt: number;
+  runtimeReportedCost: number;
+  tokens: ModelUsageTokens;
+  finish?: string;
+}
 export interface SessionProgressEvent {
   type: "session.status";
   sessionId: string;
@@ -137,6 +160,7 @@ export type OpenCodeEvent =
   | ToolUpdatedEvent
   | SessionIdleEvent
   | UserMessageAcceptedEvent
+  | MessageUsageEvent
   | SessionProgressEvent
   | RuntimeErrorEvent
   | QuestionAskedEvent
@@ -200,6 +224,9 @@ export interface HistoryMessage {
   completed?: number;
   /** Final assistant failure persisted by OpenCode, when available. */
   error?: string;
+  /** Present only for a completed assistant message with valid runtime-reported
+   * model, usage, timing, and cost metadata. Never contains message content. */
+  usage?: Omit<MessageUsageEvent, "type">;
   parts: HistoryPart[];
 }
 export interface HistoryPart {

@@ -53,6 +53,7 @@ mod large_file;
 #[cfg(target_os = "macos")]
 mod macos;
 mod modal;
+mod model_calls;
 mod opencode_config;
 mod preference_review;
 mod preview_server;
@@ -116,6 +117,7 @@ pub fn run() {
         .manage(heor_rwe_causal_analysis::RweCausalAnalysisReviewState::default())
         .manage(heor_evidence_review::HeorEvidenceReviewState::default())
         .manage(runs::RunState::default())
+        .manage(model_calls::ModelCallState::default())
         .manage(gateway::GatewayState::default())
         .setup(|app| {
             if let Ok(workspace) = runtime::workspace_dir(app.handle()) {
@@ -275,6 +277,9 @@ pub fn run() {
             runs::record_run,
             runs::list_runs,
             runs::read_run_log,
+            model_calls::record_model_call,
+            model_calls::record_model_calls,
+            model_calls::list_model_calls,
             runs_index::query_runs_cmd,
             examples::install_example,
             examples::run_heor_teaching_example,

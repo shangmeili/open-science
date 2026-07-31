@@ -1,0 +1,106 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { MessageUsageEvent } from "@ai4s/sdk";
+import { modelCallInput, recordModelCall, recordModelCallsFromHistory } from "./modelCalls";
+
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), logDebug: vi.fn() }));
+vi.mock("./tauri", () => ({ isTauri: true, logDebug: mocks.logDebug }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
+
+beforeEach(() => {
+  mocks.invoke.mockReset();
+  mocks.logDebug.mockReset();
+});
+
+describe("model-call audit boundary", () => {
+  it("keeps only content-free completed-call metadata", () => {
+    const event: MessageUsageEvent = {
+      type: "message.usage",
+      sessionId: "ses_1",
+      messageId: "msg_assistant_1",
+      parentMessageId: "msg_user_1",
+      providerId: "mock-provider",
+      modelId: "mock-model",
+      agent: "build",
+      createdAt: 1_000,
+      completedAt: 1_250,
+      runtimeReportedCost: 0.0123,
+      tokens: {
+        input: 120,
+        output: 45,
+        reasoning: 8,
+        cacheRead: 30,
+        cacheWrite: 4,
+      },
+      finish: "stop",
+    };
+
+    const input = modelCallInput(event);
+    expect(input).toEqual({
+      runtime: "opencode",
+      runtimeVersion: "1.17.13",
+      sessionId: "ses_1",
+      messageId: "msg_assistant_1",
+      parentMessageId: "msg_user_1",
+      providerId: "mock-provider",
+      modelId: "mock-model",
+      agent: "build",
+      createdAt: 1_000,
+      completedAt: 1_250,
+      runtimeReportedCost: 0.0123,
+      tokens: {
+        input: 120,
+        output: 45,
+        reasoning: 8,
+        cacheRead: 30,
+        cacheWrite: 4,
+      },
+      finish: "stop",
+    });
+    expect(JSON.stringify(input)).not.toMatch(/prompt|response|content|apiKey|requestUrl/);
+  });
+
+  it("persists live and replayed usage through the same idempotent native command", async () => {
+    mocks.invoke.mockResolvedValue({ callId: "call_1" });
+    const event: MessageUsageEvent = {
+      type: "message.usage",
+      sessionId: "ses_1",
+      messageId: "msg_assistant_1",
+      parentMessageId: "msg_user_1",
+      providerId: "mock-provider",
+      modelId: "mock-model",
+      agent: "build",
+      createdAt: 1_000,
+      completedAt: 1_250,
+      runtimeReportedCost: 0.0123,
+      tokens: { input: 120, output: 45, reasoning: 8, cacheRead: 30, cacheWrite: 4 },
+      finish: "stop",
+    };
+    const usage = {
+      sessionId: event.sessionId,
+      messageId: event.messageId,
+      parentMessageId: event.parentMessageId,
+      providerId: event.providerId,
+      modelId: event.modelId,
+      agent: event.agent,
+      createdAt: event.createdAt,
+      completedAt: event.completedAt,
+      runtimeReportedCost: event.runtimeReportedCost,
+      tokens: event.tokens,
+      finish: event.finish,
+    };
+
+    await recordModelCall(event);
+    await recordModelCallsFromHistory([
+      { role: "assistant", usage, parts: [] },
+      { role: "user", parts: [{ type: "text", text: "not audited as model usage" }] },
+    ]);
+
+    expect(mocks.invoke).toHaveBeenCalledTimes(2);
+    expect(mocks.invoke).toHaveBeenNthCalledWith(1, "record_model_call", {
+      input: modelCallInput(event),
+    });
+    expect(mocks.invoke).toHaveBeenNthCalledWith(2, "record_model_calls", {
+      inputs: [modelCallInput(event)],
+    });
+  });
+});

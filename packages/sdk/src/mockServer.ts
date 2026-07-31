@@ -47,10 +47,36 @@ export function startMockOpenCode(port = 0): Promise<MockOpenCode> {
     P({ id: "c1", type: "tool", callID: "c1", tool: "literature-search", state: { status: "completed", title: "literature-search (OpenAlex, PubMed)" } });
     P({ id: "s2", type: "step-start" });
     P({ id: "p2", type: "text", text: "Wrote data/corpus.csv and drafted report.md." });
+    const assistantInfo = {
+      id: "a1",
+      sessionID,
+      role: "assistant",
+      time: { created: 1, completed: 2 },
+      parentID: "u1",
+      providerID: "mock-provider",
+      modelID: "mock-model",
+      mode: "build",
+      cost: 0.0123,
+      tokens: {
+        input: 120,
+        output: 45,
+        reasoning: 8,
+        cache: { read: 30, write: 4 },
+      },
+      finish: "stop",
+    };
+    // OpenCode first publishes an in-progress assistant message. It must not
+    // become a completed model-call audit event until time.completed and all
+    // runtime-reported usage fields are present.
+    push({
+      type: "message.updated",
+      properties: { info: { ...assistantInfo, time: { created: 1 } } },
+    });
+    push({ type: "message.updated", properties: { info: assistantInfo } });
     push({ type: "session.idle", properties: { sessionID } });
     messages[sessionID] = [
       { info: { id: "u1", role: "user" }, parts: [{ type: "text", text: "run a literature review" }] },
-      { info: { role: "assistant", time: { created: 1, completed: 2 } }, parts: [
+      { info: assistantInfo, parts: [
         { type: "reasoning", text: "Checking the evidence." },
         { type: "text", text: "Planning the analysis. Wrote data/corpus.csv." },
       ] },

@@ -47,6 +47,7 @@ import { moveScrollMemory } from "./scrollMemory";
 import { deriveArtifact } from "./artifacts";
 import { provenanceInputsFromEvent, recordProvenance } from "./provenance";
 import { recordRun, runInputFromEvent } from "./runs";
+import { recordModelCall, recordModelCallsFromHistory } from "./modelCalls";
 import { splitReview } from "./review";
 import { displayHeorPrompt } from "./heor";
 import { fallbackDefaultModel } from "@/components/settings/modelCatalog";
@@ -1012,6 +1013,10 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         void logDebug(`event ← ${event.type}${"sessionId" in event ? " " + event.sessionId : ""}`);
       if ("sessionId" in event && event.sessionId)
         setBoundedMap(sseLast, event.sessionId, ++sseSeq, 500);
+      if (event.type === "message.usage") {
+        void recordModelCall(event);
+        return;
+      }
       if (event.type === "error") {
         // A session-scoped error belongs IN the conversation (a red status
         // line where the user is looking), and it ends that session's turn so
@@ -1600,6 +1605,8 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     if (get().threads[id]?.loaded) return;
     try {
       const messages = await client.getMessages(id);
+      if (seq !== openSessionSeq || get().currentId !== id) return;
+      await recordModelCallsFromHistory(messages);
       if (seq !== openSessionSeq || get().currentId !== id) return;
       set((s) => ({
         threads: {

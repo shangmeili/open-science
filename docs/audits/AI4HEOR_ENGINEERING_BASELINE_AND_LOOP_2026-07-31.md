@@ -3,18 +3,18 @@
 ## 基线
 
 - 分支：`codex/heor-workbench`
-- 本轮开始前的已提交基线：`7c39c93`；更早已完成业务修复均保留为独立提交，本轮不重复修改。
+- 本轮开始前的已提交基线：`063ac2b`；更早已完成业务修复均保留为独立提交，本轮不重复修改。
 - 基线原则：在现有 Open Science/Tauri 技术栈上增量推进；AI 负责辅助推理，正式研究计算由可验证的确定性模块完成；科学、隐私、兼容性和公开接口决策保留 Human-in-the-loop。
-- 已完成 loop 范围：不可信 HTML 预览边界、同主版本 JavaScript CPU 拒绝服务补丁、安装后 OpenCode 的鉴权 HTTP 就绪证据、安装后前端 bootstrap 证据合同、经研究者确认的两策略 PSA 零 INMB 并列口径、PPTX 预览中 ECharts `lines` 系列通告的不可达性门禁，以及经研究者确认后实现的首版短期确定性决策树内核。决策树 DSA/PSA、桌面审查、报告和 UI 集成未在本轮扩展。
+- 已完成 loop 范围：不可信 HTML 预览边界、同主版本 JavaScript CPU 拒绝服务补丁、安装后 OpenCode 的鉴权 HTTP 就绪证据、安装后前端 bootstrap 证据合同、经研究者确认的两策略 PSA 零 INMB 并列口径、PPTX 预览中 ECharts `lines` 系列通告的不可达性门禁、经研究者确认后实现的首版短期确定性决策树内核，以及不含对话正文的模型调用用量/费用元数据账本。提示词版本与研究产物关联、决策树 DSA/PSA、桌面审查、报告和 UI 集成未在本轮扩展。
 
 ## 当前架构与完成度
 
 | 层 | 当前实现 | 本轮状态 |
 | --- | --- | --- |
 | 桌面与前端 | Tauri 2 + React/TypeScript/Vite | 保持原架构；HTML 预览安全边界已修复 |
-| AI 调用与任务执行 | OpenCode 本地 sidecar，HTTP/SSE，模型提供商可配置 | 业务运行逻辑未修改；安装包首启门禁新增鉴权 HTTP 就绪证明 |
+| AI 调用与任务执行 | OpenCode 本地 sidecar，HTTP/SSE，模型提供商可配置 | 完成调用的提供商、模型、时间、token、缓存 token、结束原因和运行时报告费用已归一化；对话正文不进入调用账本 |
 | HEOR 确定性计算 | Python 版本化计算模块 + Rust 授权、审计和哈希绑定 | 新增独立决策树 schema 0.1.0 与 CLI 重放；既有 Markov/PSM 公式、参数和随机数列不变 |
-| 数据与溯源 | 本地 JSON/JSONL/SQLite、证据与参数来源、运行记录和报告导出 | 未修改 |
+| 数据与溯源 | 本地 JSON/JSONL/SQLite、证据与参数来源、运行记录和报告导出 | 新增工作区内 `.openscience/model-calls.jsonl` 内容无关、追加式、哈希链调用账本；实时事件和历史补记共享幂等合同 |
 | Human-in-the-loop | 关键科学定义、证据采用、结构与发布决策由研究者确认 | PSA 并列口径在研究者同意后才实施 |
 | 文件预览 | React inspector + Tauri loopback preview server | HTML 改为被动展示；源码查看和外部打开保留 |
 
@@ -33,7 +33,8 @@
 | P1-SCI-001 | P1 | 首版确定性内核已完成；端到端流程待后续 loop | 已有独立 schema、黄金案例、输入溯源、逐节点计算轨迹、增量前沿、CLI 哈希重放与安装包资源映射；Skill、桌面复核、报告和复现包尚未连接 |
 | P1-SCI-002 | P1 | 待单独处理 | 亚组分析尚缺完整的预设、来源绑定、逐亚组结果与复核合同 |
 | P1-SCI-003 | P1 | 已修复 | 两策略 PSA 旧汇总使用 `INMB >= 0`，将零值并列同时计入干预成本效果概率，与同一输出中单独报告并列的决策不确定性表冲突 |
-| P1-AI-001 | P1 | 待单独处理 | 模型调用的提示词版本、token/费用和产物关联追踪仍不完整 |
+| P1-AI-001a | P1 | 本轮已修复 | OpenCode 已返回提供商、模型、时间、token、缓存 token、结束原因和运行时报告费用，但 AI4HEOR 原先丢弃；现已建立内容无关、幂等、哈希链本地账本 |
+| P1-AI-001b | P1 | 待单独处理 | 提示词/Harness 版本和模型调用到研究产物的明确关联仍不完整；不得由本轮用量账本冒充完成 |
 | P1-LEGAL-001 | P1 | 已修复 | `brace-expansion` 锁文件升级后，打包的 npm 许可证清单仍绑定旧锁文件哈希和旧版本；现已从当前锁文件重生成并通过资源合同 |
 | P2-SEC-003 | P2 | 待评估 | Tauri 主应用全局 CSP 仍为空；本轮已在不可信 HTML 的两个实际渲染入口建立独立限制。全局 CSP 会影响 loopback、SSE 和资源加载，需另行做兼容性测试 |
 | P2-SEC-004 | P2 | 已评估；当前不可达 | ECharts 5.6.0 命中 `GHSA-fgmj-fm8m-jvvx`，但通告需要 `lines` 系列；当前 `pptx-preview` 只从导入文件构造 `line` / `bar` / `pie`，已用发布门禁防止未复审的可达性变化 |
@@ -47,7 +48,7 @@
 5. P1-SEC-002：CPU 型通告已完成同主版本修复；OOM、UUID 和 React Router 通告继续按实际可达路径逐个处置，不强制整树升级。ECharts `lines` 系列通告已证明当前 PPTX 路径不可达。
 6. P1-SCI-003：统一两策略 PSA 的零 INMB 并列口径（已完成）。
 7. P1-SCI-001：首版确定性内核已完成；后续分别为 Skill、桌面审查、报告与复现包建立独立合同。P1-SCI-002 仍需先建立人工可核算基准，禁止与界面修复混做。
-8. P1-AI-001：在不记录密钥和敏感输入的前提下补齐模型调用审计合同。
+8. P1-AI-001a：不记录密钥、提示词或回答正文的模型调用用量/费用账本已完成；P1-AI-001b 继续单独补齐提示词版本和研究产物关联。
 9. P2-SEC-003：评估主应用全局 CSP；仅在不破坏本地服务和模型流式连接时实施。
 10. P1-LEGAL-001：依赖锁文件变更后必须重生成许可证清单，其锁文件 SHA-256 不一致时由现有打包资源合同 fail-closed（已完成）。
 
@@ -91,6 +92,12 @@
 | 发布层完整回归（bootstrap 后） | `python3 -m unittest discover -s scripts/release -p 'test_*.py' -v` | 44/44 通过 |
 | 前端完整回归（bootstrap 后） | `pnpm test` | 112 个文件、762 项通过；既有 React `act(...)` 与 Router 告警未新增、未屏蔽 |
 | 静态与构建回归（bootstrap 后） | `pnpm typecheck`、`pnpm lint`、`pnpm build`、`pnpm preflight:resources` | 全部通过；40 个来源、441 个文件 |
+| 模型调用账本修复前复现 | SDK 定向集成测试 + `cargo test ... model_calls::tests` | SDK 缺少 `message.usage` 事件；新增 3 项 Rust 账本测试全部失败 |
+| 模型调用 SDK/桥接定向回归 | `vitest run src/lib/modelCalls.test.ts src/test/opencode-client.node.test.ts` | 20/20 通过；进行中消息不产生完成事件，历史与实时元数据一致，桥接只传白名单字段 |
+| 模型调用账本定向回归 | `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml model_calls::tests` | 3/3 通过；覆盖幂等、冲突、非法时间/费用、损坏链和符号链接 |
+| 模型调用账本后完整前端回归 | `pnpm test` | 113 个文件、764 项通过；既有 React `act(...)` 与 Router 告警未新增、未屏蔽 |
+| 模型调用账本后完整 Rust 回归 | `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` | 371 项通过、1 项既有公网测试忽略 |
+| 模型调用账本后发布与构建回归 | 发布测试、类型检查、ESLint、Rust 格式、生产构建、资源预检 | 发布 44/44；其余全部通过；40 个来源、441 个文件 |
 
 ## Loop P0-SEC-001
 
@@ -271,3 +278,14 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 验收结果：定向 4/4、发布层 44/44、前端 762/762、类型检查、ESLint、生产构建和 40 来源/441 文件资源预检通过；`git diff --check` 在提交前执行。
 - 回滚方式：回退本 loop 的发布脚本、工作流、契约测试和记录；无数据迁移、业务接口或研究产物变化。
 - 剩余风险：本机没有 PowerShell，Windows 脚本只能由文本合同覆盖，仍需 Windows runner 原生执行；新 macOS DMG 尚未构建，因此也没有当前提交对应的安装后证据。该门禁只证明前端启动与 Tauri IPC，不证明窗口可见、任务操作、权限交互、HTML 预览或导入到导出；完整可视 E2E 仍是 P1-TEST-001b。
+
+## Loop P1-AI-001a
+
+- 当前行为：OpenCode 1.17.13 的完成助手消息已经提供消息/父消息、会话、提供商、模型、Agent、开始/完成时间、输入/输出/推理/缓存 token、结束原因和运行时报告费用；AI4HEOR 的 SDK 与桌面层原先只保留角色和消息 ID，这些调用审计信息被丢弃。
+- 目标行为：只对字段完整且数值有效的完成调用生成标准事件；桌面工作区以追加式 JSONL 保存白名单元数据，实时 SSE 与任务历史均可补记，同一消息重复事件幂等，冲突和损坏历史 fail-closed。不得保存提示词、回答、API key、请求 URL 或错误正文。
+- 根因：SDK 的 `message.updated` 归一化只处理用户消息，`getMessages` 只映射完成时间和错误；桌面只有确定性命令运行记录，没有模型调用账本。
+- 失败测试：SDK 集成测试最初缺少预期的 `message.usage`；3 项 Rust 测试分别因账本未实现、损坏历史未拒绝和符号链接未拒绝而失败。
+- 最小修改：扩展 SDK 事件与历史消息的内容无关用量类型；新增 `modelCalls.ts` 白名单桥接；实时完成事件写入，打开任务后从历史幂等补记；新增由 Tauri 串行化的 `.openscience/model-calls.jsonl`，采用 20 MiB 上限、严格输入校验、消息级幂等和 SHA-256 前向哈希链。未修改提示词、模型请求、重试/降级策略、HEOR 公式、研究 schema、研究数据或界面。
+- 验收结果：定向前端 20/20、定向 Rust 3/3、完整前端 764/764、完整 Rust 371 通过/1 项既有公网测试忽略、发布 44/44；类型检查、ESLint、Rust 格式、生产构建和 40 来源/441 文件资源预检通过。
+- 回滚方式：回退本 loop 提交即可；没有迁移或改写既有研究文件。已由测试版本产生的 `.openscience/model-calls.jsonl` 是用户审计数据，回滚代码不自动删除。
+- 剩余风险：`runtimeReportedCost` 只保留运行时给出的数值，不自行推定币种、账单或结算金额；提示词/Harness 版本、产物级调用关联和面向研究者的审计查看界面仍属 P1-AI-001b。账本是完整性检测而非外部可信时间戳或数字签名，不应被描述为不可否认审计。

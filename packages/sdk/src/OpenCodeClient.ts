@@ -4,6 +4,7 @@ import type {
   HistoryMessage,
   McpConfig,
   McpServer,
+  MessageUsageEvent,
   OAuthAuthorization,
   OpenCodeClientOptions,
   OpenCodeEvent,
@@ -50,6 +51,104 @@ function parseModel(model?: string | null): { providerID: string; modelID: strin
   return {
     providerID: model.slice(0, separator),
     modelID: model.slice(separator + 1),
+  };
+}
+
+function nonnegativeFinite(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function nonnegativeInteger(value: unknown): value is number {
+  return nonnegativeFinite(value) && Number.isInteger(value);
+}
+
+/** Normalize only a completed assistant message with the exact metadata needed
+ * for a content-free local model-call audit record. */
+function normalizeMessageUsage(info: unknown): MessageUsageEvent | null {
+  if (!info || typeof info !== "object") return null;
+  const value = info as {
+    id?: unknown;
+    sessionID?: unknown;
+    role?: unknown;
+    time?: { created?: unknown; completed?: unknown };
+    parentID?: unknown;
+    providerID?: unknown;
+    modelID?: unknown;
+    mode?: unknown;
+    cost?: unknown;
+    tokens?: {
+      input?: unknown;
+      output?: unknown;
+      reasoning?: unknown;
+      cache?: { read?: unknown; write?: unknown };
+    };
+    finish?: unknown;
+  };
+  const strings = [
+    value.id,
+    value.sessionID,
+    value.parentID,
+    value.providerID,
+    value.modelID,
+    value.mode,
+  ];
+  if (value.role !== "assistant" || strings.some((item) => typeof item !== "string" || !item)) {
+    return null;
+  }
+  const createdAt = value.time?.created;
+  const completedAt = value.time?.completed;
+  const tokens = value.tokens;
+  if (
+    !nonnegativeInteger(createdAt)
+    || !nonnegativeInteger(completedAt)
+    || completedAt < createdAt
+    || !nonnegativeFinite(value.cost)
+    || !nonnegativeInteger(tokens?.input)
+    || !nonnegativeInteger(tokens?.output)
+    || !nonnegativeInteger(tokens?.reasoning)
+    || !nonnegativeInteger(tokens?.cache?.read)
+    || !nonnegativeInteger(tokens?.cache?.write)
+    || (value.finish !== undefined && typeof value.finish !== "string")
+  ) {
+    return null;
+  }
+  return {
+    type: "message.usage",
+    sessionId: value.sessionID as string,
+    messageId: value.id as string,
+    parentMessageId: value.parentID as string,
+    providerId: value.providerID as string,
+    modelId: value.modelID as string,
+    agent: value.mode as string,
+    createdAt,
+    completedAt,
+    runtimeReportedCost: value.cost,
+    tokens: {
+      input: tokens.input,
+      output: tokens.output,
+      reasoning: tokens.reasoning,
+      cacheRead: tokens.cache.read,
+      cacheWrite: tokens.cache.write,
+    },
+    ...(value.finish ? { finish: value.finish } : {}),
+  };
+}
+
+function historyUsage(
+  usage: MessageUsageEvent,
+): Omit<MessageUsageEvent, "type"> {
+  return {
+    sessionId: usage.sessionId,
+    messageId: usage.messageId,
+    parentMessageId: usage.parentMessageId,
+    providerId: usage.providerId,
+    modelId: usage.modelId,
+    agent: usage.agent,
+    createdAt: usage.createdAt,
+    completedAt: usage.completedAt,
+    runtimeReportedCost: usage.runtimeReportedCost,
+    tokens: usage.tokens,
+    ...(usage.finish ? { finish: usage.finish } : {}),
   };
 }
 
@@ -352,19 +451,34 @@ export class OpenCodeClient implements AgentRuntime {
     const arr = (await res.json()) as Array<{
       info: {
         id?: string;
+        sessionID?: string;
         role: "user" | "assistant";
-        time?: { completed?: number };
+        time?: { created?: number; completed?: number };
+        parentID?: string;
+        providerID?: string;
+        modelID?: string;
+        mode?: string;
+        cost?: number;
+        tokens?: {
+          input?: number;
+          output?: number;
+          reasoning?: number;
+          cache?: { read?: number; write?: number };
+        };
+        finish?: string;
         error?: { name?: string; message?: string; data?: { message?: string } };
       };
       parts: HistoryMessage["parts"];
     }>;
     return arr.map((m) => {
       const error = m.info.error;
+      const usage = normalizeMessageUsage(m.info);
       return {
         role: m.info.role,
         ...(m.info.id ? { id: m.info.id } : {}),
         completed: m.info.time?.completed,
         error: error?.data?.message ?? error?.message ?? error?.name,
+        ...(usage ? { usage: historyUsage(usage) } : {}),
         parts: m.parts ?? [],
       };
     });
@@ -872,6 +986,8 @@ export class OpenCodeClient implements AgentRuntime {
             messageID: info.id,
           });
         }
+        const usage = normalizeMessageUsage(props.info);
+        if (usage) this.emit(usage);
         break;
       }
       case "message.part.updated": {

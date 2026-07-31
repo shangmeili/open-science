@@ -7,6 +7,8 @@ export {
   type TextUpdatedEvent,
   type ToolUpdatedEvent,
   type SessionIdleEvent,
+  type MessageUsageEvent,
+  type ModelUsageTokens,
   type SessionProgressEvent,
   type SessionRuntimeStatus,
   type RuntimeErrorEvent,

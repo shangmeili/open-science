@@ -45,6 +45,27 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
       sessionId,
       messageID: "u1",
     });
+    expect(events).toContainEqual({
+      type: "message.usage",
+      sessionId,
+      messageId: "a1",
+      parentMessageId: "u1",
+      providerId: "mock-provider",
+      modelId: "mock-model",
+      agent: "build",
+      createdAt: 1,
+      completedAt: 2,
+      runtimeReportedCost: 0.0123,
+      tokens: {
+        input: 120,
+        output: 45,
+        reasoning: 8,
+        cacheRead: 30,
+        cacheWrite: 4,
+      },
+      finish: "stop",
+    });
+    expect(events.filter((event) => event.type === "message.usage")).toHaveLength(1);
 
     const reasoning = events
       .filter((e): e is Extract<OpenCodeEvent, { type: "reasoning.updated" }> =>
@@ -122,6 +143,25 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
     const last = messages[messages.length - 1];
     expect(last.role).toBe("assistant");
     expect(last.completed).toBe(2); // the turn is over — the reconcile signal
+    expect(last.usage).toEqual({
+      sessionId,
+      messageId: "a1",
+      parentMessageId: "u1",
+      providerId: "mock-provider",
+      modelId: "mock-model",
+      agent: "build",
+      createdAt: 1,
+      completedAt: 2,
+      runtimeReportedCost: 0.0123,
+      tokens: {
+        input: 120,
+        output: 45,
+        reasoning: 8,
+        cacheRead: 30,
+        cacheWrite: 4,
+      },
+      finish: "stop",
+    });
     await expect(client.abortSession(sessionId)).resolves.toBeUndefined();
     client.close();
   });
