@@ -18,6 +18,7 @@ from .advanced_voi import (
 from .model import MarkovSpecification, ModelValidationError, run_markov
 from .partitioned_survival import run_partitioned_survival
 from .uncertainty import run_uncertainty
+from .decision_tree import DecisionTreeSpecification, run_decision_tree
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -228,11 +229,37 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         raw = args.input.read_bytes()
         payload = json.loads(raw)
+        decision_tree_input = payload.get("analysis_type") == "decision_tree"
+        extension_options = (
+            args.uncertainty_plan,
+            args.budget_impact_plan,
+            args.advanced_voi_plan,
+            args.uncertainty_result,
+            args.partitioned_survival_plan,
+            args.survival_curve_materializations,
+            args.treatment_effect_duration,
+            args.cost_input_normalization,
+            args.utility_inputs,
+            args.event_disutilities,
+            args.joint_survival_uncertainty_manifest,
+            args.joint_survival_draws,
+        )
+        if decision_tree_input and any(
+            item is not None for item in extension_options
+        ):
+            raise ModelValidationError(
+                "decision tree input cannot be combined with Markov, uncertainty, budget impact, or partitioned-survival options"
+            )
         if any(item is not None for item in joint_options) and payload.get("schema_version") not in {"0.12.0", "0.15.0"}:
             raise ModelValidationError(
                 "joint survival artifacts require analysis schema 0.12.0 or 0.15.0"
             )
-        if args.advanced_voi_plan is not None:
+        if decision_tree_input:
+            result = run_decision_tree(
+                DecisionTreeSpecification.from_dict(payload)
+            ).to_dict()
+            result["input_sha256"] = hashlib.sha256(raw).hexdigest()
+        elif args.advanced_voi_plan is not None:
             result = _run_advanced_voi_from_args(args, payload, raw)
         elif (
             args.uncertainty_plan is None

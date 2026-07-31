@@ -3,9 +3,9 @@
 ## 基线
 
 - 分支：`codex/heor-workbench`
-- 本 loop 修改前的已提交基线：`12193198a17bb731188daf3c25c168d148cf2188`
+- 决策树实现 loop 的已提交基线：`8b0c1fd`；更早已完成业务修复均保留为独立提交，本轮不重复修改。
 - 基线原则：在现有 Open Science/Tauri 技术栈上增量推进；AI 负责辅助推理，正式研究计算由可验证的确定性模块完成；科学、隐私、兼容性和公开接口决策保留 Human-in-the-loop。
-- 已完成 loop 范围：不可信 HTML 预览边界、同主版本 JavaScript CPU 拒绝服务补丁、安装后 OpenCode 的鉴权 HTTP 就绪证据、经研究者确认的两策略 PSA 零 INMB 并列口径，以及 PPTX 预览中 ECharts `lines` 系列通告的不可达性门禁。其他科学计算、模型适配、研究数据和研究流程未修改。
+- 已完成 loop 范围：不可信 HTML 预览边界、同主版本 JavaScript CPU 拒绝服务补丁、安装后 OpenCode 的鉴权 HTTP 就绪证据、经研究者确认的两策略 PSA 零 INMB 并列口径、PPTX 预览中 ECharts `lines` 系列通告的不可达性门禁，以及经研究者确认后实现的首版短期确定性决策树内核。决策树 DSA/PSA、桌面审查、报告和 UI 集成未在本轮扩展。
 
 ## 当前架构与完成度
 
@@ -13,7 +13,7 @@
 | --- | --- | --- |
 | 桌面与前端 | Tauri 2 + React/TypeScript/Vite | 保持原架构；HTML 预览安全边界已修复 |
 | AI 调用与任务执行 | OpenCode 本地 sidecar，HTTP/SSE，模型提供商可配置 | 业务运行逻辑未修改；安装包首启门禁新增鉴权 HTTP 就绪证明 |
-| HEOR 确定性计算 | Python 版本化计算模块 + Rust 授权、审计和哈希绑定 | 仅修正两策略 PSA 零 INMB 的边界分类；其他公式、参数和随机数列不变 |
+| HEOR 确定性计算 | Python 版本化计算模块 + Rust 授权、审计和哈希绑定 | 新增独立决策树 schema 0.1.0 与 CLI 重放；既有 Markov/PSM 公式、参数和随机数列不变 |
 | 数据与溯源 | 本地 JSON/JSONL/SQLite、证据与参数来源、运行记录和报告导出 | 未修改 |
 | Human-in-the-loop | 关键科学定义、证据采用、结构与发布决策由研究者确认 | PSA 并列口径在研究者同意后才实施 |
 | 文件预览 | React inspector + Tauri loopback preview server | HTML 改为被动展示；源码查看和外部打开保留 |
@@ -29,7 +29,7 @@
 | P1-SEC-002b | P1 | 待单独处理 | `brace-expansion` OOM 通告当前只标记 5.0.8 为修复版；旧主版本跨版替换需独立兼容性决策，漏洞代码未进入当前 Tauri 前端产物 |
 | P1-TEST-001a | P1 | 实现与合同已修复；新包执行待打包轮 | 安装包首启过去只证明 OpenCode 进程存在；现要求未授权健康请求返回 401，且证据不保存端口或密码 |
 | P1-TEST-001b | P1 | 待单独处理 | 缺少安装后真实 Tauri 可视交互、任务、HTML 预览、权限和导入到导出的自动化 E2E |
-| P1-SCI-001 | P1 | 已完成缺口核对；科学边界待研究者确认 | 知识库和模型设计 Skill 会说明决策树，但 Python 核心、CLI、产物合同、报告与复现链均无可执行决策树路径 |
+| P1-SCI-001 | P1 | 首版确定性内核已完成；端到端流程待后续 loop | 已有独立 schema、黄金案例、输入溯源、逐节点计算轨迹、增量前沿、CLI 哈希重放与安装包资源映射；Skill、桌面复核、报告和复现包尚未连接 |
 | P1-SCI-002 | P1 | 待单独处理 | 亚组分析尚缺完整的预设、来源绑定、逐亚组结果与复核合同 |
 | P1-SCI-003 | P1 | 已修复 | 两策略 PSA 旧汇总使用 `INMB >= 0`，将零值并列同时计入干预成本效果概率，与同一输出中单独报告并列的决策不确定性表冲突 |
 | P1-AI-001 | P1 | 待单独处理 | 模型调用的提示词版本、token/费用和产物关联追踪仍不完整 |
@@ -43,7 +43,7 @@
 3. P1-TEST-001b：建立最小真实桌面可视 E2E，覆盖任务、HTML 预览、权限与导入。
 4. P1-SEC-002：CPU 型通告已完成同主版本修复；OOM、UUID 和 React Router 通告继续按实际可达路径逐个处置，不强制整树升级。ECharts `lines` 系列通告已证明当前 PPTX 路径不可达。
 5. P1-SCI-003：统一两策略 PSA 的零 INMB 并列口径（已完成）。
-6. P1-SCI-001 / P1-SCI-002：分别建立人工可核算基准后再实现，禁止与界面修复混做。
+6. P1-SCI-001：首版确定性内核已完成；后续分别为 Skill、桌面审查、报告与复现包建立独立合同。P1-SCI-002 仍需先建立人工可核算基准，禁止与界面修复混做。
 7. P1-AI-001：在不记录密钥和敏感输入的前提下补齐模型调用审计合同。
 8. P2-SEC-003：评估主应用全局 CSP；仅在不破坏本地服务和模型流式连接时实施。
 
@@ -76,6 +76,10 @@
 | HEOR 完整回归 | `pnpm test:heor` | 178/178 通过 |
 | HEOR 跨产物合同 | `python3 scripts/dev/test_heor_artifact_contracts.py -v` | 113/113 通过 |
 | PPTX / ECharts 可达性门禁 | `python3 scripts/dev/test_js_security_policy.py -v` | 3/3 通过；锁定的 PPTX 适配器仅构造 `line` / `bar` / `pie` |
+| 决策树修复前复现 | 定向运行新增黄金案例测试 | 失败：`heor_core.decision_tree` 不存在，CLI 只能按 Markov 解析 |
+| 决策树定向回归 | `python -B -m unittest python/heor_core/tests/test_decision_tree.py -v` | 10/10 通过；包括人工核算、拓扑、来源、fail-closed 字段、零增量效果和 CLI 哈希重放 |
+| HEOR 完整回归（决策树后） | `pnpm test:heor` | 188/188 通过 |
+| 决策树打包资源合同 | `test_every_python_module_is_bundled_once_at_the_expected_path` + `preflight_resources.mjs` | 通过；40 个来源、441 个文件 |
 
 ## Loop P0-SEC-001
 
@@ -222,3 +226,16 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 第一个实现 loop 预计只新增 `python/heor_core/src/heor_core/decision_tree.py`、`python/heor_core/tests/test_decision_tree.py`、`python/heor_core/golden_cases/two_strategy_decision_tree.json`，并最小扩展 `cli.py` 和 `__init__.py`。
 - Skill、便携验证器、输入溯源、本地 Human-in-the-loop、报告、复现包和 UI 集成将在确定性内核有独立黄金证据后逐个闭环，不用一个巨大提交混合审查。
 - 回滚时只回退对应 loop 的新文件和 CLI 分支；不迁移、重写或改释既有 Markov/PSM 项目。
+
+### 实现 loop 结果
+
+- Human-in-the-loop：研究者于 2026-07-31 确认上述首版科学边界后才开始业务实现。
+- 修改前行为：定向黄金案例首次运行因 `ModuleNotFoundError: heor_core.decision_tree` 失败；未声明附加计算模式的 CLI 主输入只会进入 Markov 解析。
+- 根因：概念层的决策树建议没有对应独立计算合同，也没有可重放内核和打包资源映射。
+- 修改范围：新增 `decision_tree.py`、10 项定向测试和两策略黄金案例；最小扩展 `cli.py`、`__init__.py` 和 Tauri 资源清单。Markov、PSM、不确定性模块和桌面研究流程没有改动。
+- 科学合同：仅接受 2–16 策略、不超过 1 年、零折现、无半周期校正的有限无环概率树；概率在 `1e-9` 内归一，每个数值必须指向来源或已声明的 `proposed` 假设。未知字段、复发、时间依赖、中间节点奖励、循环、多父节点与不可达节点均 fail-closed。
+- 计算证据：黄金案例得到对照成本 `1800`、QALY `0.68`，干预成本 `2900`、QALY `0.7375`，增量成本 `1100`、增量 QALY `0.0575`、ICER `19130.434782608696`，阈值 50000 下 INMB `1775`；与人工核算一致。
+- 输出与溯源：每个策略输出逐节点到达概率、终末贡献及其具体来源/假设 ID；CLI 输出绑定原始输入 SHA-256，并复用已验证的增量结果、完全增量前沿和阈值最优策略逻辑。
+- 验证结果：定向 10/10、HEOR 188/188、前端 762/762、Rust 368 通过/1 项既有忽略，类型检查、ESLint、Rust 格式、生产构建、打包资源合同和 40 来源/441 文件资源预检通过。
+- 回滚方式：回退本 loop 提交即可；无数据迁移，无现有 schema 或公式修改。
+- 剩余风险：首版内核尚未进入桌面审查、证据账本、报告和复现包；不得在这些端到端合同完成前宣称用户已可从 UI 完成正式决策树研究。DSA/PSA 仍为明确未实现范围。

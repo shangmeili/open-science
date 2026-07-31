@@ -23,6 +23,7 @@ from .partitioned_survival import run_partitioned_survival
 from .joint_survival_uncertainty import validate_joint_survival_uncertainty
 from .survival_materialization import validate_survival_curve_materializations
 from .treatment_effect_duration import validate_treatment_effect_duration
+from .decision_tree import DecisionTreeSpecification, run_decision_tree
 
 __all__ = [
     "AnalysisResult",
@@ -46,6 +47,8 @@ __all__ = [
     "validate_event_disutilities",
     "validate_survival_curve_materializations",
     "validate_treatment_effect_duration",
+    "DecisionTreeSpecification",
+    "run_decision_tree",
 ]
 
 __version__ = "0.1.0"

@@ -1,0 +1,133 @@
+{
+  "schema_version": "0.1.0",
+  "analysis_type": "decision_tree",
+  "analysis_id": "golden-two-strategy-decision-tree",
+  "reference_case": {
+    "id": "teaching-example",
+    "status": "draft"
+  },
+  "time_horizon_years": 1.0,
+  "discount_rates": {
+    "costs": 0.0,
+    "outcomes": 0.0
+  },
+  "half_cycle_correction": false,
+  "willingness_to_pay": 50000.0,
+  "strategy_order": ["comparator", "intervention"],
+  "baseline_strategy_id": "comparator",
+  "assumptions": [
+    {
+      "id": "teaching-inputs",
+      "status": "proposed",
+      "statement": "Use the hand-checkable teaching values in this golden case."
+    }
+  ],
+  "strategies": {
+    "comparator": {
+      "name": "standard_care",
+      "root_node_id": "comparator_outcome",
+      "nodes": {
+        "comparator_outcome": {
+          "type": "chance",
+          "branches": [
+            {
+              "child_node_id": "comparator_success",
+              "probability": {
+                "value": 0.6,
+                "source_ids": [],
+                "assumption_ids": ["teaching-inputs"]
+              }
+            },
+            {
+              "child_node_id": "comparator_failure",
+              "probability": {
+                "value": 0.4,
+                "source_ids": [],
+                "assumption_ids": ["teaching-inputs"]
+              }
+            }
+          ]
+        },
+        "comparator_success": {
+          "type": "terminal",
+          "cost": {
+            "value": 1000.0,
+            "source_ids": [],
+            "assumption_ids": ["teaching-inputs"]
+          },
+          "qaly": {
+            "value": 0.8,
+            "source_ids": [],
+            "assumption_ids": ["teaching-inputs"]
+          }
+        },
+        "comparator_failure": {
+          "type": "terminal",
+          "cost": {
+            "value": 3000.0,
+            "source_ids": [],
+            "assumption_ids": ["teaching-inputs"]
+          },
+          "qaly": {
+            "value": 0.5,
+            "source_ids": [],
+            "assumption_ids": ["teaching-inputs"]
+          }
+        }
+      }
+    },
+    "intervention": {
+      "name": "new_intervention",
+      "root_node_id": "intervention_outcome",
+      "nodes": {
+        "intervention_outcome": {
+          "type": "chance",
+          "branches": [
+            {
+              "child_node_id": "intervention_success",
+              "probability": {
+                "value": 0.75,
+                "source_ids": [],
+                "assumption_ids": ["teaching-inputs"]
+              }
+            },
+            {
+              "child_node_id": "intervention_failure",
+              "probability": {
+                "value": 0.25,
+                "source_ids": [],
+                "assumption_ids": ["teaching-inputs"]
+              }
+            }
+          ]
+        },
+        "intervention_success": {
+          "type": "terminal",
+          "cost": {
+            "value": 2200.0,
+            "source_ids": [],
+            "assumption_ids": ["teaching-inputs"]
+          },
+          "qaly": {
+            "value": 0.85,
+            "source_ids": [],
+            "assumption_ids": ["teaching-inputs"]
+          }
+        },
+        "intervention_failure": {
+          "type": "terminal",
+          "cost": {
+            "value": 5000.0,
+            "source_ids": [],
+            "assumption_ids": ["teaching-inputs"]
+          },
+          "qaly": {
+            "value": 0.4,
+            "source_ids": [],
+            "assumption_ids": ["teaching-inputs"]
+          }
+        }
+      }
+    }
+  }
+}
