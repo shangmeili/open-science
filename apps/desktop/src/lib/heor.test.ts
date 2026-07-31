@@ -11,10 +11,12 @@ import {
   HEOR_BROWSER_DEMO_REFERENCE_CASE_AUDIT,
   HEOR_BROWSER_DEMO_UNCERTAINTY_AUDIT,
   HEOR_MODEL_VALIDATION_PATH,
+  heorPromptContext,
   heorSurvivalReviewBindingsCurrent,
   type HeorSurvivalReviewAudit,
   parseHeorConceptualModel,
   parseHeorPlan,
+  sha256Text,
 } from "./heor";
 
 describe("AI4HEOR artifact contract", () => {
@@ -191,6 +193,21 @@ describe("AI4HEOR artifact contract", () => {
     ].join("\n");
     expect(displayHeorPrompt(legacyPrompt)).toBe("旧任务也不显示内部指令");
     expect(displayHeorPrompt("研究者自己的问题")).toBe("研究者自己的问题");
+  });
+
+  it("identifies the exact HEOR prompt template without hashing researcher content", async () => {
+    const prompt = buildHeorPrompt("不可进入审计指纹的研究者问题", "zh-Hans");
+    const context = heorPromptContext(prompt);
+    expect(context).toEqual({
+      promptTemplateId: "ai4heor/heor-workbench-preamble",
+      promptTemplateSha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+      responseLanguage: "Simplified Chinese",
+    });
+    const separator = "\nResponse language contract:";
+    const preamble = prompt.slice(0, prompt.indexOf(separator));
+    expect(context?.promptTemplateSha256).toBe(await sha256Text(preamble));
+    expect(JSON.stringify(context)).not.toContain("不可进入审计指纹");
+    expect(heorPromptContext("研究者原始文本")).toBeNull();
   });
 
   it("locks responses to every shipped interface language", () => {

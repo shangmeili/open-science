@@ -102,6 +102,7 @@ const mocks = vi.hoisted(() => ({
   restartRuntime: vi.fn(async () => "http://127.0.0.1:1"),
   /** Constructor options every OpenCodeClient was created with. */
   clientOpts: [] as Record<string, unknown>[],
+  recordModelCall: vi.fn(async (_event: unknown, _context?: unknown) => {}),
 }));
 
 vi.mock("./tauri", () => ({
@@ -131,6 +132,10 @@ vi.mock("./tauri", () => ({
   runtimePassword: async () => "pw-test",
 }));
 vi.mock("./kernel", () => ({ kernelReset: mocks.kernelReset }));
+vi.mock("./modelCalls", () => ({
+  recordModelCall: mocks.recordModelCall,
+  recordModelCallsFromHistory: vi.fn(async () => {}),
+}));
 vi.mock("@ai4s/sdk", () => {
   class OpenCodeClient {
     private statusCb: (s: string) => void = () => {};
@@ -262,6 +267,7 @@ vi.mock("@ai4s/sdk", () => {
 });
 
 import type { ArtifactBlock } from "@ai4s/shared";
+import { buildHeorPrompt, heorPromptContext } from "./heor";
 import { DRAFT_KEY, rememberBounded, rootSessionOf, useRuntimeStore } from "./runtime";
 
 const PROJECT = {
@@ -314,6 +320,54 @@ beforeEach(async () => {
 });
 
 describe("runtime authentication", () => {
+  it("associates a completed model call with only the active HEOR template context", async () => {
+    const runtimePrompt = buildHeorPrompt("研究者问题", "zh-Hans");
+    const sessionId = await useRuntimeStore.getState().sendPrompt(runtimePrompt);
+    const event = {
+      type: "message.usage" as const,
+      sessionId: sessionId!,
+      messageId: "msg_assistant_1",
+      parentMessageId: "msg_user_1",
+      providerId: "mock-provider",
+      modelId: "mock-model",
+      agent: "build",
+      createdAt: 1_000,
+      completedAt: 1_250,
+      runtimeReportedCost: 0.0123,
+      tokens: { input: 1, output: 2, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
+    };
+
+    mocks.fireEvent(event);
+
+    expect(mocks.recordModelCall).toHaveBeenCalledWith(event, heorPromptContext(runtimePrompt));
+    expect(JSON.stringify(mocks.recordModelCall.mock.calls[0][1])).not.toContain("研究者问题");
+  });
+
+  it("discards HEOR template context when a new-session send fails", async () => {
+    mocks.sendPromptDeferred = new Promise<void>((_resolve, reject) => {
+      setTimeout(() => reject(new Error("Load failed")), 0);
+    });
+    await useRuntimeStore.getState().sendPrompt(buildHeorPrompt("会失败的研究者问题", "zh-Hans"));
+    mocks.recordModelCall.mockClear();
+    const event = {
+      type: "message.usage" as const,
+      sessionId: "ses_new",
+      messageId: "msg_unrelated",
+      parentMessageId: "msg_unrelated_user",
+      providerId: "mock-provider",
+      modelId: "mock-model",
+      agent: "build",
+      createdAt: 2_000,
+      completedAt: 2_250,
+      runtimeReportedCost: 0,
+      tokens: { input: 1, output: 1, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
+    };
+
+    mocks.fireEvent(event);
+
+    expect(mocks.recordModelCall).toHaveBeenCalledWith(event, undefined);
+  });
+
   it("bounds long-lived SSE deduplication memory", () => {
     const seen = new Set<string>();
     rememberBounded(seen, "first", 2);

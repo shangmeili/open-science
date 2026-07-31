@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MessageUsageEvent } from "@ai4s/sdk";
 import { modelCallInput, recordModelCall, recordModelCallsFromHistory } from "./modelCalls";
+import type { HeorPromptContext } from "./heor";
+import { buildHeorPrompt, heorPromptContext } from "./heor";
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), logDebug: vi.fn() }));
 vi.mock("./tauri", () => ({ isTauri: true, logDebug: mocks.logDebug }));
@@ -59,6 +61,29 @@ describe("model-call audit boundary", () => {
     expect(JSON.stringify(input)).not.toMatch(/prompt|response|content|apiKey|requestUrl/);
   });
 
+  it("adds only the fixed prompt-template fingerprint when one is known", () => {
+    const event: MessageUsageEvent = {
+      type: "message.usage",
+      sessionId: "ses_1",
+      messageId: "msg_assistant_1",
+      parentMessageId: "msg_user_1",
+      providerId: "mock-provider",
+      modelId: "mock-model",
+      agent: "build",
+      createdAt: 1_000,
+      completedAt: 1_250,
+      runtimeReportedCost: 0.0123,
+      tokens: { input: 1, output: 2, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
+    };
+    const context: HeorPromptContext = {
+      promptTemplateId: "ai4heor/heor-workbench-preamble",
+      promptTemplateSha256: "a".repeat(64),
+      responseLanguage: "Simplified Chinese",
+    };
+
+    expect(modelCallInput(event, context)).toMatchObject(context);
+  });
+
   it("persists live and replayed usage through the same idempotent native command", async () => {
     mocks.invoke.mockResolvedValue({ callId: "call_1" });
     const event: MessageUsageEvent = {
@@ -90,9 +115,11 @@ describe("model-call audit boundary", () => {
     };
 
     await recordModelCall(event);
+    const storedPrompt = buildHeorPrompt("研究者问题", "zh-Hans");
+    const context = heorPromptContext(storedPrompt)!;
     await recordModelCallsFromHistory([
       { role: "assistant", usage, parts: [] },
-      { role: "user", parts: [{ type: "text", text: "not audited as model usage" }] },
+      { role: "user", id: "msg_user_1", parts: [{ type: "text", text: storedPrompt }] },
     ]);
 
     expect(mocks.invoke).toHaveBeenCalledTimes(2);
@@ -100,7 +127,7 @@ describe("model-call audit boundary", () => {
       input: modelCallInput(event),
     });
     expect(mocks.invoke).toHaveBeenNthCalledWith(2, "record_model_calls", {
-      inputs: [modelCallInput(event)],
+      inputs: [modelCallInput(event, context)],
     });
   });
 });

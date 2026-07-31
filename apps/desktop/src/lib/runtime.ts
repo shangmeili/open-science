@@ -49,7 +49,7 @@ import { provenanceInputsFromEvent, recordProvenance } from "./provenance";
 import { recordRun, runInputFromEvent } from "./runs";
 import { recordModelCall, recordModelCallsFromHistory } from "./modelCalls";
 import { splitReview } from "./review";
-import { displayHeorPrompt } from "./heor";
+import { displayHeorPrompt, heorPromptContext, type HeorPromptContext } from "./heor";
 import { fallbackDefaultModel } from "@/components/settings/modelCatalog";
 import i18n from "@/i18n";
 
@@ -246,6 +246,9 @@ interface RuntimeState {
 let client: AgentRuntime | null = null;
 let opencodeClient: OpenCodeClient | null = null;
 let queuedPromptSequence = 0;
+/** HEOR template context for the active turn in each session. It contains only
+ * fixed app-owned identifiers and the response language, never user text. */
+const pendingPromptContexts = new Map<string, HeorPromptContext>();
 
 function nextQueuedPromptId(): string {
   queuedPromptSequence += 1;
@@ -282,6 +285,7 @@ function teardownClient() {
   client?.close();
   client = null;
   opencodeClient = null;
+  pendingPromptContexts.clear();
 }
 const emptyThread = (): Thread => ({ blocks: [], index: {}, loaded: false });
 /** Threads key for the draft conversation — its blocks move to the real
@@ -440,6 +444,7 @@ async function performTurn(
   post: (sid: string) => Promise<void>,
   syncTurn: boolean,
   shell = false,
+  promptContext: HeorPromptContext | null = null,
 ): Promise<string | null> {
   if (!client) {
     set({ error: "Not connected to the AI assistant runtime." });
@@ -516,6 +521,7 @@ async function performTurn(
         return { stepCounts };
       });
     }
+    if (promptContext) pendingPromptContexts.set(sid, promptContext);
     if (syncTurn) {
       set((s) => ({
         runningSessions: { ...s.runningSessions, [sid]: true },
@@ -572,6 +578,9 @@ async function performTurn(
     void logDebug("turn OK");
     return sid;
   } catch (err) {
+    if (turnKey !== DRAFT_KEY && pendingPromptContexts.get(turnKey) === promptContext) {
+      pendingPromptContexts.delete(turnKey);
+    }
     const msg = err instanceof Error ? err.message : String(err);
     void logDebug(`turn FAILED: ${msg}`);
     // The failure belongs next to the message that caused it.
@@ -1014,7 +1023,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       if ("sessionId" in event && event.sessionId)
         setBoundedMap(sseLast, event.sessionId, ++sseSeq, 500);
       if (event.type === "message.usage") {
-        void recordModelCall(event);
+        void recordModelCall(event, pendingPromptContexts.get(event.sessionId));
         return;
       }
       if (event.type === "error") {
@@ -1022,6 +1031,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         // line where the user is looking), and it ends that session's turn so
         // the composer unlocks. Errors without a session keep the banner.
         const sid = event.sessionId;
+        if (sid) pendingPromptContexts.delete(sid);
         // After a user interrupt the abort's own "aborted" error is expected —
         // the thread already says "Interrupted"; don't add a second red line.
         if (sid) clearLiveFolds(sid);
@@ -1119,6 +1129,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       }
       const sid = event.sessionId;
       if (!sid) return;
+      if (event.type === "session.idle") pendingPromptContexts.delete(sid);
       if (event.type === "session.idle") clearLiveFolds(sid);
       // Idle after a user interrupt: the thread already ends with "Interrupted"
       // — keep the locks clear and skip the fold. An abort can emit MORE than
@@ -1675,6 +1686,8 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           ),
         ),
       false,
+      false,
+      heorPromptContext(text),
     ),
 
   // No retry for shell/command: re-POSTing would run the command twice.

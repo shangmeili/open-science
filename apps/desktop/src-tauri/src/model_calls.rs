@@ -47,6 +47,12 @@ pub struct ModelCallInput {
     pub tokens: ModelCallTokens,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub finish: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt_template_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt_template_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_language: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -117,6 +123,24 @@ fn validate_input(input: &ModelCallInput) -> Result<(), String> {
         if !valid_required(finish, MAX_FINISH_LEN) {
             return Err("invalid model-call finish reason".into());
         }
+    }
+    match (
+        &input.prompt_template_id,
+        &input.prompt_template_sha256,
+        &input.response_language,
+    ) {
+        (None, None, None) => {}
+        (Some(id), Some(hash), Some(language))
+            if valid_required(id, MAX_ID_LEN)
+                && id.chars().all(|ch| {
+                    ch.is_ascii_alphanumeric() || matches!(ch, '/' | '-' | '_' | '.')
+                })
+                && hash.len() == 64
+                && hash
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                && valid_required(language, 64) => {}
+        _ => return Err("invalid or incomplete model-call prompt template context".into()),
     }
     Ok(())
 }
@@ -242,7 +266,20 @@ fn record_model_calls_inner(
             .iter()
             .find(|record| record.input.message_id == input.message_id)
         {
-            if existing.input == input {
+            let mut existing_core = existing.input.clone();
+            existing_core.prompt_template_id = None;
+            existing_core.prompt_template_sha256 = None;
+            existing_core.response_language = None;
+            let mut incoming_core = input.clone();
+            incoming_core.prompt_template_id = None;
+            incoming_core.prompt_template_sha256 = None;
+            incoming_core.response_language = None;
+            let existing_has_context = existing.input.prompt_template_id.is_some();
+            let incoming_has_context = input.prompt_template_id.is_some();
+            if existing.input == input
+                || (existing_core == incoming_core
+                    && (!existing_has_context || !incoming_has_context))
+            {
                 results.push(existing.clone());
                 continue;
             }
@@ -352,6 +389,9 @@ mod tests {
                 cache_write: 4,
             },
             finish: Some("stop".into()),
+            prompt_template_id: None,
+            prompt_template_sha256: None,
+            response_language: None,
         }
     }
 
@@ -407,10 +447,52 @@ mod tests {
         invalid_cost.runtime_reported_cost = f64::NAN;
         assert!(record_model_call_inner(&root, invalid_cost).is_err());
 
+        let mut partial_context = input("msg_assistant_partial_context");
+        partial_context.prompt_template_id = Some("ai4heor/heor-workbench-preamble".into());
+        assert!(record_model_call_inner(&root, partial_context).is_err());
+
+        let mut invalid_hash = input("msg_assistant_invalid_hash");
+        invalid_hash.prompt_template_id = Some("ai4heor/heor-workbench-preamble".into());
+        invalid_hash.prompt_template_sha256 = Some("A".repeat(64));
+        invalid_hash.response_language = Some("Simplified Chinese".into());
+        assert!(record_model_call_inner(&root, invalid_hash).is_err());
+
         let file = root.join(".openscience/model-calls.jsonl");
         std::fs::write(&file, "{not-json}\n").unwrap();
         assert!(list_model_calls_inner(&root).is_err());
         assert!(record_model_call_inner(&root, input("msg_assistant_2")).is_err());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn accepts_a_bounded_prompt_template_fingerprint_without_prompt_content() {
+        let mut value = serde_json::to_value(input("msg_prompt_context")).unwrap();
+        let object = value.as_object_mut().unwrap();
+        object.insert(
+            "promptTemplateId".into(),
+            serde_json::Value::String("ai4heor/heor-workbench-preamble".into()),
+        );
+        object.insert(
+            "promptTemplateSha256".into(),
+            serde_json::Value::String("a".repeat(64)),
+        );
+        object.insert(
+            "responseLanguage".into(),
+            serde_json::Value::String("Simplified Chinese".into()),
+        );
+        assert!(serde_json::from_value::<ModelCallInput>(value).is_ok());
+
+        // A record written by the immediately preceding schema remains
+        // idempotent when history replay now knows optional template context;
+        // the append-only ledger is never rewritten in place.
+        let root = temp_root("prompt-context-compat");
+        let existing = record_model_call_inner(&root, input("msg_legacy")).unwrap();
+        let mut enriched = input("msg_legacy");
+        enriched.prompt_template_id = Some("ai4heor/heor-workbench-preamble".into());
+        enriched.prompt_template_sha256 = Some("a".repeat(64));
+        enriched.response_language = Some("Simplified Chinese".into());
+        assert_eq!(record_model_call_inner(&root, enriched).unwrap(), existing);
+        assert_eq!(list_model_calls_inner(&root).unwrap(), vec![existing]);
         let _ = std::fs::remove_dir_all(root);
     }
 

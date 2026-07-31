@@ -3514,6 +3514,18 @@ const HEOR_PROMPT_PREAMBLE = [
   "Keep the ordinary response and research report in natural HEOR language. Do not expose internal artifact paths, schema names, commands, hashes, environment variables, Skill identifiers, validators, panel mechanics, or gate identifiers there; retain those only in Technical details or Run records unless the researcher explicitly asks.",
 ].join("\n");
 
+const HEOR_PROMPT_TEMPLATE_ID = "ai4heor/heor-workbench-preamble";
+// Exact SHA-256 of HEOR_PROMPT_PREAMBLE. The test hashes the source material,
+// so any instruction change must deliberately update this audit version.
+const HEOR_PROMPT_TEMPLATE_SHA256 =
+  "f609804550fe880650a3454ee28e2aa51bdac2e7552a6fb9dae2f0d7737e3b22";
+
+export interface HeorPromptContext {
+  promptTemplateId: string;
+  promptTemplateSha256: string;
+  responseLanguage: string;
+}
+
 const RESPONSE_LANGUAGE_NAMES: Record<string, string> = {
   en: "English",
   "zh-hans": "Simplified Chinese",
@@ -3542,6 +3554,21 @@ function responseLanguageContract(locale: string): string {
  *  researcher-authored content, so the conversation UI removes it again. */
 export function buildHeorPrompt(userText: string, locale = "en"): string {
   return [HEOR_PROMPT_PREAMBLE, responseLanguageContract(locale), "", userText.trim()].join("\n");
+}
+
+/** Identify only the fixed app-owned HEOR template and language contract.
+ * Researcher text and its hash are deliberately excluded. */
+export function heorPromptContext(storedText: string): HeorPromptContext | null {
+  const stored = storedText.trim();
+  if (!stored.startsWith(`${HEOR_PROMPT_PREAMBLE}\n`)) return null;
+  const remainder = stored.slice(HEOR_PROMPT_PREAMBLE.length + 1);
+  const match = /^Response language contract: ([^.\n]{1,64})\./.exec(remainder);
+  if (!match || !Object.values(RESPONSE_LANGUAGE_NAMES).includes(match[1])) return null;
+  return {
+    promptTemplateId: HEOR_PROMPT_TEMPLATE_ID,
+    promptTemplateSha256: HEOR_PROMPT_TEMPLATE_SHA256,
+    responseLanguage: match[1],
+  };
 }
 
 /** Recover only the text the researcher entered from a stored provider prompt.
