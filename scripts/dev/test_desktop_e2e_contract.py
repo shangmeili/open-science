@@ -124,6 +124,58 @@ class DesktopE2EContractTests(unittest.TestCase):
             with self.assertRaisesRegex(AssertionError, "admitted asset deployment failed"):
                 verifier.assert_no_admitted_asset_deployment_errors(log)
 
+    def test_native_driver_uses_a_local_provider_for_a_real_standalone_task(self) -> None:
+        verifier = load_verifier()
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            runtime_root = verifier.prepare_local_fixture_runtime(
+                home,
+                "http://127.0.0.1:54321/anthropic/v1",
+            )
+            config = json.loads(
+                (runtime_root / "xdg-config/opencode/opencode.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            auth = json.loads(
+                (runtime_root / "xdg-data/opencode/auth.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+        self.assertEqual(
+            config["model"],
+            "ai4heor-local-fixture/fixture-model",
+        )
+        self.assertEqual(
+            auth["ai4heor-local-fixture"],
+            {"type": "api", "key": "fixture-credential-not-a-secret"},
+        )
+        source = VERIFY.read_text(encoding="utf-8")
+        for required in (
+            "AI4HEOR E2E project",
+            "AI4HEOR E2E standalone task",
+            "OPENCODE_CONFIG_CONTENT",
+            "fill_composer",
+            "choose_fixture_model_if_required",
+            "data-project-id",
+            "task_row_xpath",
+            "active-workspace.txt",
+        ):
+            self.assertIn(required, source)
+
+    def test_native_driver_distinguishes_the_main_reply_from_auxiliary_requests(self) -> None:
+        verifier = load_verifier()
+        main = {
+            "messages": [{"role": "user", "content": verifier.TASK_PROMPT}],
+            "tools": [{"name": "read"}],
+        }
+        auxiliary = {
+            "messages": [{"role": "user", "content": verifier.TASK_PROMPT}],
+            "tools": [],
+        }
+        self.assertTrue(verifier.is_main_task_request(main))
+        self.assertFalse(verifier.is_main_task_request(auxiliary))
+
     def test_macos_ci_runs_the_native_harness_before_packaging(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("Run native desktop E2E smoke", workflow)
