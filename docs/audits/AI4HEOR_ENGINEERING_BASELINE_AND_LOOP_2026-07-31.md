@@ -355,7 +355,7 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 ### 当前行为、复现证据与根因
 
 - `.openscience/model-calls.jsonl` 已以助手消息 `messageId` 为幂等键记录一次具体模型调用；`.openscience/provenance.jsonl` 和 `.openscience/runs.jsonl` 目前只记录 `sessionId`。同一任务可包含多次助手模型调用和多次工具循环，因此会话级字段不能证明某个文件或运行结果来自哪一次调用。
-- OpenCode 的 `message.part.updated` 工具部分同时提供稳定的 `part.messageID` 和 `callID`。当前 `OpenCodeClient.normalize` 已读取前者来排除用户消息，却在生成 `ToolUpdatedEvent` 时只保留 `callID`，丢弃了助手消息 ID。后续 `runtime.ts -> recordProvenance/recordRun -> Tauri` 因而没有可传递的准确关联键。
+- 固定的 OpenCode 1.17.13 上游源码在 [`partBase`](https://github.com/anomalyco/opencode/blob/10c894bdeef3618f5666fb506ef7f9491bb964d8/packages/schema/src/v1/session.ts#L81-L85) 中要求每个 part 都有 `messageID`，并在 [`ToolPart`](https://github.com/anomalyco/opencode/blob/10c894bdeef3618f5666fb506ef7f9491bb964d8/packages/schema/src/v1/session.ts#L315-L322) 中同时要求 `callID`。当前 `OpenCodeClient.normalize` 已读取前者来排除用户消息，却在生成 `ToolUpdatedEvent` 时只保留 `callID`，丢弃了助手消息 ID。后续 `runtime.ts -> recordProvenance/recordRun -> Tauri` 因而没有可传递的准确关联键。
 - 直接写入、编辑和 `apply_patch` 形成的产物通过工具事件写入 provenance；本地 Python/R 等执行先写入 run，再由 `link_run_outputs` 给每个输出写入 provenance。两条路径都能在事件发生时取得准确工具调用 ID；本地模型发起的工具事件还可取得对应助手消息 ID，不需要按时间或顺序猜测。
 - 当前 `ProvenancePanel` 和 `RunsPage` 只能打开 `/heor/{sessionId}`，线程块也没有助手消息锚点。它们不能精确跳到生成产物的模型调用。这属于 P1-AI-001c 的研究者可见审计界面，不作为本轮持久化关联合同的替代品。
 
