@@ -5,7 +5,7 @@
 - 分支：`codex/heor-workbench`
 - 本 loop 修改前的已提交基线：`12193198a17bb731188daf3c25c168d148cf2188`
 - 基线原则：在现有 Open Science/Tauri 技术栈上增量推进；AI 负责辅助推理，正式研究计算由可验证的确定性模块完成；科学、隐私、兼容性和公开接口决策保留 Human-in-the-loop。
-- 已完成 loop 范围：不可信 HTML 预览边界、同主版本 JavaScript CPU 拒绝服务补丁、安装后 OpenCode 的鉴权 HTTP 就绪证据，以及经研究者确认的两策略 PSA 零 INMB 并列口径。其他科学计算、模型适配、研究数据和研究流程未修改。
+- 已完成 loop 范围：不可信 HTML 预览边界、同主版本 JavaScript CPU 拒绝服务补丁、安装后 OpenCode 的鉴权 HTTP 就绪证据、经研究者确认的两策略 PSA 零 INMB 并列口径，以及 PPTX 预览中 ECharts `lines` 系列通告的不可达性门禁。其他科学计算、模型适配、研究数据和研究流程未修改。
 
 ## 当前架构与完成度
 
@@ -34,13 +34,14 @@
 | P1-SCI-003 | P1 | 已修复 | 两策略 PSA 旧汇总使用 `INMB >= 0`，将零值并列同时计入干预成本效果概率，与同一输出中单独报告并列的决策不确定性表冲突 |
 | P1-AI-001 | P1 | 待单独处理 | 模型调用的提示词版本、token/费用和产物关联追踪仍不完整 |
 | P2-SEC-003 | P2 | 待评估 | Tauri 主应用全局 CSP 仍为空；本轮已在不可信 HTML 的两个实际渲染入口建立独立限制。全局 CSP 会影响 loopback、SSE 和资源加载，需另行做兼容性测试 |
+| P2-SEC-004 | P2 | 已评估；当前不可达 | ECharts 5.6.0 命中 `GHSA-fgmj-fm8m-jvvx`，但通告需要 `lines` 系列；当前 `pptx-preview` 只从导入文件构造 `line` / `bar` / `pie`，已用发布门禁防止未复审的可达性变化 |
 
 ## 优化任务列表
 
 1. P0-SEC-001：完成 HTML 被动预览边界并建立回归合同（已完成）。
 2. P1-TEST-001a：首启 OpenCode 鉴权 HTTP 就绪合同已完成；下一次新包必须在原生 macOS/Windows 验证器中产生该证据。
 3. P1-TEST-001b：建立最小真实桌面可视 E2E，覆盖任务、HTML 预览、权限与导入。
-4. P1-SEC-002：CPU 型通告已完成同主版本修复；OOM、ECharts、UUID 和 React Router 通告继续按实际可达路径逐个处置，不强制整树升级。
+4. P1-SEC-002：CPU 型通告已完成同主版本修复；OOM、UUID 和 React Router 通告继续按实际可达路径逐个处置，不强制整树升级。ECharts `lines` 系列通告已证明当前 PPTX 路径不可达。
 5. P1-SCI-003：统一两策略 PSA 的零 INMB 并列口径（已完成）。
 6. P1-SCI-001 / P1-SCI-002：分别建立人工可核算基准后再实现，禁止与界面修复混做。
 7. P1-AI-001：在不记录密钥和敏感输入的前提下补齐模型调用审计合同。
@@ -74,6 +75,7 @@
 | PSA 定向回归 | `python -m unittest python/heor_core/tests/test_model.py -v` | 70/70 通过；黄金案例数值不变 |
 | HEOR 完整回归 | `pnpm test:heor` | 178/178 通过 |
 | HEOR 跨产物合同 | `python3 scripts/dev/test_heor_artifact_contracts.py -v` | 113/113 通过 |
+| PPTX / ECharts 可达性门禁 | `python3 scripts/dev/test_js_security_policy.py -v` | 3/3 通过；锁定的 PPTX 适配器仅构造 `line` / `bar` / `pie` |
 
 ## Loop P0-SEC-001
 
@@ -170,3 +172,20 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 验收结果：达到。`test_model` 70/70、HEOR 完整回归 178/178、跨产物合同 113/113、类型检查、lint 和生产构建均通过。
 - 回滚方式：回退本 loop 的独立提交；无数据迁移，不改变研究产物格式。
 - 剩余风险：旧项目如果恰好含有精确零 INMB 样本，重算后该旧汇总字段可能降低；明细样本、并列概率和其他数值不变。
+
+## Loop P2-SEC-004
+
+### 发现与实际可达性
+
+- 当前依赖：`pptx-preview 1.0.7 -> echarts 5.6.0`，生产构建包含 PPTX 预览和 ECharts 代码。
+- 官方条件：[GHSA-fgmj-fm8m-jvvx](https://github.com/advisories/GHSA-fgmj-fm8m-jvvx) 只在 ECharts 6.1.0 之前同时使用 `lines` 系列、默认 tooltip，且 `series.data[i].name` 可控时可把未转义 HTML 送入 tooltip。
+- 本地路径：`FilePreviewInspector -> PptxView -> pptx-preview -> ECharts.setOption`。已安装的 PPTX 适配器只识别 OOXML 折线、面积、柱状和饼图入口，并只构造 ECharts `line`、`bar` 和 `pie` 类型；不存在 `lines` 类型或由 PPTX 文本动态指定系列类型的路径。
+- 结论：版本命中成立，但当前不可信 PPTX 无法满足该通告的必要触发条件，未复现可达 XSS。
+
+### 最小处置、验收与剩余风险
+
+- 处置：不强制将 `pptx-preview` 的 `echarts ^5.5.1` 跨主版本替换为 6.1.0，不改动 PPTX 预览功能。在 `scripts/dev/test_js_security_policy.py` 新增失效关闭门禁：锁定的 PPTX 适配器必须明确只构造 `line` / `bar` / `pie`，不得出现 `lines`。
+- 验收标准：安全门禁在当前锁文件通过；任何后续 `pptx-preview` 变化或新增 `lines` 类型必须阻断构建并重新复核；生产构建和现有预览测试不回归。
+- 验收结果：安全门禁 3/3、PPTX 正常化与文件预览 17/17、发布合同 43/43 通过；类型检查、lint 和生产构建通过。
+- 回滚方式：回退本 loop 的测试与记录提交；本轮无业务代码、依赖或数据变更。
+- 剩余风险：ECharts 中仍包含受影响实现；若平台未来新增直接 ECharts 配置、可控 tooltip formatter 或 `lines` 系列，必须升级至已修复版本或建立等效隔离，不得仅删除门禁。
