@@ -26,6 +26,10 @@ PROVIDER_ID = "ai4heor-local-fixture"
 MODEL_ID = "fixture-model"
 MARKER = "AI4HEOR_PACKAGED_OPENCODE_OK"
 CREDENTIAL = "fixture-credential-not-a-secret"
+QUESTION_TEXT = "Which checked continuation should AI4HEOR use?"
+QUESTION_HEADER = "E2E check"
+QUESTION_OPTION = "Continue safely"
+QUESTION_DESCRIPTION = "Continue the local deterministic E2E run."
 
 
 class FixtureState:
@@ -36,6 +40,7 @@ class FixtureState:
         self.last_stream = False
         self.message_bodies: list[dict[str, Any]] = []
         self._next_main_reply_gate: tuple[threading.Event, threading.Event] | None = None
+        self._next_main_reply_kind: str | None = None
 
     def record_catalog(self) -> None:
         with self.lock:
@@ -67,6 +72,20 @@ class FixtureState:
         waiting, release = gate
         waiting.set()
         return release.wait(timeout=30.0)
+
+    def question_next_main_reply(self) -> None:
+        with self.lock:
+            if self._next_main_reply_kind is not None:
+                raise RuntimeError("a fixture main reply is already configured")
+            self._next_main_reply_kind = "question"
+
+    def take_reply_kind(self, stream: bool, body: dict[str, Any]) -> str:
+        if not stream or not isinstance(body.get("tools"), list) or not body["tools"]:
+            return "text"
+        with self.lock:
+            kind = self._next_main_reply_kind
+            self._next_main_reply_kind = None
+        return kind or "text"
 
 
 def json_bytes(value: Any) -> bytes:
@@ -113,6 +132,80 @@ def anthropic_stream() -> bytes:
             {
                 "type": "message_delta",
                 "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+                "usage": {"output_tokens": 1},
+            },
+        ),
+        ("message_stop", {"type": "message_stop"}),
+    ]
+    return b"".join(
+        b"event: " + name.encode() + b"\ndata: " + json_bytes(payload) + b"\n\n"
+        for name, payload in events
+    )
+
+
+def anthropic_question_stream() -> bytes:
+    question_input = {
+        "questions": [
+            {
+                "question": QUESTION_TEXT,
+                "header": QUESTION_HEADER,
+                "options": [
+                    {
+                        "label": QUESTION_OPTION,
+                        "description": QUESTION_DESCRIPTION,
+                    }
+                ],
+                "multiple": False,
+            }
+        ]
+    }
+    events = [
+        (
+            "message_start",
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "msg_fixture_question",
+                    "type": "message",
+                    "role": "assistant",
+                    "model": MODEL_ID,
+                    "content": [],
+                    "stop_reason": None,
+                    "stop_sequence": None,
+                    "usage": {"input_tokens": 8, "output_tokens": 0},
+                },
+            },
+        ),
+        (
+            "content_block_start",
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {
+                    "type": "tool_use",
+                    "id": "toolu_fixture_question",
+                    "name": "question",
+                    "input": {},
+                },
+            },
+        ),
+        (
+            "content_block_delta",
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "delta": {
+                    "type": "input_json_delta",
+                    "partial_json": json.dumps(question_input, separators=(",", ":")),
+                },
+            },
+        ),
+        ("content_block_stop", {"type": "content_block_stop", "index": 0}),
+        (
+            "message_delta",
+            {
+                "type": "message_delta",
+                "delta": {"stop_reason": "tool_use", "stop_sequence": None},
                 "usage": {"output_tokens": 1},
             },
         ),
@@ -177,11 +270,17 @@ def handler(state: FixtureState):
                 self.send_payload(400, b"{}", "application/json")
                 return
             state.record_message(stream, body)
+            reply_kind = state.take_reply_kind(stream, body)
             if not state.wait_before_reply(stream, body):
                 self.send_payload(504, b"{}", "application/json")
                 return
             if stream:
-                self.send_payload(200, anthropic_stream(), "text/event-stream")
+                payload = (
+                    anthropic_question_stream()
+                    if reply_kind == "question"
+                    else anthropic_stream()
+                )
+                self.send_payload(200, payload, "text/event-stream")
                 return
             self.send_payload(
                 200,

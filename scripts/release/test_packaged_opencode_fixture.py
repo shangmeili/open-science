@@ -11,6 +11,14 @@ import verify_packaged_opencode_fixture as fixture
 
 
 class PackagedOpenCodeFixtureTests(unittest.TestCase):
+    def test_fixture_can_emit_exactly_one_question_tool_reply(self) -> None:
+        state = fixture.FixtureState()
+        state.question_next_main_reply()
+        main = {"tools": [{"name": "question"}]}
+        self.assertEqual(state.take_reply_kind(True, main), "question")
+        self.assertEqual(state.take_reply_kind(True, main), "text")
+        self.assertEqual(state.take_reply_kind(False, main), "text")
+
     def test_main_provider_system_is_bound_to_the_matching_assistant(self) -> None:
         blocks = ["system one", "system two"]
         digest = hashlib.sha256(

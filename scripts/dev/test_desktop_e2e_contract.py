@@ -161,6 +161,9 @@ class DesktopE2EContractTests(unittest.TestCase):
             "data-project-id",
             "task_row_xpath",
             "active-workspace.txt",
+            "question_next_main_reply",
+            "QUESTION_QUEUED_PROMPT",
+            "assert_prompt_not_sent",
         ):
             self.assertIn(required, source)
 

@@ -41,6 +41,8 @@ from verify_packaged_opencode_fixture import (  # noqa: E402
     MARKER as FIXTURE_MARKER,
     MODEL_ID as FIXTURE_MODEL_ID,
     PROVIDER_ID as FIXTURE_PROVIDER_ID,
+    QUESTION_OPTION as FIXTURE_QUESTION_OPTION,
+    QUESTION_TEXT as FIXTURE_QUESTION_TEXT,
     FixtureState,
     handler as fixture_handler,
 )
@@ -53,6 +55,8 @@ QUEUE_PROMPTS = (
     "AI4HEOR E2E queued second",
     "AI4HEOR E2E queued third",
 )
+QUESTION_TRIGGER_PROMPT = "AI4HEOR E2E request researcher input"
+QUESTION_QUEUED_PROMPT = "AI4HEOR E2E queued behind researcher input"
 
 
 def prepare_local_fixture_runtime(home: Path, provider_url: str) -> Path:
@@ -486,7 +490,12 @@ def wait_for_main_request_prompts(
 ) -> None:
     deadline = time.monotonic() + timeout
     observed: list[str] = []
-    candidates = [TASK_PROMPT, *QUEUE_PROMPTS]
+    candidates = [
+        TASK_PROMPT,
+        *QUEUE_PROMPTS,
+        QUESTION_TRIGGER_PROMPT,
+        QUESTION_QUEUED_PROMPT,
+    ]
     while time.monotonic() < deadline:
         with state.lock:
             bodies = list(state.message_bodies)
@@ -504,6 +513,46 @@ def wait_for_main_request_prompts(
     raise AssertionError(
         f"local fixture received main prompts in {observed!r}, expected {expected!r}"
     )
+
+
+def main_provider_requests(state: FixtureState) -> list[dict[str, Any]]:
+    with state.lock:
+        return [
+            body
+            for body in state.message_bodies
+            if is_main_provider_request(body)
+        ]
+
+
+def wait_for_main_request_count(
+    state: FixtureState,
+    expected: int,
+    timeout: float = 60.0,
+) -> list[dict[str, Any]]:
+    deadline = time.monotonic() + timeout
+    requests: list[dict[str, Any]] = []
+    while time.monotonic() < deadline:
+        requests = main_provider_requests(state)
+        if len(requests) == expected:
+            return requests
+        if len(requests) > expected:
+            break
+        time.sleep(0.2)
+    raise AssertionError(
+        f"local fixture received {len(requests)} main requests, expected {expected}"
+    )
+
+
+def assert_prompt_not_sent(
+    state: FixtureState,
+    prompt: str,
+    duration: float = 1.0,
+) -> None:
+    deadline = time.monotonic() + duration
+    while time.monotonic() < deadline:
+        if any(prompt in latest_user_text(body) for body in main_provider_requests(state)):
+            raise AssertionError(f"queued prompt was sent while Human input was pending: {prompt}")
+        time.sleep(0.1)
 
 
 def choose_fixture_model_if_required(
@@ -888,6 +937,106 @@ def main() -> int:
                 )
                 if standalone_row is not True:
                     raise AssertionError("global new task was incorrectly grouped under a project")
+
+                fixture_state.question_next_main_reply()
+                click(
+                    base_url,
+                    session_id,
+                    fill_composer(
+                        base_url,
+                        session_id,
+                        composer_xpath,
+                        QUESTION_TRIGGER_PROMPT,
+                        send_xpath,
+                    ),
+                )
+                wait_for_body_text(
+                    base_url,
+                    session_id,
+                    FIXTURE_QUESTION_TEXT,
+                    timeout=60.0,
+                )
+                wait_for_main_request_prompts(
+                    fixture_state,
+                    [
+                        TASK_PROMPT,
+                        QUEUE_PROMPTS[2],
+                        QUEUE_PROMPTS[1],
+                        QUESTION_TRIGGER_PROMPT,
+                    ],
+                )
+                question_request_count = len(main_provider_requests(fixture_state))
+
+                click(
+                    base_url,
+                    session_id,
+                    fill_composer(
+                        base_url,
+                        session_id,
+                        composer_xpath,
+                        QUESTION_QUEUED_PROMPT,
+                        queue_add_xpath,
+                    ),
+                )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    queue_items_script,
+                    [QUESTION_QUEUED_PROMPT],
+                )
+                assert_prompt_not_sent(
+                    fixture_state,
+                    QUESTION_QUEUED_PROMPT,
+                )
+
+                question_option_xpath = (
+                    f'//button[.//span[normalize-space()={json.dumps(FIXTURE_QUESTION_OPTION)}]]'
+                )
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, question_option_xpath),
+                )
+                submit_question_xpath = (
+                    '//button[normalize-space()="提交" or normalize-space()="Submit"]'
+                )
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, submit_question_xpath),
+                )
+                continued_requests = wait_for_main_request_count(
+                    fixture_state,
+                    question_request_count + 1,
+                )
+                if FIXTURE_QUESTION_OPTION not in json.dumps(
+                    continued_requests[-1].get("messages"),
+                    ensure_ascii=False,
+                ):
+                    raise AssertionError(
+                        "researcher answer did not reach the resumed model request"
+                    )
+                wait_for_main_request_prompts(
+                    fixture_state,
+                    [
+                        TASK_PROMPT,
+                        QUEUE_PROMPTS[2],
+                        QUEUE_PROMPTS[1],
+                        QUESTION_TRIGGER_PROMPT,
+                        QUESTION_QUEUED_PROMPT,
+                    ],
+                )
+                wait_for_main_request_count(
+                    fixture_state,
+                    question_request_count + 2,
+                )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    queue_items_script,
+                    None,
+                    timeout=60.0,
+                )
                 (standalone_workspace / "untrusted-e2e.html").write_text(
                     "<!doctype html><html><head><title>Passive preview fixture</title></head>"
                     '<body><h1 id="passive-preview-sentinel">Passive preview content</h1>'
@@ -983,7 +1132,7 @@ def main() -> int:
 
                 print(
                     "native desktop E2E passed: Tauri bridge, navigation, "
-                    "queued prompts, task files and passive HTML preview"
+                    "queued prompts, Human input, task files and passive HTML preview"
                 )
         except Exception as error:
             tail = ""
