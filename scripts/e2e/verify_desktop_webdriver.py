@@ -38,6 +38,8 @@ if str(RELEASE_SCRIPTS) not in sys.path:
 
 from verify_packaged_opencode_fixture import (  # noqa: E402
     BASH_COMMAND as FIXTURE_BASH_COMMAND,
+    BASH_REJECT_COMMAND as FIXTURE_BASH_REJECT_COMMAND,
+    BASH_REJECT_SENTINEL as FIXTURE_BASH_REJECT_SENTINEL,
     CREDENTIAL as FIXTURE_CREDENTIAL,
     MARKER as FIXTURE_MARKER,
     MODEL_ID as FIXTURE_MODEL_ID,
@@ -60,6 +62,8 @@ QUESTION_TRIGGER_PROMPT = "AI4HEOR E2E request researcher input"
 QUESTION_QUEUED_PROMPT = "AI4HEOR E2E queued behind researcher input"
 PERMISSION_TRIGGER_PROMPT = "AI4HEOR E2E request one-time command permission"
 PERMISSION_QUEUED_PROMPT = "AI4HEOR E2E queued behind command permission"
+PERMISSION_REJECT_TRIGGER_PROMPT = "AI4HEOR E2E reject command permission"
+PERMISSION_REJECT_QUEUED_PROMPT = "AI4HEOR E2E queued behind rejected permission"
 
 
 def prepare_local_fixture_runtime(home: Path, provider_url: str) -> Path:
@@ -500,6 +504,8 @@ def wait_for_main_request_prompts(
         QUESTION_QUEUED_PROMPT,
         PERMISSION_TRIGGER_PROMPT,
         PERMISSION_QUEUED_PROMPT,
+        PERMISSION_REJECT_TRIGGER_PROMPT,
+        PERMISSION_REJECT_QUEUED_PROMPT,
     ]
     while time.monotonic() < deadline:
         with state.lock:
@@ -1143,6 +1149,138 @@ def main() -> int:
                     None,
                     timeout=60.0,
                 )
+
+                reject_sentinel = standalone_workspace / FIXTURE_BASH_REJECT_SENTINEL
+                reject_sentinel.write_text(
+                    "must remain after rejection\n",
+                    encoding="utf-8",
+                )
+                fixture_state.bash_rejection_next_main_reply()
+                click(
+                    base_url,
+                    session_id,
+                    fill_composer(
+                        base_url,
+                        session_id,
+                        composer_xpath,
+                        PERMISSION_REJECT_TRIGGER_PROMPT,
+                        send_xpath,
+                    ),
+                )
+                wait_for_body_text(
+                    base_url,
+                    session_id,
+                    FIXTURE_BASH_REJECT_COMMAND,
+                    timeout=60.0,
+                )
+                wait_for_main_request_prompts(
+                    fixture_state,
+                    [
+                        TASK_PROMPT,
+                        QUEUE_PROMPTS[2],
+                        QUEUE_PROMPTS[1],
+                        QUESTION_TRIGGER_PROMPT,
+                        QUESTION_QUEUED_PROMPT,
+                        PERMISSION_TRIGGER_PROMPT,
+                        PERMISSION_QUEUED_PROMPT,
+                        PERMISSION_REJECT_TRIGGER_PROMPT,
+                    ],
+                )
+                permission_reject_request_count = len(
+                    main_provider_requests(fixture_state)
+                )
+
+                click(
+                    base_url,
+                    session_id,
+                    fill_composer(
+                        base_url,
+                        session_id,
+                        composer_xpath,
+                        PERMISSION_REJECT_QUEUED_PROMPT,
+                        queue_add_xpath,
+                    ),
+                )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    queue_items_script,
+                    [PERMISSION_REJECT_QUEUED_PROMPT],
+                )
+                assert_prompt_not_sent(
+                    fixture_state,
+                    PERMISSION_REJECT_QUEUED_PROMPT,
+                )
+
+                reject_xpath = (
+                    '//button[normalize-space()="拒绝" '
+                    'or normalize-space()="Reject"]'
+                )
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, reject_xpath),
+                )
+                permission_reject_queued_request = wait_for_main_request_count(
+                    fixture_state,
+                    permission_reject_request_count + 1,
+                )[-1]
+                permission_reject_messages = json.dumps(
+                    permission_reject_queued_request.get("messages"),
+                    ensure_ascii=False,
+                )
+                if (
+                    "tool_result" not in permission_reject_messages
+                    or "toolu_fixture_bash_reject" not in permission_reject_messages
+                ):
+                    raise AssertionError(
+                        "queued turn did not retain the rejected command result in history"
+                    )
+                if PERMISSION_REJECT_QUEUED_PROMPT not in latest_user_text(
+                    permission_reject_queued_request
+                ):
+                    raise AssertionError(
+                        "rejected permission did not release the next queued turn"
+                    )
+                if (
+                    not reject_sentinel.is_file()
+                    or reject_sentinel.read_text(encoding="utf-8")
+                    != "must remain after rejection\n"
+                ):
+                    raise AssertionError("rejected command permission executed the command")
+                wait_for_main_request_prompts(
+                    fixture_state,
+                    [
+                        TASK_PROMPT,
+                        QUEUE_PROMPTS[2],
+                        QUEUE_PROMPTS[1],
+                        QUESTION_TRIGGER_PROMPT,
+                        QUESTION_QUEUED_PROMPT,
+                        PERMISSION_TRIGGER_PROMPT,
+                        PERMISSION_QUEUED_PROMPT,
+                        PERMISSION_REJECT_TRIGGER_PROMPT,
+                        PERMISSION_REJECT_QUEUED_PROMPT,
+                    ],
+                )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    queue_items_script,
+                    None,
+                    timeout=60.0,
+                )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "return !document.querySelector("
+                    "'button[aria-label=\"停止\"], button[aria-label=\"Stop\"]')",
+                    True,
+                    timeout=60.0,
+                )
+                if not reject_sentinel.is_file():
+                    raise AssertionError(
+                        "rejected command executed while the queued turn drained"
+                    )
                 (standalone_workspace / "untrusted-e2e.html").write_text(
                     "<!doctype html><html><head><title>Passive preview fixture</title></head>"
                     '<body><h1 id="passive-preview-sentinel">Passive preview content</h1>'
@@ -1238,7 +1376,7 @@ def main() -> int:
 
                 print(
                     "native desktop E2E passed: Tauri bridge, navigation, "
-                    "queued prompts, Human input, command permission, task files "
+                    "queued prompts, Human input, command permission and rejection, task files "
                     "and passive HTML preview"
                 )
         except Exception as error:

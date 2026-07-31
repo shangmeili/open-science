@@ -11,6 +11,20 @@ import verify_packaged_opencode_fixture as fixture
 
 
 class PackagedOpenCodeFixtureTests(unittest.TestCase):
+    def test_fixture_can_emit_a_distinct_bash_rejection_probe(self) -> None:
+        state = fixture.FixtureState()
+        state.bash_rejection_next_main_reply()
+        main = {"tools": [{"name": "bash"}]}
+        self.assertEqual(state.take_reply_kind(True, main), "bash_reject")
+        self.assertEqual(state.take_reply_kind(True, main), "text")
+        payload = fixture.anthropic_bash_stream(
+            command=fixture.BASH_REJECT_COMMAND,
+            message_id="msg_fixture_bash_reject",
+            tool_id="toolu_fixture_bash_reject",
+        ).decode("utf-8")
+        self.assertIn('"id":"toolu_fixture_bash_reject"', payload)
+        self.assertIn(fixture.BASH_REJECT_COMMAND, payload)
+
     def test_fixture_can_emit_exactly_one_bash_tool_reply(self) -> None:
         state = fixture.FixtureState()
         state.bash_next_main_reply()

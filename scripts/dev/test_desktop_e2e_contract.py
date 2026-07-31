@@ -166,6 +166,10 @@ class DesktopE2EContractTests(unittest.TestCase):
             "bash_next_main_reply",
             "PERMISSION_QUEUED_PROMPT",
             "FIXTURE_BASH_COMMAND",
+            "bash_rejection_next_main_reply",
+            "PERMISSION_REJECT_QUEUED_PROMPT",
+            "FIXTURE_BASH_REJECT_COMMAND",
+            "FIXTURE_BASH_REJECT_SENTINEL",
             "assert_prompt_not_sent",
         ):
             self.assertIn(required, source)

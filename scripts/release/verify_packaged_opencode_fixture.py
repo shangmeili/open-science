@@ -31,6 +31,8 @@ QUESTION_HEADER = "E2E check"
 QUESTION_OPTION = "Continue safely"
 QUESTION_DESCRIPTION = "Continue the local deterministic E2E run."
 BASH_COMMAND = "rm -f ai4heor-e2e-permission-sentinel"
+BASH_REJECT_SENTINEL = "ai4heor-e2e-permission-reject-sentinel"
+BASH_REJECT_COMMAND = f"rm -f {BASH_REJECT_SENTINEL}"
 
 
 class FixtureState:
@@ -85,6 +87,12 @@ class FixtureState:
             if self._next_main_reply_kind is not None:
                 raise RuntimeError("a fixture main reply is already configured")
             self._next_main_reply_kind = "bash"
+
+    def bash_rejection_next_main_reply(self) -> None:
+        with self.lock:
+            if self._next_main_reply_kind is not None:
+                raise RuntimeError("a fixture main reply is already configured")
+            self._next_main_reply_kind = "bash_reject"
 
     def take_reply_kind(self, stream: bool, body: dict[str, Any]) -> str:
         if not stream or not isinstance(body.get("tools"), list) or not body["tools"]:
@@ -224,14 +232,18 @@ def anthropic_question_stream() -> bytes:
     )
 
 
-def anthropic_bash_stream() -> bytes:
+def anthropic_bash_stream(
+    command: str = BASH_COMMAND,
+    message_id: str = "msg_fixture_bash",
+    tool_id: str = "toolu_fixture_bash",
+) -> bytes:
     events = [
         (
             "message_start",
             {
                 "type": "message_start",
                 "message": {
-                    "id": "msg_fixture_bash",
+                    "id": message_id,
                     "type": "message",
                     "role": "assistant",
                     "model": MODEL_ID,
@@ -249,7 +261,7 @@ def anthropic_bash_stream() -> bytes:
                 "index": 0,
                 "content_block": {
                     "type": "tool_use",
-                    "id": "toolu_fixture_bash",
+                    "id": tool_id,
                     "name": "bash",
                     "input": {},
                 },
@@ -263,7 +275,7 @@ def anthropic_bash_stream() -> bytes:
                 "delta": {
                     "type": "input_json_delta",
                     "partial_json": json.dumps(
-                        {"command": BASH_COMMAND},
+                        {"command": command},
                         separators=(",", ":"),
                     ),
                 },
@@ -348,6 +360,12 @@ def handler(state: FixtureState):
                     payload = anthropic_question_stream()
                 elif reply_kind == "bash":
                     payload = anthropic_bash_stream()
+                elif reply_kind == "bash_reject":
+                    payload = anthropic_bash_stream(
+                        command=BASH_REJECT_COMMAND,
+                        message_id="msg_fixture_bash_reject",
+                        tool_id="toolu_fixture_bash_reject",
+                    )
                 else:
                     payload = anthropic_stream()
                 self.send_payload(200, payload, "text/event-stream")
