@@ -1,5 +1,6 @@
 // Pure OpenCode permission configuration used by the runtime command layer.
 use serde_json::{json, Value};
+use std::path::Path;
 
 /// Approval modes for agent tool use (the composer's Codex-style switch).
 /// OpenCode evaluates permission rules last-match-wins with user config rules
@@ -64,6 +65,46 @@ const DANGEROUS_BASH: &[&str] = &[
     "modal",
     "sbatch",
 ];
+
+/// Build the per-process OpenCode config that guarantees the verified,
+/// app-owned product Harness is loaded in addition to project/user
+/// instructions. This is intentionally ephemeral: imported project files and
+/// the user's persisted OpenCode config remain byte-for-byte unchanged.
+pub fn product_harness_config_content(
+    inherited: Option<&str>,
+    product_agents_path: &Path,
+) -> Result<String, String> {
+    if !product_agents_path.is_absolute() {
+        return Err("product Harness instruction path must be absolute".into());
+    }
+    let product_path = product_agents_path.to_string_lossy().replace('\\', "/");
+    if product_path.is_empty() {
+        return Err("product Harness instruction path is empty".into());
+    }
+
+    let inherited = inherited.unwrap_or_default();
+    let mut root: Value = if inherited.trim().is_empty() {
+        json!({})
+    } else {
+        serde_json::from_str(inherited)
+            .map_err(|error| format!("invalid inherited OpenCode config: {error}"))?
+    };
+    let object = root
+        .as_object_mut()
+        .ok_or("inherited OpenCode config must be a JSON object")?;
+    let instructions = object
+        .entry("instructions")
+        .or_insert_with(|| json!([]))
+        .as_array_mut()
+        .ok_or("inherited OpenCode instructions must be an array")?;
+    if instructions.iter().any(|value| !value.is_string()) {
+        return Err("inherited OpenCode instructions must contain only strings".into());
+    }
+    instructions.retain(|value| value.as_str() != Some(product_path.as_str()));
+    instructions.push(json!(product_path));
+
+    serde_json::to_string_pretty(&root).map_err(|error| error.to_string())
+}
 
 fn approve_permission() -> Value {
     let mut bash = serde_json::Map::new();
@@ -172,6 +213,63 @@ pub fn permission_mode_of(existing: &str) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn product_harness_config_preserves_existing_config_and_loads_harness_last() {
+        let harness = Path::new("/Applications/AI4HEOR.app/Contents/Resources/harness/AGENTS.md");
+        let existing = r#"{"instructions":["PROJECT.md","https://example.test/rules"],"model":"provider/model"}"#;
+
+        let out = product_harness_config_content(Some(existing), harness).unwrap();
+        let value: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(value["model"], "provider/model");
+        assert_eq!(
+            value["instructions"],
+            json!([
+                "PROJECT.md",
+                "https://example.test/rules",
+                "/Applications/AI4HEOR.app/Contents/Resources/harness/AGENTS.md"
+            ])
+        );
+
+        let repeated = product_harness_config_content(Some(&out), harness).unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&repeated).unwrap(),
+            value,
+            "runtime restarts must not duplicate the product Harness"
+        );
+    }
+
+    #[test]
+    fn product_harness_config_creates_an_ephemeral_config_when_none_is_inherited() {
+        let harness = Path::new("/Applications/AI4HEOR.app/Contents/Resources/harness/AGENTS.md");
+        for existing in [None, Some(""), Some("   ")] {
+            let out = product_harness_config_content(existing, harness).unwrap();
+            let value: Value = serde_json::from_str(&out).unwrap();
+            assert_eq!(
+                value,
+                json!({
+                    "instructions": [
+                        "/Applications/AI4HEOR.app/Contents/Resources/harness/AGENTS.md"
+                    ]
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn product_harness_config_rejects_invalid_inherited_contracts() {
+        let harness = Path::new("/Applications/AI4HEOR.app/Contents/Resources/harness/AGENTS.md");
+        for existing in [
+            "{broken",
+            "[]",
+            r#"{"instructions":"PROJECT.md"}"#,
+            r#"{"instructions":["PROJECT.md",7]}"#,
+        ] {
+            assert!(product_harness_config_content(Some(existing), harness).is_err());
+        }
+        assert!(product_harness_config_content(None, Path::new("harness/AGENTS.md")).is_err());
+    }
 
     #[test]
     fn approve_mode_writes_ask_rules_for_dangerous_bash() {

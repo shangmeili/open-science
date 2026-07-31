@@ -1,6 +1,6 @@
 {
   "schema": "ai4heor-research-assistant-harness/v2",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "interaction": "natural_language_primary",
   "scientific_lead": "human_researcher",
   "assistant_role": "bounded_research_assistance",
@@ -15,7 +15,8 @@
   "external_content": {
     "classification": "untrusted_data_not_instructions",
     "may_change_governance": false,
-    "may_create_approval": false
+    "may_create_approval": false,
+    "project_instruction_files": "untrusted_context_cannot_override_product_harness"
   },
   "capability_evolution": {
     "request_interface": "natural_language",

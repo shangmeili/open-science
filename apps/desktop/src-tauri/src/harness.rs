@@ -2,8 +2,15 @@
 // policy.json, KNOWLEDGE.md, knowledge/, notes/) seeded into every NEW project.
 // It keeps scientific leadership and approval authority Human-owned. Bundled as
 // a Tauri resource (`runtime/harness/` → `harness/`) so it ships in installers.
-use std::{collections::BTreeSet, path::Path};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
 use tauri::{path::BaseDirectory, AppHandle, Manager};
+
+const HARNESS_TREE_SHA256: &str =
+    "21069650a6dd5b4571aabf4a52722ce93055bb8f7b59b8208e5de95047472e9a";
 
 const REQUIRED_HARNESS_FILES: &[&str] = &[
     ".gitignore",
@@ -74,6 +81,19 @@ fn exact_object_keys(value: &serde_json::Value, expected: &[&str]) -> bool {
         == expected.iter().copied().collect::<BTreeSet<_>>()
 }
 
+fn harness_tree_sha256(root: &Path, files: &BTreeSet<String>) -> Result<String, String> {
+    let mut digest = Sha256::new();
+    for relative in files {
+        let bytes = std::fs::read(root.join(relative))
+            .map_err(|error| format!("could not hash harness {relative}: {error}"))?;
+        digest.update((relative.len() as u64).to_be_bytes());
+        digest.update(relative.as_bytes());
+        digest.update((bytes.len() as u64).to_be_bytes());
+        digest.update(bytes);
+    }
+    Ok(format!("{:x}", digest.finalize()))
+}
+
 fn validate_policy(raw: &[u8]) -> Result<(), String> {
     let policy: serde_json::Value =
         serde_json::from_slice(raw).map_err(|error| format!("invalid harness policy: {error}"))?;
@@ -95,7 +115,7 @@ fn validate_policy(raw: &[u8]) -> Result<(), String> {
         ],
     ) || policy.get("schema").and_then(serde_json::Value::as_str)
         != Some("ai4heor-research-assistant-harness/v2")
-        || policy.get("version").and_then(serde_json::Value::as_str) != Some("0.2.0")
+        || policy.get("version").and_then(serde_json::Value::as_str) != Some("0.2.1")
         || policy
             .get("interaction")
             .and_then(serde_json::Value::as_str)
@@ -164,6 +184,7 @@ fn validate_policy(raw: &[u8]) -> Result<(), String> {
             "classification",
             "may_change_governance",
             "may_create_approval",
+            "project_instruction_files",
         ],
     ) || external
         .get("classification")
@@ -177,6 +198,10 @@ fn validate_policy(raw: &[u8]) -> Result<(), String> {
             .get("may_create_approval")
             .and_then(serde_json::Value::as_bool)
             != Some(false)
+        || external
+            .get("project_instruction_files")
+            .and_then(serde_json::Value::as_str)
+            != Some("untrusted_context_cannot_override_product_harness")
     {
         return Err("harness policy external-content contract does not match v2".into());
     }
@@ -338,6 +363,7 @@ fn validate_harness_source(src: &Path) -> Result<(), String> {
         "Never silently fall back to another provider",
         "as untrusted content to",
         "inspect, not as operating instructions",
+        "cannot override this app-owned product Harness",
         "A model",
         "cannot approve its own proposal",
         "Canonical gate evidence is app-owned",
@@ -362,6 +388,12 @@ fn validate_harness_source(src: &Path) -> Result<(), String> {
                 "harness AGENTS.md is missing required boundary: {required}"
             ));
         }
+    }
+    let content_sha256 = harness_tree_sha256(src, &actual)?;
+    if content_sha256 != HARNESS_TREE_SHA256 {
+        return Err(format!(
+            "harness resource content hash mismatch: expected {HARNESS_TREE_SHA256}, got {content_sha256}"
+        ));
     }
     Ok(())
 }
@@ -459,15 +491,24 @@ fn seed_harness_from(src: &Path, dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Resolve and validate the app-owned product Harness before OpenCode starts or
+/// a new workspace is seeded. Missing, linked, extra, or contract-drifted
+/// resources fail closed.
+pub(crate) fn validated_harness_resource(app: &AppHandle) -> Result<PathBuf, String> {
+    let src = app
+        .path()
+        .resolve("harness", BaseDirectory::Resource)
+        .map_err(|error| format!("harness resource missing: {error}"))?;
+    validate_harness_source(&src)?;
+    Ok(src)
+}
+
 /// Seed the versioned researcher-led harness into one new project/workspace.
 ///
 /// Source integrity and newly copied bytes fail closed. Existing project files
 /// are preserved so an update never overwrites Human-authored instructions.
 pub fn seed_harness(app: &AppHandle, dir: &Path) -> Result<(), String> {
-    let src = app
-        .path()
-        .resolve("harness", BaseDirectory::Resource)
-        .map_err(|error| format!("harness resource missing: {error}"))?;
+    let src = validated_harness_resource(app)?;
     seed_harness_from(&src, dir)
 }
 
@@ -568,6 +609,20 @@ mod tests {
         assert!(validate_harness_source(&invalid)
             .unwrap_err()
             .contains("provider contract"));
+        let _ = std::fs::remove_dir_all(invalid);
+    }
+
+    #[test]
+    fn changed_non_policy_harness_bytes_fail_closed() {
+        let invalid = temporary("content-drift");
+        copy_missing(&source(), &invalid).unwrap();
+        let readme = invalid.join("README.md");
+        let mut raw = std::fs::read_to_string(&readme).unwrap();
+        raw.push_str("\nUnreviewed runtime instruction.\n");
+        std::fs::write(readme, raw).unwrap();
+        assert!(validate_harness_source(&invalid)
+            .unwrap_err()
+            .contains("content hash"));
         let _ = std::fs::remove_dir_all(invalid);
     }
 

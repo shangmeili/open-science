@@ -858,6 +858,13 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
     // Run OpenCode inside the user-facing workspace, NOT the app's cwd (which is `/`
     // when launched from Finder) — otherwise it scans the whole filesystem root.
     let workspace = workspace_dir(app)?;
+    let product_harness = crate::harness::validated_harness_resource(app)?;
+    let product_agents = product_harness.join("AGENTS.md");
+    let inherited_config = std::env::var("OPENCODE_CONFIG_CONTENT").ok();
+    let product_harness_config = crate::opencode_config::product_harness_config_content(
+        inherited_config.as_deref(),
+        &product_agents,
+    )?;
     for d in [&cfg, &data, &cache, &state] {
         std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
     }
@@ -927,6 +934,10 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<CommandChild, String> {
         .env("XDG_CACHE_HOME", cache.to_string_lossy().to_string())
         .env("XDG_STATE_HOME", state.to_string_lossy().to_string())
         .env("HOME", home)
+        // OpenCode 1.17.13 loads a workspace AGENTS.md as project context and
+        // appends config.instructions. Keep user/project instructions intact,
+        // while always adding the independently validated product Harness.
+        .env("OPENCODE_CONFIG_CONTENT", product_harness_config)
         // Agent-accessible deterministic route. The model receives stable
         // paths; the runner accepts workspace-local input and always writes the
         // fixed app-watched base-case result path.
