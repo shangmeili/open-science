@@ -48,6 +48,11 @@ from verify_packaged_opencode_fixture import (  # noqa: E402
 
 PROJECT_NAME = "AI4HEOR E2E project"
 TASK_PROMPT = "AI4HEOR E2E standalone task"
+QUEUE_PROMPTS = (
+    "AI4HEOR E2E queued first",
+    "AI4HEOR E2E queued second",
+    "AI4HEOR E2E queued third",
+)
 
 
 def prepare_local_fixture_runtime(home: Path, provider_url: str) -> Path:
@@ -406,16 +411,9 @@ def fill_composer(
     session_id: str,
     xpath: str,
     expected: str,
+    action_xpath: str,
     timeout: float = 30.0,
-) -> None:
-    ready_script = (
-        "const input = document.querySelector('textarea[aria-label=\"Ask anything\"], "
-        "textarea[aria-label=\"描述研究问题或要处理的工作\"]'); "
-        "const send = document.querySelector('button[aria-label=\"Send\"], "
-        "button[aria-label=\"发送\"]'); "
-        f"return Boolean(input && input.value === {json.dumps(expected)} "
-        "&& send && !send.disabled);"
-    )
+) -> str:
     deadline = time.monotonic() + timeout
     last_error: Exception | None = None
     while time.monotonic() < deadline:
@@ -426,8 +424,23 @@ def fill_composer(
                 if current:
                     clear_element(base_url, session_id, element_id)
                 send_keys(base_url, session_id, element_id, expected)
-            if execute(base_url, session_id, ready_script) is True:
-                return
+            action_id = find_element(
+                base_url,
+                session_id,
+                action_xpath,
+                timeout=2.0,
+            )
+            disabled = element_attribute(
+                base_url,
+                session_id,
+                action_id,
+                "disabled",
+            )
+            if (
+                element_attribute(base_url, session_id, element_id, "value") == expected
+                and disabled not in (True, "true")
+            ):
+                return action_id
             last_error = None
         except (AssertionError, URLError, TimeoutError, ConnectionError) as error:
             last_error = error
@@ -439,11 +452,57 @@ def fill_composer(
     )
 
 
+def is_main_provider_request(body: dict[str, Any]) -> bool:
+    return isinstance(body.get("tools"), list) and bool(body["tools"])
+
+
+def latest_user_text(body: dict[str, Any]) -> str:
+    messages = body.get("messages")
+    if not isinstance(messages, list):
+        return ""
+    for message in reversed(messages):
+        if not isinstance(message, dict) or message.get("role") != "user":
+            continue
+        content = message.get("content")
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return "\n".join(
+                part["text"]
+                for part in content
+                if isinstance(part, dict) and isinstance(part.get("text"), str)
+            )
+    return ""
+
+
 def is_main_task_request(body: dict[str, Any]) -> bool:
-    return (
-        isinstance(body.get("tools"), list)
-        and bool(body["tools"])
-        and TASK_PROMPT in json.dumps(body.get("messages"), ensure_ascii=False)
+    return is_main_provider_request(body) and TASK_PROMPT in latest_user_text(body)
+
+
+def wait_for_main_request_prompts(
+    state: FixtureState,
+    expected: list[str],
+    timeout: float = 60.0,
+) -> None:
+    deadline = time.monotonic() + timeout
+    observed: list[str] = []
+    candidates = [TASK_PROMPT, *QUEUE_PROMPTS]
+    while time.monotonic() < deadline:
+        with state.lock:
+            bodies = list(state.message_bodies)
+        observed = []
+        for body in bodies:
+            if not is_main_provider_request(body):
+                continue
+            user_text = latest_user_text(body)
+            matched = next((prompt for prompt in candidates if prompt in user_text), None)
+            if matched is not None:
+                observed.append(matched)
+        if observed == expected:
+            return
+        time.sleep(0.2)
+    raise AssertionError(
+        f"local fixture received main prompts in {observed!r}, expected {expected!r}"
     )
 
 
@@ -570,6 +629,7 @@ def main() -> int:
         home = Path(temporary).resolve()
         provider_context = local_fixture_provider()
         fixture_state, provider_url = provider_context.__enter__()
+        main_reply_waiting, release_main_reply = fixture_state.pause_next_main_reply()
         runtime_root = prepare_local_fixture_runtime(home, provider_url)
         blocked_request = local_request_observer()
         workspace = home / "Documents" / "AI4HEOR"
@@ -681,16 +741,20 @@ def main() -> int:
                     '//textarea[@aria-label="描述研究问题或要处理的工作" '
                     'or @aria-label="Ask anything"]'
                 )
-                fill_composer(
-                    base_url,
-                    session_id,
-                    composer_xpath,
-                    TASK_PROMPT,
-                )
                 send_xpath = (
                     '//button[@aria-label="发送" or @aria-label="Send"]'
                 )
-                click(base_url, session_id, find_element(base_url, session_id, send_xpath))
+                click(
+                    base_url,
+                    session_id,
+                    fill_composer(
+                        base_url,
+                        session_id,
+                        composer_xpath,
+                        TASK_PROMPT,
+                        send_xpath,
+                    ),
+                )
                 try:
                     task_path = wait_for_task_location(base_url, session_id)
                 except AssertionError as error:
@@ -712,6 +776,73 @@ def main() -> int:
                         f"visible UI excerpt: {str(visible)[-3000:]}"
                     ) from error
                 task_id = task_path.removeprefix("/heor/")
+                if not main_reply_waiting.wait(timeout=30.0):
+                    raise AssertionError(
+                        "local fixture did not pause the standalone task reply"
+                    )
+
+                queue_add_xpath = (
+                    '//button[@aria-label="加入待发送队列" '
+                    'or @aria-label="Add to send queue"]'
+                )
+                for prompt in QUEUE_PROMPTS:
+                    click(
+                        base_url,
+                        session_id,
+                        fill_composer(
+                            base_url,
+                            session_id,
+                            composer_xpath,
+                            prompt,
+                            queue_add_xpath,
+                        ),
+                    )
+                    wait_for_body_text(base_url, session_id, prompt)
+
+                move_third_up_xpath = (
+                    '//button[@aria-label="将第 3 条消息上移" '
+                    'or @aria-label="Move message 3 up"]'
+                )
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, move_third_up_xpath),
+                )
+                remove_first_xpath = (
+                    '//button[@aria-label="删除第 1 条待发送消息" '
+                    'or @aria-label="Remove queued message 1"]'
+                )
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, remove_first_xpath),
+                )
+                queue_items_script = (
+                    "const section = [...document.querySelectorAll('section')].find((node) => "
+                    "['待发送', 'Waiting to send'].includes(node.getAttribute('aria-label'))); "
+                    "return section ? [...section.querySelectorAll('ol > li p[title]')]"
+                    ".map((node) => node.getAttribute('title')) : null;"
+                )
+                expected_queue = [QUEUE_PROMPTS[2], QUEUE_PROMPTS[1]]
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    queue_items_script,
+                    expected_queue,
+                )
+
+                release_main_reply.set()
+                wait_for_main_request_prompts(
+                    fixture_state,
+                    [TASK_PROMPT, *expected_queue],
+                )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    queue_items_script,
+                    None,
+                    timeout=60.0,
+                )
                 wait_for_body_text(base_url, session_id, FIXTURE_MARKER)
 
                 active_pointer = runtime_root / "active-workspace.txt"
@@ -757,17 +888,6 @@ def main() -> int:
                 )
                 if standalone_row is not True:
                     raise AssertionError("global new task was incorrectly grouped under a project")
-                with fixture_state.lock:
-                    main_requests = [
-                        body
-                        for body in fixture_state.message_bodies
-                        if is_main_task_request(body)
-                    ]
-                if len(main_requests) != 1:
-                    raise AssertionError(
-                        "local fixture did not receive exactly one standalone task request"
-                    )
-
                 (standalone_workspace / "untrusted-e2e.html").write_text(
                     "<!doctype html><html><head><title>Passive preview fixture</title></head>"
                     '<body><h1 id="passive-preview-sentinel">Passive preview content</h1>'
@@ -863,7 +983,7 @@ def main() -> int:
 
                 print(
                     "native desktop E2E passed: Tauri bridge, navigation, "
-                    "task files and passive HTML preview"
+                    "queued prompts, task files and passive HTML preview"
                 )
         except Exception as error:
             tail = ""
@@ -871,6 +991,7 @@ def main() -> int:
                 tail = log_path.read_text(encoding="utf-8", errors="replace")[-3000:]
             raise AssertionError(f"{error}; app log tail: {tail}") from error
         finally:
+            release_main_reply.set()
             if session_id is not None:
                 try:
                     request_json(base_url, "DELETE", f"/session/{session_id}")

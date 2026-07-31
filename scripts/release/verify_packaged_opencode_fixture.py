@@ -35,6 +35,7 @@ class FixtureState:
         self.message_requests = 0
         self.last_stream = False
         self.message_bodies: list[dict[str, Any]] = []
+        self._next_main_reply_gate: tuple[threading.Event, threading.Event] | None = None
 
     def record_catalog(self) -> None:
         with self.lock:
@@ -45,6 +46,27 @@ class FixtureState:
             self.message_requests += 1
             self.last_stream = stream
             self.message_bodies.append(body)
+
+    def pause_next_main_reply(self) -> tuple[threading.Event, threading.Event]:
+        waiting = threading.Event()
+        release = threading.Event()
+        with self.lock:
+            if self._next_main_reply_gate is not None:
+                raise RuntimeError("a fixture main reply is already paused")
+            self._next_main_reply_gate = (waiting, release)
+        return waiting, release
+
+    def wait_before_reply(self, stream: bool, body: dict[str, Any]) -> bool:
+        if not stream or not isinstance(body.get("tools"), list) or not body["tools"]:
+            return True
+        with self.lock:
+            gate = self._next_main_reply_gate
+            self._next_main_reply_gate = None
+        if gate is None:
+            return True
+        waiting, release = gate
+        waiting.set()
+        return release.wait(timeout=30.0)
 
 
 def json_bytes(value: Any) -> bytes:
@@ -155,6 +177,9 @@ def handler(state: FixtureState):
                 self.send_payload(400, b"{}", "application/json")
                 return
             state.record_message(stream, body)
+            if not state.wait_before_reply(stream, body):
+                self.send_payload(504, b"{}", "application/json")
+                return
             if stream:
                 self.send_payload(200, anthropic_stream(), "text/event-stream")
                 return

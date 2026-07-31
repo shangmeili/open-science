@@ -7,6 +7,7 @@ import json
 import importlib.util
 import re
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -175,6 +176,38 @@ class DesktopE2EContractTests(unittest.TestCase):
         }
         self.assertTrue(verifier.is_main_task_request(main))
         self.assertFalse(verifier.is_main_task_request(auxiliary))
+        block_content = {
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": "older"}]},
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": verifier.QUEUE_PROMPTS[1]}],
+                },
+            ],
+            "tools": [{"name": "read"}],
+        }
+        self.assertEqual(
+            verifier.latest_user_text(block_content),
+            verifier.QUEUE_PROMPTS[1],
+        )
+
+    def test_local_provider_can_pause_one_main_reply_for_queue_interaction(self) -> None:
+        verifier = load_verifier()
+        state = verifier.FixtureState()
+        waiting, release = state.pause_next_main_reply()
+        finished = threading.Event()
+
+        def wait_for_release() -> None:
+            state.wait_before_reply(True, {"tools": [{"name": "read"}]})
+            finished.set()
+
+        thread = threading.Thread(target=wait_for_release)
+        thread.start()
+        self.assertTrue(waiting.wait(timeout=1.0))
+        self.assertFalse(finished.is_set())
+        release.set()
+        thread.join(timeout=1.0)
+        self.assertTrue(finished.is_set())
 
     def test_macos_ci_runs_the_native_harness_before_packaging(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
