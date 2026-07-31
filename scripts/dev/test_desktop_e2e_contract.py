@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import re
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -17,6 +19,20 @@ WORKFLOW = ROOT / ".github/workflows/build.yml"
 LICENSE_GENERATOR = ROOT / "scripts/dev/generate_license_inventory.py"
 LICENSE_INVENTORY = ROOT / "docs/legal/cargo-lock-components.json"
 LICENSE_AUDIT = ROOT / "docs/legal/LICENSING_AUDIT.md"
+BUILD_RS = ROOT / "apps/desktop/src-tauri/build.rs"
+STAGING_HELPER = ROOT / "apps/desktop/src-tauri/resource_staging.rs"
+STAGING_TRIGGER = ROOT / "apps/desktop/src-tauri/resource-staging.trigger"
+TRIGGER_SCRIPT = ROOT / "scripts/release/trigger_resource_staging.mjs"
+TAURI_CONFIG = ROOT / "apps/desktop/src-tauri/tauri.conf.json"
+
+
+def load_verifier():
+    spec = importlib.util.spec_from_file_location("ai4heor_desktop_e2e", VERIFY)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("cannot load native desktop E2E verifier")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class DesktopE2EContractTests(unittest.TestCase):
@@ -79,6 +95,34 @@ class DesktopE2EContractTests(unittest.TestCase):
             "find_stable_element",
         ):
             self.assertIn(required, text)
+
+    def test_build_recreates_the_admitted_skill_staging_tree(self) -> None:
+        build = BUILD_RS.read_text(encoding="utf-8")
+        config = json.loads(TAURI_CONFIG.read_text(encoding="utf-8"))
+        before_build = config["build"]["beforeBuildCommand"]
+        self.assertTrue(STAGING_HELPER.is_file())
+        self.assertTrue(STAGING_TRIGGER.is_file())
+        self.assertTrue(TRIGGER_SCRIPT.is_file())
+        self.assertIn("mod resource_staging", build)
+        self.assertIn("cargo:rerun-if-changed=resource-staging.trigger", build)
+        self.assertIn("clean_staged_admitted_skills", build)
+        self.assertIn("trigger_resource_staging.mjs", before_build)
+        self.assertLess(
+            before_build.index("trigger_resource_staging.mjs"),
+            before_build.index("preflight_resources.mjs"),
+        )
+
+    def test_verifier_fails_closed_on_admitted_asset_deployment_errors(self) -> None:
+        verifier = load_verifier()
+        with tempfile.TemporaryDirectory() as temporary:
+            log = Path(temporary) / "desktop-e2e.log"
+            log.write_text(
+                "failed to deploy admitted asset skills-admitted-ai4s/integrity-auditor: "
+                "content hash mismatch\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(AssertionError, "admitted asset deployment failed"):
+                verifier.assert_no_admitted_asset_deployment_errors(log)
 
     def test_macos_ci_runs_the_native_harness_before_packaging(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")

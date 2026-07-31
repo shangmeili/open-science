@@ -227,6 +227,14 @@ def element_attribute(base_url: str, session_id: str, element_id: str, name: str
     )
 
 
+def assert_no_admitted_asset_deployment_errors(log_path: Path) -> None:
+    if not log_path.is_file():
+        raise AssertionError("native desktop log is missing")
+    log = log_path.read_text(encoding="utf-8", errors="replace")
+    if "failed to deploy admitted asset" in log:
+        raise AssertionError("admitted asset deployment failed in the native desktop runtime")
+
+
 def wait_for_location(base_url: str, session_id: str, pathname: str, timeout: float = 10.0) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -428,6 +436,7 @@ def main() -> int:
                 )
                 if blocked_request.requested.wait(timeout=1.0):
                     raise AssertionError("untrusted HTML requested an external script")
+                assert_no_admitted_asset_deployment_errors(log_path)
 
                 print(
                     "native desktop E2E passed: Tauri bridge, navigation, "

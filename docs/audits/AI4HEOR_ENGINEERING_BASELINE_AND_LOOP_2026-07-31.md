@@ -31,7 +31,7 @@
 | P1-TEST-001a | P1 | macOS x64 原生执行通过；Windows 待执行 | 安装包首启过去只证明 OpenCode 进程存在；现要求未授权健康请求返回 401，且证据不保存端口或密码 |
 | P1-TEST-001b | P1 | 基础导航与被动 HTML 原生测试已完成；完整流程待后续 loop | 测试专用 macOS Tauri WebDriver 已验证 IPC 桥接、真实侧边栏/文件操作、HTML iframe 空 sandbox、实际响应 CSP/Referrer-Policy 和外部脚本零请求；任务执行、权限和导入到导出仍缺安装后自动化 E2E |
 | P1-TEST-001c | P1 | macOS x64 原生执行通过；Windows 待执行 | 安装包首启过去没有证明 WebView 已挂载 AppShell、执行 JavaScript 并通过 Tauri IPC 取得本地服务地址；现从隔离首启的应用私有日志生成无正文、无端口的布尔证据 |
-| P1-TEST-002 | P1 | 新发现，待单独处理 | 复用 `target/debug` 资源目录时，测试生成的 Python `__pycache__` 曾残留在 `integrity-auditor` 副本中，使树哈希失配并触发 fail-closed 不部署；源码树、已安装应用和当前 x64 发布资源哈希均正确，但调试构建清洁性与日志门禁尚未形成独立合同 |
+| P1-TEST-002 | P1 | 已修复 | Tauri 的资源复制只覆盖源文件，不删除复用 profile 目录中的额外文件；构建入口现先触发一次受限的 Cargo 重建，由 build script 只删除可再生成的 `skills-admitted-ai4s` 暂存树再交给 Tauri 复制，原生 E2E 同时对准入资产部署错误日志 fail-closed |
 | P1-SCI-001 | P1 | 首版确定性内核已完成；端到端流程待后续 loop | 已有独立 schema、黄金案例、输入溯源、逐节点计算轨迹、增量前沿、CLI 哈希重放与安装包资源映射；Skill、桌面复核、报告和复现包尚未连接 |
 | P1-SCI-002 | P1 | 待单独处理 | 亚组分析尚缺完整的预设、来源绑定、逐亚组结果与复核合同 |
 | P1-SCI-003 | P1 | 已修复 | 两策略 PSA 旧汇总使用 `INMB >= 0`，将零值并列同时计入干预成本效果概率，与同一输出中单独报告并列的决策不确定性表冲突 |
@@ -50,7 +50,7 @@
 2. P1-TEST-001a：首启 OpenCode 鉴权 HTTP 就绪合同已在新 macOS x64 DMG 原生执行通过；Windows 仍需在原生 runner 产生证据。
 3. P1-TEST-001b：基础导航与被动 HTML 原生 E2E 已完成；后续分别补任务执行、权限与导入到导出，不用一个过大 E2E 隐藏失败点。
 4. P1-TEST-001c：安装后前端 bootstrap 合同已在新 macOS x64 DMG 原生执行通过；Windows 待执行，且不得据此宣称完整可视 E2E 已完成。
-5. P1-TEST-002：单独复现并修复调试构建资源目录残留 Python 缓存的问题；要求构建前后资源树可重复、哈希一致，且原生 E2E 对资源部署失败日志 fail-closed。本轮只移走已确认的生成缓存以恢复验证，没有修改业务实现。
+5. P1-TEST-002：调试构建资源目录确定性重建及原生 E2E 部署错误门禁已完成；构建仅清理可再生成的准入 Skill 暂存树，不触及源码、用户数据或安装应用。
 6. P1-SEC-002：CPU 型通告已完成同主版本修复；OOM、UUID 和 React Router 通告继续按实际可达路径逐个处置，不强制整树升级。ECharts `lines` 系列通告已证明当前 PPTX 路径不可达。
 7. P1-SCI-003：统一两策略 PSA 的零 INMB 并列口径（已完成）。
 8. P1-SCI-001：首版确定性内核已完成；后续分别为 Skill、桌面审查、报告与复现包建立独立合同。P1-SCI-002 仍需先建立人工可核算基准，禁止与界面修复混做。
@@ -119,7 +119,9 @@
 | 被动 HTML 原生 E2E 定向稳定性 | `python3 scripts/e2e/verify_desktop_webdriver.py` 连续执行 | 3/3 通过；真实 WKWebView 完成任务文件选择、HTML iframe 加载、响应头检查且未请求测试脚本 |
 | 被动 HTML 原生 E2E 完整命令 | `pnpm test:e2e:desktop` | 通过；包含前端构建、41 来源/445 文件资源预检、Rust 测试变体构建、Tauri 桥接、导航、任务文件和被动 HTML 预览 |
 | 被动 HTML loop 全量回归 | 前端、Rust、HEOR、开发合同、发布合同、类型、ESLint、Rust 格式、资源预检及定向预览测试 | 前端 113 文件/770 项、Rust 377 通过/1 项既有忽略、HEOR 188/188、开发合同 386/386、发布合同 46/46；类型、lint、格式、资源预检、前端 10/10 和 Rust 7/7 预览测试通过 |
-| 调试资源污染只读核对 | 对比源码、已安装应用、x64 发布资源与 `target/debug` 的 `integrity-auditor` 内容哈希 | 前三者均为 `db4d...`；复用的调试副本曾因生成的 `forensics_tools/__pycache__` 变为 `6b844...`。移走该缓存后本轮验证恢复，根治合同留作 P1-TEST-002 |
+| 调试资源污染修复前复现 | 向 `target/debug/skills-admitted-ai4s/integrity-auditor` 加入忽略的 Python 字节码后运行既有原生 E2E | 运行时记录 `failed to deploy admitted asset ... content hash mismatch`，但旧 E2E 仍报告通过且污染文件保留 |
+| 调试资源确定性重建 | 修改后的 `pnpm test:e2e:desktop`，并比较源码与重建暂存树 | 原生 E2E 通过；污染文件被清除，两个 `integrity-auditor` 树哈希均为 `db4d137dd69ec7295aa6517238ae1f6817abc051395d0708d5283c687a1d5bb4`，暂存树 Python 缓存数为 0 |
+| 暂存重建定向回归 | `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --test resource_staging` + E2E/资源触发器合同 | Rust 2/2、桌面 E2E 合同 8/8、资源触发器合同 6/6 通过；连续普通 Cargo 构建第二次为 `Fresh`，无自触发重建循环 |
 | 系统上下文安装包执行门禁 | `verify_packaged_opencode_fixture.py` + macOS 构建工作流 | 单元合同 2/2 与 CI 接线合同通过；当前 1.0.0 x64 DMG 实际执行通过：2 次本地 provider 请求、主请求流式响应、回复标记命中，实际 system 块与对应助手消息的 `ai4heor.system-context/v1` 指纹一致 |
 | 当前 macOS x64 DMG | `tauri build --target x86_64-apple-darwin --bundles dmg` + `verify_macos_package.py --verify-first-launch` | 由干净提交 `feffae7` 构建；96,464,683 字节，SHA-256 `eb8f43c403335457c153c4ebb7e07d847669bc2810886df848e9ce34da22bfba`；445 个资源逐字节一致，包内 HEOR 188/188，OpenCode `1.17.13-ai4heor.1`，隔离首启、HTTP 401、AppShell/JavaScript/Tauri IPC 和工作区隔离通过；发布证据已在同一干净提交上生成并校验；无可用 Developer ID 签名，仅供内部测试 |
 | 产物关联修复前复现 | SDK、provenance、run 定向测试及 Rust 定向编译 | 前端 7 项失败；Rust 10 处编译失败，准确证明工具事件、桥接和持久记录均缺少关联字段 |
@@ -419,3 +421,14 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 隔离与隐私：测试只使用 `/private/tmp` 下临时 HOME 和随机本地端口；不访问公网，不读取用户 API key，不保存研究内容，结束后删除 WebDriver session、终止测试进程并清理临时目录。本轮确认无遗留测试进程。
 - 回滚方式：回退本 loop 的两个测试文件和本节记录；无数据迁移、用户文件或产品接口变化。
 - 剩余风险：这是测试特性构建的真实 WKWebView 证据，不是已安装 DMG 字节证据；它证明 iframe 加载、安全属性、实际响应头与测试脚本零请求，不宣称覆盖所有 HTML 子资源、视觉排版或任意恶意内容。任务执行、队列、Human-in-the-loop、权限与导入/导出仍待独立 E2E。另行发现的调试资源缓存污染记录为 P1-TEST-002，不在本轮顺便修复。
+
+## Loop P1-TEST-002：Tauri 准入 Skill 暂存树确定性重建
+
+- 当前行为与复现：Tauri 构建依赖的资源复制只覆盖已有源文件，不会删除复用 profile 资源目录中的额外文件。向调试暂存的 `integrity-auditor` 加入一个忽略的 `__pycache__/*.pyc` 后，运行时因内容哈希失配正确拒绝部署，但旧原生 E2E 没有检查启动日志，仍报告通过且污染文件保留。
+- 目标行为：每次 Tauri 构建都从源码重新形成准入 Skill 暂存树；清理范围必须精确限制在 Cargo `OUT_DIR` 对应 profile 下可再生成的 `skills-admitted-ai4s`，不得触及源码、用户数据、安装应用或同级其他资源；原生 E2E 遇到任何准入资产部署失败日志必须失败。
+- 根因：`tauri-build 2.6.3` 的资源复制没有镜像删除语义，而现有构建和 E2E 合同分别缺少生成目录清洁步骤与部署失败日志门禁。运行时的树哈希 fail-closed 行为本身正确。
+- 修改前失败测试：新增 Rust 路径/清理边界测试时因实现模块不存在而失败；桌面 E2E 合同因缺少暂存触发、受限清理和部署日志检查而失败；资源预检合同因触发器不存在而失败。没有删除测试、放宽断言或屏蔽运行时错误。
+- 最小修复：`beforeBuildCommand` 先运行标准库 Node 触发器，只更新同目录固定触发文件的时间戳；Cargo build script 观察该文件，在严格校验 `OUT_DIR` 形状后仅删除 profile 的准入 Skill 暂存目录，再由原有 Tauri 资源复制恢复。原生 E2E 在成功输出前读取应用日志并拒绝 `failed to deploy admitted asset`。第一次尝试直接观察并清理输出目录会造成 Cargo 每次都判定 Dirty，已在提交前撤销；当前连续普通 Cargo 构建的第二次为 `Fresh`。
+- 验收结果：污染夹具经真实 `pnpm test:e2e:desktop` 自动清除，源码与重建暂存树哈希均为 `db4d137dd69ec7295aa6517238ae1f6817abc051395d0708d5283c687a1d5bb4`，缓存数为 0；Rust 清理边界 2/2、桌面 E2E 合同 8/8、资源触发器合同 6/6、前端 770/770、HEOR 188/188、Rust 377 通过并有 1 项既有忽略、开发合同 388/388、发布合同 47/47、类型检查、ESLint、Rust 格式和 41 来源/445 文件资源预检均通过。
+- 回滚方式：回退本 loop 的独立提交即可；无数据迁移、研究文件、产品界面、模型请求、科学公式或发布包变化。
+- 剩余风险：普通 `cargo test` 不需要消费打包资源，确定性清理绑定到实际 Tauri build 入口。macOS 与 Windows 发布配置共用该入口和 build script，但本轮只取得 macOS 调试 E2E 证据，没有生成或验证新的 DMG，也没有 Windows 原生证据。

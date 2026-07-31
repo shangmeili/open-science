@@ -24,7 +24,12 @@ class TauriHeorResourceTests(unittest.TestCase):
         command = config["build"]["beforeBuildCommand"]
         self.assertEqual(
             command,
-            "pnpm --filter @ai4s/desktop build && node ../../scripts/release/preflight_resources.mjs",
+            "node ../../scripts/release/trigger_resource_staging.mjs && "
+            "pnpm --filter @ai4s/desktop build && "
+            "node ../../scripts/release/preflight_resources.mjs",
+        )
+        self.assertTrue(
+            (ROOT / "scripts/release/trigger_resource_staging.mjs").is_file()
         )
         self.assertTrue((ROOT / "scripts/release/preflight_resources.mjs").is_file())
 

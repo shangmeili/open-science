@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/release/preflight_resources.mjs"
+TRIGGER_SCRIPT = ROOT / "scripts/release/trigger_resource_staging.mjs"
 REAL_CONFIG = ROOT / "apps/desktop/src-tauri/tauri.conf.json"
 
 
@@ -21,6 +22,14 @@ class ResourcePreflightTests(unittest.TestCase):
     def run_preflight(self, config: Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             ["node", str(SCRIPT), "--config", str(config)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    def run_trigger(self, config: Path) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["node", str(TRIGGER_SCRIPT), "--config", str(config)],
             check=False,
             capture_output=True,
             text=True,
@@ -42,6 +51,20 @@ class ResourcePreflightTests(unittest.TestCase):
             completed.stdout,
             r"Release resource preflight passed: sources=\d+, files=\d+",
         )
+
+    def test_tauri_resource_staging_trigger_changes_only_its_timestamp(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config = self.fixture(root, {})
+            trigger = config.parent / "resource-staging.trigger"
+            trigger.write_text("stable build signal\n", encoding="utf-8")
+            os.utime(trigger, (1, 1))
+
+            completed = self.run_trigger(config)
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(trigger.read_text(encoding="utf-8"), "stable build signal\n")
+            self.assertGreater(trigger.stat().st_mtime_ns, 1_000_000_000)
 
     def test_development_python_subprocesses_disable_bytecode_caches(self) -> None:
         failures = []

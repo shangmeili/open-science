@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm --filter @ai4s/desktop exec vite --port 5173 --strictPort",
-    "beforeBuildCommand": "pnpm --filter @ai4s/desktop build && node ../../scripts/release/preflight_resources.mjs"
+    "beforeBuildCommand": "node ../../scripts/release/trigger_resource_staging.mjs && pnpm --filter @ai4s/desktop build && node ../../scripts/release/preflight_resources.mjs"
   },
   "app": {
     "macOSPrivateApi": true,
