@@ -56,6 +56,11 @@ export function startMockOpenCode(port = 0): Promise<MockOpenCode> {
       providerID: "mock-provider",
       modelID: "mock-model",
       mode: "build",
+      systemContext: {
+        contract: "ai4heor.system-context/v1",
+        sha256: "b".repeat(64),
+        blockCount: 2,
+      },
       cost: 0.0123,
       tokens: {
         input: 120,

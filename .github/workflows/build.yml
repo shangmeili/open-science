@@ -50,6 +50,11 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      - name: Install pinned Bun for the reviewed OpenCode build
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
       - name: Install Python
         uses: actions/setup-python@v5
         with:
@@ -82,8 +87,14 @@ jobs:
       - name: Validate pinned sidecar archive integrity
         run: python scripts/dev/test_sidecar_integrity.py -v
 
+      - name: Validate reviewed OpenCode source patch contract
+        run: python scripts/dev/test_patched_opencode.py -v
+
       - name: Test release evidence contracts
         run: python scripts/release/test_release_evidence.py -v
+
+      - name: Test packaged OpenCode context-audit fixture contracts
+        run: python scripts/release/test_packaged_opencode_fixture.py -v
 
       - name: Test macOS distribution contracts
         if: startsWith(matrix.platform, 'macos')
@@ -239,6 +250,9 @@ jobs:
             --verification-json "$verification" \
             --verify-first-launch \
             "${trust_args[@]}"
+          python scripts/release/verify_packaged_opencode_fixture.py \
+            --dmg "${dmgs[0]}" \
+            --expected-version 1.0.0
           python scripts/release/release_evidence.py record \
             --platform macos \
             --target "${{ matrix.target }}" \
@@ -252,6 +266,7 @@ jobs:
             --check first-launch-process \
             --check frontend-bootstrap \
             --check opencode-authenticated-http \
+            --check opencode-system-context-audit \
             --check workspace-created \
             --check workspace-isolated \
             "${trust_checks[@]}" \

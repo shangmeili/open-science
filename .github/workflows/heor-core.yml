@@ -22,6 +22,9 @@ on:
       - "scripts/dev/test_rwe_causal_analysis.py"
       - "scripts/dev/test_tauri_heor_resources.py"
       - "scripts/dev/fetch-opencode.sh"
+      - "scripts/dev/build-opencode.sh"
+      - "scripts/dev/test_patched_opencode.py"
+      - "runtime/opencode-patch/**"
       - "scripts/dev/fetch-uv.sh"
       - "scripts/dev/sidecar-checksums.sha256"
       - "scripts/dev/verify-sidecar-checksum.sh"
@@ -117,8 +120,12 @@ jobs:
         run: python scripts/dev/test_tauri_heor_resources.py -v
       - name: Validate pinned sidecar archive integrity
         run: python scripts/dev/test_sidecar_integrity.py -v
+      - name: Validate reviewed OpenCode source patch contract
+        run: python scripts/dev/test_patched_opencode.py -v
       - name: Test release evidence contracts
         run: python scripts/release/test_release_evidence.py -v
+      - name: Test packaged OpenCode context-audit fixture contracts
+        run: python scripts/release/test_packaged_opencode_fixture.py -v
       - name: Test macOS distribution contracts
         run: python scripts/release/test_macos_distribution.py -v
 

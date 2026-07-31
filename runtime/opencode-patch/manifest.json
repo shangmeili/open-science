@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "ai4heor-opencode-patch/v1",
+  "upstreamRepository": "https://github.com/anomalyco/opencode",
+  "upstreamVersion": "1.17.13",
+  "upstreamCommit": "10c894bdeef3618f5666fb506ef7f9491bb964d8",
+  "sourceArchiveSha256": "774e4a5bf89d7e8191accfe5e3aa55de67339ddb3914e7c990f5fccff5719cac",
+  "patchedVersion": "1.17.13-ai4heor.1",
+  "patchSha256": "a035c723abe675832e35ad0b93ea78a4b6fa5dde875ab14038e19edb3bac8585",
+  "systemContextContract": "ai4heor.system-context/v1",
+  "bunVersion": "1.3.14",
+  "license": "MIT"
+}

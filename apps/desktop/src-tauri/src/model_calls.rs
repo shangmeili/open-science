@@ -48,6 +48,12 @@ pub struct ModelCallInput {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub finish: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_context_contract: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_context_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_context_block_count: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt_template_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt_template_sha256: Option<String>,
@@ -123,6 +129,21 @@ fn validate_input(input: &ModelCallInput) -> Result<(), String> {
         if !valid_required(finish, MAX_FINISH_LEN) {
             return Err("invalid model-call finish reason".into());
         }
+    }
+    match (
+        &input.system_context_contract,
+        &input.system_context_sha256,
+        input.system_context_block_count,
+    ) {
+        (None, None, None) => {}
+        (Some(contract), Some(hash), Some(block_count))
+            if contract == "ai4heor.system-context/v1"
+                && hash.len() == 64
+                && hash
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                && (1..=1024).contains(&block_count) => {}
+        _ => return Err("invalid or incomplete model-call system context".into()),
     }
     match (
         &input.prompt_template_id,
@@ -371,7 +392,7 @@ mod tests {
     fn input(message_id: &str) -> ModelCallInput {
         ModelCallInput {
             runtime: "opencode".into(),
-            runtime_version: "1.17.13".into(),
+            runtime_version: "1.17.13-ai4heor.1".into(),
             session_id: "ses_1".into(),
             message_id: message_id.into(),
             parent_message_id: "msg_user_1".into(),
@@ -389,6 +410,9 @@ mod tests {
                 cache_write: 4,
             },
             finish: Some("stop".into()),
+            system_context_contract: Some("ai4heor.system-context/v1".into()),
+            system_context_sha256: Some("b".repeat(64)),
+            system_context_block_count: Some(2),
             prompt_template_id: None,
             prompt_template_sha256: None,
             response_language: None,
@@ -456,6 +480,14 @@ mod tests {
         invalid_hash.prompt_template_sha256 = Some("A".repeat(64));
         invalid_hash.response_language = Some("Simplified Chinese".into());
         assert!(record_model_call_inner(&root, invalid_hash).is_err());
+
+        let mut partial_system_context = input("msg_assistant_partial_system_context");
+        partial_system_context.system_context_sha256 = None;
+        assert!(record_model_call_inner(&root, partial_system_context).is_err());
+
+        let mut invalid_system_context = input("msg_assistant_invalid_system_context");
+        invalid_system_context.system_context_sha256 = Some("B".repeat(64));
+        assert!(record_model_call_inner(&root, invalid_system_context).is_err());
 
         let file = root.join(".openscience/model-calls.jsonl");
         std::fs::write(&file, "{not-json}\n").unwrap();

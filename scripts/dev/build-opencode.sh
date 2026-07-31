@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Reproducibly build AI4HEOR's reviewed OpenCode derivative from pinned source.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+MANIFEST="$ROOT/runtime/opencode-patch/manifest.json"
+PATCH="$ROOT/runtime/opencode-patch/ai4heor-system-context.patch"
+OUT_DIR="$ROOT/apps/desktop/src-tauri/binaries"
+TRIPLE="${1:-$(rustc -Vv | sed -n 's/host: //p')}"
+
+UPSTREAM_COMMIT="10c894bdeef3618f5666fb506ef7f9491bb964d8"
+SOURCE_URL="https://github.com/anomalyco/opencode/archive/${UPSTREAM_COMMIT}.tar.gz"
+sourceArchiveSha256="774e4a5bf89d7e8191accfe5e3aa55de67339ddb3914e7c990f5fccff5719cac"
+patchSha256="a035c723abe675832e35ad0b93ea78a4b6fa5dde875ab14038e19edb3bac8585"
+PATCHED_VERSION="1.17.13-ai4heor.1"
+BUN_VERSION="1.3.14"
+
+case "$TRIPLE" in
+  aarch64-apple-darwin)       DIST="opencode-darwin-arm64"; DEST="opencode-$TRIPLE" ;;
+  x86_64-apple-darwin)        DIST="opencode-darwin-x64"; DEST="opencode-$TRIPLE" ;;
+  x86_64-pc-windows-msvc)     DIST="opencode-windows-x64"; DEST="opencode-$TRIPLE.exe" ;;
+  aarch64-pc-windows-msvc)    DIST="opencode-windows-arm64"; DEST="opencode-$TRIPLE.exe" ;;
+  x86_64-unknown-linux-gnu)   DIST="opencode-linux-x64"; DEST="opencode-$TRIPLE" ;;
+  aarch64-unknown-linux-gnu)  DIST="opencode-linux-arm64"; DEST="opencode-$TRIPLE" ;;
+  *) echo "Unsupported triple: $TRIPLE" >&2; exit 1 ;;
+esac
+
+command -v bun >/dev/null 2>&1 || {
+  echo "Bun $BUN_VERSION is required to build the reviewed OpenCode sidecar." >&2
+  exit 1
+}
+test "$(bun --version)" = "$BUN_VERSION" || {
+  echo "Expected Bun $BUN_VERSION; found $(bun --version)." >&2
+  exit 1
+}
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+ARCHIVE="$TMP/opencode-source.tar.gz"
+curl -fsSL "$SOURCE_URL" -o "$ARCHIVE"
+echo "$sourceArchiveSha256  $ARCHIVE" | shasum -a 256 -c -
+echo "$patchSha256  $PATCH" | shasum -a 256 -c -
+
+tar -xzf "$ARCHIVE" -C "$TMP"
+SOURCE="$TMP/opencode-$UPSTREAM_COMMIT"
+test -d "$SOURCE"
+git -C "$SOURCE" apply --check --unidiff-zero "$PATCH"
+git -C "$SOURCE" apply --unidiff-zero "$PATCH"
+
+(
+  cd "$SOURCE"
+  bun install --frozen-lockfile
+  bun test --cwd packages/opencode \
+    test/session/system-context.test.ts \
+    test/session/processor-effect.test.ts
+  bun run --cwd packages/opencode typecheck
+  OPENCODE_VERSION=1.17.13-ai4heor.1 bun run --cwd packages/opencode build --single
+)
+
+BIN="$SOURCE/packages/opencode/dist/$DIST/bin/opencode"
+if [[ "$TRIPLE" == *windows* ]]; then
+  BIN="$BIN.exe"
+fi
+test -f "$BIN"
+VERSION="$($BIN --version | tr -d '\r\n')"
+test "$VERSION" = "$PATCHED_VERSION" || {
+  echo "Patched OpenCode reported unexpected version: $VERSION" >&2
+  exit 1
+}
+mkdir -p "$OUT_DIR"
+cp "$BIN" "$OUT_DIR/$DEST"
+if [[ "$TRIPLE" != *windows* ]]; then chmod +x "$OUT_DIR/$DEST"; fi
+echo "Placed reviewed OpenCode $PATCHED_VERSION sidecar for $TRIPLE in $OUT_DIR"

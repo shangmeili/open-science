@@ -34,12 +34,6 @@ class SidecarIntegrityTests(unittest.TestCase):
     def test_every_supported_archive_has_one_pinned_digest(self) -> None:
         entries = manifest()
         expected = {
-            "opencode/1.17.13/opencode-darwin-arm64.zip",
-            "opencode/1.17.13/opencode-darwin-x64.zip",
-            "opencode/1.17.13/opencode-linux-arm64.tar.gz",
-            "opencode/1.17.13/opencode-linux-x64.tar.gz",
-            "opencode/1.17.13/opencode-windows-arm64.zip",
-            "opencode/1.17.13/opencode-windows-x64.zip",
             "uv/0.11.26/uv-aarch64-apple-darwin.tar.gz",
             "uv/0.11.26/uv-x86_64-apple-darwin.tar.gz",
             "uv/0.11.26/uv-aarch64-pc-windows-msvc.zip",

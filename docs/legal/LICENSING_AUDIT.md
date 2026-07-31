@@ -32,7 +32,7 @@ the exact bytes and preservation of all required notices.
 | npm production dependency universe | 266 packages: 227 MIT, 15 ISC, 6 BSD-3-Clause, 6 Apache-2.0, 3 OFL-1.1, 8 other compatible/multi-license expressions, 1 unresolved | Compiled/bundled as applicable | Internal test only until full notices and unresolved item are closed |
 | `buffers@0.1.1` | Package metadata contains no license field or license file; pulled through `exceljs > unzipper > binary` | Potentially | Public-release blocker |
 | Cargo locked dependency universe | 564 third-party packages plus the workspace crate; declared expressions recorded in inventory | Compiled as target requires | Internal test only until exact shipped-target notice corpus is bundled |
-| OpenCode 1.17.13 | Pinned sidecar; upstream tag declares MIT | Yes | Allowed with exact license notice still to bundle |
+| OpenCode 1.17.13-ai4heor.1 | Reviewed derivative built from upstream commit `10c894bdeef3618f5666fb506ef7f9491bb964d8`; source archive and patch hashes pinned; upstream MIT license, patch, manifest and notice bundled | Yes | Allowed for internal testing under MIT; final package bytes remain subject to the full package audit |
 | uv 0.11.26 | Pinned sidecar; upstream tag offers Apache-2.0 OR MIT | Yes | Allowed after selected license and notice are bundled |
 | agent-browser 0.32.1 | Versioned platform sidecar from `vercel-labs/agent-browser`; Apache-2.0 license is bundled with the app | Yes | Allowed with the bundled license and third-party notice |
 | Bundled Chinese HEOR knowledge base | 25 first-party Markdown learning documents plus manifest; sources are cited/linked, not copied wholesale | Yes | Allowed as project-authored synthesis; current-source verification remains a scientific requirement |

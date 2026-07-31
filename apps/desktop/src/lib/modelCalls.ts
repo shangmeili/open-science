@@ -29,6 +29,13 @@ export function modelCallInput(
     providerId: event.providerId,
     modelId: event.modelId,
     agent: event.agent,
+    ...(event.systemContextContract
+      ? {
+          systemContextContract: event.systemContextContract,
+          systemContextSha256: event.systemContextSha256,
+          systemContextBlockCount: event.systemContextBlockCount,
+        }
+      : {}),
     createdAt: event.createdAt,
     completedAt: event.completedAt,
     runtimeReportedCost: event.runtimeReportedCost,

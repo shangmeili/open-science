@@ -217,7 +217,7 @@ capabilities only, not heavy computation.
 ### 5.1 Choice: OpenCode (bundled)
 
 The agent runtime is **OpenCode** (`anomalyco/opencode`, MIT), pinned to a stable
-release (`OPENCODE_VERSION`, currently 1.17.13). It is distributed as a **single
+release (`OPENCODE_VERSION`, currently 1.17.13-ai4heor.1). It is distributed as a **single
 binary**, which makes it ideal to bundle as a desktop sidecar — no Python/Node runtime
 to package. It supports MCP, skills, and agents, is model-agnostic (BYOK), and serves as
 an open-source coding/agent runtime in the spirit of Claude Code.
@@ -299,12 +299,17 @@ git-ignored and fetched by `scripts/dev/fetch-opencode.sh`). The Rust side
   directory. The source login and the user's OpenCode sessions are never modified.
 - killed on app exit.
 
-OpenCode and uv release archives are admitted through
+The AI4HEOR OpenCode derivative is built from a fixed upstream source commit
+with a content-addressed reviewed patch and pinned Bun toolchain; its manifest,
+patch and MIT license are bundled under `legal/opencode/`. Publisher-provided
+uv release archives are admitted through
 `scripts/dev/sidecar-checksums.sha256`. The fetchers require exactly one SHA-256 for
 the pinned product/version/asset key and verify the downloaded bytes before extraction;
-missing, duplicate, or changed digests fail closed. OpenCode values are recorded from
-the [v1.17.13 GitHub release](https://github.com/anomalyco/opencode/releases/tag/v1.17.13)
-asset metadata and uv values from the publisher's
+missing, duplicate, or changed digests fail closed. OpenCode upstream source is
+fixed to v1.17.13 commit `10c894bdeef3618f5666fb506ef7f9491bb964d8`;
+the derivative reports `1.17.13-ai4heor.1` and its source and patch hashes are
+recorded in `runtime/opencode-patch/manifest.json`.
+The uv values come from the publisher's
 [0.11.26 release checksums](https://github.com/astral-sh/uv/releases/tag/0.11.26).
 The contract covers every supported macOS, Windows, and Linux archive and runs in both
 build and cross-platform contract CI.

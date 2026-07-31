@@ -151,11 +151,11 @@ def verify_binaries(
             if sha256(source) != sha256(binaries[name]):
                 raise AssertionError(f"packaged {name} differs from the reviewed target sidecar")
         versions = {
-            "opencode": "1.17.13",
+            "opencode": "1.17.13-ai4heor.1",
             "uv": "0.11.26",
             "verification": "static_sha256_against_reviewed_target_sidecars",
         }
-    if "1.17.13" not in versions["opencode"]:
+    if "1.17.13-ai4heor.1" not in versions["opencode"]:
         raise AssertionError(f"unexpected OpenCode version: {versions['opencode']}")
     if "0.11.26" not in versions["uv"]:
         raise AssertionError(f"unexpected uv version: {versions['uv']}")

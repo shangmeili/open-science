@@ -6,8 +6,12 @@ texts and copyright notices.
 
 ## Bundled executables
 
-- OpenCode 1.17.13, `anomalyco/opencode`, MIT. The executable is pinned by
-  checksum and runs in an app-private profile.
+- OpenCode 1.17.13-ai4heor.1, built from `anomalyco/opencode` commit
+  `10c894bdeef3618f5666fb506ef7f9491bb964d8`, MIT. AI4HEOR applies the
+  reviewed system-context audit patch whose source archive and patch hashes
+  are recorded in `legal/opencode/manifest.json`; the exact upstream license,
+  patch and notice are bundled in the same directory. It runs in an
+  app-private profile.
 - uv 0.11.26, `astral-sh/uv`, Apache-2.0 OR MIT. The executable is pinned by
   checksum and provisions local Python tools only after a user action.
 - agent-browser 0.32.1, `vercel-labs/agent-browser`, Apache-2.0. The

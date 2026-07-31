@@ -23,6 +23,9 @@ describe("model-call audit boundary", () => {
       providerId: "mock-provider",
       modelId: "mock-model",
       agent: "build",
+      systemContextContract: "ai4heor.system-context/v1",
+      systemContextSha256: "b".repeat(64),
+      systemContextBlockCount: 2,
       createdAt: 1_000,
       completedAt: 1_250,
       runtimeReportedCost: 0.0123,
@@ -39,13 +42,16 @@ describe("model-call audit boundary", () => {
     const input = modelCallInput(event);
     expect(input).toEqual({
       runtime: "opencode",
-      runtimeVersion: "1.17.13",
+      runtimeVersion: "1.17.13-ai4heor.1",
       sessionId: "ses_1",
       messageId: "msg_assistant_1",
       parentMessageId: "msg_user_1",
       providerId: "mock-provider",
       modelId: "mock-model",
       agent: "build",
+      systemContextContract: "ai4heor.system-context/v1",
+      systemContextSha256: "b".repeat(64),
+      systemContextBlockCount: 2,
       createdAt: 1_000,
       completedAt: 1_250,
       runtimeReportedCost: 0.0123,
@@ -59,6 +65,7 @@ describe("model-call audit boundary", () => {
       finish: "stop",
     });
     expect(JSON.stringify(input)).not.toMatch(/prompt|response|content|apiKey|requestUrl/);
+    expect(JSON.stringify(input)).not.toContain("research-secret");
   });
 
   it("adds only the fixed prompt-template fingerprint when one is known", () => {
@@ -70,6 +77,9 @@ describe("model-call audit boundary", () => {
       providerId: "mock-provider",
       modelId: "mock-model",
       agent: "build",
+      systemContextContract: "ai4heor.system-context/v1",
+      systemContextSha256: "c".repeat(64),
+      systemContextBlockCount: 1,
       createdAt: 1_000,
       completedAt: 1_250,
       runtimeReportedCost: 0.0123,
@@ -94,6 +104,9 @@ describe("model-call audit boundary", () => {
       providerId: "mock-provider",
       modelId: "mock-model",
       agent: "build",
+      systemContextContract: "ai4heor.system-context/v1",
+      systemContextSha256: "d".repeat(64),
+      systemContextBlockCount: 3,
       createdAt: 1_000,
       completedAt: 1_250,
       runtimeReportedCost: 0.0123,
@@ -107,6 +120,9 @@ describe("model-call audit boundary", () => {
       providerId: event.providerId,
       modelId: event.modelId,
       agent: event.agent,
+      systemContextContract: event.systemContextContract,
+      systemContextSha256: event.systemContextSha256,
+      systemContextBlockCount: event.systemContextBlockCount,
       createdAt: event.createdAt,
       completedAt: event.completedAt,
       runtimeReportedCost: event.runtimeReportedCost,

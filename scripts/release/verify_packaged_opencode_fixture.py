@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import secrets
@@ -33,15 +34,17 @@ class FixtureState:
         self.catalog_requests = 0
         self.message_requests = 0
         self.last_stream = False
+        self.message_bodies: list[dict[str, Any]] = []
 
     def record_catalog(self) -> None:
         with self.lock:
             self.catalog_requests += 1
 
-    def record_message(self, stream: bool) -> None:
+    def record_message(self, stream: bool, body: dict[str, Any]) -> None:
         with self.lock:
             self.message_requests += 1
             self.last_stream = stream
+            self.message_bodies.append(body)
 
 
 def json_bytes(value: Any) -> bytes:
@@ -148,10 +151,10 @@ def handler(state: FixtureState):
                 self.send_payload(400, b"{}", "application/json")
                 return
             stream = body.get("stream") is True if isinstance(body, dict) else False
-            state.record_message(stream)
             if not isinstance(body, dict) or body.get("model") != MODEL_ID:
                 self.send_payload(400, b"{}", "application/json")
                 return
+            state.record_message(stream, body)
             if stream:
                 self.send_payload(200, anthropic_stream(), "text/event-stream")
                 return
@@ -172,6 +175,62 @@ def handler(state: FixtureState):
             )
 
     return Handler
+
+
+def request_system_blocks(body: dict[str, Any]) -> list[str]:
+    value = body.get("system")
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        blocks: list[str] = []
+        for item in value:
+            if not isinstance(item, dict) or item.get("type") != "text" or not isinstance(item.get("text"), str):
+                raise AssertionError("fixture provider received unsupported system block")
+            blocks.append(item["text"])
+        return blocks
+    raise AssertionError("fixture provider did not receive a system prompt")
+
+
+def verify_system_context_audit(
+    messages: Any,
+    provider_bodies: list[dict[str, Any]],
+) -> dict[str, Any]:
+    assistants = [
+        item
+        for item in messages
+        if isinstance(item, dict)
+        and isinstance(item.get("info"), dict)
+        and item["info"].get("role") == "assistant"
+        and MARKER in live.assistant_text([item])
+    ] if isinstance(messages, list) else []
+    if len(assistants) != 1:
+        raise AssertionError("fixture did not produce one completed assistant message")
+    context = assistants[0]["info"].get("systemContext")
+    if not isinstance(context, dict) or set(context) != {"contract", "sha256", "blockCount"}:
+        raise AssertionError("assistant message is missing the bounded system-context audit field")
+    main_bodies = [
+        body
+        for body in provider_bodies
+        if isinstance(body.get("tools"), list)
+        and body["tools"]
+        and "Reply with the marker." in json.dumps(body, ensure_ascii=False)
+    ]
+    if len(main_bodies) != 1:
+        raise AssertionError("could not distinguish the main provider request from auxiliary calls")
+    blocks = request_system_blocks(main_bodies[0])
+    canonical = json.dumps(blocks, ensure_ascii=False, separators=(",", ":"))
+    expected = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    if context != {
+        "contract": "ai4heor.system-context/v1",
+        "sha256": expected,
+        "blockCount": len(blocks),
+    }:
+        raise AssertionError("assistant system-context fingerprint does not match its provider request")
+    return {
+        "contract": context["contract"],
+        "sha256": context["sha256"],
+        "block_count": context["blockCount"],
+    }
 
 
 def run_fixture(dmg: Path, expected_version: str, timeout: float) -> dict[str, Any]:
@@ -333,12 +392,14 @@ def run_fixture(dmg: Path, expected_version: str, timeout: float) -> dict[str, A
                         f"assistant_errors={json.dumps(assistant_errors, separators=(',', ':'))[:2000]}, "
                         f"event_category={live.classify_failure(bytes(events.material), CREDENTIAL.encode())}"
                     )
+                context_proof = verify_system_context_audit(messages, state.message_bodies)
                 return {
                     "app_version": version,
                     "provider_catalog_requests": state.catalog_requests,
                     "provider_message_requests": state.message_requests,
                     "provider_streaming": state.last_stream,
                     "assistant_marker_found": True,
+                    "system_context": context_proof,
                 }
             finally:
                 if auth_saved and process is not None and process.poll() is None:
@@ -373,7 +434,8 @@ def main() -> int:
         "Verified packaged OpenCode fixture: "
         f"version={result['app_version']}, "
         f"message_requests={result['provider_message_requests']}, "
-        f"streaming={result['provider_streaming']}, marker=True"
+        f"streaming={result['provider_streaming']}, marker=True, "
+        f"system_context={result['system_context']['contract']}"
     )
     return 0
 

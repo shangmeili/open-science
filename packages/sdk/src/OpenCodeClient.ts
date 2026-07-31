@@ -75,6 +75,11 @@ function normalizeMessageUsage(info: unknown): MessageUsageEvent | null {
     providerID?: unknown;
     modelID?: unknown;
     mode?: unknown;
+    systemContext?: {
+      contract?: unknown;
+      sha256?: unknown;
+      blockCount?: unknown;
+    };
     cost?: unknown;
     tokens?: {
       input?: unknown;
@@ -98,6 +103,17 @@ function normalizeMessageUsage(info: unknown): MessageUsageEvent | null {
   const createdAt = value.time?.created;
   const completedAt = value.time?.completed;
   const tokens = value.tokens;
+  const context = value.systemContext;
+  const hasValidSystemContext =
+    context !== undefined
+    && context !== null
+    && typeof context === "object"
+    && context.contract === "ai4heor.system-context/v1"
+    && typeof context.sha256 === "string"
+    && /^[0-9a-f]{64}$/.test(context.sha256)
+    && nonnegativeInteger(context.blockCount)
+    && context.blockCount > 0
+    && context.blockCount <= 1024;
   if (
     !nonnegativeInteger(createdAt)
     || !nonnegativeInteger(completedAt)
@@ -109,6 +125,7 @@ function normalizeMessageUsage(info: unknown): MessageUsageEvent | null {
     || !nonnegativeInteger(tokens?.cache?.read)
     || !nonnegativeInteger(tokens?.cache?.write)
     || (value.finish !== undefined && typeof value.finish !== "string")
+    || (context !== undefined && !hasValidSystemContext)
   ) {
     return null;
   }
@@ -120,6 +137,13 @@ function normalizeMessageUsage(info: unknown): MessageUsageEvent | null {
     providerId: value.providerID as string,
     modelId: value.modelID as string,
     agent: value.mode as string,
+    ...(hasValidSystemContext
+      ? {
+          systemContextContract: context.contract as "ai4heor.system-context/v1",
+          systemContextSha256: context.sha256 as string,
+          systemContextBlockCount: context.blockCount as number,
+        }
+      : {}),
     createdAt,
     completedAt,
     runtimeReportedCost: value.cost,
@@ -144,6 +168,13 @@ function historyUsage(
     providerId: usage.providerId,
     modelId: usage.modelId,
     agent: usage.agent,
+    ...(usage.systemContextContract
+      ? {
+          systemContextContract: usage.systemContextContract,
+          systemContextSha256: usage.systemContextSha256,
+          systemContextBlockCount: usage.systemContextBlockCount,
+        }
+      : {}),
     createdAt: usage.createdAt,
     completedAt: usage.completedAt,
     runtimeReportedCost: usage.runtimeReportedCost,

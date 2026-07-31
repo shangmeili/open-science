@@ -121,7 +121,7 @@ class DistributionVerifierTests(unittest.TestCase):
                     "aarch64-apple-darwin",
                     root,
                 )
-            self.assertEqual(versions["opencode"], "1.17.13")
+            self.assertEqual(versions["opencode"], "1.17.13-ai4heor.1")
             self.assertEqual(versions["uv"], "0.11.26")
             self.assertEqual(
                 versions["verification"],
@@ -391,6 +391,8 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("developer-id-signature", workflow)
         self.assertIn("notarization-ticket", workflow)
         self.assertIn("gatekeeper-assessment", workflow)
+        self.assertIn("verify_packaged_opencode_fixture.py", workflow)
+        self.assertIn("opencode-system-context-audit", workflow)
         self.assertNotIn("tagName:", workflow)
         self.assertIn("gh release create", workflow)
         self.assertIn("--verify-tag", workflow)

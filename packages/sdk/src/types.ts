@@ -3,7 +3,7 @@ import type { RuntimeStatus, ToolCallStatus } from "@ai4s/shared";
 export type { RuntimeStatus, ToolCallStatus };
 
 /** Pinned OpenCode release this client targets. */
-export const OPENCODE_VERSION = "1.17.13";
+export const OPENCODE_VERSION = "1.17.13-ai4heor.1";
 
 /** OpenCode server defaults (`opencode serve`). */
 export const DEFAULT_OPENCODE_URL = "http://127.0.0.1:4096";
@@ -81,6 +81,9 @@ export interface MessageUsageEvent {
   providerId: string;
   modelId: string;
   agent: string;
+  systemContextContract?: "ai4heor.system-context/v1";
+  systemContextSha256?: string;
+  systemContextBlockCount?: number;
   createdAt: number;
   completedAt: number;
   runtimeReportedCost: number;

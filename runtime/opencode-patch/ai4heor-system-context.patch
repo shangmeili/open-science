@@ -1,0 +1,133 @@
+diff --git a/packages/opencode/src/session/llm.ts b/packages/opencode/src/session/llm.ts
+index a99f8ac..e3d6d8c 100644
+--- a/packages/opencode/src/session/llm.ts
++++ b/packages/opencode/src/session/llm.ts
+@@ -31 +31,2 @@ import { LLMNativeRuntime } from "./llm/native-runtime"
+ import { LLMRequestPrep } from "./llm/request"
++import { fingerprintSystemContext, type SystemContextFingerprint } from "./llm/system-context"
+@@ -47,2 +48,3 @@ export type StreamInput = {
+   toolChoice?: "auto" | "required" | "none"
++  onPreparedSystem?: (context: SystemContextFingerprint) => Effect.Effect<void>
+ }
+@@ -113 +115,4 @@ const live: Layer.Layer<
+       })
++      if (input.onPreparedSystem) {
++        yield* input.onPreparedSystem(fingerprintSystemContext(prepared.system))
++      }
+diff --git a/packages/opencode/src/session/llm/system-context.ts b/packages/opencode/src/session/llm/system-context.ts
+new file mode 100644
+index 0000000..065a8f1
+--- /dev/null
++++ b/packages/opencode/src/session/llm/system-context.ts
+@@ -0,0 +1,23 @@
++import { createHash } from "node:crypto"
++
++export const SYSTEM_CONTEXT_CONTRACT = "ai4heor.system-context/v1" as const
++export const MAX_SYSTEM_CONTEXT_BLOCKS = 1024
++
++export type SystemContextFingerprint = {
++  contract: typeof SYSTEM_CONTEXT_CONTRACT
++  sha256: string
++  blockCount: number
++}
++
++/** Content-free fingerprint of the exact ordered system blocks handed to the
++ * provider adapter after every system-transform plugin has run. */
++export function fingerprintSystemContext(system: readonly string[]): SystemContextFingerprint {
++  if (system.length < 1 || system.length > MAX_SYSTEM_CONTEXT_BLOCKS) {
++    throw new RangeError("system context block count is outside the audit contract")
++  }
++  return {
++    contract: SYSTEM_CONTEXT_CONTRACT,
++    sha256: createHash("sha256").update(JSON.stringify(system), "utf8").digest("hex"),
++    blockCount: system.length,
++  }
++}
+diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/session/processor.ts
+index d09e6ac..d66e1a4 100644
+--- a/packages/opencode/src/session/processor.ts
++++ b/packages/opencode/src/session/processor.ts
+@@ -637,2 +637,8 @@ const layer = Layer.effect(
+             yield* status.set(ctx.sessionID, { type: "busy" })
+-            const stream = llm.stream(streamInput)
++            const stream = llm.stream({
++              ...streamInput,
++              onPreparedSystem: (context) => {
++                ctx.assistantMessage.systemContext = context
++                return session.updateMessage(ctx.assistantMessage).pipe(Effect.asVoid)
++              },
++            })
+diff --git a/packages/opencode/test/session/processor-effect.test.ts b/packages/opencode/test/session/processor-effect.test.ts
+index 5287605..967638c 100644
+--- a/packages/opencode/test/session/processor-effect.test.ts
++++ b/packages/opencode/test/session/processor-effect.test.ts
+@@ -278 +278,4 @@ it.live("session.processor effect tests capture llm input cleanly", () =>
+         const calls = yield* llm.calls
++        const stored = (yield* session.messages({ sessionID: chat.id })).find(
++          (message) => message.info.id === msg.id,
++        )?.info
+@@ -282,2 +285,7 @@ it.live("session.processor effect tests capture llm input cleanly", () =>
+         expect(parts.some((part) => part.type === "text" && part.text === "hello")).toBe(true)
++        expect(stored?.role).toBe("assistant")
++        if (stored?.role !== "assistant") return
++        expect(stored.systemContext?.contract).toBe("ai4heor.system-context/v1")
++        expect(stored.systemContext?.sha256).toMatch(/^[0-9a-f]{64}$/)
++        expect(stored.systemContext?.blockCount).toBeGreaterThan(0)
+       }),
+diff --git a/packages/opencode/test/session/system-context.test.ts b/packages/opencode/test/session/system-context.test.ts
+new file mode 100644
+index 0000000..795e702
+--- /dev/null
++++ b/packages/opencode/test/session/system-context.test.ts
+@@ -0,0 +1,37 @@
++import { describe, expect, it } from "bun:test"
++import { createHash } from "node:crypto"
++import {
++  fingerprintSystemContext,
++  MAX_SYSTEM_CONTEXT_BLOCKS,
++  SYSTEM_CONTEXT_CONTRACT,
++} from "../../src/session/llm/system-context"
++
++describe("system context audit fingerprint", () => {
++  it("is stable for the exact ordered system blocks", () => {
++    const system = ["first", "second\nline"]
++    expect(fingerprintSystemContext(system)).toEqual({
++      contract: SYSTEM_CONTEXT_CONTRACT,
++      sha256: createHash("sha256").update(JSON.stringify(system), "utf8").digest("hex"),
++      blockCount: 2,
++    })
++    expect(fingerprintSystemContext(system)).toEqual(fingerprintSystemContext([...system]))
++  })
++
++  it("changes when content, order, or block boundaries change", () => {
++    const baseline = fingerprintSystemContext(["alpha", "beta"]).sha256
++    expect(fingerprintSystemContext(["Alpha", "beta"]).sha256).not.toBe(baseline)
++    expect(fingerprintSystemContext(["beta", "alpha"]).sha256).not.toBe(baseline)
++    expect(fingerprintSystemContext(["alpha\nbeta"]).sha256).not.toBe(baseline)
++  })
++
++  it("never includes source content in the persisted value", () => {
++    const secret = "https://example.invalid/?token=research-secret"
++    expect(JSON.stringify(fingerprintSystemContext([secret]))).not.toContain(secret)
++  })
++
++  it("rejects an empty or unbounded system block list", () => {
++    expect(() => fingerprintSystemContext([])).toThrow(RangeError)
++    expect(fingerprintSystemContext(Array(MAX_SYSTEM_CONTEXT_BLOCKS).fill("system")).blockCount).toBe(1024)
++    expect(() => fingerprintSystemContext(Array(MAX_SYSTEM_CONTEXT_BLOCKS + 1).fill("system"))).toThrow(RangeError)
++  })
++})
+diff --git a/packages/schema/src/v1/session.ts b/packages/schema/src/v1/session.ts
+index 75e9282..876cd38 100644
+--- a/packages/schema/src/v1/session.ts
++++ b/packages/schema/src/v1/session.ts
+@@ -470,2 +470,9 @@ export const Assistant = Schema.Struct({
+   summary: Schema.optional(Schema.Boolean),
++  systemContext: Schema.optional(
++    Schema.Struct({
++      contract: Schema.Literal("ai4heor.system-context/v1"),
++      sha256: Schema.String,
++      blockCount: NonNegativeInt,
++    }),
++  ),
+   cost: Schema.Finite,
