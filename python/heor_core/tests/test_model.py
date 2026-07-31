@@ -32,6 +32,7 @@ from heor_core.uncertainty import (
     _cholesky,
     _correlation_matrix,
     _multi_strategy_decision_uncertainty,
+    _run_psa,
     _sample_parameter_values,
     run_uncertainty,
 )
@@ -1287,6 +1288,43 @@ class UncertaintyAnalysisTests(unittest.TestCase):
         self.assertIsNone(row["ceaf_probability"])
         self.assertEqual(row["per_person_evpi"], 0.0)
         self.assertEqual(row["per_person_evpi_mcse"], 0.0)
+
+    def test_two_strategy_psa_reports_exact_ties_separately(self) -> None:
+        base = golden_payload()
+        base["strategies"]["intervention"] = copy.deepcopy(
+            base["strategies"]["comparator"]
+        )
+        base["strategies"]["intervention"]["name"] = "identical_intervention"
+        specification = SimpleNamespace(
+            seed=42,
+            iterations=4,
+            checkpoints=(2, 4),
+            max_probability_mcse=1.0,
+            max_probability_drift=1.0,
+            parameters=(),
+            correlation_groups=(),
+            independence_rationale="No sampled parameters in the exact-tie fixture.",
+            omitted_parameters=(),
+            decision_thresholds=(base["willingness_to_pay"],),
+            primary_threshold=base["willingness_to_pay"],
+            threshold_source="fixed_case",
+            threshold_rationale="Exact equality must be reported as a tie.",
+        )
+
+        result = _run_psa(base, specification)
+
+        self.assertEqual(result["cost_effective_probability"], 0.0)
+        self.assertEqual(
+            [
+                checkpoint["cost_effective_probability"]
+                for checkpoint in result["convergence"]["checkpoints"]
+            ],
+            [0.0, 0.0],
+        )
+        decision = result["decision_uncertainty"]["threshold_results"][0]
+        self.assertEqual(decision["intervention_optimal_probability"], 0.0)
+        self.assertEqual(decision["comparator_optimal_probability"], 0.0)
+        self.assertEqual(decision["tie_probability"], 1.0)
 
     def test_golden_uncertainty_run_is_reproducible(self) -> None:
         first = self.run_golden()

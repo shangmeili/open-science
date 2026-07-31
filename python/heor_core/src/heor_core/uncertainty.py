@@ -1200,7 +1200,7 @@ def _run_psa(
         if inmb is None:
             raise ModelValidationError("PSA requires incremental net monetary benefit")
         inmb_values.append(inmb)
-        if inmb >= 0:
+        if inmb > 0:
             cost_effective += 1
         samples.append(
             {
