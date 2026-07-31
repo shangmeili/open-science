@@ -6,11 +6,13 @@ from __future__ import annotations
 import argparse
 from contextlib import contextmanager
 import hashlib
+import http.client
 import json
 import os
 import platform
 import plistlib
 import re
+import shlex
 import shutil
 import signal
 import stat
@@ -215,6 +217,43 @@ def command_executable(command: str) -> str:
     return command.split(maxsplit=1)[0] if command else ""
 
 
+def opencode_server_port(command: str) -> int | None:
+    try:
+        arguments = shlex.split(command)
+    except ValueError:
+        return None
+    for index, argument in enumerate(arguments[:-1]):
+        if argument != "--port":
+            continue
+        try:
+            port = int(arguments[index + 1])
+        except ValueError:
+            return None
+        return port if 1 <= port <= 65535 else None
+    return None
+
+
+def probe_authenticated_opencode_http(
+    port: int, timeout_seconds: float = 1.0
+) -> dict[str, Any] | None:
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout_seconds)
+    try:
+        connection.request("GET", "/global/health")
+        response = connection.getresponse()
+        response.read(1024)
+        if response.status != 401:
+            return None
+        return {
+            "authentication_enforced": True,
+            "path": "/global/health",
+            "unauthenticated_status": 401,
+        }
+    except (OSError, http.client.HTTPException):
+        return None
+    finally:
+        connection.close()
+
+
 def classify_first_launch_processes(
     rows: list[dict[str, Any]],
     main_executable: Path,
@@ -355,8 +394,25 @@ def launch_isolated_app(
             proof = classify_first_launch_processes(
                 processes, main_executable, opencode_executable, None
             )
-            if proof is not None and readiness():
-                break
+            if proof is not None:
+                opencode_rows = [
+                    row
+                    for row in processes
+                    if row["pid"] == proof["opencode_process_id"]
+                ]
+                port = (
+                    opencode_server_port(str(opencode_rows[0]["command"]))
+                    if len(opencode_rows) == 1
+                    else None
+                )
+                opencode_http = (
+                    probe_authenticated_opencode_http(port)
+                    if port is not None
+                    else None
+                )
+                if opencode_http is not None and readiness():
+                    proof["opencode_http"] = opencode_http
+                    break
             if seen_main and not main_rows:
                 stderr = (
                     stderr_path.read_text(encoding="utf-8", errors="replace")
@@ -370,7 +426,8 @@ def launch_isolated_app(
         else:
             raise AssertionError(
                 f"{label} did not reach one installed app process, one bundled "
-                "OpenCode process, and the required workspace state before timeout"
+                "OpenCode process with authenticated HTTP readiness, and the required "
+                "workspace state before timeout"
             )
     except Exception as error:
         detail = "\n".join(

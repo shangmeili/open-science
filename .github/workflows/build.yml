@@ -250,6 +250,7 @@ jobs:
             --check bundled-sidecars \
             --check dmg-app-copy \
             --check first-launch-process \
+            --check opencode-authenticated-http \
             --check workspace-created \
             --check workspace-isolated \
             "${trust_checks[@]}" \

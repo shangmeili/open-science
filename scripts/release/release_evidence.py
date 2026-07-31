@@ -29,7 +29,11 @@ MACOS_DISTRIBUTION_CHECKS = {
     "hardened-runtime",
     "notarization-ticket",
 }
-FIRST_LAUNCH_CHECKS = {"first-launch-process", "workspace-created"}
+FIRST_LAUNCH_CHECKS = {
+    "first-launch-process",
+    "opencode-authenticated-http",
+    "workspace-created",
+}
 MACOS_WORKSPACE_ISOLATION_CHECK = "workspace-isolated"
 PLATFORM_VARIANT_RESOURCES = {"goal-plugin/goal-plugin.server.js"}
 
@@ -242,6 +246,11 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
                 f"first-launch evidence is missing paired checks: {missing_checks}"
             )
         first_launch = value["verification"].get("first_launch")
+        opencode_http = (
+            first_launch.get("opencode_http")
+            if isinstance(first_launch, dict)
+            else None
+        )
         if (
             not isinstance(first_launch, dict)
             or not isinstance(first_launch.get("app_process_id"), int)
@@ -251,8 +260,12 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
             or first_launch["opencode_process_id"] < 1
             or not first_launch.get("opencode_executable")
             or not first_launch.get("workspace")
+            or not isinstance(opencode_http, dict)
+            or opencode_http.get("authentication_enforced") is not True
+            or opencode_http.get("path") != "/global/health"
+            or opencode_http.get("unauthenticated_status") != 401
         ):
-            raise AssertionError("first-launch process/workspace proof is incomplete")
+            raise AssertionError("first-launch process/HTTP/workspace proof is incomplete")
     if MACOS_WORKSPACE_ISOLATION_CHECK in value["checks"]:
         if value["platform"] not in {"macos", "windows"}:
             raise AssertionError("workspace isolation evidence is supported on macOS and Windows")

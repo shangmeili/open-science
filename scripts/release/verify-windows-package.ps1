@@ -186,6 +186,7 @@ try {
     $deadline = [DateTime]::UtcNow.AddSeconds(60)
     $appProcesses = @()
     $opencodeProcesses = @()
+    $opencodeHttpProof = $null
     do {
         Start-Sleep -Milliseconds 500
         $processes = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($installRoot, [StringComparison]::OrdinalIgnoreCase) })
@@ -193,14 +194,36 @@ try {
         $opencodeProcesses = @($processes | Where-Object Name -eq 'opencode.exe')
         $createdWorkspace = Test-Path -LiteralPath $workspace -PathType Container
         $openSciencePreserved = (Test-Path -LiteralPath $openScienceMarker -PathType Leaf) -and ((Get-Content -LiteralPath $openScienceMarker -Raw).Trim() -eq 'preserve-open-science')
-        $ready = $appProcesses.Count -eq 1 -and $opencodeProcesses.Count -eq 1 -and $createdWorkspace -and $openSciencePreserved
+        $opencodeHttpProof = $null
+        if ($opencodeProcesses.Count -eq 1) {
+            $portMatch = [regex]::Match([string]$opencodeProcesses[0].CommandLine, '(?:^|\s)--port\s+([0-9]{1,5})(?:\s|$)')
+            if ($portMatch.Success) {
+                $port = [int]$portMatch.Groups[1].Value
+                if ($port -ge 1 -and $port -le 65535) {
+                    try {
+                        $response = Invoke-WebRequest -Uri "http://127.0.0.1:$port/global/health" -Method Get -SkipHttpErrorCheck -NoProxy -TimeoutSec 2
+                        if ([int]$response.StatusCode -eq 401) {
+                            $opencodeHttpProof = [ordered]@{
+                                authentication_enforced = $true
+                                path = '/global/health'
+                                unauthenticated_status = 401
+                            }
+                        }
+                    } catch {
+                        $opencodeHttpProof = $null
+                    }
+                }
+            }
+        }
+        $ready = $appProcesses.Count -eq 1 -and $opencodeProcesses.Count -eq 1 -and $null -ne $opencodeHttpProof -and $createdWorkspace -and $openSciencePreserved
     } while (-not $ready -and [DateTime]::UtcNow -lt $deadline)
-    Assert-True $ready "First launch did not reach one app process, one bundled OpenCode process, and a new workspace within 60 seconds."
+    Assert-True $ready "First launch did not reach one app process, one bundled OpenCode process with authenticated HTTP readiness, and a new workspace within 60 seconds."
     $verification.first_launch = [ordered]@{
         app_process_id = $appProcesses[0].ProcessId
         app_executable = $appProcesses[0].ExecutablePath
         opencode_process_id = $opencodeProcesses[0].ProcessId
         opencode_executable = $opencodeProcesses[0].ExecutablePath
+        opencode_http = $opencodeHttpProof
         workspace = $workspace
         workspace_isolation = [ordered]@{
             app_process_id = $appProcesses[0].ProcessId
@@ -236,6 +259,7 @@ try {
         --check bundled-sidecars `
         --check nsis-silent-install `
         --check first-launch-process `
+        --check opencode-authenticated-http `
         --check workspace-created `
         --check workspace-isolated `
         --verification-json $verificationPath `

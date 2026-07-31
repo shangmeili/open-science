@@ -159,6 +159,14 @@ class ReleaseEvidenceTests(unittest.TestCase):
             release_evidence.validate_evidence(value)
 
     def test_first_launch_checks_require_process_and_workspace_proof(self) -> None:
+        self.assertEqual(
+            release_evidence.FIRST_LAUNCH_CHECKS,
+            {
+                "first-launch-process",
+                "opencode-authenticated-http",
+                "workspace-created",
+            },
+        )
         files: list[dict[str, object]] = []
         value = {
             "schema": release_evidence.EVIDENCE_SCHEMA,
@@ -168,7 +176,11 @@ class ReleaseEvidenceTests(unittest.TestCase):
             "artifacts": [
                 {"kind": "dmg", "filename": "AI4HEOR.dmg", "size": 1, "sha256": "a" * 64}
             ],
-            "checks": ["first-launch-process", "workspace-created"],
+            "checks": [
+                "first-launch-process",
+                "opencode-authenticated-http",
+                "workspace-created",
+            ],
             "runner": self.runner("macos"),
             "sidecars": self.sidecars(),
             "verification": {"payload": "passed"},
@@ -187,6 +199,11 @@ class ReleaseEvidenceTests(unittest.TestCase):
             "app_executable": "/tmp/AI4HEOR.app/Contents/MacOS/ai4s-workbench",
             "opencode_process_id": 102,
             "opencode_executable": "/tmp/AI4HEOR.app/Contents/MacOS/opencode",
+            "opencode_http": {
+                "authentication_enforced": True,
+                "path": "/global/health",
+                "unauthenticated_status": 401,
+            },
             "workspace": "/tmp/home/Documents/AI4HEOR",
         }
         release_evidence.validate_evidence(value)

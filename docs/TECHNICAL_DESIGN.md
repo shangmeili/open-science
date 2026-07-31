@@ -988,8 +988,11 @@ matches the credentialed notarization account, secure
 timestamps, sealed resources, hardened runtime on every executable, no true
 `com.apple.security.get-task-allow`, a valid stapled ticket, and Gatekeeper output from
 `Notarized Developer ID`. The tag evidence schema requires the same named checks and proof
-fields, so a missing workflow flag cannot be recorded as a trusted macOS release. It does
-not install the app into `/Applications` or establish visual/first-start acceptance.
+fields, so a missing workflow flag cannot be recorded as a trusted macOS release. The
+verifier mounts the DMG, copies the app into an isolated temporary location and requires
+one desktop process, one bundled OpenCode process, a fresh workspace, and an unauthenticated
+`/global/health` response of 401 before cleanup. It does not replace the app in
+`/Applications` or establish visual/non-technical-user acceptance.
 
 The current 0.1.31 arm64 DMG was additionally cross-built from clean source commit
 `2834785e057ac54477a9633f07390bc173251644` on an Intel Mac. The 76,095,510-byte artifact
@@ -1017,9 +1020,10 @@ clean runner; rejects reparse points and generated Python caches in the installe
 requires x86-64 PE binaries; verifies the pinned OpenCode and uv versions; compares every
 configured scientific resource with the source tree; and runs the deterministic HEOR
 suite against the installed core. It then starts the installed application and requires
-exactly one desktop process, one bundled OpenCode process, and a new local workspace
-before cleanup. This is an automated host-level gate, not a visual or non-technical-user
-acceptance test.
+exactly one desktop process, one bundled OpenCode process, an unauthenticated
+`/global/health` response of 401, and a new local workspace before cleanup. The evidence
+does not persist the ephemeral port or runtime password. This is an automated host-level
+gate, not a visual or non-technical-user acceptance test.
 
 ### 12.3 Linux
 

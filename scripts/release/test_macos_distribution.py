@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -201,6 +201,33 @@ class DistributionVerifierTests(unittest.TestCase):
             verifier.classify_first_launch_processes(rows, main, opencode, 999)
         )
 
+    def test_open_code_readiness_requires_authenticated_http_response(self) -> None:
+        command = "/tmp/opencode serve --hostname 127.0.0.1 --port 43123"
+        self.assertEqual(verifier.opencode_server_port(command), 43123)
+        self.assertIsNone(verifier.opencode_server_port("/tmp/opencode serve --port nope"))
+
+        response = MagicMock()
+        response.status = 401
+        response.read.return_value = b""
+        connection = MagicMock()
+        connection.getresponse.return_value = response
+        with patch("http.client.HTTPConnection", return_value=connection):
+            proof = verifier.probe_authenticated_opencode_http(43123)
+        self.assertEqual(
+            proof,
+            {
+                "authentication_enforced": True,
+                "path": "/global/health",
+                "unauthenticated_status": 401,
+            },
+        )
+        connection.request.assert_called_once_with("GET", "/global/health")
+        connection.close.assert_called_once()
+
+        response.status = 200
+        with patch("http.client.HTTPConnection", return_value=connection):
+            self.assertIsNone(verifier.probe_authenticated_opencode_http(43123))
+
     def test_signature_parser_and_validator_require_distribution_properties(self) -> None:
         details = verifier.parse_codesign_details(SIGNED_DETAILS)
         team, authority = verifier.validate_signature_details(
@@ -317,6 +344,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("--expected-team-id", workflow)
         self.assertIn("--verify-first-launch", workflow)
         self.assertIn("--check first-launch-process", workflow)
+        self.assertIn("--check opencode-authenticated-http", workflow)
         self.assertIn("--check workspace-created", workflow)
         self.assertIn("--check workspace-isolated", workflow)
         self.assertIn("APPLE_SIGNING_IDENTITY", workflow)
@@ -363,6 +391,8 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn("MsiPath", verifier)
         self.assertIn("--check nsis-installed-payload", verifier)
         self.assertIn("--check workspace-isolated", verifier)
+        self.assertIn("--check opencode-authenticated-http", verifier)
+        self.assertIn("opencode_http", verifier)
         self.assertIn("open_science_workspace_preserved", verifier)
         self.assertIn("Packaged AI4HEOR processes were not cleaned up", verifier)
         self.assertIn("GetValue('DisplayName')", verifier)
