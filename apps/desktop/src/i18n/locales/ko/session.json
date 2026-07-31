@@ -273,7 +273,8 @@
       "sourcedAnswerPlaceholder": "비공개 자료가 있다면 여기에 추가하세요…"
     },
     "permission": {
-      "heading": "에이전트가 권한을 요청합니다:"
+      "heading": "에이전트가 권한을 요청합니다:",
+      "alwaysScope": "‘항상 허용’은 현재 프로젝트에서 이 작업과 위에 표시된 정확한 대상만 기억합니다. 설정 → 개인정보에서 취소할 수 있습니다."
     },
     "askedBy": "{{origin}}의 요청",
     "skip": "건너뛰기",

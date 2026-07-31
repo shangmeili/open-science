@@ -19,6 +19,7 @@ const defaults = {
   openSession: useRuntimeStore.getState().openSession,
   threads: useRuntimeStore.getState().threads,
   runningSessions: useRuntimeStore.getState().runningSessions,
+  switching: useRuntimeStore.getState().switching,
 };
 
 afterEach(() => {
@@ -358,5 +359,45 @@ describe("AI4HEOR conversation route", () => {
     expect(screen.getByPlaceholderText("Describe the research question or work you want to address…"))
       .toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Choose a model" })).toBeInTheDocument();
+  });
+
+  it("blocks agent turns while the task workspace is switching", async () => {
+    const sendPrompt = vi.fn().mockResolvedValue("session-1");
+    useRuntimeStore.setState({
+      status: "connecting",
+      switching: true,
+      currentId: null,
+      defaultModel: "openai/gpt-5.2",
+      sendPrompt,
+    });
+    renderNavigableAt("/heor/new");
+
+    await userEvent.type(screen.getByRole("textbox"), "Continue this task");
+
+    expect(document.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(sendPrompt).not.toHaveBeenCalled();
+  });
+
+  it("blocks agent turns until the reopened task workspace is active", async () => {
+    const sendPrompt = vi.fn().mockResolvedValue("session-1");
+    useRuntimeStore.setState({
+      status: "ready",
+      switching: false,
+      currentId: "session-1",
+      defaultModel: "openai/gpt-5.2",
+      workspace: "/research/startup",
+      sessions: [{ id: "session-1", title: "CEA", directory: "/research/project-a" }],
+      openSession: vi.fn().mockResolvedValue(undefined),
+      sendPrompt,
+      threads: {
+        "session-1": { loaded: true, blocks: [], index: {} },
+      },
+    });
+    renderNavigableAt("/heor/session-1");
+
+    expect(document.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(await screen.findByRole("button", { name: "Send" })).toBeDisabled();
+    expect(sendPrompt).not.toHaveBeenCalled();
   });
 });

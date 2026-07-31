@@ -283,6 +283,17 @@
     "mirrorSaved": "Spiegel-Einstellungen gespeichert",
     "couldNotSetMirror": "Spiegel-Einstellungen konnten nicht gespeichert werden"
   },
+  "savedPermissions": {
+    "title": "Gespeicherte Berechtigungen",
+    "hint": "Freigegebene Regeln für das aktuelle Projekt und genaue Ziel",
+    "connect": "Lokalen Dienst verbinden, um gespeicherte Berechtigungen anzuzeigen.",
+    "loading": "Gespeicherte Berechtigungen werden geladen…",
+    "failed": "Gespeicherte Berechtigungen konnten nicht geladen werden.",
+    "retry": "Erneut versuchen",
+    "empty": "Keine gespeicherten Berechtigungen für dieses Projekt.",
+    "revoke": "Widerrufen",
+    "removing": "Wird widerrufen…"
+  },
   "dataFlow": {
     "title": "Datenschutz & Datenfluss",
     "subtitle": "Was auf diesem Rechner bleibt und was ihn genau verlässt.",

@@ -35,4 +35,5 @@ export {
   type PermissionAskedEvent,
   type PermissionResolvedEvent,
   type PermissionReply,
+  type SavedPermission,
 } from "./types";

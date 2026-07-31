@@ -283,6 +283,17 @@
     "mirrorSaved": "Configuración de espejo guardada",
     "couldNotSetMirror": "No se pudo guardar la configuración de espejo"
   },
+  "savedPermissions": {
+    "title": "Permisos guardados",
+    "hint": "Reglas aprobadas para el proyecto actual y el objetivo exacto",
+    "connect": "Conecte el servicio local para ver los permisos guardados.",
+    "loading": "Cargando permisos guardados…",
+    "failed": "No se pudieron cargar los permisos guardados.",
+    "retry": "Reintentar",
+    "empty": "No hay permisos guardados para este proyecto.",
+    "revoke": "Revocar",
+    "removing": "Revocando…"
+  },
   "dataFlow": {
     "title": "Privacidad y flujo de datos",
     "subtitle": "Qué permanece en esta máquina y qué sale exactamente de ella.",

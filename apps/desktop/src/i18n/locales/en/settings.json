@@ -288,6 +288,17 @@
     "mirrorSaved": "Mirror settings saved",
     "couldNotSetMirror": "Could not save mirror settings"
   },
+  "savedPermissions": {
+    "title": "Saved permissions",
+    "hint": "Rules you approved for the current project and exact target",
+    "connect": "Connect the local service to view saved permissions.",
+    "loading": "Loading saved permissions…",
+    "failed": "Saved permissions could not be loaded.",
+    "retry": "Retry",
+    "empty": "No saved permissions for this project.",
+    "revoke": "Revoke",
+    "removing": "Revoking…"
+  },
   "dataFlow": {
     "title": "Privacy & data flow",
     "subtitle": "What stays on this machine, and exactly what leaves it.",

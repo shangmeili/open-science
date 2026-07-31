@@ -11,8 +11,8 @@ TRIPLE="${1:-$(rustc -Vv | sed -n 's/host: //p')}"
 UPSTREAM_COMMIT="10c894bdeef3618f5666fb506ef7f9491bb964d8"
 SOURCE_URL="https://github.com/anomalyco/opencode/archive/${UPSTREAM_COMMIT}.tar.gz"
 sourceArchiveSha256="774e4a5bf89d7e8191accfe5e3aa55de67339ddb3914e7c990f5fccff5719cac"
-patchSha256="a035c723abe675832e35ad0b93ea78a4b6fa5dde875ab14038e19edb3bac8585"
-PATCHED_VERSION="1.17.13-ai4heor.1"
+patchSha256="dffadfb1f43cda1594046ee04bd1f7013de0abe4f527bc01fbc45ee8dc5e5568"
+PATCHED_VERSION="1.17.13-ai4heor.2"
 BUN_VERSION="1.3.14"
 
 case "$TRIPLE" in
@@ -52,9 +52,11 @@ git -C "$SOURCE" apply --unidiff-zero "$PATCH"
   bun install --frozen-lockfile
   bun test --cwd packages/opencode \
     test/session/system-context.test.ts \
-    test/session/processor-effect.test.ts
+    test/session/processor-effect.test.ts \
+    test/permission/next.test.ts \
+    test/project/project-directory.test.ts
   bun run --cwd packages/opencode typecheck
-  OPENCODE_VERSION=1.17.13-ai4heor.1 bun run --cwd packages/opencode build --single
+  OPENCODE_VERSION=1.17.13-ai4heor.2 bun run --cwd packages/opencode build --single
 )
 
 BIN="$SOURCE/packages/opencode/dist/$DIST/bin/opencode"

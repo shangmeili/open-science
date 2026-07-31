@@ -283,6 +283,17 @@
     "mirrorSaved": "Réglages de miroir enregistrés",
     "couldNotSetMirror": "Impossible d’enregistrer les réglages de miroir"
   },
+  "savedPermissions": {
+    "title": "Autorisations mémorisées",
+    "hint": "Règles approuvées pour le projet actuel et la cible exacte",
+    "connect": "Connectez le service local pour afficher les autorisations mémorisées.",
+    "loading": "Chargement des autorisations mémorisées…",
+    "failed": "Impossible de charger les autorisations mémorisées.",
+    "retry": "Réessayer",
+    "empty": "Aucune autorisation mémorisée pour ce projet.",
+    "revoke": "Révoquer",
+    "removing": "Révocation…"
+  },
   "dataFlow": {
     "title": "Confidentialité et flux de données",
     "subtitle": "Ce qui reste sur cette machine, et ce qui en sort exactement.",

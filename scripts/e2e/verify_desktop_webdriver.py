@@ -14,6 +14,7 @@ import os
 import platform
 import signal
 import socket
+import sqlite3
 import stat
 import subprocess
 import sys
@@ -37,6 +38,8 @@ if str(RELEASE_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(RELEASE_SCRIPTS))
 
 from verify_packaged_opencode_fixture import (  # noqa: E402
+    BASH_ALWAYS_COMMAND as FIXTURE_BASH_ALWAYS_COMMAND,
+    BASH_ALWAYS_SENTINEL as FIXTURE_BASH_ALWAYS_SENTINEL,
     BASH_COMMAND as FIXTURE_BASH_COMMAND,
     BASH_REJECT_COMMAND as FIXTURE_BASH_REJECT_COMMAND,
     BASH_REJECT_SENTINEL as FIXTURE_BASH_REJECT_SENTINEL,
@@ -64,6 +67,10 @@ PERMISSION_TRIGGER_PROMPT = "AI4HEOR E2E request one-time command permission"
 PERMISSION_QUEUED_PROMPT = "AI4HEOR E2E queued behind command permission"
 PERMISSION_REJECT_TRIGGER_PROMPT = "AI4HEOR E2E reject command permission"
 PERMISSION_REJECT_QUEUED_PROMPT = "AI4HEOR E2E queued behind rejected permission"
+PERMISSION_ALWAYS_TRIGGER_PROMPT = "AI4HEOR E2E remember exact command permission"
+PERMISSION_ALWAYS_REPEAT_PROMPT = "AI4HEOR E2E repeat remembered command permission"
+PERMISSION_AFTER_RESTART_PROMPT = "AI4HEOR E2E reuse remembered permission after restart"
+PERMISSION_AFTER_REVOKE_PROMPT = "AI4HEOR E2E ask again after remembered permission revoke"
 
 
 def prepare_local_fixture_runtime(home: Path, provider_url: str) -> Path:
@@ -506,6 +513,10 @@ def wait_for_main_request_prompts(
         PERMISSION_QUEUED_PROMPT,
         PERMISSION_REJECT_TRIGGER_PROMPT,
         PERMISSION_REJECT_QUEUED_PROMPT,
+        PERMISSION_ALWAYS_TRIGGER_PROMPT,
+        PERMISSION_ALWAYS_REPEAT_PROMPT,
+        PERMISSION_AFTER_RESTART_PROMPT,
+        PERMISSION_AFTER_REVOKE_PROMPT,
     ]
     while time.monotonic() < deadline:
         with state.lock:
@@ -523,6 +534,171 @@ def wait_for_main_request_prompts(
         time.sleep(0.2)
     raise AssertionError(
         f"local fixture received main prompts in {observed!r}, expected {expected!r}"
+    )
+
+
+def wait_for_saved_permission(
+    runtime_root: Path,
+    action: str,
+    resource: str,
+    timeout: float = 30.0,
+) -> str:
+    data_dir = runtime_root / "xdg-data/opencode"
+    deadline = time.monotonic() + timeout
+    observed: dict[str, list[tuple[Any, ...]]] = {}
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        for database_path in sorted(data_dir.glob("opencode*.db")):
+            try:
+                with sqlite3.connect(
+                    f"file:{database_path}?mode=ro",
+                    uri=True,
+                    timeout=1.0,
+                ) as database:
+                    rows = database.execute(
+                        "SELECT project_id, action, resource "
+                        "FROM permission ORDER BY project_id, action, resource"
+                    ).fetchall()
+                observed[str(database_path)] = rows
+                if len(rows) != 1:
+                    continue
+                project_id, saved_action, saved_resource = rows[0]
+                if (
+                    isinstance(project_id, str)
+                    and project_id
+                    and saved_action == action
+                    and saved_resource == resource
+                ):
+                    return project_id
+            except sqlite3.Error as error:
+                last_error = error
+        time.sleep(0.2)
+    raise AssertionError(
+        "OpenCode did not persist exactly one project-bound permission rule; "
+        f"observed={observed!r}, last_error={last_error}"
+    )
+
+
+def wait_for_no_saved_permissions(
+    runtime_root: Path,
+    timeout: float = 30.0,
+) -> None:
+    data_dir = runtime_root / "xdg-data/opencode"
+    deadline = time.monotonic() + timeout
+    observed: dict[str, list[tuple[Any, ...]]] = {}
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        observed.clear()
+        for database_path in sorted(data_dir.glob("opencode*.db")):
+            try:
+                with sqlite3.connect(
+                    f"file:{database_path}?mode=ro",
+                    uri=True,
+                    timeout=1.0,
+                ) as database:
+                    rows = database.execute(
+                        "SELECT project_id, action, resource "
+                        "FROM permission ORDER BY project_id, action, resource"
+                    ).fetchall()
+                observed[str(database_path)] = rows
+            except sqlite3.Error as error:
+                last_error = error
+        if observed and all(not rows for rows in observed.values()):
+            return
+        time.sleep(0.2)
+    raise AssertionError(
+        "OpenCode did not remove the project-bound permission rule; "
+        f"observed={observed!r}, last_error={last_error}"
+    )
+
+
+def wait_for_session_project(
+    runtime_root: Path,
+    session_id: str,
+    expected_project_id: str,
+    timeout: float = 30.0,
+) -> None:
+    data_dir = runtime_root / "xdg-data/opencode"
+    deadline = time.monotonic() + timeout
+    observed: dict[str, list[tuple[Any, ...]]] = {}
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        for database_path in sorted(data_dir.glob("opencode*.db")):
+            try:
+                with sqlite3.connect(
+                    f"file:{database_path}?mode=ro",
+                    uri=True,
+                    timeout=1.0,
+                ) as database:
+                    rows = database.execute(
+                        "SELECT project_id, directory FROM session WHERE id = ?",
+                        (session_id,),
+                    ).fetchall()
+                observed[str(database_path)] = rows
+                if any(row[0] == expected_project_id for row in rows):
+                    return
+            except sqlite3.Error as error:
+                last_error = error
+        time.sleep(0.2)
+    raise AssertionError(
+        "reopened session did not resolve to the saved permission project; "
+        f"observed={observed!r}, expected={expected_project_id!r}, last_error={last_error}"
+    )
+
+
+def permission_database_snapshot(runtime_root: Path) -> dict[str, dict[str, list[tuple[Any, ...]]]]:
+    snapshot: dict[str, dict[str, list[tuple[Any, ...]]]] = {}
+    for database_path in sorted((runtime_root / "xdg-data/opencode").glob("opencode*.db")):
+        tables: dict[str, list[tuple[Any, ...]]] = {}
+        try:
+            with sqlite3.connect(
+                f"file:{database_path}?mode=ro",
+                uri=True,
+                timeout=1.0,
+            ) as database:
+                tables["permission"] = database.execute(
+                    "SELECT id, project_id, action, resource FROM permission ORDER BY project_id"
+                ).fetchall()
+                tables["session"] = database.execute(
+                    "SELECT id, project_id, directory FROM session ORDER BY id"
+                ).fetchall()
+                tables["project"] = database.execute(
+                    "SELECT id, worktree, vcs FROM project ORDER BY id"
+                ).fetchall()
+                tables["project_directory"] = database.execute(
+                    "SELECT project_id, directory FROM project_directory ORDER BY project_id, directory"
+                ).fetchall()
+        except sqlite3.Error as error:
+            tables["error"] = [(str(error),)]
+        snapshot[str(database_path)] = tables
+    return snapshot
+
+
+def wait_for_path_missing(path: Path, timeout: float = 30.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not path.exists():
+            return
+        time.sleep(0.2)
+    raise AssertionError(f"path was not removed before timeout: {path}")
+
+
+def wait_for_active_workspace(
+    pointer: Path,
+    expected: Path,
+    timeout: float = 30.0,
+) -> None:
+    deadline = time.monotonic() + timeout
+    observed: str | None = None
+    while time.monotonic() < deadline:
+        if pointer.is_file():
+            observed = pointer.read_text(encoding="utf-8").strip()
+            if observed and Path(observed).resolve() == expected.resolve():
+                return
+        time.sleep(0.2)
+    raise AssertionError(
+        f"desktop did not switch back to the task workspace; observed={observed!r}, "
+        f"expected={str(expected)!r}"
     )
 
 
@@ -549,8 +725,19 @@ def wait_for_main_request_count(
         if len(requests) > expected:
             break
         time.sleep(0.2)
+    with state.lock:
+        all_requests = list(state.message_bodies)
+    recent = [
+        {
+            "main": is_main_provider_request(body),
+            "user": latest_user_text(body)[-200:],
+            "tools": len(body.get("tools", [])) if isinstance(body.get("tools"), list) else None,
+        }
+        for body in all_requests[-5:]
+    ]
     raise AssertionError(
-        f"local fixture received {len(requests)} main requests, expected {expected}"
+        f"local fixture received {len(requests)} main requests, expected {expected}; "
+        f"recent requests={recent!r}"
     )
 
 
@@ -674,6 +861,54 @@ def terminate(process: subprocess.Popen[str]) -> None:
             pass
 
 
+def start_desktop_session(
+    base_url: str,
+    env: dict[str, str],
+    log_path: Path,
+    append_log: bool = False,
+) -> tuple[subprocess.Popen[str], str]:
+    with log_path.open("a" if append_log else "w", encoding="utf-8") as log:
+        process = subprocess.Popen(
+            [str(BINARY)],
+            cwd=ROOT,
+            env=env,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+    wait_for_status(base_url, process)
+    session = request_json(
+        base_url,
+        "POST",
+        "/session",
+        {"capabilities": {"alwaysMatch": {}}},
+    )
+    if not isinstance(session, dict) or not session.get("sessionId"):
+        terminate(process)
+        raise AssertionError(f"WebDriver returned no session id: {session!r}")
+    return process, str(session["sessionId"])
+
+
+def restart_desktop_session(
+    base_url: str,
+    session_id: str,
+    process: subprocess.Popen[str],
+    env: dict[str, str],
+    log_path: Path,
+) -> tuple[subprocess.Popen[str], str]:
+    try:
+        request_json(base_url, "DELETE", f"/session/{session_id}")
+    except Exception:
+        pass
+    terminate(process)
+    socket_path = single_instance_socket_path()
+    if socket_path.exists():
+        if not stat.S_ISSOCK(socket_path.lstat().st_mode):
+            raise AssertionError(f"unexpected non-socket at {socket_path}")
+        socket_path.unlink()
+    return start_desktop_session(base_url, env, log_path, append_log=True)
+
+
 def main() -> int:
     if platform.system() != "Darwin":
         raise SystemExit("native desktop E2E currently requires macOS")
@@ -722,26 +957,7 @@ def main() -> int:
         log_path = home / "desktop-e2e.log"
         try:
             with isolate_single_instance_socket(single_instance_socket_path()):
-                with log_path.open("w", encoding="utf-8") as log:
-                    process = subprocess.Popen(
-                        [str(BINARY)],
-                        cwd=ROOT,
-                        env=env,
-                        stdout=log,
-                        stderr=subprocess.STDOUT,
-                        text=True,
-                    )
-                wait_for_status(base_url, process)
-
-                session = request_json(
-                    base_url,
-                    "POST",
-                    "/session",
-                    {"capabilities": {"alwaysMatch": {}}},
-                )
-                if not isinstance(session, dict) or not session.get("sessionId"):
-                    raise AssertionError(f"WebDriver returned no session id: {session!r}")
-                session_id = str(session["sessionId"])
+                process, session_id = start_desktop_session(base_url, env, log_path)
 
                 wait_for_script_value(
                     base_url,
@@ -938,6 +1154,7 @@ def main() -> int:
                 task_row_xpath = (
                     f'//div[@{task_attribute}={json.dumps(task_id)}]'
                 )
+                task_link_xpath = f"{task_row_xpath}//a"
                 find_element(base_url, session_id, task_row_xpath, timeout=30.0)
                 standalone_row = execute(
                     base_url,
@@ -1281,6 +1498,431 @@ def main() -> int:
                     raise AssertionError(
                         "rejected command executed while the queued turn drained"
                     )
+
+                always_sentinel = standalone_workspace / FIXTURE_BASH_ALWAYS_SENTINEL
+                always_sentinel.write_text(
+                    "remove only after an explicit remembered permission\n",
+                    encoding="utf-8",
+                )
+                fixture_state.bash_always_next_main_reply()
+                click(
+                    base_url,
+                    session_id,
+                    fill_composer(
+                        base_url,
+                        session_id,
+                        composer_xpath,
+                        PERMISSION_ALWAYS_TRIGGER_PROMPT,
+                        send_xpath,
+                    ),
+                )
+                wait_for_body_text(
+                    base_url,
+                    session_id,
+                    FIXTURE_BASH_ALWAYS_COMMAND,
+                    timeout=60.0,
+                )
+                wait_for_main_request_prompts(
+                    fixture_state,
+                    [
+                        TASK_PROMPT,
+                        QUEUE_PROMPTS[2],
+                        QUEUE_PROMPTS[1],
+                        QUESTION_TRIGGER_PROMPT,
+                        QUESTION_QUEUED_PROMPT,
+                        PERMISSION_TRIGGER_PROMPT,
+                        PERMISSION_QUEUED_PROMPT,
+                        PERMISSION_REJECT_TRIGGER_PROMPT,
+                        PERMISSION_REJECT_QUEUED_PROMPT,
+                        PERMISSION_ALWAYS_TRIGGER_PROMPT,
+                    ],
+                )
+                permission_always_request_count = len(
+                    main_provider_requests(fixture_state)
+                )
+                always_allow_xpath = (
+                    '//button[normalize-space()="始终允许" '
+                    'or normalize-space()="Always allow"]'
+                )
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, always_allow_xpath),
+                )
+                permission_always_continuation = wait_for_main_request_count(
+                    fixture_state,
+                    permission_always_request_count + 1,
+                )[-1]
+                permission_always_messages = json.dumps(
+                    permission_always_continuation.get("messages"),
+                    ensure_ascii=False,
+                )
+                if (
+                    "tool_result" not in permission_always_messages
+                    or "toolu_fixture_bash_always_1" not in permission_always_messages
+                ):
+                    raise AssertionError(
+                        "remembered command permission did not execute and resume the original turn"
+                    )
+                wait_for_path_missing(always_sentinel)
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "return !document.querySelector("
+                    "'button[aria-label=\"停止\"], button[aria-label=\"Stop\"]')",
+                    True,
+                    timeout=60.0,
+                )
+                saved_project_id = wait_for_saved_permission(
+                    runtime_root,
+                    "bash",
+                    FIXTURE_BASH_ALWAYS_COMMAND,
+                )
+
+                always_sentinel.write_text(
+                    "remove automatically using the remembered permission\n",
+                    encoding="utf-8",
+                )
+                fixture_state.bash_always_next_main_reply()
+                permission_repeat_request_count = len(
+                    main_provider_requests(fixture_state)
+                )
+                click(
+                    base_url,
+                    session_id,
+                    fill_composer(
+                        base_url,
+                        session_id,
+                        composer_xpath,
+                        PERMISSION_ALWAYS_REPEAT_PROMPT,
+                        send_xpath,
+                    ),
+                )
+                permission_repeat_continuation = wait_for_main_request_count(
+                    fixture_state,
+                    permission_repeat_request_count + 2,
+                )[-1]
+                permission_repeat_messages = json.dumps(
+                    permission_repeat_continuation.get("messages"),
+                    ensure_ascii=False,
+                )
+                if (
+                    "tool_result" not in permission_repeat_messages
+                    or "toolu_fixture_bash_always_2" not in permission_repeat_messages
+                ):
+                    raise AssertionError(
+                        "the exact remembered command did not execute and resume automatically"
+                    )
+                wait_for_path_missing(always_sentinel)
+                wait_for_main_request_prompts(
+                    fixture_state,
+                    [
+                        TASK_PROMPT,
+                        QUEUE_PROMPTS[2],
+                        QUEUE_PROMPTS[1],
+                        QUESTION_TRIGGER_PROMPT,
+                        QUESTION_QUEUED_PROMPT,
+                        PERMISSION_TRIGGER_PROMPT,
+                        PERMISSION_QUEUED_PROMPT,
+                        PERMISSION_REJECT_TRIGGER_PROMPT,
+                        PERMISSION_REJECT_QUEUED_PROMPT,
+                        PERMISSION_ALWAYS_TRIGGER_PROMPT,
+                        PERMISSION_ALWAYS_REPEAT_PROMPT,
+                    ],
+                )
+                if wait_for_saved_permission(
+                    runtime_root,
+                    "bash",
+                    FIXTURE_BASH_ALWAYS_COMMAND,
+                ) != saved_project_id:
+                    raise AssertionError(
+                        "the remembered command permission changed project scope"
+                    )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "return ![...document.querySelectorAll('button')].some((button) => "
+                    "['始终允许', 'Always allow'].includes(button.textContent.trim()))",
+                    True,
+                    timeout=60.0,
+                )
+
+                process, session_id = restart_desktop_session(
+                    base_url,
+                    session_id,
+                    process,
+                    env,
+                    log_path,
+                )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "return Boolean(window.__TAURI_INTERNALS__)",
+                    True,
+                )
+                current_path = execute(base_url, session_id, "return window.location.pathname")
+                if not (
+                    isinstance(current_path, str)
+                    and current_path.startswith("/heor/")
+                    and current_path != "/heor/new"
+                ):
+                    click(
+                        base_url,
+                        session_id,
+                        find_element(base_url, session_id, task_link_xpath, timeout=30.0),
+                    )
+                    wait_for_task_location(base_url, session_id)
+                wait_for_active_workspace(active_pointer, standalone_workspace)
+                wait_for_session_project(
+                    runtime_root,
+                    task_id,
+                    saved_project_id,
+                )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "return !document.querySelector('[aria-busy=\"true\"]')",
+                    True,
+                    timeout=60.0,
+                )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "return !document.querySelector("
+                    "'button[aria-label=\"停止\"], button[aria-label=\"Stop\"]')",
+                    True,
+                    timeout=60.0,
+                )
+
+                settings_xpath = (
+                    '//button[@aria-label="设置" or @aria-label="Settings"]'
+                )
+                privacy_xpath = '//a[@href="/settings/privacy"]'
+                back_xpath = (
+                    '//button[normalize-space()="返回应用" '
+                    'or normalize-space()="Back to app"]'
+                )
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, settings_xpath),
+                )
+                wait_for_location(base_url, session_id, "/settings")
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, privacy_xpath),
+                )
+                wait_for_location(base_url, session_id, "/settings/privacy")
+                try:
+                    wait_for_body_text(
+                        base_url,
+                        session_id,
+                        FIXTURE_BASH_ALWAYS_COMMAND,
+                        timeout=10.0,
+                    )
+                except AssertionError as error:
+                    visible = execute(base_url, session_id, "return document.body.innerText")
+                    raise AssertionError(
+                        "saved permission was not visible after desktop restart; "
+                        f"saved_project_id={saved_project_id!r}, "
+                        f"database={permission_database_snapshot(runtime_root)!r}, "
+                        f"visible={str(visible)[-2000:]}"
+                    ) from error
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, back_xpath),
+                )
+                wait_for_location(base_url, session_id, "/heor")
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, task_link_xpath, timeout=30.0),
+                )
+                wait_for_task_location(base_url, session_id)
+                wait_for_active_workspace(active_pointer, standalone_workspace)
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "return !document.querySelector('[aria-busy=\"true\"]')",
+                    True,
+                    timeout=60.0,
+                )
+
+                always_sentinel.write_text(
+                    "remove automatically after a full desktop restart\n",
+                    encoding="utf-8",
+                )
+                fixture_state.bash_always_next_main_reply()
+                restart_request_count = len(main_provider_requests(fixture_state))
+                find_stable_element(
+                    base_url,
+                    session_id,
+                    composer_xpath,
+                    stable_for=2.0,
+                    timeout=30.0,
+                )
+                fill_composer(
+                    base_url,
+                    session_id,
+                    composer_xpath,
+                    PERMISSION_AFTER_RESTART_PROMPT,
+                    send_xpath,
+                )
+                click(
+                    base_url,
+                    session_id,
+                    find_stable_element(
+                        base_url,
+                        session_id,
+                        send_xpath,
+                        stable_for=1.0,
+                        timeout=15.0,
+                    ),
+                )
+                try:
+                    wait_for_body_text(
+                        base_url,
+                        session_id,
+                        PERMISSION_AFTER_RESTART_PROMPT,
+                        timeout=10.0,
+                    )
+                except AssertionError as error:
+                    visible = execute(base_url, session_id, "return document.body.innerText")
+                    composer_value = execute(
+                        base_url,
+                        session_id,
+                        "const input = document.querySelector('textarea'); "
+                        "return input ? input.value : null;",
+                    )
+                    raise AssertionError(
+                        "restarted task did not render the submitted prompt; "
+                        f"composer={composer_value!r}, visible={str(visible)[-2000:]}"
+                    ) from error
+                restart_continuation = wait_for_main_request_count(
+                    fixture_state,
+                    restart_request_count + 2,
+                )[-1]
+                restart_messages = json.dumps(
+                    restart_continuation.get("messages"),
+                    ensure_ascii=False,
+                )
+                if (
+                    "tool_result" not in restart_messages
+                    or "toolu_fixture_bash_always_3" not in restart_messages
+                ):
+                    raise AssertionError(
+                        "the exact remembered command did not resume automatically after restart"
+                    )
+                wait_for_path_missing(always_sentinel)
+                if wait_for_saved_permission(
+                    runtime_root,
+                    "bash",
+                    FIXTURE_BASH_ALWAYS_COMMAND,
+                ) != saved_project_id:
+                    raise AssertionError(
+                        "the remembered command permission changed project scope after restart"
+                    )
+
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, settings_xpath),
+                )
+                wait_for_location(base_url, session_id, "/settings")
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, privacy_xpath),
+                )
+                wait_for_location(base_url, session_id, "/settings/privacy")
+                wait_for_body_text(
+                    base_url,
+                    session_id,
+                    FIXTURE_BASH_ALWAYS_COMMAND,
+                    timeout=30.0,
+                )
+                revoke_xpath = '//button[@data-testid="saved-permission-revoke"]'
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, revoke_xpath),
+                )
+                wait_for_no_saved_permissions(runtime_root)
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "return !document.querySelector('[data-testid=\"saved-permission-revoke\"]')",
+                    True,
+                    timeout=30.0,
+                )
+
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, back_xpath),
+                )
+                wait_for_location(base_url, session_id, "/heor")
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, task_link_xpath, timeout=30.0),
+                )
+                wait_for_task_location(base_url, session_id)
+                wait_for_active_workspace(active_pointer, standalone_workspace)
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "return !document.querySelector('[aria-busy=\"true\"]')",
+                    True,
+                    timeout=60.0,
+                )
+
+                always_sentinel.write_text(
+                    "must remain after the saved permission is revoked\n",
+                    encoding="utf-8",
+                )
+                fixture_state.bash_always_next_main_reply()
+                click(
+                    base_url,
+                    session_id,
+                    fill_composer(
+                        base_url,
+                        session_id,
+                        composer_xpath,
+                        PERMISSION_AFTER_REVOKE_PROMPT,
+                        send_xpath,
+                    ),
+                )
+                wait_for_body_text(
+                    base_url,
+                    session_id,
+                    FIXTURE_BASH_ALWAYS_COMMAND,
+                    timeout=60.0,
+                )
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, reject_xpath),
+                )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "return !document.querySelector("
+                    "'button[aria-label=\"停止\"], button[aria-label=\"Stop\"]')",
+                    True,
+                    timeout=60.0,
+                )
+                if (
+                    not always_sentinel.is_file()
+                    or always_sentinel.read_text(encoding="utf-8")
+                    != "must remain after the saved permission is revoked\n"
+                ):
+                    raise AssertionError(
+                        "revoked remembered permission still executed the command"
+                    )
+
                 (standalone_workspace / "untrusted-e2e.html").write_text(
                     "<!doctype html><html><head><title>Passive preview fixture</title></head>"
                     '<body><h1 id="passive-preview-sentinel">Passive preview content</h1>'
@@ -1376,7 +2018,8 @@ def main() -> int:
 
                 print(
                     "native desktop E2E passed: Tauri bridge, navigation, "
-                    "queued prompts, Human input, command permission and rejection, task files "
+                    "queued prompts, Human input, one-time and rejected permissions, remembered "
+                    "permission reuse after restart, visible revocation and re-prompt, task files "
                     "and passive HTML preview"
                 )
         except Exception as error:

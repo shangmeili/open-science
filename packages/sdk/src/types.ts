@@ -3,7 +3,7 @@ import type { RuntimeStatus, ToolCallStatus } from "@ai4s/shared";
 export type { RuntimeStatus, ToolCallStatus };
 
 /** Pinned OpenCode release this client targets. */
-export const OPENCODE_VERSION = "1.17.13-ai4heor.1";
+export const OPENCODE_VERSION = "1.17.13-ai4heor.2";
 
 /** OpenCode server defaults (`opencode serve`). */
 export const DEFAULT_OPENCODE_URL = "http://127.0.0.1:4096";
@@ -176,6 +176,13 @@ export type OpenCodeEvent =
 
 /** Approve a permission once, always (persist a rule), or reject it. */
 export type PermissionReply = "once" | "always" | "reject";
+
+export interface SavedPermission {
+  id: string;
+  projectId: string;
+  action: string;
+  resource: string;
+}
 
 // ---- REST shapes the app consumes ----
 

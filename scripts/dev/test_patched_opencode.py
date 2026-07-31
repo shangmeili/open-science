@@ -35,7 +35,7 @@ class PatchedOpenCodeTests(unittest.TestCase):
             "10c894bdeef3618f5666fb506ef7f9491bb964d8",
         )
         self.assertRegex(manifest["sourceArchiveSha256"], r"^[0-9a-f]{64}$")
-        self.assertEqual(manifest["patchedVersion"], "1.17.13-ai4heor.1")
+        self.assertEqual(manifest["patchedVersion"], "1.17.13-ai4heor.2")
         self.assertEqual(manifest["patchSha256"], sha256(PATCH))
         self.assertEqual(
             manifest["systemContextContract"],
@@ -50,7 +50,7 @@ class PatchedOpenCodeTests(unittest.TestCase):
         ):
             self.assertIn(manifest[field], build, f"build script drifted from {field}")
 
-    def test_patch_changes_only_the_reviewed_context_audit_surface(self) -> None:
+    def test_patch_changes_only_the_reviewed_context_and_permission_surface(self) -> None:
         text = PATCH.read_text(encoding="utf-8")
         touched = set(re.findall(r"^\+\+\+ b/(.+)$", text, flags=re.MULTILINE))
         self.assertEqual(
@@ -62,6 +62,12 @@ class PatchedOpenCodeTests(unittest.TestCase):
                 "packages/opencode/src/session/llm/system-context.ts",
                 "packages/opencode/test/session/system-context.test.ts",
                 "packages/opencode/test/session/processor-effect.test.ts",
+                "packages/opencode/src/permission/index.ts",
+                "packages/opencode/src/project/project.ts",
+                "packages/opencode/src/server/routes/instance/httpapi/groups/permission.ts",
+                "packages/opencode/src/server/routes/instance/httpapi/handlers/permission.ts",
+                "packages/opencode/test/permission/next.test.ts",
+                "packages/opencode/test/project/project-directory.test.ts",
             },
         )
         self.assertIn('"ai4heor.system-context/v1"', text)
@@ -79,6 +85,18 @@ class PatchedOpenCodeTests(unittest.TestCase):
             maxsplit=1,
         )[0]
         self.assertNotRegex(production_patch, r"https?://")
+        self.assertIn('PermissionSaved.Service', text)
+        self.assertIn('projectID: ctx.project.id', text)
+        self.assertIn('resources: existing.info.patterns', text)
+        self.assertIn('HttpApiEndpoint.get("saved"', text)
+        self.assertIn('HttpApiEndpoint.delete("removeSaved"', text)
+        self.assertIn('"always permission survives instance reload"', text)
+        self.assertIn('"saved permission does not override a configured deny rule"', text)
+        self.assertIn('"always permission is scoped to the exact resource"', text)
+        self.assertIn('"always permission is scoped to one project"', text)
+        self.assertIn('"removing saved permission makes the next request ask again"', text)
+        self.assertIn('"migrates saved permissions when the project id changes"', text)
+        self.assertIn(".update(PermissionTable)", text)
         self.assertIn(
             "context.blockCount <= 1024",
             SDK_CLIENT.read_text(encoding="utf-8"),
@@ -94,7 +112,9 @@ class PatchedOpenCodeTests(unittest.TestCase):
         self.assertIn("apply --check --unidiff-zero", build)
         self.assertIn("bun test", build)
         self.assertIn("build --single", build)
-        self.assertIn("OPENCODE_VERSION=1.17.13-ai4heor.1", build)
+        self.assertIn("OPENCODE_VERSION=1.17.13-ai4heor.2", build)
+        self.assertIn("test/permission/next.test.ts", build)
+        self.assertIn("test/project/project-directory.test.ts", build)
 
     def test_release_ci_installs_bun_and_runs_patch_contract_before_build(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")

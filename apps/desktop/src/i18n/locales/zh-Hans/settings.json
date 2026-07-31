@@ -287,6 +287,17 @@
     "mirrorSaved": "镜像设置已保存",
     "couldNotSetMirror": "无法保存镜像设置"
   },
+  "savedPermissions": {
+    "title": "已记住的权限",
+    "hint": "仅列出当前项目中已允许的操作和具体对象",
+    "connect": "连接本地服务后即可查看已记住的权限。",
+    "loading": "正在读取已记住的权限…",
+    "failed": "无法读取已记住的权限。",
+    "retry": "重试",
+    "empty": "当前项目没有已记住的权限。",
+    "revoke": "撤销",
+    "removing": "正在撤销…"
+  },
   "dataFlow": {
     "title": "隐私与数据流",
     "subtitle": "查看哪些数据只保存在本机，哪些内容会发送给外部服务。",

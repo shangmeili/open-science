@@ -1,19 +1,269 @@
+diff --git a/packages/opencode/src/permission/index.ts b/packages/opencode/src/permission/index.ts
+index 396d192..90a5e7c 100644
+--- a/packages/opencode/src/permission/index.ts
++++ b/packages/opencode/src/permission/index.ts
+@@ -6,6 +6,7 @@ import { Deferred, Effect, Layer, Context } from "effect"
+ import os from "os"
+ import { PermissionV1 } from "@opencode-ai/core/v1/permission"
+ import { EventV2Bridge } from "@/event-v2-bridge"
++import { PermissionSaved } from "@opencode-ai/core/permission/saved"
+
+ export const Event = PermissionV1.Event
+
+@@ -13,6 +14,8 @@ export interface Interface {
+   readonly ask: (input: PermissionV1.AskInput) => Effect.Effect<void, PermissionV1.Error>
+   readonly reply: (input: PermissionV1.ReplyInput) => Effect.Effect<void, PermissionV1.NotFoundError>
+   readonly list: () => Effect.Effect<ReadonlyArray<PermissionV1.Request>>
++  readonly listSaved: () => Effect.Effect<ReadonlyArray<PermissionSaved.Info>>
++  readonly removeSaved: (id: PermissionSaved.ID) => Effect.Effect<boolean>
+ }
+
+ interface PendingEntry {
+@@ -22,7 +25,7 @@ interface PendingEntry {
+
+ interface State {
+   pending: Map<PermissionV1.ID, PendingEntry>
+-  approved: PermissionV1.Rule[]
++  projectID: PermissionSaved.Info["projectID"]
+ }
+
+ export function evaluate(permission: string, pattern: string, ...rulesets: PermissionV1.Ruleset[]): PermissionV1.Rule {
+@@ -43,12 +46,12 @@ const layer = Layer.effect(
+   Service,
+   Effect.gen(function* () {
+     const events = yield* EventV2Bridge.Service
++    const saved = yield* PermissionSaved.Service
+     const state = yield* InstanceState.make<State>(
+       Effect.fn("Permission.state")(function* (ctx) {
+-        void ctx
+         const state = {
+           pending: new Map<PermissionV1.ID, PendingEntry>(),
+-          approved: [],
++          projectID: ctx.project.id,
+         }
+
+         yield* Effect.addFinalizer(() =>
+@@ -65,12 +68,13 @@ const layer = Layer.effect(
+     )
+
+     const ask = Effect.fn("Permission.ask")(function* (input: PermissionV1.AskInput) {
+-      const { approved, pending } = yield* InstanceState.get(state)
++      const { pending, projectID } = yield* InstanceState.get(state)
+       const { ruleset, ...request } = input
++      const remembered = yield* saved.list({ projectID })
+       let needsAsk = false
+
+       for (const pattern of request.patterns) {
+-        const rule = evaluate(request.permission, pattern, ruleset, approved)
++        const rule = evaluate(request.permission, pattern, ruleset)
+         yield* Effect.logInfo("evaluated", { permission: request.permission, pattern, action: rule })
+         if (rule.action === "deny") {
+           return yield* new PermissionV1.DeniedError({
+@@ -78,6 +82,7 @@ const layer = Layer.effect(
+           })
+         }
+         if (rule.action === "allow") continue
++        if (remembered.some((item) => item.action === request.permission && item.resource === pattern)) continue
+         needsAsk = true
+       }
+
+@@ -107,7 +112,7 @@ const layer = Layer.effect(
+     })
+
+     const reply = Effect.fn("Permission.reply")(function* (input: PermissionV1.ReplyInput) {
+-      const { approved, pending } = yield* InstanceState.get(state)
++      const { pending, projectID } = yield* InstanceState.get(state)
+       const existing = pending.get(input.requestID)
+       if (!existing) return yield* new PermissionV1.NotFoundError({ requestID: input.requestID })
+
+@@ -142,18 +147,17 @@ const layer = Layer.effect(
+       yield* Deferred.succeed(existing.deferred, undefined)
+       if (input.reply === "once") return
+
+-      for (const pattern of existing.info.always) {
+-        approved.push({
+-          permission: existing.info.permission,
+-          pattern,
+-          action: "allow",
+-        })
+-      }
++      yield* saved.add({
++        projectID,
++        action: existing.info.permission,
++        resources: existing.info.patterns,
++      })
++      const remembered = yield* saved.list({ projectID })
+
+       for (const [id, item] of pending.entries()) {
+         if (item.info.sessionID !== existing.info.sessionID) continue
+         const ok = item.info.patterns.every(
+-          (pattern) => evaluate(item.info.permission, pattern, approved).action === "allow",
++          (pattern) => remembered.some((rule) => rule.action === item.info.permission && rule.resource === pattern),
+         )
+         if (!ok) continue
+         pending.delete(id)
+@@ -171,7 +175,18 @@ const layer = Layer.effect(
+       return Array.from(pending.values(), (item) => item.info)
+     })
+
+-    return Service.of({ ask, reply, list })
++    const listSaved = Effect.fn("Permission.listSaved")(function* () {
++      return yield* saved.list({ projectID: (yield* InstanceState.get(state)).projectID })
++    })
++
++    const removeSaved = Effect.fn("Permission.removeSaved")(function* (id: PermissionSaved.ID) {
++      const current = yield* listSaved()
++      if (!current.some((item) => item.id === id)) return false
++      yield* saved.remove(id)
++      return true
++    })
++
++    return Service.of({ ask, reply, list, listSaved, removeSaved })
+   }),
+ )
+
+@@ -213,6 +228,10 @@ export function disabled(tools: string[], ruleset: PermissionV1.Ruleset): Set<st
+   )
+ }
+
+-export const node = LayerNode.make({ service: Service, layer: layer, deps: [EventV2Bridge.node] })
++export const node = LayerNode.make({
++  service: Service,
++  layer: layer,
++  deps: [EventV2Bridge.node, PermissionSaved.node],
++})
+
+ export * as Permission from "."
+diff --git a/packages/opencode/src/project/project.ts b/packages/opencode/src/project/project.ts
+index 9870377..bfc5423 100644
+--- a/packages/opencode/src/project/project.ts
++++ b/packages/opencode/src/project/project.ts
+@@ -5,6 +5,7 @@ import { ProjectDirectoryTable, ProjectTable } from "@opencode-ai/core/project/s
+ import { ProjectDirectories } from "@opencode-ai/core/project/directories"
+ import { SessionTable } from "@opencode-ai/core/session/sql"
+ import { WorkspaceTable } from "@opencode-ai/core/control-plane/workspace.sql"
++import { PermissionTable } from "@opencode-ai/core/permission/sql"
+ import { Flag } from "@opencode-ai/core/flag/flag"
+ import { GlobalBus } from "@/bus/global"
+ import { which } from "@opencode-ai/core/util/which"
+@@ -184,6 +185,25 @@ const layer = Layer.effect(
+                 .set({ project_id: newID })
+                 .where(eq(WorkspaceTable.project_id, oldID))
+                 .run()
++              // A saved permission is project-scoped just like a session and
++              // workspace. Keep it attached when a checkout gains a stable
++              // Git identity; discard only an exact duplicate already saved
++              // under the destination project before updating the remainder.
++              yield* d.run(sql`
++                DELETE FROM permission
++                WHERE project_id = ${oldID}
++                  AND EXISTS (
++                    SELECT 1 FROM permission AS target
++                    WHERE target.project_id = ${newID}
++                      AND target.action = permission.action
++                      AND target.resource = permission.resource
++                  )
++              `)
++              yield* d
++                .update(PermissionTable)
++                .set({ project_id: newID })
++                .where(eq(PermissionTable.project_id, oldID))
++                .run()
+
+               if (oldProject) yield* d.delete(ProjectTable).where(eq(ProjectTable.id, oldID)).run()
+             }),
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/permission.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/permission.ts
+index 79959db..cfdb817 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/groups/permission.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/groups/permission.ts
+@@ -3,6 +3,7 @@ import { Permission } from "@/permission"
+ import { Schema } from "effect"
+ import { HttpApi, HttpApiEndpoint, HttpApiError, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
+ import { PermissionNotFoundError } from "../errors"
++import { PermissionSaved } from "@opencode-ai/core/permission/saved"
+ import { Authorization } from "../middleware/authorization"
+ import { InstanceContextMiddleware } from "../middleware/instance-context"
+ import { WorkspaceRoutingMiddleware, WorkspaceRoutingQuery } from "../middleware/workspace-routing"
+@@ -41,6 +42,27 @@ export const PermissionApi = HttpApi.make("permission")
+             description: "Approve or deny a permission request from the AI assistant.",
+           }),
+         ),
++        HttpApiEndpoint.get("saved", `${root}/saved`, {
++          query: WorkspaceRoutingQuery,
++          success: described(Schema.Array(PermissionSaved.Info), "Saved permissions for the current project"),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "permission.saved",
++            summary: "List saved permissions",
++            description: "List exact permissions saved for the current project.",
++          }),
++        ),
++        HttpApiEndpoint.delete("removeSaved", `${root}/saved/:id`, {
++          params: { id: PermissionSaved.ID },
++          query: WorkspaceRoutingQuery,
++          success: described(Schema.Boolean, "Whether the current project permission was removed"),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "permission.saved.remove",
++            summary: "Remove a saved permission",
++            description: "Remove an exact saved permission from the current project.",
++          }),
++        ),
+       )
+       .annotateMerge(
+         OpenApi.annotations({
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/permission.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/permission.ts
+index cdb8849..0c7bc3a 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/handlers/permission.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/permission.ts
+@@ -36,6 +36,16 @@ export const permissionHandlers = HttpApiBuilder.group(InstanceHttpApi, "permiss
+       return true
+     })
+
+-    return handlers.handle("list", list).handle("reply", reply)
++    const saved = Effect.fn("PermissionHttpApi.saved")(function* () {
++      return yield* svc.listSaved()
++    })
++
++    const removeSaved = Effect.fn("PermissionHttpApi.removeSaved")(function* (ctx: {
++      params: { id: Parameters<Permission.Interface["removeSaved"]>[0] }
++    }) {
++      return yield* svc.removeSaved(ctx.params.id)
++    })
++
++    return handlers.handle("list", list).handle("reply", reply).handle("saved", saved).handle("removeSaved", removeSaved)
+   }),
+ )
 diff --git a/packages/opencode/src/session/llm.ts b/packages/opencode/src/session/llm.ts
 index a99f8ac..e3d6d8c 100644
 --- a/packages/opencode/src/session/llm.ts
 +++ b/packages/opencode/src/session/llm.ts
-@@ -31 +31,2 @@ import { LLMNativeRuntime } from "./llm/native-runtime"
+@@ -29,6 +29,7 @@ import * as OtelTracer from "@effect/opentelemetry/Tracer"
+ import { LLMAISDK } from "./llm/ai-sdk"
+ import { LLMNativeRuntime } from "./llm/native-runtime"
  import { LLMRequestPrep } from "./llm/request"
 +import { fingerprintSystemContext, type SystemContextFingerprint } from "./llm/system-context"
-@@ -47,2 +48,3 @@ export type StreamInput = {
+
+ export const OUTPUT_TOKEN_MAX = ProviderTransform.OUTPUT_TOKEN_MAX
+
+@@ -45,6 +46,7 @@ export type StreamInput = {
+   tools: Record<string, Tool>
+   retries?: number
    toolChoice?: "auto" | "required" | "none"
 +  onPreparedSystem?: (context: SystemContextFingerprint) => Effect.Effect<void>
  }
-@@ -113 +115,4 @@ const live: Layer.Layer<
+
+ export type StreamRequest = StreamInput & {
+@@ -111,6 +113,9 @@ const live: Layer.Layer<
+         flags,
+         isWorkflow,
        })
 +      if (input.onPreparedSystem) {
 +        yield* input.onPreparedSystem(fingerprintSystemContext(prepared.system))
 +      }
+
+       // Wire up toolExecutor for DWS workflow models so that tool calls
+       // from the workflow service are executed via opencode's tool system
 diff --git a/packages/opencode/src/session/llm/system-context.ts b/packages/opencode/src/session/llm/system-context.ts
 new file mode 100644
 index 0000000..065a8f1
@@ -47,7 +297,9 @@ diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/
 index d09e6ac..d66e1a4 100644
 --- a/packages/opencode/src/session/processor.ts
 +++ b/packages/opencode/src/session/processor.ts
-@@ -637,2 +637,8 @@ const layer = Layer.effect(
+@@ -635,7 +635,13 @@ const layer = Layer.effect(
+             ctx.currentText = undefined
+             ctx.reasoningMap = {}
              yield* status.set(ctx.sessionID, { type: "busy" })
 -            const stream = llm.stream(streamInput)
 +            const stream = llm.stream({
@@ -57,16 +309,289 @@ index d09e6ac..d66e1a4 100644
 +                return session.updateMessage(ctx.assistantMessage).pipe(Effect.asVoid)
 +              },
 +            })
+
+             yield* stream.pipe(
+               Stream.tap((event) => handleEvent(event)),
+diff --git a/packages/opencode/test/permission/next.test.ts b/packages/opencode/test/permission/next.test.ts
+index 2f2ce98..e847261 100644
+--- a/packages/opencode/test/permission/next.test.ts
++++ b/packages/opencode/test/permission/next.test.ts
+@@ -7,7 +7,7 @@ import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
+ import { Permission } from "../../src/permission"
+ import { InstanceBootstrap } from "../../src/project/bootstrap"
+ import { InstanceStore } from "../../src/project/instance-store"
+-import { TestInstance, tmpdirScoped } from "../fixture/fixture"
++import { TestInstance, provideInstanceEffect, reloadInstance, tmpdirScoped } from "../fixture/fixture"
+ import { testEffect } from "../lib/effect"
+ import { MessageID, SessionID } from "../../src/session/schema"
+ import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
+@@ -74,6 +74,18 @@ const list = () =>
+     return yield* permission.list()
+   })
+
++const listSaved = () =>
++  Effect.gen(function* () {
++    const permission = yield* Permission.Service
++    return yield* permission.listSaved()
++  })
++
++const removeSaved = (id: Parameters<Permission.Interface["removeSaved"]>[0]) =>
++  Effect.gen(function* () {
++    const permission = yield* Permission.Service
++    return yield* permission.removeSaved(id)
++  })
++
+ // fromConfig tests
+
+ test("fromConfig - string value becomes wildcard rule", () => {
+@@ -804,6 +816,180 @@ it.instance(
+   { git: true },
+ )
+
++it.instance(
++  "always permission survives instance reload",
++  () =>
++    Effect.gen(function* () {
++      const instance = yield* TestInstance
++      const fiber = yield* ask({
++        id: PermissionV1.ID.make("per_saved_reload"),
++        sessionID: SessionID.make("session_saved_reload"),
++        permission: "bash",
++        patterns: ["python3 -B analysis.py"],
++        metadata: {},
++        always: ["python3 *"],
++        ruleset: [],
++      }).pipe(Effect.forkScoped)
++
++      yield* waitForPending(1)
++      yield* reply({ requestID: PermissionV1.ID.make("per_saved_reload"), reply: "always" })
++      yield* Fiber.join(fiber)
++      yield* reloadInstance({ directory: instance.directory })
++
++      expect(
++        yield* ask({
++          sessionID: SessionID.make("session_saved_reload_after"),
++          permission: "bash",
++          patterns: ["python3 -B analysis.py"],
++          metadata: {},
++          always: [],
++          ruleset: [],
++        }),
++      ).toBeUndefined()
++    }),
++  { git: true },
++)
++
++it.instance(
++  "saved permission does not override a configured deny rule",
++  () =>
++    Effect.gen(function* () {
++      const fiber = yield* ask({
++        id: PermissionV1.ID.make("per_saved_then_denied"),
++        sessionID: SessionID.make("session_saved_then_denied"),
++        permission: "bash",
++        patterns: ["python3 -B analysis.py"],
++        metadata: {},
++        always: [],
++        ruleset: [],
++      }).pipe(Effect.forkScoped)
++
++      yield* waitForPending(1)
++      yield* reply({ requestID: PermissionV1.ID.make("per_saved_then_denied"), reply: "always" })
++      yield* Fiber.join(fiber)
++
++      const error = yield* fail(
++        ask({
++          sessionID: SessionID.make("session_saved_then_denied_after"),
++          permission: "bash",
++          patterns: ["python3 -B analysis.py"],
++          metadata: {},
++          always: [],
++          ruleset: [{ permission: "bash", pattern: "python3 -B analysis.py", action: "deny" }],
++        }),
++      )
++      expect(error).toBeInstanceOf(PermissionV1.DeniedError)
++    }),
++  { git: true },
++)
++
++it.instance(
++  "always permission is scoped to the exact resource",
++  () =>
++    Effect.gen(function* () {
++      const fiber = yield* ask({
++        id: PermissionV1.ID.make("per_saved_exact"),
++        sessionID: SessionID.make("session_saved_exact"),
++        permission: "bash",
++        patterns: ["python3 -B analysis.py"],
++        metadata: {},
++        always: ["python3 *"],
++        ruleset: [],
++      }).pipe(Effect.forkScoped)
++      yield* waitForPending(1)
++      yield* reply({ requestID: PermissionV1.ID.make("per_saved_exact"), reply: "always" })
++      yield* Fiber.join(fiber)
++
++      expect((yield* listSaved()).map((item) => item.resource)).toEqual(["python3 -B analysis.py"])
++      const other = yield* ask({
++        id: PermissionV1.ID.make("per_saved_other_resource"),
++        sessionID: SessionID.make("session_saved_other_resource"),
++        permission: "bash",
++        patterns: ["python3 -B other.py"],
++        metadata: {},
++        always: [],
++        ruleset: [],
++      }).pipe(Effect.forkScoped)
++      yield* waitForPending(1)
++      yield* reply({ requestID: PermissionV1.ID.make("per_saved_other_resource"), reply: "reject" })
++      expect(Exit.isFailure(yield* Fiber.await(other))).toBe(true)
++    }),
++  { git: true },
++)
++
++it.instance(
++  "always permission is scoped to one project",
++  () =>
++    Effect.gen(function* () {
++      const fiber = yield* ask({
++        id: PermissionV1.ID.make("per_saved_project"),
++        sessionID: SessionID.make("session_saved_project"),
++        permission: "bash",
++        patterns: ["python3 -B analysis.py"],
++        metadata: {},
++        always: [],
++        ruleset: [],
++      }).pipe(Effect.forkScoped)
++      yield* waitForPending(1)
++      yield* reply({ requestID: PermissionV1.ID.make("per_saved_project"), reply: "always" })
++      yield* Fiber.join(fiber)
++
++      const otherDirectory = yield* tmpdirScoped({ git: true })
++      yield* Effect.gen(function* () {
++        const other = yield* ask({
++          id: PermissionV1.ID.make("per_saved_other_project"),
++          sessionID: SessionID.make("session_saved_other_project"),
++          permission: "bash",
++          patterns: ["python3 -B analysis.py"],
++          metadata: {},
++          always: [],
++          ruleset: [],
++        }).pipe(Effect.forkScoped)
++        yield* waitForPending(1)
++        yield* reply({ requestID: PermissionV1.ID.make("per_saved_other_project"), reply: "reject" })
++        expect(Exit.isFailure(yield* Fiber.await(other))).toBe(true)
++      }).pipe(provideInstanceEffect(otherDirectory))
++    }),
++  { git: true },
++)
++
++it.instance(
++  "removing saved permission makes the next request ask again",
++  () =>
++    Effect.gen(function* () {
++      const fiber = yield* ask({
++        id: PermissionV1.ID.make("per_saved_remove"),
++        sessionID: SessionID.make("session_saved_remove"),
++        permission: "bash",
++        patterns: ["python3 -B analysis.py"],
++        metadata: {},
++        always: [],
++        ruleset: [],
++      }).pipe(Effect.forkScoped)
++      yield* waitForPending(1)
++      yield* reply({ requestID: PermissionV1.ID.make("per_saved_remove"), reply: "always" })
++      yield* Fiber.join(fiber)
++
++      const saved = yield* listSaved()
++      expect(saved).toHaveLength(1)
++      expect(yield* removeSaved(saved[0].id)).toBe(true)
++
++      const next = yield* ask({
++        id: PermissionV1.ID.make("per_saved_remove_next"),
++        sessionID: SessionID.make("session_saved_remove_next"),
++        permission: "bash",
++        patterns: ["python3 -B analysis.py"],
++        metadata: {},
++        always: [],
++        ruleset: [],
++      }).pipe(Effect.forkScoped)
++      yield* waitForPending(1)
++      yield* reply({ requestID: PermissionV1.ID.make("per_saved_remove_next"), reply: "reject" })
++      expect(Exit.isFailure(yield* Fiber.await(next))).toBe(true)
++    }),
++  { git: true },
++)
++
+ it.instance(
+   "reply - reject cancels all pending for same session",
+   () =>
+diff --git a/packages/opencode/test/project/project-directory.test.ts b/packages/opencode/test/project/project-directory.test.ts
+index 112271c..eeefe24 100644
+--- a/packages/opencode/test/project/project-directory.test.ts
++++ b/packages/opencode/test/project/project-directory.test.ts
+@@ -10,6 +10,8 @@ import { AbsolutePath } from "@opencode-ai/core/schema"
+ import { Database } from "@opencode-ai/core/database/database"
+ import { ProjectDirectoryTable, ProjectTable } from "@opencode-ai/core/project/sql"
+ import { ProjectV2 } from "@opencode-ai/core/project"
++import { PermissionSaved } from "@opencode-ai/core/permission/saved"
++import { PermissionTable } from "@opencode-ai/core/permission/sql"
+ import { Project } from "@/project/project"
+ import { tmpdirScoped } from "../fixture/fixture"
+ import { testEffect } from "../lib/effect"
+@@ -199,4 +201,39 @@ describe("Project directory persistence", () => {
+       expect(yield* directories(remoteID)).toEqual([{ directory: AbsolutePath.make(tmp), strategy: undefined }])
+     }),
+   )
++
++  it.live("migrates saved permissions when the project id changes", () =>
++    Effect.gen(function* () {
++      const tmp = yield* tmpdirScoped({ git: true })
++      const project = yield* Project.Service
++      const original = yield* project.fromDirectory(tmp)
++      const { db } = yield* Database.Service
++      yield* db
++        .insert(PermissionTable)
++        .values({
++          id: PermissionSaved.ID.create(),
++          project_id: original.project.id,
++          action: "bash",
++          resource: "python3 -B analysis.py",
++        })
++        .run()
++        .pipe(Effect.orDie)
++      const remoteID = ProjectV2.ID.make(Hash.fast("git-remote:github.com/project-directory-test/permission"))
++      yield* Effect.promise(() =>
++        $`git remote add origin git@github.com:project-directory-test/permission.git`.cwd(tmp).quiet(),
++      )
++
++      yield* project.fromDirectory(tmp)
++
++      const rows = yield* db
++        .select()
++        .from(PermissionTable)
++        .where(eq(PermissionTable.project_id, remoteID))
++        .all()
++        .pipe(Effect.orDie)
++      expect(rows.map((row) => [row.action, row.resource])).toEqual([
++        ["bash", "python3 -B analysis.py"],
++      ])
++    }),
++  )
+ })
 diff --git a/packages/opencode/test/session/processor-effect.test.ts b/packages/opencode/test/session/processor-effect.test.ts
 index 5287605..967638c 100644
 --- a/packages/opencode/test/session/processor-effect.test.ts
 +++ b/packages/opencode/test/session/processor-effect.test.ts
-@@ -278 +278,4 @@ it.live("session.processor effect tests capture llm input cleanly", () =>
+@@ -276,10 +276,18 @@ it.live("session.processor effect tests capture llm input cleanly", () =>
+         const value = yield* handle.process(input)
+         const parts = yield* MessageV2.parts(msg.id)
          const calls = yield* llm.calls
 +        const stored = (yield* session.messages({ sessionID: chat.id })).find(
 +          (message) => message.info.id === msg.id,
 +        )?.info
-@@ -282,2 +285,7 @@ it.live("session.processor effect tests capture llm input cleanly", () =>
+
+         expect(value).toBe("continue")
+         expect(calls).toBe(1)
          expect(parts.some((part) => part.type === "text" && part.text === "hello")).toBe(true)
 +        expect(stored?.role).toBe("assistant")
 +        if (stored?.role !== "assistant") return
@@ -74,6 +599,8 @@ index 5287605..967638c 100644
 +        expect(stored.systemContext?.sha256).toMatch(/^[0-9a-f]{64}$/)
 +        expect(stored.systemContext?.blockCount).toBeGreaterThan(0)
        }),
+     { config: (url) => providerCfg(url) },
+   ),
 diff --git a/packages/opencode/test/session/system-context.test.ts b/packages/opencode/test/session/system-context.test.ts
 new file mode 100644
 index 0000000..795e702
@@ -121,7 +648,9 @@ diff --git a/packages/schema/src/v1/session.ts b/packages/schema/src/v1/session.
 index 75e9282..876cd38 100644
 --- a/packages/schema/src/v1/session.ts
 +++ b/packages/schema/src/v1/session.ts
-@@ -470,2 +470,9 @@ export const Assistant = Schema.Struct({
+@@ -468,6 +468,13 @@ export const Assistant = Schema.Struct({
+     root: Schema.String,
+   }),
    summary: Schema.optional(Schema.Boolean),
 +  systemContext: Schema.optional(
 +    Schema.Struct({
@@ -131,3 +660,5 @@ index 75e9282..876cd38 100644
 +    }),
 +  ),
    cost: Schema.Finite,
+   tokens: Schema.Struct({
+     total: Schema.optional(Schema.Finite),

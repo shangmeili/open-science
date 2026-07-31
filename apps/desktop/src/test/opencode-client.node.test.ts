@@ -185,6 +185,47 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
     ]);
   });
 
+  it("lists and revokes project-scoped saved permissions", async () => {
+    const calls: Array<{ url: string; method: string }> = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      calls.push({ url: String(input), method: init?.method ?? "GET" });
+      if ((init?.method ?? "GET") === "DELETE") return new Response(null, { status: 204 });
+      return new Response(JSON.stringify([
+        {
+          id: "psv_1",
+          projectID: "project_1",
+          action: "bash",
+          resource: "python3 -B analysis.py",
+        },
+      ]), { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+    const client = new OpenCodeClient({
+      baseUrl: "http://127.0.0.1:1",
+      directory: "/ws/project one",
+      fetchImpl,
+    });
+
+    await expect(client.listSavedPermissions("/ws/current project")).resolves.toEqual([
+      {
+        id: "psv_1",
+        projectId: "project_1",
+        action: "bash",
+        resource: "python3 -B analysis.py",
+      },
+    ]);
+    await expect(client.removeSavedPermission("psv_1", "/ws/current project")).resolves.toBeUndefined();
+    expect(calls).toEqual([
+      {
+        url: "http://127.0.0.1:1/permission/saved?directory=%2Fws%2Fcurrent%20project",
+        method: "GET",
+      },
+      {
+        url: "http://127.0.0.1:1/permission/saved/psv_1?directory=%2Fws%2Fcurrent%20project",
+        method: "DELETE",
+      },
+    ]);
+  });
+
   it("reports an error status when the server is unreachable", async () => {
     const client = new OpenCodeClient({ baseUrl: "http://127.0.0.1:1" });
     await expect(client.connect()).rejects.toBeTruthy();

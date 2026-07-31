@@ -57,6 +57,7 @@ import { ProviderManagerCard } from "@/components/settings/ProviderManagerCard";
 import { inputCls } from "@/components/settings/inputCls";
 import { StartupReadiness } from "@/components/settings/StartupReadiness";
 import { SupportReportCard } from "@/components/settings/SupportReportCard";
+import { SavedPermissionsCard } from "@/components/settings/SavedPermissionsCard";
 import { resolveSection } from "@/components/settings/sections";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
@@ -85,6 +86,7 @@ export function SettingsPage() {
   // scroll. These are the only fields the page actually reads.
   const status = useRuntimeStore((s) => s.status);
   const switching = useRuntimeStore((s) => s.switching);
+  const activeWorkspace = useRuntimeStore((s) => s.workspace);
   const serverUrl = useRuntimeStore((s) => s.serverUrl);
   const setServerUrl = useRuntimeStore((s) => s.setServerUrl);
   const connect = useRuntimeStore((s) => s.connect);
@@ -1401,6 +1403,11 @@ export function SettingsPage() {
         {section === "privacy" && (
           <>
             <DataFlowCard model={defaultModel} workspace={wsPath} />
+            <SavedPermissionsCard
+              connected={connected}
+              workspace={activeWorkspace}
+              client={getClient()}
+            />
             <SupportReportCard />
           </>
         )}

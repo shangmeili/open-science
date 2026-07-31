@@ -121,7 +121,7 @@ class DistributionVerifierTests(unittest.TestCase):
                     "aarch64-apple-darwin",
                     root,
                 )
-            self.assertEqual(versions["opencode"], "1.17.13-ai4heor.1")
+            self.assertEqual(versions["opencode"], "1.17.13-ai4heor.2")
             self.assertEqual(versions["uv"], "0.11.26")
             self.assertEqual(
                 versions["verification"],

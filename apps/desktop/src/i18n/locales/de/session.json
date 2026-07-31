@@ -281,7 +281,8 @@
       "sourcedAnswerPlaceholder": "Falls Sie eine nicht öffentliche Quelle haben, hier ergänzen…"
     },
     "permission": {
-      "heading": "Der Agent bittet um Erlaubnis:"
+      "heading": "Der Agent bittet um Erlaubnis:",
+      "alwaysScope": "„Immer erlauben“ speichert nur diese Aktion und das oben gezeigte genaue Ziel im aktuellen Projekt. Dies kann unter Einstellungen → Datenschutz widerrufen werden."
     },
     "askedBy": "Gefragt von {{origin}}",
     "skip": "Überspringen",

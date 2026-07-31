@@ -392,7 +392,7 @@ mod tests {
     fn input(message_id: &str) -> ModelCallInput {
         ModelCallInput {
             runtime: "opencode".into(),
-            runtime_version: "1.17.13-ai4heor.1".into(),
+            runtime_version: "1.17.13-ai4heor.2".into(),
             session_id: "ses_1".into(),
             message_id: message_id.into(),
             parent_message_id: "msg_user_1".into(),

@@ -113,6 +113,12 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   const connecting = status === "connecting" && !switching;
   const displayStatus = switching ? "ready" : status;
   const sessionDir = sessions.find((session) => session.id === sessionId)?.directory;
+  // A restored route can render before openSession has reconnected the runtime
+  // to that session's directory. Treat that interval as a real loading state:
+  // otherwise a prompt or project-scoped settings request can hit the startup
+  // workspace even though the task URL is already visible.
+  const taskWorkspacePending = !!sessionId
+    && (!sessionDir || sessionDir !== workspace || currentId !== sessionId);
   const running = !!(currentId && runningSessions[currentId]);
   const working = sending || running;
 
@@ -480,7 +486,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
       onRunShell={(c) => void onRunShell(c)}
       onRunCommand={(n, a) => void onRunCommand(n, a)}
       commands={composerCommands}
-      disabled={!connected || !defaultModel}
+      disabled={!connected || switching || taskWorkspacePending || !defaultModel}
       working={working}
       onStop={() => void interrupt()}
       placeholder={
@@ -503,7 +509,10 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   );
 
   return (
-    <div className="flex h-full min-w-0">
+    <div
+      className="flex h-full min-w-0"
+      aria-busy={switching || taskWorkspacePending || undefined}
+    >
       <div className="flex h-full min-w-0 flex-1 flex-col">
         <div
           data-tauri-drag-region={overlayTitlebar || undefined}

@@ -11,6 +11,30 @@ import verify_packaged_opencode_fixture as fixture
 
 
 class PackagedOpenCodeFixtureTests(unittest.TestCase):
+    def test_fixture_can_emit_two_distinct_bash_always_probes(self) -> None:
+        state = fixture.FixtureState()
+        main = {"tools": [{"name": "bash"}]}
+        state.bash_always_next_main_reply()
+        self.assertEqual(state.take_reply_kind(True, main), "bash_always_1")
+        state.bash_always_next_main_reply()
+        self.assertEqual(state.take_reply_kind(True, main), "bash_always_2")
+        self.assertEqual(state.take_reply_kind(True, main), "text")
+        first = fixture.anthropic_bash_stream(
+            command=fixture.BASH_ALWAYS_COMMAND,
+            message_id="msg_fixture_bash_always_1",
+            tool_id="toolu_fixture_bash_always_1",
+        ).decode("utf-8")
+        second = fixture.anthropic_bash_stream(
+            command=fixture.BASH_ALWAYS_COMMAND,
+            message_id="msg_fixture_bash_always_2",
+            tool_id="toolu_fixture_bash_always_2",
+        ).decode("utf-8")
+        self.assertIn('"id":"toolu_fixture_bash_always_1"', first)
+        self.assertNotIn('"id":"toolu_fixture_bash_always_2"', first)
+        self.assertIn('"id":"toolu_fixture_bash_always_2"', second)
+        self.assertIn(fixture.BASH_ALWAYS_COMMAND, first)
+        self.assertIn(fixture.BASH_ALWAYS_COMMAND, second)
+
     def test_fixture_can_emit_a_distinct_bash_rejection_probe(self) -> None:
         state = fixture.FixtureState()
         state.bash_rejection_next_main_reply()

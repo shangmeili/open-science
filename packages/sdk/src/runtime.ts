@@ -5,6 +5,7 @@ import type {
   OpenCodeEvent,
   PermissionAskedEvent,
   PermissionReply,
+  SavedPermission,
   ProviderInfo,
   QuestionAskedEvent,
   RuntimeStatus,
@@ -64,4 +65,6 @@ export interface AgentRuntime {
   answerQuestion(requestId: string, answers: string[][]): Promise<void>;
   rejectQuestion(requestId: string): Promise<void>;
   replyPermission(requestId: string, reply: PermissionReply): Promise<void>;
+  listSavedPermissions(directory?: string): Promise<SavedPermission[]>;
+  removeSavedPermission(id: string, directory?: string): Promise<void>;
 }

@@ -6,7 +6,7 @@ texts and copyright notices.
 
 ## Bundled executables
 
-- OpenCode 1.17.13-ai4heor.1, built from `anomalyco/opencode` commit
+- OpenCode 1.17.13-ai4heor.2, built from `anomalyco/opencode` commit
   `10c894bdeef3618f5666fb506ef7f9491bb964d8`, MIT. AI4HEOR applies the
   reviewed system-context audit patch whose source archive and patch hashes
   are recorded in `legal/opencode/manifest.json`; the exact upstream license,

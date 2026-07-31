@@ -42,7 +42,7 @@ describe("model-call audit boundary", () => {
     const input = modelCallInput(event);
     expect(input).toEqual({
       runtime: "opencode",
-      runtimeVersion: "1.17.13-ai4heor.1",
+      runtimeVersion: "1.17.13-ai4heor.2",
       sessionId: "ses_1",
       messageId: "msg_assistant_1",
       parentMessageId: "msg_user_1",

@@ -281,7 +281,8 @@
       "sourcedAnswerPlaceholder": "Si vous disposez d’une source non publique, ajoutez-la ici…"
     },
     "permission": {
-      "heading": "L'agent demande une autorisation :"
+      "heading": "L'agent demande une autorisation :",
+      "alwaysScope": "« Toujours autoriser » mémorise uniquement cette action et la cible exacte affichée ci-dessus pour le projet actuel. Vous pouvez la révoquer dans Réglages → Confidentialité."
     },
     "askedBy": "Demandé par {{origin}}",
     "skip": "Passer",

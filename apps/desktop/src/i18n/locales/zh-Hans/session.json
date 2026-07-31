@@ -273,7 +273,8 @@
       "sourcedAnswerPlaceholder": "如你掌握非公开资料，可在此补充…"
     },
     "permission": {
-      "heading": "需要你的允许："
+      "heading": "需要你的允许：",
+      "alwaysScope": "“始终允许”只记住当前项目中的这项操作和上方所列具体对象，可在“设置 → 隐私”中撤销。"
     },
     "askedBy": "由 {{origin}} 请求",
     "skip": "跳过",

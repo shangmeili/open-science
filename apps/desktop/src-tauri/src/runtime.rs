@@ -1204,6 +1204,20 @@ pub fn new_dated_workspace(
             ),
         });
     }
+    // OpenCode derives the project identity from Git. Establish the task's
+    // app-owned repository before switching/reconnecting so the first session
+    // and any project-scoped permission cannot be attached to the parent base
+    // folder and then become orphaned when the background snapshot starts.
+    if let Err(error) = crate::git_snapshot::commit(&dir, "Initialize workspace") {
+        let rollback = std::fs::remove_dir_all(&dir);
+        return Err(match rollback {
+            Ok(()) => format!("could not initialize local task history: {error}"),
+            Err(cleanup_error) => format!(
+                "could not initialize local task history: {error}; could not remove incomplete workspace {}: {cleanup_error}",
+                dir.display()
+            ),
+        });
+    }
     let canon = match set_workspace(app, state, dir.to_string_lossy().to_string()) {
         Ok(canon) => canon,
         Err(error) => {
@@ -1217,7 +1231,6 @@ pub fn new_dated_workspace(
             });
         }
     };
-    crate::git_snapshot::commit_best_effort(std::path::Path::new(&canon), "Initialize workspace");
     Ok(canon)
 }
 

@@ -31,6 +31,8 @@ QUESTION_HEADER = "E2E check"
 QUESTION_OPTION = "Continue safely"
 QUESTION_DESCRIPTION = "Continue the local deterministic E2E run."
 BASH_COMMAND = "rm -f ai4heor-e2e-permission-sentinel"
+BASH_ALWAYS_SENTINEL = "ai4heor-e2e-permission-always-sentinel"
+BASH_ALWAYS_COMMAND = f"rm -f {BASH_ALWAYS_SENTINEL}"
 BASH_REJECT_SENTINEL = "ai4heor-e2e-permission-reject-sentinel"
 BASH_REJECT_COMMAND = f"rm -f {BASH_REJECT_SENTINEL}"
 
@@ -44,6 +46,7 @@ class FixtureState:
         self.message_bodies: list[dict[str, Any]] = []
         self._next_main_reply_gate: tuple[threading.Event, threading.Event] | None = None
         self._next_main_reply_kind: str | None = None
+        self._bash_always_reply_count = 0
 
     def record_catalog(self) -> None:
         with self.lock:
@@ -93,6 +96,13 @@ class FixtureState:
             if self._next_main_reply_kind is not None:
                 raise RuntimeError("a fixture main reply is already configured")
             self._next_main_reply_kind = "bash_reject"
+
+    def bash_always_next_main_reply(self) -> None:
+        with self.lock:
+            if self._next_main_reply_kind is not None:
+                raise RuntimeError("a fixture main reply is already configured")
+            self._bash_always_reply_count += 1
+            self._next_main_reply_kind = f"bash_always_{self._bash_always_reply_count}"
 
     def take_reply_kind(self, stream: bool, body: dict[str, Any]) -> str:
         if not stream or not isinstance(body.get("tools"), list) or not body["tools"]:
@@ -365,6 +375,13 @@ def handler(state: FixtureState):
                         command=BASH_REJECT_COMMAND,
                         message_id="msg_fixture_bash_reject",
                         tool_id="toolu_fixture_bash_reject",
+                    )
+                elif reply_kind.startswith("bash_always_"):
+                    sequence = reply_kind.removeprefix("bash_always_")
+                    payload = anthropic_bash_stream(
+                        command=BASH_ALWAYS_COMMAND,
+                        message_id=f"msg_fixture_bash_always_{sequence}",
+                        tool_id=f"toolu_fixture_bash_always_{sequence}",
                     )
                 else:
                     payload = anthropic_stream()

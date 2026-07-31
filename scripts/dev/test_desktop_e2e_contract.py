@@ -170,6 +170,14 @@ class DesktopE2EContractTests(unittest.TestCase):
             "PERMISSION_REJECT_QUEUED_PROMPT",
             "FIXTURE_BASH_REJECT_COMMAND",
             "FIXTURE_BASH_REJECT_SENTINEL",
+            "bash_always_next_main_reply",
+            "PERMISSION_ALWAYS_REPEAT_PROMPT",
+            "FIXTURE_BASH_ALWAYS_COMMAND",
+            "wait_for_saved_permission",
+            "restart_desktop_session",
+            "PERMISSION_AFTER_RESTART_PROMPT",
+            "PERMISSION_AFTER_REVOKE_PROMPT",
+            "saved-permission-revoke",
             "assert_prompt_not_sent",
         ):
             self.assertIn(required, source)

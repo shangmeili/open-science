@@ -291,6 +291,9 @@ function PermissionCard({
           <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-input border border-border bg-surface-2 px-3 py-2 font-mono text-[12px] text-text">
             {permission.resources.join("\n")}
           </pre>
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            {t("interaction.permission.alwaysScope")}
+          </p>
         </div>
       )}
       <footer className="flex items-center gap-2 border-t border-border px-4 py-2.5">

@@ -281,7 +281,8 @@
       "sourcedAnswerPlaceholder": "If you have a non-public source, add it here…"
     },
     "permission": {
-      "heading": "The agent asks permission:"
+      "heading": "The agent asks permission:",
+      "alwaysScope": "Always allow remembers only this action and the exact target shown above in the current project. You can revoke it in Settings → Privacy."
     },
     "askedBy": "Asked by {{origin}}",
     "skip": "Skip",

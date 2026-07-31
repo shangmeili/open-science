@@ -146,7 +146,7 @@ try {
         Assert-True ((Get-PeMachine $binary) -eq 0x8664) "Packaged binary is not x86-64: $binary"
     }
     $opencodeVersion = (& $opencodeExe --version 2>&1 | Out-String).Trim()
-    Assert-True ($LASTEXITCODE -eq 0 -and $opencodeVersion.Contains('1.17.13-ai4heor.1')) "Unexpected packaged OpenCode version: $opencodeVersion"
+    Assert-True ($LASTEXITCODE -eq 0 -and $opencodeVersion.Contains('1.17.13-ai4heor.2')) "Unexpected packaged OpenCode version: $opencodeVersion"
     $uvVersion = (& $uvExe --version 2>&1 | Out-String).Trim()
     Assert-True ($LASTEXITCODE -eq 0 -and $uvVersion.Contains('0.11.26')) "Unexpected packaged uv version: $uvVersion"
 

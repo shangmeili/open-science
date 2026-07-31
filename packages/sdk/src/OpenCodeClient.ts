@@ -17,6 +17,7 @@ import type {
   QuestionAskedEvent,
   PermissionAskedEvent,
   RuntimeStatus,
+  SavedPermission,
   SessionMeta,
   SessionRuntimeStatus,
   SkillInfo,
@@ -877,8 +878,8 @@ export class OpenCodeClient implements AgentRuntime {
   /** Append `?directory=<path>` so the server resolves the workspace instance.
    *  Note: the `workspace` param is a `wrk_` id, NOT a path — omit it (directory
    *  alone resolves the instance; sending a path as workspace 500s the server). */
-  private dirQuery(): string {
-    return this.directory ? `?directory=${encodeURIComponent(this.directory)}` : "";
+  private dirQuery(directory = this.directory): string {
+    return directory ? `?directory=${encodeURIComponent(directory)}` : "";
   }
 
   /** The /event stream URL: directory scope + auth_token (EventSource has no headers). */
@@ -959,6 +960,41 @@ export class OpenCodeClient implements AgentRuntime {
       { method: "POST", headers: this.headers(true), body: JSON.stringify({ reply }) },
     );
     if (!res.ok) throw await this.apiError(res, "Failed to reply to the permission");
+  }
+
+  /** Exact permissions remembered for this client's current project. */
+  async listSavedPermissions(directory?: string): Promise<SavedPermission[]> {
+    const res = await this.fetchWithTimeout(`${this.baseUrl}/permission/saved${this.dirQuery(directory)}`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) throw await this.apiError(res, "Failed to list saved permissions");
+    const value = await res.json() as unknown;
+    if (!Array.isArray(value)) throw new Error("Saved permissions response is invalid");
+    return value.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const row = item as Record<string, unknown>;
+      if (
+        typeof row.id !== "string"
+        || typeof row.projectID !== "string"
+        || typeof row.action !== "string"
+        || typeof row.resource !== "string"
+      ) return [];
+      return [{
+        id: row.id,
+        projectId: row.projectID,
+        action: row.action,
+        resource: row.resource,
+      }];
+    });
+  }
+
+  /** Revoke one exact permission in this client's current project. */
+  async removeSavedPermission(id: string, directory?: string): Promise<void> {
+    const res = await this.fetchImpl(
+      `${this.baseUrl}/permission/saved/${encodeURIComponent(id)}${this.dirQuery(directory)}`,
+      { method: "DELETE", headers: this.headers() },
+    );
+    if (!res.ok) throw await this.apiError(res, "Failed to remove the saved permission");
   }
 
   // ---- internals ----

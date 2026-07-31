@@ -161,7 +161,7 @@ def verify_binaries(extracted: Path) -> tuple[dict[str, Path], dict[str, str]]:
         "opencode": run([str(binaries["opencode"]), "--version"], capture_output=True).stdout,
         "uv": run([str(binaries["uv"]), "--version"], capture_output=True).stdout,
     }
-    if "1.17.13-ai4heor.1" not in versions["opencode"]:
+    if "1.17.13-ai4heor.2" not in versions["opencode"]:
         raise AssertionError(f"unexpected OpenCode version: {versions['opencode'].strip()}")
     if "0.11.26" not in versions["uv"]:
         raise AssertionError(f"unexpected uv version: {versions['uv'].strip()}")

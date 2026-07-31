@@ -281,7 +281,8 @@
       "sourcedAnswerPlaceholder": "Si dispone de una fuente no pública, añádala aquí…"
     },
     "permission": {
-      "heading": "El agente solicita permiso:"
+      "heading": "El agente solicita permiso:",
+      "alwaysScope": "«Permitir siempre» recuerda solo esta acción y el objetivo exacto mostrado arriba en el proyecto actual. Puede revocarlo en Ajustes → Privacidad."
     },
     "askedBy": "Solicitado por {{origin}}",
     "skip": "Omitir",
