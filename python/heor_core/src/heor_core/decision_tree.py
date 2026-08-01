@@ -19,9 +19,65 @@ from .model import (
 )
 
 
-SCHEMA_VERSION = "0.1.0"
-ENGINE_VERSION = "0.1.0"
+LEGACY_SCHEMA_VERSION = "0.1.0"
+SCHEMA_VERSION = "0.2.0"
+SUPPORTED_SCHEMA_VERSIONS = (LEGACY_SCHEMA_VERSION, SCHEMA_VERSION)
+LEGACY_ENGINE_VERSION = "0.1.0"
+ENGINE_VERSION = "0.2.0"
 ANALYSIS_TYPE = "decision_tree"
+
+
+@dataclass(frozen=True)
+class EconomicBasis:
+    currency: str
+    price_year: int
+    jurisdiction: str
+    perspective: str
+
+    @classmethod
+    def from_dict(cls, raw: Any) -> "EconomicBasis":
+        value = _mapping(raw, "economic_basis")
+        _reject_unknown_fields(
+            value,
+            {"currency", "price_year", "jurisdiction", "perspective"},
+            "economic_basis",
+        )
+        currency = value.get("currency")
+        if (
+            not isinstance(currency, str)
+            or len(currency) != 3
+            or not currency.isascii()
+            or not currency.isalpha()
+            or currency != currency.upper()
+        ):
+            raise ModelValidationError(
+                "economic_basis.currency must be a three-letter uppercase ISO 4217 code"
+            )
+        price_year = _strict_int(
+            value.get("price_year"), "economic_basis.price_year"
+        )
+        if not 1900 <= price_year <= 2100:
+            raise ModelValidationError(
+                "economic_basis.price_year must be from 1900 to 2100"
+            )
+        return cls(
+            currency=currency,
+            price_year=price_year,
+            jurisdiction=_bounded_text(
+                value.get("jurisdiction"), "economic_basis.jurisdiction"
+            ),
+            perspective=_bounded_text(
+                value.get("perspective"), "economic_basis.perspective"
+            ),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "currency": self.currency,
+            "price_year": self.price_year,
+            "jurisdiction": self.jurisdiction,
+            "perspective": self.perspective,
+        }
 
 
 @dataclass(frozen=True)
@@ -162,6 +218,7 @@ class DecisionTreeSpecification:
     analysis_id: str
     reference_case_id: str
     reference_case_status: str
+    economic_basis: EconomicBasis | None
     time_horizon_years: float
     cost_discount_rate: float
     outcome_discount_rate: float
@@ -175,22 +232,26 @@ class DecisionTreeSpecification:
     @classmethod
     def from_dict(cls, raw: Any) -> "DecisionTreeSpecification":
         value = _mapping(raw, "analysis")
+        schema_version = str(value.get("schema_version", ""))
+        allowed_fields = {
+            "schema_version",
+            "analysis_type",
+            "analysis_id",
+            "reference_case",
+            "time_horizon_years",
+            "discount_rates",
+            "half_cycle_correction",
+            "willingness_to_pay",
+            "strategy_order",
+            "baseline_strategy_id",
+            "assumptions",
+            "strategies",
+        }
+        if schema_version == SCHEMA_VERSION:
+            allowed_fields.add("economic_basis")
         _reject_unknown_fields(
             value,
-            {
-                "schema_version",
-                "analysis_type",
-                "analysis_id",
-                "reference_case",
-                "time_horizon_years",
-                "discount_rates",
-                "half_cycle_correction",
-                "willingness_to_pay",
-                "strategy_order",
-                "baseline_strategy_id",
-                "assumptions",
-                "strategies",
-            },
+            allowed_fields,
             "analysis",
         )
         if "approvals" in value:
@@ -230,11 +291,16 @@ class DecisionTreeSpecification:
                 raise ModelValidationError("assumption ids must be unique")
             assumption_statuses[assumption_id] = str(assumption.get("status", ""))
         specification = cls(
-            schema_version=str(value.get("schema_version", "")),
+            schema_version=schema_version,
             analysis_type=str(value.get("analysis_type", "")),
             analysis_id=str(value.get("analysis_id", "")),
             reference_case_id=str(reference_case.get("id", "")),
             reference_case_status=str(reference_case.get("status", "")),
+            economic_basis=(
+                EconomicBasis.from_dict(value.get("economic_basis"))
+                if schema_version == SCHEMA_VERSION
+                else None
+            ),
             time_horizon_years=_strict_float(
                 value.get("time_horizon_years"), "time_horizon_years"
             ),
@@ -275,9 +341,17 @@ class DecisionTreeSpecification:
         return specification
 
     def validate(self) -> None:
-        if self.schema_version != SCHEMA_VERSION:
+        if self.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
             raise ModelValidationError(
-                f"unsupported decision tree schema_version {self.schema_version!r}; expected {SCHEMA_VERSION!r}"
+                f"unsupported decision tree schema_version {self.schema_version!r}; expected one of {SUPPORTED_SCHEMA_VERSIONS!r}"
+            )
+        if self.schema_version == SCHEMA_VERSION and self.economic_basis is None:
+            raise ModelValidationError(
+                f"economic_basis is required for decision tree schema {SCHEMA_VERSION}"
+            )
+        if self.schema_version == LEGACY_SCHEMA_VERSION and self.economic_basis is not None:
+            raise ModelValidationError(
+                "legacy decision tree schema must not claim an economic basis"
             )
         if self.analysis_type != ANALYSIS_TYPE:
             raise ModelValidationError(
@@ -376,10 +450,18 @@ class DecisionTreeResult:
             warnings.append(
                 "Draft reference case: this result must not be presented as compliance with current guidance."
             )
-        return {
+        if specification.schema_version == LEGACY_SCHEMA_VERSION:
+            warnings.append(
+                "Legacy analysis schema: monetary results have no declared economic basis and are exploratory only."
+            )
+        result = {
             "analysis_id": specification.analysis_id,
             "analysis_type": specification.analysis_type,
-            "engine_version": ENGINE_VERSION,
+            "engine_version": (
+                LEGACY_ENGINE_VERSION
+                if specification.schema_version == LEGACY_SCHEMA_VERSION
+                else ENGINE_VERSION
+            ),
             "schema_version": specification.schema_version,
             "reference_case": {
                 "id": specification.reference_case_id,
@@ -409,6 +491,9 @@ class DecisionTreeResult:
             ],
             "optimal_at_primary_threshold": self.optimal_at_primary_threshold,
         }
+        if specification.economic_basis is not None:
+            result["economic_basis"] = specification.economic_basis.to_dict()
+        return result
 
 
 def run_decision_tree(
@@ -682,6 +767,24 @@ def _strict_float(raw: Any, path: str) -> float:
 def _strict_bool(raw: Any, path: str) -> bool:
     if not isinstance(raw, bool):
         raise ModelValidationError(f"{path} must be a boolean")
+    return raw
+
+
+def _strict_int(raw: Any, path: str) -> int:
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise ModelValidationError(f"{path} must be an integer")
+    return raw
+
+
+def _bounded_text(raw: Any, path: str) -> str:
+    if not isinstance(raw, str) or not raw or raw != raw.strip():
+        raise ModelValidationError(
+            f"{path} must be a non-empty string without surrounding whitespace"
+        )
+    if len(raw) > 160 or any(ord(character) < 32 or ord(character) == 127 for character in raw):
+        raise ModelValidationError(
+            f"{path} must contain at most 160 characters and no control characters"
+        )
     return raw
 
 

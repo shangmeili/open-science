@@ -53,7 +53,7 @@ def main() -> int:
         json.dumps(
             {
                 "valid": True,
-                "schema_version": core.SCHEMA_VERSION,
+                "schema_version": specification.schema_version,
                 "analysis_id": specification.analysis_id,
                 "strategy_count": len(specification.strategy_order),
                 "input_sha256": expected["input_sha256"],

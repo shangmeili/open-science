@@ -1,10 +1,16 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "analysis_type": "decision_tree",
   "analysis_id": "replace-analysis-id",
   "reference_case": {
     "id": "replace-reference-case-id",
     "status": "draft"
+  },
+  "economic_basis": {
+    "currency": null,
+    "price_year": null,
+    "jurisdiction": "replace-jurisdiction",
+    "perspective": "replace-analysis-perspective"
   },
   "time_horizon_years": null,
   "discount_rates": {

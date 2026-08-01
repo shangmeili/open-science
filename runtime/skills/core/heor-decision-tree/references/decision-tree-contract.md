@@ -4,7 +4,9 @@ This contract covers a deterministic finite probability tree for short-horizon c
 
 ## Admitted scope
 
-- Schema and engine version: `0.1.0`; `analysis_type` is `decision_tree`.
+- Current schema and engine version: `0.2.0`; `analysis_type` is `decision_tree`.
+- Current plans require exactly one economic basis containing a three-letter uppercase currency code, an integer price year from 1900 through 2100, a non-empty jurisdiction, and a non-empty analysis perspective.
+- Legacy schema and engine `0.1.0` remain calculable only for deterministic replay of existing work. They do not claim an economic basis and their monetary results are exploratory, not eligible for formal reporting.
 - Horizon: greater than zero and at most one year.
 - Strategies: 2–8 unique IDs; the first `strategy_order` entry is the baseline.
 - Nodes: each strategy has one root, two or more branches per chance node, and terminal cost and QALY values.
@@ -17,6 +19,8 @@ This contract covers a deterministic finite probability tree for short-horizon c
 
 Every probability, cost, and QALY is an object containing `value`, `source_ids`, and `assumption_ids`. At least one source or proposed assumption is required. Every `assumption_id` must refer to a top-level assumption whose status is `proposed`; the deterministic engine never accepts or approves it.
 
+The engine preserves the declared currency, price year, jurisdiction, and perspective in the result. It does not perform exchange-rate conversion, monetary adjustment, or perspective inference.
+
 Source identifiers must resolve through the project's evidence and input-provenance records before formal use. A valid source ID proves only that the calculation records a locator; it does not prove eligibility, applicability, correctness, or Human acceptance.
 
 ## Deterministic output
@@ -27,4 +31,4 @@ The validator independently reparses and reruns the plan. When `--result` is pro
 
 ## Human boundary
 
-The Human researcher owns the decision problem, strategy set, tree structure, evidence eligibility and applicability, proposed assumptions, monetary basis, threshold, interpretation, and permitted use. A successful replay is calculation evidence, not approval, independent validation, or a reimbursement recommendation.
+The Human researcher owns the decision problem, strategy set, tree structure, evidence eligibility and applicability, proposed assumptions, currency, price year, jurisdiction, perspective, threshold, interpretation, and permitted use. A successful replay is calculation evidence, not approval, independent validation, or a reimbursement recommendation.

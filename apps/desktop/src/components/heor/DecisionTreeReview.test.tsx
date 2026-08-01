@@ -11,6 +11,7 @@ import { sha256Text } from "@/lib/heor";
 const CURRENT: DecisionTreeReviewState = {
   kind: "ready",
   plan: {
+    schemaVersion: "0.1.0",
     analysisId: "short-horizon-example",
     referenceCaseId: "CN-current",
     referenceCaseStatus: "current",
@@ -23,8 +24,10 @@ const CURRENT: DecisionTreeReviewState = {
     },
     sourceIds: ["source-1", "source-2"],
     proposedAssumptionIds: ["assumption-1"],
+    economicBasis: null,
   },
   result: {
+    schemaVersion: "0.1.0",
     inputSha256: "a".repeat(64),
     engineVersion: "0.1.0",
     strategies: {
@@ -40,12 +43,96 @@ const CURRENT: DecisionTreeReviewState = {
       },
     },
     warnings: ["Reference-case compliance has not been assessed."],
+    economicBasis: null,
   },
   planSha256: "a".repeat(64),
   resultCurrent: true,
 };
 
 describe("deterministic decision-tree review", () => {
+  it("reviews schema 0.2 only when the plan and result share one economic basis", async () => {
+    const economicBasis = {
+      currency: "CNY",
+      price_year: 2026,
+      jurisdiction: "中国大陆",
+      perspective: "中国医疗卫生系统",
+    };
+    const plan = JSON.stringify({
+      schema_version: "0.2.0",
+      analysis_type: "decision_tree",
+      analysis_id: "short-horizon-basis",
+      reference_case: { id: "CN-current", status: "current" },
+      economic_basis: economicBasis,
+      time_horizon_years: 1,
+      strategy_order: ["comparator", "intervention"],
+      baseline_strategy_id: "comparator",
+      assumptions: [],
+      strategies: {
+        comparator: { name: "常规治疗" },
+        intervention: { name: "新干预" },
+      },
+    });
+    const inputSha256 = await sha256Text(plan);
+    const result = JSON.stringify({
+      analysis_id: "short-horizon-basis",
+      analysis_type: "decision_tree",
+      calculation_classification: "deterministic_decision_tree",
+      schema_version: "0.2.0",
+      engine_version: "0.2.0",
+      economic_basis: economicBasis,
+      input_sha256: inputSha256,
+      strategy_order: ["comparator", "intervention"],
+      strategies: {
+        comparator: { name: "常规治疗", total_cost: 10, total_qaly: 0.5 },
+        intervention: { name: "新干预", total_cost: 20, total_qaly: 0.6 },
+      },
+      pairwise_vs_baseline: {
+        intervention: { delta_cost: 10, delta_qaly: 0.1, icer: 100, interpretation: "tradeoff" },
+      },
+      warnings: ["calculation only"],
+    });
+
+    const current = await reviewDecisionTreeArtifacts(plan, result);
+    expect(current).toMatchObject({
+      kind: "ready",
+      resultCurrent: true,
+      plan: { economicBasis },
+      result: { economicBasis },
+    });
+    if (current.kind !== "ready") throw new Error("expected ready decision-tree review");
+    render(
+      <DecisionTreeReview
+        state={current}
+        locale="zh-CN"
+        onRefresh={vi.fn()}
+        onRun={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("CNY · 2026 · 中国大陆 · 中国医疗卫生系统")).toBeInTheDocument();
+
+    const mismatched = JSON.stringify({
+      ...JSON.parse(result),
+      economic_basis: { ...economicBasis, price_year: 2025 },
+    });
+    expect(await reviewDecisionTreeArtifacts(plan, mismatched)).toMatchObject({
+      kind: "ready",
+      result: null,
+      resultCurrent: false,
+      resultIssue: "invalid",
+    });
+
+    const wrongEngine = JSON.stringify({
+      ...JSON.parse(result),
+      engine_version: "0.1.0",
+    });
+    expect(await reviewDecisionTreeArtifacts(plan, wrongEngine)).toMatchObject({
+      kind: "ready",
+      result: null,
+      resultCurrent: false,
+      resultIssue: "invalid",
+    });
+  });
+
   it("binds an engine result to the exact plan bytes and rejects changed bytes", async () => {
     const plan = JSON.stringify({
       schema_version: "0.1.0",

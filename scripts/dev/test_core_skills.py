@@ -230,7 +230,11 @@ class CoreSkillContractTests(unittest.TestCase):
         validator = skill_dir / "scripts" / "validate_decision_tree.py"
         golden = ROOT / "python/heor_core/golden_cases/two_strategy_decision_tree.json"
         self.assertEqual(template["analysis_type"], "decision_tree")
-        self.assertEqual(template["schema_version"], "0.1.0")
+        self.assertEqual(template["schema_version"], "0.2.0")
+        self.assertEqual(
+            set(template["economic_basis"]),
+            {"currency", "price_year", "jurisdiction", "perspective"},
+        )
         for required in (
             "references/decision-tree-contract.md",
             "../heor-workbench/scripts/run_first_party_analysis.py",
@@ -264,6 +268,7 @@ class CoreSkillContractTests(unittest.TestCase):
         )
         summary = json.loads(checked.stdout)
         self.assertTrue(summary["valid"])
+        self.assertEqual(summary["schema_version"], "0.1.0")
         self.assertEqual(summary["strategy_count"], 2)
         self.assertEqual(summary["analysis_id"], "golden-two-strategy-decision-tree")
 

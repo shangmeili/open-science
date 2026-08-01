@@ -7,7 +7,15 @@ import { sha256Text } from "@/lib/heor";
 export const HEOR_DECISION_TREE_PLAN_PATH = "heor/decision-tree-plan.json";
 export const HEOR_DECISION_TREE_RESULT_PATH = "heor/results/decision-tree.json";
 
+export interface DecisionTreeEconomicBasis {
+  currency: string;
+  price_year: number;
+  jurisdiction: string;
+  perspective: string;
+}
+
 export interface DecisionTreePlanSummary {
+  schemaVersion: "0.1.0" | "0.2.0";
   analysisId: string;
   referenceCaseId: string;
   referenceCaseStatus: string;
@@ -17,9 +25,11 @@ export interface DecisionTreePlanSummary {
   strategies: Record<string, { name: string }>;
   sourceIds: string[];
   proposedAssumptionIds: string[];
+  economicBasis: DecisionTreeEconomicBasis | null;
 }
 
 export interface DecisionTreeResultSummary {
+  schemaVersion: "0.1.0" | "0.2.0";
   inputSha256: string;
   engineVersion: string;
   strategies: Record<string, { name: string; totalCost: number; totalQaly: number }>;
@@ -30,6 +40,7 @@ export interface DecisionTreeResultSummary {
     interpretation: string;
   }>;
   warnings: string[];
+  economicBasis: DecisionTreeEconomicBasis | null;
 }
 
 export type DecisionTreeReviewState =
@@ -66,6 +77,49 @@ function finite(value: unknown, path: string): number {
   return value;
 }
 
+function economicBasis(value: unknown, path: string): DecisionTreeEconomicBasis {
+  const basis = record(value, path);
+  const expectedKeys = ["currency", "jurisdiction", "perspective", "price_year"];
+  if (Object.keys(basis).sort().join("|") !== expectedKeys.join("|")) {
+    throw new Error(`${path} must contain exactly currency, price_year, jurisdiction, and perspective`);
+  }
+  const currency = text(basis.currency, `${path}.currency`);
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    throw new Error(`${path}.currency must be a three-letter uppercase code`);
+  }
+  const priceYear = basis.price_year;
+  if (!Number.isInteger(priceYear) || (priceYear as number) < 1900 || (priceYear as number) > 2100) {
+    throw new Error(`${path}.price_year must be an integer from 1900 to 2100`);
+  }
+  const boundedText = (raw: unknown, fieldPath: string) => {
+    const parsed = text(raw, fieldPath);
+    const hasControlCharacter = [...parsed].some((character) => {
+      const codePoint = character.codePointAt(0) ?? 0;
+      return codePoint < 32 || codePoint === 127;
+    });
+    if (parsed !== parsed.trim() || parsed.length > 160 || hasControlCharacter) {
+      throw new Error(`${fieldPath} must not contain surrounding whitespace or control characters`);
+    }
+    return parsed;
+  };
+  return {
+    currency,
+    price_year: priceYear as number,
+    jurisdiction: boundedText(basis.jurisdiction, `${path}.jurisdiction`),
+    perspective: boundedText(basis.perspective, `${path}.perspective`),
+  };
+}
+
+function equalEconomicBasis(
+  left: DecisionTreeEconomicBasis | null,
+  right: DecisionTreeEconomicBasis | null,
+): boolean {
+  return left?.currency === right?.currency
+    && left?.price_year === right?.price_year
+    && left?.jurisdiction === right?.jurisdiction
+    && left?.perspective === right?.perspective;
+}
+
 function stringArray(value: unknown, path: string): string[] {
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim())) {
     throw new Error(`${path} must contain non-empty string ids`);
@@ -92,9 +146,17 @@ function collectSourceIds(value: unknown, target: Set<string>): void {
 
 export function parseDecisionTreePlan(raw: string): DecisionTreePlanSummary {
   const value = record(JSON.parse(raw), "decision-tree plan");
-  if (value.analysis_type !== "decision_tree" || value.schema_version !== "0.1.0") {
+  const schemaVersion = value.schema_version;
+  if (value.analysis_type !== "decision_tree"
+    || (schemaVersion !== "0.1.0" && schemaVersion !== "0.2.0")) {
     throw new Error("unsupported decision-tree plan contract");
   }
+  if (schemaVersion === "0.1.0" && "economic_basis" in value) {
+    throw new Error("legacy decision-tree plans must not claim an economic basis");
+  }
+  const parsedEconomicBasis = schemaVersion === "0.2.0"
+    ? economicBasis(value.economic_basis, "economic_basis")
+    : null;
   const referenceCase = record(value.reference_case, "reference_case");
   const strategyOrder = stringArray(value.strategy_order, "strategy_order");
   if (strategyOrder.length < 2 || new Set(strategyOrder).size !== strategyOrder.length) {
@@ -127,6 +189,7 @@ export function parseDecisionTreePlan(raw: string): DecisionTreePlanSummary {
       : [];
   });
   return {
+    schemaVersion,
     analysisId: text(value.analysis_id, "analysis_id"),
     referenceCaseId: text(referenceCase.id, "reference_case.id"),
     referenceCaseStatus: text(referenceCase.status, "reference_case.status"),
@@ -136,6 +199,7 @@ export function parseDecisionTreePlan(raw: string): DecisionTreePlanSummary {
     strategies,
     sourceIds: [...sourceIds].sort(),
     proposedAssumptionIds,
+    economicBasis: parsedEconomicBasis,
   };
 }
 
@@ -146,9 +210,22 @@ export function parseDecisionTreeResult(
   const value = record(JSON.parse(raw), "decision-tree result");
   if (value.analysis_type !== "decision_tree"
     || value.calculation_classification !== "deterministic_decision_tree"
-    || value.schema_version !== "0.1.0"
+    || value.schema_version !== plan.schemaVersion
     || value.analysis_id !== plan.analysisId) {
     throw new Error("result does not identify the current decision-tree analysis");
+  }
+  const engineVersion = text(value.engine_version, "result.engine_version");
+  if (engineVersion !== plan.schemaVersion) {
+    throw new Error("result engine_version does not match the decision-tree contract");
+  }
+  if (plan.schemaVersion === "0.1.0" && "economic_basis" in value) {
+    throw new Error("legacy decision-tree results must not claim an economic basis");
+  }
+  const parsedEconomicBasis = plan.schemaVersion === "0.2.0"
+    ? economicBasis(value.economic_basis, "result.economic_basis")
+    : null;
+  if (!equalEconomicBasis(plan.economicBasis, parsedEconomicBasis)) {
+    throw new Error("result economic_basis does not match the plan");
   }
   const resultOrder = stringArray(value.strategy_order, "result.strategy_order");
   if (resultOrder.length !== plan.strategyOrder.length
@@ -186,11 +263,13 @@ export function parseDecisionTreeResult(
     throw new Error("result.input_sha256 must be a SHA-256 digest");
   }
   return {
+    schemaVersion: plan.schemaVersion,
     inputSha256,
-    engineVersion: text(value.engine_version, "result.engine_version"),
+    engineVersion,
     strategies,
     pairwiseVsBaseline,
     warnings: stringArray(value.warnings, "result.warnings"),
+    economicBasis: parsedEconomicBasis,
   };
 }
 
@@ -300,6 +379,14 @@ export function DecisionTreeReview({
         <dd className="break-words text-right text-[11px] font-medium text-text">{state.plan.referenceCaseId} · {state.plan.referenceCaseStatus}</dd>
         <dt className="text-[11px] text-muted">{t("decisionTree.horizon")}</dt>
         <dd className="text-right text-[11px] font-medium text-text">{number.format(state.plan.timeHorizonYears)} {t("decisionTree.years")}</dd>
+        {state.plan.economicBasis && (
+          <>
+            <dt className="text-[11px] text-muted">{t("decisionTree.economicBasis")}</dt>
+            <dd className="break-words text-right text-[11px] font-medium text-text">
+              {state.plan.economicBasis.currency} · {state.plan.economicBasis.price_year} · {state.plan.economicBasis.jurisdiction} · {state.plan.economicBasis.perspective}
+            </dd>
+          </>
+        )}
       </dl>
       <p className="mt-3 text-[10px] leading-4 text-muted">{sourceSummary}</p>
 

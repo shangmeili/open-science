@@ -29,7 +29,66 @@ def golden_payload() -> dict:
     return json.loads(GOLDEN_PATH.read_text())
 
 
+def schema_02_payload() -> dict:
+    payload = golden_payload()
+    payload["schema_version"] = "0.2.0"
+    payload["economic_basis"] = {
+        "currency": "CNY",
+        "price_year": 2026,
+        "jurisdiction": "中国大陆",
+        "perspective": "中国医疗卫生系统",
+    }
+    return payload
+
+
 class DecisionTreeTests(unittest.TestCase):
+    def test_schema_02_requires_and_returns_one_complete_economic_basis(self) -> None:
+        payload = schema_02_payload()
+        result = run_decision_tree(
+            DecisionTreeSpecification.from_dict(payload)
+        ).to_dict()
+        self.assertEqual(result["schema_version"], "0.2.0")
+        self.assertEqual(result["engine_version"], "0.2.0")
+        self.assertEqual(result["economic_basis"], payload["economic_basis"])
+
+        invalid_bases = (
+            {"currency": "cny", "price_year": 2026, "jurisdiction": "中国大陆", "perspective": "中国医疗卫生系统"},
+            {"currency": "CNY", "price_year": 2026.0, "jurisdiction": "中国大陆", "perspective": "中国医疗卫生系统"},
+            {"currency": "CNY", "price_year": 1899, "jurisdiction": "中国大陆", "perspective": "中国医疗卫生系统"},
+            {"currency": "CNY", "price_year": 2026, "jurisdiction": " ", "perspective": "中国医疗卫生系统"},
+            {"currency": "CNY", "price_year": 2026, "jurisdiction": "中国\n大陆", "perspective": "中国医疗卫生系统"},
+            {"currency": "CNY", "price_year": 2026, "jurisdiction": "中国大陆", "perspective": " "},
+            {"currency": "CNY", "price_year": 2026, "jurisdiction": "中国大陆", "perspective": "医疗\t系统"},
+            {"currency": "CNY", "price_year": 2026, "jurisdiction": "中国大陆", "perspective": "中国医疗卫生系统", "exchange_rate": 1.0},
+        )
+        for economic_basis in invalid_bases:
+            with self.subTest(economic_basis=economic_basis):
+                invalid = schema_02_payload()
+                invalid["economic_basis"] = economic_basis
+                with self.assertRaises(ModelValidationError):
+                    DecisionTreeSpecification.from_dict(invalid)
+
+        for missing in ("currency", "price_year", "jurisdiction", "perspective"):
+            with self.subTest(missing=missing):
+                invalid = schema_02_payload()
+                del invalid["economic_basis"][missing]
+                with self.assertRaises(ModelValidationError):
+                    DecisionTreeSpecification.from_dict(invalid)
+
+    def test_legacy_schema_remains_replayable_without_a_claimed_basis(self) -> None:
+        payload = golden_payload()
+        result = run_decision_tree(
+            DecisionTreeSpecification.from_dict(payload)
+        ).to_dict()
+        self.assertEqual(result["schema_version"], "0.1.0")
+        self.assertEqual(result["engine_version"], "0.1.0")
+        self.assertNotIn("economic_basis", result)
+        self.assertTrue(any("exploratory" in warning for warning in result["warnings"]))
+
+        payload["economic_basis"] = schema_02_payload()["economic_basis"]
+        with self.assertRaisesRegex(ModelValidationError, "unsupported field"):
+            DecisionTreeSpecification.from_dict(payload)
+
     def test_golden_case_matches_hand_calculation(self) -> None:
         payload = golden_payload()
         original = copy.deepcopy(payload)
