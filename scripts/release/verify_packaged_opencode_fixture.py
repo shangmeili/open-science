@@ -35,6 +35,7 @@ BASH_ALWAYS_SENTINEL = "ai4heor-e2e-permission-always-sentinel"
 BASH_ALWAYS_COMMAND = f"rm -f {BASH_ALWAYS_SENTINEL}"
 BASH_REJECT_SENTINEL = "ai4heor-e2e-permission-reject-sentinel"
 BASH_REJECT_COMMAND = f"rm -f {BASH_REJECT_SENTINEL}"
+PROVIDER_ERROR_MESSAGE = "AI4HEOR E2E provider rejected the request"
 
 
 class FixtureState:
@@ -104,6 +105,12 @@ class FixtureState:
             self._bash_always_reply_count += 1
             self._next_main_reply_kind = f"bash_always_{self._bash_always_reply_count}"
 
+    def provider_error_next_main_reply(self) -> None:
+        with self.lock:
+            if self._next_main_reply_kind is not None:
+                raise RuntimeError("a fixture main reply is already configured")
+            self._next_main_reply_kind = "provider_error"
+
     def take_reply_kind(self, stream: bool, body: dict[str, Any]) -> str:
         if not stream or not isinstance(body.get("tools"), list) or not body["tools"]:
             return "text"
@@ -165,6 +172,18 @@ def anthropic_stream() -> bytes:
     return b"".join(
         b"event: " + name.encode() + b"\ndata: " + json_bytes(payload) + b"\n\n"
         for name, payload in events
+    )
+
+
+def anthropic_provider_error() -> bytes:
+    return json_bytes(
+        {
+            "type": "error",
+            "error": {
+                "type": "invalid_request_error",
+                "message": PROVIDER_ERROR_MESSAGE,
+            },
+        }
     )
 
 
@@ -364,6 +383,13 @@ def handler(state: FixtureState):
             reply_kind = state.take_reply_kind(stream, body)
             if not state.wait_before_reply(stream, body):
                 self.send_payload(504, b"{}", "application/json")
+                return
+            if reply_kind == "provider_error":
+                self.send_payload(
+                    400,
+                    anthropic_provider_error(),
+                    "application/json",
+                )
                 return
             if stream:
                 if reply_kind == "question":

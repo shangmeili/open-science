@@ -104,7 +104,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   const [showHeorReview, setShowHeorReview] = useState(false);
   const [reviewRevision, setReviewRevision] = useState(0);
   const reviewWasWorking = useRef(false);
-  const drainingQueue = useRef(false);
+  const [drainingQueue, setDrainingQueue] = useState(false);
 
   // A deliberate workspace move restarts the sidecar — expected and brief, so
   // the UI stays "connected" (no badge flip, no Connect button, no help card).
@@ -369,22 +369,27 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   // the queue resumes after the researcher answers it and the turn completes.
   useEffect(() => {
     if (!connected || !defaultModel || working || activeRequest || currentQueue.length === 0) return;
-    if (drainingQueue.current) return;
+    if (drainingQueue) return;
     const next = takeNextQueuedPrompt();
     if (!next) return;
-    drainingQueue.current = true;
+    setDrainingQueue(true);
     void sendNow(next.text, next.skill)
       .then((id) => {
         if (!id) requeuePromptFront(next);
       })
       .finally(() => {
-        drainingQueue.current = false;
+        // sendNow unlocks `sending` before its Promise settles. Keep this as
+        // reactive state so settling the first queued send always re-runs the
+        // effect for the next item, even if React observed that earlier
+        // unlock while the drain guard was still active.
+        setDrainingQueue(false);
       });
   }, [
     activeRequest,
     connected,
     currentQueue,
     defaultModel,
+    drainingQueue,
     requeuePromptFront,
     sendNow,
     takeNextQueuedPrompt,

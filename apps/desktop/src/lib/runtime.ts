@@ -249,6 +249,11 @@ let queuedPromptSequence = 0;
 /** HEOR template context for the active turn in each session. It contains only
  * fixed app-owned identifiers and the response language, never user text. */
 const pendingPromptContexts = new Map<string, HeorPromptContext>();
+/** OpenCode can leave a session executor occupied after a provider error even
+ * after emitting session.idle. Abort is its supported executor cleanup; keep
+ * the UI running lock until both the idle event and that cleanup have landed. */
+const errorRecoveries = new Map<string, Promise<void>>();
+const errorRecoveryIdle = new Set<string>();
 
 function nextQueuedPromptId(): string {
   queuedPromptSequence += 1;
@@ -286,6 +291,8 @@ function teardownClient() {
   client = null;
   opencodeClient = null;
   pendingPromptContexts.clear();
+  errorRecoveries.clear();
+  errorRecoveryIdle.clear();
 }
 const emptyThread = (): Thread => ({ blocks: [], index: {}, loaded: false });
 /** Threads key for the draft conversation — its blocks move to the real
@@ -430,10 +437,13 @@ type StoreGet = () => RuntimeState;
  *   2. `sending` is true from click until the POST is accepted (locks the
  *      composer); the session sits in `runningSessions` while the turn runs.
  *   3. Failures land as a red status line inside the conversation.
+ * Every turn arms its running lock BEFORE the POST. SSE events can beat either
+ * a long-running shell/command response or the short prompt_async acceptance
+ * response; setting the lock afterwards would resurrect a turn that already
+ * emitted session.idle.
  * `syncTurn` marks endpoints whose POST resolves only when the turn is OVER
- * (shell/command, unlike prompt_async) — their running lock is set BEFORE the
- * POST and cleared when it settles, because session.idle arrives before the
- * POST resolves and a lock set afterwards would never clear.
+ * (shell/command, unlike prompt_async), so their lock is also cleared when the
+ * POST settles if no terminal SSE event did so first.
  * `shell` additionally marks the turn in `shellTurns` for its duration, so
  * the event fold shows the bash output inline.
  */
@@ -569,11 +579,27 @@ async function performTurn(
         return { runningSessions, sessionProgress, stepCounts };
       });
     } else {
-      await post(sid);
       set((s) => ({
         runningSessions: { ...s.runningSessions, [sid]: true },
         sessionProgress: { ...s.sessionProgress, [sid]: { type: "busy" } },
       }));
+      try {
+        await post(sid);
+      } catch (err) {
+        // prompt_async normally returns after accepting the turn. If the
+        // request itself fails before any terminal SSE event can arrive, undo
+        // the pre-armed lock here; otherwise session.idle owns the unlock.
+        set((s) => {
+          const runningSessions = { ...s.runningSessions };
+          const sessionProgress = { ...s.sessionProgress };
+          const stepCounts = { ...s.stepCounts };
+          delete runningSessions[sid];
+          delete sessionProgress[sid];
+          delete stepCounts[sid];
+          return { runningSessions, sessionProgress, stepCounts };
+        });
+        throw err;
+      }
     }
     void logDebug("turn OK");
     return sid;
@@ -1028,8 +1054,11 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       }
       if (event.type === "error") {
         // A session-scoped error belongs IN the conversation (a red status
-        // line where the user is looking), and it ends that session's turn so
-        // the composer unlocks. Errors without a session keep the banner.
+        // line where the user is looking). Keep the running lock until the
+        // server's trailing session.idle: sending the next queued turn in the
+        // error/idle gap can persist its user message without running a model.
+        // If idle is lost, reconcileRunning clears the lock from history.
+        // Errors without a session keep the banner.
         const sid = event.sessionId;
         if (sid) pendingPromptContexts.delete(sid);
         // After a user interrupt the abort's own "aborted" error is expected —
@@ -1037,17 +1066,38 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         if (sid) clearLiveFolds(sid);
         if (sid && interruptedSessions.has(sid)) return;
         if (sid) {
+          if (client && !errorRecoveries.has(sid)) {
+            const recovery = Promise.resolve()
+              .then(() => client?.abortSession(sid))
+              .then(() => undefined)
+              .catch((error) => {
+                void logDebug(`provider error recovery failed for ${sid}: ${String(error)}`);
+              })
+              .finally(() => {
+                errorRecoveries.delete(sid);
+                if (!errorRecoveryIdle.delete(sid)) return;
+                set((s) => {
+                  const runningSessions = { ...s.runningSessions };
+                  const shellTurns = { ...s.shellTurns };
+                  const sessionProgress = { ...s.sessionProgress };
+                  const stepCounts = { ...s.stepCounts };
+                  delete runningSessions[sid];
+                  delete shellTurns[sid];
+                  delete sessionProgress[sid];
+                  delete stepCounts[sid];
+                  inactiveTurnPolls.delete(sid);
+                  return { runningSessions, shellTurns, sessionProgress, stepCounts };
+                });
+              });
+            errorRecoveries.set(sid, recovery);
+          }
           set((s) => {
             const cur = s.threads[sid] ?? emptyThread();
-            const runningSessions = { ...s.runningSessions };
             const sessionProgress = { ...s.sessionProgress };
             const stepCounts = { ...s.stepCounts };
-            delete runningSessions[sid];
             delete sessionProgress[sid];
             delete stepCounts[sid];
-            inactiveTurnPolls.delete(sid);
             return {
-              runningSessions,
               sessionProgress,
               stepCounts,
               threads: {
@@ -1179,11 +1229,15 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           const sessionProgress = { ...s.sessionProgress };
           const stepCounts = { ...s.stepCounts };
           if (ev.type === "session.idle") {
-            delete runningSessions[sid];
-            delete shellTurns[sid];
-            delete sessionProgress[sid];
-            delete stepCounts[sid];
-            inactiveTurnPolls.delete(sid);
+            if (errorRecoveries.has(sid)) {
+              errorRecoveryIdle.add(sid);
+            } else {
+              delete runningSessions[sid];
+              delete shellTurns[sid];
+              delete sessionProgress[sid];
+              delete stepCounts[sid];
+              inactiveTurnPolls.delete(sid);
+            }
           }
           return {
             runningSessions,

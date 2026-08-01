@@ -46,6 +46,7 @@ from verify_packaged_opencode_fixture import (  # noqa: E402
     CREDENTIAL as FIXTURE_CREDENTIAL,
     MARKER as FIXTURE_MARKER,
     MODEL_ID as FIXTURE_MODEL_ID,
+    PROVIDER_ERROR_MESSAGE as FIXTURE_PROVIDER_ERROR_MESSAGE,
     PROVIDER_ID as FIXTURE_PROVIDER_ID,
     QUESTION_OPTION as FIXTURE_QUESTION_OPTION,
     QUESTION_TEXT as FIXTURE_QUESTION_TEXT,
@@ -71,6 +72,8 @@ PERMISSION_ALWAYS_TRIGGER_PROMPT = "AI4HEOR E2E remember exact command permissio
 PERMISSION_ALWAYS_REPEAT_PROMPT = "AI4HEOR E2E repeat remembered command permission"
 PERMISSION_AFTER_RESTART_PROMPT = "AI4HEOR E2E reuse remembered permission after restart"
 PERMISSION_AFTER_REVOKE_PROMPT = "AI4HEOR E2E ask again after remembered permission revoke"
+PROVIDER_FAILURE_TRIGGER_PROMPT = "AI4HEOR E2E trigger one provider failure"
+PROVIDER_FAILURE_QUEUED_PROMPT = "AI4HEOR E2E queued after provider failure"
 
 
 def prepare_local_fixture_runtime(home: Path, provider_url: str) -> Path:
@@ -919,6 +922,7 @@ def main() -> int:
     base_url = f"http://127.0.0.1:{port}"
     session_id: str | None = None
     process: subprocess.Popen[str] | None = None
+    release_provider_failure: threading.Event | None = None
 
     with tempfile.TemporaryDirectory(prefix="ai4heor-desktop-e2e-", dir="/private/tmp") as temporary:
         home = Path(temporary).resolve()
@@ -1165,6 +1169,123 @@ def main() -> int:
                 )
                 if standalone_row is not True:
                     raise AssertionError("global new task was incorrectly grouped under a project")
+
+                provider_failure_waiting, release_provider_failure = (
+                    fixture_state.pause_next_main_reply()
+                )
+                fixture_state.provider_error_next_main_reply()
+                provider_failure_request_count = len(
+                    main_provider_requests(fixture_state)
+                )
+                click(
+                    base_url,
+                    session_id,
+                    fill_composer(
+                        base_url,
+                        session_id,
+                        composer_xpath,
+                        PROVIDER_FAILURE_TRIGGER_PROMPT,
+                        send_xpath,
+                    ),
+                )
+                if not provider_failure_waiting.wait(timeout=30.0):
+                    raise AssertionError(
+                        "local fixture did not pause the provider failure"
+                    )
+                failed_requests = wait_for_main_request_count(
+                    fixture_state,
+                    provider_failure_request_count + 1,
+                )
+                if PROVIDER_FAILURE_TRIGGER_PROMPT not in latest_user_text(
+                    failed_requests[-1]
+                ):
+                    raise AssertionError(
+                        "provider failure was not bound to the triggering turn"
+                    )
+                click(
+                    base_url,
+                    session_id,
+                    fill_composer(
+                        base_url,
+                        session_id,
+                        composer_xpath,
+                        PROVIDER_FAILURE_QUEUED_PROMPT,
+                        queue_add_xpath,
+                    ),
+                )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    queue_items_script,
+                    [PROVIDER_FAILURE_QUEUED_PROMPT],
+                )
+                assert_prompt_not_sent(
+                    fixture_state,
+                    PROVIDER_FAILURE_QUEUED_PROMPT,
+                )
+                release_provider_failure.set()
+                wait_for_body_text(
+                    base_url,
+                    session_id,
+                    FIXTURE_PROVIDER_ERROR_MESSAGE,
+                    timeout=60.0,
+                )
+                try:
+                    recovered_requests = wait_for_main_request_count(
+                        fixture_state,
+                        provider_failure_request_count + 2,
+                    )
+                except AssertionError as error:
+                    visible = execute(base_url, session_id, "return document.body.innerText")
+                    queue_state = execute(base_url, session_id, queue_items_script)
+                    interaction_state = execute(
+                        base_url,
+                        session_id,
+                        "const input = document.querySelector('textarea'); "
+                        "return { path: location.pathname, inputDisabled: input ? input.disabled : null, "
+                        "inputReadOnly: input ? input.readOnly : null, "
+                        "hasStop: Boolean(document.querySelector("
+                        "'button[aria-label=\"停止\"], button[aria-label=\"Stop\"]')) };",
+                    )
+                    raise AssertionError(
+                        "provider failure queue did not recover; "
+                        f"queue={queue_state!r}, interaction={interaction_state!r}, "
+                        f"visible={str(visible)[-2500:]}"
+                    ) from error
+                if PROVIDER_FAILURE_QUEUED_PROMPT not in latest_user_text(
+                    recovered_requests[-1]
+                ):
+                    raise AssertionError(
+                        "provider failure did not release exactly one queued turn"
+                    )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    queue_items_script,
+                    None,
+                    timeout=60.0,
+                )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "return !document.querySelector("
+                    "'button[aria-label=\"停止\"], button[aria-label=\"Stop\"]')",
+                    True,
+                    timeout=60.0,
+                )
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "const input = document.querySelector('textarea'); "
+                    "return Boolean(input && !input.disabled && !input.readOnly)",
+                    True,
+                    timeout=30.0,
+                )
+                time.sleep(1.0)
+                if len(main_provider_requests(fixture_state)) != provider_failure_request_count + 2:
+                    raise AssertionError(
+                        "provider failure did not release exactly one queued turn"
+                    )
 
                 fixture_state.question_next_main_reply()
                 click(
@@ -2019,7 +2140,8 @@ def main() -> int:
                 print(
                     "native desktop E2E passed: Tauri bridge, navigation, "
                     "queued prompts, Human input, one-time and rejected permissions, remembered "
-                    "permission reuse after restart, visible revocation and re-prompt, task files "
+                    "permission reuse after restart, visible revocation and re-prompt, provider "
+                    "failure queue recovery, task files "
                     "and passive HTML preview"
                 )
         except Exception as error:
@@ -2029,6 +2151,8 @@ def main() -> int:
             raise AssertionError(f"{error}; app log tail: {tail}") from error
         finally:
             release_main_reply.set()
+            if release_provider_failure is not None:
+                release_provider_failure.set()
             if session_id is not None:
                 try:
                     request_json(base_url, "DELETE", f"/session/{session_id}")

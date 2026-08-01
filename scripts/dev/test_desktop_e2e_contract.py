@@ -182,6 +182,20 @@ class DesktopE2EContractTests(unittest.TestCase):
         ):
             self.assertIn(required, source)
 
+    def test_native_driver_recovers_the_queue_after_a_provider_failure(self) -> None:
+        source = VERIFY.read_text(encoding="utf-8")
+        for required in (
+            "PROVIDER_FAILURE_TRIGGER_PROMPT",
+            "PROVIDER_FAILURE_QUEUED_PROMPT",
+            "FIXTURE_PROVIDER_ERROR_MESSAGE",
+            "provider_error_next_main_reply",
+            "provider_failure_waiting",
+            "release_provider_failure",
+            "assert_prompt_not_sent",
+            "provider failure did not release exactly one queued turn",
+        ):
+            self.assertIn(required, source)
+
     def test_native_driver_distinguishes_the_main_reply_from_auxiliary_requests(self) -> None:
         verifier = load_verifier()
         main = {

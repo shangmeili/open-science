@@ -12,6 +12,17 @@ import verify_packaged_opencode_fixture as fixture
 
 
 class PackagedOpenCodeFixtureTests(unittest.TestCase):
+    def test_fixture_can_fail_exactly_one_main_reply_with_a_visible_provider_error(self) -> None:
+        state = fixture.FixtureState()
+        main = {"tools": [{"name": "read"}]}
+        state.provider_error_next_main_reply()
+        self.assertEqual(state.take_reply_kind(True, main), "provider_error")
+        self.assertEqual(state.take_reply_kind(True, main), "text")
+        payload = json.loads(fixture.anthropic_provider_error())
+        self.assertEqual(payload["type"], "error")
+        self.assertEqual(payload["error"]["type"], "invalid_request_error")
+        self.assertEqual(payload["error"]["message"], fixture.PROVIDER_ERROR_MESSAGE)
+
     def test_packaged_fixture_verifies_permission_restart_and_revoke(self) -> None:
         source = inspect.getsource(fixture.run_fixture)
         self.assertIn("verify_packaged_permission_persistence", source)

@@ -59,8 +59,10 @@ const mocks = vi.hoisted(() => ({
   runCommand: vi.fn(),
   sendPrompt: vi.fn(),
   sendPromptDeferred: null as Promise<void> | null,
+  sendPromptEvents: [] as unknown[],
   replyPermission: vi.fn(),
   abortSession: vi.fn(),
+  abortSessionDeferred: null as Promise<void> | null,
   renameSession: vi.fn(),
   revert: vi.fn(),
   failReverts: 0,
@@ -191,6 +193,7 @@ vi.mock("@ai4s/sdk", () => {
     }
     async sendPrompt(sid: string, text: string, agent?: string, model?: string | null) {
       mocks.sendPrompt(sid, text, agent, model);
+      for (const event of mocks.sendPromptEvents.splice(0)) mocks.fireEvent(event);
       if (mocks.sendPromptDeferred) await mocks.sendPromptDeferred;
     }
     async listCommands() {
@@ -231,6 +234,7 @@ vi.mock("@ai4s/sdk", () => {
       // back while this POST is still being awaited — reproduce that timing so
       // the guard must already be set before the await, not after it.
       for (const e of mocks.abortTrailing) mocks.fireEvent(e);
+      if (mocks.abortSessionDeferred) await mocks.abortSessionDeferred;
     }
     async renameSession(sid: string, title: string) {
       mocks.renameSession(sid, title);
@@ -288,6 +292,7 @@ beforeEach(async () => {
   mocks.failCommand = false;
   mocks.dropCommandPost = false;
   mocks.abortTrailing = [];
+  mocks.abortSessionDeferred = null;
   mocks.failReverts = 0;
   mocks.messages = [];
   mocks.statuses = {};
@@ -298,6 +303,7 @@ beforeEach(async () => {
   mocks.getDefaultModelDeferred = null;
   mocks.failSetModel = false;
   mocks.sendPromptDeferred = null;
+  mocks.sendPromptEvents = [];
   useRuntimeStore.setState({
     currentId: null,
     workspace: PROJECT.path,
@@ -619,12 +625,44 @@ describe("project and standalone conversations", () => {
     expect(s.threads["ses_new"].blocks).toEqual([{ kind: "user", text: "hi" }]);
   });
 
-  it("a session error lands as a red line in the thread and unlocks the turn", async () => {
+  it("a session error is visible and waits for idle plus executor cleanup before unlocking", async () => {
+    let releaseAbort!: () => void;
+    mocks.abortSessionDeferred = new Promise<void>((resolve) => {
+      releaseAbort = resolve;
+    });
     await useRuntimeStore.getState().sendPrompt("hi");
     mocks.fireEvent({ type: "error", sessionId: "ses_new", message: "model unavailable" });
-    const s = useRuntimeStore.getState();
-    expect(s.runningSessions["ses_new"]).toBeUndefined();
-    expect(s.threads["ses_new"].blocks.slice(-1)[0]).toEqual({
+    let state = useRuntimeStore.getState();
+    expect(state.runningSessions["ses_new"]).toBe(true);
+    expect(state.threads["ses_new"].blocks.slice(-1)[0]).toEqual({
+      kind: "status-line",
+      text: "model unavailable",
+      tone: "error",
+    });
+    mocks.fireEvent({ type: "session.idle", sessionId: "ses_new" });
+    state = useRuntimeStore.getState();
+    expect(state.runningSessions["ses_new"]).toBe(true);
+    await vi.waitFor(() => expect(mocks.abortSession).toHaveBeenCalledWith("ses_new"));
+    releaseAbort();
+    await vi.waitFor(() => {
+      expect(useRuntimeStore.getState().runningSessions["ses_new"]).toBeUndefined();
+    });
+    state = useRuntimeStore.getState();
+    expect(state.runningSessions["ses_new"]).toBeUndefined();
+  });
+
+  it("does not resurrect a turn when provider error and idle beat prompt_async", async () => {
+    mocks.sendPromptEvents = [
+      { type: "error", sessionId: "ses_new", message: "model unavailable" },
+      { type: "session.idle", sessionId: "ses_new" },
+    ];
+    await useRuntimeStore.getState().sendPrompt("hi");
+    await vi.waitFor(() => {
+      expect(useRuntimeStore.getState().runningSessions["ses_new"]).toBeUndefined();
+    });
+    const state = useRuntimeStore.getState();
+    expect(state.sessionProgress["ses_new"]).toBeUndefined();
+    expect(state.threads["ses_new"].blocks.slice(-1)[0]).toMatchObject({
       kind: "status-line",
       text: "model unavailable",
       tone: "error",
