@@ -19,7 +19,9 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
@@ -35,6 +37,14 @@ INSTALLED_TASK_UI_PROOF_KEYS = {
     "task_files_navigation_available",
     "skills_navigation_available",
 }
+INSTALLED_TASK_REPLY_PROOF_KEYS = {
+    "new_task_conversation_created",
+    "prompt_submitted",
+    "assistant_reply_visible",
+}
+INSTALLED_TASK_REPLY_PROMPT = (
+    "AI4HEOR installed application reply-chain smoke. Return the fixture marker."
+)
 TARGET_ARCH = {
     "aarch64-apple-darwin": ("arm64", "aarch64"),
     "x86_64-apple-darwin": ("x86_64", "x64"),
@@ -376,6 +386,7 @@ def launch_isolated_app(
     label: str,
     timeout_seconds: float,
     verify_task_ui: bool = False,
+    task_reply_verifier: Callable[[int], dict[str, bool]] | None = None,
 ) -> dict[str, Any]:
     temporary_dir = home / "tmp"
     for directory in (
@@ -465,6 +476,10 @@ def launch_isolated_app(
                         proof["installed_task_ui"] = verify_installed_task_ui(
                             proof["app_process_id"]
                         )
+                    if task_reply_verifier is not None:
+                        proof["installed_task_reply"] = task_reply_verifier(
+                            proof["app_process_id"]
+                        )
                     break
             if seen_main and not main_rows:
                 stderr = (
@@ -536,6 +551,114 @@ def verify_installed_task_ui(process_id: int) -> dict[str, bool]:
     ):
         raise AssertionError("installed task UI proof is incomplete or unbounded")
     return proof
+
+
+def verify_installed_task_reply(
+    process_id: int, prompt: str, response_marker: str
+) -> dict[str, bool]:
+    if not isinstance(process_id, int) or process_id < 1:
+        raise AssertionError("installed task reply verification requires a process id")
+    if not prompt or not response_marker:
+        raise AssertionError("installed task reply verification requires bounded fixture text")
+    completed = subprocess.run(
+        [
+            "swift",
+            str(MACOS_ACCESSIBILITY_PROBE),
+            str(process_id),
+            prompt,
+            response_marker,
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()[-2000:]
+        raise AssertionError(f"installed task reply verification failed: {detail}")
+    try:
+        proof = json.loads(completed.stdout)
+    except json.JSONDecodeError as error:
+        raise AssertionError("installed task reply proof is not valid JSON") from error
+    if (
+        not isinstance(proof, dict)
+        or set(proof) != INSTALLED_TASK_REPLY_PROOF_KEYS
+        or any(value is not True for value in proof.values())
+    ):
+        raise AssertionError("installed task reply proof is incomplete or unbounded")
+    return proof
+
+
+def prepare_installed_task_reply_runtime(
+    home: Path,
+    bundle_identifier: str,
+    provider_url: str,
+    provider_id: str,
+    model_id: str,
+    credential: str,
+) -> None:
+    runtime_root = (
+        home
+        / "Library/Application Support"
+        / bundle_identifier
+        / "runtime"
+    )
+    config = runtime_root / "xdg-config/opencode/opencode.json"
+    auth = runtime_root / "xdg-data/opencode/auth.json"
+    config.parent.mkdir(parents=True, mode=0o700)
+    auth.parent.mkdir(parents=True, mode=0o700)
+    config.write_text(
+        json.dumps(
+            {
+                "provider": {
+                    provider_id: {
+                        "name": "AI4HEOR local installed-app fixture",
+                        "npm": "@ai-sdk/anthropic",
+                        "options": {"baseURL": provider_url},
+                        "models": {model_id: {"name": model_id}},
+                    }
+                },
+                "model": f"{provider_id}/{model_id}",
+            },
+            separators=(",", ":"),
+        ),
+        encoding="utf-8",
+    )
+    auth.write_text(
+        json.dumps(
+            {provider_id: {"type": "api", "key": credential}},
+            separators=(",", ":"),
+        ),
+        encoding="utf-8",
+    )
+    for private in (runtime_root, config.parent, auth.parent):
+        private.chmod(0o700)
+    config.chmod(0o600)
+    auth.chmod(0o600)
+
+
+@contextmanager
+def local_installed_task_reply_fixture() -> Iterator[tuple[Any, str, str, str, str, str]]:
+    import verify_packaged_opencode_fixture as fixture
+
+    state = fixture.FixtureState()
+    provider = ThreadingHTTPServer(("127.0.0.1", 0), fixture.handler(state))
+    provider_thread = threading.Thread(target=provider.serve_forever, daemon=True)
+    provider_thread.start()
+    try:
+        url = f"http://127.0.0.1:{provider.server_address[1]}/anthropic/v1"
+        yield (
+            state,
+            url,
+            fixture.PROVIDER_ID,
+            fixture.MODEL_ID,
+            fixture.CREDENTIAL,
+            fixture.MARKER,
+        )
+    finally:
+        provider.shutdown()
+        provider.server_close()
+        provider_thread.join(timeout=5)
 
 
 def single_instance_socket_path(bundle_identifier: str) -> Path:
@@ -671,6 +794,62 @@ def _verify_first_launch_workspaces(
             }
         )
         proof["workspace_isolation"] = isolation
+
+        with local_installed_task_reply_fixture() as fixture:
+            (
+                fixture_state,
+                provider_url,
+                provider_id,
+                model_id,
+                credential,
+                response_marker,
+            ) = fixture
+            reply_home = root / "task-reply-home"
+            prepare_installed_task_reply_runtime(
+                reply_home,
+                bundle_identifier,
+                provider_url,
+                provider_id,
+                model_id,
+                credential,
+            )
+            reply_frontend_log = (
+                reply_home
+                / "Library/Application Support"
+                / bundle_identifier
+                / "debug.log"
+            )
+            reply_workspace = reply_home / "Documents/AI4HEOR"
+            reply_launch = launch_isolated_app(
+                installed_app,
+                main_executable,
+                opencode_executable,
+                expected_arch,
+                reply_home,
+                reply_frontend_log,
+                reply_workspace,
+                reply_workspace.is_dir,
+                "installed-task-reply",
+                timeout_seconds,
+                task_reply_verifier=lambda process_id: verify_installed_task_reply(
+                    process_id,
+                    INSTALLED_TASK_REPLY_PROMPT,
+                    response_marker,
+                ),
+            )
+            reply_proof = reply_launch.get("installed_task_reply")
+            if not isinstance(reply_proof, dict):
+                raise AssertionError("installed task reply proof was not captured")
+            with fixture_state.lock:
+                provider_request_received = fixture_state.message_requests > 0
+            if not provider_request_received:
+                raise AssertionError(
+                    "installed task reply did not reach the local fixture provider"
+                )
+            proof["installed_task_reply"] = {
+                **reply_proof,
+                "provider_request_received": True,
+            }
         return proof
 
 

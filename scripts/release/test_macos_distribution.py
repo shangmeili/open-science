@@ -143,6 +143,74 @@ class DistributionVerifierTests(unittest.TestCase):
             with self.assertRaisesRegex(AssertionError, "installed task UI proof"):
                 verifier.verify_installed_task_ui(101)
 
+    def test_installed_task_reply_uses_the_semantic_ui_and_local_fixture(self) -> None:
+        probe = ROOT / "scripts/release/verify_macos_accessibility.swift"
+        source = probe.read_text(encoding="utf-8")
+        session_zh = json.loads(
+            (ROOT / "apps/desktop/src/i18n/locales/zh-Hans/session.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        session_en = json.loads(
+            (ROOT / "apps/desktop/src/i18n/locales/en/session.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertIn(session_zh["composer"]["send"]["aria"], source)
+        self.assertIn(session_en["composer"]["send"]["aria"], source)
+        self.assertIn("assistant_reply_visible", source)
+        self.assertIn("prepare_installed_task_reply_runtime", dir(verifier))
+        self.assertIn("local_installed_task_reply_fixture", dir(verifier))
+
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary) / "home"
+            verifier.prepare_installed_task_reply_runtime(
+                home,
+                "com.ai4s.ai4heor",
+                "http://127.0.0.1:43210/anthropic/v1",
+                "fixture-provider",
+                "fixture-model",
+                "fixture-credential",
+            )
+            runtime = (
+                home
+                / "Library/Application Support/com.ai4s.ai4heor/runtime"
+            )
+            config = runtime / "xdg-config/opencode/opencode.json"
+            auth = runtime / "xdg-data/opencode/auth.json"
+            self.assertEqual(stat.S_IMODE(config.stat().st_mode), 0o600)
+            self.assertEqual(stat.S_IMODE(auth.stat().st_mode), 0o600)
+            self.assertEqual(
+                json.loads(config.read_text(encoding="utf-8"))["model"],
+                "fixture-provider/fixture-model",
+            )
+            self.assertEqual(
+                json.loads(auth.read_text(encoding="utf-8"))["fixture-provider"]["key"],
+                "fixture-credential",
+            )
+
+        complete = subprocess.CompletedProcess(
+            ["swift", str(probe), "101", "prompt", "marker"],
+            0,
+            stdout=json.dumps(
+                {
+                    "new_task_conversation_created": True,
+                    "prompt_submitted": True,
+                    "assistant_reply_visible": True,
+                }
+            ),
+            stderr="",
+        )
+        with patch.object(verifier.subprocess, "run", return_value=complete):
+            self.assertEqual(
+                verifier.verify_installed_task_reply(101, "prompt", "marker"),
+                {
+                    "new_task_conversation_created": True,
+                    "prompt_submitted": True,
+                    "assistant_reply_visible": True,
+                },
+            )
+
     def test_foreign_architecture_sidecars_are_hash_checked_without_execution(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -445,6 +513,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("--check workspace-created", workflow)
         self.assertIn("--check workspace-isolated", workflow)
         self.assertIn("--check installed-task-ui", workflow)
+        self.assertIn("--check installed-task-reply", workflow)
         self.assertIn("APPLE_SIGNING_IDENTITY", workflow)
         self.assertIn("developer-id-signature", workflow)
         self.assertIn("notarization-ticket", workflow)

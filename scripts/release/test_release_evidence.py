@@ -242,6 +242,17 @@ class ReleaseEvidenceTests(unittest.TestCase):
         }
         release_evidence.validate_evidence(value)
 
+        value["checks"] = sorted([*value["checks"], "installed-task-reply"])
+        with self.assertRaisesRegex(AssertionError, "installed task reply proof"):
+            release_evidence.validate_evidence(value)
+        value["verification"]["first_launch"]["installed_task_reply"] = {
+            "new_task_conversation_created": True,
+            "prompt_submitted": True,
+            "provider_request_received": True,
+            "assistant_reply_visible": True,
+        }
+        release_evidence.validate_evidence(value)
+
         value["checks"] = sorted([*value["checks"], "workspace-isolated"])
         with self.assertRaisesRegex(AssertionError, "isolation proof is incomplete"):
             release_evidence.validate_evidence(value)
@@ -262,6 +273,8 @@ class ReleaseEvidenceTests(unittest.TestCase):
         windows["runner"] = self.runner("windows")
         windows["checks"].remove("installed-task-ui")
         del windows["verification"]["first_launch"]["installed_task_ui"]
+        windows["checks"].remove("installed-task-reply")
+        del windows["verification"]["first_launch"]["installed_task_reply"]
         windows["artifacts"] = [
             {"kind": "nsis", "filename": "AI4HEOR_1.0.0_x64-setup.exe", "size": 1, "sha256": "a" * 64}
         ]
@@ -280,6 +293,10 @@ class ReleaseEvidenceTests(unittest.TestCase):
 
         value["checks"] = ["installed-task-ui"]
         with self.assertRaisesRegex(AssertionError, "paired first-launch checks"):
+            release_evidence.validate_evidence(value)
+
+        value["checks"] = ["installed-task-reply"]
+        with self.assertRaisesRegex(AssertionError, "missing paired checks"):
             release_evidence.validate_evidence(value)
 
     def test_tagged_macos_evidence_requires_distribution_trust(self) -> None:

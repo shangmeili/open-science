@@ -270,6 +270,7 @@ jobs:
             --check first-launch-process \
             --check frontend-bootstrap \
             --check installed-task-ui \
+            --check installed-task-reply \
             --check opencode-authenticated-http \
             --check opencode-system-context-audit \
             --check opencode-permission-persistence \

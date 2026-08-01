@@ -2,12 +2,17 @@ import AppKit
 import ApplicationServices
 import Foundation
 
-private let expectedProofKeys = [
+private let taskUIProofKeys = [
     "window_visible",
     "new_task_navigation",
     "composer_editable",
     "task_files_navigation_available",
     "skills_navigation_available",
+]
+private let taskReplyProofKeys = [
+    "new_task_conversation_created",
+    "prompt_submitted",
+    "assistant_reply_visible",
 ]
 
 private func fail(_ message: String) -> Never {
@@ -15,11 +20,14 @@ private func fail(_ message: String) -> Never {
     exit(1)
 }
 
-guard CommandLine.arguments.count == 2,
+let verifiesTaskReply = CommandLine.arguments.count == 4
+guard (CommandLine.arguments.count == 2 || verifiesTaskReply),
       let rawPID = Int32(CommandLine.arguments[1]),
       rawPID > 0 else {
-    fail("usage: verify_macos_accessibility.swift PID")
+    fail("usage: verify_macos_accessibility.swift PID [PROMPT RESPONSE_MARKER]")
 }
+let replyPrompt = verifiesTaskReply ? CommandLine.arguments[2] : nil
+let replyMarker = verifiesTaskReply ? CommandLine.arguments[3] : nil
 guard AXIsProcessTrusted() else {
     fail("macOS Accessibility permission is required for installed task UI verification")
 }
@@ -74,6 +82,26 @@ private func find(
     return nil
 }
 
+private func findContaining(
+    in root: AXUIElement,
+    text expectedText: String,
+    excludingRole: String? = nil,
+    maximumNodes: Int = 10_000
+) -> AXUIElement? {
+    var stack = [root]
+    var visited = 0
+    while let element = stack.popLast() {
+        visited += 1
+        if visited > maximumNodes { return nil }
+        let role = text(element, kAXRoleAttribute as CFString)
+        if role != excludingRole && elementName(element).contains(expectedText) {
+            return element
+        }
+        stack.append(contentsOf: children(element).reversed())
+    }
+    return nil
+}
+
 private func waitFor(
     timeout: TimeInterval = 30,
     _ probe: () -> AXUIElement?
@@ -117,15 +145,56 @@ guard let composer = waitFor({
 }) else {
     fail("installed AI4HEOR did not expose the task composer")
 }
-let sentinel = "AI4HEOR installed task UI smoke"
+let valueToEnter = replyPrompt ?? "AI4HEOR installed task UI smoke"
 guard AXUIElementSetAttributeValue(
     composer,
     kAXValueAttribute as CFString,
-    sentinel as CFTypeRef
+    valueToEnter as CFTypeRef
 ) == .success,
-      text(composer, kAXValueAttribute as CFString) == sentinel else {
+      text(composer, kAXValueAttribute as CFString) == valueToEnter else {
     fail("installed AI4HEOR task composer is not editable")
 }
+
+if let replyPrompt, let replyMarker {
+    let sendNames: Set<String> = ["发送", "Send"]
+    guard let send = waitFor({
+        guard let candidate = find(
+            in: window,
+            role: kAXButtonRole as String,
+            names: sendNames
+        ) else { return nil }
+        let enabled = attribute(candidate, kAXEnabledAttribute as CFString) as? Bool ?? false
+        return enabled ? candidate : nil
+    }) else {
+        fail("installed AI4HEOR did not enable the Send action for the fixture prompt")
+    }
+    guard AXUIElementPerformAction(send, kAXPressAction as CFString) == .success else {
+        fail("installed AI4HEOR fixture prompt could not be submitted")
+    }
+    guard waitFor(timeout: 45, {
+        findContaining(
+            in: window,
+            text: replyPrompt,
+            excludingRole: kAXTextAreaRole as String
+        )
+    }) != nil else {
+        fail("installed AI4HEOR did not create a visible task conversation")
+    }
+    guard waitFor(timeout: 45, {
+        findContaining(in: window, text: replyMarker)
+    }) != nil else {
+        fail("installed AI4HEOR did not display the local fixture reply")
+    }
+
+    let proof = Dictionary(uniqueKeysWithValues: taskReplyProofKeys.map { ($0, true) })
+    guard let encoded = try? JSONSerialization.data(withJSONObject: proof, options: [.sortedKeys]) else {
+        fail("installed task reply proof could not be encoded")
+    }
+    FileHandle.standardOutput.write(encoded)
+    FileHandle.standardOutput.write(Data("\n".utf8))
+    exit(0)
+}
+
 guard AXUIElementSetAttributeValue(
     composer,
     kAXValueAttribute as CFString,
@@ -149,7 +218,7 @@ guard find(
     fail("installed AI4HEOR did not expose Plugins and skills navigation")
 }
 
-let proof = Dictionary(uniqueKeysWithValues: expectedProofKeys.map { ($0, true) })
+let proof = Dictionary(uniqueKeysWithValues: taskUIProofKeys.map { ($0, true) })
 guard let encoded = try? JSONSerialization.data(withJSONObject: proof, options: [.sortedKeys]) else {
     fail("installed task UI proof could not be encoded")
 }

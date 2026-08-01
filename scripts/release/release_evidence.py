@@ -37,6 +37,7 @@ FIRST_LAUNCH_CHECKS = {
 }
 MACOS_WORKSPACE_ISOLATION_CHECK = "workspace-isolated"
 MACOS_INSTALLED_TASK_UI_CHECK = "installed-task-ui"
+MACOS_INSTALLED_TASK_REPLY_CHECK = "installed-task-reply"
 PLATFORM_VARIANT_RESOURCES = {"goal-plugin/goal-plugin.server.js"}
 
 
@@ -329,6 +330,31 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
             or any(item is not True for item in task_ui.values())
         ):
             raise AssertionError("installed task UI proof is incomplete or unbounded")
+    if MACOS_INSTALLED_TASK_REPLY_CHECK in value["checks"]:
+        if value["platform"] != "macos":
+            raise AssertionError("installed task reply evidence is supported only on macOS")
+        required_checks = FIRST_LAUNCH_CHECKS | {MACOS_INSTALLED_TASK_UI_CHECK}
+        missing_checks = sorted(required_checks - set(value["checks"]))
+        if missing_checks:
+            raise AssertionError(
+                "installed task reply evidence is missing paired checks: "
+                f"{missing_checks}"
+            )
+        task_reply = value["verification"].get("first_launch", {}).get(
+            "installed_task_reply"
+        )
+        expected = {
+            "new_task_conversation_created",
+            "prompt_submitted",
+            "provider_request_received",
+            "assistant_reply_visible",
+        }
+        if (
+            not isinstance(task_reply, dict)
+            or set(task_reply) != expected
+            or any(item is not True for item in task_reply.values())
+        ):
+            raise AssertionError("installed task reply proof is incomplete or unbounded")
     if (
         value["platform"] == "macos"
         and value.get("runner", {}).get("GITHUB_REF_TYPE") == "tag"
