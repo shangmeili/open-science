@@ -15,6 +15,7 @@ LOCK_PATH = ROOT / "pnpm-lock.yaml"
 PPTX_PREVIEW_GLOB = (
     "pptx-preview@*/node_modules/pptx-preview/dist/pptx-preview.es.js"
 )
+EXCELJS_GLOB = "exceljs@*/node_modules/exceljs"
 
 # GHSA-mh99-v99m-4gvg / CVE-2026-14257. Keep each transitive dependency
 # on its compatible maintenance line while requiring the maintainer's
@@ -71,6 +72,55 @@ class JavaScriptSecurityPolicyTests(unittest.TestCase):
 
         self.assertEqual(chart_types, {"line", "bar", "pie"})
         self.assertNotIn('type:"lines"', source)
+
+    def test_uuid_buffer_apis_are_unreachable_from_packaged_consumers(self) -> None:
+        # GHSA-w5hq-g745-h8pq requires a caller-controlled output buffer passed
+        # to uuid v3/v5/v6. The two production consumers currently import only
+        # v4; fail closed if either dependency changes its UUID API usage.
+        pnpm_root = ROOT / "node_modules" / ".pnpm"
+
+        excel_candidates = list(pnpm_root.glob(EXCELJS_GLOB))
+        self.assertEqual(len(excel_candidates), 1, "expected one installed exceljs module")
+        excel_imports = []
+        for path in excel_candidates[0].rglob("*.js"):
+            source = path.read_text(encoding="utf-8")
+            if re.search(r"require\(['\"]uuid['\"]\)", source):
+                excel_imports.append((path, source))
+        expected_excel_paths = {
+            "dist/es5/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js",
+            "dist/exceljs.bare.js",
+            "dist/exceljs.js",
+            "lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js",
+        }
+        self.assertEqual(
+            {str(path.relative_to(excel_candidates[0])) for path, _ in excel_imports},
+            expected_excel_paths,
+            "exceljs UUID call sites changed; review GHSA-w5hq-g745-h8pq reachability",
+        )
+        uuid_require = re.compile(
+            r"const\s*\{\s*([^}]*?)\s*\}\s*=\s*require\(['\"]uuid['\"]\)"
+        )
+        for path, excel_source in excel_imports:
+            imports = [
+                re.sub(r"\s+", " ", imported).strip()
+                for imported in uuid_require.findall(excel_source)
+            ]
+            self.assertEqual(imports, ["v4: uuidv4"], f"unexpected UUID API in {path}")
+            self.assertEqual(
+                re.findall(r"\buuidv4\(([^)]*)\)", excel_source),
+                ["", ""],
+                f"unexpected UUID arguments in {path}",
+            )
+
+        pptx_candidates = list(pnpm_root.glob(PPTX_PREVIEW_GLOB))
+        self.assertEqual(len(pptx_candidates), 1, "expected one installed pptx-preview module")
+        pptx_source = pptx_candidates[0].read_text(encoding="utf-8")
+        uuid_imports = re.findall(r'import\{([^}]*)\}from"uuid"', pptx_source)
+        self.assertEqual(
+            uuid_imports,
+            ["v4 as s"],
+            "pptx-preview UUID imports changed; review GHSA-w5hq-g745-h8pq reachability",
+        )
 
 
 if __name__ == "__main__":
