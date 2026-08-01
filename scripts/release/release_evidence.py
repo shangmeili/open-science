@@ -36,6 +36,7 @@ FIRST_LAUNCH_CHECKS = {
     "workspace-created",
 }
 MACOS_WORKSPACE_ISOLATION_CHECK = "workspace-isolated"
+MACOS_INSTALLED_TASK_UI_CHECK = "installed-task-ui"
 PLATFORM_VARIANT_RESOURCES = {"goal-plugin/goal-plugin.server.js"}
 
 
@@ -303,6 +304,31 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
             or isolation.get("cleanup_verified") is not True
         ):
             raise AssertionError("workspace isolation proof is incomplete")
+    if MACOS_INSTALLED_TASK_UI_CHECK in value["checks"]:
+        if value["platform"] != "macos":
+            raise AssertionError("installed task UI evidence is supported only on macOS")
+        missing_first_launch = sorted(FIRST_LAUNCH_CHECKS - set(value["checks"]))
+        if missing_first_launch:
+            raise AssertionError(
+                "installed task UI evidence is missing paired first-launch checks: "
+                f"{missing_first_launch}"
+            )
+        task_ui = value["verification"].get("first_launch", {}).get(
+            "installed_task_ui"
+        )
+        expected = {
+            "window_visible",
+            "new_task_navigation",
+            "composer_editable",
+            "task_files_navigation_available",
+            "skills_navigation_available",
+        }
+        if (
+            not isinstance(task_ui, dict)
+            or set(task_ui) != expected
+            or any(item is not True for item in task_ui.values())
+        ):
+            raise AssertionError("installed task UI proof is incomplete or unbounded")
     if (
         value["platform"] == "macos"
         and value.get("runner", {}).get("GITHUB_REF_TYPE") == "tag"

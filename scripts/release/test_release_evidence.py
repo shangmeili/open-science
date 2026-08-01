@@ -230,6 +230,18 @@ class ReleaseEvidenceTests(unittest.TestCase):
             release_evidence.validate_evidence(value)
         del value["verification"]["first_launch"]["frontend_bootstrap"]["raw_log"]
 
+        value["checks"] = sorted([*value["checks"], "installed-task-ui"])
+        with self.assertRaisesRegex(AssertionError, "installed task UI proof"):
+            release_evidence.validate_evidence(value)
+        value["verification"]["first_launch"]["installed_task_ui"] = {
+            "window_visible": True,
+            "new_task_navigation": True,
+            "composer_editable": True,
+            "task_files_navigation_available": True,
+            "skills_navigation_available": True,
+        }
+        release_evidence.validate_evidence(value)
+
         value["checks"] = sorted([*value["checks"], "workspace-isolated"])
         with self.assertRaisesRegex(AssertionError, "isolation proof is incomplete"):
             release_evidence.validate_evidence(value)
@@ -248,6 +260,8 @@ class ReleaseEvidenceTests(unittest.TestCase):
         windows["platform"] = "windows"
         windows["target"] = "x86_64-pc-windows-msvc"
         windows["runner"] = self.runner("windows")
+        windows["checks"].remove("installed-task-ui")
+        del windows["verification"]["first_launch"]["installed_task_ui"]
         windows["artifacts"] = [
             {"kind": "nsis", "filename": "AI4HEOR_1.0.0_x64-setup.exe", "size": 1, "sha256": "a" * 64}
         ]
@@ -262,6 +276,10 @@ class ReleaseEvidenceTests(unittest.TestCase):
 
         value["checks"] = ["first-launch-process"]
         with self.assertRaisesRegex(AssertionError, "paired checks"):
+            release_evidence.validate_evidence(value)
+
+        value["checks"] = ["installed-task-ui"]
+        with self.assertRaisesRegex(AssertionError, "paired first-launch checks"):
             release_evidence.validate_evidence(value)
 
     def test_tagged_macos_evidence_requires_distribution_trust(self) -> None:

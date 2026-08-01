@@ -269,6 +269,7 @@ jobs:
             --check dmg-app-copy \
             --check first-launch-process \
             --check frontend-bootstrap \
+            --check installed-task-ui \
             --check opencode-authenticated-http \
             --check opencode-system-context-audit \
             --check opencode-permission-persistence \

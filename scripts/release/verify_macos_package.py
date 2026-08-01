@@ -25,6 +25,16 @@ from typing import Any, Callable, Iterator
 
 
 ROOT = Path(__file__).resolve().parents[2]
+MACOS_ACCESSIBILITY_PROBE = Path(__file__).with_name(
+    "verify_macos_accessibility.swift"
+)
+INSTALLED_TASK_UI_PROOF_KEYS = {
+    "window_visible",
+    "new_task_navigation",
+    "composer_editable",
+    "task_files_navigation_available",
+    "skills_navigation_available",
+}
 TARGET_ARCH = {
     "aarch64-apple-darwin": ("arm64", "aarch64"),
     "x86_64-apple-darwin": ("x86_64", "x64"),
@@ -365,6 +375,7 @@ def launch_isolated_app(
     readiness: Callable[[], bool],
     label: str,
     timeout_seconds: float,
+    verify_task_ui: bool = False,
 ) -> dict[str, Any]:
     temporary_dir = home / "tmp"
     for directory in (
@@ -450,6 +461,10 @@ def launch_isolated_app(
                 ):
                     proof["opencode_http"] = opencode_http
                     proof["frontend_bootstrap"] = frontend_bootstrap
+                    if verify_task_ui:
+                        proof["installed_task_ui"] = verify_installed_task_ui(
+                            proof["app_process_id"]
+                        )
                     break
             if seen_main and not main_rows:
                 stderr = (
@@ -489,6 +504,37 @@ def launch_isolated_app(
             "workspace": str(workspace),
         }
     )
+    return proof
+
+
+def verify_installed_task_ui(process_id: int) -> dict[str, bool]:
+    if not isinstance(process_id, int) or process_id < 1:
+        raise AssertionError("installed task UI verification requires a process id")
+    if (
+        not MACOS_ACCESSIBILITY_PROBE.is_file()
+        or MACOS_ACCESSIBILITY_PROBE.is_symlink()
+    ):
+        raise AssertionError("installed task UI Accessibility probe is unavailable")
+    completed = subprocess.run(
+        ["swift", str(MACOS_ACCESSIBILITY_PROBE), str(process_id)],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=45,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()[-2000:]
+        raise AssertionError(f"installed task UI verification failed: {detail}")
+    try:
+        proof = json.loads(completed.stdout)
+    except json.JSONDecodeError as error:
+        raise AssertionError("installed task UI proof is not valid JSON") from error
+    if (
+        not isinstance(proof, dict)
+        or set(proof) != INSTALLED_TASK_UI_PROOF_KEYS
+        or any(value is not True for value in proof.values())
+    ):
+        raise AssertionError("installed task UI proof is incomplete or unbounded")
     return proof
 
 
@@ -583,6 +629,7 @@ def _verify_first_launch_workspaces(
             fresh_workspace.is_dir,
             "first-launch",
             timeout_seconds,
+            verify_task_ui=True,
         )
 
         coexistence_home = root / "coexistence-home"
@@ -886,7 +933,7 @@ def main() -> None:
         raise AssertionError("macOS package verification must run on macOS")
     tools = ["hdiutil", "lipo"]
     if arguments.verify_first_launch:
-        tools.extend(("ditto", "ps"))
+        tools.extend(("ditto", "ps", "swift"))
     if arguments.require_distribution_trust:
         if re.fullmatch(r"[A-Z0-9]{10}", arguments.expected_team_id or "") is None:
             raise AssertionError(

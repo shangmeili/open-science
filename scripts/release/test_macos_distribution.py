@@ -86,6 +86,63 @@ class CredentialPreflightTests(unittest.TestCase):
 
 
 class DistributionVerifierTests(unittest.TestCase):
+    def test_installed_task_ui_probe_is_semantic_and_bounded(self) -> None:
+        probe = ROOT / "scripts/release/verify_macos_accessibility.swift"
+        self.assertTrue(probe.is_file())
+        source = probe.read_text(encoding="utf-8")
+        self.assertIn("AXUIElementCreateApplication", source)
+        self.assertIn("AXPress", source)
+        self.assertIn("AXTextArea", source)
+        self.assertNotIn("CGEvent", source)
+        self.assertNotIn("mouseLocation", source)
+        for locale in ("zh-Hans", "en"):
+            locale_root = ROOT / "apps/desktop/src/i18n/locales" / locale
+            heor = json.loads((locale_root / "heor.json").read_text(encoding="utf-8"))
+            nav = json.loads((locale_root / "nav.json").read_text(encoding="utf-8"))
+            for current_label in (
+                heor["placeholder"],
+                nav["items"]["new"],
+                nav["items"]["files"],
+                nav["items"]["skills"],
+            ):
+                self.assertIn(current_label, source)
+
+        complete = subprocess.CompletedProcess(
+            ["swift", str(probe), "101"],
+            0,
+            stdout=json.dumps(
+                {
+                    "window_visible": True,
+                    "new_task_navigation": True,
+                    "composer_editable": True,
+                    "task_files_navigation_available": True,
+                    "skills_navigation_available": True,
+                }
+            ),
+            stderr="",
+        )
+        with patch.object(verifier.subprocess, "run", return_value=complete):
+            self.assertEqual(
+                verifier.verify_installed_task_ui(101),
+                {
+                    "window_visible": True,
+                    "new_task_navigation": True,
+                    "composer_editable": True,
+                    "task_files_navigation_available": True,
+                    "skills_navigation_available": True,
+                },
+            )
+
+        incomplete = subprocess.CompletedProcess(
+            ["swift", str(probe), "101"],
+            0,
+            stdout=json.dumps({"window_visible": True}),
+            stderr="",
+        )
+        with patch.object(verifier.subprocess, "run", return_value=incomplete):
+            with self.assertRaisesRegex(AssertionError, "installed task UI proof"):
+                verifier.verify_installed_task_ui(101)
+
     def test_foreign_architecture_sidecars_are_hash_checked_without_execution(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -387,6 +444,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("--check frontend-bootstrap", workflow)
         self.assertIn("--check workspace-created", workflow)
         self.assertIn("--check workspace-isolated", workflow)
+        self.assertIn("--check installed-task-ui", workflow)
         self.assertIn("APPLE_SIGNING_IDENTITY", workflow)
         self.assertIn("developer-id-signature", workflow)
         self.assertIn("notarization-ticket", workflow)
