@@ -9,6 +9,7 @@ rather than a browser preview.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import platform
@@ -74,6 +75,196 @@ PERMISSION_AFTER_RESTART_PROMPT = "AI4HEOR E2E reuse remembered permission after
 PERMISSION_AFTER_REVOKE_PROMPT = "AI4HEOR E2E ask again after remembered permission revoke"
 PROVIDER_FAILURE_TRIGGER_PROMPT = "AI4HEOR E2E trigger one provider failure"
 PROVIDER_FAILURE_QUEUED_PROMPT = "AI4HEOR E2E queued after provider failure"
+IMPORTED_PROJECT_NAME = "AI4HEOR E2E imported project"
+IMPORTED_PROJECT_TASK_PROMPT = "AI4HEOR E2E task inside imported project"
+
+
+def json_bytes(value: object) -> bytes:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+
+def sha256(raw: bytes) -> str:
+    return hashlib.sha256(raw).hexdigest()
+
+
+def snapshot_source_tree(root: Path) -> dict[str, str]:
+    return {
+        str(path.relative_to(root)): sha256(path.read_bytes())
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
+def prepare_import_export_fixture(parent: Path) -> Path:
+    """Create bounded synthetic report inputs, never research evidence."""
+    source = parent / IMPORTED_PROJECT_NAME
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/create_heor_acceptance_fixture.py"),
+            str(source),
+        ],
+        check=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+    )
+    heor = source / "heor"
+    results = heor / "results"
+    deliverables = source / "deliverables"
+    results.mkdir(parents=True, exist_ok=True)
+    deliverables.mkdir(parents=True)
+    (source / "SOURCE-MUST-NOT-CHANGE.txt").write_text(
+        "Synthetic native acceptance source; AI4HEOR must only change its imported copy.\n",
+        encoding="utf-8",
+    )
+
+    analysis_raw = (heor / "analysis-plan.json").read_bytes()
+    uncertainty_plan_raw = (heor / "uncertainty-plan.json").read_bytes()
+    budget_plan_raw = (heor / "budget-impact-plan.json").read_bytes()
+    analysis_id = str(json.loads(analysis_raw)["analysis_id"])
+    base_case = {
+        "analysis_id": analysis_id,
+        "input_sha256": sha256(analysis_raw),
+        "economic_basis": {"currency": "CNY", "price_year": 2026},
+        "strategy_order": ["standard", "treatment"],
+        "baseline_strategy_id": "standard",
+        "strategies": {
+            "standard": {"name": "Standard", "total_cost": 10000, "total_qaly": 1, "net_monetary_benefit": 90000},
+            "treatment": {"name": "Treatment", "total_cost": 20000, "total_qaly": 1.5, "net_monetary_benefit": 130000},
+        },
+        "pairwise_vs_baseline": {"treatment": {"delta_cost": 10000, "delta_qaly": 0.5, "icer": 20000}},
+        "fully_incremental_analysis": [
+            {"strategy_id": "standard", "status": "frontier", "icer": None},
+            {"strategy_id": "treatment", "status": "frontier", "icer": 20000},
+        ],
+        "optimal_at_primary_threshold": {"strategy_id": "treatment"},
+    }
+    uncertainty_result = {
+        "analysis_id": analysis_id,
+        "base_analysis_sha256": sha256(analysis_raw),
+        "uncertainty_plan_sha256": sha256(uncertainty_plan_raw),
+        "probabilistic_analysis": {
+            "iterations": 1000,
+            "strategy_order": ["standard", "treatment"],
+            "primary_threshold_strategy_optimal_probabilities": {"standard": 0.2, "treatment": 0.8},
+            "primary_threshold_tie_probability": 0,
+            "mean_net_monetary_benefit_by_strategy": {"standard": 90000, "treatment": 130000},
+            "net_monetary_benefit_mcse_by_strategy": {"standard": 100, "treatment": 120},
+            "decision_uncertainty": {"strategy_order": ["standard", "treatment"], "threshold_results": []},
+        },
+    }
+    budget_result = {
+        "analysis_id": analysis_id,
+        "analysis_plan_sha256": sha256(analysis_raw),
+        "budget_impact_plan_sha256": sha256(budget_plan_raw),
+        "base_case": {"annual_net_budget_impact": [1, 2, 3], "cumulative_net_budget_impact": 6},
+    }
+    report_template = json.loads(
+        (ROOT / "runtime/skills/core/heor-reporting/assets/report-package.template.json")
+        .read_text(encoding="utf-8")
+    )
+    report_items = []
+    report_sections = []
+    for index, item in enumerate(report_template["items"], start=1):
+        section_id = item["section_id"]
+        report_sections.append(
+            f"<!-- report-section:{section_id} -->\n## {index}. Synthetic acceptance section\n"
+            "This content validates native export plumbing only; it is not research evidence.\n"
+        )
+        report_items.append(
+            {
+                **item,
+                "status": "reported",
+                "rationale": "Synthetic content exercises the native export contract.",
+                "artifact_paths": ["heor/report.md"],
+            }
+        )
+    report_raw = "\n".join(report_sections).encode("utf-8")
+
+    artifacts = {
+        "heor/report.md": report_raw,
+        "heor/analysis-plan.json": analysis_raw,
+        "heor/conceptual-model.json": (heor / "conceptual-model.json").read_bytes(),
+        "heor/uncertainty-plan.json": uncertainty_plan_raw,
+        "heor/budget-impact-plan.json": budget_plan_raw,
+        "heor/model-validation.json": json_bytes({"analysis_id": analysis_id}),
+        "heor/results/base-case.json": json_bytes(base_case),
+        "heor/results/uncertainty.json": json_bytes(uncertainty_result),
+        "heor/results/budget-impact.json": json_bytes(budget_result),
+    }
+    for relative, raw in artifacts.items():
+        target = source / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(raw)
+
+    result_summary = {
+        "cost_effectiveness": {
+            "economic_basis": base_case["economic_basis"],
+            "strategy_order": base_case["strategy_order"],
+            "baseline_strategy_id": base_case["baseline_strategy_id"],
+            "strategies": base_case["strategies"],
+            "pairwise_vs_baseline": base_case["pairwise_vs_baseline"],
+            "fully_incremental_analysis": base_case["fully_incremental_analysis"],
+            "optimal_at_primary_threshold": base_case["optimal_at_primary_threshold"],
+        },
+        "uncertainty": {
+            "iterations": 1000,
+            "cost_effective_probability": None,
+            "mean_incremental_net_monetary_benefit": None,
+            "decision_uncertainty": uncertainty_result["probabilistic_analysis"]["decision_uncertainty"],
+            "strategy_order": ["standard", "treatment"],
+            "primary_threshold_strategy_optimal_probabilities": {"standard": 0.2, "treatment": 0.8},
+            "primary_threshold_tie_probability": 0,
+            "mean_net_monetary_benefit_by_strategy": {"standard": 90000, "treatment": 130000},
+            "net_monetary_benefit_mcse_by_strategy": {"standard": 100, "treatment": 120},
+        },
+        "budget_impact": {"annual_net_budget_impact": [1, 2, 3], "cumulative_net_budget_impact": 6},
+    }
+    report_package = {
+        "schema_version": "0.1.0",
+        "package_id": "native-import-export-report",
+        "analysis_id": analysis_id,
+        "version": "1.0",
+        "status": "ready_for_release_review",
+        "prepared_on": "2026-08-01",
+        "intended_audience": "AI4HEOR native acceptance test",
+        "release_owner_label": "Synthetic acceptance reviewer",
+        "reporting_profiles": report_template["reporting_profiles"],
+        "bindings": {
+            key: {"path": binding["path"], "content_sha256": sha256(artifacts[binding["path"]])}
+            for key, binding in report_template["bindings"].items()
+        },
+        "items": report_items,
+        "result_summary": result_summary,
+        "disclosures": {
+            "funding": "Synthetic acceptance fixture",
+            "conflicts_of_interest": "Synthetic acceptance fixture",
+            "agent_contributions": "Synthetic acceptance fixture",
+            "model_providers": "Local deterministic fixture provider",
+            "data_and_model_availability": "Generated inside an isolated temporary directory",
+            "patient_and_public_involvement": "Not applicable to this synthetic fixture",
+        },
+        "limitations": ["The fixture validates product controls and makes no scientific claim."],
+        "release_notes": ["Native import and export acceptance fixture."],
+    }
+    package_raw = json_bytes(report_package)
+    (heor / "report-package.json").write_bytes(package_raw)
+    export_manifest = {
+        "schema_version": "0.1.0",
+        "document_id": "native-import-export-report",
+        "title": "AI4HEOR native import and export acceptance report",
+        "subtitle": "Synthetic product test; not research evidence",
+        "language": "en",
+        "prepared_on": "2026-08-01",
+        "audience": "AI4HEOR native acceptance test",
+        "purpose": "Verify that imported project results can be exported deterministically.",
+        "style": "ai4heor-formal-report",
+        "report_package": {"path": "heor/report-package.json", "sha256": sha256(package_raw)},
+        "report_document": {"path": "heor/report.md", "sha256": sha256(report_raw)},
+        "human_review": {"status": "awaiting_human_review"},
+    }
+    (deliverables / "heor-report-export.json").write_bytes(json_bytes(export_manifest))
+    return source
 
 
 def prepare_local_fixture_runtime(home: Path, provider_url: str) -> Path:
@@ -234,6 +425,38 @@ def execute(base_url: str, session_id: str, script: str) -> Any:
         f"/session/{session_id}/execute/sync",
         {"script": script, "args": []},
     )
+
+
+def invoke_tauri(
+    base_url: str,
+    session_id: str,
+    command: str,
+    arguments: dict[str, Any] | None = None,
+    timeout: float = 60.0,
+) -> Any:
+    slot = "__ai4heorE2EInvoke"
+    started = execute(
+        base_url,
+        session_id,
+        f"window.{slot} = {{state: 'pending'}}; "
+        f"window.__TAURI_INTERNALS__.invoke({json.dumps(command)}, "
+        f"{json.dumps(arguments or {})}).then((value) => {{ "
+        f"window.{slot} = {{state: 'done', value}}; "
+        f"}}).catch((error) => {{ window.{slot} = {{state: 'error', "
+        "error: String(error)}; }); return true;",
+    )
+    if started is not True:
+        raise AssertionError(f"could not start native command {command}")
+    deadline = time.monotonic() + timeout
+    last: Any = None
+    while time.monotonic() < deadline:
+        last = execute(base_url, session_id, f"return window.{slot}")
+        if isinstance(last, dict) and last.get("state") == "done":
+            return last.get("value")
+        if isinstance(last, dict) and last.get("state") == "error":
+            raise AssertionError(f"native command {command} failed: {last.get('error')}")
+        time.sleep(0.2)
+    raise AssertionError(f"native command {command} timed out; last state was {last!r}")
 
 
 def wait_for_script_value(
@@ -649,6 +872,44 @@ def wait_for_session_project(
     )
 
 
+def wait_for_session_directory(
+    runtime_root: Path,
+    session_id: str,
+    expected_directory: Path,
+    timeout: float = 30.0,
+) -> None:
+    data_dir = runtime_root / "xdg-data/opencode"
+    deadline = time.monotonic() + timeout
+    observed: dict[str, list[tuple[Any, ...]]] = {}
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        for database_path in sorted(data_dir.glob("opencode*.db")):
+            try:
+                with sqlite3.connect(
+                    f"file:{database_path}?mode=ro",
+                    uri=True,
+                    timeout=1.0,
+                ) as database:
+                    rows = database.execute(
+                        "SELECT project_id, directory FROM session WHERE id = ?",
+                        (session_id,),
+                    ).fetchall()
+                observed[str(database_path)] = rows
+                if any(
+                    Path(str(row[1])).resolve() == expected_directory.resolve()
+                    for row in rows
+                ):
+                    return
+            except sqlite3.Error as error:
+                last_error = error
+        time.sleep(0.2)
+    raise AssertionError(
+        "session did not retain the imported project directory; "
+        f"observed={observed!r}, expected={str(expected_directory)!r}, "
+        f"last_error={last_error}"
+    )
+
+
 def permission_database_snapshot(runtime_root: Path) -> dict[str, dict[str, list[tuple[Any, ...]]]]:
     snapshot: dict[str, dict[str, list[tuple[Any, ...]]]] = {}
     for database_path in sorted((runtime_root / "xdg-data/opencode").glob("opencode*.db")):
@@ -684,6 +945,21 @@ def wait_for_path_missing(path: Path, timeout: float = 30.0) -> None:
             return
         time.sleep(0.2)
     raise AssertionError(f"path was not removed before timeout: {path}")
+
+
+def wait_for_export_outputs(workspace: Path, timeout: float = 60.0) -> None:
+    expected = [
+        workspace / "deliverables/heor-report.docx",
+        workspace / "deliverables/heor-report.pdf",
+        workspace / "deliverables/heor-report.xlsx",
+    ]
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if all(path.is_file() and path.stat().st_size > 0 for path in expected):
+            return
+        time.sleep(0.2)
+    state = {str(path): path.stat().st_size if path.is_file() else None for path in expected}
+    raise AssertionError(f"native report outputs were not generated: {state}")
 
 
 def wait_for_active_workspace(
@@ -931,6 +1207,8 @@ def main() -> int:
         main_reply_waiting, release_main_reply = fixture_state.pause_next_main_reply()
         runtime_root = prepare_local_fixture_runtime(home, provider_url)
         blocked_request = local_request_observer()
+        imported_source = prepare_import_export_fixture(home / "External")
+        imported_source_snapshot = snapshot_source_tree(imported_source)
         workspace = home / "Documents" / "AI4HEOR"
         workspace.mkdir(parents=True)
         (workspace / "untrusted-e2e.html").write_text(
@@ -2135,14 +2413,150 @@ def main() -> int:
                 )
                 if blocked_request.requested.wait(timeout=1.0):
                     raise AssertionError("untrusted HTML requested an external script")
+
+                imported = invoke_tauri(
+                    base_url,
+                    session_id,
+                    "import_project",
+                    {"path": str(imported_source)},
+                )
+                if not isinstance(imported, dict):
+                    raise AssertionError(f"native import returned an invalid project: {imported!r}")
+                if (
+                    imported.get("name") != IMPORTED_PROJECT_NAME
+                    or Path(str(imported.get("importedFrom", ""))).resolve()
+                    != imported_source.resolve()
+                ):
+                    raise AssertionError(f"native import lost source provenance: {imported!r}")
+                imported_workspace = Path(str(imported.get("path", ""))).resolve()
+                if imported_workspace == imported_source.resolve() or imported_workspace.parent != workspace.resolve():
+                    raise AssertionError(
+                        "native import did not create an app-managed project copy"
+                    )
+
+                execute(base_url, session_id, "window.location.reload(); return true;")
+                wait_for_script_value(
+                    base_url,
+                    session_id,
+                    "return Boolean(window.__TAURI_INTERNALS__)",
+                    True,
+                    timeout=30.0,
+                )
+                wait_for_body_text(base_url, session_id, IMPORTED_PROJECT_NAME, timeout=30.0)
+                opened_imported_draft = execute(
+                    base_url,
+                    session_id,
+                    "const project = [...document.querySelectorAll('[data-project-id]')]"
+                    f".find((node) => node.dataset.projectId === {json.dumps(str(imported['id']))}); "
+                    "const action = project ? [...project.querySelectorAll('button')]"
+                    f".find((button) => (button.getAttribute('aria-label') || '').includes({json.dumps(IMPORTED_PROJECT_NAME)})) : null; "
+                    "if (action) action.click(); return Boolean(action);",
+                )
+                if opened_imported_draft is not True:
+                    raise AssertionError("imported project did not expose its new-task action")
+                wait_for_location(base_url, session_id, "/heor/new", timeout=30.0)
+                active_pointer = runtime_root / "active-workspace.txt"
+                wait_for_active_workspace(active_pointer, imported_workspace)
+
+                imported_request_count = len(main_provider_requests(fixture_state))
+                click(
+                    base_url,
+                    session_id,
+                    fill_composer(
+                        base_url,
+                        session_id,
+                        composer_xpath,
+                        IMPORTED_PROJECT_TASK_PROMPT,
+                        send_xpath,
+                    ),
+                )
+                imported_task_path = wait_for_task_location(base_url, session_id)
+                imported_task_id = imported_task_path.removeprefix("/heor/")
+                imported_requests = wait_for_main_request_count(
+                    fixture_state,
+                    imported_request_count + 1,
+                )
+                if IMPORTED_PROJECT_TASK_PROMPT not in latest_user_text(imported_requests[-1]):
+                    raise AssertionError("imported-project task did not reach the model adapter")
+                wait_for_body_text(base_url, session_id, FIXTURE_MARKER, timeout=60.0)
+                wait_for_active_workspace(active_pointer, imported_workspace)
+                wait_for_session_directory(
+                    runtime_root,
+                    imported_task_id,
+                    imported_workspace,
+                )
+                imported_task_attribute = "data-" + "task-" + "id"
+                imported_task_grouped = execute(
+                    base_url,
+                    session_id,
+                    "const task = document.querySelector("
+                    + json.dumps(f'[{imported_task_attribute}="{imported_task_id}"]')
+                    + "); const project = task ? task.closest('[data-project-id]') : null; "
+                    f"return project ? project.dataset.projectId === {json.dumps(str(imported['id']))} : false;",
+                )
+                if imported_task_grouped is not True:
+                    raise AssertionError("imported-project task was not grouped under its project")
+
+                pre_export_audit = invoke_tauri(
+                    base_url,
+                    session_id,
+                    "audit_research_report",
+                )
+                if (
+                    not isinstance(pre_export_audit, dict)
+                    or pre_export_audit.get("readyToGenerate") is not True
+                ):
+                    raise AssertionError(
+                        f"imported report fixture is not ready to generate: {pre_export_audit!r}"
+                    )
+
+                review_xpath = (
+                    '//button[.//span[normalize-space()="研究与分析" '
+                    'or normalize-space()="Research & analysis"]]'
+                )
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, review_xpath, timeout=30.0),
+                )
+                generate_report_xpath = (
+                    '//button[normalize-space()="生成 DOCX、PDF 和 XLSX" '
+                    'or normalize-space()="Generate DOCX, PDF, and XLSX"]'
+                )
+                try:
+                    generate_report_id = find_element(
+                        base_url,
+                        session_id,
+                        generate_report_xpath,
+                        timeout=60.0,
+                    )
+                except AssertionError as error:
+                    visible = execute(base_url, session_id, "return document.body.innerText")
+                    raise AssertionError(
+                        "ready native report did not expose its generate action; "
+                        f"audit={pre_export_audit!r}, visible={str(visible)[-5000:]}"
+                    ) from error
+                click(base_url, session_id, generate_report_id)
+                wait_for_export_outputs(imported_workspace, timeout=60.0)
+                report_audit = invoke_tauri(
+                    base_url,
+                    session_id,
+                    "audit_research_report",
+                )
+                if not isinstance(report_audit, dict) or report_audit.get("outputsCurrent") is not True:
+                    raise AssertionError(
+                        f"native report outputs are not current: {report_audit!r}"
+                    )
+                if snapshot_source_tree(imported_source) != imported_source_snapshot:
+                    raise AssertionError("imported source changed during the native workflow")
                 assert_no_admitted_asset_deployment_errors(log_path)
 
                 print(
                     "native desktop E2E passed: Tauri bridge, navigation, "
                     "queued prompts, Human input, one-time and rejected permissions, remembered "
                     "permission reuse after restart, visible revocation and re-prompt, provider "
-                    "failure queue recovery, task files "
-                    "and passive HTML preview"
+                    "failure queue recovery, task files, passive HTML preview, and imported-project "
+                    "task execution with deterministic DOCX/PDF/XLSX export"
                 )
         except Exception as error:
             tail = ""

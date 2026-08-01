@@ -196,6 +196,28 @@ class DesktopE2EContractTests(unittest.TestCase):
         ):
             self.assertIn(required, source)
 
+    def test_native_driver_imports_executes_and_exports_one_project_copy(self) -> None:
+        source = VERIFY.read_text(encoding="utf-8")
+        for required in (
+            "IMPORTED_PROJECT_NAME",
+            "IMPORTED_PROJECT_TASK_PROMPT",
+            "prepare_import_export_fixture",
+            "snapshot_source_tree",
+            '"PYTHONDONTWRITEBYTECODE"',
+            '"import_project"',
+            "importedFrom",
+            "wait_for_active_workspace",
+            "wait_for_session_directory",
+            "audit_research_report",
+            "Generate DOCX, PDF, and XLSX",
+            "heor-report.docx",
+            "heor-report.pdf",
+            "heor-report.xlsx",
+            "outputsCurrent",
+            "imported source changed during the native workflow",
+        ):
+            self.assertIn(required, source)
+
     def test_native_driver_distinguishes_the_main_reply_from_auxiliary_requests(self) -> None:
         verifier = load_verifier()
         main = {

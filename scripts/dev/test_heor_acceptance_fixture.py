@@ -14,6 +14,9 @@ import unittest
 from pathlib import Path
 
 
+sys.dont_write_bytecode = True  # never pollute packaged Skill sources during fixture validation
+
+
 ROOT = Path(__file__).resolve().parents[2]
 GENERATOR_PATH = ROOT / "scripts/dev/create_heor_acceptance_fixture.py"
 
