@@ -939,9 +939,10 @@ pub fn write_result(workspace: &Path, relative: &str, raw: &[u8]) -> Result<(), 
     })
 }
 
-fn run_engine(
+fn run_engine_for_plan(
     app: &AppHandle,
     workspace: &Path,
+    plan_path: &str,
     extra: &[(&str, &str)],
 ) -> Result<Vec<u8>, String> {
     let package_src = app
@@ -952,7 +953,7 @@ fn run_engine(
     let mut command = crate::runtime::quiet_command(python);
     command
         .args(["-m", "heor_core"])
-        .arg(workspace.join("heor/analysis-plan.json"));
+        .arg(workspace.join(plan_path));
     for (flag, relative) in extra {
         command.arg(flag).arg(workspace.join(relative));
     }
@@ -974,10 +975,65 @@ fn run_engine(
     Ok(output.stdout)
 }
 
+fn run_engine(
+    app: &AppHandle,
+    workspace: &Path,
+    extra: &[(&str, &str)],
+) -> Result<Vec<u8>, String> {
+    run_engine_for_plan(app, workspace, "heor/analysis-plan.json", extra)
+}
+
+fn replayed_result_hash(engine_raw: &[u8], stored_raw: &[u8]) -> Result<String, String> {
+    let engine: serde_json::Value = serde_json::from_slice(engine_raw)
+        .map_err(|error| format!("release verification engine returned invalid JSON: {error}"))?;
+    let stored: serde_json::Value = serde_json::from_slice(stored_raw)
+        .map_err(|error| format!("stored deterministic result is invalid JSON: {error}"))?;
+    if engine != stored {
+        return Err("replayed deterministic result does not match the stored result".into());
+    }
+    Ok(digest(stored_raw))
+}
+
 fn reexecute_result_hashes(
     app: &AppHandle,
     workspace: &Path,
+    audit: &ReportingAudit,
 ) -> Result<HashMap<&'static str, String>, String> {
+    if audit.binding_paths.contains_key("decision_tree_plan") {
+        let base = run_engine_for_plan(
+            app,
+            workspace,
+            crate::heor_validation::DECISION_TREE_PLAN_PATH,
+            &[],
+        )?;
+        let uncertainty = run_engine_for_plan(
+            app,
+            workspace,
+            crate::heor_validation::DECISION_TREE_PLAN_PATH,
+            &[(
+                "--decision-tree-uncertainty-plan",
+                crate::heor_validation::DECISION_TREE_UNCERTAINTY_PLAN_PATH,
+            )],
+        )?;
+        let stored_base = crate::heor_uncertainty::read_workspace_capped(
+            workspace,
+            crate::heor_validation::DECISION_TREE_RESULT_PATH,
+        )?;
+        let stored_uncertainty = crate::heor_uncertainty::read_workspace_capped(
+            workspace,
+            crate::heor_validation::DECISION_TREE_UNCERTAINTY_RESULT_PATH,
+        )?;
+        return Ok(HashMap::from([
+            (
+                "decision_tree_result",
+                replayed_result_hash(&base, &stored_base)?,
+            ),
+            (
+                "decision_tree_uncertainty_result",
+                replayed_result_hash(&uncertainty, &stored_uncertainty)?,
+            ),
+        ]));
+    }
     let plan_raw =
         crate::heor_uncertainty::read_workspace_capped(workspace, "heor/analysis-plan.json")?;
     let partitioned = crate::heor_partitioned_survival::audit_partitioned_survival_for_plan(
@@ -1167,12 +1223,19 @@ pub fn require_report_releasable(
     {
         return Err("release requires a complete current reproducibility companion".into());
     }
-    let plan_raw =
-        crate::heor_uncertainty::read_workspace_capped(workspace, "heor/analysis-plan.json")?;
-    let partitioned = crate::heor_partitioned_survival::audit_partitioned_survival_for_plan(
-        workspace, &plan_raw,
-    )?;
-    if partitioned.required {
+    let decision_tree = audit.binding_paths.contains_key("decision_tree_plan");
+    let plan_raw = crate::heor_validation::read_active_plan(workspace)?;
+    let partitioned = if decision_tree {
+        None
+    } else {
+        Some(
+            crate::heor_partitioned_survival::audit_partitioned_survival_for_plan(
+                workspace, &plan_raw,
+            )?,
+        )
+    };
+    if partitioned.as_ref().is_some_and(|audit| audit.required) {
+        let partitioned = partitioned.as_ref().unwrap();
         if !partitioned.complete {
             return Err("release requires a complete partitioned-survival audit".into());
         }
@@ -1229,7 +1292,7 @@ pub fn require_report_releasable(
     if !validation_current {
         return Err("release requires a current independent-validation approval".into());
     }
-    for (key, actual) in reexecute_result_hashes(app, workspace)? {
+    for (key, actual) in reexecute_result_hashes(app, workspace, &audit)? {
         if audit.binding_hashes.get(key) != Some(&actual) {
             return Err(format!("release verification reproduced a different {key}"));
         }
@@ -1526,6 +1589,26 @@ pub(crate) mod tests {
         assert!(summary
             .pointer("/uncertainty/decision_uncertainty")
             .is_none());
+    }
+
+    #[test]
+    fn release_replay_compares_decision_tree_json_values_not_serializer_spelling() {
+        let engine = "{\"tiny\":1e-7,\"unicode\":\"药\",\"whole\":2900.0}".as_bytes();
+        let stored =
+            b"{\n  \"tiny\": 1e-07,\n  \"unicode\": \"\xe8\x8d\xaf\",\n  \"whole\": 2900.0\n}\n";
+        assert_eq!(
+            replayed_result_hash(engine, stored).unwrap(),
+            digest(stored)
+        );
+    }
+
+    #[test]
+    fn release_replay_rejects_a_changed_decision_tree_value() {
+        let engine = br#"{"cost":2900.0}"#;
+        let stored = b"{\n  \"cost\": 2901.0\n}\n";
+        assert!(replayed_result_hash(engine, stored)
+            .unwrap_err()
+            .contains("does not match"));
     }
 
     #[test]

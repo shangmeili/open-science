@@ -34,6 +34,8 @@ const GATES: [ApprovalGate; 5] = [
     ApprovalGate::IndependentValidation,
     ApprovalGate::Release,
 ];
+const DECISION_TREE_GATES: [ApprovalGate; 2] =
+    [ApprovalGate::IndependentValidation, ApprovalGate::Release];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -307,11 +309,31 @@ fn latest_by_gate(events: &[ApprovalEvent]) -> HashMap<ApprovalGate, &ApprovalEv
     latest
 }
 
+fn binds_decision_tree(artifacts: &[ArtifactBinding]) -> bool {
+    artifacts.iter().any(|binding| {
+        binding.path == crate::heor_validation::DECISION_TREE_PLAN_PATH
+            && is_sha256(&binding.sha256)
+    })
+}
+
+fn gate_order_for_events(events: &[ApprovalEvent]) -> &'static [ApprovalGate] {
+    if events.iter().rev().any(|event| {
+        matches!(
+            event.gate,
+            ApprovalGate::IndependentValidation | ApprovalGate::Release
+        ) && binds_decision_tree(&event.related_artifacts)
+    }) {
+        &DECISION_TREE_GATES
+    } else {
+        &GATES
+    }
+}
+
 fn effective_gates(events: &[ApprovalEvent]) -> Vec<ApprovalGate> {
     let latest = latest_by_gate(events);
     let mut approved = Vec::new();
     let mut prerequisite_sequence = 0;
-    for gate in GATES {
+    for &gate in gate_order_for_events(events) {
         let Some(event) = latest.get(&gate) else {
             break;
         };
@@ -324,7 +346,11 @@ fn effective_gates(events: &[ApprovalEvent]) -> Vec<ApprovalGate> {
     approved
 }
 
-fn validate_transition(events: &[ApprovalEvent], request: &ApprovalRequest) -> Result<(), String> {
+fn validate_transition(
+    events: &[ApprovalEvent],
+    request: &ApprovalRequest,
+    related_artifacts: &[ArtifactBinding],
+) -> Result<(), String> {
     let latest = latest_by_gate(events);
     let current = latest.get(&request.gate);
     match request.action {
@@ -335,7 +361,16 @@ fn validate_transition(events: &[ApprovalEvent], request: &ApprovalRequest) -> R
                     "gate is already approved; revoke it before approving a new artifact".into(),
                 );
             }
-            let gate_index = GATES.iter().position(|gate| *gate == request.gate).unwrap();
+            let gate_order: &[ApprovalGate] = if binds_decision_tree(related_artifacts) {
+                &DECISION_TREE_GATES
+            } else if request.gate == ApprovalGate::DecisionProblem {
+                &GATES
+            } else {
+                gate_order_for_events(events)
+            };
+            let Some(gate_index) = gate_order.iter().position(|gate| *gate == request.gate) else {
+                return Err("approval gate does not belong to the active HEOR analysis".into());
+            };
             if effective.len() < gate_index {
                 return Err("all preceding HEOR gates must be effectively approved first".into());
             }
@@ -359,11 +394,20 @@ fn append_at(
     request: ApprovalRequest,
     timestamp: u64,
     event_id: String,
-    related_artifacts: Vec<ArtifactBinding>,
+    mut related_artifacts: Vec<ArtifactBinding>,
 ) -> Result<ApprovalEvent, String> {
     validate_request(&request)?;
     let events = read_verified(root, &request.project_id)?;
-    validate_transition(&events, &request)?;
+    if request.action == ApprovalAction::Revoke && related_artifacts.is_empty() {
+        if let Some(current) = events.iter().rev().find(|event| {
+            event.gate == request.gate
+                && event.action == ApprovalAction::Approve
+                && event.artifact_sha256 == request.artifact_sha256
+        }) {
+            related_artifacts = current.related_artifacts.clone();
+        }
+    }
+    validate_transition(&events, &request, &related_artifacts)?;
     let mut event = ApprovalEvent {
         schema_version: SCHEMA_VERSION,
         sequence: events.len() as u64 + 1,
@@ -685,6 +729,93 @@ mod tests {
             .unwrap_err()
             .contains("must match the currently approved artifact"));
 
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn decision_tree_uses_validation_then_release_without_fake_markov_gates() {
+        let root = temp_root("decision-tree-order");
+        let plan_binding = ArtifactBinding {
+            path: crate::heor_validation::DECISION_TREE_PLAN_PATH.into(),
+            sha256: "d".repeat(64),
+        };
+        append_at(
+            &root,
+            request(
+                ApprovalGate::IndependentValidation,
+                ApprovalAction::Approve,
+                'a',
+            ),
+            1_700_000_001,
+            "1".repeat(32),
+            vec![plan_binding.clone()],
+        )
+        .unwrap();
+        assert_eq!(
+            effective_gates(&read_verified(&root, "project-1").unwrap()),
+            vec![ApprovalGate::IndependentValidation]
+        );
+        append_at(
+            &root,
+            request(ApprovalGate::Release, ApprovalAction::Approve, 'b'),
+            1_700_000_002,
+            "2".repeat(32),
+            vec![plan_binding],
+        )
+        .unwrap();
+        assert_eq!(
+            effective_gates(&read_verified(&root, "project-1").unwrap()),
+            vec![ApprovalGate::IndependentValidation, ApprovalGate::Release]
+        );
+        assert!(latest_by_gate(&read_verified(&root, "project-1").unwrap())
+            .get(&ApprovalGate::AnalysisPlan)
+            .is_none());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn revoking_decision_tree_validation_keeps_the_direct_route_and_invalidates_release() {
+        let root = temp_root("decision-tree-revoke");
+        let plan_binding = ArtifactBinding {
+            path: crate::heor_validation::DECISION_TREE_PLAN_PATH.into(),
+            sha256: "d".repeat(64),
+        };
+        append_at(
+            &root,
+            request(
+                ApprovalGate::IndependentValidation,
+                ApprovalAction::Approve,
+                'a',
+            ),
+            1_700_000_001,
+            "1".repeat(32),
+            vec![plan_binding.clone()],
+        )
+        .unwrap();
+        append_at(
+            &root,
+            request(ApprovalGate::Release, ApprovalAction::Approve, 'b'),
+            1_700_000_002,
+            "2".repeat(32),
+            vec![plan_binding],
+        )
+        .unwrap();
+        append(
+            &root,
+            ApprovalGate::IndependentValidation,
+            ApprovalAction::Revoke,
+            3,
+        )
+        .unwrap();
+
+        let events = read_verified(&root, "project-1").unwrap();
+        assert!(events
+            .last()
+            .unwrap()
+            .related_artifacts
+            .iter()
+            .any(|binding| { binding.path == crate::heor_validation::DECISION_TREE_PLAN_PATH }));
+        assert!(effective_gates(&events).is_empty());
         let _ = std::fs::remove_dir_all(root);
     }
 

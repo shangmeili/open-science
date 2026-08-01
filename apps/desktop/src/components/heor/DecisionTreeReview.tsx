@@ -1,8 +1,14 @@
 import { AlertTriangle, FileJson, Play, RefreshCw, ShieldCheck } from "lucide-react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { readArtifact } from "@/lib/artifactFile";
 import { cn } from "@/lib/cn";
-import { sha256Text } from "@/lib/heor";
+import {
+  sha256Text,
+  type HeorModelValidationAudit,
+  type HeorReportingAudit,
+  type HeorReproducibilityAudit,
+} from "@/lib/heor";
 
 export const HEOR_DECISION_TREE_PLAN_PATH = "heor/decision-tree-plan.json";
 export const HEOR_DECISION_TREE_RESULT_PATH = "heor/results/decision-tree.json";
@@ -863,6 +869,15 @@ export function DecisionTreeReview({
   onOpenSubgroupPlan,
   onOpenSubgroupResult,
   onOpenSubgroupInput,
+  validationAudit,
+  reportingAudit,
+  reproducibilityAudit,
+  validationApproved = false,
+  releaseApproved = false,
+  onPrepareValidation,
+  onPrepareReporting,
+  onApproveValidation,
+  onApproveRelease,
 }: {
   state: DecisionTreeReviewState;
   locale?: string;
@@ -875,6 +890,15 @@ export function DecisionTreeReview({
   onOpenSubgroupPlan?: () => void;
   onOpenSubgroupResult?: () => void;
   onOpenSubgroupInput?: (path: string) => void;
+  validationAudit?: HeorModelValidationAudit;
+  reportingAudit?: HeorReportingAudit;
+  reproducibilityAudit?: HeorReproducibilityAudit;
+  validationApproved?: boolean;
+  releaseApproved?: boolean;
+  onPrepareValidation?: () => void;
+  onPrepareReporting?: () => void;
+  onApproveValidation?: () => void;
+  onApproveRelease?: () => void;
 }) {
   const { t, i18n } = useTranslation("heor");
   const activeLocale = locale ?? i18n.language;
@@ -1083,7 +1107,107 @@ export function DecisionTreeReview({
           </button>
         </div>
       )}
+
+      <div className="mt-4 border-t border-border pt-4">
+        <div className="text-xs font-semibold text-text">{t("reviewSection")}</div>
+        <div className="mt-3 space-y-2">
+          <DecisionTreeGateCard
+            title={t("gate.independent_validation")}
+            status={validationApproved
+              ? t("status.completedByGate.independent_validation")
+              : validationAudit?.approvable
+                ? t("status.awaitingByGate.independent_validation")
+                : t("status.validationRequired")}
+            current={validationApproved}
+          >
+            {validationAudit?.validationId ? (
+              <div className="grid grid-cols-3 gap-2">
+                <GateMetric label={t("validation.coverage")} value={`${validationAudit.coveredRequirementCount}/${validationAudit.requiredCoverageCount}`} />
+                <GateMetric label={t("validation.evidence")} value={String(validationAudit.evidenceCount)} />
+                <GateMetric label={t("validation.openIssues")} value={String(validationAudit.openBlockingIssueCount)} />
+              </div>
+            ) : null}
+            {!validationApproved && (validationAudit?.approvable ? onApproveValidation : onPrepareValidation) && (
+              <button
+                type="button"
+                onClick={validationAudit?.approvable ? onApproveValidation : onPrepareValidation}
+                className="mt-2 text-[11px] font-medium text-link hover:underline"
+              >
+                {validationAudit?.approvable ? t("status.awaitingByGate.independent_validation") : t("validation.askPrepare")}
+              </button>
+            )}
+          </DecisionTreeGateCard>
+
+          <DecisionTreeGateCard
+            title={t("gate.release")}
+            status={releaseApproved
+              ? t("status.completedByGate.release")
+              : !validationApproved
+                ? t("status.locked")
+                : reportingAudit?.releasable && reproducibilityAudit?.releaseCompanionReady
+                  ? t("status.awaitingByGate.release")
+                  : reportingAudit?.releasable
+                    ? t("status.reproducibilityRequired")
+                    : t("status.reportingRequired")}
+            current={releaseApproved}
+          >
+            {reportingAudit?.packageId ? (
+              <div className="grid grid-cols-3 gap-2">
+                <GateMetric label={t("reporting.coverage")} value={`${reportingAudit.coveredItemCount}/${reportingAudit.requiredItemCount}`} />
+                <GateMetric label={t("reporting.bindings")} value={String(Object.keys(reportingAudit.bindingPaths).length)} />
+                <GateMetric label={t("reproducibility.claims")} value={reproducibilityAudit ? `${reproducibilityAudit.coveredClaimCount}/${reproducibilityAudit.requiredClaimCount}` : "—"} />
+              </div>
+            ) : null}
+            {!releaseApproved && validationApproved && (
+              reportingAudit?.releasable && reproducibilityAudit?.releaseCompanionReady
+                ? onApproveRelease && (
+                  <button type="button" onClick={onApproveRelease} className="mt-2 text-[11px] font-medium text-link hover:underline">
+                    {t("status.awaitingByGate.release")}
+                  </button>
+                )
+                : onPrepareReporting && (
+                  <button type="button" onClick={onPrepareReporting} className="mt-2 text-[11px] font-medium text-link hover:underline">
+                    {t("reporting.askPrepare")}
+                  </button>
+                )
+            )}
+          </DecisionTreeGateCard>
+        </div>
+        <p className="mt-3 text-[10px] leading-4 text-muted">{t("validation.note")}</p>
+      </div>
     </section>
+  );
+}
+
+function DecisionTreeGateCard({
+  title,
+  status,
+  current,
+  children,
+}: {
+  title: string;
+  status: string;
+  current: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="rounded-input border border-border bg-bg/50 px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <ShieldCheck size={14} className={current ? "text-ok" : "text-muted"} />
+        <div className="flex-1 text-xs font-medium text-text">{title}</div>
+        <span className={cn("text-[10px]", current ? "text-ok" : "text-muted")}>{status}</span>
+      </div>
+      {children && <div className="mt-2">{children}</div>}
+    </div>
+  );
+}
+
+function GateMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-input bg-surface-2 px-2 py-2 text-center">
+      <div className="text-[9px] text-muted">{label}</div>
+      <div className="mt-1 text-[11px] font-semibold tabular-nums text-text">{value}</div>
+    </div>
   );
 }
 

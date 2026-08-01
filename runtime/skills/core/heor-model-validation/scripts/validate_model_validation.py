@@ -31,6 +31,13 @@ PARTITIONED_BINDINGS = {
     "uncertainty_result": "heor/results/uncertainty.json",
     "budget_impact_result": "heor/results/budget-impact.json",
 }
+DECISION_TREE_BINDINGS = {
+    "evidence_synthesis": "heor/evidence-synthesis.json",
+    "decision_tree_plan": "heor/decision-tree-plan.json",
+    "decision_tree_uncertainty_plan": "heor/decision-tree-uncertainty-plan.json",
+    "decision_tree_result": "heor/results/decision-tree.json",
+    "decision_tree_uncertainty_result": "heor/results/decision-tree-uncertainty.json",
+}
 SCOPES = {"cost_effectiveness", "budget_impact", "shared"}
 DOMAINS = {
     "face_validity",
@@ -135,9 +142,34 @@ def method_matches(domain: str, method: str) -> bool:
 
 def required_coverage(
     dynamic_budget_impact: bool = False,
+    decision_tree: bool = False,
 ) -> list[tuple[str, str, str, str | None, set[str]]]:
     passed = {"passed"}
     documented = {"passed", "not_feasible"}
+    if decision_tree:
+        return [
+            ("decision-tree face validity", "cost_effectiveness", "face_validity", None, passed),
+            ("decision-tree input validation", "cost_effectiveness", "input_data", None, passed),
+            ("decision-tree external validity", "cost_effectiveness", "external_validity", None, passed),
+            *[
+                (
+                    f"decision-tree technical {component}",
+                    "cost_effectiveness",
+                    "technical_verification",
+                    component,
+                    passed,
+                )
+                for component in (
+                    "input_calculations",
+                    "event_state_calculations",
+                    "result_calculations",
+                    "uncertainty_calculations",
+                    "overall_checks",
+                )
+            ],
+            ("decision-tree cross validity", "cost_effectiveness", "cross_validity", None, documented),
+            ("decision-tree predictive validity", "cost_effectiveness", "predictive_validity", None, documented),
+        ]
     result = [
         ("cost-effectiveness face validity", "cost_effectiveness", "face_validity", None, passed),
         ("cost-effectiveness input validation", "cost_effectiveness", "input_data", None, passed),
@@ -172,6 +204,15 @@ def required_coverage(
 
 def binding_contract(report: dict, analysis: dict, errors: list[str]) -> dict[str, str]:
     schema = report.get("schema_version")
+    decision_tree = analysis.get("analysis_type") == "decision_tree"
+    if decision_tree:
+        if schema != "0.3.0" or report.get("analysis_type") != "decision_tree":
+            errors.append(
+                "decision-tree validation requires schema_version 0.3.0 and analysis_type decision_tree"
+            )
+        return dict(DECISION_TREE_BINDINGS)
+    if "analysis_type" in report:
+        errors.append("Markov/PSM validation must not declare analysis_type")
     partitioned = analysis.get("partitioned_survival_analysis") == {
         "path": "heor/partitioned-survival-plan.json"
     }
@@ -222,6 +263,58 @@ def validate_partitioned_consistency(
         errors.append("budget-impact result budget_impact_plan_sha256 does not match bound bytes")
 
 
+def validate_decision_tree_consistency(
+    loaded: dict[str, dict], binding_hashes: dict[str, str], errors: list[str]
+) -> None:
+    plan = loaded.get("decision_tree_plan")
+    if not plan:
+        return
+    if plan.get("schema_version") != "0.2.0" or plan.get("analysis_type") != "decision_tree":
+        errors.append("independent validation requires the current decision-tree schema 0.2.0")
+    analysis_id = plan.get("analysis_id")
+    plan_hash = binding_hashes.get("decision_tree_plan")
+    uncertainty_hash = binding_hashes.get("decision_tree_uncertainty_plan")
+    basis = plan.get("economic_basis")
+    uncertainty_plan = loaded.get("decision_tree_uncertainty_plan", {})
+    if (
+        uncertainty_plan.get("schema_version") != "0.1.0"
+        or uncertainty_plan.get("analysis_type") != "decision_tree_uncertainty"
+        or uncertainty_plan.get("analysis_input")
+        != {"path": "heor/decision-tree-plan.json", "content_sha256": plan_hash}
+    ):
+        errors.append("decision_tree_uncertainty_plan does not bind the current decision-tree plan")
+    result = loaded.get("decision_tree_result", {})
+    if (
+        result.get("schema_version") != "0.2.0"
+        or result.get("engine_version") != "0.2.0"
+        or result.get("analysis_type") != "decision_tree"
+        or result.get("analysis_id") != analysis_id
+        or result.get("input_sha256") != plan_hash
+        or result.get("economic_basis") != basis
+    ):
+        errors.append("decision_tree_result does not match the current plan bytes and basis")
+    uncertainty_result = loaded.get("decision_tree_uncertainty_result", {})
+    if (
+        uncertainty_result.get("schema_version") != "0.1.0"
+        or uncertainty_result.get("engine_version") != "0.1.0"
+        or uncertainty_result.get("analysis_type") != "decision_tree_uncertainty"
+        or uncertainty_result.get("analysis_id") != analysis_id
+        or uncertainty_result.get("analysis_input_sha256") != plan_hash
+        or uncertainty_result.get("uncertainty_input_sha256") != uncertainty_hash
+        or uncertainty_result.get("economic_basis") != basis
+    ):
+        errors.append(
+            "decision_tree_uncertainty_result does not match the current plan, uncertainty bytes, and basis"
+        )
+    if (
+        uncertainty_result.get("probabilistic_analysis", {})
+        .get("convergence", {})
+        .get("passed")
+        is not True
+    ):
+        errors.append("decision-tree probabilistic analysis has not passed convergence checks")
+
+
 def audit(report_path: Path, workspace: Path) -> dict:
     report, report_raw = load_object(report_path)
     errors: list[str] = []
@@ -233,8 +326,14 @@ def audit(report_path: Path, workspace: Path) -> dict:
     if report.get("status") != "ready_for_independent_review":
         errors.append("status must be ready_for_independent_review")
 
+    decision_tree_path = workspace / DECISION_TREE_BINDINGS["decision_tree_plan"]
+    primary_path = (
+        DECISION_TREE_BINDINGS["decision_tree_plan"]
+        if decision_tree_path.is_file()
+        else LEGACY_BINDINGS["analysis_plan"]
+    )
     try:
-        analysis, _ = load_object(workspace_file(workspace, LEGACY_BINDINGS["analysis_plan"]))
+        analysis, _ = load_object(workspace_file(workspace, primary_path))
     except (OSError, ValueError, json.JSONDecodeError) as error:
         analysis = {}
         errors.append(str(error))
@@ -260,9 +359,10 @@ def audit(report_path: Path, workspace: Path) -> dict:
         binding_hashes[key] = expected_hash
         if binding.get("content_sha256") != expected_hash or not SHA256.fullmatch(str(binding.get("content_sha256", ""))):
             errors.append(f"model_bindings.{key}.content_sha256 does not match current bytes")
-        if value.get("analysis_id") != report.get("analysis_id"):
+        if key not in {"evidence_synthesis", "decision_tree_uncertainty_plan"} and value.get("analysis_id") != report.get("analysis_id"):
             errors.append(f"{expected_path} analysis_id does not match the validation report")
     validate_partitioned_consistency(loaded, binding_hashes, errors)
+    validate_decision_tree_consistency(loaded, binding_hashes, errors)
 
     reviewer = report.get("reviewer") or {}
     for field in ("label", "organization", "independence_statement", "conflict_statement"):
@@ -343,7 +443,8 @@ def audit(report_path: Path, workspace: Path) -> dict:
             errors.append(f"checks[{index}] not_feasible is allowed only for cross or predictive validity")
 
     coverage = required_coverage(
-        loaded.get("budget_impact_plan", {}).get("schema_version") == "0.2.0"
+        loaded.get("budget_impact_plan", {}).get("schema_version") == "0.2.0",
+        decision_tree="decision_tree_plan" in loaded,
     )
     missing_coverage: list[str] = []
     for label, scope, domain, component, statuses in coverage:

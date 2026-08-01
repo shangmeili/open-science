@@ -11,6 +11,11 @@ const ANALYSIS_PLAN_PATH: &str = "heor/analysis-plan.json";
 const CONCEPTUAL_MODEL_PATH: &str = "heor/conceptual-model.json";
 const UNCERTAINTY_PLAN_PATH: &str = "heor/uncertainty-plan.json";
 const BUDGET_IMPACT_PLAN_PATH: &str = "heor/budget-impact-plan.json";
+pub const DECISION_TREE_PLAN_PATH: &str = "heor/decision-tree-plan.json";
+pub const DECISION_TREE_UNCERTAINTY_PLAN_PATH: &str = "heor/decision-tree-uncertainty-plan.json";
+pub const DECISION_TREE_RESULT_PATH: &str = "heor/results/decision-tree.json";
+pub const DECISION_TREE_UNCERTAINTY_RESULT_PATH: &str =
+    "heor/results/decision-tree-uncertainty.json";
 const LEGACY_BINDINGS: [(&str, &str); 4] = [
     ("analysis_plan", ANALYSIS_PLAN_PATH),
     ("conceptual_model", CONCEPTUAL_MODEL_PATH),
@@ -53,6 +58,22 @@ const PARTITIONED_BINDINGS: [(&str, &str); 9] = [
     (
         "budget_impact_result",
         crate::heor_reporting::BUDGET_IMPACT_RESULT_PATH,
+    ),
+];
+const DECISION_TREE_BINDINGS: [(&str, &str); 5] = [
+    (
+        "evidence_synthesis",
+        crate::heor_synthesis::EVIDENCE_SYNTHESIS_PATH,
+    ),
+    ("decision_tree_plan", DECISION_TREE_PLAN_PATH),
+    (
+        "decision_tree_uncertainty_plan",
+        DECISION_TREE_UNCERTAINTY_PLAN_PATH,
+    ),
+    ("decision_tree_result", DECISION_TREE_RESULT_PATH),
+    (
+        "decision_tree_uncertainty_result",
+        DECISION_TREE_UNCERTAINTY_RESULT_PATH,
     ),
 ];
 const MAX_EVIDENCE: usize = 128;
@@ -234,6 +255,79 @@ const DYNAMIC_BIA_EVENT_STATE_REQUIREMENT: Requirement = Requirement {
     allow_not_feasible: false,
 };
 
+const DECISION_TREE_REQUIREMENTS: [Requirement; 10] = [
+    Requirement {
+        label: "decision-tree face validity",
+        scope: "cost_effectiveness",
+        domain: "face_validity",
+        component: None,
+        allow_not_feasible: false,
+    },
+    Requirement {
+        label: "decision-tree input validation",
+        scope: "cost_effectiveness",
+        domain: "input_data",
+        component: None,
+        allow_not_feasible: false,
+    },
+    Requirement {
+        label: "decision-tree external validity",
+        scope: "cost_effectiveness",
+        domain: "external_validity",
+        component: None,
+        allow_not_feasible: false,
+    },
+    Requirement {
+        label: "decision-tree technical input_calculations",
+        scope: "cost_effectiveness",
+        domain: "technical_verification",
+        component: Some("input_calculations"),
+        allow_not_feasible: false,
+    },
+    Requirement {
+        label: "decision-tree technical event_state_calculations",
+        scope: "cost_effectiveness",
+        domain: "technical_verification",
+        component: Some("event_state_calculations"),
+        allow_not_feasible: false,
+    },
+    Requirement {
+        label: "decision-tree technical result_calculations",
+        scope: "cost_effectiveness",
+        domain: "technical_verification",
+        component: Some("result_calculations"),
+        allow_not_feasible: false,
+    },
+    Requirement {
+        label: "decision-tree technical uncertainty_calculations",
+        scope: "cost_effectiveness",
+        domain: "technical_verification",
+        component: Some("uncertainty_calculations"),
+        allow_not_feasible: false,
+    },
+    Requirement {
+        label: "decision-tree technical overall_checks",
+        scope: "cost_effectiveness",
+        domain: "technical_verification",
+        component: Some("overall_checks"),
+        allow_not_feasible: false,
+    },
+    Requirement {
+        label: "decision-tree cross validity",
+        scope: "cost_effectiveness",
+        domain: "cross_validity",
+        component: None,
+        allow_not_feasible: true,
+    },
+    Requirement {
+        label: "decision-tree predictive validity",
+        scope: "cost_effectiveness",
+        domain: "predictive_validity",
+        component: None,
+        allow_not_feasible: true,
+    },
+];
+
 fn sha256(raw: &[u8]) -> String {
     format!("{:x}", Sha256::digest(raw))
 }
@@ -312,7 +406,90 @@ fn check_covers(check: &serde_json::Value, requirement: Requirement) -> bool {
         && status_is_acceptable
 }
 
+fn validate_decision_tree_consistency(
+    loaded: &HashMap<String, serde_json::Value>,
+    hashes: &HashMap<String, String>,
+    errors: &mut Vec<String>,
+) {
+    let Some(plan) = loaded.get("decision_tree_plan") else {
+        return;
+    };
+    if text(plan.get("schema_version")) != Some("0.2.0")
+        || text(plan.get("analysis_type")) != Some("decision_tree")
+    {
+        errors
+            .push("independent validation requires the current decision-tree schema 0.2.0".into());
+    }
+    let analysis_id = text(plan.get("analysis_id"));
+    let plan_hash = hashes.get("decision_tree_plan").map(String::as_str);
+    let uncertainty_plan_hash = hashes
+        .get("decision_tree_uncertainty_plan")
+        .map(String::as_str);
+    let economic_basis = plan.get("economic_basis");
+
+    let uncertainty_plan = loaded.get("decision_tree_uncertainty_plan");
+    if uncertainty_plan.and_then(|value| text(value.get("schema_version"))) != Some("0.1.0")
+        || uncertainty_plan.and_then(|value| text(value.get("analysis_type")))
+            != Some("decision_tree_uncertainty")
+        || uncertainty_plan
+            .and_then(|value| value.pointer("/analysis_input/path"))
+            .and_then(|value| text(Some(value)))
+            != Some(DECISION_TREE_PLAN_PATH)
+        || uncertainty_plan
+            .and_then(|value| value.pointer("/analysis_input/content_sha256"))
+            .and_then(|value| text(Some(value)))
+            != plan_hash
+    {
+        errors.push(
+            "decision_tree_uncertainty_plan does not bind the current decision-tree plan".into(),
+        );
+    }
+
+    let result = loaded.get("decision_tree_result");
+    if result.and_then(|value| text(value.get("schema_version"))) != Some("0.2.0")
+        || result.and_then(|value| text(value.get("engine_version"))) != Some("0.2.0")
+        || result.and_then(|value| text(value.get("analysis_type"))) != Some("decision_tree")
+        || result.and_then(|value| text(value.get("analysis_id"))) != analysis_id
+        || result.and_then(|value| text(value.get("input_sha256"))) != plan_hash
+        || result.and_then(|value| value.get("economic_basis")) != economic_basis
+    {
+        errors.push("decision_tree_result does not match the current plan bytes and basis".into());
+    }
+
+    let uncertainty_result = loaded.get("decision_tree_uncertainty_result");
+    if uncertainty_result.and_then(|value| text(value.get("schema_version"))) != Some("0.1.0")
+        || uncertainty_result.and_then(|value| text(value.get("engine_version"))) != Some("0.1.0")
+        || uncertainty_result.and_then(|value| text(value.get("analysis_type")))
+            != Some("decision_tree_uncertainty")
+        || uncertainty_result.and_then(|value| text(value.get("analysis_id"))) != analysis_id
+        || uncertainty_result.and_then(|value| text(value.get("analysis_input_sha256")))
+            != plan_hash
+        || uncertainty_result.and_then(|value| text(value.get("uncertainty_input_sha256")))
+            != uncertainty_plan_hash
+        || uncertainty_result.and_then(|value| value.get("economic_basis")) != economic_basis
+    {
+        errors.push(
+            "decision_tree_uncertainty_result does not match the current plan, uncertainty bytes, and basis"
+                .into(),
+        );
+    }
+    if uncertainty_result
+        .and_then(|value| value.pointer("/probabilistic_analysis/convergence/passed"))
+        .and_then(serde_json::Value::as_bool)
+        != Some(true)
+    {
+        errors
+            .push("decision-tree probabilistic analysis has not passed convergence checks".into());
+    }
+}
+
 fn empty_audit(plan_raw: &[u8]) -> ModelValidationAudit {
+    let decision_tree = serde_json::from_slice::<serde_json::Value>(plan_raw)
+        .ok()
+        .and_then(|value| value.get("analysis_type").cloned())
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .as_deref()
+        == Some("decision_tree");
     ModelValidationAudit {
         complete: false,
         approvable: false,
@@ -330,7 +507,11 @@ fn empty_audit(plan_raw: &[u8]) -> ModelValidationAudit {
         recommendation: "pending".into(),
         evidence_count: 0,
         check_count: 0,
-        required_coverage_count: REQUIREMENTS.len(),
+        required_coverage_count: if decision_tree {
+            DECISION_TREE_REQUIREMENTS.len()
+        } else {
+            REQUIREMENTS.len()
+        },
         covered_requirement_count: 0,
         issue_count: 0,
         open_blocking_issue_count: 0,
@@ -373,31 +554,54 @@ fn audit_values(
 
     let plan: serde_json::Value =
         serde_json::from_slice(plan_raw).unwrap_or(serde_json::Value::Null);
+    let decision_tree = text(plan.get("analysis_type")) == Some("decision_tree");
     let partitioned = plan
         .pointer("/partitioned_survival_analysis/path")
         .and_then(serde_json::Value::as_str)
         == Some(crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_PLAN_PATH);
-    let expected_schema = if partitioned { "0.2.0" } else { "0.1.0" };
+    let expected_schema = if decision_tree {
+        "0.3.0"
+    } else if partitioned {
+        "0.2.0"
+    } else {
+        "0.1.0"
+    };
     if text(report.get("schema_version")) != Some(expected_schema) {
         audit.errors.push(format!(
             "{} validation requires schema_version {expected_schema}",
-            if partitioned {
+            if decision_tree {
+                "decision-tree"
+            } else if partitioned {
                 "partitioned-survival"
             } else {
                 "non-partitioned"
             }
         ));
     }
-    let expected_bindings = LEGACY_BINDINGS
-        .iter()
-        .chain(
-            partitioned
-                .then_some(PARTITIONED_BINDINGS.iter())
-                .into_iter()
-                .flatten(),
-        )
-        .copied()
-        .collect::<Vec<_>>();
+    if decision_tree && text(report.get("analysis_type")) != Some("decision_tree") {
+        audit
+            .errors
+            .push("decision-tree validation must declare analysis_type decision_tree".into());
+    }
+    if !decision_tree && report.get("analysis_type").is_some() {
+        audit
+            .errors
+            .push("Markov/PSM validation must not declare analysis_type".into());
+    }
+    let expected_bindings = if decision_tree {
+        DECISION_TREE_BINDINGS.to_vec()
+    } else {
+        LEGACY_BINDINGS
+            .iter()
+            .chain(
+                partitioned
+                    .then_some(PARTITIONED_BINDINGS.iter())
+                    .into_iter()
+                    .flatten(),
+            )
+            .copied()
+            .collect::<Vec<_>>()
+    };
     let bindings = report.get("model_bindings");
     let expected_keys = expected_bindings
         .iter()
@@ -425,7 +629,7 @@ fn audit_values(
                 .push(format!("model_bindings.{key}.path must be {path}"));
             continue;
         }
-        let raw = if key == "analysis_plan" {
+        let raw = if key == "analysis_plan" || key == "decision_tree_plan" {
             plan_raw.to_vec()
         } else {
             match crate::heor_uncertainty::read_workspace_capped(workspace, path) {
@@ -443,6 +647,7 @@ fn audit_values(
         audit.binding_paths.insert(key.into(), path.into());
         match key {
             "analysis_plan" => audit.analysis_plan_sha256 = current_hash.clone(),
+            "decision_tree_plan" => audit.analysis_plan_sha256 = current_hash.clone(),
             "conceptual_model" => audit.conceptual_model_sha256 = current_hash.clone(),
             "uncertainty_plan" => audit.uncertainty_plan_sha256 = current_hash.clone(),
             "budget_impact_plan" => audit.budget_impact_plan_sha256 = current_hash.clone(),
@@ -456,11 +661,16 @@ fn audit_values(
         let value: serde_json::Value =
             serde_json::from_slice(&raw).unwrap_or(serde_json::Value::Null);
         loaded.insert(key.into(), value.clone());
-        if text(value.get("analysis_id")) != Some(audit.analysis_id.as_str()) {
+        if !matches!(key, "evidence_synthesis" | "decision_tree_uncertainty_plan")
+            && text(value.get("analysis_id")) != Some(audit.analysis_id.as_str())
+        {
             audit.errors.push(format!(
                 "{path} analysis_id does not match the validation report"
             ));
         }
+    }
+    if decision_tree {
+        validate_decision_tree_consistency(&loaded, &audit.binding_hashes, &mut audit.errors);
     }
     if partitioned {
         match crate::heor_partitioned_survival::audit_partitioned_survival_for_plan(
@@ -815,15 +1025,20 @@ fn audit_values(
         }
     }
 
-    let dynamic_budget_impact = loaded
-        .get("budget_impact_plan")
-        .and_then(|value| text(value.get("schema_version")))
-        == Some("0.2.0");
-    let requirements = REQUIREMENTS
-        .iter()
-        .copied()
-        .chain(dynamic_budget_impact.then_some(DYNAMIC_BIA_EVENT_STATE_REQUIREMENT))
-        .collect::<Vec<_>>();
+    let dynamic_budget_impact = !decision_tree
+        && loaded
+            .get("budget_impact_plan")
+            .and_then(|value| text(value.get("schema_version")))
+            == Some("0.2.0");
+    let requirements = if decision_tree {
+        DECISION_TREE_REQUIREMENTS.to_vec()
+    } else {
+        REQUIREMENTS
+            .iter()
+            .copied()
+            .chain(dynamic_budget_impact.then_some(DYNAMIC_BIA_EVENT_STATE_REQUIREMENT))
+            .collect::<Vec<_>>()
+    };
     audit.required_coverage_count = requirements.len();
     let check_values = checks.map_or(&[][..], Vec::as_slice);
     audit.missing_coverage = requirements
@@ -935,12 +1150,24 @@ pub fn audit_model_validation_for_plan(
     Ok(audit_values(workspace, plan_raw, &report, &report_raw))
 }
 
+pub fn read_active_plan(workspace: &Path) -> Result<Vec<u8>, String> {
+    match std::fs::symlink_metadata(workspace.join(DECISION_TREE_PLAN_PATH)) {
+        Ok(_) => crate::heor_uncertainty::read_workspace_capped(workspace, DECISION_TREE_PLAN_PATH),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            crate::heor_uncertainty::read_workspace_capped(workspace, ANALYSIS_PLAN_PATH)
+        }
+        Err(error) => Err(format!(
+            "cannot inspect the current decision-tree plan: {error}"
+        )),
+    }
+}
+
 pub fn require_model_validation_approvable(
     workspace: &Path,
     expected_hash: &str,
     actor_label: &str,
 ) -> Result<ModelValidationAudit, String> {
-    let plan_raw = crate::heor_uncertainty::read_workspace_capped(workspace, ANALYSIS_PLAN_PATH)?;
+    let plan_raw = read_active_plan(workspace)?;
     let audit = audit_model_validation_for_plan(workspace, &plan_raw)?;
     if audit.validation_sha256 != expected_hash {
         return Err(
@@ -970,6 +1197,14 @@ pub fn analysis_plan_approval_is_current(
     log: &crate::heor_approval::ApprovalLog,
     audit: &ModelValidationAudit,
 ) -> bool {
+    if audit
+        .binding_paths
+        .get("decision_tree_plan")
+        .map(String::as_str)
+        == Some(DECISION_TREE_PLAN_PATH)
+    {
+        return true;
+    }
     if !log
         .effective_approved_gates
         .contains(&crate::heor_approval::ApprovalGate::AnalysisPlan)
@@ -1058,7 +1293,7 @@ pub fn approval_bindings(
 #[tauri::command(async)]
 pub fn audit_heor_model_validation(app: AppHandle) -> Result<ModelValidationAudit, String> {
     let workspace = crate::runtime::workspace_dir(&app)?;
-    let plan_raw = crate::heor_uncertainty::read_workspace_capped(&workspace, ANALYSIS_PLAN_PATH)?;
+    let plan_raw = read_active_plan(&workspace)?;
     audit_model_validation_for_plan(&workspace, &plan_raw)
 }
 
@@ -1179,6 +1414,91 @@ mod tests {
         (plan_raw, report)
     }
 
+    fn decision_tree_fixture(root: &Path) -> (Vec<u8>, serde_json::Value) {
+        crate::heor_reporting::tests::write_decision_tree_package(
+            root,
+            "ready_for_release_review",
+            false,
+            true,
+        );
+        std::fs::create_dir_all(root.join("heor/validation-evidence")).unwrap();
+        let evidence_raw = b"independent decision-tree replication\n";
+        std::fs::write(
+            root.join("heor/validation-evidence/decision-tree-replication.txt"),
+            evidence_raw,
+        )
+        .unwrap();
+        let mut bindings = serde_json::Map::new();
+        for (key, path) in DECISION_TREE_BINDINGS {
+            let raw = std::fs::read(root.join(path)).unwrap();
+            bindings.insert(
+                key.into(),
+                json!({"path": path, "content_sha256": sha256(&raw)}),
+            );
+        }
+        let checks = DECISION_TREE_REQUIREMENTS
+            .iter()
+            .enumerate()
+            .map(|(index, requirement)| {
+                json!({
+                    "id": format!("decision-tree-check-{index}"),
+                    "scope": requirement.scope,
+                    "domain": requirement.domain,
+                    "component": requirement.component.unwrap_or("model_outcomes"),
+                    "method": method(requirement.domain),
+                    "status": "passed",
+                    "performed_by": "independent_reviewer",
+                    "description": requirement.label,
+                    "expected": "Independent criterion is met",
+                    "observed": "Independent replication supports the criterion",
+                    "rationale": "Reviewed for the declared decision-tree intended use",
+                    "evidence_ids": ["decision-tree-replication"],
+                    "issue_ids": []
+                })
+            })
+            .collect::<Vec<_>>();
+        let report = json!({
+            "schema_version": "0.3.0",
+            "analysis_type": "decision_tree",
+            "validation_id": "decision-tree-validation-1",
+            "analysis_id": "decision-tree-analysis",
+            "status": "ready_for_independent_review",
+            "intended_use": "Short-horizon cost-effectiveness decision support",
+            "model_bindings": bindings,
+            "developer_label": "Model developer",
+            "reviewer": {
+                "label": "Independent decision-tree reviewer",
+                "organization": "Independent methods unit",
+                "role": "independent_reviewer",
+                "reviewed_on": "2026-08-01",
+                "declared_independent": true,
+                "independence_statement": "No role in model development",
+                "conflict_statement": "No conflicts declared"
+            },
+            "evidence_artifacts": [{
+                "id": "decision-tree-replication",
+                "path": "heor/validation-evidence/decision-tree-replication.txt",
+                "content_sha256": sha256(evidence_raw),
+                "evidence_type": "replication_output",
+                "description": "Independent decision-tree calculation replay"
+            }],
+            "checks": checks,
+            "issues": [],
+            "limitations": ["The intended use is limited to the declared short-horizon decision tree."],
+            "conclusion": {
+                "recommendation": "approve_for_intended_use",
+                "rationale": "All required decision-tree checks passed",
+                "residual_uncertainty": ["Future evidence may change the inputs"]
+            }
+        });
+        let raw = serde_json::to_vec(&report).unwrap();
+        std::fs::write(root.join(MODEL_VALIDATION_PATH), &raw).unwrap();
+        (
+            std::fs::read(root.join(DECISION_TREE_PLAN_PATH)).unwrap(),
+            report,
+        )
+    }
+
     #[test]
     fn complete_report_is_approvable() {
         let root = temp_root("complete");
@@ -1187,6 +1507,64 @@ mod tests {
         assert!(audit.complete);
         assert!(audit.approvable);
         assert_eq!(audit.covered_requirement_count, REQUIREMENTS.len());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn current_decision_tree_validation_is_approvable_without_markov_or_bia_artifacts() {
+        let root = temp_root("decision-tree-complete");
+        let (plan_raw, _) = decision_tree_fixture(&root);
+        let audit = audit_model_validation_for_plan(&root, &plan_raw).unwrap();
+        assert!(audit.complete, "{:?}", audit.errors);
+        assert!(audit.approvable);
+        assert_eq!(
+            audit.covered_requirement_count,
+            DECISION_TREE_REQUIREMENTS.len()
+        );
+        assert_eq!(
+            audit
+                .binding_paths
+                .get("decision_tree_plan")
+                .map(String::as_str),
+            Some(DECISION_TREE_PLAN_PATH)
+        );
+        assert!(!audit.binding_paths.contains_key("budget_impact_plan"));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn decision_tree_validation_fails_closed_when_the_bound_result_drifts() {
+        let root = temp_root("decision-tree-stale-result");
+        let (plan_raw, report) = decision_tree_fixture(&root);
+        std::fs::write(
+            root.join(DECISION_TREE_RESULT_PATH),
+            br#"{"analysis_id":"decision-tree-analysis","changed":true}"#,
+        )
+        .unwrap();
+        let raw = serde_json::to_vec(&report).unwrap();
+        let audit = audit_values(&root, &plan_raw, &report, &raw);
+        assert!(!audit.complete);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("decision_tree_result")));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn legacy_decision_tree_validation_schema_cannot_enter_the_formal_gate() {
+        let root = temp_root("decision-tree-legacy-validation");
+        let (plan_raw, mut report) = decision_tree_fixture(&root);
+        report["schema_version"] = json!("0.1.0");
+        report.as_object_mut().unwrap().remove("analysis_type");
+        let raw = serde_json::to_vec(&report).unwrap();
+        let audit = audit_values(&root, &plan_raw, &report, &raw);
+        assert!(!audit.complete);
+        assert!(!audit.approvable);
+        assert!(audit
+            .errors
+            .iter()
+            .any(|error| error.contains("schema_version 0.3.0")));
         let _ = std::fs::remove_dir_all(root);
     }
 

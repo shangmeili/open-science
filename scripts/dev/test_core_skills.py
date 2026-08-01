@@ -248,6 +248,35 @@ class CoreSkillContractTests(unittest.TestCase):
         self.assertIn("proposed assumptions", contract)
         self.assertIn("convergence", contract)
 
+    def test_model_validation_skill_has_a_decision_tree_specific_contract(self):
+        skill_dir = SKILLS_ROOT / "heor-model-validation"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        contract = (skill_dir / "references" / "model-validation-contract.md").read_text(
+            encoding="utf-8"
+        )
+        template = json.loads(
+            (skill_dir / "assets" / "decision-tree-model-validation.template.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(template["schema_version"], "0.3.0")
+        self.assertEqual(template["analysis_type"], "decision_tree")
+        self.assertEqual(template["status"], "draft")
+        self.assertEqual(
+            set(template["model_bindings"]),
+            {
+                "evidence_synthesis",
+                "decision_tree_plan",
+                "decision_tree_uncertainty_plan",
+                "decision_tree_result",
+                "decision_tree_uncertainty_result",
+            },
+        )
+        self.assertIn("decision-tree-model-validation.template.json", skill)
+        self.assertIn("schema `0.3.0`", contract)
+        self.assertIn("cost-effectiveness only", contract)
+        self.assertIn("does not require a budget-impact validation path", contract)
+
     def test_heor_model_design_owns_a_source_bound_diagram_contract(self):
         skill_dir = SKILLS_ROOT / "heor-model-design"
         skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")

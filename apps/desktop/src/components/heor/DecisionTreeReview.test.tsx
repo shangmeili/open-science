@@ -6,7 +6,12 @@ import {
   reviewDecisionTreeArtifacts,
   type DecisionTreeReviewState,
 } from "./DecisionTreeReview";
-import { sha256Text } from "@/lib/heor";
+import {
+  HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT,
+  HEOR_BROWSER_DEMO_REPORTING_AUDIT,
+  HEOR_BROWSER_DEMO_REPRODUCIBILITY_AUDIT,
+  sha256Text,
+} from "@/lib/heor";
 
 const CURRENT: DecisionTreeReviewState = {
   kind: "ready",
@@ -324,6 +329,73 @@ describe("deterministic decision-tree review", () => {
     expect(screen.getByText("Sources: 2 · Proposed assumptions: 1")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /ICER.*19,130\.435/ }));
     expect(onOpenResult).toHaveBeenCalledOnce();
+  });
+
+  it("shows only meaningful decision-tree validation and release gates", async () => {
+    const approveValidation = vi.fn();
+    const approveRelease = vi.fn();
+    const validation = {
+      ...HEOR_BROWSER_DEMO_MODEL_VALIDATION_AUDIT,
+      complete: true,
+      approvable: true,
+      validationId: "decision-tree-validation",
+      validationSha256: "b".repeat(64),
+      coveredRequirementCount: 10,
+      requiredCoverageCount: 10,
+      evidenceCount: 2,
+      openBlockingIssueCount: 0,
+    };
+    const reporting = {
+      ...HEOR_BROWSER_DEMO_REPORTING_AUDIT,
+      complete: true,
+      releasable: true,
+      packageId: "decision-tree-report",
+      reportPackageSha256: "c".repeat(64),
+      coveredItemCount: 28,
+      requiredItemCount: 28,
+      bindingPaths: { decision_tree_plan: "heor/decision-tree-plan.json" },
+      bindingHashes: { decision_tree_plan: "a".repeat(64) },
+    };
+    const reproducibility = {
+      ...HEOR_BROWSER_DEMO_REPRODUCIBILITY_AUDIT,
+      complete: true,
+      releaseCompanionReady: true,
+      coveredClaimCount: 3,
+      requiredClaimCount: 3,
+    };
+    const { rerender } = render(
+      <DecisionTreeReview
+        state={CURRENT}
+        onRefresh={vi.fn()}
+        onRun={vi.fn()}
+        validationAudit={validation}
+        reportingAudit={reporting}
+        reproducibilityAudit={reproducibility}
+        onApproveValidation={approveValidation}
+        onApproveRelease={approveRelease}
+      />,
+    );
+    expect(screen.queryByText("Decision problem")).not.toBeInTheDocument();
+    expect(screen.queryByText("Conceptual model")).not.toBeInTheDocument();
+    expect(screen.queryByText("Analysis plan")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Awaiting reviewer statement" }));
+    expect(approveValidation).toHaveBeenCalledOnce();
+    expect(screen.getByText("Previous gate required")).toBeInTheDocument();
+
+    rerender(
+      <DecisionTreeReview
+        state={CURRENT}
+        onRefresh={vi.fn()}
+        onRun={vi.fn()}
+        validationAudit={validation}
+        reportingAudit={reporting}
+        reproducibilityAudit={reproducibility}
+        validationApproved
+        onApproveRelease={approveRelease}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Awaiting release-owner statement" }));
+    expect(approveRelease).toHaveBeenCalledOnce();
   });
 
   it("shows only source-current subgroup results and keeps interpretation awaiting researcher review", async () => {

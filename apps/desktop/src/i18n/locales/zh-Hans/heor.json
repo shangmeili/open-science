@@ -850,7 +850,7 @@
     "approve_with_limitations": "支持在所述限制下使用",
     "do_not_approve": "不支持按所述预定用途使用",
     "askPrepare": "请助手准备验证证据",
-    "repairPrompt": "使用 $heor-model-validation，针对当前文件准备或检查 heor/model-validation.json 及 heor/validation-evidence/ 下的本地证据。非 PSM 项目保留 schema 0.1.0 的四项方法绑定；analysis 0.15.0 / PSM 0.7.0 使用 schema 0.2.0，绑定四项方法文件、PSM 计划、五项当前 PSM 输入及 PSM、不确定性和预算影响结果。无评分地报告表面、内部、外部、交叉模型、预测和 TECH-VER 检查，保留所有失败与局限。不要声称检查人独立，不要填写研究者确认记录或建议，也不要创建批准事件。",
+    "repairPrompt": "使用 $heor-model-validation，针对当前文件准备或检查 heor/model-validation.json 及 heor/validation-evidence/ 下的本地证据。非 PSM Markov 项目保留 schema 0.1.0 的四项方法绑定；analysis 0.15.0 / PSM 0.7.0 使用 schema 0.2.0，绑定四项方法文件、PSM 计划、五项当前 PSM 输入及 PSM、不确定性和预算影响结果。决策树 analysis 0.2.0 使用 schema 0.3.0，绑定当前证据综合、决策树计划、决策树不确定性计划及两项确定性结果；不得虚构 Markov 或预算影响文件。无评分地报告表面、内部、外部、交叉模型、预测和 TECH-VER 检查，保留所有失败与局限。不要声称检查人独立，不要填写研究者确认记录或建议，也不要创建批准事件。",
     "note": "应用只验证结构、哈希、本地证据、覆盖范围与声明的检查人边界；它无法证明证据真实，也无法证明检查人确实独立。",
     "noProject": "没有可用于模型验证检查的当前项目。",
     "missingPlan": "必须先有分析计划，才能检查模型验证。"

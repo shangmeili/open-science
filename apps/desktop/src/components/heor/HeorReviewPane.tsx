@@ -269,6 +269,9 @@ const REVIEW_GATES: readonly HeorGate[] = [
   ...ACCOUNTABILITY_GATES,
 ];
 const ALL_GATES: HeorGate[] = [...REVIEW_GATES];
+const APPROVE_ACTION: HeorApprovalAction = "approve";
+const INDEPENDENT_VALIDATION_GATE: HeorGate = "independent_validation";
+const RELEASE_GATE: HeorGate = "release";
 const EVIDENCE_REVIEW_DECISIONS = ["confirmed", "rejected"] as const;
 const PAIRED_BOOTSTRAP_REVIEW_ACTIONS = ["accept", "reject"] as const;
 const NMA_REVIEW_ACTIONS = ["accept", "reject"] as const;
@@ -941,6 +944,30 @@ export function HeorReviewPane({
       setDecisionTree(decisionTreeReview);
       if (decisionTreeReview.kind !== "absent") {
         setArtifact({ kind: "missing" });
+        try {
+          setModelValidation({ kind: "ready", audit: await auditHeorModelValidation() });
+        } catch (error) {
+          setModelValidation({
+            kind: "invalid",
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+        try {
+          setReporting({ kind: "ready", audit: await auditHeorReporting() });
+        } catch (error) {
+          setReporting({
+            kind: "invalid",
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+        try {
+          setReproducibility({ kind: "ready", audit: await auditHeorReproducibility() });
+        } catch (error) {
+          setReproducibility({
+            kind: "invalid",
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
         setApprovals(await listHeorApprovals(project.id));
         return;
       }
@@ -1470,6 +1497,20 @@ export function HeorReviewPane({
 
   const latest = useMemo(() => latestByGate(approvals.events), [approvals.events]);
   const nextGate = REVIEW_GATES.find((gate) => !currentApprovals.includes(gate)) ?? null;
+  const decisionTreeValidationApproved = decisionTree.kind === "ready"
+    && modelValidation.kind === "ready"
+    && approvals.effectiveApprovedGates.includes("independent_validation")
+    && latest.get("independent_validation")?.action === "approve"
+    && latest.get("independent_validation")?.artifactSha256 === modelValidation.audit.validationSha256
+    && validationBindingsCurrent(latest.get("independent_validation"), modelValidation.audit);
+  const decisionTreeReleaseApproved = decisionTree.kind === "ready"
+    && reporting.kind === "ready"
+    && reproducibility.kind === "ready"
+    && approvals.effectiveApprovedGates.includes("release")
+    && latest.get("release")?.action === "approve"
+    && latest.get("release")?.artifactSha256 === reporting.audit.reportPackageSha256
+    && reportBindingsCurrent(latest.get("release"), reporting.audit)
+    && reproducibilityBindingCurrent(latest.get("release"), reproducibility.audit);
 
   const applyBrowserEvent = async (
     action: HeorApprovalAction,
@@ -2221,6 +2262,35 @@ export function HeorReviewPane({
             onOpenSubgroupInput={isTauri
               ? (path) => void openArtifactExternally(path, WORKSPACE_FILE_ROOT)
               : undefined}
+            validationAudit={modelValidation.kind === "ready" ? modelValidation.audit : undefined}
+            reportingAudit={reporting.kind === "ready" ? reporting.audit : undefined}
+            reproducibilityAudit={reproducibility.kind === "ready" ? reproducibility.audit : undefined}
+            validationApproved={decisionTreeValidationApproved}
+            releaseApproved={decisionTreeReleaseApproved}
+            onPrepareValidation={() => onRequestRevision(t("validation.repairPrompt"))}
+            onPrepareReporting={() => onRequestRevision(
+              reporting.kind === "ready" && reporting.audit.releasable
+                ? t("reproducibility.repairPrompt")
+                : t("reporting.repairPrompt"),
+            )}
+            onApproveValidation={modelValidation.kind === "ready" && modelValidation.audit.approvable
+              ? () => setIntent({
+                  action: APPROVE_ACTION,
+                  gate: INDEPENDENT_VALIDATION_GATE,
+                  artifactSha256: modelValidation.audit.validationSha256,
+                  expectedActor: modelValidation.audit.reviewerLabel,
+                })
+              : undefined}
+            onApproveRelease={decisionTreeValidationApproved
+              && reporting.kind === "ready" && reporting.audit.releasable
+              && reproducibility.kind === "ready" && reproducibility.audit.releaseCompanionReady
+              ? () => setIntent({
+                  action: APPROVE_ACTION,
+                  gate: RELEASE_GATE,
+                  artifactSha256: reporting.audit.reportPackageSha256,
+                  expectedActor: reporting.audit.releaseOwnerLabel,
+                })
+              : undefined}
           />
         ) : (
           <>
@@ -2851,11 +2921,11 @@ export function HeorReviewPane({
         </fieldset>
       </div>
 
-      {intent && artifact.kind === "ready" && (
+      {intent && (artifact.kind === "ready" || decisionTree.kind === "ready") && (
         <ApprovalDialog
           intent={intent}
           artifactHash={intent.artifactSha256}
-          plan={artifact.plan}
+          plan={artifact.kind === "ready" ? artifact.plan : undefined}
           conceptualModel={conceptualArtifact.kind === "ready" ? conceptualArtifact.model : undefined}
           validationAudit={modelValidation.kind === "ready" ? modelValidation.audit : undefined}
           reportingAudit={reporting.kind === "ready" ? reporting.audit : undefined}
@@ -6798,7 +6868,7 @@ export function ApprovalDialog({
 }: {
   intent: ReviewIntent;
   artifactHash: string;
-  plan: HeorAnalysisPlan;
+  plan?: HeorAnalysisPlan;
   conceptualModel?: HeorConceptualModel;
   validationAudit?: HeorModelValidationAudit;
   reportingAudit?: HeorReportingAudit;
@@ -6848,13 +6918,13 @@ export function ApprovalDialog({
         <p className="mt-2 text-xs leading-5 text-muted">
           {intent.action === "approve" ? t(`dialog.bodyByGate.${intent.gate}`) : t("dialog.revokeBody")}
         </p>
-        {intent.action === "approve" && intent.gate === "decision_problem" && (
+        {intent.action === "approve" && intent.gate === "decision_problem" && plan && (
           <DecisionProblemReviewSummary plan={plan} />
         )}
         {intent.action === "approve" && intent.gate === "conceptual_model" && conceptualModel && (
           <ConceptualModelReviewSummary model={conceptualModel} />
         )}
-        {intent.action === "approve" && intent.gate === "analysis_plan" && (
+        {intent.action === "approve" && intent.gate === "analysis_plan" && plan && (
           <AnalysisPlanReviewSummary plan={plan} />
         )}
         {intent.action === "approve" && intent.gate === "independent_validation" && validationAudit && (

@@ -3254,6 +3254,77 @@ class ModelValidationContractTests(unittest.TestCase):
         report_path.write_text(json.dumps(report, indent=2))
         return report_path, report, evidence_path
 
+    def decision_tree_validation_fixture(self, root: Path):
+        _, _, paths = ReportingContractTests().decision_tree_fixture(root)
+        evidence_dir = root / "heor/validation-evidence"
+        evidence_dir.mkdir(parents=True)
+        evidence_raw = b"independent decision-tree replication\n"
+        evidence_path = evidence_dir / "decision-tree-replication.txt"
+        evidence_path.write_bytes(evidence_raw)
+        checks = []
+        for index, (label, scope, domain, component, _statuses) in enumerate(
+            model_validation.required_coverage(decision_tree=True)
+        ):
+            checks.append({
+                "id": f"decision-tree-check-{index}",
+                "scope": scope,
+                "domain": domain,
+                "component": component or "model_outcomes",
+                "method": self.method(domain),
+                "status": "passed",
+                "performed_by": "independent_reviewer",
+                "description": label,
+                "expected": "Independent criterion is met",
+                "observed": "Independent replication supports the criterion",
+                "rationale": "Reviewed for the declared decision-tree intended use",
+                "evidence_ids": ["decision-tree-replication"],
+                "issue_ids": [],
+            })
+        bindings = {
+            key: {
+                "path": relative,
+                "content_sha256": hashlib.sha256((root / relative).read_bytes()).hexdigest(),
+            }
+            for key, relative in model_validation.DECISION_TREE_BINDINGS.items()
+        }
+        report = {
+            "schema_version": "0.3.0",
+            "analysis_type": "decision_tree",
+            "validation_id": "decision-tree-validation-1",
+            "analysis_id": "decision-tree-analysis",
+            "status": "ready_for_independent_review",
+            "intended_use": "Short-horizon cost-effectiveness decision support",
+            "model_bindings": bindings,
+            "developer_label": "Model developer",
+            "reviewer": {
+                "label": "Independent decision-tree reviewer",
+                "organization": "Independent methods unit",
+                "role": "independent_reviewer",
+                "reviewed_on": "2026-08-01",
+                "declared_independent": True,
+                "independence_statement": "No role in model development",
+                "conflict_statement": "No conflicts declared",
+            },
+            "evidence_artifacts": [{
+                "id": "decision-tree-replication",
+                "path": "heor/validation-evidence/decision-tree-replication.txt",
+                "content_sha256": hashlib.sha256(evidence_raw).hexdigest(),
+                "evidence_type": "replication_output",
+                "description": "Independent decision-tree calculation replay",
+            }],
+            "checks": checks,
+            "issues": [],
+            "limitations": ["Limited to the declared short-horizon decision tree."],
+            "conclusion": {
+                "recommendation": "approve_for_intended_use",
+                "rationale": "All required decision-tree checks passed",
+                "residual_uncertainty": ["Future evidence may change inputs"],
+            },
+        }
+        report_path = root / "heor/model-validation.json"
+        report_path.write_text(json.dumps(report, indent=2))
+        return report_path, report, paths
+
     def upgrade_to_psm(self, root: Path, report_path: Path, report: dict) -> dict[str, Path]:
         analysis_id = report["analysis_id"]
         analysis_path = root / model_validation.LEGACY_BINDINGS["analysis_plan"]
@@ -3338,6 +3409,30 @@ class ModelValidationContractTests(unittest.TestCase):
             self.assertTrue(result["complete"])
             self.assertTrue(result["approvable"])
             self.assertEqual(result["covered_requirement_count"], 18)
+
+    def test_decision_tree_validation_uses_its_own_current_graph_without_bia(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report_path, _, _ = self.decision_tree_validation_fixture(root)
+            result = model_validation.audit(report_path, root)
+            self.assertTrue(result["complete"], result)
+            self.assertTrue(result["approvable"], result)
+            self.assertEqual(result["required_coverage_count"], 10)
+            self.assertNotIn("budget_impact_plan", result["binding_hashes"])
+
+    def test_decision_tree_validation_fails_closed_on_result_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report_path, _, paths = self.decision_tree_validation_fixture(root)
+            paths["decision_tree_result"].write_text(
+                json.dumps({"analysis_id": "decision-tree-analysis", "changed": True})
+            )
+            result = model_validation.audit(report_path, root)
+            self.assertFalse(result["complete"])
+            self.assertTrue(
+                any("decision_tree_result" in error for error in result["errors"]),
+                result,
+            )
 
     def test_dynamic_budget_impact_requires_independent_flow_verification(self):
         with tempfile.TemporaryDirectory() as directory:
