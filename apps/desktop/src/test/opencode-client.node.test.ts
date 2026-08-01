@@ -34,6 +34,11 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
 
     await client.sendPrompt(sessionId, "run a literature review");
     await waitFor(() => events.some((e) => e.type === "session.idle"));
+    // OpenCode publishes status(idle) and session.idle for the same transition.
+    // Consumers must receive one terminal signal, otherwise a stale duplicate
+    // can unlock the following queued turn.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(events.filter((event) => event.type === "session.idle")).toHaveLength(1);
 
     const types = events.map((e) => e.type);
     expect(types).toContain("text.updated");

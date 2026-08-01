@@ -78,6 +78,12 @@ export function startMockOpenCode(port = 0): Promise<MockOpenCode> {
       properties: { info: { ...assistantInfo, time: { created: 1 } } },
     });
     push({ type: "message.updated", properties: { info: assistantInfo } });
+    // Pinned OpenCode publishes both forms when a runner becomes idle: first
+    // session.status(idle), then the legacy session.idle compatibility event.
+    push({
+      type: "session.status",
+      properties: { sessionID, status: { type: "idle" } },
+    });
     push({ type: "session.idle", properties: { sessionID } });
     messages[sessionID] = [
       { info: { id: "u1", role: "user" }, parts: [{ type: "text", text: "run a literature review" }] },

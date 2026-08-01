@@ -1164,12 +1164,11 @@ export class OpenCodeClient implements AgentRuntime {
         const status = props.status as SessionRuntimeStatus | undefined;
         if (!status || !sessionId) return;
         if (status.type === "idle") {
-          for (const [partId, acc] of this.textStreams)
-            if (acc.sessionId === sessionId) this.textStreams.delete(partId);
-          for (const [partId, acc] of this.reasoningStreams)
-            if (acc.sessionId === sessionId) this.reasoningStreams.delete(partId);
-          this.stepParts.delete(sessionId);
-          this.emit({ type: "session.idle", sessionId });
+          // Pinned OpenCode emits session.status(idle) immediately followed by
+          // session.idle for the same transition. The dedicated event is the
+          // single terminal signal consumed above; forwarding both can let the
+          // stale duplicate unlock a newly started queued turn.
+          break;
         } else {
           this.emit({
             type: "session.status",
