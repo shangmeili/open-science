@@ -12,6 +12,7 @@
     "domain-check": { "displayName": "科学領域チェック", "description": "科学分析コードの決定論的な領域エラーを検出します。" },
     "heor-advanced-value-of-information": { "displayName": "高度な情報価値", "description": "集団 EVPI、EVPPI、EVSI、ENBS を監査します。" },
     "heor-background-mortality": { "displayName": "背景死亡率", "description": "レビュー済みの一般集団死亡率と超過死亡率を統合します。" },
+    "heor-decision-tree": { "displayName": "決定論的意思決定木", "description": "出典に結び付いた短期の意思決定木による費用対効果計算を作成し再現します。" },
     "heor-budget-impact": { "displayName": "予算影響分析", "description": "監査可能な 3 年間の支払者予算影響分析を構築します。" },
     "heor-cohort-state-transition": { "displayName": "コホート状態遷移", "description": "静的または時変の決定論的コホートモデルを構築します。" },
     "heor-cost-input-normalization": { "displayName": "費用入力の標準化", "description": "エビデンスに結び付いた年間状態費用を標準化します。" },

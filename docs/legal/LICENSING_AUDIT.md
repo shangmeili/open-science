@@ -18,7 +18,7 @@ the exact bytes and preservation of all required notices.
 | Content class | Current evidence | Packaged | Decision |
 | --- | --- | ---: | --- |
 | Inherited Open Science source and AI4HEOR changes | Root MIT license; upstream `master` license is MIT | Yes | Allowed under MIT with notice |
-| First-party core Skills | 52 active Skill directories; project-authored under root MIT | Yes | Allowed; embedded third-party notices preserved |
+| First-party core Skills | 53 active Skill directories; project-authored under root MIT | Yes | Allowed; embedded third-party notices preserved |
 | Open Science general Skills | Seven directories from `ai4s-research/ai4s-skills` revision `8fa2ab0523082c135598909b227ed8feb48263ad`; repository MIT license copied into every directory; per-tree hashes recorded in the release registry | Yes | Allowed as isolated adapters; HEOR first-party contracts and application permissions take precedence |
 | Citation-formatting renderer | Project-authored Rust/Markdown renderer under root MIT; consumes the bounded CSL-JSON-compatible local library but includes no file from the CC BY-SA 3.0 CSL styles repository | Yes | Allowed; three AI4HEOR-owned profiles, source hashes, metadata warnings, and Human review boundary |
 | Target-journal submission check | Project-authored Rust/Markdown renderer and portable validator under root MIT; official author-guide pages are recorded as links and local researcher-supplied snapshots only | Yes | Allowed; no journal instructions, reporting checklist, CSL style, or submission template is bundled or redistributed |

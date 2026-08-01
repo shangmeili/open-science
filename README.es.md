@@ -70,7 +70,7 @@ Este benchmark del proyecto base no demuestra que la ciencia dentro de AI4HEOR d
 
 ## Capacidades actuales
 
-**Base completa de Open Science, reforzada con skills HEOR acotadas.** Se distribuyen 52 skills HEOR propias y 7 skills generales de Open Science bajo MIT y fijadas por hash. Ninguna adquiere autoridad de aprobación o selección metodológica.
+**Base completa de Open Science, reforzada con skills HEOR acotadas.** Se distribuyen 53 skills HEOR propias y 7 skills generales de Open Science bajo MIT y fijadas por hash. Ninguna adquiere autoridad de aprobación o selección metodológica.
 
 | Skill | Rol | Salida principal |
 | --- | --- | --- |
@@ -79,6 +79,7 @@ Este benchmark del proyecto base no demuestra que la ciencia dentro de AI4HEOR d
 | `$heor-evidence-search` | Preparar búsquedas PubMed/ClinicalTrials.gov sujetas a autorización humana | Hash exacto de solicitud y candidatos de metadatos |
 | `$literature-review` | Importar, deduplicar, validar y exportar referencias del proyecto | Biblioteca vinculada a fuentes y archivo RIS, BibTeX o CSL-JSON |
 | `$heor-model-design` | Estructurar el problema de decisión y modelo conceptual definidos por la persona | Artefactos de problema y modelo conceptual |
+| `$heor-decision-tree` | Ejecutar un árbol finito de eventos con fuentes seleccionado por la persona investigadora | Costes, QALY, incrementos y traza de cálculo vinculados al hash de entrada |
 | `$heor-cohort-state-transition` / `$heor-partitioned-survival` | Ejecutar modelos económicos deterministas acotados | Costes, QALY, incrementos y controles reproducibles |
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | Ejecutar incertidumbre declarada y VOI acotado | DSA/PSA/CEAC/CEAF/EVPI y VOI avanzado revisado aparte |
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | Ejecutar impacto presupuestario estático o dinámico | Resultados desglosados y artefactos de auditoría |
@@ -87,7 +88,7 @@ Este benchmark del proyecto base no demuestra que la ciencia dentro de AI4HEOR d
 | `$research-tables` | Preparar tablas tipadas con unidades y fuentes explícitas | XLSX sin fórmulas revisable, un CSV por tabla y registro de generación |
 | `$journal-submission-check` | Registrar requisitos formales explícitos desde una guía oficial guardada por la persona investigadora | Informe vinculado a la fuente y pendiente de revisión humana |
 
-Los nombres y descripciones de las 59 skills se publican en los siete idiomas de interfaz manteniendo visible el `$skill-id` exacto.
+Los nombres y descripciones de las 60 skills se publican en los siete idiomas de interfaz manteniendo visible el `$skill-id` exacto.
 
 ### Plataforma
 
@@ -105,7 +106,7 @@ Los nombres y descripciones de las 59 skills se publican en los siete idiomas de
 
 ## Skills y conectores
 
-Se distribuyen las 52 skills HEOR propias de `runtime/skills/core/` y 7 skills generales de Open Science obtenidas de una revisión fija, con licencia MIT y hash de árbol verificados. Las skills documentales de Anthropic no se incluyen porque su licencia prohíbe redistribuirlas.
+Se distribuyen las 53 skills HEOR propias de `runtime/skills/core/` y 7 skills generales de Open Science obtenidas de una revisión fija, con licencia MIT y hash de árbol verificados. Las skills documentales de Anthropic no se incluyen porque su licencia prohíbe redistribuirlas.
 
 Los siete conectores de investigación de Open Science —Paper Search, BioMCP, Materials Project, FRED, Space Weather, Open-Meteo y USGS Water— se instalan bajo demanda en un entorno gestionado por la app. `$heor-evidence-search` sigue siendo la vía auditable para evidencia HEOR; un resultado de un conector general no se convierte automáticamente en evidencia incluida. Consulta [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md).
 

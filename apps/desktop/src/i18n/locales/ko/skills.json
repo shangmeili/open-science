@@ -12,6 +12,7 @@
     "domain-check": { "displayName": "과학 도메인 검사", "description": "과학 분석 코드의 결정론적 도메인 오류를 탐지합니다." },
     "heor-advanced-value-of-information": { "displayName": "고급 정보가치", "description": "인구 EVPI, EVPPI, EVSI와 ENBS를 감사합니다." },
     "heor-background-mortality": { "displayName": "배경 사망률", "description": "검토된 일반인구 및 초과 사망률 일정을 결합합니다." },
+    "heor-decision-tree": { "displayName": "결정론적 의사결정나무", "description": "출처에 연결된 단기 의사결정나무 비용효과 계산을 작성하고 재현합니다." },
     "heor-budget-impact": { "displayName": "예산영향 분석", "description": "감사 가능한 3년 지불자 예산영향 분석을 구축합니다." },
     "heor-cohort-state-transition": { "displayName": "코호트 상태전이", "description": "정적 또는 시변 결정론적 코호트 모형을 구축합니다." },
     "heor-cost-input-normalization": { "displayName": "비용 입력 표준화", "description": "근거와 연결된 연간 상태 비용 입력을 표준화합니다." },

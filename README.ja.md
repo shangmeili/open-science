@@ -70,7 +70,7 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 
 ## 現在の機能
 
-**Open Science の研究基盤を維持し、境界を持つ HEOR Skill で強化します。** 52 個のファーストパーティ HEOR Skill と、ハッシュで固定された 7 個の MIT Open Science 汎用研究 Skill を同梱します。いずれも承認権や手法選択権を取得しません。
+**Open Science の研究基盤を維持し、境界を持つ HEOR Skill で強化します。** 53 個のファーストパーティ HEOR Skill と、ハッシュで固定された 7 個の MIT Open Science 汎用研究 Skill を同梱します。いずれも承認権や手法選択権を取得しません。
 
 | スキル | 役割 | 主な成果物 |
 | --- | --- | --- |
@@ -79,6 +79,7 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 | `$heor-evidence-search` | Human の通信承認を要する PubMed/ClinicalTrials.gov 検索を作成 | 正確なリクエストハッシュとメタデータ候補 |
 | `$literature-review` | プロジェクト内の書誌情報を取り込み、重複整理、検証、書き出し | 出典付き参考文献ライブラリと RIS、BibTeX、CSL-JSON 交換ファイル |
 | `$heor-model-design` | 人間が定義した意思決定問題と概念モデルを構造化 | 意思決定問題・概念モデル成果物 |
+| `$heor-decision-tree` | 研究者が選択した出典付き有限イベントツリーを実行 | 入力ハッシュに結び付いた短期費用、QALY、増分結果、計算トレース |
 | `$heor-cohort-state-transition` / `$heor-partitioned-survival` | 境界付き決定論的経済モデルを実行 | 再現可能な費用、QALY、増分結果、検査 |
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | 宣言済み不確実性分析と限定 VOI を実行 | DSA/PSA/CEAC/CEAF/EVPI と個別レビュー対象の高度 VOI |
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | 静的・動的予算影響分析を実行 | 内訳付き予算結果と監査成果物 |
@@ -87,7 +88,7 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 | `$research-tables` | 型、単位、出典を明示した研究用表を準備 | 確認可能な数式なし XLSX、表ごとの CSV、生成監査記録 |
 | `$journal-submission-check` | 研究者が保存した公式投稿規定から明示的な形式要件を記録 | 出典に結び付き、研究者の確認待ちの点検報告 |
 
-59 個すべての Skill の名称と説明は 7 言語で提供され、正確な `$skill-id` も表示されます。
+60 個すべての Skill の名称と説明は 7 言語で提供され、正確な `$skill-id` も表示されます。
 
 ### プラットフォーム
 
@@ -105,7 +106,7 @@ Formerly Open Science. Claude Science などの AI-for-science ワークベン�
 
 ## スキルとコネクタ
 
-`runtime/skills/core/` の 52 個のファーストパーティ HEOR Skill と、固定コミットから取得して MIT ライセンスとツリーハッシュを検証した 7 個の Open Science 汎用研究 Skill を配布します。Anthropic の文書 Skill は再配布不可のため同梱しません。
+`runtime/skills/core/` の 53 個のファーストパーティ HEOR Skill と、固定コミットから取得して MIT ライセンスとツリーハッシュを検証した 7 個の Open Science 汎用研究 Skill を配布します。Anthropic の文書 Skill は再配布不可のため同梱しません。
 
 Open Science の 7 個の研究コネクタ（Paper Search、BioMCP、Materials Project、FRED、Space Weather、Open-Meteo、USGS Water）は Settings からアプリ専用環境へ必要時にインストールできます。`$heor-evidence-search` は監査可能な HEOR 証拠検索経路として維持され、汎用コネクタの結果が自動的に採用証拠になることはありません。詳細は [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md) を参照してください。
 

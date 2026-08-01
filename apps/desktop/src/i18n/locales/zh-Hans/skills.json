@@ -12,6 +12,7 @@
     "domain-check": { "displayName": "分析代码检查", "description": "检查科学分析代码中可明确判定的领域错误。" },
     "heor-advanced-value-of-information": { "displayName": "高级信息价值分析", "description": "计算并检查人群 EVPI、EVPPI、EVSI 和 ENBS。" },
     "heor-background-mortality": { "displayName": "背景死亡率", "description": "组合经复核的一般人群死亡率与超额死亡率。" },
+    "heor-decision-tree": { "displayName": "确定性决策树", "description": "建立并复算有来源记录的短期决策树成本效果分析。" },
     "heor-budget-impact": { "displayName": "预算影响分析", "description": "建立三年期支付方预算影响模型，并保留可复核的计算记录。" },
     "heor-cohort-state-transition": { "displayName": "队列状态转移模型", "description": "建立固定转移概率或时变转移概率的队列模型。" },
     "heor-cost-input-normalization": { "displayName": "成本输入标准化", "description": "标准化有证据关联的年度状态成本输入。" },

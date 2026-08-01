@@ -19,7 +19,8 @@ import sys
 import tempfile
 
 
-OUTPUT_PATH = Path("heor/results/base-case.json")
+BASE_CASE_OUTPUT_PATH = Path("heor/results/base-case.json")
+DECISION_TREE_OUTPUT_PATH = Path("heor/results/decision-tree.json")
 OUTPUT_CAP_BYTES = 25 * 1024 * 1024
 PROVENANCE_VALIDATOR = (
     Path(__file__).resolve().parents[2]
@@ -107,11 +108,20 @@ def main() -> int:
     args = _parser().parse_args()
     root = Path.cwd().resolve()
     plan = _inside(root, Path(args.plan))
-    output = _inside(root, OUTPUT_PATH)
     if not plan.is_file():
         raise ValueError(f"analysis plan not found: {plan.relative_to(root)}")
 
-    _validate_research_contract(root, plan)
+    plan_payload = json.loads(plan.read_bytes())
+    analysis_type = str(
+        plan_payload.get("analysis_type") or "markov_state_transition"
+    )
+    decision_tree = analysis_type == "decision_tree"
+    if not decision_tree:
+        _validate_research_contract(root, plan)
+    output = _inside(
+        root,
+        DECISION_TREE_OUTPUT_PATH if decision_tree else BASE_CASE_OUTPUT_PATH,
+    )
 
     core_raw = os.environ.get("AI4HEOR_HEOR_CORE_PATH", "").strip()
     if not core_raw:
@@ -147,7 +157,7 @@ def main() -> int:
     rendered = json.dumps(result, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
     with tempfile.NamedTemporaryFile(
         dir=output.parent,
-        prefix=".base-case-",
+        prefix=f".{output.stem}-",
         suffix=".tmp",
         delete=False,
     ) as handle:
@@ -161,6 +171,7 @@ def main() -> int:
         json.dumps(
             {
                 "status": "calculation_only",
+                "analysis_type": analysis_type,
                 "plan": str(plan.relative_to(root)),
                 "input_sha256": expected,
                 "result": str(output.relative_to(root)),

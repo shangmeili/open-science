@@ -12,6 +12,7 @@
     "domain-check": { "displayName": "Scientific Domain Check", "description": "Detect deterministic domain errors in scientific analysis code." },
     "heor-advanced-value-of-information": { "displayName": "Advanced Value of Information", "description": "Audit population EVPI, EVPPI, EVSI, and ENBS analyses." },
     "heor-background-mortality": { "displayName": "Background Mortality", "description": "Combine reviewed population and excess mortality schedules." },
+    "heor-decision-tree": { "displayName": "Deterministic Decision Tree", "description": "Build and replay source-bound short-horizon decision-tree cost-effectiveness calculations." },
     "heor-budget-impact": { "displayName": "Budget Impact", "description": "Build auditable three-year payer budget impact analyses." },
     "heor-cohort-state-transition": { "displayName": "Cohort State Transition", "description": "Build static or time-varying deterministic cohort models." },
     "heor-cost-input-normalization": { "displayName": "Cost Input Normalization", "description": "Normalize evidence-linked annual state-cost inputs." },

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deterministic Decision Tree"
+  short_description: "Build and replay source-bound short-horizon decision trees"
+  default_prompt: "Use $heor-decision-tree to prepare and validate a source-bound short-horizon decision-tree analysis."

@@ -12,6 +12,7 @@
     "domain-check": { "displayName": "Wissenschaftlicher Domänencheck", "description": "Erkennt deterministische Domänenfehler in wissenschaftlichem Analysecode." },
     "heor-advanced-value-of-information": { "displayName": "Erweiterter Informationswert", "description": "Prüft Populations-EVPI, EVPPI, EVSI und ENBS." },
     "heor-background-mortality": { "displayName": "Hintergrundmortalität", "description": "Kombiniert geprüfte Bevölkerungs- und Exzessmortalität." },
+    "heor-decision-tree": { "displayName": "Deterministischer Entscheidungsbaum", "description": "Erstellt und reproduziert quellengebundene kurzfristige Entscheidungsbaum-Kostenwirksamkeitsanalysen." },
     "heor-budget-impact": { "displayName": "Budgetauswirkung", "description": "Erstellt prüfbare dreijährige Budgetauswirkungsanalysen." },
     "heor-cohort-state-transition": { "displayName": "Kohorten-Zustandsübergang", "description": "Erstellt statische oder zeitvariable deterministische Kohortenmodelle." },
     "heor-cost-input-normalization": { "displayName": "Normierung der Kosteneingaben", "description": "Normiert evidenzgebundene jährliche Zustandskosten." },

@@ -5,7 +5,11 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -91,8 +95,8 @@ class CoreSkillContractTests(unittest.TestCase):
                 self.assertEqual(set(payload), {"catalog"})
                 catalog = payload["catalog"]
                 # The shipped catalog also contains separately admitted Open
-                # Science Skills. This core contract owns the 52 first-party
-                # entries; the exact 52+7 union is checked by the foundation
+                # Science Skills. This core contract owns the 53 first-party
+                # entries; the exact 53+7 union is checked by the foundation
                 # and product-documentation contracts.
                 self.assertTrue(skill_names.issubset(set(catalog)))
                 for name, entry in catalog.items():
@@ -205,6 +209,111 @@ class CoreSkillContractTests(unittest.TestCase):
             "never overwrites",
         ):
             self.assertIn(required, contract)
+
+    def test_decision_tree_skill_replays_the_first_party_golden_case(self):
+        skill_dir = SKILLS_ROOT / "heor-decision-tree"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        workbench = (SKILLS_ROOT / "heor-workbench" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        startup_audit = (
+            ROOT / "apps/desktop/src-tauri/src/startup_audit.rs"
+        ).read_text(encoding="utf-8")
+        contract = (skill_dir / "references" / "decision-tree-contract.md").read_text(
+            encoding="utf-8"
+        )
+        template = json.loads(
+            (skill_dir / "assets" / "decision-tree-plan.template.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        validator = skill_dir / "scripts" / "validate_decision_tree.py"
+        golden = ROOT / "python/heor_core/golden_cases/two_strategy_decision_tree.json"
+        self.assertEqual(template["analysis_type"], "decision_tree")
+        self.assertEqual(template["schema_version"], "0.1.0")
+        for required in (
+            "references/decision-tree-contract.md",
+            "../heor-workbench/scripts/run_first_party_analysis.py",
+            "heor/decision-tree-plan.json",
+            "calculation-only",
+            "does not support DSA or PSA",
+        ):
+            self.assertIn(required, skill)
+        for required in (
+            "one year",
+            "source_ids",
+            "assumption_ids",
+            "probabilities must sum to one",
+            "Human",
+        ):
+            self.assertIn(required, contract)
+        self.assertIn("$heor-decision-tree", workbench)
+        self.assertIn('"heor-decision-tree"', startup_audit)
+        self.assertIn('"decision_tree.py"', startup_audit)
+
+        environment = dict(os.environ)
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
+        environment["PYTHONPATH"] = str(ROOT / "python/heor_core/src")
+        checked = subprocess.run(
+            [sys.executable, "-B", str(validator), "--plan", str(golden)],
+            cwd=ROOT,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        summary = json.loads(checked.stdout)
+        self.assertTrue(summary["valid"])
+        self.assertEqual(summary["strategy_count"], 2)
+        self.assertEqual(summary["analysis_id"], "golden-two-strategy-decision-tree")
+
+        with tempfile.TemporaryDirectory() as directory:
+            result = Path(directory) / "result.json"
+            executed = subprocess.run(
+                [sys.executable, "-B", "-m", "heor_core", str(golden)],
+                cwd=ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            result.write_text(executed.stdout, encoding="utf-8")
+            verified = subprocess.run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(validator),
+                    "--plan",
+                    str(golden),
+                    "--result",
+                    str(result),
+                ],
+                cwd=ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(verified.returncode, 0, verified.stderr)
+            payload = json.loads(result.read_text(encoding="utf-8"))
+            payload["strategies"]["comparator"]["total_cost"] += 1
+            result.write_text(json.dumps(payload), encoding="utf-8")
+            rejected = subprocess.run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(validator),
+                    "--plan",
+                    str(golden),
+                    "--result",
+                    str(result),
+                ],
+                cwd=ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn("does not match deterministic replay", rejected.stderr)
 
     def test_research_tables_owns_typed_source_bound_xlsx_and_csv_contract(self):
         skill_dir = SKILLS_ROOT / "research-tables"

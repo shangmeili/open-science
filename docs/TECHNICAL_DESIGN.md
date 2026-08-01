@@ -327,7 +327,7 @@ OpenCode config, provenance, logs, exports, or git.
 
 ```text
 skills/
-  core/      # 52 first-party HEOR, evidence, validation, reporting, and harness Skills
+  core/      # 53 first-party HEOR, evidence, validation, reporting, and harness Skills
   external/  # inactive third-party review cache; never loaded directly
 
 workspace/

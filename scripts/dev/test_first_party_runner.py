@@ -29,11 +29,15 @@ class FirstPartyRunnerTests(unittest.TestCase):
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
-    def run_runner(self, workspace: Path) -> subprocess.CompletedProcess[str]:
+    def run_runner(
+        self,
+        workspace: Path,
+        plan: str = "heor/analysis-plan.json",
+    ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["AI4HEOR_HEOR_CORE_PATH"] = str(CORE)
         return subprocess.run(
-            [sys.executable, "-B", str(RUNNER), "--plan", "heor/analysis-plan.json"],
+            [sys.executable, "-B", str(RUNNER), "--plan", plan],
             cwd=workspace,
             env=env,
             capture_output=True,
@@ -56,6 +60,39 @@ class FirstPartyRunnerTests(unittest.TestCase):
             result = json.loads((workspace / summary["result"]).read_text(encoding="utf-8"))
             self.assertEqual(result["input_sha256"], hashlib.sha256(plan.read_bytes()).hexdigest())
             self.assertEqual(result["engine_version"], summary["engine_version"])
+
+    def test_valid_decision_tree_writes_a_separate_replayable_result(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            plan = workspace / "heor/decision-tree-plan.json"
+            plan.parent.mkdir(parents=True)
+            plan.write_bytes(
+                (
+                    ROOT
+                    / "python/heor_core/golden_cases/two_strategy_decision_tree.json"
+                ).read_bytes()
+            )
+
+            completed = self.run_runner(workspace, "heor/decision-tree-plan.json")
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            summary = json.loads(completed.stdout)
+            self.assertEqual(summary["status"], "calculation_only")
+            self.assertEqual(summary["analysis_type"], "decision_tree")
+            self.assertEqual(summary["result"], "heor/results/decision-tree.json")
+
+            result = json.loads(
+                (workspace / summary["result"]).read_text(encoding="utf-8")
+            )
+            self.assertEqual(result["analysis_type"], "decision_tree")
+            self.assertEqual(
+                result["input_sha256"], hashlib.sha256(plan.read_bytes()).hexdigest()
+            )
+            self.assertAlmostEqual(
+                result["strategies"]["comparator"]["total_cost"], 1800.0
+            )
+            self.assertAlmostEqual(
+                result["strategies"]["intervention"]["total_cost"], 2900.0
+            )
 
     def test_incompatible_provenance_field_does_not_create_a_result(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

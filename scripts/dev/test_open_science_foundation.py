@@ -48,10 +48,10 @@ class OpenScienceFoundationTests(unittest.TestCase):
         audit = FOUNDATION_AUDIT.read_text(encoding="utf-8")
         workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
         first_party = [path for path in CORE.iterdir() if (path / "SKILL.md").is_file()]
-        self.assertEqual(len(first_party), 52)
+        self.assertEqual(len(first_party), 53)
         self.assertIn("严重失误", audit)
         self.assertIn("release blocker（发布阻断项）", audit)
-        self.assertIn("总数少于 59 时不得构建安装包", audit)
+        self.assertIn("总数少于 60 时不得构建安装包", audit)
         self.assertIn("不能删除或降级 Open Science 的通用科研能力", audit)
         self.assertIn("python scripts/dev/test_open_science_foundation.py -v", workflow)
 
@@ -72,13 +72,13 @@ class OpenScienceFoundationTests(unittest.TestCase):
             self.assertEqual(assets[name]["source"]["revision"], REVISION)
             self.assertEqual(assets[name]["source"]["license_spdx"], "MIT")
 
-    def test_all_shipped_languages_expose_the_exact_52_plus_7_skill_catalog(self):
+    def test_all_shipped_languages_expose_the_exact_53_plus_7_skill_catalog(self):
         first_party = {
             path.name for path in CORE.iterdir() if (path / "SKILL.md").is_file()
         }
         expected = first_party | set(SKILLS)
-        self.assertEqual(len(first_party), 52)
-        self.assertEqual(len(expected), 59)
+        self.assertEqual(len(first_party), 53)
+        self.assertEqual(len(expected), 60)
         locale_root = ROOT / "apps/desktop/src/i18n/locales"
         for locale in ("de", "en", "es", "fr", "ja", "ko", "zh-Hans"):
             catalog = json.loads(

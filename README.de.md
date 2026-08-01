@@ -70,7 +70,7 @@ Dieser Benchmark der Upstream-Plattform belegt weder, dass Forschung in AI4HEOR 
 
 ## Aktuelle Funktionen
 
-**Vollständige Open-Science-Grundlage, ergänzt durch klar begrenzte HEOR-Skills.** Ausgeliefert werden 52 First-Party-HEOR-Skills und 7 hash-fixierte allgemeine Open-Science-Skills unter MIT. Keiner übernimmt Freigabe- oder Methodenwahl-Autorität.
+**Vollständige Open-Science-Grundlage, ergänzt durch klar begrenzte HEOR-Skills.** Ausgeliefert werden 53 First-Party-HEOR-Skills und 7 hash-fixierte allgemeine Open-Science-Skills unter MIT. Keiner übernimmt Freigabe- oder Methodenwahl-Autorität.
 
 | Skill | Rolle | Hauptausgabe |
 | --- | --- | --- |
@@ -79,6 +79,7 @@ Dieser Benchmark der Upstream-Plattform belegt weder, dass Forschung in AI4HEOR 
 | `$heor-evidence-search` | Human-autorisierte PubMed/ClinicalTrials.gov-Suche vorbereiten | Exakter Request-Hash und Metadatenkandidaten |
 | `$literature-review` | Projektinterne Literaturdaten importieren, deduplizieren, validieren und exportieren | Quellengebundene Literaturbibliothek plus RIS-, BibTeX- oder CSL-JSON-Austauschdatei |
 | `$heor-model-design` | Menschlich definiertes Entscheidungsproblem und konzeptionelles Modell strukturieren | Entscheidungs- und Modellartefakte |
+| `$heor-decision-tree` | Einen vom Forschenden gewählten endlichen Ereignisbaum mit Quellenbindung ausführen | Eingabegebundene kurzfristige Kosten, QALYs, Inkremente und Rechenspur |
 | `$heor-cohort-state-transition` / `$heor-partitioned-survival` | Begrenzte deterministische ökonomische Modelle ausführen | Reproduzierbare Kosten, QALYs, Inkremente und Prüfungen |
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | Deklarierte Unsicherheit und begrenzte VOI ausführen | DSA/PSA/CEAC/CEAF/EVPI und separat geprüfte erweiterte VOI |
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | Statische oder dynamische Budgetwirkung ausführen | Aufgeschlüsselte Budgetergebnisse und Audit-Artefakte |
@@ -87,7 +88,7 @@ Dieser Benchmark der Upstream-Plattform belegt weder, dass Forschung in AI4HEOR 
 | `$research-tables` | Typisierte, einheiten- und quellengebundene Forschungstabellen vorbereiten | Prüfbare formelfreie XLSX, CSV je Tabelle und Generierungsnachweis |
 | `$journal-submission-check` | Explizite formale Vorgaben aus einer von Forschenden gespeicherten offiziellen Autorenrichtlinie erfassen | Quellengebundener Prüfbericht, der auf die menschliche Prüfung wartet |
 
-Namen und Beschreibungen aller 59 Skills werden in sieben UI-Sprachen ausgeliefert; die exakte `$skill-id` bleibt sichtbar.
+Namen und Beschreibungen aller 60 Skills werden in sieben UI-Sprachen ausgeliefert; die exakte `$skill-id` bleibt sichtbar.
 
 ### Plattform
 
@@ -105,7 +106,7 @@ Namen und Beschreibungen aller 59 Skills werden in sieben UI-Sprachen ausgeliefe
 
 ## Skills und Konnektoren
 
-Ausgeliefert werden 52 First-Party-HEOR-Skills aus `runtime/skills/core/` sowie 7 allgemeine Open-Science-Skills aus einem festen Commit mit geprüfter MIT-Lizenz und Baum-Hash. Anthropics Dokument-Skills werden wegen ihres Weitergabeverbots nicht gebündelt.
+Ausgeliefert werden 53 First-Party-HEOR-Skills aus `runtime/skills/core/` sowie 7 allgemeine Open-Science-Skills aus einem festen Commit mit geprüfter MIT-Lizenz und Baum-Hash. Anthropics Dokument-Skills werden wegen ihres Weitergabeverbots nicht gebündelt.
 
 Die sieben Open-Science-Forschungskonnektoren Paper Search, BioMCP, Materials Project, FRED, Space Weather, Open-Meteo und USGS Water werden bei Bedarf in einer app-verwalteten Umgebung installiert. `$heor-evidence-search` bleibt der auditierbare HEOR-Evidenzweg; Ergebnisse allgemeiner Konnektoren werden nicht automatisch eingeschlossene Evidenz. Siehe [`docs/CONNECT_YOUR_TOOLS.md`](./docs/CONNECT_YOUR_TOOLS.md).
 

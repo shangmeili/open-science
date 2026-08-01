@@ -12,10 +12,11 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 
-const MIN_FIRST_PARTY_SKILLS: usize = 48;
-const ESSENTIAL_SKILLS: [&str; 8] = [
+const MIN_FIRST_PARTY_SKILLS: usize = 53;
+const ESSENTIAL_SKILLS: [&str; 9] = [
     "ai4heor-preference-learning",
     "ai4heor-skill-authoring",
+    "heor-decision-tree",
     "heor-reference-case",
     "heor-reporting",
     "heor-reproducibility-package",
@@ -23,7 +24,7 @@ const ESSENTIAL_SKILLS: [&str; 8] = [
     "research-presentation",
     "traceability-review",
 ];
-const HEOR_ENGINE_FILES: [&str; 3] = ["__init__.py", "cli.py", "model.py"];
+const HEOR_ENGINE_FILES: [&str; 4] = ["__init__.py", "cli.py", "decision_tree.py", "model.py"];
 const HARNESS_FILES: [&str; 4] = [
     "AGENTS.md",
     "KNOWLEDGE.md",
@@ -281,7 +282,23 @@ mod tests {
             .find(|check| check.id == "skills")
             .unwrap();
         assert!(!check.ready);
-        assert!(check.detail.contains("48") || check.detail.contains("heor-workbench"));
+        assert!(check.detail.contains("53") || check.detail.contains("heor-workbench"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn incomplete_current_first_party_catalog_fails_closed() {
+        let root = fixture("incomplete-current-catalog");
+        let (workspace, skills, engine, harness) = valid_fixture(&root);
+        fs::remove_dir_all(skills.join("fixture-skill-52")).unwrap();
+
+        let audit = run_audit(workspace, Ok(skills), Ok(engine), Ok(harness));
+
+        assert!(!audit.required_ready);
+        assert!(audit
+            .checks
+            .iter()
+            .any(|check| check.id == "skills" && check.detail.contains("53")));
         fs::remove_dir_all(root).unwrap();
     }
 

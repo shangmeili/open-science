@@ -28,6 +28,7 @@ REPRESENTATIVE_SKILLS = {
     "heor-evidence-search",
     "literature-review",
     "heor-model-design",
+    "heor-decision-tree",
     "heor-cohort-state-transition",
     "heor-partitioned-survival",
     "heor-uncertainty-analysis",
@@ -74,9 +75,9 @@ class AI4HEORProductDocsTests(unittest.TestCase):
             raise AssertionError("no bundled Skills found")
 
     def test_localized_skill_catalogs_match_the_bundled_runtime(self):
-        self.assertEqual(len(self.first_party_skill_names), 52)
+        self.assertEqual(len(self.first_party_skill_names), 53)
         self.assertEqual(len(self.admitted_skill_names), 7)
-        self.assertEqual(len(self.skill_names), 59)
+        self.assertEqual(len(self.skill_names), 60)
         for locale in README_BY_LOCALE:
             with self.subTest(locale=locale):
                 payload = json.loads(
@@ -90,7 +91,7 @@ class AI4HEORProductDocsTests(unittest.TestCase):
             with self.subTest(locale=locale):
                 text = (ROOT / relative).read_text(encoding="utf-8")
                 self.assertIn("AI4HEOR", text)
-                self.assertIn("52", text)
+                self.assertIn("53", text)
                 for skill in REPRESENTATIVE_SKILLS:
                     self.assertIn(f"`${skill}`", text)
                 for screenshot in CURRENT_SCREENSHOTS:

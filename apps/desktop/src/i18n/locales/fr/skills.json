@@ -12,6 +12,7 @@
     "domain-check": { "displayName": "Contrôle du domaine scientifique", "description": "Détecte les erreurs déterministes de domaine dans le code scientifique." },
     "heor-advanced-value-of-information": { "displayName": "Valeur avancée de l'information", "description": "Audite EVPI populationnelle, EVPPI, EVSI et ENBS." },
     "heor-background-mortality": { "displayName": "Mortalité de fond", "description": "Combine mortalité de population et surmortalité révisées." },
+    "heor-decision-tree": { "displayName": "Arbre de décision déterministe", "description": "Construit et rejoue des analyses coût-efficacité à court terme liées à leurs sources." },
     "heor-budget-impact": { "displayName": "Impact budgétaire", "description": "Construit des analyses payeur auditables sur trois ans." },
     "heor-cohort-state-transition": { "displayName": "Transition d'état de cohorte", "description": "Construit des modèles de cohorte déterministes statiques ou variables." },
     "heor-cost-input-normalization": { "displayName": "Normalisation des coûts", "description": "Normalise les coûts annuels d'état liés aux données." },

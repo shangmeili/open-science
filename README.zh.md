@@ -95,7 +95,7 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 
 ## 当前能力
 
-**保留完整 Open Science 基础，并增加有边界的 HEOR 方法。** AI4HEOR 打包 52 个第一方 Skill 和 7 个哈希锁定的 Open Science 通用科研 Skill，都不取得批准权或方法选择权。代表性 HEOR 工作流包括：
+**保留完整 Open Science 基础，并增加有边界的 HEOR 方法。** AI4HEOR 打包 53 个第一方 Skill 和 7 个哈希锁定的 Open Science 通用科研 Skill，都不取得批准权或方法选择权。代表性 HEOR 工作流包括：
 
 | 技能 | 职责 | 主要产出 |
 | --- | --- | --- |
@@ -104,6 +104,7 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 | `$heor-evidence-search` | 起草需 Human 联网授权的 PubMed/ClinicalTrials.gov 检索 | 精确请求哈希和导入的元数据候选 |
 | `$literature-review` | 导入、去重、校验和导出项目内的参考文献数据 | 带来源记录的文献库以及 RIS、BibTeX 或 CSL-JSON 交换文件 |
 | `$heor-model-design` | 结构化人类界定的决策问题与概念模型 | 决策问题和概念模型工件 |
+| `$heor-decision-tree` | 执行由研究者选定且有来源记录的有限事件树 | 与输入哈希绑定的短期成本、QALY、增量结果和计算轨迹 |
 | `$heor-cohort-state-transition` / `$heor-partitioned-survival` | 执行有边界的确定性经济学模型 | 可复现的成本、QALY、增量结果和检查 |
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | 执行已声明的不确定性与有界 VOI 工作流 | DSA/PSA/CEAC/CEAF/EVPI 与单独复核的高级 VOI |
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | 执行静态或动态预算影响分析 | 分项预算结果和审计工件 |
@@ -112,7 +113,7 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 | `$research-tables` | 根据当前本地来源整理带类型、单位和依据性质的科研表格 | 可逐表核对的无公式 XLSX、每表一份 CSV 和生成审计记录 |
 | `$journal-submission-check` | 从研究者保存的官方投稿指南快照中记录明确的机械性要求 | 有来源绑定、仍等待研究者复核的核对报告 |
 
-全部 59 个打包 Skill 的名称与说明均随七种界面语言发布，同时保留精确 `$skill-id`；未完成和已排除的来源不作为用户选项。
+全部 60 个打包 Skill 的名称与说明均随七种界面语言发布，同时保留精确 `$skill-id`；未完成和已排除的来源不作为用户选项。
 
 ### 平台
 
@@ -132,7 +133,7 @@ Agent 基准不能证明 AI4HEOR 内的科学工作应由 Agent 主导，也不�
 
 ## 技能与连接器
 
-应用打包 `runtime/skills/core/` 的 52 个第一方 Skill，以及来自固定 `ai4s-research/ai4s-skills` 提交的 7 个 MIT Open Science Skill。后者以隔离适配器形式运行，精确目录由发布登记表哈希锁定。HEOR 任务优先使用第一方证据、模型、溯源、确定性计算、复核和报告合约；通用 Skill 只能补充，不能替代。
+应用打包 `runtime/skills/core/` 的 53 个第一方 Skill，以及来自固定 `ai4s-research/ai4s-skills` 提交的 7 个 MIT Open Science Skill。后者以隔离适配器形式运行，精确目录由发布登记表哈希锁定。HEOR 任务优先使用第一方证据、模型、溯源、确定性计算、复核和报告合约；通用 Skill 只能补充，不能替代。
 
 此前外部审查中有价值的能力意图改写为有边界的 AI4HEOR 第一方能力。许可证
 不兼容的文档来源已从运行时和候选界面永久移除。PPTX 已由
@@ -289,7 +290,7 @@ MiniMax 中国区 Token Plan 预设；安装包不含密钥。
 已安装资料不会被覆盖。它保留 0.1.35 为教学案例增加的单独确认本机复算入口：
 程序先核对脚本、分析设定、输入数据和预期结果是否仍与内置版本一致，再写出基线结果与低值、高值
 敏感性分析，并保留运行和溯源记录；案例内容不会发送给模型服务。它保留 0.1.34 的第六个药物经济学入口，
-以及 0.1.33 对简体中文研究界面和内置 Skill 的重写；当前 52 个内置 Skill 统一使用常见的
+以及 0.1.33 对简体中文研究界面和内置 Skill 的重写；当前 53 个内置 Skill 统一使用常见的
 中国药物经济学表述；原先写死在代码中的下载、文件管理、Jupyter、笔记本和助手提示也已进入
 七种语言的资源文件。0.1.32 建立的失败关闭项目约束和研究者科学决策权保持不变。模型无关的教学案例会记录
 1 条成功运行和 3 条溯源记录；固定输入发生变化时，应用使用自然中文说明拒绝复算，并保留原有结果。

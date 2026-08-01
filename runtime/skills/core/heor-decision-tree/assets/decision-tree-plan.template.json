@@ -1,0 +1,102 @@
+{
+  "schema_version": "0.1.0",
+  "analysis_type": "decision_tree",
+  "analysis_id": "replace-analysis-id",
+  "reference_case": {
+    "id": "replace-reference-case-id",
+    "status": "draft"
+  },
+  "time_horizon_years": null,
+  "discount_rates": {
+    "costs": 0.0,
+    "outcomes": 0.0
+  },
+  "half_cycle_correction": false,
+  "willingness_to_pay": null,
+  "strategy_order": ["comparator", "intervention"],
+  "baseline_strategy_id": "comparator",
+  "assumptions": [
+    {
+      "id": "replace-proposed-assumption-id",
+      "status": "proposed",
+      "statement": "Replace with the exact proposed assumption.",
+      "reason": "Replace with why evidence is unavailable and why the assumption is being proposed."
+    }
+  ],
+  "strategies": {
+    "comparator": {
+      "name": "replace-comparator-name",
+      "root_node_id": "comparator_outcome",
+      "nodes": {
+        "comparator_outcome": {
+          "type": "chance",
+          "branches": [
+            {
+              "child_node_id": "comparator_event",
+              "probability": {
+                "value": null,
+                "source_ids": [],
+                "assumption_ids": ["replace-proposed-assumption-id"]
+              }
+            },
+            {
+              "child_node_id": "comparator_no_event",
+              "probability": {
+                "value": null,
+                "source_ids": [],
+                "assumption_ids": ["replace-proposed-assumption-id"]
+              }
+            }
+          ]
+        },
+        "comparator_event": {
+          "type": "terminal",
+          "cost": {"value": null, "source_ids": [], "assumption_ids": ["replace-proposed-assumption-id"]},
+          "qaly": {"value": null, "source_ids": [], "assumption_ids": ["replace-proposed-assumption-id"]}
+        },
+        "comparator_no_event": {
+          "type": "terminal",
+          "cost": {"value": null, "source_ids": [], "assumption_ids": ["replace-proposed-assumption-id"]},
+          "qaly": {"value": null, "source_ids": [], "assumption_ids": ["replace-proposed-assumption-id"]}
+        }
+      }
+    },
+    "intervention": {
+      "name": "replace-intervention-name",
+      "root_node_id": "intervention_outcome",
+      "nodes": {
+        "intervention_outcome": {
+          "type": "chance",
+          "branches": [
+            {
+              "child_node_id": "intervention_event",
+              "probability": {
+                "value": null,
+                "source_ids": [],
+                "assumption_ids": ["replace-proposed-assumption-id"]
+              }
+            },
+            {
+              "child_node_id": "intervention_no_event",
+              "probability": {
+                "value": null,
+                "source_ids": [],
+                "assumption_ids": ["replace-proposed-assumption-id"]
+              }
+            }
+          ]
+        },
+        "intervention_event": {
+          "type": "terminal",
+          "cost": {"value": null, "source_ids": [], "assumption_ids": ["replace-proposed-assumption-id"]},
+          "qaly": {"value": null, "source_ids": [], "assumption_ids": ["replace-proposed-assumption-id"]}
+        },
+        "intervention_no_event": {
+          "type": "terminal",
+          "cost": {"value": null, "source_ids": [], "assumption_ids": ["replace-proposed-assumption-id"]},
+          "qaly": {"value": null, "source_ids": [], "assumption_ids": ["replace-proposed-assumption-id"]}
+        }
+      }
+    }
+  }
+}

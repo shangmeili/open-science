@@ -13,9 +13,9 @@
 
 | 核对项 | 当前 AI4HEOR 状态 | 可验证证据 | 发布条件 |
 | --- | --- | --- | --- |
-| 52 个第一方 HEOR Skill | 已打包 | `runtime/skills/core/`；核心 Skill 测试 | 必须恰好 52 个 |
+| 53 个第一方 HEOR Skill | 已打包 | `runtime/skills/core/`；核心 Skill 测试 | 必须恰好 53 个 |
 | 7 个 Open Science 通用 Skill | 已恢复并打包 | `runtime/skills/external/ai4s-skills/`、准入登记表、Tauri `skills-admitted-ai4s/` 资源映射 | 必须全部存在、固定提交、无符号链接、逐目录 MIT 许可证和精确树哈希一致 |
-| 多语言 Skill 描述 | 已覆盖 | 7 个 `skills.json`；共 59 个 Skill 的本地化一致性测试 | 7 种已发布界面语言不得缺项 |
+| 多语言 Skill 描述 | 已覆盖 | 7 个 `skills.json`；共 60 个 Skill 的本地化一致性测试 | 7 种已发布界面语言不得缺项 |
 | Anthropic 文档 Skill | 不打包 | 实际 `LICENSE.txt` 不允许作为可再分发产品资产；第一方 DOCX/PDF/PPTX/XLSX 实现替代 | 不得被误写为 Apache-2.0 或进入发布资源 |
 | 7 个科研连接器 | 已恢复为按需安装 | `scienceConnectors.ts`、设置页、应用独立 `science-mcp-env`、Rust 包名注入防护测试 | 目录不得缺项；不能取得 HEOR 证据纳入、方法选择或批准权 |
 | 自管 MCP | 保留 | Settings 的本地/远程 MCP 表单及现有 OpenCode 配置 | 明示为研究者管理的外部能力 |
@@ -45,4 +45,4 @@
 
 ## 自动化门禁
 
-`.github/workflows/build.yml` 在打包前必须依次获取固定 Skill 包并执行 `scripts/dev/test_open_science_foundation.py`。该测试同时核对 52 + 7 Skill 数量、许可证、精确哈希、Tauri 资源映射、7 个连接器、共享类型消费链和图表色板一致性。任何一项失败，安装包不得生成。
+`.github/workflows/build.yml` 在打包前必须依次获取固定 Skill 包并执行 `scripts/dev/test_open_science_foundation.py`。该测试同时核对 53 + 7 Skill 数量、许可证、精确哈希、Tauri 资源映射、7 个连接器、共享类型消费链和图表色板一致性。任何一项失败，安装包不得生成。

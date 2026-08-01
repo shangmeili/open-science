@@ -122,7 +122,7 @@ create scientific approval, cost-effectiveness, reimbursement, or policy conclus
 ## Current capabilities
 
 **Research assistance, with a complete Open Science foundation and bounded HEOR
-methods.** AI4HEOR ships 52 first-party Skills and 7 hash-locked Open Science
+methods.** AI4HEOR ships 53 first-party Skills and 7 hash-locked Open Science
 general research Skills. None acquires approval or method-selection authority.
 Representative HEOR workflows are:
 
@@ -134,6 +134,7 @@ Representative HEOR workflows are:
 | `$literature-review` | Import, deduplicate, validate, and export project-local citation metadata | Source-bound reference library plus RIS, BibTeX, or CSL-JSON exchange file |
 | `$citation-formatting` | Prepare source-bound in-text citations and bibliography output from the validated local library | Deterministic reviewable Markdown in three AI4HEOR-owned profiles plus generation audit |
 | `$heor-model-design` | Structure the Human-defined decision problem and conceptual model | Decision-problem artifact plus source-bound SVG and editable GraphML review views |
+| `$heor-decision-tree` | Execute a source-bound finite event tree selected by the researcher | Hash-bound short-horizon costs, QALYs, increments, and calculation trace |
 | `$heor-cohort-state-transition` / `$heor-partitioned-survival` | Execute bounded deterministic economic models | Reproducible costs, QALYs, increments, and checks |
 | `$heor-uncertainty-analysis` / `$heor-advanced-value-of-information` | Execute declared uncertainty and bounded VOI workflows | DSA/PSA/CEAC/CEAF/EVPI and separately reviewed advanced VOI |
 | `$heor-budget-impact` / `$heor-dynamic-budget-impact` | Execute bounded static or dynamic budget-impact analysis | Disaggregated budget results and audit artifacts |
@@ -142,7 +143,7 @@ Representative HEOR workflows are:
 | `$research-tables` | Structure typed, unit-labelled rows from exact local evidence and analysis outputs | Reviewable formula-free XLSX, one CSV per table, and generation audit |
 | `$journal-submission-check` | Capture explicit mechanical rules from a researcher-saved official author-guide snapshot | Source-bound check report that remains awaiting Human review |
 
-All 59 bundled Skill names and descriptions ship in all seven interface
+All 60 bundled Skill names and descriptions ship in all seven interface
 languages while the exact `$skill-id` remains visible. Unfinished adapters and
 excluded sources are internal engineering records, not user choices.
 
@@ -164,7 +165,7 @@ excluded sources are internal engineering records, not user choices.
 
 ## Skills and connectors
 
-The app bundles the 52 first-party Skills in `runtime/skills/core/` and seven
+The app bundles the 53 first-party Skills in `runtime/skills/core/` and seven
 MIT Open Science Skills from a pinned `ai4s-research/ai4s-skills` revision.
 The latter are isolated adapters whose exact trees are hash-locked in the
 release registry. HEOR work uses the first-party evidence, model, provenance,
