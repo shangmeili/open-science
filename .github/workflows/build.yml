@@ -271,6 +271,7 @@ jobs:
             --check frontend-bootstrap \
             --check opencode-authenticated-http \
             --check opencode-system-context-audit \
+            --check opencode-permission-persistence \
             --check workspace-created \
             --check workspace-isolated \
             "${trust_checks[@]}" \

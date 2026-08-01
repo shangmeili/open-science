@@ -393,6 +393,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("gatekeeper-assessment", workflow)
         self.assertIn("verify_packaged_opencode_fixture.py", workflow)
         self.assertIn("opencode-system-context-audit", workflow)
+        self.assertIn("opencode-permission-persistence", workflow)
         self.assertNotIn("tagName:", workflow)
         self.assertIn("gh release create", workflow)
         self.assertIn("--verify-tag", workflow)
