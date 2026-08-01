@@ -178,6 +178,7 @@ import { isTauri } from "@/lib/tauri";
 import { formatHeorReviewIssue } from "./reviewIssue";
 
 const RUNTIME_FULL_ACCESS_PERMISSION = "runtime_full_access" as const;
+const WORKSPACE_FILE_ROOT = "workspace" as const;
 
 const PROVENANCE_FIELD = {
   blockingGaps: "blockingGaps[*]",
@@ -243,6 +244,13 @@ import {
   JournalSubmissionAssessment,
   type JournalSubmissionState,
 } from "./JournalSubmissionAssessment";
+import {
+  DecisionTreeReview,
+  HEOR_DECISION_TREE_PLAN_PATH,
+  HEOR_DECISION_TREE_RESULT_PATH,
+  loadDecisionTreeReview,
+  type DecisionTreeReviewState,
+} from "./DecisionTreeReview";
 
 const RESEARCH_DECISION_GATES: readonly HeorGate[] = [
   "decision_problem",
@@ -592,6 +600,7 @@ export function HeorReviewPane({
   const panelReadOnly = Boolean(activity);
   const approvalMode = useRuntimeStore((state) => state.approvalMode);
   const [artifact, setArtifact] = useState<ArtifactState>({ kind: "loading" });
+  const [decisionTree, setDecisionTree] = useState<DecisionTreeReviewState>({ kind: "loading" });
   const [exploratoryArtifacts, setExploratoryArtifacts] = useState<ExploratoryArtifactState>({
     kind: "loading",
   });
@@ -705,6 +714,7 @@ export function HeorReviewPane({
     setSearchResult(null);
     setImportResult(null);
     if (!project) {
+      setDecisionTree({ kind: "absent" });
       setArtifact({ kind: "missing" });
       setExploratoryArtifacts({ kind: "empty" });
       setConceptualArtifact({ kind: "missing" });
@@ -745,6 +755,7 @@ export function HeorReviewPane({
       setApprovals(EMPTY_LOG);
       return;
     }
+    setDecisionTree({ kind: "loading" });
     setArtifact({ kind: "loading" });
     setExploratoryArtifacts({ kind: "loading" });
     setConceptualArtifact({ kind: "loading" });
@@ -920,6 +931,15 @@ export function HeorReviewPane({
         setExploratoryArtifacts(files.length > 0 ? { kind: "ready", files } : { kind: "empty" });
       } else {
         setExploratoryArtifacts({ kind: "empty" });
+      }
+      const decisionTreeReview = isTauri
+        ? await loadDecisionTreeReview()
+        : { kind: "absent" as const };
+      setDecisionTree(decisionTreeReview);
+      if (decisionTreeReview.kind !== "absent") {
+        setArtifact({ kind: "missing" });
+        setApprovals(await listHeorApprovals(project.id));
+        return;
       }
       const raw = isTauri
         ? (await readArtifact(HEOR_PLAN_PATH))?.data ?? null
@@ -2173,6 +2193,21 @@ export function HeorReviewPane({
             activity && "[&_button]:cursor-not-allowed [&_button]:opacity-50",
           )}
         >
+        {decisionTree.kind !== "absent" ? (
+          <DecisionTreeReview
+            state={decisionTree}
+            locale={i18n.language}
+            onRefresh={() => void refresh()}
+            onRun={() => onRequestRevision(t("decisionTree.runPrompt"))}
+            onOpenPlan={isTauri
+              ? () => void openArtifactExternally(HEOR_DECISION_TREE_PLAN_PATH, WORKSPACE_FILE_ROOT)
+              : undefined}
+            onOpenResult={isTauri
+              ? () => void openArtifactExternally(HEOR_DECISION_TREE_RESULT_PATH, WORKSPACE_FILE_ROOT)
+              : undefined}
+          />
+        ) : (
+          <>
         {artifact.kind === "ready" && (
           <StageRail
             currentApprovals={currentApprovals}
@@ -2793,6 +2828,8 @@ export function HeorReviewPane({
                 </div>
               </details>
             </section>
+          </>
+        )}
           </>
         )}
         </fieldset>

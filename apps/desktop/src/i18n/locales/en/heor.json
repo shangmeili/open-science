@@ -10,6 +10,27 @@
     "action": "Open model settings",
     "placeholder": "Choose a model to send this research request…"
   },
+  "decisionTree": {
+    "title": "Deterministic decision tree",
+    "current": "Current deterministic result",
+    "stale": "The result no longer matches the current plan",
+    "missingResult": "The current plan has not been calculated",
+    "invalidResult": "The saved result cannot be verified",
+    "invalidTitle": "The decision-tree plan needs repair",
+    "invalidBody": "The file is incomplete or does not match the admitted decision-tree contract. It has not been changed.",
+    "repair": "Ask the assistant to inspect and repair it",
+    "analysis": "Analysis",
+    "referenceCase": "Reference case",
+    "horizon": "Time horizon",
+    "years": "years",
+    "sourceSummary": "Sources: {{sources}} · Proposed assumptions: {{assumptions}}",
+    "openPlan": "Open calculation plan",
+    "openResult": "Open deterministic result",
+    "calculationOnly": "This is a deterministic calculation record. It does not establish reference-case compliance, scientific validity, or a research conclusion.",
+    "blockedNote": "AI4HEOR will not show numeric results from a missing, damaged, or stale result file as if they belonged to the current plan.",
+    "run": "Validate and run again",
+    "runPrompt": "Use $heor-decision-tree to validate and run the current heor/decision-tree-plan.json with the bundled deterministic engine. Preserve the current plan and sources. Write heor/results/decision-tree.json only after validation succeeds; do not claim researcher approval or reference-case compliance."
+  },
   "starter": {
     "eyebrow": "Start research",
     "title": "What are you working on?",

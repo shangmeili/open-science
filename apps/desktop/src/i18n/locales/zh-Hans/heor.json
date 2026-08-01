@@ -10,6 +10,27 @@
     "action": "打开模型设置",
     "placeholder": "选择模型后即可发送……"
   },
+  "decisionTree": {
+    "title": "确定性决策树",
+    "current": "当前确定性计算结果",
+    "stale": "结果与当前计划不再一致",
+    "missingResult": "当前计划尚未计算",
+    "invalidResult": "已保存的结果无法核验",
+    "invalidTitle": "决策树计划需要修复",
+    "invalidBody": "当前文件不完整，或不符合已准入的决策树格式。原文件没有被修改。",
+    "repair": "请助手检查并修复",
+    "analysis": "分析",
+    "referenceCase": "参考案例",
+    "horizon": "时间范围",
+    "years": "年",
+    "sourceSummary": "{{sources}}个来源 · {{assumptions}}项待确认假设",
+    "openPlan": "打开计算计划",
+    "openResult": "打开确定性结果",
+    "calculationOnly": "这是确定性计算记录，不代表已符合参考案例，也不证明方法学有效或构成研究结论。",
+    "blockedNote": "结果文件缺失、损坏或已过期时，AI4HEOR 不会把其中的数字当作当前计划的结果展示。",
+    "run": "重新校验并运行",
+    "runPrompt": "使用 $heor-decision-tree 校验并运行当前 heor/decision-tree-plan.json。保留现有计划和来源；只有通过校验后，才使用内置确定性引擎写入 heor/results/decision-tree.json。不要声称已经获得研究者批准或符合参考案例。"
+  },
   "starter": {
     "eyebrow": "开始研究",
     "title": "你现在想做哪项工作？",
