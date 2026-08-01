@@ -38,6 +38,10 @@ FIRST_LAUNCH_CHECKS = {
 MACOS_WORKSPACE_ISOLATION_CHECK = "workspace-isolated"
 MACOS_INSTALLED_TASK_UI_CHECK = "installed-task-ui"
 MACOS_INSTALLED_TASK_REPLY_CHECK = "installed-task-reply"
+PACKAGED_OPENCODE_CHECKS = {
+    "opencode-system-context-audit",
+    "opencode-permission-persistence",
+}
 PLATFORM_VARIANT_RESOURCES = {"goal-plugin/goal-plugin.server.js"}
 
 
@@ -355,6 +359,47 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
             or any(item is not True for item in task_reply.values())
         ):
             raise AssertionError("installed task reply proof is incomplete or unbounded")
+    declared_packaged_opencode = PACKAGED_OPENCODE_CHECKS & set(value["checks"])
+    if declared_packaged_opencode:
+        missing_checks = sorted(PACKAGED_OPENCODE_CHECKS - set(value["checks"]))
+        if missing_checks:
+            raise AssertionError(
+                "packaged OpenCode evidence is missing paired checks: "
+                f"{missing_checks}"
+            )
+        if value["platform"] != "macos":
+            raise AssertionError("packaged OpenCode fixture evidence is supported only on macOS")
+        proof = value["verification"].get("packaged_opencode_fixture")
+        expected_permission = {
+            "exact_project_rule",
+            "restart_reused",
+            "revoked",
+            "reprompted_after_revoke",
+        }
+        expected_context = {
+            "contract": "ai4heor.system-context/v1",
+            "fingerprint_matched_provider_request": True,
+        }
+        if (
+            not isinstance(proof, dict)
+            or set(proof)
+            != {
+                "assistant_reply_completed",
+                "provider_streaming",
+                "system_context",
+                "permission_persistence",
+            }
+            or proof.get("assistant_reply_completed") is not True
+            or proof.get("provider_streaming") is not True
+            or proof.get("system_context") != expected_context
+            or not isinstance(proof.get("permission_persistence"), dict)
+            or set(proof["permission_persistence"]) != expected_permission
+            or any(
+                item is not True
+                for item in proof["permission_persistence"].values()
+            )
+        ):
+            raise AssertionError("packaged OpenCode proof is incomplete or unbounded")
     if (
         value["platform"] == "macos"
         and value.get("runner", {}).get("GITHUB_REF_TYPE") == "tag"

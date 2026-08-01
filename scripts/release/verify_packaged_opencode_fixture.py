@@ -1040,13 +1040,81 @@ def run_fixture(dmg: Path, expected_version: str, timeout: float) -> dict[str, A
         provider_thread.join(timeout=5)
 
 
+def bounded_release_proof(result: Any) -> dict[str, Any]:
+    if not isinstance(result, dict):
+        raise AssertionError("packaged OpenCode fixture result is not an object")
+    context = result.get("system_context")
+    permission = result.get("permission_persistence")
+    expected_permission = {
+        "exact_project_rule",
+        "restart_reused",
+        "revoked",
+        "reprompted_after_revoke",
+    }
+    if (
+        result.get("assistant_marker_found") is not True
+        or result.get("provider_streaming") is not True
+        or not isinstance(context, dict)
+        or set(context) != {"contract", "sha256", "block_count"}
+        or context.get("contract") != "ai4heor.system-context/v1"
+        or not isinstance(context.get("sha256"), str)
+        or len(context["sha256"]) != 64
+        or any(character not in "0123456789abcdef" for character in context["sha256"])
+        or not isinstance(context.get("block_count"), int)
+        or context["block_count"] < 1
+        or not isinstance(permission, dict)
+        or set(permission) != expected_permission
+        or any(value is not True for value in permission.values())
+    ):
+        raise AssertionError("packaged OpenCode fixture proof is incomplete")
+    return {
+        "assistant_reply_completed": True,
+        "provider_streaming": True,
+        "system_context": {
+            "contract": "ai4heor.system-context/v1",
+            "fingerprint_matched_provider_request": True,
+        },
+        "permission_persistence": dict(permission),
+    }
+
+
+def append_release_proof(path: Path, proof: dict[str, Any]) -> None:
+    if not path.is_file() or path.is_symlink():
+        raise AssertionError("macOS verification JSON is missing or linked")
+    try:
+        verification = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise AssertionError("macOS verification JSON is unreadable") from error
+    if not isinstance(verification, dict) or not verification:
+        raise AssertionError("macOS verification JSON is not an object")
+    if "packaged_opencode_fixture" in verification:
+        raise AssertionError("macOS verification JSON already contains fixture proof")
+    verification["packaged_opencode_fixture"] = proof
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    if temporary.exists():
+        raise AssertionError("temporary verification proof path already exists")
+    try:
+        temporary.write_text(
+            json.dumps(verification, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dmg", type=Path, required=True)
     parser.add_argument("--expected-version", required=True)
     parser.add_argument("--timeout", type=float, default=30.0)
+    parser.add_argument("--verification-json", type=Path, required=True)
     args = parser.parse_args()
     result = run_fixture(args.dmg.resolve(), args.expected_version, args.timeout)
+    append_release_proof(
+        args.verification_json.resolve(),
+        bounded_release_proof(result),
+    )
     print(
         "Verified packaged OpenCode fixture: "
         f"version={result['app_version']}, "

@@ -253,6 +253,31 @@ class ReleaseEvidenceTests(unittest.TestCase):
         }
         release_evidence.validate_evidence(value)
 
+        value["checks"] = sorted(
+            [
+                *value["checks"],
+                "opencode-system-context-audit",
+                "opencode-permission-persistence",
+            ]
+        )
+        with self.assertRaisesRegex(AssertionError, "packaged OpenCode proof"):
+            release_evidence.validate_evidence(value)
+        value["verification"]["packaged_opencode_fixture"] = {
+            "assistant_reply_completed": True,
+            "provider_streaming": True,
+            "system_context": {
+                "contract": "ai4heor.system-context/v1",
+                "fingerprint_matched_provider_request": True,
+            },
+            "permission_persistence": {
+                "exact_project_rule": True,
+                "restart_reused": True,
+                "revoked": True,
+                "reprompted_after_revoke": True,
+            },
+        }
+        release_evidence.validate_evidence(value)
+
         value["checks"] = sorted([*value["checks"], "workspace-isolated"])
         with self.assertRaisesRegex(AssertionError, "isolation proof is incomplete"):
             release_evidence.validate_evidence(value)
@@ -275,6 +300,9 @@ class ReleaseEvidenceTests(unittest.TestCase):
         del windows["verification"]["first_launch"]["installed_task_ui"]
         windows["checks"].remove("installed-task-reply")
         del windows["verification"]["first_launch"]["installed_task_reply"]
+        windows["checks"].remove("opencode-system-context-audit")
+        windows["checks"].remove("opencode-permission-persistence")
+        del windows["verification"]["packaged_opencode_fixture"]
         windows["artifacts"] = [
             {"kind": "nsis", "filename": "AI4HEOR_1.0.0_x64-setup.exe", "size": 1, "sha256": "a" * 64}
         ]
@@ -296,6 +324,10 @@ class ReleaseEvidenceTests(unittest.TestCase):
             release_evidence.validate_evidence(value)
 
         value["checks"] = ["installed-task-reply"]
+        with self.assertRaisesRegex(AssertionError, "missing paired checks"):
+            release_evidence.validate_evidence(value)
+
+        value["checks"] = ["opencode-system-context-audit"]
         with self.assertRaisesRegex(AssertionError, "missing paired checks"):
             release_evidence.validate_evidence(value)
 

@@ -256,7 +256,8 @@ jobs:
             "${trust_args[@]}"
           python scripts/release/verify_packaged_opencode_fixture.py \
             --dmg "${dmgs[0]}" \
-            --expected-version 1.0.0
+            --expected-version 1.0.0 \
+            --verification-json "$verification"
           python scripts/release/release_evidence.py record \
             --platform macos \
             --target "${{ matrix.target }}" \

@@ -6,12 +6,59 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
 import verify_packaged_opencode_fixture as fixture
 
 
 class PackagedOpenCodeFixtureTests(unittest.TestCase):
+    def test_release_proof_is_bounded_and_appended_to_existing_verification(self) -> None:
+        result = {
+            "app_version": "1.0.0",
+            "provider_catalog_requests": 1,
+            "provider_message_requests": 2,
+            "provider_streaming": True,
+            "assistant_marker_found": True,
+            "system_context": {
+                "contract": "ai4heor.system-context/v1",
+                "sha256": "a" * 64,
+                "block_count": 3,
+            },
+            "permission_persistence": {
+                "exact_project_rule": True,
+                "restart_reused": True,
+                "revoked": True,
+                "reprompted_after_revoke": True,
+            },
+        }
+        proof = fixture.bounded_release_proof(result)
+        self.assertEqual(
+            proof,
+            {
+                "assistant_reply_completed": True,
+                "provider_streaming": True,
+                "system_context": {
+                    "contract": "ai4heor.system-context/v1",
+                    "fingerprint_matched_provider_request": True,
+                },
+                "permission_persistence": result["permission_persistence"],
+            },
+        )
+        self.assertNotIn("sha256", json.dumps(proof))
+        self.assertNotIn("provider_message_requests", json.dumps(proof))
+
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "verification.json"
+            path.write_text('{"payload":{"resource_files":1}}\n', encoding="utf-8")
+            fixture.append_release_proof(path, proof)
+            saved = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(saved["packaged_opencode_fixture"], proof)
+            self.assertEqual(saved["payload"], {"resource_files": 1})
+            with self.assertRaisesRegex(AssertionError, "already contains"):
+                fixture.append_release_proof(path, proof)
+
     def test_fixture_can_fail_exactly_one_main_reply_with_a_visible_provider_error(self) -> None:
         state = fixture.FixtureState()
         main = {"tools": [{"name": "read"}]}

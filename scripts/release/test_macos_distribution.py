@@ -519,6 +519,10 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("notarization-ticket", workflow)
         self.assertIn("gatekeeper-assessment", workflow)
         self.assertIn("verify_packaged_opencode_fixture.py", workflow)
+        fixture_call = workflow.split(
+            "python scripts/release/verify_packaged_opencode_fixture.py", 1
+        )[1].split("python scripts/release/release_evidence.py record", 1)[0]
+        self.assertIn('--verification-json "$verification"', fixture_call)
         self.assertIn("opencode-system-context-audit", workflow)
         self.assertIn("opencode-permission-persistence", workflow)
         self.assertNotIn("tagName:", workflow)
