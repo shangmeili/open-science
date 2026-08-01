@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import unittest
 
@@ -11,6 +12,42 @@ import verify_packaged_opencode_fixture as fixture
 
 
 class PackagedOpenCodeFixtureTests(unittest.TestCase):
+    def test_packaged_fixture_verifies_permission_restart_and_revoke(self) -> None:
+        source = inspect.getsource(fixture.run_fixture)
+        self.assertIn("verify_packaged_permission_persistence", source)
+        self.assertIn('"permission_persistence": permission_proof', source)
+
+    def test_saved_permission_proof_is_exact_and_project_bound(self) -> None:
+        proof = fixture.verify_saved_permission_records(
+            [
+                {
+                    "id": "psv_fixture",
+                    "projectID": "project_fixture",
+                    "action": "bash",
+                    "resource": fixture.BASH_ALWAYS_COMMAND,
+                }
+            ],
+            action="bash",
+            resource=fixture.BASH_ALWAYS_COMMAND,
+        )
+        self.assertEqual(
+            proof,
+            {"id": "psv_fixture", "project_id": "project_fixture"},
+        )
+        with self.assertRaises(AssertionError):
+            fixture.verify_saved_permission_records(
+                [
+                    {
+                        "id": "psv_fixture",
+                        "projectID": "project_fixture",
+                        "action": "bash",
+                        "resource": "*",
+                    }
+                ],
+                action="bash",
+                resource=fixture.BASH_ALWAYS_COMMAND,
+            )
+
     def test_fixture_can_emit_two_distinct_bash_always_probes(self) -> None:
         state = fixture.FixtureState()
         main = {"tools": [{"name": "bash"}]}

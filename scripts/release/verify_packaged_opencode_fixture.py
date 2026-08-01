@@ -462,6 +462,313 @@ def verify_system_context_audit(
     }
 
 
+def verify_saved_permission_records(
+    value: Any,
+    *,
+    action: str,
+    resource: str,
+) -> dict[str, str]:
+    if not isinstance(value, list) or len(value) != 1:
+        raise AssertionError("packaged runtime did not return exactly one saved permission")
+    record = value[0]
+    if not isinstance(record, dict) or set(record) != {
+        "id",
+        "projectID",
+        "action",
+        "resource",
+    }:
+        raise AssertionError("packaged runtime returned an invalid saved permission record")
+    if (
+        not isinstance(record["id"], str)
+        or not record["id"]
+        or not isinstance(record["projectID"], str)
+        or not record["projectID"]
+        or record["action"] != action
+        or record["resource"] != resource
+    ):
+        raise AssertionError("packaged runtime broadened or mis-scoped the saved permission")
+    return {"id": record["id"], "project_id": record["projectID"]}
+
+
+def start_runtime(
+    binary: Path,
+    root: Path,
+    environment: dict[str, str],
+    auth_header: str,
+) -> tuple[subprocess.Popen[Any], str]:
+    port = live.free_local_port()
+    base_url = f"http://127.0.0.1:{port}"
+    with (root / "stdout").open("ab") as stdout, (root / "stderr").open(
+        "ab"
+    ) as stderr:
+        process = subprocess.Popen(
+            [
+                str(binary),
+                "serve",
+                "--hostname",
+                "127.0.0.1",
+                "--port",
+                str(port),
+            ],
+            cwd=root / "work",
+            env=environment,
+            stdout=stdout,
+            stderr=stderr,
+            preexec_fn=live.private_child_setup,
+        )
+    live.wait_for_runtime(base_url, auth_header)
+    return process, base_url
+
+
+def create_prompted_session(
+    base_url: str,
+    auth_header: str,
+    directory: Path,
+    prompt: str,
+) -> str:
+    query = urllib.parse.quote(str(directory), safe="")
+    session = live.http_json(
+        base_url,
+        auth_header,
+        "POST",
+        f"/session?directory={query}",
+        {},
+    )
+    session_id = session.get("id") if isinstance(session, dict) else None
+    if not isinstance(session_id, str) or not session_id:
+        raise AssertionError("permission fixture session was not created")
+    live.http_json(
+        base_url,
+        auth_header,
+        "POST",
+        f"/session/{urllib.parse.quote(session_id, safe='')}/prompt_async",
+        {"parts": [{"type": "text", "text": prompt}]},
+    )
+    return session_id
+
+
+def wait_for_pending_permission(
+    base_url: str,
+    auth_header: str,
+    directory: Path,
+    *,
+    action: str,
+    resource: str,
+    timeout: float,
+) -> str:
+    query = urllib.parse.quote(str(directory), safe="")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        value = live.http_json(
+            base_url,
+            auth_header,
+            "GET",
+            f"/permission?directory={query}",
+            timeout=3.0,
+        )
+        if isinstance(value, list) and len(value) == 1:
+            request = value[0]
+            if (
+                isinstance(request, dict)
+                and request.get("permission") == action
+                and request.get("patterns") == [resource]
+                and isinstance(request.get("id"), str)
+            ):
+                return request["id"]
+        time.sleep(0.1)
+    raise AssertionError("packaged runtime did not ask for the exact command permission")
+
+
+def wait_for_session_marker(
+    base_url: str,
+    auth_header: str,
+    session_id: str,
+    timeout: float,
+) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        messages = live.http_json(
+            base_url,
+            auth_header,
+            "GET",
+            f"/session/{urllib.parse.quote(session_id, safe='')}/message",
+            timeout=3.0,
+        )
+        if MARKER in live.assistant_text(messages):
+            return
+        time.sleep(0.1)
+    raise AssertionError("packaged permission fixture turn did not complete")
+
+
+def wait_for_missing_path(path: Path, timeout: float) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not path.exists():
+            return
+        time.sleep(0.1)
+    raise AssertionError("packaged runtime did not execute the allowed exact command")
+
+
+def verify_packaged_permission_persistence(
+    *,
+    state: FixtureState,
+    binary: Path,
+    root: Path,
+    environment: dict[str, str],
+    auth_header: str,
+    process: subprocess.Popen[Any],
+    base_url: str,
+    timeout: float,
+) -> tuple[dict[str, Any], subprocess.Popen[Any], str]:
+    directory = root / "work"
+    query = urllib.parse.quote(str(directory), safe="")
+    sentinel = directory / BASH_ALWAYS_SENTINEL
+    current = process
+    current_url = base_url
+    try:
+        sentinel.write_text("remove after explicit permission\n", encoding="utf-8")
+        state.bash_always_next_main_reply()
+        session_id = create_prompted_session(
+            current_url,
+            auth_header,
+            directory,
+            "Run the fixed packaged permission probe once.",
+        )
+        request_id = wait_for_pending_permission(
+            current_url,
+            auth_header,
+            directory,
+            action="bash",
+            resource=BASH_ALWAYS_COMMAND,
+            timeout=timeout,
+        )
+        live.http_json(
+            current_url,
+            auth_header,
+            "POST",
+            f"/permission/{urllib.parse.quote(request_id, safe='')}/reply?directory={query}",
+            {"reply": "always"},
+        )
+        wait_for_missing_path(sentinel, timeout)
+        wait_for_session_marker(current_url, auth_header, session_id, timeout)
+        saved = verify_saved_permission_records(
+            live.http_json(
+                current_url,
+                auth_header,
+                "GET",
+                f"/permission/saved?directory={query}",
+            ),
+            action="bash",
+            resource=BASH_ALWAYS_COMMAND,
+        )
+
+        live.stop_process(current)
+        current, current_url = start_runtime(
+            binary,
+            root,
+            environment,
+            auth_header,
+        )
+        live.wait_for_workspace_provider(
+            current_url,
+            auth_header,
+            directory,
+            PROVIDER_ID,
+            MODEL_ID,
+        )
+        restarted = verify_saved_permission_records(
+            live.http_json(
+                current_url,
+                auth_header,
+                "GET",
+                f"/permission/saved?directory={query}",
+            ),
+            action="bash",
+            resource=BASH_ALWAYS_COMMAND,
+        )
+        if restarted != saved:
+            raise AssertionError("saved permission identity changed after runtime restart")
+
+        sentinel.write_text("remove automatically after restart\n", encoding="utf-8")
+        state.bash_always_next_main_reply()
+        restarted_session = create_prompted_session(
+            current_url,
+            auth_header,
+            directory,
+            "Run the same packaged permission probe after restart.",
+        )
+        wait_for_missing_path(sentinel, timeout)
+        wait_for_session_marker(current_url, auth_header, restarted_session, timeout)
+        pending = live.http_json(
+            current_url,
+            auth_header,
+            "GET",
+            f"/permission?directory={query}",
+        )
+        if pending != []:
+            raise AssertionError("remembered exact permission asked again after restart")
+
+        removed = live.http_json(
+            current_url,
+            auth_header,
+            "DELETE",
+            f"/permission/saved/{urllib.parse.quote(saved['id'], safe='')}?directory={query}",
+        )
+        if removed is not True:
+            raise AssertionError("packaged runtime did not revoke the saved permission")
+        remaining = live.http_json(
+            current_url,
+            auth_header,
+            "GET",
+            f"/permission/saved?directory={query}",
+        )
+        if remaining != []:
+            raise AssertionError("revoked packaged permission remained visible")
+
+        sentinel.write_text("must remain after revocation\n", encoding="utf-8")
+        state.bash_always_next_main_reply()
+        create_prompted_session(
+            current_url,
+            auth_header,
+            directory,
+            "Run the packaged permission probe after revocation.",
+        )
+        revoked_request = wait_for_pending_permission(
+            current_url,
+            auth_header,
+            directory,
+            action="bash",
+            resource=BASH_ALWAYS_COMMAND,
+            timeout=timeout,
+        )
+        if not sentinel.is_file():
+            raise AssertionError("revoked permission executed before renewed confirmation")
+        live.http_json(
+            current_url,
+            auth_header,
+            "POST",
+            f"/permission/{urllib.parse.quote(revoked_request, safe='')}/reply?directory={query}",
+            {"reply": "reject"},
+        )
+        time.sleep(0.2)
+        if sentinel.read_text(encoding="utf-8") != "must remain after revocation\n":
+            raise AssertionError("rejected post-revocation command changed the sentinel")
+        return (
+            {
+                "exact_project_rule": True,
+                "restart_reused": True,
+                "revoked": True,
+                "reprompted_after_revoke": True,
+            },
+            current,
+            current_url,
+        )
+    except BaseException:
+        if current.poll() is None:
+            live.stop_process(current)
+        raise
+
+
 def run_fixture(dmg: Path, expected_version: str, timeout: float) -> dict[str, Any]:
     state = FixtureState()
     provider = ThreadingHTTPServer(("127.0.0.1", 0), handler(state))
@@ -478,6 +785,49 @@ def run_fixture(dmg: Path, expected_version: str, timeout: float) -> dict[str, A
                 path = root / name
                 path.mkdir(mode=0o700)
                 path.chmod(0o700)
+            subprocess.run(
+                ["git", "init", "--quiet"],
+                cwd=root / "work",
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            (root / "work/README.md").write_text(
+                "# Isolated packaged permission fixture\n",
+                encoding="utf-8",
+            )
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.name=AI4HEOR Fixture",
+                    "-c",
+                    "user.email=fixture@localhost.invalid",
+                    "add",
+                    "README.md",
+                ],
+                cwd=root / "work",
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.name=AI4HEOR Fixture",
+                    "-c",
+                    "user.email=fixture@localhost.invalid",
+                    "commit",
+                    "--quiet",
+                    "-m",
+                    "Initialize fixture workspace",
+                ],
+                cwd=root / "work",
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
 
             device = ""
             try:
@@ -499,11 +849,9 @@ def run_fixture(dmg: Path, expected_version: str, timeout: float) -> dict[str, A
                 if device:
                     live.detach_dmg(device)
 
-            port = live.free_local_port()
             password = secrets.token_urlsafe(24)
             token = base64.b64encode(f"opencode:{password}".encode()).decode()
             auth_header = f"Basic {token}"
-            base_url = f"http://127.0.0.1:{port}"
             environment = os.environ.copy()
             environment.update(
                 {
@@ -523,25 +871,12 @@ def run_fixture(dmg: Path, expected_version: str, timeout: float) -> dict[str, A
             events: live.EventStream | None = None
             auth_saved = False
             try:
-                with (root / "stdout").open("wb") as stdout, (root / "stderr").open(
-                    "wb"
-                ) as stderr:
-                    process = subprocess.Popen(
-                        [
-                            str(binary),
-                            "serve",
-                            "--hostname",
-                            "127.0.0.1",
-                            "--port",
-                            str(port),
-                        ],
-                        cwd=root / "work",
-                        env=environment,
-                        stdout=stdout,
-                        stderr=stderr,
-                        preexec_fn=live.private_child_setup,
-                    )
-                live.wait_for_runtime(base_url, auth_header)
+                process, base_url = start_runtime(
+                    binary,
+                    root,
+                    environment,
+                    auth_header,
+                )
                 live.http_json(
                     base_url,
                     auth_header,
@@ -557,6 +892,7 @@ def run_fixture(dmg: Path, expected_version: str, timeout: float) -> dict[str, A
                             }
                         },
                         "model": f"{PROVIDER_ID}/{MODEL_ID}",
+                        "permission": {"bash": "ask"},
                     },
                 )
                 live.http_json(
@@ -622,6 +958,18 @@ def run_fixture(dmg: Path, expected_version: str, timeout: float) -> dict[str, A
                         f"event_category={live.classify_failure(bytes(events.material), CREDENTIAL.encode())}"
                     )
                 context_proof = verify_system_context_audit(messages, state.message_bodies)
+                events.close()
+                events = None
+                permission_proof, process, base_url = verify_packaged_permission_persistence(
+                    state=state,
+                    binary=binary,
+                    root=root,
+                    environment=environment,
+                    auth_header=auth_header,
+                    process=process,
+                    base_url=base_url,
+                    timeout=timeout,
+                )
                 return {
                     "app_version": version,
                     "provider_catalog_requests": state.catalog_requests,
@@ -629,6 +977,7 @@ def run_fixture(dmg: Path, expected_version: str, timeout: float) -> dict[str, A
                     "provider_streaming": state.last_stream,
                     "assistant_marker_found": True,
                     "system_context": context_proof,
+                    "permission_persistence": permission_proof,
                 }
             finally:
                 if auth_saved and process is not None and process.poll() is None:
@@ -664,7 +1013,8 @@ def main() -> int:
         f"version={result['app_version']}, "
         f"message_requests={result['provider_message_requests']}, "
         f"streaming={result['provider_streaming']}, marker=True, "
-        f"system_context={result['system_context']['contract']}"
+        f"system_context={result['system_context']['contract']}, "
+        "permission_restart=True, permission_revoke=True"
     )
     return 0
 
