@@ -1196,7 +1196,7 @@ export interface HeorReportingAudit {
 export interface HeorReproducibilityAudit {
   complete: boolean;
   releaseCompanionReady: boolean;
-  status: "complete" | "incomplete";
+  status: "complete" | "draft" | "incomplete";
   packageId: string;
   analysisId: string;
   packageSha256: string;
@@ -1210,6 +1210,7 @@ export interface HeorReproducibilityAudit {
   claimCount: number;
   requiredClaimCount: number;
   coveredClaimCount: number;
+  draftOnlyReasons: string[];
   errors: string[];
 }
 
@@ -4911,6 +4912,7 @@ export const HEOR_BROWSER_DEMO_REPRODUCIBILITY_AUDIT: HeorReproducibilityAudit =
   claimCount: 0,
   requiredClaimCount: 7,
   coveredClaimCount: 0,
+  draftOnlyReasons: [],
   errors: ["heor/reproducibility-package.json is required"],
 };
 

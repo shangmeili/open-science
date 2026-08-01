@@ -8,7 +8,7 @@ use tauri::AppHandle;
 
 pub const REPRODUCIBILITY_PACKAGE_PATH: &str = "heor/reproducibility-package.json";
 const REPORT_PACKAGE_PATH: &str = crate::heor_reporting::REPORT_PACKAGE_PATH;
-const REQUIRED_CLAIMS: [(&str, &str, &str); 7] = [
+const MARKOV_REQUIRED_CLAIMS: [(&str, &str, &str); 7] = [
     ("CHEERS-2022", "23-summary-results", "cost_effectiveness"),
     ("CHEERS-2022", "24-uncertainty-effects", "uncertainty"),
     (
@@ -35,6 +35,15 @@ const REQUIRED_CLAIMS: [(&str, &str, &str); 7] = [
         "ISPOR-BIA-GP-II-2014",
         "bia-12-limitations-reproducibility",
         "budget_impact",
+    ),
+];
+const DECISION_TREE_REQUIRED_CLAIMS: [(&str, &str, &str); 3] = [
+    ("CHEERS-2022", "23-summary-results", "cost_effectiveness"),
+    ("CHEERS-2022", "24-uncertainty-effects", "uncertainty"),
+    (
+        "CHEERS-2022",
+        "26-findings-limitations-generalisability",
+        "cost_effectiveness",
     ),
 ];
 
@@ -64,6 +73,7 @@ pub struct ReproducibilityAudit {
     pub claim_count: usize,
     pub required_claim_count: usize,
     pub covered_claim_count: usize,
+    pub draft_only_reasons: Vec<String>,
     pub errors: Vec<String>,
 }
 
@@ -139,9 +149,24 @@ fn empty(error: String) -> ReproducibilityAudit {
         availability_count: 0,
         exhibit_count: 0,
         claim_count: 0,
-        required_claim_count: REQUIRED_CLAIMS.len(),
+        required_claim_count: MARKOV_REQUIRED_CLAIMS.len(),
         covered_claim_count: 0,
+        draft_only_reasons: Vec::new(),
         errors: vec![error],
+    }
+}
+
+fn decision_tree(report: &serde_json::Value) -> bool {
+    text(report.get("analysis_type")) == Some("decision_tree")
+}
+
+fn required_claims(
+    report: &serde_json::Value,
+) -> &'static [(&'static str, &'static str, &'static str)] {
+    if decision_tree(report) {
+        DECISION_TREE_REQUIRED_CLAIMS.as_slice()
+    } else {
+        MARKOV_REQUIRED_CLAIMS.as_slice()
     }
 }
 
@@ -186,6 +211,39 @@ fn expected_execution_manifest(
             .and_then(|value| text(value.get("engine_version")))
             .ok_or_else(|| format!("bound result omitted engine_version: {key}"))
     };
+    if decision_tree(report) {
+        let base_command = vec![
+            "python".to_string(),
+            "-m".into(),
+            "heor_core".into(),
+            path("decision_tree_plan")?.into(),
+        ];
+        let mut uncertainty_command = base_command.clone();
+        uncertainty_command.extend([
+            "--decision-tree-uncertainty-plan".into(),
+            path("decision_tree_uncertainty_plan")?.into(),
+        ]);
+        return Ok(serde_json::json!([
+            {
+                "execution_id": "cost_effectiveness",
+                "engine_version": engine("decision_tree_result")?,
+                "command": base_command,
+                "input_artifact_ids": ["decision_tree_plan"],
+                "output_artifact_id": "decision_tree_result",
+                "determinism": "byte_replay_expected"
+            },
+            {
+                "execution_id": "uncertainty",
+                "engine_version": engine("decision_tree_uncertainty_result")?,
+                "command": uncertainty_command,
+                "input_artifact_ids": [
+                    "decision_tree_plan", "decision_tree_uncertainty_plan"
+                ],
+                "output_artifact_id": "decision_tree_uncertainty_result",
+                "determinism": "byte_replay_expected"
+            }
+        ]));
+    }
     let partitioned = bindings.contains_key("partitioned_survival_result");
     let base_key = if partitioned {
         "partitioned_survival_result"
@@ -299,6 +357,114 @@ fn source_union(
     result
 }
 
+fn collect_string_array_values(
+    value: &serde_json::Value,
+    key: &str,
+    found: &mut HashSet<String>,
+) -> Result<(), String> {
+    match value {
+        serde_json::Value::Object(values) => {
+            for (field, value) in values {
+                if field == key {
+                    let items = value
+                        .as_array()
+                        .ok_or_else(|| format!("{key} must be an array"))?;
+                    for item in items {
+                        let item = text(Some(item))
+                            .ok_or_else(|| format!("{key} must contain non-empty strings"))?;
+                        found.insert(item.to_string());
+                    }
+                } else {
+                    collect_string_array_values(value, key, found)?;
+                }
+            }
+        }
+        serde_json::Value::Array(values) => {
+            for value in values {
+                collect_string_array_values(value, key, found)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn decision_tree_source_entries(
+    plan: &serde_json::Value,
+    evidence: &serde_json::Value,
+    errors: &mut Vec<String>,
+) -> HashMap<String, serde_json::Value> {
+    let mut source_ids = HashSet::new();
+    if let Err(error) = collect_string_array_values(plan, "source_ids", &mut source_ids) {
+        errors.push(error);
+    }
+    let records = evidence
+        .get("records")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|record| text(record.get("record_id")).map(|id| (id, record)))
+        .collect::<HashMap<_, _>>();
+    let extractions = evidence
+        .get("extractions")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|extraction| text(extraction.get("extraction_id")).map(|id| (id, extraction)))
+        .collect::<HashMap<_, _>>();
+    let mut result = HashMap::new();
+    for source_id in source_ids {
+        let Some(extraction) = extractions.get(source_id.as_str()) else {
+            errors.push(format!(
+                "decision-tree source_id does not resolve to a bound extraction: {source_id}"
+            ));
+            continue;
+        };
+        let Some(record_id) = text(extraction.get("record_id")) else {
+            errors.push(format!(
+                "decision-tree extraction omitted record_id: {source_id}"
+            ));
+            continue;
+        };
+        let Some(record) = records.get(record_id) else {
+            errors.push(format!(
+                "decision-tree source_id does not resolve to a bound evidence record: {source_id}"
+            ));
+            continue;
+        };
+        if [
+            text(record.get("title")),
+            text(record.get("source_type")),
+            text(record.get("locator")),
+            text(extraction.get("source_location")),
+            text(extraction.get("verification_status")),
+        ]
+        .iter()
+        .any(Option::is_none)
+        {
+            errors.push(format!(
+                "decision-tree evidence metadata is incomplete: {source_id}"
+            ));
+            continue;
+        }
+        result.insert(
+            source_id.clone(),
+            serde_json::json!({
+                "source_id": source_id,
+                "record_id": record_id,
+                "title": record.get("title").cloned().unwrap_or(serde_json::Value::Null),
+                "source_type": record.get("source_type").cloned().unwrap_or(serde_json::Value::Null),
+                "locator": record.get("locator").cloned().unwrap_or(serde_json::Value::Null),
+                "source_location": extraction.get("source_location").cloned().unwrap_or(serde_json::Value::Null),
+                "verification_status": extraction.get("verification_status").cloned().unwrap_or(serde_json::Value::Null),
+                "content_sha256": serde_json::Value::Null,
+                "data_availability_id": format!("availability-{source_id}")
+            }),
+        );
+    }
+    result
+}
+
 pub fn audit_reproducibility_package_for_identity(
     workspace: &Path,
     identity: &RuntimeIdentity,
@@ -312,9 +478,6 @@ pub fn audit_reproducibility_package_for_identity(
     audit.package_id = text(package.get("package_id")).unwrap_or_default().into();
     audit.analysis_id = text(package.get("analysis_id")).unwrap_or_default().into();
     audit.package_sha256 = sha256(&package_raw);
-    if text(package.get("schema_version")) != Some("0.1.0") {
-        audit.errors.push("schema_version must be 0.1.0".into());
-    }
     for (field, value) in [
         ("package_id", audit.package_id.as_str()),
         ("analysis_id", audit.analysis_id.as_str()),
@@ -323,22 +486,50 @@ pub fn audit_reproducibility_package_for_identity(
             audit.errors.push(format!("{field} must be a safe id"));
         }
     }
-    if text(package.get("status")) != Some("ready_for_reproducibility_review") {
-        audit
-            .errors
-            .push("status must be ready_for_reproducibility_review".into());
-    }
     if !valid_date(package.get("prepared_on")) {
         audit.errors.push("prepared_on must be YYYY-MM-DD".into());
     }
 
     let (report, report_raw) = read_json(workspace, REPORT_PACKAGE_PATH)?;
-    audit.report_package_sha256 = sha256(&report_raw);
-    let report_audit = crate::heor_reporting::audit_report_package(workspace)?;
-    if !report_audit.releasable {
+    let decision_tree = decision_tree(&report);
+    let expected_schema = if decision_tree { "0.2.0" } else { "0.1.0" };
+    if text(package.get("schema_version")) != Some(expected_schema) {
         audit
             .errors
-            .push("current report package is not release-reviewable".into());
+            .push(format!("schema_version must be {expected_schema}"));
+    }
+    if decision_tree && text(package.get("analysis_type")) != Some("decision_tree") {
+        audit.errors.push(
+            "decision-tree reproducibility package must declare analysis_type decision_tree".into(),
+        );
+    }
+    let report_status = text(report.get("status"));
+    let expected_status = if decision_tree && report_status == Some("draft") {
+        "draft"
+    } else {
+        "ready_for_reproducibility_review"
+    };
+    if decision_tree && !matches!(report_status, Some("draft" | "ready_for_release_review")) {
+        audit
+            .errors
+            .push("decision-tree report status is invalid".into());
+    }
+    if text(package.get("status")) != Some(expected_status) {
+        audit.errors.push(if decision_tree {
+            "decision-tree reproducibility status must follow the current report status".into()
+        } else {
+            "status must be ready_for_reproducibility_review".into()
+        });
+    }
+    audit.report_package_sha256 = sha256(&report_raw);
+    let report_audit = crate::heor_reporting::audit_report_package(workspace)?;
+    if !report_audit.complete || (!decision_tree && !report_audit.releasable) {
+        audit
+            .errors
+            .push("current report package is not structurally reproducible".into());
+    }
+    if decision_tree {
+        audit.draft_only_reasons = report_audit.draft_only_reasons.clone();
     }
     if audit.analysis_id != report_audit.analysis_id {
         audit
@@ -377,28 +568,35 @@ pub fn audit_reproducibility_package_for_identity(
             (path.clone(), hash.clone(), expected_role(key).into()),
         );
     }
-    let (analysis, _) = read_json(workspace, "heor/analysis-plan.json")?;
-    if let Some(evidence) = analysis
-        .get("evidence_synthesis")
-        .and_then(serde_json::Value::as_object)
-    {
-        if text(evidence.get("path")) != Some(crate::heor_synthesis::EVIDENCE_SYNTHESIS_PATH)
-            || text(evidence.get("content_sha256")).is_none()
+    let analysis_path = if decision_tree {
+        "heor/decision-tree-plan.json"
+    } else {
+        "heor/analysis-plan.json"
+    };
+    let (analysis, _) = read_json(workspace, analysis_path)?;
+    if !decision_tree {
+        if let Some(evidence) = analysis
+            .get("evidence_synthesis")
+            .and_then(serde_json::Value::as_object)
         {
-            audit
-                .errors
-                .push("analysis evidence_synthesis binding is invalid".into());
-        } else {
-            expected.insert(
-                "evidence_synthesis".into(),
-                (
-                    crate::heor_synthesis::EVIDENCE_SYNTHESIS_PATH.into(),
-                    text(evidence.get("content_sha256"))
-                        .unwrap_or_default()
-                        .into(),
-                    "evidence".into(),
-                ),
-            );
+            if text(evidence.get("path")) != Some(crate::heor_synthesis::EVIDENCE_SYNTHESIS_PATH)
+                || text(evidence.get("content_sha256")).is_none()
+            {
+                audit
+                    .errors
+                    .push("analysis evidence_synthesis binding is invalid".into());
+            } else {
+                expected.insert(
+                    "evidence_synthesis".into(),
+                    (
+                        crate::heor_synthesis::EVIDENCE_SYNTHESIS_PATH.into(),
+                        text(evidence.get("content_sha256"))
+                            .unwrap_or_default()
+                            .into(),
+                        "evidence".into(),
+                    ),
+                );
+            }
         }
     }
 
@@ -457,16 +655,27 @@ pub fn audit_reproducibility_package_for_identity(
     }
 
     let mut loaded = HashMap::new();
-    for key in [
-        "uncertainty_plan",
-        "base_case_result",
-        "partitioned_survival_result",
-        "uncertainty_result",
-        "budget_impact_result",
-    ] {
-        if let Some((path, _, _)) = expected.get(key) {
+    let loaded_keys: &[&str] = if decision_tree {
+        &[
+            "evidence_synthesis",
+            "decision_tree_plan",
+            "decision_tree_uncertainty_plan",
+            "decision_tree_result",
+            "decision_tree_uncertainty_result",
+        ]
+    } else {
+        &[
+            "uncertainty_plan",
+            "base_case_result",
+            "partitioned_survival_result",
+            "uncertainty_result",
+            "budget_impact_result",
+        ]
+    };
+    for key in loaded_keys {
+        if let Some((path, _, _)) = expected.get(*key) {
             if let Ok((value, _)) = read_json(workspace, path) {
-                loaded.insert(key.into(), value);
+                loaded.insert((*key).into(), value);
             }
         }
     }
@@ -519,8 +728,40 @@ pub fn audit_reproducibility_package_for_identity(
             .push("environment does not match the current replay runtime".into());
     }
 
-    let (budget, _) = read_json(workspace, "heor/budget-impact-plan.json")?;
-    let sources = source_union(&analysis, &budget, &mut audit.errors);
+    let sources = if decision_tree {
+        let evidence = loaded
+            .get("evidence_synthesis")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        decision_tree_source_entries(&analysis, &evidence, &mut audit.errors)
+    } else {
+        let (budget, _) = read_json(workspace, "heor/budget-impact-plan.json")?;
+        source_union(&analysis, &budget, &mut audit.errors)
+            .into_iter()
+            .map(|(source_id, source)| {
+                let locator = text(source.get("url")).or_else(|| text(source.get("local_path")));
+                let content_hash = if text(source.get("local_path")).is_some() {
+                    source
+                        .get("content_sha256")
+                        .cloned()
+                        .unwrap_or(serde_json::Value::Null)
+                } else {
+                    serde_json::Value::Null
+                };
+                (
+                    source_id.clone(),
+                    serde_json::json!({
+                        "source_id": source_id,
+                        "title": source.get("title").cloned().unwrap_or(serde_json::Value::Null),
+                        "source_type": source.get("source_type").cloned().unwrap_or(serde_json::Value::Null),
+                        "locator": locator,
+                        "content_sha256": content_hash,
+                        "data_availability_id": format!("availability-{source_id}")
+                    }),
+                )
+            })
+            .collect()
+    };
     let source_register = package
         .get("source_register")
         .and_then(serde_json::Value::as_array)
@@ -546,25 +787,8 @@ pub fn audit_reproducibility_package_for_identity(
             .errors
             .push("source_register must equal the unique evidence-source union".into());
     }
-    for (source_id, source) in &sources {
-        let locator = text(source.get("url")).or_else(|| text(source.get("local_path")));
-        let content_hash = if text(source.get("local_path")).is_some() {
-            source
-                .get("content_sha256")
-                .cloned()
-                .unwrap_or(serde_json::Value::Null)
-        } else {
-            serde_json::Value::Null
-        };
-        let expected_source = serde_json::json!({
-            "source_id": source_id,
-            "title": source.get("title").cloned().unwrap_or(serde_json::Value::Null),
-            "source_type": source.get("source_type").cloned().unwrap_or(serde_json::Value::Null),
-            "locator": locator,
-            "content_sha256": content_hash,
-            "data_availability_id": format!("availability-{source_id}")
-        });
-        if registered.get(source_id) != Some(&expected_source) {
+    for (source_id, expected_source) in &sources {
+        if registered.get(source_id) != Some(expected_source) {
             audit.errors.push(format!(
                 "source_register does not reproduce source metadata: {source_id}"
             ));
@@ -640,15 +864,20 @@ pub fn audit_reproducibility_package_for_identity(
         .cloned()
         .unwrap_or_default();
     audit.claim_count = claims.len();
+    let required_claims = required_claims(&report);
+    audit.required_claim_count = required_claims.len();
     let mut claim_ids = HashSet::new();
     let mut covered_claims = HashSet::new();
-    let base_result = if expected.contains_key("partitioned_survival_result") {
+    let base_result = if decision_tree {
+        "decision_tree_result"
+    } else if expected.contains_key("partitioned_survival_result") {
         "partitioned_survival_result"
     } else {
         "base_case_result"
     };
     let result_for = |scope: &str| match scope {
         "cost_effectiveness" => base_result,
+        "uncertainty" if decision_tree => "decision_tree_uncertainty_result",
         "uncertainty" => "uncertainty_result",
         _ => "budget_impact_result",
     };
@@ -661,7 +890,7 @@ pub fn audit_reproducibility_package_for_identity(
         }
         let profile = text(claim.get("profile_id")).unwrap_or_default();
         let item = text(claim.get("item_id")).unwrap_or_default();
-        let required = REQUIRED_CLAIMS
+        let required = required_claims
             .iter()
             .find(|(required_profile, required_item, _)| {
                 *required_profile == profile && *required_item == item
@@ -722,10 +951,11 @@ pub fn audit_reproducibility_package_for_identity(
         }
     }
     audit.covered_claim_count = covered_claims.len();
-    if claims.len() != REQUIRED_CLAIMS.len() || covered_claims.len() != REQUIRED_CLAIMS.len() {
-        audit.errors.push(
-            "claim_evidence_ledger must contain exactly the seven required reporting items".into(),
-        );
+    if claims.len() != required_claims.len() || covered_claims.len() != required_claims.len() {
+        audit.errors.push(format!(
+            "claim_evidence_ledger must contain exactly the {} required reporting items",
+            if decision_tree { "three" } else { "seven" }
+        ));
     }
 
     let exhibits = package
@@ -738,19 +968,32 @@ pub fn audit_reproducibility_package_for_identity(
         .iter()
         .filter_map(|item| text(item.get("exhibit_id")).map(|id| (id, item)))
         .collect::<HashMap<_, _>>();
-    if exhibits.len() != 3
-        || exhibits_by_id.keys().copied().collect::<HashSet<_>>()
-            != HashSet::from(["cost_effectiveness", "uncertainty", "budget_impact"])
+    let required_exhibits = if decision_tree {
+        HashSet::from(["cost_effectiveness", "uncertainty"])
+    } else {
+        HashSet::from(["cost_effectiveness", "uncertainty", "budget_impact"])
+    };
+    if exhibits.len() != required_exhibits.len()
+        || exhibits_by_id.keys().copied().collect::<HashSet<_>>() != required_exhibits
     {
-        audit
-            .errors
-            .push("exhibit_register must contain exactly the three deterministic exhibits".into());
+        audit.errors.push(format!(
+            "exhibit_register must contain exactly the {} deterministic exhibits",
+            if decision_tree { "two" } else { "three" }
+        ));
     }
-    for (exhibit_id, result_id) in [
-        ("cost_effectiveness", base_result),
-        ("uncertainty", "uncertainty_result"),
-        ("budget_impact", "budget_impact_result"),
-    ] {
+    let expected_exhibits = if decision_tree {
+        vec![
+            ("cost_effectiveness", base_result),
+            ("uncertainty", "decision_tree_uncertainty_result"),
+        ]
+    } else {
+        vec![
+            ("cost_effectiveness", base_result),
+            ("uncertainty", "uncertainty_result"),
+            ("budget_impact", "budget_impact_result"),
+        ]
+    };
+    for (exhibit_id, result_id) in expected_exhibits {
         let item = exhibits_by_id.get(exhibit_id).copied();
         let artifacts =
             strings(item.and_then(|value| value.get("artifact_ids"))).unwrap_or_default();
@@ -783,8 +1026,10 @@ pub fn audit_reproducibility_package_for_identity(
     }
 
     audit.complete = audit.errors.is_empty();
-    audit.release_companion_ready = audit.complete;
-    audit.status = if audit.complete {
+    audit.release_companion_ready = audit.complete && report_audit.releasable;
+    audit.status = if audit.complete && !audit.release_companion_ready {
+        "draft"
+    } else if audit.complete {
         "complete"
     } else {
         "incomplete"
@@ -1070,7 +1315,7 @@ mod tests {
         loaded.insert("uncertainty_result".into(), uncertainty);
         loaded.insert("budget_impact_result".into(), budget);
         let execution = expected_execution_manifest(&report_template, &loaded).unwrap();
-        let claims = REQUIRED_CLAIMS
+        let claims = MARKOV_REQUIRED_CLAIMS
             .iter()
             .enumerate()
             .map(|(index, (profile, item, scope))| {
@@ -1136,6 +1381,158 @@ mod tests {
         (root, identity)
     }
 
+    fn decision_tree_fixture(tag: &str, draft: bool) -> (PathBuf, RuntimeIdentity) {
+        let root = std::env::temp_dir().join(format!(
+            "heor-reproducibility-decision-tree-{tag}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        crate::heor_reporting::tests::write_decision_tree_package(
+            &root,
+            if draft {
+                "draft"
+            } else {
+                "ready_for_release_review"
+            },
+            draft,
+            true,
+        );
+        let (report, report_raw) = read_json(&root, REPORT_PACKAGE_PATH).unwrap();
+        let report_audit = crate::heor_reporting::audit_report_package(&root).unwrap();
+        assert!(report_audit.complete, "{:?}", report_audit.errors);
+        let mut expected = HashMap::from([(
+            "report_package".to_string(),
+            (
+                REPORT_PACKAGE_PATH.to_string(),
+                sha256(&report_raw),
+                "release_manifest".to_string(),
+            ),
+        )]);
+        for (key, path) in &report_audit.binding_paths {
+            expected.insert(
+                key.clone(),
+                (
+                    path.clone(),
+                    report_audit.binding_hashes[key].clone(),
+                    expected_role(key).to_string(),
+                ),
+            );
+        }
+        let mut inventory = expected
+            .iter()
+            .map(|(key, (path, hash, role))| {
+                serde_json::json!({
+                    "artifact_id": key,
+                    "path": path,
+                    "content_sha256": hash,
+                    "role": role
+                })
+            })
+            .collect::<Vec<_>>();
+        inventory.sort_by(|left, right| {
+            text(left.get("artifact_id")).cmp(&text(right.get("artifact_id")))
+        });
+        let mut loaded = HashMap::new();
+        for key in ["decision_tree_result", "decision_tree_uncertainty_result"] {
+            let path = &report_audit.binding_paths[key];
+            loaded.insert(key.to_string(), read_json(&root, path).unwrap().0);
+        }
+        let execution = expected_execution_manifest(&report, &loaded).unwrap();
+        let claims = DECISION_TREE_REQUIRED_CLAIMS
+            .iter()
+            .enumerate()
+            .map(|(index, (profile, item, scope))| {
+                serde_json::json!({
+                    "claim_id": format!("claim-{}", index + 1),
+                    "profile_id": profile,
+                    "item_id": item,
+                    "claim_type": if item.starts_with("26-") { "limitation" } else { "numerical" },
+                    "statement": "The bound decision-tree artifacts support this qualified claim.",
+                    "status": "qualified",
+                    "artifact_ids": [if *scope == "uncertainty" {
+                        "decision_tree_uncertainty_result"
+                    } else {
+                        "decision_tree_result"
+                    }],
+                    "source_ids": ["source-1"],
+                    "qualification": "Structural traceability does not establish scientific validity."
+                })
+            })
+            .collect::<Vec<_>>();
+        let identity = RuntimeIdentity {
+            ai4heor_version: "1.0.0".into(),
+            platform: "test-x86_64".into(),
+            python_version: "Python 3.12.0".into(),
+        };
+        let package = serde_json::json!({
+            "schema_version": "0.2.0",
+            "analysis_type": "decision_tree",
+            "package_id": "decision-tree-repro-1",
+            "analysis_id": "decision-tree-analysis",
+            "status": if draft { "draft" } else { "ready_for_reproducibility_review" },
+            "prepared_on": "2026-08-01",
+            "report_package": {
+                "path": REPORT_PACKAGE_PATH,
+                "content_sha256": sha256(&report_raw)
+            },
+            "artifact_inventory": inventory,
+            "execution_manifest": execution,
+            "environment": {
+                "ai4heor_version": identity.ai4heor_version,
+                "platform": identity.platform,
+                "python_version": identity.python_version,
+                "result_engine_versions": ["0.1.0", "0.2.0"],
+                "core_dependency_lock": {
+                    "status": "not_applicable_standard_library_only",
+                    "package_count": 0,
+                    "path": null,
+                    "content_sha256": null
+                }
+            },
+            "source_register": [{
+                "source_id": "source-1",
+                "record_id": "record-1",
+                "title": "Decision-tree input source",
+                "source_type": "journal_article",
+                "locator": "https://example.org/decision-tree-source",
+                "source_location": "Table 1",
+                "verification_status": "human_checked",
+                "content_sha256": null,
+                "data_availability_id": "availability-source-1"
+            }],
+            "data_availability": [{
+                "availability_id": "availability-source-1",
+                "source_ids": ["source-1"],
+                "status": "public_locator",
+                "license_status": "unknown",
+                "access_conditions": "Use the public locator and verify access rights.",
+                "rationale": "The report binds the exact extraction, not redistribution rights."
+            }],
+            "exhibit_register": [
+                {
+                    "exhibit_id": "cost_effectiveness",
+                    "label": "Decision-tree cost effectiveness",
+                    "artifact_ids": ["decision_tree_result"],
+                    "claim_ids": ["claim-1", "claim-3"]
+                },
+                {
+                    "exhibit_id": "uncertainty",
+                    "label": "Decision-tree uncertainty",
+                    "artifact_ids": ["decision_tree_uncertainty_result"],
+                    "claim_ids": ["claim-2"]
+                }
+            ],
+            "claim_evidence_ledger": claims,
+            "limitations": ["This package proves structural traceability only."]
+        });
+        std::fs::write(
+            root.join(REPRODUCIBILITY_PACKAGE_PATH),
+            serde_json::to_vec(&package).unwrap(),
+        )
+        .unwrap();
+        (root, identity)
+    }
+
     #[test]
     fn complete_companion_is_natively_auditable() {
         let (root, identity) = fixture("complete");
@@ -1145,6 +1542,34 @@ mod tests {
         assert_eq!(audit.artifact_count, 10);
         assert_eq!(audit.execution_count, 3);
         assert_eq!(audit.covered_claim_count, 7);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn decision_tree_companion_is_natively_auditable() {
+        let (root, identity) = decision_tree_fixture("complete", false);
+        let audit = audit_reproducibility_package_for_identity(&root, &identity).unwrap();
+        assert!(audit.complete, "{:?}", audit.errors);
+        assert!(audit.release_companion_ready);
+        assert_eq!(audit.artifact_count, 7);
+        assert_eq!(audit.execution_count, 2);
+        assert_eq!(audit.required_claim_count, 3);
+        assert_eq!(audit.covered_claim_count, 3);
+        assert_eq!(audit.source_count, 1);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn decision_tree_draft_is_complete_without_becoming_release_ready() {
+        let (root, identity) = decision_tree_fixture("draft", true);
+        let audit = audit_reproducibility_package_for_identity(&root, &identity).unwrap();
+        assert!(audit.complete, "{:?}", audit.errors);
+        assert!(!audit.release_companion_ready);
+        assert_eq!(audit.status, "draft");
+        assert!(audit
+            .draft_only_reasons
+            .iter()
+            .any(|reason| reason.contains("proposed")));
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -1248,5 +1673,55 @@ mod tests {
         assert!(uncertainty
             .iter()
             .any(|value| value == "--joint-survival-draws"));
+    }
+
+    #[test]
+    fn decision_tree_replay_recipe_binds_the_exact_two_result_graph() {
+        let report = serde_json::json!({
+            "analysis_type": "decision_tree",
+            "bindings": {
+                "decision_tree_plan": {
+                    "path": "heor/decision-tree-plan.json",
+                    "content_sha256": "a".repeat(64)
+                },
+                "decision_tree_uncertainty_plan": {
+                    "path": "heor/decision-tree-uncertainty-plan.json",
+                    "content_sha256": "b".repeat(64)
+                },
+                "decision_tree_result": {
+                    "path": "heor/results/decision-tree.json",
+                    "content_sha256": "c".repeat(64)
+                },
+                "decision_tree_uncertainty_result": {
+                    "path": "heor/results/decision-tree-uncertainty.json",
+                    "content_sha256": "d".repeat(64)
+                }
+            }
+        });
+        let loaded = HashMap::from([
+            (
+                "decision_tree_result".into(),
+                serde_json::json!({"engine_version": "0.2.0"}),
+            ),
+            (
+                "decision_tree_uncertainty_result".into(),
+                serde_json::json!({"engine_version": "0.1.0"}),
+            ),
+        ]);
+
+        let recipes = expected_execution_manifest(&report, &loaded).unwrap();
+        assert_eq!(recipes.as_array().unwrap().len(), 2);
+        assert_eq!(recipes[0]["output_artifact_id"], "decision_tree_result");
+        assert_eq!(
+            recipes[1]["command"],
+            serde_json::json!([
+                "python",
+                "-m",
+                "heor_core",
+                "heor/decision-tree-plan.json",
+                "--decision-tree-uncertainty-plan",
+                "heor/decision-tree-uncertainty-plan.json"
+            ])
+        );
     }
 }

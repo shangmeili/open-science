@@ -35,6 +35,7 @@ import {
   PopulationAdjustedComparisonAssessment,
   PopulationAdjustedComparisonReviewDialog,
   ReportingAssessment,
+  ReproducibilityAssessment,
   ModelCalibrationAssessment,
   ModelCalibrationReviewDialog,
   MicrosimulationAssessment,
@@ -49,6 +50,47 @@ import {
 afterEach(() => useUiStore.getState().setLocale("en"));
 
 describe("AI4HEOR human review pane", () => {
+  it("shows a structurally complete decision-tree reproducibility draft without calling it incomplete", () => {
+    render(
+      <ReproducibilityAssessment
+        state={{
+          kind: "ready",
+          audit: {
+            complete: true,
+            releaseCompanionReady: false,
+            status: "draft",
+            packageId: "decision-tree-reproducibility-1",
+            analysisId: "decision-tree-analysis",
+            packageSha256: "a".repeat(64),
+            reportPackageSha256: "b".repeat(64),
+            runtimeMatches: true,
+            artifactCount: 7,
+            executionCount: 2,
+            sourceCount: 1,
+            availabilityCount: 1,
+            exhibitCount: 2,
+            claimCount: 3,
+            requiredClaimCount: 3,
+            coveredClaimCount: 3,
+            draftOnlyReasons: ["decision-tree inputs still contain proposed assumptions"],
+            errors: [],
+          },
+        }}
+        onRequestPreparation={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText("The reproducibility draft is structurally complete but cannot enter release review"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText((_, element) =>
+        element?.tagName === "LI"
+        && element.textContent === "• The decision tree still contains proposed assumptions awaiting verification."
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Reproducibility companion is incomplete")).not.toBeInTheDocument();
+  });
+
   it("shows decision-tree draft-only reasons without calling the package releasable", () => {
     render(
       <ReportingAssessment

@@ -3759,10 +3759,16 @@ class ReportingContractTests(unittest.TestCase):
             "schema_version": "0.1.0",
             "synthesis_id": "decision-tree-evidence",
             "status": "ready_for_human_review",
-            "records": [{"record_id": "record-1"}],
+            "records": [{
+                "record_id": "record-1",
+                "title": "Decision-tree input source",
+                "locator": "https://example.org/decision-tree-source",
+                "source_type": "journal_article",
+            }],
             "extractions": [{
                 "extraction_id": "source-1",
                 "record_id": "record-1",
+                "source_location": "Table 1",
                 "verification_status": "human_checked",
             }],
         }
@@ -4303,6 +4309,154 @@ class ReproducibilityPackageContractTests(unittest.TestCase):
         path = root / reproducibility.REPRO_PATH
         path.write_text(json.dumps(package, indent=2))
         return path, package
+
+    def decision_tree_fixture(self, root: Path, *, draft: bool = False):
+        report_path, report, _ = ReportingContractTests().decision_tree_fixture(
+            root,
+            proposed_assumption=draft,
+            package_status="draft" if draft else "ready_for_release_review",
+        )
+        report_raw = report_path.read_bytes()
+        loaded = {
+            key: json.loads((root / binding["path"]).read_text())
+            for key, binding in report["bindings"].items()
+            if key != "report_document"
+        }
+        expected = reproducibility.expected_artifacts(
+            report, report_raw, loaded["decision_tree_plan"]
+        )
+        inventory = [
+            {
+                "artifact_id": key,
+                "path": path,
+                "content_sha256": sha256,
+                "role": role,
+            }
+            for key, (path, sha256, role) in sorted(expected.items())
+        ]
+        required_claims = reproducibility.required_claims(report)
+        claims = []
+        claim_ids_by_scope = {"cost_effectiveness": [], "uncertainty": []}
+        for index, ((profile_id, item_id), scope) in enumerate(
+            required_claims.items(), start=1
+        ):
+            claim_id = f"claim-{index}"
+            result_id = {
+                "cost_effectiveness": "decision_tree_result",
+                "uncertainty": "decision_tree_uncertainty_result",
+            }[scope]
+            claim_ids_by_scope[scope].append(claim_id)
+            claims.append({
+                "claim_id": claim_id,
+                "profile_id": profile_id,
+                "item_id": item_id,
+                "claim_type": "limitation" if item_id.startswith("26-") else "numerical",
+                "statement": "The bound decision-tree artifacts support this qualified claim.",
+                "status": "qualified",
+                "artifact_ids": [result_id],
+                "source_ids": ["source-1"],
+                "qualification": "Structural traceability does not establish scientific validity.",
+            })
+        package = {
+            "schema_version": "0.2.0",
+            "analysis_type": "decision_tree",
+            "package_id": "decision-tree-repro-1",
+            "analysis_id": report["analysis_id"],
+            "status": "draft" if draft else "ready_for_reproducibility_review",
+            "prepared_on": "2026-08-01",
+            "report_package": {
+                "path": reproducibility.REPORT_PATH,
+                "content_sha256": hashlib.sha256(report_raw).hexdigest(),
+            },
+            "artifact_inventory": inventory,
+            "execution_manifest": reproducibility.command_specs(report, loaded),
+            "environment": {
+                "ai4heor_version": "1.0.0",
+                "platform": "test-x86_64",
+                "python_version": "Python 3.12.0",
+                "result_engine_versions": ["0.1.0", "0.2.0"],
+                "core_dependency_lock": {
+                    "status": "not_applicable_standard_library_only",
+                    "package_count": 0,
+                    "path": None,
+                    "content_sha256": None,
+                },
+            },
+            "source_register": [{
+                "source_id": "source-1",
+                "record_id": "record-1",
+                "title": "Decision-tree input source",
+                "source_type": "journal_article",
+                "locator": "https://example.org/decision-tree-source",
+                "source_location": "Table 1",
+                "verification_status": "human_checked",
+                "content_sha256": None,
+                "data_availability_id": "availability-source-1",
+            }],
+            "data_availability": [{
+                "availability_id": "availability-source-1",
+                "source_ids": ["source-1"],
+                "status": "public_locator",
+                "license_status": "unknown",
+                "access_conditions": "Use the public locator and verify access rights.",
+                "rationale": "The report binds the exact verified extraction, not redistribution rights.",
+            }],
+            "exhibit_register": [
+                {
+                    "exhibit_id": "cost_effectiveness",
+                    "label": "Decision-tree cost-effectiveness results",
+                    "artifact_ids": ["decision_tree_result"],
+                    "claim_ids": claim_ids_by_scope["cost_effectiveness"],
+                },
+                {
+                    "exhibit_id": "uncertainty",
+                    "label": "Decision-tree uncertainty results",
+                    "artifact_ids": ["decision_tree_uncertainty_result"],
+                    "claim_ids": claim_ids_by_scope["uncertainty"],
+                },
+            ],
+            "claim_evidence_ledger": claims,
+            "limitations": [
+                "The package verifies structural traceability, not scientific validity."
+            ],
+        }
+        path = root / reproducibility.REPRO_PATH
+        path.write_text(json.dumps(package, ensure_ascii=False, indent=2))
+        return path, package
+
+    def test_decision_tree_companion_binds_two_exact_replay_recipes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path, package = self.decision_tree_fixture(root)
+            result = reproducibility.audit(path, root)
+            self.assertTrue(result["complete"], result)
+            self.assertTrue(result["release_companion_ready"], result)
+            self.assertEqual(result["artifact_count"], 7)
+            self.assertEqual(result["execution_count"], 2)
+            self.assertEqual(result["covered_claim_count"], 3)
+            self.assertEqual(result["source_count"], 1)
+            self.assertEqual(
+                [item["execution_id"] for item in package["execution_manifest"]],
+                ["cost_effectiveness", "uncertainty"],
+            )
+            self.assertEqual(
+                package["execution_manifest"][1]["command"],
+                [
+                    "python", "-m", "heor_core", "heor/decision-tree-plan.json",
+                    "--decision-tree-uncertainty-plan",
+                    "heor/decision-tree-uncertainty-plan.json",
+                ],
+            )
+
+    def test_decision_tree_draft_is_complete_but_never_release_ready(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path, _ = self.decision_tree_fixture(root, draft=True)
+            result = reproducibility.audit(path, root)
+            self.assertTrue(result["complete"], result)
+            self.assertFalse(result["release_companion_ready"], result)
+            self.assertEqual(result["status"], "draft")
+            self.assertTrue(result["draft_only_reasons"])
 
     def test_complete_release_companion_is_portably_auditable(self):
         with tempfile.TemporaryDirectory() as directory:

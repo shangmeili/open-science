@@ -1,0 +1,31 @@
+{
+  "schema_version": "0.2.0",
+  "analysis_type": "decision_tree",
+  "package_id": "",
+  "analysis_id": "",
+  "status": "draft",
+  "prepared_on": "",
+  "report_package": {
+    "path": "heor/report-package.json",
+    "content_sha256": ""
+  },
+  "artifact_inventory": [],
+  "execution_manifest": [],
+  "environment": {
+    "ai4heor_version": "",
+    "platform": "",
+    "python_version": "",
+    "result_engine_versions": [],
+    "core_dependency_lock": {
+      "status": "not_applicable_standard_library_only",
+      "package_count": 0,
+      "path": null,
+      "content_sha256": null
+    }
+  },
+  "source_register": [],
+  "data_availability": [],
+  "exhibit_register": [],
+  "claim_evidence_ledger": [],
+  "limitations": []
+}

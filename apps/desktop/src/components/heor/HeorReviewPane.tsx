@@ -6681,7 +6681,7 @@ export function ReportingAssessment({
   );
 }
 
-function ReproducibilityAssessment({
+export function ReproducibilityAssessment({
   state,
   onRequestPreparation,
 }: {
@@ -6691,7 +6691,18 @@ function ReproducibilityAssessment({
   const { t } = useTranslation("heor");
   const audit = state.kind === "ready" ? state.audit : null;
   const ready = audit?.releaseCompanionReady === true;
-  const issues = audit ? [...new Set(audit.errors)] : state.kind === "invalid" ? [state.message] : [];
+  const draft = audit?.complete === true && !ready && audit.status === "draft";
+  const draftReasons = (audit?.draftOnlyReasons ?? []).map((reason) => {
+    if (reason.includes("proposed assumptions")) return t("reproducibility.draftReasons.proposedAssumptions");
+    if (reason.includes("reference case")) return t("reproducibility.draftReasons.referenceCase");
+    if (reason.includes("evidence synthesis")) return t("reproducibility.draftReasons.evidenceSynthesis");
+    if (reason.includes("convergence")) return t("reproducibility.draftReasons.convergence");
+    if (reason.includes("report package remains draft")) return t("reproducibility.draftReasons.reportDraft");
+    return reason;
+  });
+  const issues = audit
+    ? [...new Set([...draftReasons, ...audit.errors])]
+    : state.kind === "invalid" ? [state.message] : [];
   return (
     <section className="border-b border-border px-5 py-4">
       <div className="flex items-start gap-2">
@@ -6709,6 +6720,8 @@ function ReproducibilityAssessment({
               ? t("reproducibility.loading")
               : ready
                 ? t("reproducibility.ready")
+                : draft
+                  ? t("reproducibility.draft")
                 : t("reproducibility.incomplete")}
           </div>
         </div>

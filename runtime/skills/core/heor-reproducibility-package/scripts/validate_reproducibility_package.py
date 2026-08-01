@@ -18,7 +18,7 @@ AVAILABILITY_ID = re.compile(r"^[a-z][a-z0-9_-]{0,76}$")
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 REPORT_PATH = "heor/report-package.json"
 REPRO_PATH = "heor/reproducibility-package.json"
-REQUIRED_CLAIMS = {
+MARKOV_REQUIRED_CLAIMS = {
     ("CHEERS-2022", "23-summary-results"): "cost_effectiveness",
     ("CHEERS-2022", "24-uncertainty-effects"): "uncertainty",
     ("CHEERS-2022", "26-findings-limitations-generalisability"): "cost_effectiveness",
@@ -27,6 +27,13 @@ REQUIRED_CLAIMS = {
     ("ISPOR-BIA-GP-II-2014", "bia-10-uncertainty-scenarios"): "budget_impact",
     ("ISPOR-BIA-GP-II-2014", "bia-12-limitations-reproducibility"): "budget_impact",
 }
+DECISION_TREE_REQUIRED_CLAIMS = {
+    ("CHEERS-2022", "23-summary-results"): "cost_effectiveness",
+    ("CHEERS-2022", "24-uncertainty-effects"): "uncertainty",
+    ("CHEERS-2022", "26-findings-limitations-generalisability"): "cost_effectiveness",
+}
+# Backward-compatible public name used by the schema 0.1 Markov fixtures.
+REQUIRED_CLAIMS = MARKOV_REQUIRED_CLAIMS
 ROLES = {"release_manifest", "report", "method", "input", "result", "evidence"}
 AVAILABILITY = {
     "included_workspace", "public_locator", "available_on_request",
@@ -97,6 +104,14 @@ def expected_role(key: str) -> str:
     return "method"
 
 
+def is_decision_tree(report: dict) -> bool:
+    return report.get("analysis_type") == "decision_tree"
+
+
+def required_claims(report: dict) -> dict[tuple[str, str], str]:
+    return DECISION_TREE_REQUIRED_CLAIMS if is_decision_tree(report) else MARKOV_REQUIRED_CLAIMS
+
+
 def expected_artifacts(report: dict, report_raw: bytes, analysis: dict) -> dict[str, tuple[str, str, str]]:
     result = {"report_package": (REPORT_PATH, digest(report_raw), "release_manifest")}
     bindings = report.get("bindings")
@@ -118,6 +133,31 @@ def expected_artifacts(report: dict, report_raw: bytes, analysis: dict) -> dict[
 
 def command_specs(report: dict, loaded: dict[str, dict]) -> list[dict]:
     bindings = report["bindings"]
+    if is_decision_tree(report):
+        base_args = ["python", "-m", "heor_core", bindings["decision_tree_plan"]["path"]]
+        return [
+            {
+                "execution_id": "cost_effectiveness",
+                "engine_version": loaded["decision_tree_result"].get("engine_version"),
+                "command": base_args,
+                "input_artifact_ids": ["decision_tree_plan"],
+                "output_artifact_id": "decision_tree_result",
+                "determinism": "byte_replay_expected",
+            },
+            {
+                "execution_id": "uncertainty",
+                "engine_version": loaded["decision_tree_uncertainty_result"].get("engine_version"),
+                "command": base_args + [
+                    "--decision-tree-uncertainty-plan",
+                    bindings["decision_tree_uncertainty_plan"]["path"],
+                ],
+                "input_artifact_ids": [
+                    "decision_tree_plan", "decision_tree_uncertainty_plan",
+                ],
+                "output_artifact_id": "decision_tree_uncertainty_result",
+                "determinism": "byte_replay_expected",
+            },
+        ]
     psm = "partitioned_survival_result" in bindings
     base_id = "partitioned_survival_result" if psm else "base_case_result"
     base_args = ["python", "-m", "heor_core", "heor/analysis-plan.json"]
@@ -173,9 +213,76 @@ def command_specs(report: dict, loaded: dict[str, dict]) -> list[dict]:
     ]
 
 
-def source_map(analysis: dict, bia: dict, errors: list[str]) -> dict[str, dict]:
+def _collect_string_array_values(value: object, key: str, found: set[str]) -> None:
+    if isinstance(value, dict):
+        for field, child in value.items():
+            if field == key:
+                if not isinstance(child, list) or not all(text(item) for item in child):
+                    raise ValueError(f"{key} must contain only non-empty strings")
+                found.update(child)
+            else:
+                _collect_string_array_values(child, key, found)
+    elif isinstance(value, list):
+        for child in value:
+            _collect_string_array_values(child, key, found)
+
+
+def source_map(report: dict, loaded: dict[str, dict], errors: list[str]) -> dict[str, dict]:
+    if is_decision_tree(report):
+        extraction_ids: set[str] = set()
+        try:
+            _collect_string_array_values(
+                loaded.get("decision_tree_plan", {}), "source_ids", extraction_ids
+            )
+        except ValueError as error:
+            errors.append(str(error))
+        evidence = loaded.get("evidence_synthesis", {})
+        records = {
+            item.get("record_id"): item
+            for item in objects(evidence.get("records"))
+            if text(item.get("record_id"))
+        }
+        extractions = {
+            item.get("extraction_id"): item
+            for item in objects(evidence.get("extractions"))
+            if text(item.get("extraction_id"))
+        }
+        result: dict[str, dict] = {}
+        for extraction_id in sorted(extraction_ids):
+            extraction = extractions.get(extraction_id)
+            record = records.get(extraction.get("record_id")) if extraction else None
+            if extraction is None or record is None:
+                errors.append(
+                    f"decision-tree source_id does not resolve to a bound evidence record: {extraction_id}"
+                )
+                continue
+            expected = {
+                "source_id": extraction_id,
+                "record_id": extraction.get("record_id"),
+                "title": record.get("title"),
+                "source_type": record.get("source_type"),
+                "locator": record.get("locator"),
+                "source_location": extraction.get("source_location"),
+                "verification_status": extraction.get("verification_status"),
+                "content_sha256": None,
+                "data_availability_id": f"availability-{extraction_id}",
+            }
+            if not all(text(expected.get(field)) for field in (
+                "record_id", "title", "source_type", "locator",
+                "source_location", "verification_status",
+            )):
+                errors.append(
+                    f"decision-tree evidence metadata is incomplete: {extraction_id}"
+                )
+                continue
+            result[extraction_id] = expected
+        return result
+
     result: dict[str, dict] = {}
-    for owner, plan in (("analysis", analysis), ("budget impact", bia)):
+    for owner, plan in (
+        ("analysis", loaded.get("analysis_plan", {})),
+        ("budget impact", loaded.get("budget_impact_plan", {})),
+    ):
         raw = plan.get("evidence_sources")
         if not isinstance(raw, list) or not all(isinstance(item, dict) for item in raw):
             errors.append(f"{owner} evidence_sources must be an array of objects")
@@ -187,7 +294,15 @@ def source_map(analysis: dict, bia: dict, errors: list[str]) -> dict[str, dict]:
                 continue
             if source_id in result and result[source_id] != source:
                 errors.append(f"evidence source {source_id} differs across plans")
-            result[source_id] = source
+            locator = source.get("url") if text(source.get("url")) else source.get("local_path")
+            result[source_id] = {
+                "source_id": source_id,
+                "title": source.get("title"),
+                "source_type": source.get("source_type"),
+                "locator": locator,
+                "content_sha256": source.get("content_sha256") if text(source.get("local_path")) else None,
+                "data_availability_id": f"availability-{source_id}",
+            }
     return result
 
 
@@ -203,12 +318,28 @@ def audit(package_path: Path, workspace: Path) -> dict:
         report, report_raw = {}, b""
         errors.append(str(error))
 
-    if package.get("schema_version") != "0.1.0":
-        errors.append("schema_version must be 0.1.0")
+    decision_tree = is_decision_tree(report)
+    expected_schema = "0.2.0" if decision_tree else "0.1.0"
+    if package.get("schema_version") != expected_schema:
+        errors.append(f"schema_version must be {expected_schema}")
+    if decision_tree and package.get("analysis_type") != "decision_tree":
+        errors.append("decision-tree reproducibility package must declare analysis_type decision_tree")
     for field in ("package_id", "analysis_id"):
         if not text(package.get(field)) or not SAFE_ID.fullmatch(str(package.get(field, ""))):
             errors.append(f"{field} must be a safe id")
-    if package.get("status") != "ready_for_reproducibility_review":
+    report_status = report.get("status")
+    package_status = package.get("status")
+    if decision_tree:
+        if report_status not in {"draft", "ready_for_release_review"}:
+            errors.append("decision-tree report status is invalid")
+        expected_status = (
+            "draft" if report_status == "draft" else "ready_for_reproducibility_review"
+        )
+        if package_status != expected_status:
+            errors.append(
+                "decision-tree reproducibility status must follow the current report status"
+            )
+    elif package_status != "ready_for_reproducibility_review":
         errors.append("status must be ready_for_reproducibility_review")
     if not DATE.fullmatch(str(package.get("prepared_on", ""))):
         errors.append("prepared_on must be YYYY-MM-DD")
@@ -234,8 +365,9 @@ def audit(package_path: Path, workspace: Path) -> dict:
                     loaded[key] = value
         except (OSError, ValueError, json.JSONDecodeError) as error:
             errors.append(str(error))
-    analysis = loaded.get("analysis_plan", {})
-    bia = loaded.get("budget_impact_plan", {})
+    analysis = loaded.get(
+        "decision_tree_plan" if decision_tree else "analysis_plan", {}
+    )
 
     try:
         expected = expected_artifacts(report, report_raw, analysis)
@@ -289,7 +421,7 @@ def audit(package_path: Path, workspace: Path) -> dict:
     if environment.get("core_dependency_lock") != expected_lock:
         errors.append("environment.core_dependency_lock must state the exact standard-library-only boundary")
 
-    sources = source_map(analysis, bia, errors)
+    sources = source_map(report, loaded, errors)
     source_register = objects(package.get("source_register"))
     registered: dict[str, dict] = {}
     for index, item in enumerate(source_register):
@@ -300,16 +432,7 @@ def audit(package_path: Path, workspace: Path) -> dict:
         registered[source_id] = item
     if set(registered) != set(sources):
         errors.append("source_register must equal the unique evidence-source union")
-    for source_id, source in sources.items():
-        locator = source.get("url") if text(source.get("url")) else source.get("local_path")
-        expected_source = {
-            "source_id": source_id,
-            "title": source.get("title"),
-            "source_type": source.get("source_type"),
-            "locator": locator,
-            "content_sha256": source.get("content_sha256") if text(source.get("local_path")) else None,
-            "data_availability_id": f"availability-{source_id}",
-        }
+    for source_id, expected_source in sources.items():
         if registered.get(source_id) != expected_source:
             errors.append(f"source_register does not reproduce source metadata: {source_id}")
 
@@ -337,14 +460,21 @@ def audit(package_path: Path, workspace: Path) -> dict:
             errors.append(f"source_register availability link is missing: {source_id}")
 
     claims = objects(package.get("claim_evidence_ledger"))
+    required = required_claims(report)
     claim_ids: set[str] = set()
     covered_claims: set[tuple[str, str]] = set()
-    base_result = "partitioned_survival_result" if "partitioned_survival_result" in expected else "base_case_result"
-    expected_result = {
-        "cost_effectiveness": base_result,
-        "uncertainty": "uncertainty_result",
-        "budget_impact": "budget_impact_result",
-    }
+    if decision_tree:
+        expected_result = {
+            "cost_effectiveness": "decision_tree_result",
+            "uncertainty": "decision_tree_uncertainty_result",
+        }
+    else:
+        base_result = "partitioned_survival_result" if "partitioned_survival_result" in expected else "base_case_result"
+        expected_result = {
+            "cost_effectiveness": base_result,
+            "uncertainty": "uncertainty_result",
+            "budget_impact": "budget_impact_result",
+        }
     for index, claim in enumerate(claims):
         claim_id = claim.get("claim_id")
         key = (str(claim.get("profile_id", "")), str(claim.get("item_id", "")))
@@ -355,11 +485,11 @@ def audit(package_path: Path, workspace: Path) -> dict:
             errors.append(f"claim_evidence_ledger[{index}].claim_id is invalid or duplicated")
         else:
             claim_ids.add(claim_id)
-        if key not in REQUIRED_CLAIMS:
+        if key not in required:
             errors.append(f"claim_evidence_ledger[{index}] reporting item is outside the required ledger")
         else:
             covered_claims.add(key)
-            if expected_result[REQUIRED_CLAIMS[key]] not in artifact_ids:
+            if expected_result[required[key]] not in artifact_ids:
                 errors.append(f"claim_evidence_ledger[{index}] omits its deterministic result")
         if claim.get("claim_type") not in {"numerical", "interpretation", "limitation"}:
             errors.append(f"claim_evidence_ledger[{index}].claim_type is invalid")
@@ -373,13 +503,20 @@ def audit(package_path: Path, workspace: Path) -> dict:
             errors.append(f"claim_evidence_ledger[{index}].source_ids must be an explicit string array")
         if any(item not in expected for item in artifact_ids) or any(item not in sources for item in source_ids):
             errors.append(f"claim_evidence_ledger[{index}] links unknown artifacts or sources")
-    if len(claims) != len(REQUIRED_CLAIMS) or covered_claims != set(REQUIRED_CLAIMS):
-        errors.append("claim_evidence_ledger must contain exactly the seven required reporting items")
+    if len(claims) != len(required) or covered_claims != set(required):
+        errors.append(
+            "claim_evidence_ledger must contain exactly the "
+            f"{'three' if decision_tree else 'seven'} required reporting items"
+        )
 
     exhibits = objects(package.get("exhibit_register"))
     by_exhibit = {item.get("exhibit_id"): item for item in exhibits if text(item.get("exhibit_id"))}
-    if len(exhibits) != 3 or set(by_exhibit) != {"cost_effectiveness", "uncertainty", "budget_impact"}:
-        errors.append("exhibit_register must contain exactly the three deterministic exhibits")
+    required_exhibits = set(expected_result)
+    if len(exhibits) != len(required_exhibits) or set(by_exhibit) != required_exhibits:
+        errors.append(
+            "exhibit_register must contain exactly the "
+            f"{'two' if decision_tree else 'three'} deterministic exhibits"
+        )
     for exhibit_id, result_id in expected_result.items():
         item = by_exhibit.get(exhibit_id, {})
         artifact_ids = strings(item.get("artifact_ids"))
@@ -393,9 +530,17 @@ def audit(package_path: Path, workspace: Path) -> dict:
     if not limitations or len(set(limitations)) != len(limitations):
         errors.append("limitations must contain unique non-empty statements")
 
+    complete = not errors
+    draft_only_reasons = (
+        ["current report package remains draft"]
+        if complete and decision_tree and report_status == "draft"
+        else []
+    )
+    release_companion_ready = complete and not draft_only_reasons
     return {
-        "complete": not errors,
-        "status": "complete" if not errors else "incomplete",
+        "complete": complete,
+        "release_companion_ready": release_companion_ready,
+        "status": "draft" if draft_only_reasons else "complete" if complete else "incomplete",
         "package_id": package.get("package_id", ""),
         "analysis_id": package.get("analysis_id", ""),
         "package_sha256": digest(package_raw),
@@ -406,8 +551,9 @@ def audit(package_path: Path, workspace: Path) -> dict:
         "availability_count": len(availability),
         "exhibit_count": len(exhibits),
         "claim_count": len(claims),
-        "required_claim_count": len(REQUIRED_CLAIMS),
+        "required_claim_count": len(required),
         "covered_claim_count": len(covered_claims),
+        "draft_only_reasons": draft_only_reasons,
         "current_platform": f"{platform.system().lower()}-{platform.machine().lower()}",
         "errors": errors,
     }

@@ -957,6 +957,7 @@
     "title": "Reproducibility companion",
     "loading": "Auditing reproducibility evidence…",
     "ready": "Reproducibility companion is ready for release review",
+    "draft": "The reproducibility draft is structurally complete but cannot enter release review",
     "incomplete": "Reproducibility companion is incomplete",
     "artifacts": "Exact artifacts",
     "executions": "Replay recipes",
@@ -967,7 +968,14 @@
     "runtimeMismatch": "drifted",
     "errors": "Blocking errors",
     "askPrepare": "Ask Agent to prepare or repair reproducibility evidence",
-    "repairPrompt": "Use $heor-reproducibility-package to prepare or repair heor/reproducibility-package.json for the exact current report package. Inventory only the report and its declared bindings, preserve the three deterministic replay recipes, record source availability and licences without copying restricted source content, bind three exhibits and all seven required CHEERS/BIA claim links, and describe the current AI4HEOR, platform, Python and engine versions exactly. Do not create a new approval gate, claim scientific truth, change source/result/report files, or create a release approval.",
+    "repairPrompt": "Use $heor-reproducibility-package to prepare or repair heor/reproducibility-package.json for the exact current report package. Follow the current analysis type: Markov/PSM requires exactly three replay recipes, three exhibits and seven CHEERS/BIA claim links; a decision tree requires exactly two replay recipes, two exhibits and three CHEERS claim links, with no invented BIA content. Record source availability and licences without copying restricted source content, and describe the current AI4HEOR, platform, Python and engine versions exactly. Keep a decision-tree package as draft while its report remains draft. Do not create a new approval gate, claim scientific truth, change source/result/report files, or create a release approval.",
+    "draftReasons": {
+      "proposedAssumptions": "The decision tree still contains proposed assumptions awaiting verification.",
+      "referenceCase": "The reference case is not yet current.",
+      "evidenceSynthesis": "The evidence synthesis is not ready for use.",
+      "convergence": "Decision-tree uncertainty convergence has not passed.",
+      "reportDraft": "The current report package remains a researcher-review draft."
+    },
     "note": "The app verifies exact files, hashes, replay recipes, current runtime, source availability records, exhibits and claim links. It does not prove source truth, data rights, scientific validity or external reproducibility.",
     "noProject": "There is no current project for reproducibility audit.",
     "missingPlan": "An analysis plan is required before reproducibility evidence can be audited."

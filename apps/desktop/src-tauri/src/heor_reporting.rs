@@ -1258,10 +1258,10 @@ pub fn audit_heor_reporting(app: AppHandle) -> Result<ReportingAudit, String> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
-    fn write_decision_tree_package(
+    pub(crate) fn write_decision_tree_package(
         root: &Path,
         status: &str,
         proposed: bool,
@@ -1294,8 +1294,18 @@ mod tests {
             "schema_version": "0.1.0",
             "synthesis_id": "decision-tree-evidence",
             "status": "ready_for_human_review",
-            "records": [{"record_id": "record-1"}],
-            "extractions": [{"extraction_id": "source-1", "record_id": "record-1", "verification_status": "human_checked"}]
+            "records": [{
+                "record_id": "record-1",
+                "title": "Decision-tree input source",
+                "locator": "https://example.org/decision-tree-source",
+                "source_type": "journal_article"
+            }],
+            "extractions": [{
+                "extraction_id": "source-1",
+                "record_id": "record-1",
+                "source_location": "Table 1",
+                "verification_status": "human_checked"
+            }]
         });
         let strategies = serde_json::json!({
             "standard": {"name": "Standard", "total_cost": 1000.0, "total_qaly": 0.5, "net_monetary_benefit": 49000.0},
@@ -1831,6 +1841,7 @@ mod tests {
             claim_count: 7,
             required_claim_count: 7,
             covered_claim_count: 7,
+            draft_only_reasons: Vec::new(),
             errors: Vec::new(),
         };
         let event = crate::heor_approval::ApprovalEvent {

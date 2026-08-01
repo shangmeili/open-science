@@ -223,6 +223,25 @@ class CoreSkillContractTests(unittest.TestCase):
             template["reporting_profiles"],
             [{"id": "CHEERS-2022", "status": "current", "scope": "cost_effectiveness"}],
         )
+
+    def test_reproducibility_skill_has_a_decision_tree_specific_contract(self):
+        skill_dir = SKILLS_ROOT / "heor-reproducibility-package"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        contract = (skill_dir / "references" / "reproducibility-contract.md").read_text(
+            encoding="utf-8"
+        )
+        template = json.loads(
+            (skill_dir / "assets" / "decision-tree-reproducibility-package.template.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(template["schema_version"], "0.2.0")
+        self.assertEqual(template["analysis_type"], "decision_tree")
+        self.assertEqual(template["status"], "draft")
+        self.assertIn("decision-tree-reproducibility-package.template.json", skill)
+        self.assertIn("exactly two", contract)
+        self.assertIn("exactly three", contract)
+        self.assertIn("does not become release-ready", contract)
         self.assertIn("decision-tree-report-package.template.json", skill)
         self.assertIn("must remain `draft`", skill)
         self.assertIn("schema `0.3.0`", contract)

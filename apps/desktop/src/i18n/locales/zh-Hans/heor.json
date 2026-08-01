@@ -957,6 +957,7 @@
     "title": "可重复性材料包",
     "loading": "正在检查可重复性材料……",
     "ready": "可重复性材料包可进入发布审阅",
+    "draft": "可重复性材料结构完整，但当前报告仍是审阅草稿",
     "incomplete": "可重复性材料包不完整",
     "artifacts": "文件",
     "executions": "重复运行步骤",
@@ -967,7 +968,14 @@
     "runtimeMismatch": "已漂移",
     "errors": "阻断错误",
     "askPrepare": "请助手准备或修复可重复性材料",
-    "repairPrompt": "使用 $heor-reproducibility-package，针对当前报告包准备或修复 heor/reproducibility-package.json。文件清单只包含报告及其已声明绑定；保留三个确定性重复运行步骤；不复制受限原文，仅记录来源可得性与许可；绑定三个展示及全部七项 CHEERS/BIA 主张链接；记录当前 AI4HEOR、平台、Python 和引擎版本。不要新增批准关卡，不要声称科学真实性，不要更改来源、结果或报告文件，也不要创建发布批准。",
+    "repairPrompt": "使用 $heor-reproducibility-package，针对当前报告包准备或修复 heor/reproducibility-package.json，并按当前分析类型处理：Markov/PSM 必须绑定三个重复运行步骤、三个展示和七项 CHEERS/BIA 主张；决策树必须绑定两个重复运行步骤、两个展示和三项 CHEERS 主张，不得虚构 BIA 内容。不复制受限原文，只记录来源可得性与许可，并准确记录当前 AI4HEOR、平台、Python 和引擎版本。决策树报告仍为草稿时，材料包也必须保持草稿。不要新增批准关卡，不要声称科学真实性，不要更改来源、结果或报告文件，也不要创建发布批准。",
+    "draftReasons": {
+      "proposedAssumptions": "决策树仍有待核实的暂定假设。",
+      "referenceCase": "参考案例尚未更新到当前版本。",
+      "evidenceSynthesis": "证据综合尚未达到可用状态。",
+      "convergence": "决策树不确定性分析尚未通过收敛检查。",
+      "reportDraft": "当前报告包仍是供研究者审阅的草稿。"
+    },
     "note": "应用验证文件、哈希、重复运行步骤、当前运行环境、来源可得性记录、展示和主张链接；它不证明来源真实、数据权利、科学有效性或外部可重复性。",
     "noProject": "没有可用于可复现性检查的当前项目。",
     "missingPlan": "必须先有分析计划，才能检查可重复性材料。"

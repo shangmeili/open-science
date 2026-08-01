@@ -931,6 +931,7 @@ mod tests {
             claim_count: 7,
             required_claim_count: 7,
             covered_claim_count: 7,
+            draft_only_reasons: Vec::new(),
             errors: Vec::new(),
         }
     }
