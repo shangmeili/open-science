@@ -143,6 +143,12 @@ class DistributionVerifierTests(unittest.TestCase):
             with self.assertRaisesRegex(AssertionError, "installed task UI proof"):
                 verifier.verify_installed_task_ui(101)
 
+    def test_verification_payload_records_successful_packaged_heor_tests(self) -> None:
+        source = (
+            ROOT / "scripts/release/verify_macos_package.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"packaged_heor_tests": True', source)
+
     def test_installed_task_reply_uses_the_semantic_ui_and_local_fixture(self) -> None:
         probe = ROOT / "scripts/release/verify_macos_accessibility.swift"
         source = probe.read_text(encoding="utf-8")

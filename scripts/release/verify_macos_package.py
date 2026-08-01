@@ -1164,6 +1164,7 @@ def main() -> None:
             "payload": {
                 "architecture": expected_arch,
                 "opencode_version": versions["opencode"],
+                "packaged_heor_tests": True,
                 "resource_files": resource_count,
                 "sidecar_version_verification": versions["verification"],
                 "uv_version": versions["uv"],

@@ -39,6 +39,13 @@ MACOS_WORKSPACE_ISOLATION_CHECK = "workspace-isolated"
 MACOS_INSTALLED_TASK_UI_CHECK = "installed-task-ui"
 MACOS_INSTALLED_TASK_REPLY_CHECK = "installed-task-reply"
 MACOS_DMG_COPY_CHECK = "dmg-app-copy"
+MACOS_CORE_PACKAGE_CHECKS = {
+    "bundle-metadata",
+    "macho-architecture",
+    "scientific-resources",
+    "packaged-heor-tests",
+    "bundled-sidecars",
+}
 PACKAGED_OPENCODE_CHECKS = {
     "opencode-system-context-audit",
     "opencode-permission-persistence",
@@ -246,6 +253,52 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
         raise AssertionError("release evidence must bind exactly OpenCode and uv")
     if any(not item.get("version_output") for item in value["sidecars"]):
         raise AssertionError("release evidence has a sidecar without version output")
+    declared_core_package = MACOS_CORE_PACKAGE_CHECKS & set(value["checks"])
+    if declared_core_package:
+        missing_checks = sorted(MACOS_CORE_PACKAGE_CHECKS - set(value["checks"]))
+        if missing_checks:
+            raise AssertionError(
+                "macOS core package evidence is missing paired checks: "
+                f"{missing_checks}"
+            )
+        if value["platform"] != "macos":
+            raise AssertionError("macOS core package checks require a macOS artifact")
+        expected_architecture = {
+            "aarch64-apple-darwin": "arm64",
+            "x86_64-apple-darwin": "x86_64",
+        }.get(value["target"])
+        info = value["verification"].get("info_plist")
+        payload = value["verification"].get("payload")
+        sidecars = {item["name"]: item for item in value["sidecars"]}
+        expected_info = {
+            "CFBundleDisplayName": "AI4HEOR",
+            "CFBundleExecutable": "ai4s-workbench",
+            "CFBundleIdentifier": "com.ai4s.ai4heor",
+            "CFBundleShortVersionString": value["source"]["version"],
+            "CFBundleVersion": value["source"]["version"],
+        }
+        if (
+            info != expected_info
+            or not isinstance(payload, dict)
+            or set(payload)
+            != {
+                "architecture",
+                "opencode_version",
+                "resource_files",
+                "sidecar_version_verification",
+                "uv_version",
+                "packaged_heor_tests",
+            }
+            or payload.get("architecture") != expected_architecture
+            or payload.get("resource_files") != value["resources"]["file_count"]
+            or payload.get("packaged_heor_tests") is not True
+            or payload.get("sidecar_version_verification")
+            != "executed_on_matching_architecture"
+            or payload.get("opencode_version")
+            != sidecars["opencode"]["version_output"]
+            or payload.get("uv_version") != sidecars["uv"]["version_output"]
+        ):
+            raise AssertionError("macOS core package proof is incomplete or mismatched")
     if MACOS_DMG_COPY_CHECK in value["checks"]:
         if value["platform"] != "macos":
             raise AssertionError("DMG verification binding is supported only on macOS")

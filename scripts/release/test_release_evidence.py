@@ -171,6 +171,63 @@ class ReleaseEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "DMG binding"):
             release_evidence.validate_evidence(value)
 
+    def test_macos_core_package_checks_require_exact_verifier_proof(self) -> None:
+        files: list[dict[str, object]] = []
+        value = {
+            "schema": release_evidence.EVIDENCE_SCHEMA,
+            "source": {"commit": "a" * 40, "version": "1.0.0"},
+            "platform": "macos",
+            "target": "x86_64-apple-darwin",
+            "artifacts": [
+                {
+                    "kind": "dmg",
+                    "filename": "AI4HEOR_1.0.0_x64.dmg",
+                    "size": 1,
+                    "sha256": "a" * 64,
+                }
+            ],
+            "checks": sorted(release_evidence.MACOS_CORE_PACKAGE_CHECKS),
+            "runner": self.runner("macos"),
+            "sidecars": self.sidecars(),
+            "verification": {"payload": "passed"},
+            "resources": {
+                "aggregate_sha256": release_evidence.canonical_sha256(files),
+                "file_count": 0,
+                "files": files,
+                "total_bytes": 0,
+            },
+        }
+        with self.assertRaisesRegex(AssertionError, "core package proof"):
+            release_evidence.validate_evidence(value)
+
+        value["sidecars"][0]["version_output"] = "1.17.13-ai4heor.2"
+        value["sidecars"][1]["version_output"] = "uv 0.11.26"
+        value["verification"] = {
+            "info_plist": {
+                "CFBundleDisplayName": "AI4HEOR",
+                "CFBundleExecutable": "ai4s-workbench",
+                "CFBundleIdentifier": "com.ai4s.ai4heor",
+                "CFBundleShortVersionString": "1.0.0",
+                "CFBundleVersion": "1.0.0",
+            },
+            "payload": {
+                "architecture": "x86_64",
+                "opencode_version": "1.17.13-ai4heor.2",
+                "resource_files": 0,
+                "sidecar_version_verification": "executed_on_matching_architecture",
+                "uv_version": "uv 0.11.26",
+                "packaged_heor_tests": True,
+            },
+        }
+        release_evidence.validate_evidence(value)
+        value["verification"]["payload"]["resource_files"] = 1
+        with self.assertRaisesRegex(AssertionError, "core package proof"):
+            release_evidence.validate_evidence(value)
+
+        value["checks"] = ["packaged-heor-tests"]
+        with self.assertRaisesRegex(AssertionError, "paired checks"):
+            release_evidence.validate_evidence(value)
+
     def test_validation_rejects_platform_target_mismatch(self) -> None:
         files: list[dict[str, object]] = []
         value = {
@@ -377,10 +434,26 @@ class ReleaseEvidenceTests(unittest.TestCase):
             "artifacts": [
                 {"kind": "dmg", "filename": "AI4HEOR.dmg", "size": 1, "sha256": "a" * 64}
             ],
-            "checks": ["bundle-metadata"],
+            "checks": sorted(release_evidence.MACOS_CORE_PACKAGE_CHECKS),
             "runner": dict(self.runner("macos"), GITHUB_REF_TYPE="tag"),
             "sidecars": self.sidecars(),
-            "verification": {"payload": "passed"},
+            "verification": {
+                "info_plist": {
+                    "CFBundleDisplayName": "AI4HEOR",
+                    "CFBundleExecutable": "ai4s-workbench",
+                    "CFBundleIdentifier": "com.ai4s.ai4heor",
+                    "CFBundleShortVersionString": "0.1.0",
+                    "CFBundleVersion": "0.1.0",
+                },
+                "payload": {
+                    "architecture": "arm64",
+                    "opencode_version": "1",
+                    "resource_files": 0,
+                    "sidecar_version_verification": "executed_on_matching_architecture",
+                    "uv_version": "1",
+                    "packaged_heor_tests": True,
+                },
+            },
             "resources": {
                 "aggregate_sha256": release_evidence.canonical_sha256(files),
                 "file_count": 0,
@@ -392,7 +465,7 @@ class ReleaseEvidenceTests(unittest.TestCase):
             release_evidence.validate_evidence(value)
 
         value["checks"] = sorted(
-            {"bundle-metadata", *release_evidence.MACOS_DISTRIBUTION_CHECKS}
+            {*release_evidence.MACOS_CORE_PACKAGE_CHECKS, *release_evidence.MACOS_DISTRIBUTION_CHECKS}
         )
         value["verification"]["distribution"] = {
             "developer_id": "Developer ID Application: Test (A1B2C3D4E5)",
