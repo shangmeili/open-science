@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProvenanceRecord, RunRecord } from "@ai4s/shared";
 import { useUiStore } from "@/lib/store";
@@ -17,6 +17,7 @@ const records: ProvenanceRecord[] = [
     model: "anthropic/claude",
     sessionId: "ses_1",
     assistantMessageId: "msg_assistant_1",
+    toolCallId: "toolu_write_1",
     env: {
       python: "3.12.4",
       platform: "macos-aarch64",
@@ -39,10 +40,20 @@ vi.mock("@/lib/runs", async (importOriginal) => ({
   listRuns: () => listRuns(),
 }));
 
+function LocationProbe() {
+  const location = useLocation();
+  return (
+    <output data-testid="location-probe">
+      {JSON.stringify({ pathname: location.pathname, state: location.state })}
+    </output>
+  );
+}
+
 const renderPanel = () =>
   render(
     <MemoryRouter>
       <ProvenancePanel path="fig/plot.py" language="python" />
+      <LocationProbe />
     </MemoryRouter>,
   );
 
@@ -79,6 +90,18 @@ describe("ProvenancePanel", () => {
 
     await userEvent.click(await screen.findByText("v1"));
     expect(screen.getByText(codeBlock("print(1)"))).toBeInTheDocument();
+  });
+
+  it("opens the exact assistant/tool source without putting raw ids in the URL", async () => {
+    listProvenance.mockResolvedValue(records);
+    renderPanel();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Open conversation" }));
+    const location = screen.getByTestId("location-probe");
+    expect(location).toHaveTextContent('"pathname":"/heor/ses_1"');
+    expect(location).toHaveTextContent('"assistantMessageId":"msg_assistant_1"');
+    expect(location).toHaveTextContent('"toolCallId":"toolu_write_1"');
+    expect(location).not.toHaveTextContent("/heor/ses_1?");
   });
 
   it("shows the recorded environment and drafts a reproduce prompt", async () => {

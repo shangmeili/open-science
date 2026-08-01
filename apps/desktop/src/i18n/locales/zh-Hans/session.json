@@ -142,6 +142,9 @@
     },
     "connect": "连接",
     "subagentFallback": "一个子助手",
+    "source": {
+      "notFound": "当前任务中已无法找到准确的来源消息，未自动定位到其他消息。"
+    },
     "header": {
       "expandSidebarAria": "展开侧边栏",
       "expandSidebarTitle": "展开侧边栏（{{shortcut}}）"

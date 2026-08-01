@@ -28,6 +28,8 @@ import { useUiStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
 import i18n from "@/i18n";
 import { ModelCallAudit } from "@/components/audit/ModelCallAudit";
+import { conversationSourceNavigationState } from "@/lib/conversationSource";
+import { useRuntimeStore } from "@/lib/runtime";
 
 type SincePreset = "24h" | "7d" | "30d";
 const SINCE_SECONDS: Record<SincePreset, number> = { "24h": 86_400, "7d": 604_800, "30d": 2_592_000 };
@@ -60,6 +62,7 @@ function RunsView({ sessionId }: { sessionId?: string }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const setComposerDraft = useUiStore((s) => s.setComposerDraft);
+  const runsRevision = useRuntimeStore((s) => s.runsRevision);
 
   // Debounce the search box so each keystroke doesn't hit the index.
   useEffect(() => {
@@ -94,7 +97,7 @@ function RunsView({ sessionId }: { sessionId?: string }) {
     return () => {
       cancelled = true;
     };
-  }, [base, searchParams]);
+  }, [base, searchParams, runsRevision]);
 
   const loadMore = useCallback(() => {
     if (!cursor || state !== "ready") return;
@@ -237,7 +240,12 @@ function RunsView({ sessionId }: { sessionId?: string }) {
                     open={expanded === r.runId}
                     onToggle={() => setExpanded((e) => (e === r.runId ? null : r.runId))}
                     onReproduce={() => reproduce(r)}
-                    onOpenConversation={r.sessionId ? () => navigate(`/heor/${r.sessionId}`) : undefined}
+                    onOpenConversation={r.sessionId ? () => navigate(
+                      `/heor/${r.sessionId}`,
+                      r.assistantMessageId
+                        ? { state: conversationSourceNavigationState(r.assistantMessageId, r.toolCallId) }
+                        : undefined,
+                    ) : undefined}
                     onCopy={() => copyCommand(r)}
                     copied={copied === r.runId}
                     log={log}

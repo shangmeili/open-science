@@ -105,6 +105,7 @@ const mocks = vi.hoisted(() => ({
   /** Constructor options every OpenCodeClient was created with. */
   clientOpts: [] as Record<string, unknown>[],
   recordModelCall: vi.fn(async (_event: unknown, _context?: unknown) => {}),
+  recordRun: vi.fn(async (_input: unknown, _sessionId?: string, _model?: string | null) => {}),
 }));
 
 vi.mock("./tauri", () => ({
@@ -137,6 +138,10 @@ vi.mock("./kernel", () => ({ kernelReset: mocks.kernelReset }));
 vi.mock("./modelCalls", () => ({
   recordModelCall: mocks.recordModelCall,
   recordModelCallsFromHistory: vi.fn(async () => {}),
+}));
+vi.mock("./runs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./runs")>()),
+  recordRun: mocks.recordRun,
 }));
 vi.mock("@ai4s/sdk", () => {
   class OpenCodeClient {
@@ -320,12 +325,38 @@ beforeEach(async () => {
     sessionParents: {},
     panes: {},
     promptQueues: {},
+    runsRevision: 0,
   });
   await useRuntimeStore.getState().connect();
   expect(useRuntimeStore.getState().status).toBe("ready");
 });
 
 describe("runtime authentication", () => {
+  it("publishes a run-ledger revision only after the completed run is persisted", async () => {
+    let release = () => {};
+    mocks.recordRun.mockImplementationOnce(() => new Promise<void>((resolve) => {
+      release = resolve;
+    }));
+    const before = useRuntimeStore.getState().runsRevision;
+
+    mocks.fireEvent({
+      type: "tool.updated",
+      sessionId: "ses_new",
+      messageId: "msg_run_revision",
+      callId: "toolu_run_revision",
+      tool: "bash",
+      status: "success",
+      input: { command: "python cea.py" },
+      output: "done",
+    });
+
+    expect(useRuntimeStore.getState().runsRevision).toBe(before);
+    release();
+    await vi.waitFor(() => {
+      expect(useRuntimeStore.getState().runsRevision).toBe(before + 1);
+    });
+  });
+
   it("associates a completed model call with only the active HEOR template context", async () => {
     const runtimePrompt = buildHeorPrompt("研究者问题", "zh-Hans");
     const sessionId = await useRuntimeStore.getState().sendPrompt(runtimePrompt);

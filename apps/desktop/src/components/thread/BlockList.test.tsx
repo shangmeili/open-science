@@ -36,4 +36,21 @@ describe("BlockList", () => {
     expect(screen.getByText("ls -la")).toBeInTheDocument();
     expect(document.querySelector("[data-subagent-activity]")).toBeNull();
   });
+
+  it("opens a folded tool group and marks only the exact requested source row", () => {
+    render(
+      <BlockList
+        blocks={[
+          { kind: "tool-call", title: "python prepare.py", status: "success", verb: "Ran" },
+          { kind: "tool-call", title: "python cea.py", status: "success", verb: "Ran" },
+        ]}
+        targetIndex={1}
+      />,
+    );
+
+    const target = document.querySelector('[data-conversation-source-target="true"]');
+    expect(target).not.toBeNull();
+    expect(target).toHaveTextContent("python cea.py");
+    expect(target).not.toHaveTextContent("python prepare.py");
+  });
 });

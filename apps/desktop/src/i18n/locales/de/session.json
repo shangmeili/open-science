@@ -142,6 +142,9 @@
     },
     "connect": "Verbinden",
     "subagentFallback": "ein Subagent",
+    "source": {
+      "notFound": "Die genaue Ursprungsnachricht ist in dieser Aufgabe nicht mehr verfügbar. Es wurde keine benachbarte Nachricht ausgewählt."
+    },
     "header": {
       "expandSidebarAria": "Seitenleiste ausklappen",
       "expandSidebarTitle": "Seitenleiste ausklappen ({{shortcut}})"

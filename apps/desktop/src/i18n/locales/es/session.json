@@ -142,6 +142,9 @@
     },
     "connect": "Conectar",
     "subagentFallback": "un subagente",
+    "source": {
+      "notFound": "El mensaje de origen exacto ya no está disponible en esta tarea. No se seleccionó ningún mensaje cercano."
+    },
     "header": {
       "expandSidebarAria": "Expandir barra lateral",
       "expandSidebarTitle": "Expandir barra lateral ({{shortcut}})"

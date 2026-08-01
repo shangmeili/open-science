@@ -50,6 +50,7 @@ import { recordRun, runInputFromEvent } from "./runs";
 import { recordModelCall, recordModelCallsFromHistory } from "./modelCalls";
 import { splitReview } from "./review";
 import { displayHeorPrompt, heorPromptContext, type HeorPromptContext } from "./heor";
+import { conversationSourceKeys } from "./conversationSource";
 import { fallbackDefaultModel } from "@/components/settings/modelCatalog";
 import i18n from "@/i18n";
 
@@ -139,6 +140,9 @@ interface RuntimeState {
   /** Natural-language messages waiting behind the active turn, isolated by
    * task id (DRAFT_KEY before the first turn creates a real session). */
   promptQueues: Record<string, QueuedPrompt[]>;
+  /** Increments only after a completed run has reached the local ledger, so
+   *  an already-open run history can refresh without polling. */
+  runsRevision: number;
   setAgentMode: (mode: AgentMode) => void;
   enqueuePrompt: (text: string, skill?: QueuedPromptSkill) => string;
   removeQueuedPrompt: (id: string) => void;
@@ -738,6 +742,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   panes: {},
   sessionAgents: {},
   promptQueues: {},
+  runsRevision: 0,
   setAgentMode: (mode) =>
     set((state) => ({
       sessionAgents: { ...state.sessionAgents, [state.currentId ?? DRAFT_KEY]: mode },
@@ -1298,7 +1303,9 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         const run = runInputFromEvent(event);
         if (run) {
           rememberBounded(recordedRuns, event.callId);
-          void recordRun(run, sid, get().defaultModel);
+          void recordRun(run, sid, get().defaultModel).then(() => {
+            set((state) => ({ runsRevision: state.runsRevision + 1 }));
+          });
         }
       }
       if (event.type === "session.idle") {
@@ -2188,6 +2195,10 @@ export function foldEvent(
         blocks.push(block);
         index[key] = blocks.length - 1;
       }
+      const sourceBlockIndex = index[key];
+      for (const sourceKey of conversationSourceKeys(event.messageId, event.callId)) {
+        if (!(sourceKey in index)) index[sourceKey] = sourceBlockIndex;
+      }
       // Surface a file the agent wrote as a traceable artifact (deduped by path).
       const artifact = deriveArtifact(event);
       if (artifact) {
@@ -2243,6 +2254,7 @@ function mapToolStatus(status?: string): ToolCallStatus {
 /** Convert loaded message history into thread blocks. */
 export function historyToThread(messages: HistoryMessage[], commands?: CommandInfo[]): FoldState {
   const blocks: ThreadBlock[] = [];
+  const index: Record<string, number> = {};
   // OpenCode stores a slash command's EXPANDED template as the user message,
   // with any typed arguments appended after it (no marker) — show the
   // "/name args" the user actually typed instead. Longest template first, so
@@ -2279,6 +2291,7 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
       if (command) blocks.push({ kind: "user", text: command, messageID: m.id });
       else if (visibleText) blocks.push({ kind: "user", text: visibleText, messageID: m.id });
     } else {
+      const messageStart = blocks.length;
       for (const p of m.parts) {
         if (p.type === "text" && p.text?.trim()) {
           const { clean, review } = splitReview(p.text);
@@ -2310,6 +2323,7 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
           const userShell = shellTurn && p.tool === "bash";
           if (userShell) blocks.push({ kind: "user", text: `! ${command}` });
           const { verb, title } = toolPresentation(p.tool ?? "", p.state?.title, p.state?.input);
+          const toolBlockIndex = blocks.length;
           blocks.push({
             kind: "tool-call",
             title,
@@ -2329,6 +2343,10 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
               ? { outputSummary: p.state.output.replace(/\s+$/, "") }
               : {}),
           });
+          const callId = str((p as { callID?: unknown }).callID);
+          for (const sourceKey of conversationSourceKeys(m.id, callId)) {
+            if (!(sourceKey in index)) index[sourceKey] = toolBlockIndex;
+          }
           const artifact = deriveArtifact({
             type: "tool.updated",
             sessionId: "",
@@ -2345,6 +2363,10 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
         blocks.push({ kind: "status-line", text: friendlyRuntimeError(m.error), tone: "error" });
         interrupted = false;
       }
+      if (m.id && blocks.length > messageStart) {
+        const messageKey = conversationSourceKeys(m.id)[0];
+        if (messageKey) index[messageKey] = messageStart;
+      }
       shellTurn = false;
     }
   }
@@ -2355,5 +2377,5 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
       tone: "error",
     });
   }
-  return { blocks, index: {} };
+  return { blocks, index };
 }

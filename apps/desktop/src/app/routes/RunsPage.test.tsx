@@ -1,10 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunRecord } from "@ai4s/shared";
 import type { RunPage, RunQuery } from "@/lib/runs";
 import { useUiStore } from "@/lib/store";
+import { useRuntimeStore } from "@/lib/runtime";
 import { RunsPage } from "./RunsPage";
 
 const queryRuns = vi.fn();
@@ -25,6 +26,7 @@ const run: RunRecord = {
   ts: 1751500000,
   sessionId: "ses_1",
   assistantMessageId: "msg_assistant_1",
+  toolCallId: "toolu_run_1",
   command: "python cea.py --scenario base-case",
   status: "ok",
   wallMs: 8000,
@@ -63,10 +65,20 @@ function serve(dataset: RunRecord[]) {
   });
 }
 
+function LocationProbe() {
+  const location = useLocation();
+  return (
+    <output data-testid="location-probe">
+      {JSON.stringify({ pathname: location.pathname, state: location.state })}
+    </output>
+  );
+}
+
 const renderPage = (entry = "/runs") =>
   render(
     <MemoryRouter initialEntries={[entry]}>
       <RunsPage />
+      <LocationProbe />
     </MemoryRouter>,
   );
 
@@ -75,6 +87,7 @@ describe("RunsPage", () => {
     queryRuns.mockReset();
     readRunLog.mockReset();
     openArtifactExternally.mockReset();
+    useRuntimeStore.setState({ runsRevision: 0 });
     serve([run]);
   });
 
@@ -99,6 +112,18 @@ describe("RunsPage", () => {
     expect(draft).toContain("python cea.py --scenario base-case");
   });
 
+  it("opens the exact assistant/tool source without putting raw ids in the URL", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /python cea\.py --scenario base-case/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Open conversation" }));
+
+    const location = screen.getByTestId("location-probe");
+    expect(location).toHaveTextContent('"pathname":"/heor/ses_1"');
+    expect(location).toHaveTextContent('"assistantMessageId":"msg_assistant_1"');
+    expect(location).toHaveTextContent('"toolCallId":"toolu_run_1"');
+    expect(location).not.toHaveTextContent("/heor/ses_1?");
+  });
+
   it("loads the captured log on demand", async () => {
     readRunLog.mockResolvedValue("epoch 1\naccuracy 0.93\n");
     renderPage();
@@ -106,6 +131,22 @@ describe("RunsPage", () => {
     await userEvent.click(screen.getByRole("button", { name: /Technical record/ }));
     expect(readRunLog).toHaveBeenCalledWith("cafe1234");
     expect(await screen.findByText(/accuracy 0.93/)).toBeInTheDocument();
+  });
+
+  it("refreshes an open ledger when a newly completed run finishes persisting", async () => {
+    let available = false;
+    queryRuns.mockImplementation(() => Promise.resolve({
+      rows: available ? [run] : [],
+      total: available ? 1 : 0,
+      facets: { status: [], surface: [] },
+    }));
+    renderPage();
+    expect(await screen.findByText(/No analysis records yet/)).toBeInTheDocument();
+
+    available = true;
+    act(() => useRuntimeStore.setState({ runsRevision: 1 }));
+
+    expect(await screen.findByText("python cea.py --scenario base-case")).toBeInTheDocument();
   });
 
   it("filters by search over command and output paths", async () => {

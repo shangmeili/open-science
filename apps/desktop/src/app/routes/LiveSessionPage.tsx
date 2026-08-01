@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Activity, FlaskConical, FolderOpen, Loader2, NotebookPen, PanelLeft, PlugZap } from "lucide-react";
 import type { RuntimeStatus } from "@ai4s/shared";
@@ -35,6 +35,11 @@ import { RunsPane } from "./RunsPage";
 import { cn } from "@/lib/cn";
 import { buildHeorPrompt } from "@/lib/heor";
 import { isTauri } from "@/lib/tauri";
+import {
+  conversationSourceFromLocationState,
+  conversationSourceIndex,
+} from "@/lib/conversationSource";
+import { toast } from "@/lib/toast";
 
 /** AI4HEOR research task backed by the local assistant runtime. The runtime
  * session is created lazily on the first message, then the URL gains its id. */
@@ -42,6 +47,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   const { t, i18n } = useTranslation(["session", "common", "heor"]);
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const isWorkbench = workbench && !sessionId;
   const {
     status,
@@ -268,6 +274,13 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   // A draft shows its local thread (the first message echoes there instantly,
   // before any session exists) — it is grafted onto the session id on create.
   const thread = currentId ? threads[currentId] : threads[DRAFT_KEY];
+  const conversationSource = useMemo(
+    () => conversationSourceFromLocationState(location.state),
+    [location.state],
+  );
+  const conversationSourceTarget = conversationSource && thread
+    ? conversationSourceIndex(thread.index, conversationSource)
+    : undefined;
   // Opening a session fetches its history (cross-folder opens also restart the
   // sidecar) — show skeleton shapes meanwhile, never a blank page.
   const historyLoading = connected && !!sessionId && !thread?.loaded;
@@ -454,6 +467,53 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   // Conversation scroll position, per session — restored once history is in.
   const chatRef = useRef<HTMLDivElement>(null);
   const onChatScroll = useScrollMemory(chatRef, `chat:${currentId ?? DRAFT_KEY}`, !historyLoading);
+  const handledConversationSource = useRef<string | null>(null);
+  useEffect(() => {
+    if (!conversationSource || !sessionId) return;
+    const sourceRequest = `${location.key}:${sessionId}`;
+    if (handledConversationSource.current === sourceRequest) return;
+    if (currentId !== sessionId || historyLoading || !thread?.loaded) return;
+    handledConversationSource.current = sourceRequest;
+
+    setShowFiles(false);
+    setShowRuns(false);
+    setShowHeorReview(false);
+    closeArtifact();
+
+    if (conversationSourceTarget === undefined) {
+      toast.error(t("live.source.notFound"));
+      return;
+    }
+
+    let frame = 0;
+    let attempts = 0;
+    const reveal = () => {
+      const target = chatRef.current?.querySelector<HTMLElement>(
+        '[data-conversation-source-target="true"]',
+      );
+      if (target) {
+        target.scrollIntoView({ block: "center" });
+        return;
+      }
+      attempts += 1;
+      if (attempts < 8) frame = window.requestAnimationFrame(reveal);
+      else toast.error(t("live.source.notFound"));
+    };
+    frame = window.requestAnimationFrame(reveal);
+    return () => window.cancelAnimationFrame(frame);
+  }, [
+    closeArtifact,
+    conversationSource,
+    conversationSourceTarget,
+    currentId,
+    historyLoading,
+    location.key,
+    sessionId,
+    setShowFiles,
+    setShowRuns,
+    t,
+    thread?.loaded,
+  ]);
 
   // When the agent starts working a notebook (Jupyter MCP), open it beside the
   // chat automatically — once per notebook, so a manual close stays closed.
@@ -631,7 +691,12 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
           )}
         </div>
 
-        <div ref={chatRef} onScroll={onChatScroll} className="flex-1 overflow-y-auto">
+        <div
+          ref={chatRef}
+          onScroll={onChatScroll}
+          className="flex-1 overflow-y-auto"
+          data-conversation-scroll="true"
+        >
           <div
             className={cn(
               "mx-auto flex w-full max-w-[760px] flex-col gap-4 px-8 py-6",
@@ -681,6 +746,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
               <BlockList
                 blocks={thread.blocks}
                 handlers={handlers}
+                targetIndex={conversationSourceTarget}
               />
             )}
             {showNewTaskStart && taskComposer}

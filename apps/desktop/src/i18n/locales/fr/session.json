@@ -142,6 +142,9 @@
     },
     "connect": "Connecter",
     "subagentFallback": "un sous-agent",
+    "source": {
+      "notFound": "Le message d’origine exact n’est plus disponible dans cette tâche. Aucun message voisin n’a été sélectionné."
+    },
     "header": {
       "expandSidebarAria": "Développer la barre latérale",
       "expandSidebarTitle": "Développer la barre latérale ({{shortcut}})"

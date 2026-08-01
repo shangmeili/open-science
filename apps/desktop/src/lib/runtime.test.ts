@@ -167,6 +167,24 @@ describe("foldEvent", () => {
     expect(s.blocks[0]).toMatchObject({ kind: "tool-call", status: "success", title: "search (done)" });
   });
 
+  it("indexes a live tool by its exact assistant-message and tool-call source", () => {
+    const s = foldAll([
+      {
+        type: "tool.updated",
+        sessionId: S,
+        messageId: "msg_assistant_1",
+        callId: "toolu_exact_1",
+        tool: "bash",
+        status: "success",
+        input: { command: "python cea.py" },
+      },
+    ]);
+
+    expect(s.index["source:msg_assistant_1:toolu_exact_1"]).toBe(0);
+    expect(s.index["message:msg_assistant_1"]).toBe(0);
+    expect(s.index["tool:toolu_exact_1"]).toBe(0);
+  });
+
   it("does not render interactive question/permission tools as thread rows", () => {
     // These are surfaced by InteractionPrompt (answerable), not as blank rows.
     const s = foldAll([
@@ -351,6 +369,33 @@ describe("historyToThread", () => {
     expect(t.blocks.map((b) => b.kind)).toEqual(["user", "agent", "tool-call"]);
     expect(t.blocks[0]).toMatchObject({ kind: "user", messageID: "msg-hi" });
     expect(t.blocks[2]).toMatchObject({ kind: "tool-call", status: "success" });
+  });
+
+  it("restores the exact assistant-message and tool-call source index from history", () => {
+    const msgs = [
+      {
+        id: "msg_assistant_history",
+        role: "assistant",
+        parts: [
+          { type: "text", text: "Preparing the model run." },
+          {
+            type: "tool",
+            callID: "toolu_history_exact",
+            tool: "bash",
+            state: {
+              status: "completed",
+              title: "",
+              input: { command: "python model.py" },
+            },
+          },
+        ],
+      },
+    ] as unknown as HistoryMessage[];
+
+    const t = historyToThread(msgs);
+    expect(t.index["source:msg_assistant_history:toolu_history_exact"]).toBe(1);
+    expect(t.index["message:msg_assistant_history"]).toBe(0);
+    expect(t.index["tool:toolu_history_exact"]).toBe(1);
   });
 
   it("renders a user-run '!' shell turn like the live path: '! cmd' + inline output", () => {

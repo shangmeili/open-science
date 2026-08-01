@@ -1861,15 +1861,45 @@ def main() -> int:
                     raise AssertionError(
                         "real run did not expose its linked model-call audit"
                     ) from error
-                close_runs_xpath = (
-                    '//button[@aria-label="关闭运行面板" '
-                    'or @aria-label="Close runs"]'
+                open_conversation_xpath = (
+                    '//button[normalize-space()="打开对话" '
+                    'or normalize-space()="Open conversation"]'
                 )
                 click(
                     base_url,
                     session_id,
-                    find_element(base_url, session_id, close_runs_xpath, timeout=30.0),
+                    find_element(
+                        base_url,
+                        session_id,
+                        open_conversation_xpath,
+                        timeout=30.0,
+                    ),
                 )
+                try:
+                    wait_for_script_value(
+                        base_url,
+                        session_id,
+                        "const target = document.querySelector("
+                        "'[data-conversation-source-target=\"true\"]'); "
+                        "const scroller = target?.closest("
+                        "'[data-conversation-scroll=\"true\"]'); "
+                        "const closeRuns = document.querySelector("
+                        "'button[aria-label=\"关闭运行面板\"], "
+                        "button[aria-label=\"Close runs\"]'); "
+                        "if (!target || !scroller || closeRuns || !target.offsetParent) "
+                        "return false; "
+                        "const targetRect = target.getBoundingClientRect(); "
+                        "const scrollRect = scroller.getBoundingClientRect(); "
+                        f"return target.innerText.includes({json.dumps(FIXTURE_AUDIT_RUN_COMMAND)}) "
+                        "&& targetRect.top >= scrollRect.top "
+                        "&& targetRect.bottom <= scrollRect.bottom;",
+                        True,
+                        timeout=30.0,
+                    )
+                except AssertionError as error:
+                    raise AssertionError(
+                        "linked run did not return to its exact conversation source"
+                    ) from error
 
                 reject_sentinel = standalone_workspace / FIXTURE_BASH_REJECT_SENTINEL
                 reject_sentinel.write_text(

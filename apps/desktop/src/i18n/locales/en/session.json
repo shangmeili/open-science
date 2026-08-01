@@ -142,6 +142,9 @@
     },
     "connect": "Connect",
     "subagentFallback": "a subagent",
+    "source": {
+      "notFound": "The exact originating message is no longer available in this task. No nearby message was selected."
+    },
     "header": {
       "expandSidebarAria": "Expand sidebar",
       "expandSidebarTitle": "Expand sidebar ({{shortcut}})"

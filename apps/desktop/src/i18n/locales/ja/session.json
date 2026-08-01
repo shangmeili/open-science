@@ -142,6 +142,9 @@
     },
     "connect": "接続",
     "subagentFallback": "サブエージェント",
+    "source": {
+      "notFound": "このタスクでは正確な元メッセージを見つけられませんでした。別のメッセージには移動していません。"
+    },
     "header": {
       "expandSidebarAria": "サイドバーを展開する",
       "expandSidebarTitle": "サイドバーを展開する（{{shortcut}}）"

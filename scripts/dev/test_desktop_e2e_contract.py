@@ -229,6 +229,16 @@ class DesktopE2EContractTests(unittest.TestCase):
         ):
             self.assertIn(required, source)
 
+    def test_native_driver_returns_from_a_run_to_its_exact_conversation_source(self) -> None:
+        source = VERIFY.read_text(encoding="utf-8")
+        for required in (
+            'normalize-space()="打开对话"',
+            'normalize-space()="Open conversation"',
+            'data-conversation-source-target',
+            "linked run did not return to its exact conversation source",
+        ):
+            self.assertIn(required, source)
+
     def test_native_driver_distinguishes_the_main_reply_from_auxiliary_requests(self) -> None:
         verifier = load_verifier()
         main = {

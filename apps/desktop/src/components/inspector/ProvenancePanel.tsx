@@ -11,6 +11,7 @@ import { DiffView } from "@/components/code-viewer/DiffView";
 import { cn } from "@/lib/cn";
 import i18n from "@/i18n";
 import { ModelCallAudit } from "@/components/audit/ModelCallAudit";
+import { conversationSourceNavigationState } from "@/lib/conversationSource";
 
 /** The prompt the Reproduce action drafts — prefilled, reviewed, user-sent. */
 export function reproducePrompt(r: ProvenanceRecord): string {
@@ -205,7 +206,12 @@ export function ProvenancePanel({ path, language }: { path: string; language?: s
                   {r.sessionId && (
                     <button
                       className="flex items-center gap-1 text-link hover:underline"
-                      onClick={() => navigate(`/heor/${r.sessionId}`)}
+                      onClick={() => navigate(
+                        `/heor/${r.sessionId}`,
+                        r.assistantMessageId
+                          ? { state: conversationSourceNavigationState(r.assistantMessageId, r.toolCallId) }
+                          : undefined,
+                      )}
                       title={t("provenance.openConversationTitle")}
                     >
                       <MessageSquare size={12} /> {t("provenance.openConversation")}

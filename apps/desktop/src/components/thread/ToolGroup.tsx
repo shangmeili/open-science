@@ -286,11 +286,13 @@ export function ToolGroup({
   start = 0,
   liveReasoningIndex,
   activityFor,
+  targetOffset,
 }: {
   blocks: ThreadBlock[];
   start?: number;
   liveReasoningIndex?: number;
   activityFor?: (childSessionId: string) => string | undefined;
+  targetOffset?: number;
 }) {
   const { t } = useTranslation(["session", "common"]);
   // While a step runs the group stays open (the live tail must be visible);
@@ -314,9 +316,9 @@ export function ToolGroup({
     return () => window.clearTimeout(timer);
   }, [active]);
   const [userOpen, setUserOpen] = useState<boolean | null>(null);
-  const open = userOpen ?? autoOpen;
-  const rows = blocks.map((b, i) =>
-    b.kind === "reasoning" ? (
+  const open = targetOffset !== undefined ? true : (userOpen ?? autoOpen);
+  const rows = blocks.map((b, i) => {
+    const row = b.kind === "reasoning" ? (
       <ReasoningRow key={i} block={b} streaming={start + i === liveReasoningIndex} inline />
     ) : b.kind === "tool-call" ? (
       <ToolRow
@@ -324,8 +326,11 @@ export function ToolGroup({
         block={b}
         activity={b.childSessionId ? activityFor?.(b.childSessionId) : undefined}
       />
-    ) : null,
-  );
+    ) : null;
+    return i === targetOffset ? (
+      <div key={`source:${i}`} data-conversation-source-target="true">{row}</div>
+    ) : row;
+  });
   if (blocks.length === 1 && blocks[0].kind === "tool-call") return <div>{rows}</div>;
   return (
     <div>

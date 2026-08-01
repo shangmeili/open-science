@@ -64,10 +64,12 @@ export function BlockList({
   blocks,
   handlers,
   liveReasoningIndex,
+  targetIndex,
 }: {
   blocks: ThreadBlock[];
   handlers?: BlockHandlers;
   liveReasoningIndex?: number;
+  targetIndex?: number;
 }) {
   // Runs of quiet tool steps render as one collapsible group (Codex-style);
   // everything else — text, artifacts, prominent tool cards — on its own.
@@ -81,9 +83,22 @@ export function BlockList({
             start={item.start}
             liveReasoningIndex={liveReasoningIndex}
             activityFor={handlers?.subagentActivity}
+            targetOffset={
+              targetIndex !== undefined
+              && targetIndex >= item.start
+              && targetIndex < item.start + item.blocks.length
+                ? targetIndex - item.start
+                : undefined
+            }
           />
         ) : (
-          renderBlock(item.block, item.index, handlers, liveReasoningIndex)
+          item.index === targetIndex ? (
+            <div key={`source:${item.index}`} data-conversation-source-target="true">
+              {renderBlock(item.block, item.index, handlers, liveReasoningIndex)}
+            </div>
+          ) : (
+            renderBlock(item.block, item.index, handlers, liveReasoningIndex)
+          )
         ),
       )}
     </>
