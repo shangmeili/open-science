@@ -24,6 +24,7 @@ const run: RunRecord = {
   runId: "run_ab12cd34",
   ts: 1751500000,
   sessionId: "ses_1",
+  assistantMessageId: "msg_assistant_1",
   command: "python cea.py --scenario base-case",
   status: "ok",
   wallMs: 8000,
@@ -85,6 +86,7 @@ describe("RunsPage", () => {
     expect(screen.getByText(/NVIDIA A100-SXM4-40GB/)).toBeInTheDocument();
     expect(screen.getByText("output/cea-results.json")).toBeInTheDocument();
     expect(screen.getByText(/3.11.4/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Model call record" })).toBeInTheDocument();
   });
 
   it("drafts the run recipe when Run again is clicked", async () => {

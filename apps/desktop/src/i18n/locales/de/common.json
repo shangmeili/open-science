@@ -1,4 +1,26 @@
 {
+  "modelCallAudit": {
+    "button": "Modellaufrufprotokoll",
+    "loading": "Lokales Aufrufprotokoll wird gelesen…",
+    "missing": "Kein passendes Modellaufrufprotokoll gefunden.",
+    "error": "Das Modellaufrufprotokoll konnte nicht gelesen werden.",
+    "verified": "Lokale Auditkette verifiziert",
+    "completedAt": "Abgeschlossen",
+    "duration": "Dauer",
+    "seconds": "{{value}} s",
+    "cost": "Von der Laufzeit gemeldete Kosten",
+    "costUnit": "Einheit vom Modellanbieter festgelegt",
+    "promptVersion": "Prompt-Version",
+    "responseLanguage": "Antwortsprache",
+    "constraintsRecorded": "Forschungsbedingungen aufgezeichnet",
+    "tokens": {
+      "input": "Eingabe",
+      "output": "Ausgabe",
+      "reasoning": "Schlussfolgerung",
+      "cacheRead": "Cache-Lesen",
+      "cacheWrite": "Cache-Schreiben"
+    }
+  },
   "actions": {
     "save": "Speichern",
     "cancel": "Abbrechen",

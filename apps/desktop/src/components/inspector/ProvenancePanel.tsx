@@ -10,6 +10,7 @@ import { CodeViewer } from "@/components/code-viewer/CodeViewer";
 import { DiffView } from "@/components/code-viewer/DiffView";
 import { cn } from "@/lib/cn";
 import i18n from "@/i18n";
+import { ModelCallAudit } from "@/components/audit/ModelCallAudit";
 
 /** The prompt the Reproduce action drafts — prefilled, reviewed, user-sent. */
 export function reproducePrompt(r: ProvenanceRecord): string {
@@ -211,6 +212,12 @@ export function ProvenancePanel({ path, language }: { path: string; language?: s
                     </button>
                   )}
                 </div>
+                {r.assistantMessageId && (
+                  <ModelCallAudit
+                    assistantMessageId={r.assistantMessageId}
+                    sessionId={r.sessionId}
+                  />
+                )}
                 {r.env?.packages && lockfile?.hash === r.env.packages.hash && (
                   <div className="rounded-input border border-border bg-surface-2">
                     <div className="border-b border-border px-2.5 py-1 text-[11px] text-muted">

@@ -39,6 +39,7 @@ if str(RELEASE_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(RELEASE_SCRIPTS))
 
 from verify_packaged_opencode_fixture import (  # noqa: E402
+    AUDIT_RUN_COMMAND as FIXTURE_AUDIT_RUN_COMMAND,
     BASH_ALWAYS_COMMAND as FIXTURE_BASH_ALWAYS_COMMAND,
     BASH_ALWAYS_SENTINEL as FIXTURE_BASH_ALWAYS_SENTINEL,
     BASH_COMMAND as FIXTURE_BASH_COMMAND,
@@ -67,6 +68,7 @@ QUESTION_TRIGGER_PROMPT = "AI4HEOR E2E request researcher input"
 QUESTION_QUEUED_PROMPT = "AI4HEOR E2E queued behind researcher input"
 PERMISSION_TRIGGER_PROMPT = "AI4HEOR E2E request one-time command permission"
 PERMISSION_QUEUED_PROMPT = "AI4HEOR E2E queued behind command permission"
+AUDIT_RUN_TRIGGER_PROMPT = "AI4HEOR E2E record one harmless local analysis run"
 PERMISSION_REJECT_TRIGGER_PROMPT = "AI4HEOR E2E reject command permission"
 PERMISSION_REJECT_QUEUED_PROMPT = "AI4HEOR E2E queued behind rejected permission"
 PERMISSION_ALWAYS_TRIGGER_PROMPT = "AI4HEOR E2E remember exact command permission"
@@ -737,6 +739,7 @@ def wait_for_main_request_prompts(
         QUESTION_QUEUED_PROMPT,
         PERMISSION_TRIGGER_PROMPT,
         PERMISSION_QUEUED_PROMPT,
+        AUDIT_RUN_TRIGGER_PROMPT,
         PERMISSION_REJECT_TRIGGER_PROMPT,
         PERMISSION_REJECT_QUEUED_PROMPT,
         PERMISSION_ALWAYS_TRIGGER_PROMPT,
@@ -1766,6 +1769,108 @@ def main() -> int:
                     timeout=60.0,
                 )
 
+                fixture_state.audit_run_next_main_reply()
+                audit_run_request_count = len(main_provider_requests(fixture_state))
+                click(
+                    base_url,
+                    session_id,
+                    fill_composer(
+                        base_url,
+                        session_id,
+                        composer_xpath,
+                        AUDIT_RUN_TRIGGER_PROMPT,
+                        send_xpath,
+                    ),
+                )
+                wait_for_body_text(
+                    base_url,
+                    session_id,
+                    FIXTURE_AUDIT_RUN_COMMAND,
+                    timeout=60.0,
+                )
+                wait_for_main_request_prompts(
+                    fixture_state,
+                    [
+                        TASK_PROMPT,
+                        QUEUE_PROMPTS[2],
+                        QUEUE_PROMPTS[1],
+                        QUESTION_TRIGGER_PROMPT,
+                        QUESTION_QUEUED_PROMPT,
+                        PERMISSION_TRIGGER_PROMPT,
+                        PERMISSION_QUEUED_PROMPT,
+                        AUDIT_RUN_TRIGGER_PROMPT,
+                    ],
+                )
+                audit_run_continuation = wait_for_main_request_count(
+                    fixture_state,
+                    audit_run_request_count + 2,
+                )[-1]
+                audit_run_messages = json.dumps(
+                    audit_run_continuation.get("messages"),
+                    ensure_ascii=False,
+                )
+                if (
+                    "tool_result" not in audit_run_messages
+                    or "toolu_fixture_audit_run" not in audit_run_messages
+                ):
+                    raise AssertionError(
+                        "recordable local run did not execute and resume the original turn"
+                    )
+                runs_toggle_xpath = (
+                    '//button[.//span[normalize-space()="运行记录" '
+                    'or normalize-space()="Run history"]]'
+                )
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, runs_toggle_xpath, timeout=30.0),
+                )
+                run_row_xpath = (
+                    '//button[@aria-label="关闭运行面板" '
+                    'or @aria-label="Close runs"]'
+                    '/ancestor::div[contains(@class,"flex-col")][1]'
+                    '//li/button[@aria-expanded]'
+                )
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, run_row_xpath, timeout=60.0),
+                )
+                model_call_audit_xpath = (
+                    '//button[normalize-space()="模型调用记录" '
+                    'or normalize-space()="Model call record"]'
+                )
+                try:
+                    click(
+                        base_url,
+                        session_id,
+                        find_element(
+                            base_url,
+                            session_id,
+                            model_call_audit_xpath,
+                            timeout=30.0,
+                        ),
+                    )
+                    wait_for_body_text(
+                        base_url,
+                        session_id,
+                        f"{FIXTURE_PROVIDER_ID} / {FIXTURE_MODEL_ID}",
+                        timeout=30.0,
+                    )
+                except AssertionError as error:
+                    raise AssertionError(
+                        "real run did not expose its linked model-call audit"
+                    ) from error
+                close_runs_xpath = (
+                    '//button[@aria-label="关闭运行面板" '
+                    'or @aria-label="Close runs"]'
+                )
+                click(
+                    base_url,
+                    session_id,
+                    find_element(base_url, session_id, close_runs_xpath, timeout=30.0),
+                )
+
                 reject_sentinel = standalone_workspace / FIXTURE_BASH_REJECT_SENTINEL
                 reject_sentinel.write_text(
                     "must remain after rejection\n",
@@ -1799,6 +1904,7 @@ def main() -> int:
                         QUESTION_QUEUED_PROMPT,
                         PERMISSION_TRIGGER_PROMPT,
                         PERMISSION_QUEUED_PROMPT,
+                        AUDIT_RUN_TRIGGER_PROMPT,
                         PERMISSION_REJECT_TRIGGER_PROMPT,
                     ],
                 )
@@ -1874,6 +1980,7 @@ def main() -> int:
                         QUESTION_QUEUED_PROMPT,
                         PERMISSION_TRIGGER_PROMPT,
                         PERMISSION_QUEUED_PROMPT,
+                        AUDIT_RUN_TRIGGER_PROMPT,
                         PERMISSION_REJECT_TRIGGER_PROMPT,
                         PERMISSION_REJECT_QUEUED_PROMPT,
                     ],
@@ -1931,6 +2038,7 @@ def main() -> int:
                         QUESTION_QUEUED_PROMPT,
                         PERMISSION_TRIGGER_PROMPT,
                         PERMISSION_QUEUED_PROMPT,
+                        AUDIT_RUN_TRIGGER_PROMPT,
                         PERMISSION_REJECT_TRIGGER_PROMPT,
                         PERMISSION_REJECT_QUEUED_PROMPT,
                         PERMISSION_ALWAYS_TRIGGER_PROMPT,
@@ -2023,6 +2131,7 @@ def main() -> int:
                         QUESTION_QUEUED_PROMPT,
                         PERMISSION_TRIGGER_PROMPT,
                         PERMISSION_QUEUED_PROMPT,
+                        AUDIT_RUN_TRIGGER_PROMPT,
                         PERMISSION_REJECT_TRIGGER_PROMPT,
                         PERMISSION_REJECT_QUEUED_PROMPT,
                         PERMISSION_ALWAYS_TRIGGER_PROMPT,

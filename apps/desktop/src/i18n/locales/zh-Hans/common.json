@@ -1,4 +1,26 @@
 {
+  "modelCallAudit": {
+    "button": "模型调用记录",
+    "loading": "正在读取本地调用记录…",
+    "missing": "未找到对应的模型调用记录。",
+    "error": "无法读取模型调用记录。",
+    "verified": "本地审计链校验通过",
+    "completedAt": "完成时间",
+    "duration": "耗时",
+    "seconds": "{{value}} 秒",
+    "cost": "运行时报告费用",
+    "costUnit": "单位由模型供应商定义",
+    "promptVersion": "提示版本",
+    "responseLanguage": "回复语言",
+    "constraintsRecorded": "已记录本次研究约束",
+    "tokens": {
+      "input": "输入",
+      "output": "输出",
+      "reasoning": "推理",
+      "cacheRead": "缓存读取",
+      "cacheWrite": "缓存写入"
+    }
+  },
   "actions": {
     "save": "保存",
     "cancel": "取消",

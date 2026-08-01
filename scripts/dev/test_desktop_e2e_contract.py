@@ -218,6 +218,17 @@ class DesktopE2EContractTests(unittest.TestCase):
         ):
             self.assertIn(required, source)
 
+    def test_native_driver_exposes_the_exact_model_call_for_a_real_run(self) -> None:
+        source = VERIFY.read_text(encoding="utf-8")
+        for required in (
+            'normalize-space()="运行记录"',
+            'normalize-space()="Run history"',
+            'normalize-space()="模型调用记录"',
+            'normalize-space()="Model call record"',
+            "real run did not expose its linked model-call audit",
+        ):
+            self.assertIn(required, source)
+
     def test_native_driver_distinguishes_the_main_reply_from_auxiliary_requests(self) -> None:
         verifier = load_verifier()
         main = {

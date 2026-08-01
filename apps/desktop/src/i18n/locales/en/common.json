@@ -1,4 +1,26 @@
 {
+  "modelCallAudit": {
+    "button": "Model call record",
+    "loading": "Reading the local call record…",
+    "missing": "No matching model-call record was found.",
+    "error": "Model-call record could not be read.",
+    "verified": "Local audit chain verified",
+    "completedAt": "Completed",
+    "duration": "Duration",
+    "seconds": "{{value}} s",
+    "cost": "Runtime-reported cost",
+    "costUnit": "unit defined by the model provider",
+    "promptVersion": "Prompt version",
+    "responseLanguage": "Response language",
+    "constraintsRecorded": "Research constraints recorded",
+    "tokens": {
+      "input": "Input",
+      "output": "Output",
+      "reasoning": "Reasoning",
+      "cacheRead": "Cache read",
+      "cacheWrite": "Cache write"
+    }
+  },
   "actions": {
     "save": "Save",
     "cancel": "Cancel",

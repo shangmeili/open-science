@@ -1,4 +1,26 @@
 {
+  "modelCallAudit": {
+    "button": "モデル呼び出し記録",
+    "loading": "ローカルの呼び出し記録を読み込んでいます…",
+    "missing": "対応するモデル呼び出し記録が見つかりません。",
+    "error": "モデル呼び出し記録を読み込めません。",
+    "verified": "ローカル監査チェーン検証済み",
+    "completedAt": "完了時刻",
+    "duration": "所要時間",
+    "seconds": "{{value}} 秒",
+    "cost": "ランタイム報告コスト",
+    "costUnit": "単位はモデルプロバイダーが定義",
+    "promptVersion": "プロンプト版",
+    "responseLanguage": "応答言語",
+    "constraintsRecorded": "研究制約を記録済み",
+    "tokens": {
+      "input": "入力",
+      "output": "出力",
+      "reasoning": "推論",
+      "cacheRead": "キャッシュ読取",
+      "cacheWrite": "キャッシュ書込"
+    }
+  },
   "actions": {
     "save": "保存",
     "cancel": "キャンセル",

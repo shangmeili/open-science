@@ -1,4 +1,26 @@
 {
+  "modelCallAudit": {
+    "button": "Journal d’appel du modèle",
+    "loading": "Lecture du journal local de l’appel…",
+    "missing": "Aucun journal correspondant à cet appel de modèle n’a été trouvé.",
+    "error": "Le journal d’appel du modèle n’a pas pu être lu.",
+    "verified": "Chaîne d’audit locale vérifiée",
+    "completedAt": "Terminé",
+    "duration": "Durée",
+    "seconds": "{{value}} s",
+    "cost": "Coût indiqué par l’environnement",
+    "costUnit": "unité définie par le fournisseur du modèle",
+    "promptVersion": "Version des instructions",
+    "responseLanguage": "Langue de réponse",
+    "constraintsRecorded": "Contraintes de recherche enregistrées",
+    "tokens": {
+      "input": "Entrée",
+      "output": "Sortie",
+      "reasoning": "Raisonnement",
+      "cacheRead": "Lecture du cache",
+      "cacheWrite": "Écriture du cache"
+    }
+  },
   "actions": {
     "save": "Enregistrer",
     "cancel": "Annuler",

@@ -14,6 +14,14 @@ export interface ModelCallInput extends Omit<MessageUsageEvent, "type"> {
   responseLanguage?: string;
 }
 
+export interface ModelCallRecord extends ModelCallInput {
+  schemaVersion: number;
+  callId: string;
+  recordedAt: number;
+  previousEventHash?: string;
+  eventHash: string;
+}
+
 /** Convert the SDK's content-free completed-call event to the native ledger
  * contract. Keeping this pure makes the privacy boundary directly testable. */
 export function modelCallInput(
@@ -99,4 +107,12 @@ export async function recordModelCallsFromHistory(
       `model-call history ledger FAILED: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
+}
+
+/** Read the native ledger only after its complete hash chain has been verified.
+ * The command returns content-free metadata and rejects a damaged ledger. */
+export async function listModelCalls(): Promise<ModelCallRecord[]> {
+  if (!isTauri) return [];
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<ModelCallRecord[]>("list_model_calls");
 }

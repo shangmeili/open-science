@@ -27,6 +27,7 @@ import { PaneTitlebarInset } from "@/components/inspector/RightPane";
 import { useUiStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
 import i18n from "@/i18n";
+import { ModelCallAudit } from "@/components/audit/ModelCallAudit";
 
 type SincePreset = "24h" | "7d" | "30d";
 const SINCE_SECONDS: Record<SincePreset, number> = { "24h": 86_400, "7d": 604_800, "30d": 2_592_000 };
@@ -416,6 +417,13 @@ function RunRow({
               {copied ? t("action.copied") : t("action.copyCommand")}
             </Action>
           </div>
+
+          {r.assistantMessageId && (
+            <ModelCallAudit
+              assistantMessageId={r.assistantMessageId}
+              sessionId={r.sessionId}
+            />
+          )}
 
           {r.code && r.code.length > 0 && <FileGroup icon={<FileCode2 size={12} />} label={t("files.code")} files={r.code} />}
           {r.outputs && r.outputs.length > 0 && (

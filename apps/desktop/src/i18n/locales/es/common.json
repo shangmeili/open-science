@@ -1,4 +1,26 @@
 {
+  "modelCallAudit": {
+    "button": "Registro de llamada al modelo",
+    "loading": "Leyendo el registro local de la llamada…",
+    "missing": "No se encontró el registro correspondiente de la llamada al modelo.",
+    "error": "No se pudo leer el registro de la llamada al modelo.",
+    "verified": "Cadena de auditoría local verificada",
+    "completedAt": "Finalización",
+    "duration": "Duración",
+    "seconds": "{{value}} s",
+    "cost": "Coste informado por el entorno",
+    "costUnit": "unidad definida por el proveedor del modelo",
+    "promptVersion": "Versión de instrucciones",
+    "responseLanguage": "Idioma de respuesta",
+    "constraintsRecorded": "Restricciones de investigación registradas",
+    "tokens": {
+      "input": "Entrada",
+      "output": "Salida",
+      "reasoning": "Razonamiento",
+      "cacheRead": "Lectura de caché",
+      "cacheWrite": "Escritura de caché"
+    }
+  },
   "actions": {
     "save": "Guardar",
     "cancel": "Cancelar",

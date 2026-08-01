@@ -31,6 +31,7 @@ QUESTION_HEADER = "E2E check"
 QUESTION_OPTION = "Continue safely"
 QUESTION_DESCRIPTION = "Continue the local deterministic E2E run."
 BASH_COMMAND = "rm -f ai4heor-e2e-permission-sentinel"
+AUDIT_RUN_COMMAND = "python3 -c 'print(1)'"
 BASH_ALWAYS_SENTINEL = "ai4heor-e2e-permission-always-sentinel"
 BASH_ALWAYS_COMMAND = f"rm -f {BASH_ALWAYS_SENTINEL}"
 BASH_REJECT_SENTINEL = "ai4heor-e2e-permission-reject-sentinel"
@@ -91,6 +92,12 @@ class FixtureState:
             if self._next_main_reply_kind is not None:
                 raise RuntimeError("a fixture main reply is already configured")
             self._next_main_reply_kind = "bash"
+
+    def audit_run_next_main_reply(self) -> None:
+        with self.lock:
+            if self._next_main_reply_kind is not None:
+                raise RuntimeError("a fixture main reply is already configured")
+            self._next_main_reply_kind = "audit_run"
 
     def bash_rejection_next_main_reply(self) -> None:
         with self.lock:
@@ -396,6 +403,12 @@ def handler(state: FixtureState):
                     payload = anthropic_question_stream()
                 elif reply_kind == "bash":
                     payload = anthropic_bash_stream()
+                elif reply_kind == "audit_run":
+                    payload = anthropic_bash_stream(
+                        command=AUDIT_RUN_COMMAND,
+                        message_id="msg_fixture_audit_run",
+                        tool_id="toolu_fixture_audit_run",
+                    )
                 elif reply_kind == "bash_reject":
                     payload = anthropic_bash_stream(
                         command=BASH_REJECT_COMMAND,

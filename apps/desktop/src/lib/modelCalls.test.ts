@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MessageUsageEvent } from "@ai4s/sdk";
-import { modelCallInput, recordModelCall, recordModelCallsFromHistory } from "./modelCalls";
+import { listModelCalls, modelCallInput, recordModelCall, recordModelCallsFromHistory } from "./modelCalls";
 import type { HeorPromptContext } from "./heor";
 import { buildHeorPrompt, heorPromptContext } from "./heor";
 
@@ -145,5 +145,20 @@ describe("model-call audit boundary", () => {
     expect(mocks.invoke).toHaveBeenNthCalledWith(2, "record_model_calls", {
       inputs: [modelCallInput(event, context)],
     });
+  });
+
+  it("reads the verified local ledger for researcher-facing audit details", async () => {
+    const records = [{ callId: "call_1", messageId: "msg_assistant_1" }];
+    mocks.invoke.mockResolvedValue(records);
+
+    await expect(listModelCalls()).resolves.toEqual(records);
+    expect(mocks.invoke).toHaveBeenCalledWith("list_model_calls");
+  });
+
+  it("propagates native ledger verification failures to the audit UI", async () => {
+    mocks.invoke.mockRejectedValue(new Error("hash chain mismatch"));
+
+    await expect(listModelCalls()).rejects.toThrow("hash chain mismatch");
+    expect(mocks.invoke).toHaveBeenCalledWith("list_model_calls");
   });
 });

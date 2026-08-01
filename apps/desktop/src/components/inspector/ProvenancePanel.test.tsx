@@ -16,6 +16,7 @@ const records: ProvenanceRecord[] = [
     content: "print(2)",
     model: "anthropic/claude",
     sessionId: "ses_1",
+    assistantMessageId: "msg_assistant_1",
     env: {
       python: "3.12.4",
       platform: "macos-aarch64",
@@ -69,6 +70,7 @@ describe("ProvenancePanel", () => {
     expect(screen.getByText(codeBlock("print(2)"))).toBeInTheDocument();
     expect(screen.getByText("anthropic/claude")).toBeInTheDocument();
     expect(screen.getByText("Open conversation")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Model call record" })).toBeInTheDocument();
   });
 
   it("expands an older version to reveal its code", async () => {

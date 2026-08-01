@@ -1,4 +1,26 @@
 {
+  "modelCallAudit": {
+    "button": "모델 호출 기록",
+    "loading": "로컬 호출 기록을 읽는 중…",
+    "missing": "해당 모델 호출 기록을 찾지 못했습니다.",
+    "error": "모델 호출 기록을 읽을 수 없습니다.",
+    "verified": "로컬 감사 체인 검증 완료",
+    "completedAt": "완료 시각",
+    "duration": "소요 시간",
+    "seconds": "{{value}}초",
+    "cost": "런타임 보고 비용",
+    "costUnit": "단위는 모델 제공자가 정의",
+    "promptVersion": "프롬프트 버전",
+    "responseLanguage": "응답 언어",
+    "constraintsRecorded": "연구 제약 기록 완료",
+    "tokens": {
+      "input": "입력",
+      "output": "출력",
+      "reasoning": "추론",
+      "cacheRead": "캐시 읽기",
+      "cacheWrite": "캐시 쓰기"
+    }
+  },
   "actions": {
     "save": "저장",
     "cancel": "취소",
