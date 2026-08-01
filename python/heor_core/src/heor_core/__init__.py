@@ -24,6 +24,7 @@ from .joint_survival_uncertainty import validate_joint_survival_uncertainty
 from .survival_materialization import validate_survival_curve_materializations
 from .treatment_effect_duration import validate_treatment_effect_duration
 from .decision_tree import DecisionTreeSpecification, run_decision_tree
+from .subgroup_analysis import run_subgroup_analysis
 
 __all__ = [
     "AnalysisResult",
@@ -49,6 +50,7 @@ __all__ = [
     "validate_treatment_effect_duration",
     "DecisionTreeSpecification",
     "run_decision_tree",
+    "run_subgroup_analysis",
 ]
 
 __version__ = "0.1.0"

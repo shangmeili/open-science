@@ -49,6 +49,10 @@ python <skill-base-directory>/../heor-workbench/scripts/run_first_party_analysis
 ```
 
 15. Re-run `scripts/validate_decision_tree_uncertainty.py` with `--plan`, `--uncertainty-plan`, and `--result`. Report DSA low/high results, seeded PSA mean outcomes, unique optimum probabilities and ties separately, the declared convergence diagnostic, distribution bases, independence rationale, and omissions. A passed diagnostic describes Monte Carlo precision for this run; call it represented parameter uncertainty, not complete uncertainty or validation.
+16. For a researcher-requested subgroup analysis, read [references/subgroup-analysis-contract.md](references/subgroup-analysis-contract.md) and copy [assets/subgroup-analysis-plan.template.json](assets/subgroup-analysis-plan.template.json). Use only current decision-tree schema 0.2. Record whether the grouping was prespecified or post hoc; require mutually exclusive and exhaustive populations whose source-bound shares sum to one.
+17. Put each complete subgroup decision tree under `heor/subgroups/`. Preserve the overall strategy order, names, baseline, economic basis, reference case, horizon, discount settings, half-cycle setting, and threshold. Bind the grouping, shares, heterogeneity basis, and every subgroup model input to a concrete evidence extraction or a declared proposed assumption.
+18. Run `scripts/validate_subgroup_analysis.py` before calculation, then use the first-party runner with `--subgroup-plan heor/subgroup-analysis-plan.json`. It writes `heor/results/decision-tree-subgroups.json` only after the complete graph passes validation. Re-run the validator with `--result` to verify exact bytes.
+19. Report every subgroup result, population-share-weighted result, overall-consistency gap, and descriptive contrast. Never call a descriptive difference an interaction or treatment-effect modifier. The six researcher review checks remain `awaiting_researcher_review`; do not create or imply approval.
 
 ## Boundaries
 
@@ -58,6 +62,7 @@ python <skill-base-directory>/../heor-workbench/scripts/run_first_party_analysis
 - Do not transform a Markov or partitioned-survival plan into this schema merely because the calculation is simpler.
 - Do not write or edit an app-owned result to make validation pass. Re-execute the exact plan through the deterministic engine.
 - Do not create approval events or describe a structurally valid plan as accepted, decision-ready, reimbursement-ready, or independently validated.
+- Subgroup analysis does not discover populations, test interaction, adjust multiplicity, establish transportability, or authorize subgroup-specific decisions. Keep post hoc status explicit.
 
 ## Handoff
 

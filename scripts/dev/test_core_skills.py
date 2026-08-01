@@ -265,6 +265,41 @@ class CoreSkillContractTests(unittest.TestCase):
         ):
             self.assertIn(required, contract)
 
+    def test_decision_tree_skill_has_a_bounded_subgroup_contract(self):
+        skill_dir = SKILLS_ROOT / "heor-decision-tree"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        contract = (skill_dir / "references/subgroup-analysis-contract.md").read_text(
+            encoding="utf-8"
+        )
+        template = json.loads(
+            (skill_dir / "assets/subgroup-analysis-plan.template.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        validator = skill_dir / "scripts/validate_subgroup_analysis.py"
+        self.assertEqual(template["schema_version"], "0.1.0")
+        self.assertEqual(template["analysis_type"], "decision_tree_subgroup")
+        self.assertEqual(template["grouping"]["prespecification"], None)
+        self.assertFalse(template["grouping"]["mutually_exclusive"])
+        self.assertFalse(template["grouping"]["exhaustive"])
+        self.assertTrue(validator.is_file())
+        for required in (
+            "subgroup-analysis-plan.template.json",
+            "validate_subgroup_analysis.py",
+            "descriptive",
+            "interaction",
+            "researcher review",
+        ):
+            self.assertIn(required, skill)
+        for required in (
+            "mutually exclusive",
+            "sum to one",
+            "evidence extraction",
+            "multiplicity",
+            "does not establish",
+        ):
+            self.assertIn(required, contract)
+
     def test_decision_tree_skill_replays_the_first_party_golden_case(self):
         skill_dir = SKILLS_ROOT / "heor-decision-tree"
         skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")

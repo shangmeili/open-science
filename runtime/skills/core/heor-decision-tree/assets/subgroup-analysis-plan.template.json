@@ -1,0 +1,55 @@
+{
+  "schema_version": "0.1.0",
+  "analysis_type": "decision_tree_subgroup",
+  "subgroup_analysis_id": null,
+  "overall_analysis_input": {
+    "path": "heor/decision-tree-plan.json",
+    "content_sha256": null
+  },
+  "evidence_synthesis_input": {
+    "path": "heor/evidence-synthesis.json",
+    "content_sha256": null
+  },
+  "grouping": {
+    "id": null,
+    "label": null,
+    "prespecification": null,
+    "mutually_exclusive": false,
+    "exhaustive": false,
+    "definition_source_ids": [],
+    "heterogeneity_basis": {
+      "status": "descriptive_only",
+      "source_ids": [],
+      "rationale": null
+    }
+  },
+  "subgroups": [
+    {
+      "id": null,
+      "label": null,
+      "population_share": {
+        "value": null,
+        "source_ids": [],
+        "assumption_ids": []
+      },
+      "analysis_input": {
+        "path": "heor/subgroups/replace-me-a.json",
+        "content_sha256": null
+      }
+    },
+    {
+      "id": null,
+      "label": null,
+      "population_share": {
+        "value": null,
+        "source_ids": [],
+        "assumption_ids": []
+      },
+      "analysis_input": {
+        "path": "heor/subgroups/replace-me-b.json",
+        "content_sha256": null
+      }
+    }
+  ],
+  "assumptions": []
+}

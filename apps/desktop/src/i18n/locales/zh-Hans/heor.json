@@ -41,6 +41,28 @@
       "tie": "并列",
       "openResult": "打开不确定性结果",
       "calculationOnly": "这些概率只反映已声明的参数不确定性。收敛诊断通过不代表科学验证通过。"
+    },
+    "subgroup": {
+      "title": "亚组分析",
+      "awaitingReview": "等待研究者复核",
+      "prespecified": "预设亚组",
+      "post_hoc": "事后亚组",
+      "sourcesAndChecks": "{{sources}}条来源记录 · {{checks}}项复核内容",
+      "group": "亚组",
+      "consistent": "按人群占比加权的结果与总体模型一致",
+      "inconsistent": "加权亚组结果与总体模型不一致：成本差{{costGap}}，QALY差{{qalyGap}}",
+      "boundary": "描述性差异不能证明交互作用或治疗效果修饰。",
+      "incrementalCost": "增量成本",
+      "incrementalQaly": "增量QALY",
+      "icer": "ICER",
+      "openSourceAria": "打开{{group}}{{label}}的来源：{{value}}",
+      "openPlan": "打开亚组计划",
+      "openResult": "打开亚组结果",
+      "missing": "亚组计划尚未计算。",
+      "invalid": "已保存的亚组结果无法核验。",
+      "stale": "亚组结果与当前计划或证据不再一致。",
+      "run": "校验并运行亚组分析",
+      "runPrompt": "使用 $heor-decision-tree 及其受限亚组分析合同，校验当前总体计划、heor/subgroup-analysis-plan.json、heor/subgroups 下所有已绑定决策树，以及绑定的证据综合。只有完整图通过后，才使用第一方确定性引擎写入 heor/results/decision-tree-subgroups.json。六项科学复核内容必须保持等待研究者复核；差异只能表述为描述性结果，不得声称交互作用、治疗效果修饰、亚组有效性或亚组决策规则。"
     }
   },
   "starter": {

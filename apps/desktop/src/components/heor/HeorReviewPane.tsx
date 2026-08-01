@@ -249,6 +249,8 @@ import {
   HEOR_DECISION_TREE_PLAN_PATH,
   HEOR_DECISION_TREE_RESULT_PATH,
   HEOR_DECISION_TREE_UNCERTAINTY_RESULT_PATH,
+  HEOR_DECISION_TREE_SUBGROUP_PLAN_PATH,
+  HEOR_DECISION_TREE_SUBGROUP_RESULT_PATH,
   loadDecisionTreeReview,
   type DecisionTreeReviewState,
 } from "./DecisionTreeReview";
@@ -2208,6 +2210,16 @@ export function HeorReviewPane({
               : undefined}
             onOpenUncertaintyResult={isTauri
               ? () => void openArtifactExternally(HEOR_DECISION_TREE_UNCERTAINTY_RESULT_PATH, WORKSPACE_FILE_ROOT)
+              : undefined}
+            onRunSubgroup={() => onRequestRevision(t("decisionTree.subgroup.runPrompt"))}
+            onOpenSubgroupPlan={isTauri
+              ? () => void openArtifactExternally(HEOR_DECISION_TREE_SUBGROUP_PLAN_PATH, WORKSPACE_FILE_ROOT)
+              : undefined}
+            onOpenSubgroupResult={isTauri
+              ? () => void openArtifactExternally(HEOR_DECISION_TREE_SUBGROUP_RESULT_PATH, WORKSPACE_FILE_ROOT)
+              : undefined}
+            onOpenSubgroupInput={isTauri
+              ? (path) => void openArtifactExternally(path, WORKSPACE_FILE_ROOT)
               : undefined}
           />
         ) : (

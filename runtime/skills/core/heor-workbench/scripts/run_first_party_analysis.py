@@ -24,6 +24,7 @@ DECISION_TREE_OUTPUT_PATH = Path("heor/results/decision-tree.json")
 DECISION_TREE_UNCERTAINTY_OUTPUT_PATH = Path(
     "heor/results/decision-tree-uncertainty.json"
 )
+DECISION_TREE_SUBGROUP_OUTPUT_PATH = Path("heor/results/decision-tree-subgroups.json")
 OUTPUT_CAP_BYTES = 25 * 1024 * 1024
 PROVENANCE_VALIDATOR = (
     Path(__file__).resolve().parents[2]
@@ -48,6 +49,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--uncertainty-plan",
         help="optional decision-tree uncertainty plan inside the active workspace",
+    )
+    parser.add_argument(
+        "--subgroup-plan",
+        help="optional decision-tree subgroup plan inside the active workspace",
     )
     return parser
 
@@ -128,6 +133,13 @@ def main() -> int:
         if args.uncertainty_plan is None
         else _inside(root, Path(args.uncertainty_plan))
     )
+    subgroup_plan = (
+        None
+        if args.subgroup_plan is None
+        else _inside(root, Path(args.subgroup_plan))
+    )
+    if uncertainty_plan is not None and subgroup_plan is not None:
+        raise ValueError("--uncertainty-plan and --subgroup-plan are mutually exclusive")
     if uncertainty_plan is not None:
         if not decision_tree:
             raise ValueError("--uncertainty-plan currently requires a decision tree plan")
@@ -135,11 +147,22 @@ def main() -> int:
             raise ValueError(
                 f"uncertainty plan not found: {uncertainty_plan.relative_to(root)}"
             )
+    if subgroup_plan is not None:
+        if not decision_tree:
+            raise ValueError("--subgroup-plan currently requires a decision tree plan")
+        if subgroup_plan != root / "heor/subgroup-analysis-plan.json":
+            raise ValueError("--subgroup-plan must be heor/subgroup-analysis-plan.json")
+        if not subgroup_plan.is_file():
+            raise ValueError(
+                f"subgroup plan not found: {subgroup_plan.relative_to(root)}"
+            )
     if not decision_tree:
         _validate_research_contract(root, plan)
     output = _inside(
         root,
-        DECISION_TREE_UNCERTAINTY_OUTPUT_PATH
+        DECISION_TREE_SUBGROUP_OUTPUT_PATH
+        if subgroup_plan is not None
+        else DECISION_TREE_UNCERTAINTY_OUTPUT_PATH
         if uncertainty_plan is not None
         else DECISION_TREE_OUTPUT_PATH
         if decision_tree
@@ -162,6 +185,8 @@ def main() -> int:
         command.extend(
             ["--decision-tree-uncertainty-plan", str(uncertainty_plan)]
         )
+    if subgroup_plan is not None:
+        command.extend(["--subgroup-plan", str(subgroup_plan)])
     completed = subprocess.run(
         command,
         cwd=root,
@@ -178,7 +203,13 @@ def main() -> int:
 
     result = json.loads(completed.stdout)
     expected = hashlib.sha256(plan.read_bytes()).hexdigest()
-    if uncertainty_plan is None:
+    if subgroup_plan is not None:
+        subgroup_expected = hashlib.sha256(subgroup_plan.read_bytes()).hexdigest()
+        if result.get("subgroup_input_sha256") != subgroup_expected:
+            raise RuntimeError("AI4HEOR engine input hash does not match the subgroup plan")
+        if result.get("overall_analysis_input", {}).get("content_sha256") != expected:
+            raise RuntimeError("AI4HEOR engine input hash does not match the decision-tree plan")
+    elif uncertainty_plan is None:
         if result.get("input_sha256") != expected:
             raise RuntimeError("AI4HEOR engine input hash does not match the analysis plan")
     else:

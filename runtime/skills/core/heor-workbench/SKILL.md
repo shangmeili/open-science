@@ -132,6 +132,13 @@ Before reporting a requested end-to-end economic evaluation as complete:
 3. Run supported calculations through the workbench deterministic engine. A
    custom Python model may be retained as an additional cross-check, but is not
    a substitute for the first-party run or its Analysis history record.
+   For a researcher-requested bounded decision-tree subgroup analysis, first
+   follow `$heor-decision-tree` and its subgroup contract, then run the same
+   app-provided runner with `--plan heor/decision-tree-plan.json --subgroup-plan
+   heor/subgroup-analysis-plan.json`. It writes only
+   `heor/results/decision-tree-subgroups.json`; it does not establish an
+   interaction, treatment-effect modification, subgroup decision rule, or
+   researcher approval.
    For an autonomous exploratory base case, run the app-provided local command
    exactly as follows (the desktop supplies both environment variables):
 
@@ -169,7 +176,7 @@ Before reporting a requested end-to-end economic evaluation as complete:
 
 ## Analysis-plan handoff
 
-The app watches `heor/evidence-search-request.json`, app-written search runs, `heor/evidence-synthesis.json`, `heor/network-meta-analysis-request.json`, NMA result/review artifacts, `heor/population-adjusted-comparison-request.json`, anchored-MAIC result/review artifacts, `heor/rwe-causal-analysis-request.json`, RWE causal result/review artifacts, `heor/analysis-plan.json`, `heor/conceptual-model.json`, `heor/reference-case-assessment.json`, `heor/partitioned-survival-plan.json`, `heor/survival-curve-materializations.json`, `heor/treatment-effect-duration.json`, `heor/cost-input-normalization.json`, `heor/utility-inputs.json`, `heor/event-disutilities.json`, uncertainty and joint-survival artifacts, `heor/advanced-voi-plan.json`, advanced-VOI result/replay/review artifacts, budget impact, validation, reporting, reproducibility, and app-written result files. Keep JSON and JSONL valid; serialize calculated values as finite JSON number literals rather than expressions or formula strings. `heor/event-disutilities.json` is permitted only with analysis schema `0.15.0` and passing utility-input and event-disutility validators; otherwise use an ordinary Markdown draft. Changing a hash-bound artifact requires renewed review.
+The app watches `heor/evidence-search-request.json`, app-written search runs, `heor/evidence-synthesis.json`, `heor/network-meta-analysis-request.json`, NMA result/review artifacts, `heor/population-adjusted-comparison-request.json`, anchored-MAIC result/review artifacts, `heor/rwe-causal-analysis-request.json`, RWE causal result/review artifacts, `heor/analysis-plan.json`, `heor/conceptual-model.json`, `heor/reference-case-assessment.json`, `heor/partitioned-survival-plan.json`, decision-tree uncertainty and subgroup plans/results, `heor/survival-curve-materializations.json`, `heor/treatment-effect-duration.json`, `heor/cost-input-normalization.json`, `heor/utility-inputs.json`, `heor/event-disutilities.json`, uncertainty and joint-survival artifacts, `heor/advanced-voi-plan.json`, advanced-VOI result/replay/review artifacts, budget impact, validation, reporting, reproducibility, and app-written result files. Keep JSON and JSONL valid; serialize calculated values as finite JSON number literals rather than expressions or formula strings. `heor/event-disutilities.json` is permitted only with analysis schema `0.15.0` and passing utility-input and event-disutility validators; otherwise use an ordinary Markdown draft. Changing a hash-bound artifact requires renewed review.
 
 After writing the plan, record in Technical details or Run records:
 

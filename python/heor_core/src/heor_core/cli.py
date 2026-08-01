@@ -20,6 +20,7 @@ from .partitioned_survival import run_partitioned_survival
 from .uncertainty import run_uncertainty
 from .decision_tree import DecisionTreeSpecification, run_decision_tree
 from .decision_tree_uncertainty import run_decision_tree_uncertainty
+from .subgroup_analysis import run_subgroup_analysis
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -40,6 +41,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--budget-impact-plan",
         type=Path,
         help="Optional path to a hash-bound budget impact plan",
+    )
+    mode.add_argument(
+        "--subgroup-plan",
+        type=Path,
+        help="Optional path to a hash-bound current decision-tree subgroup plan",
     )
     parser.add_argument(
         "--advanced-voi-plan",
@@ -260,12 +266,68 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ModelValidationError(
                 "--decision-tree-uncertainty-plan requires a decision tree input"
             )
+        if not decision_tree_input and args.subgroup_plan is not None:
+            raise ModelValidationError("--subgroup-plan requires a decision tree input")
         if any(item is not None for item in joint_options) and payload.get("schema_version") not in {"0.12.0", "0.15.0"}:
             raise ModelValidationError(
                 "joint survival artifacts require analysis schema 0.12.0 or 0.15.0"
             )
         if decision_tree_input:
-            if args.decision_tree_uncertainty_plan is None:
+            if args.subgroup_plan is not None:
+                subgroup_path = args.subgroup_plan.resolve()
+                if subgroup_path.parent.name != "heor":
+                    raise ModelValidationError(
+                        "--subgroup-plan must be a direct child of the workspace heor directory"
+                    )
+                workspace = subgroup_path.parent.parent.resolve()
+                if args.input.resolve() != (workspace / "heor/decision-tree-plan.json").resolve():
+                    raise ModelValidationError(
+                        "--subgroup-plan requires the current workspace heor/decision-tree-plan.json"
+                    )
+                subgroup_raw = subgroup_path.read_bytes()
+                subgroup_payload = json.loads(subgroup_raw)
+
+                def bound_file(binding: object, field: str) -> tuple[dict, bytes]:
+                    if not isinstance(binding, dict) or not isinstance(binding.get("path"), str):
+                        raise ModelValidationError(f"{field}.path must be a workspace-relative string")
+                    relative = Path(binding["path"])
+                    if relative.is_absolute() or ".." in relative.parts:
+                        raise ModelValidationError(f"{field}.path must stay inside the workspace")
+                    resolved = (workspace / relative).resolve()
+                    if resolved != workspace and workspace not in resolved.parents:
+                        raise ModelValidationError(f"{field}.path must stay inside the workspace")
+                    bound_raw = resolved.read_bytes()
+                    bound_payload = json.loads(bound_raw)
+                    if not isinstance(bound_payload, dict):
+                        raise ModelValidationError(f"{field}.path must contain a JSON object")
+                    return bound_payload, bound_raw
+
+                evidence_payload, evidence_raw = bound_file(
+                    subgroup_payload.get("evidence_synthesis_input"),
+                    "evidence_synthesis_input",
+                )
+                subgroup_inputs = {}
+                for index, group in enumerate(subgroup_payload.get("subgroups", [])):
+                    if not isinstance(group, dict):
+                        raise ModelValidationError(f"subgroups[{index}] must be an object")
+                    binding = group.get("analysis_input")
+                    subgroup_payload_item, subgroup_raw_item = bound_file(
+                        binding, f"subgroups[{index}].analysis_input"
+                    )
+                    subgroup_inputs[binding["path"]] = (
+                        subgroup_payload_item,
+                        subgroup_raw_item,
+                    )
+                result = run_subgroup_analysis(
+                    payload,
+                    raw,
+                    subgroup_payload,
+                    subgroup_raw,
+                    subgroup_inputs,
+                    evidence_payload,
+                    evidence_raw,
+                )
+            elif args.decision_tree_uncertainty_plan is None:
                 result = run_decision_tree(
                     DecisionTreeSpecification.from_dict(payload)
                 ).to_dict()

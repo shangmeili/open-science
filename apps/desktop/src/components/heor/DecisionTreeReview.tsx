@@ -8,6 +8,8 @@ export const HEOR_DECISION_TREE_PLAN_PATH = "heor/decision-tree-plan.json";
 export const HEOR_DECISION_TREE_RESULT_PATH = "heor/results/decision-tree.json";
 export const HEOR_DECISION_TREE_UNCERTAINTY_PLAN_PATH = "heor/decision-tree-uncertainty-plan.json";
 export const HEOR_DECISION_TREE_UNCERTAINTY_RESULT_PATH = "heor/results/decision-tree-uncertainty.json";
+export const HEOR_DECISION_TREE_SUBGROUP_PLAN_PATH = "heor/subgroup-analysis-plan.json";
+export const HEOR_DECISION_TREE_SUBGROUP_RESULT_PATH = "heor/results/decision-tree-subgroups.json";
 
 export interface DecisionTreeEconomicBasis {
   currency: string;
@@ -58,6 +60,42 @@ export interface DecisionTreeUncertaintySummary {
   tieProbability: number;
 }
 
+interface DecisionTreeSubgroupPlanSummary {
+  subgroupAnalysisId: string;
+  groupingLabel: string;
+  prespecification: "prespecified" | "post_hoc";
+  overallAnalysisSha256: string;
+  evidenceSynthesisSha256: string;
+  subgroups: Array<{
+    id: string;
+    label: string;
+    populationShare: number;
+    analysisPath: string;
+    analysisSha256: string;
+  }>;
+}
+
+export interface DecisionTreeSubgroupSummary {
+  subgroupAnalysisId: string;
+  groupingLabel: string;
+  prespecification: "prespecified" | "post_hoc";
+  sourceCount: number;
+  subgroups: Array<{
+    id: string;
+    label: string;
+    populationShare: number;
+    analysisPath: string;
+    sourceIds: string[];
+    pairwiseVsBaseline: DecisionTreeResultSummary["pairwiseVsBaseline"];
+  }>;
+  weightedPairwiseVsBaseline: DecisionTreeResultSummary["pairwiseVsBaseline"];
+  overallConsistencyPassed: boolean;
+  overallConsistencyCostGap: number;
+  overallConsistencyQalyGap: number;
+  requiredReviewCheckCount: number;
+  warnings: string[];
+}
+
 export type DecisionTreeReviewState =
   | { kind: "loading" }
   | { kind: "absent" }
@@ -72,6 +110,9 @@ export type DecisionTreeReviewState =
       uncertainty: DecisionTreeUncertaintySummary | null;
       uncertaintyCurrent: boolean;
       uncertaintyIssue?: "missing" | "invalid" | "stale";
+      subgroup?: DecisionTreeSubgroupSummary | null;
+      subgroupCurrent?: boolean;
+      subgroupIssue?: "missing" | "invalid" | "stale";
     };
 
 function record(value: unknown, path: string): Record<string, unknown> {
@@ -459,6 +500,206 @@ function parseDecisionTreeUncertaintyResult(
   };
 }
 
+function parseIncrementalRow(value: unknown, path: string) {
+  const row = record(value, path);
+  const rawIcer = row.icer;
+  if (rawIcer !== null && (typeof rawIcer !== "number" || !Number.isFinite(rawIcer))) {
+    throw new Error(`${path}.icer must be finite or null`);
+  }
+  return {
+    deltaCost: finite(row.delta_cost, `${path}.delta_cost`),
+    deltaQaly: finite(row.delta_qaly, `${path}.delta_qaly`),
+    icer: rawIcer as number | null,
+    interpretation: text(row.interpretation, `${path}.interpretation`),
+  };
+}
+
+function parseDecisionTreeSubgroupPlan(
+  raw: string,
+  planSha256: string,
+): DecisionTreeSubgroupPlanSummary {
+  const value = record(JSON.parse(raw), "decision-tree subgroup plan");
+  if (value.schema_version !== "0.1.0" || value.analysis_type !== "decision_tree_subgroup") {
+    throw new Error("unsupported decision-tree subgroup plan contract");
+  }
+  const overallInput = record(value.overall_analysis_input, "subgroup overall_analysis_input");
+  if (overallInput.path !== HEOR_DECISION_TREE_PLAN_PATH
+    || digest(overallInput.content_sha256, "subgroup overall analysis hash") !== planSha256) {
+    throw new Error("stale decision-tree subgroup plan");
+  }
+  const evidenceInput = record(value.evidence_synthesis_input, "subgroup evidence_synthesis_input");
+  if (evidenceInput.path !== "heor/evidence-synthesis.json") {
+    throw new Error("subgroup evidence synthesis path is invalid");
+  }
+  const grouping = record(value.grouping, "subgroup grouping");
+  const prespecification = grouping.prespecification;
+  if (prespecification !== "prespecified" && prespecification !== "post_hoc") {
+    throw new Error("subgroup prespecification is invalid");
+  }
+  if (grouping.mutually_exclusive !== true || grouping.exhaustive !== true) {
+    throw new Error("subgroups must be mutually exclusive and exhaustive");
+  }
+  if (!Array.isArray(value.subgroups) || value.subgroups.length < 2 || value.subgroups.length > 20) {
+    throw new Error("subgroup plan must contain from 2 to 20 groups");
+  }
+  const subgroups = value.subgroups.map((item, index) => {
+    const group = record(item, `subgroup plan groups[${index}]`);
+    const share = record(group.population_share, `subgroup plan groups[${index}].population_share`);
+    const populationShare = finite(share.value, `subgroup plan groups[${index}].population_share.value`);
+    const input = record(group.analysis_input, `subgroup plan groups[${index}].analysis_input`);
+    const analysisPath = text(input.path, `subgroup plan groups[${index}].analysis_input.path`);
+    if (!/^heor\/subgroups\/[A-Za-z0-9._-]+\.json$/.test(analysisPath)) {
+      throw new Error("subgroup analysis path is invalid");
+    }
+    return {
+      id: text(group.id, `subgroup plan groups[${index}].id`),
+      label: text(group.label, `subgroup plan groups[${index}].label`),
+      populationShare,
+      analysisPath,
+      analysisSha256: digest(input.content_sha256, `subgroup plan groups[${index}].analysis_input.content_sha256`),
+    };
+  });
+  if (Math.abs(subgroups.reduce((sum, group) => sum + group.populationShare, 0) - 1) > 1e-9) {
+    throw new Error("subgroup population shares must sum to one");
+  }
+  return {
+    subgroupAnalysisId: text(value.subgroup_analysis_id, "subgroup_analysis_id"),
+    groupingLabel: text(grouping.label, "subgroup grouping.label"),
+    prespecification,
+    overallAnalysisSha256: planSha256,
+    evidenceSynthesisSha256: digest(evidenceInput.content_sha256, "subgroup evidence synthesis hash"),
+    subgroups,
+  };
+}
+
+async function parseDecisionTreeSubgroupResult(
+  raw: string,
+  subgroupPlanRaw: string,
+  plan: DecisionTreePlanSummary,
+  planSha256: string,
+  evidenceRaw: string | null,
+  subgroupInputsRaw: Record<string, string>,
+): Promise<DecisionTreeSubgroupSummary> {
+  const subgroupPlan = parseDecisionTreeSubgroupPlan(subgroupPlanRaw, planSha256);
+  const subgroupPlanSha256 = await sha256Text(subgroupPlanRaw);
+  if (evidenceRaw === null || await sha256Text(evidenceRaw) !== subgroupPlan.evidenceSynthesisSha256) {
+    throw new Error("stale subgroup evidence synthesis");
+  }
+  for (const group of subgroupPlan.subgroups) {
+    const input = subgroupInputsRaw[group.analysisPath];
+    if (input === undefined || await sha256Text(input) !== group.analysisSha256) {
+      throw new Error(`stale subgroup analysis input: ${group.analysisPath}`);
+    }
+  }
+  const value = record(JSON.parse(raw), "decision-tree subgroup result");
+  if (value.schema_version !== "0.1.0"
+    || value.engine_version !== "0.1.0"
+    || value.analysis_type !== "decision_tree_subgroup"
+    || value.calculation_classification !== "deterministic_subgroup_analysis"
+    || value.subgroup_analysis_id !== subgroupPlan.subgroupAnalysisId
+    || digest(value.subgroup_input_sha256, "subgroup result input hash") !== subgroupPlanSha256) {
+    throw new Error("subgroup result does not identify the current subgroup analysis");
+  }
+  const overallInput = record(value.overall_analysis_input, "subgroup result overall input");
+  const evidenceInput = record(value.evidence_synthesis_input, "subgroup result evidence input");
+  if (overallInput.path !== HEOR_DECISION_TREE_PLAN_PATH
+    || digest(overallInput.content_sha256, "subgroup result overall hash") !== planSha256
+    || evidenceInput.path !== "heor/evidence-synthesis.json"
+    || digest(evidenceInput.content_sha256, "subgroup result evidence hash") !== subgroupPlan.evidenceSynthesisSha256) {
+    throw new Error("stale subgroup result bindings");
+  }
+  if (!equalEconomicBasis(plan.economicBasis, economicBasis(value.economic_basis, "subgroup result economic_basis"))) {
+    throw new Error("subgroup result economic basis does not match the plan");
+  }
+  const strategyOrder = stringArray(value.strategy_order, "subgroup result strategy_order");
+  if (strategyOrder.length !== plan.strategyOrder.length
+    || strategyOrder.some((strategyId, index) => strategyId !== plan.strategyOrder[index])
+    || value.baseline_strategy_id !== plan.baselineStrategyId) {
+    throw new Error("subgroup result strategy definition does not match the plan");
+  }
+  if (!Array.isArray(value.subgroups) || value.subgroups.length !== subgroupPlan.subgroups.length) {
+    throw new Error("subgroup result groups do not match the subgroup plan");
+  }
+  if (!Array.isArray(value.source_register) || value.source_register.length === 0) {
+    throw new Error("subgroup source register is missing");
+  }
+  const registeredSourceIds = value.source_register.map((item, index) => {
+    const source = record(item, `subgroup source register[${index}]`);
+    for (const field of ["source_id", "record_id", "title", "source_type", "locator", "source_location", "verification_status"] as const) {
+      text(source[field], `subgroup source register[${index}].${field}`);
+    }
+    return source.source_id as string;
+  });
+  if (new Set(registeredSourceIds).size !== registeredSourceIds.length) {
+    throw new Error("subgroup source register contains duplicate source ids");
+  }
+  const registeredSourceIdSet = new Set(registeredSourceIds);
+  const rawSubgroups = value.subgroups;
+  const subgroups = subgroupPlan.subgroups.map((expected, index) => {
+    const row = record(rawSubgroups[index], `subgroup result groups[${index}]`);
+    if (row.id !== expected.id || row.label !== expected.label
+      || row.population_share !== expected.populationShare
+      || row.analysis_input_path !== expected.analysisPath
+      || digest(row.analysis_input_sha256, `subgroup result groups[${index}].analysis_input_sha256`) !== expected.analysisSha256) {
+      throw new Error("subgroup result group binding does not match the plan");
+    }
+    const pairwise = record(row.pairwise_vs_baseline, `subgroup result groups[${index}].pairwise_vs_baseline`);
+    const sourceIds = stringArray(row.source_ids, `subgroup result groups[${index}].source_ids`);
+    if (sourceIds.length === 0 || sourceIds.some((sourceId) => !registeredSourceIdSet.has(sourceId))) {
+      throw new Error("subgroup result group has an unresolved concrete source");
+    }
+    return {
+      id: expected.id,
+      label: expected.label,
+      populationShare: expected.populationShare,
+      analysisPath: expected.analysisPath,
+      sourceIds,
+      pairwiseVsBaseline: Object.fromEntries(plan.strategyOrder.slice(1).map((strategyId) => [
+        strategyId,
+        parseIncrementalRow(pairwise[strategyId], `subgroup result groups[${index}].pairwise_vs_baseline.${strategyId}`),
+      ])),
+    };
+  });
+  const weightedRaw = record(value.weighted_pairwise_vs_baseline, "subgroup weighted pairwise");
+  const weightedPairwiseVsBaseline = Object.fromEntries(plan.strategyOrder.slice(1).map((strategyId) => [
+    strategyId,
+    parseIncrementalRow(weightedRaw[strategyId], `subgroup weighted pairwise.${strategyId}`),
+  ]));
+  const consistency = record(value.overall_consistency, "subgroup overall_consistency");
+  if (typeof consistency.passed !== "boolean") throw new Error("subgroup consistency status is invalid");
+  const review = record(value.scientific_review, "subgroup scientific_review");
+  const requiredChecks = stringArray(review.required_checks, "subgroup required review checks");
+  const expectedChecks = [
+    "population_definition_and_overlap",
+    "prespecification_or_post_hoc_status",
+    "subgroup_source_eligibility",
+    "interaction_or_heterogeneity_basis",
+    "multiplicity_and_power",
+    "interpretation_and_decision_use",
+  ];
+  if (review.status !== "awaiting_researcher_review"
+    || requiredChecks.length !== expectedChecks.length
+    || requiredChecks.some((check, index) => check !== expectedChecks[index])) {
+    throw new Error("subgroup researcher review contract is incomplete");
+  }
+  if (!Array.isArray(value.descriptive_heterogeneity)) {
+    throw new Error("subgroup source register or descriptive contrasts are missing");
+  }
+  return {
+    subgroupAnalysisId: subgroupPlan.subgroupAnalysisId,
+    groupingLabel: subgroupPlan.groupingLabel,
+    prespecification: subgroupPlan.prespecification,
+    sourceCount: registeredSourceIds.length,
+    subgroups,
+    weightedPairwiseVsBaseline,
+    overallConsistencyPassed: consistency.passed,
+    overallConsistencyCostGap: finite(consistency.max_abs_cost_difference, "subgroup cost consistency gap"),
+    overallConsistencyQalyGap: finite(consistency.max_abs_qaly_difference, "subgroup QALY consistency gap"),
+    requiredReviewCheckCount: requiredChecks.length,
+    warnings: stringArray(value.warnings, "subgroup warnings"),
+  };
+}
+
 export async function loadDecisionTreeReview(): Promise<DecisionTreeReviewState> {
   try {
     const planFile = await readArtifact(HEOR_DECISION_TREE_PLAN_PATH);
@@ -466,11 +707,37 @@ export async function loadDecisionTreeReview(): Promise<DecisionTreeReviewState>
     const resultFile = await readArtifact(HEOR_DECISION_TREE_RESULT_PATH);
     const uncertaintyPlanFile = await readArtifact(HEOR_DECISION_TREE_UNCERTAINTY_PLAN_PATH);
     const uncertaintyResultFile = await readArtifact(HEOR_DECISION_TREE_UNCERTAINTY_RESULT_PATH);
+    const subgroupPlanFile = await readArtifact(HEOR_DECISION_TREE_SUBGROUP_PLAN_PATH);
+    const subgroupResultFile = await readArtifact(HEOR_DECISION_TREE_SUBGROUP_RESULT_PATH);
+    const evidenceFile = subgroupPlanFile ? await readArtifact("heor/evidence-synthesis.json") : null;
+    const subgroupInputsRaw: Record<string, string> = {};
+    if (subgroupPlanFile) {
+      try {
+        const parsed = record(JSON.parse(subgroupPlanFile.data), "decision-tree subgroup plan");
+        if (Array.isArray(parsed.subgroups)) {
+          for (const item of parsed.subgroups) {
+            const group = record(item, "decision-tree subgroup");
+            const input = record(group.analysis_input, "decision-tree subgroup analysis_input");
+            if (typeof input.path === "string" && /^heor\/subgroups\/[A-Za-z0-9._-]+\.json$/.test(input.path)) {
+              const file = await readArtifact(input.path);
+              if (file) subgroupInputsRaw[input.path] = file.data;
+            }
+          }
+        }
+      } catch {
+        // The parser below reports a bounded invalid subgroup artifact while
+        // preserving the current base decision-tree review.
+      }
+    }
     return reviewDecisionTreeArtifacts(
       planFile.data,
       resultFile?.data ?? null,
       uncertaintyPlanFile?.data ?? null,
       uncertaintyResultFile?.data ?? null,
+      subgroupPlanFile?.data ?? null,
+      subgroupResultFile?.data ?? null,
+      evidenceFile?.data ?? null,
+      subgroupInputsRaw,
     );
   } catch (error) {
     return { kind: "invalid", message: error instanceof Error ? error.message : String(error) };
@@ -482,6 +749,10 @@ export async function reviewDecisionTreeArtifacts(
   resultRaw: string | null,
   uncertaintyPlanRaw: string | null = null,
   uncertaintyResultRaw: string | null = null,
+  subgroupPlanRaw: string | null = null,
+  subgroupResultRaw: string | null = null,
+  evidenceRaw: string | null = null,
+  subgroupInputsRaw: Record<string, string> = {},
 ): Promise<DecisionTreeReviewState> {
   try {
     const plan = parseDecisionTreePlan(planRaw);
@@ -503,6 +774,8 @@ export async function reviewDecisionTreeArtifacts(
       const resultCurrent = result.inputSha256 === planSha256;
       let uncertainty: DecisionTreeUncertaintySummary | null = null;
       let uncertaintyIssue: "missing" | "invalid" | "stale" | undefined;
+      let subgroup: DecisionTreeSubgroupSummary | null = null;
+      let subgroupIssue: "missing" | "invalid" | "stale" | undefined;
       if (uncertaintyPlanRaw !== null) {
         try {
           const uncertaintyPlan = parseDecisionTreeUncertaintyPlan(uncertaintyPlanRaw, planSha256);
@@ -526,6 +799,28 @@ export async function reviewDecisionTreeArtifacts(
             : "invalid";
         }
       }
+      if (subgroupPlanRaw !== null) {
+        if (subgroupResultRaw === null) {
+          subgroupIssue = "missing";
+        } else if (!resultCurrent) {
+          subgroupIssue = "stale";
+        } else {
+          try {
+            subgroup = await parseDecisionTreeSubgroupResult(
+              subgroupResultRaw,
+              subgroupPlanRaw,
+              plan,
+              planSha256,
+              evidenceRaw,
+              subgroupInputsRaw,
+            );
+          } catch (error) {
+            subgroupIssue = error instanceof Error && error.message.includes("stale")
+              ? "stale"
+              : "invalid";
+          }
+        }
+      }
       return {
         kind: "ready",
         plan,
@@ -535,6 +830,9 @@ export async function reviewDecisionTreeArtifacts(
         uncertainty,
         uncertaintyCurrent: uncertainty !== null,
         ...(uncertaintyIssue ? { uncertaintyIssue } : {}),
+        subgroup,
+        subgroupCurrent: subgroup !== null,
+        ...(subgroupIssue ? { subgroupIssue } : {}),
       };
     } catch {
       return {
@@ -561,6 +859,10 @@ export function DecisionTreeReview({
   onOpenPlan,
   onOpenResult,
   onOpenUncertaintyResult,
+  onRunSubgroup,
+  onOpenSubgroupPlan,
+  onOpenSubgroupResult,
+  onOpenSubgroupInput,
 }: {
   state: DecisionTreeReviewState;
   locale?: string;
@@ -569,6 +871,10 @@ export function DecisionTreeReview({
   onOpenPlan?: () => void;
   onOpenResult?: () => void;
   onOpenUncertaintyResult?: () => void;
+  onRunSubgroup?: () => void;
+  onOpenSubgroupPlan?: () => void;
+  onOpenSubgroupResult?: () => void;
+  onOpenSubgroupInput?: (path: string) => void;
 }) {
   const { t, i18n } = useTranslation("heor");
   const activeLocale = locale ?? i18n.language;
@@ -700,6 +1006,72 @@ export function DecisionTreeReview({
                 <span>{t("decisionTree.uncertainty.tie")} <strong className="font-semibold text-text">{percent.format(state.uncertainty.tieProbability)}</strong></span>
               </div>
               <p className="mt-3 text-[10px] leading-4 text-muted">{t("decisionTree.uncertainty.calculationOnly")}</p>
+            </div>
+          )}
+          {state.subgroupCurrent && state.subgroup && (
+            <div className="mt-4 border-t border-border pt-4" data-metric-source={HEOR_DECISION_TREE_SUBGROUP_RESULT_PATH}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="text-xs font-semibold text-text">{t("decisionTree.subgroup.title")}</div>
+                  <div className="mt-0.5 text-[10px] font-medium text-warn">{t("decisionTree.subgroup.awaitingReview")}</div>
+                </div>
+                <div className="flex flex-wrap justify-end gap-2">
+                  {onOpenSubgroupPlan && (
+                    <button type="button" onClick={onOpenSubgroupPlan} className="flex items-center gap-1 text-[10px] text-link hover:underline">
+                      <FileJson size={12} />{t("decisionTree.subgroup.openPlan")}
+                    </button>
+                  )}
+                  {onOpenSubgroupResult && (
+                    <button type="button" onClick={onOpenSubgroupResult} className="flex items-center gap-1 text-[10px] text-link hover:underline">
+                      <FileJson size={12} />{t("decisionTree.subgroup.openResult")}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="mt-2 text-[10px] text-muted">
+                {state.subgroup.groupingLabel} · {t(`decisionTree.subgroup.${state.subgroup.prespecification}`)} · {t("decisionTree.subgroup.sourcesAndChecks", {
+                  sources: state.subgroup.sourceCount,
+                  checks: state.subgroup.requiredReviewCheckCount,
+                })}
+              </p>
+              <div className="mt-3 overflow-hidden rounded-input border border-border">
+                <table className="w-full text-[10px]">
+                  <thead className="bg-bg text-muted"><tr><th className="px-2 py-2 text-left font-medium">{t("decisionTree.subgroup.group")}</th><th className="px-2 py-2 text-right font-medium">{t("result.deltaCost")}</th><th className="px-2 py-2 text-right font-medium">{t("result.deltaQaly")}</th><th className="px-2 py-2 text-right font-medium">{t("result.icer")}</th></tr></thead>
+                  <tbody>{state.subgroup.subgroups.flatMap((group) => state.plan.strategyOrder.slice(1).map((strategyId) => {
+                    const row = group.pairwiseVsBaseline[strategyId];
+                    const sourceButton = (label: string, value: string) => (
+                      <button
+                        type="button"
+                        disabled={!onOpenSubgroupInput}
+                        onClick={() => onOpenSubgroupInput?.(group.analysisPath)}
+                        aria-label={t("decisionTree.subgroup.openSourceAria", { group: group.label, label, value })}
+                        className="rounded px-1 py-0.5 tabular-nums text-text outline-none hover:bg-surface-2 disabled:cursor-default disabled:hover:bg-transparent"
+                      >
+                        {value}
+                      </button>
+                    );
+                    return <tr key={`${group.id}-${strategyId}`} className="border-t border-border"><td className="px-2 py-2 text-text">{group.label}</td><td className="px-2 py-2 text-right">{sourceButton(t("decisionTree.subgroup.incrementalCost"), number.format(row.deltaCost))}</td><td className="px-2 py-2 text-right">{sourceButton(t("decisionTree.subgroup.incrementalQaly"), number.format(row.deltaQaly))}</td><td className="px-2 py-2 text-right">{sourceButton(t("decisionTree.subgroup.icer"), row.icer === null ? "—" : number.format(row.icer))}</td></tr>;
+                  }))}</tbody>
+                </table>
+              </div>
+              <div className={cn("mt-2 text-[10px] font-medium", state.subgroup.overallConsistencyPassed ? "text-ok" : "text-warn")}>
+                {state.subgroup.overallConsistencyPassed
+                  ? t("decisionTree.subgroup.consistent")
+                  : t("decisionTree.subgroup.inconsistent", {
+                    costGap: number.format(state.subgroup.overallConsistencyCostGap),
+                    qalyGap: number.format(state.subgroup.overallConsistencyQalyGap),
+                  })}
+              </div>
+              <p className="mt-3 text-[10px] leading-4 text-muted">{t("decisionTree.subgroup.boundary")}</p>
+            </div>
+          )}
+          {!state.subgroupCurrent && state.subgroupIssue && (
+            <div className="mt-4 border-t border-border pt-4">
+              <div className="text-xs font-semibold text-text">{t("decisionTree.subgroup.title")}</div>
+              <p className="mt-2 text-[10px] leading-4 text-warn">{t(`decisionTree.subgroup.${state.subgroupIssue}`)}</p>
+              <button type="button" onClick={onRunSubgroup ?? onRun} className="mt-2 flex items-center gap-1.5 text-xs font-medium text-link hover:underline">
+                <Play size={13} /> {t("decisionTree.subgroup.run")}
+              </button>
             </div>
           )}
         </>

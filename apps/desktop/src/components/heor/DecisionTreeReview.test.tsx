@@ -326,6 +326,170 @@ describe("deterministic decision-tree review", () => {
     expect(onOpenResult).toHaveBeenCalledOnce();
   });
 
+  it("shows only source-current subgroup results and keeps interpretation awaiting researcher review", async () => {
+    const economicBasis = {
+      currency: "CNY",
+      price_year: 2026,
+      jurisdiction: "中国大陆",
+      perspective: "中国医疗卫生系统",
+    };
+    const plan = JSON.stringify({
+      schema_version: "0.2.0",
+      analysis_type: "decision_tree",
+      analysis_id: "subgroup-overall",
+      reference_case: { id: "CN-2020-current", status: "current" },
+      economic_basis: economicBasis,
+      time_horizon_years: 1,
+      strategy_order: ["comparator", "intervention"],
+      baseline_strategy_id: "comparator",
+      assumptions: [],
+      strategies: {
+        comparator: { name: "常规治疗" },
+        intervention: { name: "新干预" },
+      },
+    });
+    const planSha256 = await sha256Text(plan);
+    const result = JSON.stringify({
+      analysis_id: "subgroup-overall",
+      analysis_type: "decision_tree",
+      calculation_classification: "deterministic_decision_tree",
+      schema_version: "0.2.0",
+      engine_version: "0.2.0",
+      economic_basis: economicBasis,
+      input_sha256: planSha256,
+      strategy_order: ["comparator", "intervention"],
+      strategies: {
+        comparator: { name: "常规治疗", total_cost: 1800, total_qaly: 0.68 },
+        intervention: { name: "新干预", total_cost: 2900, total_qaly: 0.7375 },
+      },
+      pairwise_vs_baseline: {
+        intervention: { delta_cost: 1100, delta_qaly: 0.0575, icer: 19130.4348, interpretation: "tradeoff" },
+      },
+      warnings: ["calculation only"],
+    });
+    const evidence = JSON.stringify({ records: [], extractions: [] });
+    const evidenceSha256 = await sha256Text(evidence);
+    const groupA = JSON.stringify({ analysis_id: "subgroup-a" });
+    const groupB = JSON.stringify({ analysis_id: "subgroup-b" });
+    const groupASha256 = await sha256Text(groupA);
+    const groupBSha256 = await sha256Text(groupB);
+    const subgroupPlan = JSON.stringify({
+      schema_version: "0.1.0",
+      analysis_type: "decision_tree_subgroup",
+      subgroup_analysis_id: "risk-subgroups",
+      overall_analysis_input: { path: "heor/decision-tree-plan.json", content_sha256: planSha256 },
+      evidence_synthesis_input: { path: "heor/evidence-synthesis.json", content_sha256: evidenceSha256 },
+      grouping: {
+        id: "risk-group",
+        label: "风险分层",
+        prespecification: "prespecified",
+        mutually_exclusive: true,
+        exhaustive: true,
+      },
+      subgroups: [
+        { id: "group-a", label: "A 组", population_share: { value: 0.5 }, analysis_input: { path: "heor/subgroups/group-a.json", content_sha256: groupASha256 } },
+        { id: "group-b", label: "B 组", population_share: { value: 0.5 }, analysis_input: { path: "heor/subgroups/group-b.json", content_sha256: groupBSha256 } },
+      ],
+    });
+    const subgroupSha256 = await sha256Text(subgroupPlan);
+    const subgroupResult = JSON.stringify({
+      schema_version: "0.1.0",
+      engine_version: "0.1.0",
+      analysis_type: "decision_tree_subgroup",
+      subgroup_analysis_id: "risk-subgroups",
+      calculation_classification: "deterministic_subgroup_analysis",
+      subgroup_input_sha256: subgroupSha256,
+      overall_analysis_input: { path: "heor/decision-tree-plan.json", content_sha256: planSha256 },
+      evidence_synthesis_input: { path: "heor/evidence-synthesis.json", content_sha256: evidenceSha256 },
+      economic_basis: economicBasis,
+      strategy_order: ["comparator", "intervention"],
+      baseline_strategy_id: "comparator",
+      source_register: [{
+        source_id: "source-1",
+        record_id: "record-1",
+        title: "Subgroup source",
+        source_type: "teaching_fixture",
+        locator: "local://subgroup-source",
+        source_location: "fixture:source-1",
+        verification_status: "verified_for_teaching_fixture",
+      }],
+      subgroups: [
+        { id: "group-a", label: "A 组", population_share: 0.5, analysis_input_path: "heor/subgroups/group-a.json", analysis_input_sha256: groupASha256, source_ids: ["source-1"], pairwise_vs_baseline: { intervention: { delta_cost: 680, delta_qaly: 0.125, icer: 5440, interpretation: "tradeoff", incremental_net_monetary_benefit: 5570 } } },
+        { id: "group-b", label: "B 组", population_share: 0.5, analysis_input_path: "heor/subgroups/group-b.json", analysis_input_sha256: groupBSha256, source_ids: ["source-1"], pairwise_vs_baseline: { intervention: { delta_cost: 1520, delta_qaly: -0.01, icer: null, interpretation: "dominated", incremental_net_monetary_benefit: -2020 } } },
+      ],
+      weighted_pairwise_vs_baseline: { intervention: { delta_cost: 1100, delta_qaly: 0.0575, icer: 19130.4348, interpretation: "tradeoff", incremental_net_monetary_benefit: 1775 } },
+      overall_consistency: { passed: true, tolerances: { cost: 1e-9, qaly: 1e-9 }, max_abs_cost_difference: 0, max_abs_qaly_difference: 0 },
+      descriptive_heterogeneity: [{ left_subgroup_id: "group-a", right_subgroup_id: "group-b", strategy_id: "intervention", delta_cost_difference: -840, delta_qaly_difference: 0.135, incremental_nmb_difference: 7590, interpretation: "descriptive_contrast_not_interaction_test" }],
+      scientific_review: {
+        status: "awaiting_researcher_review",
+        required_checks: ["population_definition_and_overlap", "prespecification_or_post_hoc_status", "subgroup_source_eligibility", "interaction_or_heterogeneity_basis", "multiplicity_and_power", "interpretation_and_decision_use"],
+      },
+      warnings: ["This descriptive subgroup contrast does not establish interaction."],
+    });
+
+    const current = await reviewDecisionTreeArtifacts(
+      plan,
+      result,
+      null,
+      null,
+      subgroupPlan,
+      subgroupResult,
+      evidence,
+      {
+        "heor/subgroups/group-a.json": groupA,
+        "heor/subgroups/group-b.json": groupB,
+      },
+    );
+    expect(current).toMatchObject({ kind: "ready", subgroupCurrent: true });
+    const onOpenSubgroupInput = vi.fn();
+    render(
+      <DecisionTreeReview
+        state={current}
+        locale="en"
+        onRefresh={vi.fn()}
+        onRun={vi.fn()}
+        onOpenSubgroupInput={onOpenSubgroupInput}
+      />,
+    );
+    expect(screen.getByText("Subgroup analysis")).toBeInTheDocument();
+    expect(screen.getByText("Awaiting researcher review")).toBeInTheDocument();
+    expect(screen.getByText("A 组")).toBeInTheDocument();
+    expect(screen.getByText("5,440")).toBeInTheDocument();
+    expect(screen.getByText("Descriptive contrasts do not establish interaction or treatment-effect modification.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Open source for A 组 incremental cost: 680" }));
+    expect(onOpenSubgroupInput).toHaveBeenCalledWith("heor/subgroups/group-a.json");
+
+    const unboundSources = await reviewDecisionTreeArtifacts(
+      plan,
+      result,
+      null,
+      null,
+      subgroupPlan,
+      subgroupResult.replace('"source_ids":["source-1"]', '"source_ids":["missing-source"]'),
+      evidence,
+      {
+        "heor/subgroups/group-a.json": groupA,
+        "heor/subgroups/group-b.json": groupB,
+      },
+    );
+    expect(unboundSources).toMatchObject({ kind: "ready", subgroup: null, subgroupCurrent: false, subgroupIssue: "invalid" });
+
+    const stale = await reviewDecisionTreeArtifacts(
+      plan,
+      result,
+      null,
+      null,
+      subgroupPlan,
+      subgroupResult,
+      evidence,
+      {
+        "heor/subgroups/group-a.json": `${groupA}\n`,
+        "heor/subgroups/group-b.json": groupB,
+      },
+    );
+    expect(stale).toMatchObject({ kind: "ready", subgroup: null, subgroupCurrent: false, subgroupIssue: "stale" });
+  });
+
   it("does not display stale strategy values and requests a deterministic rerun", async () => {
     const onRun = vi.fn();
     render(

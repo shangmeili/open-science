@@ -41,6 +41,28 @@
       "tie": "Tie",
       "openResult": "Open uncertainty result",
       "calculationOnly": "These probabilities describe only the declared parameter uncertainty. A passed convergence diagnostic is not scientific validation."
+    },
+    "subgroup": {
+      "title": "Subgroup analysis",
+      "awaitingReview": "Awaiting researcher review",
+      "prespecified": "Prespecified",
+      "post_hoc": "Post hoc",
+      "sourcesAndChecks": "{{sources}} source records · {{checks}} review checks",
+      "group": "Subgroup",
+      "consistent": "Population-share-weighted results reproduce the overall model",
+      "inconsistent": "Weighted subgroup results differ from the overall model; cost gap {{costGap}}, QALY gap {{qalyGap}}",
+      "boundary": "Descriptive contrasts do not establish interaction or treatment-effect modification.",
+      "incrementalCost": "incremental cost",
+      "incrementalQaly": "incremental QALY",
+      "icer": "ICER",
+      "openSourceAria": "Open source for {{group}} {{label}}: {{value}}",
+      "openPlan": "Open subgroup plan",
+      "openResult": "Open subgroup result",
+      "missing": "The subgroup plan has not been calculated.",
+      "invalid": "The saved subgroup result cannot be verified.",
+      "stale": "The subgroup result no longer matches its plans or evidence.",
+      "run": "Validate and run subgroup analysis",
+      "runPrompt": "Use $heor-decision-tree and its bounded subgroup-analysis contract to validate the current overall plan, heor/subgroup-analysis-plan.json, every bound decision tree under heor/subgroups, and the bound evidence synthesis. Run the first-party deterministic engine only after the complete graph passes. Write heor/results/decision-tree-subgroups.json, keep all six scientific checks awaiting researcher review, and describe contrasts as descriptive only; do not claim interaction, treatment-effect modification, subgroup validity, or a subgroup decision rule."
     }
   },
   "starter": {
