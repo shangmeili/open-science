@@ -336,6 +336,7 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
             or not isinstance(first_launch.get("app_process_id"), int)
             or first_launch["app_process_id"] < 1
             or not first_launch.get("app_executable")
+            or first_launch.get("cleanup_verified") is not True
             or not isinstance(first_launch.get("opencode_process_id"), int)
             or first_launch["opencode_process_id"] < 1
             or not first_launch.get("opencode_executable")
@@ -420,6 +421,7 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
             "prompt_submitted",
             "provider_request_received",
             "assistant_reply_visible",
+            "cleanup_verified",
         }
         if (
             not isinstance(task_reply, dict)

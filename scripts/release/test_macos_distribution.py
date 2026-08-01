@@ -149,6 +149,15 @@ class DistributionVerifierTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('"packaged_heor_tests": True', source)
 
+    def test_installed_task_reply_records_cleanup_proof(self) -> None:
+        source = (
+            ROOT / "scripts/release/verify_macos_package.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            '"cleanup_verified": reply_launch.get("cleanup_verified") is True',
+            source,
+        )
+
     def test_installed_task_reply_uses_the_semantic_ui_and_local_fixture(self) -> None:
         probe = ROOT / "scripts/release/verify_macos_accessibility.swift"
         source = probe.read_text(encoding="utf-8")

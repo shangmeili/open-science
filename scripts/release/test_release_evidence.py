@@ -292,6 +292,7 @@ class ReleaseEvidenceTests(unittest.TestCase):
         value["verification"]["first_launch"] = {
             "app_process_id": 101,
             "app_executable": "/tmp/AI4HEOR.app/Contents/MacOS/ai4s-workbench",
+            "cleanup_verified": True,
             "opencode_process_id": 102,
             "opencode_executable": "/tmp/AI4HEOR.app/Contents/MacOS/opencode",
             "opencode_http": {
@@ -307,6 +308,11 @@ class ReleaseEvidenceTests(unittest.TestCase):
             "workspace": "/tmp/home/Documents/AI4HEOR",
         }
         release_evidence.validate_evidence(value)
+
+        value["verification"]["first_launch"]["cleanup_verified"] = False
+        with self.assertRaisesRegex(AssertionError, "proof is incomplete"):
+            release_evidence.validate_evidence(value)
+        value["verification"]["first_launch"]["cleanup_verified"] = True
 
         value["verification"]["first_launch"]["frontend_bootstrap"][
             "javascript_executed"
@@ -343,6 +349,7 @@ class ReleaseEvidenceTests(unittest.TestCase):
             "prompt_submitted": True,
             "provider_request_received": True,
             "assistant_reply_visible": True,
+            "cleanup_verified": True,
         }
         release_evidence.validate_evidence(value)
 

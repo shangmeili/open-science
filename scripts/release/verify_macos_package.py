@@ -848,6 +848,7 @@ def _verify_first_launch_workspaces(
                 )
             proof["installed_task_reply"] = {
                 **reply_proof,
+                "cleanup_verified": reply_launch.get("cleanup_verified") is True,
                 "provider_request_received": True,
             }
         return proof
