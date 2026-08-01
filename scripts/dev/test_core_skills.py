@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import os
 import re
@@ -227,7 +228,13 @@ class CoreSkillContractTests(unittest.TestCase):
                 encoding="utf-8"
             )
         )
+        uncertainty_template = json.loads(
+            (skill_dir / "assets" / "decision-tree-uncertainty-plan.template.json").read_text(
+                encoding="utf-8"
+            )
+        )
         validator = skill_dir / "scripts" / "validate_decision_tree.py"
+        uncertainty_validator = skill_dir / "scripts" / "validate_decision_tree_uncertainty.py"
         golden = ROOT / "python/heor_core/golden_cases/two_strategy_decision_tree.json"
         self.assertEqual(template["analysis_type"], "decision_tree")
         self.assertEqual(template["schema_version"], "0.2.0")
@@ -235,12 +242,23 @@ class CoreSkillContractTests(unittest.TestCase):
             set(template["economic_basis"]),
             {"currency", "price_year", "jurisdiction", "perspective"},
         )
+        self.assertEqual(uncertainty_template["analysis_type"], "decision_tree_uncertainty")
+        self.assertEqual(
+            uncertainty_template["analysis_input"]["path"],
+            "heor/decision-tree-plan.json",
+        )
+        self.assertEqual(
+            set(uncertainty_template["probabilistic_analysis"]["convergence"]),
+            {"checkpoints", "max_probability_mcse", "max_probability_drift"},
+        )
+        self.assertTrue(uncertainty_validator.is_file())
         for required in (
             "references/decision-tree-contract.md",
             "../heor-workbench/scripts/run_first_party_analysis.py",
             "heor/decision-tree-plan.json",
             "calculation-only",
-            "does not support DSA or PSA",
+            "decision-tree-uncertainty-plan.template.json",
+            "100–10,000 iterations",
         ):
             self.assertIn(required, skill)
         for required in (
@@ -254,6 +272,7 @@ class CoreSkillContractTests(unittest.TestCase):
         self.assertIn("$heor-decision-tree", workbench)
         self.assertIn('"heor-decision-tree"', startup_audit)
         self.assertIn('"decision_tree.py"', startup_audit)
+        self.assertIn('"decision_tree_uncertainty.py"', startup_audit)
 
         environment = dict(os.environ)
         environment["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -319,6 +338,112 @@ class CoreSkillContractTests(unittest.TestCase):
             )
             self.assertNotEqual(rejected.returncode, 0)
             self.assertIn("does not match deterministic replay", rejected.stderr)
+
+            current_plan = Path(directory) / "decision-tree-plan-0.2.json"
+            current_payload = json.loads(golden.read_text(encoding="utf-8"))
+            current_payload["schema_version"] = "0.2.0"
+            current_payload["economic_basis"] = {
+                "currency": "CNY",
+                "price_year": 2026,
+                "jurisdiction": "中国大陆",
+                "perspective": "中国医疗卫生系统",
+            }
+            current_plan.write_text(
+                json.dumps(current_payload, ensure_ascii=False, separators=(",", ":")),
+                encoding="utf-8",
+            )
+            uncertainty_plan = Path(directory) / "decision-tree-uncertainty-plan.json"
+            uncertainty_payload = {
+                "schema_version": "0.1.0",
+                "analysis_type": "decision_tree_uncertainty",
+                "uncertainty_id": "validator-replay",
+                "analysis_input": {
+                    "path": "heor/decision-tree-plan.json",
+                    "content_sha256": hashlib.sha256(current_plan.read_bytes()).hexdigest(),
+                },
+                "parameters": [{
+                    "id": "intervention-success-probability",
+                    "label": "Intervention success probability",
+                    "target": {
+                        "kind": "branch_probability",
+                        "strategy_id": "intervention",
+                        "node_id": "intervention_outcome",
+                        "branch_index": 0,
+                        "complement_branch_index": 1,
+                    },
+                    "deterministic": {
+                        "low": 0.5,
+                        "high": 0.9,
+                        "basis_ids": ["teaching-inputs"],
+                        "rationale": "Synthetic test range.",
+                    },
+                    "probabilistic": {
+                        "type": "uniform",
+                        "low": 0.5,
+                        "high": 0.9,
+                        "basis_ids": ["teaching-inputs"],
+                        "rationale": "Synthetic test distribution.",
+                    },
+                }],
+                "probabilistic_analysis": {
+                    "iterations": 100,
+                    "seed": 7,
+                    "convergence": {
+                        "checkpoints": [50, 100],
+                        "max_probability_mcse": 0.1,
+                        "max_probability_drift": 0.1,
+                    },
+                    "independence_rationale": "Only one parameter is varied.",
+                    "omitted_uncertainties": [{
+                        "item": "structure",
+                        "rationale": "Not represented by this synthetic test.",
+                    }],
+                },
+            }
+            uncertainty_plan.write_text(
+                json.dumps(uncertainty_payload, separators=(",", ":")),
+                encoding="utf-8",
+            )
+            uncertainty_result = Path(directory) / "decision-tree-uncertainty-result.json"
+            executed_uncertainty = subprocess.run(
+                [
+                    sys.executable,
+                    "-B",
+                    "-m",
+                    "heor_core",
+                    str(current_plan),
+                    "--decision-tree-uncertainty-plan",
+                    str(uncertainty_plan),
+                ],
+                cwd=ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            uncertainty_result.write_text(executed_uncertainty.stdout, encoding="utf-8")
+            verified_uncertainty = subprocess.run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(uncertainty_validator),
+                    "--plan",
+                    str(current_plan),
+                    "--uncertainty-plan",
+                    str(uncertainty_plan),
+                    "--result",
+                    str(uncertainty_result),
+                ],
+                cwd=ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(verified_uncertainty.returncode, 0, verified_uncertainty.stderr)
+            uncertainty_summary = json.loads(verified_uncertainty.stdout)
+            self.assertTrue(uncertainty_summary["result_verified"])
+            self.assertEqual(uncertainty_summary["iterations"], 100)
+            self.assertIsInstance(uncertainty_summary["convergence_passed"], bool)
 
     def test_research_tables_owns_typed_source_bound_xlsx_and_csv_contract(self):
         skill_dir = SKILLS_ROOT / "research-tables"

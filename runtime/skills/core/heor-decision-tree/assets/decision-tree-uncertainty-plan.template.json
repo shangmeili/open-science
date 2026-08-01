@@ -1,0 +1,51 @@
+{
+  "schema_version": "0.1.0",
+  "analysis_type": "decision_tree_uncertainty",
+  "uncertainty_id": "replace-uncertainty-id",
+  "analysis_input": {
+    "path": "heor/decision-tree-plan.json",
+    "content_sha256": "replace-with-current-plan-sha256"
+  },
+  "parameters": [
+    {
+      "id": "replace-parameter-id",
+      "label": "replace-parameter-label",
+      "target": {
+        "kind": "branch_probability",
+        "strategy_id": "replace-strategy-id",
+        "node_id": "replace-binary-chance-node-id",
+        "branch_index": 0,
+        "complement_branch_index": 1
+      },
+      "deterministic": {
+        "low": null,
+        "high": null,
+        "basis_ids": ["replace-source-or-assumption-id"],
+        "rationale": "replace-with-range-rationale"
+      },
+      "probabilistic": {
+        "type": "uniform",
+        "low": null,
+        "high": null,
+        "basis_ids": ["replace-source-or-assumption-id"],
+        "rationale": "replace-with-distribution-rationale"
+      }
+    }
+  ],
+  "probabilistic_analysis": {
+    "iterations": null,
+    "seed": null,
+    "convergence": {
+      "checkpoints": [],
+      "max_probability_mcse": null,
+      "max_probability_drift": null
+    },
+    "independence_rationale": "replace-with-independence-rationale",
+    "omitted_uncertainties": [
+      {
+        "item": "replace-omitted-item",
+        "rationale": "replace-with-why-it-is-not-represented"
+      }
+    ]
+  }
+}

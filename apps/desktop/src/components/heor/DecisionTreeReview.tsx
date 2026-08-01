@@ -6,6 +6,8 @@ import { sha256Text } from "@/lib/heor";
 
 export const HEOR_DECISION_TREE_PLAN_PATH = "heor/decision-tree-plan.json";
 export const HEOR_DECISION_TREE_RESULT_PATH = "heor/results/decision-tree.json";
+export const HEOR_DECISION_TREE_UNCERTAINTY_PLAN_PATH = "heor/decision-tree-uncertainty-plan.json";
+export const HEOR_DECISION_TREE_UNCERTAINTY_RESULT_PATH = "heor/results/decision-tree-uncertainty.json";
 
 export interface DecisionTreeEconomicBasis {
   currency: string;
@@ -43,6 +45,19 @@ export interface DecisionTreeResultSummary {
   economicBasis: DecisionTreeEconomicBasis | null;
 }
 
+export interface DecisionTreeUncertaintySummary {
+  analysisInputSha256: string;
+  uncertaintyInputSha256: string;
+  parameterCount: number;
+  iterations: number;
+  seed: number;
+  convergencePassed: boolean;
+  maxProbabilityMcse: number;
+  probabilityDrift: number;
+  optimalProbabilities: Record<string, number>;
+  tieProbability: number;
+}
+
 export type DecisionTreeReviewState =
   | { kind: "loading" }
   | { kind: "absent" }
@@ -54,6 +69,9 @@ export type DecisionTreeReviewState =
       planSha256: string;
       resultCurrent: boolean;
       resultIssue?: "missing" | "invalid";
+      uncertainty: DecisionTreeUncertaintySummary | null;
+      uncertaintyCurrent: boolean;
+      uncertaintyIssue?: "missing" | "invalid" | "stale";
     };
 
 function record(value: unknown, path: string): Record<string, unknown> {
@@ -75,6 +93,17 @@ function finite(value: unknown, path: string): number {
     throw new Error(`${path} must be a finite number`);
   }
   return value;
+}
+
+function integer(value: unknown, path: string): number {
+  if (!Number.isSafeInteger(value)) throw new Error(`${path} must be a safe integer`);
+  return value as number;
+}
+
+function digest(value: unknown, path: string): string {
+  const parsed = text(value, path);
+  if (!/^[a-f0-9]{64}$/.test(parsed)) throw new Error(`${path} must be a SHA-256 digest`);
+  return parsed;
 }
 
 function economicBasis(value: unknown, path: string): DecisionTreeEconomicBasis {
@@ -273,12 +302,176 @@ export function parseDecisionTreeResult(
   };
 }
 
+interface DecisionTreeUncertaintyPlanSummary {
+  uncertaintyId: string;
+  analysisInputSha256: string;
+  parameterIds: string[];
+  iterations: number;
+  seed: number;
+  checkpoints: number[];
+  maxProbabilityMcse: number;
+  maxProbabilityDrift: number;
+}
+
+function parseDecisionTreeUncertaintyPlan(
+  raw: string,
+  planSha256: string,
+): DecisionTreeUncertaintyPlanSummary {
+  const value = record(JSON.parse(raw), "decision-tree uncertainty plan");
+  if (value.schema_version !== "0.1.0" || value.analysis_type !== "decision_tree_uncertainty") {
+    throw new Error("unsupported decision-tree uncertainty plan contract");
+  }
+  const analysisInput = record(value.analysis_input, "uncertainty analysis_input");
+  if (analysisInput.path !== HEOR_DECISION_TREE_PLAN_PATH
+    || digest(analysisInput.content_sha256, "uncertainty analysis_input.content_sha256") !== planSha256) {
+    throw new Error("stale decision-tree uncertainty plan");
+  }
+  if (!Array.isArray(value.parameters) || value.parameters.length < 1 || value.parameters.length > 64) {
+    throw new Error("uncertainty parameters must contain from 1 to 64 entries");
+  }
+  const parameterIds = value.parameters.map((item, index) => (
+    text(record(item, `uncertainty parameters[${index}]`).id, `uncertainty parameters[${index}].id`)
+  ));
+  if (new Set(parameterIds).size !== parameterIds.length) {
+    throw new Error("uncertainty parameter ids must be unique");
+  }
+  const probabilistic = record(value.probabilistic_analysis, "uncertainty probabilistic_analysis");
+  const iterations = integer(probabilistic.iterations, "uncertainty iterations");
+  if (iterations < 100 || iterations > 10_000) throw new Error("uncertainty iterations are outside the admitted range");
+  const seed = integer(probabilistic.seed, "uncertainty seed");
+  if (seed < 0) throw new Error("uncertainty seed must not be negative");
+  const convergence = record(probabilistic.convergence, "uncertainty convergence");
+  if (!Array.isArray(convergence.checkpoints) || convergence.checkpoints.length < 2) {
+    throw new Error("uncertainty convergence checkpoints are incomplete");
+  }
+  const checkpoints = convergence.checkpoints.map((item, index) => integer(item, `uncertainty checkpoint[${index}]`));
+  if (checkpoints.some((item, index) => item < 1 || (index > 0 && item <= checkpoints[index - 1]))
+    || checkpoints[checkpoints.length - 1] !== iterations) {
+    throw new Error("uncertainty convergence checkpoints are invalid");
+  }
+  const maxProbabilityMcse = finite(convergence.max_probability_mcse, "uncertainty max_probability_mcse");
+  const maxProbabilityDrift = finite(convergence.max_probability_drift, "uncertainty max_probability_drift");
+  if (maxProbabilityMcse <= 0 || maxProbabilityMcse > 0.1
+    || maxProbabilityDrift <= 0 || maxProbabilityDrift > 0.1) {
+    throw new Error("uncertainty convergence thresholds are invalid");
+  }
+  return {
+    uncertaintyId: text(value.uncertainty_id, "uncertainty_id"),
+    analysisInputSha256: planSha256,
+    parameterIds,
+    iterations,
+    seed,
+    checkpoints,
+    maxProbabilityMcse,
+    maxProbabilityDrift,
+  };
+}
+
+function parseDecisionTreeUncertaintyResult(
+  raw: string,
+  plan: DecisionTreePlanSummary,
+  uncertaintyPlan: DecisionTreeUncertaintyPlanSummary,
+  planSha256: string,
+  uncertaintySha256: string,
+): DecisionTreeUncertaintySummary {
+  const value = record(JSON.parse(raw), "decision-tree uncertainty result");
+  if (value.schema_version !== "0.1.0"
+    || value.engine_version !== "0.1.0"
+    || value.analysis_type !== "decision_tree_uncertainty"
+    || value.analysis_schema_version !== "0.2.0"
+    || value.analysis_id !== plan.analysisId
+    || value.uncertainty_id !== uncertaintyPlan.uncertaintyId) {
+    throw new Error("uncertainty result does not identify the current analysis");
+  }
+  if (digest(value.analysis_input_sha256, "uncertainty result analysis hash") !== planSha256
+    || digest(value.uncertainty_input_sha256, "uncertainty result plan hash") !== uncertaintySha256) {
+    throw new Error("stale decision-tree uncertainty result");
+  }
+  if (!equalEconomicBasis(plan.economicBasis, economicBasis(value.economic_basis, "uncertainty result economic_basis"))) {
+    throw new Error("uncertainty result economic basis does not match the plan");
+  }
+  const strategyOrder = stringArray(value.strategy_order, "uncertainty result strategy_order");
+  if (strategyOrder.length !== plan.strategyOrder.length
+    || strategyOrder.some((strategyId, index) => strategyId !== plan.strategyOrder[index])) {
+    throw new Error("uncertainty result strategy order does not match the plan");
+  }
+  if (!Array.isArray(value.deterministic_analysis)
+    || value.deterministic_analysis.length !== uncertaintyPlan.parameterIds.length) {
+    throw new Error("uncertainty result DSA parameters do not match the plan");
+  }
+  const resultParameterIds = value.deterministic_analysis.map((item, index) => (
+    text(record(item, `uncertainty result deterministic_analysis[${index}]`).parameter_id, `uncertainty result parameter[${index}]`)
+  ));
+  if (resultParameterIds.some((parameterId, index) => parameterId !== uncertaintyPlan.parameterIds[index])) {
+    throw new Error("uncertainty result DSA parameter order does not match the plan");
+  }
+  const probabilistic = record(value.probabilistic_analysis, "uncertainty result probabilistic_analysis");
+  const iterations = integer(probabilistic.iterations, "uncertainty result iterations");
+  const prng = record(probabilistic.prng, "uncertainty result prng");
+  const seed = integer(prng.seed, "uncertainty result seed");
+  if (iterations !== uncertaintyPlan.iterations || seed !== uncertaintyPlan.seed
+    || prng.algorithm !== "pcg32-xsh-rr" || prng.version !== "1") {
+    throw new Error("uncertainty result run settings do not match the plan");
+  }
+  const rawProbabilities = record(probabilistic.optimal_probabilities, "uncertainty result optimal_probabilities");
+  if (Object.keys(rawProbabilities).length !== strategyOrder.length
+    || strategyOrder.some((strategyId) => !(strategyId in rawProbabilities))) {
+    throw new Error("uncertainty result optimal probabilities do not match the strategies");
+  }
+  const optimalProbabilities = Object.fromEntries(strategyOrder.map((strategyId) => {
+    const probability = finite(rawProbabilities[strategyId], `uncertainty result probability ${strategyId}`);
+    if (probability < 0 || probability > 1) throw new Error("uncertainty result probability is invalid");
+    return [strategyId, probability];
+  }));
+  const tieProbability = finite(probabilistic.tie_probability, "uncertainty result tie_probability");
+  if (tieProbability < 0 || tieProbability > 1
+    || Math.abs(Object.values(optimalProbabilities).reduce((sum, item) => sum + item, tieProbability) - 1) > 1e-9) {
+    throw new Error("uncertainty result probabilities do not sum to one");
+  }
+  const convergence = record(probabilistic.convergence, "uncertainty result convergence");
+  if (typeof convergence.passed !== "boolean") throw new Error("uncertainty convergence status is invalid");
+  if (!Array.isArray(convergence.checkpoints) || convergence.checkpoints.length < 2) {
+    throw new Error("uncertainty result convergence checkpoints are incomplete");
+  }
+  const maxProbabilityMcse = finite(
+    record(
+      convergence.checkpoints[convergence.checkpoints.length - 1],
+      "uncertainty final checkpoint",
+    ).max_probability_mcse,
+    "uncertainty final checkpoint max_probability_mcse",
+  );
+  const probabilityDrift = finite(convergence.probability_drift, "uncertainty probability_drift");
+  if (convergence.max_probability_mcse !== uncertaintyPlan.maxProbabilityMcse
+    || convergence.max_probability_drift !== uncertaintyPlan.maxProbabilityDrift) {
+    throw new Error("uncertainty convergence thresholds do not match the plan");
+  }
+  return {
+    analysisInputSha256: planSha256,
+    uncertaintyInputSha256: uncertaintySha256,
+    parameterCount: resultParameterIds.length,
+    iterations,
+    seed,
+    convergencePassed: convergence.passed,
+    maxProbabilityMcse,
+    probabilityDrift,
+    optimalProbabilities,
+    tieProbability,
+  };
+}
+
 export async function loadDecisionTreeReview(): Promise<DecisionTreeReviewState> {
   try {
     const planFile = await readArtifact(HEOR_DECISION_TREE_PLAN_PATH);
     if (!planFile) return { kind: "absent" };
     const resultFile = await readArtifact(HEOR_DECISION_TREE_RESULT_PATH);
-    return reviewDecisionTreeArtifacts(planFile.data, resultFile?.data ?? null);
+    const uncertaintyPlanFile = await readArtifact(HEOR_DECISION_TREE_UNCERTAINTY_PLAN_PATH);
+    const uncertaintyResultFile = await readArtifact(HEOR_DECISION_TREE_UNCERTAINTY_RESULT_PATH);
+    return reviewDecisionTreeArtifacts(
+      planFile.data,
+      resultFile?.data ?? null,
+      uncertaintyPlanFile?.data ?? null,
+      uncertaintyResultFile?.data ?? null,
+    );
   } catch (error) {
     return { kind: "invalid", message: error instanceof Error ? error.message : String(error) };
   }
@@ -287,24 +480,73 @@ export async function loadDecisionTreeReview(): Promise<DecisionTreeReviewState>
 export async function reviewDecisionTreeArtifacts(
   planRaw: string,
   resultRaw: string | null,
+  uncertaintyPlanRaw: string | null = null,
+  uncertaintyResultRaw: string | null = null,
 ): Promise<DecisionTreeReviewState> {
   try {
     const plan = parseDecisionTreePlan(planRaw);
     const planSha256 = await sha256Text(planRaw);
     if (resultRaw === null) {
-      return { kind: "ready", plan, result: null, planSha256, resultCurrent: false, resultIssue: "missing" };
+      return {
+        kind: "ready",
+        plan,
+        result: null,
+        planSha256,
+        resultCurrent: false,
+        resultIssue: "missing",
+        uncertainty: null,
+        uncertaintyCurrent: false,
+      };
     }
     try {
       const result = parseDecisionTreeResult(resultRaw, plan);
+      const resultCurrent = result.inputSha256 === planSha256;
+      let uncertainty: DecisionTreeUncertaintySummary | null = null;
+      let uncertaintyIssue: "missing" | "invalid" | "stale" | undefined;
+      if (uncertaintyPlanRaw !== null) {
+        try {
+          const uncertaintyPlan = parseDecisionTreeUncertaintyPlan(uncertaintyPlanRaw, planSha256);
+          if (uncertaintyResultRaw === null) {
+            uncertaintyIssue = "missing";
+          } else if (!resultCurrent) {
+            uncertaintyIssue = "stale";
+          } else {
+            const uncertaintySha256 = await sha256Text(uncertaintyPlanRaw);
+            uncertainty = parseDecisionTreeUncertaintyResult(
+              uncertaintyResultRaw,
+              plan,
+              uncertaintyPlan,
+              planSha256,
+              uncertaintySha256,
+            );
+          }
+        } catch (error) {
+          uncertaintyIssue = error instanceof Error && error.message.includes("stale")
+            ? "stale"
+            : "invalid";
+        }
+      }
       return {
         kind: "ready",
         plan,
         result,
         planSha256,
-        resultCurrent: result.inputSha256 === planSha256,
+        resultCurrent,
+        uncertainty,
+        uncertaintyCurrent: uncertainty !== null,
+        ...(uncertaintyIssue ? { uncertaintyIssue } : {}),
       };
     } catch {
-      return { kind: "ready", plan, result: null, planSha256, resultCurrent: false, resultIssue: "invalid" };
+      return {
+        kind: "ready",
+        plan,
+        result: null,
+        planSha256,
+        resultCurrent: false,
+        resultIssue: "invalid",
+        uncertainty: null,
+        uncertaintyCurrent: false,
+      };
     }
   } catch (error) {
     return { kind: "invalid", message: error instanceof Error ? error.message : String(error) };
@@ -318,6 +560,7 @@ export function DecisionTreeReview({
   onRun,
   onOpenPlan,
   onOpenResult,
+  onOpenUncertaintyResult,
 }: {
   state: DecisionTreeReviewState;
   locale?: string;
@@ -325,10 +568,12 @@ export function DecisionTreeReview({
   onRun: () => void;
   onOpenPlan?: () => void;
   onOpenResult?: () => void;
+  onOpenUncertaintyResult?: () => void;
 }) {
   const { t, i18n } = useTranslation("heor");
   const activeLocale = locale ?? i18n.language;
   const number = new Intl.NumberFormat(activeLocale, { maximumFractionDigits: 3 });
+  const percent = new Intl.NumberFormat(activeLocale, { style: "percent", maximumFractionDigits: 1 });
   if (state.kind === "loading") {
     return <section className="px-5 py-8 text-sm text-muted">{t("panel.loading")}</section>;
   }
@@ -417,6 +662,46 @@ export function DecisionTreeReview({
             );
           })}
           <p className="mt-3 text-[10px] leading-4 text-muted">{t("decisionTree.calculationOnly")}</p>
+          {state.uncertaintyCurrent && state.uncertainty && (
+            <div className="mt-4 border-t border-border pt-4" data-metric-source={HEOR_DECISION_TREE_UNCERTAINTY_RESULT_PATH}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="text-xs font-semibold text-text">{t("decisionTree.uncertainty.title")}</div>
+                  <div className="mt-0.5 text-[10px] text-muted">
+                    {t("decisionTree.uncertainty.summary", {
+                      iterations: state.uncertainty.iterations,
+                      parameters: state.uncertainty.parameterCount,
+                      parameterLabel: t(state.uncertainty.parameterCount === 1
+                        ? "decisionTree.uncertainty.parameterOne"
+                        : "decisionTree.uncertainty.parameterMany"),
+                    })}
+                  </div>
+                </div>
+                {onOpenUncertaintyResult && (
+                  <button type="button" onClick={onOpenUncertaintyResult} className="flex items-center gap-1 text-[10px] text-link hover:underline">
+                    <FileJson size={12} />{t("decisionTree.uncertainty.openResult")}
+                  </button>
+                )}
+              </div>
+              <div className={cn(
+                "mt-2 text-[10px] font-medium",
+                state.uncertainty.convergencePassed ? "text-ok" : "text-warn",
+              )}>
+                {state.uncertainty.convergencePassed
+                  ? t("decisionTree.uncertainty.convergencePassed")
+                  : t("decisionTree.uncertainty.convergenceNotPassed")}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[10px] text-muted">
+                {state.plan.strategyOrder.map((strategyId) => (
+                  <span key={strategyId}>
+                    {state.plan.strategies[strategyId].name} <strong className="font-semibold text-text">{percent.format(state.uncertainty!.optimalProbabilities[strategyId])}</strong>
+                  </span>
+                ))}
+                <span>{t("decisionTree.uncertainty.tie")} <strong className="font-semibold text-text">{percent.format(state.uncertainty.tieProbability)}</strong></span>
+              </div>
+              <p className="mt-3 text-[10px] leading-4 text-muted">{t("decisionTree.uncertainty.calculationOnly")}</p>
+            </div>
+          )}
         </>
       ) : (
         <div className="mt-3 rounded-input border border-warn/30 bg-warn/5 px-3 py-3">

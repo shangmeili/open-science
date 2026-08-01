@@ -33,11 +33,15 @@ class FirstPartyRunnerTests(unittest.TestCase):
         self,
         workspace: Path,
         plan: str = "heor/analysis-plan.json",
+        uncertainty_plan: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["AI4HEOR_HEOR_CORE_PATH"] = str(CORE)
+        command = [sys.executable, "-B", str(RUNNER), "--plan", plan]
+        if uncertainty_plan is not None:
+            command.extend(["--uncertainty-plan", uncertainty_plan])
         return subprocess.run(
-            [sys.executable, "-B", str(RUNNER), "--plan", plan],
+            command,
             cwd=workspace,
             env=env,
             capture_output=True,
@@ -93,6 +97,65 @@ class FirstPartyRunnerTests(unittest.TestCase):
             self.assertAlmostEqual(
                 result["strategies"]["intervention"]["total_cost"], 2900.0
             )
+
+    def test_decision_tree_uncertainty_writes_a_separate_hash_bound_result(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            plan = workspace / "heor/decision-tree-plan.json"
+            uncertainty = workspace / "heor/decision-tree-uncertainty-plan.json"
+            plan.parent.mkdir(parents=True)
+            payload = json.loads(
+                (ROOT / "python/heor_core/golden_cases/two_strategy_decision_tree.json").read_text()
+            )
+            payload["schema_version"] = "0.2.0"
+            payload["economic_basis"] = {
+                "currency": "CNY",
+                "price_year": 2026,
+                "jurisdiction": "中国大陆",
+                "perspective": "中国医疗卫生系统",
+            }
+            plan.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+            uncertainty_payload = {
+                "schema_version": "0.1.0",
+                "analysis_type": "decision_tree_uncertainty",
+                "uncertainty_id": "runner-decision-tree-uncertainty",
+                "analysis_input": {
+                    "path": "heor/decision-tree-plan.json",
+                    "content_sha256": hashlib.sha256(plan.read_bytes()).hexdigest(),
+                },
+                "parameters": [{
+                    "id": "intervention-success-probability",
+                    "label": "Intervention success probability",
+                    "target": {"kind": "branch_probability", "strategy_id": "intervention", "node_id": "intervention_outcome", "branch_index": 0, "complement_branch_index": 1},
+                    "deterministic": {"low": 0.5, "high": 0.9, "basis_ids": ["teaching-inputs"], "rationale": "Synthetic range."},
+                    "probabilistic": {"type": "uniform", "low": 0.5, "high": 0.9, "basis_ids": ["teaching-inputs"], "rationale": "Synthetic distribution."},
+                }],
+                "probabilistic_analysis": {
+                    "iterations": 100,
+                    "seed": 7,
+                    "convergence": {
+                        "checkpoints": [50, 100],
+                        "max_probability_mcse": 0.1,
+                        "max_probability_drift": 0.1,
+                    },
+                    "independence_rationale": "Only one parameter is varied.",
+                    "omitted_uncertainties": [{"item": "structure", "rationale": "Not represented."}],
+                },
+            }
+            uncertainty.write_text(json.dumps(uncertainty_payload, separators=(",", ":")))
+
+            completed = self.run_runner(
+                workspace,
+                "heor/decision-tree-plan.json",
+                "heor/decision-tree-uncertainty-plan.json",
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            summary = json.loads(completed.stdout)
+            self.assertEqual(summary["analysis_type"], "decision_tree_uncertainty")
+            self.assertEqual(summary["result"], "heor/results/decision-tree-uncertainty.json")
+            result = json.loads((workspace / summary["result"]).read_text())
+            self.assertEqual(result["analysis_input_sha256"], hashlib.sha256(plan.read_bytes()).hexdigest())
+            self.assertEqual(result["uncertainty_input_sha256"], hashlib.sha256(uncertainty.read_bytes()).hexdigest())
 
     def test_incompatible_provenance_field_does_not_create_a_result(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

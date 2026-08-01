@@ -21,6 +21,9 @@ import tempfile
 
 BASE_CASE_OUTPUT_PATH = Path("heor/results/base-case.json")
 DECISION_TREE_OUTPUT_PATH = Path("heor/results/decision-tree.json")
+DECISION_TREE_UNCERTAINTY_OUTPUT_PATH = Path(
+    "heor/results/decision-tree-uncertainty.json"
+)
 OUTPUT_CAP_BYTES = 25 * 1024 * 1024
 PROVENANCE_VALIDATOR = (
     Path(__file__).resolve().parents[2]
@@ -41,6 +44,10 @@ def _parser() -> argparse.ArgumentParser:
         "--plan",
         default="heor/analysis-plan.json",
         help="validated first-party analysis plan inside the active workspace",
+    )
+    parser.add_argument(
+        "--uncertainty-plan",
+        help="optional decision-tree uncertainty plan inside the active workspace",
     )
     return parser
 
@@ -116,11 +123,27 @@ def main() -> int:
         plan_payload.get("analysis_type") or "markov_state_transition"
     )
     decision_tree = analysis_type == "decision_tree"
+    uncertainty_plan = (
+        None
+        if args.uncertainty_plan is None
+        else _inside(root, Path(args.uncertainty_plan))
+    )
+    if uncertainty_plan is not None:
+        if not decision_tree:
+            raise ValueError("--uncertainty-plan currently requires a decision tree plan")
+        if not uncertainty_plan.is_file():
+            raise ValueError(
+                f"uncertainty plan not found: {uncertainty_plan.relative_to(root)}"
+            )
     if not decision_tree:
         _validate_research_contract(root, plan)
     output = _inside(
         root,
-        DECISION_TREE_OUTPUT_PATH if decision_tree else BASE_CASE_OUTPUT_PATH,
+        DECISION_TREE_UNCERTAINTY_OUTPUT_PATH
+        if uncertainty_plan is not None
+        else DECISION_TREE_OUTPUT_PATH
+        if decision_tree
+        else BASE_CASE_OUTPUT_PATH,
     )
 
     core_raw = os.environ.get("AI4HEOR_HEOR_CORE_PATH", "").strip()
@@ -134,8 +157,13 @@ def main() -> int:
     env["PYTHONPATH"] = str(core)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONNOUSERSITE"] = "1"
+    command = [sys.executable, "-m", "heor_core", str(plan)]
+    if uncertainty_plan is not None:
+        command.extend(
+            ["--decision-tree-uncertainty-plan", str(uncertainty_plan)]
+        )
     completed = subprocess.run(
-        [sys.executable, "-m", "heor_core", str(plan)],
+        command,
         cwd=root,
         env=env,
         capture_output=True,
@@ -150,8 +178,15 @@ def main() -> int:
 
     result = json.loads(completed.stdout)
     expected = hashlib.sha256(plan.read_bytes()).hexdigest()
-    if result.get("input_sha256") != expected:
-        raise RuntimeError("AI4HEOR engine input hash does not match the analysis plan")
+    if uncertainty_plan is None:
+        if result.get("input_sha256") != expected:
+            raise RuntimeError("AI4HEOR engine input hash does not match the analysis plan")
+    else:
+        uncertainty_expected = hashlib.sha256(uncertainty_plan.read_bytes()).hexdigest()
+        if result.get("analysis_input_sha256") != expected:
+            raise RuntimeError("AI4HEOR engine input hash does not match the decision-tree plan")
+        if result.get("uncertainty_input_sha256") != uncertainty_expected:
+            raise RuntimeError("AI4HEOR engine input hash does not match the uncertainty plan")
 
     output.parent.mkdir(parents=True, exist_ok=True)
     rendered = json.dumps(result, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
@@ -171,7 +206,7 @@ def main() -> int:
         json.dumps(
             {
                 "status": "calculation_only",
-                "analysis_type": analysis_type,
+                "analysis_type": result.get("analysis_type", analysis_type),
                 "plan": str(plan.relative_to(root)),
                 "input_sha256": expected,
                 "result": str(output.relative_to(root)),

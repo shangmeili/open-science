@@ -248,6 +248,7 @@ import {
   DecisionTreeReview,
   HEOR_DECISION_TREE_PLAN_PATH,
   HEOR_DECISION_TREE_RESULT_PATH,
+  HEOR_DECISION_TREE_UNCERTAINTY_RESULT_PATH,
   loadDecisionTreeReview,
   type DecisionTreeReviewState,
 } from "./DecisionTreeReview";
@@ -2204,6 +2205,9 @@ export function HeorReviewPane({
               : undefined}
             onOpenResult={isTauri
               ? () => void openArtifactExternally(HEOR_DECISION_TREE_RESULT_PATH, WORKSPACE_FILE_ROOT)
+              : undefined}
+            onOpenUncertaintyResult={isTauri
+              ? () => void openArtifactExternally(HEOR_DECISION_TREE_UNCERTAINTY_RESULT_PATH, WORKSPACE_FILE_ROOT)
               : undefined}
           />
         ) : (

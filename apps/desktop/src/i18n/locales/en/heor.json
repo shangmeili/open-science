@@ -30,7 +30,18 @@
     "calculationOnly": "This is a deterministic calculation record. It does not establish reference-case compliance, scientific validity, or a research conclusion.",
     "blockedNote": "AI4HEOR will not show numeric results from a missing, damaged, or stale result file as if they belonged to the current plan.",
     "run": "Validate and run again",
-    "runPrompt": "Use $heor-decision-tree to validate and run the current heor/decision-tree-plan.json with the bundled deterministic engine. Preserve the current plan and sources. Write heor/results/decision-tree.json only after validation succeeds; do not claim researcher approval or reference-case compliance."
+    "runPrompt": "Use $heor-decision-tree to validate and run the current heor/decision-tree-plan.json with the bundled deterministic engine. Preserve the current plan and sources. Write heor/results/decision-tree.json only after validation succeeds; do not claim researcher approval or reference-case compliance.",
+    "uncertainty": {
+      "title": "Decision-tree uncertainty",
+      "summary": "{{iterations}} PSA draws · {{parameters}} {{parameterLabel}}",
+      "parameterOne": "DSA parameter",
+      "parameterMany": "DSA parameters",
+      "convergencePassed": "Convergence diagnostic passed",
+      "convergenceNotPassed": "Convergence diagnostic did not pass",
+      "tie": "Tie",
+      "openResult": "Open uncertainty result",
+      "calculationOnly": "These probabilities describe only the declared parameter uncertainty. A passed convergence diagnostic is not scientific validation."
+    }
   },
   "starter": {
     "eyebrow": "Start research",

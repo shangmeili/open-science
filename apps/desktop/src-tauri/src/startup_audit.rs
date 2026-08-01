@@ -24,7 +24,13 @@ const ESSENTIAL_SKILLS: [&str; 9] = [
     "research-presentation",
     "traceability-review",
 ];
-const HEOR_ENGINE_FILES: [&str; 4] = ["__init__.py", "cli.py", "decision_tree.py", "model.py"];
+const HEOR_ENGINE_FILES: [&str; 5] = [
+    "__init__.py",
+    "cli.py",
+    "decision_tree.py",
+    "decision_tree_uncertainty.py",
+    "model.py",
+];
 const HARNESS_FILES: [&str; 4] = [
     "AGENTS.md",
     "KNOWLEDGE.md",

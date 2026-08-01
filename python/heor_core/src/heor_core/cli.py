@@ -19,6 +19,7 @@ from .model import MarkovSpecification, ModelValidationError, run_markov
 from .partitioned_survival import run_partitioned_survival
 from .uncertainty import run_uncertainty
 from .decision_tree import DecisionTreeSpecification, run_decision_tree
+from .decision_tree_uncertainty import run_decision_tree_uncertainty
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -29,6 +30,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--uncertainty-plan",
         type=Path,
         help="Optional path to a hash-bound uncertainty analysis plan",
+    )
+    mode.add_argument(
+        "--decision-tree-uncertainty-plan",
+        type=Path,
+        help="Optional path to a hash-bound decision-tree uncertainty plan",
     )
     mode.add_argument(
         "--budget-impact-plan",
@@ -250,15 +256,29 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ModelValidationError(
                 "decision tree input cannot be combined with Markov, uncertainty, budget impact, or partitioned-survival options"
             )
+        if not decision_tree_input and args.decision_tree_uncertainty_plan is not None:
+            raise ModelValidationError(
+                "--decision-tree-uncertainty-plan requires a decision tree input"
+            )
         if any(item is not None for item in joint_options) and payload.get("schema_version") not in {"0.12.0", "0.15.0"}:
             raise ModelValidationError(
                 "joint survival artifacts require analysis schema 0.12.0 or 0.15.0"
             )
         if decision_tree_input:
-            result = run_decision_tree(
-                DecisionTreeSpecification.from_dict(payload)
-            ).to_dict()
-            result["input_sha256"] = hashlib.sha256(raw).hexdigest()
+            if args.decision_tree_uncertainty_plan is None:
+                result = run_decision_tree(
+                    DecisionTreeSpecification.from_dict(payload)
+                ).to_dict()
+                result["input_sha256"] = hashlib.sha256(raw).hexdigest()
+            else:
+                uncertainty_raw = args.decision_tree_uncertainty_plan.read_bytes()
+                uncertainty_payload = json.loads(uncertainty_raw)
+                result = run_decision_tree_uncertainty(
+                    payload,
+                    raw,
+                    uncertainty_payload,
+                    uncertainty_raw,
+                )
         elif args.advanced_voi_plan is not None:
             result = _run_advanced_voi_from_args(args, payload, raw)
         elif (

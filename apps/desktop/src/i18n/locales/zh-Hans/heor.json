@@ -30,7 +30,18 @@
     "calculationOnly": "这是确定性计算记录，不代表已符合参考案例，也不证明方法学有效或构成研究结论。",
     "blockedNote": "结果文件缺失、损坏或已过期时，AI4HEOR 不会把其中的数字当作当前计划的结果展示。",
     "run": "重新校验并运行",
-    "runPrompt": "使用 $heor-decision-tree 校验并运行当前 heor/decision-tree-plan.json。保留现有计划和来源；只有通过校验后，才使用内置确定性引擎写入 heor/results/decision-tree.json。不要声称已经获得研究者批准或符合参考案例。"
+    "runPrompt": "使用 $heor-decision-tree 校验并运行当前 heor/decision-tree-plan.json。保留现有计划和来源；只有通过校验后，才使用内置确定性引擎写入 heor/results/decision-tree.json。不要声称已经获得研究者批准或符合参考案例。",
+    "uncertainty": {
+      "title": "决策树不确定性分析",
+      "summary": "{{iterations}}次PSA抽样 · {{parameters}}{{parameterLabel}}",
+      "parameterOne": "个DSA参数",
+      "parameterMany": "个DSA参数",
+      "convergencePassed": "收敛诊断通过",
+      "convergenceNotPassed": "收敛诊断未通过",
+      "tie": "并列",
+      "openResult": "打开不确定性结果",
+      "calculationOnly": "这些概率只反映已声明的参数不确定性。收敛诊断通过不代表科学验证通过。"
+    }
   },
   "starter": {
     "eyebrow": "开始研究",

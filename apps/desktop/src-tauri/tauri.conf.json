@@ -58,6 +58,7 @@
       "../../../python/heor_core/src/heor_core/background_mortality.py": "heor-core/src/heor_core/background_mortality.py",
       "../../../python/heor_core/src/heor_core/cli.py": "heor-core/src/heor_core/cli.py",
       "../../../python/heor_core/src/heor_core/decision_tree.py": "heor-core/src/heor_core/decision_tree.py",
+      "../../../python/heor_core/src/heor_core/decision_tree_uncertainty.py": "heor-core/src/heor_core/decision_tree_uncertainty.py",
       "../../../python/heor_core/src/heor_core/economic_inputs.py": "heor-core/src/heor_core/economic_inputs.py",
       "../../../python/heor_core/src/heor_core/cost_input_normalization.py": "heor-core/src/heor_core/cost_input_normalization.py",
       "../../../python/heor_core/src/heor_core/utility_inputs.py": "heor-core/src/heor_core/utility_inputs.py",

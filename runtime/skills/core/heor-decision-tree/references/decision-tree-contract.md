@@ -29,6 +29,14 @@ The engine reports expected cost, expected QALY, optional net monetary benefit, 
 
 The validator independently reparses and reruns the plan. When `--result` is provided, every result field must match deterministic replay. A changed plan, changed result, unsupported field, missing provenance, invalid topology, invalid number, or stale input hash fails closed.
 
+## DSA and PSA companion contract
+
+Decision-tree uncertainty schema/engine `0.1.0` requires an exact SHA-256 binding to a current decision-tree `0.2.0` plan and a positive willingness-to-pay threshold. It never accepts legacy decision-tree `0.1.0` because those monetary results have no declared economic basis.
+
+Each parameter targets exactly one binary branch probability plus its named complement, one terminal cost, or one terminal QALY. Probability replacement is admitted only for a two-branch chance node; the engine assigns the explicit complement to `1-p` and never normalizes a multi-branch node. Multiple parameters may not mutate the same value. Every deterministic range and probabilistic distribution must cite IDs already attached to the targeted value.
+
+The contract admits bounded Uniform for all targets, Beta for binary probabilities, and Gamma or Lognormal for terminal costs. It does not infer a distribution from a point estimate. The plan must supply a fixed PCG32 seed, 100–10,000 iterations, at least two increasing convergence checkpoints ending at the iteration count, probability MCSE and drift thresholds no greater than 0.1, an independence rationale, and known omissions. Every sample is retained with its parameter values and strategy outcomes; unique optima and ties are reported separately. A passed convergence diagnostic describes Monte Carlo precision for the declared run only. This is represented parameter uncertainty, not structural uncertainty, evidence validation, or independent model validation.
+
 ## Human boundary
 
 The Human researcher owns the decision problem, strategy set, tree structure, evidence eligibility and applicability, proposed assumptions, currency, price year, jurisdiction, perspective, threshold, interpretation, and permitted use. A successful replay is calculation evidence, not approval, independent validation, or a reimbursement recommendation.

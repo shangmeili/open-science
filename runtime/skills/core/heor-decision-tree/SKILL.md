@@ -38,11 +38,22 @@ python <skill-base-directory>/scripts/validate_decision_tree.py \
 ```
 
 11. Report the exact economic basis, expected cost and QALY by strategy, pairwise increments versus baseline, dominance or ICER interpretation, net monetary benefit only when the researcher supplied a threshold, the fully incremental frontier, every proposed assumption, provenance gaps, and the next Human review decision.
+12. For DSA/PSA, require current decision-tree schema `0.2.0` and a positive researcher-supplied threshold. Copy [assets/decision-tree-uncertainty-plan.template.json](assets/decision-tree-uncertainty-plan.template.json), bind the exact plan SHA-256, and replace every placeholder. Admit only a terminal cost, terminal QALY, or one probability in an explicitly named two-branch chance node together with its explicitly named complement. Never normalize a multi-branch node or infer a complement.
+13. Bind every DSA range and PSA distribution to IDs already attached to the targeted decision-tree value. The current contract admits bounded Uniform for any target, Beta for a binary probability, and Gamma or Lognormal for a non-negative terminal cost. QALY uncertainty is bounded Uniform only. Supply a fixed seed, 100–10,000 iterations, at least two increasing convergence checkpoints ending at the iteration count, explicit probability MCSE and drift thresholds no greater than 0.1, an independence rationale, and known omitted uncertainties; do not invent any of them.
+14. Run both plans through the first-party runner. It atomically writes `heor/results/decision-tree-uncertainty.json` and preserves every sampled parameter value for replay:
+
+```bash
+python <skill-base-directory>/../heor-workbench/scripts/run_first_party_analysis.py \
+  --plan heor/decision-tree-plan.json \
+  --uncertainty-plan heor/decision-tree-uncertainty-plan.json
+```
+
+15. Re-run `scripts/validate_decision_tree_uncertainty.py` with `--plan`, `--uncertainty-plan`, and `--result`. Report DSA low/high results, seeded PSA mean outcomes, unique optimum probabilities and ties separately, the declared convergence diagnostic, distribution bases, independence rationale, and omissions. A passed diagnostic describes Monte Carlo precision for this run; call it represented parameter uncertainty, not complete uncertainty or validation.
 
 ## Boundaries
 
 - Base directory for this skill: the loaded installation directory containing this `SKILL.md`; never assume a source checkout path.
-- This bounded schema does not support DSA or PSA, recurrence, state occupancy, cycles, time-dependent events, half-cycle correction, discounting, or a horizon longer than one year.
+- The base calculation does not support recurrence, state occupancy, cycles, time-dependent events, half-cycle correction, discounting, or a horizon longer than one year. Its companion DSA/PSA contract varies only declared binary probabilities, terminal costs, and terminal QALYs; structural uncertainty stays outside the calculation.
 - Schema `0.1.0` is retained only for deterministic replay of existing work. Its monetary results have no declared economic basis, are exploratory, and must not be used for formal reporting.
 - Do not transform a Markov or partitioned-survival plan into this schema merely because the calculation is simpler.
 - Do not write or edit an app-owned result to make validation pass. Re-execute the exact plan through the deterministic engine.
