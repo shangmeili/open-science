@@ -40,6 +40,7 @@ import {
   conversationSourceIndex,
 } from "@/lib/conversationSource";
 import { toast } from "@/lib/toast";
+import { heorTaskPath } from "@/lib/internalRoute";
 
 /** AI4HEOR research task backed by the local assistant runtime. The runtime
  * session is created lazily on the first message, then the URL gains its id. */
@@ -146,7 +147,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
 
   // All three composer paths reflect a freshly-created session in the URL.
   const afterTurn = useCallback((id: string | null) => {
-    if (id && !sessionId) navigate(`/heor/${id}`);
+    if (id && !sessionId) navigate(heorTaskPath(id));
   }, [navigate, sessionId]);
   const sendNow = useCallback(async (text: string, skill?: ComposerSkillSelection) => {
     if (!defaultModel) {

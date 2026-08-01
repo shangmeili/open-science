@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { heorTaskPath } from "@/lib/internalRoute";
 import {
   ArrowLeft,
   Check,
@@ -223,7 +224,7 @@ export function Sidebar() {
     const row: Row = {
       id: s.id,
       title: displaySessionTitle(s.title, threads[s.id]?.blocks, t("items.new")),
-      to: `/heor/${s.id}`,
+      to: heorTaskPath(s.id),
       status,
       projectId: placedProject?.id,
     };

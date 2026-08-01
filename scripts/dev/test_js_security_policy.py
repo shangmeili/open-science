@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_PATH = ROOT / "package.json"
 LOCK_PATH = ROOT / "pnpm-lock.yaml"
+DESKTOP_SOURCE = ROOT / "apps" / "desktop" / "src"
 PPTX_PREVIEW_GLOB = (
     "pptx-preview@*/node_modules/pptx-preview/dist/pptx-preview.es.js"
 )
@@ -36,6 +37,42 @@ def oom_affected(version: tuple[int, int, int]) -> bool:
 
 
 class JavaScriptSecurityPolicyTests(unittest.TestCase):
+    def test_desktop_router_has_no_ssr_hydration_or_data_redirect_surface(self) -> None:
+        # GHSA-337j-9hxr-rhxg requires manual SSR hydration. GHSA-jjmj-jmhj-qwj2
+        # requires an application open-redirect surface. AI4HEOR uses a local
+        # client router with static route objects and no loaders/actions.
+        router = (DESKTOP_SOURCE / "app" / "router.tsx").read_text(encoding="utf-8")
+        main = (DESKTOP_SOURCE / "main.tsx").read_text(encoding="utf-8")
+        self.assertIn("createBrowserRouter(routes)", router)
+        for token in (
+            "createStaticRouter",
+            "StaticRouterProvider",
+            "hydrationData",
+            "hydrateRoot",
+            "deserializeErrors",
+            "redirect(",
+            "loader:",
+            "action:",
+        ):
+            self.assertNotIn(token, router + main)
+
+    def test_dynamic_application_routes_use_the_internal_encoder(self) -> None:
+        raw_dynamic_route = re.compile(r"`/(?:heor|live)/\$\{|`/runs\?run=\$\{")
+        violations = []
+        for path in DESKTOP_SOURCE.rglob("*"):
+            if path.suffix not in {".ts", ".tsx"} or ".test." in path.name:
+                continue
+            if path.name == "internalRoute.ts":
+                continue
+            source = path.read_text(encoding="utf-8")
+            if raw_dynamic_route.search(source):
+                violations.append(str(path.relative_to(ROOT)))
+        self.assertEqual(
+            violations,
+            [],
+            "dynamic task/run route bypasses the internal route encoder",
+        )
+
     def test_reviewed_brace_expansion_patches_are_pinned(self) -> None:
         package = json.loads(PACKAGE_PATH.read_text(encoding="utf-8"))
         overrides = package.get("pnpm", {}).get("overrides", {})

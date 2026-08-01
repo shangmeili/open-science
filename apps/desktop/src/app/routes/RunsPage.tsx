@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { heorTaskPath } from "@/lib/internalRoute";
 import { useTranslation } from "react-i18next";
 import {
   Check,
@@ -129,7 +130,7 @@ function RunsView({ sessionId }: { sessionId?: string }) {
 
   const reproduce = (r: RunRecord) => {
     setComposerDraft(reproduceRunPrompt(r));
-    navigate(r.sessionId ? `/heor/${r.sessionId}` : "/heor");
+    navigate(r.sessionId ? heorTaskPath(r.sessionId) : "/heor");
   };
 
   const copyCommand = (r: RunRecord) => {
@@ -241,7 +242,7 @@ function RunsView({ sessionId }: { sessionId?: string }) {
                     onToggle={() => setExpanded((e) => (e === r.runId ? null : r.runId))}
                     onReproduce={() => reproduce(r)}
                     onOpenConversation={r.sessionId ? () => navigate(
-                      `/heor/${r.sessionId}`,
+                      heorTaskPath(r.sessionId!),
                       r.assistantMessageId
                         ? { state: conversationSourceNavigationState(r.assistantMessageId, r.toolCallId) }
                         : undefined,

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { legacyTaskPath } from "@/lib/internalRoute";
 import {
   ChevronDown,
   ChevronRight,
@@ -259,7 +260,7 @@ export function ProjectsPage() {
                         p.sessions.map((s) => (
                           <button
                             key={s.id}
-                            onClick={() => navigate(`/live/${s.id}`)}
+                            onClick={() => navigate(legacyTaskPath(s.id))}
                             className="grid w-full grid-cols-[minmax(0,1fr)_5rem_1.5rem] items-center gap-3 rounded-input py-1.5 pl-8 pr-2 text-left hover:bg-surface-2"
                           >
                             <span className="truncate text-sm text-text">{s.title}</span>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { heorTaskPath } from "@/lib/internalRoute";
 import { useTranslation } from "react-i18next";
 import { Bot, Boxes, Check, Loader2, Package, Puzzle, RefreshCw, Settings2, ShieldCheck, X } from "lucide-react";
 import { useRuntimeStore } from "@/lib/runtime";
@@ -111,7 +112,7 @@ export function SkillsPage() {
     setReviewing(false);
     if (id) {
       setText("");
-      navigate(`/heor/${id}`); // continue in the AI4HEOR research workspace
+      navigate(heorTaskPath(id)); // continue in the AI4HEOR research workspace
     }
   };
 

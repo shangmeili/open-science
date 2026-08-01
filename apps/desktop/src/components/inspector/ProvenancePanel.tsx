@@ -12,6 +12,7 @@ import { cn } from "@/lib/cn";
 import i18n from "@/i18n";
 import { ModelCallAudit } from "@/components/audit/ModelCallAudit";
 import { conversationSourceNavigationState } from "@/lib/conversationSource";
+import { heorTaskPath, runRecordPath } from "@/lib/internalRoute";
 
 /** The prompt the Reproduce action drafts — prefilled, reviewed, user-sent. */
 export function reproducePrompt(r: ProvenanceRecord): string {
@@ -94,7 +95,7 @@ export function ProvenancePanel({ path, language }: { path: string; language?: s
   const reproduce = (r: ProvenanceRecord) => {
     const run = r.runId ? runsById.get(r.runId) : undefined;
     setComposerDraft(run ? reproduceRunPrompt(run) : reproducePrompt(r));
-    navigate(r.sessionId ? `/heor/${r.sessionId}` : "/heor");
+    navigate(r.sessionId ? heorTaskPath(r.sessionId) : "/heor");
   };
 
   useEffect(() => {
@@ -207,7 +208,7 @@ export function ProvenancePanel({ path, language }: { path: string; language?: s
                     <button
                       className="flex items-center gap-1 text-link hover:underline"
                       onClick={() => navigate(
-                        `/heor/${r.sessionId}`,
+                        heorTaskPath(r.sessionId!),
                         r.assistantMessageId
                           ? { state: conversationSourceNavigationState(r.assistantMessageId, r.toolCallId) }
                           : undefined,
@@ -251,7 +252,7 @@ export function ProvenancePanel({ path, language }: { path: string; language?: s
                       {t("provenance.producedByRunPrefix")}{" "}
                       <button
                         className="font-mono text-link hover:underline"
-                        onClick={() => navigate(`/runs?run=${r.runId}`)}
+                        onClick={() => navigate(runRecordPath(r.runId!))}
                         title={t("provenance.openRunTitle")}
                       >
                         {r.runId}

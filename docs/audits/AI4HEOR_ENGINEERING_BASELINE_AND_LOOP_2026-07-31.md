@@ -3,7 +3,7 @@
 ## 基线
 
 - 分支：`codex/heor-workbench`
-- P1-AI-001b2 开始前的已提交基线：`38babd9`；P1-AI-001b3 实施前的已提交基线：`bc71b1b`；P1-TEST-001b1 实施前的已提交基线：`38a5687`；P1-TEST-001b2 实施前的已提交基线：`076180f`；P1-TEST-001b3 实施前的已提交基线：`14254f8`；P1-TEST-001b4 实施前的已提交基线：`1cf99a8`；P1-TEST-001b5 实施前的已提交基线：`6f48f57`；P1-TEST-001b6 实施前的已提交基线：`93912be`；P1-TEST-001b7 实施前的已提交基线：`7e26b0d`；P1-TEST-001b8 调查前的已提交基线：`27802d4`；P1-TEST-001b9 安装包验证基线：`b480c26`；P1-TEST-001b10 供应商失败恢复实施前基线：`d275c0a`；P1-TEST-001b11 导入—执行—导出验收实施前基线：`ab3b2d5`；P1-AI-001c 研究者可见审计实施前基线：`85fa920`；P1-AI-001d 精确对话定位实施前基线：`5040b1f`；P1-QUEUE-001 队列竞态实施前基线：`5c0a6ac`；P1-SCI-001a 决策树 Skill 与任务执行实施前基线：`68a9076`；P1-SCI-001b 专用桌面复核实施前基线：`499f968`；P1-SEC-002b OOM 通告修复实施前基线：`04b2142`；P1-SEC-002c UUID 可达性复核实施前基线：`a2201b3`。更早已完成业务修复均保留为独立提交，本轮不重复修改。
+- P1-AI-001b2 开始前的已提交基线：`38babd9`；P1-AI-001b3 实施前的已提交基线：`bc71b1b`；P1-TEST-001b1 实施前的已提交基线：`38a5687`；P1-TEST-001b2 实施前的已提交基线：`076180f`；P1-TEST-001b3 实施前的已提交基线：`14254f8`；P1-TEST-001b4 实施前的已提交基线：`1cf99a8`；P1-TEST-001b5 实施前的已提交基线：`6f48f57`；P1-TEST-001b6 实施前的已提交基线：`93912be`；P1-TEST-001b7 实施前的已提交基线：`7e26b0d`；P1-TEST-001b8 调查前的已提交基线：`27802d4`；P1-TEST-001b9 安装包验证基线：`b480c26`；P1-TEST-001b10 供应商失败恢复实施前基线：`d275c0a`；P1-TEST-001b11 导入—执行—导出验收实施前基线：`ab3b2d5`；P1-AI-001c 研究者可见审计实施前基线：`85fa920`；P1-AI-001d 精确对话定位实施前基线：`5040b1f`；P1-QUEUE-001 队列竞态实施前基线：`5c0a6ac`；P1-SCI-001a 决策树 Skill 与任务执行实施前基线：`68a9076`；P1-SCI-001b 专用桌面复核实施前基线：`499f968`；P1-SEC-002b OOM 通告修复实施前基线：`04b2142`；P1-SEC-002c UUID 可达性复核实施前基线：`a2201b3`；P1-SEC-002d 内部路由边界实施前基线：`2782100`。更早已完成业务修复均保留为独立提交，本轮不重复修改。
 - 基线原则：在现有 Open Science/Tauri 技术栈上增量推进；AI 负责辅助推理，正式研究计算由可验证的确定性模块完成；科学、隐私、兼容性和公开接口决策保留 Human-in-the-loop。
 - 已完成 loop 范围：不可信 HTML 预览边界、同主版本 JavaScript CPU 拒绝服务补丁、安装后 OpenCode 的鉴权 HTTP 就绪证据、安装后前端 bootstrap 证据合同、经研究者确认的两策略 PSA 零 INMB 并列口径、PPTX 预览中 ECharts `lines` 系列通告的不可达性门禁、经研究者确认后实现的首版短期确定性决策树内核、决策树第一方 Skill、自然语言任务执行路径和按精确输入字节绑定的专用桌面复核、不含对话正文的模型调用用量/费用元数据账本、应用固定 HEOR 前导提示的精确指纹和回复语言记录、模型调用与工具产物/运行的准确关联、研究者可见调用详情、从审计记录返回精确助手/工具动作的对话定位，以及 OpenCode 双重空闲事件导致的排队竞态。决策树 DSA/PSA、报告和复现包仍未连接。
 
@@ -29,6 +29,7 @@
 | P1-SEC-002a | P1 | 已修复 | `brace-expansion 1.1.15 / 2.1.1` 受 CPU 拒绝服务通告影响；已同主版本升级并加入发布门禁 |
 | P1-SEC-002b | P1 | 已修复 | `brace-expansion` OOM 通告更新后已为三条受影响维护线提供补丁；锁文件固定为 1.1.18、2.1.4、5.0.9，并以语义版本门禁阻止重新引入受影响范围；生产审计高危项已归零 |
 | P1-SEC-002c | P1 | 已评估；当前不可达并有门禁 | `uuid 8.3.2 / 10.0.0` 命中调用者缓冲区越界通告，但 ExcelJS 的四份源码/分发调用点和 PPTX 预览均只使用 `v4`；受影响的 `v3/v5/v6` 路径不可达，依赖调用变化将阻断发布 |
+| P1-SEC-002d | P1 | 产品路径已缓解并有门禁；依赖通告仍保留 | React Router 6.30.4 命中外部导航、开放重定向和 SSR 错误反序列化通告；应用不使用 SSR/手动 hydration，所有含动态任务或运行标识的内部路径现统一逐段编码，源码门禁禁止恢复原始字符串插值；升级到 7.18 仍是独立跨主版本兼容任务 |
 | P1-TEST-001a | P1 | macOS x64 原生执行通过；Windows 待执行 | 安装包首启过去只证明 OpenCode 进程存在；现要求未授权健康请求返回 401，且证据不保存端口或密码 |
 | P1-TEST-001b | P1 | 调试构建主要交互分支及导入—执行—导出已完成；安装包内 A1 权限已验证；安装后完整 UI 待后续 loop | 测试专用 macOS Tauri WebDriver 已验证 IPC 桥接、真实侧边栏/文件操作、HTML 安全边界、任务作用域隔离、队列排序/删除/逐条发送、OpenCode `question` 回答恢复、provider 400 失败恢复、危险 bash 命令的一次授权/拒绝，以及项目原生导入、受管副本内项目任务执行、确定性 DOCX/PDF/XLSX 报告导出与当前性审计；外部源目录保持不变。当前 DMG 另已验证精确权限的保存、重启复用、撤销和重新询问。安装包完整任务 UI 仍缺自动化 E2E |
 | P1-PERM-001 | P1 | 已按研究者确认的方案 A 修复 | “始终允许”现将当前项目、动作和精确资源写入本地 SQLite；同项目同资源在应用重启后复用，不同项目或资源仍询问；研究者可在隐私设置查看并撤销，撤销后重新询问；项目 ID 迁移同步迁移权限记录 |
@@ -56,7 +57,7 @@
 4. P1-PERM-001：方案 A 已完成并独立验证；项目级精确规则持久化、重启复用、跨项目/跨资源隔离、研究者可见撤销、撤销后重新询问和项目 ID 迁移均纳入回归。
 5. P1-TEST-001c：安装后前端 bootstrap 合同已在新 macOS x64 DMG 原生执行通过；Windows 待执行，且不得据此宣称完整可视 E2E 已完成。
 6. P1-TEST-002：调试构建资源目录确定性重建及原生 E2E 部署错误门禁已完成；构建仅清理可再生成的准入 Skill 暂存树，不触及源码、用户数据或安装应用。
-7. P1-SEC-002：CPU 与 OOM 型 `brace-expansion` 通告均已在兼容维护线上修复，并用发布门禁阻止回退；UUID 调用者缓冲区路径已证明当前不可达并建立调用变化门禁；React Router 通告仍需独立兼容性决策，不强制整树升级。ECharts `lines` 系列通告已证明当前 PPTX 路径不可达。
+7. P1-SEC-002：CPU 与 OOM 型 `brace-expansion` 通告均已在兼容维护线上修复，并用发布门禁阻止回退；UUID 调用者缓冲区路径已证明当前不可达并建立调用变化门禁；React Router 的 SSR 路径已证明当前不存在，动态内部导航已统一编码并建立源码门禁，依赖审计项继续显式保留，7.18 跨主版本迁移作为独立兼容任务而非强制整树升级。ECharts `lines` 系列通告已证明当前 PPTX 路径不可达。
 8. P1-SCI-003：统一两策略 PSA 的零 INMB 并列口径（已完成）。
 9. P1-SCI-001：首版确定性内核、第一方 Skill、自然语言任务执行和专用桌面复核已完成；后续分别为报告与复现包建立独立合同。P1-SCI-002 仍需先建立人工可核算基准，禁止与界面修复混做。
 10. P0-AI-002：产品 Harness 已改为每次运行必定校验和叠加加载，用户/项目指令保留但不得替代产品治理边界（已完成）。
@@ -87,6 +88,11 @@
 | OOM DoS 通告复审 | `pnpm audit --prod --json` | `GHSA-mh99-v99m-4gvg` 为 0 条，高危项为 0；其余 6 个中危通告继续显式保留 |
 | UUID 门禁首次运行 | `python3 -B -m unittest scripts.dev.test_js_security_policy -v` | 失败：初始门禁只覆盖 1 处，实际存在同一 `v4` 调用的源码、ES5 和两份分发副本；未减少覆盖范围 |
 | UUID 可达性门禁 | 同上 | 4/4 通过；ExcelJS 四份调用点及 PPTX 预览均只导入 `v4`，依赖代码变化将 fail-closed |
+| 路由修复前复现 | `pnpm --filter @ai4s/desktop exec vitest run src/lib/internalRoute.test.ts` | 失败：内部路由编码模块不存在；加入首版源码门禁后又准确发现 `ProvenancePanel` 中一处遗漏的原始动态路由 |
+| 动态路由定向回归 | `internalRoute`、`RunsPage`、`ProvenancePanel`、`Sidebar.projects` | 36/36 通过；恶意任务标识中的反斜线、路径、查询和片段均留在应用路由段内 |
+| React Router 产品路径门禁 | `python3 -B -m unittest scripts.dev.test_js_security_policy -v` | 6/6 通过；禁止动态任务/运行路径原始插值，并确认无 SSR、手动 hydration、loader/action/redirect 路径 |
+| P1-SEC-002d 全量回归 | 前端、开发合同、HEOR、发布、类型、lint、构建与资源预检 | 前端 118 文件/796 项、开发合同 400/400、HEOR 188/188、发布合同 54/54 均通过；生产构建及 41 来源/450 文件资源预检通过 |
+| P1-SEC-002d 原生桌面回归 | `pnpm test:e2e:desktop` | 通过；Tauri 桥接、导航、队列、Human 输入、权限、失败恢复、任务文件、被动 HTML 预览、项目导入及确定性 DOCX/PDF/XLSX 导出均正常 |
 | XLSX 定向兼容性 | `pnpm --filter @ai4s/desktop exec vitest run src/lib/xlsx.test.ts` | 3/3 通过 |
 | 生产产物可达性 | 在 `apps/desktop/dist/**/*.js` 查找 `brace-expansion` 及其 Node 归档依赖 | 0 命中 |
 | 首启门禁修复前复现 | `python3 scripts/release/test_macos_distribution.py -v` 与 `test_release_evidence.py -v` | 4 处失败：缺少端口/HTTP 探测、证据检查和 Windows 合同 |
@@ -250,6 +256,22 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 验收结果：UUID/JS 安全门禁 4/4，XLSX/PPTX 10/10，完整前端 117 文件/794 项、HEOR 188/188、开发合同 398/398、发布合同 54/54，类型检查与 ESLint 通过。生产构建、资源预检和文档合同在记录更新后再次验证。
 - 风险表述：两个 UUID 中危审计项仍可见，不能把“当前调用不可达”写成“依赖已修复”。如果上游消费者改变 UUID API、调用参数或文件布局，门禁将失败；若未来选择把 8.x/10.x 强制覆盖为 11.1.1，属于跨主版本兼容性修改，必须另建失败测试和独立决策。
 - 回滚方式：回退本 loop 独立提交即可，无数据迁移、锁文件变更或研究结果变化。本轮没有产品二进制差异，因此不重复生成 DMG，也不把既有原生 E2E 证据冒充为新安装包证据。
+
+## Loop P1-SEC-002d
+
+### 发现、复现与根因
+
+- 当前行为：`pnpm audit --prod --json` 对 React Router 6.30.4 保留三个中危通告。[GHSA-wrjc-x8rr-h8h6](https://github.com/advisories/GHSA-wrjc-x8rr-h8h6) 涉及将攻击者可控路径传给导航 API 后发生外部导航；[GHSA-jjmj-jmhj-qwj2](https://github.com/advisories/GHSA-jjmj-jmhj-qwj2) 需要应用本身存在开放重定向；[GHSA-337j-9hxr-rhxg](https://github.com/advisories/GHSA-337j-9hxr-rhxg) 只影响 Framework/Data Mode 的手动 SSR 或 hydration 错误反序列化路径。
+- 应用路径核对：AI4HEOR 使用 `createBrowserRouter` 和静态路由，不使用 `createStaticRouter`、`StaticRouterProvider`、`hydrateRoot`、`hydrationData`、loader、action 或 `redirect()`。动态任务、会话和运行标识虽然都带 `/heor/`、`/live/` 或 `/runs?run=` 前缀，但此前由各调用点直接字符串插值，没有单一编码不变量。
+- 失败测试：先建立恶意标识案例，首次因 `internalRoute` 模块不存在而失败；实现首版帮助函数后，源码门禁又准确发现 `ProvenancePanel` 仍有一处原始动态路径。没有放宽为“多数调用已修复”，而是补齐该调用点并让门禁覆盖全仓。
+- 根因：产品当前没有通用的开放重定向功能，但动态内部路由的转义责任分散在多个组件。依赖通告与应用实际调用图之间缺少可执行边界，未来维护可能把外部形态的内容重新带入导航 API。
+
+### 最小修复、验收与边界
+
+- 最小修复：新增只负责逐段 `encodeURIComponent` 的内部路由帮助函数，统一生成 HEOR 任务、旧会话和运行记录路径；迁移六个实际调用文件。扩展既有 JavaScript 安全门禁，禁止帮助函数外恢复动态任务/运行路径插值，并固定无 SSR/hydration/Data Mode 重定向面的当前架构。没有替换 React Router、改变公开路由、模型调用、研究数据、HEOR 公式、schema、权限或界面文案。
+- 验收结果：动态路由定向测试 36/36、JavaScript 安全门禁 6/6、完整前端 118 文件/796 项、开发合同 400/400、HEOR 188/188、发布合同 54/54；类型检查、ESLint、生产构建、差异检查及 41 来源/450 文件资源预检通过。真实 Tauri/WKWebView E2E 继续通过导航、队列、Human 输入、权限、供应商失败恢复、任务文件、项目导入与确定性 DOCX/PDF/XLSX 导出。
+- 风险表述：本轮缓解的是 AI4HEOR 的产品调用路径，不宣称 React Router 6.30.4 依赖通告已经修复，审计项继续保留。上游完整修补版本是 7.18，跨主版本升级会改变路由兼容面，必须以独立失败测试、迁移审查和公开接口决策推进；不能为了让审计数字归零而在本安全 loop 中强制升级。
+- 回滚方式：回退本 loop 独立提交即可；无数据迁移、历史研究结果或安装包变化。本轮不生成 DMG，调试构建原生 E2E 也不冒充安装包字节级验收。
 
 ## Loop P1-TEST-001a
 
