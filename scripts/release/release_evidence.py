@@ -38,6 +38,7 @@ FIRST_LAUNCH_CHECKS = {
 MACOS_WORKSPACE_ISOLATION_CHECK = "workspace-isolated"
 MACOS_INSTALLED_TASK_UI_CHECK = "installed-task-ui"
 MACOS_INSTALLED_TASK_REPLY_CHECK = "installed-task-reply"
+MACOS_DMG_COPY_CHECK = "dmg-app-copy"
 PACKAGED_OPENCODE_CHECKS = {
     "opencode-system-context-audit",
     "opencode-permission-persistence",
@@ -245,6 +246,20 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
         raise AssertionError("release evidence must bind exactly OpenCode and uv")
     if any(not item.get("version_output") for item in value["sidecars"]):
         raise AssertionError("release evidence has a sidecar without version output")
+    if MACOS_DMG_COPY_CHECK in value["checks"]:
+        if value["platform"] != "macos":
+            raise AssertionError("DMG verification binding is supported only on macOS")
+        dmgs = [item for item in value["artifacts"] if item.get("kind") == "dmg"]
+        bundle = value["verification"].get("bundle")
+        if (
+            len(dmgs) != 1
+            or not isinstance(bundle, dict)
+            or set(bundle) != {"dmg_sha256", "filename", "target"}
+            or bundle.get("dmg_sha256") != dmgs[0].get("sha256")
+            or bundle.get("filename") != dmgs[0].get("filename")
+            or bundle.get("target") != value["target"]
+        ):
+            raise AssertionError("macOS verification DMG binding is incomplete or mismatched")
     declared_first_launch = FIRST_LAUNCH_CHECKS & set(value["checks"])
     if declared_first_launch:
         missing_checks = sorted(FIRST_LAUNCH_CHECKS - set(value["checks"]))

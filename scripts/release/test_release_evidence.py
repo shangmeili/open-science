@@ -135,6 +135,42 @@ class ReleaseEvidenceTests(unittest.TestCase):
             with self.assertRaisesRegex(AssertionError, "bytes changed"):
                 release_evidence.validate_evidence(value, root)
 
+    def test_macos_verification_bundle_must_match_the_recorded_dmg(self) -> None:
+        files: list[dict[str, object]] = []
+        artifact = {
+            "kind": "dmg",
+            "filename": "AI4HEOR_1.0.0_x64.dmg",
+            "size": 1,
+            "sha256": "a" * 64,
+        }
+        value = {
+            "schema": release_evidence.EVIDENCE_SCHEMA,
+            "source": {"commit": "a" * 40, "version": "1.0.0"},
+            "platform": "macos",
+            "target": "x86_64-apple-darwin",
+            "artifacts": [artifact],
+            "checks": ["dmg-app-copy"],
+            "runner": self.runner("macos"),
+            "sidecars": self.sidecars(),
+            "verification": {
+                "bundle": {
+                    "dmg_sha256": "a" * 64,
+                    "filename": artifact["filename"],
+                    "target": "x86_64-apple-darwin",
+                }
+            },
+            "resources": {
+                "aggregate_sha256": release_evidence.canonical_sha256(files),
+                "file_count": 0,
+                "files": files,
+                "total_bytes": 0,
+            },
+        }
+        release_evidence.validate_evidence(value)
+        value["verification"]["bundle"]["dmg_sha256"] = "b" * 64
+        with self.assertRaisesRegex(AssertionError, "DMG binding"):
+            release_evidence.validate_evidence(value)
+
     def test_validation_rejects_platform_target_mismatch(self) -> None:
         files: list[dict[str, object]] = []
         value = {

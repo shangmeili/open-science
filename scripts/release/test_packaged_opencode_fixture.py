@@ -59,6 +59,29 @@ class PackagedOpenCodeFixtureTests(unittest.TestCase):
             with self.assertRaisesRegex(AssertionError, "already contains"):
                 fixture.append_release_proof(path, proof)
 
+    def test_fixture_refuses_a_dmg_that_does_not_match_verification(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            dmg = root / "AI4HEOR_1.0.0_x64.dmg"
+            dmg.write_bytes(b"reviewed-dmg")
+            verification = root / "verification.json"
+            verification.write_text(
+                json.dumps(
+                    {
+                        "bundle": {
+                            "dmg_sha256": hashlib.sha256(dmg.read_bytes()).hexdigest(),
+                            "filename": dmg.name,
+                            "target": "x86_64-apple-darwin",
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            fixture.verify_target_dmg_binding(verification, dmg)
+            dmg.write_bytes(b"replacement-dmg")
+            with self.assertRaisesRegex(AssertionError, "DMG binding"):
+                fixture.verify_target_dmg_binding(verification, dmg)
+
     def test_fixture_can_fail_exactly_one_main_reply_with_a_visible_provider_error(self) -> None:
         state = fixture.FixtureState()
         main = {"tools": [{"name": "read"}]}

@@ -1078,6 +1078,35 @@ def bounded_release_proof(result: Any) -> dict[str, Any]:
     }
 
 
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_target_dmg_binding(verification_path: Path, dmg: Path) -> None:
+    if not dmg.is_file() or dmg.is_symlink():
+        raise AssertionError("fixture target DMG is missing or linked")
+    if not verification_path.is_file() or verification_path.is_symlink():
+        raise AssertionError("macOS verification JSON is missing or linked")
+    try:
+        verification = json.loads(verification_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise AssertionError("macOS verification JSON is unreadable") from error
+    bundle = verification.get("bundle") if isinstance(verification, dict) else None
+    if (
+        not isinstance(bundle, dict)
+        or set(bundle) != {"dmg_sha256", "filename", "target"}
+        or bundle.get("filename") != dmg.name
+        or bundle.get("dmg_sha256") != file_sha256(dmg)
+        or bundle.get("target")
+        not in {"aarch64-apple-darwin", "x86_64-apple-darwin"}
+    ):
+        raise AssertionError("macOS verification DMG binding is incomplete or mismatched")
+
+
 def append_release_proof(path: Path, proof: dict[str, Any]) -> None:
     if not path.is_file() or path.is_symlink():
         raise AssertionError("macOS verification JSON is missing or linked")
@@ -1110,9 +1139,12 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=30.0)
     parser.add_argument("--verification-json", type=Path, required=True)
     args = parser.parse_args()
-    result = run_fixture(args.dmg.resolve(), args.expected_version, args.timeout)
+    dmg = args.dmg.resolve()
+    verification_json = args.verification_json.resolve()
+    verify_target_dmg_binding(verification_json, dmg)
+    result = run_fixture(dmg, args.expected_version, args.timeout)
     append_release_proof(
-        args.verification_json.resolve(),
+        verification_json,
         bounded_release_proof(result),
     )
     print(
