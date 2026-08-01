@@ -194,6 +194,41 @@ class CoreSkillContractTests(unittest.TestCase):
         ):
             self.assertIn(required, contract)
 
+    def test_heor_reporting_has_a_decision_tree_specific_draft_contract(self):
+        skill_dir = SKILLS_ROOT / "heor-reporting"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        contract = (skill_dir / "references" / "report-package-contract.md").read_text(
+            encoding="utf-8"
+        )
+        template = json.loads(
+            (skill_dir / "assets" / "decision-tree-report-package.template.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(template["schema_version"], "0.3.0")
+        self.assertEqual(template["analysis_type"], "decision_tree")
+        self.assertEqual(template["status"], "draft")
+        self.assertEqual(
+            set(template["bindings"]),
+            {
+                "report_document",
+                "evidence_synthesis",
+                "decision_tree_plan",
+                "decision_tree_uncertainty_plan",
+                "decision_tree_result",
+                "decision_tree_uncertainty_result",
+            },
+        )
+        self.assertEqual(
+            template["reporting_profiles"],
+            [{"id": "CHEERS-2022", "status": "current", "scope": "cost_effectiveness"}],
+        )
+        self.assertIn("decision-tree-report-package.template.json", skill)
+        self.assertIn("must remain `draft`", skill)
+        self.assertIn("schema `0.3.0`", contract)
+        self.assertIn("proposed assumptions", contract)
+        self.assertIn("convergence", contract)
+
     def test_heor_model_design_owns_a_source_bound_diagram_contract(self):
         skill_dir = SKILLS_ROOT / "heor-model-design"
         skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")

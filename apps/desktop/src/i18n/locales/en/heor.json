@@ -837,13 +837,20 @@
     "title": "Release report package",
     "loading": "Auditing the report package…",
     "releasable": "Report package is ready for release review",
+    "draft": "The report draft is available for researcher review but cannot enter release review",
+    "draftReasons": {
+      "proposedAssumptions": "The decision tree still contains proposed assumptions awaiting verification.",
+      "referenceCase": "The decision tree's reference case is not marked current.",
+      "evidenceSynthesis": "The evidence synthesis bound to the decision tree is not ready for researcher review.",
+      "convergence": "The probabilistic sensitivity analysis has not passed its predeclared convergence checks."
+    },
     "incomplete": "Report package is incomplete",
     "owner": "Release owner",
     "coverage": "Reporting items",
     "bindings": "Bound artifacts",
     "errors": "Blocking errors",
     "askPrepare": "Ask Agent to prepare or repair the report package",
-    "repairPrompt": "Use $heor-reporting to prepare or repair heor/report-package.json and heor/report.md. Preserve schema 0.1.0 for non-PSM work. For analysis 0.15.0 / PSM 0.7.0 use schema 0.2.0 and bind the report, five base method artifacts, the PSM plan, five current PSM inputs, and the PSM, uncertainty, and budget-impact results. Apply CHEERS 2022 only to cost-effectiveness reporting and the separate ISPOR BIA matrix to budget impact; copy result summaries exactly; disclose funding, conflicts, Agent and model-provider involvement, data/model availability, and patient/public involvement. Do not score CHEERS, edit result files, invent the release owner, or create or claim a release approval.",
+    "repairPrompt": "Use $heor-reporting to prepare or repair heor/report-package.json and heor/report.md. Use schema 0.1.0 for non-PSM Markov work, schema 0.2.0 for analysis 0.15.0 / PSM 0.7.0, and the dedicated schema 0.3.0 for a short-horizon decision tree, binding the current evidence synthesis, decision-tree plan, decision-tree uncertainty plan, and both deterministic results. Every source_id must identify a concrete extraction in the bound evidence synthesis. Apply CHEERS 2022 to cost effectiveness and the separate ISPOR BIA matrix only when a budget-impact analysis exists; never invent BIA for a decision tree. Copy summaries from bound results. If the evidence synthesis is not ready for researcher review, the reference case is not current, proposed assumptions remain, or PSA convergence has not passed, keep the report draft and state why. Do not edit results, invent a release owner, or create release approval.",
     "note": "The app verifies reporting structure, hashes, deterministic result reproduction, and the current local release record. This is not scientific truth, journal acceptance, or policy endorsement.",
     "noProject": "There is no current project for report-package audit.",
     "missingPlan": "An analysis plan is required before the report package can be audited."

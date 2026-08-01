@@ -6588,7 +6588,7 @@ function ModelValidationAssessment({
   );
 }
 
-function ReportingAssessment({
+export function ReportingAssessment({
   state,
   onRequestPreparation,
 }: {
@@ -6598,8 +6598,21 @@ function ReportingAssessment({
   const { t } = useTranslation("heor");
   const audit = state.kind === "ready" ? state.audit : null;
   const releasable = audit?.releasable === true;
+  const draft = audit?.status === "draft";
+  const draftReasons = (audit?.draftOnlyReasons ?? []).map((reason) => {
+    if (reason.includes("proposed assumptions")) return t("reporting.draftReasons.proposedAssumptions");
+    if (reason.includes("reference case")) return t("reporting.draftReasons.referenceCase");
+    if (reason.includes("evidence synthesis")) return t("reporting.draftReasons.evidenceSynthesis");
+    if (reason.includes("convergence")) return t("reporting.draftReasons.convergence");
+    return reason;
+  });
   const issues = audit
-    ? [...new Set([...audit.missingItems, ...audit.invalidItems, ...audit.errors])]
+    ? [...new Set([
+        ...draftReasons,
+        ...audit.missingItems,
+        ...audit.invalidItems,
+        ...audit.errors,
+      ])]
     : state.kind === "invalid" ? [state.message] : [];
   return (
     <section className="border-b border-border px-5 py-4">
@@ -6618,6 +6631,8 @@ function ReportingAssessment({
               ? t("reporting.loading")
               : releasable
                 ? t("reporting.releasable")
+                : draft
+                  ? t("reporting.draft")
                 : t("reporting.incomplete")}
           </div>
           {audit?.releaseOwnerLabel && (

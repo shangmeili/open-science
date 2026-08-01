@@ -61,6 +61,20 @@ const PARTITIONED_BINDINGS: [(&str, &str); 15] = [
     ("uncertainty_result", UNCERTAINTY_RESULT_PATH),
     ("budget_impact_result", BUDGET_IMPACT_RESULT_PATH),
 ];
+const DECISION_TREE_BINDINGS: [(&str, &str); 6] = [
+    ("report_document", REPORT_DOCUMENT_PATH),
+    ("evidence_synthesis", "heor/evidence-synthesis.json"),
+    ("decision_tree_plan", "heor/decision-tree-plan.json"),
+    (
+        "decision_tree_uncertainty_plan",
+        "heor/decision-tree-uncertainty-plan.json",
+    ),
+    ("decision_tree_result", "heor/results/decision-tree.json"),
+    (
+        "decision_tree_uncertainty_result",
+        "heor/results/decision-tree-uncertainty.json",
+    ),
+];
 const ITEMS: [(&str, &str); 40] = [
     ("CHEERS-2022", "1-title"),
     ("CHEERS-2022", "2-abstract"),
@@ -106,6 +120,36 @@ const ITEMS: [(&str, &str); 40] = [
     ("ISPOR-BIA-GP-II-2014", "bia-11-validation"),
     ("ISPOR-BIA-GP-II-2014", "bia-12-limitations-reproducibility"),
 ];
+const DECISION_TREE_ITEMS: [(&str, &str); 28] = [
+    ("CHEERS-2022", "1-title"),
+    ("CHEERS-2022", "2-abstract"),
+    ("CHEERS-2022", "3-background-objectives"),
+    ("CHEERS-2022", "4-analysis-plan"),
+    ("CHEERS-2022", "5-study-population"),
+    ("CHEERS-2022", "6-setting-location"),
+    ("CHEERS-2022", "7-comparators"),
+    ("CHEERS-2022", "8-perspective"),
+    ("CHEERS-2022", "9-time-horizon"),
+    ("CHEERS-2022", "10-discount-rate"),
+    ("CHEERS-2022", "11-outcome-selection"),
+    ("CHEERS-2022", "12-outcome-measurement"),
+    ("CHEERS-2022", "13-outcome-valuation"),
+    ("CHEERS-2022", "14-resources-costs"),
+    ("CHEERS-2022", "15-currency-price-date"),
+    ("CHEERS-2022", "16-model-rationale-description"),
+    ("CHEERS-2022", "17-analytics-assumptions"),
+    ("CHEERS-2022", "18-heterogeneity"),
+    ("CHEERS-2022", "19-distributional-effects"),
+    ("CHEERS-2022", "20-uncertainty"),
+    ("CHEERS-2022", "21-engagement-approach"),
+    ("CHEERS-2022", "22-study-parameters"),
+    ("CHEERS-2022", "23-summary-results"),
+    ("CHEERS-2022", "24-uncertainty-effects"),
+    ("CHEERS-2022", "25-engagement-effects"),
+    ("CHEERS-2022", "26-findings-limitations-generalisability"),
+    ("CHEERS-2022", "27-funding"),
+    ("CHEERS-2022", "28-conflicts"),
+];
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -122,6 +166,7 @@ pub struct ReportingAudit {
     pub reporting_item_count: usize,
     pub required_item_count: usize,
     pub covered_item_count: usize,
+    pub draft_only_reasons: Vec<String>,
     pub missing_items: Vec<String>,
     pub invalid_items: Vec<String>,
     pub errors: Vec<String>,
@@ -149,6 +194,31 @@ fn unique_strings(value: Option<&serde_json::Value>, nonempty: bool) -> Option<H
     }
     Some(result)
 }
+fn collect_string_array_values(
+    value: &serde_json::Value,
+    key: &str,
+    found: &mut HashSet<String>,
+) -> bool {
+    match value {
+        serde_json::Value::Object(values) => values.iter().all(|(field, value)| {
+            if field == key {
+                value.as_array().is_some_and(|items| {
+                    items.iter().all(|item| {
+                        text(Some(item)).is_some_and(|item| {
+                            found.insert(item.to_string()) || found.contains(item)
+                        })
+                    })
+                })
+            } else {
+                collect_string_array_values(value, key, found)
+            }
+        }),
+        serde_json::Value::Array(values) => values
+            .iter()
+            .all(|value| collect_string_array_values(value, key, found)),
+        _ => true,
+    }
+}
 fn valid_date(value: Option<&serde_json::Value>) -> bool {
     text(value).is_some_and(|value| {
         value.len() == 10
@@ -174,6 +244,7 @@ fn empty(error: String) -> ReportingAudit {
         reporting_item_count: 0,
         required_item_count: ITEMS.len(),
         covered_item_count: 0,
+        draft_only_reasons: Vec::new(),
         missing_items: ITEMS.iter().map(|(p, i)| format!("{p}:{i}")).collect(),
         invalid_items: Vec::new(),
         errors: vec![error],
@@ -191,6 +262,52 @@ fn read_json(workspace: &Path, relative: &str) -> Result<(serde_json::Value, Vec
 }
 
 fn expected_result_summary(loaded: &HashMap<&str, serde_json::Value>) -> serde_json::Value {
+    if let Some(base_case) = loaded.get("decision_tree_result") {
+        let strategies = base_case
+            .get("strategies")
+            .and_then(serde_json::Value::as_object)
+            .map(|items| {
+                items
+                    .iter()
+                    .map(|(strategy_id, strategy)| {
+                        (
+                            strategy_id.clone(),
+                            serde_json::json!({
+                                "name": strategy.get("name").cloned().unwrap_or(serde_json::Value::Null),
+                                "total_cost": strategy.get("total_cost").cloned().unwrap_or(serde_json::Value::Null),
+                                "total_qaly": strategy.get("total_qaly").cloned().unwrap_or(serde_json::Value::Null),
+                                "net_monetary_benefit": strategy.get("net_monetary_benefit").cloned().unwrap_or(serde_json::Value::Null)
+                            }),
+                        )
+                    })
+                    .collect::<serde_json::Map<_, _>>()
+            })
+            .map(serde_json::Value::Object)
+            .unwrap_or(serde_json::Value::Null);
+        let uncertainty = loaded.get("decision_tree_uncertainty_result");
+        let mut probabilistic = uncertainty
+            .and_then(|value| value.get("probabilistic_analysis"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        if let Some(value) = probabilistic.as_object_mut() {
+            value.remove("samples");
+        }
+        return serde_json::json!({
+            "cost_effectiveness": {
+                "economic_basis": base_case.get("economic_basis").cloned().unwrap_or(serde_json::Value::Null),
+                "strategy_order": base_case.get("strategy_order").cloned().unwrap_or(serde_json::Value::Null),
+                "baseline_strategy_id": base_case.get("baseline_strategy_id").cloned().unwrap_or(serde_json::Value::Null),
+                "strategies": strategies,
+                "pairwise_vs_baseline": base_case.get("pairwise_vs_baseline").cloned().unwrap_or(serde_json::Value::Null),
+                "fully_incremental_analysis": base_case.get("fully_incremental_analysis").cloned().unwrap_or(serde_json::Value::Null),
+                "optimal_at_primary_threshold": base_case.get("optimal_at_primary_threshold").cloned().unwrap_or(serde_json::Value::Null)
+            },
+            "uncertainty": {
+                "deterministic_analysis": uncertainty.and_then(|value| value.get("deterministic_analysis")).cloned().unwrap_or(serde_json::Value::Null),
+                "probabilistic_analysis": probabilistic
+            }
+        });
+    }
     let mut expected_uncertainty = serde_json::json!({
         "iterations": loaded.get("uncertainty_result").and_then(|v| v.pointer("/probabilistic_analysis/iterations")).cloned().unwrap_or(serde_json::Value::Null),
         "cost_effective_probability": loaded.get("uncertainty_result").and_then(|v| v.pointer("/probabilistic_analysis/cost_effective_probability")).cloned().unwrap_or(serde_json::Value::Null),
@@ -298,43 +415,72 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
         .unwrap_or_default()
         .to_string();
     audit.report_package_sha256 = digest(&package_raw);
-    let analysis = read_json(workspace, "heor/analysis-plan.json")
+    let decision_tree = text(package.get("analysis_type")) == Some("decision_tree");
+    let analysis_path = if decision_tree {
+        "heor/decision-tree-plan.json"
+    } else {
+        "heor/analysis-plan.json"
+    };
+    let analysis = read_json(workspace, analysis_path)
         .map(|(value, _)| value)
         .unwrap_or(serde_json::Value::Null);
     let partitioned = analysis
         .pointer("/partitioned_survival_analysis/path")
         .and_then(serde_json::Value::as_str)
         == Some(crate::heor_partitioned_survival::PARTITIONED_SURVIVAL_PLAN_PATH);
-    let expected_schema = if partitioned { "0.2.0" } else { "0.1.0" };
+    let expected_schema = if decision_tree {
+        "0.3.0"
+    } else if partitioned {
+        "0.2.0"
+    } else {
+        "0.1.0"
+    };
     if text(package.get("schema_version")) != Some(expected_schema) {
         audit.errors.push(format!(
             "{} reporting requires schema_version {expected_schema}",
-            if partitioned {
+            if decision_tree {
+                "decision-tree"
+            } else if partitioned {
                 "partitioned-survival"
             } else {
                 "non-partitioned"
             }
         ));
     }
-    let expected_bindings = if partitioned {
+    let expected_bindings = if decision_tree {
+        DECISION_TREE_BINDINGS.as_slice()
+    } else if partitioned {
         PARTITIONED_BINDINGS.as_slice()
     } else {
         BINDINGS.as_slice()
     };
-    for field in [
-        "package_id",
-        "analysis_id",
-        "version",
-        "intended_audience",
-        "release_owner_label",
-    ] {
+    for field in ["package_id", "analysis_id", "version", "intended_audience"] {
         if text(package.get(field)).is_none() {
             audit
                 .errors
                 .push(format!("report package {field} is required"));
         }
     }
-    if text(package.get("status")) != Some("ready_for_release_review") {
+    let package_status = text(package.get("status"));
+    if decision_tree {
+        if !matches!(package_status, Some("draft" | "ready_for_release_review")) {
+            audit
+                .errors
+                .push("decision-tree report must be draft or ready_for_release_review".into());
+        }
+        if package_status == Some("ready_for_release_review")
+            && text(package.get("release_owner_label")).is_none()
+        {
+            audit
+                .errors
+                .push("report package release_owner_label is required for release review".into());
+        }
+    } else if text(package.get("release_owner_label")).is_none() {
+        audit
+            .errors
+            .push("report package release_owner_label is required".into());
+    }
+    if !decision_tree && package_status != Some("ready_for_release_review") {
         audit
             .errors
             .push("report package must be ready_for_release_review".into());
@@ -344,10 +490,16 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
             .errors
             .push("report package prepared_on must be YYYY-MM-DD".into());
     }
-    let expected_profiles = serde_json::json!([
-        {"id":"CHEERS-2022","status":"current","scope":"cost_effectiveness"},
-        {"id":"ISPOR-BIA-GP-II-2014","status":"current","scope":"budget_impact"}
-    ]);
+    let expected_profiles = if decision_tree {
+        serde_json::json!([
+            {"id":"CHEERS-2022","status":"current","scope":"cost_effectiveness"}
+        ])
+    } else {
+        serde_json::json!([
+            {"id":"CHEERS-2022","status":"current","scope":"cost_effectiveness"},
+            {"id":"ISPOR-BIA-GP-II-2014","status":"current","scope":"budget_impact"}
+        ])
+    };
     if package.get("reporting_profiles") != Some(&expected_profiles) {
         audit
             .errors
@@ -415,6 +567,14 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
         }
     }
     for (key, value) in &loaded {
+        if decision_tree
+            && matches!(
+                *key,
+                "decision_tree_uncertainty_plan" | "evidence_synthesis"
+            )
+        {
+            continue;
+        }
         if text(value.get("analysis_id")) != Some(audit.analysis_id.as_str()) {
             audit.errors.push(format!(
                 "{} analysis_id does not match the report package",
@@ -427,7 +587,118 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
         }
     }
     let hash = |key: &str| audit.binding_hashes.get(key).map(String::as_str);
-    if loaded.contains_key("base_case_result")
+    if decision_tree {
+        if text(analysis.get("schema_version")) != Some("0.2.0")
+            || text(analysis.get("analysis_type")) != Some("decision_tree")
+        {
+            audit
+                .errors
+                .push("decision-tree reports require a current schema 0.2.0 plan".into());
+        }
+        let result = loaded.get("decision_tree_result");
+        if result.and_then(|value| text(value.get("schema_version"))) != Some("0.2.0")
+            || result.and_then(|value| text(value.get("engine_version"))) != Some("0.2.0")
+            || result.and_then(|value| text(value.get("input_sha256")))
+                != hash("decision_tree_plan")
+        {
+            audit
+                .errors
+                .push("decision-tree result is not current for the bound plan".into());
+        }
+        let uncertainty = loaded.get("decision_tree_uncertainty_result");
+        if uncertainty.and_then(|value| text(value.get("schema_version"))) != Some("0.1.0")
+            || uncertainty.and_then(|value| text(value.get("engine_version"))) != Some("0.1.0")
+            || uncertainty.and_then(|value| text(value.get("analysis_input_sha256")))
+                != hash("decision_tree_plan")
+            || uncertainty.and_then(|value| text(value.get("uncertainty_input_sha256")))
+                != hash("decision_tree_uncertainty_plan")
+        {
+            audit
+                .errors
+                .push("decision-tree uncertainty result is not current for the bound plans".into());
+        }
+        if result.and_then(|value| value.get("economic_basis")) != analysis.get("economic_basis")
+            || uncertainty.and_then(|value| value.get("economic_basis"))
+                != analysis.get("economic_basis")
+        {
+            audit
+                .errors
+                .push("decision-tree economic basis differs across bound artifacts".into());
+        }
+        let evidence_synthesis = loaded.get("evidence_synthesis");
+        let mut source_ids = HashSet::new();
+        if !collect_string_array_values(&analysis, "source_ids", &mut source_ids)
+            || source_ids.is_empty()
+        {
+            audit
+                .errors
+                .push("decision-tree plan must contain valid source_ids for report use".into());
+        } else {
+            let extraction_ids = evidence_synthesis
+                .and_then(|value| value.get("extractions"))
+                .and_then(serde_json::Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|item| text(item.get("extraction_id")))
+                        .map(str::to_string)
+                        .collect::<HashSet<_>>()
+                })
+                .unwrap_or_default();
+            if !source_ids.is_subset(&extraction_ids) {
+                audit.errors.push(
+                    "decision-tree source_ids must reference bound evidence-synthesis extractions"
+                        .into(),
+                );
+            }
+        }
+        if analysis
+            .pointer("/reference_case/status")
+            .and_then(serde_json::Value::as_str)
+            != Some("current")
+        {
+            audit
+                .draft_only_reasons
+                .push("decision-tree reference case is not marked current".into());
+        }
+        if evidence_synthesis.and_then(|value| text(value.get("status")))
+            != Some("ready_for_human_review")
+        {
+            audit
+                .draft_only_reasons
+                .push("decision-tree evidence synthesis is not ready for human review".into());
+        }
+        if analysis
+            .get("assumptions")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|items| {
+                items.iter().any(|item| {
+                    item.get("status").and_then(serde_json::Value::as_str) == Some("proposed")
+                })
+            })
+        {
+            audit
+                .draft_only_reasons
+                .push("decision-tree inputs still contain proposed assumptions".into());
+        }
+        if uncertainty
+            .and_then(|value| value.pointer("/probabilistic_analysis/convergence/passed"))
+            .and_then(serde_json::Value::as_bool)
+            != Some(true)
+        {
+            audit
+                .draft_only_reasons
+                .push("decision-tree probabilistic convergence has not passed".into());
+        }
+        if package_status == Some("ready_for_release_review")
+            && !audit.draft_only_reasons.is_empty()
+        {
+            audit.errors.push(format!(
+                "decision-tree report must remain draft while: {}",
+                audit.draft_only_reasons.join("; ")
+            ));
+        }
+    } else if loaded.contains_key("base_case_result")
         && loaded
             .get("base_case_result")
             .and_then(|v| text(v.get("input_sha256")))
@@ -435,25 +706,27 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
     {
         audit.errors.push("base-case result is stale".into());
     }
-    if loaded
-        .get("uncertainty_result")
-        .and_then(|v| text(v.get("base_analysis_sha256")))
-        != hash("analysis_plan")
-        || loaded
+    if !decision_tree
+        && (loaded
             .get("uncertainty_result")
-            .and_then(|v| text(v.get("uncertainty_plan_sha256")))
-            != hash("uncertainty_plan")
+            .and_then(|v| text(v.get("base_analysis_sha256")))
+            != hash("analysis_plan")
+            || loaded
+                .get("uncertainty_result")
+                .and_then(|v| text(v.get("uncertainty_plan_sha256")))
+                != hash("uncertainty_plan"))
     {
         audit.errors.push("uncertainty result is stale".into());
     }
-    if loaded
-        .get("budget_impact_result")
-        .and_then(|v| text(v.get("analysis_plan_sha256")))
-        != hash("analysis_plan")
-        || loaded
+    if !decision_tree
+        && (loaded
             .get("budget_impact_result")
-            .and_then(|v| text(v.get("budget_impact_plan_sha256")))
-            != hash("budget_impact_plan")
+            .and_then(|v| text(v.get("analysis_plan_sha256")))
+            != hash("analysis_plan")
+            || loaded
+                .get("budget_impact_result")
+                .and_then(|v| text(v.get("budget_impact_plan_sha256")))
+                != hash("budget_impact_plan"))
     {
         audit.errors.push("budget-impact result is stale".into());
     }
@@ -506,7 +779,12 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
         }
     }
 
-    let expected = ITEMS.iter().copied().collect::<HashSet<_>>();
+    let expected_items = if decision_tree {
+        DECISION_TREE_ITEMS.as_slice()
+    } else {
+        ITEMS.as_slice()
+    };
+    let expected = expected_items.iter().copied().collect::<HashSet<_>>();
     let mut seen = HashSet::<(String, String)>::new();
     let mut sections = HashSet::<String>::new();
     let allowed_paths = expected_bindings
@@ -515,10 +793,10 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
         .collect::<HashSet<_>>();
     let items = package.get("items").and_then(serde_json::Value::as_array);
     audit.reporting_item_count = items.map_or(0, Vec::len);
-    if audit.reporting_item_count != ITEMS.len() {
+    if audit.reporting_item_count != expected_items.len() {
         audit.errors.push(format!(
             "items must contain exactly {} reporting items",
-            ITEMS.len()
+            expected_items.len()
         ));
     }
     for (index, item) in items.into_iter().flatten().enumerate() {
@@ -559,12 +837,13 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
                 .push(format!("items[{index}] artifact_paths are invalid"));
         }
     }
-    for (profile, item) in ITEMS {
+    for &(profile, item) in expected_items {
         if !seen.contains(&(profile.into(), item.into())) {
             audit.missing_items.push(format!("{profile}:{item}"));
         }
     }
-    audit.covered_item_count = ITEMS.len() - audit.missing_items.len();
+    audit.required_item_count = expected_items.len();
+    audit.covered_item_count = expected_items.len() - audit.missing_items.len();
     audit.errors.extend(audit.invalid_items.iter().cloned());
     if !audit.missing_items.is_empty() {
         audit
@@ -610,9 +889,13 @@ pub fn audit_report_package(workspace: &Path) -> Result<ReportingAudit, String> 
         audit.errors.push("release_notes are required".into());
     }
     audit.complete = audit.errors.is_empty();
-    audit.releasable = audit.complete;
-    audit.status = if audit.complete {
+    audit.releasable = audit.complete
+        && package_status == Some("ready_for_release_review")
+        && audit.draft_only_reasons.is_empty();
+    audit.status = if audit.releasable {
         "complete"
+    } else if audit.complete && decision_tree && package_status == Some("draft") {
+        "draft"
     } else {
         "incomplete"
     };
@@ -978,6 +1261,155 @@ pub fn audit_heor_reporting(app: AppHandle) -> Result<ReportingAudit, String> {
 mod tests {
     use super::*;
 
+    fn write_decision_tree_package(
+        root: &Path,
+        status: &str,
+        proposed: bool,
+        convergence_passed: bool,
+    ) {
+        std::fs::create_dir_all(root.join("heor/results")).unwrap();
+        let analysis = serde_json::json!({
+            "schema_version": "0.2.0",
+            "analysis_type": "decision_tree",
+            "analysis_id": "decision-tree-analysis",
+            "reference_case": {"id": "CN-2020-current", "status": "current"},
+            "economic_basis": {"currency": "CNY", "price_year": 2026, "jurisdiction": "中国大陆", "perspective": "中国医疗卫生系统"},
+            "assumptions": if proposed { serde_json::json!([{"id": "proposed-input", "status": "proposed"}]) } else { serde_json::json!([]) },
+            "strategies": {
+                "standard": {"nodes": {"terminal": {"cost": {"source_ids": ["source-1"]}, "qaly": {"source_ids": ["source-1"]}}}},
+                "treatment": {"nodes": {"terminal": {"cost": {"source_ids": ["source-1"]}, "qaly": {"source_ids": ["source-1"]}}}}
+            }
+        });
+        let analysis_raw = serde_json::to_vec(&analysis).unwrap();
+        let analysis_hash = digest(&analysis_raw);
+        let uncertainty_plan = serde_json::json!({
+            "schema_version": "0.1.0",
+            "analysis_type": "decision_tree_uncertainty",
+            "uncertainty_id": "decision-tree-uncertainty",
+            "analysis_input": {"path": "heor/decision-tree-plan.json", "content_sha256": analysis_hash}
+        });
+        let uncertainty_raw = serde_json::to_vec(&uncertainty_plan).unwrap();
+        let uncertainty_hash = digest(&uncertainty_raw);
+        let evidence_synthesis = serde_json::json!({
+            "schema_version": "0.1.0",
+            "synthesis_id": "decision-tree-evidence",
+            "status": "ready_for_human_review",
+            "records": [{"record_id": "record-1"}],
+            "extractions": [{"extraction_id": "source-1", "record_id": "record-1", "verification_status": "human_checked"}]
+        });
+        let strategies = serde_json::json!({
+            "standard": {"name": "Standard", "total_cost": 1000.0, "total_qaly": 0.5, "net_monetary_benefit": 49000.0},
+            "treatment": {"name": "Treatment", "total_cost": 2000.0, "total_qaly": 0.7, "net_monetary_benefit": 68000.0}
+        });
+        let result = serde_json::json!({
+            "schema_version": "0.2.0",
+            "engine_version": "0.2.0",
+            "analysis_type": "decision_tree",
+            "analysis_id": "decision-tree-analysis",
+            "input_sha256": analysis_hash,
+            "economic_basis": analysis["economic_basis"],
+            "strategy_order": ["standard", "treatment"],
+            "baseline_strategy_id": "standard",
+            "strategies": strategies,
+            "pairwise_vs_baseline": {"treatment": {"delta_cost": 1000.0, "delta_qaly": 0.2, "icer": 5000.0, "incremental_net_monetary_benefit": 19000.0}},
+            "fully_incremental_analysis": [{"strategy_id": "standard", "status": "frontier", "icer": null}, {"strategy_id": "treatment", "status": "frontier", "icer": 5000.0}],
+            "optimal_at_primary_threshold": {"strategy_id": "treatment"}
+        });
+        let uncertainty_result = serde_json::json!({
+            "schema_version": "0.1.0",
+            "engine_version": "0.1.0",
+            "analysis_type": "decision_tree_uncertainty",
+            "analysis_id": "decision-tree-analysis",
+            "analysis_input_sha256": analysis_hash,
+            "uncertainty_input_sha256": uncertainty_hash,
+            "economic_basis": analysis["economic_basis"],
+            "deterministic_analysis": [],
+            "probabilistic_analysis": {
+                "iterations": 100,
+                "convergence": {"passed": convergence_passed},
+                "samples": [{"iteration": 1}]
+            }
+        });
+        let report = DECISION_TREE_ITEMS
+            .iter()
+            .enumerate()
+            .map(|(index, _)| format!("<!-- report-section:dt-{index} -->\nSection {index}\n"))
+            .collect::<String>();
+        let artifacts = HashMap::from([
+            ("report_document", report.into_bytes()),
+            (
+                "evidence_synthesis",
+                serde_json::to_vec(&evidence_synthesis).unwrap(),
+            ),
+            ("decision_tree_plan", analysis_raw),
+            ("decision_tree_uncertainty_plan", uncertainty_raw),
+            ("decision_tree_result", serde_json::to_vec(&result).unwrap()),
+            (
+                "decision_tree_uncertainty_result",
+                serde_json::to_vec(&uncertainty_result).unwrap(),
+            ),
+        ]);
+        for (key, relative) in DECISION_TREE_BINDINGS {
+            std::fs::write(root.join(relative), &artifacts[key]).unwrap();
+        }
+        let bindings = DECISION_TREE_BINDINGS
+            .iter()
+            .map(|(key, relative)| {
+                (
+                    (*key).to_string(),
+                    serde_json::json!({
+                        "path": relative,
+                        "content_sha256": digest(&artifacts[*key])
+                    }),
+                )
+            })
+            .collect::<serde_json::Map<_, _>>();
+        let items = DECISION_TREE_ITEMS
+            .iter()
+            .enumerate()
+            .map(|(index, (profile, item))| {
+                serde_json::json!({
+                    "profile_id": profile,
+                    "item_id": item,
+                    "status": "reported",
+                    "section_id": format!("dt-{index}"),
+                    "rationale": "Reported in the bound decision-tree report.",
+                    "artifact_paths": [REPORT_DOCUMENT_PATH, "heor/decision-tree-plan.json"]
+                })
+            })
+            .collect::<Vec<_>>();
+        let loaded = HashMap::from([
+            ("decision_tree_result", result),
+            ("decision_tree_uncertainty_result", uncertainty_result),
+        ]);
+        let package = serde_json::json!({
+            "schema_version": "0.3.0",
+            "analysis_type": "decision_tree",
+            "package_id": "decision-tree-report-1",
+            "analysis_id": "decision-tree-analysis",
+            "status": status,
+            "version": "1.0.0",
+            "prepared_on": "2026-08-01",
+            "intended_audience": "HTA reviewers",
+            "release_owner_label": if status == "ready_for_release_review" { "Human release owner" } else { "" },
+            "bindings": bindings,
+            "reporting_profiles": [{"id": "CHEERS-2022", "status": "current", "scope": "cost_effectiveness"}],
+            "items": items,
+            "result_summary": expected_result_summary(&loaded),
+            "disclosures": {
+                "funding": "Disclosed", "conflicts_of_interest": "Disclosed", "agent_contributions": "Disclosed",
+                "model_providers": "Disclosed", "data_and_model_availability": "Disclosed", "patient_and_public_involvement": "Disclosed"
+            },
+            "limitations": ["Short-horizon decision tree."],
+            "release_notes": ["Prepared for human review."]
+        });
+        std::fs::write(
+            root.join(REPORT_PACKAGE_PATH),
+            serde_json::to_vec(&package).unwrap(),
+        )
+        .unwrap();
+    }
+
     fn complete_audit() -> ReportingAudit {
         ReportingAudit {
             complete: true,
@@ -998,6 +1430,7 @@ mod tests {
             reporting_item_count: 40,
             required_item_count: 40,
             covered_item_count: 40,
+            draft_only_reasons: Vec::new(),
             missing_items: Vec::new(),
             invalid_items: Vec::new(),
             errors: Vec::new(),
@@ -1032,6 +1465,41 @@ mod tests {
         assert!(summary
             .pointer("/cost_effectiveness/economic_basis")
             .is_some_and(serde_json::Value::is_null));
+    }
+
+    #[test]
+    fn decision_tree_report_is_releasable_only_when_current() {
+        let root = std::env::temp_dir().join(format!(
+            "heor-report-decision-tree-current-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        write_decision_tree_package(&root, "ready_for_release_review", false, true);
+        let audit = audit_report_package(&root).unwrap();
+        assert!(audit.complete, "{:?}", audit.errors);
+        assert!(audit.releasable);
+        assert_eq!(audit.required_item_count, 28);
+        assert!(audit.draft_only_reasons.is_empty());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn proposed_decision_tree_report_remains_exportable_draft() {
+        let root = std::env::temp_dir().join(format!(
+            "heor-report-decision-tree-draft-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        write_decision_tree_package(&root, "draft", true, true);
+        let audit = audit_report_package(&root).unwrap();
+        assert!(audit.complete, "{:?}", audit.errors);
+        assert!(!audit.releasable);
+        assert_eq!(audit.status, "draft");
+        assert!(audit
+            .draft_only_reasons
+            .iter()
+            .any(|reason| reason.contains("proposed")));
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

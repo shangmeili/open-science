@@ -837,13 +837,20 @@
     "title": "发布报告包",
     "loading": "正在检查报告包……",
     "releasable": "报告包可进入发布审阅",
+    "draft": "报告草稿可供研究者复核，尚不能进入发布审阅",
+    "draftReasons": {
+      "proposedAssumptions": "决策树仍含待核实的拟议假设。",
+      "referenceCase": "决策树采用的参考案例尚未标记为现行版本。",
+      "evidenceSynthesis": "决策树绑定的证据综合尚未达到可供研究者复核的状态。",
+      "convergence": "概率敏感性分析尚未通过预先声明的收敛检查。"
+    },
     "incomplete": "报告包不完整",
     "owner": "发布责任人",
     "coverage": "报告项目",
     "bindings": "绑定文件",
     "errors": "阻断错误",
     "askPrepare": "请助手准备或修复报告包",
-    "repairPrompt": "使用 $heor-reporting 准备或修复 heor/report-package.json 与 heor/report.md。非 PSM 项目保留 schema 0.1.0；analysis 0.15.0 / PSM 0.7.0 使用 schema 0.2.0，绑定报告、五项基础方法文件、PSM 计划、五项当前 PSM 输入及 PSM、不确定性和预算影响结果。成本-效果分析报告使用 CHEERS 2022，预算影响分析单独使用 ISPOR BIA 矩阵；结果摘要必须复制；明确披露资助、利益冲突、助手与模型提供方参与、数据和模型可得性以及患者/公众参与。不要给 CHEERS 打分，不要编辑结果文件，不要编造发布责任人，也不要创建或声称获得发布批准。",
+    "repairPrompt": "使用 $heor-reporting 准备或修复 heor/report-package.json 与 heor/report.md。Markov 非 PSM 项目使用 schema 0.1.0；analysis 0.15.0 / PSM 0.7.0 使用 schema 0.2.0；短期决策树使用专用 schema 0.3.0，绑定当前证据综合、决策树计划、决策树不确定性计划及两项确定性结果。每个 source_id 必须对应证据综合中的具体提取记录。成本-效果分析报告使用 CHEERS 2022，预算影响分析单独使用 ISPOR BIA 矩阵；决策树没有预算影响结果时不得虚构 BIA。结果摘要必须从绑定结果复制。若证据综合尚不可供研究者复核、参考案例不是 current、仍有 proposed 假设或 PSA 收敛未通过，报告必须保持 draft，并明确原因。不要编辑结果文件、编造发布责任人或创建发布批准。",
     "note": "应用验证报告结构、哈希、确定性结果复现和当前本地发布记录；这不等于科学真实性、期刊接收或政策背书。",
     "noProject": "没有可用于报告包检查的当前项目。",
     "missingPlan": "必须先有分析计划，才能检查报告包。"

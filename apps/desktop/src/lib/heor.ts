@@ -1177,7 +1177,7 @@ export interface HeorModelValidationAudit {
 export interface HeorReportingAudit {
   complete: boolean;
   releasable: boolean;
-  status: "complete" | "incomplete";
+  status: "complete" | "draft" | "incomplete";
   packageId: string;
   analysisId: string;
   reportPackageSha256: string;
@@ -1187,6 +1187,7 @@ export interface HeorReportingAudit {
   reportingItemCount: number;
   requiredItemCount: number;
   coveredItemCount: number;
+  draftOnlyReasons: string[];
   missingItems: string[];
   invalidItems: string[];
   errors: string[];
@@ -4887,6 +4888,7 @@ export const HEOR_BROWSER_DEMO_REPORTING_AUDIT: HeorReportingAudit = {
   reportingItemCount: 0,
   requiredItemCount: 40,
   coveredItemCount: 0,
+  draftOnlyReasons: [],
   missingItems: ["heor/report-package.json is required"],
   invalidItems: [],
   errors: ["heor/report-package.json is required"],

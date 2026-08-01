@@ -3668,6 +3668,274 @@ class ReportingContractTests(unittest.TestCase):
         package["result_summary"] = reporting.expected_result_summary(loaded)
         package_path.write_text(json.dumps(package, indent=2))
 
+    def decision_tree_fixture(
+        self,
+        root: Path,
+        *,
+        proposed_assumption: bool = False,
+        convergence_passed: bool = True,
+        package_status: str = "ready_for_release_review",
+    ):
+        analysis_id = "decision-tree-analysis"
+        heor = root / "heor"
+        (heor / "results").mkdir(parents=True)
+        assumption_id = "proposed-input" if proposed_assumption else ""
+        analysis = {
+            "schema_version": "0.2.0",
+            "analysis_type": "decision_tree",
+            "analysis_id": analysis_id,
+            "reference_case": {"id": "CN-2020-current", "status": "current"},
+            "economic_basis": {
+                "currency": "CNY",
+                "price_year": 2026,
+                "jurisdiction": "中国大陆",
+                "perspective": "中国医疗卫生系统",
+            },
+            "time_horizon_years": 1.0,
+            "discount_rates": {"costs": 0.0, "outcomes": 0.0},
+            "half_cycle_correction": False,
+            "willingness_to_pay": 100000.0,
+            "strategy_order": ["standard", "treatment"],
+            "baseline_strategy_id": "standard",
+            "assumptions": ([{
+                "id": assumption_id,
+                "status": "proposed",
+                "statement": "Proposed input pending evidence.",
+                "reason": "No admitted source is available yet.",
+            }] if proposed_assumption else []),
+            "strategies": {
+                "standard": {
+                    "name": "Standard care",
+                    "root_node_id": "standard-terminal",
+                    "nodes": {
+                        "standard-terminal": {
+                            "type": "terminal",
+                            "cost": {"value": 1000.0, "source_ids": ["source-1"], "assumption_ids": []},
+                            "qaly": {"value": 0.5, "source_ids": ["source-1"], "assumption_ids": []},
+                        }
+                    },
+                },
+                "treatment": {
+                    "name": "Treatment",
+                    "root_node_id": "treatment-terminal",
+                    "nodes": {
+                        "treatment-terminal": {
+                            "type": "terminal",
+                            "cost": {"value": 2000.0, "source_ids": ["source-1"], "assumption_ids": []},
+                            "qaly": {"value": 0.7, "source_ids": ["source-1"], "assumption_ids": []},
+                        }
+                    },
+                },
+            },
+        }
+        analysis_path = heor / "decision-tree-plan.json"
+        analysis_path.write_text(json.dumps(analysis, ensure_ascii=False, separators=(",", ":")))
+        analysis_hash = hashlib.sha256(analysis_path.read_bytes()).hexdigest()
+        uncertainty_plan = {
+            "schema_version": "0.1.0",
+            "analysis_type": "decision_tree_uncertainty",
+            "uncertainty_id": "decision-tree-uncertainty",
+            "analysis_input": {
+                "path": "heor/decision-tree-plan.json",
+                "content_sha256": analysis_hash,
+            },
+            "parameters": [{"id": "event-probability"}],
+            "probabilistic_analysis": {
+                "iterations": 100,
+                "seed": 20260801,
+                "convergence": {
+                    "checkpoints": [50, 100],
+                    "max_probability_mcse": 0.1,
+                    "max_probability_drift": 0.1,
+                },
+                "independence_rationale": "Only one parameter is varied.",
+                "omitted_uncertainties": [],
+            },
+        }
+        uncertainty_plan_path = heor / "decision-tree-uncertainty-plan.json"
+        uncertainty_plan_path.write_text(json.dumps(uncertainty_plan, separators=(",", ":")))
+        uncertainty_hash = hashlib.sha256(uncertainty_plan_path.read_bytes()).hexdigest()
+        evidence_synthesis = {
+            "schema_version": "0.1.0",
+            "synthesis_id": "decision-tree-evidence",
+            "status": "ready_for_human_review",
+            "records": [{"record_id": "record-1"}],
+            "extractions": [{
+                "extraction_id": "source-1",
+                "record_id": "record-1",
+                "verification_status": "human_checked",
+            }],
+        }
+        evidence_path = heor / "evidence-synthesis.json"
+        evidence_path.write_text(json.dumps(evidence_synthesis, separators=(",", ":")))
+        strategies = {
+            "standard": {
+                "name": "Standard care",
+                "total_cost": 1000.0,
+                "total_qaly": 0.5,
+                "net_monetary_benefit": 49000.0,
+            },
+            "treatment": {
+                "name": "Treatment",
+                "total_cost": 2000.0,
+                "total_qaly": 0.7,
+                "net_monetary_benefit": 68000.0,
+            },
+        }
+        base_result = {
+            "analysis_id": analysis_id,
+            "analysis_type": "decision_tree",
+            "schema_version": "0.2.0",
+            "engine_version": "0.2.0",
+            "input_sha256": analysis_hash,
+            "economic_basis": deepcopy(analysis["economic_basis"]),
+            "strategy_order": ["standard", "treatment"],
+            "baseline_strategy_id": "standard",
+            "strategies": strategies,
+            "pairwise_vs_baseline": {
+                "treatment": {
+                    "delta_cost": 1000.0,
+                    "delta_qaly": 0.2,
+                    "icer": 5000.0,
+                    "incremental_net_monetary_benefit": 19000.0,
+                }
+            },
+            "fully_incremental_analysis": [
+                {"strategy_id": "standard", "status": "frontier", "icer": None},
+                {"strategy_id": "treatment", "status": "frontier", "icer": 5000.0},
+            ],
+            "optimal_at_primary_threshold": {"strategy_id": "treatment"},
+        }
+        uncertainty_result = {
+            "analysis_id": analysis_id,
+            "analysis_type": "decision_tree_uncertainty",
+            "uncertainty_id": "decision-tree-uncertainty",
+            "schema_version": "0.1.0",
+            "engine_version": "0.1.0",
+            "analysis_schema_version": "0.2.0",
+            "analysis_input_sha256": analysis_hash,
+            "uncertainty_input_sha256": uncertainty_hash,
+            "economic_basis": deepcopy(analysis["economic_basis"]),
+            "strategy_order": ["standard", "treatment"],
+            "baseline_strategy_id": "standard",
+            "willingness_to_pay": 100000.0,
+            "base_case": {
+                key: deepcopy(base_result[key])
+                for key in (
+                    "strategy_order",
+                    "baseline_strategy_id",
+                    "strategies",
+                    "pairwise_vs_baseline",
+                    "fully_incremental_analysis",
+                    "optimal_at_primary_threshold",
+                )
+            },
+            "deterministic_analysis": [{
+                "parameter_id": "event-probability",
+                "label": "Event probability",
+                "target": {"kind": "branch_probability"},
+                "low_value": 0.2,
+                "high_value": 0.8,
+                "deterministic_basis_ids": ["source-1"],
+                "deterministic_rationale": "Evidence interval.",
+                "low_result": {},
+                "high_result": {},
+            }],
+            "probabilistic_analysis": {
+                "iterations": 100,
+                "prng": {"algorithm": "pcg32-xsh-rr", "version": "1", "seed": 20260801},
+                "independence_rationale": "Only one parameter is varied.",
+                "omitted_uncertainties": [],
+                "parameter_distributions": [{
+                    "parameter_id": "event-probability",
+                    "distribution": {"type": "uniform", "low": 0.2, "high": 0.8},
+                    "basis_ids": ["source-1"],
+                    "rationale": "Evidence interval.",
+                }],
+                "mean_outcomes": strategies,
+                "optimal_counts": {"standard": 20, "treatment": 80},
+                "tie_count": 0,
+                "optimal_probabilities": {"standard": 0.2, "treatment": 0.8},
+                "tie_probability": 0.0,
+                "convergence": {
+                    "passed": convergence_passed,
+                    "probability_drift": 0.02,
+                    "max_probability_mcse": 0.1,
+                    "max_probability_drift": 0.1,
+                    "checkpoints": [],
+                },
+                "samples": [{"iteration": 1}],
+            },
+        }
+        values = {
+            "evidence_synthesis": evidence_synthesis,
+            "decision_tree_plan": analysis,
+            "decision_tree_uncertainty_plan": uncertainty_plan,
+            "decision_tree_result": base_result,
+            "decision_tree_uncertainty_result": uncertainty_result,
+        }
+        paths = {
+            "evidence_synthesis": evidence_path,
+            "decision_tree_plan": analysis_path,
+            "decision_tree_uncertainty_plan": uncertainty_plan_path,
+        }
+        for key in ("decision_tree_result", "decision_tree_uncertainty_result"):
+            path = root / reporting.DECISION_TREE_BINDINGS[key]
+            path.write_text(json.dumps(values[key], ensure_ascii=False, separators=(",", ":")))
+            paths[key] = path
+        report_text = "# Decision-tree report\n\n" + "\n".join(
+            f"<!-- report-section:decision-tree-{index} -->\nSubstantive reporting text."
+            for index in range(len(reporting.DECISION_TREE_REQUIRED_ITEMS))
+        )
+        report_path = heor / "report.md"
+        report_path.write_text(report_text)
+        paths["report_document"] = report_path
+        bindings = {
+            key: {
+                "path": relative,
+                "content_sha256": hashlib.sha256((root / relative).read_bytes()).hexdigest(),
+            }
+            for key, relative in reporting.DECISION_TREE_BINDINGS.items()
+        }
+        items = [
+            {
+                "profile_id": profile_id,
+                "item_id": item_id,
+                "status": "reported",
+                "section_id": f"decision-tree-{index}",
+                "rationale": "The decision-tree report addresses this item.",
+                "artifact_paths": ["heor/report.md", "heor/decision-tree-plan.json"],
+            }
+            for index, (profile_id, item_id) in enumerate(reporting.DECISION_TREE_REQUIRED_ITEMS)
+        ]
+        loaded = {
+            "decision_tree_result": base_result,
+            "decision_tree_uncertainty_result": uncertainty_result,
+        }
+        package = {
+            "schema_version": "0.3.0",
+            "analysis_type": "decision_tree",
+            "package_id": "decision-tree-report-1",
+            "analysis_id": analysis_id,
+            "status": package_status,
+            "version": "1.0.0",
+            "prepared_on": "2026-08-01",
+            "intended_audience": "Health technology assessment reviewers",
+            "release_owner_label": (
+                "Human release owner" if package_status == "ready_for_release_review" else ""
+            ),
+            "bindings": bindings,
+            "reporting_profiles": deepcopy(reporting.DECISION_TREE_PROFILES),
+            "items": items,
+            "result_summary": reporting.expected_result_summary(loaded),
+            "disclosures": {key: "Explicitly disclosed." for key in reporting.DISCLOSURES},
+            "limitations": ["Short-horizon decision tree."],
+            "release_notes": ["Prepared for human review."],
+        }
+        package_path = heor / "report-package.json"
+        package_path.write_text(json.dumps(package, ensure_ascii=False, indent=2))
+        return package_path, package, paths
+
     def test_complete_bound_report_package_is_releasable(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -3688,6 +3956,72 @@ class ReportingContractTests(unittest.TestCase):
             self.assertEqual(
                 package["result_summary"]["cost_effectiveness"]["baseline_strategy_id"],
                 "standard",
+            )
+
+    def test_current_decision_tree_report_package_is_releasable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, package, _ = self.decision_tree_fixture(root)
+            result = reporting.audit(
+                package_path, root
+            )
+            self.assertTrue(result["complete"], result)
+            self.assertTrue(result["releasable"], result)
+            self.assertEqual(result["status"], "complete")
+            self.assertEqual(result["required_item_count"], 28)
+            self.assertEqual(result["draft_only_reasons"], [])
+            self.assertEqual(
+                package["result_summary"]["uncertainty"]["deterministic_analysis"][0]["parameter_id"],
+                "event-probability",
+            )
+            self.assertNotIn(
+                "samples",
+                package["result_summary"]["uncertainty"]["probabilistic_analysis"],
+            )
+
+    def test_proposed_decision_tree_inputs_remain_exportable_draft_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, _, _ = self.decision_tree_fixture(
+                root, proposed_assumption=True, package_status="draft"
+            )
+            result = reporting.audit(package_path, root)
+            self.assertTrue(result["complete"], result)
+            self.assertFalse(result["releasable"])
+            self.assertEqual(result["status"], "draft")
+            self.assertTrue(any("proposed" in reason for reason in result["draft_only_reasons"]))
+
+    def test_failed_convergence_cannot_be_labelled_ready_for_release_review(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, _, _ = self.decision_tree_fixture(
+                root, convergence_passed=False
+            )
+            result = reporting.audit(package_path, root)
+            self.assertFalse(result["complete"])
+            self.assertFalse(result["releasable"])
+            self.assertTrue(any("must remain draft" in error for error in result["errors"]), result)
+
+    def test_decision_tree_report_source_ids_must_resolve_to_bound_extractions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package_path, package, paths = self.decision_tree_fixture(root)
+            analysis = json.loads(paths["decision_tree_plan"].read_text())
+            analysis["strategies"]["treatment"]["nodes"]["treatment-terminal"]["cost"][
+                "source_ids"
+            ] = ["missing-extraction"]
+            paths["decision_tree_plan"].write_text(
+                json.dumps(analysis, ensure_ascii=False, separators=(",", ":"))
+            )
+            package["bindings"]["decision_tree_plan"]["content_sha256"] = hashlib.sha256(
+                paths["decision_tree_plan"].read_bytes()
+            ).hexdigest()
+            package_path.write_text(json.dumps(package, ensure_ascii=False, indent=2))
+            result = reporting.audit(package_path, root)
+            self.assertFalse(result["complete"])
+            self.assertTrue(
+                any("source_ids must reference" in error for error in result["errors"]),
+                result,
             )
 
     def test_psm_report_fails_closed_on_result_source_drift(self):

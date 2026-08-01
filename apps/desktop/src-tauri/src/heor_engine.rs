@@ -906,6 +906,7 @@ mod tests {
             reporting_item_count: 40,
             required_item_count: 40,
             covered_item_count: 40,
+            draft_only_reasons: Vec::new(),
             missing_items: Vec::new(),
             invalid_items: Vec::new(),
             errors: Vec::new(),

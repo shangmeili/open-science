@@ -34,6 +34,7 @@ import {
   NetworkMetaAnalysisReviewDialog,
   PopulationAdjustedComparisonAssessment,
   PopulationAdjustedComparisonReviewDialog,
+  ReportingAssessment,
   ModelCalibrationAssessment,
   ModelCalibrationReviewDialog,
   MicrosimulationAssessment,
@@ -48,6 +49,45 @@ import {
 afterEach(() => useUiStore.getState().setLocale("en"));
 
 describe("AI4HEOR human review pane", () => {
+  it("shows decision-tree draft-only reasons without calling the package releasable", () => {
+    render(
+      <ReportingAssessment
+        state={{
+          kind: "ready",
+          audit: {
+            complete: true,
+            releasable: false,
+            status: "draft",
+            packageId: "decision-tree-report-1",
+            analysisId: "decision-tree-analysis",
+            reportPackageSha256: "a".repeat(64),
+            releaseOwnerLabel: "",
+            bindingHashes: {},
+            bindingPaths: {},
+            reportingItemCount: 28,
+            requiredItemCount: 28,
+            coveredItemCount: 28,
+            draftOnlyReasons: ["decision-tree inputs still contain proposed assumptions"],
+            missingItems: [],
+            invalidItems: [],
+            errors: [],
+          },
+        }}
+        onRequestPreparation={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText("The report draft is available for researcher review but cannot enter release review"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText((_, element) =>
+        element?.tagName === "LI"
+        && element.textContent === "• The decision tree still contains proposed assumptions awaiting verification."
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Report package is ready for release review")).not.toBeInTheDocument();
+  });
+
   it("shows the actual decision definition before recording researcher confirmation", () => {
     render(
       <ApprovalDialog

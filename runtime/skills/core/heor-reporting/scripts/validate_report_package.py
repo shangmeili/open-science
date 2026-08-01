@@ -42,9 +42,20 @@ PARTITIONED_BINDINGS = {
     "uncertainty_result": "heor/results/uncertainty.json",
     "budget_impact_result": "heor/results/budget-impact.json",
 }
+DECISION_TREE_BINDINGS = {
+    "report_document": "heor/report.md",
+    "evidence_synthesis": "heor/evidence-synthesis.json",
+    "decision_tree_plan": "heor/decision-tree-plan.json",
+    "decision_tree_uncertainty_plan": "heor/decision-tree-uncertainty-plan.json",
+    "decision_tree_result": "heor/results/decision-tree.json",
+    "decision_tree_uncertainty_result": "heor/results/decision-tree-uncertainty.json",
+}
 PROFILES = [
     {"id": "CHEERS-2022", "status": "current", "scope": "cost_effectiveness"},
     {"id": "ISPOR-BIA-GP-II-2014", "status": "current", "scope": "budget_impact"},
+]
+DECISION_TREE_PROFILES = [
+    {"id": "CHEERS-2022", "status": "current", "scope": "cost_effectiveness"},
 ]
 CHEERS_ITEMS = [
     "1-title", "2-abstract", "3-background-objectives", "4-analysis-plan",
@@ -68,6 +79,9 @@ BIA_ITEMS = [
 REQUIRED_ITEMS = {
     **{("CHEERS-2022", item): "cost_effectiveness" for item in CHEERS_ITEMS},
     **{("ISPOR-BIA-GP-II-2014", item): "budget_impact" for item in BIA_ITEMS},
+}
+DECISION_TREE_REQUIRED_ITEMS = {
+    ("CHEERS-2022", item): "cost_effectiveness" for item in CHEERS_ITEMS
 }
 DISCLOSURES = {
     "funding", "conflicts_of_interest", "agent_contributions", "model_providers",
@@ -123,8 +137,78 @@ def nested(value: dict, *parts: str) -> object:
     return current
 
 
+def collect_string_array_values(value: object, key: str) -> set[str] | None:
+    found: set[str] = set()
+    valid = True
+
+    def visit(current: object) -> None:
+        nonlocal valid
+        if isinstance(current, dict):
+            for field, item in current.items():
+                if field == key:
+                    if not isinstance(item, list) or any(not text(entry) for entry in item):
+                        valid = False
+                    else:
+                        found.update(str(entry) for entry in item)
+                else:
+                    visit(item)
+        elif isinstance(current, list):
+            for item in current:
+                visit(item)
+
+    visit(value)
+    return found if valid else None
+
+
 def expected_result_summary(loaded: dict[str, dict]) -> dict:
     """Return the exact bounded summary for legacy or multi-strategy results."""
+    if "decision_tree_result" in loaded:
+        base_case = loaded.get("decision_tree_result", {})
+        uncertainty_result = loaded.get("decision_tree_uncertainty_result", {})
+        raw_strategies = base_case.get("strategies", {})
+        if not isinstance(raw_strategies, dict) or any(
+            not text(strategy_id) or not isinstance(strategy, dict)
+            for strategy_id, strategy in raw_strategies.items()
+        ):
+            raise ValueError(
+                "decision-tree strategies must be an object of strategy result objects"
+            )
+        strategies = {
+            strategy_id: {
+                "name": strategy.get("name"),
+                "total_cost": strategy.get("total_cost"),
+                "total_qaly": strategy.get("total_qaly"),
+                "net_monetary_benefit": strategy.get("net_monetary_benefit"),
+            }
+            for strategy_id, strategy in raw_strategies.items()
+        }
+        probabilistic = uncertainty_result.get("probabilistic_analysis", {})
+        if not isinstance(probabilistic, dict):
+            raise ValueError("decision-tree probabilistic_analysis must be an object")
+        uncertainty_summary = {
+            key: value for key, value in probabilistic.items() if key != "samples"
+        }
+        return {
+            "cost_effectiveness": {
+                "economic_basis": base_case.get("economic_basis"),
+                "strategy_order": base_case.get("strategy_order"),
+                "baseline_strategy_id": base_case.get("baseline_strategy_id"),
+                "strategies": strategies,
+                "pairwise_vs_baseline": base_case.get("pairwise_vs_baseline"),
+                "fully_incremental_analysis": base_case.get(
+                    "fully_incremental_analysis"
+                ),
+                "optimal_at_primary_threshold": base_case.get(
+                    "optimal_at_primary_threshold"
+                ),
+            },
+            "uncertainty": {
+                "deterministic_analysis": uncertainty_result.get(
+                    "deterministic_analysis"
+                ),
+                "probabilistic_analysis": uncertainty_summary,
+            },
+        }
     base_case = loaded.get("partitioned_survival_result", loaded.get("base_case_result", {}))
     uncertainty_result = loaded.get("uncertainty_result", {})
     probabilistic = uncertainty_result.get("probabilistic_analysis", {})
@@ -208,6 +292,10 @@ def expected_result_summary(loaded: dict[str, dict]) -> dict:
 
 
 def binding_contract(package: dict, analysis: dict, errors: list[str]) -> dict[str, str]:
+    if package.get("analysis_type") == "decision_tree":
+        if package.get("schema_version") != "0.3.0":
+            errors.append("decision-tree reporting requires schema_version 0.3.0")
+        return dict(DECISION_TREE_BINDINGS)
     partitioned = analysis.get("partitioned_survival_analysis") == {
         "path": "heor/partitioned-survival-plan.json"
     }
@@ -251,18 +339,37 @@ def audit(package_path: Path, workspace: Path) -> dict:
     missing_items: list[str] = []
     invalid_items: list[str] = []
 
-    for field in ("package_id", "analysis_id", "version", "intended_audience", "release_owner_label"):
+    decision_tree = package.get("analysis_type") == "decision_tree"
+    for field in ("package_id", "analysis_id", "version", "intended_audience"):
         if not text(package.get(field)):
             errors.append(f"{field} is required")
-    if package.get("status") != "ready_for_release_review":
+    if not decision_tree and not text(package.get("release_owner_label")):
+        errors.append("release_owner_label is required")
+    if decision_tree:
+        if package.get("status") not in {"draft", "ready_for_release_review"}:
+            errors.append("decision-tree report status must be draft or ready_for_release_review")
+        if (
+            package.get("status") == "ready_for_release_review"
+            and not text(package.get("release_owner_label"))
+        ):
+            errors.append("release_owner_label is required for release review")
+    elif package.get("status") != "ready_for_release_review":
         errors.append("status must be ready_for_release_review")
     if not DATE.fullmatch(str(package.get("prepared_on", ""))):
         errors.append("prepared_on must be YYYY-MM-DD")
-    if package.get("reporting_profiles") != PROFILES:
-        errors.append("reporting_profiles must contain the scoped CHEERS 2022 and ISPOR BIA profiles")
+    expected_profiles = DECISION_TREE_PROFILES if decision_tree else PROFILES
+    if package.get("reporting_profiles") != expected_profiles:
+        errors.append(
+            "reporting_profiles must contain the reporting profiles scoped by the report schema"
+        )
 
     try:
-        analysis, _ = load_object(workspace_file(workspace, "heor/analysis-plan.json"))
+        analysis_path = (
+            "heor/decision-tree-plan.json"
+            if decision_tree
+            else "heor/analysis-plan.json"
+        )
+        analysis, _ = load_object(workspace_file(workspace, analysis_path))
     except (OSError, ValueError, json.JSONDecodeError) as error:
         analysis = {}
         errors.append(str(error))
@@ -297,30 +404,108 @@ def audit(package_path: Path, workspace: Path) -> dict:
             errors.append(f"bindings.{key}.content_sha256 does not match current bytes")
 
     for key, value in loaded.items():
+        if decision_tree and key in {
+            "decision_tree_uncertainty_plan",
+            "evidence_synthesis",
+        }:
+            continue
         if value.get("analysis_id") != package.get("analysis_id"):
             errors.append(f"{expected_bindings[key]} analysis_id does not match the report package")
 
-    analysis_hash = binding_hashes.get("analysis_plan")
-    uncertainty_plan_hash = binding_hashes.get("uncertainty_plan")
-    bia_plan_hash = binding_hashes.get("budget_impact_plan")
-    if "base_case_result" in loaded and loaded["base_case_result"].get("input_sha256") != analysis_hash:
-        errors.append("base-case result is not bound to the current analysis plan")
-    uncertainty_result = loaded.get("uncertainty_result", {})
-    if uncertainty_result.get("base_analysis_sha256") != analysis_hash:
-        errors.append("uncertainty result is not bound to the current analysis plan")
-    if uncertainty_result.get("uncertainty_plan_sha256") != uncertainty_plan_hash:
-        errors.append("uncertainty result is not bound to the current uncertainty plan")
-    bia_result = loaded.get("budget_impact_result", {})
-    if bia_result.get("analysis_plan_sha256") != analysis_hash:
-        errors.append("budget-impact result is not bound to the current analysis plan")
-    if bia_result.get("budget_impact_plan_sha256") != bia_plan_hash:
-        errors.append("budget-impact result is not bound to the current budget-impact plan")
-    validate_partitioned_consistency(loaded, binding_hashes, errors)
+    draft_only_reasons: list[str] = []
+    if decision_tree:
+        analysis_hash = binding_hashes.get("decision_tree_plan")
+        uncertainty_plan_hash = binding_hashes.get("decision_tree_uncertainty_plan")
+        base_result = loaded.get("decision_tree_result", {})
+        uncertainty_result = loaded.get("decision_tree_uncertainty_result", {})
+        if analysis.get("schema_version") != "0.2.0":
+            errors.append("decision-tree reports require current analysis schema 0.2.0")
+        if analysis.get("analysis_type") != "decision_tree":
+            errors.append("decision-tree plan analysis_type is invalid")
+        if (
+            base_result.get("schema_version") != "0.2.0"
+            or base_result.get("engine_version") != "0.2.0"
+            or base_result.get("input_sha256") != analysis_hash
+        ):
+            errors.append("decision-tree result is not current for the bound plan")
+        if (
+            uncertainty_result.get("schema_version") != "0.1.0"
+            or uncertainty_result.get("engine_version") != "0.1.0"
+            or uncertainty_result.get("analysis_input_sha256") != analysis_hash
+            or uncertainty_result.get("uncertainty_input_sha256")
+            != uncertainty_plan_hash
+        ):
+            errors.append("decision-tree uncertainty result is not current for the bound plans")
+        if (
+            base_result.get("economic_basis") != analysis.get("economic_basis")
+            or uncertainty_result.get("economic_basis") != analysis.get("economic_basis")
+        ):
+            errors.append("decision-tree economic basis does not match across bound artifacts")
+        evidence_synthesis = loaded.get("evidence_synthesis", {})
+        source_ids = collect_string_array_values(analysis, "source_ids")
+        extractions = evidence_synthesis.get("extractions")
+        extraction_ids = {
+            item.get("extraction_id")
+            for item in extractions
+            if isinstance(item, dict) and text(item.get("extraction_id"))
+        } if isinstance(extractions, list) else set()
+        if source_ids is None or not source_ids:
+            errors.append("decision-tree plan must contain valid source_ids for report use")
+        elif not source_ids.issubset(extraction_ids):
+            errors.append(
+                "decision-tree source_ids must reference bound evidence-synthesis extractions"
+            )
+        reference_status = nested(analysis, "reference_case", "status")
+        if reference_status != "current":
+            draft_only_reasons.append(
+                "decision-tree reference case is not marked current"
+            )
+        if evidence_synthesis.get("status") != "ready_for_human_review":
+            draft_only_reasons.append(
+                "decision-tree evidence synthesis is not ready for human review"
+            )
+        assumptions = analysis.get("assumptions")
+        if isinstance(assumptions, list) and any(
+            isinstance(item, dict) and item.get("status") == "proposed"
+            for item in assumptions
+        ):
+            draft_only_reasons.append(
+                "decision-tree inputs still contain proposed assumptions"
+            )
+        if nested(
+            uncertainty_result, "probabilistic_analysis", "convergence", "passed"
+        ) is not True:
+            draft_only_reasons.append(
+                "decision-tree probabilistic convergence has not passed"
+            )
+        if package.get("status") == "ready_for_release_review" and draft_only_reasons:
+            errors.append(
+                "decision-tree report must remain draft while: "
+                + "; ".join(draft_only_reasons)
+            )
+    else:
+        analysis_hash = binding_hashes.get("analysis_plan")
+        uncertainty_plan_hash = binding_hashes.get("uncertainty_plan")
+        bia_plan_hash = binding_hashes.get("budget_impact_plan")
+        if "base_case_result" in loaded and loaded["base_case_result"].get("input_sha256") != analysis_hash:
+            errors.append("base-case result is not bound to the current analysis plan")
+        uncertainty_result = loaded.get("uncertainty_result", {})
+        if uncertainty_result.get("base_analysis_sha256") != analysis_hash:
+            errors.append("uncertainty result is not bound to the current analysis plan")
+        if uncertainty_result.get("uncertainty_plan_sha256") != uncertainty_plan_hash:
+            errors.append("uncertainty result is not bound to the current uncertainty plan")
+        bia_result = loaded.get("budget_impact_result", {})
+        if bia_result.get("analysis_plan_sha256") != analysis_hash:
+            errors.append("budget-impact result is not bound to the current analysis plan")
+        if bia_result.get("budget_impact_plan_sha256") != bia_plan_hash:
+            errors.append("budget-impact result is not bound to the current budget-impact plan")
+        validate_partitioned_consistency(loaded, binding_hashes, errors)
 
     raw_items = package.get("items")
     items = raw_items if isinstance(raw_items, list) and all(isinstance(item, dict) for item in raw_items) else []
-    if len(items) != len(REQUIRED_ITEMS):
-        errors.append(f"items must contain exactly {len(REQUIRED_ITEMS)} reporting items")
+    required_items = DECISION_TREE_REQUIRED_ITEMS if decision_tree else REQUIRED_ITEMS
+    if len(items) != len(required_items):
+        errors.append(f"items must contain exactly {len(required_items)} reporting items")
     seen: set[tuple[str, str]] = set()
     sections: set[str] = set()
     allowed_paths = set(expected_bindings.values())
@@ -329,7 +514,7 @@ def audit(package_path: Path, workspace: Path) -> dict:
         if key in seen:
             invalid_items.append(f"items[{index}] duplicates {key[0]}:{key[1]}")
         seen.add(key)
-        if key not in REQUIRED_ITEMS:
+        if key not in required_items:
             invalid_items.append(f"items[{index}] is not a scoped reporting item")
         if item.get("status") not in {"reported", "not_applicable"}:
             invalid_items.append(f"items[{index}].status must be reported or not_applicable")
@@ -345,7 +530,7 @@ def audit(package_path: Path, workspace: Path) -> dict:
         paths = item.get("artifact_paths")
         if not strings(paths, nonempty=True) or not set(paths or []).issubset(allowed_paths):
             invalid_items.append(f"items[{index}].artifact_paths must reference bound artifacts")
-    for key in REQUIRED_ITEMS:
+    for key in required_items:
         if key not in seen:
             missing_items.append(f"{key[0]}:{key[1]}")
     errors.extend(invalid_items)
@@ -370,18 +555,30 @@ def audit(package_path: Path, workspace: Path) -> dict:
         errors.append("release_notes must be a non-empty unique string array")
 
     complete = not errors
+    releasable = (
+        complete
+        and package.get("status") == "ready_for_release_review"
+        and not draft_only_reasons
+    )
     return {
         "complete": complete,
-        "releasable": complete,
-        "status": "complete" if complete else "incomplete",
+        "releasable": releasable,
+        "status": (
+            "complete"
+            if releasable
+            else "draft"
+            if complete and decision_tree and package.get("status") == "draft"
+            else "incomplete"
+        ),
         "package_id": str(package.get("package_id", "")),
         "analysis_id": str(package.get("analysis_id", "")),
         "report_package_sha256": hashlib.sha256(package_raw).hexdigest(),
         "release_owner_label": str(package.get("release_owner_label", "")),
         "binding_hashes": binding_hashes,
         "reporting_item_count": len(items),
-        "required_item_count": len(REQUIRED_ITEMS),
-        "covered_item_count": len(REQUIRED_ITEMS) - len(missing_items),
+        "required_item_count": len(required_items),
+        "covered_item_count": len(required_items) - len(missing_items),
+        "draft_only_reasons": draft_only_reasons,
         "missing_items": missing_items,
         "invalid_items": invalid_items,
         "errors": errors,
@@ -401,7 +598,10 @@ def main(argv: list[str]) -> int:
         for error in result["errors"]:
             print(f"invalid: {error}", file=sys.stderr)
         return 1
-    print("valid (releasable after app-owned human approval)")
+    if result["releasable"]:
+        print("valid (releasable after app-owned human approval)")
+    else:
+        print("valid draft (not release-reviewable)")
     return 0
 
 

@@ -37,6 +37,10 @@ Schema `0.1.0` remains the non-PSM contract. Its package binds the exact current
 
 For a linked partitioned-survival analysis, schema `0.2.0` instead requires the exact 15-key set in `assets/psm-report-bindings.template.json`: the report; the five non-report method artifacts above; the PSM plan; the five current materialization, duration, cost, utility, and event inputs; and the PSM, uncertainty, and budget-impact results. The PSM and uncertainty results must reproduce the same source hashes. The exact uncertainty-plan bytes transitively bind any joint-survival manifest and draws; those potentially large files are not duplicated in this bounded report manifest.
 
+For a short-horizon decision tree, report schema `0.3.0` is a separate cost-effectiveness-only contract. It binds exactly `heor/report.md`, `heor/evidence-synthesis.json`, current `heor/decision-tree-plan.json` schema `0.2.0`, `heor/decision-tree-uncertainty-plan.json`, `heor/results/decision-tree.json`, and `heor/results/decision-tree-uncertainty.json`. Every decision-tree `source_id` must identify an extraction in that exact evidence synthesis. It uses CHEERS 2022 only; it does not add an ISPOR BIA matrix or imply that a budget-impact analysis exists. The result and uncertainty result must bind the exact current plan bytes, and the uncertainty result must also bind the exact uncertainty-plan bytes.
+
+A structurally complete decision-tree package may remain `draft` and may be rendered for Human review. It is not release-reviewable while the reference case is not current, the evidence synthesis is not ready for Human review, any plan input still relies on `proposed assumptions`, or the declared PSA convergence check has not passed. Labelling such a package `ready_for_release_review` is an error. Draft status does not authorize the reporting layer to change the plan, replace evidence, relax convergence thresholds, rerun with different inputs, or suppress the reason.
+
 The desktop writes result files after deterministic execution. The release gate
 re-executes all three calculations and compares exact output hashes, so a
 workspace-authored substitute cannot become authoritative merely by matching a
@@ -68,6 +72,7 @@ frontier, and the primary-threshold optimum. Occupancy traces are deliberately
 excluded from this report summary but remain bound in the result artifact.
 Values must match exactly, including `null` when an ICER or economic basis is
 undefined.
+For a decision tree, the bounded summary copies the economic basis, strategy order, baseline, strategy cost/QALY/NMB totals, pairwise results, fully incremental frontier, primary-threshold optimum, all DSA rows, and all PSA summary fields except the per-iteration `samples`. Samples remain available and integrity-bound in the uncertainty result; omitting them from the report manifest prevents an unbounded report while preserving exact auditability.
 When the uncertainty result contains `decision_uncertainty`, the package copies
 that complete object exactly: threshold rows, every strategy's unique-optimal
 CEAC probability, separate tie probability, CEAF probabilities,
