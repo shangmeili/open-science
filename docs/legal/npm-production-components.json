@@ -1,8 +1,8 @@
 {
   "schema": "ai4heor-npm-license-inventory/v1",
-  "generated_on": "2026-07-31",
+  "generated_on": "2026-08-01",
   "scope": "pnpm production dependency universe resolved from the lockfile",
-  "lockfile_sha256": "c44ada400a37260ea0940a0df523f3bfe31e8c63ea70c0084369ca5f100a82af",
+  "lockfile_sha256": "56c8e221edfd40faaa0a839b8f85934bf683fc34ae33b487f9918500591c765d",
   "components": [
     {
       "name": "3dmol",
@@ -666,8 +666,8 @@
     {
       "name": "brace-expansion",
       "versions": [
-        "1.1.16",
-        "2.1.2"
+        "1.1.18",
+        "2.1.4"
       ],
       "license": "MIT",
       "author": "Julian Gruber",

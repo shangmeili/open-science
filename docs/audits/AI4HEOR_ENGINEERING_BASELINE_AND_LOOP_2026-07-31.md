@@ -3,7 +3,7 @@
 ## 基线
 
 - 分支：`codex/heor-workbench`
-- P1-AI-001b2 开始前的已提交基线：`38babd9`；P1-AI-001b3 实施前的已提交基线：`bc71b1b`；P1-TEST-001b1 实施前的已提交基线：`38a5687`；P1-TEST-001b2 实施前的已提交基线：`076180f`；P1-TEST-001b3 实施前的已提交基线：`14254f8`；P1-TEST-001b4 实施前的已提交基线：`1cf99a8`；P1-TEST-001b5 实施前的已提交基线：`6f48f57`；P1-TEST-001b6 实施前的已提交基线：`93912be`；P1-TEST-001b7 实施前的已提交基线：`7e26b0d`；P1-TEST-001b8 调查前的已提交基线：`27802d4`；P1-TEST-001b9 安装包验证基线：`b480c26`；P1-TEST-001b10 供应商失败恢复实施前基线：`d275c0a`；P1-TEST-001b11 导入—执行—导出验收实施前基线：`ab3b2d5`；P1-AI-001c 研究者可见审计实施前基线：`85fa920`；P1-AI-001d 精确对话定位实施前基线：`5040b1f`；P1-QUEUE-001 队列竞态实施前基线：`5c0a6ac`；P1-SCI-001a 决策树 Skill 与任务执行实施前基线：`68a9076`；P1-SCI-001b 专用桌面复核实施前基线：`499f968`。更早已完成业务修复均保留为独立提交，本轮不重复修改。
+- P1-AI-001b2 开始前的已提交基线：`38babd9`；P1-AI-001b3 实施前的已提交基线：`bc71b1b`；P1-TEST-001b1 实施前的已提交基线：`38a5687`；P1-TEST-001b2 实施前的已提交基线：`076180f`；P1-TEST-001b3 实施前的已提交基线：`14254f8`；P1-TEST-001b4 实施前的已提交基线：`1cf99a8`；P1-TEST-001b5 实施前的已提交基线：`6f48f57`；P1-TEST-001b6 实施前的已提交基线：`93912be`；P1-TEST-001b7 实施前的已提交基线：`7e26b0d`；P1-TEST-001b8 调查前的已提交基线：`27802d4`；P1-TEST-001b9 安装包验证基线：`b480c26`；P1-TEST-001b10 供应商失败恢复实施前基线：`d275c0a`；P1-TEST-001b11 导入—执行—导出验收实施前基线：`ab3b2d5`；P1-AI-001c 研究者可见审计实施前基线：`85fa920`；P1-AI-001d 精确对话定位实施前基线：`5040b1f`；P1-QUEUE-001 队列竞态实施前基线：`5c0a6ac`；P1-SCI-001a 决策树 Skill 与任务执行实施前基线：`68a9076`；P1-SCI-001b 专用桌面复核实施前基线：`499f968`；P1-SEC-002b OOM 通告修复实施前基线：`04b2142`。更早已完成业务修复均保留为独立提交，本轮不重复修改。
 - 基线原则：在现有 Open Science/Tauri 技术栈上增量推进；AI 负责辅助推理，正式研究计算由可验证的确定性模块完成；科学、隐私、兼容性和公开接口决策保留 Human-in-the-loop。
 - 已完成 loop 范围：不可信 HTML 预览边界、同主版本 JavaScript CPU 拒绝服务补丁、安装后 OpenCode 的鉴权 HTTP 就绪证据、安装后前端 bootstrap 证据合同、经研究者确认的两策略 PSA 零 INMB 并列口径、PPTX 预览中 ECharts `lines` 系列通告的不可达性门禁、经研究者确认后实现的首版短期确定性决策树内核、决策树第一方 Skill、自然语言任务执行路径和按精确输入字节绑定的专用桌面复核、不含对话正文的模型调用用量/费用元数据账本、应用固定 HEOR 前导提示的精确指纹和回复语言记录、模型调用与工具产物/运行的准确关联、研究者可见调用详情、从审计记录返回精确助手/工具动作的对话定位，以及 OpenCode 双重空闲事件导致的排队竞态。决策树 DSA/PSA、报告和复现包仍未连接。
 
@@ -27,7 +27,7 @@
 | P0-SEC-001 | P0 | 本轮已修复 | `FilePreviewInspector` 原先向不可信 HTML 授予 `allow-scripts`，本地预览响应无 CSP，可能导致脚本执行和研究数据外发 |
 | P0-AI-002 | P0 | 已修复 | 导入项目原有 `AGENTS.md` 会被 OpenCode 作为项目级系统指令加载，而旧实现只在缺文件时复制产品 Harness，导致产品科研与数据边界可能整体缺席；现保留用户文件并在每次 sidecar 启动时 fail-closed 校验、额外加载应用自有 Harness |
 | P1-SEC-002a | P1 | 已修复 | `brace-expansion 1.1.15 / 2.1.1` 受 CPU 拒绝服务通告影响；已同主版本升级并加入发布门禁 |
-| P1-SEC-002b | P1 | 待单独处理 | `brace-expansion` OOM 通告当前只标记 5.0.8 为修复版；旧主版本跨版替换需独立兼容性决策，漏洞代码未进入当前 Tauri 前端产物 |
+| P1-SEC-002b | P1 | 已修复 | `brace-expansion` OOM 通告更新后已为三条受影响维护线提供补丁；锁文件固定为 1.1.18、2.1.4、5.0.9，并以语义版本门禁阻止重新引入受影响范围；生产审计高危项已归零 |
 | P1-TEST-001a | P1 | macOS x64 原生执行通过；Windows 待执行 | 安装包首启过去只证明 OpenCode 进程存在；现要求未授权健康请求返回 401，且证据不保存端口或密码 |
 | P1-TEST-001b | P1 | 调试构建主要交互分支及导入—执行—导出已完成；安装包内 A1 权限已验证；安装后完整 UI 待后续 loop | 测试专用 macOS Tauri WebDriver 已验证 IPC 桥接、真实侧边栏/文件操作、HTML 安全边界、任务作用域隔离、队列排序/删除/逐条发送、OpenCode `question` 回答恢复、provider 400 失败恢复、危险 bash 命令的一次授权/拒绝，以及项目原生导入、受管副本内项目任务执行、确定性 DOCX/PDF/XLSX 报告导出与当前性审计；外部源目录保持不变。当前 DMG 另已验证精确权限的保存、重启复用、撤销和重新询问。安装包完整任务 UI 仍缺自动化 E2E |
 | P1-PERM-001 | P1 | 已按研究者确认的方案 A 修复 | “始终允许”现将当前项目、动作和精确资源写入本地 SQLite；同项目同资源在应用重启后复用，不同项目或资源仍询问；研究者可在隐私设置查看并撤销，撤销后重新询问；项目 ID 迁移同步迁移权限记录 |
@@ -55,7 +55,7 @@
 4. P1-PERM-001：方案 A 已完成并独立验证；项目级精确规则持久化、重启复用、跨项目/跨资源隔离、研究者可见撤销、撤销后重新询问和项目 ID 迁移均纳入回归。
 5. P1-TEST-001c：安装后前端 bootstrap 合同已在新 macOS x64 DMG 原生执行通过；Windows 待执行，且不得据此宣称完整可视 E2E 已完成。
 6. P1-TEST-002：调试构建资源目录确定性重建及原生 E2E 部署错误门禁已完成；构建仅清理可再生成的准入 Skill 暂存树，不触及源码、用户数据或安装应用。
-7. P1-SEC-002：CPU 型通告已完成同主版本修复；OOM、UUID 和 React Router 通告继续按实际可达路径逐个处置，不强制整树升级。ECharts `lines` 系列通告已证明当前 PPTX 路径不可达。
+7. P1-SEC-002：CPU 与 OOM 型 `brace-expansion` 通告均已在兼容维护线上修复，并用发布门禁阻止回退；UUID 与 React Router 通告继续按实际可达路径分别处置，不强制整树升级。ECharts `lines` 系列通告已证明当前 PPTX 路径不可达。
 8. P1-SCI-003：统一两策略 PSA 的零 INMB 并列口径（已完成）。
 9. P1-SCI-001：首版确定性内核、第一方 Skill、自然语言任务执行和专用桌面复核已完成；后续分别为报告与复现包建立独立合同。P1-SCI-002 仍需先建立人工可核算基准，禁止与界面修复混做。
 10. P0-AI-002：产品 Harness 已改为每次运行必定校验和叠加加载，用户/项目指令保留但不得替代产品治理边界（已完成）。
@@ -80,8 +80,10 @@
 | 生产构建 | `pnpm build` | 通过；保留既有 3Dmol `eval` 与大包告警 |
 | 发布资源预检 | `pnpm preflight:resources` | 39 个来源、440 个文件通过 |
 | 浏览器界面回归 | `/heor` 加载并展开“打开一个教学案例” | 标题与主要内容正确；无错误遮罩、无控制台错误 |
-| JS 依赖安全门禁 | `python3 scripts/dev/test_js_security_policy.py -v` | 2/2 通过 |
+| OOM DoS 修复前复现 | `python3 -B -m unittest scripts.dev.test_js_security_policy -v` | 失败：锁文件仍含 1.1.16、2.1.2、5.0.7，且缺少三条受影响范围的维护线 override |
+| JS 依赖安全门禁 | `python3 -B -m unittest scripts.dev.test_js_security_policy -v` | 3/3 通过；语义版本门禁覆盖当前 OOM 受影响范围 |
 | CPU DoS 通告复审 | `pnpm audit --prod --json` | `GHSA-3jxr-9vmj-r5cp` 由 2 条降为 0 条；其他通告未隐藏 |
+| OOM DoS 通告复审 | `pnpm audit --prod --json` | `GHSA-mh99-v99m-4gvg` 为 0 条，高危项为 0；其余 6 个中危通告继续显式保留 |
 | XLSX 定向兼容性 | `pnpm --filter @ai4s/desktop exec vitest run src/lib/xlsx.test.ts` | 3/3 通过 |
 | 生产产物可达性 | 在 `apps/desktop/dist/**/*.js` 查找 `brace-expansion` 及其 Node 归档依赖 | 0 命中 |
 | 首启门禁修复前复现 | `python3 scripts/release/test_macos_distribution.py -v` 与 `test_release_evidence.py -v` | 4 处失败：缺少端口/HTTP 探测、证据检查和 Windows 合同 |
@@ -214,6 +216,21 @@ HTML 预览沿用了 Open Science 的交互式 HTML 兼容策略，但 AI4HEOR �
 - 审计结果：`GHSA-3jxr-9vmj-r5cp` 为 0 条；保留并显式记录其他 6 个通告，未用 ignore 或降低审计阈值隐藏。
 - 回滚方式：回滚本 loop 的独立提交；无数据迁移、无研究产物格式变化。
 - 剩余风险：[GHSA-mh99-v99m-4gvg](https://github.com/advisories/GHSA-mh99-v99m-4gvg) 于 2026-07-24 标记所有 `<=5.0.7` 版本受 OOM 影响，官方只标记 `5.0.8` 为修复版。跨主版本强制替换可能破坏旧 `minimatch` 调用，必须在 P1-SEC-002b 中独立处置；当前产物检查确认漏洞代码未进入 Tauri 前端资源。
+
+## Loop P1-SEC-002b
+
+### 发现、复现与根因
+
+- 当前行为：上游于 2026-07-31 更新 [GHSA-mh99-v99m-4gvg](https://github.com/advisories/GHSA-mh99-v99m-4gvg) / CVE-2026-14257，明确受影响范围为 `<1.1.17`、`>=2.0.0 <2.1.3` 和 `>=4.0.0 <5.0.8`。当前锁文件中的 1.1.16、2.1.2、5.0.7 均命中，`pnpm audit --prod --json` 因生产依赖路径报告两个高危项。
+- 依赖与可达性：生产路径仍为 `exceljs -> archiver/unzipper -> glob/readdir-glob -> minimatch -> brace-expansion`，5.x 来自开发工具链。Vite 桌面产物中没有 `brace-expansion`、`archiver-utils` 或 `readdir-glob` 标记，因此当前发布前端不可达；但构建依赖树和生产审计仍不应保留已有兼容补丁的高危版本。
+- 失败测试：先把门禁改为按通告语义范围检查，修复前稳定报告三个受影响版本以及三条缺失的范围 override。根因是通告在 P1-SEC-002a 后补充了旧维护线修复范围，先前固定的 1.1.16、2.1.2 和 5.0.7 不再满足新边界，而非业务代码或 XLSX 处理逻辑变化。
+
+### 最小修复与验收
+
+- 最小修复：只将三条兼容维护线固定到 1.1.18、2.1.4、5.0.9，并重生成 pnpm 锁文件与其 SHA-256 绑定的 npm 许可证清单；安全门禁从拒绝几个旧精确版本改为拒绝通告定义的完整受影响范围。没有替换 `exceljs`、`minimatch` 或技术栈，也没有修改界面、研究数据、模型调用、HEOR 公式、默认参数或研究 schema。
+- 验收结果：安全门禁 3/3、XLSX 3/3、前端 117 文件/794 项、HEOR 188/188、Rust 378 通过/1 项既有公网测试忽略及资源暂存 2/2、开发合同 397/397、发布合同 54/54；类型检查、ESLint、Rust 格式、生产构建、diff 和 41 来源/450 文件资源预检均通过。真实测试特性 Tauri/WKWebView E2E 继续通过任务、排队、Human 输入、权限、provider 失败恢复、文件、项目导入和确定性 DOCX/PDF/XLSX 导出。
+- 审计结果：`GHSA-mh99-v99m-4gvg` 为 0 条，生产审计高危项为 0。`pnpm audit --prod` 仍因 6 个中危通告返回非零，本轮没有降低阈值、忽略或把它们伪装成已修复；UUID、React Router 等必须按各自可达路径继续独立评估。
+- 回滚与边界：回退本 loop 的独立提交即可，无数据迁移或历史研究结果改写。新的许可证清单只反映当前锁文件，不改变各组件许可证。调试 E2E 不替代安装后 DMG 完整任务 UI 验收；本轮不生成安装包。Node 的 `DEP0169` 既有运行时告警也未在本安全 loop 中顺便处理。
 
 ## Loop P1-TEST-001a
 

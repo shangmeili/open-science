@@ -16,16 +16,22 @@ PPTX_PREVIEW_GLOB = (
     "pptx-preview@*/node_modules/pptx-preview/dist/pptx-preview.es.js"
 )
 
-# GHSA-3jxr-9vmj-r5cp / CVE-2026-13149. Keep each transitive dependency
-# within its existing major version while requiring the maintainer's patch.
+# GHSA-mh99-v99m-4gvg / CVE-2026-14257. Keep each transitive dependency
+# on its compatible maintenance line while requiring the maintainer's
+# length-bounded expansion implementation.
 REQUIRED_OVERRIDES = {
-    "brace-expansion@1.1.15": "1.1.16",
-    "brace-expansion@2.1.1": "2.1.2",
+    "brace-expansion@<1.1.17": "1.1.18",
+    "brace-expansion@>=2.0.0 <2.1.3": "2.1.4",
+    "brace-expansion@>=4.0.0 <5.0.8": "5.0.9",
 }
-FORBIDDEN_LOCK_ENTRIES = {
-    "brace-expansion@1.1.15:",
-    "brace-expansion@2.1.1:",
-}
+
+
+def oom_affected(version: tuple[int, int, int]) -> bool:
+    return (
+        version < (1, 1, 17)
+        or (2, 0, 0) <= version < (2, 1, 3)
+        or (4, 0, 0) <= version < (5, 0, 8)
+    )
 
 
 class JavaScriptSecurityPolicyTests(unittest.TestCase):
@@ -37,13 +43,22 @@ class JavaScriptSecurityPolicyTests(unittest.TestCase):
             REQUIRED_OVERRIDES,
         )
 
-    def test_lockfile_excludes_cpu_dos_affected_versions(self) -> None:
+    def test_lockfile_excludes_oom_dos_affected_versions(self) -> None:
         lock = LOCK_PATH.read_text(encoding="utf-8")
-        for entry in FORBIDDEN_LOCK_ENTRIES:
-            self.assertFalse(
-                re.search(rf"^  {re.escape(entry)}$", lock, flags=re.MULTILINE),
-                f"GHSA-3jxr-9vmj-r5cp affected lock entry remains: {entry}",
+        versions = {
+            tuple(int(part) for part in match.groups())
+            for match in re.finditer(
+                r"^  brace-expansion@(\d+)\.(\d+)\.(\d+):$",
+                lock,
+                flags=re.MULTILINE,
             )
+        }
+        self.assertTrue(versions, "lockfile contains no brace-expansion resolution")
+        self.assertEqual(
+            sorted(version for version in versions if oom_affected(version)),
+            [],
+            "GHSA-mh99-v99m-4gvg affected brace-expansion version remains",
+        )
 
     def test_pptx_preview_cannot_construct_affected_echarts_lines_series(self) -> None:
         # GHSA-fgmj-fm8m-jvvx requires the ECharts `lines` series. The locked
