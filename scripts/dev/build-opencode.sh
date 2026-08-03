@@ -71,10 +71,12 @@ git -C "$SOURCE" apply --unidiff-zero "$PATCH"
 (
   cd "$SOURCE"
   # tree-sitter-powershell's install script otherwise resolves node-gyp@latest
-  # outside the reviewed lockfile. Use the content-addressed node-gyp already
-  # pinned by the upstream bun.lock on every supported build host.
-  export npm_config_node_gyp="$SOURCE/node_modules/node-gyp/bin/node-gyp.js"
-  bun install --frozen-lockfile
+  # outside the reviewed lockfile. Materialize the locked dependency graph
+  # without scripts, then run scripts using the content-addressed node-gyp.
+  bun install --frozen-lockfile --ignore-scripts
+  export npm_config_node_gyp="$SOURCE/node_modules/.bun/node-gyp@12.3.0/node_modules/node-gyp/bin/node-gyp.js"
+  test -f "$npm_config_node_gyp"
+  bun install --frozen-lockfile --force
   bun test --cwd packages/opencode \
     test/session/system-context.test.ts \
     test/session/processor-effect.test.ts \

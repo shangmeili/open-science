@@ -128,12 +128,19 @@ class PatchedOpenCodeTests(unittest.TestCase):
         build = BUILD.read_text(encoding="utf-8")
         assignment = (
             'export npm_config_node_gyp='
-            '"$SOURCE/node_modules/node-gyp/bin/node-gyp.js"'
+            '"$SOURCE/node_modules/.bun/node-gyp@12.3.0/'
+            'node_modules/node-gyp/bin/node-gyp.js"'
         )
         self.assertIn(assignment, build)
+        install_without_scripts = "bun install --frozen-lockfile --ignore-scripts"
+        install_with_scripts = "bun install --frozen-lockfile --force"
+        self.assertLess(
+            build.index(install_without_scripts),
+            build.index(assignment),
+        )
         self.assertLess(
             build.index(assignment),
-            build.index("bun install --frozen-lockfile"),
+            build.index(install_with_scripts),
         )
 
     def test_release_ci_installs_bun_and_runs_patch_contract_before_build(self) -> None:
