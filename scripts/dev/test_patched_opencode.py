@@ -116,6 +116,14 @@ class PatchedOpenCodeTests(unittest.TestCase):
         self.assertIn("test/permission/next.test.ts", build)
         self.assertIn("test/project/project-directory.test.ts", build)
 
+    def test_source_hash_verification_is_available_on_windows(self) -> None:
+        build = BUILD.read_text(encoding="utf-8")
+        self.assertNotIn("shasum -a 256", build)
+        self.assertIn("command -v python3 || command -v python", build)
+        self.assertIn("hashlib.sha256(path.read_bytes()).hexdigest()", build)
+        self.assertIn('verify_sha256 "$ARCHIVE" "$sourceArchiveSha256"', build)
+        self.assertIn('verify_sha256 "$PATCH" "$patchSha256"', build)
+
     def test_release_ci_installs_bun_and_runs_patch_contract_before_build(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("oven-sh/setup-bun", workflow)

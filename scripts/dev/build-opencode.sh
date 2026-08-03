@@ -38,8 +38,29 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 ARCHIVE="$TMP/opencode-source.tar.gz"
 curl -fsSL "$SOURCE_URL" -o "$ARCHIVE"
-echo "$sourceArchiveSha256  $ARCHIVE" | shasum -a 256 -c -
-echo "$patchSha256  $PATCH" | shasum -a 256 -c -
+PYTHON="$(command -v python3 || command -v python || true)"
+test -n "$PYTHON" || {
+  echo "Python is required to verify the reviewed OpenCode source and patch." >&2
+  exit 1
+}
+verify_sha256() {
+  "$PYTHON" - "$1" "$2" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+expected = sys.argv[2]
+actual = hashlib.sha256(path.read_bytes()).hexdigest()
+if actual != expected:
+    raise SystemExit(
+        f"SHA-256 mismatch for {path}: expected {expected}, found {actual}"
+    )
+print(f"{path}: OK")
+PY
+}
+verify_sha256 "$ARCHIVE" "$sourceArchiveSha256"
+verify_sha256 "$PATCH" "$patchSha256"
 
 tar -xzf "$ARCHIVE" -C "$TMP"
 SOURCE="$TMP/opencode-$UPSTREAM_COMMIT"
