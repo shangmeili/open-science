@@ -394,6 +394,8 @@ class CoreSkillContractTests(unittest.TestCase):
 
         environment = dict(os.environ)
         environment["PYTHONDONTWRITEBYTECODE"] = "1"
+        environment["PYTHONUTF8"] = "1"
+        environment["PYTHONIOENCODING"] = "utf-8"
         environment["PYTHONPATH"] = str(ROOT / "python/heor_core/src")
         checked = subprocess.run(
             [sys.executable, "-B", str(validator), "--plan", str(golden)],
