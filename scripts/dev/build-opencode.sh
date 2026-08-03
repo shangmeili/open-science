@@ -70,6 +70,10 @@ git -C "$SOURCE" apply --unidiff-zero "$PATCH"
 
 (
   cd "$SOURCE"
+  # tree-sitter-powershell's install script otherwise resolves node-gyp@latest
+  # outside the reviewed lockfile. Use the content-addressed node-gyp already
+  # pinned by the upstream bun.lock on every supported build host.
+  export npm_config_node_gyp="$SOURCE/node_modules/node-gyp/bin/node-gyp.js"
   bun install --frozen-lockfile
   bun test --cwd packages/opencode \
     test/session/system-context.test.ts \

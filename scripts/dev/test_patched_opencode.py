@@ -124,6 +124,18 @@ class PatchedOpenCodeTests(unittest.TestCase):
         self.assertIn('verify_sha256 "$ARCHIVE" "$sourceArchiveSha256"', build)
         self.assertIn('verify_sha256 "$PATCH" "$patchSha256"', build)
 
+    def test_native_dependencies_use_the_locked_node_gyp(self) -> None:
+        build = BUILD.read_text(encoding="utf-8")
+        assignment = (
+            'export npm_config_node_gyp='
+            '"$SOURCE/node_modules/node-gyp/bin/node-gyp.js"'
+        )
+        self.assertIn(assignment, build)
+        self.assertLess(
+            build.index(assignment),
+            build.index("bun install --frozen-lockfile"),
+        )
+
     def test_release_ci_installs_bun_and_runs_patch_contract_before_build(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("oven-sh/setup-bun", workflow)
