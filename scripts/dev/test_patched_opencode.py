@@ -143,6 +143,12 @@ class PatchedOpenCodeTests(unittest.TestCase):
             build.index(install_with_scripts),
         )
 
+    def test_windows_native_build_uses_a_short_source_path(self) -> None:
+        build = BUILD.read_text(encoding="utf-8")
+        self.assertIn('mv "$TMP/opencode-$UPSTREAM_COMMIT" "$TMP/s"', build)
+        self.assertIn('SOURCE="$TMP/s"', build)
+        self.assertNotIn('SOURCE="$TMP/opencode-$UPSTREAM_COMMIT"', build)
+
     def test_release_ci_installs_bun_and_runs_patch_contract_before_build(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("oven-sh/setup-bun", workflow)
