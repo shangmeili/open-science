@@ -130,7 +130,7 @@ class JavaScriptSecurityPolicyTests(unittest.TestCase):
             "lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js",
         }
         self.assertEqual(
-            {str(path.relative_to(excel_candidates[0])) for path, _ in excel_imports},
+            {path.relative_to(excel_candidates[0]).as_posix() for path, _ in excel_imports},
             expected_excel_paths,
             "exceljs UUID call sites changed; review GHSA-w5hq-g745-h8pq reachability",
         )
