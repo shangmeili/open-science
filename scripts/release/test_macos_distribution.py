@@ -586,6 +586,14 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("frontend-bootstrap", verifier)
         self.assertIn("open_science_workspace_preserved", verifier)
         self.assertIn("Packaged AI4HEOR processes were not cleaned up", verifier)
+        self.assertIn(
+            "$verification.first_launch.cleanup_verified = $true",
+            verifier,
+        )
+        self.assertLess(
+            verifier.index("Packaged AI4HEOR processes were not cleaned up"),
+            verifier.index("$verification.first_launch.cleanup_verified = $true"),
+        )
         self.assertIn("GetValue('DisplayName')", verifier)
         self.assertIn("missing=[$($missing -join ', ')]", verifier)
         self.assertIn("extra=[$($extra -join ', ')]", verifier)

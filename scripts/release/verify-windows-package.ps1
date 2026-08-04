@@ -245,6 +245,7 @@ try {
         opencode_http = $opencodeHttpProof
         frontend_bootstrap = $frontendBootstrapProof
         workspace = $workspace
+        cleanup_verified = $false
         workspace_isolation = [ordered]@{
             app_process_id = $appProcesses[0].ProcessId
             opencode_process_id = $opencodeProcesses[0].ProcessId
@@ -266,6 +267,7 @@ try {
     } while ($remaining.Count -gt 0 -and [DateTime]::UtcNow -lt $cleanupDeadline)
     Assert-True ($remaining.Count -eq 0) "Packaged AI4HEOR processes were not cleaned up after first-launch verification."
     $startedProcess = $null
+    $verification.first_launch.cleanup_verified = $true
     $verification.first_launch.workspace_isolation.cleanup_verified = $true
 
     $verification | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $verificationPath -Encoding utf8
