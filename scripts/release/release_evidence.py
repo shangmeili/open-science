@@ -254,15 +254,13 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
     if any(not item.get("version_output") for item in value["sidecars"]):
         raise AssertionError("release evidence has a sidecar without version output")
     declared_core_package = MACOS_CORE_PACKAGE_CHECKS & set(value["checks"])
-    if declared_core_package:
+    if value["platform"] == "macos" and declared_core_package:
         missing_checks = sorted(MACOS_CORE_PACKAGE_CHECKS - set(value["checks"]))
         if missing_checks:
             raise AssertionError(
                 "macOS core package evidence is missing paired checks: "
                 f"{missing_checks}"
             )
-        if value["platform"] != "macos":
-            raise AssertionError("macOS core package checks require a macOS artifact")
         expected_architecture = {
             "aarch64-apple-darwin": "arm64",
             "x86_64-apple-darwin": "x86_64",
@@ -299,6 +297,8 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
             or payload.get("uv_version") != sidecars["uv"]["version_output"]
         ):
             raise AssertionError("macOS core package proof is incomplete or mismatched")
+    elif {"bundle-metadata", "macho-architecture"} & declared_core_package:
+        raise AssertionError("macOS core package checks require a macOS artifact")
     if MACOS_DMG_COPY_CHECK in value["checks"]:
         if value["platform"] != "macos":
             raise AssertionError("DMG verification binding is supported only on macOS")

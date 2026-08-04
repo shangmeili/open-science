@@ -228,6 +228,45 @@ class ReleaseEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "paired checks"):
             release_evidence.validate_evidence(value)
 
+    def test_windows_generic_package_checks_do_not_require_macos_proof(self) -> None:
+        files: list[dict[str, object]] = []
+        value = {
+            "schema": release_evidence.EVIDENCE_SCHEMA,
+            "source": {"commit": "a" * 40, "version": "1.0.0"},
+            "platform": "windows",
+            "target": "x86_64-pc-windows-msvc",
+            "artifacts": [
+                {
+                    "kind": "nsis",
+                    "filename": "AI4HEOR_1.0.0_x64-setup.exe",
+                    "size": 1,
+                    "sha256": "a" * 64,
+                }
+            ],
+            "checks": sorted(
+                {
+                    "bundled-sidecars",
+                    "nsis-installed-payload",
+                    "packaged-heor-tests",
+                    "scientific-resources",
+                }
+            ),
+            "runner": self.runner("windows"),
+            "sidecars": self.sidecars(),
+            "verification": {"payload": "passed"},
+            "resources": {
+                "aggregate_sha256": release_evidence.canonical_sha256(files),
+                "file_count": 0,
+                "files": files,
+                "total_bytes": 0,
+            },
+        }
+        release_evidence.validate_evidence(value)
+
+        value["checks"] = sorted([*value["checks"], "bundle-metadata"])
+        with self.assertRaisesRegex(AssertionError, "macOS artifact"):
+            release_evidence.validate_evidence(value)
+
     def test_validation_rejects_platform_target_mismatch(self) -> None:
         files: list[dict[str, object]] = []
         value = {
