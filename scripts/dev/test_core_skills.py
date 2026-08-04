@@ -402,7 +402,7 @@ class CoreSkillContractTests(unittest.TestCase):
             cwd=ROOT,
             env=environment,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             check=True,
         )
         summary = json.loads(checked.stdout)
@@ -418,7 +418,7 @@ class CoreSkillContractTests(unittest.TestCase):
                 cwd=ROOT,
                 env=environment,
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
                 check=True,
             )
             result.write_text(executed.stdout, encoding="utf-8")
@@ -435,7 +435,7 @@ class CoreSkillContractTests(unittest.TestCase):
                 cwd=ROOT,
                 env=environment,
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
             )
             self.assertEqual(verified.returncode, 0, verified.stderr)
             payload = json.loads(result.read_text(encoding="utf-8"))
@@ -454,7 +454,7 @@ class CoreSkillContractTests(unittest.TestCase):
                 cwd=ROOT,
                 env=environment,
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
             )
             self.assertNotEqual(rejected.returncode, 0)
             self.assertIn("does not match deterministic replay", rejected.stderr)
@@ -538,7 +538,7 @@ class CoreSkillContractTests(unittest.TestCase):
                 cwd=ROOT,
                 env=environment,
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
                 check=True,
             )
             uncertainty_result.write_text(executed_uncertainty.stdout, encoding="utf-8")
@@ -557,7 +557,7 @@ class CoreSkillContractTests(unittest.TestCase):
                 cwd=ROOT,
                 env=environment,
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
             )
             self.assertEqual(verified_uncertainty.returncode, 0, verified_uncertainty.stderr)
             uncertainty_summary = json.loads(verified_uncertainty.stdout)
