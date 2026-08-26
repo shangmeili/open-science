@@ -158,6 +158,15 @@ jobs:
         shell: bash
         run: bash scripts/dev/fetch-uv.sh ${{ matrix.target }}
 
+      - name: Test embedded local history without system Git
+        if: startsWith(matrix.platform, 'windows')
+        shell: pwsh
+        run: |
+          cargo test `
+            --manifest-path apps/desktop/src-tauri/Cargo.toml `
+            git_snapshot::tests `
+            -- --nocapture
+
       - name: Run native desktop E2E smoke
         if: matrix.platform == 'macos-15-intel'
         run: pnpm test:e2e:desktop
@@ -290,7 +299,8 @@ jobs:
           if ($installers.Count -ne 1) { throw "Expected one NSIS installer; found $($installers.Count)." }
           ./scripts/release/verify-windows-package.ps1 `
             -NsisPath $installers[0].FullName `
-            -EvidenceOut (Join-Path $bundleRoot 'windows-x64-release-evidence.json')
+            -EvidenceOut (Join-Path $bundleRoot 'windows-x64-release-evidence.json') `
+            -EmbeddedLocalHistoryTested
 
       - name: Upload installers
         uses: actions/upload-artifact@v4

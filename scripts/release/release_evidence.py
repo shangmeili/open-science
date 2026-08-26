@@ -50,6 +50,7 @@ PACKAGED_OPENCODE_CHECKS = {
     "opencode-system-context-audit",
     "opencode-permission-persistence",
 }
+EMBEDDED_LOCAL_HISTORY_CHECK = "embedded-local-history"
 PLATFORM_VARIANT_RESOURCES = {"goal-plugin/goal-plugin.server.js"}
 
 
@@ -253,6 +254,23 @@ def validate_evidence(value: Any, artifact_root: Path | None = None) -> None:
         raise AssertionError("release evidence must bind exactly OpenCode and uv")
     if any(not item.get("version_output") for item in value["sidecars"]):
         raise AssertionError("release evidence has a sidecar without version output")
+    if EMBEDDED_LOCAL_HISTORY_CHECK in value["checks"]:
+        proof = value["verification"].get("local_history")
+        if (
+            not isinstance(proof, dict)
+            or set(proof)
+            != {
+                "backend",
+                "license_bundled",
+                "no_system_git_tested",
+                "requires_system_git",
+            }
+            or not str(proof.get("backend", "")).startswith("libgit2 ")
+            or proof.get("license_bundled") is not True
+            or proof.get("no_system_git_tested") is not True
+            or proof.get("requires_system_git") is not False
+        ):
+            raise AssertionError("embedded local history proof is incomplete")
     declared_core_package = MACOS_CORE_PACKAGE_CHECKS & set(value["checks"])
     if value["platform"] == "macos" and declared_core_package:
         missing_checks = sorted(MACOS_CORE_PACKAGE_CHECKS - set(value["checks"]))

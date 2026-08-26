@@ -1,6 +1,6 @@
 # AI4HEOR source, Skill, plugin, MCP, data, and asset authorization audit
 
-Audit date: 2026-07-31
+Audit date: 2026-08-26
 Distribution target: AI4HEOR 1.0.0 Intel macOS and Windows x64 internal test builds
 Decision: **internal testing allowed; public redistribution blocked**
 
@@ -31,7 +31,8 @@ the exact bytes and preservation of all required notices.
 | Anthropic `docx` / `pdf` / `pptx` / `xlsx` Skills | Revision `9d2f1ae187231d8199c64b5b762e1bdf2244733d` was checked directory by directory. Each `LICENSE.txt` is an Anthropic service-linked source-available license, not Apache-2.0, and expressly prohibits retaining copies outside the Services, reproduction, derivative works, and redistribution. The local source cache is removed | No | The four upstream Skill trees cannot be copied into AI4HEOR. Preserve the corresponding capability through independently authored, first-party document workflows and deterministic renderers |
 | npm production dependency universe | 266 packages: 227 MIT, 15 ISC, 6 BSD-3-Clause, 6 Apache-2.0, 3 OFL-1.1, 8 other compatible/multi-license expressions, 1 unresolved | Compiled/bundled as applicable | Internal test only until full notices and unresolved item are closed |
 | `buffers@0.1.1` | Package metadata contains no license field or license file; pulled through `exceljs > unzipper > binary` | Potentially | Public-release blocker |
-| Cargo locked dependency universe | 641 third-party packages plus the workspace crate across all features; declared expressions recorded in inventory | Compiled as target requires | Internal test only until exact shipped-target notice corpus is bundled |
+| Cargo locked dependency universe | 645 third-party packages plus the workspace crate across all features; declared expressions recorded in inventory | Compiled as target requires | Internal test only until exact shipped-target notice corpus is bundled |
+| Embedded local-history engine | `git2` 0.21.0 (MIT OR Apache-2.0) with vendored `libgit2` 1.9.7 (GPL-2.0-only with Linking Exception); network transports disabled; exact `libgit2` `COPYING` bundled | Yes | Allowed for internal testing under the Linking Exception; removes the undeclared system-Git prerequisite |
 | `tauri-plugin-wdio-webdriver 1.2.0` | Exact-pinned optional MIT dependency used only by the explicit `desktop-e2e` Cargo feature | No | Allowed for local/CI native interaction testing; ordinary and release dependency trees exclude it; 不随产品分发 |
 | OpenCode 1.17.13-ai4heor.2 | Reviewed derivative built from upstream commit `10c894bdeef3618f5666fb506ef7f9491bb964d8`; source archive and patch hashes pinned; upstream MIT license, patch, manifest and notice bundled | Yes | Allowed for internal testing under MIT; final package bytes remain subject to the full package audit |
 | uv 0.11.26 | Pinned sidecar; upstream tag offers Apache-2.0 OR MIT | Yes | Allowed after selected license and notice are bundled |

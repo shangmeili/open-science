@@ -267,6 +267,45 @@ class ReleaseEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "macOS artifact"):
             release_evidence.validate_evidence(value)
 
+    def test_embedded_local_history_check_requires_no_system_git_proof(self) -> None:
+        files: list[dict[str, object]] = []
+        value = {
+            "schema": release_evidence.EVIDENCE_SCHEMA,
+            "source": {"commit": "a" * 40, "version": "1.0.0"},
+            "platform": "windows",
+            "target": "x86_64-pc-windows-msvc",
+            "artifacts": [
+                {
+                    "kind": "nsis",
+                    "filename": "AI4HEOR_1.0.0_x64-setup.exe",
+                    "size": 1,
+                    "sha256": "a" * 64,
+                }
+            ],
+            "checks": ["embedded-local-history"],
+            "runner": self.runner("windows"),
+            "sidecars": self.sidecars(),
+            "verification": {
+                "local_history": {
+                    "backend": "libgit2 1.9.7",
+                    "license_bundled": True,
+                    "no_system_git_tested": True,
+                    "requires_system_git": False,
+                }
+            },
+            "resources": {
+                "aggregate_sha256": release_evidence.canonical_sha256(files),
+                "file_count": 0,
+                "files": files,
+                "total_bytes": 0,
+            },
+        }
+        release_evidence.validate_evidence(value)
+
+        value["verification"]["local_history"]["no_system_git_tested"] = False
+        with self.assertRaisesRegex(AssertionError, "local history proof"):
+            release_evidence.validate_evidence(value)
+
     def test_validation_rejects_platform_target_mismatch(self) -> None:
         files: list[dict[str, object]] = []
         value = {

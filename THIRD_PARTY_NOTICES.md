@@ -18,6 +18,20 @@ texts and copyright notices.
   platform-specific executable is fetched from the versioned upstream release;
   its license is bundled under `legal/agent-browser/LICENSE.txt`.
 
+## Embedded local-history engine
+
+- `git2` 0.21.0, `rust-lang/git2-rs`, MIT OR Apache-2.0, provides the Rust
+  bindings used only for local task snapshots.
+- `libgit2` 1.9.7, `libgit2/libgit2`, GNU GPL version 2 with the project's
+  Linking Exception, is built from the source vendored by the locked
+  `libgit2-sys` 0.18.8 crate and linked into the desktop executable. Network
+  transports are disabled. The exact upstream `COPYING` text, including the
+  Linking Exception, is bundled at `legal/libgit2/COPYING`.
+
+This embedded engine replaces the former runtime dependency on a separately
+installed `git` executable. AI4HEOR does not configure remotes or push local
+task history.
+
 ## Adapted components retained inside first-party Skills
 
 - `heor-evidence-search` is a first-party rewrite informed by HEORAgent MCP at

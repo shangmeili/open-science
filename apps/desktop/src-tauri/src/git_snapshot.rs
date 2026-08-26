@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Mutex, OnceLock};
@@ -6,8 +6,6 @@ use std::time::{Duration, Instant};
 
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tauri::AppHandle;
-
-use crate::runtime::quiet_command;
 
 /// Serializes every snapshot commit process-wide. The frontend (on
 /// `session.idle`) and several Rust record paths can all try to commit the same
@@ -123,110 +121,87 @@ tmp/\n\
 *.mp3\n\
 *.ogg\n";
 
-fn git(root: &Path) -> std::process::Command {
-    let mut cmd = quiet_command("git");
-    cmd.current_dir(root)
-        .env("GIT_AUTHOR_NAME", AUTHOR_NAME)
-        .env("GIT_AUTHOR_EMAIL", AUTHOR_EMAIL)
-        .env("GIT_COMMITTER_NAME", AUTHOR_NAME)
-        .env("GIT_COMMITTER_EMAIL", AUTHOR_EMAIL);
-    cmd
+fn git_error(action: &str, error: git2::Error) -> String {
+    format!("local history {action} failed: {error}")
 }
 
-pub fn git_available() -> bool {
-    quiet_command("git")
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-fn run(root: &Path, args: &[&str]) -> Result<(), String> {
-    let out = git(root)
-        .args(args)
-        .output()
-        .map_err(|e| format!("git {} failed to start: {e}", args.join(" ")))?;
-    if out.status.success() {
-        return Ok(());
-    }
-    let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-    Err(format!(
-        "git {} failed{}",
-        args.join(" "),
-        if stderr.is_empty() {
-            String::new()
-        } else {
-            format!(": {stderr}")
-        },
-    ))
-}
-
-fn capture(root: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
-    let out = git(root)
-        .args(args)
-        .output()
-        .map_err(|e| format!("git {} failed to start: {e}", args.join(" ")))?;
-    if out.status.success() {
-        return Ok(out.stdout);
-    }
-    let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-    Err(format!(
-        "git {} failed{}",
-        args.join(" "),
-        if stderr.is_empty() {
-            String::new()
-        } else {
-            format!(": {stderr}")
-        },
-    ))
-}
-
-fn unstage_oversized(root: &Path) -> Result<(), String> {
-    let stdout = capture(root, &["diff", "--cached", "--name-only", "-z"])?;
-    let mut skipped = Vec::new();
-    for name in stdout
-        .split(|byte| *byte == 0)
-        .filter(|name| !name.is_empty())
-    {
-        let rel = String::from_utf8_lossy(name).into_owned();
-        if std::fs::metadata(root.join(&rel))
-            .map(|meta| meta.is_file() && meta.len() >= MAX_BLOB_BYTES)
-            .unwrap_or(false)
-        {
-            skipped.push(rel);
+fn changed_paths(repo: &git2::Repository, index: &git2::Index) -> Result<Vec<PathBuf>, String> {
+    let head_tree = repo.head().ok().and_then(|head| head.peel_to_tree().ok());
+    let diff = repo
+        .diff_tree_to_index(head_tree.as_ref(), Some(index), None)
+        .map_err(|error| git_error("diff", error))?;
+    let mut paths = Vec::new();
+    for delta in diff.deltas() {
+        let path = delta
+            .new_file()
+            .path()
+            .or_else(|| delta.old_file().path())
+            .map(Path::to_path_buf);
+        if let Some(path) = path {
+            paths.push(path);
         }
     }
-    if skipped.is_empty() {
-        return Ok(());
-    }
-    let mut args = vec!["reset", "--quiet", "--"];
-    args.extend(skipped.iter().map(String::as_str));
-    run(root, &args)
+    Ok(paths)
 }
 
-fn unstage_bulk_dirs(root: &Path) -> Result<(), String> {
-    use std::collections::BTreeMap;
+fn restore_index_entry(
+    index: &mut git2::Index,
+    previous: &HashMap<Vec<u8>, git2::IndexEntry>,
+    path: &Path,
+) -> Result<(), String> {
+    let key = path.to_string_lossy().replace('\\', "/").into_bytes();
+    if let Some(entry) = previous.get(&key) {
+        index
+            .add(entry)
+            .map_err(|error| git_error("restore index entry", error))
+    } else {
+        match index.remove_path(path) {
+            Ok(()) => Ok(()),
+            Err(error) if error.code() == git2::ErrorCode::NotFound => Ok(()),
+            Err(error) => Err(git_error("remove excluded index entry", error)),
+        }
+    }
+}
 
-    let stdout = capture(root, &["diff", "--cached", "--name-only", "-z"])?;
-    let mut by_dir: BTreeMap<String, u64> = BTreeMap::new();
-    for name in stdout
-        .split(|byte| *byte == 0)
-        .filter(|name| !name.is_empty())
-    {
-        let rel = String::from_utf8_lossy(name).into_owned();
-        let Some(separator) = rel.rfind('/') else {
-            continue;
-        };
-        let size = std::fs::metadata(root.join(&rel))
+fn exclude_large_changes(
+    repo: &git2::Repository,
+    root: &Path,
+    index: &mut git2::Index,
+    previous: &HashMap<Vec<u8>, git2::IndexEntry>,
+) -> Result<(), String> {
+    let changed = changed_paths(repo, index)?;
+    let mut excluded = Vec::new();
+    let mut by_dir: BTreeMap<PathBuf, u64> = BTreeMap::new();
+
+    for path in &changed {
+        let size = std::fs::metadata(root.join(path))
             .map(|meta| if meta.is_file() { meta.len() } else { 0 })
             .unwrap_or(0);
-        *by_dir.entry(rel[..separator].to_string()).or_default() += size;
+        if size >= MAX_BLOB_BYTES {
+            excluded.push(path.clone());
+        }
+        if let Some(parent) = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+        {
+            *by_dir.entry(parent.to_path_buf()).or_default() += size;
+        }
     }
     for (dir, _) in by_dir
         .into_iter()
         .filter(|(_, bytes)| *bytes >= MAX_DIR_BYTES)
     {
-        run(root, &["reset", "--quiet", "--", &dir])?;
+        excluded.extend(
+            changed
+                .iter()
+                .filter(|path| path.starts_with(&dir))
+                .cloned(),
+        );
+    }
+    excluded.sort();
+    excluded.dedup();
+    for path in excluded {
+        restore_index_entry(index, previous, &path)?;
     }
     Ok(())
 }
@@ -242,14 +217,11 @@ fn snapshot_marker(root: &Path) -> PathBuf {
 /// already holds a git repo we did not create — the caller must then NOT commit,
 /// so the user's own history and staged work are left untouched.
 fn ensure_owned_repo(root: &Path) -> Result<bool, String> {
-    if !git_available() {
-        return Err("git is not available".into());
-    }
     if root.join(".git").exists() {
         // A pre-existing repo is only ours if we planted the marker at init.
         return Ok(snapshot_marker(root).exists());
     }
-    run(root, &["init"])?;
+    git2::Repository::init(root).map_err(|error| git_error("initialization", error))?;
     std::fs::write(snapshot_marker(root), b"1")
         .map_err(|e| format!("could not mark snapshot repo: {e}"))?;
     let gitignore = root.join(".gitignore");
@@ -268,17 +240,43 @@ pub fn commit(root: &Path, message: &str) -> Result<bool, String> {
         // Not an app-managed repo — never commit into the user's own history.
         return Ok(false);
     }
-    run(root, &["add", "-A", "--", "."])?;
-    unstage_oversized(root)?;
-    unstage_bulk_dirs(root)?;
-    let status = git(root)
-        .args(["diff", "--cached", "--quiet"])
-        .status()
-        .map_err(|e| format!("git diff failed to start: {e}"))?;
-    if status.success() {
+    let repo = git2::Repository::open(root).map_err(|error| git_error("open", error))?;
+    let mut index = repo
+        .index()
+        .map_err(|error| git_error("read index", error))?;
+    let previous: HashMap<Vec<u8>, git2::IndexEntry> = index
+        .iter()
+        .map(|entry| (entry.path.clone(), entry))
+        .collect();
+    index
+        .add_all(["*"], git2::IndexAddOption::DEFAULT, None)
+        .map_err(|error| git_error("stage", error))?;
+    exclude_large_changes(&repo, root, &mut index, &previous)?;
+    index
+        .write()
+        .map_err(|error| git_error("write index", error))?;
+    if changed_paths(&repo, &index)?.is_empty() {
         return Ok(false);
     }
-    run(root, &["commit", "-m", message])?;
+    let tree_id = index
+        .write_tree()
+        .map_err(|error| git_error("write tree", error))?;
+    let tree = repo
+        .find_tree(tree_id)
+        .map_err(|error| git_error("read tree", error))?;
+    let signature = git2::Signature::now(AUTHOR_NAME, AUTHOR_EMAIL)
+        .map_err(|error| git_error("create signature", error))?;
+    let parent = repo.head().ok().and_then(|head| head.peel_to_commit().ok());
+    let parents: Vec<&git2::Commit<'_>> = parent.iter().collect();
+    repo.commit(
+        Some("HEAD"),
+        &signature,
+        &signature,
+        message,
+        &tree,
+        &parents,
+    )
+    .map_err(|error| git_error("commit", error))?;
     Ok(true)
 }
 
@@ -410,9 +408,18 @@ pub fn commit_workspace_snapshot(app: AppHandle, message: String) -> Result<bool
 
 #[cfg(test)]
 mod tests {
-    use super::{commit, git_available, snapshot_due, SNAPSHOT_DEBOUNCE, SNAPSHOT_MAX_WAIT};
+    use super::{commit, snapshot_due, SNAPSHOT_DEBOUNCE, SNAPSHOT_MAX_WAIT};
     use std::fs;
     use std::time::Duration;
+
+    fn tracked_paths(root: &std::path::Path) -> Vec<String> {
+        let repo = git2::Repository::open(root).unwrap();
+        let index = repo.index().unwrap();
+        index
+            .iter()
+            .map(|entry| String::from_utf8(entry.path).unwrap())
+            .collect()
+    }
 
     #[test]
     fn snapshot_requests_debounce_bursts_and_have_a_starvation_cap() {
@@ -426,10 +433,6 @@ mod tests {
 
     #[test]
     fn commit_initializes_repo_and_skips_clean_tree() {
-        if !git_available() {
-            eprintln!("git unavailable; skipping git snapshot test");
-            return;
-        }
         let root = std::env::temp_dir().join(format!("os-git-snapshot-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).unwrap();
@@ -445,10 +448,40 @@ mod tests {
     }
 
     #[test]
-    fn commit_writes_safe_default_ignore_without_replacing_user_rules() {
-        if !git_available() {
+    fn commit_initializes_repo_without_system_git() {
+        const CHILD: &str = "AI4HEOR_TEST_WITHOUT_SYSTEM_GIT";
+        if std::env::var_os(CHILD).is_some() {
+            let root =
+                std::env::temp_dir().join(format!("ai4heor-embedded-git-{}", std::process::id()));
+            let _ = fs::remove_dir_all(&root);
+            fs::create_dir_all(&root).unwrap();
+            fs::write(root.join("AGENTS.md"), "rules\n").unwrap();
+
+            assert!(commit(&root, "Initialize workspace").unwrap());
+            assert!(root.join(".git").is_dir());
+            assert!(root.join(".git/.openscience-snapshots").is_file());
+            let _ = fs::remove_dir_all(&root);
             return;
         }
+
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "git_snapshot::tests::commit_initializes_repo_without_system_git",
+                "--nocapture",
+            ])
+            .env(CHILD, "1")
+            .env("PATH", "")
+            .status()
+            .unwrap();
+        assert!(
+            status.success(),
+            "local task history must not depend on a system Git installation"
+        );
+    }
+
+    #[test]
+    fn commit_writes_safe_default_ignore_without_replacing_user_rules() {
         let root = std::env::temp_dir().join(format!("ai4heor-git-ignore-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).unwrap();
@@ -474,10 +507,38 @@ mod tests {
     }
 
     #[test]
+    fn commit_respects_generated_secret_ignores() {
+        let root = std::env::temp_dir().join(format!("ai4heor-git-secret-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("analysis.R"), "print('ok')\n").unwrap();
+        fs::write(root.join(".env"), "API_KEY=do-not-snapshot\n").unwrap();
+
+        commit(&root, "Initialize workspace").unwrap();
+        let tracked = tracked_paths(&root);
+        assert!(tracked.contains(&"analysis.R".to_string()));
+        assert!(!tracked.contains(&".env".to_string()));
+        assert!(root.join(".env").is_file());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn commit_records_tracked_file_deletion() {
+        let root = std::env::temp_dir().join(format!("ai4heor-git-delete-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let analysis = root.join("analysis.R");
+        fs::write(&analysis, "print('ok')\n").unwrap();
+        commit(&root, "Initialize workspace").unwrap();
+
+        fs::remove_file(&analysis).unwrap();
+        assert!(commit(&root, "Remove analysis").unwrap());
+        assert!(!tracked_paths(&root).contains(&"analysis.R".to_string()));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn commit_omits_oversized_file_without_deleting_it() {
-        if !git_available() {
-            return;
-        }
         let root = std::env::temp_dir().join(format!("ai4heor-git-large-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).unwrap();
@@ -486,18 +547,46 @@ mod tests {
         let file = fs::File::create(&large).unwrap();
         file.set_len(super::MAX_BLOB_BYTES).unwrap();
         commit(&root, "Initialize workspace").unwrap();
-        let tracked = String::from_utf8(super::capture(&root, &["ls-files"]).unwrap()).unwrap();
-        assert!(tracked.contains("analysis.R"));
-        assert!(!tracked.contains("claims.parquet"));
+        let tracked = tracked_paths(&root);
+        assert!(tracked.contains(&"analysis.R".to_string()));
+        assert!(!tracked.contains(&"claims.parquet".to_string()));
         assert!(large.exists());
         let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
+    fn commit_preserves_prior_snapshot_when_a_tracked_file_becomes_oversized() {
+        let root = std::env::temp_dir().join(format!("ai4heor-git-growing-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let data = root.join("claims.parquet");
+        fs::write(&data, b"small reviewed input\n").unwrap();
+        commit(&root, "Initialize workspace").unwrap();
+
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&data)
+            .unwrap()
+            .set_len(super::MAX_BLOB_BYTES)
+            .unwrap();
+        assert!(!commit(&root, "Oversized update").unwrap());
+
+        let repo = git2::Repository::open(&root).unwrap();
+        let tree = repo.head().unwrap().peel_to_tree().unwrap();
+        let blob = tree
+            .get_path(std::path::Path::new("claims.parquet"))
+            .unwrap()
+            .to_object(&repo)
+            .unwrap()
+            .peel_to_blob()
+            .unwrap();
+        assert_eq!(blob.content(), b"small reviewed input\n");
+        assert_eq!(fs::metadata(&data).unwrap().len(), super::MAX_BLOB_BYTES);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn commit_omits_bulk_directory_without_deleting_files() {
-        if !git_available() {
-            return;
-        }
         let root = std::env::temp_dir().join(format!("ai4heor-git-bulk-{}", std::process::id()));
         let data = root.join("claims");
         let _ = fs::remove_dir_all(&root);
@@ -508,24 +597,20 @@ mod tests {
             file.set_len(15 * 1024 * 1024).unwrap();
         }
         commit(&root, "Initialize workspace").unwrap();
-        let tracked = String::from_utf8(super::capture(&root, &["ls-files"]).unwrap()).unwrap();
-        assert!(tracked.contains("analysis.R"));
-        assert!(!tracked.contains("claims/"));
+        let tracked = tracked_paths(&root);
+        assert!(tracked.contains(&"analysis.R".to_string()));
+        assert!(!tracked.iter().any(|path| path.starts_with("claims/")));
         assert!(data.join("part-0.bin").exists());
         let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
     fn commit_never_touches_a_repo_the_user_brought() {
-        if !git_available() {
-            eprintln!("git unavailable; skipping git snapshot test");
-            return;
-        }
         let root = std::env::temp_dir().join(format!("os-git-foreign-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).unwrap();
         // A repo the user brought in: it has a .git but none of our marker.
-        super::run(&root, &["init"]).unwrap();
+        git2::Repository::init(&root).unwrap();
         fs::write(root.join("data.txt"), "user work in progress\n").unwrap();
 
         // We must decline it, leave the tree/index alone, and plant no marker.

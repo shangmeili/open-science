@@ -40,6 +40,7 @@
       "../../../runtime/goal-plugin": "goal-plugin/",
       "../../../runtime/agent-browser": "legal/agent-browser/",
       "../../../runtime/opencode-patch": "legal/opencode/",
+      "../../../runtime/libgit2": "legal/libgit2/",
       "../../../runtime/skills/core": "skills-core/",
       "../../../runtime/skills/external/ai4s-skills": "skills-admitted-ai4s/",
       "../../../runtime/assets/asset-admission-registry.json": "asset-admission-registry.json",

@@ -1,8 +1,8 @@
 {
   "schema": "ai4heor-cargo-license-inventory/v1",
-  "generated_on": "2026-07-31",
+  "generated_on": "2026-08-26",
   "scope": "Cargo.lock package universe with all workspace features; conservative superset of one target build",
-  "lockfile_sha256": "9f86c883ba46301edbeea0eee34e3466ec1aa0f24507fc16b94370c1b78ce94b",
+  "lockfile_sha256": "68f11c400c9c680f485acec883e38c340215bcc61f68531672032c98d4a9ae20",
   "components": [
     {
       "name": "adler2",
@@ -1230,6 +1230,13 @@
       "repository": "https://github.com/gtk-rs/gtk-rs-core"
     },
     {
+      "name": "git2",
+      "version": "0.21.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/rust-lang/git2-rs"
+    },
+    {
       "name": "glib",
       "version": "0.18.5",
       "license": "MIT",
@@ -1678,6 +1685,13 @@
       "repository": "https://github.com/jni-rs/jni-sys"
     },
     {
+      "name": "jobserver",
+      "version": "0.1.35",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/rust-lang/jobserver-rs"
+    },
+    {
       "name": "js-sys",
       "version": "0.3.103",
       "license": "MIT OR Apache-2.0",
@@ -1748,6 +1762,13 @@
       "repository": "https://github.com/diwic/dbus-rs"
     },
     {
+      "name": "libgit2-sys",
+      "version": "0.18.8+1.9.7",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/rust-lang/git2-rs"
+    },
+    {
       "name": "libloading",
       "version": "0.7.4",
       "license": "ISC",
@@ -1767,6 +1788,13 @@
       "license": "MIT",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "repository": "https://github.com/rusqlite/rusqlite"
+    },
+    {
+      "name": "libz-sys",
+      "version": "1.1.29",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "repository": "https://github.com/rust-lang/libz-sys"
     },
     {
       "name": "linux-raw-sys",

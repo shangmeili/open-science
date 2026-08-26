@@ -196,6 +196,15 @@ class TauriHeorResourceTests(unittest.TestCase):
         for source, destination in expected.items():
             self.assertEqual(resources.get(source), destination)
             self.assertTrue((TAURI_DIR / source).resolve().is_file(), source)
+        self.assertEqual(
+            resources.get("../../../runtime/libgit2"),
+            "legal/libgit2/",
+        )
+        libgit2_copying = (ROOT / "runtime/libgit2/COPYING").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("LINKING EXCEPTION", libgit2_copying)
+        self.assertIn("GNU GENERAL PUBLIC LICENSE", libgit2_copying)
 
         npm = json.loads(
             (LEGAL_DIR / "npm-production-components.json").read_text(encoding="utf-8")
@@ -218,6 +227,11 @@ class TauriHeorResourceTests(unittest.TestCase):
         self.assertFalse(
             [component for component in cargo["components"] if component["license"] == "Unknown"]
         )
+        cargo_versions = {
+            component["name"]: component["version"] for component in cargo["components"]
+        }
+        self.assertEqual(cargo_versions.get("git2"), "0.21.0")
+        self.assertEqual(cargo_versions.get("libgit2-sys"), "0.18.8+1.9.7")
         destinations = set(resources.values())
         self.assertNotIn("skills-external/", destinations)
         self.assertIn("skills-admitted-ai4s/", destinations)

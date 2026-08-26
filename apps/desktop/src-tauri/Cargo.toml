@@ -41,6 +41,9 @@ pdf-extract = "0.12.0"
 printpdf = { version = "=0.11.3", default-features = false }
 # Preserve Open Science's external-workspace snapshot watcher.
 notify = "6"
+# Local task history must work in a clean desktop installation without relying
+# on a separately installed Git executable. Network transports stay disabled.
+git2 = { version = "=0.21.0", default-features = false, features = ["vendored-libgit2"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { version = "0.3", default-features = false, features = [

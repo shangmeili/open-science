@@ -4,7 +4,8 @@
 param(
     [Parameter(Mandatory = $true)] [string] $NsisPath,
     [string] $SourceRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")),
-    [Parameter(Mandatory = $true)] [string] $EvidenceOut
+    [Parameter(Mandatory = $true)] [string] $EvidenceOut,
+    [switch] $EmbeddedLocalHistoryTested
 )
 
 Set-StrictMode -Version Latest
@@ -101,6 +102,7 @@ function Resolve-InstallRoot {
 
 Assert-True ($env:RUNNER_OS -eq 'Windows') "Windows package verification must run on a Windows runner."
 Assert-True ([Environment]::Is64BitOperatingSystem) "Windows package verification requires a 64-bit host."
+Assert-True $EmbeddedLocalHistoryTested.IsPresent "Windows packaging requires the no-system-Git local-history test."
 
 $SourceRoot = (Resolve-Path -LiteralPath $SourceRoot).Path
 $NsisPath = (Resolve-Path -LiteralPath $NsisPath).Path
@@ -169,6 +171,16 @@ try {
         }
     }
     Get-TreeInventory $installRoot | Out-Null
+    $libgit2License = Join-Path $resourceRoot 'legal/libgit2/COPYING'
+    Assert-True (Test-Path -LiteralPath $libgit2License -PathType Leaf) "Packaged libgit2 license is missing."
+    $libgit2Terms = Get-Content -LiteralPath $libgit2License -Raw
+    Assert-True ($libgit2Terms.Contains('LINKING EXCEPTION')) "Packaged libgit2 Linking Exception is missing."
+    $verification.local_history = [ordered]@{
+        backend = 'libgit2 1.9.7'
+        license_bundled = $true
+        no_system_git_tested = $true
+        requires_system_git = $false
+    }
 
     $oldPythonPath = $env:PYTHONPATH
     $oldNoBytecode = $env:PYTHONDONTWRITEBYTECODE
@@ -279,6 +291,7 @@ try {
         --check scientific-resources `
         --check packaged-heor-tests `
         --check bundled-sidecars `
+        --check embedded-local-history `
         --check nsis-silent-install `
         --check first-launch-process `
         --check frontend-bootstrap `
