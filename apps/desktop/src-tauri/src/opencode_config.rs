@@ -112,7 +112,10 @@ fn approve_permission() -> Value {
         bash.insert(format!("{t} *"), json!("ask"));
         bash.insert(format!("* {t} *"), json!("ask"));
     }
-    json!({ "bash": Value::Object(bash), "webfetch": "ask" })
+    // Public, read-only retrieval is normal research work and must not stop for
+    // a generic approval. Arbitrary outward shell commands remain gated above;
+    // the product Harness separately forbids disclosing sensitive local data.
+    json!({ "bash": Value::Object(bash) })
 }
 
 /// Set the approval mode in OpenCode config JSON. "approve" installs the ask
@@ -156,6 +159,18 @@ pub fn seed_default_permission(existing: &str) -> Option<String> {
                 return set_permission_mode(existing, MODE_FULL).ok();
             }
             None
+        }
+        Some(MODE_APPROVE) => {
+            let mut root: Value = serde_json::from_str(existing).ok()?;
+            let permission = root.get_mut("permission")?.as_object_mut()?;
+            if permission.get("webfetch") != Some(&json!("ask")) {
+                return None;
+            }
+            // Versions up to 1.0.0 treated every read-only web fetch as a
+            // high-risk action. Remove only that exact legacy rule, preserving
+            // user/provider settings and every other permission override.
+            permission.remove("webfetch");
+            serde_json::to_string_pretty(&root).ok()
         }
         Some(_) => None,
         None => set_permission_mode(existing, MODE_APPROVE).ok(),
@@ -272,7 +287,7 @@ mod tests {
     }
 
     #[test]
-    fn approve_mode_writes_ask_rules_for_dangerous_bash() {
+    fn approve_mode_gates_dangerous_bash_but_allows_public_read_only_webfetch() {
         let out = set_permission_mode("", MODE_APPROVE).unwrap();
         let v: Value = serde_json::from_str(&out).unwrap();
         let bash = v["permission"]["bash"].as_object().unwrap();
@@ -288,7 +303,7 @@ mod tests {
         // No blanket rule of our own: everything else falls through to the
         // builtin "*": "allow" (rules are last-match-wins, ours come last).
         assert!(!bash.contains_key("*"));
-        assert_eq!(v["permission"]["webfetch"], "ask");
+        assert!(v["permission"].get("webfetch").is_none());
     }
 
     #[test]
@@ -336,6 +351,27 @@ mod tests {
         let seeded2 = seed_default_permission(r#"{"model":"m"}"#).unwrap();
         let v2: Value = serde_json::from_str(&seeded2).unwrap();
         assert_eq!(v2["model"], "m");
+    }
+
+    #[test]
+    fn migrates_legacy_webfetch_prompt_without_dropping_other_rules() {
+        let legacy = r#"{
+          "model":"m",
+          "permission":{
+            "bash":{"rm *":"ask"},
+            "webfetch":"ask",
+            "external_directory":"ask"
+          }
+        }"#;
+        let migrated = seed_default_permission(legacy).expect("legacy approval config migrates");
+        let value: Value = serde_json::from_str(&migrated).unwrap();
+        assert!(value["permission"].get("webfetch").is_none());
+        assert_eq!(value["permission"]["bash"]["rm *"], "ask");
+        assert_eq!(value["permission"]["external_directory"], "ask");
+        assert_eq!(value["model"], "m");
+
+        let explicit_deny = legacy.replace(r#""webfetch":"ask""#, r#""webfetch":"deny""#);
+        assert!(seed_default_permission(&explicit_deny).is_none());
     }
 
     #[test]

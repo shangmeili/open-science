@@ -42,4 +42,12 @@ describe("Simplified Chinese product copy", () => {
     );
     expect(copy.join("\n")).not.toContain("资料整理、分析记录和结果检查可以交给助手");
   });
+
+  it("does not describe public read-only browsing as an approval-gated action", () => {
+    expect(i18n.t("session:composer.approval.approve.description", { lng: "zh-Hans" }))
+      .not.toMatch(/联网|公开网页|网页浏览/);
+    expect(i18n.t("session:firstRun.points.approval.body", { lng: "zh-Hans" })).toContain(
+      "查看公开网页可直接进行",
+    );
+  });
 });

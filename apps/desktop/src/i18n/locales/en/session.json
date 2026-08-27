@@ -58,7 +58,7 @@
       "menuTitle": "How should agent actions be approved?",
       "approve": {
         "label": "Approve for me",
-        "description": "Asks before deleting, installing, or going remote"
+        "description": "Asks before deleting, installing, changing the system, or causing external effects"
       },
       "full": {
         "label": "Full access",
@@ -388,7 +388,7 @@
       },
       "approval": {
         "title": "Actions remain reviewable",
-        "body": "The default approval mode asks before deletion, installation, network, remote, or privileged actions."
+        "body": "Reading public webpages can proceed directly. The default approval mode asks before deletion, installation, system changes, or actions that may have external effects."
       },
       "human": {
         "title": "You review key research decisions",

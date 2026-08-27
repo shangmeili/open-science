@@ -583,6 +583,8 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("--check embedded-local-history", verifier)
         self.assertIn("-EmbeddedLocalHistoryTested", workflow)
         self.assertIn("git_snapshot::tests", workflow)
+        self.assertIn("Test public webpage permission profile", workflow)
+        self.assertIn("opencode_config::tests", workflow)
         self.assertIn("requires_system_git = $false", verifier)
         self.assertIn("no_system_git_tested = $true", verifier)
         self.assertIn("legal/libgit2/COPYING", verifier)
