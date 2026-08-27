@@ -228,26 +228,31 @@ pub fn permission_mode_of(existing: &str) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
+
+    fn absolute_harness_path() -> PathBuf {
+        if cfg!(windows) {
+            PathBuf::from(r"C:\Program Files\AI4HEOR\resources\harness\AGENTS.md")
+        } else {
+            PathBuf::from("/Applications/AI4HEOR.app/Contents/Resources/harness/AGENTS.md")
+        }
+    }
 
     #[test]
     fn product_harness_config_preserves_existing_config_and_loads_harness_last() {
-        let harness = Path::new("/Applications/AI4HEOR.app/Contents/Resources/harness/AGENTS.md");
+        let harness = absolute_harness_path();
+        let harness_text = harness.to_string_lossy().replace('\\', "/");
         let existing = r#"{"instructions":["PROJECT.md","https://example.test/rules"],"model":"provider/model"}"#;
 
-        let out = product_harness_config_content(Some(existing), harness).unwrap();
+        let out = product_harness_config_content(Some(existing), &harness).unwrap();
         let value: Value = serde_json::from_str(&out).unwrap();
         assert_eq!(value["model"], "provider/model");
         assert_eq!(
             value["instructions"],
-            json!([
-                "PROJECT.md",
-                "https://example.test/rules",
-                "/Applications/AI4HEOR.app/Contents/Resources/harness/AGENTS.md"
-            ])
+            json!(["PROJECT.md", "https://example.test/rules", harness_text])
         );
 
-        let repeated = product_harness_config_content(Some(&out), harness).unwrap();
+        let repeated = product_harness_config_content(Some(&out), &harness).unwrap();
         assert_eq!(
             serde_json::from_str::<Value>(&repeated).unwrap(),
             value,
@@ -257,15 +262,16 @@ mod tests {
 
     #[test]
     fn product_harness_config_creates_an_ephemeral_config_when_none_is_inherited() {
-        let harness = Path::new("/Applications/AI4HEOR.app/Contents/Resources/harness/AGENTS.md");
+        let harness = absolute_harness_path();
+        let harness_text = harness.to_string_lossy().replace('\\', "/");
         for existing in [None, Some(""), Some("   ")] {
-            let out = product_harness_config_content(existing, harness).unwrap();
+            let out = product_harness_config_content(existing, &harness).unwrap();
             let value: Value = serde_json::from_str(&out).unwrap();
             assert_eq!(
                 value,
                 json!({
                     "instructions": [
-                        "/Applications/AI4HEOR.app/Contents/Resources/harness/AGENTS.md"
+                        harness_text
                     ]
                 })
             );
@@ -274,14 +280,14 @@ mod tests {
 
     #[test]
     fn product_harness_config_rejects_invalid_inherited_contracts() {
-        let harness = Path::new("/Applications/AI4HEOR.app/Contents/Resources/harness/AGENTS.md");
+        let harness = absolute_harness_path();
         for existing in [
             "{broken",
             "[]",
             r#"{"instructions":"PROJECT.md"}"#,
             r#"{"instructions":["PROJECT.md",7]}"#,
         ] {
-            assert!(product_harness_config_content(Some(existing), harness).is_err());
+            assert!(product_harness_config_content(Some(existing), &harness).is_err());
         }
         assert!(product_harness_config_content(None, Path::new("harness/AGENTS.md")).is_err());
     }
