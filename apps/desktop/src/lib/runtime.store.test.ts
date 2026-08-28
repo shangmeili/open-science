@@ -621,6 +621,25 @@ describe("project and standalone conversations", () => {
     expect(mocks.getMessages).toHaveBeenLastCalledWith("B");
   });
 
+  it("does not reconnect an open session when Windows paths identify the same workspace", async () => {
+    useRuntimeStore.setState({
+      workspace: "C:\\Users\\Researcher\\Documents\\AI4HEOR\\Project-A",
+      sessions: [{
+        id: "A",
+        title: "A",
+        directory: "c:/users/researcher/documents/AI4HEOR/Project-A/",
+      }] as never,
+    });
+    mocks.setWorkspace.mockClear();
+    mocks.kernelReset.mockClear();
+
+    await useRuntimeStore.getState().openSession("A");
+
+    expect(mocks.setWorkspace).not.toHaveBeenCalled();
+    expect(mocks.kernelReset).not.toHaveBeenCalled();
+    expect(mocks.getMessages).toHaveBeenLastCalledWith("A");
+  });
+
   it("echoes the first message instantly into the draft, then grafts it onto the session", async () => {
     const p = useRuntimeStore.getState().sendPrompt("hi");
     // Synchronously (before any await resolves): the message is visible and
@@ -1017,6 +1036,33 @@ describe("stale running locks and interrupt", () => {
 
     expect(useRuntimeStore.getState().runningSessions.ses_a).toBe(true);
     expect(useRuntimeStore.getState().threads.ses_a.blocks).toEqual([]);
+  });
+
+  it("reconciles a stopped Windows task when equivalent paths describe its active workspace", async () => {
+    useRuntimeStore.setState({
+      workspace: "C:\\Users\\Researcher\\Documents\\AI4HEOR\\Project-A",
+      sessions: [{
+        id: "ses_a",
+        title: "A",
+        directory: "c:/users/researcher/documents/AI4HEOR/Project-A/",
+      }] as never,
+      runningSessions: { ses_a: true },
+      threads: { ses_a: { blocks: [], index: {}, loaded: true } },
+    });
+    mocks.messages = [
+      { role: "user", parts: [{ type: "text", text: "continue" }] },
+      { role: "assistant", parts: [] },
+    ];
+    mocks.statuses = {};
+
+    await useRuntimeStore.getState().reconcileRunning();
+    await useRuntimeStore.getState().reconcileRunning();
+
+    expect(useRuntimeStore.getState().runningSessions.ses_a).toBeUndefined();
+    expect(useRuntimeStore.getState().threads.ses_a.blocks.slice(-1)[0]).toMatchObject({
+      kind: "status-line",
+      tone: "error",
+    });
   });
 
   it("reconcileRunning unlocks a blank provider failure after two inactive checks", async () => {

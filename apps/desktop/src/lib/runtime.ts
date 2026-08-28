@@ -53,6 +53,7 @@ import { displayHeorPrompt, heorPromptContext, type HeorPromptContext } from "./
 import { conversationSourceKeys } from "./conversationSource";
 import { fallbackDefaultModel } from "@/components/settings/modelCatalog";
 import i18n from "@/i18n";
+import { sameLocalPath } from "./localPath";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const URL_KEY = "ai4s.opencodeUrl";
@@ -1576,7 +1577,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   },
 
   startDraftInWorkspace: async (path) => {
-    if (get().workspace === path) {
+    if (sameLocalPath(get().workspace, path)) {
       // Already inside the project — a clean pinned draft, no reconnect.
       set((s) => {
         const threads = { ...s.threads };
@@ -1628,7 +1629,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     // all operate where the session's files live. Sessions with no recorded
     // folder, or that already match the active folder, skip this.
     const dir = get().sessions.find((s) => s.id === id)?.directory;
-    if (dir && dir !== get().workspace) {
+    if (dir && !sameLocalPath(dir, get().workspace)) {
       set({ switching: true });
       try {
         await setWorkspace(dir).catch(() => {});
@@ -1850,7 +1851,8 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         // Absence means "idle" only for a task in that workspace; for another
         // task it means "not observable here" and must never be turned into a
         // false provider failure while the researcher is viewing elsewhere.
-        const statusCoversSession = !sessionDirectory || sessionDirectory === get().workspace;
+        const statusCoversSession = !sessionDirectory
+          || sameLocalPath(sessionDirectory, get().workspace);
         const stopped = statusesKnown
           && statusCoversSession
           && turnStoppedWithoutReply(messages, statuses[sid]);

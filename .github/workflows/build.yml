@@ -176,6 +176,16 @@ jobs:
             opencode_config::tests `
             -- --nocapture
 
+      - name: Test Windows workspace interaction contracts
+        if: startsWith(matrix.platform, 'windows')
+        shell: pwsh
+        run: |
+          pnpm --filter @ai4s/desktop exec vitest run `
+            src/lib/localPath.test.ts `
+            src/app/routes/HeorPage.test.tsx `
+            src/lib/runtime.store.test.ts `
+            --reporter=dot
+
       - name: Run native desktop E2E smoke
         if: matrix.platform == 'macos-15-intel'
         run: pnpm test:e2e:desktop

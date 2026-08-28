@@ -7,6 +7,7 @@ import { useRuntimeStore } from "@/lib/runtime";
 import { useSetupStore } from "@/lib/setup";
 import { useUiStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
+import { sameLocalPath } from "@/lib/localPath";
 import { localizeSkill } from "@/i18n/skillLocalization";
 import { PreferenceLearningSection } from "@/components/skills/PreferenceLearningSection";
 import {
@@ -66,7 +67,8 @@ export function SkillsPage() {
 
   const openSkillTask = (name: string, label: string) => {
     const runtime = useRuntimeStore.getState();
-    const currentProject = runtime.projects.find((project) => project.path === runtime.workspace);
+    const currentProject = runtime.projects.find((project) =>
+      sameLocalPath(project.path, runtime.workspace));
     if (currentProject) void runtime.startDraftInWorkspace(currentProject.path);
     else runtime.startDraft();
     useUiStore.getState().setComposerDraft(null);

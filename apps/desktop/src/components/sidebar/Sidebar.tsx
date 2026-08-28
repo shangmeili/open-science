@@ -40,6 +40,7 @@ import { visibleSections, resolveSection } from "@/components/settings/sections"
 import { isGatewayWeb } from "@/lib/webMode";
 import { StatusPills } from "./StatusPills";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { sameLocalPath } from "@/lib/localPath";
 
 function openContextMenuFromButton(event: ReactMouseEvent<HTMLButtonElement>) {
   event.preventDefault();
@@ -570,7 +571,7 @@ export function Sidebar() {
           )}
           {projects.map((p) => {
             const open = !collapsedProjects.includes(p.id);
-            const active = p.path === workspace;
+            const active = sameLocalPath(p.path, workspace);
             const rows = sessionsByProject.get(p.id) ?? [];
             return (
               <div key={p.id} data-project-id={p.id}>

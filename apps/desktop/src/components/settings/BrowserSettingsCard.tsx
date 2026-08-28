@@ -22,6 +22,7 @@ import {
 } from "@/lib/browser";
 import { cn } from "@/lib/cn";
 import { toast } from "@/lib/toast";
+import { sameLocalPath } from "@/lib/localPath";
 
 export function BrowserSettingsCard({ connected }: { connected: boolean }) {
   const { t } = useTranslation(["settings", "common"]);
@@ -130,7 +131,7 @@ export function BrowserSettingsCard({ connected }: { connected: boolean }) {
                   ? t("browser.privateNote")
                   : profile
                     ? t("browser.reuseNote", {
-                        name: profiles.find((item) => item.directory === profile)?.name ?? profile,
+                        name: profiles.find((item) => sameLocalPath(item.directory, profile))?.name ?? profile,
                       })
                     : t("browser.isolatedNote")}
                 <span className="mt-1 block">
@@ -238,7 +239,7 @@ export function BrowserSettingsCard({ connected }: { connected: boolean }) {
         <ConfirmDialog
           title={t("browser.headedOffTitle")}
           body={t("browser.headedOffBody", {
-            profile: profiles.find((item) => item.directory === profile)?.name ?? profile,
+            profile: profiles.find((item) => sameLocalPath(item.directory, profile))?.name ?? profile,
           })}
           confirmLabel={t("browser.headedOffConfirm")}
           onConfirm={() => {

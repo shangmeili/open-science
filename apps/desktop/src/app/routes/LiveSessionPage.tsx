@@ -41,6 +41,7 @@ import {
 } from "@/lib/conversationSource";
 import { toast } from "@/lib/toast";
 import { heorTaskPath } from "@/lib/internalRoute";
+import { sameLocalPath } from "@/lib/localPath";
 
 /** AI4HEOR research task backed by the local assistant runtime. The runtime
  * session is created lazily on the first message, then the URL gains its id. */
@@ -125,7 +126,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   // otherwise a prompt or project-scoped settings request can hit the startup
   // workspace even though the task URL is already visible.
   const taskWorkspacePending = !!sessionId
-    && (!sessionDir || sessionDir !== workspace || currentId !== sessionId);
+    && (!sessionDir || !sameLocalPath(sessionDir, workspace) || currentId !== sessionId);
   const running = !!(currentId && runningSessions[currentId]);
   const working = sending || running;
 
@@ -427,7 +428,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
   // A global New task deliberately unpins the previous project before its
   // standalone folder is materialized on first use. Do not keep presenting
   // the previous workspace's project as this draft's context in that gap.
-  const workspaceProject = projects.find((candidate) => candidate.path === workspace);
+  const workspaceProject = projects.find((candidate) => sameLocalPath(candidate.path, workspace));
   const pinnedResearchProject = researchScope?.kind === "heor" ? researchScope : null;
   const hasExplicitPlacement = !!sessionId
     && Object.prototype.hasOwnProperty.call(taskProjectPlacement, sessionId);

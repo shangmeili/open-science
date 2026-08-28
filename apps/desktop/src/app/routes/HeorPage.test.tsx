@@ -400,4 +400,31 @@ describe("AI4HEOR conversation route", () => {
     expect(await screen.findByRole("button", { name: "Send" })).toBeDisabled();
     expect(sendPrompt).not.toHaveBeenCalled();
   });
+
+  it("allows sending when Windows reports the active workspace with equivalent separators and casing", async () => {
+    const sendPrompt = vi.fn().mockResolvedValue("session-1");
+    useRuntimeStore.setState({
+      status: "ready",
+      switching: false,
+      currentId: "session-1",
+      defaultModel: "openai/gpt-5.2",
+      workspace: "C:\\Users\\Researcher\\Documents\\AI4HEOR\\Project-A",
+      sessions: [{
+        id: "session-1",
+        title: "CEA",
+        directory: "c:/users/researcher/documents/AI4HEOR/Project-A/",
+      }],
+      openSession: vi.fn().mockResolvedValue(undefined),
+      sendPrompt,
+      threads: {
+        "session-1": { loaded: true, blocks: [], index: {} },
+      },
+    });
+    renderNavigableAt("/heor/session-1");
+
+    await userEvent.type(await screen.findByRole("textbox"), "Continue the analysis");
+
+    expect(document.querySelector('[aria-busy="true"]')).toBeNull();
+    expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
+  });
 });

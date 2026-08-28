@@ -24,6 +24,7 @@ import { FileContextMenu } from "@/components/files/FileContextMenu";
 import { PaneTitlebarInset } from "@/components/inspector/RightPane";
 import { cn } from "@/lib/cn";
 import { workspaceLabel } from "@/lib/workspaceLabel";
+import { sameLocalPath } from "@/lib/localPath";
 
 const EXT_LANG: Record<string, string> = {
   py: "python", r: "r", jl: "julia", sh: "bash", tex: "latex", md: "markdown",
@@ -121,11 +122,11 @@ export function FilesPage() {
   };
 
   const crumbs = dir ? dir.split("/") : [];
-  const currentProject = projects.find((project) => project.path === workspace);
+  const currentProject = projects.find((project) => sameLocalPath(project.path, workspace));
   const currentTask = sessions.find((session) => session.id === currentId);
   const scopeName = currentProject?.name
     ?? currentTask?.title
-    ?? (researchScope?.path === workspace
+    ?? (researchScope && sameLocalPath(researchScope.path, workspace)
       ? workspaceLabel(researchScope.name, i18n.resolvedLanguage)
       : t("nav:items.files"));
   const taskName = currentProject && currentTask ? currentTask.title : null;
@@ -301,11 +302,11 @@ export function SessionFilesPane({
   }
 
   const crumbs = dir ? dir.split("/") : [];
-  const currentProject = projects.find((project) => project.path === workspace);
+  const currentProject = projects.find((project) => sameLocalPath(project.path, workspace));
   const currentTask = sessions.find((session) => session.id === currentId);
   const scopeName = currentProject?.name
     ?? currentTask?.title
-    ?? (researchScope?.path === workspace
+    ?? (researchScope && sameLocalPath(researchScope.path, workspace)
       ? workspaceLabel(researchScope.name, i18n.resolvedLanguage)
       : t("nav:items.files"));
   const taskName = currentProject && currentTask ? currentTask.title : null;
