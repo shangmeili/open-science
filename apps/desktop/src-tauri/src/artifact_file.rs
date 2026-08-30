@@ -197,7 +197,9 @@ pub fn locate_under(root: &Path, rel: &str) -> Option<String> {
 
 /// Resolve a file mentioned in an agent message to a real workspace-relative
 /// path (searching by basename when the literal path does not exist), or None.
-#[tauri::command]
+// A basename miss performs a bounded directory walk; keep it off the Tauri UI
+// thread so opening a file-rich research task cannot freeze the window.
+#[tauri::command(async)]
 pub fn resolve_artifact(app: AppHandle, path: String) -> Result<Option<String>, String> {
     Ok(locate_under(&workspace_dir(&app)?, &path))
 }

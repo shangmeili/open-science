@@ -63,6 +63,7 @@ import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 import { FIRST_PARTY_HEOR_CONNECTOR } from "@/lib/heorConnectorPolicy";
 import { SCIENCE_CONNECTORS } from "@/lib/scienceConnectors";
+import { customProviderId } from "@/lib/customProviderId";
 import contactCard from "@/assets/contact.png";
 
 const AI4HEOR_CONTACT_EMAIL = "shangmei.li@altolix.com";
@@ -520,7 +521,7 @@ export function SettingsPage() {
 
   const saveCustom = () =>
     run(t("toast.couldNotAddEndpoint"), async () => {
-      const id = cName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const id = customProviderId(cName);
       const models = cModels.split(",").map((s) => s.trim()).filter(Boolean);
       if (!id || !cUrl.trim() || models.length === 0) {
         toast.error(t("toast.endpointFieldsRequired"));

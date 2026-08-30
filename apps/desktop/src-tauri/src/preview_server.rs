@@ -235,9 +235,24 @@ fn parse_range(v: &str) -> Option<(Option<u64>, Option<u64>)> {
     Some((start, end))
 }
 
+/// Largest file slice held in memory while a preview is being served.
+const CHUNK_BYTES: u64 = 1024 * 1024;
+
+fn copy_n<R: Read, W: Write>(reader: &mut R, writer: &mut W, len: u64) -> std::io::Result<()> {
+    let mut buffer = vec![0u8; len.clamp(1, CHUNK_BYTES) as usize];
+    let mut remaining = len;
+    while remaining > 0 {
+        let size = remaining.min(buffer.len() as u64) as usize;
+        reader.read_exact(&mut buffer[..size])?;
+        writer.write_all(&buffer[..size])?;
+        remaining -= size as u64;
+    }
+    Ok(())
+}
+
 /// Serve a file body: 206 for a satisfiable Range, 416 for an unsatisfiable one,
-/// else a full 200. Ranged reads stream only the requested slice, so a large
-/// video never loads whole into memory.
+/// else a full 200. Both paths stream bounded slices, so a large file never
+/// loads whole into memory.
 fn serve_file(
     stream: &mut TcpStream,
     path: &Path,
@@ -277,13 +292,37 @@ fn serve_file(
             return;
         }
         let len = end - start + 1;
-        let mut body = vec![0u8; len as usize];
-        let read_ok = std::fs::File::open(path).and_then(|mut f| {
+        let opened = std::fs::File::open(path).and_then(|mut f| {
             f.seek(SeekFrom::Start(start))?;
-            f.read_exact(&mut body)?;
-            Ok(())
+            Ok(f)
         });
-        if read_ok.is_err() {
+        let mut file = match opened {
+            Ok(file) => file,
+            Err(_) => {
+                write_response(
+                    stream,
+                    "500 Internal Server Error",
+                    "text/plain",
+                    b"read failed",
+                    head_only,
+                );
+                return;
+            }
+        };
+        let security_headers = preview_security_headers(mime);
+        let header = format!(
+            "HTTP/1.1 206 Partial Content\r\nContent-Type: {mime}\r\nContent-Length: {len}\r\nContent-Range: bytes {start}-{end}/{total}\r\nAccept-Ranges: bytes\r\nX-Content-Type-Options: nosniff\r\n{security_headers}Connection: close\r\n\r\n"
+        );
+        let _ = stream.write_all(header.as_bytes());
+        if !head_only {
+            let _ = copy_n(&mut file, stream, len);
+        }
+        return;
+    }
+
+    let mut file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(_) => {
             write_response(
                 stream,
                 "500 Internal Server Error",
@@ -293,36 +332,14 @@ fn serve_file(
             );
             return;
         }
-        let security_headers = preview_security_headers(mime);
-        let header = format!(
-            "HTTP/1.1 206 Partial Content\r\nContent-Type: {mime}\r\nContent-Length: {len}\r\nContent-Range: bytes {start}-{end}/{total}\r\nAccept-Ranges: bytes\r\nX-Content-Type-Options: nosniff\r\n{security_headers}Connection: close\r\n\r\n"
-        );
-        let _ = stream.write_all(header.as_bytes());
-        if !head_only {
-            let _ = stream.write_all(&body);
-        }
-        return;
-    }
-
-    match std::fs::read(path) {
-        Ok(body) => {
-            let security_headers = preview_security_headers(mime);
-            let header = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: {mime}\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nX-Content-Type-Options: nosniff\r\n{security_headers}Connection: close\r\n\r\n",
-                body.len()
-            );
-            let _ = stream.write_all(header.as_bytes());
-            if !head_only {
-                let _ = stream.write_all(&body);
-            }
-        }
-        Err(_) => write_response(
-            stream,
-            "500 Internal Server Error",
-            "text/plain",
-            b"read failed",
-            head_only,
-        ),
+    };
+    let security_headers = preview_security_headers(mime);
+    let header = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: {mime}\r\nContent-Length: {total}\r\nAccept-Ranges: bytes\r\nX-Content-Type-Options: nosniff\r\n{security_headers}Connection: close\r\n\r\n"
+    );
+    let _ = stream.write_all(header.as_bytes());
+    if !head_only {
+        let _ = copy_n(&mut file, stream, total);
     }
 }
 
@@ -425,6 +442,37 @@ pub fn preview_url(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn file_copy_keeps_each_buffer_bounded() {
+        struct BoundedWriter {
+            max_write: usize,
+            total: usize,
+        }
+
+        impl Write for BoundedWriter {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                self.max_write = self.max_write.max(buf.len());
+                self.total += buf.len();
+                Ok(buf.len())
+            }
+
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let total = CHUNK_BYTES * 2 + 17;
+        let mut reader = std::io::Cursor::new(vec![7u8; total as usize]);
+        let mut writer = BoundedWriter {
+            max_write: 0,
+            total: 0,
+        };
+        copy_n(&mut reader, &mut writer, total).unwrap();
+
+        assert_eq!(writer.total as u64, total);
+        assert!(writer.max_write <= CHUNK_BYTES as usize);
+    }
 
     fn get(port: u16, path: &str) -> (String, Vec<u8>) {
         get_with(port, path, None)

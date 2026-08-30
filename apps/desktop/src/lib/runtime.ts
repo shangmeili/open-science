@@ -54,6 +54,7 @@ import { conversationSourceKeys } from "./conversationSource";
 import { fallbackDefaultModel } from "@/components/settings/modelCatalog";
 import i18n from "@/i18n";
 import { sameLocalPath } from "./localPath";
+import { clearResolvedArtifactPaths } from "./artifactFile";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const URL_KEY = "ai4s.opencodeUrl";
@@ -1014,8 +1015,12 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     // status must never pass through "offline" — on first boot the retry loop
     // runs for minutes (macOS TCC) and each flip repaints the whole page.
     teardownClient();
+    // Artifact path resolutions are relative to one workspace. A session or
+    // project switch must not reuse a same-named file from the previous folder.
+    const previousWorkspace = get().workspace;
     // Scope skill discovery to the sidecar's workspace (null in browser dev).
     const directory = await workspacePath();
+    if (!sameLocalPath(previousWorkspace, directory)) clearResolvedArtifactPaths();
     set({ workspace: directory, approvalMode: await getApprovalMode() });
     // The bundled sidecar requires per-run Basic auth; browser dev (no Tauri)
     // gets null and connects to a user-run passwordless server.

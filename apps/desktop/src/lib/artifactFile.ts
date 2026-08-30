@@ -37,12 +37,20 @@ export async function readArtifact(path: string, root?: FileRoot): Promise<Artif
  *  MIME, so native viewers (PDF, images, HTML) render it directly. */
 export async function previewUrl(path: string, root?: FileRoot, dir?: string): Promise<string | null> {
   if (isGatewayWeb) {
+    // Never put the gateway bearer token in a URL used by an iframe, image or
+    // browser tab. A workspace-authored document can read its own location;
+    // exchange the bearer token over an Authorization header for a short-lived
+    // capability that can read this file only.
     const t = gatewayToken();
-    return (
-      `${gatewayOrigin()}/v1/fs/read?path=${encodeURIComponent(path)}` +
-      `${root ? `&root=${root}` : ""}${dir ? `&dir=${encodeURIComponent(dir)}` : ""}` +
-      `${t ? `&token=${encodeURIComponent(t)}` : ""}`
-    );
+    const query =
+      `path=${encodeURIComponent(path)}` +
+      `${root ? `&root=${root}` : ""}${dir ? `&dir=${encodeURIComponent(dir)}` : ""}`;
+    const response = await fetch(`${gatewayOrigin()}/v1/fs/ticket?${query}`, {
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+    });
+    if (!response.ok) return null;
+    const { ticket } = (await response.json()) as { ticket?: string };
+    return ticket ? `${gatewayOrigin()}/v1/fs/read?ticket=${encodeURIComponent(ticket)}` : null;
   }
   if (!isTauri) return null;
   const { invoke } = await import("@tauri-apps/api/core");
@@ -55,8 +63,25 @@ export async function previewUrl(path: string, root?: FileRoot, dir?: string): P
  *  null when no such file exists; echoes the path back in browser dev. */
 export async function resolveArtifactPath(path: string): Promise<string | null> {
   if (!isTauri) return path;
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<string | null>("resolve_artifact", { path });
+  const cached = resolvedArtifactPaths.get(path);
+  if (cached) return cached;
+  const lookup = (async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return invoke<string | null>("resolve_artifact", { path });
+  })();
+  resolvedArtifactPaths.set(path, lookup);
+  lookup.catch(() => {
+    if (resolvedArtifactPaths.get(path) === lookup) resolvedArtifactPaths.delete(path);
+  });
+  return lookup;
+}
+
+// A missing basename can require a bounded workspace walk. Cache both hits and
+// misses within one workspace, while letting transient IPC failures retry.
+const resolvedArtifactPaths = new Map<string, Promise<string | null>>();
+
+export function clearResolvedArtifactPaths(): void {
+  resolvedArtifactPaths.clear();
 }
 
 /** Open a root-relative file in the OS default application (desktop only). */

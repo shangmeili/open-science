@@ -9,12 +9,13 @@
 // The ONLY thing that ever binds off-loopback is this gateway, and it is the only
 // thing that understands the external bearer token — the sidecar stays
 // 127.0.0.1-only always. See docs/rfc/remote-access-gateway.md.
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -118,6 +119,25 @@ fn normalize_mode(m: &str) -> String {
 struct Shared {
     token: Mutex<String>,
     read_only: AtomicBool,
+    /// Short-lived capabilities scoped to one already-resolved workspace file.
+    tickets: Mutex<HashMap<String, (Instant, PathBuf)>>,
+}
+
+const TICKET_TTL: Duration = Duration::from_secs(600);
+
+fn issue_ticket(shared: &Shared, full: PathBuf) -> String {
+    let mut tickets = shared.tickets.lock().unwrap();
+    let now = Instant::now();
+    tickets.retain(|_, (issued, _)| now.duration_since(*issued) < TICKET_TTL);
+    let id = random_hex(24);
+    tickets.insert(id.clone(), (now, full));
+    id
+}
+
+fn redeem_ticket(shared: &Shared, id: &str) -> Option<PathBuf> {
+    let tickets = shared.tickets.lock().unwrap();
+    let (issued, path) = tickets.get(id)?;
+    (Instant::now().duration_since(*issued) < TICKET_TTL).then(|| path.clone())
 }
 
 struct Running {
@@ -155,6 +175,10 @@ fn bind_listener(lan: bool) -> std::io::Result<TcpListener> {
 }
 
 fn start(app: &AppHandle, state: &GatewayState, p: &Persisted) -> Result<u16, String> {
+    // Never allow an empty bearer token to become a valid credential.
+    if p.token.is_empty() {
+        return Err("gateway token is not set".into());
+    }
     stop(state);
     let listener = bind_listener(p.lan).map_err(|e| format!("gateway bind failed: {e}"))?;
     listener.set_nonblocking(true).map_err(|e| e.to_string())?;
@@ -163,6 +187,7 @@ fn start(app: &AppHandle, state: &GatewayState, p: &Persisted) -> Result<u16, St
     let shared = Arc::new(Shared {
         token: Mutex::new(p.token.clone()),
         read_only: AtomicBool::new(p.mode == "read-only"),
+        tickets: Mutex::new(HashMap::new()),
     });
     let ctx = Arc::new(Ctx {
         app: app.clone(),
@@ -314,6 +339,18 @@ fn route(stream: &mut TcpStream, req: &Request, ctx: &Ctx) {
             "{\"ok\":true,\"service\":\"open-science-gateway\"}",
         );
         return;
+    }
+
+    // Preview URLs carry a short-lived, single-file ticket instead of the
+    // gateway bearer token. This route intentionally runs before bearer auth.
+    if req.method == "GET" && path == "/v1/fs/read" {
+        if let Some(id) = req.query_get("ticket") {
+            match redeem_ticket(&ctx.shared, &id) {
+                Some(full) => send_file(stream, &full),
+                None => respond_json(stream, 403, "{\"error\":\"ticket expired\"}"),
+            }
+            return;
+        }
     }
 
     // ---- /v1 contract API (CLI / curl / the SPA's file browser) ----
@@ -486,6 +523,15 @@ fn v1(stream: &mut TcpStream, req: &Request, ctx: &Ctx, rest: &str) {
         }
         ("GET", ["fs", "list"]) => fs_list(stream, req, ctx),
         ("GET", ["fs", "read"]) => fs_read(stream, req, ctx),
+        ("GET", ["fs", "ticket"]) => match fs_resolve(ctx, req) {
+            Ok(full) => {
+                let payload = serde_json::json!({
+                    "ticket": issue_ticket(&ctx.shared, full),
+                });
+                respond_json(stream, 200, &payload.to_string());
+            }
+            Err(e) => respond_json(stream, 404, &err_json(&e)),
+        },
         // Read-only projects + runs (local state the sidecar doesn't own) so the
         // web client can see existing projects and run history.
         ("GET", ["projects"]) => match crate::project::list_projects(ctx.app.clone()) {
@@ -747,23 +793,59 @@ fn fs_list(stream: &mut TcpStream, req: &Request, ctx: &Ctx) {
     }
 }
 
-fn fs_read(stream: &mut TcpStream, req: &Request, ctx: &Ctx) {
+fn fs_resolve(ctx: &Ctx, req: &Request) -> Result<PathBuf, String> {
     let rel = req.query_get("path").unwrap_or_default();
-    let base = match fs_base(ctx, req) {
-        Ok(b) => b,
-        Err(e) => return respond_json(stream, 400, &err_json(&e)),
-    };
+    let base = fs_base(ctx, req)?;
     // Resolve by basename like the desktop preview server: agent prose often
     // names a file without its directory ("figure1.png" for "figures/figure1.png").
     let located = locate_under(&base, &rel).unwrap_or(rel);
-    let full = match resolve_under(&base, &located) {
-        Ok(p) => p,
-        Err(e) => return respond_json(stream, 404, &err_json(&e)),
-    };
+    resolve_under(&base, &located)
+}
+
+fn fs_read(stream: &mut TcpStream, req: &Request, ctx: &Ctx) {
+    match fs_resolve(ctx, req) {
+        Ok(full) => send_file(stream, &full),
+        Err(e) => respond_json(stream, 404, &err_json(&e)),
+    }
+}
+
+fn send_file(stream: &mut TcpStream, full: &Path) {
+    if !full.is_file() {
+        return respond_json(stream, 404, "{\"error\":\"not a file\"}");
+    }
     let ext = full.extension().and_then(|s| s.to_str()).unwrap_or("");
     let (mime, _is_text) = mime_for(ext);
-    match std::fs::read(&full) {
-        Ok(bytes) => respond(stream, 200, mime, &bytes),
+    let security_headers = if mime == "text/html" {
+        concat!(
+            "Content-Security-Policy: default-src 'none'; script-src 'none'; connect-src 'none'; ",
+            "img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; ",
+            "media-src 'self' data: blob:; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'\r\n",
+            "Referrer-Policy: no-referrer\r\n",
+        )
+    } else {
+        ""
+    };
+    match std::fs::File::open(full).and_then(|file| Ok((file.metadata()?.len(), file))) {
+        Ok((total, mut file)) => {
+            let head = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: {mime}\r\nContent-Length: {total}\r\nX-Content-Type-Options: nosniff\r\nCache-Control: no-store\r\n{security_headers}Connection: close\r\n\r\n"
+            );
+            if stream.write_all(head.as_bytes()).is_err() {
+                return;
+            }
+            let mut buffer = vec![0u8; total.clamp(1, 1024 * 1024) as usize];
+            let mut remaining = total;
+            while remaining > 0 {
+                let size = remaining.min(buffer.len() as u64) as usize;
+                if file.read_exact(&mut buffer[..size]).is_err()
+                    || stream.write_all(&buffer[..size]).is_err()
+                {
+                    return;
+                }
+                remaining -= size as u64;
+            }
+            let _ = stream.flush();
+        }
         Err(e) => respond_json(stream, 404, &err_json(&e.to_string())),
     }
 }
@@ -1359,5 +1441,27 @@ mod tests {
         assert_eq!(normalize_mode("read-only"), "read-only");
         assert_eq!(normalize_mode("full"), "full");
         assert_eq!(normalize_mode("garbage"), "full");
+    }
+
+    #[test]
+    fn file_tickets_are_scoped_and_expire() {
+        let shared = Shared {
+            token: Mutex::new("secret".into()),
+            read_only: AtomicBool::new(false),
+            tickets: Mutex::new(HashMap::new()),
+        };
+        let path = PathBuf::from("/workspace/report.html");
+        let ticket = issue_ticket(&shared, path.clone());
+        assert_eq!(redeem_ticket(&shared, &ticket), Some(path));
+        assert_eq!(redeem_ticket(&shared, "another-ticket"), None);
+
+        shared.tickets.lock().unwrap().insert(
+            "expired".into(),
+            (
+                Instant::now() - TICKET_TTL - Duration::from_secs(1),
+                PathBuf::from("/workspace/old"),
+            ),
+        );
+        assert_eq!(redeem_ticket(&shared, "expired"), None);
     }
 }
