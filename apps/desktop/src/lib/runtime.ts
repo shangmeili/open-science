@@ -60,6 +60,13 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const URL_KEY = "ai4s.opencodeUrl";
 const HIDDEN_KEY = "ai4s.hiddenExamples";
 
+function workspaceMismatchError(expected: string | null, actual: string | null): Error {
+  return new Error(
+    `Runtime connected to workspace "${actual ?? "unavailable"}" instead of intended workspace ` +
+      `"${expected ?? "unavailable"}".`,
+  );
+}
+
 function initialUrl(): string {
   if (typeof window === "undefined") return DEFAULT_OPENCODE_URL;
   return window.localStorage.getItem(URL_KEY) ?? DEFAULT_OPENCODE_URL;
@@ -495,14 +502,26 @@ async function performTurn(
           );
         }
       } else if (isTauri && get().workspacePinned) {
+        const intendedWorkspace = get().workspace;
         set({ switching: true });
         try {
+          const activeWorkspace = await workspacePath();
+          if (!intendedWorkspace || !sameLocalPath(intendedWorkspace, activeWorkspace)) {
+            const error = workspaceMismatchError(intendedWorkspace, activeWorkspace);
+            set({ error: error.message });
+            throw error;
+          }
           await get().connectRetry();
         } finally {
           set({ switching: false });
         }
         if (get().status !== "ready" || !client) {
           throw new Error("Runtime did not reconnect before creating the conversation.");
+        }
+        if (!intendedWorkspace || !sameLocalPath(intendedWorkspace, get().workspace)) {
+          const error = workspaceMismatchError(intendedWorkspace, get().workspace);
+          set({ error: error.message });
+          throw error;
         }
       }
       id = await withRetry(() => client!.createSession());
@@ -1476,10 +1495,17 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     if (!isTauri || get().currentId || get().workspacePinned) return true;
     set({ switching: true });
     try {
-      await newDatedWorkspace(datedWorkspaceName());
+      const intendedWorkspace = await newDatedWorkspace(datedWorkspaceName());
+      const activeWorkspace = await workspacePath();
+      if (!sameLocalPath(intendedWorkspace, activeWorkspace)) {
+        throw workspaceMismatchError(intendedWorkspace, activeWorkspace);
+      }
       await kernelReset().catch(() => {});
       const connected = await get().connectRetry();
       if (!connected) return false;
+      if (!sameLocalPath(intendedWorkspace, get().workspace)) {
+        throw workspaceMismatchError(intendedWorkspace, get().workspace);
+      }
       set({ workspacePinned: true });
       return true;
     } catch (error) {
@@ -1637,16 +1663,32 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     if (dir && !sameLocalPath(dir, get().workspace)) {
       set({ switching: true });
       try {
-        await setWorkspace(dir).catch(() => {});
+        const intendedWorkspace = await setWorkspace(dir);
         // A newer openSession has superseded this one — stop before starting a
         // second, dueling connectRetry. Two reconnect loops tear down each
         // other's in-flight EventSource, leaking half-open sockets until the
         // webview's per-host connection pool is exhausted and every later
         // session hangs on load. The winner (latest seq) does the reconnect.
         if (seq !== openSessionSeq) return;
+        const activeWorkspace = await workspacePath();
+        if (!sameLocalPath(intendedWorkspace, activeWorkspace)) {
+          throw workspaceMismatchError(intendedWorkspace, activeWorkspace);
+        }
         await kernelReset().catch(() => {});
         if (seq !== openSessionSeq) return;
-        await get().connectRetry();
+        if (!(await get().connectRetry())) {
+          throw new Error(get().error ?? "Runtime did not reconnect to the task workspace.");
+        }
+        if (seq !== openSessionSeq) return;
+        if (!sameLocalPath(intendedWorkspace, get().workspace)) {
+          throw workspaceMismatchError(intendedWorkspace, get().workspace);
+        }
+      } catch (error) {
+        if (seq === openSessionSeq) {
+          const reason = error instanceof Error ? error.message : String(error);
+          set({ error: `Failed to open task workspace "${dir}": ${reason}` });
+        }
+        return;
       } finally {
         // Only the still-current open clears `switching`; a superseded one must
         // not flip it off while the winner is mid-reconnect.

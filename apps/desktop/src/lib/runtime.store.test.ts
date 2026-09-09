@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
     mocks.activePath = `/ws/${name}`;
     return mocks.activePath;
   }),
+  markSession: vi.fn(async () => {}),
   createProject: vi.fn(async (name: string) => {
     const project = {
       id: "created-project",
@@ -51,6 +52,7 @@ const mocks = vi.hoisted(() => ({
   failConnects: 0,
   /** Number of createSession() attempts that fail before one succeeds. */
   failCreates: 0,
+  createSession: vi.fn(async () => "ses_new"),
   /** Fire a normalized event into the store, as the SSE stream would. */
   fireEvent: (_e: unknown) => {},
   /** Fire a client status flip into the store, as the SDK's reconnect would. */
@@ -128,7 +130,7 @@ vi.mock("./tauri", () => ({
       kind: "session" as const,
       path: mocks.activePath,
     },
-  markSession: async () => {},
+  markSession: mocks.markSession,
   commitWorkspaceSnapshot: mocks.commitWorkspaceSnapshot,
   getApprovalMode: async () => mocks.approvalMode,
   setApprovalMode: mocks.setApprovalMode,
@@ -194,7 +196,7 @@ vi.mock("@ai4s/sdk", () => {
         mocks.failCreates--;
         throw new Error("Load failed");
       }
-      return "ses_new";
+      return mocks.createSession();
     }
     async sendPrompt(sid: string, text: string, agent?: string, model?: string | null) {
       mocks.sendPrompt(sid, text, agent, model);
@@ -529,11 +531,40 @@ describe("project and standalone conversations", () => {
     expect(mocks.newDatedWorkspace).toHaveBeenCalledTimes(1);
   });
 
+  it("does not create a standalone session when the runtime reconnects to another workspace", async () => {
+    useRuntimeStore.setState({ projects: [], workspacePinned: false });
+    mocks.newDatedWorkspace.mockImplementationOnce(async () => {
+      mocks.activePath = "/ws/wrong";
+      return "/ws/intended";
+    });
+
+    const id = await useRuntimeStore.getState().sendPrompt("hello");
+
+    expect(id).toBe(null);
+    expect(mocks.createSession).not.toHaveBeenCalled();
+    expect(useRuntimeStore.getState().error).toContain("/ws/intended");
+    expect(useRuntimeStore.getState().error).toContain("/ws/wrong");
+    expect(useRuntimeStore.getState().workspacePinned).toBe(false);
+  });
+
   it("creates a conversation in the selected project without a dated scope", async () => {
     useRuntimeStore.setState({ workspacePinned: true });
     const id = await useRuntimeStore.getState().sendPrompt("hello");
     expect(id).toBe("ses_new");
     expect(mocks.newDatedWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("does not create a project session when the active workspace changed before reconnect", async () => {
+    useRuntimeStore.setState({ workspace: "/ws/intended", workspacePinned: true });
+    mocks.activePath = "/ws/wrong";
+
+    const id = await useRuntimeStore.getState().sendPrompt("hello");
+
+    expect(id).toBe(null);
+    expect(mocks.createSession).not.toHaveBeenCalled();
+    expect(useRuntimeStore.getState().error).toContain("/ws/intended");
+    expect(useRuntimeStore.getState().error).toContain("/ws/wrong");
+    expect(useRuntimeStore.getState().workspace).toBe("/ws/intended");
   });
 
   it("uses the current model for an existing session instead of its stale creation model", async () => {
@@ -638,6 +669,44 @@ describe("project and standalone conversations", () => {
     expect(mocks.setWorkspace).not.toHaveBeenCalled();
     expect(mocks.kernelReset).not.toHaveBeenCalled();
     expect(mocks.getMessages).toHaveBeenLastCalledWith("A");
+  });
+
+  it("does not continue opening a session when its workspace switch fails", async () => {
+    useRuntimeStore.setState({
+      sessions: [{ id: "A", title: "A", directory: "/ws/A" }] as never,
+    });
+    mocks.setWorkspace.mockRejectedValueOnce(new Error("permission denied"));
+    mocks.kernelReset.mockClear();
+    mocks.getMessages.mockClear();
+
+    await useRuntimeStore.getState().openSession("A");
+
+    expect(mocks.kernelReset).not.toHaveBeenCalled();
+    expect(mocks.markSession).not.toHaveBeenCalled();
+    expect(mocks.getMessages).not.toHaveBeenCalled();
+    expect(useRuntimeStore.getState().error).toContain("/ws/A");
+    expect(useRuntimeStore.getState().error).toContain("permission denied");
+    expect(useRuntimeStore.getState().switching).toBe(false);
+  });
+
+  it("does not continue opening a session when the active workspace differs from the switch result", async () => {
+    useRuntimeStore.setState({
+      sessions: [{ id: "A", title: "A", directory: "/ws/A" }] as never,
+    });
+    mocks.setWorkspace.mockImplementationOnce(async () => {
+      mocks.activePath = "/ws/wrong";
+      return "/ws/A";
+    });
+    mocks.kernelReset.mockClear();
+    mocks.getMessages.mockClear();
+
+    await useRuntimeStore.getState().openSession("A");
+
+    expect(mocks.kernelReset).not.toHaveBeenCalled();
+    expect(mocks.markSession).not.toHaveBeenCalled();
+    expect(mocks.getMessages).not.toHaveBeenCalled();
+    expect(useRuntimeStore.getState().error).toContain("/ws/A");
+    expect(useRuntimeStore.getState().error).toContain("/ws/wrong");
   });
 
   it("echoes the first message instantly into the draft, then grafts it onto the session", async () => {

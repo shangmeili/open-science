@@ -620,7 +620,24 @@ export class OpenCodeClient implements AgentRuntime {
     id: string,
     opts: { name: string; npm: string; baseURL: string; models: string[] },
   ): Promise<void> {
-    const models = Object.fromEntries(opts.models.map((m) => [m, { name: m }]));
+    let existingModels: Record<string, Record<string, unknown>> = {};
+    try {
+      const configRes = await this.fetchImpl(`${this.baseUrl}/global/config`, {
+        headers: this.headers(),
+      });
+      if (configRes.ok) {
+        const config = (await configRes.json()) as {
+          provider?: Record<string, { models?: Record<string, Record<string, unknown>> }>;
+        };
+        existingModels = config.provider?.[id]?.models ?? {};
+      }
+    } catch {
+      // Reading current metadata is best-effort; adding a new provider must
+      // still work when an older runtime cannot return global config.
+    }
+    const models = Object.fromEntries(
+      opts.models.map((model) => [model, existingModels[model] ?? { name: model }]),
+    );
     const provider = {
       [id]: {
         name: opts.name,

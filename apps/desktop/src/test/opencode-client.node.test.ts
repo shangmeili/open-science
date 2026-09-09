@@ -297,7 +297,7 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
   it("keeps custom-provider credentials out of the global config payload", async () => {
     const bodies: string[] = [];
     const fetchImpl: typeof fetch = async (_input, init) => {
-      bodies.push(String(init?.body ?? ""));
+      if (init?.body) bodies.push(String(init.body));
       return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
     };
     const client = new OpenCodeClient({ baseUrl: "http://127.0.0.1:1", fetchImpl });
@@ -316,6 +316,61 @@ describe("OpenCodeClient ↔ OpenCode server", () => {
       baseURL: "https://api.minimaxi.com/anthropic/v1",
     });
     expect(bodies[0]).not.toContain("apiKey");
+  });
+
+  it("preserves custom-model metadata when a custom provider is saved again", async () => {
+    const patches: unknown[] = [];
+    const fetchImpl: typeof fetch = async (_input, init) => {
+      if (init?.method === "PATCH") {
+        patches.push(JSON.parse(String(init.body)));
+        return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({
+        provider: {
+          custom: {
+            models: {
+              "model-a": {
+                name: "Model A",
+                limit: { context: 128000, output: 8192 },
+                cost: { input: 1, output: 3 },
+                modalities: { input: ["text", "image"], output: ["text"] },
+                reasoning: true,
+                variants: { high: { reasoningEffort: "high" } },
+              },
+            },
+          },
+        },
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+    const client = new OpenCodeClient({ baseUrl: "http://127.0.0.1:1", fetchImpl });
+
+    await client.addCustomProvider("custom", {
+      name: "Custom provider",
+      npm: "@ai-sdk/openai-compatible",
+      baseURL: "https://example.test/v1",
+      models: ["model-a", "model-b"],
+    });
+
+    expect(patches).toEqual([{
+      provider: {
+        custom: {
+          name: "Custom provider",
+          npm: "@ai-sdk/openai-compatible",
+          options: { baseURL: "https://example.test/v1" },
+          models: {
+            "model-a": {
+              name: "Model A",
+              limit: { context: 128000, output: 8192 },
+              cost: { input: 1, output: 3 },
+              modalities: { input: ["text", "image"], output: ["text"] },
+              reasoning: true,
+              variants: { high: { reasoningEffort: "high" } },
+            },
+            "model-b": { name: "model-b" },
+          },
+        },
+      },
+    }]);
   });
 
   it("pins a turn to the selected provider/model without exposing it in the text", async () => {
