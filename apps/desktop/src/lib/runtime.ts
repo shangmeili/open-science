@@ -1627,12 +1627,22 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   switchWorkspace: async (target) => {
     set({ switching: true });
     try {
-      await setWorkspace(target.path);
+      const intendedWorkspace = await setWorkspace(target.path);
+      const activeWorkspace = await workspacePath();
+      if (!sameLocalPath(intendedWorkspace, activeWorkspace)) {
+        throw workspaceMismatchError(intendedWorkspace, activeWorkspace);
+      }
       // Reset the local kernel so it respawns in the new folder, then reconnect
       // the event stream scoped to it (connect() re-reads the active folder —
       // the sidecar itself keeps running). An explicit switch pins the folder,
       // so the next new task lands exactly there.
       await kernelReset().catch(() => {});
+      if (!(await get().connectRetry())) {
+        throw new Error(get().error ?? "Runtime did not reconnect to the task workspace.");
+      }
+      if (!sameLocalPath(intendedWorkspace, get().workspace)) {
+        throw workspaceMismatchError(intendedWorkspace, get().workspace);
+      }
       set((s) => {
         // Back to a draft in the new folder — the draft pane must not carry
         // files from the previous folder. Session panes keep their memory.
@@ -1642,7 +1652,6 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         delete promptQueues[DRAFT_KEY];
         return { currentId: null, panes, promptQueues, workspacePinned: true };
       });
-      await get().connectRetry();
       await Promise.all([get().refreshSessions(), get().loadCatalog()]);
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });

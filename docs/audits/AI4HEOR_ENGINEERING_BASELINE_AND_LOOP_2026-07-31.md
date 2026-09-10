@@ -1,5 +1,22 @@
 # AI4HEOR 工程基线与闭环记录（2026-07-31）
 
+## 2026-09-11 post-update review
+
+Baseline: `17b6d68e`, including the upstream adaptations in `c854bd8c`; the initial worktree was clean. The separate upstream-review task was checked to confirm this is its delivered source baseline. This review makes no further upstream merge.
+
+Architecture remains Tauri/Rust desktop services, React/Zustand task state, the provider-independent OpenCode SDK and bundled sidecar, and local deterministic Python HEOR engines with native artifact/review validation. Review scope covered workspace switching and identity, provider metadata preservation, task creation guards, scientific regression coverage, and packaged-resource integrity. This is a targeted source/regression review, not a claim of exhaustive scientific validation or installed-package acceptance.
+
+| ID | Priority | Reproduction and root cause | Minimal repair and acceptance |
+| --- | --- | --- | --- |
+| P1-WS-20260911-01 | P1 | `switchWorkspace` discarded the current task before checking reconnect success and did not check actual workspace identity. Two red tests observed `currentId=null` on failed activation/reconnect. | Validate the backend directory and reconnected store directory, and only then enter a draft. Three regression tests cover failed activation, failed reconnect, and a ready connection to the wrong directory; existing successful-switch tests remain. |
+| P1-PATH-20260911-02 | P1 | `sameLocalPath` replaced literal POSIX backslashes with separators. A red test equated two distinct legal POSIX paths. | Restrict backslash conversion to Windows paths. Preserve POSIX filename bytes and existing Windows normalization. |
+
+Files: `apps/desktop/src/lib/runtime.ts`, `runtime.store.test.ts`, `localPath.ts`, and `localPath.test.ts`. No formulas, defaults, research records, schemas, dependencies, or public interfaces changed. Rollback consists of reversing these bounded diffs; no data rollback or migration is required.
+
+Baseline checks: 823 frontend tests and 197 deterministic HEOR tests passed. Native Rust checks passed 397 tests, with one established live-network test ignored. Development contract checks passed 136 tests; Harness checks passed 16; resource preflight verified 44 sources and 461 files. Final frontend/type/lint/build results are recorded in `PROGRESS.md` after completion.
+
+Remaining review items: the technical-design introduction still describes an older dated release and should not be used as current delivery evidence; the main-window CSP remains unset and needs a separate compatibility-tested change; the frontend build reports large chunks. Native UI E2E, Windows execution, and replacement installer acceptance were not rerun in this review. Existing package evidence remains bound to its original source commit and does not validate these new changes.
+
 ## 基线
 
 - 分支：`codex/heor-workbench`

@@ -182,6 +182,7 @@ jobs:
         run: |
           pnpm --filter @ai4s/desktop exec vitest run `
             src/lib/localPath.test.ts `
+            src/lib/productHelp.test.ts `
             src/app/routes/HeorPage.test.tsx `
             src/lib/runtime.store.test.ts `
             --reporter=dot

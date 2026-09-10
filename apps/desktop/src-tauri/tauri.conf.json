@@ -54,6 +54,7 @@
       "../../../runtime/assets/fonts/source-han-sans-2.005R/LICENSE.txt": "legal/fonts/SourceHanSansCN-OFL-1.1.txt",
       "../../../runtime/harness": "harness/",
       "../../../runtime/knowledge-base/zh-Hans": "knowledge-base/zh-Hans/",
+      "../../../runtime/product-help/zh-Hans": "product-help/zh-Hans/",
       "../../../python/heor_core/src/heor_core/__init__.py": "heor-core/src/heor_core/__init__.py",
       "../../../python/heor_core/src/heor_core/__main__.py": "heor-core/src/heor_core/__main__.py",
       "../../../python/heor_core/src/heor_core/background_mortality.py": "heor-core/src/heor_core/background_mortality.py",

@@ -1429,6 +1429,47 @@ describe("per-session right pane", () => {
     expect(s.panes["ses_1"]?.artifact?.path).toBe("report.pdf");
   });
 
+  it("switchWorkspace retains the current task when the active folder differs from its target", async () => {
+    useRuntimeStore.setState({ currentId: "ses_1" });
+    mocks.setWorkspace.mockImplementationOnce(async (path) => path);
+    await useRuntimeStore.getState().switchWorkspace({ path: "/ws/other" });
+    expect(useRuntimeStore.getState().currentId).toBe("ses_1");
+    expect(useRuntimeStore.getState().error).toContain("instead of intended workspace");
+    expect(useRuntimeStore.getState().switching).toBe(false);
+  });
+
+  it("switchWorkspace retains the current task when reconnect fails", async () => {
+    const original = useRuntimeStore.getState().connectRetry;
+    useRuntimeStore.setState({ currentId: "ses_1", connectRetry: vi.fn(async () => false) });
+    try {
+      await useRuntimeStore.getState().switchWorkspace({ path: "/ws/other" });
+      expect(useRuntimeStore.getState().currentId).toBe("ses_1");
+      expect(useRuntimeStore.getState().error).toContain("Runtime did not reconnect");
+      expect(useRuntimeStore.getState().switching).toBe(false);
+    } finally {
+      useRuntimeStore.setState({ connectRetry: original });
+    }
+  });
+
+  it("switchWorkspace rejects a ready connection to a different workspace", async () => {
+    const original = useRuntimeStore.getState().connectRetry;
+    useRuntimeStore.setState({
+      currentId: "ses_1",
+      connectRetry: vi.fn(async () => {
+        useRuntimeStore.setState({ workspace: "/ws/wrong", status: "ready" });
+        return true;
+      }),
+    });
+    try {
+      await useRuntimeStore.getState().switchWorkspace({ path: "/ws/other" });
+      expect(useRuntimeStore.getState().currentId).toBe("ses_1");
+      expect(useRuntimeStore.getState().error).toContain("instead of intended workspace");
+      expect(useRuntimeStore.getState().switching).toBe(false);
+    } finally {
+      useRuntimeStore.setState({ connectRetry: original });
+    }
+  });
+
   it("switchWorkspace drops the draft pane (old folder's files) but not session panes", async () => {
     useRuntimeStore.setState({ currentId: "ses_1" });
     useRuntimeStore.getState().openArtifact(artifact("report.pdf"));

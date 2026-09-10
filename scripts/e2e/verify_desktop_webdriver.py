@@ -58,7 +58,7 @@ from verify_packaged_opencode_fixture import (  # noqa: E402
 
 
 PROJECT_NAME = "AI4HEOR E2E project"
-TASK_PROMPT = "AI4HEOR E2E standalone task"
+TASK_PROMPT = "AI4HEOR E2E standalone task: 如何配置模型和 Jupyter？"
 QUEUE_PROMPTS = (
     "AI4HEOR E2E queued first",
     "AI4HEOR E2E queued second",
@@ -1405,6 +1405,21 @@ def main() -> int:
                     timeout=60.0,
                 )
                 wait_for_body_text(base_url, session_id, FIXTURE_MARKER)
+
+                help_requests = [
+                    latest_user_text(body)
+                    for body in main_provider_requests(fixture_state)
+                    if TASK_PROMPT in latest_user_text(body)
+                ]
+                if not help_requests or not all(
+                    marker in help_requests[0]
+                    for marker in ("<APP_PRODUCT_HELP>", "设置 → 模型", "安装本地环境")
+                ):
+                    raise AssertionError("product-help content did not reach the configured provider")
+                if "<APP_PRODUCT_HELP>" in execute(
+                    base_url, session_id, "return document.body.innerText;"
+                ):
+                    raise AssertionError("internal product-help context leaked into the conversation")
 
                 active_pointer = runtime_root / "active-workspace.txt"
                 if not active_pointer.is_file():

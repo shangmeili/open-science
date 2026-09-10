@@ -22,7 +22,7 @@ function isWindowsPath(path: string) {
 }
 
 function comparablePath(path: string, windows: boolean) {
-  let normalized = path.replace(/\\/g, "/");
+  let normalized = windows ? path.replace(/\\/g, "/") : path;
   if (windows) {
     if (/^\/\/\?\/unc\//i.test(normalized)) normalized = `//${normalized.slice(8)}`;
     else if (/^\/\/\?\//.test(normalized)) normalized = normalized.slice(4);

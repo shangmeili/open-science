@@ -1,4 +1,5 @@
 import { isTauri } from "./tauri";
+import { productHelpContext } from "./productHelp";
 
 export const HEOR_PLAN_PATH = "heor/analysis-plan.json";
 export const HEOR_CONCEPTUAL_MODEL_PATH = "heor/conceptual-model.json";
@@ -3555,7 +3556,8 @@ function responseLanguageContract(locale: string): string {
 /** Add the domain contract to the provider request. It is runtime context, not
  *  researcher-authored content, so the conversation UI removes it again. */
 export function buildHeorPrompt(userText: string, locale = "en"): string {
-  return [HEOR_PROMPT_PREAMBLE, responseLanguageContract(locale), "", userText.trim()].join("\n");
+  const help = productHelpContext(userText);
+  return [HEOR_PROMPT_PREAMBLE, responseLanguageContract(locale), ...(help ? [help] : []), "", userText.trim()].join("\n");
 }
 
 /** Identify only the fixed app-owned HEOR template and language contract.
@@ -3590,6 +3592,7 @@ export function displayHeorPrompt(storedText: string): string {
     .slice(preamble.length)
     .trim()
     .replace(/^Response language contract:[^\n]*(?:\n+|$)/i, "")
+    .replace(/^<APP_PRODUCT_HELP>\n[\s\S]*?\n<\/APP_PRODUCT_HELP>\s*/, "")
     .replace(/^\$[a-z0-9-]+\s*\n+/i, "")
     .trim();
 }

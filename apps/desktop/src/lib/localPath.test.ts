@@ -25,6 +25,11 @@ describe("sameLocalPath", () => {
       .toBe(false);
   });
 
+  it("keeps literal POSIX backslashes distinct from directory separators", () => {
+    expect(sameLocalPath("/research/study\\arm", "/research/study/arm")).toBe(false);
+    expect(sameLocalPath("/research/study\\arm", "/research/study\\arm")).toBe(true);
+  });
+
   it("does not treat an unavailable path as a match", () => {
     expect(sameLocalPath(null, "C:\\AI4HEOR")).toBe(false);
   });
