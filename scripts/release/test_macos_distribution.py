@@ -173,6 +173,7 @@ class DistributionVerifierTests(unittest.TestCase):
         )
         self.assertIn(session_zh["composer"]["send"]["aria"], source)
         self.assertIn(session_en["composer"]["send"]["aria"], source)
+        self.assertIn(session_en["composer"]["placeholder"]["default"], source)
         self.assertIn("assistant_reply_visible", source)
         self.assertIn("prepare_installed_task_reply_runtime", dir(verifier))
         self.assertIn("local_installed_task_reply_fixture", dir(verifier))

@@ -139,6 +139,7 @@ let composerNames: Set<String> = [
     "描述你要处理的研究问题或工作……",
     "描述研究问题或要处理的工作",
     "Describe the research question or work you want to address…",
+    "Ask anything",
 ]
 guard let composer = waitFor({
     find(in: window, role: kAXTextAreaRole as String, names: composerNames)
