@@ -245,8 +245,8 @@ pnpm lint
 产品和架构说明位于 [`docs/PRD.md`](./docs/PRD.md) 和
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md)，但这些文档同时包含目标设计和历史状态说明。
 
-1.0.0 工业测试候选版同时面向 Intel macOS 和 Windows x64；Linux 与 Apple Silicon 不在本次交付范围内。
-当前源码为 `1.0.0`。此前完成首次启动核验的 x64 macOS 0.1.56 候选包只保留为历史验证证据，
+1.0.1 工业测试候选版同时面向 Intel macOS 和 Windows x64；Linux 与 Apple Silicon 不在本次交付范围内。
+当前源码为 `1.0.1`。早期完成首次启动核验的 x64 macOS 0.1.56 候选包只保留为历史验证证据，
 已经不是本次交付包。
 `AI4HEOR_0.1.56_x64.dmg` 大小为 91,021,588 字节，SHA-256 是
 `ed1107407ef6e3c8d46d0c674d368540c82811868a673a0e1c4d2dd3a2962358`。
