@@ -84,6 +84,8 @@ export interface Thread {
   blocks: ThreadBlock[];
   index: Record<string, number>;
   loaded: boolean;
+  /** A failed fetch stops the skeleton but must not satisfy the loaded gate. */
+  historyError?: string;
 }
 
 /** What a session's right pane shows: an artifact inspector, the Files
@@ -1731,7 +1733,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     })();
     // A session reopened while "Working…" may have finished behind our back.
     void get().reconcileRunning();
-    if (get().threads[id]?.loaded) return;
+    if (get().threads[id]?.loaded && !get().threads[id]?.historyError) return;
     try {
       const messages = await client.getMessages(id);
       if (seq !== openSessionSeq || get().currentId !== id) return;
@@ -1747,13 +1749,13 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       const msg = err instanceof Error ? err.message : String(err);
       if (seq !== openSessionSeq || get().currentId !== id) return;
       set((s) => ({
-        error: msg,
         threads: {
           ...s.threads,
           [id]: {
             ...emptyThread(),
             loaded: true,
-            blocks: [{ kind: "status-line", text: `Failed to load messages: ${msg}`, tone: "error" }],
+            historyError: msg,
+            blocks: [{ kind: "status-line", text: `Failed to load messages: ${msg}`, tone: "error", retry: true }],
           },
         },
       }));

@@ -206,6 +206,8 @@ export interface StatusLineBlock {
   text: string; // e.g. "8 running · 16m 2s"
   tone?: "running" | "done" | "review" | "error";
   divider?: boolean;
+  /** A failed history fetch can be retried without restarting the app. */
+  retry?: boolean;
 }
 
 // ---- Inspector (right pane) ----

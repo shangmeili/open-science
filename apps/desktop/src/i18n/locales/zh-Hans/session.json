@@ -1,4 +1,5 @@
 {
+  "historyRetry": "重试",
   "notFound": {
     "title": "未找到任务",
     "hint": "从侧边栏选择一项任务。"

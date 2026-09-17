@@ -1,6 +1,6 @@
 [package]
 name = "ai4s-workbench"
-version = "1.0.0"
+version = "1.0.1"
 description = "AI4HEOR local-first research workbench"
 authors = ["AI4HEOR contributors"]
 edition = "2021"

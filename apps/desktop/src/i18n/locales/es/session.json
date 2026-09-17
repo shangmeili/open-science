@@ -1,4 +1,5 @@
 {
+  "historyRetry": "Reintentar",
   "notFound": {
     "title": "Tarea no encontrada",
     "hint": "Elige una tarea en la barra lateral."

@@ -1,5 +1,5 @@
-import { act, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { BlockList } from "./BlockList";
 import { useRuntimeStore } from "@/lib/runtime";
 
@@ -52,5 +52,25 @@ describe("BlockList", () => {
     expect(target).not.toBeNull();
     expect(target).toHaveTextContent("python cea.py");
     expect(target).not.toHaveTextContent("python prepare.py");
+  });
+
+  it("offers retry only for a failed history load", () => {
+    const retry = vi.fn();
+    const { rerender } = render(
+      <BlockList
+        blocks={[{ kind: "status-line", text: "Failed to load messages", tone: "error", retry: true }]}
+        handlers={{ onRetryHistory: retry }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalledOnce();
+
+    rerender(
+      <BlockList
+        blocks={[{ kind: "status-line", text: "Another error", tone: "error" }]}
+        handlers={{ onRetryHistory: retry }}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
   });
 });

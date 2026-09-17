@@ -957,9 +957,31 @@ describe("project and standalone conversations", () => {
 
     const thread = useRuntimeStore.getState().threads.ses_bad;
     expect(thread.loaded).toBe(true);
+    expect(thread.historyError).toBe("history hung");
     expect(thread.blocks).toEqual([
-      { kind: "status-line", text: "Failed to load messages: history hung", tone: "error" },
+      { kind: "status-line", text: "Failed to load messages: history hung", tone: "error", retry: true },
     ]);
+  });
+
+  it("reopens a task after a transient history failure and replaces the error with messages", async () => {
+    mocks.failMessages = true;
+    useRuntimeStore.setState({
+      sessions: [{ id: "ses_bad", title: "Bad session", directory: "/ws/base" }],
+      currentId: null,
+      threads: {},
+    });
+
+    await useRuntimeStore.getState().openSession("ses_bad");
+    mocks.failMessages = false;
+    mocks.messages = [{ role: "user", agent: "build", parts: [{ type: "text", text: "Recovered" }] }];
+    await useRuntimeStore.getState().openSession("ses_bad");
+
+    expect(mocks.getMessages).toHaveBeenCalledTimes(2);
+    expect(useRuntimeStore.getState().threads.ses_bad.historyError).toBeUndefined();
+    expect(useRuntimeStore.getState().threads.ses_bad.blocks).toContainEqual(
+      expect.objectContaining({ kind: "user", text: "Recovered" }),
+    );
+    expect(useRuntimeStore.getState().workspace).toBe("/ws/base");
   });
 
   it("global startDraft starts standalone; a project can still pin its own draft", async () => {

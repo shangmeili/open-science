@@ -277,7 +277,8 @@ const TONE: Record<NonNullable<StatusLineBlock["tone"]>, string> = {
   error: "text-error",
 };
 
-export function StatusLine({ block }: { block: StatusLineBlock }) {
+export function StatusLine({ block, onRetry }: { block: StatusLineBlock; onRetry?: () => void }) {
+  const { t } = useTranslation("session");
   return (
     <div className={cn(block.divider && "border-t border-border pt-4")}>
       <div className={cn("flex items-center gap-2 text-sm", TONE[block.tone ?? "review"])}>
@@ -286,6 +287,15 @@ export function StatusLine({ block }: { block: StatusLineBlock }) {
           className={cn(block.tone === "running" && "animate-spin", block.tone !== "running" && "hidden")}
         />
         <span>{block.text}</span>
+        {block.retry && onRetry && (
+          <button
+            type="button"
+            className="shrink-0 rounded-input border border-border px-2.5 py-1 text-xs font-medium text-text hover:bg-surface-2"
+            onClick={onRetry}
+          >
+            {t("historyRetry")}
+          </button>
+        )}
       </div>
     </div>
   );

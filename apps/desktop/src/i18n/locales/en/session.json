@@ -1,4 +1,5 @@
 {
+  "historyRetry": "Retry",
   "notFound": {
     "title": "Task not found",
     "hint": "Pick a task from the sidebar."

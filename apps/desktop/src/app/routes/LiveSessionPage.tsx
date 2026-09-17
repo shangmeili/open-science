@@ -248,6 +248,9 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
       });
     },
     onArtifactOpen: openArtifactPane,
+    onRetryHistory: () => {
+      if (sessionId) void openSession(sessionId);
+    },
     onFigureComment: (a, title) => {
       const prompt = t("figure.commentPrompt", {
         title,
@@ -264,7 +267,7 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
     // object. This keeps the handler reference stable for the memoized list.
     subagentActivity: (childId) =>
       subagentActivity(useRuntimeStore.getState().threads[childId]?.blocks),
-  }), [editMessage, i18n.language, i18n.resolvedLanguage, openArtifactPane, revertMessage, sendPrompt, t]);
+  }), [editMessage, i18n.language, i18n.resolvedLanguage, openArtifactPane, openSession, revertMessage, sendPrompt, sessionId, t]);
   const onEvaluate = (expr: string) => {
     const prompt = t("live.notebook.evaluatePrompt", { expr });
     void sendPrompt(

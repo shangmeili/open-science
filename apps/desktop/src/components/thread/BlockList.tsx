@@ -19,6 +19,8 @@ export interface BlockHandlers {
   onFigureComment?: (annotation: FigureAnnotation, figureTitle: string) => void;
   /** Live one-line activity of the subagent a task tool spawned (live session). */
   subagentActivity?: (childSessionId: string) => string | undefined;
+  /** Retry loading the current task's history after a transient fetch failure. */
+  onRetryHistory?: () => void;
 }
 
 export function renderBlock(
@@ -56,7 +58,7 @@ export function renderBlock(
     case "running-jobs":
       return <RunningJobsOverlay key={i} block={block} />;
     case "status-line":
-      return <StatusLine key={i} block={block} />;
+      return <StatusLine key={i} block={block} onRetry={handlers?.onRetryHistory} />;
   }
 }
 

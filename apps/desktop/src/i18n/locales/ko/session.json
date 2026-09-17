@@ -1,4 +1,5 @@
 {
+  "historyRetry": "다시 시도",
   "notFound": {
     "title": "작업을 찾을 수 없습니다",
     "hint": "사이드바에서 작업을 선택하세요."
