@@ -120,24 +120,54 @@ struct Shared {
     token: Mutex<String>,
     read_only: AtomicBool,
     /// Short-lived capabilities scoped to one already-resolved workspace file.
-    tickets: Mutex<HashMap<String, (Instant, PathBuf)>>,
+    tickets: Mutex<HashMap<String, FileTicket>>,
+}
+
+#[derive(Clone)]
+struct FileTicket {
+    issued: Instant,
+    path: PathBuf,
+    scope: PathBuf,
 }
 
 const TICKET_TTL: Duration = Duration::from_secs(600);
 
-fn issue_ticket(shared: &Shared, full: PathBuf) -> String {
+fn checked_ticket_path(path: &Path, canonical_scope: &Path) -> Option<PathBuf> {
+    let metadata = std::fs::symlink_metadata(path).ok()?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return None;
+    }
+    let path = path.canonicalize().ok()?;
+    path.starts_with(canonical_scope).then_some(path)
+}
+
+fn issue_ticket(shared: &Shared, full: PathBuf, scope: PathBuf) -> Result<String, String> {
+    let scope = scope.canonicalize().map_err(|error| error.to_string())?;
+    let full = checked_ticket_path(&full, &scope)
+        .ok_or_else(|| "file is outside the ticket scope or is not a regular file".to_string())?;
     let mut tickets = shared.tickets.lock().unwrap();
     let now = Instant::now();
-    tickets.retain(|_, (issued, _)| now.duration_since(*issued) < TICKET_TTL);
+    tickets.retain(|_, ticket| now.duration_since(ticket.issued) < TICKET_TTL);
     let id = random_hex(24);
-    tickets.insert(id.clone(), (now, full));
-    id
+    tickets.insert(
+        id.clone(),
+        FileTicket {
+            issued: now,
+            path: full,
+            scope,
+        },
+    );
+    Ok(id)
 }
 
 fn redeem_ticket(shared: &Shared, id: &str) -> Option<PathBuf> {
     let tickets = shared.tickets.lock().unwrap();
-    let (issued, path) = tickets.get(id)?;
-    (Instant::now().duration_since(*issued) < TICKET_TTL).then(|| path.clone())
+    let ticket = tickets.get(id)?.clone();
+    drop(tickets);
+    if Instant::now().duration_since(ticket.issued) >= TICKET_TTL {
+        return None;
+    }
+    checked_ticket_path(&ticket.path, &ticket.scope)
 }
 
 struct Running {
@@ -523,11 +553,11 @@ fn v1(stream: &mut TcpStream, req: &Request, ctx: &Ctx, rest: &str) {
         }
         ("GET", ["fs", "list"]) => fs_list(stream, req, ctx),
         ("GET", ["fs", "read"]) => fs_read(stream, req, ctx),
-        ("GET", ["fs", "ticket"]) => match fs_resolve(ctx, req) {
-            Ok(full) => {
-                let payload = serde_json::json!({
-                    "ticket": issue_ticket(&ctx.shared, full),
-                });
+        ("GET", ["fs", "ticket"]) => match fs_resolve_scoped(ctx, req)
+            .and_then(|(full, scope)| issue_ticket(&ctx.shared, full, scope))
+        {
+            Ok(ticket) => {
+                let payload = serde_json::json!({ "ticket": ticket });
                 respond_json(stream, 200, &payload.to_string());
             }
             Err(e) => respond_json(stream, 404, &err_json(&e)),
@@ -793,13 +823,18 @@ fn fs_list(stream: &mut TcpStream, req: &Request, ctx: &Ctx) {
     }
 }
 
-fn fs_resolve(ctx: &Ctx, req: &Request) -> Result<PathBuf, String> {
+fn fs_resolve_scoped(ctx: &Ctx, req: &Request) -> Result<(PathBuf, PathBuf), String> {
     let rel = req.query_get("path").unwrap_or_default();
     let base = fs_base(ctx, req)?;
     // Resolve by basename like the desktop preview server: agent prose often
     // names a file without its directory ("figure1.png" for "figures/figure1.png").
     let located = locate_under(&base, &rel).unwrap_or(rel);
-    resolve_under(&base, &located)
+    let full = resolve_under(&base, &located)?;
+    Ok((full, base))
+}
+
+fn fs_resolve(ctx: &Ctx, req: &Request) -> Result<PathBuf, String> {
+    fs_resolve_scoped(ctx, req).map(|(full, _)| full)
 }
 
 fn fs_read(stream: &mut TcpStream, req: &Request, ctx: &Ctx) {
@@ -1445,23 +1480,97 @@ mod tests {
 
     #[test]
     fn file_tickets_are_scoped_and_expire() {
+        let unique = format!(
+            "ai4heor-gateway-ticket-{}-{}",
+            std::process::id(),
+            random_hex(8)
+        );
+        let workspace = std::env::temp_dir().join(unique);
+        let path = workspace.join("report.html");
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::write(&path, b"report").unwrap();
         let shared = Shared {
             token: Mutex::new("secret".into()),
             read_only: AtomicBool::new(false),
             tickets: Mutex::new(HashMap::new()),
         };
-        let path = PathBuf::from("/workspace/report.html");
-        let ticket = issue_ticket(&shared, path.clone());
-        assert_eq!(redeem_ticket(&shared, &ticket), Some(path));
+        let ticket = issue_ticket(&shared, path.clone(), workspace.clone()).unwrap();
+        assert_eq!(redeem_ticket(&shared, &ticket), path.canonicalize().ok());
         assert_eq!(redeem_ticket(&shared, "another-ticket"), None);
 
         shared.tickets.lock().unwrap().insert(
             "expired".into(),
-            (
-                Instant::now() - TICKET_TTL - Duration::from_secs(1),
-                PathBuf::from("/workspace/old"),
-            ),
+            FileTicket {
+                issued: Instant::now() - TICKET_TTL - Duration::from_secs(1),
+                path: path.clone(),
+                scope: workspace.clone(),
+            },
         );
         assert_eq!(redeem_ticket(&shared, "expired"), None);
+        std::fs::remove_dir_all(&workspace).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn file_ticket_rejects_a_post_issue_symlink_swap() {
+        use std::os::unix::fs::symlink;
+
+        let unique = format!(
+            "ai4heor-gateway-ticket-{}-{}",
+            std::process::id(),
+            random_hex(8)
+        );
+        let test_root = std::env::temp_dir().join(unique);
+        let workspace = test_root.join("workspace");
+        let outside = test_root.join("outside.txt");
+        let report = workspace.join("report.txt");
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::write(&report, b"safe").unwrap();
+        std::fs::write(&outside, b"secret").unwrap();
+
+        let shared = Shared {
+            token: Mutex::new("secret".into()),
+            read_only: AtomicBool::new(false),
+            tickets: Mutex::new(HashMap::new()),
+        };
+        let ticket = issue_ticket(&shared, report.clone(), workspace).unwrap();
+        std::fs::remove_file(&report).unwrap();
+        symlink(&outside, &report).unwrap();
+
+        assert_eq!(redeem_ticket(&shared, &ticket), None);
+        std::fs::remove_dir_all(&test_root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn file_ticket_keeps_the_scope_bound_when_its_directory_is_replaced() {
+        use std::os::unix::fs::symlink;
+
+        let unique = format!(
+            "ai4heor-gateway-ticket-scope-{}-{}",
+            std::process::id(),
+            random_hex(8)
+        );
+        let test_root = std::env::temp_dir().join(unique);
+        let workspace = test_root.join("workspace");
+        let moved_workspace = test_root.join("moved-workspace");
+        let outside = test_root.join("outside");
+        let report = workspace.join("report.txt");
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(&report, b"safe").unwrap();
+        std::fs::write(outside.join("report.txt"), b"secret").unwrap();
+
+        let shared = Shared {
+            token: Mutex::new("secret".into()),
+            read_only: AtomicBool::new(false),
+            tickets: Mutex::new(HashMap::new()),
+        };
+        let ticket = issue_ticket(&shared, report, workspace.clone()).unwrap();
+        std::fs::rename(&workspace, &moved_workspace).unwrap();
+        symlink(&outside, &workspace).unwrap();
+
+        assert_eq!(redeem_ticket(&shared, &ticket), None);
+        std::fs::remove_dir_all(&test_root).unwrap();
     }
 }

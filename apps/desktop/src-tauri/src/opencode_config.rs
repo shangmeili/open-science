@@ -11,9 +11,10 @@ pub const MODE_FULL: &str = "full";
 
 /// Command tokens the "approve" mode gates behind a prompt, per the AGENTS.md
 /// safety defaults: deletion, privilege/system changes, dependency installs,
-/// and remote/outward connections. Each token yields two glob rules:
+/// and remote/outward connections. Each token yields three glob rules:
 /// `"T *"` (command starts with it; also matches bare `T` — OpenCode turns a
-/// trailing " *" into an optional group) and `"* T *"` (embedded in a compound
+/// trailing " *" into an optional group), `"*/T *"` (the same executable via
+/// an absolute path), and `"* T *"` (embedded in a compound
 /// command like `cd x && rm -rf y`; the leading space avoids matching words
 /// that merely end in the token).
 const DANGEROUS_BASH: &[&str] = &[
@@ -106,12 +107,22 @@ pub fn product_harness_config_content(
     serde_json::to_string_pretty(&root).map_err(|error| error.to_string())
 }
 
+fn add_missing_dangerous_bash_rules(bash: &mut serde_json::Map<String, Value>) -> bool {
+    let mut changed = false;
+    for t in DANGEROUS_BASH {
+        for pattern in [format!("{t} *"), format!("*/{t} *"), format!("* {t} *")] {
+            if !bash.contains_key(&pattern) {
+                bash.insert(pattern, json!("ask"));
+                changed = true;
+            }
+        }
+    }
+    changed
+}
+
 fn approve_permission() -> Value {
     let mut bash = serde_json::Map::new();
-    for t in DANGEROUS_BASH {
-        bash.insert(format!("{t} *"), json!("ask"));
-        bash.insert(format!("* {t} *"), json!("ask"));
-    }
+    add_missing_dangerous_bash_rules(&mut bash);
     // Public, read-only retrieval is normal research work and must not stop for
     // a generic approval. Arbitrary outward shell commands remain gated above;
     // the product Harness separately forbids disclosing sensitive local data.
@@ -163,14 +174,18 @@ pub fn seed_default_permission(existing: &str) -> Option<String> {
         Some(MODE_APPROVE) => {
             let mut root: Value = serde_json::from_str(existing).ok()?;
             let permission = root.get_mut("permission")?.as_object_mut()?;
-            if permission.get("webfetch") != Some(&json!("ask")) {
-                return None;
+            let bash = permission.get_mut("bash")?.as_object_mut()?;
+            let mut changed = add_missing_dangerous_bash_rules(bash);
+            if permission.get("webfetch") == Some(&json!("ask")) {
+                // Versions up to 1.0.0 treated every read-only web fetch as a
+                // high-risk action. Remove only that exact legacy rule,
+                // preserving user/provider settings and every other override.
+                permission.remove("webfetch");
+                changed = true;
             }
-            // Versions up to 1.0.0 treated every read-only web fetch as a
-            // high-risk action. Remove only that exact legacy rule, preserving
-            // user/provider settings and every other permission override.
-            permission.remove("webfetch");
-            serde_json::to_string_pretty(&root).ok()
+            changed
+                .then(|| serde_json::to_string_pretty(&root).ok())
+                .flatten()
         }
         Some(_) => None,
         None => set_permission_mode(existing, MODE_APPROVE).ok(),
@@ -302,6 +317,10 @@ mod tests {
         assert_eq!(bash["rm *"], "ask");
         assert_eq!(bash["pip install *"], "ask");
         assert_eq!(bash["git push *"], "ask");
+        // Absolute executable paths must not bypass the same approval gate.
+        assert_eq!(bash["*/rm *"], "ask");
+        assert_eq!(bash["*/pip install *"], "ask");
+        assert_eq!(bash["*/git push *"], "ask");
         // …and the embedded form catches it inside a compound command
         // ("cd x && rm -rf y").
         assert_eq!(bash["* rm *"], "ask");
@@ -377,7 +396,30 @@ mod tests {
         assert_eq!(value["model"], "m");
 
         let explicit_deny = legacy.replace(r#""webfetch":"ask""#, r#""webfetch":"deny""#);
-        assert!(seed_default_permission(&explicit_deny).is_none());
+        let migrated_deny = seed_default_permission(&explicit_deny).unwrap();
+        let deny_value: Value = serde_json::from_str(&migrated_deny).unwrap();
+        assert_eq!(deny_value["permission"]["webfetch"], "deny");
+        assert!(seed_default_permission(&migrated_deny).is_none());
+    }
+
+    #[test]
+    fn migrates_existing_approve_rules_with_absolute_path_coverage_once() {
+        let existing = r#"{
+          "model":"m",
+          "permission":{
+            "bash":{"rm *":"ask","* rm *":"ask","custom *":"deny"},
+            "external_directory":"ask"
+          }
+        }"#;
+        let migrated = seed_default_permission(existing).expect("approve rules migrate");
+        let value: Value = serde_json::from_str(&migrated).unwrap();
+        let bash = value["permission"]["bash"].as_object().unwrap();
+        assert_eq!(bash["*/rm *"], "ask");
+        assert_eq!(bash["*/curl *"], "ask");
+        assert_eq!(bash["custom *"], "deny");
+        assert_eq!(value["permission"]["external_directory"], "ask");
+        assert_eq!(value["model"], "m");
+        assert!(seed_default_permission(&migrated).is_none());
     }
 
     #[test]

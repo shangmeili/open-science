@@ -1,8 +1,8 @@
 {
   "schema": "ai4heor-npm-license-inventory/v1",
-  "generated_on": "2026-08-01",
+  "generated_on": "2026-10-13",
   "scope": "pnpm production dependency universe resolved from the lockfile",
-  "lockfile_sha256": "56c8e221edfd40faaa0a839b8f85934bf683fc34ae33b487f9918500591c765d",
+  "lockfile_sha256": "6615aa1a6e60b574cf6447fcdfacb0d0724f3d95a76abfef9894a195735be6a7",
   "components": [
     {
       "name": "3dmol",
@@ -412,7 +412,7 @@
     {
       "name": "@remix-run/router",
       "versions": [
-        "1.23.3"
+        "1.23.4"
       ],
       "license": "MIT",
       "author": "Remix Software",
@@ -666,8 +666,8 @@
     {
       "name": "brace-expansion",
       "versions": [
-        "1.1.18",
-        "2.1.4"
+        "1.1.21",
+        "2.1.7"
       ],
       "license": "MIT",
       "author": "Julian Gruber",
@@ -2101,7 +2101,7 @@
     {
       "name": "react-router",
       "versions": [
-        "6.30.4"
+        "6.30.6"
       ],
       "license": "MIT",
       "author": "Remix Software",
@@ -2110,7 +2110,7 @@
     {
       "name": "react-router-dom",
       "versions": [
-        "6.30.4"
+        "6.30.6"
       ],
       "license": "MIT",
       "author": "Remix Software",

@@ -18,21 +18,21 @@ PPTX_PREVIEW_GLOB = (
 )
 EXCELJS_GLOB = "exceljs@*/node_modules/exceljs"
 
-# GHSA-mh99-v99m-4gvg / CVE-2026-14257. Keep each transitive dependency
-# on its compatible maintenance line while requiring the maintainer's
-# length-bounded expansion implementation.
+# Reviewed brace-expansion denial-of-service advisories. Keep each transitive
+# dependency on its compatible maintenance line while requiring the latest
+# patched expansion implementations reported by the package audit.
 REQUIRED_OVERRIDES = {
-    "brace-expansion@<1.1.17": "1.1.18",
-    "brace-expansion@>=2.0.0 <2.1.3": "2.1.4",
-    "brace-expansion@>=4.0.0 <5.0.8": "5.0.9",
+    "brace-expansion@<1.1.21": "1.1.21",
+    "brace-expansion@>=2.0.0 <2.1.7": "2.1.7",
+    "brace-expansion@>=4.0.0 <5.0.12": "5.0.12",
 }
 
 
 def oom_affected(version: tuple[int, int, int]) -> bool:
     return (
-        version < (1, 1, 17)
-        or (2, 0, 0) <= version < (2, 1, 3)
-        or (4, 0, 0) <= version < (5, 0, 8)
+        version < (1, 1, 21)
+        or (2, 0, 0) <= version < (2, 1, 7)
+        or (4, 0, 0) <= version < (5, 0, 12)
     )
 
 
@@ -95,7 +95,7 @@ class JavaScriptSecurityPolicyTests(unittest.TestCase):
         self.assertEqual(
             sorted(version for version in versions if oom_affected(version)),
             [],
-            "GHSA-mh99-v99m-4gvg affected brace-expansion version remains",
+            "reviewed brace-expansion denial-of-service version remains",
         )
 
     def test_pptx_preview_cannot_construct_affected_echarts_lines_series(self) -> None:

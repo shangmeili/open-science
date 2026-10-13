@@ -303,8 +303,8 @@ live in [`docs/PRD.md`](./docs/PRD.md) and
 [`docs/TECHNICAL_DESIGN.md`](./docs/TECHNICAL_DESIGN.md), but those documents include
 target design as well as historical status notes.
 
-The 1.0.1 industrial test candidate targets Intel macOS and Windows x64. Linux and
-Apple-Silicon release work remain outside this delivery scope. Current source is 1.0.1.
+The 1.0.2 industrial test candidate targets Intel macOS and Windows x64. Linux and
+Apple-Silicon release work remain outside this delivery scope. Current source is 1.0.2.
 The superseded 0.1.56 x64 macOS candidate is retained only as historical
 verification evidence and is not the current delivery.
 The 91,021,588-byte `AI4HEOR_0.1.56_x64.dmg` has SHA-256
