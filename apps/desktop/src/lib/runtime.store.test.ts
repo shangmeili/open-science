@@ -1,6 +1,7 @@
 // Project/session behavior: a standalone conversation gets its own local
 // research scope; choosing a project pins the conversation to shared context.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getArtifactPathsRevision, subscribeArtifactPaths } from "./artifactFile";
 
 const mocks = vi.hoisted(() => ({
   activePath: "/ws/base",
@@ -334,6 +335,19 @@ beforeEach(async () => {
 });
 
 describe("runtime authentication", () => {
+  it("refreshes conversation file references on successful tools, not streaming output", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeArtifactPaths(listener);
+    const revision = getArtifactPathsRevision();
+    const event = { type: "tool.updated", sessionId: "ses_new", messageId: "msg_file", callId: "call_file", tool: "bash", input: { command: "python report.py" } };
+    mocks.fireEvent({ ...event, status: "running", partialOutput: "working" });
+    expect(listener).not.toHaveBeenCalled();
+    mocks.fireEvent({ ...event, status: "success", output: "done" });
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(getArtifactPathsRevision()).toBe(revision + 1);
+    unsubscribe();
+  });
+
   it("publishes a run-ledger revision only after the completed run is persisted", async () => {
     let release = () => {};
     mocks.recordRun.mockImplementationOnce(() => new Promise<void>((resolve) => {

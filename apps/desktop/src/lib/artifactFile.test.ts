@@ -56,15 +56,20 @@ describe("workspace artifact reads", () => {
     expect(fetchMock.mock.calls.flat().join(" ")).not.toContain("gateway-secret");
   });
 
-  it("deduplicates artifact path resolution within one workspace", async () => {
+  it("deduplicates concurrent resolutions without retaining stale filesystem results", async () => {
     mocks.invoke.mockResolvedValue("reports/result.html");
-
-    await expect(resolveArtifactPath("result.html")).resolves.toBe("reports/result.html");
-    await expect(resolveArtifactPath("result.html")).resolves.toBe("reports/result.html");
+    await expect(Promise.all([resolveArtifactPath("result.html"), resolveArtifactPath("result.html")]))
+      .resolves.toEqual(["reports/result.html", "reports/result.html"]);
     expect(mocks.invoke).toHaveBeenCalledTimes(1);
+    mocks.invoke.mockResolvedValue(null);
+    await expect(resolveArtifactPath("result.html")).resolves.toBeNull();
+    expect(mocks.invoke).toHaveBeenCalledTimes(2);
+  });
 
-    clearResolvedArtifactPaths();
-    await expect(resolveArtifactPath("result.html")).resolves.toBe("reports/result.html");
+  it("rechecks a file that is created after the first mention", async () => {
+    mocks.invoke.mockResolvedValueOnce(null).mockResolvedValueOnce("heor/report.md");
+    await expect(resolveArtifactPath("heor/report.md")).resolves.toBeNull();
+    await expect(resolveArtifactPath("heor/report.md")).resolves.toBe("heor/report.md");
     expect(mocks.invoke).toHaveBeenCalledTimes(2);
   });
 

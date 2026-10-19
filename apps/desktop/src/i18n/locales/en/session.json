@@ -314,7 +314,8 @@
     "switching": "Switching…"
   },
   "agentMessage": {
-    "previewTitle": "Preview {{path}}"
+    "previewTitle": "Preview {{path}}",
+    "fileUnavailable": "File not found in the current workspace: {{path}}"
   },
   "goal": {
     "label": "Goal",

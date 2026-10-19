@@ -306,7 +306,8 @@
     "switching": "切り替え中…"
   },
   "agentMessage": {
-    "previewTitle": "{{path}} をプレビュー"
+    "previewTitle": "{{path}} をプレビュー",
+    "fileUnavailable": "現在のワークスペースにファイルが見つかりません：{{path}}"
   },
   "goal": {
     "label": "ゴール",

@@ -314,7 +314,8 @@
     "switching": "Wird gewechselt…"
   },
   "agentMessage": {
-    "previewTitle": "Vorschau von {{path}}"
+    "previewTitle": "Vorschau von {{path}}",
+    "fileUnavailable": "Datei im aktuellen Arbeitsbereich nicht gefunden: {{path}}"
   },
   "goal": {
     "label": "Ziel",

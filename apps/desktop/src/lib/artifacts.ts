@@ -52,10 +52,34 @@ const REF_EXTS = [
   "bed", "bedgraph", "bdg", "gff", "gff3", "gtf", "vcf",
   "stl", "obj", "ply", "gltf", "glb",
 ];
+
+export function isArtifactExtension(ext: string): boolean {
+  return REF_EXTS.includes(ext.toLowerCase());
+}
+
+/** Recognize a file reference; the native resolver enforces workspace scope. */
+export function workspaceFilePath(value: string): string | null {
+  let path: string;
+  try {
+    path = decodeURIComponent(value).trim();
+  } catch {
+    return null;
+  }
+  // eslint-disable-next-line no-control-regex -- Reject control characters in untrusted file references.
+  if (!path || /[\u0000-\u001f\u007f?#]/.test(path)) return null;
+  if (/^[a-z][a-z\d+.-]*:/i.test(path) && !/^[a-z]:[/\\]/i.test(path)) return null;
+  path = path.replace(/\\/g, "/");
+  if (path.startsWith("//") || path.split("/").includes("..")) return null;
+  if (!isArtifactExtension(path.split(".").pop() ?? "")) return null;
+  return path;
+}
 // Unicode letters and numbers are required here: HEOR reports and figures are
 // commonly named in Chinese, and an ASCII-only `\\w` makes those outputs
 // invisible in the conversation even though the files were created correctly.
 const REF_RE = new RegExp(
+  // Keep quoted paths and Markdown destinations whole (spaces, Unicode and
+  // Windows separators), instead of resolving a misleading filename fragment.
+  "`([^`\\n]+)`|\\[[^\\]\\n]*\\]\\((<[^>\\n]+>|[^\\s()]+)\\)|" +
   `[\\p{L}\\p{N}_./-]+\\.(?:${REF_EXTS.join("|")})(?![\\p{L}\\p{N}_])`,
   "giu",
 );
@@ -69,8 +93,9 @@ export function extractArtifactRefs(markdown: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
   for (const m of markdown.matchAll(REF_RE)) {
-    const raw = m[0].replace(/^[`'"(]+|[`'".,)]+$/g, "");
-    if (!raw || /^https?:\/\//i.test(raw) || raw.startsWith("//")) continue;
+    const token = m[1] ?? m[2]?.replace(/^<|>$/g, "") ?? m[0].replace(/^[`'"(]+|[`'".,)]+$/g, "");
+    const raw = workspaceFilePath(token);
+    if (!raw) continue;
     // Require a path-like token or a known ext; skip bare "a.md" sentence fragments only if no slash.
     if (seen.has(raw)) continue;
     seen.add(raw);

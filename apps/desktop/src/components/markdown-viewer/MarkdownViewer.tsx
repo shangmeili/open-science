@@ -1,10 +1,12 @@
 import { useMemo } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
+import { useTranslation } from "react-i18next";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { cn } from "@/lib/cn";
+import { remarkFileLinks, workspaceFilePath } from "@/lib/markdownFileLinks";
 
 /** Two contexts render markdown: chat bubbles (theme colors, compact) and the
  *  file-preview "paper" (document-neutral black-on-white, editorial scale —
@@ -78,25 +80,41 @@ export function MarkdownViewer({
   children,
   className,
   variant = "chat",
+  onOpenFile,
 }: {
   children: string;
   className?: string;
   variant?: Variant;
+  onOpenFile?: (path: string) => void;
 }) {
+  const { t } = useTranslation("session");
   const s = STYLES[variant];
   const normalized = useMemo(() => normalizeMathDelimiters(children), [children]);
   return (
     <div className={cn(s.root, className)}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
+        remarkPlugins={[remarkGfm, remarkMath, ...(onOpenFile ? [remarkFileLinks] : [])]}
+        urlTransform={(url) => onOpenFile && workspaceFilePath(url) ? url : defaultUrlTransform(url)}
         rehypePlugins={[[rehypeKatex, { throwOnError: false }]]}
         components={{
           p: ({ children }) => <p className={s.p}>{children}</p>,
-          a: ({ children, href }) => (
-            <a href={href} className={s.a}>
-              {children}
-            </a>
-          ),
+          a: ({ children, href }) => {
+            const path = onOpenFile && href ? workspaceFilePath(href) : null;
+            if (path) return (
+              <button
+                type="button"
+                className={cn(s.a, "cursor-pointer break-words text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2")}
+                data-workspace-path={path}
+                aria-label={t("agentMessage.previewTitle", { path })}
+                title={t("agentMessage.previewTitle", { path })}
+                onClick={() => onOpenFile?.(path)}
+              >{children}</button>
+            );
+            // Relative/unsafe links must not navigate the desktop webview away
+            // from the app. Web links keep AppShell's external-browser routing.
+            if (onOpenFile && (!href || !/^(https?:|mailto:|#)/i.test(href))) return <span>{children}</span>;
+            return <a href={href} className={s.a}>{children}</a>;
+          },
           code: ({ children }) => <code className={s.code}>{children}</code>,
           // Block code: the plain wrapper — its inner <code> is restyled via [&_code].
           pre: ({ children }) => <pre className={s.pre}>{children}</pre>,

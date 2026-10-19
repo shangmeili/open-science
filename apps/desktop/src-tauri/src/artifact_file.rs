@@ -146,6 +146,11 @@ pub fn locate_under(root: &Path, rel: &str) -> Option<String> {
             return Some(parts.join("/"));
         }
     }
+    // Never reinterpret an explicit missing/out-of-scope path as a different
+    // workspace file. Basename recovery is only for actual bare filenames.
+    if Path::new(rel).is_absolute() || rel.contains('/') || rel.contains('\\') {
+        return None;
+    }
     let name = Path::new(rel).file_name()?.to_os_string();
     let root = canon_root;
     let mut best: Option<(PathBuf, std::time::SystemTime)> = None;
@@ -921,6 +926,9 @@ mod tests {
         assert_eq!(locate_under(&root, "dep.html"), None);
         assert_eq!(locate_under(&root, "missing.pdf"), None);
         assert_eq!(locate_under(&root, "../../etc/hosts"), None);
+        assert_eq!(locate_under(&root, "../../root.pdf"), None);
+        assert_eq!(locate_under(&root, "missing/root.pdf"), None);
+        assert_eq!(locate_under(&root, "/outside/root.pdf"), None);
 
         let _ = std::fs::remove_dir_all(root);
     }

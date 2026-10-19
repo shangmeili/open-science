@@ -49,6 +49,22 @@ class FixtureState:
         self._next_main_reply_gate: tuple[threading.Event, threading.Event] | None = None
         self._next_main_reply_kind: str | None = None
         self._bash_always_reply_count = 0
+        self._next_text: str | None = None
+
+    def text_next_main_reply(self, text: str) -> None:
+        with self.lock:
+            if self._next_main_reply_kind is not None:
+                raise RuntimeError("a fixture main reply is already configured")
+            self._next_main_reply_kind = "custom_text"
+            self._next_text = text
+
+    def take_text(self) -> str:
+        with self.lock:
+            text = self._next_text
+            self._next_text = None
+        if text is None:
+            raise RuntimeError("no fixture text configured")
+        return text
 
     def record_catalog(self) -> None:
         with self.lock:
@@ -131,7 +147,7 @@ def json_bytes(value: Any) -> bytes:
     return json.dumps(value, separators=(",", ":")).encode("utf-8")
 
 
-def anthropic_stream() -> bytes:
+def anthropic_stream(text: str = MARKER) -> bytes:
     events = [
         (
             "message_start",
@@ -162,7 +178,7 @@ def anthropic_stream() -> bytes:
             {
                 "type": "content_block_delta",
                 "index": 0,
-                "delta": {"type": "text_delta", "text": MARKER},
+                "delta": {"type": "text_delta", "text": text},
             },
         ),
         ("content_block_stop", {"type": "content_block_stop", "index": 0}),
@@ -399,7 +415,9 @@ def handler(state: FixtureState):
                 )
                 return
             if stream:
-                if reply_kind == "question":
+                if reply_kind == "custom_text":
+                    payload = anthropic_stream(state.take_text())
+                elif reply_kind == "question":
                     payload = anthropic_question_stream()
                 elif reply_kind == "bash":
                     payload = anthropic_bash_stream()

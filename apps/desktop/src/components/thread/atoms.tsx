@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Copy, Loader2, Paperclip, Pencil, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
@@ -11,7 +11,7 @@ import type {
 import { cn } from "@/lib/cn";
 import { MarkdownViewer } from "@/components/markdown-viewer/MarkdownViewer";
 import { extractArtifactRefs, refToArtifactBlock } from "@/lib/artifacts";
-import { resolveArtifactPath } from "@/lib/artifactFile";
+import { getArtifactPathsRevision, resolveArtifactPath, subscribeArtifactPaths } from "@/lib/artifactFile";
 import { copyText } from "@/lib/clipboard";
 import { toast } from "@/lib/toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -164,18 +164,23 @@ function streamThrottleMs(length: number): number {
   return Math.min(1_200, Math.max(90, Math.floor(length / 60)));
 }
 
-const SealedMarkdown = memo(function SealedMarkdown({ markdown }: { markdown: string }) {
-  return <MarkdownViewer>{markdown}</MarkdownViewer>;
+interface MessageMarkdownProps {
+  markdown: string;
+  onOpenFile?: (path: string) => void;
+}
+
+const SealedMarkdown = memo(function SealedMarkdown({ markdown, onOpenFile }: MessageMarkdownProps) {
+  return <MarkdownViewer onOpenFile={onOpenFile}>{markdown}</MarkdownViewer>;
 });
 
-const StreamingMarkdown = memo(function StreamingMarkdown({ markdown }: { markdown: string }) {
+const StreamingMarkdown = memo(function StreamingMarkdown({ markdown, onOpenFile }: MessageMarkdownProps) {
   const segments = useMemo(() => splitStreamingMarkdown(markdown), [markdown]);
   return (
     <>
       {segments.sealed.map((segment, index) => (
-        <SealedMarkdown key={index} markdown={segment} />
+        <SealedMarkdown key={index} markdown={segment} onOpenFile={onOpenFile} />
       ))}
-      {segments.tail && <MarkdownViewer>{segments.tail}</MarkdownViewer>}
+      {segments.tail && <MarkdownViewer onOpenFile={onOpenFile}>{segments.tail}</MarkdownViewer>}
     </>
   );
 });
@@ -192,6 +197,22 @@ export const AgentMessage = memo(function AgentMessage({
   const { t } = useTranslation(["session", "common"]);
   const throttled = useThrottledValue(markdown, streamThrottleMs(markdown.length));
   const shown = streaming ? throttled : markdown;
+  const pathsRevision = useSyncExternalStore(subscribeArtifactPaths, getArtifactPathsRevision);
+  const openRequest = useRef(0);
+  useEffect(() => () => { openRequest.current += 1; }, [pathsRevision]);
+  const openFile = useCallback(async (path: string) => {
+    const request = ++openRequest.current;
+    const revision = getArtifactPathsRevision();
+    const current = () => request === openRequest.current && revision === getArtifactPathsRevision();
+    try {
+      const resolved = await resolveArtifactPath(path);
+      if (!current()) return;
+      if (resolved) onOpenArtifact?.(refToArtifactBlock(resolved));
+      else toast.error(t("agentMessage.fileUnavailable", { path }));
+    } catch (error) {
+      if (current()) toast.error(error instanceof Error ? error.message : String(error));
+    }
+  }, [onOpenArtifact, t]);
   // Files the agent mentions (e.g. a PDF produced by running code) become clickable.
   // Each mention is resolved to a real workspace path first — prose often names a
   // bare filename ("index.html") whose file lives in a subdirectory; mentions of
@@ -217,16 +238,18 @@ export const AgentMessage = memo(function AgentMessage({
     return () => {
       cancelled = true;
     };
-  }, [mentionedKey]);
+  }, [mentionedKey, pathsRevision, streaming]);
   return (
     <div>
-      {streaming ? <StreamingMarkdown markdown={shown} /> : <MarkdownViewer>{shown}</MarkdownViewer>}
+      {streaming
+        ? <StreamingMarkdown markdown={shown} onOpenFile={onOpenArtifact ? openFile : undefined} />
+        : <MarkdownViewer onOpenFile={onOpenArtifact ? openFile : undefined}>{shown}</MarkdownViewer>}
       {refs.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {refs.map((path) => (
             <button
               key={path}
-              onClick={() => onOpenArtifact?.(refToArtifactBlock(path))}
+              onClick={() => void openFile(path)}
               className="flex items-center gap-1.5 rounded-input border border-border bg-surface px-2 py-1 text-xs text-text hover:bg-surface-2"
               title={t("agentMessage.previewTitle", { path })}
             >

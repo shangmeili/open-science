@@ -14,6 +14,16 @@ import verify_packaged_opencode_fixture as fixture
 
 
 class PackagedOpenCodeFixtureTests(unittest.TestCase):
+    def test_custom_markdown_reply_is_one_shot_and_not_consumed_by_title_requests(self) -> None:
+        state = fixture.FixtureState()
+        text = "Report: `heor/report.md`"
+        state.text_next_main_reply(text)
+        self.assertEqual(state.take_reply_kind(True, {}), "text")
+        self.assertEqual(state.take_reply_kind(True, {"tools": [{"name": "read"}]}), "custom_text")
+        self.assertEqual(state.take_text(), text)
+        self.assertIn(text.encode(), fixture.anthropic_stream(text))
+        self.assertEqual(state.take_reply_kind(True, {"tools": [{"name": "read"}]}), "text")
+
     def test_release_proof_is_bounded_and_appended_to_existing_verification(self) -> None:
         result = {
             "app_version": "1.0.0",

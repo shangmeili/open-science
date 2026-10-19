@@ -70,18 +70,29 @@ export async function resolveArtifactPath(path: string): Promise<string | null> 
     return invoke<string | null>("resolve_artifact", { path });
   })();
   resolvedArtifactPaths.set(path, lookup);
-  lookup.catch(() => {
+  const forget = () => {
     if (resolvedArtifactPaths.get(path) === lookup) resolvedArtifactPaths.delete(path);
-  });
+  };
+  void lookup.then(forget, forget);
   return lookup;
 }
 
-// A missing basename can require a bounded workspace walk. Cache both hits and
-// misses within one workspace, while letting transient IPC failures retry.
+// Coalesce concurrent lookups only. Files can be created, replaced or removed
+// after any message, so neither hits nor misses are durable filesystem facts.
 const resolvedArtifactPaths = new Map<string, Promise<string | null>>();
+let artifactPathsRevision = 0;
+const artifactPathsListeners = new Set<() => void>();
+
+export const getArtifactPathsRevision = () => artifactPathsRevision;
+export function subscribeArtifactPaths(listener: () => void): () => void {
+  artifactPathsListeners.add(listener);
+  return () => { artifactPathsListeners.delete(listener); };
+}
 
 export function clearResolvedArtifactPaths(): void {
   resolvedArtifactPaths.clear();
+  artifactPathsRevision += 1;
+  artifactPathsListeners.forEach((listener) => listener());
 }
 
 /** Open a root-relative file in the OS default application (desktop only). */

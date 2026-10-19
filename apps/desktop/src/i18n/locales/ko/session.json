@@ -306,7 +306,8 @@
     "switching": "전환 중…"
   },
   "agentMessage": {
-    "previewTitle": "{{path}} 미리보기"
+    "previewTitle": "{{path}} 미리보기",
+    "fileUnavailable": "현재 작업 공간에서 파일을 찾을 수 없습니다: {{path}}"
   },
   "goal": {
     "label": "목표",

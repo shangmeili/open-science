@@ -1350,6 +1350,11 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         void get().refreshSessions();
       }
       const applyFold = (ev: typeof event) => applyRuntimeFold(set, sid, ev);
+      // A tool (including shell/Python/MCP) can create a previously mentioned
+      // file. Refresh conversation attachments even when its text is unchanged.
+      if (event.type === "tool.updated" && event.status === "success") {
+        clearResolvedArtifactPaths();
+      }
       // A running bash tool streams its stdout tail on every write — dozens
       // of events per second under a progress bar. Fold at most one partial
       // update per LIVE_FOLD_MS per call (latest wins); everything else

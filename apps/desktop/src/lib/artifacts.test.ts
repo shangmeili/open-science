@@ -90,6 +90,15 @@ describe("resolveArtifactContent", () => {
 });
 
 describe("extractArtifactRefs", () => {
+  it("preserves spaces, encoded Markdown paths and Windows drive paths", () => {
+    expect(extractArtifactRefs('`heor/中文 报告.md` [JSON](heor/result%20one.json) `C:\\Research\\report.md`'))
+      .toEqual(["heor/中文 报告.md", "heor/result one.json", "C:/Research/report.md"]);
+  });
+
+  it("ignores traversal and external Markdown links without extracting label fragments", () => {
+    expect(extractArtifactRefs('[Web `report.md`](https://example.org/report.md) `../secret.json`'))
+      .toEqual([]);
+  });
   it("finds files produced by running code, even in prose/backticks", () => {
     const md = "Generated `canvas-project/canvas.pdf` (A4) and a preview at report/index.html.";
     expect(extractArtifactRefs(md)).toEqual(["canvas-project/canvas.pdf", "report/index.html"]);

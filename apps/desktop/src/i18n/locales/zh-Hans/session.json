@@ -306,7 +306,8 @@
     "switching": "切换中…"
   },
   "agentMessage": {
-    "previewTitle": "预览 {{path}}"
+    "previewTitle": "预览 {{path}}",
+    "fileUnavailable": "当前工作区中未找到文件：{{path}}"
   },
   "goal": {
     "label": "目标",
