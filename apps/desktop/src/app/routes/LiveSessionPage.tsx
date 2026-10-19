@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Activity, FlaskConical, FolderOpen, Loader2, NotebookPen, PanelLeft, PlugZap } from "lucide-react";
-import type { RuntimeStatus } from "@ai4s/shared";
+import type { RuntimeStatus, ThreadBlock } from "@ai4s/shared";
 import {
   DRAFT_KEY,
   displaySessionTitle,
@@ -42,6 +42,14 @@ import {
 import { toast } from "@/lib/toast";
 import { heorTaskPath } from "@/lib/internalRoute";
 import { sameLocalPath } from "@/lib/localPath";
+
+function lastBlockIndex(blocks: ThreadBlock[] | undefined, kind: ThreadBlock["kind"]): number | undefined {
+  if (!blocks) return undefined;
+  for (let index = blocks.length - 1; index >= 0; index -= 1) {
+    if (blocks[index].kind === kind) return index;
+  }
+  return undefined;
+}
 
 /** AI4HEOR research task backed by the local assistant runtime. The runtime
  * session is created lazily on the first message, then the URL gains its id. */
@@ -326,6 +334,12 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
         .find((block) =>
           block.kind === "agent" || block.kind === "reasoning" || block.kind === "tool-call",
         )
+    : undefined;
+  const liveAgentIndex = working && latestActivity?.kind === "agent"
+    ? lastBlockIndex(thread?.blocks, "agent")
+    : undefined;
+  const liveReasoningIndex = working && latestActivity?.kind === "reasoning"
+    ? lastBlockIndex(thread?.blocks, "reasoning")
     : undefined;
   const activityLabel = sending && !currentId
       ? t("live.status.startingSession")
@@ -751,6 +765,8 @@ export function LiveSessionPage({ workbench = false }: { workbench?: boolean }) 
               <BlockList
                 blocks={thread.blocks}
                 handlers={handlers}
+                liveAgentIndex={liveAgentIndex}
+                liveReasoningIndex={liveReasoningIndex}
                 targetIndex={conversationSourceTarget}
               />
             )}

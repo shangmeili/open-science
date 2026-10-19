@@ -55,6 +55,13 @@ import { fallbackDefaultModel } from "@/components/settings/modelCatalog";
 import i18n from "@/i18n";
 import { sameLocalPath } from "./localPath";
 import { clearResolvedArtifactPaths } from "./artifactFile";
+import {
+  STREAM_COALESCE_MS,
+  coalesceKey,
+  upsertCoalesced,
+  type CoalescedEntry,
+  type CoalescibleEvent,
+} from "./streamCoalesce";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const URL_KEY = "ai4s.opencodeUrl";
@@ -308,6 +315,7 @@ function teardownClient() {
   pendingPromptContexts.clear();
   errorRecoveries.clear();
   errorRecoveryIdle.clear();
+  clearAllStreamCoalesces();
 }
 const emptyThread = (): Thread => ({ blocks: [], index: {}, loaded: false });
 /** Threads key for the draft conversation — its blocks move to the real
@@ -402,6 +410,11 @@ const liveFoldPending = new Map<
   string,
   { sessionId: string; timer: number; event: Extract<OpenCodeEvent, { type: "tool.updated" }> }
 >();
+const streamCoalesceLast = new Map<string, number>();
+const streamCoalescePending = new Map<
+  string,
+  { timer: ReturnType<typeof setTimeout>; queue: CoalescedEntry[] }
+>();
 
 export function buildAssetReviewPrompt(text: string): string {
   return (
@@ -430,6 +443,19 @@ function clearLiveFolds(sessionId: string) {
   }
 }
 
+function clearStreamCoalesce(sessionId: string) {
+  const pending = streamCoalescePending.get(sessionId);
+  if (pending) clearTimeout(pending.timer);
+  streamCoalescePending.delete(sessionId);
+  streamCoalesceLast.delete(sessionId);
+}
+
+function clearAllStreamCoalesces() {
+  for (const pending of streamCoalescePending.values()) clearTimeout(pending.timer);
+  streamCoalescePending.clear();
+  streamCoalesceLast.clear();
+}
+
 /** Resolve a (possibly nested) subagent session to its top-level session —
  *  a subagent's question/permission belongs to the conversation the user sees. */
 export function rootSessionOf(parents: Record<string, string>, sessionId: string): string {
@@ -443,6 +469,67 @@ type StoreSet = {
   (fn: (s: RuntimeState) => Partial<RuntimeState>): void;
 };
 type StoreGet = () => RuntimeState;
+
+function applyRuntimeFold(set: StoreSet, sid: string, event: OpenCodeEvent) {
+  set((state) => {
+    const current = state.threads[sid] ?? emptyThread();
+    const folded = foldEvent(
+      { blocks: current.blocks, index: current.index },
+      event,
+      { shellTurn: !!state.shellTurns[sid] },
+    );
+    const runningSessions = { ...state.runningSessions };
+    const shellTurns = { ...state.shellTurns };
+    const sessionProgress = { ...state.sessionProgress };
+    const stepCounts = { ...state.stepCounts };
+    if (event.type === "session.idle") {
+      if (errorRecoveries.has(sid)) {
+        errorRecoveryIdle.add(sid);
+      } else {
+        delete runningSessions[sid];
+        delete shellTurns[sid];
+        delete sessionProgress[sid];
+        delete stepCounts[sid];
+        inactiveTurnPolls.delete(sid);
+      }
+    }
+    return {
+      runningSessions,
+      shellTurns,
+      sessionProgress,
+      stepCounts,
+      threads: { ...state.threads, [sid]: { ...current, ...folded, loaded: true } },
+    };
+  });
+}
+
+function flushStreamCoalesce(set: StoreSet, sessionId: string) {
+  const pending = streamCoalescePending.get(sessionId);
+  if (!pending) return;
+  clearTimeout(pending.timer);
+  streamCoalescePending.delete(sessionId);
+  streamCoalesceLast.set(sessionId, Date.now());
+  for (const entry of pending.queue) applyRuntimeFold(set, sessionId, entry.event);
+}
+
+function bufferStreamEvent(set: StoreSet, sessionId: string, key: string, event: CoalescibleEvent): boolean {
+  const now = Date.now();
+  const last = streamCoalesceLast.get(sessionId) ?? 0;
+  if (now - last >= STREAM_COALESCE_MS) {
+    streamCoalesceLast.set(sessionId, now);
+    return false;
+  }
+  let pending = streamCoalescePending.get(sessionId);
+  if (!pending) {
+    pending = {
+      queue: [],
+      timer: setTimeout(() => flushStreamCoalesce(set, sessionId), STREAM_COALESCE_MS - (now - last)),
+    };
+    streamCoalescePending.set(sessionId, pending);
+  }
+  upsertCoalesced(pending.queue, key, event);
+  return true;
+}
 
 /**
  * The one send lifecycle (new → input → send → response), shared by plain
@@ -548,6 +635,7 @@ async function performTurn(
       void get().refreshSessions();
     }
     const sid = id;
+    clearStreamCoalesce(sid);
     interruptedSessions.delete(sid); // a fresh turn folds its events normally
     inactiveTurnPolls.delete(sid); // inactivity evidence never carries into a new turn
     void logDebug(`turn → ${sid}`);
@@ -691,6 +779,7 @@ async function revertToMessage(
   }
 
   clearLiveFolds(sid);
+  clearStreamCoalesce(sid);
   interruptedSessions.delete(sid);
   inactiveTurnPolls.delete(sid);
   set((s) => {
@@ -1080,6 +1169,15 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         void logDebug(`event ← ${event.type}${"sessionId" in event ? " " + event.sessionId : ""}`);
       if ("sessionId" in event && event.sessionId)
         setBoundedMap(sseLast, event.sessionId, ++sseSeq, 500);
+      const streamSessionId = "sessionId" in event ? event.sessionId : undefined;
+      const streamKey = coalesceKey(event);
+      if (streamSessionId && streamKey) {
+        if (bufferStreamEvent(set, streamSessionId, streamKey, event as CoalescibleEvent)) return;
+      } else if (streamSessionId) {
+        // Preserve causal order: terminal, usage, tool, and interaction events
+        // must observe the newest buffered text/reasoning snapshot first.
+        flushStreamCoalesce(set, streamSessionId);
+      }
       if (event.type === "message.usage") {
         void recordModelCall(event, pendingPromptContexts.get(event.sessionId));
         return;
@@ -1095,7 +1193,10 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         if (sid) pendingPromptContexts.delete(sid);
         // After a user interrupt the abort's own "aborted" error is expected —
         // the thread already says "Interrupted"; don't add a second red line.
-        if (sid) clearLiveFolds(sid);
+        if (sid) {
+          clearLiveFolds(sid);
+          clearStreamCoalesce(sid);
+        }
         if (sid && interruptedSessions.has(sid)) return;
         if (sid) {
           if (client && !errorRecoveries.has(sid)) {
@@ -1212,7 +1313,10 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       const sid = event.sessionId;
       if (!sid) return;
       if (event.type === "session.idle") pendingPromptContexts.delete(sid);
-      if (event.type === "session.idle") clearLiveFolds(sid);
+      if (event.type === "session.idle") {
+        clearLiveFolds(sid);
+        clearStreamCoalesce(sid);
+      }
       // Idle after a user interrupt: the thread already ends with "Interrupted"
       // — keep the locks clear and skip the fold. An abort can emit MORE than
       // one idle, so the guard must survive every trailing idle (`.has`, not
@@ -1245,40 +1349,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         set((s) => ({ sessionParents: { ...s.sessionParents, [child]: sid } }));
         void get().refreshSessions();
       }
-      const applyFold = (ev: typeof event) =>
-        set((s) => {
-          const cur = s.threads[sid] ?? emptyThread();
-          const folded = foldEvent(
-            { blocks: cur.blocks, index: cur.index },
-            ev,
-            { shellTurn: !!s.shellTurns[sid] },
-          );
-          // The turn is over — unlock the composer and drop the "Working…" row.
-          // The shell flag clears HERE (not when the POST settles): within the
-          // SSE stream the bash-output event always precedes session.idle.
-          const runningSessions = { ...s.runningSessions };
-          const shellTurns = { ...s.shellTurns };
-          const sessionProgress = { ...s.sessionProgress };
-          const stepCounts = { ...s.stepCounts };
-          if (ev.type === "session.idle") {
-            if (errorRecoveries.has(sid)) {
-              errorRecoveryIdle.add(sid);
-            } else {
-              delete runningSessions[sid];
-              delete shellTurns[sid];
-              delete sessionProgress[sid];
-              delete stepCounts[sid];
-              inactiveTurnPolls.delete(sid);
-            }
-          }
-          return {
-            runningSessions,
-            shellTurns,
-            sessionProgress,
-            stepCounts,
-            threads: { ...s.threads, [sid]: { ...cur, ...folded, loaded: true } },
-          };
-        });
+      const applyFold = (ev: typeof event) => applyRuntimeFold(set, sid, ev);
       // A running bash tool streams its stdout tail on every write — dozens
       // of events per second under a progress bar. Fold at most one partial
       // update per LIVE_FOLD_MS per call (latest wins); everything else
@@ -1848,6 +1919,8 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   interrupt: async () => {
     const sid = get().currentId;
     if (!sid || !client || !get().runningSessions[sid]) return;
+    flushStreamCoalesce(set, sid);
+    clearStreamCoalesce(sid);
     // Arm the guard BEFORE the abort POST: the server answers an abort with its
     // own SSE burst (an "aborted" error and one or more session.idle events)
     // that streams back WHILE this POST is still awaited. If we armed it after

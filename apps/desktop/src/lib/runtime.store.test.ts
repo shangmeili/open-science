@@ -744,6 +744,33 @@ describe("project and standalone conversations", () => {
     expect(s.threads["ses_new"].blocks).toEqual([{ kind: "user", text: "hi" }]);
   });
 
+  it("coalesces rapid text snapshots and flushes the latest text before idle", async () => {
+    vi.useFakeTimers();
+    try {
+      await useRuntimeStore.getState().sendPrompt("hi");
+      mocks.fireEvent({ type: "text.updated", sessionId: "ses_new", partId: "answer", text: "a" });
+      mocks.fireEvent({ type: "text.updated", sessionId: "ses_new", partId: "answer", text: "ab" });
+      mocks.fireEvent({ type: "text.updated", sessionId: "ses_new", partId: "answer", text: "abc" });
+
+      let blocks = useRuntimeStore.getState().threads["ses_new"].blocks;
+      expect(blocks[blocks.length - 1]).toMatchObject({
+        kind: "agent",
+        markdown: "a",
+      });
+
+      mocks.fireEvent({ type: "session.idle", sessionId: "ses_new" });
+      blocks = useRuntimeStore.getState().threads["ses_new"].blocks;
+      expect(blocks[blocks.length - 1]).toMatchObject({
+        kind: "agent",
+        markdown: "abc",
+      });
+      expect(useRuntimeStore.getState().runningSessions["ses_new"]).toBeUndefined();
+      await vi.runOnlyPendingTimersAsync();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("a session error is visible and waits for idle plus executor cleanup before unlocking", async () => {
     let releaseAbort!: () => void;
     mocks.abortSessionDeferred = new Promise<void>((resolve) => {

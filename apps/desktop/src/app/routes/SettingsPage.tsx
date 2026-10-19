@@ -45,6 +45,8 @@ import {
   getMirrorSetting,
   setMirrorSetting,
   type MirrorSetting,
+  probeEndpointModels,
+  type ProbedModel,
 } from "@/lib/tauri";
 import { useSetupStore } from "@/lib/setup";
 import { RemoteComputeCard } from "@/components/settings/RemoteComputeCard";
@@ -170,6 +172,8 @@ export function SettingsPage() {
   const [cUrl, setCUrl] = useState("");
   const [cKey, setCKey] = useState("");
   const [cModels, setCModels] = useState("");
+  const [cDetected, setCDetected] = useState<ProbedModel[] | null>(null);
+  const [cDetecting, setCDetecting] = useState(false);
   const mcpRefreshAttempts = useRef(0);
 
   const copyContactEmail = async () => {
@@ -541,7 +545,39 @@ export function SettingsPage() {
       setCUrl("");
       setCKey("");
       setCModels("");
+      setCDetected(null);
     });
+
+  const detectCustomModels = async () => {
+    if (!cUrl.trim()) {
+      toast.error(t("toast.endpointUrlRequired"));
+      return;
+    }
+    setCDetecting(true);
+    try {
+      const result = await probeEndpointModels(
+        cUrl.trim(),
+        cKey.trim() || undefined,
+        cNpm === "@ai-sdk/anthropic" ? "anthropic" : "openai",
+      );
+      const existing = cModels.split(",").map((model) => model.trim()).filter(Boolean);
+      setCModels([...new Set([...existing, ...result.models.map((model) => model.id)])].join(", "));
+      setCDetected(result.models);
+      if (result.baseUrl !== cUrl.trim()) {
+        setCUrl(result.baseUrl);
+        toast.success(t("toast.baseUrlCorrected", { url: result.baseUrl }));
+      } else {
+        toast.success(t("toast.modelsDetected", { count: result.models.length }));
+      }
+    } catch (error) {
+      setCDetected(null);
+      toast.error(t("toast.modelDetectionFailed", {
+        message: error instanceof Error ? error.message : String(error),
+      }));
+    } finally {
+      setCDetecting(false);
+    }
+  };
 
   const addMcp = () =>
     run(t("toast.couldNotAddMcp"), async () => {
@@ -970,7 +1006,10 @@ export function SettingsPage() {
                       </div>
                       <input
                         value={cUrl}
-                        onChange={(e) => setCUrl(e.target.value)}
+                        onChange={(e) => {
+                          setCUrl(e.target.value);
+                          setCDetected(null);
+                        }}
                         placeholder={t("providers.customUrlPlaceholder")}
                         className={inputCls("w-full font-mono")}
                       />
@@ -992,9 +1031,25 @@ export function SettingsPage() {
                       <p className="text-xs text-muted">
                         {t("providers.customCredentialHint")}
                       </p>
-                      <button className={btnAccent()} onClick={() => void saveCustom()} disabled={busy}>
-                        {t("providers.addEndpoint")}
-                      </button>
+                      {cDetected && (
+                        <p className="text-xs text-muted">
+                          {t("providers.detectedModels", { count: cDetected.length })}
+                        </p>
+                      )}
+                      <div className="flex gap-2">
+                        {isTauri && (
+                          <button
+                            className={btnGhost()}
+                            onClick={() => void detectCustomModels()}
+                            disabled={busy || cDetecting || !cUrl.trim()}
+                          >
+                            {cDetecting ? t("providers.detectingModels") : t("providers.detectModels")}
+                          </button>
+                        )}
+                        <button className={btnAccent()} onClick={() => void saveCustom()} disabled={busy || cDetecting}>
+                          {t("providers.addEndpoint")}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

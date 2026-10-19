@@ -54,6 +54,7 @@ mod large_file;
 mod macos;
 mod modal;
 mod model_calls;
+mod model_probe;
 mod opencode_config;
 mod preference_review;
 mod preview_server;
@@ -148,6 +149,7 @@ pub fn run() {
             runtime::start_runtime,
             runtime::restart_runtime,
             runtime::runtime_password,
+            model_probe::probe_endpoint_models,
             gateway::gateway_status,
             gateway::set_gateway_config,
             gateway::regenerate_gateway_token,

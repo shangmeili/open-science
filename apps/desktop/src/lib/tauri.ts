@@ -291,6 +291,26 @@ export async function runtimePassword(): Promise<string | null> {
   return invoke<string>("runtime_password");
 }
 
+export interface ProbedModel {
+  id: string;
+  context?: number | null;
+}
+
+export interface ProbeResult {
+  baseUrl: string;
+  models: ProbedModel[];
+}
+
+export async function probeEndpointModels(
+  baseUrl: string,
+  apiKey: string | undefined,
+  kind: "openai" | "anthropic",
+): Promise<ProbeResult> {
+  if (!isTauri) return { baseUrl, models: [] };
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<ProbeResult>("probe_endpoint_models", { baseUrl, apiKey, kind });
+}
+
 /**
  * Pick local files via the native dialog and copy them into the agent
  * workspace (desktop only). Returns the workspace file names; [] on cancel.

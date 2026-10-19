@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, Loader2, Paperclip, Pencil, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
@@ -16,6 +16,7 @@ import { copyText } from "@/lib/clipboard";
 import { toast } from "@/lib/toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useThrottledValue } from "@/lib/useThrottledValue";
+import { splitStreamingMarkdown } from "@/lib/markdownSegments";
 
 export function UserMessage({
   block,
@@ -159,20 +160,46 @@ export function UserMessage({
   );
 }
 
-export function AgentMessage({
+function streamThrottleMs(length: number): number {
+  return Math.min(1_200, Math.max(90, Math.floor(length / 60)));
+}
+
+const SealedMarkdown = memo(function SealedMarkdown({ markdown }: { markdown: string }) {
+  return <MarkdownViewer>{markdown}</MarkdownViewer>;
+});
+
+const StreamingMarkdown = memo(function StreamingMarkdown({ markdown }: { markdown: string }) {
+  const segments = useMemo(() => splitStreamingMarkdown(markdown), [markdown]);
+  return (
+    <>
+      {segments.sealed.map((segment, index) => (
+        <SealedMarkdown key={index} markdown={segment} />
+      ))}
+      {segments.tail && <MarkdownViewer>{segments.tail}</MarkdownViewer>}
+    </>
+  );
+});
+
+export const AgentMessage = memo(function AgentMessage({
   markdown,
   onOpenArtifact,
+  streaming = false,
 }: {
   markdown: string;
   onOpenArtifact?: (a: ArtifactBlock) => void;
+  streaming?: boolean;
 }) {
   const { t } = useTranslation(["session", "common"]);
-  const shown = useThrottledValue(markdown, 90);
+  const throttled = useThrottledValue(markdown, streamThrottleMs(markdown.length));
+  const shown = streaming ? throttled : markdown;
   // Files the agent mentions (e.g. a PDF produced by running code) become clickable.
   // Each mention is resolved to a real workspace path first — prose often names a
   // bare filename ("index.html") whose file lives in a subdirectory; mentions of
   // files that don't exist get no chip.
-  const mentioned = onOpenArtifact ? extractArtifactRefs(shown) : [];
+  const mentioned = useMemo(
+    () => onOpenArtifact ? extractArtifactRefs(shown) : [],
+    [onOpenArtifact, shown],
+  );
   const [refs, setRefs] = useState<string[]>([]);
   const mentionedKey = mentioned.join("\n");
   useEffect(() => {
@@ -193,7 +220,7 @@ export function AgentMessage({
   }, [mentionedKey]);
   return (
     <div>
-      <MarkdownViewer>{shown}</MarkdownViewer>
+      {streaming ? <StreamingMarkdown markdown={shown} /> : <MarkdownViewer>{shown}</MarkdownViewer>}
       {refs.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {refs.map((path) => (
@@ -211,7 +238,7 @@ export function AgentMessage({
       )}
     </div>
   );
-}
+});
 
 export function DataTable({ block }: { block: DataTableBlock }) {
   return (

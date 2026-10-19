@@ -28,6 +28,7 @@ export function renderBlock(
   i: number,
   handlers?: BlockHandlers,
   liveReasoningIndex?: number,
+  liveAgentIndex?: number,
 ) {
   switch (block.kind) {
     case "user":
@@ -40,7 +41,14 @@ export function renderBlock(
         />
       );
     case "agent":
-      return <AgentMessage key={i} markdown={block.markdown} onOpenArtifact={handlers?.onArtifactOpen} />;
+      return (
+        <AgentMessage
+          key={i}
+          markdown={block.markdown}
+          onOpenArtifact={handlers?.onArtifactOpen}
+          streaming={i === liveAgentIndex}
+        />
+      );
     case "reasoning":
       return <ReasoningRow key={i} block={block} streaming={i === liveReasoningIndex} />;
     case "step-summary":
@@ -66,11 +74,13 @@ export function BlockList({
   blocks,
   handlers,
   liveReasoningIndex,
+  liveAgentIndex,
   targetIndex,
 }: {
   blocks: ThreadBlock[];
   handlers?: BlockHandlers;
   liveReasoningIndex?: number;
+  liveAgentIndex?: number;
   targetIndex?: number;
 }) {
   // Runs of quiet tool steps render as one collapsible group (Codex-style);
@@ -96,10 +106,10 @@ export function BlockList({
         ) : (
           item.index === targetIndex ? (
             <div key={`source:${item.index}`} data-conversation-source-target="true">
-              {renderBlock(item.block, item.index, handlers, liveReasoningIndex)}
+              {renderBlock(item.block, item.index, handlers, liveReasoningIndex, liveAgentIndex)}
             </div>
           ) : (
-            renderBlock(item.block, item.index, handlers, liveReasoningIndex)
+            renderBlock(item.block, item.index, handlers, liveReasoningIndex, liveAgentIndex)
           )
         ),
       )}
